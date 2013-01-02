@@ -1,0 +1,1078 @@
+// basics of function testing before we add tests using `test`
+let x = #-> "alpha"
+eq "function", typeof x
+eq "alpha", x()
+
+test "simple function", #
+  let fun = #-> "bravo"
+  eq "function", typeof fun
+  eq "bravo", fun()
+
+test "function replacement", #
+  let mutable fun = #-> "alpha"
+  eq "alpha", fun()
+  fun := #-> "bravo"
+  eq "bravo", fun()
+
+test "function replacement, no initial", #
+  let mutable fun = void
+  eq void, fun
+  fun := #-> "alpha"
+  eq "alpha", fun()
+  fun := #-> "bravo"
+  eq "bravo", fun()
+
+test "function replacement with non-function", #
+  let mutable fun = #-> "alpha"
+  eq "alpha", fun()
+  fun := "bravo"
+  eq "bravo", fun
+
+test "method definition and calling", #
+  let obj = {}
+  obj.x := #-> "charlie"
+  eq "function", typeof obj.x
+  eq "charlie", obj.x()
+  obj.y := #-> this
+  eq obj, obj.y()
+  let other = {}
+  eq other, obj.y.call(other)
+
+test "object definition with inline methods", #
+  let obj = {
+    x: #-> "charlie"
+    y: #-> this
+  }
+  
+  eq "charlie", obj.x()
+  eq obj, obj.y()
+  let other = {}
+  eq other, obj.y.call(other)
+
+test "bound function", #
+  let outer = #
+    #@ -> this
+  
+  let obj = {}
+  let inner = outer.call(obj)
+  let other = {}
+  eq obj, inner()
+  eq obj, inner.call(other)
+  eq other, outer.call(other)()
+  eq other, outer.call(other).call(obj)
+
+test "nested bound function", #
+  let obj = {}
+  let outer = #
+    eq obj, this
+    #@
+      eq obj, this
+      #@
+        eq obj, this
+        #@ -> this
+  
+  let inner = outer.call(obj)
+  eq obj, inner.call({}).call({}).call({})
+
+test "bound function doesn't get overly bound", #
+  let alpha = {}
+  let bravo = {}
+  let outer = #
+    eq alpha, this
+    #@
+      eq alpha, this
+      # // not bound
+        eq bravo, this
+        #@ -> this
+  
+  let ignored = {}
+  eq bravo, outer.call(alpha).call(ignored).call(bravo).call(ignored)
+
+test "bound method inside object", #
+  let makeObject = # -> {
+    x: #-> this
+    y: #@-> this
+  }
+  
+  let other = {}
+  let obj = makeObject.call(other)
+  eq obj, obj.x()
+  eq other, obj.y()
+
+test "function self-redeclaration", #
+  let mutable fun = #
+    fun := #-> "bravo"
+    "alpha"
+  
+  eq "alpha", fun()
+  eq "bravo", fun()
+  eq "bravo", fun()
+
+test "simple arguments", #
+  let obj = {}
+  let retObj = #-> obj
+  let id = #(i) -> i
+  let add = #(x, y) -> x + y
+  
+  eq 0, retObj.length
+  eq 1, id.length
+  eq 2, add.length
+  
+  eq obj, retObj()
+  eq obj, id(obj)
+  eq obj, (id obj)
+  eq 3, add(1, 2)
+  eq 3, (add 1, 2)
+
+test "unnecessary trailing comma", #
+  let obj = {}
+  let retObj = #(,) -> obj
+  let id = #(i,) -> i
+  let add = #(x, y,) -> x + y
+
+  eq 0, retObj.length
+  eq 1, id.length
+  eq 2, add.length
+
+  eq obj, retObj()
+  eq obj, id(obj)
+  eq obj, (id obj)
+  eq 3, add(1, 2)
+  eq 3, (add 1, 2)
+
+test "recursive function", #
+  let factorial(n)
+    if n <= 1
+      1
+    else
+      n * factorial(n - 1)
+  
+  eq 1, factorial(0)
+  eq 1, factorial(1)
+  eq 2, factorial(2)
+  eq 2 * 3, factorial(3)
+  eq 2 * 3 * 4, factorial(4)
+  eq 2 * 3 * 4 * 5, factorial(5)
+  eq 2 * 3 * 4 * 5 * 6, factorial(6)
+  eq 2 * 3 * 4 * 5 * 6 * 7, factorial(7)
+
+test "simple spread arguments", #
+  let fun(...args) -> args
+  
+  let obj = {}
+  eq 0, fun.length
+  ok Array.isArray(fun()) // not an Arguments type
+  eq 0, fun().length
+  eq 1, fun(obj).length
+  eq obj, fun(obj)[0]
+  let other = {}
+  arrayEq [obj, other], fun(obj, other)
+
+test "spread arguments with leading arguments", #
+  let fun(first, ...rest) -> [first, rest]
+  
+  eq 1, fun.length
+  ok Array.isArray(fun()[1])
+  ok Array.isArray(fun({})[1])
+  arrayEq [void, []], fun()
+  let alpha = {}
+  arrayEq [alpha, []], fun(alpha)
+  let bravo = {}
+  arrayEq [alpha, [bravo]], fun(alpha, bravo)
+  let charlie = {}
+  arrayEq [alpha, [bravo, charlie]], fun(alpha, bravo, charlie)
+
+test "spread arguments with trailing arguments", #
+  let fun(...start, last) -> [start, last]
+  
+  eq 0, fun.length
+  ok Array.isArray(fun()[0])
+  ok Array.isArray(fun({})[0])
+  arrayEq [[], void], fun()
+  let alpha = {}
+  arrayEq [[], alpha], fun(alpha)
+  let bravo = {}
+  arrayEq [[alpha], bravo], fun(alpha, bravo)
+  let charlie = {}
+  arrayEq [[alpha, bravo], charlie], fun(alpha, bravo, charlie)
+
+test "spread arguments is mutable within function", #
+  let alpha = {}
+  let fun(...args)
+    args.push(alpha)
+    args
+  
+  eq 0, fun.length
+  arrayEq [alpha], fun()
+  let bravo = {}
+  arrayEq [bravo, alpha], fun(bravo)
+  let charlie = {}
+  arrayEq [bravo, charlie, alpha], fun(bravo, charlie)
+
+/*
+test "multiple spread arguments is an Error", #
+  throws -> Cotton.compile("let x = (...a, ...b) ->"), (e) -> e.line == 1 and e.column == 16
+*/
+test "special `arguments` variable is still available", #
+  let fun() -> arguments
+  
+  eq 0, fun.length
+  ok {}.toString.call(fun()) == "[object Arguments]" // not [object Array]
+  arrayEq [], Array::slice.call(fun())
+  let alpha = {}
+  arrayEq [alpha], Array::slice.call(fun(alpha))
+  let bravo = {}
+  arrayEq [alpha, bravo], Array::slice.call(fun(alpha, bravo))
+
+test "calling a function with spread", #
+  let add(x, y) -> x + y
+  
+  eq 2, add.length
+  eq 3, add(...[1, 2])
+  let nums = [1, 2]
+  eq 3, add(...nums)
+  nums.push 3
+  eq 3, add(...nums) // last argument is ignored
+  
+  let fun(...args) -> args
+  
+  eq 0, fun.length
+  arrayEq ["alpha", "bravo"], fun(...["alpha", "bravo"])
+  let args = ["alpha", "bravo"]
+  arrayEq ["alpha", "bravo"], fun(...args)
+  ok fun(...args) != args // may have equivalent innards, but different references
+  args.push "charlie"
+  arrayEq ["alpha", "bravo", "charlie"], fun(...args)
+  
+  args.splice(0, args.length)
+  arrayEq [], fun()
+  arrayEq [], fun(...[])
+  arrayEq [], fun(...args)
+  args.push(null)
+  arrayEq [null], fun(null)
+  arrayEq [null], fun(...[null])
+  arrayEq [null], fun(...args)
+  args[0] := void
+  arrayEq [void], fun(void)
+  arrayEq [void], fun(...[void])
+  arrayEq [void], fun(...args)
+
+test "calling a function with multiple spreads", #
+  let fun(...args) -> args
+  
+  let alpha = [1, 2, 3]
+  let bravo = [4, 5, 6]
+  
+  arrayEq [1, 2, 3, 4, 5, 6], fun(...alpha, ...bravo)
+  arrayEq ["a", 1, 2, 3, 4, 5, 6], fun("a", ...alpha, ...bravo)
+  arrayEq [1, 2, 3, "b", 4, 5, 6], fun(...alpha, "b", ...bravo)
+  arrayEq [1, 2, 3, 4, 5, 6, "c"], fun(...alpha, ...bravo, "c")
+  arrayEq ["a", 1, 2, 3, "b", 4, 5, 6], fun("a", ...alpha, "b", ...bravo)
+  arrayEq ["a", 1, 2, 3, 4, 5, 6, "c"], fun("a", ...alpha, ...bravo, "c")
+  arrayEq [1, 2, 3, "b", 4, 5, 6, "c"], fun(...alpha, "b", ...bravo, "c")
+  arrayEq ["a", 1, 2, 3, "b", 4, 5, 6, "c"], fun("a", ...alpha, "b", ...bravo, "c")
+
+test "calling a method with spread", #
+  let obj = {
+    fun: #(...args) -> [this, args]
+  }
+  let other = {}
+  
+  eq 0, obj.fun.length
+  
+  arrayEq [obj, ["alpha", "bravo"]], obj.fun(...["alpha", "bravo"]), "literal array spread"
+  let args = ["alpha", "bravo"]
+  arrayEq [obj, ["alpha", "bravo"]], obj.fun(...args), "normal"
+  args.push "charlie"
+  arrayEq [obj, ["alpha", "bravo", "charlie"]], obj.fun(...args), "normal"
+  
+  arrayEq [other, ["alpha", "bravo"]], obj.fun.call(other, ...["alpha", "bravo"]), "literal array spread on call"
+  arrayEq [other, ["alpha", "bravo", "charlie"]], obj.fun.call(other, ...args), "spread on call"
+  args.push "delta"
+  arrayEq [other, ["alpha", "bravo", "charlie", "delta"]], obj.fun.call(other, ...args), "spread on call"
+
+test "calling a function with spread will only access object once", #
+  let fun(...args) -> args
+  
+  let args = runOnce(["alpha", "bravo"])
+  arrayEq ["alpha", "bravo"], fun(...args())
+
+test "calling a function with spread will only access function once", #
+  let getFun = runOnce #(...args) -> args
+  
+  let args = ["alpha", "bravo"]
+  arrayEq ["alpha", "bravo"], getFun()(...args)
+
+test "calling a method with spread will only access object once", #
+  let getObj = runOnce {
+    fun: #(...args)
+      if this.methodCalled
+        fail "method called more than once"
+      
+      this.methodCalled := true
+      
+      args
+  }
+  
+  let args = ["alpha", "bravo"]
+  arrayEq ["alpha", "bravo"], getObj().fun(...args)
+
+test "spread arguments in middle", #
+  let fun(first, ...middle, last) -> [first, middle, last]
+  
+  eq 1, fun.length
+  arrayEq [void, [], void], fun()
+  arrayEq ["alpha", [], void], fun("alpha")
+  arrayEq ["alpha", [], "bravo"], fun("alpha", "bravo")
+  arrayEq ["alpha", ["bravo"], "charlie"], fun("alpha", "bravo", "charlie")
+  arrayEq ["alpha", ["bravo", "charlie"], "delta"], fun("alpha", "bravo", "charlie", "delta")
+  
+  let args = []
+  arrayEq [void, [], void], fun(...args)
+  args.push("alpha")
+  arrayEq ["alpha", [], void], fun(...args)
+  args.push("bravo")
+  arrayEq ["alpha", [], "bravo"], fun(...args)
+  args[0] := "bravo"
+  args[1] := "charlie"
+  arrayEq ["alpha", ["bravo"], "charlie"], fun("alpha", ...args)
+  arrayEq ["alpha", ["bravo", "charlie"], "delta"], fun("alpha", ...args, "delta")
+
+  let fun2(a, b, ...c, d, e) -> [a, b, c, d, e]
+  
+  eq 2, fun2.length
+  arrayEq [void, void, [], void, void], fun2()
+  arrayEq ["alpha", void, [], void, void], fun2("alpha")
+  arrayEq ["alpha", "bravo", [], void, void], fun2("alpha", "bravo")
+  arrayEq ["alpha", "bravo", [], "charlie", void], fun2("alpha", "bravo", "charlie")
+  arrayEq ["alpha", "bravo", [], "charlie", "delta"], fun2("alpha", "bravo", "charlie", "delta")
+  arrayEq ["alpha", "bravo", ["charlie"], "delta", "echo"], fun2("alpha", "bravo", "charlie", "delta", "echo")
+  arrayEq ["alpha", "bravo", ["charlie", "delta"], "echo", "foxtrot"], fun2("alpha", "bravo", "charlie", "delta", "echo", "foxtrot")
+  
+  args.splice(0, args.length)
+  arrayEq [void, void, [], void, void], fun2(...args)
+  args.push("alpha")
+  arrayEq ["alpha", void, [], void, void], fun2(...args)
+  args.push("bravo")
+  arrayEq ["alpha", "bravo", [], void, void], fun2(...args)
+  args.push("charlie")
+  arrayEq ["alpha", "bravo", [], "charlie", void], fun2(...args)
+  args.push("delta")
+  arrayEq ["alpha", "bravo", [], "charlie", "delta"], fun2(...args)
+  args.shift()
+  args.push("echo")
+  arrayEq ["alpha", "bravo", ["charlie"], "delta", "echo"], fun2("alpha", ...args)
+  arrayEq ["alpha", "bravo", ["charlie", "delta"], "echo", "foxtrot"], fun2("alpha", ...args, "foxtrot")
+  args.shift()
+  args.push("foxtrot")
+  arrayEq ["alpha", "bravo", ["charlie", "delta", "echo"], "foxtrot", "golf"], fun2("alpha", "bravo", ...args, "golf")
+  arrayEq ["alpha", "bravo", ["charlie", "delta", "echo", "foxtrot"], "golf", "hotel"], fun2("alpha", "bravo", ...args, "golf", "hotel")
+
+test "default values", #
+  let obj = {}
+  let fun = #(alpha = obj) -> alpha
+  
+  eq 1, fun.length
+  eq obj, fun()
+  eq obj, fun(null)
+  eq obj, fun(void)
+  let other = {}
+  eq other, fun(other)
+  eq 0, fun(0)
+  eq false, fun(false)
+  eq "", fun("")
+  eq obj, fun(...[])
+  eq obj, fun(...[null])
+  eq obj, fun(...[void])
+  eq other, fun(...[other])
+  let arr = [other]
+  eq other, fun(...arr)
+
+test "default values and spreads", #
+  let fun(a = 2, ...b, c = 3, d = 5)
+    a * c * d * (b.length + 1)
+  
+  eq 1, fun.length
+  eq 2 * 3 * 5, fun()
+  eq 3 * 5, fun(1)
+  eq 5, fun(1, 1)
+  eq 1, fun(1, 1, 1)
+  eq 2, fun(1, "x", 1, 1)
+
+test "default value create new object each access", #
+  let fun(alpha = {}) -> alpha
+  
+  let a = fun(null)
+  ok a
+  let b = fun(void)
+  ok b
+  ok a != b
+
+test "default value call function each access", #
+  let mutable i = 0
+  let make()
+    i += 1
+    i
+  let fun = #(value = make()) -> value
+  
+  eq 1, fun()
+  eq 2, fun(null)
+  eq 5, fun(5)
+  eq 3, fun(void)
+  eq 4, fun(4)
+  eq 4, fun()
+
+test "function scope", #
+  let mutable outer = 0
+  let inc()
+    outer += 1
+    let inner = outer
+    inner
+  let reset()
+    let inner = outer
+    outer := 0
+    inner
+
+  eq 1, inc()
+  eq 2, inc()
+  eq 2, outer
+  eq 2, reset()
+  eq 0, outer
+
+test "function scope with same-named variables", #
+  let mutable value = 0
+  let func()
+    let mutable value = 5
+    value += 1
+    value
+  
+  eq 0, value
+  eq 6, func()
+  eq 0, value
+  eq 6, func()
+  eq 0, value
+  eq 6, func()
+
+/*
+test "mutable functions", ->
+  let fun = mutable -> 0
+  fun.name = "fun"
+*/
+
+/*
+test "backcall", ->
+  let other = {}
+  let fun = (i, callback) -> callback.call(other, i)
+  let mutable called = false
+  fun "alpha", (a) ->
+    eq other, this
+    eq "alpha", a
+    fun "bravo", (b) <-
+    eq other, this
+    eq "alpha", a
+    eq "bravo", b
+    called := true
+    
+test "multiple backcall", ->
+  let other = {}
+  let fun = (i, callback) -> callback.call(other, i)
+
+  let mutable called = false
+  fun "alpha", (a) ->
+    eq other, this
+    eq "alpha", a
+    fun "bravo", (b) <-
+    eq other, this
+    eq "alpha", a
+    eq "bravo", b
+    fun "charlie", (c) <-
+    eq other, this
+    eq "alpha", a
+    eq "bravo", b
+    eq "charlie", c
+    called := true
+  ok called
+
+test "backcall with trailing param", ->
+  let other = {}
+  let fun = (i, callback, j) -> callback.call(other, i, j)
+  let mutable called = false
+  let obj = {}
+  let run = ->
+    fun "alpha", ((a, b) <-
+    eq other, this
+    eq "alpha", a
+    eq "bravo", b
+    called := true), "bravo"
+    // out of the backcall now
+    eq obj, this
+  run.call(obj)
+
+test "bound backcall", ->
+  let other = {}
+  let fun = (i, callback) -> callback.call(other, i)
+
+  let obj = {}
+  let mutable called = false
+  
+  let run = ->
+    eq obj, this
+    fun "alpha", (a) <~
+    eq obj, this
+    eq "alpha", a
+    called := true
+  run.call(obj)
+  ok called
+
+test "multiple bound backcall", ->
+  let other = {}
+  let fun = (i, callback) -> callback.call(other, i)
+
+  let obj = {}
+  let mutable called = false
+  
+  let run = ->
+    eq obj, this
+    fun "alpha", (a) <~
+    eq obj, this
+    eq "alpha", a
+    fun "bravo", (b) <~
+    eq obj, this
+    eq "alpha", a
+    eq "bravo", b
+    called := true
+  run.call(obj)
+  ok called
+*/
+/*
+test "named functions", -> do
+  function f -> "alpha"
+  
+  eq "function", typeof f
+  eq 0, f.length
+  eq "f", f.displayName
+  eq "alpha", f()
+  
+  function g(x) -> "bravo: #{x}"
+  
+  eq "function", typeof g
+  eq "g", g.displayName
+  eq 1, g.length
+  eq "bravo: charlie", g("charlie")
+end
+
+test "named function non-statement", -> do
+  let g = function f -> "alpha"
+  
+  eq "undefined", typeof f
+  eq "function", typeof g
+  eq "f", g.displayName
+end
+*/
+test "fancy whitespace", #
+  let fun = #(
+    a,
+    b = []
+    ,
+  ) -> [a, b]
+  
+  arrayEq ["alpha", []], fun("alpha")
+  arrayEq ["alpha", "bravo"], fun("alpha", "bravo")
+
+test "setting values on this by their parameters", #
+  let fun(this.alpha, this.bravo) ->
+  
+  let obj = {}
+  fun.call(obj, "charlie", "delta")
+  eq "charlie", obj.alpha
+  eq "delta", obj.bravo
+  
+  let spread(...this.args) ->
+  spread.call(obj, "echo", "foxtrot")
+  arrayEq ["echo", "foxtrot"], obj.args
+
+test "setting values on @ by their parameters", #
+  let fun(@alpha, @bravo) ->
+  
+  let obj = {}
+  fun.call(obj, "charlie", "delta")
+  eq "charlie", obj.alpha
+  eq "delta", obj.bravo
+  
+  let spread(...@args) ->
+  spread.call(obj, "echo", "foxtrot")
+  arrayEq ["echo", "foxtrot"], obj.args
+
+test "setting values on @ by their parameters with defaults", #
+  let fun = #(@alpha = 0, @bravo = 1) -> [alpha, bravo]
+  
+  let mutable obj = {}
+  arrayEq [0, 1], fun.call(obj)
+  eq 0, obj.alpha
+  eq 1, obj.bravo
+  
+  obj := {}
+  arrayEq ["charlie", 1], fun.call(obj, "charlie")
+  eq "charlie", obj.alpha
+  eq 1, obj.bravo
+  
+  obj := {}
+  arrayEq ["charlie", "delta"], fun.call(obj, "charlie", "delta")
+  eq "charlie", obj.alpha
+  eq "delta", obj.bravo
+
+/*
+test "reserved word as parameter", -> do
+  for name in require('../lib/ast').RESERVED
+    throws -> Cotton.compile("""let z = 5
+    let fun = (x, #{name}) ->"""), (e) -> e.line == 2, name
+  end
+end
+*/
+test "eval is still usable, in case someone wants to use it", #
+  eq 5, eval("5")
+  let f() -> "hello"
+  eq "hello", eval("f()")
+
+test "chained function calls", #
+  let wrap(x) -> #-> x
+  
+  let obj = {}
+  eq obj, wrap(wrap(obj))()()
+  eq obj, (wrap wrap obj)()()
+
+test "passing two functions without paren-wrapping", #
+  let sum(a, b) -> a() + b()
+  
+  eq 10, sum #-> 1 + 2, #-> 3 + 4
+
+test "passing two functions with paren-wrapping", #
+  let sum(a, b) -> a() + b()
+  
+  eq 10, sum(#-> 1 + 2
+    #-> 3 + 4)
+
+/*
+test "chained method calls without paren-wrapping", -> do
+  let counter = {
+    result: []
+    tick: (value) -> do
+      this.result.push value
+      this
+    end
+  }
+  
+  counter
+    .tick "a"
+    .tick "b"
+    .tick "c"
+  arrayEq ["a", "b", "c"], counter.result
+end
+*/
+
+test "method calls with implicit last object", #
+  let fun(...args, options = {})
+    let opt = []
+    for k, v of options
+      opt.push([k, v])
+    opt.sort #(a, b) -> a[0] <=> b[0]
+    [args, opt]
+  
+  arrayEq [["alpha", "bravo"], []], fun "alpha", "bravo", {}
+  arrayEq [["alpha", "bravo"], [["charlie", 1]]], fun "alpha", "bravo", charlie: 1
+  arrayEq [["alpha", "bravo"], [["charlie", 1], ["delta", 2]]], fun "alpha", "bravo", charlie: 1, delta: 2
+  arrayEq [["alpha"], [["charlie", 1], ["delta", 2], ["echo", 3]]], fun "alpha", charlie: 1, delta: 2, echo: 3
+  arrayEq [[], [["charlie", 1], ["delta", 2], ["echo", 3], ["foxtrot", 4]]], fun charlie: 1, delta: 2, echo: 3, foxtrot: 4
+  
+  arrayEq [["alpha", "bravo"], []], fun("alpha", "bravo", {})
+  arrayEq [["alpha", "bravo"], [["charlie", 1]]], fun("alpha", "bravo", charlie: 1)
+  arrayEq [["alpha", "bravo"], [["charlie", 1], ["delta", 2]]], fun("alpha", "bravo", charlie: 1, delta: 2)
+  arrayEq [["alpha"], [["charlie", 1], ["delta", 2], ["echo", 3]]], fun("alpha", charlie: 1, delta: 2, echo: 3)
+  arrayEq [[], [["charlie", 1], ["delta", 2], ["echo", 3], ["foxtrot", 4]]], fun(charlie: 1, delta: 2, echo: 3, foxtrot: 4)
+
+test "whitespace checks", #
+  let alpha(...args) -> args
+  let bravo(options, ...rest)
+    eq 0, rest.length
+    (for k, v of options
+      [k, v]).sort #(a, b) -> a[0] <=> b[0]
+  let echo = bravo
+  
+  arrayEq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
+    bravo { charlie: "delta" },
+    echo { foxtrot: "golf" }
+  )
+  
+  arrayEq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
+    bravo { charlie: "delta" }
+    echo { foxtrot: "golf" }
+  )
+  
+  arrayEq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
+    bravo charlie: "delta",
+    echo foxtrot: "golf"
+  )
+  
+  arrayEq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
+    bravo charlie: "delta"
+    echo foxtrot: "golf"
+  )
+
+/*
+test "duplicate parameter name", #
+  throws -> Cotton.compile("""let x = 0
+  let fun = (a, a) ->
+  """), (e) -> e.line == 2
+*/
+
+test "typed parameters, Boolean", #
+  let fun(value as Boolean) -> value
+  
+  eq false, fun(false)
+  eq true, fun(true)
+  eq false, fun(null)
+  eq false, fun(void)
+  eq false, fun()
+  throws #-> fun(0), TypeError
+  throws #-> fun(1), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun("stuff"), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new Boolean(false)), TypeError
+  throws #-> fun(new Boolean(true)), TypeError
+
+test "typed parameters, String", #
+  let fun(value as String) -> value
+  
+  eq "", fun("")
+  eq "hello", fun("hello")
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun(NaN), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new String("")), TypeError
+  throws #-> fun(new String("hello")), TypeError
+
+test "typed parameters, Number", #
+  let fun(value as Number) -> value
+  
+  eq 0, fun(0)
+  eq 1, fun(1)
+  eq -1, fun(-1)
+  eq Infinity, fun(Infinity)
+  eq -Infinity, fun(-Infinity)
+  arrayEq NaN, fun(NaN)
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new Number(0)), TypeError
+  throws #-> fun(new Number(1)), TypeError
+  throws #-> fun(new Number(NaN)), TypeError
+  throws #-> fun(new Number(Infinity)), TypeError
+
+test "typed parameters, Array", #
+  let fun(value as Array) -> value
+  
+  let getArgs() -> arguments
+  
+  let FakeArray()! ->
+  FakeArray.prototype := []
+  
+  arrayEq [], fun([])
+  arrayEq ["hello"], fun(["hello"])
+  arrayEq ["hello", 1, true], fun(["hello", 1, true])
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun(getArgs("hello")), TypeError
+  throws #-> fun(new FakeArray()), TypeError
+
+test "typed parameters, Object", #
+  let fun(value as Object) -> value
+  
+  arrayEq [], fun([]) // technically valid
+  let obj = {}
+  eq obj, fun(obj)
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+
+test "typed parameters, arbitrary ident", #
+  let Thing()! ->
+  let fun(value as Thing) -> value
+  
+  let alpha = new Thing()
+  let bravo = new Thing()
+  eq alpha, fun(alpha)
+  eq bravo, fun(bravo)
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed parameters, Number or String", #
+  let fun(value as (Number|String)) -> value
+  
+  eq 0, fun(0)
+  eq 1, fun(1)
+  eq -1, fun(-1)
+  eq Infinity, fun(Infinity)
+  eq -Infinity, fun(-Infinity)
+  arrayEq NaN, fun(NaN)
+  eq "", fun("")
+  eq "hello", fun("hello")
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new Number(0)), TypeError
+  throws #-> fun(new String("")), TypeError
+
+test "typed parameters, Number or Boolean", #
+  let fun(value as (Number|Boolean)) -> value
+  
+  eq 0, fun(0)
+  eq 1, fun(1)
+  eq -1, fun(-1)
+  eq Infinity, fun(Infinity)
+  eq -Infinity, fun(-Infinity)
+  arrayEq NaN, fun(NaN)
+  eq false, fun()
+  eq false, fun(void)
+  eq false, fun(null)
+  eq true, fun(true)
+  eq false, fun(false)
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new Number(0)), TypeError
+  throws #-> fun(new Boolean(false)), TypeError
+
+test "typed parameters, Number or null", #
+  let fun(value as (Number|null)) -> value
+  
+  eq 0, fun(0)
+  eq 1, fun(1)
+  eq -1, fun(-1)
+  eq Infinity, fun(Infinity)
+  eq -Infinity, fun(-Infinity)
+  arrayEq NaN, fun(NaN)
+  eq null, fun()
+  eq null, fun(void)
+  eq null, fun(null)
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new Number(0)), TypeError
+
+test "typed parameters, Number or void", #
+  let fun(value as (Number|void)) -> value
+  
+  eq 0, fun(0)
+  eq 1, fun(1)
+  eq -1, fun(-1)
+  eq Infinity, fun(Infinity)
+  eq -Infinity, fun(-Infinity)
+  arrayEq NaN, fun(NaN)
+  eq void, fun()
+  eq void, fun(void)
+  eq void, fun(null)
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new Number(0)), TypeError
+
+test "typed parameters, Boolean or null", #
+  let fun(value as (Boolean|null)) -> value
+  
+  eq null, fun()
+  eq true, fun(true)
+  eq false, fun(false)
+  eq null, fun(void)
+  eq null, fun(null)
+  throws #-> fun(0)
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new Boolean(false)), TypeError
+
+test "typed parameters, Boolean or void", #
+  let fun(value as (Boolean|void)) -> value
+  
+  eq void, fun()
+  eq true, fun(true)
+  eq false, fun(false)
+  eq void, fun(void)
+  eq void, fun(null)
+  throws #-> fun(0)
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new Boolean(false)), TypeError
+
+test "typed parameters, Boolean or null or void", #
+  let fun(value as (Boolean|null|void)) -> value
+  
+  eq void, fun()
+  eq true, fun(true)
+  eq false, fun(false)
+  eq void, fun(void)
+  eq null, fun(null)
+  throws #-> fun(0)
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new Boolean(false)), TypeError
+
+test "typed parameters, special type or null", #
+  let Thing()! ->
+  
+  let fun(value as (Thing|null)) -> value
+  
+  let x = new Thing()
+  eq x, fun(x)
+  throws #-> fun(0)
+  eq null, fun()
+  eq null, fun(void)
+  eq null, fun(null)
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed parameters, special type or String", #
+  let Thing()! ->
+  
+  let fun(value as (Thing|String)) -> value
+  
+  let x = new Thing()
+  eq x, fun(x)
+  throws #-> fun(0)
+  throws #-> fun()
+  throws #-> fun(void)
+  throws #-> fun(null)
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  eq "", fun("")
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new String("")), TypeError
+
+test "typed parameters, special type or String or null", #
+  let Thing()! ->
+  
+  let fun(value as (Thing|String|null)) -> value
+  
+  let x = new Thing()
+  eq x, fun(x)
+  throws #-> fun(0), TypeError
+  eq null, fun()
+  eq null, fun(void)
+  eq null, fun(null)
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  eq "", fun("")
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  throws #-> fun(new String("")), TypeError
+
+test "typed array parameter", #
+  let fun(value as [String]) -> value
+
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  arrayEq [], fun([])
+  arrayEq ["alpha"], fun(["alpha"])
+  arrayEq ["alpha", "bravo"], fun(["alpha", "bravo"])
+  arrayEq ["alpha", "bravo", "charlie"], fun(["alpha", "bravo", "charlie"])
+  throws #-> fun([1]), TypeError
+  throws #-> fun([null]), TypeError
+  throws #-> fun([void]), TypeError
+  throws #-> fun([false]), TypeError
+  throws #-> fun([{}]), TypeError
+  throws #-> fun([new String("hello")]), TypeError
+
+/*
+test "typed array parameter or null", #
+  let fun(value as ([String]|null)) -> value
+  
+  throws #-> fun(0), TypeError
+  eq null, fun()
+  eq null, fun(void)
+  eq null, fun(null)
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  arrayEq [], fun([])
+  arrayEq ["alpha"], fun(["alpha"])
+  arrayEq ["alpha", "bravo"], fun(["alpha", "bravo"])
+  arrayEq ["alpha", "bravo", "charlie"], fun(["alpha", "bravo", "charlie"])
+  throws #-> fun([1]), TypeError
+  throws #-> fun([null]), TypeError
+  throws #-> fun([void]), TypeError
+  throws #-> fun([false]), TypeError
+  throws #-> fun([{}]), TypeError
+  throws #-> fun([new String("hello")]), TypeError
+*/
+
+test "typed parameter as access", #
+  let ns = do
+    let Thing()! ->
+    { Thing }
+  
+  let fun(value as ns.Thing) -> value
+  
+  let alpha = new ns.Thing()
+  let bravo = new ns.Thing()
+  eq alpha, fun(alpha)
+  eq bravo, fun(bravo)
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+  

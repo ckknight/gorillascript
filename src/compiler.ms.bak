@@ -1,0 +1,66 @@
+require! './parser'
+require! './translator'
+require! fs
+
+let fetchAndParsePrelude = do
+  let mutable parsedPrelude = void
+  let f = #(cb)
+    if parsedPrelude?
+      return cb null, parsedPrelude
+    async err, prelude <- fs.readFile "prelude.ms", "utf8"
+    if err
+      return cb err
+    parsedPrelude := parser prelude
+    translator parsedPrelude.result
+    cb null, parsedPrelude
+  f.sync := #
+    if parsedPrelude?
+      parsedPrelude
+    else
+      let prelude = fs.readFileSync "prelude.ms", "utf8"
+      parsedPrelude := parser prelude
+      translator parsedPrelude.result
+      parsedPrelude
+  f
+
+let compile(text, prelude)
+  let parsed = parser(text, prelude.macros).result
+  let translated = translator parsed
+  return translated.node.compile()
+
+let compileAsync(text, cb)
+  async err, prelude <- fetchAndParsePrelude()
+  if err
+    return cb err
+  
+  let mutable compilation = void
+  try
+    compilation := compile text, prelude
+  catch e
+    return cb e
+  cb null, compilation
+
+let compileSync(text)
+  compile text, fetchAndParsePrelude.sync()
+
+compileAsync.sync := compileSync
+
+module.exports := compileAsync
+
+let main(args)
+  if args.length == 0
+    console.log "Must provide a filename"
+  else
+    let arg = args[0]
+    async err, text <- fs.readFile arg, "utf8"
+    throw? err
+    async err, compilation <- compileAsync text
+    throw? err
+    if args.length == 2
+      async err <- fs.writeFile args[1], compilation
+      throw? err
+    else
+      process.stdout.write compilation
+
+if require.main == module
+  main process.argv[2:]

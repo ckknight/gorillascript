@@ -1,0 +1,1466 @@
+/*
+global test, eq, ok, arrayEq, throws, Cotton, runOnce, fail, success
+
+test "simple loop from 0 through 9", -> do
+    let mutable j = 0
+    for i = 0, 10
+        eq j, i
+        j += 1
+    end
+    eq 10, j // [0, 9], not [0, 10]
+end
+
+test "simple loop from 0 through 8, evens only", -> do
+    let mutable j = 0
+    for i = 0, 10, 2
+        eq j, i
+        j += 2
+    end
+    eq 10, j // [0, 8], not [0, 10]
+end
+
+test "backwards loop", -> do
+    let mutable j = 10
+    for i = 10, 0, -1
+        eq j, i
+        j -= 1
+    end
+    eq 0, j // [10, 1], not [10, 0]
+end
+
+test "loop with else", -> do
+    let mutable sum = 0
+    for i = 0, 10
+        sum += i
+    else
+        fail()
+    end
+    eq 45, sum
+
+    let mutable hitElse = false
+    for i = 10, 0
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "variable loop without step", -> do
+    let testLoop = (start, finish) -> do
+        let mutable j = start
+        let mutable count = 0
+        for i = start, finish
+            eq j, i
+            j += 1
+            count += 1
+        end
+        count
+    end
+    eq 9, testLoop(0, 9)
+    eq 10, testLoop(0, 10)
+    eq 0, testLoop(10, 0) // unless step is specified, it will not go backwards automatically
+end
+
+test "variable loop with step", -> do
+    let testLoop = (start, finish, step) -> do
+        let mutable j = start
+        let mutable count = 0
+        for i = start, finish, step
+            eq j, i
+            j += step
+            count += 1
+        end
+        count
+    end
+    eq 9, testLoop(0, 9, 1)
+    eq 10, testLoop(0, 10, 1)
+    eq 0, testLoop(10, 0, 1)
+    eq 5, testLoop(0, 9, 2)
+    eq 5, testLoop(0, 10, 2)
+    eq 0, testLoop(0, 5, -1)
+    eq 5, testLoop(5, 0, -1)
+end
+
+test "loop variable start is only calculated once", -> do
+    let start = runOnce(0)
+    
+    let mutable j = 0
+    for i = start(), 10
+        eq j, i
+        j += 1
+    end
+    eq 10, j
+end
+
+test "loop variable finish is only calculated once", -> do
+    let finish = runOnce(10)
+    
+    let mutable j = 0
+    for i = 0, finish()
+        eq j, i
+        j += 1
+    end
+    eq 10, j
+end
+
+test "loop variable step is only calculated once", -> do
+    let step = runOnce(1)
+    
+    let mutable j = 0
+    for i = 0, 10, step()
+        eq j, i
+        j += 1
+    end
+    eq 10, j
+end
+
+/*
+test "loop variable finish is not respected when changed", -> do
+    let mutable finish = 10
+    
+    let mutable sum = 0
+    for i = 0, finish
+        finish := 20
+        sum += i
+    end
+    eq 45, sum
+end
+
+test "loop variable step is not respected when changed", -> do
+    let mutable step = 1
+    
+    let mutable sum = 0
+    for i = 0, 10, step
+        step += 1
+        sum += i
+    end
+    eq 45, sum
+end
+*/
+
+test "loop scope", -> do
+    let funcs = []
+    for i = 0, 10
+        funcs.push(-> i * i)
+    end
+
+    eq 0, funcs[0]()
+    eq 1, funcs[1]()
+    eq 4, funcs[2]()
+    eq 9, funcs[3]()
+    eq 81, funcs[9]()
+end
+
+test "multiple loops with same variables", -> do
+    let mutable sum = 0
+    for i = 1, 10
+        sum += i
+    end
+    eq 45, sum
+    for i = 9, 0, -1
+        sum -= i
+    end
+    eq 0, sum
+end
+
+test "loop scope with multiple variables", -> do
+    let funcs = []
+    for i = 0, 10
+        for j = 0, 10
+            funcs.push(-> i * j)
+        end
+    end
+
+    eq 0, funcs[0]()
+    eq 20, funcs[45]()
+    eq 81, funcs[99]()
+end
+
+test "loop scope with same variable used multiple times", -> do
+    let funcs = []
+    for i = 0, 10
+        funcs.push(-> i * i)
+    end
+    
+    let mutable sum = 0
+    for i = 0, 100
+        sum += i
+    end
+    
+    eq 4950, sum
+    eq 0, funcs[0]()
+    eq 1, funcs[1]()
+    eq 4, funcs[2]()
+    eq 9, funcs[3]()
+    eq 81, funcs[9]()
+end
+
+test "multiple loops with same variables nested", -> do
+    let mutable sum = 0
+    for i = 1, 10
+        for j = 1, i
+            for k = 1, j
+                sum += 1
+            end
+        end
+    end
+    eq 84, sum
+    for k = 1, 10
+        for j = 1, k
+            for i = 1, j
+                sum -= 1
+            end
+        end
+    end
+    eq 0, sum
+end
+
+test "continue", -> do
+    let mutable count = 0
+    for i = 0, 100
+        if i % 2 == 0
+            continue
+        end
+        count += 1
+    end
+    eq 50, count
+end
+
+test "break", -> do
+    let mutable count = 0
+    for i = 0, 100
+        if i == 50
+            break
+        else if i > 50
+            fail()
+        end
+        count += 1
+    end
+    eq 50, count
+end
+
+test "while loop", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    while i < 10
+        sum += i
+        i += 1
+    end
+    eq 45, sum
+end
+
+test "while loop with break", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    while i < 10
+        sum += i
+        if sum > 10
+            break
+        end
+        i += 1
+    end
+    eq 15, sum
+    eq 5, i
+end
+
+test "while loop with continue", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    while i < 10
+        i += 1
+        if i % 2 == 0
+            continue
+        end
+        sum += i
+    end
+    eq 25, sum
+end
+
+test "while loop with else", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    while i < 10
+        sum += i
+        i += 1
+    else
+        fail()
+    end
+    eq 45, sum
+    
+    let mutable hitElse = false
+    while i < 10
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "until loop", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    until i > 10
+        sum += i
+        i += 1
+    end
+    eq 55, sum
+end
+
+test "until loop with else", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    until i > 10
+        sum += i
+        i += 1
+    else
+        fail()
+    end
+    eq 55, sum
+    
+    let mutable hitElse = false
+    until i > 10
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "while loop with step", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    while i < 10, i += 1
+        sum += i
+    end
+    eq 45, sum
+end
+
+test "while loop with step and else", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    while i < 10, i += 1
+        sum += i
+    else
+        fail()
+    end
+    eq 45, sum
+
+    let mutable hitElse = false
+    while i < 10, fail()
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "until loop with step", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    until i > 10, i += 1
+        sum += i
+    end
+    eq 55, sum
+end
+
+test "until loop with step and else", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    until i > 10, i += 1
+        sum += i
+    else
+        fail()
+    end
+    eq 55, sum
+    
+    let mutable hitElse = false
+    until i > 10, fail()
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "repeat-while loop", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    repeat while i < 10
+        i += 1
+        sum += i
+    end
+    eq 10, i
+    eq 55, sum
+    
+    throws -> Cotton.compile("""
+    repeat while true
+        doSomething()
+    else
+        elseIsntAllowed()
+    end
+    """), (e) -> e.line == 3 or true
+end
+
+test "repeat-while false loop", -> do
+    let mutable ran = false
+    repeat while false
+        ran := true
+    end
+    ok ran
+end
+
+test "repeat-until loop", -> do
+    let mutable sum = 0
+    let mutable i = 0
+    repeat until i > 10
+        i += 1
+        sum += i
+    end
+    eq 11, i
+    eq 66, sum
+    
+    throws -> Cotton.compile("""
+    repeat until true
+        doSomething()
+    else
+        elseIsntAllowed()
+    end
+    """), (e) -> e.line == 3 or true
+end
+
+test "object iteration loop", -> do
+    let keys = []
+    let obj = { a: 1, b: 4, c: 9, d: 16 }
+    for k over obj
+        keys.push(k)
+    end
+    keys.sort()
+    arrayEq ["a", "b", "c", "d"], keys
+end
+
+/*
+test "object iteration loop does not respect mutable identifier if changed", -> do
+    let keys = []
+    let mutable obj = { a: 1, b: 4, c: 9, d: 16 }
+    for k over obj
+        keys.push(k)
+        obj := {}
+    end
+    keys.sort()
+    arrayEq ["a", "b", "c", "d"], keys
+end
+*/
+
+test "object iteration loop with value", -> do
+    let data = []
+    let obj = { a: 1, b: 4, c: 9, d: 16 }
+    for k, v over obj
+        data.push([k, v])
+    end
+    data.sort (a, b) -> a[0] <=> b[0]
+    
+    arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+end
+
+test "object iteration loop with value and index", -> do
+    let data = []
+    let obj = { a: 1, b: 4, c: 9, d: 16 }
+    let mutable j = 0
+    for k, v, i over obj
+        data.push([k, v])
+        eq j, i
+        j += 1
+    end
+    eq j, 4
+    data.sort (a, b) -> a[0] <=> b[0]
+    
+    arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+end
+
+test "object iteration loop with else", -> do
+    let keys = []
+    let obj = { a: 1, b: 4, c: 9, d: 16 }
+    for k over obj
+        keys.push(k)
+    else
+        fail()
+    end
+    keys.sort()
+    arrayEq ["a", "b", "c", "d"], keys
+    
+    let mutable hitElse = false
+    let other = {}
+    for k over other
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "object iteration loop with literal object", -> do
+    let keys = []
+    for k over { a: 1, b: 4, c: 9, d: 16 }
+        keys.push(k)
+    end
+    keys.sort()
+    arrayEq ["a", "b", "c", "d"], keys
+end
+
+test "object iteration loop with value and literal object", -> do
+    let data = []
+    for k, v over { a: 1, b: 4, c: 9, d: 16 }
+        data.push([k, v])
+    end
+    data.sort (a, b) -> a[0] <=> b[0]
+    
+    arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+end
+
+test "object iteration loop with value and index and literal object", -> do
+    let data = []
+    let mutable j = 0
+    for k, v, i over { a: 1, b: 4, c: 9, d: 16 }
+        data.push([k, v])
+        eq j, i
+        j += 1
+    end
+    eq j, 4
+    data.sort (a, b) -> a[0] <=> b[0]
+    
+    arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+end
+
+test "object iteration loop with literal object", -> do
+    let keys = []
+    for k over { a: 1, b: 4, c: 9, d: 16 }
+        keys.push(k)
+    else
+        fail()
+    end
+    keys.sort()
+    arrayEq ["a", "b", "c", "d"], keys
+    
+    let mutable hitElse = false
+    for k over {}
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "object iteration loop only accesses object once", -> do
+    let keys = []
+    let obj = runOnce({ a: 1, b: 4, c: 9, d: 16 })
+    for k over obj()
+        keys.push(k)
+    end
+    keys.sort()
+    arrayEq ["a", "b", "c", "d"], keys
+end
+
+test "object iteration loop with value only accesses object once", -> do
+    let data = []
+    let obj = runOnce({ a: 1, b: 4, c: 9, d: 16 })
+    for k, v over obj()
+        data.push([k, v])
+    end
+    data.sort (a, b) -> a[0] <=> b[0]
+    
+    arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+end
+
+test "object iteration loop with value and index only accesses object once", -> do
+    let data = []
+    let obj = runOnce({ a: 1, b: 4, c: 9, d: 16 })
+    let mutable j = 0
+    for k, v, i over obj()
+        data.push([k, v])
+        eq j, i
+        j += 1
+    end
+    eq j, 4
+    data.sort (a, b) -> a[0] <=> b[0]
+    
+    arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+end
+
+test "object iteration loop with inheritance", -> do
+    let Parent = mutable -> do
+        this.a := 1
+        this.b := 4
+        return
+    end
+    Parent::c := 9
+    Parent::d := 16
+    
+    let keys = []
+    for k overall new Parent
+        keys.push(k)
+    end
+    keys.sort()
+    arrayEq ["a", "b", "c", "d"], keys
+end
+
+test "object iteration loop with inheritance and value", -> do
+    let Parent = mutable -> do
+        this.a := 1
+        this.b := 4
+        return
+    end
+    Parent::c := 9
+    Parent::d := 16
+
+    let data = []
+    for k, v overall new Parent
+        data.push([k, v])
+    end
+    data.sort (a, b) -> a[0] <=> b[0]
+
+    arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+end
+
+test "object iteration loop with inheritance and value and index", -> do
+    let Parent = mutable -> do
+        this.a := 1
+        this.b := 4
+        return
+    end
+    Parent::c := 9
+    Parent::d := 16
+
+    let data = []
+    let mutable j = 0
+    for k, v, i overall new Parent
+        data.push([k, v])
+        eq j, i
+        j += 1
+    end
+    eq 4, j
+    data.sort (a, b) -> a[0] <=> b[0]
+
+    arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+end
+
+test "object iteration loop without inheritance", -> do
+    let Parent = mutable -> do
+        this.a := 1
+        this.b := 4
+        return
+    end
+    Parent::c := 9
+    Parent::d := 16
+    
+    let keys = []
+    for k over new Parent
+        keys.push(k)
+    end
+    keys.sort()
+    arrayEq ["a", "b"], keys
+end
+
+test "object iteration loop without inheritance and value", -> do
+    let Parent = mutable -> do
+        this.a := 1
+        this.b := 4
+        return
+    end
+    Parent::c := 9
+    Parent::d := 16
+
+    let data = []
+    for k, v over new Parent
+        data.push([k, v])
+    end
+    data.sort (a, b) -> a[0] <=> b[0]
+
+    arrayEq [["a", 1], ["b", 4]], data
+end
+
+test "object iteration loop without inheritance and value and index", -> do
+    let Parent = mutable -> do
+        this.a := 1
+        this.b := 4
+        return
+    end
+    Parent::c := 9
+    Parent::d := 16
+
+    let data = []
+    let mutable j = 0
+    for k, v, i over new Parent
+        data.push([k, v])
+        eq j, i
+        j += 1
+    end
+    eq 2, j
+    data.sort (a, b) -> a[0] <=> b[0]
+    arrayEq [["a", 1], ["b", 4]], data
+end
+
+test "iteration loop", -> do
+    let mutable sum = 0
+    let arr = [1, 4, 9, 16]
+    for value in arr
+        sum += value
+    end
+    eq 30, sum
+end
+
+/*
+test "iteration loop does not respect identifier if reference is mutable", ->
+    let mutable sum = 0
+    let mutable arr = [1, 4, 9, 16]
+    for value in arr
+        sum += value
+        arr := [0, 0, 0, 0]
+    end
+    eq 30, sum
+end
+*/
+
+test "iteration loop with else", -> do
+    let mutable sum = 0
+    let arr = [1, 4, 9, 16]
+    for value in arr
+        sum += value
+    else
+        fail()
+    end
+    eq 30, sum
+    
+    let mutable hitElse = false
+    let otherArr = []
+    for value in otherArr
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "iteration loop with literal array", -> do
+    let mutable sum = 0
+    for value in [1, 4, 9, 16]
+        sum += value
+    end
+    eq 30, sum
+end
+
+test "iteration loop with literal array and else", -> do
+    let mutable sum = 0
+    for value in [1, 4, 9, 16]
+        sum += value
+    else
+        fail()
+    end
+    eq 30, sum
+    
+    let mutable hitElse = false
+    for value in []
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "iteration loop only calculates array once", -> do
+    let arr = runOnce([1, 4, 9, 16])
+    let mutable sum = 0
+    for value in arr()
+        sum += value
+    end
+    eq 30, sum
+end
+
+test "iteration loop with index", -> do
+    let mutable sum = 0
+    let mutable j = 0
+    let arr = [1, 4, 9, 16]
+    for value, index in arr
+        sum += value
+        eq j, index
+        j += 1
+    end
+    eq 30, sum
+end
+
+test "iteration loop with index and literal array", -> do
+    let mutable sum = 0
+    let mutable j = 0
+    for value, index in [1, 4, 9, 16]
+        sum += value
+        eq j, index
+        j += 1
+    end
+    eq 30, sum
+end
+
+test "iteration loop with index only calculates array once", -> do
+    let arr = runOnce([1, 4, 9, 16])
+    let mutable sum = 0
+    let mutable j = 0
+    for value, index in arr()
+        sum += value
+        eq j, index
+        j += 1
+    end
+    eq 30, sum
+end
+
+test "object iteration loop scope", -> do
+    let valueFactories = []
+    for k, v over { a: 1, b: 2, c: 3, d: 4 }
+        valueFactories.push(-> v)
+    end
+    
+    let mutable sum = 0
+    for factory in valueFactories
+        sum += factory()
+    end
+    eq 10, sum
+end
+
+test "array iteration loop scope", -> do
+    let valueFactories = []
+    for v in [1, 4, 9, 16]
+        valueFactories.push(-> v)
+    end
+    
+    let mutable sum = 0
+    for factory in valueFactories
+        sum += factory()
+    end
+    eq 30, sum
+end
+
+test "iteration loop scope", -> do
+    let funcs = []
+    for alpha, i in ["alpha", "bravo", "charlie"]
+        funcs.push(-> [i, alpha])
+    end
+
+    arrayEq [0, "alpha"], funcs[0]()
+    arrayEq [1, "bravo"], funcs[1]()
+    arrayEq [2, "charlie"], funcs[2]()
+end
+
+test "iteration loop scope with multiple", -> do
+    let funcs = []
+    for alpha, i in ["alpha", "bravo", "charlie"]
+        for bravo, j in ["delta", "echo", "foxtrot"]
+            funcs.push(-> [i, alpha, j, bravo])
+        end
+    end
+
+    arrayEq [0, "alpha", 0, "delta"], funcs[0]()
+    arrayEq [1, "bravo", 1, "echo"], funcs[4]()
+    arrayEq [2, "charlie", 2, "foxtrot"], funcs[8]()
+end
+
+test "object iteration loop scope", -> do
+    let funcs = []
+    for k, v, i over {alpha:"one", bravo:"two", charlie:"three"}
+        funcs.push(-> [k, v, i])
+    end
+    
+    let items = []
+    for func in funcs
+        items.push(func())
+    end
+    
+    eq 0, items[0].pop()
+    eq 1, items[1].pop()
+    eq 2, items[2].pop()
+    items.sort (a, b) -> a[0] <=> b[0]
+    arrayEq ["alpha", "one"], items[0]
+    arrayEq ["bravo", "two"], items[1]
+    arrayEq ["charlie", "three"], items[2]
+end
+
+test "object iteration loop scope with multiple", -> do
+    let funcs = []
+    for k, v, i over {alpha:"one", bravo:"two", charlie:"three"}
+        for k2, v2, j over {delta:"four", echo:"five", foxtrot:"six"}
+            funcs.push(-> [k, k2, v, v2, i, j])
+        end
+    end
+    
+    let items = []
+    for func in funcs
+        items.push(func())
+    end
+    
+    arrayEq [0, 0], items[0].splice(4, 2)
+    arrayEq [1, 1], items[4].splice(4, 2)
+    arrayEq [2, 2], items[8].splice(4, 2)
+    items.sort (a, b) -> a[0] <=> b[0] or a[1] <=> b[1]
+    arrayEq ["alpha", "delta", "one", "four"], items[0]
+    arrayEq ["bravo", "echo", "two", "five"], items[4]
+    arrayEq ["charlie", "foxtrot", "three", "six"], items[8]
+end
+
+/*
+test "single-line range loop", -> do
+    let mutable sum = 0
+    for i=1,10;sum+=i;end
+    eq 45, sum
+end
+*/
+
+test "Simple array comprehension", -> do
+    let nums = for n in [1, 2, 3, 4, 5]
+        n * n
+    end
+    arrayEq [1, 4, 9, 16, 25], nums
+end
+
+test "Array comprehension with if", -> do
+    let nums = for n in [1, 2, 3, 4, 5]
+        if n % 2 == 0
+            n * n
+        end
+    end
+    arrayEq [4, 16], nums
+end
+
+test "Range comprehension", -> do
+    let nums = for i = 1, 100
+        i
+    end
+    
+    let mutable j = 0
+    for num in nums
+        j += 1
+        eq num, j
+    end
+    eq 99, j
+end
+
+test "Object comprehension", -> do
+    let obj = { alpha: 1, bravo: 2, charlie: 3 }
+    let keys = for k over obj
+        k
+    end
+    keys.sort()
+    
+    arrayEq ["alpha", "bravo", "charlie"], keys
+end
+
+test "For-some over range", -> do
+    let mutable i = 0
+    ok for some x = 1, 10
+        i += 1
+        eq i, x
+        x == 4
+    end
+    eq 4, i
+    
+    ok not (for some x = 1, 10
+        x > 10
+    end)
+    
+    throws -> Cotton.compile("""
+    for some x = 1, 10
+        true
+    else
+        elseIsntAllowedWithForSome()
+    end"""), (e) -> e.line == 3 or true
+end
+
+test "For-every over range", -> do
+    let mutable i = 0
+    ok not (for every x = 1, 10
+        i += 1
+        eq i, x
+        x <= 4
+    end)
+    eq 5, i
+
+    ok for every x = 1, 10
+        x <= 10
+    end
+
+    throws -> Cotton.compile("""
+    for some x = 1, 10
+        true
+    else
+        elseIsntAllowedWithForEvery()
+    end"""), (e) -> e.line == 3 or true
+end
+
+test "For-first over range", -> do
+    eq 36, for first x = 1, 10
+        if x > 5
+            x ^ 2
+        end
+    end
+    
+    eq 1000000, for first x = 1, 10
+        if x > 10
+            x ^ 2
+        end
+    else
+        1000000
+    end
+end
+
+test "For-reduce over range", -> do
+    eq 45, for reduce i = 1, 10, sum = 0
+        sum + i
+    end
+    
+    throws -> Cotton.compile("""
+    for reduce i = 1, 10, sum = 0
+        sum + i
+    else
+        elseIsntAllowedWithForReduce()
+    end"""), (e) -> e.line == 3 or true
+end
+
+test "For-some in array", -> do
+    ok for some x in [-> 1, -> 2, fail]
+        x() == 2
+    end
+    
+    ok not (for some x in [-> 1, -> 2, -> 3]
+        x() == 4
+    end)
+    
+    throws -> Cotton.compile("""
+    for some x in [1, 2]
+        true
+    else
+        elseIsntAllowedWithForSome()
+    end"""), (e) -> e.line == 3 or true
+end
+
+test "For-every in array", -> do
+    ok not (for every x in [-> 1, -> 2, fail]
+        x() < 2
+    end)
+    
+    ok for every x in [-> 1, -> 2, -> 3]
+        x() < 4
+    end
+    
+    throws -> Cotton.compile("""
+    for every x in [1, 2]
+        true
+    else
+        elseIsntAllowedWithForEvery()
+    end"""), (e) -> e.line == 3 or true
+end
+
+test "For-first in array", -> do
+    eq 4, for first x in [-> 1, -> 2, fail]
+        let value = x()
+        if value > 1
+            value ^ 2
+        end
+    end
+    
+    eq 1000000, for first x in [-> 1, -> 2, -> 3]
+        let value = x()
+        if value > 3
+            value ^ 2
+        end
+    else
+        1000000
+    end
+end
+
+test "For-reduce in array", -> do
+    eq 10, for reduce i in [1, 2, 3, 4], sum = 0
+        sum + i
+    end
+    
+    throws -> Cotton.compile("""
+    for reduce i in [1, 2, 3, 4], sum = 0
+        sum + i
+    else
+        elseIsntAllowedWithForReduce()
+    end"""), (e) -> e.line == 3 or true
+end
+
+test "For-some over object", -> do
+    ok for some k, v over {a:1, b:2, c:3}
+        v == 2
+    end
+    
+    ok not (for some k, v over {a:1, b:2, c:3}
+        v == 4
+    end)
+    
+    throws -> Cotton.compile("""
+    for some k, v over {a:1, b:2, c:3}
+        true
+    else
+        elseIsntAllowedWithForSome()
+    end"""), (e) -> e.line == 3 or true
+end
+
+test "For-every over object", -> do
+    ok not (for every k, v over {a:1, b:2, c:3}
+        v <= 2
+    end)
+    
+    ok for every k, v over {a:1, b:2, c:3}
+        v < 4
+    end
+    
+    throws -> Cotton.compile("""
+    for every k, v over {a:1, b:2, c:3}
+        true
+    else
+        elseIsntAllowedWithForEvery()
+    end"""), (e) -> e.line == 3 or true
+end
+
+test "For-first over object", -> do
+    eq 9, for first k, v over {a:1, b:2, c:3}
+        if v > 2
+            v ^ 2
+        end
+    end
+    
+    eq 1000000, for first k, v over {a:1, b:2, c:3}
+        if v > 3
+            v ^ 2
+        end
+    else
+        1000000
+    end
+end
+
+test "For-reduce over object", -> do
+    eq 6, for reduce k, v over {a:1, b:2, c:3}, sum = 0
+        sum + v
+    end
+    
+    throws -> Cotton.compile("""
+    for reduce k, v over {a:1, b:2, c:3}, sum = 0
+        sum + v
+    else
+        elseIsntAllowedWithForReduce()
+    end"""), (e) -> e.line == 3 or true
+end
+
+test "While-some", -> do
+    let mutable i = 0
+    ok while some i < 10, i += 1
+        i == 4
+    end
+    eq 4, i
+    
+    i := 0
+    ok not (while some i < 10, i += 1
+        i > 10
+    end)
+    
+    throws -> Cotton.compile("""
+    let mutable i = 0
+    while some i < 10, i += 1
+        true
+    else
+        elseIsntAllowedWithWhileSome()
+    end"""), (e) -> e.line == 4 or true
+end
+
+test "While-every", -> do
+    let mutable i = 0
+    ok not (while every i < 10, i += 1
+        i <= 4
+    end)
+    eq 5, i
+    
+    i := 0
+    ok while every i < 10, i += 1
+        i <= 10
+    end
+
+    throws -> Cotton.compile("""
+    let mutable i = 0
+    while every i < 10, i += 1
+        true
+    else
+        elseIsntAllowedWithForEvery()
+    end"""), (e) -> e.line == 4 or true
+end
+
+test "While-first", -> do
+    let mutable i = 0
+    eq 36, while first i < 10, i += 1
+        if i > 5
+            i ^ 2
+        end
+    end
+    
+    i := 0
+    eq 1000000, while first i < 10, i += 1
+        if i > 10
+            i ^ 2
+        end
+    else
+        1000000
+    end
+end
+
+test "While-reduce", -> do
+    let mutable i = 0
+    eq 45, while reduce i < 10, i += 1, sum = 0
+        sum + i
+    end
+    
+    throws -> Cotton.compile("""
+    let mutable i = 0
+    while reduce i < 10, i += 1, sum = 0
+        sum + i
+    else
+        elseIsntAllowedWithForReduce()
+    end"""), (e) -> e.line == 4 or true
+end
+
+test "Repeat-while-some", -> do
+    let mutable i = 0
+    ok repeat while some i > 0 and i < 10, i += 1
+        i == 4
+    end
+    eq 4, i
+    
+    i := 0
+    ok not (repeat while some i < 10, i += 1
+        i > 10
+    end)
+    
+    throws -> Cotton.compile("""
+    let mutable i = 0
+    repeat while some i < 10, i += 1
+        true
+    else
+        elseIsntAllowedWithRepeat()
+    end"""), (e) -> e.line == 4 or true
+end
+
+test "Repeat-while-every", -> do
+    let mutable i = 0
+    ok not (repeat while every i > 0 and i < 10, i += 1
+        i <= 4
+    end)
+    eq 5, i
+    
+    i := 0
+    ok repeat while every i < 10, i += 1
+        i <= 10
+    end
+
+    throws -> Cotton.compile("""
+    let mutable i = 0
+    repeat while every i < 10, i += 1
+        true
+    else
+        elseIsntAllowedWithRepeat()
+    end"""), (e) -> e.line == 4 or true
+end
+
+test "Repeat-while-first", -> do
+    let mutable i = 0
+    eq 36, repeat while first i > 0 and i < 10, i += 1
+        if i > 5
+            i ^ 2
+        end
+    end
+    
+    i := 0
+    eq 1000000, repeat while first i < 10, i += 1
+        if i > 10
+            i ^ 2
+        end
+    else
+        1000000
+    end
+end
+
+test "Repeat-while-reduce", -> do
+    let mutable i = 0
+    eq 45, repeat while reduce i > 0 and i < 10, i += 1, sum = 0
+        sum + i
+    end
+    
+    throws -> Cotton.compile("""
+    let mutable i = 0
+    repeat while reduce i < 10, i += 1, sum = 0
+        sum + i
+    else
+        elseIsntAllowedWithRepeatReduce()
+    end"""), (e) -> e.line == 4 or true
+end
+
+test "Variable inside loop should be reset to undefined", -> do
+    for i = 1, 10
+        let mutable value = undefined
+        if i == 5
+            value := "other"
+        else
+            eq undefined, value
+        end
+    end
+end
+
+test "a simple for loop without a return does not return an array", -> do
+    let fun = -> do
+        let x = 0
+        for i = 1, 10
+            i
+        end
+    end
+    eq undefined, fun()
+end
+
+test "for loop in string", -> do
+    let array = "alpha".split("")
+    let mutable j = 0
+    for item, i in "alpha"
+        eq j, i
+        eq array[i], item
+        j += 1
+    end
+    eq 5, j
+end
+
+test "loop up to Infinity", -> do
+    let mutable j = 0
+    for i = 0, Infinity
+        eq j, i
+        if i == 10
+            break
+        end
+        j += 1
+    end
+    eq 10, j
+end
+
+test "loop down to Infinity", -> do
+    for i = 0, Infinity, -1
+        fail()
+    end
+end
+
+test "loop down to -Infinity", -> do
+    let mutable j = 0
+    for i = 0, -Infinity, -1
+        eq j, i
+        if i == -10
+            break
+        end
+        j -= 1
+    end
+    eq -10, j
+end
+
+test "loop up to -Infinity", -> do
+    for i = 0, -Infinity
+        fail()
+    end
+end
+
+let arrayToGenerator = (array) -> do
+    {
+        next: -> do
+            if @index >= @array.length
+                throw StopIteration
+            end
+            let element = @array[@index]
+            @index += 1
+            element
+        end
+        array: array
+        index: 0
+    }
+end
+
+test "generator loop", -> do
+    let mutable sum = 0
+    for value from arrayToGenerator([1, 4, 9, 16])
+        sum += value
+    end
+    eq 30, sum
+end
+
+test "generator loop with else", -> do
+    let mutable sum = 0
+    for value from arrayToGenerator([1, 4, 9, 16])
+        sum += value
+    else
+        fail()
+    end
+    eq 30, sum
+    
+    let mutable hitElse = false
+    for value from arrayToGenerator([])
+        fail()
+    else
+        hitElse := true
+        success()
+    end
+    ok hitElse
+end
+
+test "generator loop only calculates generator once", -> do
+    let generator = runOnce(arrayToGenerator([1, 4, 9, 16]))
+    let mutable sum = 0
+    for value from generator()
+        sum += value
+    end
+    eq 30, sum
+end
+
+test "generator loop with index", -> do
+    let mutable sum = 0
+    let mutable j = 0
+    for value, index from arrayToGenerator([1, 4, 9, 16])
+        sum += value
+        eq j, index
+        j += 1
+    end
+    eq 30, sum
+end
+
+test "generator iteration loop scope", -> do
+    let valueFactories = []
+    for v from arrayToGenerator([1, 4, 9, 16])
+        valueFactories.push(-> v)
+    end
+    
+    let mutable sum = 0
+    for factory in valueFactories
+        sum += factory()
+    end
+    eq 30, sum
+end
+
+test "generator iteration loop scope with multiple", -> do
+    let funcs = []
+    for alpha, i from arrayToGenerator(["alpha", "bravo", "charlie"])
+        for bravo, j from arrayToGenerator(["delta", "echo", "foxtrot"])
+            funcs.push(-> [i, alpha, j, bravo])
+        end
+    end
+
+    arrayEq [0, "alpha", 0, "delta"], funcs[0]()
+    arrayEq [1, "bravo", 1, "echo"], funcs[4]()
+    arrayEq [2, "charlie", 2, "foxtrot"], funcs[8]()
+end
+*/
