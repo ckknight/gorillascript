@@ -181,6 +181,9 @@ let Node = exports.Node := do
   Node::is-noop := #-> false
   Node::const-value := #-> throw Error "$(@constructor.name) has no const value"
   
+  Node::is-large := #-> true
+  Node::is-small := #-> not @is-large()
+  
   Node
 
 let Expression = exports.Expression := do
@@ -212,8 +215,6 @@ let Statement = exports.Statement := do
   
   Statement::compile-as-statement := #(options, line-start, sb)
     @compile options, LEVEL_BLOCK, line-start, sb
-  
-  Statement::is-large := #-> true
   
   Statement
 
@@ -284,10 +285,17 @@ let Arr = exports.Arr := do
   
   Arr::type := #-> types.array
   
-  Arr::is-empty := #-> @elements.length == 0
+  Arr::is-small := #
+    let len = @elements.length
+    if len == 0
+      true
+    else if len == 1
+      @elements[0].is-small()
+    else
+      false
   Arr::is-large := #
     @_is-large ?= @elements.length > 4 or for some element in @elements
-      (element instanceofsome [Arr, Obj, Call] and not element.is-empty()) or element.is-large()
+      not element.is-small()
   
   Arr::walk := #(walker)
     let elements = walk-array @elements, walker
@@ -594,7 +602,10 @@ let Binary = exports.Binary := do
   }
   
   Binary::is-large := #
-    @_is-large := @left.is-large() or @right.is-large()
+    @_is-large := not @left.is-small() or not @right.is-small()
+  
+  Binary::is-small := #
+    @_is-small := @left.is-small() and @right.is-small()
   
   Binary::walk := #(walker)
     let mutable changed = false
@@ -709,6 +720,8 @@ let BlockExpression = exports.BlockExpression := do
   BlockExpression::is-large := #
     @_is-large ?= @body.length > 4 or for some part in @body
       part.is-large()
+  
+  BlockExpression::is-small := #-> false
   
   BlockExpression::walk := BlockStatement::walk
   
@@ -852,18 +865,24 @@ let Call = exports.Call := do
       true
     else
       for some arg in @args[:-1]
-        (arg instanceofsome [Arr, Obj, Call] and not arg.is-empty()) or arg.is-large()
+        not arg.is-small()
   
   Call::has-large-args := #
     @_has-large-args ?= if @args.length > 4
       true
     else
       for some arg in @args
-        (arg instanceofsome [Arr, Obj, Call] and not arg.is-empty()) or arg.is-large()
+        not arg.is-small()
   
   Call::is-large := #-> @func.is-large() or @has-large-args()
   
-  Call::is-empty := #-> @args.length == 0
+  Call::is-small := #
+    @_is-small ?= if not @func.is-small() or @args.length > 1
+      false
+    else if @args.length == 0
+      true
+    else
+      @args[0].is-small()
   
   Call::walk := #(walker)
     let func = walker(@func) ? @func.walk(walker)
@@ -1329,7 +1348,9 @@ let IfExpression = exports.IfExpression := do
   
   IfExpression::is-large := #
     @_is-large ?= for some part in [@test, @when-true, @when-false]
-      (part instanceofsome [Arr, Obj, Call] and not part.is-empty()) or part.is-large()
+      not part.is-small()
+  
+  IfExpression::is-small := #-> false
   
   IfExpression::walk := IfStatement::walk
   
@@ -1402,10 +1423,17 @@ let Obj = exports.Obj := do
   
   Obj::type := #-> types.object
   
-  Obj::is-empty := #-> @elements.length == 0
+  Obj::is-small := #
+    let len = @elements.length
+    if len == 0
+      true
+    else if len == 1
+      @elements[0].is-small()
+    else
+      false
   Obj::is-large := #
     @_is-large ?= @elements.length > 4 or for some element in @elements
-      (element.value instanceofsome [Arr, Obj, Call] and not element.value.is-empty()) or element.is-large()
+      not element.value.is-small()
   
   Obj::walk := #(walker)
     let elements = walk-array(@elements, walker)
@@ -1423,6 +1451,7 @@ let Obj = exports.Obj := do
     self
   Obj.Pair := ObjPair
   
+  ObjPair::is-small := #-> @value.is-small()
   ObjPair::is-large := #-> @value.is-large()
   
   ObjPair::walk := #(walker)
@@ -1819,6 +1848,7 @@ let Unary = exports.Unary := do
   Unary::type := #-> OPERATOR_TYPES[@op]
   
   Unary::is-large := #-> @node.is-large()
+  Unary::is-small := #-> @node.is-small()
   
   Unary::walk := #(walker)
     let node = walker(@node) ? @node.walk(walker)
