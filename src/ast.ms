@@ -178,6 +178,10 @@ let Node = do
     else
       this
   
+  Node::is-const := #-> false
+  Node::is-noop := #-> false
+  Node::const-value := #-> throw Error "$(@constructor.name) has no const value"
+  
   exports.Node := Node
 
 let Expression = do
@@ -327,20 +331,6 @@ let Or(...args as [Expression])
     current
 exports.Or := Or
 
-let is-const(node)
-  node instanceof Const or (node instanceof BlockExpression and node.body.length == 0)
-
-let is-noop(node)
-  is-const(node) or (node instanceof BlockStatement and node.body.length == 0)
-
-let const-value(node)
-  if node instanceof Const
-    node.value
-  else if node instanceof BlockExpression and node.body.length == 0
-    undefined
-  else
-    throw TypeError "node is not a const value"
-
 let Binary = do
   let Binary(mutable left, op as String, mutable right)
     let self = if this instanceof Binary then this else ^Binary.prototype
@@ -352,18 +342,18 @@ let Binary = do
     if right not instanceof Expression
       right := to-const(right)
     
-    if is-const(left) and is-const(right) and CONST_OPERATIONS ownskey op
-      let node = CONST_OPERATIONS[op](const-value(left), const-value(right))
+    if left.is-const() and right.is-const() and CONST_OPERATIONS ownskey op
+      let node = CONST_OPERATIONS[op](left.const-value(), right.const-value())
       if node != void
         if node instanceof Expression
           return node
         else
           return Const node
     
-    if is-const(left) and LEFT_CONSTANT_OPERATIONS ownskey op
+    if left.is-const() and LEFT_CONSTANT_OPERATIONS ownskey op
       return? LEFT_CONSTANT_OPERATIONS[op](left, right)
     
-    if is-const(right) and RIGHT_CONSTANT_OPERATIONS ownskey op
+    if right.is-const() and RIGHT_CONSTANT_OPERATIONS ownskey op
       return? RIGHT_CONSTANT_OPERATIONS[op](left, right)
     
     self.left := left
@@ -386,7 +376,7 @@ let Binary = do
         sb string-left
         if dot-access and string-left.index-of("e") == -1 and string-left.index-of(".") == -1
           sb "."
-    else if is-const(left) and const-value(left) == void
+    else if left.is-const() and left.const-value() == void
       sb "("
       sb to-JS-source(void)
       sb ")"
@@ -518,40 +508,40 @@ let Binary = do
   }
   
   let LEFT_CONSTANT_OPERATIONS = {
-    "&&": #(x, y) -> if const-value x then y else x
-    "||": #(x, y) -> if const-value x then x else y
+    "&&": #(x, y) -> if x.const-value() then y else x
+    "||": #(x, y) -> if x.const-value() then x else y
     "*": #(x, y)
-      if const-value(x) == 1
+      if x.const-value() == 1
         Unary "+", y
-      else if const-value(x) == -1
+      else if x.const-value() == -1
         Unary "-", y
     "+": #(x, y)
-      if const-value(x) == 0
+      if x.const-value() == 0
         Unary "+", y
     "-": #(x, y)
-      if const-value(x) == 0
+      if x.const-value() == 0
         Unary "-", y
   }
   
   let RIGHT_CONSTANT_OPERATIONS = {
     "*": #(x, y)
-      if const-value(y) == 1
+      if y.const-value() == 1
         Unary "+", x
-      else if const-value(y) == -1
+      else if y.const-value() == -1
         Unary "-", x
     "/": #(x, y)
-      if const-value(y) == 1
+      if y.const-value() == 1
         Unary "+", x
-      else if const-value(y) == -1
+      else if y.const-value() == -1
         Unary "-", x
     "+": #(x, y)
-      let y-value = const-value(y)
+      let y-value = y.const-value()
       if y-value == 0
         Unary "+", x
       else if typeof y-value == "number" and y-value < 0
         Binary x, "-", Const(-y-value)
     "-": #(x, y)
-      let y-value = const-value(y)
+      let y-value = y.const-value()
       if y-value == 0
         Unary "+", x
       else if typeof y-value == "number" and y-value < 0
@@ -630,7 +620,7 @@ let BlockStatement = do
     let result = []
     for item in body
       let statement = item.maybe-to-statement()
-      if not is-noop(statement)
+      if not statement.is-noop()
         if statement instanceof BlockStatement
           result.push ...statement.body
         else
@@ -652,6 +642,8 @@ let BlockStatement = do
         sb.indent options.indent
       item.compile-as-statement options, true, sb
   
+  BlockStatement::is-noop := #-> @body.length == 0
+  
   BlockStatement::walk := #(walker)
     let body = walk-array(@body, walker)
     if @body != body
@@ -668,10 +660,10 @@ let BlockExpression = do
     let result = []
     result := []
     for item, i, len in body
-      if i == len - 1 or not is-noop(item)
+      if i == len - 1 or not item.is-noop()
         if item instanceof BlockExpression
           result.push ...item.body
-          if i < len - 1 and is-noop(result[result.length - 1])
+          if i < len - 1 and result[result.length - 1].is-noop()
             result.pop()
         else
           result.push item
@@ -704,6 +696,14 @@ let BlockExpression = do
           item.compile options, LEVEL_SEQUENCE, false, sb
         if wrap
           sb ")"
+  
+  BlockExpression::is-const := #-> @body.length == 0
+  BlockExpression::is-noop := BlockExpression::is-const
+  BlockExpression::const-value := #
+    if @body.length == 0
+      void
+    else
+      throw Error "BlockExpression has no const value"
   
   BlockExpression::type := #
     let body = @body
@@ -750,26 +750,26 @@ let Call = do
     let self = if this instanceof Call then this else ^Call.prototype
     
     if not is-new and for every arg in args
-        is-const(arg)
+        arg.is-const()
       if func instanceof Ident
         if PRIMORDIAL_FUNCTIONS ownskey func.name and PRIMORDIAL_FUNCTIONS[func.name] == true and typeof global != "undefined" and typeof global[func.name] == "function"
           try
             return to-const global[func.name].apply(null, for arg in args
-              const-value(arg))
+              arg.const-value())
           catch e
             void
       else if func instanceof Binary and func.op == "."
-        if is-const(func.left) and is-const(func.right)
-          if typeof const-value(func.left)[const-value(func.right)] == "function"
+        if func.left.is-const() and func.right.is-const()
+          if typeof func.left.const-value()[func.right.const-value()] == "function"
             try
-              return to-const const-value(func.left)[const-value(func.right)] ...for arg in args
-                const-value(arg)
+              return to-const func.left.const-value()[func.right.const-value()] ...for arg in args
+                arg.const-value()
             catch e
               void
-        else if func.left instanceof Ident and is-const(func.right) and typeof const-value(func.right) == "string" and PRIMORDIAL_FUNCTIONS ownskey func.left.name and typeof PRIMORDIAL_FUNCTIONS[func.left.name] == "object" and PRIMORDIAL_FUNCTIONS[func.left.name][const-value(func.right)] == true and typeof Object(global[func.left.name])[const-value(func.right)] == "function"
+        else if func.left instanceof Ident and func.right.is-const() and typeof func.right.const-value() == "string" and PRIMORDIAL_FUNCTIONS ownskey func.left.name and typeof PRIMORDIAL_FUNCTIONS[func.left.name] == "object" and PRIMORDIAL_FUNCTIONS[func.left.name][func.right.const-value()] == true and typeof Object(global[func.left.name])[func.right.const-value()] == "function"
           try
-            return to-const global[func.left.name][const-value(func.right)] ...for arg in args
-              const-value(arg)
+            return to-const global[func.left.name][func.right.const-value()] ...for arg in args
+              arg.const-value()
           catch e
             void
     self.func := func
@@ -909,6 +909,10 @@ let Const = do
     if wrap
       sb ")"
   
+  Const::is-const := #-> true
+  Const::is-noop := Const::is-const
+  Const::const-value := #-> @value
+  
   Const::type := #
     let value = @value
     let type = typeof value
@@ -977,7 +981,7 @@ let DoWhile = do
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "do"
-    if is-noop(@body)
+    if @body.is-noop()
       sb ";"
     else
       sb " {\n"
@@ -1043,16 +1047,16 @@ let For = do
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "for ("
-    if not is-noop(@init)
+    if not @init.is-noop()
       @init.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb "; "
-    if not is-const(@test) or not const-value(@test)
+    if not @test.is-const() or not @test.const-value()
       @test.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb "; "
-    if not is-noop(@step)
+    if not @step.is-noop()
       @step.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb ")"
-    if is-noop(@body)
+    if @body.is-noop()
       sb ";"
     else
       sb " {\n"
@@ -1093,7 +1097,7 @@ let ForIn = do
     sb " in "
     @object.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb ")"
-    if is-noop(@body)
+    if @body.is-noop()
       sb ";"
     else
       sb " {\n"
@@ -1223,16 +1227,16 @@ let IfStatement = do
   let IfStatement(test as Expression, mutable when-true as Node, mutable when-false as Node = BlockExpression())
     let self = if this instanceof IfStatement then this else ^IfStatement.prototype
     
-    if is-const test
-      if const-value test
+    if test.is-const()
+      if test.const-value()
         when-true
       else
         when-false
     else
       when-true := when-true.maybe-to-statement()
       when-false := when-false.maybe-to-statement()
-      if is-noop(when-true)
-        if is-noop(when-false)
+      if when-true.is-noop()
+        if when-false.is-noop()
           test
         else
           IfStatement.call(self
@@ -1261,7 +1265,7 @@ let IfStatement = do
     sb.indent options.indent
     sb "}"
     let when-false = @when-false
-    if not is-noop(when-false)
+    if not when-false.is-noop()
       sb " else "
       if when-false instanceof IfStatement
         when-false.compile options, level, false, sb
@@ -1289,12 +1293,12 @@ let IfExpression = do
   let IfExpression(test as Expression, when-true as Expression, when-false as Expression = BlockExpression())
     let self = if this instanceof IfExpression then this else ^IfExpression.prototype
     
-    if is-const test
-      if const-value test
+    if test.is-const()
+      if test.const-value()
         when-true
       else
         when-false
-    else if is-const(when-true) and is-const(when-false) and const-value(when-true) == const-value(when-false)
+    else if when-true.is-const() and when-false.is-const() and when-true.const-value() == when-false.const-value()
       BlockExpression [test, when-true]
     else
       self.test := test
@@ -1446,7 +1450,7 @@ let Return = do
   
   Return::compile := #(options, level, line-start, sb)!
     sb "return"
-    unless is-const(@node) and const-value(@node) == void
+    unless @node.is-const() and @node.const-value() == void
       sb " "
       @node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb ";"
@@ -1560,11 +1564,11 @@ let Switch = do
       sb "case "
       case_.node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
       sb ":"
-      if not is-noop(case_.body)
+      if not case_.body.is-noop()
         sb "\n"
         sb.indent child-options.indent
         case_.body.compile-as-statement child-options, true, sb
-    if not is-noop(@default-case)
+    if not @default-case.is-noop()
       sb "\n"
       sb.indent options.indent
       sb "default:\n"
@@ -1607,7 +1611,7 @@ let TryCatch = do
     let self = if this instanceof TryCatch then this else ^TryCatch.prototype
     
     self.try-body := try-body.maybe-to-statement()
-    if is-noop(self.try-body)
+    if self.try-body.is-noop()
       return BlockStatement()
     self.catch-ident := catch-ident
     self.catch-body := catch-body.maybe-to-statement()
@@ -1628,7 +1632,7 @@ let TryCatch = do
     sb "} catch ("
     @catch-ident.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb ") {"
-    if not is-noop(@catch-body)
+    if not @catch-body.is-noop()
       sb "\n"
       sb.indent child-options.indent
       @catch-body.compile-as-statement child-options, true, sb
@@ -1652,12 +1656,12 @@ let TryFinally = do
     let self = if this instanceof TryFinally then this else ^TryFinally.prototype
     self.try-body := try-body.maybe-to-statement()
     self.finally-body := finally-body.maybe-to-statement()
-    if is-noop(self.try-body)
-      if is-noop(self.finally-body)
+    if self.try-body.is-noop()
+      if self.finally-body.is-noop()
         BlockStatement()
       else
         self.finally-body
-    else if is-noop(self.finally-body)
+    else if self.finally-body.is-noop()
       self.try-body
     else
       self
@@ -1678,7 +1682,7 @@ let TryFinally = do
       sb "} catch ("
       @try-body.catch-ident.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
       sb ") {"
-      if not is-noop(@try-body.catch-body)
+      if not @try-body.catch-body.is-noop()
         sb "\n"
         sb.indent child-options.indent
         @try-body.catch-body.compile-as-statement child-options, true, sb
@@ -1718,8 +1722,8 @@ let Unary = do
     if node not instanceof Expression
       node := to-const node
     
-    if is-const(node) and CONST_OPERATIONS ownskey op
-      return Const CONST_OPERATIONS[op](const-value node)
+    if node.is-const() and CONST_OPERATIONS ownskey op
+      return Const CONST_OPERATIONS[op](node.const-value())
     
     if NONCONST_OPERATIONS ownskey op
       return? NONCONST_OPERATIONS[op](node)
