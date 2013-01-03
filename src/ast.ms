@@ -287,7 +287,7 @@ let Arr = exports.Arr := do
   Arr::is-empty := #-> @elements.length == 0
   Arr::is-large := #
     @_is-large ?= @elements.length > 4 or for some element in @elements
-      (element instanceofsome [Arr, Obj] and not element.is-empty()) or element.is-large()
+      (element instanceofsome [Arr, Obj, Call] and not element.is-empty()) or element.is-large()
   
   Arr::walk := #(walker)
     let elements = walk-array @elements, walker
@@ -852,16 +852,18 @@ let Call = exports.Call := do
       true
     else
       for some arg in @args[:-1]
-        (arg instanceofsome [Arr, Obj] and not arg.is-empty()) or arg.is-large()
+        (arg instanceofsome [Arr, Obj, Call] and not arg.is-empty()) or arg.is-large()
   
   Call::has-large-args := #
     @_has-large-args ?= if @args.length > 4
       true
     else
       for some arg in @args
-        (arg instanceofsome [Arr, Obj] and not arg.is-empty()) or arg.is-large()
+        (arg instanceofsome [Arr, Obj, Call] and not arg.is-empty()) or arg.is-large()
   
   Call::is-large := #-> @func.is-large() or @has-large-args()
+  
+  Call::is-empty := #-> @args.length == 0
   
   Call::walk := #(walker)
     let func = walker(@func) ? @func.walk(walker)
@@ -1327,7 +1329,7 @@ let IfExpression = exports.IfExpression := do
   
   IfExpression::is-large := #
     @_is-large ?= for some part in [@test, @when-true, @when-false]
-      (part instanceofsome [Arr, Obj] and not part.is-empty()) or part.is-large()
+      (part instanceofsome [Arr, Obj, Call] and not part.is-empty()) or part.is-large()
   
   IfExpression::walk := IfStatement::walk
   
@@ -1403,7 +1405,7 @@ let Obj = exports.Obj := do
   Obj::is-empty := #-> @elements.length == 0
   Obj::is-large := #
     @_is-large ?= @elements.length > 4 or for some element in @elements
-      (element.value instanceofsome [Arr, Obj] and not element.value.is-empty()) or element.is-large()
+      (element.value instanceofsome [Arr, Obj, Call] and not element.value.is-empty()) or element.is-large()
   
   Obj::walk := #(walker)
     let elements = walk-array(@elements, walker)
