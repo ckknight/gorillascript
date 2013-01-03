@@ -424,27 +424,21 @@ let unary-ops = {
 let HELPERS = {}
 
 let wrap-in-function-call(node)
-  // TODO: should be a ParserNode, or even better, the translator shouldn't be making ParserNodes
-  {
-    type: \call-chain
-    node.start-index
-    node.end-index
-    head: {
-      type: \function
-      node.start-index
-      node.end-index
+  // TODO: the translator shouldn't be making ParserNodes
+  require! './parser'
+  
+  parser.ParserNode \call-chain, node.start-index, node.end-index, {
+    head: parser.ParserNode \function, node.start-index, node.end-index, {
       params: []
       auto-return: true
       body: node
       bound: true
     }
-    links: [
-      {
-        type: \call
-        args: []
-        existential: false
-      }
-    ]
+    links: [{
+      type: \call
+      args: []
+      existential: false
+    }]
   }
 
 let translators = {

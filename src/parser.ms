@@ -3729,7 +3729,7 @@ let NEW_STYLE_NODES = {
   for: true
   tmp: true
 }
-let ParserNode = exports.ParserNode := do
+let ParserNode = do
   let ParserNode(type as String, start-index as Number, end-index as Number, data as (Object|null))
     if Array.is-array(data)
       throw TypeError "Expected a non-array for data"
@@ -3841,3 +3841,4 @@ let parse(text, macros, options = {})
     }
 module.exports := parse
 module.exports.ParserError := ParserError
+module.exports.ParserNode := ParserNode
