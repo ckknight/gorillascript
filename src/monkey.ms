@@ -45,20 +45,20 @@ set-timeout (#
   if err
     throw err), 1
 
-let parse = (exports.parse := #(source, options = {})
+let parse = exports.parse := #(source, options = {})
   if options.no-prelude
     parser(source, null, options).result
   else
     let prelude = fetch-and-parse-prelude.sync()
-    parser(source, prelude.macros, options))
+    parser(source, prelude.macros, options)
 
-let translate = (exports.ast := #(source, options = {})
+let translate = exports.ast := #(source, options = {})
   let parsed = parse source, options
-  translator(parsed.result, options).node)
+  translator(parsed.result, options).node
 
-let compile = (exports.compile := #(source, options = {})
+let compile = exports.compile := #(source, options = {})
   let node = translate source, options
-  node.compile options)
+  node.compile options
 
 exports.eval := #(source, options = {})
   options.return := false
@@ -77,8 +77,8 @@ exports.eval := #(source, options = {})
     sandbox.__dirname := path.dirname sandbox.__filename
     if not sandbox.module and not sandbox.require
       let Module = require "module"
-      let _module = (sandbox.module := new Module(options.modulename or "eval"))
-      let _require = (sandbox.require := #(path) -> Module._load path, _module)
+      let _module = sandbox.module := new Module(options.modulename or "eval")
+      let _require = sandbox.require := #(path) -> Module._load path, _module
       _module.filename := sandbox.__filename
       for r in Object.get-own-property-names require
         try

@@ -2218,10 +2218,16 @@ define ColonEqual = sequential! [
   Colon
   character! "="
 ], ":="
+
+define ExpressionOrAssignment = oneOf! [
+  Assignment
+  Expression
+]
+
 define DirectAssignment = sequential! [
   [\left, ComplexAssignable]
   [\op, ColonEqual]
-  [\right, Expression]
+  [\right, ExpressionOrAssignment]
 ], #(x, o, i) -> o.assign i, x.left, x.op, x.right
 
 define CompoundAssignmentOp = one-of! [
@@ -2266,7 +2272,7 @@ define CompoundAssignmentOp = one-of! [
 define CompoundAssignment = sequential! [
   [\left, SimpleAssignable]
   [\op, CompoundAssignmentOp]
-  [\right, Expression]
+  [\right, ExpressionOrAssignment]
 ], #(x, o, i) -> o.assign i, x.left, x.op, x.right
 
 define Assignment = one-of! [DirectAssignment, CompoundAssignment]
@@ -2654,7 +2660,7 @@ define Let = short-circuit! LetToken, sequential! [
   [\right, one-of! [
     sequential! [
       DeclareEqualSymbol
-      [\this, Expression]
+      [\this, ExpressionOrAssignment]
     ]
     FunctionDeclaration
   ]]
@@ -3723,7 +3729,7 @@ let NEW_STYLE_NODES = {
   for: true
   tmp: true
 }
-let ParserNode = do
+let ParserNode = exports.ParserNode := do
   let ParserNode(type as String, start-index as Number, end-index as Number, data as (Object|null))
     if Array.is-array(data)
       throw TypeError "Expected a non-array for data"
@@ -3736,7 +3742,7 @@ let ParserNode = do
         self[k] := v
     self
   
-  exports.ParserNode := ParserNode
+  ParserNode
 
 State::regexp := #(index, text, flags) -> ParserNode \regexp, index, @index, { text, flags }
 State::this := #(index) -> ParserNode \this, index, @index

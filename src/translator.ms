@@ -900,7 +900,7 @@ let translators = {
       throw Error "Expected name to be an Ident, got $(typeof! ident)"
     let value = translate node.value, scope, \expression
     HELPERS[ident.name] := #-> value
-    module.exports.known-helpers.push(ident.name)
+    KNOWN_HELPERS.push(ident.name)
     ast.BlockExpression()
   eval: #(node, scope, location, auto-return)
     auto-return ast.Eval translate(node.code, scope, \expression)
@@ -1714,4 +1714,4 @@ module.exports := #(node, options = {})
     macro-helpers: scope.get-macro-helpers()
   }
 
-module.exports.known-helpers := []
+let KNOWN_HELPERS = module.exports.known-helpers := []

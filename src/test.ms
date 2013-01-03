@@ -88,7 +88,7 @@ asyncfor next, file, i in files
   unless r'\.ms$'i.test(file)
     return next()
   
-  let filename = (current-file := path.join tests-path, file)
+  let filename = current-file := path.join tests-path, file
   async err, code <- fs.read-file filename
   throw? err
   let basename = path.basename filename

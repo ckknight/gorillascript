@@ -167,7 +167,7 @@ test "multiple assignment", #
   array[0, 2, 4] := ["foxtrot", "golf", "hotel"]
   array-eq ["foxtrot", "bravo", "golf", "delta", "hotel"], array
   
-  let x = (array[1, 3] := ["india", "juliet"])
+  let x = array[1, 3] := ["india", "juliet"]
   array-eq ["foxtrot", "india", "golf", "juliet", "hotel"], array
   array-eq ["india", "juliet"], x
 
@@ -199,7 +199,7 @@ test "splicing", #
   array[:1] := ["i", "j"]
   array-eq ["i", "j", "g", "h"], array
   
-  let result = (array[2:] := ["k", "l"])
+  let result = array[2:] := ["k", "l"]
   array-eq ["i", "j", "k", "l"], array
   array-eq ["k", "l"], result
   

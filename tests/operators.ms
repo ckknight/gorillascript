@@ -701,7 +701,6 @@ test "delete pluck only calculates value once", #
   })
   eq "bravo", delete obj.alpha
 
-/*
 test "let with assignment at the same time", #
   let mutable a = undefined
   let b = a := "alpha"
@@ -759,8 +758,7 @@ test "multiple or= assignment", #
   z := x ?= {}
   eq x, y
   eq x, z
-  
-*/
+
 /*
 test "assignment to reserved words", #
   for name in require('../lib/ast').RESERVED

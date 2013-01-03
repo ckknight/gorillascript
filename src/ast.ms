@@ -100,7 +100,7 @@ let to-JS-source(value)
     throw TypeError "Cannot compile const $(typeof! value)"
   f value
 
-let is-acceptable-ident = do
+let is-acceptable-ident = exports.is-acceptable-ident := do
   let IDENTIFIER_REGEX = r'^[a-zA-Z_\$][a-zA-Z_\$0-9]*$'
   let RESERVED = [
     "arguments"
@@ -156,9 +156,8 @@ let is-acceptable-ident = do
   ]
   #(name as String)
     IDENTIFIER_REGEX.test(name) and name not in RESERVED
-exports.is-acceptable-ident := is-acceptable-ident
 
-let Node = do
+let Node = exports.Node := do
   let Node()!
     throw Error "Node cannot be instantiated directly"
   
@@ -182,9 +181,9 @@ let Node = do
   Node::is-noop := #-> false
   Node::const-value := #-> throw Error "$(@constructor.name) has no const value"
   
-  exports.Node := Node
+  Node
 
-let Expression = do
+let Expression = exports.Expression := do
   let Expression()!
     throw Error "Expression cannot be instantiated directly"
   Expression.prototype := ^Node.prototype
@@ -203,9 +202,9 @@ let Expression = do
   
   Expression::is-large := #-> false
   
-  exports.Expression := Expression
+  Expression
 
-let Statement = do
+let Statement = exports.Statement := do
   let Statement()!
     throw Error "Expression cannot be instantiated directly"
   Statement.prototype := ^Node.prototype
@@ -216,16 +215,15 @@ let Statement = do
   
   Statement::is-large := #-> true
   
-  exports.Statement := Statement
+  Statement
 
-let Access(parent, ...children)
+let Access = exports.Access := #(parent, ...children)
   let mutable current = parent
   for child in children
     current := Binary current, ".", child
   current
-exports.Access := Access
 
-let Arguments = do
+let Arguments = exports.Arguments := do
   let Arguments()
     let self = if this instanceof Arguments then this else ^Arguments.prototype
     self
@@ -238,7 +236,7 @@ let Arguments = do
   
   Arguments::walk := #-> this
   
-  exports.Arguments := Arguments
+  Arguments
 
 let walk-array(array as Array, walker as Function)
   let mutable changed = false
@@ -254,7 +252,7 @@ let walk-array(array as Array, walker as Function)
   else
     array
 
-let Arr = do
+let Arr = exports.Arr := do
   let Arr(elements as [Expression] = [])
     let self = if this instanceof Arr then this else ^Arr.prototype
     self.elements := elements
@@ -298,20 +296,18 @@ let Arr = do
     else
       this
   
-  exports.Arr := Arr
+  Arr
 
-let Assign(left as Expression, right as Expression)
+let Assign = exports.Assign := #(left as Expression, right as Expression)
   Binary left, "=", right
-exports.Assign := Assign
 
-let Concat(...args as [Expression])
+let Concat = exports.Concat := #(...args as [Expression])
   let mutable current = Const ""
   for arg in args
     current := Binary current, "+", arg
   current
-exports.Concat := Concat
 
-let And(...args as [Expression])
+let And = exports.And := #(...args as [Expression])
   if args.length == 0
     Const true
   else
@@ -319,9 +315,8 @@ let And(...args as [Expression])
     for i = 1, args.length
       current := Binary current, "&&", args[i]
     current
-exports.And := And
 
-let Or(...args as [Expression])
+let Or = exports.Or := #(...args as [Expression])
   if args.length == 0
     Const false
   else
@@ -329,9 +324,8 @@ let Or(...args as [Expression])
     for i = 1, args.length
       current := Binary current, "||", args[i]
     current
-exports.Or := Or
 
-let Binary = do
+let Binary = exports.Binary := do
   let Binary(mutable left, op as String, mutable right)
     let self = if this instanceof Binary then this else ^Binary.prototype
     if OPERATOR_PRECEDENCE not ownskey op
@@ -611,9 +605,9 @@ let Binary = do
     else
       this
   
-  exports.Binary := Binary
+  Binary
 
-let BlockStatement = do
+let BlockStatement = exports.BlockStatement := do
   let BlockStatement(body as [Node] = [])
     let self = if this instanceof BlockStatement then this else ^BlockStatement.prototype
     
@@ -651,9 +645,9 @@ let BlockStatement = do
     else
       this
   
-  exports.BlockStatement := BlockStatement
+  BlockStatement
 
-let BlockExpression = do
+let BlockExpression = exports.BlockExpression := do
   let BlockExpression(body as [Expression] = [])
     let self = if this instanceof BlockExpression then this else ^BlockExpression.prototype
     
@@ -718,18 +712,17 @@ let BlockExpression = do
   
   BlockExpression::walk := BlockStatement::walk
   
-  exports.BlockExpression := BlockExpression
+  BlockExpression
 
-let Block(body as [Node] = [])
+let Block = exports.Block := #(body as [Node] = [])
   let all-expressions = for every item in body
     item instanceof Expression
   if all-expressions
     BlockExpression body
   else
     BlockStatement body
-exports.Block := Block
 
-let Break = do
+let Break = exports.Break := do
   let Break()
     let self = if this instanceof Break then this else ^Break.prototype
     self
@@ -743,9 +736,9 @@ let Break = do
   
   Break::walk := #-> this
   
-  exports.Break := Break
+  Break
 
-let Call = do
+let Call = exports.Call := do
   let Call(func as Expression, args as [Expression] = [], is-new as Boolean)
     let self = if this instanceof Call then this else ^Call.prototype
     
@@ -878,7 +871,7 @@ let Call = do
     else
       this
   
-  exports.Call := Call
+  Call
 
 let to-const = #(value)
   if value instanceof Node
@@ -892,7 +885,7 @@ let to-const = #(value)
   else
     Const value
 
-let Const = do
+let Const = exports.Const := do
   let Const(value as (void|null|Boolean|Number|String|RegExp))
     let self = if this instanceof Const then this else ^Const.prototype
     self.value := value
@@ -933,9 +926,9 @@ let Const = do
   
   Const::walk := #-> this
   
-  exports.Const := Const
+  Const
 
-let Continue = do
+let Continue = exports.Continue := do
   let Continue()
     let self = if this instanceof Continue then this else ^Continue.prototype
     self
@@ -949,9 +942,9 @@ let Continue = do
   
   Continue::walk := #-> this
   
-  exports.Continue := Continue
+  Continue
 
-let Debugger = do
+let Debugger = exports.Debugger := do
   let Debugger()
     let self = if this instanceof Debugger then this else ^Debugger.prototype
     self
@@ -965,9 +958,9 @@ let Debugger = do
   
   Debugger::walk := #-> this
   
-  exports.Debugger := Debugger
+  Debugger
 
-let DoWhile = do
+let DoWhile = exports.DoWhile := do
   let DoWhile(body as Node, test as Expression)
     let self = if this instanceof DoWhile then this else ^DoWhile.prototype
     self.body := body.maybe-to-statement()
@@ -1002,9 +995,9 @@ let DoWhile = do
     else
       this
   
-  exports.DoWhile := DoWhile
+  DoWhile
 
-let Eval = do
+let Eval = exports.Eval := do
   let Eval(mutable code)
     let self = if this instanceof Eval then this else ^Eval.prototype
     if code not instanceof Expression
@@ -1029,9 +1022,9 @@ let Eval = do
     else
       this
   
-  exports.Eval := Eval
+  Eval
 
-let For = do
+let For = exports.For := do
   let For(init as Expression = BlockExpression(), test as Expression = Const(true), step as Expression = BlockExpression(), body as Node)
     let self = if this instanceof For then this else ^For.prototype
     self.init := init
@@ -1076,9 +1069,9 @@ let For = do
     else
       this
   
-  exports.For := For
+  For
 
-let ForIn = do
+let ForIn = exports.ForIn := do
   let ForIn(key as Ident, object as Expression, body as Node)
     let self = if this instanceof ForIn then this else ^ForIn.prototype
     self.key := key
@@ -1116,7 +1109,7 @@ let ForIn = do
     else
       this
   
-  exports.ForIn := ForIn
+  ForIn
 
 let validate-func-params-and-variables(params, variables)!
   let names = []
@@ -1165,7 +1158,7 @@ let compile-func(options, sb, name, params, declarations, variables, body)
     sb.indent options.indent
   sb "}"
 
-let Func = do
+let Func = exports.Func := do
   let Func(name as (null|Ident), params as [Ident] = [], variables as [String] = [], body as [Node] = [], declarations as [String] = [])
     let self = if this instanceof Func then this else ^Func.prototype
     validate-func-params-and-variables params, variables
@@ -1204,9 +1197,9 @@ let Func = do
     else
       this
   
-  exports.Func := Func
+  Func
 
-let Ident = do
+let Ident = exports.Ident := do
   let Ident(name as String)
     let self = if this instanceof Ident then this else ^Ident.prototype
     unless is-acceptable-ident name
@@ -1221,9 +1214,9 @@ let Ident = do
   
   Ident::walk := #-> this
   
-  exports.Ident := Ident
+  Ident
 
-let IfStatement = do
+let IfStatement = exports.IfStatement := do
   let IfStatement(test as Expression, mutable when-true as Node, mutable when-false as Node = BlockExpression())
     let self = if this instanceof IfStatement then this else ^IfStatement.prototype
     
@@ -1287,9 +1280,9 @@ let IfStatement = do
     else
       this
   
-  exports.IfStatement := IfStatement
+  IfStatement
 
-let IfExpression = do
+let IfExpression = exports.IfExpression := do
   let IfExpression(test as Expression, when-true as Expression, when-false as Expression = BlockExpression())
     let self = if this instanceof IfExpression then this else ^IfExpression.prototype
     
@@ -1338,16 +1331,15 @@ let IfExpression = do
   
   IfExpression::walk := IfStatement::walk
   
-  exports.IfExpression := IfExpression
+  IfExpression
 
-let If(test, when-true, when-false)
+let If = exports.If := #(test, when-true, when-false)
   if when-true instanceof Expression and (not when-false or when-false instanceof Expression)
     IfExpression test, when-true, when-false
   else
     IfStatement test, when-true, when-false
-exports.If := If
 
-let Obj = do
+let Obj = exports.Obj := do
   let validate-unique-keys(elements)!
     let keys = []
     for pair in elements
@@ -1438,9 +1430,9 @@ let Obj = do
     else
       this
   
-  exports.Obj := Obj
+  Obj
 
-let Return = do
+let Return = exports.Return := do
   let Return(@node as Expression = Const(void))
     let self = if this instanceof Return then this else ^Return.prototype
     self.node := node
@@ -1462,9 +1454,9 @@ let Return = do
     else
       this
   
-  exports.Return := Return
+  Return
 
-let Root = do
+let Root = exports.Root := do
   let Root(body as [Node] = [], variables as [String] = [], declarations as [String] = [])
     let self = if this instanceof Root then this else ^Root.prototype
     
@@ -1502,9 +1494,9 @@ let Root = do
     else
       this
   
-  exports.Root := Root
+  Root
 
-let This = do
+let This = exports.This := do
   let This()
     let self = if this instanceof This then this else ^This.prototype
     self
@@ -1516,9 +1508,9 @@ let This = do
   
   This::walk := #-> this
   
-  exports.This := This
+  This
 
-let Throw = do
+let Throw = exports.Throw := do
   let Throw(node as Expression)
     let self = if this instanceof Throw then this else ^Throw.prototype
     self.node := node
@@ -1538,9 +1530,9 @@ let Throw = do
     else
       this
   
-  exports.Throw := Throw
+  Throw
 
-let Switch = do
+let Switch = exports.Switch := do
   let Switch(node as Expression, cases as [SwitchCase] = [], default-case as Node = BlockStatement())
     let self = if this instanceof Switch then this else ^Switch.prototype
     self.node := node
@@ -1604,9 +1596,9 @@ let Switch = do
     else
       this
   
-  exports.Switch := Switch
+  Switch
 
-let TryCatch = do
+let TryCatch = exports.TryCatch := do
   let TryCatch(try-body as Node, catch-ident as Ident, catch-body as Node)
     let self = if this instanceof TryCatch then this else ^TryCatch.prototype
     
@@ -1649,9 +1641,9 @@ let TryCatch = do
     else
       this
   
-  exports.TryCatch := TryCatch
+  TryCatch
 
-let TryFinally = do
+let TryFinally = exports.TryFinally := do
   let TryFinally(try-body as Node, finally-body as Node)
     let self = if this instanceof TryFinally then this else ^TryFinally.prototype
     self.try-body := try-body.maybe-to-statement()
@@ -1707,9 +1699,9 @@ let TryFinally = do
     else
       this
 
-  exports.TryFinally := TryFinally
+  TryFinally
 
-let Unary = do
+let Unary = exports.Unary := do
   let Unary(op as String, mutable node)
     let self = if this instanceof Unary then this else ^Unary.prototype
     
@@ -1833,8 +1825,7 @@ let Unary = do
     else
       this
   
-  exports.Unary := Unary
+  Unary
 
-let While(test, body)
+let While = exports.While := #(test, body)
   For(null, test, null, body)
-exports.While := While
