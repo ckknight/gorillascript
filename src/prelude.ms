@@ -176,7 +176,7 @@ macro for
         throw Error("Cannot use a for loop with an else as an expression")
       else if reducer
         throw Error("Cannot use a for loop with an else with " ~& reducer)
-      let run-else = @tmp()
+      let run-else = @tmp \else
       body := AST
         $run-else := false
         $body
@@ -212,12 +212,12 @@ macro for
         else
           throw Error("Unknown reducer: " ~& reducer)
       else if @expr
-        let tmp = @tmp()
-        body := @mutate-last body, #(node) -> (AST $tmp.push $node)
+        let arr = @tmp \arr
+        body := @mutate-last body, #(node) -> (AST $arr.push $node)
         init := AST
-          $tmp := []
+          $arr := []
           $init
-        let loop = [@for(init, test, step, body), (AST return $tmp)]
+        let loop = [@for(init, test, step, body), (AST return $arr)]
         AST do
           $loop
       else
@@ -245,7 +245,7 @@ macro for
       if typeof @value(end) != "number"
         throw Error "Cannot end with a non-number: #(@value start)"
     else if @is-complex(end)
-      end := @cache (AST +$end), init
+      end := @cache (AST +$end), init, \end
     else
       init.push AST +$end
     
@@ -253,7 +253,7 @@ macro for
       if typeof @value(step) != "number"
         throw Error "Cannot step with a non-number: #(@value step)"
     else if @is-complex(step)
-      step := @cache (AST +$step), init
+      step := @cache (AST +$step), init, \step
     else
       init.push AST +$step
     
@@ -272,7 +272,7 @@ macro for
       AST if $step ~> 0 then $ident ~< $end else $ident ~> $end
     
     if @has-func(body)
-      let func = @tmp()
+      let func = @tmp \f
       init.push (AST let $func = #($ident) -> $body)
       body := (AST $func($ident))
     
@@ -309,17 +309,17 @@ macro for
       reducer := null
     
     let init = []
-    array := @cache array, init
+    array := @cache array, init, \arr
     
     let mutable length = null
     if @empty(index)
-      index := @tmp()
-      length := @tmp()
+      index := @tmp \i
+      length := @tmp \len
     else
       length := index.length
       index := index.value
       if @empty(length)
-        length := @tmp()
+        length := @tmp \len
     
     init.push AST let mutable $index = 0
     init.push AST let $length = +$array.length
@@ -329,7 +329,7 @@ macro for
       $body
     
     if @has-func(body)
-      let func = @tmp()
+      let func = @tmp \f
       init.push AST let $func = #($index) -> $body
       body := AST $func($index)
     
@@ -380,7 +380,7 @@ macro for
     let own = type == "of"
     let init = []
     if own or value
-      object := @cache object, init
+      object := @cache object, init, \obj
     
     if value
       body := AST
@@ -388,7 +388,7 @@ macro for
         $body
     
     if @has-func(body)
-      let func = @tmp()
+      let func = @tmp \f
       if index
         init.push (AST let $func = #($key, $index) -> $body)
         body := (AST $func($key, $index))
@@ -398,7 +398,7 @@ macro for
     
     let post = []
     if not @empty(else-body)
-      let run-else = @tmp()
+      let run-else = @tmp \else
       init.push (AST let $run-else = true)
       body := AST
         $run-else := false
@@ -448,12 +448,12 @@ macro for
         else
           throw Error("Unknown reducer: " ~& reducer)
       else if @expr
-        let tmp = @tmp()
-        body := @mutate-last body, #(node) -> (AST $tmp.push $node)
+        let arr = @tmp \arr
+        body := @mutate-last body, #(node) -> (AST $arr.push $node)
         init := AST
-          $tmp := []
+          $arr := []
           $init
-        let loop = [init, @for-in(key, object, body), (AST return $tmp)]
+        let loop = [init, @for-in(key, object, body), (AST return $arr)]
         return AST do
           $loop
     
@@ -530,18 +530,18 @@ macro try
     let mutable catch-ident = if not @empty(catch-part) then catch-part.ident
     let mutable catch-body = if not @empty(catch-part) then catch-part.body
     let init = []
-    let mutable should-run-else = void
+    let mutable run-else = void
     if has-else
-      should-run-else := @tmp()
-      init.push AST let $should-run-else = true
+      run-else := @tmp \else
+      init.push AST let $run-else = true
       if catch-body
         catch-body := AST
-          $should-run-else := false
+          $run-else := false
           $catch-body
       else
-        catch-ident := @tmp()
+        catch-ident := @tmp \err
         catch-body := AST
-          $should-run-else := false
+          $run-else := false
           throw $catch-ident
     
     let mutable current = try-body
@@ -549,7 +549,7 @@ macro try
       current := @try-catch(current, catch-ident, catch-body)
     if has-else
       current := @try-finally current, AST
-        if $should-run-else
+        if $run-else
           $else-body
     if not @empty(finally-body)
       current := @try-finally(current, finally-body)
@@ -607,7 +607,7 @@ macro asyncfor
     if @empty(step)
       step := []
       step := AST $step
-    let done = @tmp true
+    let done = @tmp \done, true
     if @empty(result)
       if @empty(step)
         AST
@@ -620,7 +620,7 @@ macro asyncfor
             $rest
           $next()
       else
-        let first = @tmp true
+        let first = @tmp \first, true
         AST
           $init
           let $first = true
@@ -636,8 +636,8 @@ macro asyncfor
             $body
           $next()
     else
-      let first = @tmp true
-      let value = @tmp true
+      let first = @tmp \first, true
+      let value = @tmp \value, true
       AST
         $init
         let $first = true
@@ -673,7 +673,7 @@ macro asyncfor
       if typeof @value(end) != "number"
         throw Error "Cannot end with a non-number: #(@value start)"
     else if @is-complex(end)
-      end := @cache (AST +$end), init
+      end := @cache (AST +$end), init, \end
     else
       init.push AST +$end
     
@@ -681,7 +681,7 @@ macro asyncfor
       if typeof @value(step) != "number"
         throw Error "Cannot step with a non-number: #(@value step)"
     else if @is-complex(step)
-      step := @cache (AST +$step), init
+      step := @cache (AST +$step), init, \step
     else
       init.push AST +$step
     
@@ -699,7 +699,6 @@ macro asyncfor
     else
       AST if $step ~> 0 then $ident ~< $end else $ident ~> $end
     
-    let done = @tmp true
     AST
       asyncfor $result <- $next, $init; $test; $ident ~+= $step
         $body
@@ -707,17 +706,17 @@ macro asyncfor
   
   syntax result as (this as Identifier, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as Body, rest as DedentedBody
     let init = []
-    array := @cache array, init
+    array := @cache array, init, \arr
     
     let mutable length = null
     if @empty(index)
-      index := @tmp()
-      length := @tmp()
+      index := @tmp \i, true
+      length := @tmp \len, true
     else
       length := index.length
       index := index.value
       if @empty(length)
-        length := @tmp()
+        length := @tmp \len, true
 
     init.push AST let mutable $index = 0
     init.push AST let $length = +$array.length
@@ -734,7 +733,7 @@ macro asyncfor
   syntax result as (this as Identifier, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as Body, rest as DedentedBody
     let own = type == "of"
     let init = []
-    object := @cache object, init
+    object := @cache object, init, \obj
     
     let mutable index = null
     if @empty(value)
@@ -749,9 +748,9 @@ macro asyncfor
         let $value = $object[$key]
         $body
     if not index
-      index := @tmp true
+      index := @tmp \i, true
     
-    let keys = @tmp true
+    let keys = @tmp \keys, true
     let get-keys = if own
       AST for $key of $object
         $keys.push $key

@@ -63,8 +63,8 @@ macro cache!(rule, dont-cache)
 macro mutate!(rule, mutator)
   if mutator? and (not @is-const(mutator) or @value(mutator) != void)
     let init = []
-    rule := @cache rule, init, true
-    mutator := @cache mutator, init, true
+    rule := @cache rule, init, \rule, true
+    mutator := @cache mutator, init, \mutator, true
     let result = AST named($rule?.parser-name, #(o)
       let index = o.index
       let result = $rule o
@@ -88,7 +88,7 @@ macro mutate!(rule, mutator)
 
 macro check!(rule, mutator)
   let init = []
-  rule := @cache rule, init, true
+  rule := @cache rule, init, \rule, true
   let result = AST mutate! (#(o) -> $rule o.clone()), $mutator
   if init.length
     AST do
@@ -115,7 +115,7 @@ macro one-of!(array, mutator)
         if typeof @value(rule) != \string
           throw Error "Can only handle constant string literals"
         rule := AST word-or-symbol $rule
-      rule := @cache rule, init, true
+      rule := @cache rule, init, \rule, true
       if checks == void
         checks := AST $rule o
       else
@@ -205,14 +205,14 @@ macro sequential!(array, mutator)
       
       has-result := true
       let key = parts[0]
-      let rule = @cache parts[1], init, true
+      let rule = @cache parts[1], init, \rule, true
       if @value(key) == \this
         has-this := true
         AST result := $rule clone
       else
         AST result[$key] := $rule clone
     else
-      let rule = @cache item, init, true
+      let rule = @cache item, init, \rule, true
       AST $rule clone
   let mutable code = void
   for check in checks
@@ -250,9 +250,9 @@ macro maybe!(rule, missing-value, found-value)
   if @is-const(missing-value) and not @value(missing-value)
     throw Error "Expected a truthy missing-value, got $(String @value(missing-value))"
   let init = []
-  rule := @cache rule, init, true
-  missing-value := @cache missing-value, init, true
-  found-value := @cache found-value, init, true
+  rule := @cache rule, init, \rule, true
+  missing-value := @cache missing-value, init, \missing, true
+  found-value := @cache found-value, init, \found, true
   
   let result = AST named(($rule?.parser-name or "<unknown>") & "?", #(o)
     let index = o.index
@@ -281,7 +281,7 @@ macro maybe!(rule, missing-value, found-value)
 
 macro except!(rule)
   let init = []
-  rule := @cache rule, init, true
+  rule := @cache rule, init, \rule, true
   
   let result = AST named("!" & ($rule?.parser-name or "<unknown>"), #(o)
     not $rule o.clone())
@@ -302,8 +302,8 @@ macro any-except!(rule, mutator)
 
 macro short-circuit!(expected, backend)
   let init = []
-  expected := @cache expected, init, true
-  backend := @cache backend, init, true
+  expected := @cache expected, init, \expected, true
+  backend := @cache backend, init, \backend, true
   
   let result = AST named($backend?.parser-name, #(o)
     if not $expected(o.clone())
@@ -357,7 +357,7 @@ macro multiple!(min-count, max-count, rule, mutator)
     AST mutate! mutate!($rule, #(x) -> [x], true), $mutator
   else
     let init = []
-    rule := @cache rule, init, true
+    rule := @cache rule, init, \rule, true
     let result = AST mutate! named(calculate-multiple-name!($rule?.parser-name or "<nothing>", $min-count, $max-count), #(o)
       let clone = o.clone()
       let result = []
@@ -2535,7 +2535,7 @@ macro make-binary!(operators, next-rule, minimum-extra, maximum-extra, right-to-
     operators := @array [operators]
   
   let init = []
-  next-rule := @cache next-rule, init, true
+  next-rule := @cache next-rule, init, \rule, true
   
   let op-choices = @array for x in @elements(operators)
     if @is-const(x)
@@ -2777,10 +2777,10 @@ let MacroHelper = do
     let id = -1
     #-> id += 1
   
-  MacroHelper::tmp := #(save)
+  MacroHelper::tmp := #(name as String = \ref, save as Boolean)
     let id = get-tmp-id()
     (if save then @saved-tmps else @unsaved-tmps).push id
-    @state.tmp @index, id
+    @state.tmp @index, id, name
   
   MacroHelper::get-tmps := #-> {
     unsaved: @unsaved-tmps[:]
@@ -2919,9 +2919,9 @@ let MacroHelper = do
   MacroHelper::is-complex := #(node)
     node? and node.type not in [\const, \ident, \tmp] and not (node.type == \block and node.nodes.length == 0)
   
-  MacroHelper::cache := #(node, init, save)
+  MacroHelper::cache := #(node, init, name as String = \ref, save as Boolean)
     if @is-complex node
-      let tmp = @tmp(save)
+      let tmp = @tmp(name, save)
       init.push ParserNode \let, @index, @index, { left: (ParserNode \declarable, @index, @index, { ident: tmp, is-mutable: false }), right: node }
       tmp
     else
@@ -3784,7 +3784,7 @@ State::try-catch := #(index as Number, try-body as Object, catch-ident as Object
 State::try-finally := #(index as Number, try-body as Object, finally-body as Object) -> ParserNode \try-finally, index, @index, { try-body, finally-body }
 State::for := #(index as Number, init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> ParserNode \for, index, @index, { init, test, step, body }
 State::for-in := #(index as Number, key as Object, object as Object, body as Object) -> ParserNode \for-in, index, @index, { key, object, body }
-State::tmp := #(index as Number, id as Number) -> ParserNode \tmp, index, @index, { id }
+State::tmp := #(index as Number, id as Number, name as String) -> ParserNode \tmp, index, @index, { id, name }
 
 let unique(array)
   let result = []

@@ -82,7 +82,9 @@ if process.argv.length > 2
     if file == process.argv[2]
       file
 
-asyncfor next, file in files
+asyncfor next, file, i in files
+  if i == 0
+    monkey.init()
   unless r'\.ms$'i.test(file)
     return next()
   

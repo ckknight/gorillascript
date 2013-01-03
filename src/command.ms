@@ -22,6 +22,7 @@ cli.parse {
 }
 
 cli.main #(filenames, options)
+  monkey.init()
   let handle-code(code)
     let result = if options.stdout
       monkey.compile code
@@ -35,16 +36,31 @@ cli.main #(filenames, options)
   else if options.stdin
     cli.with-stdin handle-code
   else if filenames.length
-    let results = {}
+    let input = {}
     asyncfor next, filename in filenames
       async err, code <- fs.read-file filename
       if err
         throw err
-      results[filename] := code.to-string()
+      input[filename] := code.to-string()
       next()
+    let compiled = {}
     for filename in filenames
-      let code = results[filename]
+      let code = input[filename]
       if options.compile
+        process.stdout.write "Compiling $(path.basename filename) ... "
+        let start-time = Date.now()
+        let js-code = monkey.compile code
+        let end-time = Date.now()
+        process.stdout.write "$(((end-time - start-time) / 1000_ms).toFixed(3)) seconds\n"
+        compiled[filename] := js-code
+      else
+        if options.stdout
+          process.stdout.write monkey.compile(code) & "\n"
+        else
+          monkey.run code, { filename }
+    
+    if options.compile
+      asyncfor next, filename in filenames
         let js-filename = path.basename(filename, path.extname(filename)) & ".js"
         let source-dir = path.dirname filename
         let base-dir = source-dir
@@ -57,14 +73,11 @@ cli.main #(filenames, options)
         asyncif done, not exists
           async <- child_process.exec "mkdir -p $dir"
           done()
-        let js-code = monkey.compile code
+        let js-code = compiled[filename]
         async err <- fs.write-file js-path, js-code
         if err
           cli.error err.to-string()
-      else
-        if options.stdout
-          process.stdout.write monkey.compile(code) & "\n"
-        else
-          monkey.run code, { filename }
+        next()
+      void // FIXME
   else
     require './repl'

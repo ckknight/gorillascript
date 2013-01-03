@@ -110,3 +110,6 @@ exports.run := #(source, options = {})
     main-module._compile compile(source, options), main-module.filename
   else
     main-module._compile source, main-module.filename
+
+exports.init := #!
+  fetch-and-parse-prelude.sync()

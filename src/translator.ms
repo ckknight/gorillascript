@@ -14,7 +14,7 @@ let Scope = do
     unless needs-caching item
       func item, item, false
     else
-      let ident = @reserve-ident()
+      let ident = @reserve-ident \ref
       let result = func ast.Assign(ident, item), ident, true
       @release-ident(ident)
       result
@@ -30,10 +30,10 @@ let Scope = do
     else
       func item, item, false
   
-  Scope::reserve-ident := #
+  Scope::reserve-ident := #(name-part = \ref)
     // TODO: would be better as for first
     for i = 1, Infinity
-      let name = if i == 1 then "_tmp" else "_tmp$i"
+      let name = if i == 1 then "_$(name-part)" else "_$(name-part)$i"
       unless @used-tmps haskey name
         @used-tmps[name] := true
         let ident = ast.Ident name
@@ -48,13 +48,13 @@ let Scope = do
         @used-tmps[name] := true
         return ast.Ident name
   
-  Scope::get-tmp := #(id)
+  Scope::get-tmp := #(id, name)
     let tmps = @tmps
     if tmps haskey id
       let tmp = tmps[id]
       if tmp instanceof ast.Ident
         return tmp
-    tmps[id] := @reserve-ident()
+    tmps[id] := @reserve-ident name or \tmp
   
   Scope::release-tmp := #(id)!
     if @tmps ownskey id
@@ -391,7 +391,7 @@ let unary-ops = {
   delete: #(node, scope, location, auto-return)
     if location == \expression
       async set-node, node <- scope.maybe-cache-access translate node.node, scope, \expression
-      let ident = scope.reserve-ident()
+      let ident = scope.reserve-ident \ref
       let block = ast.Block [
         ast.Assign ident, set-node
         ast.Unary "delete", node, scope, \expression
@@ -1069,8 +1069,8 @@ let translators = {
         if array-index
           throw Error "Not implemented: arrays within arrays as types"
         scope.add-helper \__is-array
-        let index = scope.reserve-ident()
-        let length = scope.reserve-ident()
+        let index = scope.reserve-ident \i
+        let length = scope.reserve-ident \len
         ast.If(
           ast.Unary(
             "!"
@@ -1132,7 +1132,7 @@ let translators = {
         }
       
       array: #(array, scope, inner)
-        let array-ident = if inner then scope.reserve-ident() else scope.reserve-param()
+        let array-ident = if inner then scope.reserve-ident \p else scope.reserve-param()
         let init = []
         let mutable found-spread = -1
         let mutable spread-counter = void
@@ -1162,7 +1162,7 @@ let translators = {
                   ast.Ident(\__slice)
                   [array-ident, ...(if i == 0 then [] else [ast.Const(i)])]))
             else
-              spread-counter := scope.reserve-ident()
+              spread-counter := scope.reserve-ident \ref
               init.push ast.Assign(
                 param.ident
                 ast.IfExpresion(
@@ -1193,7 +1193,7 @@ let translators = {
         }
       
       object: #(object, scope, inner)
-        let object-ident = if inner then scope.reserve-ident() else scope.reserve-param()
+        let object-ident = if inner then scope.reserve-ident \p else scope.reserve-param()
         let init = []
         
         for pair in object.pairs
@@ -1256,7 +1256,7 @@ let translators = {
                 ast.Ident(\__slice)
                 [ast.Arguments(), ...(if i == 0 then [] else [ast.Const(i)])]))
           else
-            spread-counter := inner-scope.reserve-ident()
+            spread-counter := inner-scope.reserve-ident \ref
             initializers.push ast.Assign(
               param.ident
               ast.IfExpression(
@@ -1367,7 +1367,7 @@ let translators = {
     if post-const-pairs.length == 0
       auto-return obj
     else
-      let ident = scope.reserve-ident()
+      let ident = scope.reserve-ident \o
       let result = ast.BlockExpression [
         ast.Assign ident, obj
         ...for pair in post-const-pairs
@@ -1648,7 +1648,7 @@ let translators = {
     auto-return current
   
   tmp: #(node, scope, location, auto-return)
-    auto-return scope.get-tmp(node.id)
+    auto-return scope.get-tmp(node.id, node.name)
   
   this: #(node, scope, location, auto-return)
     scope.used-this := true
