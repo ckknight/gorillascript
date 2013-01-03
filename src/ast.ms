@@ -158,12 +158,6 @@ let is-acceptable-ident = do
     IDENTIFIER_REGEX.test(name) and name not in RESERVED
 exports.is-acceptable-ident := is-acceptable-ident
 
-let maybe-to-statement(node)
-  if node and typeof node.to-statement == "function"
-    node.to-statement()
-  else
-    node
-
 let Node = do
   let Node()!
     throw Error "Node cannot be instantiated directly"
@@ -177,6 +171,12 @@ let Node = do
     new Function @to-string()
   
   Node::compile := # -> throw Error "compile not implemented: $(@constructor.name)"
+  
+  Node::maybe-to-statement := #
+    if typeof @to-statement == "function"
+      @to-statement()
+    else
+      this
   
   exports.Node := Node
 
@@ -629,7 +629,7 @@ let BlockStatement = do
     
     let result = []
     for item in body
-      let statement = maybe-to-statement item
+      let statement = item.maybe-to-statement()
       if not is-noop(statement)
         if statement instanceof BlockStatement
           result.push ...statement.body
@@ -966,7 +966,7 @@ let Debugger = do
 let DoWhile = do
   let DoWhile(body as Node, test as Expression)
     let self = if this instanceof DoWhile then this else ^DoWhile.prototype
-    self.body := maybe-to-statement body
+    self.body := body.maybe-to-statement()
     self.test := test
     self
   DoWhile.prototype := ^Statement.prototype
@@ -1033,7 +1033,7 @@ let For = do
     self.init := init
     self.test := test
     self.step := step
-    self.body := maybe-to-statement body
+    self.body := body.maybe-to-statement()
     self
   For.prototype := ^Statement.prototype
   For::constructor := For
@@ -1079,7 +1079,7 @@ let ForIn = do
     let self = if this instanceof ForIn then this else ^ForIn.prototype
     self.key := key
     self.object := object
-    self.body := maybe-to-statement(body)
+    self.body := body.maybe-to-statement()
     self
   ForIn.prototype := ^Statement.prototype
   ForIn::constructor := ForIn
@@ -1229,8 +1229,8 @@ let IfStatement = do
       else
         when-false
     else
-      when-true := maybe-to-statement when-true
-      when-false := maybe-to-statement when-false
+      when-true := when-true.maybe-to-statement()
+      when-false := when-false.maybe-to-statement()
       if is-noop(when-true)
         if is-noop(when-false)
           test
@@ -1468,7 +1468,7 @@ let Root = do
     
     self.body := []
     for item in body
-      let statement = maybe-to-statement item
+      let statement = item.maybe-to-statement()
       if statement instanceof BlockStatement
         self.body.push ...statement.body
       else
@@ -1541,7 +1541,7 @@ let Switch = do
     let self = if this instanceof Switch then this else ^Switch.prototype
     self.node := node
     self.cases := cases
-    self.default-case := maybe-to-statement default-case
+    self.default-case := default-case.maybe-to-statement()
     self
   Switch.prototype := ^Statement.prototype
   Switch::constructor := Switch
@@ -1586,7 +1586,7 @@ let Switch = do
   let SwitchCase(node as Expression, body as Node)
     let self = if this instanceof SwitchCase then this else ^SwitchCase.prototype
     self.node := node
-    self.body := maybe-to-statement body
+    self.body := body.maybe-to-statement()
     self
   Switch.Case := SwitchCase
   
@@ -1606,11 +1606,11 @@ let TryCatch = do
   let TryCatch(try-body as Node, catch-ident as Ident, catch-body as Node)
     let self = if this instanceof TryCatch then this else ^TryCatch.prototype
     
-    self.try-body := maybe-to-statement try-body
+    self.try-body := try-body.maybe-to-statement()
     if is-noop(self.try-body)
       return BlockStatement()
     self.catch-ident := catch-ident
-    self.catch-body := maybe-to-statement catch-body
+    self.catch-body := catch-body.maybe-to-statement()
     self
   TryCatch.prototype := ^Statement.prototype
   TryCatch::constructor := TryCatch
@@ -1650,8 +1650,8 @@ let TryCatch = do
 let TryFinally = do
   let TryFinally(try-body as Node, finally-body as Node)
     let self = if this instanceof TryFinally then this else ^TryFinally.prototype
-    self.try-body := maybe-to-statement try-body
-    self.finally-body := maybe-to-statement finally-body
+    self.try-body := try-body.maybe-to-statement()
+    self.finally-body := finally-body.maybe-to-statement()
     if is-noop(self.try-body)
       if is-noop(self.finally-body)
         BlockStatement()
