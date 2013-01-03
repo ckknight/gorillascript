@@ -3021,6 +3021,28 @@ let MacroHelper = do
           is-new: false
         }]
       }
+    else if obj instanceof ParserNode
+      let clone = {}
+      let has-any = false
+      for k, v of obj
+        if k not in [\type, \start-index, \end-index]
+          clone[k] := v
+          has-any := true
+      ParserNode \call-chain, obj.start-index, obj.end-index, {
+        head: ParserNode \ident, obj.start-index, obj.end-index, { name: \__node }
+        links: [{
+          type: \call
+          args: [
+            ParserNode \const, obj.start-index, obj.end-index, { value: obj.type }
+            ParserNode \const, obj.start-index, obj.end-index, { value: obj.start-index }
+            ParserNode \const, obj.start-index, obj.end-index, { value: obj.end-index }
+            ...(if has-any
+              [constify-object clone, obj.start-index, obj.end-index]
+            else
+              [])
+          ]
+        }]
+      }
     else
       ParserNode \object, start-index, end-index, {
         pairs: for k, v of obj
@@ -3344,23 +3366,14 @@ let MacroHelper = do
     if not node or typeof node != \object or node instanceof RegExp
       return node
     
+    //if node not instanceof ParserNode
+    //  throw Error "Unexpected type to walk through: $(typeof! node)"
+    
     unless walkers ownskey node.type
       throw Error "Unknown node type to walk through: $(node.type)"
     
     return? func node
-    if NEW_STYLE_NODES ownskey node.type
-      walkers[node.type](node, func)
-    else
-      let value = walkers[node.type](node.value, func)
-      if obj-equal value, node.value
-        node
-      else
-        {
-          node.type
-          node.start-index
-          node.end-index
-          value: value
-        }
+    walkers[node.type](node, func)
   let walk-array(array, func) -> map array, walk, func
   
   MacroHelper.fix-asts := #(result) -> walk result, #->
@@ -3382,6 +3395,9 @@ let MacroHelper = do
       throw Error "Trying to wrap a non-object: $(typeof! value)"
     else
       value
+  
+  MacroHelper.node := #(type, start-index, end-index, data)
+    ParserNode type, start-index, end-index, data
   
   MacroHelper::has-func := #(node)
     let FOUND = {}
@@ -3474,6 +3490,21 @@ let MacroHolder = do
   
   MacroHolder
 
+let ParserNode = do
+  let ParserNode(type as String, start-index as Number, end-index as Number, data as (Object|null))
+    if Array.is-array(data)
+      throw TypeError "Expected a non-array for data"
+    let self = if this instanceof ParserNode then this else ^ParserNode.prototype
+    self.type := type
+    self.start-index := start-index
+    self.end-index := end-index
+    if data?
+      for k, v of data
+        self[k] := v
+    self
+  
+  ParserNode
+
 let State = do
   let State(@data, @macros = new MacroHolder(), @index = 0, @failures = new FailureManager(), @cache = [], @indent = new Stack(1), @current-macro = null)! ->
   
@@ -3489,8 +3520,6 @@ let State = do
   
   State::error := #(message)!
     throw ParserError message, @data, @index
-  
-  State::node := #(type, index, value) -> ParserNode type, index, @index, { value }
   
   State::start-macro := #(name)!
     if @current-macro
@@ -3613,6 +3642,7 @@ let State = do
         [
           @object-param index, func-params
           @param index, (@ident index, \__wrap), void, false, true, void
+          @param index, (@ident index, \__node), void, false, true, void
           @param index, (@ident index, \__macro), void, false, true, void
         ]
         body
@@ -3633,6 +3663,7 @@ let State = do
         [
           @array-param index, params
           @param index, (@ident index, \__wrap), void, false, true, void
+          @param index, (@ident index, \__node), void, false, true, void
           @param index, (@ident index, \__macro), void, false, true, void
         ]
         body
@@ -3672,7 +3703,7 @@ let State = do
         o.macro-access i, macro-id, x
       else
         let macro-helper = new MacroHelper o, i, not _statement.peek()
-        let result = handler.call macro-helper, x, MacroHelper.wrap, #(id, data)
+        let result = handler.call macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data)
           macros.get-by-id(id)(data, o, i)
         let tmps = macro-helper.get-tmps()
         o.use-macro i, result, tmps.unsaved, macro-helpers
@@ -3681,116 +3712,55 @@ let State = do
     let macro-id = macros.add-macro(mutator)
     m.data.push func
   
-  State
-
-let NEW_STYLE_NODES = {
-  regexp: true
-  this: true
-  const: true
-  string: true
-  arguments: true
-  ident: true
-  operator: true
-  array: true
-  array-param: true
-  access: true
-  unary: true
-  object: true
-  type-union: true
-  type-array: true
-  param: true
-  nothing: true
-  debugger: true
-  function: true
-  syntax-sequence: true
-  syntax-choice: true
-  syntax-param: true
-  define-helper: true
-  index: true
-  assign: true
-  call-chain: true
-  binary: true
-  return: true
-  spread: true
-  ast: true
-  eval: true
-  break: true
-  continue: true
-  yield: true
-  block: true
-  root: true
-  macro-access: true
-  use-macro: true
-  declarable: true
-  let: true
-  try-catch: true
-  try-finally: true
-  if: true
-  for: true
-  tmp: true
-}
-let ParserNode = do
-  let ParserNode(type as String, start-index as Number, end-index as Number, data as (Object|null))
-    if Array.is-array(data)
-      throw TypeError "Expected a non-array for data"
-    let self = if this instanceof ParserNode then this else ^ParserNode.prototype
-    self.type := type
-    self.start-index := start-index
-    self.end-index := end-index
-    if data?
-      for k, v of data
-        self[k] := v
-    self
+  State::regexp := #(index, text, flags) -> ParserNode \regexp, index, @index, { text, flags }
+  State::this := #(index) -> ParserNode \this, index, @index
+  State::break := #(index) -> ParserNode \break, index, @index
+  State::continue := #(index) -> ParserNode \continue, index, @index
+  State::const := #(index, value) -> ParserNode \const, index, @index, { value }
+  State::string := #(index, parts as Array) -> ParserNode \string, index, @index, { parts }
+  State::args := #(index) -> ParserNode \arguments, index, @index
+  State::ident := #(index, name as String) -> ParserNode \ident, index, @index, { name }
+  State::operator := #(index, op as String) -> ParserNode \operator, index, @index, { op }
+  State::array := #(index, elements as Array) -> ParserNode \array, index, @index, { elements }
+  State::array-param := State::array
+  State::object := #(index, pairs as [Object]) -> ParserNode \object, index, @index, { pairs }
+  State::object-param := State::object
+  State::access := #(index, parent as Object, child as Object) -> ParserNode \access, index, @index, { parent, child }
+  State::access-index := #(index, parent as Object, child as Object) -> ParserNode \index, index, @index, { parent, child }
+  State::unary := #(index as Number, op as String, node as Object) -> ParserNode \unary, index, @index, { op, node }
+  State::type-union := #(index as Number, types as Array) -> ParserNode \type-union, index, @index, { types }
+  State::type-array := #(index as Number, subtype as Object) -> ParserNode \type-array, index, @index, { subtype }
+  State::param := #(index as Number, ident, default-value, spread as Boolean, is-mutable as Boolean, as-type) -> ParserNode \param, index, @index, { ident, default-value, spread, is-mutable, as-type }
+  State::nothing := #(index as Number) -> ParserNode \nothing, index, @index
+  State::debugger := #(index as Number) -> ParserNode \debugger, index, @index
+  State::function := #(index as Number, params as [Object], body as Object, auto-return as Boolean = true, bound as Boolean = false) -> ParserNode \function, index, @index, { params, body, auto-return, bound }
+  State::syntax-sequence := #(index as Number, params as [Object]) -> ParserNode \syntax-sequence, index, @index, { params }
+  State::syntax-choice := #(index as Number, choices as [Object]) -> ParserNode \syntax-choice, index, @index, { choices }
+  State::syntax-param := #(index as Number, ident as Object, as-type) -> ParserNode \syntax-param, index, @index, { ident, as-type }
+  State::syntax-many := #(index as Number, inner as Object, multiplier as String) -> ParserNode \syntax-many, index, @index, { inner, multiplier }
+  State::define-helper := #(index as Number, name as Object, value as Object) -> ParserNode \define-helper, index, @index, { name, value }
+  State::assign := #(index as Number, left as Object, op as String, right as Object) -> ParserNode \assign, index, @index, { left, op, right }
+  State::call-chain := #(index as Number, head as Object, links as [Object]) -> ParserNode \call-chain, index, @index, { head, links }
+  State::binary := #(index as Number, left as Object, op as String, right as Object) -> ParserNode \binary, index, @index, { left, op, right }
+  State::return := #(index as Number, node as Object, existential as Boolean) -> ParserNode \return, index, @index, { node, existential }
+  State::spread := #(index as Number, node as Object) -> ParserNode \spread, index, @index, { node }
+  State::ast := #(index as Number, node as Object) -> ParserNode \ast, index, @index, { node }
+  State::eval := #(index as Number, code as Object) -> ParserNode \eval, index, @index, { code }
+  State::yield := #(index as Number, node as Object, multiple as Boolean) -> ParserNode \yield, index, @index, { node, multiple }
+  State::block := #(index as Number, nodes as [Object]) -> ParserNode \block, index, @index, { nodes }
+  State::root := #(index as Number, body as Object) -> ParserNode \root, index, @index, { body }
+  State::macro-access := #(index as Number, id as Number, data as Object) -> ParserNode \macro-access, index, @index, { id, data }
+  State::use-macro := #(index as Number, node as Object, tmps as Array, macro-helpers as Array) -> ParserNode \use-macro, index, @index, { node, tmps, macro-helpers }
+  State::declarable := #(index as Number, ident as Object, is-mutable as Boolean) -> ParserNode \declarable, index, @index, { ident, is-mutable }
+  State::let := #(index as Number, left as Object, right as Object) -> ParserNode \let, index, @index, { left, right }
+  State::if := #(index as Number, test as Object, when-true as Object, when-false as (Object|null)) -> ParserNode \if, index, @index, { test, when-true, when-false }
+  State::try-catch := #(index as Number, try-body as Object, catch-ident as Object, catch-body as Object) -> ParserNode \try-catch, index, @index, { try-body, catch-ident, catch-body }
+  State::try-finally := #(index as Number, try-body as Object, finally-body as Object) -> ParserNode \try-finally, index, @index, { try-body, finally-body }
+  State::for := #(index as Number, init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> ParserNode \for, index, @index, { init, test, step, body }
+  State::for-in := #(index as Number, key as Object, object as Object, body as Object) -> ParserNode \for-in, index, @index, { key, object, body }
+  State::tmp := #(index as Number, id as Number, name as String) -> ParserNode \tmp, index, @index, { id, name }
   
-  ParserNode
-
-State::regexp := #(index, text, flags) -> ParserNode \regexp, index, @index, { text, flags }
-State::this := #(index) -> ParserNode \this, index, @index
-State::break := #(index) -> ParserNode \break, index, @index
-State::continue := #(index) -> ParserNode \continue, index, @index
-State::const := #(index, value) -> ParserNode \const, index, @index, { value }
-State::string := #(index, parts as Array) -> ParserNode \string, index, @index, { parts }
-State::args := #(index) -> ParserNode \arguments, index, @index
-State::ident := #(index, name as String) -> ParserNode \ident, index, @index, { name }
-State::operator := #(index, op as String) -> ParserNode \operator, index, @index, { op }
-State::array := #(index, elements as Array) -> ParserNode \array, index, @index, { elements }
-State::array-param := State::array
-State::object := #(index, pairs as [Object]) -> ParserNode \object, index, @index, { pairs }
-State::object-param := State::object
-State::access := #(index, parent as Object, child as Object) -> ParserNode \access, index, @index, { parent, child }
-State::access-index := #(index, parent as Object, child as Object) -> ParserNode \index, index, @index, { parent, child }
-State::unary := #(index as Number, op as String, node as Object) -> ParserNode \unary, index, @index, { op, node }
-State::type-union := #(index as Number, types as Array) -> ParserNode \type-union, index, @index, { types }
-State::type-array := #(index as Number, subtype as Object) -> ParserNode \type-array, index, @index, { subtype }
-State::param := #(index as Number, ident, default-value, spread as Boolean, is-mutable as Boolean, as-type) -> ParserNode \param, index, @index, { ident, default-value, spread, is-mutable, as-type }
-State::nothing := #(index as Number) -> ParserNode \nothing, index, @index
-State::debugger := #(index as Number) -> ParserNode \debugger, index, @index
-State::function := #(index as Number, params as [Object], body as Object, auto-return as Boolean = true, bound as Boolean = false) -> ParserNode \function, index, @index, { params, body, auto-return, bound }
-State::syntax-sequence := #(index as Number, params as [Object]) -> ParserNode \syntax-sequence, index, @index, { params }
-State::syntax-choice := #(index as Number, choices as [Object]) -> ParserNode \syntax-choice, index, @index, { choices }
-State::syntax-param := #(index as Number, ident as Object, as-type) -> ParserNode \syntax-param, index, @index, { ident, as-type }
-State::syntax-many := #(index as Number, inner as Object, multiplier as String) -> ParserNode \syntax-many, index, @index, { inner, multiplier }
-State::define-helper := #(index as Number, name as Object, value as Object) -> ParserNode \define-helper, index, @index, { name, value }
-State::assign := #(index as Number, left as Object, op as String, right as Object) -> ParserNode \assign, index, @index, { left, op, right }
-State::call-chain := #(index as Number, head as Object, links as [Object]) -> ParserNode \call-chain, index, @index, { head, links }
-State::binary := #(index as Number, left as Object, op as String, right as Object) -> ParserNode \binary, index, @index, { left, op, right }
-State::return := #(index as Number, node as Object, existential as Boolean) -> ParserNode \return, index, @index, { node, existential }
-State::spread := #(index as Number, node as Object) -> ParserNode \spread, index, @index, { node }
-State::ast := #(index as Number, node as Object) -> ParserNode \ast, index, @index, { node }
-State::eval := #(index as Number, code as Object) -> ParserNode \eval, index, @index, { code }
-State::yield := #(index as Number, node as Object, multiple as Boolean) -> ParserNode \yield, index, @index, { node, multiple }
-State::block := #(index as Number, nodes as [Object]) -> ParserNode \block, index, @index, { nodes }
-State::root := #(index as Number, body as Object) -> ParserNode \root, index, @index, { body }
-State::macro-access := #(index as Number, id as Number, data as Object) -> ParserNode \macro-access, index, @index, { id, data }
-State::use-macro := #(index as Number, node as Object, tmps as Array, macro-helpers as Array) -> ParserNode \use-macro, index, @index, { node, tmps, macro-helpers }
-State::declarable := #(index as Number, ident as Object, is-mutable as Boolean) -> ParserNode \declarable, index, @index, { ident, is-mutable }
-State::let := #(index as Number, left as Object, right as Object) -> ParserNode \let, index, @index, { left, right }
-State::if := #(index as Number, test as Object, when-true as Object, when-false as (Object|null)) -> ParserNode \if, index, @index, { test, when-true, when-false }
-State::try-catch := #(index as Number, try-body as Object, catch-ident as Object, catch-body as Object) -> ParserNode \try-catch, index, @index, { try-body, catch-ident, catch-body }
-State::try-finally := #(index as Number, try-body as Object, finally-body as Object) -> ParserNode \try-finally, index, @index, { try-body, finally-body }
-State::for := #(index as Number, init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> ParserNode \for, index, @index, { init, test, step, body }
-State::for-in := #(index as Number, key as Object, object as Object, body as Object) -> ParserNode \for-in, index, @index, { key, object, body }
-State::tmp := #(index as Number, id as Number, name as String) -> ParserNode \tmp, index, @index, { id, name }
+  State
 
 let unique(array)
   let result = []
