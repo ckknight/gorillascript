@@ -278,7 +278,7 @@ let Arr = exports.Arr := do
         item.compile options, LEVEL_SEQUENCE, false, sb
   Arr::compile := #(options, level, line-start, sb)!
     sb "["
-    let f = if @is-large() then compile-large else compile-small
+    let f = if @is-large() and @elements.length > 1 then compile-large else compile-small
     f(@elements, options, level, line-start, sb)
     sb "]"
   
