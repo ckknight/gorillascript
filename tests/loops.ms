@@ -28,16 +28,16 @@ test "loop with else", #
     fail()
   eq 45, sum
 
-  let mutable hitElse = false
+  let mutable hit-else = false
   for i = 10, 0
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 */
 test "variable loop without step", #
-  let testLoop(start, finish)
+  let test-loop(start, finish)
     let mutable j = start
     let mutable count = 0
     for i = start, finish
@@ -45,12 +45,12 @@ test "variable loop without step", #
       j += 1
       count += 1
     count
-  eq 9, testLoop 0, 9
-  eq 10, testLoop 0, 10
-  eq 0, testLoop 10, 0 // unless step is specified, it will not go backwards automatically
+  eq 9, test-loop 0, 9
+  eq 10, test-loop 0, 10
+  eq 0, test-loop 10, 0 // unless step is specified, it will not go backwards automatically
 
 test "variable loop with step", #
-  let testLoop(start, finish, step)
+  let test-loop(start, finish, step)
     let mutable j = start
     let mutable count = 0
     for i = start, finish, step
@@ -58,16 +58,16 @@ test "variable loop with step", #
       j += step
       count += 1
     count
-  eq 9, testLoop 0, 9, 1
-  eq 10, testLoop 0, 10, 1
-  eq 0, testLoop 10, 0, 1
-  eq 5, testLoop 0, 9, 2
-  eq 5, testLoop 0, 10, 2
-  eq 0, testLoop 0, 5, -1
-  eq 5, testLoop 5, 0, -1
+  eq 9, test-loop 0, 9, 1
+  eq 10, test-loop 0, 10, 1
+  eq 0, test-loop 10, 0, 1
+  eq 5, test-loop 0, 9, 2
+  eq 5, test-loop 0, 10, 2
+  eq 0, test-loop 0, 5, -1
+  eq 5, test-loop 5, 0, -1
 
 test "loop variable start is only calculated once", #
-  let start = runOnce 0
+  let start = run-once 0
   
   let mutable j = 0
   for i = start(), 10
@@ -76,7 +76,7 @@ test "loop variable start is only calculated once", #
   eq 10, j
 
 test "loop variable finish is only calculated once", #
-  let finish = runOnce 10
+  let finish = run-once 10
   
   let mutable j = 0
   for i = 0, finish()
@@ -85,7 +85,7 @@ test "loop variable finish is only calculated once", #
   eq 10, j
 
 test "loop variable step is only calculated once", #
-  let step = runOnce 1
+  let step = run-once 1
   
   let mutable j = 0
   for i = 0, 10, step()
@@ -232,13 +232,13 @@ test "while loop with else", #
     fail()
   eq 45, sum
   
-  let mutable hitElse = false
+  let mutable hit-else = false
   while i < 10
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 */
 test "until loop", #
   let mutable sum = 0
@@ -258,13 +258,13 @@ test "until loop with else", #
     fail()
   eq 55, sum
   
-  let mutable hitElse = false
+  let mutable hit-else = false
   until i > 10
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 */
 test "while loop with step", #
   let mutable sum = 0
@@ -283,13 +283,13 @@ test "while loop with step and else", #
     fail()
   eq 45, sum
 
-  let mutable hitElse = false
+  let mutable hit-else = false
   while i < 10, fail()
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 */
 test "until loop with step", #
   let mutable sum = 0
@@ -308,13 +308,13 @@ test "until loop with step and else", #
     fail()
   eq 55, sum
   
-  let mutable hitElse = false
+  let mutable hit-else = false
   until i > 10, fail()
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 */
 /*
 test "repeat-while loop", #
@@ -328,7 +328,7 @@ test "repeat-while loop", #
   
   throws #-> Cotton.compile("""
   repeat while true
-    doSomething()
+    do-something()
   else
     throw Error()"""), (e) -> e.line == 3 or true
 
@@ -349,7 +349,7 @@ test "repeat-until loop", #
   
   throws #-> Cotton.compile("""
   repeat until true
-    doSomething()
+    do-something()
   else
     throw Error()"""), (e) -> e.line == 3 or true
 end
@@ -360,7 +360,7 @@ test "object iteration loop", #
   for k of obj
     keys.push k
   keys.sort()
-  arrayEq ["a", "b", "c", "d"], keys
+  array-eq ["a", "b", "c", "d"], keys
 
 /*
 test "object iteration loop does not respect mutable identifier if changed", #
@@ -370,7 +370,7 @@ test "object iteration loop does not respect mutable identifier if changed", #
     keys.push(k)
     obj := {}
   keys.sort()
-  arrayEq ["a", "b", "c", "d"], keys
+  array-eq ["a", "b", "c", "d"], keys
 */
 
 test "object iteration loop with value", #
@@ -380,7 +380,7 @@ test "object iteration loop with value", #
     data.push [k, v]
   data.sort #(a, b) -> a[0] <=> b[0]
   
-  arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+  array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 
 /*
 test "object iteration loop with value and index", #
@@ -394,7 +394,7 @@ test "object iteration loop with value and index", #
   eq j, 4
   data.sort #(a, b) -> a[0] <=> b[0]
   
-  arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+  array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 */
 /*
 test "object iteration loop with else", #
@@ -405,23 +405,23 @@ test "object iteration loop with else", #
   else
     fail()
   keys.sort()
-  arrayEq ["a", "b", "c", "d"], keys
+  array-eq ["a", "b", "c", "d"], keys
   
-  let mutable hitElse = false
+  let mutable hit-else = false
   let other = {}
   for k of other
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 */
 test "object iteration loop with literal object", #
   let keys = []
   for k of { a: 1, b: 4, c: 9, d: 16 }
     keys.push k
   keys.sort()
-  arrayEq ["a", "b", "c", "d"], keys
+  array-eq ["a", "b", "c", "d"], keys
 
 test "object iteration loop with value and literal object", #
   let data = []
@@ -429,7 +429,7 @@ test "object iteration loop with value and literal object", #
     data.push [k, v]
   data.sort #(a, b) -> a[0] <=> b[0]
   
-  arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+  array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 
 /*
 test "object iteration loop with value and index and literal object", #
@@ -442,7 +442,7 @@ test "object iteration loop with value and index and literal object", #
   eq j, 4
   data.sort #(a, b) -> a[0] <=> b[0]
   
-  arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+  array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 */
 /*
 test "object iteration loop with literal object", #
@@ -452,37 +452,37 @@ test "object iteration loop with literal object", #
   else
     fail()
   keys.sort()
-  arrayEq ["a", "b", "c", "d"], keys
+  array-eq ["a", "b", "c", "d"], keys
   
-  let mutable hitElse = false
+  let mutable hit-else = false
   for k of {}
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 */
 test "object iteration loop only accesses object once", #
   let keys = []
-  let obj = runOnce { a: 1, b: 4, c: 9, d: 16 }
+  let obj = run-once { a: 1, b: 4, c: 9, d: 16 }
   for k of obj()
     keys.push k
   keys.sort()
-  arrayEq ["a", "b", "c", "d"], keys
+  array-eq ["a", "b", "c", "d"], keys
 
 test "object iteration loop with value only accesses object once", #
   let data = []
-  let obj = runOnce { a: 1, b: 4, c: 9, d: 16 }
+  let obj = run-once { a: 1, b: 4, c: 9, d: 16 }
   for k, v of obj()
     data.push [k, v]
   data.sort #(a, b) -> a[0] <=> b[0]
   
-  arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+  array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 
 /*
 test "object iteration loop with value and index only accesses object once", #
   let data = []
-  let obj = runOnce { a: 1, b: 4, c: 9, d: 16 }
+  let obj = run-once { a: 1, b: 4, c: 9, d: 16 }
   let mutable j = 0
   for k, v, i of obj()
     data.push [k, v]
@@ -491,7 +491,7 @@ test "object iteration loop with value and index only accesses object once", #
   eq j, 4
   data.sort #(a, b) -> a[0] <=> b[0]
   
-  arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+  array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 */
 test "object iteration loop with inheritance", #
   let Parent()!
@@ -504,7 +504,7 @@ test "object iteration loop with inheritance", #
   for k ofall new Parent
     keys.push k
   keys.sort()
-  arrayEq ["a", "b", "c", "d"], keys
+  array-eq ["a", "b", "c", "d"], keys
 
 test "object iteration loop with inheritance and value", #
   let Parent()!
@@ -518,7 +518,7 @@ test "object iteration loop with inheritance and value", #
     data.push [k, v]
   data.sort #(a, b) -> a[0] <=> b[0]
 
-  arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+  array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 
 /*
 test "object iteration loop with inheritance and value and index", #
@@ -537,7 +537,7 @@ test "object iteration loop with inheritance and value and index", #
   eq 4, j
   data.sort #(a, b) -> a[0] <=> b[0]
 
-  arrayEq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
+  array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 */
 test "object iteration loop without inheritance", #
   let Parent()!
@@ -550,7 +550,7 @@ test "object iteration loop without inheritance", #
   for k of new Parent
     keys.push k
   keys.sort()
-  arrayEq ["a", "b"], keys
+  array-eq ["a", "b"], keys
 
 test "object iteration loop without inheritance and value", #
   let Parent()!
@@ -564,7 +564,7 @@ test "object iteration loop without inheritance and value", #
     data.push [k, v]
   data.sort #(a, b) -> a[0] <=> b[0]
 
-  arrayEq [["a", 1], ["b", 4]], data
+  array-eq [["a", 1], ["b", 4]], data
 
 /*
 test "object iteration loop without inheritance and value and index", #
@@ -582,7 +582,7 @@ test "object iteration loop without inheritance and value and index", #
     j += 1
   eq 2, j
   data.sort #(a, b) -> a[0] <=> b[0]
-  arrayEq [["a", 1], ["b", 4]], data
+  array-eq [["a", 1], ["b", 4]], data
 */
 test "iteration loop", #
   let mutable sum = 0
@@ -611,14 +611,14 @@ test "iteration loop with else", #
     fail()
   eq 30, sum
   
-  let mutable hitElse = false
-  let otherArr = []
-  for value in otherArr
+  let mutable hit-else = false
+  let other-arr = []
+  for value in other-arr
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 */
 test "iteration loop with literal array", #
   let mutable sum = 0
@@ -635,16 +635,16 @@ test "iteration loop with literal array and else", #
     fail()
   eq 30, sum
   
-  let mutable hitElse = false
+  let mutable hit-else = false
   for value in []
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 */
 test "iteration loop only calculates array once", #
-  let arr = runOnce [1, 4, 9, 16]
+  let arr = run-once [1, 4, 9, 16]
   let mutable sum = 0
   for value in arr()
     sum += value
@@ -670,7 +670,7 @@ test "iteration loop with index and literal array", #
   eq 30, sum
 
 test "iteration loop with index only calculates array once", #
-  let arr = runOnce [1, 4, 9, 16]
+  let arr = run-once [1, 4, 9, 16]
   let mutable sum = 0
   let mutable j = 0
   for value, index in arr()
@@ -680,22 +680,22 @@ test "iteration loop with index only calculates array once", #
   eq 30, sum
 
 test "object iteration loop scope", #
-  let valueFactories = []
+  let value-factories = []
   for k, v of { a: 1, b: 2, c: 3, d: 4 }
-    valueFactories.push #-> v
+    value-factories.push #-> v
   
   let mutable sum = 0
-  for factory in valueFactories
+  for factory in value-factories
     sum += factory()
   eq 10, sum
 
 test "array iteration loop scope", #
-  let valueFactories = []
+  let value-factories = []
   for v in [1, 4, 9, 16]
-    valueFactories.push #-> v
+    value-factories.push #-> v
   
   let mutable sum = 0
-  for factory in valueFactories
+  for factory in value-factories
     sum += factory()
   eq 30, sum
 
@@ -704,9 +704,9 @@ test "iteration loop scope", #
   for alpha, i in ["alpha", "bravo", "charlie"]
     funcs.push #-> [i, alpha]
 
-  arrayEq [0, "alpha"], funcs[0]()
-  arrayEq [1, "bravo"], funcs[1]()
-  arrayEq [2, "charlie"], funcs[2]()
+  array-eq [0, "alpha"], funcs[0]()
+  array-eq [1, "bravo"], funcs[1]()
+  array-eq [2, "charlie"], funcs[2]()
 
 test "iteration loop scope with multiple", #
   let funcs = []
@@ -714,9 +714,9 @@ test "iteration loop scope with multiple", #
     for bravo, j in ["delta", "echo", "foxtrot"]
       funcs.push #-> [i, alpha, j, bravo]
 
-  arrayEq [0, "alpha", 0, "delta"], funcs[0]()
-  arrayEq [1, "bravo", 1, "echo"], funcs[4]()
-  arrayEq [2, "charlie", 2, "foxtrot"], funcs[8]()
+  array-eq [0, "alpha", 0, "delta"], funcs[0]()
+  array-eq [1, "bravo", 1, "echo"], funcs[4]()
+  array-eq [2, "charlie", 2, "foxtrot"], funcs[8]()
 
 test "object iteration loop scope", #
   let funcs = []
@@ -731,9 +731,9 @@ test "object iteration loop scope", #
   eq 1, items[1].pop()
   eq 2, items[2].pop()
   items.sort #(a, b) -> a[0] <=> b[0]
-  arrayEq ["alpha", "one"], items[0]
-  arrayEq ["bravo", "two"], items[1]
-  arrayEq ["charlie", "three"], items[2]
+  array-eq ["alpha", "one"], items[0]
+  array-eq ["bravo", "two"], items[1]
+  array-eq ["charlie", "three"], items[2]
 
 test "object iteration loop scope with multiple", #
   let funcs = []
@@ -745,13 +745,13 @@ test "object iteration loop scope with multiple", #
   for func in funcs
     items.push(func())
   
-  arrayEq [0, 0], items[0].splice(4, 2)
-  arrayEq [1, 1], items[4].splice(4, 2)
-  arrayEq [2, 2], items[8].splice(4, 2)
+  array-eq [0, 0], items[0].splice(4, 2)
+  array-eq [1, 1], items[4].splice(4, 2)
+  array-eq [2, 2], items[8].splice(4, 2)
   items.sort #(a, b) -> a[0] <=> b[0] or a[1] <=> b[1]
-  arrayEq ["alpha", "delta", "one", "four"], items[0]
-  arrayEq ["bravo", "echo", "two", "five"], items[4]
-  arrayEq ["charlie", "foxtrot", "three", "six"], items[8]
+  array-eq ["alpha", "delta", "one", "four"], items[0]
+  array-eq ["bravo", "echo", "two", "five"], items[4]
+  array-eq ["charlie", "foxtrot", "three", "six"], items[8]
 
 /*
 test "single-line range loop", -> do
@@ -764,13 +764,13 @@ end
 test "Simple array comprehension", #
   let nums = for n in [1, 2, 3, 4, 5]
     n * n
-  arrayEq [1, 4, 9, 16, 25], nums
+  array-eq [1, 4, 9, 16, 25], nums
 
 test "Array comprehension with if", #
   let nums = for n in [1, 2, 3, 4, 5]
     if n % 2 == 0
       n * n
-  arrayEq [4, 16], nums
+  array-eq [4, 16], nums
 
 test "Range comprehension", #
   let nums = for i = 1, 100
@@ -788,7 +788,7 @@ test "Object comprehension", #
     k
   keys.sort()
   
-  arrayEq ["alpha", "bravo", "charlie"], keys
+  array-eq ["alpha", "bravo", "charlie"], keys
 
 test "For-some of range", #
   let mutable i = 0
@@ -1025,7 +1025,7 @@ test "While-reduce", #
   while reduce i < 10, i += 1, sum = 0
     sum + i
   else
-    elseIsntAllowedWithForReduce()"""), (e) -> e.line == 4 or true
+    throw Error()"""), (e) -> e.line == 4 or true
 */
 
 /*
@@ -1143,7 +1143,7 @@ test "loop up to -Infinity", #
     fail()
 
 /*
-let arrayToGenerator = (array) -> do
+let array-to-generator = (array) -> do
   {
     next: -> do
       if @index >= @array.length
@@ -1160,7 +1160,7 @@ end
 
 test "generator loop", -> do
   let mutable sum = 0
-  for value from arrayToGenerator([1, 4, 9, 16])
+  for value from array-to-generator([1, 4, 9, 16])
     sum += value
   end
   eq 30, sum
@@ -1168,25 +1168,25 @@ end
 
 test "generator loop with else", -> do
   let mutable sum = 0
-  for value from arrayToGenerator([1, 4, 9, 16])
+  for value from array-to-generator([1, 4, 9, 16])
     sum += value
   else
     fail()
   end
   eq 30, sum
   
-  let mutable hitElse = false
-  for value from arrayToGenerator([])
+  let mutable hit-else = false
+  for value from array-to-generator([])
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
   end
-  ok hitElse
+  ok hit-else
 end
 
 test "generator loop only calculates generator once", -> do
-  let generator = runOnce(arrayToGenerator([1, 4, 9, 16]))
+  let generator = run-once(array-to-generator([1, 4, 9, 16]))
   let mutable sum = 0
   for value from generator()
     sum += value
@@ -1197,7 +1197,7 @@ end
 test "generator loop with index", -> do
   let mutable sum = 0
   let mutable j = 0
-  for value, index from arrayToGenerator([1, 4, 9, 16])
+  for value, index from array-to-generator([1, 4, 9, 16])
     sum += value
     eq j, index
     j += 1
@@ -1206,13 +1206,13 @@ test "generator loop with index", -> do
 end
 
 test "generator iteration loop scope", -> do
-  let valueFactories = []
-  for v from arrayToGenerator([1, 4, 9, 16])
-    valueFactories.push(-> v)
+  let value-factories = []
+  for v from array-to-generator([1, 4, 9, 16])
+    value-factories.push(-> v)
   end
   
   let mutable sum = 0
-  for factory in valueFactories
+  for factory in value-factories
     sum += factory()
   end
   eq 30, sum
@@ -1220,14 +1220,14 @@ end
 
 test "generator iteration loop scope with multiple", -> do
   let funcs = []
-  for alpha, i from arrayToGenerator(["alpha", "bravo", "charlie"])
-    for bravo, j from arrayToGenerator(["delta", "echo", "foxtrot"])
+  for alpha, i from array-to-generator(["alpha", "bravo", "charlie"])
+    for bravo, j from array-to-generator(["delta", "echo", "foxtrot"])
       funcs.push(-> [i, alpha, j, bravo])
     end
   end
 
-  arrayEq [0, "alpha", 0, "delta"], funcs[0]()
-  arrayEq [1, "bravo", 1, "echo"], funcs[4]()
-  arrayEq [2, "charlie", 2, "foxtrot"], funcs[8]()
+  array-eq [0, "alpha", 0, "delta"], funcs[0]()
+  array-eq [1, "bravo", 1, "echo"], funcs[4]()
+  array-eq [2, "charlie", 2, "foxtrot"], funcs[8]()
 end
 */

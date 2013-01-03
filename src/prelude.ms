@@ -1,29 +1,29 @@
 macro if
-  syntax test as Logic, "then", body, elseBody as ("else", this)?
-    @if(test, body, elseBody)
+  syntax test as Logic, "then", body, else-body as ("else", this)?
+    @if(test, body, else-body)
   
-  syntax test as Logic, "then", body, elseIfs as ("else", "if", test as Logic, "then", body)*, elseBody as ("else", this)?
+  syntax test as Logic, "then", body, else-ifs as ("else", "if", test as Logic, "then", body)*, else-body as ("else", this)?
     let f(i, current)
-      if i ~< 0 then current else f.call(this, i ~- 1, @if(elseIfs[i].test, elseIfs[i].body, current))
-    @if(test, body, f.call(this, elseIfs.length ~- 1, elseBody))
+      if i ~< 0 then current else f.call(this, i ~- 1, @if(else-ifs[i].test, else-ifs[i].body, current))
+    @if(test, body, f.call(this, else-ifs.length ~- 1, else-body))
   
-  syntax test as Logic, body as Body, elseIfs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, elseBody as ("else", this as Body)?
+  syntax test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?
     let f(i, current)
-      let mutable test = elseIfs[i]?.test
-      test := if elseIfs[i]?.type == "unless" then (AST not $test) else test
-      if i ~< 0 then current else f.call(this, i ~- 1, @if(test, elseIfs[i].body, current))
-    @if(test, body, f.call(this, elseIfs.length ~- 1, elseBody))
+      let mutable test = else-ifs[i]?.test
+      test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
+      if i ~< 0 then current else f.call(this, i ~- 1, @if(test, else-ifs[i].body, current))
+    @if(test, body, f.call(this, else-ifs.length ~- 1, else-body))
 
 macro unless
-  syntax test as Logic, "then", body, elseBody as ("else", this)?
-    AST if not $test then $body else $elseBody
+  syntax test as Logic, "then", body, else-body as ("else", this)?
+    AST if not $test then $body else $else-body
   
-  syntax test as Logic, body as Body, elseIfs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, elseBody as ("else", this as Body)?
+  syntax test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?
     let f(i, current)
-      let mutable test = elseIfs[i]?.test
-      test := if elseIfs[i]?.type == "unless" then (AST not $test) else test
-      if i ~< 0 then current else f.call(this, i ~- 1, @if(test, elseIfs[i].body, current))
-    @if((AST not $test), body, f.call(this, elseIfs.length ~- 1, elseBody))
+      let mutable test = else-ifs[i]?.test
+      test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
+      if i ~< 0 then current else f.call(this, i ~- 1, @if(test, else-ifs[i].body, current))
+    @if((AST not $test), body, f.call(this, else-ifs.length ~- 1, else-body))
 
 define helper __num = #(num)
   if typeof num != "number"
@@ -78,12 +78,12 @@ define helper __lte = #(x, y)
     x ~<= y
 
 define helper __owns = do
-  let has = Object.prototype.hasOwnProperty
+  let has = Object.prototype.has-own-property
   #(parent, child) -> has.call(parent, child)
 
 define helper __in = do
-  let indexOf = Array.prototype.indexOf
-  #(child, parent) -> indexOf.call(parent, child) != -1
+  let index-of = Array.prototype.index-of
+  #(child, parent) -> index-of.call(parent, child) != -1
 
 define helper __slice = Function.prototype.call.bind(Array.prototype.slice)
 
@@ -99,47 +99,48 @@ define helper __splice = do
     right
 
 define helper __typeof = do
-  let _toString = Object.prototype.toString
+  let _to-string = Object.prototype.to-string
   #(o)
     if o == undefined
-      "undefined"
+      "Undefined"
     else if o == null
-      "null"
+      "Null"
     else
-      (o.constructor and o.constructor.name) or _toString.call(o).slice(8, -1)
+      (o.constructor and o.constructor.name) or _to-string.call(o).slice(8, -1)
 
 define helper __cmp = #(left, right)
-  let type = typeof left
-  if type != "number" and type != "string"
-    throw TypeError("Cannot compare a non-number/string: " ~& type)
-  else if type != typeof right
-    throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " & typeof right)
-  else if left ~< right
-    -1
-  else if right ~< left
-    1
-  else
+  if left == right
     0
+  else
+    let type = typeof left
+    if type != "number" and type != "string"
+      throw TypeError("Cannot compare a non-number/string: " ~& type)
+    else if type != typeof right
+      throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " & typeof right)
+    else if left ~< right
+      -1
+    else
+      1
 
 define helper __freeze = if typeof Object.freeze == "function"
   Object.freeze
 else
   #(x) -> x
 
-define helper __freezeFunc = #(x)
+define helper __freeze-func = #(x)
   if x.prototype?
     __freeze(x.prototype)
   __freeze(x)
 
-define helper __isArray = if typeof Array.isArray == "function"
-  Array.isArray
+define helper __is-array = if typeof Array.is-array == "function"
+  Array.is-array
 else
   do
-    let _toString = Object.prototype.toString
-    #(x) -> _toString.call(x) == "[object Array]"
+    let _to-string = Object.prototype.to-string
+    #(x) -> _to-string.call(x) == "[object Array]"
 
-define helper __toArray = #(x)
-  if __isArray(x)
+define helper __to-array = #(x)
+  if __is-array(x)
     x
   else
     __slice(x)
@@ -159,7 +160,7 @@ define helper __log = Math.log
 
 macro for
   // FIXME: init should be an Expression or Assignment or Let
-  syntax reducer as ("every" | "some" | "first")?, init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), body as Body, elseBody as ("else", this as Body)?
+  syntax reducer as ("every" | "some" | "first")?, init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), body as Body, else-body as ("else", this as Body)?
     if @empty(init)
       init := []
       init := AST $init
@@ -170,39 +171,39 @@ macro for
       step := AST $step
     if @empty(reducer)
       reducer := null
-    if not @empty(elseBody)
+    if not @empty(else-body)
       if @expr
         throw Error("Cannot use a for loop with an else as an expression")
       else if reducer
         throw Error("Cannot use a for loop with an else with " ~& reducer)
-      let runElse = @tmp()
+      let run-else = @tmp()
       body := AST
-        $runElse := false
+        $run-else := false
         $body
       init := AST
-        $runElse := true
+        $run-else := true
         $init
       let loop = @for(init, test, step, body)
       AST
         $loop
-        if $runElse
-          $elseBody
+        if $run-else
+          $else-body
     else
       if reducer
         if reducer == "first"
-          body := @mutateLast body, #(node) -> (AST return $node)
+          body := @mutate-last body, #(node) -> (AST return $node)
           let loop = @for(init, test, step, body)
           AST do
             $loop
         else if reducer == "some"
-          body := @mutateLast body, #(node) -> AST
+          body := @mutate-last body, #(node) -> AST
             if $node
               return true
           let loop = [@for(init, test, step, body), (AST return false)]
           AST do
             $loop
         else if reducer == "every"
-          body := @mutateLast body, #(node) -> AST
+          body := @mutate-last body, #(node) -> AST
             if not $node
               return false
           let loop = [@for(init, test, step, body), (AST return true)]
@@ -212,7 +213,7 @@ macro for
           throw Error("Unknown reducer: " ~& reducer)
       else if @expr
         let tmp = @tmp()
-        body := @mutateLast body, #(node) -> (AST $tmp.push $node)
+        body := @mutate-last body, #(node) -> (AST $tmp.push $node)
         init := AST
           $tmp := []
           $init
@@ -222,8 +223,8 @@ macro for
       else
         @for(init, test, step, body)
   
-  syntax reducer as ("every" | "some" | "first")?, ident as Identifier, "=", start, ",", end, step as (",", this)?, body as Body, elseBody as ("else", this as Body)?
-    if not @empty(elseBody) and @expr
+  syntax reducer as ("every" | "some" | "first")?, ident as Identifier, "=", start, ",", end, step as (",", this)?, body as Body, else-body as ("else", this as Body)?
+    if not @empty(else-body) and @expr
       throw Error("Cannot use a for loop with an else as an expression")
     
     if @empty(reducer)
@@ -233,75 +234,75 @@ macro for
     
     let init = []
     
-    if @isConst(start)
+    if @is-const(start)
       if typeof @value(start) != "number"
         throw Error "Cannot start with a non-number: #(@value start)"
     else
       start := AST +$start
     init.push (AST let $ident = $start)
     
-    if @isConst(end)
+    if @is-const(end)
       if typeof @value(end) != "number"
         throw Error "Cannot end with a non-number: #(@value start)"
-    else if @isComplex(end)
+    else if @is-complex(end)
       end := @cache (AST +$end), init
     else
       init.push AST +$end
     
-    if @isConst(step)
+    if @is-const(step)
       if typeof @value(step) != "number"
         throw Error "Cannot step with a non-number: #(@value step)"
-    else if @isComplex(step)
+    else if @is-complex(step)
       step := @cache (AST +$step), init
     else
       init.push AST +$step
     
-    let test = if @isConst(step)
+    let test = if @is-const(step)
       if @value(step) ~> 0
-        if @isConst(end) and @value(end) == Infinity
+        if @is-const(end) and @value(end) == Infinity
           AST true
         else
           AST $ident ~< $end
       else
-        if @isConst(end) and @value(end) == -Infinity
+        if @is-const(end) and @value(end) == -Infinity
           AST true
         else
           AST $ident ~> $end
     else
       AST if $step ~> 0 then $ident ~< $end else $ident ~> $end
     
-    if @hasFunc(body)
+    if @has-func(body)
       let func = @tmp()
       init.push (AST let $func = #($ident) -> $body)
       body := (AST $func($ident))
     
     if reducer == "every"
       AST
-        for every $init; $test; $ident += $step
+        for every $init; $test; $ident ~+= $step
           $body
         else
-          $elseBody
+          $else-body
     else if reducer == "some"
       AST
-        for some $init; $test; $ident += $step
+        for some $init; $test; $ident ~+= $step
           $body
         else
-          $elseBody
+          $else-body
     else if reducer == "first"
       AST
-        for first $init; $test; $ident += $step
+        for first $init; $test; $ident ~+= $step
           $body
         else
-          $elseBody
+          $else-body
     else
       AST
-        for $init; $test; $ident += $step
+        for $init; $test; $ident ~+= $step
           $body
         else
-          $elseBody
+          $else-body
   
-  syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as Body, elseBody as ("else", this as Body)?
-    if not @empty(elseBody) and @expr
+  syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as Body, else-body as ("else", this as Body)?
+    if not @empty(else-body) and @expr
       throw Error("Cannot use a for loop with an else as an expression")
     
     if @empty(reducer)
@@ -320,48 +321,45 @@ macro for
       if @empty(length)
         length := @tmp()
     
-    init.push (AST let $length = $array.length)
+    init.push AST let mutable $index = 0
+    init.push AST let $length = +$array.length
     
     body := AST
       let $value = $array[$index]
       $body
     
-    if @hasFunc(body)
+    if @has-func(body)
       let func = @tmp()
-      init.push (AST let $func = #($index) -> $body)
+      init.push AST let $func = #($index) -> $body
       body := AST $func($index)
     
     if reducer == "every"
       AST
-        $init
-        for every $index = 0, $length
+        for every $init; $index ~< $length; $index ~+= 1
           $body
         else
-          $elseBody
+          $else-body
     else if reducer == "some"
       AST
-        $init
-        for some $index = 0, $length
+        for some $init; $index ~< $length; $index ~+= 1
           $body
         else
-          $elseBody
+          $else-body
     else if reducer == "first"
       AST
-        $init
-        for first $index = 0, $length
+        for first $init; $index ~< $length; $index ~+= 1
           $body
         else
-          $elseBody
+          $else-body
     else
       AST
-        $init
-        for $index = 0, $length
+        for $init; $index ~< $length; $index ~+= 1
           $body
         else
-          $elseBody
+          $else-body
   
-  syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as Body, elseBody as ("else", this as Body)?
-    if not @empty(elseBody)
+  syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as Body, else-body as ("else", this as Body)?
+    if not @empty(else-body)
       if @expr
         throw Error("Cannot use a for loop with an else as an expression")
       else if reducer
@@ -389,7 +387,7 @@ macro for
         let $value = $object[$key]
         $body
     
-    if @hasFunc(body)
+    if @has-func(body)
       let func = @tmp()
       if index
         init.push (AST let $func = #($key, $index) -> $body)
@@ -399,20 +397,20 @@ macro for
         body := (AST $func($key))
     
     let post = []
-    if not @empty(elseBody)
-      let runElse = @tmp()
-      init.push (AST let $runElse = true)
+    if not @empty(else-body)
+      let run-else = @tmp()
+      init.push (AST let $run-else = true)
       body := AST
-        $runElse := false
+        $run-else := false
         $body
       post.push AST
-        if $runElse
-          $elseBody
+        if $run-else
+          $else-body
     
     if index
       init.push (AST let mutable $index = -1)
       body := AST
-        $index += 1
+        $index ~+= 1
         $body
     
     if own
@@ -420,29 +418,29 @@ macro for
         if $object ownskey $key
           $body
     
-    if @empty(elseBody)
+    if @empty(else-body)
       if reducer
         if reducer == "first"
-          body := @mutateLast body, #(node) -> (AST return $node)
-          let loop = @forIn(key, object, body)
+          body := @mutate-last body, #(node) -> (AST return $node)
+          let loop = @for-in(key, object, body)
           return AST do
             $init
             $loop
             false
         else if reducer == "some"
-          body := @mutateLast body, #(node) -> AST
+          body := @mutate-last body, #(node) -> AST
             if $node
               return true
-          let loop = @forIn(key, object, body)
+          let loop = @for-in(key, object, body)
           return AST do
             $init
             $loop
             false
         else if reducer == "every"
-          body := @mutateLast body, #(node) -> AST
+          body := @mutate-last body, #(node) -> AST
             if not $node
               return false
-          let loop = @forIn(key, object, body)
+          let loop = @for-in(key, object, body)
           return AST do
             $init
             $loop
@@ -451,42 +449,42 @@ macro for
           throw Error("Unknown reducer: " ~& reducer)
       else if @expr
         let tmp = @tmp()
-        body := @mutateLast body, #(node) -> (AST $tmp.push $node)
+        body := @mutate-last body, #(node) -> (AST $tmp.push $node)
         init := AST
           $tmp := []
           $init
-        let loop = [init, @forIn(key, object, body), (AST return $tmp)]
+        let loop = [init, @for-in(key, object, body), (AST return $tmp)]
         return AST do
           $loop
     
-    let loop = @forIn(key, object, body)
+    let loop = @for-in(key, object, body)
     AST
       $init
       $loop
       $post
 
 macro while
-  syntax test as Logic, step as (",", this as Statement)?, body as Body, elseBody as ("else", this as Body)?
-    if not @empty(elseBody)
+  syntax test as Logic, step as (",", this as Statement)?, body as Body, else-body as ("else", this as Body)?
+    if not @empty(else-body)
       if @expr
         throw Error("Cannot use a while loop with an else as an expression")
       AST
         for ; $test; $step
           $body
         else
-          $elseBody
+          $else-body
     else
       AST
         for ; $test; $step
           $body
 
 macro until
-  syntax test as Logic, step as (",", this as Statement)?, body as Body, elseBody as ("else", this as Body)?
+  syntax test as Logic, step as (",", this as Statement)?, body as Body, else-body as ("else", this as Body)?
     AST
       while not $test, $step
         $body
       else
-        $elseBody
+        $else-body
 
 define helper __keys = if typeof Object.keys == "function"
   Object.keys
@@ -504,10 +502,10 @@ define helper __allkeys = #(x)
   keys
 
 define helper __new = do
-  let newCreators = []
+  let new-creators = []
   #(Ctor, args)
     let length = args.length
-    let creator = newCreators[length]
+    let creator = new-creators[length]
     if not creator
       let func = ["return new C("]
       for i = 0, length
@@ -516,45 +514,45 @@ define helper __new = do
         func.push "a[", i, "]"
       func.push ");"
       creator := Function("C", "a", func.join(""))
-      newCreators[length] := creator
+      new-creators[length] := creator
     creator(Ctor, args)
 
 define helper __instanceofsome = #(value, array)
   for some item in array
-    element instanceof item
+    value instanceof item
 
 macro try
-  syntax tryBody as Body, catchPart as ("catch", ident as Identifier, body as Body)?, elseBody as ("else", this as Body)?, finallyBody as ("finally", this as Body)?
-    let hasElse = not @empty(elseBody)
-    if @empty(catchPart) and hasElse and @empty(finallyBody)
+  syntax try-body as Body, catch-part as ("catch", ident as Identifier, body as Body)?, else-body as ("else", this as Body)?, finally-body as ("finally", this as Body)?
+    let has-else = not @empty(else-body)
+    if @empty(catch-part) and has-else and @empty(finally-body)
       throw Error("Must provide at least a catch, else, or finally to a try block")
     
-    let mutable catchIdent = if not @empty(catchPart) then catchPart.ident
-    let mutable catchBody = if not @empty(catchPart) then catchPart.body
+    let mutable catch-ident = if not @empty(catch-part) then catch-part.ident
+    let mutable catch-body = if not @empty(catch-part) then catch-part.body
     let init = []
-    let mutable shouldRunElse = void
-    if hasElse
-      shouldRunElse := @tmp()
-      init.push AST let $shouldRunElse = true
-      if catchBody
-        catchBody := AST
-          $shouldRunElse := false
-          $catchBody
+    let mutable should-run-else = void
+    if has-else
+      should-run-else := @tmp()
+      init.push AST let $should-run-else = true
+      if catch-body
+        catch-body := AST
+          $should-run-else := false
+          $catch-body
       else
-        catchIdent := @tmp()
-        catchBody := AST
-          $shouldRunElse := false
-          throw $catchIdent
+        catch-ident := @tmp()
+        catch-body := AST
+          $should-run-else := false
+          throw $catch-ident
     
-    let mutable current = tryBody
-    if catchBody
-      current := @tryCatch(current, catchIdent, catchBody)
-    if hasElse
-      current := @tryFinally current, AST
-        if $shouldRunElse
-          $elseBody
-    if not @empty(finallyBody)
-      current := @tryFinally(current, finallyBody)
+    let mutable current = try-body
+    if catch-body
+      current := @try-catch(current, catch-ident, catch-body)
+    if has-else
+      current := @try-finally current, AST
+        if $should-run-else
+          $else-body
+    if not @empty(finally-body)
+      current := @try-finally(current, finally-body)
     
     if @expr
       AST do
@@ -567,12 +565,12 @@ macro try
 
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
-    if not @isCall(call)
+    if not @is-call(call)
       throw Error("async call expression must be a call")
     
     params := if not @empty(params) then [params.head].concat(params.tail) else []
     let func = @func(params, body, true, true)
-    @call @callFunc(call), @callArgs(call).concat([func]), @callIsNew(call)
+    @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call)
 
 define helper __xor = #(x, y)
   if x
@@ -582,17 +580,17 @@ define helper __xor = #(x, y)
 
 macro require!
   syntax name as Expression
-    if @isConst name
+    if @is-const name
       if typeof @value(name) != "string"
         throw Error("Expected a constant string, got $(typeof @value(name))")
-    else if not @isIdent name
+    else if not @is-ident name
       throw Error("Expected either a constant string or ident")
 
-    if @isConst name
-      let mutable identName = @value(name)
-      if identName.lastIndexOf("/") != -1
-        identName := identName.substring identName.lastIndexOf("/") ~+ 1
-      let ident = @ident identName
+    if @is-const name
+      let mutable ident-name = @value(name)
+      if ident-name.index-of("/") != -1
+        ident-name := ident-name.substring ident-name.last-index-of("/") ~+ 1
+      let ident = @ident ident-name
       AST let $ident = require $name
     else
       let ident = name
@@ -664,37 +662,37 @@ macro asyncfor
     
     let init = []
     
-    if @isConst(start)
+    if @is-const(start)
       if typeof @value(start) != "number"
         throw Error "Cannot start with a non-number: #(@value start)"
     else
       start := AST +$start
     init.push (AST let $ident = $start)
     
-    if @isConst(end)
+    if @is-const(end)
       if typeof @value(end) != "number"
         throw Error "Cannot end with a non-number: #(@value start)"
-    else if @isComplex(end)
+    else if @is-complex(end)
       end := @cache (AST +$end), init
     else
       init.push AST +$end
     
-    if @isConst(step)
+    if @is-const(step)
       if typeof @value(step) != "number"
         throw Error "Cannot step with a non-number: #(@value step)"
-    else if @isComplex(step)
+    else if @is-complex(step)
       step := @cache (AST +$step), init
     else
       init.push AST +$step
     
-    let test = if @isConst(step)
+    let test = if @is-const(step)
       if @value(step) ~> 0
-        if @isConst(end) and @value(end) == Infinity
+        if @is-const(end) and @value(end) == Infinity
           AST true
         else
           AST $ident ~< $end
       else
-        if @isConst(end) and @value(end) == -Infinity
+        if @is-const(end) and @value(end) == -Infinity
           AST true
         else
           AST $ident ~> $end
@@ -703,7 +701,7 @@ macro asyncfor
     
     let done = @tmp true
     AST
-      asyncfor $result <- $next, $init; $test; $ident += $step
+      asyncfor $result <- $next, $init; $test; $ident ~+= $step
         $body
       $rest
   
@@ -721,15 +719,15 @@ macro asyncfor
       if @empty(length)
         length := @tmp()
 
-    init.push (AST let $length = $array.length)
+    init.push AST let mutable $index = 0
+    init.push AST let $length = +$array.length
 
     body := AST
       let $value = $array[$index]
       $body
     
     AST
-      $init
-      asyncfor $result <- $next, $index = 0, $length
+      asyncfor $result <- $next, $init; $index ~< $length; $index ~+= 1
         $body
       $rest
   
@@ -754,7 +752,7 @@ macro asyncfor
       index := @tmp true
     
     let keys = @tmp true
-    let getKeys = if own
+    let get-keys = if own
       AST for $key of $object
         $keys.push $key
     else
@@ -763,7 +761,7 @@ macro asyncfor
     AST
       $init
       let $keys = []
-      $getKeys
+      $get-keys
       asyncfor $result <- $next, $key, $index in $keys
         $body
       $rest
@@ -783,19 +781,19 @@ macro asyncuntil
       $rest
 
 macro asyncif
-  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, elseIfs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, elseBody as ("else", this as Body)?, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?, rest as DedentedBody
     
-    let mutable current = elseBody
-    if @empty(elseBody)
+    let mutable current = else-body
+    if @empty(else-body)
       current := AST $done()
     
-    let mutable i = elseIfs.length ~- 1
+    let mutable i = else-ifs.length ~- 1
     while i ~>= 0, i ~-= 1
-      let elseIf = elseIfs[i]
-      let mutable innerTest = elseIf.test
-      if elseIf.type == "unless"
-        innerTest := AST not $innerTest
-      current := @if(innerTest, elseIf.body, current)
+      let else-if = else-ifs[i]
+      let mutable inner-test = else-if.test
+      if else-if.type == "unless"
+        inner-test := AST not $inner-test
+      current := @if(inner-test, else-if.body, current)
     
     current := @if(test, body, current)
     
@@ -811,19 +809,19 @@ macro asyncif
         $current
 
 macro asyncunless
-  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, elseIfs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, elseBody as ("else", this as Body)?, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?, rest as DedentedBody
     
-    let mutable current = elseBody
-    if @empty(elseBody)
+    let mutable current = else-body
+    if @empty(else-body)
       current := AST $done()
     
-    let mutable i = elseIfs.length ~- 1
+    let mutable i = else-ifs.length ~- 1
     while i ~>= 0, i ~-= 1
-      let elseIf = elseIfs[i]
-      let mutable innerTest = elseIf.test
-      if elseIf.type == "unless"
-        innerTest := AST not $innerTest
-      current := @if(innerTest, elseIf.body, current)
+      let else-if = else-ifs[i]
+      let mutable inner-test = else-if.test
+      if else-if.type == "unless"
+        inner-test := AST not $inner-test
+      current := @if(inner-test, else-if.body, current)
     
     current := @if(AST not $test, body, current)
     

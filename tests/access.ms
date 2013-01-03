@@ -13,6 +13,12 @@ test "dot access", #
   y.0 := "blah"
   eq "blah", y.0
 
+test "access on dashed name", #
+  let obj = {}
+  obj.dashed-name := "hello"
+  eq "hello", obj.dashed-name
+  eq "hello", obj.dashedName
+
 test "bracket access", #
   let x = { key: "value" }
   eq "value", x["key"]
@@ -150,8 +156,8 @@ test "chained access", #
     .reverse()
     .reverse()
     .reverse()
-  arrayEq ['c','b','a'], result
-  arrayEq ['c','b','a'], str
+  array-eq ['c','b','a'], result
+  array-eq ['c','b','a'], str
     .split('')
     .reverse()
     .reverse()

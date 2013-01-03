@@ -20,8 +20,8 @@ test "Triple-double-quoted", #
   cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id
   est laborum.
   """
-  eq "L", paragraph.charAt(0)
-  eq ".", paragraph.charAt(paragraph.length - 1)
+  eq "L", paragraph.char-at(0)
+  eq ".", paragraph.char-at(paragraph.length - 1)
   eq 69, paragraph.split(RegExp("\\s+")).length
   eq 'Hello, "friend".', """Hello, "friend"."""
   
@@ -69,8 +69,8 @@ test "Triple-single-quoted", #
   est laborum.
   '''
   
-  eq "L", paragraph.charAt(0)
-  eq ".", paragraph.charAt(paragraph.length - 1)
+  eq "L", paragraph.char-at(0)
+  eq ".", paragraph.char-at(paragraph.length - 1)
   eq 69, paragraph.split(RegExp("\\s+")).length
   eq "Hello, 'friend'.", '''Hello, 'friend'.'''
   
@@ -173,27 +173,27 @@ test "Interpolation", #
 test "Escape codes", #
   eq 'Hello, "friend"', "Hello, \"friend\""
   eq "Hello, 'friend'", 'Hello, \'friend\''
-  eq "\b", String.fromCharCode(8)
-  eq "\f", String.fromCharCode(12)
-  eq "\n", String.fromCharCode(10)
-  eq "\r", String.fromCharCode(13)
-  eq "\t", String.fromCharCode(9)
-  eq "\v", String.fromCharCode(11)
-  eq "\\", String.fromCharCode(92)
-  eq "\x0f", String.fromCharCode(15)
-  eq "\xff", String.fromCharCode(255)
-  eq "\u000f", String.fromCharCode(15)
-  eq "\u00ff", String.fromCharCode(255)
-  eq "\u0fff", String.fromCharCode(4095)
-  eq "\uffff", String.fromCharCode(65535)
-  eq "\0", String.fromCharCode(0)
-  eq "\1", String.fromCharCode(1)
-  eq "\2", String.fromCharCode(2)
-  eq "\3", String.fromCharCode(3)
-  eq "\4", String.fromCharCode(4)
-  eq "\5", String.fromCharCode(5)
-  eq "\6", String.fromCharCode(6)
-  eq "\7", String.fromCharCode(7)
+  eq "\b", String.from-char-code(8)
+  eq "\f", String.from-char-code(12)
+  eq "\n", String.from-char-code(10)
+  eq "\r", String.from-char-code(13)
+  eq "\t", String.from-char-code(9)
+  eq "\v", String.from-char-code(11)
+  eq "\\", String.from-char-code(92)
+  eq "\x0f", String.from-char-code(15)
+  eq "\xff", String.from-char-code(255)
+  eq "\u000f", String.from-char-code(15)
+  eq "\u00ff", String.from-char-code(255)
+  eq "\u0fff", String.from-char-code(4095)
+  eq "\uffff", String.from-char-code(65535)
+  eq "\0", String.from-char-code(0)
+  eq "\1", String.from-char-code(1)
+  eq "\2", String.from-char-code(2)
+  eq "\3", String.from-char-code(3)
+  eq "\4", String.from-char-code(4)
+  eq "\5", String.from-char-code(5)
+  eq "\6", String.from-char-code(6)
+  eq "\7", String.from-char-code(7)
 
 /*
 test "Raw strings", #
@@ -205,25 +205,29 @@ test "Raw strings", #
   eq "c:\\program files", @"c:\program files"
 */
 test "Indexing", #
-  eq String::toString, "".toString
-  eq String::toString, ''.toString
-  eq String::toString, """""".toString
-  eq String::toString, ''''''.toString
+  eq String::to-string, "".to-string
+  eq String::to-string, ''.to-string
+  eq String::to-string, """""".to-string
+  eq String::to-string, ''''''.to-string
   /*
-  eq String::toString, @"".toString
-  eq String::toString, @''.toString
-  eq String::toString, @"""""".toString
-  eq String::toString, @''''''.toString
+  eq String::to-string, @"".to-string
+  eq String::to-string, @''.to-string
+  eq String::to-string, @"""""".to-string
+  eq String::to-string, @''''''.to-string
   */
-  eq String::toString, ""["toString"]
-  eq String::toString, ''["toString"]
-  eq String::toString, """"""["toString"]
-  eq String::toString, ''''''["toString"]
+  eq String::to-string, ""["toString"]
+  eq String::to-string, ''["toString"]
+  eq String::to-string, """"""["toString"]
+  eq String::to-string, ''''''["toString"]
+  eq String::to-string, ""[\to-string]
+  eq String::to-string, ''[\to-string]
+  eq String::to-string, """"""[\to-string]
+  eq String::to-string, ''''''[\to-string]
   /*
-  eq String::toString, @""["toString"]
-  eq String::toString, @''["toString"]
-  eq String::toString, @""""""["toString"]
-  eq String::toString, @''''''["toString"]
+  eq String::to-string, @""["toString"]
+  eq String::to-string, @''["toString"]
+  eq String::to-string, @""""""["toString"]
+  eq String::to-string, @''''''["toString"]
   */
 
 /*
@@ -231,3 +235,14 @@ test "Newlines", -> do
   eq "alpha\nbravo", eval(Cotton.compile('"""alpha\r\nbravo"""', bare: true))
 end
 */
+
+test "Backslash strings", #
+  eq "hello", \hello
+  eq "helloThere", \hello-there
+  eq "helloThereEveryone", \hello-there-everyone
+  eq "null", \null
+  eq "undefined", \undefined
+  eq "void", \void
+  eq "true", \true
+  eq "false", \false
+  eq "nullOrUndefined", \null-or-undefined

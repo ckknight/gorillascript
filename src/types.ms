@@ -2,17 +2,17 @@ module.exports := do
   let Type()!
     throw TypeError "Type should not be instantiated"
   
-  let notImplemented(name)
+  let not-implemented(name)
     #-> throw Error "Not implemented: $(@constructor.name).$name"
   
-  Type::isSubsetOf := notImplemented "isSubset"
-  Type::isSupersetOf := #(other) -> other.isSubsetOf(this)
-  Type::overlaps := notImplemented "overlaps"
-  Type::compare := notImplemented "compare"
-  Type::equals := notImplemented "equals"
-  Type::union := notImplemented "union"
-  Type::intersect := notImplemented "intersect"
-  Type::complement := notImplemented "complement"
+  Type::is-subset-of := not-implemented "isSubsetOf"
+  Type::is-superset-of := #(other) -> other.is-subset-of(this)
+  Type::overlaps := not-implemented "overlaps"
+  Type::compare := not-implemented "compare"
+  Type::equals := not-implemented "equals"
+  Type::union := not-implemented "union"
+  Type::intersect := not-implemented "intersect"
+  Type::complement := not-implemented "complement"
   Type::array := #-> @_array ?= new ArrayType(this)
   
   let contains(alpha, bravo)
@@ -23,11 +23,11 @@ module.exports := do
   
   let union(alpha, bravo)
     let result = []
-    let alphaLen = alpha.length
-    let bravoLen = bravo.length
+    let alpha-len = alpha.length
+    let bravo-len = bravo.length
     let mutable i = 0
     let mutable j = 0
-    while i < alphaLen and j < bravoLen
+    while i < alpha-len and j < bravo-len
       let a = alpha[i]
       let b = bravo[j]
       let cmp = a.compare(b)
@@ -41,28 +41,28 @@ module.exports := do
       else
         result.push b
         j += 1
-    while i < alphaLen, i += 1
+    while i < alpha-len, i += 1
       result.push alpha[i]
-    while j < bravoLen, j += 1
+    while j < bravo-len, j += 1
       result.push bravo[j]
     
-    let resultLen = result.length
-    if resultLen == alphaLen
+    let result-len = result.length
+    if result-len == alpha-len
       alpha
-    else if resultLen == bravoLen
+    else if result-len == bravo-len
       bravo
     else
       result
   
   let intersect(alpha, bravo)
-    let alphaLen = alpha.length
-    let bravoLen = bravo.length
+    let alpha-len = alpha.length
+    let bravo-len = bravo.length
     
     let result = []
     
     let mutable i = 0
     let mutable j = 0
-    while i < alphaLen and j < bravoLen
+    while i < alpha-len and j < bravo-len
       let a = alpha[i]
       let b = bravo[j]
       let cmp = a.compare(b)
@@ -75,21 +75,21 @@ module.exports := do
       else
         j += 1
     
-    let resultLen = result.length
-    if resultLen == alphaLen
+    let result-len = result.length
+    if result-len == alpha-len
       alpha
-    else if resultLen == bravoLen
+    else if result-len == bravo-len
       bravo
     else
       result
   
-  let relativeComplement(alpha, bravo)
+  let relative-complement(alpha, bravo)
     let result = []
-    let alphaLen = alpha.length
-    let bravoLen = bravo.length
+    let alpha-len = alpha.length
+    let bravo-len = bravo.length
     let mutable i = 0
     let mutable j = 0
-    while i < alphaLen and j < bravoLen
+    while i < alpha-len and j < bravo-len
       let a = alpha[i]
       let cmp = a.compare(bravo[j])
       if cmp == 0
@@ -100,25 +100,25 @@ module.exports := do
         i += 1
       else
         j += 1
-    while i < alphaLen, i += 1
+    while i < alpha-len, i += 1
       result.push alpha[i]
-    if result.length == alphaLen
+    if result.length == alpha-len
       alpha
     else
       result
   
-  let isSubsetOf(alpha, bravo)
-    let alphaLen = alpha.length
-    let bravoLen = bravo.length
-    if alphaLen > bravoLen
+  let is-subset-of(alpha, bravo)
+    let alpha-len = alpha.length
+    let bravo-len = bravo.length
+    if alpha-len > bravo-len
       false
     else  
       let mutable i = 0
       let mutable j = 0
-      while j < bravoLen
+      while j < bravo-len
         if alpha[i].equals(bravo[j])
           i += 1
-          if i >= alphaLen
+          if i >= alpha-len
             return true
           j += 1
         else
@@ -126,11 +126,11 @@ module.exports := do
       false
   
   let overlaps(alpha, bravo)
-    let alphaLen = alpha.length
-    let bravoLen = bravo.length
+    let alpha-len = alpha.length
+    let bravo-len = bravo.length
     let mutable i = 0
     let mutable j = 0
-    while i < alphaLen and j < bravoLen
+    while i < alpha-len and j < bravo-len
       let cmp = alpha[i].compare(bravo[j])
       if cmp == 0
         return true
@@ -168,27 +168,27 @@ module.exports := do
             return false
         true
   
-  let typeComparer(a, b) -> a.compare(b)
+  let type-comparer(a, b) -> a.compare(b)
   
-  let makeUnionType(types, needsSort)
+  let make-union-type(types, needs-sort)
     let len = types.length
     if len == 0
       Type.none
     else if len == 1
       types[0]
     else
-      if needsSort
-        types.sort typeComparer
+      if needs-sort
+        types.sort type-comparer
       new UnionType(types)
   
-  let makeComplementType(types)
+  let make-complement-type(types)
     if types.length == 0
       Type.any
     else
       new ComplementType(types)
   
   let SimpleType = do
-    let getId = do
+    let get-id = do
       let mutable id = -1
       #
         id += 1
@@ -197,11 +197,11 @@ module.exports := do
     let SimpleType(@name as String)!
       if this not instanceof SimpleType
         throw TypeError("Must be instantiated with new")
-      @id := getId()
+      @id := get-id()
     SimpleType.prototype := ^Type.prototype
     SimpleType::constructor := SimpleType
     
-    SimpleType::toString := #-> @name
+    SimpleType::to-string := #-> @name
     
     SimpleType::equals := #(other) -> this == other
     
@@ -220,7 +220,7 @@ module.exports := do
         if this == other
           this
         else
-          makeUnionType [this, other], true
+          make-union-type [this, other], true
       else
         other.union this
     
@@ -235,7 +235,7 @@ module.exports := do
       else
         other.intersect this
     
-    SimpleType::isSubsetOf := #(other)
+    SimpleType::is-subset-of := #(other)
       if other instanceof SimpleType
         this == other
       else if other instanceof UnionType
@@ -266,7 +266,7 @@ module.exports := do
     ArrayType.prototype := ^Type.prototype
     ArrayType::constructor := ArrayType
 
-    ArrayType::toString := #-> @_name ?= "[$(@subtype.toString())]"
+    ArrayType::to-string := #-> @_name ?= "[$(@subtype.to-string())]"
 
     ArrayType::equals := #(other)
       other == this or (other instanceof ArrayType and @subtype.equals(other.subtype))
@@ -286,14 +286,14 @@ module.exports := do
         if @equals(other)
           this
         else
-          if @subtype.isSubsetOf(other.subtype)
+          if @subtype.is-subset-of(other.subtype)
             other
-          else if other.subtype.isSubsetOf(@subtype)
+          else if other.subtype.is-subset-of(@subtype)
             this
           else
-            makeUnionType [this, other], true
+            make-union-type [this, other], true
       else if other instanceof SimpleType
-        makeUnionType [this, other], true
+        make-union-type [this, other], true
       else
         other.union this
 
@@ -304,9 +304,9 @@ module.exports := do
         if @equals(other)
           this
         else
-          if @subtype.isSubsetOf(other.subtype)
+          if @subtype.is-subset-of(other.subtype)
             this
-          else if other.subtype.isSubsetOf(@subtype)
+          else if other.subtype.is-subset-of(@subtype)
             other
           else
             Type.none.array()
@@ -315,9 +315,9 @@ module.exports := do
       else
         other.intersect this
 
-    ArrayType::isSubsetOf := #(other)
+    ArrayType::is-subset-of := #(other)
       if other instanceof ArrayType
-        @subtype.isSubsetOf(other.subtype)
+        @subtype.is-subset-of(other.subtype)
       else if other instanceof UnionType
         for some type in other.types
           @equals(type)
@@ -349,7 +349,7 @@ module.exports := do
     UnionType.prototype := ^Type.prototype
     UnionType::constructor := UnionType
     
-    UnionType::toString := #-> @_name ?= "($(@types.join '|'))"
+    UnionType::to-string := #-> @_name ?= "($(@types.join '|'))"
     
     UnionType::equals := #(other)
       if other == this
@@ -373,7 +373,7 @@ module.exports := do
         if types == @types
           this
         else
-          makeUnionType types
+          make-union-type types
       else if other instanceof UnionType
         let types = union @types, other.types
         if types == @types
@@ -381,13 +381,13 @@ module.exports := do
         else if types == other.types
           other
         else
-          makeUnionType types
+          make-union-type types
       else
         other.union this
     
     UnionType::intersect := #(other)
       if other instanceofsome [SimpleType, ArrayType]
-        makeUnionType intersect @types, [other]
+        make-union-type intersect @types, [other]
       else if other instanceof UnionType
         let types = intersect @types, other.types
         if types == @types
@@ -395,13 +395,13 @@ module.exports := do
         else if types == other.types
           other
         else
-          makeUnionType types
+          make-union-type types
       else
         other.intersect this
     
-    UnionType::isSubsetOf := #(other)
+    UnionType::is-subset-of := #(other)
       if other instanceof UnionType
-        isSubsetOf @types, other.types
+        is-subset-of @types, other.types
       else if other instanceof ComplementType
         not overlaps @types, other.untypes
       else
@@ -428,9 +428,9 @@ module.exports := do
     ComplementType.prototype := ^Type.prototype
     ComplementType::constructor := ComplementType
     
-    ComplementType::toString := #
+    ComplementType::to-string := #
       @_name ?= if @untypes.length == 1
-        "any \\ $(@untypes[0].toString())"
+        "any \\ $(@untypes[0].to-string())"
       else
         "any \\ ($(@untypes.join '|'))"
     
@@ -452,17 +452,17 @@ module.exports := do
     
     ComplementType::union := #(other)
       if other instanceofsome [SimpleType, ArrayType]
-        let untypes = relativeComplement @untypes, [other]
+        let untypes = relative-complement @untypes, [other]
         if untypes == @untypes
           this
         else
-          makeComplementType untypes
+          make-complement-type untypes
       else if other instanceof UnionType
-        let untypes = relativeComplement @untypes, other.types
+        let untypes = relative-complement @untypes, other.types
         if untypes == @untypes
           this
         else
-          makeComplementType untypes
+          make-complement-type untypes
       else if other instanceof ComplementType
         let untypes = intersect @untypes, other.untypes
         if untypes == @untypes
@@ -470,7 +470,7 @@ module.exports := do
         else if untypes == other.untypes
           other
         else
-          makeComplementType untypes
+          make-complement-type untypes
       else
         other.union this
     
@@ -481,11 +481,11 @@ module.exports := do
         else
           other
       else if other instanceof UnionType
-        let types = relativeComplement other.types, @untypes
+        let types = relative-complement other.types, @untypes
         if types == other.types
           other
         else
-          makeUnionType types
+          make-union-type types
       else if other instanceof ComplementType
         let untypes = union @untypes, other.untypes
         if untypes == @untypes
@@ -493,13 +493,13 @@ module.exports := do
         else if untypes == other.untypes
           other
         else
-          makeComplementType untypes
+          make-complement-type untypes
       else
         other.intersect this
     
-    ComplementType::isSubsetOf := #(other)
+    ComplementType::is-subset-of := #(other)
       if other instanceof ComplementType
-        isSubsetOf other.untypes, @untypes
+        is-subset-of other.untypes, @untypes
       else
         other == Type.any
     
@@ -507,7 +507,7 @@ module.exports := do
       if other instanceofsome [SimpleType, ArrayType]
         not contains @untypes, other
       else if other instanceof UnionType
-        relativeComplement(other.types, @untypes).length > 0
+        relative-complement(other.types, @untypes).length > 0
       else if other instanceof ComplementType
         true
       else
@@ -518,7 +518,7 @@ module.exports := do
       if untypes.length == 1
         untypes[0]
       else
-        makeUnionType untypes
+        make-union-type untypes
     
     ComplementType
   
@@ -531,7 +531,7 @@ module.exports := do
     AnyType.prototype := ^Type.prototype
     AnyType::constructor := AnyType
     
-    AnyType::toString := #-> "any"
+    AnyType::to-string := #-> "any"
     
     AnyType::equals := #(other) -> this == other
     
@@ -543,7 +543,7 @@ module.exports := do
     
     AnyType::union := #(other) -> this
     AnyType::intersect := #(other) -> other
-    AnyType::isSubsetOf := #(other) -> this == other
+    AnyType::is-subset-of := #(other) -> this == other
     AnyType::overlaps := #(other) -> true
     AnyType::complement := #-> Type.none
     
@@ -558,7 +558,7 @@ module.exports := do
     NoneType.prototype := ^Type.prototype
     NoneType::constructor := NoneType
     
-    NoneType::toString := #-> "none"
+    NoneType::to-string := #-> "none"
     
     NoneType::equals := #(other) -> this == other
     
@@ -570,7 +570,7 @@ module.exports := do
     
     NoneType::union := #(other) -> other
     NoneType::intersect := #(other) -> this
-    NoneType::isSubsetOf := #(other) -> true
+    NoneType::is-subset-of := #(other) -> true
     NoneType::overlaps := #(other) -> false
     NoneType::complement := #-> Type.any
     
@@ -586,15 +586,15 @@ module.exports := do
   Type.object := new SimpleType "Object"
   Type.function := new SimpleType "Function"
   Type.regexp := new SimpleType "RegExp"
-  Type.stringOrNumber := Type.string.union(Type.number)
-  Type.arrayLike := Type.array.union(Type.args)
-  Type.undefinedOrNull := Type.undefined.union(Type.null)
-  Type.notUndefinedOrNull := Type.undefinedOrNull.complement()
-  Type.primitive := Type.undefinedOrNull.union(Type.boolean).union(Type.string).union(Type.number)
-  Type.nonPrimitive := Type.primitive.complement()
-  Type.alwaysFalsy := Type.undefinedOrNull
-  Type.potentiallyTruthy := Type.alwaysFalsy.complement()
-  Type.potentiallyFalsy := Type.alwaysFalsy.union(Type.number).union(Type.string).union(Type.boolean)
-  Type.alwaysTruthy := Type.potentiallyFalsy.complement()
+  Type.string-or-number := Type.string.union(Type.number)
+  Type.array-like := Type.array.union(Type.args)
+  Type.undefined-or-null := Type.undefined.union(Type.null)
+  Type.not-undefined-or-null := Type.undefined-or-null.complement()
+  Type.primitive := Type.undefined-or-null.union(Type.boolean).union(Type.string).union(Type.number)
+  Type.non-primitive := Type.primitive.complement()
+  Type.always-falsy := Type.undefined-or-null
+  Type.potentially-truthy := Type.always-falsy.complement()
+  Type.potentially-falsy := Type.always-falsy.union(Type.number).union(Type.string).union(Type.boolean)
+  Type.always-truthy := Type.potentially-falsy.complement()
   
   Type

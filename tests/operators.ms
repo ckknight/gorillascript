@@ -29,20 +29,20 @@ test "Addition",#
   let y = "2" + '3'"""), (e) -> e.line == 2
   */
   let add(a, b) -> a() + b()
-  eq 3, add(runOnce(1), runOnce(2))
-  throws #-> add(runOnce("1"), runOnce("2")), TypeError
-  throws #-> add(runOnce(1), runOnce("2")), TypeError
-  throws #-> add(runOnce("1"), runOnce(2)), TypeError
-  let addAssign(mutable a, b) -> a += b()
-  eq 3, addAssign(1, runOnce(2))
-  throws #-> addAssign("1", runOnce("2")), TypeError
-  throws #-> addAssign(1, runOnce("2")), TypeError
-  throws #-> addAssign("1", runOnce(2)), TypeError
-  let addMemberAssign(a, b, c) -> a[b()] += c()
-  eq 3, addMemberAssign({key: 1}, runOnce("key"), runOnce 2)
-  throws #-> addMemberAssign({key: "1"}, runOnce("key"), runOnce "2"), TypeError
-  throws #-> addMemberAssign({key: 1}, runOnce("key"), runOnce "2"), TypeError
-  throws #-> addMemberAssign({key: "1"}, runOnce("key"), runOnce 2), TypeError
+  eq 3, add(run-once(1), run-once(2))
+  throws #-> add(run-once("1"), run-once("2")), TypeError
+  throws #-> add(run-once(1), run-once("2")), TypeError
+  throws #-> add(run-once("1"), run-once(2)), TypeError
+  let add-assign(mutable a, b) -> a += b()
+  eq 3, add-assign(1, run-once(2))
+  throws #-> add-assign("1", run-once("2")), TypeError
+  throws #-> add-assign(1, run-once("2")), TypeError
+  throws #-> add-assign("1", run-once(2)), TypeError
+  let add-member-assign(a, b, c) -> a[b()] += c()
+  eq 3, add-member-assign({key: 1}, run-once("key"), run-once 2)
+  throws #-> add-member-assign({key: "1"}, run-once("key"), run-once "2"), TypeError
+  throws #-> add-member-assign({key: 1}, run-once("key"), run-once "2"), TypeError
+  throws #-> add-member-assign({key: "1"}, run-once("key"), run-once 2), TypeError
 
 test "Subtraction", #
   let two = 2
@@ -58,20 +58,20 @@ test "Subtraction", #
   let y = "2" - '3'"""), (e) -> e.line == 2
   */
   let sub(a, b) -> a() - b()
-  eq 1, sub(runOnce(3), runOnce 2)
-  throws #-> sub(runOnce("3"), runOnce "2"), TypeError
-  throws #-> sub(runOnce(3), runOnce "2"), TypeError
-  throws #-> sub(runOnce("3"), runOnce 2), TypeError
-  let subAssign(mutable a, b) -> a -= b()
-  eq 1, subAssign(3, runOnce 2)
-  throws #-> subAssign("3", runOnce "2"), TypeError
-  throws #-> subAssign(3, runOnce "2"), TypeError
-  throws #-> subAssign("3", runOnce 2), TypeError
-  let subMemberAssign(a, b, c) -> a[b()] -= c()
-  eq 1, subMemberAssign({key: 3}, runOnce("key"), runOnce 2)
-  throws #-> subMemberAssign({key: "3"}, runOnce("key"), runOnce "2"), TypeError
-  throws #-> subMemberAssign({key: 3}, runOnce("key"), runOnce "2"), TypeError
-  throws #-> subMemberAssign({key: "3"}, runOnce("key"), runOnce 2), TypeError
+  eq 1, sub(run-once(3), run-once 2)
+  throws #-> sub(run-once("3"), run-once "2"), TypeError
+  throws #-> sub(run-once(3), run-once "2"), TypeError
+  throws #-> sub(run-once("3"), run-once 2), TypeError
+  let sub-assign(mutable a, b) -> a -= b()
+  eq 1, sub-assign(3, run-once 2)
+  throws #-> sub-assign("3", run-once "2"), TypeError
+  throws #-> sub-assign(3, run-once "2"), TypeError
+  throws #-> sub-assign("3", run-once 2), TypeError
+  let sub-member-assign(a, b, c) -> a[b()] -= c()
+  eq 1, sub-member-assign({key: 3}, run-once("key"), run-once 2)
+  throws #-> sub-member-assign({key: "3"}, run-once("key"), run-once "2"), TypeError
+  throws #-> sub-member-assign({key: 3}, run-once("key"), run-once "2"), TypeError
+  throws #-> sub-member-assign({key: "3"}, run-once("key"), run-once 2), TypeError
 
 test "Addition and Subtraction", #
   let two = 2
@@ -115,48 +115,48 @@ test "Multiplication", #
   let y = "2" * '3'"""), (e) -> e.line == 2
   */
   let mult(a, b) -> a() * b()
-  eq 6, mult(runOnce(3), runOnce(2))
-  throws #-> mult(runOnce("3"), runOnce("2")), TypeError
-  throws #-> mult(runOnce(3), runOnce("2")), TypeError
-  throws #-> mult(runOnce("3"), runOnce(2)), TypeError
-  let multAssign(mutable a, b) -> a *= b()
-  eq 6, multAssign(3, runOnce 2)
-  throws #-> multAssign("3", runOnce "2"), TypeError
-  throws #-> multAssign(3, runOnce "2"), TypeError
-  throws #-> multAssign("3", runOnce 2), TypeError
-  let multMemberAssign(a, b, c) -> a[b()] *= c()
-  eq 6, multMemberAssign({key: 2}, runOnce("key"), runOnce 3)
-  throws #-> multMemberAssign({key: "2"}, runOnce("key"), runOnce "3"), TypeError
-  throws #-> multMemberAssign({key: 2}, runOnce("key"), runOnce "3"), TypeError
-  throws #-> multMemberAssign({key: "2"}, runOnce("key"), runOnce 3), TypeError
+  eq 6, mult(run-once(3), run-once(2))
+  throws #-> mult(run-once("3"), run-once("2")), TypeError
+  throws #-> mult(run-once(3), run-once("2")), TypeError
+  throws #-> mult(run-once("3"), run-once(2)), TypeError
+  let mult-assign(mutable a, b) -> a *= b()
+  eq 6, mult-assign(3, run-once 2)
+  throws #-> mult-assign("3", run-once "2"), TypeError
+  throws #-> mult-assign(3, run-once "2"), TypeError
+  throws #-> mult-assign("3", run-once 2), TypeError
+  let mult-member-assign(a, b, c) -> a[b()] *= c()
+  eq 6, mult-member-assign({key: 2}, run-once("key"), run-once 3)
+  throws #-> mult-member-assign({key: "2"}, run-once("key"), run-once "3"), TypeError
+  throws #-> mult-member-assign({key: 2}, run-once("key"), run-once "3"), TypeError
+  throws #-> mult-member-assign({key: "2"}, run-once("key"), run-once 3), TypeError
 
 test "Division", #
-  let thirtySix = 36
+  let thirty-six = 36
   let six = 6
   let three = 3
-  eq 6, thirtySix / six
-  eq 2, thirtySix / six / three
-  eq 2, (thirtySix / six) / three
-  eq 18, thirtySix / (six / three)
+  eq 6, thirty-six / six
+  eq 2, thirty-six / six / three
+  eq 2, (thirty-six / six) / three
+  eq 18, thirty-six / (six / three)
   /*
   throws #-> Cotton.compile("""let x = 5
   let y = "2" / '3'"""), (e) -> e.line == 2
   */
   let div = #(a, b) -> a() / b()
-  eq 2, div(runOnce(6), runOnce 3)
-  throws #-> div(runOnce("6"), runOnce "3"), TypeError
-  throws #-> div(runOnce(6), runOnce "3"), TypeError
-  throws #-> div(runOnce("6"), runOnce 3), TypeError
-  let divAssign = #(mutable a, b) -> a /= b()
-  eq 2, divAssign(6, runOnce 3)
-  throws #-> divAssign("6", runOnce "3"), TypeError
-  throws #-> divAssign(6, runOnce "3"), TypeError
-  throws #-> divAssign("6", runOnce 3), TypeError
-  let divMemberAssign = #(a, b, c) -> a[b()] /= c()
-  eq 2, divMemberAssign({key: 6}, runOnce("key"), runOnce 3)
-  throws #-> divMemberAssign({key: "6"}, runOnce("key"), runOnce "3"), TypeError
-  throws #-> divMemberAssign({key: 6}, runOnce("key"), runOnce "3"), TypeError
-  throws #-> divMemberAssign({key: "6"}, runOnce("key"), runOnce 3), TypeError
+  eq 2, div(run-once(6), run-once 3)
+  throws #-> div(run-once("6"), run-once "3"), TypeError
+  throws #-> div(run-once(6), run-once "3"), TypeError
+  throws #-> div(run-once("6"), run-once 3), TypeError
+  let div-assign = #(mutable a, b) -> a /= b()
+  eq 2, div-assign(6, run-once 3)
+  throws #-> div-assign("6", run-once "3"), TypeError
+  throws #-> div-assign(6, run-once "3"), TypeError
+  throws #-> div-assign("6", run-once 3), TypeError
+  let div-member-assign = #(a, b, c) -> a[b()] /= c()
+  eq 2, div-member-assign({key: 6}, run-once("key"), run-once 3)
+  throws #-> div-member-assign({key: "6"}, run-once("key"), run-once "3"), TypeError
+  throws #-> div-member-assign({key: 6}, run-once("key"), run-once "3"), TypeError
+  throws #-> div-member-assign({key: "6"}, run-once("key"), run-once 3), TypeError
 
 test "Multiplication and Division", #
   let fifteen = 15
@@ -183,20 +183,20 @@ test "Modulus", #
   let y = "2" % '3'"""), (e) -> e.line == 2
   */
   let mod(a, b) -> a() % b()
-  eq 2, mod(runOnce(8), runOnce(3))
-  throws #-> mod(runOnce("8"), runOnce("3")), TypeError
-  throws #-> mod(runOnce(8), runOnce("3")), TypeError
-  throws #-> mod(runOnce("8"), runOnce(3)), TypeError
-  let modAssign(mutable a, b) -> a %= b()
-  eq 2, modAssign(8, runOnce 3)
-  throws #-> modAssign("8", runOnce "3"), TypeError
-  throws #-> modAssign(8, runOnce "3"), TypeError
-  throws #-> modAssign("8", runOnce 3), TypeError
-  let modMemberAssign(a, b, c) -> a[b()] %= c()
-  eq 2, modMemberAssign({key: 8}, runOnce("key"), runOnce 3)
-  throws #-> modMemberAssign({key: "8"}, runOnce("key"), runOnce "3"), TypeError
-  throws #-> modMemberAssign({key: 8}, runOnce("key"), runOnce "3"), TypeError
-  throws #-> modMemberAssign({key: "8"}, runOnce("key"), runOnce 3), TypeError
+  eq 2, mod(run-once(8), run-once(3))
+  throws #-> mod(run-once("8"), run-once("3")), TypeError
+  throws #-> mod(run-once(8), run-once("3")), TypeError
+  throws #-> mod(run-once("8"), run-once(3)), TypeError
+  let mod-assign(mutable a, b) -> a %= b()
+  eq 2, mod-assign(8, run-once 3)
+  throws #-> mod-assign("8", run-once "3"), TypeError
+  throws #-> mod-assign(8, run-once "3"), TypeError
+  throws #-> mod-assign("8", run-once 3), TypeError
+  let mod-member-assign(a, b, c) -> a[b()] %= c()
+  eq 2, mod-member-assign({key: 8}, run-once("key"), run-once 3)
+  throws #-> mod-member-assign({key: "8"}, run-once("key"), run-once "3"), TypeError
+  throws #-> mod-member-assign({key: 8}, run-once("key"), run-once "3"), TypeError
+  throws #-> mod-member-assign({key: "8"}, run-once("key"), run-once 3), TypeError
 
 test "Exponentiation", #
   eq 1, 3 ^ 0
@@ -227,23 +227,23 @@ test "Exponentiation", #
   let y = "2" ^ '3'"""), (e) -> e.line == 2
   */
   let pow(a, b) -> a() ^ b()
-  eq 8, pow(runOnce(2), runOnce(3))
-  throws #-> pow(runOnce("2"), runOnce("3")), TypeError
-  throws #-> pow(runOnce(2), runOnce("3")), TypeError
-  throws #-> pow(runOnce("2"), runOnce(3)), TypeError
-  let powAssign(mutable a, b) -> a ^= b()
-  eq 8, powAssign(2, runOnce 3)
-  throws #-> powAssign("2", runOnce "3"), TypeError
-  throws #-> powAssign(2, runOnce "3"), TypeError
-  throws #-> powAssign("2", runOnce 3), TypeError
-  let powMemberAssign(a, b, c) -> a[b()] ^= c()
-  eq 8, powMemberAssign({key: 2}, runOnce("key"), runOnce 3)
-  throws #-> powMemberAssign({key: "2"}, runOnce("key"), runOnce "3"), TypeError
-  throws #-> powMemberAssign({key: 2}, runOnce("key"), runOnce "3"), TypeError
-  throws #-> powMemberAssign({key: "2"}, runOnce("key"), runOnce 3), TypeError
+  eq 8, pow(run-once(2), run-once(3))
+  throws #-> pow(run-once("2"), run-once("3")), TypeError
+  throws #-> pow(run-once(2), run-once("3")), TypeError
+  throws #-> pow(run-once("2"), run-once(3)), TypeError
+  let pow-assign(mutable a, b) -> a ^= b()
+  eq 8, pow-assign(2, run-once 3)
+  throws #-> pow-assign("2", run-once "3"), TypeError
+  throws #-> pow-assign(2, run-once "3"), TypeError
+  throws #-> pow-assign("2", run-once 3), TypeError
+  let pow-member-assign(a, b, c) -> a[b()] ^= c()
+  eq 8, pow-member-assign({key: 2}, run-once("key"), run-once 3)
+  throws #-> pow-member-assign({key: "2"}, run-once("key"), run-once "3"), TypeError
+  throws #-> pow-member-assign({key: 2}, run-once("key"), run-once "3"), TypeError
+  throws #-> pow-member-assign({key: "2"}, run-once("key"), run-once 3), TypeError
 
 test "Exponentation still calculates left side if right is 0", #
-  let ten = runOnce(10)
+  let ten = run-once(10)
   eq 1, ten() ^ 0
   ok ten.ran
 
@@ -285,36 +285,36 @@ test "Logical operators", #
   */
 
 test "logical assignment", #
-  let andAssign(mutable x, y)
+  let and-assign(mutable x, y)
     x and= y()
-  let andMemberAssign(x, y, z)
+  let and-member-assign(x, y, z)
     x[y()] and= z()
-  let orAssign(mutable x, y)
+  let or-assign(mutable x, y)
     x or= y()
-  let orMemberAssign(x, y, z)
+  let or-member-assign(x, y, z)
     x[y()] or= z()
-  let xorAssign(mutable x, y)
+  let xor-assign(mutable x, y)
     x xor= y()
-  let xorMemberAssign(x, y, z)
+  let xor-member-assign(x, y, z)
     x[y()] xor= z()
   
-  eq 2, andAssign(1, runOnce 2)
-  eq 0, andAssign(0, fail)
-  eq 1, orAssign(1, fail)
-  eq 2, orAssign(0, runOnce 2)
-  eq false, xorAssign(1, runOnce 1), "a"
-  eq true, xorAssign(1, runOnce 0), "b"
-  eq 1, xorAssign(0, runOnce 1), "c"
-  eq 0, xorAssign(0, runOnce 0), "d"
+  eq 2, and-assign(1, run-once 2)
+  eq 0, and-assign(0, fail)
+  eq 1, or-assign(1, fail)
+  eq 2, or-assign(0, run-once 2)
+  eq false, xor-assign(1, run-once 1), "a"
+  eq true, xor-assign(1, run-once 0), "b"
+  eq 1, xor-assign(0, run-once 1), "c"
+  eq 0, xor-assign(0, run-once 0), "d"
   
-  eq undefined, andMemberAssign({}, runOnce("key"), fail)
-  eq "bravo", andMemberAssign({key:"alpha"}, runOnce("key"), runOnce "bravo")
-  eq "value", orMemberAssign({}, runOnce("key"), runOnce "value")
-  eq "alpha", orMemberAssign({key:"alpha"}, runOnce("key"), fail)
-  eq "value", xorMemberAssign({}, runOnce("key"), runOnce "value")
-  eq 0, xorMemberAssign({}, runOnce("key"), runOnce 0)
-  eq false, xorMemberAssign({key:"alpha"}, runOnce("key"), runOnce "value")
-  eq 0, xorMemberAssign({key:"alpha"}, runOnce(0), runOnce 0)
+  eq undefined, and-member-assign({}, run-once("key"), fail)
+  eq "bravo", and-member-assign({key:"alpha"}, run-once("key"), run-once "bravo")
+  eq "value", or-member-assign({}, run-once("key"), run-once "value")
+  eq "alpha", or-member-assign({key:"alpha"}, run-once("key"), fail)
+  eq "value", xor-member-assign({}, run-once("key"), run-once "value")
+  eq 0, xor-member-assign({}, run-once("key"), run-once 0)
+  eq false, xor-member-assign({key:"alpha"}, run-once("key"), run-once "value")
+  eq 0, xor-member-assign({key:"alpha"}, run-once(0), run-once 0)
 
 test "not", #
   eq true, not false
@@ -335,10 +335,10 @@ test "instanceofsome", #
   ok new String("") instanceofsome [Function, String]
   ok new String("") not instanceofsome [Number, Function]
   
-  let mutable str = runOnce new String("")
+  let mutable str = run-once new String("")
   ok str() not instanceofsome []
   ok str.ran
-  str := runOnce new String("")
+  str := run-once new String("")
   ok str() instanceofsome [Function, String]
 
 test "unary negate", #
@@ -469,9 +469,9 @@ test "Comparison chaining", #
   ok(1 <= 2 >= 1)"""), (e) -> e.line == 2
 
 test "comparison chaining only access inside once", #
-  let two = runOnce 2
-  let three = runOnce 3
-  let four = runOnce 4
+  let two = run-once 2
+  let three = run-once 3
+  let four = run-once 4
   
   ok 1 < two() < three() < four() < 5
 
@@ -501,53 +501,53 @@ test "String concatenation", #
   eq "12", x
   
   let concat(a, b) -> a() & b()
-  eq "12", concat(runOnce(1), runOnce(2))
-  eq "12", concat(runOnce("1"), runOnce("2"))
-  eq "12", concat(runOnce(1), runOnce("2"))
-  eq "12", concat(runOnce("1"), runOnce(2))
-  throws #-> concat(runOnce("1"), runOnce({})), TypeError
-  throws #-> concat(runOnce({}), runOnce("2")), TypeError
-  throws #-> concat(runOnce({}), runOnce({})), TypeError
-  throws #-> concat(runOnce("1"), runOnce(null)), TypeError
-  throws #-> concat(runOnce(null), runOnce("2")), TypeError
-  throws #-> concat(runOnce(null), runOnce(null)), TypeError
-  throws #-> concat(runOnce("1"), runOnce(undefined)), TypeError
-  throws #-> concat(runOnce(undefined), runOnce("2")), TypeError
-  throws #-> concat(runOnce(undefined), runOnce(undefined)), TypeError
-  let concatAssign(mutable a, b) -> a &= b()
-  eq "12", concatAssign("1", runOnce("2"))
-  eq "12", concatAssign("1", runOnce(2))
-  //throws #-> concatAssign(1, runOnce("2")), TypeError
-  //throws #-> concatAssign(1, runOnce(2)), TypeError
-  throws #-> concatAssign("1", runOnce({})), TypeError
-  throws #-> concatAssign({}, runOnce("2")), TypeError
-  throws #-> concatAssign({}, runOnce({})), TypeError
-  throws #-> concatAssign("1", runOnce(null)), TypeError
-  throws #-> concatAssign(null, runOnce("2")), TypeError
-  throws #-> concatAssign(null, runOnce(null)), TypeError
-  throws #-> concatAssign("1", runOnce(undefined)), TypeError
-  throws #-> concatAssign(undefined, runOnce("2")), TypeError
-  throws #-> concatAssign(undefined, runOnce(undefined)), TypeError
-  let concatMemberAssign(a, b, c) -> a[b()] &= c()
-  eq "12", concatMemberAssign({key: "1"}, runOnce("key"), runOnce 2)
-  eq "12", concatMemberAssign({key: "1"}, runOnce("key"), runOnce "2")
-  //throws #-> concatMemberAssign({key: 1}, runOnce("key"), runOnce "2"), TypeError
-  //throws #-> concatMemberAssign({key: 1}, runOnce("key"), runOnce 2), TypeError
-  throws #-> concatMemberAssign({key: "1"}, runOnce("key"), runOnce {}), TypeError
-  throws #-> concatMemberAssign({key: {}}, runOnce("key"), runOnce "2"), TypeError
-  throws #-> concatMemberAssign({key: {}}, runOnce("key"), runOnce {}), TypeError
-  throws #-> concatMemberAssign({key: "1"}, runOnce("key"), runOnce null), TypeError
-  throws #-> concatMemberAssign({key: null}, runOnce("key"), runOnce "2"), TypeError
-  throws #-> concatMemberAssign({key: null}, runOnce("key"), runOnce null), TypeError
-  throws #-> concatMemberAssign({key: "1"}, runOnce("key"), runOnce undefined), TypeError
-  throws #-> concatMemberAssign({key: undefined}, runOnce("key"), runOnce "2"), TypeError
-  throws #-> concatMemberAssign({key: undefined}, runOnce("key"), runOnce undefined), TypeError
+  eq "12", concat(run-once(1), run-once(2))
+  eq "12", concat(run-once("1"), run-once("2"))
+  eq "12", concat(run-once(1), run-once("2"))
+  eq "12", concat(run-once("1"), run-once(2))
+  throws #-> concat(run-once("1"), run-once({})), TypeError
+  throws #-> concat(run-once({}), run-once("2")), TypeError
+  throws #-> concat(run-once({}), run-once({})), TypeError
+  throws #-> concat(run-once("1"), run-once(null)), TypeError
+  throws #-> concat(run-once(null), run-once("2")), TypeError
+  throws #-> concat(run-once(null), run-once(null)), TypeError
+  throws #-> concat(run-once("1"), run-once(undefined)), TypeError
+  throws #-> concat(run-once(undefined), run-once("2")), TypeError
+  throws #-> concat(run-once(undefined), run-once(undefined)), TypeError
+  let concat-assign(mutable a, b) -> a &= b()
+  eq "12", concat-assign("1", run-once("2"))
+  eq "12", concat-assign("1", run-once(2))
+  //throws #-> concat-assign(1, run-once("2")), TypeError
+  //throws #-> concat-assign(1, run-once(2)), TypeError
+  throws #-> concat-assign("1", run-once({})), TypeError
+  throws #-> concat-assign({}, run-once("2")), TypeError
+  throws #-> concat-assign({}, run-once({})), TypeError
+  throws #-> concat-assign("1", run-once(null)), TypeError
+  throws #-> concat-assign(null, run-once("2")), TypeError
+  throws #-> concat-assign(null, run-once(null)), TypeError
+  throws #-> concat-assign("1", run-once(undefined)), TypeError
+  throws #-> concat-assign(undefined, run-once("2")), TypeError
+  throws #-> concat-assign(undefined, run-once(undefined)), TypeError
+  let concat-member-assign(a, b, c) -> a[b()] &= c()
+  eq "12", concat-member-assign({key: "1"}, run-once("key"), run-once 2)
+  eq "12", concat-member-assign({key: "1"}, run-once("key"), run-once "2")
+  //throws #-> concat-member-assign({key: 1}, run-once("key"), run-once "2"), TypeError
+  //throws #-> concat-member-assign({key: 1}, run-once("key"), run-once 2), TypeError
+  throws #-> concat-member-assign({key: "1"}, run-once("key"), run-once {}), TypeError
+  throws #-> concat-member-assign({key: {}}, run-once("key"), run-once "2"), TypeError
+  throws #-> concat-member-assign({key: {}}, run-once("key"), run-once {}), TypeError
+  throws #-> concat-member-assign({key: "1"}, run-once("key"), run-once null), TypeError
+  throws #-> concat-member-assign({key: null}, run-once("key"), run-once "2"), TypeError
+  throws #-> concat-member-assign({key: null}, run-once("key"), run-once null), TypeError
+  throws #-> concat-member-assign({key: "1"}, run-once("key"), run-once undefined), TypeError
+  throws #-> concat-member-assign({key: undefined}, run-once("key"), run-once "2"), TypeError
+  throws #-> concat-member-assign({key: undefined}, run-once("key"), run-once undefined), TypeError
   
-  let concatKnownNumbers()
+  let concat-known-numbers()
     let a = 1
     let b = 2
     a & b
-  eq "12", concatKnownNumbers()
+  eq "12", concat-known-numbers()
 
 test "new operator", #
   let special = {}
@@ -559,25 +559,25 @@ test "new operator", #
   
   let container = { Class: Class }
   
-  let undefinedThisValue = (#-> this)()
+  let undefined-this-value = (#-> this)()
   
   let array = ["alpha", "bravo", "charlie"]
   
-  arrayEq [special, []], new Class
-  arrayEq [special, []], new Class()
-  arrayEq [special, ["alpha"]], new Class("alpha")
-  arrayEq [undefinedThisValue, []], Class()
-  arrayEq [undefinedThisValue, ["alpha"]], Class("alpha")
-  arrayEq ["alpha", "bravo"], Class(...["alpha", "bravo"])[1]
-  arrayEq ["alpha", "bravo", "charlie"], Class(...array)[1]
-  arrayEq [special, ["alpha"]], Class.call(Object.create(Class.prototype), "alpha")
-  arrayEq [special, []], new container.Class
-  arrayEq [special, []], new container.Class()
-  arrayEq [special, ["alpha"]], new container.Class("alpha")
-  arrayEq [special, ["alpha", "bravo"]], new container.Class(...["alpha", "bravo"])
-  arrayEq [special, ["alpha", "bravo", "charlie"]], new container.Class(...array)
-  arrayEq [container, ["alpha"]], container.Class("alpha")
-  arrayEq [special, ["alpha"]], container.Class.call(Object.create(container.Class.prototype), "alpha")
+  array-eq [special, []], new Class
+  array-eq [special, []], new Class()
+  array-eq [special, ["alpha"]], new Class("alpha")
+  array-eq [undefined-this-value, []], Class()
+  array-eq [undefined-this-value, ["alpha"]], Class("alpha")
+  array-eq ["alpha", "bravo"], Class(...["alpha", "bravo"])[1]
+  array-eq ["alpha", "bravo", "charlie"], Class(...array)[1]
+  array-eq [special, ["alpha"]], Class.call(Object.create(Class.prototype), "alpha")
+  array-eq [special, []], new container.Class
+  array-eq [special, []], new container.Class()
+  array-eq [special, ["alpha"]], new container.Class("alpha")
+  array-eq [special, ["alpha", "bravo"]], new container.Class(...["alpha", "bravo"])
+  array-eq [special, ["alpha", "bravo", "charlie"]], new container.Class(...array)
+  array-eq [container, ["alpha"]], container.Class("alpha")
+  array-eq [special, ["alpha"]], container.Class.call(Object.create(container.Class.prototype), "alpha")
 
 test "new operator spread", #
   let Class(...args)!
@@ -585,40 +585,40 @@ test "new operator spread", #
     this.args := args
     return this
   
-  let makeClassWithThis(...args)
+  let make-class-with-this(...args)
     new Class(this, ...args)
   
-  let makeClassWithArguments()
+  let make-class-with-arguments()
     new Class(arguments)
   
-  arrayEq [], new Class().args
-  arrayEq ["alpha"], new Class("alpha").args
-  arrayEq ["alpha", "bravo"], new Class("alpha", "bravo").args
+  array-eq [], new Class().args
+  array-eq ["alpha"], new Class("alpha").args
+  array-eq ["alpha", "bravo"], new Class("alpha", "bravo").args
   let array = ["alpha", "bravo", "charlie"]
-  arrayEq ["alpha", "bravo", "charlie"], new Class(...array).args
+  array-eq ["alpha", "bravo", "charlie"], new Class(...array).args
   let obj = {}
-  arrayEq [obj], makeClassWithThis.call(obj).args
-  arrayEq [obj, "alpha", "bravo", "charlie"], makeClassWithThis.apply(obj, array).args
-  ok not Array.isArray(makeClassWithArguments().args[0])
-  eq 0, makeClassWithArguments().args[0].length
-  eq 3, makeClassWithArguments(...array).args[0].length
-  arrayEq ["alpha", "bravo", "charlie"], [...(makeClassWithArguments(...array).args[0])]
+  array-eq [obj], make-class-with-this.call(obj).args
+  array-eq [obj, "alpha", "bravo", "charlie"], make-class-with-this.apply(obj, array).args
+  ok not Array.is-array(make-class-with-arguments().args[0])
+  eq 0, make-class-with-arguments().args[0].length
+  eq 3, make-class-with-arguments(...array).args[0].length
+  array-eq ["alpha", "bravo", "charlie"], [...(make-class-with-arguments(...array).args[0])]
   
   let arr = []
   for i = 0, 200
     arr.push i
     let obj = new Class(...arr)
-    arrayEq arr, obj.args
+    array-eq arr, obj.args
     ok obj instanceof Class
-    if typeof Object.getPrototypeOf == "function"
-      eq Class.prototype, Object.getPrototypeOf(obj)
+    if typeof Object.get-prototype-of == "function"
+      eq Class.prototype, Object.get-prototype-of(obj)
   
-  let dateValues = [1987]
-  ok new Date(...dateValues) instanceof Date
-  dateValues.push 7
-  ok new Date(...dateValues) instanceof Date
-  dateValues.push 22
-  ok new Date(...dateValues) instanceof Date
+  let date-values = [1987]
+  ok new Date(...date-values) instanceof Date
+  date-values.push 7
+  ok new Date(...date-values) instanceof Date
+  date-values.push 22
+  ok new Date(...date-values) instanceof Date
 
 test "new operator precedence", #
   let Class(...args)!
@@ -632,24 +632,24 @@ test "new operator precedence", #
   Class::method := #(...args)
     ["instance", ...args]
   
-  arrayEq [], (new Class).args
-  arrayEq [], new Class().args
-  arrayEq ["alpha"], (new Class("alpha")).args
-  arrayEq ["alpha"], new Class("alpha").args
-  arrayEq ["alpha", "bravo"], (new Class("alpha", "bravo")).args
-  arrayEq ["alpha", "bravo"], new Class("alpha", "bravo").args
-  arrayEq ["static"], Class.method()
-  arrayEq ["static", "alpha"], Class.method("alpha")
-  arrayEq ["static", "alpha", "bravo"], Class.method("alpha", "bravo")
-  arrayEq ["instance"], (new Class).method()
-  arrayEq ["instance"], new Class().method()
-  arrayEq ["instance", "alpha"], new Class().method("alpha")
-  arrayEq ["instance", "alpha"], (new Class).method("alpha")
-  arrayEq ["instance", "alpha", "bravo"], new Class().method("alpha", "bravo")
-  arrayEq ["instance", "alpha", "bravo"], (new Class).method("alpha", "bravo")
-  arrayEq ["static"], new Class.method()
-  arrayEq ["static", "alpha"], new Class.method("alpha")
-  arrayEq ["static", "alpha", "bravo"], new Class.method("alpha", "bravo")
+  array-eq [], (new Class).args
+  array-eq [], new Class().args
+  array-eq ["alpha"], (new Class("alpha")).args
+  array-eq ["alpha"], new Class("alpha").args
+  array-eq ["alpha", "bravo"], (new Class("alpha", "bravo")).args
+  array-eq ["alpha", "bravo"], new Class("alpha", "bravo").args
+  array-eq ["static"], Class.method()
+  array-eq ["static", "alpha"], Class.method("alpha")
+  array-eq ["static", "alpha", "bravo"], Class.method("alpha", "bravo")
+  array-eq ["instance"], (new Class).method()
+  array-eq ["instance"], new Class().method()
+  array-eq ["instance", "alpha"], new Class().method("alpha")
+  array-eq ["instance", "alpha"], (new Class).method("alpha")
+  array-eq ["instance", "alpha", "bravo"], new Class().method("alpha", "bravo")
+  array-eq ["instance", "alpha", "bravo"], (new Class).method("alpha", "bravo")
+  array-eq ["static"], new Class.method()
+  array-eq ["static", "alpha"], new Class.method("alpha")
+  array-eq ["static", "alpha", "bravo"], new Class.method("alpha", "bravo")
 
 test "delete removes key", #
   let obj = { alpha: "bravo", charlie: "delta" }
@@ -670,11 +670,11 @@ test "delete returns undefined if no value found", #
   eq undefined, delete obj.alpha
 
 test "delete doesn't pluck if unnecessary", #
-  if typeof Object.defineProperty == "undefined"
+  if typeof Object.define-property == "undefined"
     return
   
   let obj = {}
-  Object.defineProperty(obj, "alpha", {
+  Object.define-property(obj, "alpha", {
     get: #-> fail()
     configurable: true
   })
@@ -682,21 +682,21 @@ test "delete doesn't pluck if unnecessary", #
   eq undefined, obj.alpha
 
 test "delete pluck only calculates object once", #
-  let obj = runOnce { alpha: "bravo" }
+  let obj = run-once { alpha: "bravo" }
   eq "bravo", delete obj().alpha
 
 test "delete pluck only calculates key once", #
   let obj = { alpha: "bravo" }
-  let key = runOnce "alpha"
+  let key = run-once "alpha"
   eq "bravo", delete obj[key()]
 
 test "delete pluck only calculates value once", #
-  if typeof Object.defineProperty != "function"
+  if typeof Object.define-property != "function"
     return
   
   let obj = {}
-  Object.defineProperty(obj, "alpha", {
-    get: runOnce "bravo"
+  Object.define-property(obj, "alpha", {
+    get: run-once "bravo"
     configurable: true
   })
   eq "bravo", delete obj.alpha
@@ -738,7 +738,7 @@ test "multiple assignment", #
   let mutable z = undefined
   
   x := y := z := "alpha"
-  arrayEq [x, y, z], ["alpha", "alpha", "alpha"]
+  array-eq [x, y, z], ["alpha", "alpha", "alpha"]
 
 test "multiple ?= assignment", #
   let mutable x = undefined
@@ -870,20 +870,20 @@ test "floor division", #
   let y = "2" \ '3'"""), (e) -> e.line == 2
   */
   let div(a, b) -> a() \ b()
-  eq 4, div(runOnce(9), runOnce 2)
-  throws #-> div(runOnce("9"), runOnce "2"), TypeError
-  throws #-> div(runOnce(9), runOnce "2"), TypeError
-  throws #-> div(runOnce("9"), runOnce 2), TypeError
-  let divAssign(mutable a, b) -> a \= b()
-  eq 4, divAssign(9, runOnce 2)
-  throws #-> divAssign("9", runOnce "2"), TypeError
-  throws #-> divAssign(9, runOnce "2"), TypeError
-  throws #-> divAssign("9", runOnce 2), TypeError
-  let divMemberAssign(a, b, c) -> a[b()] \= c()
-  eq 4, divMemberAssign({key: 9}, runOnce("key"), runOnce 2)
-  throws #-> divMemberAssign({key: "9"}, runOnce("key"), runOnce "2"), TypeError
-  throws #-> divMemberAssign({key: 9}, runOnce("key"), runOnce "2"), TypeError
-  throws #-> divMemberAssign({key: "9"}, runOnce("key"), runOnce 2), TypeError
+  eq 4, div(run-once(9), run-once 2)
+  throws #-> div(run-once("9"), run-once "2"), TypeError
+  throws #-> div(run-once(9), run-once "2"), TypeError
+  throws #-> div(run-once("9"), run-once 2), TypeError
+  let div-assign(mutable a, b) -> a \= b()
+  eq 4, div-assign(9, run-once 2)
+  throws #-> div-assign("9", run-once "2"), TypeError
+  throws #-> div-assign(9, run-once "2"), TypeError
+  throws #-> div-assign("9", run-once 2), TypeError
+  let div-member-assign(a, b, c) -> a[b()] \= c()
+  eq 4, div-member-assign({key: 9}, run-once("key"), run-once 2)
+  throws #-> div-member-assign({key: "9"}, run-once("key"), run-once "2"), TypeError
+  throws #-> div-member-assign({key: 9}, run-once("key"), run-once "2"), TypeError
+  throws #-> div-member-assign({key: "9"}, run-once("key"), run-once 2), TypeError
 
 test "min/max operators", #
   eq 1, 1 min 2 min 3 min 4
@@ -893,32 +893,32 @@ test "min/max operators", #
 
 /*
 test "min/max assignment", #
-  let minAssign(mutable x, y)
+  let min-assign(mutable x, y)
     x min= y()
-  let minMemberAssign(x, y, z)
+  let min-member-assign(x, y, z)
     x[y()] min= z()
-  let maxAssign(mutable x, y)
+  let max-assign(mutable x, y)
     x max= y()
-  let maxMemberAssign(x, y, z)
+  let max-member-assign(x, y, z)
     x[y()] max= z()
   
-  eq 1, minAssign(1, runOnce 2)
-  eq 1, minAssign(2, runOnce 1)
-  eq 2, maxAssign(1, runOnce 2)
-  eq 2, maxAssign(2, runOnce 1)
-  eq "alpha", minAssign("alpha", runOnce "bravo")
-  eq "alpha", minAssign("bravo", runOnce "alpha")
-  eq "bravo", maxAssign("alpha", runOnce "bravo")
-  eq "bravo", maxAssign("bravo", runOnce "alpha")
+  eq 1, min-assign(1, run-once 2)
+  eq 1, min-assign(2, run-once 1)
+  eq 2, max-assign(1, run-once 2)
+  eq 2, max-assign(2, run-once 1)
+  eq "alpha", min-assign("alpha", run-once "bravo")
+  eq "alpha", min-assign("bravo", run-once "alpha")
+  eq "bravo", max-assign("alpha", run-once "bravo")
+  eq "bravo", max-assign("bravo", run-once "alpha")
   
-  eq 1, minMemberAssign({key: 1}, runOnce("key"), runOnce 2)
-  eq 1, minMemberAssign({key: 2}, runOnce("key"), runOnce 1)
-  eq 2, maxMemberAssign({key: 1}, runOnce("key"), runOnce 2)
-  eq 2, maxMemberAssign({key: 2}, runOnce("key"), runOnce 1)
-  eq "alpha", minMemberAssign({key: "alpha"}, runOnce("key"), runOnce "bravo")
-  eq "alpha", minMemberAssign({key: "bravo"}, runOnce("key"), runOnce "alpha")
-  eq "bravo", maxMemberAssign({key: "alpha"}, runOnce("key"), runOnce "bravo")
-  eq "bravo", maxMemberAssign({key: "bravo"}, runOnce("key"), runOnce "alpha")
+  eq 1, min-member-assign({key: 1}, run-once("key"), run-once 2)
+  eq 1, min-member-assign({key: 2}, run-once("key"), run-once 1)
+  eq 2, max-member-assign({key: 1}, run-once("key"), run-once 2)
+  eq 2, max-member-assign({key: 2}, run-once("key"), run-once 1)
+  eq "alpha", min-member-assign({key: "alpha"}, run-once("key"), run-once "bravo")
+  eq "alpha", min-member-assign({key: "bravo"}, run-once("key"), run-once "alpha")
+  eq "bravo", max-member-assign({key: "alpha"}, run-once("key"), run-once "bravo")
+  eq "bravo", max-member-assign({key: "bravo"}, run-once("key"), run-once "alpha")
 */
 /*
 test "logarithm", #
@@ -932,13 +932,13 @@ test "logarithm", #
   end
   
   let log1 = (x) -> log x()
-  eq Math.log(10), log1 runOnce(10)
-  throws #-> log1(runOnce("10")), TypeError
+  eq Math.log(10), log1 run-once(10)
+  throws #-> log1(run-once("10")), TypeError
   let log2 = (x, y) -> log x(), y()
-  eq Math.log(10) / Math.log(2), log2 runOnce(10), runOnce(2)
-  throws #-> log2(runOnce("10"), runOnce("2")), TypeError
-  throws #-> log2(runOnce("10"), runOnce(2)), TypeError
-  throws #-> log2(runOnce(10), runOnce("2")), TypeError
+  eq Math.log(10) / Math.log(2), log2 run-once(10), run-once(2)
+  throws #-> log2(run-once("10"), run-once("2")), TypeError
+  throws #-> log2(run-once("10"), run-once(2)), TypeError
+  throws #-> log2(run-once(10), run-once("2")), TypeError
 */
 test "negation on separate line does not look like subtraction", #
   let f()
@@ -946,3 +946,313 @@ test "negation on separate line does not look like subtraction", #
     -1
   
   eq -1, f()
+
+test "Operators as functions", #
+  let n(f, x, y, expected, safe)
+    eq "function", typeof f
+    eq expected, f(x, y)
+    if safe
+      throws #-> f(x, String(y))
+    else
+      ok f(x, String(y)) in [expected, String(expected)]
+  let s(f, x, y, expected, safe)
+    eq "function", typeof f
+    eq expected, f(x, y)
+    if safe
+      throws #-> f(x, Number(y))
+    else
+      ok f(x, Number(y)) in [expected, Number(expected)]
+  
+  n (^), 2, 10, 1024, true
+  n (~^), 2, 10, 1024, false
+  n (*), 5, 6, 30, true
+  n (~*), 5, 6, 30, false
+  n (/), 5, 4, 1.25, true
+  n (~/), 5, 4, 1.25, false
+  n (\), 5, 3, 1, true
+  n (~\), 5, 3, 1, false
+  n (%), 5, 3, 2, true
+  n (~%), 5, 3, 2, false
+  n (+), 2, 4, 6, true
+  n (~+), 2, 4, 6, false
+  n (-), 10, 4, 6, true
+  n (~-), 10, 4, 6, false
+  n (bitlshift), 0b10101, 4, 0b101010000, true
+  n (~bitlshift), 0b10101, 4, 0b101010000, false
+  n (bitrshift), 0b101010000, 4, 0b10101, true
+  n (~bitrshift), 0b101010000, 4, 0b10101, false
+  n (biturshift), 0b101010000, 4, 0b10101, true
+  n (~biturshift), 0b101010000, 4, 0b10101, false
+  n (biturshift), -1, 0, 2^32 - 1, true
+  n (~biturshift), -1, 0, 2^32 - 1, false
+  n (bitand), 0b1110, 0b1011, 0b1010, true
+  n (~bitand), 0b1110, 0b1011, 0b1010, false
+  n (bitor), 0b1110, 0b0101, 0b1111, true
+  n (~bitor), 0b1110, 0b0101, 0b1111, false
+  n (bitxor), 0b1100, 0b0101, 0b1001, true
+  n (~bitxor), 0b1100, 0b0101, 0b1001, false
+  n (min), 5, 2, 2, true
+  n (~min), 5, 2, 2, false
+  n (min), 2, 5, 2, true
+  n (~min), 2, 5, 2, false
+  n (max), 5, 2, 5, true
+  n (~max), 5, 2, 5, false
+  n (max), 2, 5, 5, true
+  n (~max), 2, 5, 5, false
+  n (&), 1, 2, "12"
+  n (~&), "1", "2", "12"
+  n (&), "hello", "there", "hellothere"
+  n (~&), "hello", "there", "hellothere"
+  throws #-> (&)(undefined, 1)
+  n (~&), undefined, 1, "undefined1", false
+  
+  eq "function", typeof (in)
+  ok (in)("c", ["a", "b", "c", "d"])
+  ok not (in)("e", ["a", "b", "c", "d"])
+  
+  eq "function", typeof (haskey)
+  ok (haskey)({hello: "there"}, "hello")
+  ok (haskey)(^{hello: "there"}, "hello")
+  ok not (haskey)(^{}, "hello")
+  
+  eq "function", typeof (ownskey)
+  ok (ownskey)({hello: "there"}, "hello")
+  ok not (ownskey)(^{hello: "there"}, "hello")
+  ok not (ownskey)(^{}, "hello")
+  
+  eq "function", typeof (instanceof)
+  ok (instanceof)(#->, Function)
+  ok (instanceof)({}, Object)
+  ok (instanceof)([], Array)
+  ok not (instanceof)(#->, Array)
+  ok not (instanceof)([], Number)
+  
+  eq "function", typeof (instanceofsome)
+  ok (instanceofsome)(#->, [Number, Function])
+  ok (instanceofsome)(#->, [Function, Number])
+  ok not (instanceofsome)(#->, [String, Number])
+  
+  eq "function", typeof (<=>)
+  eq 0, (<=>)("hello", "hello")
+  eq -1, (<=>)("alpha", "bravo")
+  eq 1, (<=>)("bravo", "alpha")
+  eq 0, (<=>)(1000, 1000)
+  eq -1, (<=>)(1000, 1100)
+  eq 1, (<=>)(1000, 900)
+  
+  eq "function", typeof (~=)
+  ok (~=)("1", 1)
+  ok (~=)("", 0)
+  ok (~=)("", [])
+  ok not (~=)(false, 1)
+  
+  eq "function", typeof (!~=)
+  ok not (!~=)("1", 1)
+  ok not (!~=)("", 0)
+  ok not (!~=)("", [])
+  ok (!~=)(false, 1)
+  
+  ok "function", typeof (==)
+  ok (==)(1, 1)
+  ok not (==)("1", 1)
+  ok (==)("hello", "hello")
+  ok not (==)("hello", "Hello")
+  
+  ok "function", typeof (!=)
+  ok not (!=)(1, 1)
+  ok (!=)("1", 1)
+  ok not (!=)("hello", "hello")
+  ok (!=)("hello", "Hello")
+  
+  n (%%), 10, 5, true, true
+  n (~%%), 10, 5, true, false
+  n (%%), 10, 6, false, true
+  n (~%%), 10, 6, false, false
+  n (!%%), 10, 5, false, true
+  n (!~%%), 10, 5, false, false
+  n (!%%), 10, 6, true, true
+  n (!~%%), 10, 6, true, false
+  
+  n (<), 1, 5, true, true
+  n (~<), 1, 5, true, false
+  n (<), 5, 5, false, true
+  n (~<), 5, 5, false, false
+  n (<), 5, 1, false, true
+  n (~<), 5, 1, false, false
+  n (<=), 1, 5, true, true
+  n (~<=), 1, 5, true, false
+  n (<=), 5, 5, true, true
+  n (~<=), 5, 5, true, false
+  n (<=), 5, 1, false, true
+  n (~<=), 5, 1, false, false
+  n (>), 5, 1, true, true
+  n (~>), 5, 1, true, false
+  n (>), 5, 5, false, true
+  n (~>), 5, 5, false, false
+  n (>), 1, 5, false, true
+  n (~>), 1, 5, false, false
+  n (>=), 5, 1, true, true
+  n (~>=), 5, 1, true, false
+  n (>=), 5, 5, true, true
+  n (~>=), 5, 5, true, false
+  n (>=), 1, 5, false, true
+  n (~>=), 1, 5, false, false
+  
+  s (<), "1", "5", true, true
+  s (~<), "1", "5", true, false
+  s (<), "5", "5", false, true
+  s (~<), "5", "5", false, false
+  s (<), "5", "1", false, true
+  s (~<), "5", "1", false, false
+  s (<=), "1", "5", true, true
+  s (~<=), "1", "5", true, false
+  s (<=), "5", "5", true, true
+  s (~<=), "5", "5", true, false
+  s (<=), "5", "1", false, true
+  s (~<=), "5", "1", false, false
+  s (>), "5", "1", true, true
+  s (~>), "5", "1", true, false
+  s (>), "5", "5", false, true
+  s (~>), "5", "5", false, false
+  s (>), "1", "5", false, true
+  s (~>), "1", "5", false, false
+  s (>=), "5", "1", true, true
+  s (~>=), "5", "1", true, false
+  s (>=), "5", "5", true, true
+  s (~>=), "5", "5", true, false
+  s (>=), "1", "5", false, true
+  s (~>=), "1", "5", false, false
+  
+  ok "function", typeof (and)
+  eq 5, (and)(1, 5)
+  eq 0, (and)(0, 5)
+  eq false, (and)(false, 5)
+  eq 5, (and)(true, 5)
+  eq void, (and)(void, 5)
+  eq null, (and)(null, 5)
+  eq "", (and)("", 5)
+  eq 5, (and)("a", 5)
+  
+  ok "function", typeof (or)
+  eq 1, (or)(1, 5)
+  eq 5, (or)(0, 5)
+  eq 5, (or)(false, 5)
+  eq true, (or)(true, 5)
+  eq 5, (or)(void, 5)
+  eq 5, (or)(null, 5)
+  eq 5, (or)("", 5)
+  eq "a", (or)("a", 5)
+  
+  ok "function", typeof (xor)
+  eq false, (xor)(1, 5)
+  eq true, (xor)(1, 0)
+  eq 5, (xor)(0, 5)
+  eq 5, (xor)(false, 5)
+  eq false, (xor)(true, 5)
+  eq true, (xor)(true, void)
+  eq 5, (xor)(void, 5)
+  eq 5, (xor)(null, 5)
+  eq 5, (xor)("", 5)
+  eq false, (xor)("a", 5)
+  eq true, (xor)("a", null)
+  
+  ok "function", typeof (?)
+  eq 1, (?)(1, 5)
+  eq 0, (?)(0, 5)
+  eq false, (?)(false, 5)
+  eq true, (?)(true, 5)
+  eq 5, (?)(void, 5)
+  eq 5, (?)(null, 5)
+  eq "", (?)("", 5)
+  eq "a", (?)("a", 5)
+  
+  eq "function", typeof (not)
+  eq true, (not)(false)
+  eq false, (not)(true)
+  eq true, (not)("")
+  eq false, (not)("a")
+  eq true, (not)(0)
+  eq false, (not)(1)
+  eq true, (not)(void)
+  eq true, (not)(null)
+  
+  eq "function", typeof (not not)
+  eq false, (not not)(false)
+  eq true, (not not)(true)
+  eq false, (not not)("")
+  eq true, (not not)("a")
+  eq false, (not not)(0)
+  eq true, (not not)(1)
+  eq false, (not not)(void)
+  eq false, (not not)(null)
+  
+  eq "function", typeof (bitnot)
+  eq -1, (bitnot)(0)
+  eq -2, (bitnot)(1)
+  eq -6, (bitnot)(5.5)
+  throws #->(bitnot)("")
+  throws #->(bitnot)(void)
+  
+  eq "function", typeof (~bitnot)
+  eq -1, (~bitnot)(0)
+  eq -2, (~bitnot)(1)
+  eq -6, (~bitnot)(5.5)
+  eq -1, (~bitnot)("")
+  
+  eq "function", typeof (typeof)
+  eq "number", (typeof)(0)
+  eq "number", (typeof)(1)
+  eq "number", (typeof)(NaN)
+  eq "string", (typeof)("")
+  eq "undefined", (typeof)(void)
+  eq "object", (typeof)(null)
+  eq "object", (typeof)({})
+  eq "object", (typeof)([])
+  eq "function", (typeof)(#->)
+  eq "boolean", (typeof)(true)
+  eq "boolean", (typeof)(false)
+  
+  eq "function", typeof (typeof!)
+  eq "Number", (typeof!)(0)
+  eq "Number", (typeof!)(1)
+  eq "Number", (typeof!)(NaN)
+  eq "String", (typeof!)("")
+  eq "Undefined", (typeof!)(void)
+  eq "Null", (typeof!)(null)
+  eq "Object", (typeof!)({})
+  eq "Array", (typeof!)([])
+  eq "Function", (typeof!)(#->)
+  eq "Boolean", (typeof!)(true)
+  eq "Boolean", (typeof!)(false)
+  
+  let d(f, obj, key, expected)
+    eq "function", typeof f
+    eq expected, f(obj, key)
+    ok obj not ownskey key
+  
+  d (delete), {}, "hello", void
+  d (delete), {hello: void}, "hello", void
+  d (delete), {hello: "there"}, "hello", "there"
+  let obj = ^{hello: "there"}
+  d (delete), obj, "hello", "there"
+  ok obj haskey "hello"
+  
+  let t(f, obj, should-catch)
+    eq "function", typeof f
+    let mutable caught = false
+    try
+      f(obj)
+    catch e
+      caught := true
+    ok not (caught xor should-catch)
+  
+  t (throw), {}, true
+  t (throw), false, true
+  t (throw), null, true
+  t (throw), void, true
+  t (throw?), {}, true
+  t (throw?), false, true
+  t (throw?), null, false
+  t (throw?), void, false
+  
+  // TODO: check num!, str!, strnum!

@@ -21,19 +21,19 @@ test "regular expressions should be indexable", #
   eq '$(0)', r'$(0)'["source"]
   
   ok r"asdf"g.global
-  ok not r"asdf"g.ignoreCase
+  ok not r"asdf"g.ignore-case
   ok not r"asdf"g.multiline
   ok not r"asdf"i.global
-  ok r"asdf"i.ignoreCase
+  ok r"asdf"i.ignore-case
   ok not r"asdf"i.multiline
   ok not r"asdf"m.global
-  ok not r"asdf"m.ignoreCase
+  ok not r"asdf"m.ignore-case
   ok r"asdf"m.multiline
   ok not r"asdf".global
-  ok not r"asdf".ignoreCase
+  ok not r"asdf".ignore-case
   ok not r"asdf".multiline
   ok r"asdf"gim.global
-  ok r"asdf"gim.ignoreCase
+  ok r"asdf"gim.ignore-case
   ok r"asdf"gim.multiline
 
 test "slashes are allowed in regexes", #

@@ -9,14 +9,14 @@ test "throw as non-statement", #
 
 test "try-catch", #
   let obj = {}
-  let mutable hitCatch = false
+  let mutable hit-catch = false
   try
     throw obj
   catch e
     eq obj, e
-    ok not hitCatch
-    hitCatch := true
-  ok hitCatch
+    ok not hit-catch
+    hit-catch := true
+  ok hit-catch
 
 test "try-empty-catch", #
   try
@@ -26,39 +26,39 @@ test "try-empty-catch", #
 
 test "try-catch-else", #
   let obj = {}
-  let mutable hitCatch = false
+  let mutable hit-catch = false
   try
     throw obj
   catch e
     eq obj, e
-    ok not hitCatch
-    hitCatch := true
+    ok not hit-catch
+    hit-catch := true
   else
     fail()
-  ok hitCatch
+  ok hit-catch
   
-  let doNothing = #->
-  let mutable hitElse = false
+  let do-nothing = #->
+  let mutable hit-else = false
   try
-    doNothing()
+    do-nothing()
   catch e
     fail()
   else
-    hitElse := true
+    hit-else := true
     success()
-  ok hitElse
+  ok hit-else
 
 test "try-finally", #
   let obj = {}
-  let mutable hitFinally = false
+  let mutable hit-finally = false
   let fun()
     try
       throw obj
     finally
-      ok not hitFinally
-      hitFinally := true
+      ok not hit-finally
+      hit-finally := true
   throws fun, #(e) -> e == obj
-  ok hitFinally
+  ok hit-finally
 
 test "try-empty-finally", #
   try
@@ -71,69 +71,69 @@ test "try-empty-finally", #
 
 test "try-catch-finally", #
   let obj = {}
-  let mutable hitCatch = false
-  let mutable hitFinally = false
+  let mutable hit-catch = false
+  let mutable hit-finally = false
   try
     throw obj
   catch e
     eq obj, e
-    ok not hitCatch
-    ok not hitFinally
-    hitCatch := true
+    ok not hit-catch
+    ok not hit-finally
+    hit-catch := true
   finally
-    ok hitCatch
-    ok not hitFinally
-    hitFinally := true
-  ok hitCatch
-  ok hitFinally
+    ok hit-catch
+    ok not hit-finally
+    hit-finally := true
+  ok hit-catch
+  ok hit-finally
 
 test "try-catch-else-finally", #
   let obj = {}
-  let mutable hitCatch = false
-  let mutable hitElse = false
-  let mutable hitFinally = false
+  let mutable hit-catch = false
+  let mutable hit-else = false
+  let mutable hit-finally = false
   try
     throw obj
   catch e
     eq obj, e
-    ok not hitCatch
-    ok not hitFinally
-    hitCatch := true
+    ok not hit-catch
+    ok not hit-finally
+    hit-catch := true
   else
-    hitElse := true
+    hit-else := true
     fail()
   finally
-    ok hitCatch
-    ok not hitElse
-    ok not hitFinally
-    hitFinally := true
-  ok hitCatch
-  ok not hitElse
-  ok hitFinally
+    ok hit-catch
+    ok not hit-else
+    ok not hit-finally
+    hit-finally := true
+  ok hit-catch
+  ok not hit-else
+  ok hit-finally
   
-  let doNothing = #->
-  hitCatch := false
-  hitElse := false
-  hitFinally := false
+  let do-nothing = #->
+  hit-catch := false
+  hit-else := false
+  hit-finally := false
   
   try
-    doNothing()
+    do-nothing()
   catch e
-    hitCatch := true
+    hit-catch := true
     fail()
   else
-    ok not hitCatch
-    ok not hitElse
-    hitElse := true
+    ok not hit-catch
+    ok not hit-else
+    hit-else := true
   finally
-    ok not hitCatch
-    ok hitElse
-    ok not hitFinally
-    hitFinally := true
+    ok not hit-catch
+    ok hit-else
+    ok not hit-finally
+    hit-finally := true
   
-  ok not hitCatch
-  ok hitElse
-  ok hitFinally
+  ok not hit-catch
+  ok hit-else
+  ok hit-finally
 
 /*
 test "try-catch-as-type", -> do

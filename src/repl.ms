@@ -6,17 +6,17 @@ require! module
 
 let REPL_PROMPT = "monkey> "
 let REPL_PROMPT_CONTINUATION = "......> "
-let enableColors = process.platform != 'win32' and not process.env.NODE_DISABLE_COLORS
+let enable-colors = process.platform != 'win32' and not process.env.NODE_DISABLE_COLORS
 
-let stdin = process.openStdin()
+let stdin = process.open-stdin()
 let stdout = process.stdout
 
-let error(err) -> process.stderr.write (err.stack or err.toString()) & "\n\n"
+let error(err) -> process.stderr.write (err.stack or err.to-string()) & "\n\n"
 
 let mutable backlog = ''
 
-let sandbox = vm.Script.createContext()
-let nonContextGlobals = [
+let sandbox = vm.Script.create-context()
+let non-context-globals = [
   "Buffer"
   "console"
   "process"
@@ -25,23 +25,23 @@ let nonContextGlobals = [
   "setTimeout"
   "clearTimeout"
 ]
-for g in nonContextGlobals
+for g in non-context-globals
   sandbox[g] := this[g]
 
 sandbox.global := (sandbox.root := (sandbox.GLOBAL := sandbox))
 sandbox._ := void
 
 let run(buffer)
-  if not buffer.toString().trim() and not backlog
+  if not buffer.to-string().trim() and not backlog
     repl.prompt()
     return
   backlog &= buffer
-  if backlog.charAt(backlog.length - 1) == "\\"
+  if backlog.char-at(backlog.length - 1) == "\\"
     backlog := backlog.substring(0, backlog.length - 1) & "\n"
-    repl.setPrompt REPL_PROMPT_CONTINUATION
+    repl.set-prompt REPL_PROMPT_CONTINUATION
     repl.prompt()
     return
-  repl.setPrompt REPL_PROMPT
+  repl.set-prompt REPL_PROMPT
   
   let code = backlog
   backlog := ""
@@ -53,7 +53,7 @@ let run(buffer)
     }
     if ret != void
       sandbox._ := ret
-      process.stdout.write util.inspect(ret, false, 2, enableColors) & "\n"
+      process.stdout.write util.inspect(ret, false, 2, enable-colors) & "\n"
   catch err
     error err
   repl.prompt()
@@ -61,60 +61,60 @@ let run(buffer)
 let ACCESSOR  = r'\s*([\w\.]+)(?:\.(\w*))$'
 let SIMPLEVAR = r'\s*(\w*)$'
 
-let autocomplete(text) -> completeAttribute(text) or completeVariable(text) or [[], text]
+let autocomplete(text) -> complete-attribute(text) or complete-variable(text) or [[], text]
 
-let completeAttribute(text)
+let complete-attribute(text)
   let match = text.match ACCESSOR
   if match
     let all = match[0]
     let obj = match[1]
     let prefix = match[2]
     let val = try
-      vm.Script.runInContext obj, sandbox
+      vm.Script.run-in-context obj, sandbox
     catch err
       return
-    let completions = getCompletions prefix, Object.getOwnPropertyNames(val)
+    let completions = get-completions prefix, Object.get-own-property-names(val)
     [completions, prefix]
 
-let completeVariable(text)
+let complete-variable(text)
   let free = (text.match SIMPLEVAR)?[1]
   if free
-    let vars = vm.Script.runInContext 'Object.getOwnPropertyNames(this)', sandbox
+    let vars = vm.Script.run-in-context 'Object.getOwnPropertyNames(this)', sandbox
     let possibilities = [...vars, ...monkey.RESERVED]
-    let completions = getCompletions free, possibilities
+    let completions = get-completions free, possibilities
     [completions, free]
 
-let startsWith(source, check)
-  let checkLength = check.length
-  if source.length < checkLength
+let starts-with(source, check)
+  let check-length = check.length
+  if source.length < check-length
     false
-  else if checkLength == 0
+  else if check-length == 0
     true
-  else if source.charCodeAt(0) != check.charCodeAt(0)
+  else if source.char-code-at(0) != check.char-code-at(0)
     false
-  else if source.charCodeAt(checkLength - 1) != check.charCodeAt(checkLength - 1)
+  else if source.char-code-at(check-length - 1) != check.char-code-at(check-length - 1)
     false
   else
-    source.substring(0, checkLength) == check
+    source.substring(0, check-length) == check
 
-let getCompletions(prefix, candidates)
+let get-completions(prefix, candidates)
   return for e in candidates
-    if startsWith(e, prefix)
+    if starts-with(e, prefix)
       e
 
 process.on 'uncaughtException', error
 
-let repl = if readline.createInterface.length < 3
+let repl = if readline.create-interface.length < 3
   stdin.on 'data', #(buffer) -> repl.write buffer
-  readline.createInterface stdin, autocomplete
+  readline.create-interface stdin, autocomplete
 else
-  readline.createInterface stdin, stdout, autocomplete
+  readline.create-interface stdin, stdout, autocomplete
 
 repl.on 'attemptClose', #
   if backlog
     backlog := ''
     process.stdout.write '\n'
-    repl.setPrompt REPL_PROMPT
+    repl.set-prompt REPL_PROMPT
     repl.prompt()
   else
     repl.close()
@@ -125,5 +125,5 @@ repl.on 'close', #
 
 repl.on 'line', run
 
-repl.setPrompt REPL_PROMPT
+repl.set-prompt REPL_PROMPT
 repl.prompt()

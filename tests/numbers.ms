@@ -64,50 +64,50 @@ test "Fractional radix", #
   eq 36rAlphabet + 36rSoup / 36r10000, 36rAlphabet.Soup
 
 test "Numbers should be indexable", #
-  eq Number::toString, 42.toString
-  eq Number::toString, 0x1234.toString
-  eq Number::toString, (42).toString
-  eq Number::toString, (-42).toString
-  eq Number::toString, 0xde_ad_be_ef.toString
-  eq Number::toString, 1000_ms.toString
-  eq Number::toString, 0b1000101.toString
-  eq Number::toString, 0o177.toString
-  eq Number::toString, 2r1000101.toString
-  eq Number::toString, Infinity.toString
-  eq Number::toString, (-Infinity).toString
-  eq Number::toString, NaN.toString
-  eq Number::toString, 42["toString"]
-  eq Number::toString, 0x1234["toString"]
-  eq Number::toString, (42)["toString"]
-  eq Number::toString, (-42)["toString"]
-  eq Number::toString, 0xde_ad_be_ef["toString"]
-  eq Number::toString, 1000_ms["toString"]
-  eq Number::toString, 0b1000101["toString"]
-  eq Number::toString, 0o177["toString"]
-  eq Number::toString, 2r1000101["toString"]
-  eq Number::toString, Infinity["toString"]
-  eq Number::toString, (-Infinity)["toString"]
-  eq Number::toString, NaN["toString"]
+  eq Number::to-string, 42.to-string
+  eq Number::to-string, 0x1234.to-string
+  eq Number::to-string, (42).to-string
+  eq Number::to-string, (-42).to-string
+  eq Number::to-string, 0xde_ad_be_ef.to-string
+  eq Number::to-string, 1000_ms.to-string
+  eq Number::to-string, 0b1000101.to-string
+  eq Number::to-string, 0o177.to-string
+  eq Number::to-string, 2r1000101.to-string
+  eq Number::to-string, Infinity.to-string
+  eq Number::to-string, (-Infinity).to-string
+  eq Number::to-string, NaN.to-string
+  eq Number::to-string, 42["toString"]
+  eq Number::to-string, 0x1234["toString"]
+  eq Number::to-string, (42)["toString"]
+  eq Number::to-string, (-42)["toString"]
+  eq Number::to-string, 0xde_ad_be_ef["toString"]
+  eq Number::to-string, 1000_ms["toString"]
+  eq Number::to-string, 0b1000101["toString"]
+  eq Number::to-string, 0o177["toString"]
+  eq Number::to-string, 2r1000101["toString"]
+  eq Number::to-string, Infinity["toString"]
+  eq Number::to-string, (-Infinity)["toString"]
+  eq Number::to-string, NaN["toString"]
 
 test "Passing a spread to a method of a literal number", #
   let arr = [16]
   
-  eq "1234", 4660.toString ...arr
+  eq "1234", 4660.to-string ...arr
   arr[0] := 10
-  eq "4660", 4660.toString ...arr
+  eq "4660", 4660.to-string ...arr
 
   /*
 test "Numbers too large", #
   throws -> Cotton.compile("""let x = 0
   let y = 1e1000"""), (e) -> e.line == 2
   throws -> Cotton.compile("""let x = 0
-  let y = #{Number.MAX_VALUE.toString(9)}"""), (e) -> e.line == 2
+  let y = #{Number.MAX_VALUE.to-string(9)}"""), (e) -> e.line == 2
   throws -> Cotton.compile("""let x = 0
-  let y = 0b#{Number.MAX_VALUE.toString(2)}0"""), (e) -> e.line == 2
+  let y = 0b#{Number.MAX_VALUE.to-string(2)}0"""), (e) -> e.line == 2
   throws -> Cotton.compile("""let x = 0
-  let y = 0o#{Number.MAX_VALUE.toString(8)}0"""), (e) -> e.line == 2
+  let y = 0o#{Number.MAX_VALUE.to-string(8)}0"""), (e) -> e.line == 2
   throws -> Cotton.compile("""let x = 0
-  let y = 0x#{Number.MAX_VALUE.toString(16)}0"""), (e) -> e.line == 2
+  let y = 0x#{Number.MAX_VALUE.to-string(16)}0"""), (e) -> e.line == 2
   throws -> Cotton.compile("""let x = 0
-  let y = 36r#{Number.MAX_VALUE.toString(36)}0"""), (e) -> e.line == 2
+  let y = 36r#{Number.MAX_VALUE.to-string(36)}0"""), (e) -> e.line == 2
   */

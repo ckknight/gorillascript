@@ -1,6 +1,6 @@
 test "empty", #
   let arr = []
-  ok Array.isArray(arr)
+  ok Array.is-array(arr)
   eq 0, arr.length
 
 test "simple, single-line", #
@@ -31,7 +31,7 @@ test "multi-line, with commas", #
     "bravo",
     "charlie"
   ]
-  arrayEq ["alpha", "bravo", "charlie"], arr
+  array-eq ["alpha", "bravo", "charlie"], arr
 
 test "multi-line, no commas", #
   let arr = [
@@ -39,7 +39,7 @@ test "multi-line, no commas", #
     "bravo"
     "charlie"
   ]
-  arrayEq ["alpha", "bravo", "charlie"], arr
+  array-eq ["alpha", "bravo", "charlie"], arr
 
 test "multi-line, mixed commas", #
   let arr = [
@@ -47,7 +47,7 @@ test "multi-line, mixed commas", #
     "bravo",
     "charlie"
   ]
-  arrayEq ["alpha", "bravo", "charlie"], arr
+  array-eq ["alpha", "bravo", "charlie"], arr
 
 test "multi-line, matrix-style", #
   let arr = [
@@ -55,7 +55,7 @@ test "multi-line, matrix-style", #
     4, 5, 6
     7, 8, 9
   ]
-  arrayEq [1, 2, 3, 4, 5, 6, 7, 8, 9], arr
+  array-eq [1, 2, 3, 4, 5, 6, 7, 8, 9], arr
 
 test "objects in multi-line array", #
   let arr = [
@@ -71,29 +71,29 @@ test "objects in multi-line array", #
 test "array spreads", #
   let arr = ["alpha", "bravo", "charlie"]
   
-  arrayEq ["alpha", "bravo", "charlie", "delta"], [...arr, "delta"]
-  arrayEq ["delta", "alpha", "bravo", "charlie"], ["delta", ...arr]
-  arrayEq [["alpha", "bravo", "charlie"], "delta"], [...[arr], "delta"]
-  arrayEq ["delta", ["alpha", "bravo", "charlie"]], ["delta", ...[arr]]
+  array-eq ["alpha", "bravo", "charlie", "delta"], [...arr, "delta"]
+  array-eq ["delta", "alpha", "bravo", "charlie"], ["delta", ...arr]
+  array-eq [["alpha", "bravo", "charlie"], "delta"], [...[arr], "delta"]
+  array-eq ["delta", ["alpha", "bravo", "charlie"]], ["delta", ...[arr]]
   let arr2 = [arr]
-  arrayEq [["alpha", "bravo", "charlie"], "delta"], [...arr2, "delta"]
-  arrayEq ["delta", ["alpha", "bravo", "charlie"]], ["delta", ...arr2]
+  array-eq [["alpha", "bravo", "charlie"], "delta"], [...arr2, "delta"]
+  array-eq ["delta", ["alpha", "bravo", "charlie"]], ["delta", ...arr2]
   
-  arrayEq arr, [...arr]
+  array-eq arr, [...arr]
   ok arr != [...arr]
 
 test "multiple array spreads", #
   let alpha = [1, 2, 3]
   let bravo = [4, 5, 6]
   
-  arrayEq [1, 2, 3, 4, 5, 6], [...alpha, ...bravo]
-  arrayEq [4, 5, 6, 1, 2, 3], [...bravo, ...alpha]
-  arrayEq ["charlie", 1, 2, 3, 4, 5, 6], ["charlie", ...alpha, ...bravo]
-  arrayEq ["charlie", 1, 2, 3, "delta", 4, 5, 6], ["charlie", ...alpha, "delta", ...bravo]
-  arrayEq ["charlie", 1, 2, 3, "delta", 4, 5, 6, "echo"], ["charlie", ...alpha, "delta", ...bravo, "echo"]
-  arrayEq [1, 2, 3, "delta", 4, 5, 6], [...alpha, "delta", ...bravo]
-  arrayEq [1, 2, 3, "delta", 4, 5, 6, "echo"], [...alpha, "delta", ...bravo, "echo"]
-  arrayEq [1, 2, 3, 4, 5, 6, "echo"], [...alpha, ...bravo, "echo"]
+  array-eq [1, 2, 3, 4, 5, 6], [...alpha, ...bravo]
+  array-eq [4, 5, 6, 1, 2, 3], [...bravo, ...alpha]
+  array-eq ["charlie", 1, 2, 3, 4, 5, 6], ["charlie", ...alpha, ...bravo]
+  array-eq ["charlie", 1, 2, 3, "delta", 4, 5, 6], ["charlie", ...alpha, "delta", ...bravo]
+  array-eq ["charlie", 1, 2, 3, "delta", 4, 5, 6, "echo"], ["charlie", ...alpha, "delta", ...bravo, "echo"]
+  array-eq [1, 2, 3, "delta", 4, 5, 6], [...alpha, "delta", ...bravo]
+  array-eq [1, 2, 3, "delta", 4, 5, 6, "echo"], [...alpha, "delta", ...bravo, "echo"]
+  array-eq [1, 2, 3, 4, 5, 6, "echo"], [...alpha, ...bravo, "echo"]
 
 test "immediate index", #
   eq "alpha", ["alpha"][0]
@@ -115,105 +115,105 @@ test "array containment with literal array", #
   ok "delta" not in ["alpha", "bravo", "charlie"]
 
 test "array containment does not calculate key more than once", #
-  let getKey = runOnce "charlie"
+  let get-key = run-once "charlie"
   
   let array = ["alpha", "bravo", "charlie"]
-  ok getKey() in array
-  ok getKey.ran
+  ok get-key() in array
+  ok get-key.ran
 
 test "array containment does not calculate key more than once with literal array", #
-  let getKey = runOnce "charlie"
+  let get-key = run-once "charlie"
   
-  ok getKey() in ["alpha", "bravo", "charlie"]
-  ok getKey.ran
+  ok get-key() in ["alpha", "bravo", "charlie"]
+  ok get-key.ran
 
 test "array containment calculates key at least once with literal array, even if empty", #
-  let getKey = runOnce "charlie"
+  let get-key = run-once "charlie"
   
-  ok getKey() not in []
-  ok getKey.ran
+  ok get-key() not in []
+  ok get-key.ran
 
 test "array containment does not calculate array more than once", #
-  let getArray = runOnce ["alpha", "bravo", "charlie"]
+  let get-array = run-once ["alpha", "bravo", "charlie"]
 
-  ok "charlie" in getArray()
+  ok "charlie" in get-array()
 
 /*
 test "array with holes", #
-  arrayEq ["alpha", undefined, "bravo"], ["alpha",,"bravo"]
-  arrayEq ["alpha", undefined, undefined, "bravo"], ["alpha",,,"bravo"]
-  arrayEq ["alpha", undefined, undefined, undefined, "bravo"], ["alpha",,,,"bravo"]
-  arrayEq ["alpha", undefined, undefined, undefined, "bravo"], ["alpha",,,,"bravo",]
-  arrayEq ["alpha", undefined, undefined, undefined, "bravo", undefined], ["alpha",,,,"bravo",,]
-  arrayEq [undefined, "alpha", undefined, undefined, undefined, "bravo", undefined], [,"alpha",,,,"bravo",,]
-  arrayEq [undefined, undefined, "alpha", undefined, undefined, undefined, "bravo", undefined], [,,"alpha",,,,"bravo",,]
-  arrayEq [undefined], [,]
-  arrayEq [undefined, undefined], [,,]
+  array-eq ["alpha", undefined, "bravo"], ["alpha",,"bravo"]
+  array-eq ["alpha", undefined, undefined, "bravo"], ["alpha",,,"bravo"]
+  array-eq ["alpha", undefined, undefined, undefined, "bravo"], ["alpha",,,,"bravo"]
+  array-eq ["alpha", undefined, undefined, undefined, "bravo"], ["alpha",,,,"bravo",]
+  array-eq ["alpha", undefined, undefined, undefined, "bravo", undefined], ["alpha",,,,"bravo",,]
+  array-eq [undefined, "alpha", undefined, undefined, undefined, "bravo", undefined], [,"alpha",,,,"bravo",,]
+  array-eq [undefined, undefined, "alpha", undefined, undefined, undefined, "bravo", undefined], [,,"alpha",,,,"bravo",,]
+  array-eq [undefined], [,]
+  array-eq [undefined, undefined], [,,]
 */
 
 test "multiple access", #
   let array = ["alpha", "bravo", "charlie", "delta", "echo"]
   
-  arrayEq ["alpha", "charlie", "echo"], array[0, 2, 4]
+  array-eq ["alpha", "charlie", "echo"], array[0, 2, 4]
 
 test "multiple access only accesses object once", #
-  let array = runOnce ["alpha", "bravo", "charlie", "delta", "echo"]
+  let array = run-once ["alpha", "bravo", "charlie", "delta", "echo"]
   
-  arrayEq ["alpha", "charlie", "echo"], array()[0, 2, 4]
+  array-eq ["alpha", "charlie", "echo"], array()[0, 2, 4]
 
 test "multiple assignment", #
   let array = ["alpha", "bravo", "charlie", "delta", "echo"]
   
   array[0, 2, 4] := ["foxtrot", "golf", "hotel"]
-  arrayEq ["foxtrot", "bravo", "golf", "delta", "hotel"], array
+  array-eq ["foxtrot", "bravo", "golf", "delta", "hotel"], array
   
   let x = (array[1, 3] := ["india", "juliet"])
-  arrayEq ["foxtrot", "india", "golf", "juliet", "hotel"], array
-  arrayEq ["india", "juliet"], x
+  array-eq ["foxtrot", "india", "golf", "juliet", "hotel"], array
+  array-eq ["india", "juliet"], x
 
 test "slicing", #
   let array = ["a", "b", "c", "d", "e"]
   
-  arrayEq array, array[:]
+  array-eq array, array[:]
   ok array != array[:]
   
-  arrayEq ["b", "c", "d", "e"], array[1:]
-  arrayEq ["e"], array[-1:]
-  arrayEq ["c", "d", "e"], array[2:]
-  arrayEq ["a", "b", "c"], array[:3]
-  arrayEq ["a", "b", "c", "d"], array[:-1]
-  arrayEq ["b", "c", "d"], array[1:4]
+  array-eq ["b", "c", "d", "e"], array[1:]
+  array-eq ["e"], array[-1:]
+  array-eq ["c", "d", "e"], array[2:]
+  array-eq ["a", "b", "c"], array[:3]
+  array-eq ["a", "b", "c", "d"], array[:-1]
+  array-eq ["b", "c", "d"], array[1:4]
 
 test "splicing", #
   let array = []
   
   array[:] := ["a", "b", "c"]
-  arrayEq ["a", "b", "c"], array
+  array-eq ["a", "b", "c"], array
   
   array[:] := ["d", "e", "f"]
-  arrayEq ["d", "e", "f"], array
+  array-eq ["d", "e", "f"], array
   
   array[1:] := ["g", "h"]
-  arrayEq ["d", "g", "h"], array
+  array-eq ["d", "g", "h"], array
   
   array[:1] := ["i", "j"]
-  arrayEq ["i", "j", "g", "h"], array
+  array-eq ["i", "j", "g", "h"], array
   
   let result = (array[2:] := ["k", "l"])
-  arrayEq ["i", "j", "k", "l"], array
-  arrayEq ["k", "l"], result
+  array-eq ["i", "j", "k", "l"], array
+  array-eq ["k", "l"], result
   
   array[2:2] := ["m", "n"]
-  arrayEq ["i", "j", "m", "n", "k", "l"], array
+  array-eq ["i", "j", "m", "n", "k", "l"], array
   
   array[-1:] := ["o", "p"]
-  arrayEq ["i", "j", "m", "n", "k", "o", "p"], array
+  array-eq ["i", "j", "m", "n", "k", "o", "p"], array
   
   array[-2:-1] := ["q", "r"]
-  arrayEq ["i", "j", "m", "n", "k", "q", "r", "p"], array
+  array-eq ["i", "j", "m", "n", "k", "q", "r", "p"], array
   
   array[1:-1] := ["s", "t"]
-  arrayEq ["i", "s", "t", "p"], array
+  array-eq ["i", "s", "t", "p"], array
   
   array[:-1] := ["u", "v"]
-  arrayEq ["u", "v", "p"], array
+  array-eq ["u", "v", "p"], array

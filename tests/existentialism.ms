@@ -4,7 +4,7 @@ test "existential return", #
     "nope"
   
   eq "alpha", fun "alpha"
-  arrayEq [], fun []
+  array-eq [], fun []
   let obj = {}
   eq obj, fun obj
   eq "nope", fun()
@@ -18,9 +18,9 @@ test "existential return only calls value once", #
     return? callback()
     "nope"
   
-  eq "alpha", fun(runOnce "alpha")
-  eq "nope", fun(runOnce null)
-  eq "nope", fun(runOnce undefined)
+  eq "alpha", fun(run-once "alpha")
+  eq "nope", fun(run-once null)
+  eq "nope", fun(run-once undefined)
 
 test "existential member access", #
   let get(obj) -> obj?.key
@@ -34,18 +34,18 @@ test "existential member access", #
 test "existential member access only calculates object once", #
   let get(obj) -> obj()?.key
   
-  eq undefined, get(runOnce undefined)
-  eq undefined, get(runOnce null)
-  eq undefined, get(runOnce {})
-  eq "value", get(runOnce {key: "value"})
+  eq undefined, get(run-once undefined)
+  eq undefined, get(run-once null)
+  eq undefined, get(run-once {})
+  eq "value", get(run-once {key: "value"})
 
 test "existential member access only calculates key once", #
   let get(obj, key) -> obj?[key()]
   
-  eq undefined, get(undefined, runOnce "key")
-  eq undefined, get(null, runOnce "key")
-  eq undefined, get({}, runOnce "key")
-  eq "value", get({key: "value"}, runOnce "key")
+  eq undefined, get(undefined, run-once "key")
+  eq undefined, get(null, run-once "key")
+  eq undefined, get({}, run-once "key")
+  eq "value", get({key: "value"}, run-once "key")
 
 test "existential member access with trailing normal", #
   let get(obj) -> obj?.alpha.bravo
@@ -106,10 +106,10 @@ test "existential new member only calculates key once", #
   let obj = {func: #-> this}
   let Class()! ->
   
-  eq undefined, call {}, runOnce("key")
-  ok call({ func: Class }, runOnce("func")) instanceof Class
+  eq undefined, call {}, run-once("key")
+  ok call({ func: Class }, run-once("func")) instanceof Class
   let other = {}
-  eq other, call { func: #-> other }, runOnce("func")
+  eq other, call { func: #-> other }, run-once("func")
 
 test "existential new object", #
   let call(obj) -> new obj?.func()
@@ -128,11 +128,11 @@ test "existential new object only calculates key once", #
     
   let Class()! ->
   
-  eq undefined, call undefined, runOnce("key")
-  eq undefined, call null, runOnce("key")
-  ok call({ func: Class }, runOnce("func")) instanceof Class
+  eq undefined, call undefined, run-once("key")
+  eq undefined, call null, run-once("key")
+  ok call({ func: Class }, run-once("func")) instanceof Class
   let obj = {}
-  eq obj, call({ func: #-> obj }, runOnce("func"))
+  eq obj, call({ func: #-> obj }, run-once("func"))
 
 test "existential prototype access", #
   let get(obj) -> obj?::key
@@ -164,12 +164,12 @@ test "existential check", #
 test "existential or operator", #
   let exist(x, y) -> x() ? y()
   
-  eq "alpha", exist runOnce("alpha"), fail
-  eq "", exist runOnce(""), fail
-  eq 0, exist runOnce(0), fail
-  eq false, exist runOnce(false), fail
-  eq "bravo", exist runOnce(undefined), runOnce "bravo"
-  eq "bravo", exist runOnce(null), runOnce "bravo"
+  eq "alpha", exist run-once("alpha"), fail
+  eq "", exist run-once(""), fail
+  eq 0, exist run-once(0), fail
+  eq false, exist run-once(false), fail
+  eq "bravo", exist run-once(undefined), run-once "bravo"
+  eq "bravo", exist run-once(null), run-once "bravo"
   
   let f(a) -> a
   
@@ -179,16 +179,16 @@ test "existential or operator", #
   eq "hey", f? "hey"
 
 test "existential or assign", #
-  let existAssign(mutable x, y) -> x ?= y()
-  let existMemberAssign(x, y, z) -> x[y()] ?= z()
+  let exist-assign(mutable x, y) -> x ?= y()
+  let exist-member-assign(x, y, z) -> x[y()] ?= z()
 
-  eq 0, existAssign 0, fail
-  eq "", existAssign "", fail
-  eq 1, existAssign null, runOnce 1
-  eq 1, existAssign undefined, runOnce 1
+  eq 0, exist-assign 0, fail
+  eq "", exist-assign "", fail
+  eq 1, exist-assign null, run-once 1
+  eq 1, exist-assign undefined, run-once 1
 
-  eq "value", existMemberAssign {}, runOnce("key"), runOnce "value"
-  eq "value", existMemberAssign {key:null}, runOnce("key"), runOnce "value"
-  eq "value", existMemberAssign {key:undefined}, runOnce("key"), runOnce "value"
-  eq "alpha", existMemberAssign {key:"alpha"}, runOnce("key"), fail
+  eq "value", exist-member-assign {}, run-once("key"), run-once "value"
+  eq "value", exist-member-assign {key:null}, run-once("key"), run-once "value"
+  eq "value", exist-member-assign {key:undefined}, run-once("key"), run-once "value"
+  eq "alpha", exist-member-assign {key:"alpha"}, run-once("key"), fail
 

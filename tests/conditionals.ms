@@ -1,25 +1,25 @@
 test "simple if statement", #
-  let mutable hitSuccess = false
+  let mutable hit-success = false
   if false
     fail()
   else if false
     fail()
   else
     success()
-    hitSuccess := true
+    hit-success := true
   
-  ok hitSuccess
-  hitSuccess := false
+  ok hit-success
+  hit-success := false
   
   if true
     success()
-    hitSuccess := true
+    hit-success := true
   else if true
     fail()
   else
     fail()
   
-  ok hitSuccess
+  ok hit-success
 
 test "logical operators", #
   if false and true

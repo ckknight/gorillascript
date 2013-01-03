@@ -3,8 +3,8 @@ test "Literals", #
   eq not 1, false
 
 test "Indexing", #
-  eq Boolean::toString, true.toString
-  eq Boolean::toString, false.toString
+  eq Boolean::to-string, true.to-string
+  eq Boolean::to-string, false.to-string
   
-  eq Boolean::toString, true["toString"]
-  eq Boolean::toString, false["toString"]
+  eq Boolean::to-string, true["toString"]
+  eq Boolean::to-string, false["toString"]

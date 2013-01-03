@@ -1,6 +1,6 @@
 test "empty", #
   let obj = {}
-  eq "[object Object]", obj.toString()
+  eq "[object Object]", obj.to-string()
 
 test "single-line", #
   let obj = {a: 1, b: 2, c: 3}
@@ -181,12 +181,12 @@ test "object with the same key twice", #
 test "multiple access", #
   let obj = { alpha: "bravo", charlie: "delta", echo: "foxtrot" }
 
-  arrayEq ["bravo", "delta"], obj["alpha", "charlie"]
+  array-eq ["bravo", "delta"], obj["alpha", "charlie"]
 
 test "multiple access only accesses object once", #
-  let obj = runOnce { alpha: "bravo", charlie: "delta", echo: "foxtrot" }
+  let obj = run-once { alpha: "bravo", charlie: "delta", echo: "foxtrot" }
 
-  arrayEq ["bravo", "delta"], obj()["alpha", "charlie"]
+  array-eq ["bravo", "delta"], obj()["alpha", "charlie"]
 
 test "access on literal", #
   eq "bravo", {alpha: "bravo"}.alpha
@@ -220,14 +220,14 @@ test "implicit values", #
   ok strange ownskey "-1"
   eq undefined, strange.undefined
   eq obj, strange.this
-  ok not Array.isArray(strange.arguments)
-  arrayEq ["alpha", "bravo", "charlie"], strange.arguments[:]
+  ok not Array.is-array(strange.arguments)
+  array-eq ["alpha", "bravo", "charlie"], strange.arguments[:]
   eq true, strange.true
   eq false, strange.false
   eq 0, strange["0"]
   eq Infinity, strange.Infinity
   eq -Infinity, strange["-Infinity"]
-  arrayEq NaN, strange.NaN
+  array-eq NaN, strange.NaN
   eq 1, strange["1"]
   eq -1, strange["-1"]
 
@@ -240,6 +240,13 @@ test "implicit values as accesses", #
   eq "foxtrot", obj.charlie
   eq "juliet", obj.india
   eq "lima", obj.kilo
+
+test "dashed-keys", #
+  let obj = { dashed-key: "hello", normalKey: "there" }
+  eq "hello", obj.dashed-key
+  eq "hello", obj.dashedKey
+  eq "there", obj.normalKey
+  eq "there", obj.normal-key
 
 /*
 test "object with prototype", #

@@ -89,13 +89,13 @@ test "bound function doesn't get overly bound", #
   eq bravo, outer.call(alpha).call(ignored).call(bravo).call(ignored)
 
 test "bound method inside object", #
-  let makeObject = # -> {
+  let make-object = # -> {
     x: #-> this
     y: #@-> this
   }
   
   let other = {}
-  let obj = makeObject.call(other)
+  let obj = make-object.call(other)
   eq obj, obj.x()
   eq other, obj.y()
 
@@ -110,15 +110,15 @@ test "function self-redeclaration", #
 
 test "simple arguments", #
   let obj = {}
-  let retObj = #-> obj
+  let ret-obj = #-> obj
   let id = #(i) -> i
   let add = #(x, y) -> x + y
   
-  eq 0, retObj.length
+  eq 0, ret-obj.length
   eq 1, id.length
   eq 2, add.length
   
-  eq obj, retObj()
+  eq obj, ret-obj()
   eq obj, id(obj)
   eq obj, (id obj)
   eq 3, add(1, 2)
@@ -126,15 +126,15 @@ test "simple arguments", #
 
 test "unnecessary trailing comma", #
   let obj = {}
-  let retObj = #(,) -> obj
+  let ret-obj = #(,) -> obj
   let id = #(i,) -> i
   let add = #(x, y,) -> x + y
 
-  eq 0, retObj.length
+  eq 0, ret-obj.length
   eq 1, id.length
   eq 2, add.length
 
-  eq obj, retObj()
+  eq obj, ret-obj()
   eq obj, id(obj)
   eq obj, (id obj)
   eq 3, add(1, 2)
@@ -161,40 +161,40 @@ test "simple spread arguments", #
   
   let obj = {}
   eq 0, fun.length
-  ok Array.isArray(fun()) // not an Arguments type
+  ok Array.is-array(fun()) // not an Arguments type
   eq 0, fun().length
   eq 1, fun(obj).length
   eq obj, fun(obj)[0]
   let other = {}
-  arrayEq [obj, other], fun(obj, other)
+  array-eq [obj, other], fun(obj, other)
 
 test "spread arguments with leading arguments", #
   let fun(first, ...rest) -> [first, rest]
   
   eq 1, fun.length
-  ok Array.isArray(fun()[1])
-  ok Array.isArray(fun({})[1])
-  arrayEq [void, []], fun()
+  ok Array.is-array(fun()[1])
+  ok Array.is-array(fun({})[1])
+  array-eq [void, []], fun()
   let alpha = {}
-  arrayEq [alpha, []], fun(alpha)
+  array-eq [alpha, []], fun(alpha)
   let bravo = {}
-  arrayEq [alpha, [bravo]], fun(alpha, bravo)
+  array-eq [alpha, [bravo]], fun(alpha, bravo)
   let charlie = {}
-  arrayEq [alpha, [bravo, charlie]], fun(alpha, bravo, charlie)
+  array-eq [alpha, [bravo, charlie]], fun(alpha, bravo, charlie)
 
 test "spread arguments with trailing arguments", #
   let fun(...start, last) -> [start, last]
   
   eq 0, fun.length
-  ok Array.isArray(fun()[0])
-  ok Array.isArray(fun({})[0])
-  arrayEq [[], void], fun()
+  ok Array.is-array(fun()[0])
+  ok Array.is-array(fun({})[0])
+  array-eq [[], void], fun()
   let alpha = {}
-  arrayEq [[], alpha], fun(alpha)
+  array-eq [[], alpha], fun(alpha)
   let bravo = {}
-  arrayEq [[alpha], bravo], fun(alpha, bravo)
+  array-eq [[alpha], bravo], fun(alpha, bravo)
   let charlie = {}
-  arrayEq [[alpha, bravo], charlie], fun(alpha, bravo, charlie)
+  array-eq [[alpha, bravo], charlie], fun(alpha, bravo, charlie)
 
 test "spread arguments is mutable within function", #
   let alpha = {}
@@ -203,11 +203,11 @@ test "spread arguments is mutable within function", #
     args
   
   eq 0, fun.length
-  arrayEq [alpha], fun()
+  array-eq [alpha], fun()
   let bravo = {}
-  arrayEq [bravo, alpha], fun(bravo)
+  array-eq [bravo, alpha], fun(bravo)
   let charlie = {}
-  arrayEq [bravo, charlie, alpha], fun(bravo, charlie)
+  array-eq [bravo, charlie, alpha], fun(bravo, charlie)
 
 /*
 test "multiple spread arguments is an Error", #
@@ -217,12 +217,12 @@ test "special `arguments` variable is still available", #
   let fun() -> arguments
   
   eq 0, fun.length
-  ok {}.toString.call(fun()) == "[object Arguments]" // not [object Array]
-  arrayEq [], Array::slice.call(fun())
+  ok {}.to-string.call(fun()) == "[object Arguments]" // not [object Array]
+  array-eq [], Array::slice.call(fun())
   let alpha = {}
-  arrayEq [alpha], Array::slice.call(fun(alpha))
+  array-eq [alpha], Array::slice.call(fun(alpha))
   let bravo = {}
-  arrayEq [alpha, bravo], Array::slice.call(fun(alpha, bravo))
+  array-eq [alpha, bravo], Array::slice.call(fun(alpha, bravo))
 
 test "calling a function with spread", #
   let add(x, y) -> x + y
@@ -237,25 +237,25 @@ test "calling a function with spread", #
   let fun(...args) -> args
   
   eq 0, fun.length
-  arrayEq ["alpha", "bravo"], fun(...["alpha", "bravo"])
+  array-eq ["alpha", "bravo"], fun(...["alpha", "bravo"])
   let args = ["alpha", "bravo"]
-  arrayEq ["alpha", "bravo"], fun(...args)
+  array-eq ["alpha", "bravo"], fun(...args)
   ok fun(...args) != args // may have equivalent innards, but different references
   args.push "charlie"
-  arrayEq ["alpha", "bravo", "charlie"], fun(...args)
+  array-eq ["alpha", "bravo", "charlie"], fun(...args)
   
   args.splice(0, args.length)
-  arrayEq [], fun()
-  arrayEq [], fun(...[])
-  arrayEq [], fun(...args)
+  array-eq [], fun()
+  array-eq [], fun(...[])
+  array-eq [], fun(...args)
   args.push(null)
-  arrayEq [null], fun(null)
-  arrayEq [null], fun(...[null])
-  arrayEq [null], fun(...args)
+  array-eq [null], fun(null)
+  array-eq [null], fun(...[null])
+  array-eq [null], fun(...args)
   args[0] := void
-  arrayEq [void], fun(void)
-  arrayEq [void], fun(...[void])
-  arrayEq [void], fun(...args)
+  array-eq [void], fun(void)
+  array-eq [void], fun(...[void])
+  array-eq [void], fun(...args)
 
 test "calling a function with multiple spreads", #
   let fun(...args) -> args
@@ -263,14 +263,14 @@ test "calling a function with multiple spreads", #
   let alpha = [1, 2, 3]
   let bravo = [4, 5, 6]
   
-  arrayEq [1, 2, 3, 4, 5, 6], fun(...alpha, ...bravo)
-  arrayEq ["a", 1, 2, 3, 4, 5, 6], fun("a", ...alpha, ...bravo)
-  arrayEq [1, 2, 3, "b", 4, 5, 6], fun(...alpha, "b", ...bravo)
-  arrayEq [1, 2, 3, 4, 5, 6, "c"], fun(...alpha, ...bravo, "c")
-  arrayEq ["a", 1, 2, 3, "b", 4, 5, 6], fun("a", ...alpha, "b", ...bravo)
-  arrayEq ["a", 1, 2, 3, 4, 5, 6, "c"], fun("a", ...alpha, ...bravo, "c")
-  arrayEq [1, 2, 3, "b", 4, 5, 6, "c"], fun(...alpha, "b", ...bravo, "c")
-  arrayEq ["a", 1, 2, 3, "b", 4, 5, 6, "c"], fun("a", ...alpha, "b", ...bravo, "c")
+  array-eq [1, 2, 3, 4, 5, 6], fun(...alpha, ...bravo)
+  array-eq ["a", 1, 2, 3, 4, 5, 6], fun("a", ...alpha, ...bravo)
+  array-eq [1, 2, 3, "b", 4, 5, 6], fun(...alpha, "b", ...bravo)
+  array-eq [1, 2, 3, 4, 5, 6, "c"], fun(...alpha, ...bravo, "c")
+  array-eq ["a", 1, 2, 3, "b", 4, 5, 6], fun("a", ...alpha, "b", ...bravo)
+  array-eq ["a", 1, 2, 3, 4, 5, 6, "c"], fun("a", ...alpha, ...bravo, "c")
+  array-eq [1, 2, 3, "b", 4, 5, 6, "c"], fun(...alpha, "b", ...bravo, "c")
+  array-eq ["a", 1, 2, 3, "b", 4, 5, 6, "c"], fun("a", ...alpha, "b", ...bravo, "c")
 
 test "calling a method with spread", #
   let obj = {
@@ -280,93 +280,93 @@ test "calling a method with spread", #
   
   eq 0, obj.fun.length
   
-  arrayEq [obj, ["alpha", "bravo"]], obj.fun(...["alpha", "bravo"]), "literal array spread"
+  array-eq [obj, ["alpha", "bravo"]], obj.fun(...["alpha", "bravo"]), "literal array spread"
   let args = ["alpha", "bravo"]
-  arrayEq [obj, ["alpha", "bravo"]], obj.fun(...args), "normal"
+  array-eq [obj, ["alpha", "bravo"]], obj.fun(...args), "normal"
   args.push "charlie"
-  arrayEq [obj, ["alpha", "bravo", "charlie"]], obj.fun(...args), "normal"
+  array-eq [obj, ["alpha", "bravo", "charlie"]], obj.fun(...args), "normal"
   
-  arrayEq [other, ["alpha", "bravo"]], obj.fun.call(other, ...["alpha", "bravo"]), "literal array spread on call"
-  arrayEq [other, ["alpha", "bravo", "charlie"]], obj.fun.call(other, ...args), "spread on call"
+  array-eq [other, ["alpha", "bravo"]], obj.fun.call(other, ...["alpha", "bravo"]), "literal array spread on call"
+  array-eq [other, ["alpha", "bravo", "charlie"]], obj.fun.call(other, ...args), "spread on call"
   args.push "delta"
-  arrayEq [other, ["alpha", "bravo", "charlie", "delta"]], obj.fun.call(other, ...args), "spread on call"
+  array-eq [other, ["alpha", "bravo", "charlie", "delta"]], obj.fun.call(other, ...args), "spread on call"
 
 test "calling a function with spread will only access object once", #
   let fun(...args) -> args
   
-  let args = runOnce(["alpha", "bravo"])
-  arrayEq ["alpha", "bravo"], fun(...args())
+  let args = run-once(["alpha", "bravo"])
+  array-eq ["alpha", "bravo"], fun(...args())
 
 test "calling a function with spread will only access function once", #
-  let getFun = runOnce #(...args) -> args
+  let get-fun = run-once #(...args) -> args
   
   let args = ["alpha", "bravo"]
-  arrayEq ["alpha", "bravo"], getFun()(...args)
+  array-eq ["alpha", "bravo"], get-fun()(...args)
 
 test "calling a method with spread will only access object once", #
-  let getObj = runOnce {
+  let get-obj = run-once {
     fun: #(...args)
-      if this.methodCalled
+      if this.method-called
         fail "method called more than once"
       
-      this.methodCalled := true
+      this.method-called := true
       
       args
   }
   
   let args = ["alpha", "bravo"]
-  arrayEq ["alpha", "bravo"], getObj().fun(...args)
+  array-eq ["alpha", "bravo"], get-obj().fun(...args)
 
 test "spread arguments in middle", #
   let fun(first, ...middle, last) -> [first, middle, last]
   
   eq 1, fun.length
-  arrayEq [void, [], void], fun()
-  arrayEq ["alpha", [], void], fun("alpha")
-  arrayEq ["alpha", [], "bravo"], fun("alpha", "bravo")
-  arrayEq ["alpha", ["bravo"], "charlie"], fun("alpha", "bravo", "charlie")
-  arrayEq ["alpha", ["bravo", "charlie"], "delta"], fun("alpha", "bravo", "charlie", "delta")
+  array-eq [void, [], void], fun()
+  array-eq ["alpha", [], void], fun("alpha")
+  array-eq ["alpha", [], "bravo"], fun("alpha", "bravo")
+  array-eq ["alpha", ["bravo"], "charlie"], fun("alpha", "bravo", "charlie")
+  array-eq ["alpha", ["bravo", "charlie"], "delta"], fun("alpha", "bravo", "charlie", "delta")
   
   let args = []
-  arrayEq [void, [], void], fun(...args)
+  array-eq [void, [], void], fun(...args)
   args.push("alpha")
-  arrayEq ["alpha", [], void], fun(...args)
+  array-eq ["alpha", [], void], fun(...args)
   args.push("bravo")
-  arrayEq ["alpha", [], "bravo"], fun(...args)
+  array-eq ["alpha", [], "bravo"], fun(...args)
   args[0] := "bravo"
   args[1] := "charlie"
-  arrayEq ["alpha", ["bravo"], "charlie"], fun("alpha", ...args)
-  arrayEq ["alpha", ["bravo", "charlie"], "delta"], fun("alpha", ...args, "delta")
+  array-eq ["alpha", ["bravo"], "charlie"], fun("alpha", ...args)
+  array-eq ["alpha", ["bravo", "charlie"], "delta"], fun("alpha", ...args, "delta")
 
   let fun2(a, b, ...c, d, e) -> [a, b, c, d, e]
   
   eq 2, fun2.length
-  arrayEq [void, void, [], void, void], fun2()
-  arrayEq ["alpha", void, [], void, void], fun2("alpha")
-  arrayEq ["alpha", "bravo", [], void, void], fun2("alpha", "bravo")
-  arrayEq ["alpha", "bravo", [], "charlie", void], fun2("alpha", "bravo", "charlie")
-  arrayEq ["alpha", "bravo", [], "charlie", "delta"], fun2("alpha", "bravo", "charlie", "delta")
-  arrayEq ["alpha", "bravo", ["charlie"], "delta", "echo"], fun2("alpha", "bravo", "charlie", "delta", "echo")
-  arrayEq ["alpha", "bravo", ["charlie", "delta"], "echo", "foxtrot"], fun2("alpha", "bravo", "charlie", "delta", "echo", "foxtrot")
+  array-eq [void, void, [], void, void], fun2()
+  array-eq ["alpha", void, [], void, void], fun2("alpha")
+  array-eq ["alpha", "bravo", [], void, void], fun2("alpha", "bravo")
+  array-eq ["alpha", "bravo", [], "charlie", void], fun2("alpha", "bravo", "charlie")
+  array-eq ["alpha", "bravo", [], "charlie", "delta"], fun2("alpha", "bravo", "charlie", "delta")
+  array-eq ["alpha", "bravo", ["charlie"], "delta", "echo"], fun2("alpha", "bravo", "charlie", "delta", "echo")
+  array-eq ["alpha", "bravo", ["charlie", "delta"], "echo", "foxtrot"], fun2("alpha", "bravo", "charlie", "delta", "echo", "foxtrot")
   
   args.splice(0, args.length)
-  arrayEq [void, void, [], void, void], fun2(...args)
+  array-eq [void, void, [], void, void], fun2(...args)
   args.push("alpha")
-  arrayEq ["alpha", void, [], void, void], fun2(...args)
+  array-eq ["alpha", void, [], void, void], fun2(...args)
   args.push("bravo")
-  arrayEq ["alpha", "bravo", [], void, void], fun2(...args)
+  array-eq ["alpha", "bravo", [], void, void], fun2(...args)
   args.push("charlie")
-  arrayEq ["alpha", "bravo", [], "charlie", void], fun2(...args)
+  array-eq ["alpha", "bravo", [], "charlie", void], fun2(...args)
   args.push("delta")
-  arrayEq ["alpha", "bravo", [], "charlie", "delta"], fun2(...args)
+  array-eq ["alpha", "bravo", [], "charlie", "delta"], fun2(...args)
   args.shift()
   args.push("echo")
-  arrayEq ["alpha", "bravo", ["charlie"], "delta", "echo"], fun2("alpha", ...args)
-  arrayEq ["alpha", "bravo", ["charlie", "delta"], "echo", "foxtrot"], fun2("alpha", ...args, "foxtrot")
+  array-eq ["alpha", "bravo", ["charlie"], "delta", "echo"], fun2("alpha", ...args)
+  array-eq ["alpha", "bravo", ["charlie", "delta"], "echo", "foxtrot"], fun2("alpha", ...args, "foxtrot")
   args.shift()
   args.push("foxtrot")
-  arrayEq ["alpha", "bravo", ["charlie", "delta", "echo"], "foxtrot", "golf"], fun2("alpha", "bravo", ...args, "golf")
-  arrayEq ["alpha", "bravo", ["charlie", "delta", "echo", "foxtrot"], "golf", "hotel"], fun2("alpha", "bravo", ...args, "golf", "hotel")
+  array-eq ["alpha", "bravo", ["charlie", "delta", "echo"], "foxtrot", "golf"], fun2("alpha", "bravo", ...args, "golf")
+  array-eq ["alpha", "bravo", ["charlie", "delta", "echo", "foxtrot"], "golf", "hotel"], fun2("alpha", "bravo", ...args, "golf", "hotel")
 
 test "default values", #
   let obj = {}
@@ -550,13 +550,13 @@ test "named functions", -> do
   
   eq "function", typeof f
   eq 0, f.length
-  eq "f", f.displayName
+  eq "f", f.display-name
   eq "alpha", f()
   
   function g(x) -> "bravo: #{x}"
   
   eq "function", typeof g
-  eq "g", g.displayName
+  eq "g", g.display-name
   eq 1, g.length
   eq "bravo: charlie", g("charlie")
 end
@@ -566,7 +566,7 @@ test "named function non-statement", -> do
   
   eq "undefined", typeof f
   eq "function", typeof g
-  eq "f", g.displayName
+  eq "f", g.display-name
 end
 */
 test "fancy whitespace", #
@@ -576,8 +576,8 @@ test "fancy whitespace", #
     ,
   ) -> [a, b]
   
-  arrayEq ["alpha", []], fun("alpha")
-  arrayEq ["alpha", "bravo"], fun("alpha", "bravo")
+  array-eq ["alpha", []], fun("alpha")
+  array-eq ["alpha", "bravo"], fun("alpha", "bravo")
 
 test "setting values on this by their parameters", #
   let fun(this.alpha, this.bravo) ->
@@ -589,7 +589,7 @@ test "setting values on this by their parameters", #
   
   let spread(...this.args) ->
   spread.call(obj, "echo", "foxtrot")
-  arrayEq ["echo", "foxtrot"], obj.args
+  array-eq ["echo", "foxtrot"], obj.args
 
 test "setting values on @ by their parameters", #
   let fun(@alpha, @bravo) ->
@@ -601,23 +601,23 @@ test "setting values on @ by their parameters", #
   
   let spread(...@args) ->
   spread.call(obj, "echo", "foxtrot")
-  arrayEq ["echo", "foxtrot"], obj.args
+  array-eq ["echo", "foxtrot"], obj.args
 
 test "setting values on @ by their parameters with defaults", #
   let fun = #(@alpha = 0, @bravo = 1) -> [alpha, bravo]
   
   let mutable obj = {}
-  arrayEq [0, 1], fun.call(obj)
+  array-eq [0, 1], fun.call(obj)
   eq 0, obj.alpha
   eq 1, obj.bravo
   
   obj := {}
-  arrayEq ["charlie", 1], fun.call(obj, "charlie")
+  array-eq ["charlie", 1], fun.call(obj, "charlie")
   eq "charlie", obj.alpha
   eq 1, obj.bravo
   
   obj := {}
-  arrayEq ["charlie", "delta"], fun.call(obj, "charlie", "delta")
+  array-eq ["charlie", "delta"], fun.call(obj, "charlie", "delta")
   eq "charlie", obj.alpha
   eq "delta", obj.bravo
 
@@ -666,7 +666,7 @@ test "chained method calls without paren-wrapping", -> do
     .tick "a"
     .tick "b"
     .tick "c"
-  arrayEq ["a", "b", "c"], counter.result
+  array-eq ["a", "b", "c"], counter.result
 end
 */
 
@@ -678,17 +678,17 @@ test "method calls with implicit last object", #
     opt.sort #(a, b) -> a[0] <=> b[0]
     [args, opt]
   
-  arrayEq [["alpha", "bravo"], []], fun "alpha", "bravo", {}
-  arrayEq [["alpha", "bravo"], [["charlie", 1]]], fun "alpha", "bravo", charlie: 1
-  arrayEq [["alpha", "bravo"], [["charlie", 1], ["delta", 2]]], fun "alpha", "bravo", charlie: 1, delta: 2
-  arrayEq [["alpha"], [["charlie", 1], ["delta", 2], ["echo", 3]]], fun "alpha", charlie: 1, delta: 2, echo: 3
-  arrayEq [[], [["charlie", 1], ["delta", 2], ["echo", 3], ["foxtrot", 4]]], fun charlie: 1, delta: 2, echo: 3, foxtrot: 4
+  array-eq [["alpha", "bravo"], []], fun "alpha", "bravo", {}
+  array-eq [["alpha", "bravo"], [["charlie", 1]]], fun "alpha", "bravo", charlie: 1
+  array-eq [["alpha", "bravo"], [["charlie", 1], ["delta", 2]]], fun "alpha", "bravo", charlie: 1, delta: 2
+  array-eq [["alpha"], [["charlie", 1], ["delta", 2], ["echo", 3]]], fun "alpha", charlie: 1, delta: 2, echo: 3
+  array-eq [[], [["charlie", 1], ["delta", 2], ["echo", 3], ["foxtrot", 4]]], fun charlie: 1, delta: 2, echo: 3, foxtrot: 4
   
-  arrayEq [["alpha", "bravo"], []], fun("alpha", "bravo", {})
-  arrayEq [["alpha", "bravo"], [["charlie", 1]]], fun("alpha", "bravo", charlie: 1)
-  arrayEq [["alpha", "bravo"], [["charlie", 1], ["delta", 2]]], fun("alpha", "bravo", charlie: 1, delta: 2)
-  arrayEq [["alpha"], [["charlie", 1], ["delta", 2], ["echo", 3]]], fun("alpha", charlie: 1, delta: 2, echo: 3)
-  arrayEq [[], [["charlie", 1], ["delta", 2], ["echo", 3], ["foxtrot", 4]]], fun(charlie: 1, delta: 2, echo: 3, foxtrot: 4)
+  array-eq [["alpha", "bravo"], []], fun("alpha", "bravo", {})
+  array-eq [["alpha", "bravo"], [["charlie", 1]]], fun("alpha", "bravo", charlie: 1)
+  array-eq [["alpha", "bravo"], [["charlie", 1], ["delta", 2]]], fun("alpha", "bravo", charlie: 1, delta: 2)
+  array-eq [["alpha"], [["charlie", 1], ["delta", 2], ["echo", 3]]], fun("alpha", charlie: 1, delta: 2, echo: 3)
+  array-eq [[], [["charlie", 1], ["delta", 2], ["echo", 3], ["foxtrot", 4]]], fun(charlie: 1, delta: 2, echo: 3, foxtrot: 4)
 
 test "whitespace checks", #
   let alpha(...args) -> args
@@ -698,22 +698,22 @@ test "whitespace checks", #
       [k, v]).sort #(a, b) -> a[0] <=> b[0]
   let echo = bravo
   
-  arrayEq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
+  array-eq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
     bravo { charlie: "delta" },
     echo { foxtrot: "golf" }
   )
   
-  arrayEq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
+  array-eq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
     bravo { charlie: "delta" }
     echo { foxtrot: "golf" }
   )
   
-  arrayEq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
+  array-eq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
     bravo charlie: "delta",
     echo foxtrot: "golf"
   )
   
-  arrayEq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
+  array-eq [[["charlie", "delta"]], [["foxtrot", "golf"]]], alpha(
     bravo charlie: "delta"
     echo foxtrot: "golf"
   )
@@ -767,7 +767,7 @@ test "typed parameters, Number", #
   eq -1, fun(-1)
   eq Infinity, fun(Infinity)
   eq -Infinity, fun(-Infinity)
-  arrayEq NaN, fun(NaN)
+  array-eq NaN, fun(NaN)
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -789,9 +789,9 @@ test "typed parameters, Array", #
   let FakeArray()! ->
   FakeArray.prototype := []
   
-  arrayEq [], fun([])
-  arrayEq ["hello"], fun(["hello"])
-  arrayEq ["hello", 1, true], fun(["hello", 1, true])
+  array-eq [], fun([])
+  array-eq ["hello"], fun(["hello"])
+  array-eq ["hello", 1, true], fun(["hello", 1, true])
   throws #-> fun(0), TypeError
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
@@ -806,7 +806,7 @@ test "typed parameters, Array", #
 test "typed parameters, Object", #
   let fun(value as Object) -> value
   
-  arrayEq [], fun([]) // technically valid
+  array-eq [], fun([]) // technically valid
   let obj = {}
   eq obj, fun(obj)
   throws #-> fun(0), TypeError
@@ -843,7 +843,7 @@ test "typed parameters, Number or String", #
   eq -1, fun(-1)
   eq Infinity, fun(Infinity)
   eq -Infinity, fun(-Infinity)
-  arrayEq NaN, fun(NaN)
+  array-eq NaN, fun(NaN)
   eq "", fun("")
   eq "hello", fun("hello")
   throws #-> fun(), TypeError
@@ -864,7 +864,7 @@ test "typed parameters, Number or Boolean", #
   eq -1, fun(-1)
   eq Infinity, fun(Infinity)
   eq -Infinity, fun(-Infinity)
-  arrayEq NaN, fun(NaN)
+  array-eq NaN, fun(NaN)
   eq false, fun()
   eq false, fun(void)
   eq false, fun(null)
@@ -884,7 +884,7 @@ test "typed parameters, Number or null", #
   eq -1, fun(-1)
   eq Infinity, fun(Infinity)
   eq -Infinity, fun(-Infinity)
-  arrayEq NaN, fun(NaN)
+  array-eq NaN, fun(NaN)
   eq null, fun()
   eq null, fun(void)
   eq null, fun(null)
@@ -903,7 +903,7 @@ test "typed parameters, Number or void", #
   eq -1, fun(-1)
   eq Infinity, fun(Infinity)
   eq -Infinity, fun(-Infinity)
-  arrayEq NaN, fun(NaN)
+  array-eq NaN, fun(NaN)
   eq void, fun()
   eq void, fun(void)
   eq void, fun(null)
@@ -1020,10 +1020,10 @@ test "typed array parameter", #
   throws #-> fun(false), TypeError
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
-  arrayEq [], fun([])
-  arrayEq ["alpha"], fun(["alpha"])
-  arrayEq ["alpha", "bravo"], fun(["alpha", "bravo"])
-  arrayEq ["alpha", "bravo", "charlie"], fun(["alpha", "bravo", "charlie"])
+  array-eq [], fun([])
+  array-eq ["alpha"], fun(["alpha"])
+  array-eq ["alpha", "bravo"], fun(["alpha", "bravo"])
+  array-eq ["alpha", "bravo", "charlie"], fun(["alpha", "bravo", "charlie"])
   throws #-> fun([1]), TypeError
   throws #-> fun([null]), TypeError
   throws #-> fun([void]), TypeError
@@ -1043,10 +1043,10 @@ test "typed array parameter or null", #
   throws #-> fun(false), TypeError
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
-  arrayEq [], fun([])
-  arrayEq ["alpha"], fun(["alpha"])
-  arrayEq ["alpha", "bravo"], fun(["alpha", "bravo"])
-  arrayEq ["alpha", "bravo", "charlie"], fun(["alpha", "bravo", "charlie"])
+  array-eq [], fun([])
+  array-eq ["alpha"], fun(["alpha"])
+  array-eq ["alpha", "bravo"], fun(["alpha", "bravo"])
+  array-eq ["alpha", "bravo", "charlie"], fun(["alpha", "bravo", "charlie"])
   throws #-> fun([1]), TypeError
   throws #-> fun([null]), TypeError
   throws #-> fun([void]), TypeError

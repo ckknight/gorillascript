@@ -22,7 +22,7 @@ let LEVEL_ACCESS = 17 // `...`[0] or `...`.item
 
 let INDENT = "  "
 
-let incIndent(options)
+let inc-indent(options)
   let clone = ^options
   clone.indent += 1
   clone
@@ -33,7 +33,7 @@ let StringBuilder()
   sb.indent := #(count)!
     for i = 0, count
       data.push INDENT
-  sb.toString := #
+  sb.to-string := #
     let len = data.length
     if len == 0
       ""
@@ -45,8 +45,8 @@ let StringBuilder()
       text
   sb
 
-let escapeUnicodeHelper(m)
-  let num = m.charCodeAt(0).toString(16)
+let escape-unicode-helper(m)
+  let num = m.char-code-at(0).to-string(16)
   let len = num.length
   if len == 1
     "\\u000$num"
@@ -59,13 +59,13 @@ let escapeUnicodeHelper(m)
   else
     throw Error()
 
-let escapeUnicode(text)
-  text.replace r'[\u0000-\u001f\u0080-\uffff]'g, escapeUnicodeHelper
+let escape-unicode(text)
+  text.replace r'[\u0000-\u001f\u0080-\uffff]'g, escape-unicode-helper
 
-let toJSSourceTypes = {
+let to-JS-source-types = {
   undefined: #-> "void 0"
   number: #(value)
-    if isFinite value
+    if is-finite value
       JSON.stringify value
     else if isNaN value
       "0/0"
@@ -74,11 +74,11 @@ let toJSSourceTypes = {
     else
       "-1/0"
   string: #(value)
-    let jsonString = escapeUnicode JSON.stringify(value)
-    if value.indexOf('"') == -1 or value.indexOf("'") != -1
-      jsonString
+    let json-string = escape-unicode JSON.stringify(value)
+    if value.index-of('"') == -1 or value.index-of("'") != -1
+      json-string
     else
-      "'" & jsonString.substring(1, jsonString.length - 1).replace(r'\\"'g, '"') & "'"
+      "'" & json-string.substring(1, json-string.length - 1).replace(r'\\"'g, '"') & "'"
   boolean: #(value) -> if value then "true" else "false"
   object: #(value)
     if value instanceof RegExp
@@ -86,7 +86,7 @@ let toJSSourceTypes = {
       let flags = []
       if value.global
         flags.push "g"
-      if value.ignoreCase
+      if value.ignore-case
         flags.push "i"
       if value.multiline
         flags.push "m"
@@ -94,13 +94,13 @@ let toJSSourceTypes = {
     else
       JSON.stringify value
 }
-let toJSSource(value)
-  let f = toJSSourceTypes[typeof value]
+let to-JS-source(value)
+  let f = to-JS-source-types[typeof value]
   unless f
     throw TypeError "Cannot compile const $(typeof! value)"
   f value
 
-let isAcceptableIdent = do
+let is-acceptable-ident = do
   let IDENTIFIER_REGEX = r'^[a-zA-Z_\$][a-zA-Z_\$0-9]*$'
   let RESERVED = [
     "arguments"
@@ -156,11 +156,11 @@ let isAcceptableIdent = do
   ]
   #(name as String)
     IDENTIFIER_REGEX.test(name) and name not in RESERVED
-exports.isAcceptableIdent := isAcceptableIdent
+exports.is-acceptable-ident := is-acceptable-ident
 
-let maybeToStatement(node)
-  if node and typeof node.toStatement == "function"
-    node.toStatement()
+let maybe-to-statement(node)
+  if node and typeof node.to-statement == "function"
+    node.to-statement()
   else
     node
 
@@ -168,13 +168,13 @@ let Node = do
   let Node()!
     throw Error "Node cannot be instantiated directly"
   
-  Node::toString := #
+  Node::to-string := #
     let sb = StringBuilder()
-    @compileAsStatement { indent: 0 }, true, sb
-    sb.toString()
+    @compile-as-statement { indent: 0 }, true, sb
+    sb.to-string()
   
-  Node::toFunction := #
-    new Function @toString()
+  Node::to-function := #
+    new Function @to-string()
   
   Node::compile := # -> throw Error "compile not implemented: $(@constructor.name)"
   
@@ -186,18 +186,18 @@ let Expression = do
   Expression.prototype := ^Node.prototype
   Expression::constructor := Expression
   
-  Expression::toString := #-> Node::toString.call(this) & ";"
+  Expression::to-string := #-> Node::to-string.call(this) & ";"
   
-  Expression::compileAsStatement := #(options, lineStart, sb)!
-    if typeof @toStatement == "function"
-      @toStatement().compileAsStatement options, lineStart, sb
+  Expression::compile-as-statement := #(options, line-start, sb)!
+    if typeof @to-statement == "function"
+      @to-statement().compile-as-statement options, line-start, sb
     else
-      @compile options, LEVEL_BLOCK, lineStart, sb
+      @compile options, LEVEL_BLOCK, line-start, sb
       sb ";"
   
   Expression::type := #-> types.any
   
-  Expression::isLarge := #-> false
+  Expression::is-large := #-> false
   
   exports.Expression := Expression
 
@@ -207,10 +207,10 @@ let Statement = do
   Statement.prototype := ^Node.prototype
   Statement::constructor := Statement
   
-  Statement::compileAsStatement := #(options, lineStart, sb)
-    @compile options, LEVEL_BLOCK, lineStart, sb
+  Statement::compile-as-statement := #(options, line-start, sb)
+    @compile options, LEVEL_BLOCK, line-start, sb
   
-  Statement::isLarge := #-> true
+  Statement::is-large := #-> true
   
   exports.Statement := Statement
 
@@ -228,7 +228,7 @@ let Arguments = do
   Arguments.prototype := ^Expression.prototype
   Arguments::constructor := Arguments
   
-  Arguments::compile := #(options, level, lineStart, sb)! -> sb "arguments"
+  Arguments::compile := #(options, level, line-start, sb)! -> sb "arguments"
   
   Arguments::type := #-> types.args
   
@@ -236,15 +236,15 @@ let Arguments = do
   
   exports.Arguments := Arguments
 
-let walkArray(array as Array, walker as Function)
+let walk-array(array as Array, walker as Function)
   let mutable changed = false
   let result = for item in array
-    let mutable newItem = walker item
-    unless newItem?
-      newItem := item.walk walker
-    if item != newItem
+    let mutable new-item = walker item
+    unless new-item?
+      new-item := item.walk walker
+    if item != new-item
       changed := true
-    newItem
+    new-item
   if changed
     result
   else
@@ -258,37 +258,37 @@ let Arr = do
   Arr.prototype := ^Expression.prototype
   Arr::constructor := Arr
   
-  let compileLarge(elements, options, level, lineStart, sb)!
-    let childOptions = incIndent options
+  let compile-large(elements, options, level, line-start, sb)!
+    let child-options = inc-indent options
     for item, i, len in elements
       sb "\n"
-      sb.indent childOptions.indent
-      item.compile childOptions, LEVEL_SEQUENCE, false, sb
+      sb.indent child-options.indent
+      item.compile child-options, LEVEL_SEQUENCE, false, sb
       if i < len - 1
         sb ","
     sb "\n"
     sb.indent options.indent
-  let compileSmall(elements, options, level, lineStart, sb)!
+  let compile-small(elements, options, level, line-start, sb)!
     if elements.length
       for item, i in elements
         if i > 0
           sb ", "
         item.compile options, LEVEL_SEQUENCE, false, sb
-  Arr::compile := #(options, level, lineStart, sb)!
+  Arr::compile := #(options, level, line-start, sb)!
     sb "["
-    let f = if @isLarge() then compileLarge else compileSmall
-    f(@elements, options, level, lineStart, sb)
+    let f = if @is-large() then compile-large else compile-small
+    f(@elements, options, level, line-start, sb)
     sb "]"
   
   Arr::type := #-> types.array
   
-  Arr::isEmpty := #-> @elements.length == 0
-  Arr::isLarge := #
-    @_isLarge ?= @elements.length > 4 or for some element in @elements
-      (element instanceofsome [Arr, Obj] and not element.isEmpty()) or element.isLarge()
+  Arr::is-empty := #-> @elements.length == 0
+  Arr::is-large := #
+    @_is-large ?= @elements.length > 4 or for some element in @elements
+      (element instanceofsome [Arr, Obj] and not element.is-empty()) or element.is-large()
   
   Arr::walk := #(walker)
-    let elements = walkArray @elements, walker
+    let elements = walk-array @elements, walker
     if @elements != elements
       Arr elements
     else
@@ -327,10 +327,13 @@ let Or(...args as [Expression])
     current
 exports.Or := Or
 
-let isConst(node)
+let is-const(node)
   node instanceof Const or (node instanceof BlockExpression and node.body.length == 0)
 
-let constValue(node)
+let is-noop(node)
+  is-const(node) or (node instanceof BlockStatement and node.body.length == 0)
+
+let const-value(node)
   if node instanceof Const
     node.value
   else if node instanceof BlockExpression and node.body.length == 0
@@ -345,22 +348,22 @@ let Binary = do
       throw Error "Unknown binary operator: $(JSON.stringify op)"
     
     if left not instanceof Expression
-      left := toConst(left)
+      left := to-const(left)
     if right not instanceof Expression
-      right := toConst(right)
+      right := to-const(right)
     
-    if isConst(left) and isConst(right) and CONST_OPERATIONS ownskey op
-      let node = CONST_OPERATIONS[op](constValue(left), constValue(right))
+    if is-const(left) and is-const(right) and CONST_OPERATIONS ownskey op
+      let node = CONST_OPERATIONS[op](const-value(left), const-value(right))
       if node != void
         if node instanceof Expression
           return node
         else
           return Const node
     
-    if isConst(left) and LEFT_CONSTANT_OPERATIONS ownskey op
+    if is-const(left) and LEFT_CONSTANT_OPERATIONS ownskey op
       return? LEFT_CONSTANT_OPERATIONS[op](left, right)
     
-    if isConst(right) and RIGHT_CONSTANT_OPERATIONS ownskey op
+    if is-const(right) and RIGHT_CONSTANT_OPERATIONS ownskey op
       return? RIGHT_CONSTANT_OPERATIONS[op](left, right)
     
     self.left := left
@@ -370,27 +373,27 @@ let Binary = do
   Binary.prototype := ^Expression.prototype
   Binary::constructor := Binary
   
-  let compileAccess(op, left, right, options, level, lineStart, sb)!
-    let dotAccess = right instanceof Const and typeof right.value == "string" and isAcceptableIdent(right.value)
+  let compile-access(op, left, right, options, level, line-start, sb)!
+    let dot-access = right instanceof Const and typeof right.value == "string" and is-acceptable-ident(right.value)
     
     if left instanceof Const and typeof left.value == "number"
-      let stringLeft = toJSSource left.value
-      if left.value < 0 or not isFinite(left.value)
+      let string-left = to-JS-source left.value
+      if left.value < 0 or not is-finite(left.value)
         sb "("
-        sb stringLeft
+        sb string-left
         sb ")"
       else
-        sb stringLeft
-        if dotAccess and stringLeft.indexOf("e") == -1 and stringLeft.indexOf(".") == -1
+        sb string-left
+        if dot-access and string-left.index-of("e") == -1 and string-left.index-of(".") == -1
           sb "."
-    else if isConst(left) and constValue(left) == void
+    else if is-const(left) and const-value(left) == void
       sb "("
-      sb toJSSource(void)
+      sb to-JS-source(void)
       sb ")"
     else
-      left.compile options, LEVEL_ACCESS, lineStart, sb
+      left.compile options, LEVEL_ACCESS, line-start, sb
     
-    if dotAccess
+    if dot-access
       sb "."
       sb right.value
     else
@@ -398,24 +401,24 @@ let Binary = do
       right.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
       sb "]"
   
-  let compileOther(op, left, right, options, level, lineStart, sb)!
-    let opLevel = OPERATOR_PRECEDENCE[op]
-    let associativity = LEVEL_TO_ASSOCIATIVITY[opLevel]
-    let wrap = if associativity == "paren" then level >= opLevel else level > opLevel
+  let compile-other(op, left, right, options, level, line-start, sb)!
+    let op-level = OPERATOR_PRECEDENCE[op]
+    let associativity = LEVEL_TO_ASSOCIATIVITY[op-level]
+    let wrap = if associativity == "paren" then level >= op-level else level > op-level
     
     if wrap
       sb "("
-    left.compile options, if associativity == "right" and left instanceof Binary and OPERATOR_PRECEDENCE[left.op] == opLevel then opLevel + 1 else opLevel, lineStart and not wrap, sb
+    left.compile options, if associativity == "right" and left instanceof Binary and OPERATOR_PRECEDENCE[left.op] == op-level then op-level + 1 else op-level, line-start and not wrap, sb
     sb " "
     sb op
     sb " "
-    right.compile options, if associativity == "left" and right instanceof Binary and OPERATOR_PRECEDENCE[right.op] == opLevel then opLevel + 1 else opLevel, false, sb
+    right.compile options, if associativity == "left" and right instanceof Binary and OPERATOR_PRECEDENCE[right.op] == op-level then op-level + 1 else op-level, false, sb
     if wrap
       sb ")"
   
-  Binary::compile := #(options, level, lineStart, sb)!
-    let f = if @op == "." then compileAccess else compileOther
-    f(@op, @left, @right, options, level, lineStart, sb)
+  Binary::compile := #(options, level, line-start, sb)!
+    let f = if @op == "." then compile-access else compile-other
+    f(@op, @left, @right, options, level, line-start, sb)
   
   let ASSIGNMENT_OPS = {
     "=": true
@@ -437,10 +440,10 @@ let Binary = do
     "/": types.number
     "%": types.number
     "+": #(left, right)
-      if left.isSubsetOf(types.number) and right.isSubsetOf(types.number)
+      if left.is-subset-of(types.number) and right.is-subset-of(types.number)
         types.number
       else if left.overlaps(types.number) and right.overlaps(types.number)
-        types.stringOrNumber
+        types.string-or-number
       else
         types.string
     "-": types.number
@@ -460,8 +463,8 @@ let Binary = do
     "&": types.number
     "^": types.number
     "|": types.number
-    "&&": #(left, right) -> left.intersect(types.potentiallyFalsy).union(right)
-    "||": #(left, right) -> left.intersect(types.potentiallyTruthy).union(right)
+    "&&": #(left, right) -> left.intersect(types.potentially-falsy).union(right)
+    "||": #(left, right) -> left.intersect(types.potentially-truthy).union(right)
     "=": #(left, right) -> right
     "+=": #(left, right) -> OPERATOR_TYPES["+"](left, right)
     "-=": types.number
@@ -511,48 +514,48 @@ let Binary = do
     "||": (or)
     ".": #(x, y)
       if Object(x) haskey y and typeof x[y] != "function"
-        toConst x[y]
+        to-const x[y]
   }
   
   let LEFT_CONSTANT_OPERATIONS = {
-    "&&": #(x, y) -> if constValue x then y else x
-    "||": #(x, y) -> if constValue x then x else y
+    "&&": #(x, y) -> if const-value x then y else x
+    "||": #(x, y) -> if const-value x then x else y
     "*": #(x, y)
-      if constValue(x) == 1
+      if const-value(x) == 1
         Unary "+", y
-      else if constValue(x) == -1
+      else if const-value(x) == -1
         Unary "-", y
     "+": #(x, y)
-      if constValue(x) == 0
+      if const-value(x) == 0
         Unary "+", y
     "-": #(x, y)
-      if constValue(x) == 0
+      if const-value(x) == 0
         Unary "-", y
   }
   
   let RIGHT_CONSTANT_OPERATIONS = {
     "*": #(x, y)
-      if constValue(y) == 1
+      if const-value(y) == 1
         Unary "+", x
-      else if constValue(y) == -1
+      else if const-value(y) == -1
         Unary "-", x
     "/": #(x, y)
-      if constValue(y) == 1
+      if const-value(y) == 1
         Unary "+", x
-      else if constValue(y) == -1
+      else if const-value(y) == -1
         Unary "-", x
     "+": #(x, y)
-      let yValue = constValue(y)
-      if yValue == 0
+      let y-value = const-value(y)
+      if y-value == 0
         Unary "+", x
-      else if typeof yValue == "number" and yValue < 0
-        Binary x, "-", Const(-yValue)
+      else if typeof y-value == "number" and y-value < 0
+        Binary x, "-", Const(-y-value)
     "-": #(x, y)
-      let yValue = constValue(y)
-      if yValue == 0
+      let y-value = const-value(y)
+      if y-value == 0
         Unary "+", x
-      else if typeof yValue == "number" and yValue < 0
-        Binary x, "+", Const(-yValue)
+      else if typeof y-value == "number" and y-value < 0
+        Binary x, "+", Const(-y-value)
   }
   
   let OPERATOR_PRECEDENCE = {
@@ -606,8 +609,8 @@ let Binary = do
     (LEVEL_ASSIGNMENT): "right"
   }
   
-  Binary::isLarge := #
-    @_isLarge := @left.isLarge() or @right.isLarge()
+  Binary::is-large := #
+    @_is-large := @left.is-large() or @right.is-large()
   
   Binary::walk := #(walker)
     let mutable changed = false
@@ -626,11 +629,12 @@ let BlockStatement = do
     
     let result = []
     for item in body
-      let statement = maybeToStatement item
-      if statement instanceof BlockStatement
-        result.push ...statement.body
-      else
-        result.push statement
+      let statement = maybe-to-statement item
+      if not is-noop(statement)
+        if statement instanceof BlockStatement
+          result.push ...statement.body
+        else
+          result.push statement
     if result.length == 1
       return result[0]
     self.body := result
@@ -638,7 +642,7 @@ let BlockStatement = do
   BlockStatement.prototype := ^Statement.prototype
   BlockStatement::constructor := BlockStatement
   
-  BlockStatement::compile := #(options, level, lineStart, sb)!
+  BlockStatement::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -646,10 +650,10 @@ let BlockStatement = do
       if i > 0
         sb "\n"
         sb.indent options.indent
-      item.compileAsStatement options, true, sb
+      item.compile-as-statement options, true, sb
   
   BlockStatement::walk := #(walker)
-    let body = walkArray(@body, walker)
+    let body = walk-array(@body, walker)
     if @body != body
       Block body
     else
@@ -663,11 +667,14 @@ let BlockExpression = do
     
     let result = []
     result := []
-    for item in body
-      if item instanceof BlockExpression
-        result.push ...item.body
-      else
-        result.push item
+    for item, i, len in body
+      if i == len - 1 or not is-noop(item)
+        if item instanceof BlockExpression
+          result.push ...item.body
+          if i < len - 1 and is-noop(result[result.length - 1])
+            result.pop()
+        else
+          result.push item
     if result.length == 1
       return result[0]
     self.body := result
@@ -675,18 +682,18 @@ let BlockExpression = do
   BlockExpression.prototype := ^Expression.prototype
   BlockExpression::constructor := BlockExpression
   
-  BlockExpression::toStatement := #-> BlockStatement @body
+  BlockExpression::to-statement := #-> BlockStatement @body
   
-  BlockExpression::compile := #(options, level, lineStart, sb)!
+  BlockExpression::compile := #(options, level, line-start, sb)!
     if level == LEVEL_BLOCK
-      @toStatement().compile options, level, lineStart, sb
+      @to-statement().compile options, level, line-start, sb
     else
       let body = @body
       let len = body.length
       if len == 0
-        Const(void).compile options, level, lineStart, sb
+        Const(void).compile options, level, line-start, sb
       else if len == 1
-        body[0].compile options, level, lineStart, sb
+        body[0].compile options, level, line-start, sb
       else
         let wrap = level > LEVEL_INSIDE_PARENTHESES
         if wrap
@@ -705,18 +712,18 @@ let BlockExpression = do
     else
       body[body.length - 1].type()
   
-  BlockExpression::isLarge := #
-    @_isLarge ?= @body.length > 4 or for some part in @body
-      part.isLarge()
+  BlockExpression::is-large := #
+    @_is-large ?= @body.length > 4 or for some part in @body
+      part.is-large()
   
   BlockExpression::walk := BlockStatement::walk
   
   exports.BlockExpression := BlockExpression
 
 let Block(body as [Node] = [])
-  let allExpressions = for every item in body
+  let all-expressions = for every item in body
     item instanceof Expression
-  if allExpressions
+  if all-expressions
     BlockExpression body
   else
     BlockStatement body
@@ -729,7 +736,7 @@ let Break = do
   Break.prototype := ^Statement.prototype
   Break::constructor := Break
   
-  Break::compile := #(options, level, lineStart, sb)!
+  Break::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     sb "break;"
@@ -739,35 +746,35 @@ let Break = do
   exports.Break := Break
 
 let Call = do
-  let Call(func as Expression, args as [Expression] = [], isNew as Boolean)
+  let Call(func as Expression, args as [Expression] = [], is-new as Boolean)
     let self = if this instanceof Call then this else ^Call.prototype
     
-    if not isNew and for every arg in args
-        isConst(arg)
+    if not is-new and for every arg in args
+        is-const(arg)
       if func instanceof Ident
         if PRIMORDIAL_FUNCTIONS ownskey func.name and PRIMORDIAL_FUNCTIONS[func.name] == true and typeof global != "undefined" and typeof global[func.name] == "function"
           try
-            return toConst global[func.name].apply(null, for arg in args
-              constValue(arg))
+            return to-const global[func.name].apply(null, for arg in args
+              const-value(arg))
           catch e
             void
       else if func instanceof Binary and func.op == "."
-        if isConst(func.left) and isConst(func.right)
-          if typeof constValue(func.left)[constValue(func.right)] == "function"
+        if is-const(func.left) and is-const(func.right)
+          if typeof const-value(func.left)[const-value(func.right)] == "function"
             try
-              return toConst constValue(func.left)[constValue(func.right)] ...for arg in args
-                constValue(arg)
+              return to-const const-value(func.left)[const-value(func.right)] ...for arg in args
+                const-value(arg)
             catch e
               void
-        else if func.left instanceof Ident and isConst(func.right) and typeof constValue(func.right) == "string" and PRIMORDIAL_FUNCTIONS ownskey func.left.name and typeof PRIMORDIAL_FUNCTIONS[func.left.name] == "object" and PRIMORDIAL_FUNCTIONS[func.left.name][constValue(func.right)] == true and typeof Object(global[func.left.name])[constValue(func.right)] == "function"
+        else if func.left instanceof Ident and is-const(func.right) and typeof const-value(func.right) == "string" and PRIMORDIAL_FUNCTIONS ownskey func.left.name and typeof PRIMORDIAL_FUNCTIONS[func.left.name] == "object" and PRIMORDIAL_FUNCTIONS[func.left.name][const-value(func.right)] == true and typeof Object(global[func.left.name])[const-value(func.right)] == "function"
           try
-            return toConst global[func.left.name][constValue(func.right)] ...for arg in args
-              constValue(arg)
+            return to-const global[func.left.name][const-value(func.right)] ...for arg in args
+              const-value(arg)
           catch e
             void
     self.func := func
     self.args := args
-    self.isNew := isNew
+    self.is-new := is-new
     self
   Call.prototype := ^Expression.prototype
   Call::constructor := Call
@@ -815,73 +822,73 @@ let Call = do
     }
   }
   
-  let compileLarge(args, options, level, lineStart, sb)!
+  let compile-large(args, options, level, line-start, sb)!
     sb "("
-    let childOptions = incIndent options
+    let child-options = inc-indent options
     for item, i, len in args
       sb "\n"
-      sb.indent childOptions.indent
-      item.compile childOptions, LEVEL_SEQUENCE, false, sb
+      sb.indent child-options.indent
+      item.compile child-options, LEVEL_SEQUENCE, false, sb
       if i < len - 1
         sb ","
     sb "\n"
     sb.indent options.indent
     sb ")"
-  let compileSmall(args, options, level, lineStart, sb)!
+  let compile-small(args, options, level, line-start, sb)!
     sb "("
     for arg, i in args
       if i > 0
         sb ", "
       arg.compile options, LEVEL_SEQUENCE, false, sb
     sb ")"
-  Call::compile := #(options, level, lineStart, sb)!
-    if @isNew
+  Call::compile := #(options, level, line-start, sb)!
+    if @is-new
       sb "new "
     
-    let wrap = not @isNew and (@func instanceof Func or (@func instanceof Binary and @func.op == "." and @func.left instanceof Func))
+    let wrap = not @is-new and (@func instanceof Func or (@func instanceof Binary and @func.op == "." and @func.left instanceof Func))
     if wrap
       sb "("
-    @func.compile options, LEVEL_CALL, lineStart and not wrap and not @isNew, sb
-    let f = if @shouldCompileLargeArgs() then compileLarge else compileSmall
-    f(@args, options, level, lineStart, sb)
+    @func.compile options, LEVEL_CALL, line-start and not wrap and not @is-new, sb
+    let f = if @should-compile-large-args() then compile-large else compile-small
+    f(@args, options, level, line-start, sb)
     if wrap
       sb ")"
   
-  Call::shouldCompileLargeArgs := #
+  Call::should-compile-large-args := #
     if @args.length > 4
       true
     else
       for some arg in @args[:-1]
-        (arg instanceofsome [Arr, Obj] and not arg.isEmpty()) or arg.isLarge()
+        (arg instanceofsome [Arr, Obj] and not arg.is-empty()) or arg.is-large()
   
-  Call::hasLargeArgs := #
-    @_hasLargeArgs ?= if @args.length > 4
+  Call::has-large-args := #
+    @_has-large-args ?= if @args.length > 4
       true
     else
       for some arg in @args
-        (arg instanceofsome [Arr, Obj] and not arg.isEmpty()) or arg.isLarge()
+        (arg instanceofsome [Arr, Obj] and not arg.is-empty()) or arg.is-large()
   
-  Call::isLarge := #-> @func.isLarge() or @hasLargeArgs()
+  Call::is-large := #-> @func.is-large() or @has-large-args()
   
   Call::walk := #(walker)
     let func = walker(@func) ? @func.walk(walker)
-    let args = walkArray(@args, walker)
+    let args = walk-array(@args, walker)
     if @func != func or @args != args
-      Call func, args, @isNew
+      Call func, args, @is-new
     else
       this
   
   exports.Call := Call
 
-let toConst = #(value)
+let to-const = #(value)
   if value instanceof Node
     throw Error "Cannot convert $(typeof! value) to a Const"
-  else if Array.isArray(value)
+  else if Array.is-array(value)
     Arr (for item in value
-      toConst item)
+      to-const item)
   else if value and typeof value == "object" and value not instanceof RegExp
     Obj (for k, v of value
-      ObjPair k, toConst v)
+      ObjPair k, to-const v)
   else
     Const value
 
@@ -893,12 +900,12 @@ let Const = do
   Const.prototype := ^Expression.prototype
   Const::constructor := Const
   
-  Const::compile := #(options, level, lineStart, sb)!
+  Const::compile := #(options, level, line-start, sb)!
     let value = @value
-    let wrap = level >= LEVEL_INCREMENT and (value == undefined or (typeof value == "number" and not isFinite(value)))
+    let wrap = level >= LEVEL_INCREMENT and (value == undefined or (typeof value == "number" and not is-finite(value)))
     if wrap
       sb "("
-    sb toJSSource(value)
+    sb to-JS-source(value)
     if wrap
       sb ")"
   
@@ -931,7 +938,7 @@ let Continue = do
   Continue.prototype := ^Statement.prototype
   Continue::constructor := Continue
   
-  Continue::compile := #(options, level, lineStart, sb)!
+  Continue::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     sb "continue;"
@@ -947,7 +954,7 @@ let Debugger = do
   Debugger.prototype := ^Statement.prototype
   Debugger::constructor := Debugger
   
-  Debugger::compile := #(options, level, lineStart, sb)
+  Debugger::compile := #(options, level, line-start, sb)
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     sb "debugger;"
@@ -959,22 +966,27 @@ let Debugger = do
 let DoWhile = do
   let DoWhile(body as Node, test as Expression)
     let self = if this instanceof DoWhile then this else ^DoWhile.prototype
-    self.body := maybeToStatement body
+    self.body := maybe-to-statement body
     self.test := test
     self
   DoWhile.prototype := ^Statement.prototype
   DoWhile::constructor := DoWhile
   
-  DoWhile::compile := #(options, level, lineStart, sb)!
+  DoWhile::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     
-    sb "do {\n"
-    sb.indent options.indent + 1
-    @body.compileAsStatement incIndent(options), true, sb
-    sb "\n"
-    sb.indent options.indent
-    sb "} while ("
+    sb "do"
+    if is-noop(@body)
+      sb ";"
+    else
+      sb " {\n"
+      sb.indent options.indent + 1
+      @body.compile-as-statement inc-indent(options), true, sb
+      sb "\n"
+      sb.indent options.indent
+      sb "}"
+    sb " while ("
     @test.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb ");"
   
@@ -992,13 +1004,13 @@ let Eval = do
   let Eval(mutable code)
     let self = if this instanceof Eval then this else ^Eval.prototype
     if code not instanceof Expression
-      code := toConst code
+      code := to-const code
     self.code := code
     self
   Eval.prototype := ^Expression.prototype
   Eval::constructor := Eval
   
-  Eval::compile := #(options, level, lineStart, sb)!
+  Eval::compile := #(options, level, line-start, sb)!
     if @code instanceof Const
       sb String(@code.value)
     else
@@ -1021,30 +1033,34 @@ let For = do
     self.init := init
     self.test := test
     self.step := step
-    self.body := maybeToStatement body
+    self.body := maybe-to-statement body
     self
   For.prototype := ^Statement.prototype
   For::constructor := For
   
-  For::compile := #(options, level, lineStart, sb)!
+  For::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "for ("
-    if not isConst(@init)
+    if not is-noop(@init)
       @init.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb "; "
-    if not isConst(@test) or not constValue(@test)
+    if not is-const(@test) or not const-value(@test)
       @test.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb "; "
-    if not isConst(@step)
+    if not is-noop(@step)
       @step.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
-    sb ") {\n"
-    sb.indent options.indent + 1
-    @body.compileAsStatement incIndent(options), true, sb
-    sb "\n"
-    sb.indent options.indent
-    sb "}"
+    sb ")"
+    if is-noop(@body)
+      sb ";"
+    else
+      sb " {\n"
+      sb.indent options.indent + 1
+      @body.compile-as-statement inc-indent(options), true, sb
+      sb "\n"
+      sb.indent options.indent
+      sb "}"
   
   For::walk := #(walker)
     let init = walker(@init) ? @init.walk(walker)
@@ -1063,12 +1079,12 @@ let ForIn = do
     let self = if this instanceof ForIn then this else ^ForIn.prototype
     self.key := key
     self.object := object
-    self.body := maybeToStatement(body)
+    self.body := maybe-to-statement(body)
     self
   ForIn.prototype := ^Statement.prototype
   ForIn::constructor := ForIn
   
-  ForIn::compile := #(options, level, lineStart, sb)!
+  ForIn::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -1076,12 +1092,16 @@ let ForIn = do
     @key.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb " in "
     @object.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
-    sb ") {\n"
-    sb.indent options.indent + 1
-    @body.compileAsStatement incIndent(options), true, sb
-    sb "\n"
-    sb.indent options.indent
-    sb "}"
+    sb ")"
+    if is-noop(@body)
+      sb ";"
+    else
+      sb " {\n"
+      sb.indent options.indent + 1
+      @body.compile-as-statement inc-indent(options), true, sb
+      sb "\n"
+      sb.indent options.indent
+      sb "}"
   
   ForIn::walk := #(walker)
     let key = walker(@key) ? @key.walk(walker)
@@ -1094,7 +1114,7 @@ let ForIn = do
   
   exports.ForIn := ForIn
 
-let validateFuncParamsAndVariables(params, variables)!
+let validate-func-params-and-variables(params, variables)!
   let names = []
   for param in params
     if param.name in names
@@ -1105,10 +1125,10 @@ let validateFuncParamsAndVariables(params, variables)!
       throw Error "Duplicate variable: $variable"
     names.push variable
 
-let compileFuncBody(options, sb, declarations, variables, body)!
+let compile-func-body(options, sb, declarations, variables, body)!
   for declaration in declarations
     sb.indent options.indent
-    sb toJSSource(declaration)
+    sb to-JS-source(declaration)
     sb ";\n"
   
   if variables.length > 0
@@ -1122,10 +1142,10 @@ let compileFuncBody(options, sb, declarations, variables, body)!
   
   for line in body
     sb.indent options.indent
-    line.compileAsStatement options, true, sb
+    line.compile-as-statement options, true, sb
     sb "\n"
 
-let compileFunc(options, sb, name, params, declarations, variables, body)
+let compile-func(options, sb, name, params, declarations, variables, body)
   sb "function "
   if name?
     name.compile sb, LEVEL_INSIDE_PARENTHESES, false, sb
@@ -1137,14 +1157,14 @@ let compileFunc(options, sb, name, params, declarations, variables, body)
   sb ") {"
   if variables.length or declarations.length or body.length
     sb "\n"
-    compileFuncBody incIndent(options), sb, declarations, variables, body
+    compile-func-body inc-indent(options), sb, declarations, variables, body
     sb.indent options.indent
   sb "}"
 
 let Func = do
   let Func(name as (null|Ident), params as [Ident] = [], variables as [String] = [], body as [Node] = [], declarations as [String] = [])
     let self = if this instanceof Func then this else ^Func.prototype
-    validateFuncParamsAndVariables params, variables
+    validate-func-params-and-variables params, variables
     self.name := name
     self.params := params
     self.variables := variables
@@ -1154,27 +1174,27 @@ let Func = do
   Func.prototype := ^Expression.prototype
   Func::constructor := Func
   
-  Func::compile := #(options, level, lineStart, sb)!
-    let wrap = lineStart and not @name
+  Func::compile := #(options, level, line-start, sb)!
+    let wrap = line-start and not @name
     if wrap
       sb "("
-    compileFunc options, sb, @name, @params, @declarations, @variables, @body
+    compile-func options, sb, @name, @params, @declarations, @variables, @body
     if wrap
       sb ")"
   
-  Func::compileAsStatement := #(options, lineStart, sb)!
-    @compile options, LEVEL_BLOCK, lineStart, sb
-    unless lineStart and @name
+  Func::compile-as-statement := #(options, line-start, sb)!
+    @compile options, LEVEL_BLOCK, line-start, sb
+    unless line-start and @name
       sb ";"
   
   Func::type := #-> types.function
   
-  Func::isLarge := #-> true
+  Func::is-large := #-> true
   
   Func::walk := #(walker)
     let name = if @name then walker(@name) ? @name.walk(walker) else @name
-    let params = walkArray(@params, walker)
-    let body = walkArray(@body, walker)
+    let params = walk-array(@params, walker)
+    let body = walk-array(@body, walker)
     if name != @name or params != @params or body != @body
       Func name, params, @variables, body, @declarations
     else
@@ -1185,14 +1205,14 @@ let Func = do
 let Ident = do
   let Ident(name as String)
     let self = if this instanceof Ident then this else ^Ident.prototype
-    unless isAcceptableIdent name
+    unless is-acceptable-ident name
       throw Error "Not an acceptable identifier name: $name"
     self.name := name
     self
   Ident.prototype := ^Expression.prototype
   Ident::constructor := Ident
   
-  Ident::compile := #(options, level, lineStart, sb)!
+  Ident::compile := #(options, level, line-start, sb)!
     sb @name
   
   Ident::walk := #-> this
@@ -1200,195 +1220,197 @@ let Ident = do
   exports.Ident := Ident
 
 let IfStatement = do
-  let IfStatement(test as Expression, mutable whenTrue as Node, mutable whenFalse as Node = BlockExpression())
+  let IfStatement(test as Expression, mutable when-true as Node, mutable when-false as Node = BlockExpression())
     let self = if this instanceof IfStatement then this else ^IfStatement.prototype
     
-    if isConst test
-      if constValue test
-        whenTrue
+    if is-const test
+      if const-value test
+        when-true
       else
-        whenFalse
+        when-false
     else
-      whenTrue := maybeToStatement whenTrue
-      whenFalse := maybeToStatement whenFalse
-      if whenTrue instanceof BlockStatement and whenTrue.body.length == 0
-        if whenFalse instanceof BlockStatement and whenFalse.body.length == 0
+      when-true := maybe-to-statement when-true
+      when-false := maybe-to-statement when-false
+      if is-noop(when-true)
+        if is-noop(when-false)
           test
         else
           IfStatement.call(self
             Unary "!", test
-            whenFalse
+            when-false
             BlockStatement())
       else
         self.test := test
-        self.whenTrue := whenTrue
-        self.whenFalse := whenFalse
+        self.when-true := when-true
+        self.when-false := when-false
         self
   IfStatement.prototype := ^Statement.prototype
   IfStatement::constructor := IfStatement
   
-  IfStatement::compile := #(options, level, lineStart, sb)!
+  IfStatement::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "if ("
     @test.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb ") {\n"
-    let childOptions = incIndent options
-    sb.indent childOptions.indent
-    @whenTrue.compileAsStatement childOptions, true, sb
+    let child-options = inc-indent options
+    sb.indent child-options.indent
+    @when-true.compile-as-statement child-options, true, sb
     sb "\n"
     sb.indent options.indent
     sb "}"
-    let whenFalse = @whenFalse
-    if whenFalse not instanceof BlockStatement or whenFalse.body.length > 0
+    let when-false = @when-false
+    if not is-noop(when-false)
       sb " else "
-      if whenFalse instanceof IfStatement
-        whenFalse.compile options, level, false, sb
+      if when-false instanceof IfStatement
+        when-false.compile options, level, false, sb
       else
         sb "{\n"
-        sb.indent childOptions.indent
-        whenFalse.compileAsStatement childOptions, true, sb
+        sb.indent child-options.indent
+        when-false.compile-as-statement child-options, true, sb
         sb "\n"
         sb.indent options.indent
         sb "}"
         
   IfStatement::walk := #(walker)
     let test = walker(@test) ? @test.walk walker
-    let whenTrue = walker(@whenTrue) ? @whenTrue.walk walker
-    let whenFalse = walker(@whenFalse) ? @whenFalse.walk walker
+    let when-true = walker(@when-true) ? @when-true.walk walker
+    let when-false = walker(@when-false) ? @when-false.walk walker
     
-    if test != @test or whenTrue != @whenTrue or whenFalse != @whenFalse
-      If test, whenTrue, whenFalse
+    if test != @test or when-true != @when-true or when-false != @when-false
+      If test, when-true, when-false
     else
       this
   
   exports.IfStatement := IfStatement
 
 let IfExpression = do
-  let IfExpression(test as Expression, whenTrue as Expression, whenFalse as Expression = BlockExpression())
+  let IfExpression(test as Expression, when-true as Expression, when-false as Expression = BlockExpression())
     let self = if this instanceof IfExpression then this else ^IfExpression.prototype
     
-    if isConst test
-      if constValue test
-        whenTrue
+    if is-const test
+      if const-value test
+        when-true
       else
-        whenFalse
+        when-false
+    else if is-const(when-true) and is-const(when-false) and const-value(when-true) == const-value(when-false)
+      BlockExpression [test, when-true]
     else
       self.test := test
-      self.whenTrue := whenTrue
-      self.whenFalse := whenFalse
+      self.when-true := when-true
+      self.when-false := when-false
       self
   IfExpression.prototype := ^Expression.prototype
   IfExpression::constructor := IfExpression
   
-  IfExpression::toStatement := #-> IfStatement @test, @whenTrue, @whenFalse
+  IfExpression::to-statement := #-> IfStatement @test, @when-true, @when-false
   
-  IfExpression::compile := #(options, level, lineStart, sb)!
+  IfExpression::compile := #(options, level, line-start, sb)!
     if level == LEVEL_BLOCK
-      @toStatement().compile(options, level, lineStart, sb)
+      @to-statement().compile(options, level, line-start, sb)
     else
       let wrap = level > LEVEL_INLINE_CONDITION
       if wrap
         sb "("
-      let wrapTest = @test instanceof IfExpression
-      if wrapTest
+      let wrap-test = @test instanceof IfExpression
+      if wrap-test
         sb "("
-      @test.compile options, if wrapTest then LEVEL_INSIDE_PARENTHESES else LEVEL_INLINE_CONDITION, lineStart and not wrap and not wrapTest, sb
-      if wrapTest
+      @test.compile options, if wrap-test then LEVEL_INSIDE_PARENTHESES else LEVEL_INLINE_CONDITION, line-start and not wrap and not wrap-test, sb
+      if wrap-test
         sb ")"
       sb " ? "
-      @whenTrue.compile options, LEVEL_INLINE_CONDITION, false, sb
+      @when-true.compile options, LEVEL_INLINE_CONDITION, false, sb
       sb " : "
-      @whenFalse.compile options, LEVEL_INLINE_CONDITION, false, sb
+      @when-false.compile options, LEVEL_INLINE_CONDITION, false, sb
       if wrap
         sb ")"
   
-  IfExpression::type := #-> @_type ?= @whenTrue.type().union(@whenFalse.type())
+  IfExpression::type := #-> @_type ?= @when-true.type().union(@when-false.type())
   
-  IfExpression::isLarge := #
-    @_isLarge ?= for some part in [@test, @whenTrue, @whenFalse]
-      (part instanceofsome [Arr, Obj] and not part.isEmpty()) or part.isLarge()
+  IfExpression::is-large := #
+    @_is-large ?= for some part in [@test, @when-true, @when-false]
+      (part instanceofsome [Arr, Obj] and not part.is-empty()) or part.is-large()
   
   IfExpression::walk := IfStatement::walk
   
   exports.IfExpression := IfExpression
 
-let If(test, whenTrue, whenFalse)
-  if whenTrue instanceof Expression and (not whenFalse or whenFalse instanceof Expression)
-    IfExpression test, whenTrue, whenFalse
+let If(test, when-true, when-false)
+  if when-true instanceof Expression and (not when-false or when-false instanceof Expression)
+    IfExpression test, when-true, when-false
   else
-    IfStatement test, whenTrue, whenFalse
+    IfStatement test, when-true, when-false
 exports.If := If
 
 let Obj = do
-  let validateUniqueKeys(elements)!
+  let validate-unique-keys(elements)!
     let keys = []
     for pair in elements
       let key = pair.key
       if key in keys
-        throw Error "Found duplicate key: $(toJSSource key)"
+        throw Error "Found duplicate key: $(to-JS-source key)"
       keys.push key
   
   let Obj(elements as [ObjPair] = [])
     let self = if this instanceof Obj then this else ^Obj.prototype
-    validateUniqueKeys elements
+    validate-unique-keys elements
     self.elements := elements
     self
   Obj.prototype := ^Expression.prototype
   Obj::constructor := Obj
   
-  let compileLarge(elements, options, sb)!
-    let childOptions = incIndent options
+  let compile-large(elements, options, sb)!
+    let child-options = inc-indent options
     for element, i, len in elements
       sb "\n"
-      sb.indent childOptions.indent
+      sb.indent child-options.indent
       let key = element.key
-      sb if isAcceptableIdent key
+      sb if is-acceptable-ident key
         key
       else
-        toJSSource key
+        to-JS-source key
       sb ": "
-      element.value.compile childOptions, LEVEL_SEQUENCE, false, sb
+      element.value.compile child-options, LEVEL_SEQUENCE, false, sb
       if i < len - 1
         sb ","
     sb "\n"
     sb.indent options.indent
   
-  let compileSmall(elements, options, sb)!
+  let compile-small(elements, options, sb)!
     if elements.length
       sb " "
       for element, i in elements
         if i > 0
           sb ", "
         let key = element.key
-        sb if isAcceptableIdent key
+        sb if is-acceptable-ident key
           key
         else
-          toJSSource key
+          to-JS-source key
         sb ": "
         element.value.compile options, LEVEL_SEQUENCE, false, sb
       sb " "
   
-  Obj::compile := #(options, level, lineStart, sb)!
-    if lineStart
+  Obj::compile := #(options, level, line-start, sb)!
+    if line-start
       sb "("
     sb "{"
-    let f = if @isLarge() then compileLarge else compileSmall
+    let f = if @is-large() then compile-large else compile-small
     f @elements, options, sb
     sb "}"
-    if lineStart
+    if line-start
       sb ")"
   
   Obj::type := #-> types.object
   
-  Obj::isEmpty := #-> @elements.length == 0
-  Obj::isLarge := #
-    @_isLarge ?= @elements.length > 4 or for some element in @elements
-      (element.value instanceofsome [Arr, Obj] and not element.value.isEmpty()) or element.isLarge()
+  Obj::is-empty := #-> @elements.length == 0
+  Obj::is-large := #
+    @_is-large ?= @elements.length > 4 or for some element in @elements
+      (element.value instanceofsome [Arr, Obj] and not element.value.is-empty()) or element.is-large()
   
   Obj::walk := #(walker)
-    let elements = walkArray(@elements, walker)
+    let elements = walk-array(@elements, walker)
     if elements != @elements
       Obj elements
     else
@@ -1398,12 +1420,12 @@ let Obj = do
     let self = if this instanceof ObjPair then this else ^ObjPair.prototype
     self.key := key
     if value not instanceof Expression
-      value := toConst value
+      value := to-const value
     self.value := value
     self
   Obj.Pair := ObjPair
   
-  ObjPair::isLarge := #-> @value.isLarge()
+  ObjPair::is-large := #-> @value.is-large()
   
   ObjPair::walk := #(walker)
     let value = walker(@value) ? @value.walk(walker)
@@ -1422,9 +1444,9 @@ let Return = do
   Return.prototype := ^Statement.prototype
   Return::constructor := Return
   
-  Return::compile := #(options, level, lineStart, sb)!
+  Return::compile := #(options, level, line-start, sb)!
     sb "return"
-    unless isConst(@node) and constValue(@node) == void
+    unless is-const(@node) and const-value(@node) == void
       sb " "
       @node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb ";"
@@ -1442,11 +1464,11 @@ let Root = do
   let Root(body as [Node] = [], variables as [String] = [], declarations as [String] = [])
     let self = if this instanceof Root then this else ^Root.prototype
     
-    validateFuncParamsAndVariables [], variables
+    validate-func-params-and-variables [], variables
     
     self.body := []
     for item in body
-      let statement = maybeToStatement item
+      let statement = maybe-to-statement item
       if statement instanceof BlockStatement
         self.body.push ...statement.body
       else
@@ -1460,17 +1482,17 @@ let Root = do
       options.indent := 0
     
     let sb = StringBuilder()
-    compileFuncBody(options, sb, @declarations, @variables, @body)
-    sb.toString()
+    compile-func-body(options, sb, @declarations, @variables, @body)
+    sb.to-string()
   
-  Root::toString := #-> @compile()
+  Root::to-string := #-> @compile()
   
-  Root::toFunction := Node::toFunction
+  Root::to-function := Node::to-function
   
-  Root::isLarge := #-> true
+  Root::is-large := #-> true
   
   Root::walk := #(walker)
-    let body = walkArray(@body, walker)
+    let body = walk-array(@body, walker)
     if body != @body
       Root body, @variables, @declarations
     else
@@ -1485,7 +1507,7 @@ let This = do
   This.prototype := ^Expression.prototype
   This::constructor := This
   
-  This::compile := #(options, level, lineStart, sb)!
+  This::compile := #(options, level, line-start, sb)!
     sb "this"
   
   This::walk := #-> this
@@ -1500,7 +1522,7 @@ let Throw = do
   Throw.prototype := ^Statement.prototype
   Throw::constructor := Throw
   
-  Throw::compile := #(options, level, lineStart, sb)
+  Throw::compile := #(options, level, line-start, sb)
     sb "throw "
     @node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb ";"
@@ -1515,60 +1537,60 @@ let Throw = do
   exports.Throw := Throw
 
 let Switch = do
-  let Switch(node as Expression, cases as [SwitchCase] = [], defaultCase as Node = BlockStatement())
+  let Switch(node as Expression, cases as [SwitchCase] = [], default-case as Node = BlockStatement())
     let self = if this instanceof Switch then this else ^Switch.prototype
     self.node := node
     self.cases := cases
-    self.defaultCase := maybeToStatement defaultCase
+    self.default-case := maybe-to-statement default-case
     self
   Switch.prototype := ^Statement.prototype
   Switch::constructor := Switch
   
-  Switch::compile := #(options, level, lineStart, sb)!
+  Switch::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "switch ("
     @node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
     sb ") {"
-    let childOptions = incIndent options
+    let child-options = inc-indent options
     for case_ in @cases
       sb "\n"
       sb.indent options.indent
       sb "case "
       case_.node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
       sb ":"
-      if case_.body not instanceof BlockStatement or case_.body.body.length > 0
+      if not is-noop(case_.body)
         sb "\n"
-        sb.indent childOptions.indent
-        case_.body.compileAsStatement childOptions, true, sb
-    if @defaultCase not instanceof BlockStatement or @defaultCase.body.length > 0
+        sb.indent child-options.indent
+        case_.body.compile-as-statement child-options, true, sb
+    if not is-noop(@default-case)
       sb "\n"
       sb.indent options.indent
       sb "default:\n"
-      sb.indent childOptions.indent
-      @defaultCase.compileAsStatement options, true, sb
+      sb.indent child-options.indent
+      @default-case.compile-as-statement options, true, sb
     sb "\n"
     sb.indent options.indent
     sb "}"
   
   Switch::walk := #(walker)
     let node = walker(@node) ? @node.walk(walker)
-    let cases = walkArray(@cases, walker)
-    let defaultCase = walker(@defaultCase) ? @defaultCase.walk(walker)
-    if node != @node or cases != @cases or defaultCases != @defaultCases
-      Switch node, cases, defaultCase
+    let cases = walk-array(@cases, walker)
+    let default-case = walker(@default-case) ? @default-case.walk(walker)
+    if node != @node or cases != @cases or default-case != @default-case
+      Switch node, cases, default-case
     else
       this
   
   let SwitchCase(node as Expression, body as Node)
     let self = if this instanceof SwitchCase then this else ^SwitchCase.prototype
     self.node := node
-    self.body := maybeToStatement body
+    self.body := maybe-to-statement body
     self
   Switch.Case := SwitchCase
   
-  SwitchCase::isLarge := #-> true
+  SwitchCase::is-large := #-> true
   
   SwitchCase::walk := #(walker)
     let node = walker(@node) ? @node.walk(walker)
@@ -1581,87 +1603,103 @@ let Switch = do
   exports.Switch := Switch
 
 let TryCatch = do
-  let TryCatch(tryBody as Node, catchIdent as Ident, catchBody as Node)
+  let TryCatch(try-body as Node, catch-ident as Ident, catch-body as Node)
     let self = if this instanceof TryCatch then this else ^TryCatch.prototype
     
-    self.tryBody := maybeToStatement tryBody
-    self.catchIdent := catchIdent
-    self.catchBody := maybeToStatement catchBody
+    self.try-body := maybe-to-statement try-body
+    if is-noop(self.try-body)
+      return BlockStatement()
+    self.catch-ident := catch-ident
+    self.catch-body := maybe-to-statement catch-body
     self
   TryCatch.prototype := ^Statement.prototype
   TryCatch::constructor := TryCatch
   
-  TryCatch::compile := #(options, level, lineStart, sb)!
+  TryCatch::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "try {\n"
-    let childOptions = incIndent options
-    sb.indent childOptions.indent
-    @tryBody.compileAsStatement childOptions, true, sb
+    let child-options = inc-indent options
+    sb.indent child-options.indent
+    @try-body.compile-as-statement child-options, true, sb
     sb "\n"
     sb.indent options.indent
     sb "} catch ("
-    @catchIdent.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
-    sb ") {\n"
-    sb.indent childOptions.indent
-    @catchBody.compileAsStatement childOptions, true, sb
-    sb "\n"
-    sb.indent options.indent
+    @catch-ident.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+    sb ") {"
+    if not is-noop(@catch-body)
+      sb "\n"
+      sb.indent child-options.indent
+      @catch-body.compile-as-statement child-options, true, sb
+      sb "\n"
+      sb.indent options.indent
     sb "}"
   
   TryCatch::walk := #(walker)
-    let tryBody = walker(@tryBody) ? @tryBody.walk(walker)
-    let catchIdent = walker(@catchIdent) ? @catchIdent.walk(walker)
-    let catchBody = walker(@catchBody) ? @catchBody.walk(walker)
-    if tryBody != @tryBody or catchIdent != @catchIdent or catchBody != @catchBody
-      TryCatch tryBody, catchIdent, catchBody
+    let try-body = walker(@try-body) ? @try-body.walk(walker)
+    let catch-ident = walker(@catch-ident) ? @catch-ident.walk(walker)
+    let catch-body = walker(@catch-body) ? @catch-body.walk(walker)
+    if try-body != @try-body or catch-ident != @catch-ident or catch-body != @catch-body
+      TryCatch try-body, catch-ident, catch-body
     else
       this
   
   exports.TryCatch := TryCatch
 
 let TryFinally = do
-  let TryFinally(tryBody as Node, finallyBody as Node)
+  let TryFinally(try-body as Node, finally-body as Node)
     let self = if this instanceof TryFinally then this else ^TryFinally.prototype
-    self.tryBody := maybeToStatement tryBody
-    self.finallyBody := maybeToStatement finallyBody
-    self
+    self.try-body := maybe-to-statement try-body
+    self.finally-body := maybe-to-statement finally-body
+    if is-noop(self.try-body)
+      if is-noop(self.finally-body)
+        BlockStatement()
+      else
+        self.finally-body
+    else if is-noop(self.finally-body)
+      self.try-body
+    else
+      self
   TryFinally.prototype := ^Statement.prototype
   TryFinally::constructor := TryFinally
   
-  TryFinally::compile := #(options, level, lineStart, sb)!
+  TryFinally::compile := #(options, level, line-start, sb)!
     if level != LEVEL_BLOCK
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "try {\n"
-    let childOptions = incIndent(options)
-    sb.indent childOptions.indent
-    if @tryBody instanceof TryCatch
-      @tryBody.tryBody.compileAsStatement childOptions, true, sb
+    let child-options = inc-indent(options)
+    sb.indent child-options.indent
+    if @try-body instanceof TryCatch
+      @try-body.try-body.compile-as-statement child-options, true, sb
       sb "\n"
       sb.indent options.indent
       sb "} catch ("
-      @tryBody.catchIdent.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
-      sb ") {\n"
-      sb.indent childOptions.indent
-      @tryBody.catchBody.compileAsStatement childOptions, true, sb
+      @try-body.catch-ident.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+      sb ") {"
+      if not is-noop(@try-body.catch-body)
+        sb "\n"
+        sb.indent child-options.indent
+        @try-body.catch-body.compile-as-statement child-options, true, sb
+        sb "\n"
+        sb.indent options.indent
     else
-      @tryBody.compileAsStatement childOptions, true, sb
-    sb "\n"
-    sb.indent options.indent
+      @try-body.compile-as-statement child-options, true, sb
+      sb "\n"
+      sb.indent options.indent
     sb "} finally {\n"
-    sb.indent childOptions.indent
-    @finallyBody.compileAsStatement childOptions, true, sb
+    sb.indent child-options.indent
+    @finally-body.compile-as-statement child-options, true, sb
     sb "\n"
     sb.indent options.indent
     sb "}"
   
   TryFinally::walk := #(walker)
-    let tryBody = walker(@tryBody) ? @tryBody.walk(walker)
-    let finallyBody = walker(@finallyBody) ? @finallyBody.walk(walker)
-    if tryBody != @tryBody or finallyBody != @finallyBody
-      TryCatch tryBody, finallyBody
+    let try-body = walker(@try-body) ? @try-body.walk(walker)
+    let finally-body = walker(@finally-body) ? @finally-body.walk(walker)
+    if try-body != @try-body or finally-body != @finally-body
+      TryCatch try-body, finally-body
     else
       this
 
@@ -1678,10 +1716,10 @@ let Unary = do
       throw Error "Cannot use delete operator on a non-access"
     
     if node not instanceof Expression
-      node := toConst node
+      node := to-const node
     
-    if isConst(node) and CONST_OPERATIONS ownskey op
-      return Const CONST_OPERATIONS[op](constValue node)
+    if is-const(node) and CONST_OPERATIONS ownskey op
+      return Const CONST_OPERATIONS[op](const-value node)
     
     if NONCONST_OPERATIONS ownskey op
       return? NONCONST_OPERATIONS[op](node)
@@ -1692,7 +1730,7 @@ let Unary = do
   Unary.prototype := ^Expression.prototype
   Unary::constructor := Unary
   
-  Unary::compile := #(options, level, lineStart, sb)!
+  Unary::compile := #(options, level, line-start, sb)!
     let op = @op
     if op in ["++post", "--post"]
       @node.compile options, LEVEL_UNARY, false, sb
@@ -1727,7 +1765,7 @@ let Unary = do
   
   let NONCONST_OPERATIONS = {
     "+": #(x)
-      if x.type().isSubsetOf types.number
+      if x.type().is-subset-of types.number
         x
     "-": #(x)
       if x instanceof Unary
@@ -1753,7 +1791,7 @@ let Unary = do
       }
       #(x)
         if x instanceof Unary
-          if x.op == "!" and x.node.type().isSubsetOf(types.boolean)
+          if x.op == "!" and x.node.type().is-subset-of(types.boolean)
             x.node
         else if x instanceof Binary
           if BINARY_INVERTABLE ownskey x.op
@@ -1782,7 +1820,7 @@ let Unary = do
   
   Unary::type := #-> OPERATOR_TYPES[@op]
   
-  Unary::isLarge := #-> @node.isLarge()
+  Unary::is-large := #-> @node.is-large()
   
   Unary::walk := #(walker)
     let node = walker(@node) ? @node.walk(walker)
