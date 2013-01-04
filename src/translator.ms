@@ -435,6 +435,65 @@ let wrap-in-function-call(node)
       existential: false
     }])
 
+let flatten-spread-array(elements)
+  let result = []
+  let mutable changed = false
+  for element in elements
+    if element.type == \spread and element.node.type == \array
+      result.push ...element.node.elements
+      changed := true
+    else
+      result.push element
+  
+  if changed
+    flatten-spread-array result
+  else
+    elements
+
+let array-translate(elements, scope, replace-with-slice)
+  let translated-items = []
+  let mutable current = []
+  translated-items.push(current)
+  for element in flatten-spread-array elements
+    if element.type == \spread
+      translated-items.push translate element.node, scope, \expression
+      current := []
+      translated-items.push current
+    else
+      current.push translate element, scope, \expression
+  
+  if translated-items.length == 1
+    ast.Arr translated-items[0]
+  else
+    for i = translated-items.length - 1, -1, -1
+      let translated-item = translated-items[i]
+      if i %% 2
+        if translated-item.length > 0
+          translated-items[i] := ast.Arr translated-item
+        else
+          translated-items.splice i, 1
+      else
+        unless translated-item.type().is-subset-of types.array
+          scope.add-helper \__slice // FIXME, these shouldn't be required to specify
+          scope.add-helper \__is-array
+          scope.add-helper \__to-array
+          translated-items[i] := ast.Call(
+            ast.Ident \__to-array
+            [translated-item])
+    
+    if translated-items.length == 1
+      let array = translated-items[0]
+      if replace-with-slice and array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array
+        ast.Call(ast.Ident(\__slice), array.args)
+      else
+        array
+    else
+      ast.Call(
+        ast.Access(
+          translated-items[0]
+          ast.Const(\concat))
+        translated-items[1:])
+
 let translators = {
   access: #(node, scope, location, auto-return)
     return auto-return ast.Access(
@@ -443,48 +502,7 @@ let translators = {
   args: #(node, scope, location, auto-return)
     auto-return ast.Arguments()
   array: #(node, scope, location, auto-return)
-    let translated-items = []
-    let mutable current = []
-    translated-items.push(current)
-    for element in node.elements
-      if element.type == \spread
-        translated-items.push translate element.node, scope, \expression
-        current := []
-        translated-items.push current
-      else
-        current.push translate element, scope, \expression
-    
-    if translated-items.length == 1
-      auto-return ast.Arr(translated-items[0])
-    else
-      for i = translated-items.length - 1, -1, -1
-        let translated-item = translated-items[i]
-        if i %% 2
-          if translated-item.length > 0
-            translated-items[i] := ast.Arr translated-item
-          else
-            translated-items.splice i, 1
-        else
-          unless translated-item.type().is-subset-of types.array
-            scope.add-helper \__slice // FIXME, these shouldn't be required to specify
-            scope.add-helper \__is-array
-            scope.add-helper \__to-array
-            translated-items[i] := ast.Call(
-              ast.Ident \__to-array
-              [translated-item])
-      
-      if translated-items.length == 1
-        let array = translated-items[0]
-        if array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array
-          auto-return ast.Call(ast.Ident(\__slice), array.args)
-        else
-          auto-return array
-      else
-        auto-return ast.Call(
-          ast.Access(
-            translated-items[0]
-            ast.Const(\concat))
-          translated-items[1:])
+    auto-return array-translate node.elements, scope, true
   assign: do
     let ops = {
       "~^=": #(left, right, scope)
@@ -786,47 +804,18 @@ let translators = {
           else
             ast.Call(
               ast.Access(func, ast.Const(\apply))
-              [ast.Const(undefined), array])
+              [ast.Const(void), array])
         
         let make-call(func, args, is-new, scope)
-          let mutable current = []
-          let translated-args = [current]
-          for arg in args
-            if arg.type == \spread
-              current := []
-              translated-args.push(
-                translate arg.node, scope, \expression
-                current)
-            else
-              current.push translate arg, scope, \expression
+          let arg-array = array-translate args, scope, false
           
-          if translated-args.length == 1
-            ast.Call func, translated-args[0], is-new
+          if arg-array not instanceof ast.Arr
+            handle-spread-call(func, arg-array, is-new, scope)
           else
-            for i = translated-args.length - 1, -1, -1
-              let translated-arg = translated-args[i]
-              if i %% 2
-                if translated-arg.length > 0
-                  translated-args[i] := ast.Arr translated-arg
-                else
-                  translated-args.splice i, 1
-              else
-                unless translated-arg.type().is-subset-of types.array
-                  scope.add-helper \__slice // FIXME, these shouldn't be required to specify
-                  scope.add-helper \__is-array
-                  scope.add-helper \__to-array
-                  translated-args[i] := ast.Call(
-                    ast.Ident(\__to-array)
-                    [translated-arg])
-            let array = if translated-args.length == 1
-              translated-args[0]
-            else
-              ast.Call(
-                ast.Access(
-                  translated-args[0],
-                  ast.Const(\concat))
-                translated-args[1:])
-            handle-spread-call func, array, is-new, scope
+            ast.Call(
+              func
+              arg-array.elements
+              is-new)
         
         #(links, link, scope, i, current)
           unless link.existential

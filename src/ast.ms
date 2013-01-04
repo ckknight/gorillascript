@@ -903,6 +903,53 @@ let Call = exports.Call := do
     else
       this
   
+  let HELPER_TYPES = {
+    __num: types.number
+    __str: types.string
+    __strnum: types.string // converts to string regardless
+    __lt: types.boolean
+    __lte: types.boolean
+    __owns: types.boolean
+    __in: types.boolean
+    __slice: types.array
+    __splice: types.array // technically it just returns the 4th arg
+    __typeof: types.string
+    __cmp: types.number
+    __freeze: #(args)
+      if args.length >= 1
+        args[0].type()
+      else
+        types.undefined
+    __freeze-func: #(args)
+      if args.length >= 1
+        args[0].type()
+      else
+        types.undefined
+    __is-array: types.boolean
+    __to-array: types.array
+    __create: types.object
+    __pow: types.number
+    __floor: types.number
+    __sqrt: types.number
+    __log: types.number
+    __keys: types.string.array()
+    __allkeys: types.string.array()
+    __new: types.any
+    __instanceofsome: types.boolean
+    __xor: #(args)
+      types.boolean.union(if args.length >= 2 then args[1].type() else types.undefined)
+  }
+  
+  Call::type := #
+    @_type ?= if @func instanceof Ident and HELPER_TYPES ownskey @func.name
+      let helper = HELPER_TYPES[@func.name]
+      if typeof helper == "function"
+        helper(@args)
+      else
+        helper
+    else
+      types.any
+  
   Call
 
 let to-const = #(value)
