@@ -279,11 +279,20 @@ let Arr = exports.Arr := do
         item.compile options, LEVEL_SEQUENCE, false, sb
   Arr::compile := #(options, level, line-start, sb)!
     sb "["
-    let f = if @is-large() and @elements.length > 1 then compile-large else compile-small
+    let f = if @should-compile-large() then compile-large else compile-small
     f(@elements, options, level, line-start, sb)
     sb "]"
   
   Arr::type := #-> types.array
+  
+  Arr::should-compile-large := #
+    let len = @elements.length
+    if len == 0
+      false
+    else if len == 1
+      @elements[0].is-large()
+    else
+      @is-large()
   
   Arr::is-small := #
     let len = @elements.length
@@ -855,12 +864,12 @@ let Call = exports.Call := do
     if wrap
       sb "("
     @func.compile options, LEVEL_CALL, line-start and not wrap and not @is-new, sb
-    let f = if @should-compile-large-args() then compile-large else compile-small
+    let f = if @should-compile-large() then compile-large else compile-small
     f(@args, options, level, line-start, sb)
     if wrap
       sb ")"
   
-  Call::should-compile-large-args := #
+  Call::should-compile-large := #
     if @args.length > 4
       true
     else
@@ -877,12 +886,14 @@ let Call = exports.Call := do
   Call::is-large := #-> @func.is-large() or @has-large-args()
   
   Call::is-small := #
-    @_is-small ?= if not @func.is-small() or @args.length > 1
+    @_is-small ?= if not @func.is-small()
       false
     else if @args.length == 0
       true
-    else
+    else if @args.length == 1
       @args[0].is-small()
+    else
+      false
   
   Call::walk := #(walker)
     let func = walker(@func) ? @func.walk(walker)
@@ -1324,6 +1335,40 @@ let IfExpression = exports.IfExpression := do
   
   IfExpression::to-statement := #-> IfStatement @test, @when-true, @when-false
   
+  let compile-small(test, when-true, when-false, options, line-start, sb)!
+    test.compile options, LEVEL_INLINE_CONDITION, line-start, sb
+    sb " ? "
+    when-true.compile options, LEVEL_INLINE_CONDITION, false, sb
+    sb " : "
+    when-false.compile options, LEVEL_INLINE_CONDITION, false, sb
+  let compile-large(test, when-true, when-false, options, line-start, sb)!
+    let child-options = inc-indent options
+    let wrap-test = test instanceof IfExpression
+    if wrap-test
+      sb "("
+    test.compile child-options, if wrap-test then LEVEL_INSIDE_PARENTHESES else LEVEL_INLINE_CONDITION, line-start and not wrap-test, sb
+    if wrap-test
+      sb ")"
+    let large-when-true = when-true.is-large()
+    if large-when-true
+      sb "\n"
+      sb.indent child-options.indent
+      sb "? "
+    else
+      sb " ? "
+    let wrap-when-true = when-true instanceof IfExpression
+    if wrap-when-true
+      sb "("
+    when-true.compile child-options, if wrap-when-true then LEVEL_INSIDE_PARENTHESES else LEVEL_INLINE_CONDITION, false, sb
+    if wrap-when-true
+      sb ")"
+    sb "\n"
+    sb.indent child-options.indent
+    sb ": "
+    if when-false instanceof IfExpression
+      compile-large when-false.test, when-false.when-true, when-false.when-false, options, false, sb
+    else
+      when-false.compile child-options, LEVEL_INLINE_CONDITION, false, sb
   IfExpression::compile := #(options, level, line-start, sb)!
     if level == LEVEL_BLOCK
       @to-statement().compile(options, level, line-start, sb)
@@ -1331,16 +1376,8 @@ let IfExpression = exports.IfExpression := do
       let wrap = level > LEVEL_INLINE_CONDITION
       if wrap
         sb "("
-      let wrap-test = @test instanceof IfExpression
-      if wrap-test
-        sb "("
-      @test.compile options, if wrap-test then LEVEL_INSIDE_PARENTHESES else LEVEL_INLINE_CONDITION, line-start and not wrap and not wrap-test, sb
-      if wrap-test
-        sb ")"
-      sb " ? "
-      @when-true.compile options, LEVEL_INLINE_CONDITION, false, sb
-      sb " : "
-      @when-false.compile options, LEVEL_INLINE_CONDITION, false, sb
+      let f = if @when-true.is-large() or @when-false.is-large() then compile-large else compile-small
+      f @test, @when-true, @when-false, options, not wrap and line-start, sb
       if wrap
         sb ")"
   
@@ -1415,13 +1452,22 @@ let Obj = exports.Obj := do
     if line-start
       sb "("
     sb "{"
-    let f = if @is-large() then compile-large else compile-small
+    let f = if @should-compile-large() then compile-large else compile-small
     f @elements, options, sb
     sb "}"
     if line-start
       sb ")"
   
   Obj::type := #-> types.object
+  
+  Obj::should-compile-large := #
+    let len = @elements.length
+    if len == 0
+      false
+    else if len == 1
+      @elements[0].is-large()
+    else
+      @is-large()
   
   Obj::is-small := #
     let len = @elements.length
@@ -1433,7 +1479,7 @@ let Obj = exports.Obj := do
       false
   Obj::is-large := #
     @_is-large ?= @elements.length > 4 or for some element in @elements
-      not element.value.is-small()
+      not element.is-small()
   
   Obj::walk := #(walker)
     let elements = walk-array(@elements, walker)
