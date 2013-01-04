@@ -424,29 +424,23 @@ let unary-ops = {
 let HELPERS = {}
 
 let wrap-in-function-call(node)
-  // TODO: the translator shouldn't be making ParserNodes
+  // TODO: the translator shouldn't be making parser.Nodes
   require! './parser'
   
-  parser.ParserNode \call-chain, node.start-index, node.end-index, {
-    head: parser.ParserNode \function, node.start-index, node.end-index, {
-      params: []
-      auto-return: true
-      body: node
-      bound: true
-    }
-    links: [{
+  parser.Node.CallChain(node.start-index, node.end-index
+    parser.Node.Function node.start-index, node.end-index, [], node, true, true
+    [{
       type: \call
       args: []
       existential: false
-    }]
-  }
+    }])
 
 let translators = {
   access: #(node, scope, location, auto-return)
     return auto-return ast.Access(
       translate node.parent, scope, \expression
       translate node.child, scope, \expression)
-  arguments: #(node, scope, location, auto-return)
+  args: #(node, scope, location, auto-return)
     auto-return ast.Arguments()
   array: #(node, scope, location, auto-return)
     let translated-items = []
@@ -697,7 +691,7 @@ let translators = {
     #(node, scope, location, auto-return)
       let op = node.op
       // TODO: this is ugly
-      if op == ":=" and node.left.type == \index
+      if op == ":=" and node.left.type == \access-index
         let type = node.left.child.type
         unless indexes ownskey type
           throw Error "Unexpected index type for assignment: $(JSON.stringify type)"
@@ -763,7 +757,7 @@ let translators = {
         #(links, link, scope, i, current)
           let make-access = if link.type == \access
             #(parent) -> ast.Access parent, translate link.child, scope, \expression
-          else if link.type == \index
+          else if link.type == \access-index
             unless index-types ownskey link.child.type
               throw Error "Unknown index type: $(link.child.type)"
             index-types[link.child.type](link.child, scope)
@@ -777,7 +771,7 @@ let translators = {
             ast.If(
               ast.Binary set-obj, "!=", ast.Const(null)
               handle links, scope, i + 1, make-access(obj))
-      index: #(...args)
+      access-index: #(...args)
         link-types.access.apply this, args
       call: do
         let handle-spread-call(func, array, is-new, scope)
@@ -1300,7 +1294,7 @@ let translators = {
       translate node.test, scope, \expression
       translate node.when-true, scope, inner-location, auto-return
       if node.when-false? then translate node.when-false, scope, inner-location, auto-return)
-  index: #(node, scope, location, auto-return)
+  access-index: #(node, scope, location, auto-return)
     let type = node.child.type
     if type == \single
       auto-return ast.Access(

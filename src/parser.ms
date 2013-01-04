@@ -24,6 +24,7 @@ let named(name as (null|String), func as Function)
   func
 
 let identity(x) -> x
+let ret-this() -> this
 
 let cache(rule as Function, dont-cache as Boolean)
   if dont-cache
@@ -573,6 +574,9 @@ let _statement = new Stack true
 let in-statement = make-alter-stack _statement, true
 let in-expression = make-alter-stack _statement, false
 
+let _in-macro = new Stack false
+let in-macro = make-alter-stack _in-macro, true
+
 let _in-ast = new Stack false
 let in-ast = make-alter-stack _in-ast, true
 
@@ -708,10 +712,10 @@ let withSpace(func)
 define Zero = character! "0"
 define DecimalDigit = character! "0123456789"
 define Period = character! "."
-define Colon = character! ":"
+define ColonChar = character! ":"
 define PipeChar = character! "|"
 define Pipe = withSpace PipeChar
-define DoubleColon = sequential! [Colon, Colon], "::"
+define DoubleColon = sequential! [ColonChar, ColonChar], "::"
 define eE = character! "eE"
 define Minus = character! "-"
 define Plus = character! "+"
@@ -1135,18 +1139,18 @@ define DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
   for part in x
     if typeof part == \number
       current-literal.push part
-    else if part.type != \nothing
+    else if part not instanceof NothingNode
       if current-literal.length > 0
-        string-parts.push process-char-codes(current-literal).join ""
+        string-parts.push o.const i, process-char-codes(current-literal).join ""
         current-literal := []
       string-parts.push part
   if current-literal.length > 0
-    string-parts.push process-char-codes(current-literal).join ""
+    string-parts.push o.const i, process-char-codes(current-literal).join ""
   
   if string-parts.length == 0
     o.const i, ""
-  else if string-parts.length == 1 and typeof string-parts[0] == \string
-    o.const i, string-parts[0]
+  else if string-parts.length == 1 and string-parts[0] instanceof ConstNode and typeof string-parts[0].value == "string"
+    string-parts[0]
   else
     o.string i, string-parts
 
@@ -1190,7 +1194,7 @@ define TripleDoubleStringLine = zero-or-more-of! [
   for part in x
     if typeof part == \number
       current-literal.push part
-    else if part.type != \nothing
+    else if part not instanceof NothingNode
       if current-literal.length > 0
         string-parts.push process-char-codes(current-literal).join ""
         current-literal := []
@@ -1236,22 +1240,26 @@ let makeTripleString(quote, line)
       lines.pop()
       len -= 1
     
-    let result = []
+    let string-parts = []
     for line, j in lines
       if j > 0
-        result.push "\n"
-      result.push ...line
+        string-parts.push "\n"
+      string-parts.push ...line
     
-    for j = result.length - 2, -1, -1
-      if typeof result[j] == \string and typeof result[j + 1] == \string
-        result.splice(j, 2, result[j] ~& result[j + 1])
+    for j = string-parts.length - 2, -1, -1
+      if typeof string-parts[j] == \string and typeof string-parts[j + 1] == \string
+        string-parts.splice(j, 2, string-parts[j] ~& string-parts[j + 1])
     
-    if result.length == 0
+    for part, j in string-parts
+      if typeof part == \string
+        string-parts[j] := o.const i, part
+    
+    if string-parts.length == 0
       o.const i, ""
-    else if result.length == 1 and typeof result[0] == \string
-      o.const i, result[0]
+    else if string-parts.length == 1 and string-parts[0] instanceof ConstNode and typeof string-parts[0].value == \string
+      string-parts[0]
     else
-      o.string i, result
+      o.string i, string-parts
 define TripleSingleStringLiteral = makeTripleString TripleSingleQuote, TripleSingleStringLine
 define TripleDoubleStringLiteral = makeTripleString TripleDoubleQuote, TripleDoubleStringLine
 
@@ -1302,20 +1310,20 @@ define RegexLiteral = one-of! [
   for part in x.text
     if typeof part == \number
       current-literal.push part
-    else if part.type != \nothing
+    else if part not instanceof NothingNode
       if current-literal.length > 0
-        string-parts.push process-char-codes(current-literal).join ""
+        string-parts.push o.const i, process-char-codes(current-literal).join ""
         current-literal := []
       string-parts.push part
   if current-literal.length > 0
-    string-parts.push process-char-codes(current-literal).join ""
+    string-parts.push o.const i, process-char-codes(current-literal).join ""
 
   let flags = process-char-codes(x.flags).join ""
 
   let text = if string-parts.length == 0
     o.const i, ""
-  else if string-parts.length == 1 and typeof string-parts[0] == \string
-    o.const i, string-parts[0]
+  else if string-parts.length == 1 and string-parts[0] instanceof ConstNode and typeof string-parts[0].value == \string
+    string-parts[0]
   else
     o.string i, string-parts
   o.regexp i, text, flags
@@ -1608,11 +1616,16 @@ define ObjectKey = one-of! [
   IdentifierNameConst
 ]
 
+define Colon = sequential! [
+  Space
+  [\this, ColonChar]
+  except! ColonChar
+]
+define NotColon = except! Colon
+
 define ObjectKeyColon = sequential! [
   [\this, ObjectKey]
-  Space
   Colon
-  except! Colon
 ]
 
 define DualObjectKey = short-circuit! ObjectKeyColon, sequential! [
@@ -1678,26 +1691,38 @@ define IdentifierOrSimpleAccess = sequential! [
   current
 
 define SingularObjectKey = one-of! [
-  mutate! IdentifierOrSimpleAccess, #(ident, o, i)
-    let key = if ident.type == \access
+  sequential! [
+    [\this, IdentifierOrSimpleAccess]
+    NotColon
+  ], #(ident, o, i)
+    let key = if ident instanceof AccessNode
       ident.child
-    else if ident.type == \ident
+    else if ident instanceof IdentNode
       o.const i, ident.name
     else
-      o.error "Unknown ident type: $(ident.type)"
+      o.error "Unknown ident type: $(typeof! ident)"
     { key, value: ident }
-  mutate! ConstantLiteral, #(node, o, i)
-    let key = if node.type == \const and typeof node.value != \string
+  sequential! [
+    [\this, ConstantLiteral]
+    NotColon
+  ], #(node, o, i)
+    let key = if node instanceof ConstNode and typeof node.value != \string
       o.const i, String(node.value)
     else
       node
     { key, value: node }
-  mutate! ThisLiteral, #(node, o, i)
+  sequential! [
+    [\this, ThisLiteral]
+    NotColon
+  ], #(node, o, i)
     {
       key: o.const i, \this
       value: node
     }
-  mutate! ArgumentsLiteral, #(node, o, i)
+  sequential! [
+    [\this, ArgumentsLiteral]
+    NotColon
+  ], #(node, o, i)
     {
       key: o.const i, \arguments
       value: node
@@ -1705,12 +1730,16 @@ define SingularObjectKey = one-of! [
   sequential! [
     symbol("-")
     [\this, one-of! [NumberLiteral, InfinityLiteral]]
+    NotColon
   ], #(x, o, i)
     {
       key: o.const i, String(-x.value)
       value: o.unary i, "-", x
     }
-  mutate! Parenthetical, #(node) -> { key: node, value: node }
+  sequential! [
+    [\this, Parenthetical]
+    NotColon
+  ], #(node) -> { key: node, value: node }
 ]
 
 define KeyValuePair = one-of! [
@@ -1868,7 +1897,7 @@ define Parameter = one-of! [
 let validate-spread-parameters(params, o)
   let mutable spread-count = 0
   for param in params
-    if param.type == \param and param.spread
+    if param instanceof ParamNode and param.spread
       spread-count += 1
       if spread-count > 1
         o.error "Cannot have more than one spread parameter"
@@ -1895,14 +1924,17 @@ define ParamDualObjectKey = sequential! [
   [\value, Parameter]
 ]
 
-define ParamSingularObjectKey = mutate! IdentifierParameter, #(param, o, i)
-  let ident = param.value.ident
-  let key = if ident.type == \ident
+define ParamSingularObjectKey = sequential! [
+  [\this, IdentifierParameter]
+  NotColon
+], #(param, o, i)
+  let ident = param.ident
+  let key = if ident instanceof IdentNode
     o.const i, ident.name
-  else if ident.type == \access
+  else if ident instanceof AccessNode
     ident.child
   else
-    throw Error "Unknown object key type: $(ident.type)"
+    throw Error "Unknown object key type: $(typeof! ident)"
   { key, value: param }
 
 define KvpParameter = one-of! [
@@ -1964,9 +1996,14 @@ define FunctionLiteral = short-circuit! HashSign, sequential! [
 
 define AstToken = word \AST
 define Ast = in-ast short-circuit! AstToken, sequential! [
+  #(o)
+    if not _in-macro.peek()
+      o.error "Can only use AST inside a macro"
+    else
+      true
   AstToken
   [\this, BodyOrStatement]
-], #(x, o, i) -> o.ast i, x
+], #(x, o, i) -> MacroHelper.fix-asts o.ast i, x
 
 define Debugger = word \debugger, #(x, o, i) -> o.debugger i
 
@@ -2090,7 +2127,7 @@ define MacroBody = one-of! [
 ]
 
 define MacroToken = word \macro
-define Macro = short-circuit! MacroToken, sequential! [
+define Macro = in-macro short-circuit! MacroToken, sequential! [
   MacroToken
   named "(identifier MacroBody)", #(o)
     let name = MacroName o
@@ -2127,8 +2164,8 @@ define IndexSlice = inIndexSlice sequential! [
   [\right, ExpressionOrNothing]
 ], #(x) -> {
   type: \slice
-  left: if x.type == \nothing then null else x.left
-  right: if x.type == \nothing then null else x.right
+  left: if x instanceof NothingNode then null else x.left
+  right: if x instanceof NothingNode then null else x.right
 }
 
 define IndexMultiple = sequential! [
@@ -2215,7 +2252,7 @@ define ComplexAssignable = one-of! [
 
 define ColonEqual = sequential! [
   Space
-  Colon
+  ColonChar
   character! "="
 ], ":="
 
@@ -2378,7 +2415,7 @@ define BasicInvocationOrAccess = sequential! [
     }
     sequential! [
       [\existential, MaybeExistentialSymbolNoSpace]
-      [\type, maybe! DoubleColon, \index, \proto-index]
+      [\type, maybe! DoubleColon, \access-index, \proto-access-index]
       OpenSquareBracketChar
       [\child, Index]
       CloseSquareBracket
@@ -2417,12 +2454,12 @@ define BasicInvocationOrAccess = sequential! [
     links.push { type: \access, head.child, head.existential }
   
   for part in tail
-    if part.type in [\proto-access, \proto-index]
+    if part.type in [\proto-access, \proto-access-index]
       links.push { type: \access, child: o.const(i, \prototype), part.existential }
       let clone = copy(part)
-      clone.type := if part.type == \proto-access then \access else \index
+      clone.type := if part.type == \proto-access then \access else \access-index
       links.push clone
-    else if part.type in [\access, \index]
+    else if part.type in [\access, \access-index]
       links.push part
     else if part.type == \call
       let clone = copy(part)
@@ -2512,7 +2549,7 @@ define Negate = sequential! [
   [\node, Unary]
 ], #(x, o, i)
   if x.op != NOTHING
-    if x.node.type == \const and typeof x.node.value == \number and x.op in ["+", "-", "~+", "~-"]
+    if x.node instanceof ConstNode and typeof x.node.value == \number and x.op in ["+", "-", "~+", "~-"]
       o.const i, if x.op in ["+", "~+"] then +x.node.value else -x.node.value
     else
       o.unary i, x.op, x.node
@@ -2608,7 +2645,7 @@ define Containment = mutate! (make-binary! (sequential! [
     "not $(x.op)"
   else
     x.op), StringConcatenation, 0, 1), #(x, o, i)
-  if x and x.type == \binary and x.op.substring(0, 4) == "not "
+  if x instanceof BinaryNode and x.op.substring(0, 4) == "not "
     o.unary i, \not, o.binary(i, x.left, x.op.substring(4), x.right)
   else
     x
@@ -2717,11 +2754,16 @@ define Block = sequential! [
 ], #(x, o, i)
   let nodes = []
   for item in [x.head, ...x.tail]
-    if item.type == \block
+    if item instanceof BlockNode
       nodes.push ...item.nodes
-    else
+    else if item not instanceof NothingNode
       nodes.push item
-  o.block i, nodes
+  if nodes.length == 0
+    o.nothing i
+  else if nodes.length == 1
+    nodes[0]
+  else
+    o.block i, nodes
 
 define Root = sequential! [
   maybe! Shebang, true
@@ -2749,6 +2791,19 @@ let ParserError = do
   ParserError::constructor := ParserError
 
   ParserError
+
+let map(array, func, arg)
+  let result = []
+  let mutable changed = false
+  for item in array
+    let new-item = func item, arg
+    result.push new-item
+    if item != new-item
+      changed := true
+  if changed
+    result
+  else
+    array
 
 let FailureManager = do
   let FailureManager()!
@@ -2793,142 +2848,118 @@ let MacroHelper = do
     saved: @saved-tmps[:]
   }
   
-  MacroHelper::is-const := #(node) -> node == void or (node? and (node.type == \const or (node.type == \block and node.nodes.length == 0)))
+  MacroHelper::is-const := #(node) -> node == void or (node? and (node instanceof ConstNode or (node instanceof BlockNode and node.nodes.length == 0)))
   MacroHelper::value := #(node)
     if node == void
       void
     else if node?
-      if node.type == \const
+      if node instanceof ConstNode
         node.value
-      else if node.type == \block and node.nodes.length == 0
+      else if node instanceof BlockNode and node.nodes.length == 0
         void
   MacroHelper::const := #(value)
-    if value instanceof RegExp or value == null or typeof value in [\undefined, \boolean, \string, \number]
-      ParserNode \const, 0, 0, { value }
-    else
-      throw Error("Cannot make a const out of $(String value)")
+    @state.const @index, value
   
-  MacroHelper::is-ident := #(node) -> node? and node.type == \ident
-  MacroHelper::name := #(node)
-    if node? and node.type == \ident
-      node.name
+  MacroHelper::is-ident := #(node) -> node instanceof IdentNode
+  MacroHelper::name := #(node) -> if @is-ident node then node.name
   MacroHelper::ident := #(name)
-    if typeof name != \string
-      throw TypeError "Expected a string"
-    ParserNode \ident, 0, 0, { name }
+    @state.ident @index, name
   
   MacroHelper::is-call := #(node)
-    if node? and node.type == \call-chain
+    if node instanceof CallChainNode
       let links = node.links
       links[links.length - 1].type == \call
     else
       false
   
   MacroHelper::call-func := #(node)
-    if node? and node.type == \call-chain
+    if node instanceof CallChainNode
       let links = node.links
       if links[links.length - 1].type == \call
         if links.length == 1
           node.head
         else
-          ParserNode node.type, node.start-index, node.end-index, {
-            node.head
-            links: links[:links.length - 1]
-          }
+          CallChainNode node.start-index, node.end-index, node.head, links[:links.length - 1]
   
   MacroHelper::call-args := #(node)
-    if node? and node.type == \call-chain
+    if node instanceof CallChainNode
       let links = node.links
       if links[links.length - 1].type == \call
         links[links.length - 1].args
   
   MacroHelper::call-is-new := #(node)
-    if node? and node.type == \call-chain
+    if node instanceof CallChainNode
       let links = node.links
       if links[links.length - 1].type == \call
         return not not links[links.length - 1].is-new
     false
   
-  MacroHelper::call := #(func, args, is-new = false)
-    if not func or typeof func != \object
-      throw TypeError "Expected func to be an object, got $(typeof! func)"
-    if not Array.is-array args
-      throw TypeError "Expected args to be an Array, got $(typeof! args)"
-    if typeof is-new != \boolean
-      throw TypeError "Expected is-new to be a Boolean, got $(typeof! is-new)"
-    if func.type == \call-chain
-      ParserNode \call-chain, func.start-index, func.end-index, {
-        head: func.head
-        links: [
-          ...func.links
-          {
-            type: \call
-            args
-            is-new
-          }
-        ]
-      }
+  MacroHelper::call := #(func as Node, args as [Node], is-new as Boolean = false)
+    if func instanceof CallChainNode
+      @state.call-chain func.start-index, func.head, [
+        ...func.links
+        {
+          type: \call
+          args
+          is-new
+        }
+      ]
     else
-      ParserNode \call-chain, func.start-index, func.end-index, {
-        head: func
-        links: [
-          {
-            type: \call
-            args
-            is-new
-          }
-        ]
-      }
+      @state.call-chain func.start-index, func, [
+        {
+          type: \call
+          args
+          is-new
+        }
+      ]
   
-  MacroHelper::func := #(params as Array, body as Object, auto-return as Boolean = true, bound as Boolean = false)
-    ParserNode \function, 0, 0, { params, body, auto-return, bound }
+  MacroHelper::func := #(params, body, auto-return = true, bound = false)
+    @state.function 0, params, body, auto-return, bound
   
-  MacroHelper::is-func := #(node) -> node and node.type == \function
-  MacroHelper::func-body := #(node)
-    if node? and node.type == \function
-      node.body
-  MacroHelper::func-params := #(node)
-    if node? and node.type == \function
-      node.params
-  MacroHelper::func-is-auto-return := #(node)
-    if node? and node.type == \function
-      not not node.auto-return
-  MacroHelper::func-is-bound := #(node)
-    if node? and node.type == \function
-      not not node.bound
+  MacroHelper::param := #(ident, default-value, spread, is-mutable, as-type)
+    @state.param 0, ident, default-value, spread, is-mutable, as-type
   
-  MacroHelper::is-array := #(node) -> node and node.type == \array
-  MacroHelper::elements := #(node)
-    if node? and node.type == \array
-      node.elements
+  MacroHelper::is-func := #(node) -> node instanceof FunctionNode
+  MacroHelper::func-body := #(node) -> if @is-func node then node.body
+  MacroHelper::func-params := #(node) -> if @is-func node then node.params
+  MacroHelper::func-is-auto-return := #(node) -> if @is-func node then not not node.is-auto-return
+  MacroHelper::func-is-bound := #(node) -> if @is-func node then not not node.is-bound
   
-  MacroHelper::is-object := #(node) -> node and node.type == \object
-  MacroHelper::pairs := #(node)
-    if node? and node.type == \object
-      node.pairs
+  MacroHelper::is-param := #(node) -> node instanceof ParamNode
+  MacroHelper::param-ident := #(node) -> if @is-param node then node.ident
+  MacroHelper::param-default-value := #(node) -> if @is-param node then node.default-value
+  MacroHelper::param-is-spread := #(node) -> if @is-param node then not not node.spread
+  MacroHelper::param-is-mutable := #(node) -> if @is-param node then not not node.is-mutable
+  MacroHelper::param-type := #(node) -> if @is-param node then node.as-type
   
-  MacroHelper::array := #(elements as [Object])
-    for element, i in elements
-      if not element or typeof element != \object
-        throw Error "Expected at object at index #$i, got $(typeof! element)"
-    ParserNode \array, 0, 0, { elements }
+  MacroHelper::is-array := #(node) -> node instanceof ArrayNode
+  MacroHelper::elements := #(node) -> if @is-array node then node.elements
+  
+  MacroHelper::is-object := #(node) -> node instanceof ObjectNode
+  MacroHelper::pairs := #(node) -> if @is-object node then node.pairs
+  
+  MacroHelper::array := #(elements)
+    @state.array 0, elements
   MacroHelper::object := #(pairs as Array)
     for pair, i in pairs
       if not pair or typeof pair != \object
         throw Error "Expected an object at index #$i, got $(typeof! pair)"
-      else if not pair.key or typeof pair.key != \object
-        throw Error "Expected an object with object 'key' at index #$i, got $(typeof! pair.key)"
-      else if not pair.value or typeof pair.value != \object
-        throw Error "Expected an object with object 'value' at index #$i, got $(typeof! pair.value)"
-    ParserNode \object, 0, 0, { pairs }
+      else if pair.key not instanceof Node
+        throw Error "Expected an object with Node 'key' at index #$i, got $(typeof! pair.key)"
+      else if pair.value not instanceof Node
+        throw Error "Expected an object with Node 'value' at index #$i, got $(typeof! pair.value)"
+    @state.object 0, pairs
   
   MacroHelper::is-complex := #(node)
-    node? and node.type not in [\const, \ident, \tmp] and not (node.type == \block and node.nodes.length == 0)
+    node? and node not instanceofsome [ConstNode, IdentNode, TmpNode] and not (node instanceof BlockNode and node.nodes.length == 0)
+  
+  MacroHelper::is-type-array := #(node) -> node instanceof TypeArrayNode
+  MacroHelper::subtype := #(node) -> @is-type-array(node) and node.subtype
   
   MacroHelper::cache := #(node, init, name as String = \ref, save as Boolean)
     if @is-complex node
       let tmp = @tmp(name, save)
-      init.push ParserNode \let, @index, @index, { left: (ParserNode \declarable, @index, @index, { ident: tmp, is-mutable: false }), right: node }
+      init.push @state.let @index, (@state.declarable @index, tmp, false), node
       tmp
     else
       node
@@ -2936,447 +2967,84 @@ let MacroHelper = do
   MacroHelper::empty := #(node)
     if not node?
       true
-    else if typeof node != \object
+    else if node not instanceof Node
       false
-    else if node.type == \block
+    else if node instanceof BlockNode
       return for every item in node.nodes
         @empty(item)
     else
-      node.type == \nothing
-  
-  let array-equal(x, y)
-    if x == y
-      true
-    else
-      let len = x.length
-      if len != y.length
-        false
-      else
-        for i = 0, len
-          if x[i] != y[i]
-            return false
-        true
-  
-  let obj-equal(x, y)
-    if x == y
-      true
-    else if not x or typeof x != \object
-      false
-    else if Array.is-array x
-      Array.is-array(y) and array-equal(x, y)
-    else
-      for k of x
-        if y not ownskey k or x[k] != y[k]
-          return false
-      true
-  
-  let map(array, func, arg)
-    let result = []
-    let mutable changed = false
-    for item in array
-      let new-item = func item, arg
-      result.push new-item
-      if item != new-item
-        changed := true
-    if changed
-      result
-    else
-      array
+      node instanceof NothingNode
   
   let constify-array(array, start-index, end-index)
-    ParserNode \array, start-index, end-index, {
-      elements: for x in array
-        constify-object x, start-index, end-index
-    }
+    ArrayNode start-index, end-index, for x in array
+      constify-object x, start-index, end-index
   
   let KNOWN_HELPERS = require('./translator').known-helpers
   
   let constify-object(obj, start-index, end-index)
     if not obj or typeof obj != \object or obj instanceof RegExp
-      ParserNode \const, start-index, end-index, { value: obj }
+      ConstNode start-index, end-index, obj
     else if Array.is-array obj
       constify-array obj, start-index, end-index
-    else if obj.type == \ident and obj.name.char-code-at(0) == "\$".char-code-at(0)
-      ParserNode \call-chain, obj.start-index, obj.end-index, {
-        head: ParserNode \ident, obj.start-index, obj.end-index, { name: \__wrap }
-        links: [{
+    else if obj instanceof IdentNode and obj.name.char-code-at(0) == "\$".char-code-at(0)
+      CallChainNode(obj.start-index, obj.end-index
+        IdentNode obj.start-index, obj.end-index, \__wrap
+        [{
           type: \call
-          args: [ParserNode \ident, obj.start-index, obj.end-index, { name: obj.name.substring 1 }]
+          args: [IdentNode obj.start-index, obj.end-index, obj.name.substring 1]
           existential: false
           is-new: false
-        }]
-      }
-    else if obj.type == \ident and obj.name in KNOWN_HELPERS
-      ParserNode \macro-helper, obj.start-index, obj.end-index, { obj.name }
-    else if obj.type == \macro-access
-      ParserNode \call-chain, obj.start-index, obj.end-index, {
-        head: ParserNode \ident, obj.start-index, obj.end-index, { name: \__macro }
-        links: [{
+        }])
+    else if obj instanceof IdentNode and obj.name in KNOWN_HELPERS
+      MacroHelperNode obj.start-index, obj.end-index, obj.name
+    else if obj instanceof MacroAccessNode
+      CallChainNode(obj.start-index, obj.end-index
+        IdentNode obj.start-index, obj.end-index, \__macro
+        [{
           type: \call
           args: [
-            ParserNode \const, obj.start-index, obj.end-index, { value: obj.id }
+            ConstNode obj.start-index, obj.end-index, obj.id
             constify-object obj.data, obj.start-index, obj.end-index
           ]
           existential: false
           is-new: false
-        }]
-      }
-    else if obj instanceof ParserNode
-      let clone = {}
-      let has-any = false
-      for k, v of obj
-        if k not in [\type, \start-index, \end-index]
-          clone[k] := v
-          has-any := true
-      ParserNode \call-chain, obj.start-index, obj.end-index, {
-        head: ParserNode \ident, obj.start-index, obj.end-index, { name: \__node }
-        links: [{
+        }])
+    else if obj instanceof Node
+      if obj.constructor == Node
+        throw Error "Cannot constify a raw node"
+      
+      CallChainNode(obj.start-index, obj.end-index
+        IdentNode obj.start-index, obj.end-index, \__node
+        [{
           type: \call
           args: [
-            ParserNode \const, obj.start-index, obj.end-index, { value: obj.type }
-            ParserNode \const, obj.start-index, obj.end-index, { value: obj.start-index }
-            ParserNode \const, obj.start-index, obj.end-index, { value: obj.end-index }
-            ...(if has-any
-              [constify-object clone, obj.start-index, obj.end-index]
-            else
-              [])
+            ConstNode obj.start-index, obj.end-index, obj.constructor.capped-name
+            ConstNode obj.start-index, obj.end-index, obj.start-index
+            ConstNode obj.start-index, obj.end-index, obj.end-index
+            ...(for k in obj.constructor.arg-names
+              constify-object obj[k], start-index, end-index)
           ]
-        }]
-      }
+        }])
     else
-      ParserNode \object, start-index, end-index, {
-        pairs: for k, v of obj
-          {
-            key: ParserNode \const, start-index, end-index, { value: k }
-            value: constify-object v, start-index, end-index
-          }
-      }
+      ObjectNode start-index, end-index, for k, v of obj
+        {
+          key: ConstNode start-index, end-index, k
+          value: constify-object v, start-index, end-index
+        }
   MacroHelper.constify-object := constify-object
   
-  let walkers = {
-    access: #(x, func)
-      let parent = walk x.parent, func
-      let child = walk x.child, func
-      if parent != x.parent or child != x.child
-        ParserNode x.type, x.start-index, x.end-index, { parent, child }
-      else
-        x
-    arguments: identity
-    array: #(x, func)
-      let elements = walk-array x.elements, func
-      if elements != x.elements
-        ParserNode x.type, x.start-index, x.end-index, { elements }
-      else
-        x
-    array-param: #(x, func)
-      let elements = walk-array x.elements, func
-      if elements != x.elements
-        ParserNode x.type, x.start-index, x.end-index, { elements }
-      else
-        x
-    assign: #(x, func)
-      let left = walk x.left, func
-      let right = walk x.right, func
-      if left != x.left or right != x.right
-        ParserNode x.type, x.start-index, x.end-index, { left, x.op, right }
-      else
-        x
-    ast: #(x, func) -> constify-object x.node, x.start-index, x.end-index
-    binary: #(x, func)
-      let left = walk x.left, func
-      let right = walk x.right, func
-      if left != x.left or right != x.right
-        ParserNode x.type, x.start-index, x.end-index, { left, x.op, right }
-      else
-        x
-    block: #(x, func)
-      let nodes = walk-array x.nodes, func
-      if nodes != x.nodes
-        ParserNode x.type, x.start-index, x.end-index, { nodes }
-      else
-        x
-    break: identity
-    call-chain: do
-      let link-types = {
-        access: #(link, func)
-          let child = walk link.child, func
-          if child != link.child
-            {
-              type: \access
-              child
-              link.existential
-            }
-          else
-            link
-        call: #(link, func)
-          let args = walk-array link.args, func
-          if args != link.args
-            {
-              type: \call
-              args
-              link.existential
-              link.is-new
-            }
-          else
-            link
-        index: do
-          let index-types = {
-            single: #(x, func)
-              let node = walk x.node, func
-              if node != x.node
-                {
-                  type: \single
-                  node
-                }
-              else
-                x
-            slice: #(x, func)
-              let left = walk x.left, func
-              let right = walk x.right, func
-              if left != x.left or right != x.right
-                {
-                  type: \slice
-                  left
-                  right
-                }
-              else
-                x
-            multi: #(x, func)
-              let elements = walk-array x.elements, func
-              if elements != x.elements
-                {
-                  type: \multi
-                  elements
-                }
-              else
-                x
-          }
-          #(x, func)
-            let type = x.child.type
-            unless index-types ownskey type
-              throw Error "Unknown index type: $type"
-            
-            let child = index-types[type](x.child, func)
-            if child != x.child
-              {
-                type: \index
-                child
-                x.existential
-              }
-            else
-              x
-      }
-      let walk-link(link, func)
-        unless link-types ownskey link.type
-          throw Error "Unknown call-chain link type: $(link.type)"
-        
-        link-types[link.type](link, func)
-      #(x, func)
-        let head = walk x.head, func
-        let links = map x.links, walk-link, func
-        if head != x.head or links != x.links
-          ParserNode x.type, x.start-index, x.end-index, { head, links }
-        else
-          x
-    const: identity
-    continue: identity
-    debugger: identity
-    declarable: #(x, func)
-      // FIXME: is this necessary? it should be only referenced as a child of let
-      let ident = walk x.ident, func
-      if ident != x.ident
-        ParserNode x.type, x.start-index, x.end-index, { ident, x.is-mutable }
-      else
-        x
-    eval: #(x, func)
-      let code = walk x.code, func
-      if code != x.code
-        ParserNode x.type, x.start-index, x.end-index, { code }
-      else
-        x
-    for: #(x, func)
-      let init = walk x.init, func
-      let test = walk x.test, func
-      let step = walk x.step, func
-      let body = walk x.body, func
-      if init != x.init or test != x.test or step != x.step or body != x.body
-        ParserNode x.type, x.start-index, x.end-index, { init, test, step, body }
-      else
-        x
-    for-in: #(x, func)
-      let key = walk x.key, func
-      let object = walk x.object, func
-      let body = walk x.body, func
-      if key != x.key or object != x.object or body != x.body
-        ParserNode x.type, x.start-index, x.end-index, { key, object, body }
-      else
-        x
-    function: do
-      let param-types = {
-        param: #(x, func)
-          let ident = walk x.ident, func
-          let default-value = walk x.default-value, func
-          let as-type = walk x.as-type, func
-          if ident != x.ident or default-value != x.default-value or as-type != x.as-type
-            ParserNode x.type, x.start-index, x.end-index, { ident, default-value, x.spread, x.is-mutable, as-type }
-          else
-            x
-      }
-      let walk-param(param, func)
-        unless param-types ownskey param.type
-          throw Error "Unknown param type: $(param.type)"
-        
-        param-types[param.type](param, func)
-      #(x, func)
-        let params = map x.params, walk-param, func
-        let body = walk x.body, func
-        if params != x.params or body != x.body
-          ParserNode x.type, x.start-index, x.end-index, { params, body, x.auto-return, x.bound }
-        else
-          x
-    ident: identity
-    if: #(x, func)
-      let test = walk x.test, func
-      let when-true = walk x.when-true, func
-      let when-false = walk x.when-false, func
-      if test != x.test or when-true != x.when-true or when-false != x.when-false
-        ParserNode x.type, x.start-index, x.end-index, { test, when-true, when-false }
-      else
-        x
-    index: do
-      let index-types = {
-        single: #(x, func)
-          let node = walk x.node, func
-          if node != x.node
-            { type: \single, node }
-          else
-            x
-      }
-      #(x, func)
-        unless index-types ownskey x.child.type
-          throw Error "Unknown index type: $(x.child.type)"
-        let parent = walk x.parent, func
-        let child = index-types[x.child.type](x.child, func)
-        if parent != x.parent or child != x.child
-          ParserNode x.type, x.start-index, x.end-index, { parent, child }
-        else
-          x
-    let: do
-      let declarable-types = {
-        declarable: #(x, func)
-          let ident = walk x.ident, func
-          if ident != x.ident
-            ParserNode \declarable, x.start-index, x.end-index, { ident, x.is-mutable }
-          else
-            x
-      }
-      #(x, func)
-        unless declarable-types ownskey x.left.type
-          throw Error "Unknown let declarable type: $(x.left.type)"
-        
-        let left = declarable-types[x.left.type](x.left, func)
-        let right = walk x.right, func
-        if left != x.left or right != x.right
-          ParserNode \let, x.start-index, x.end-index, { left, right }
-        else
-          x
-    nothing: identity
-    object: do
-      let walk-pair(pair, func)
-        let key = walk pair.key, func
-        let value = walk pair.value, func
-        if key != pair.key or value != pair.value
-          { key, value }
-        else
-          pair
-      #(x, func)
-        let pairs = map x.pairs, walk-pair, func
-        if pairs != x.pairs
-          ParserNode x.type, x.start-index, x.end-index, { pairs }
-        else
-          x
-    operator: identity
-    regexp: #(x, func)
-      let text = walk x.text, func
-      if text != x.text
-        ParserNode x.type, x.start-index, x.end-index, { text, x.flags }
-      else
-        x
-    return: #(x, func)
-      let node = walk x.node, func
-      if node != x.node
-        ParserNode x.type, x.start-index, x.end-index, { node, x.existential }
-      else
-        x
-    root: #(x, func)
-      let body = walk x.body, func
-      if body != x.body
-        ParserNode x.type, x.start-index, x.end-index, { node, x.body }
-      else
-        x
-    spread: #(x, func)
-      let node = walk x.node, func
-      if node != x.node
-        ParserNode x.type, x.start-index, x.end-index, { node }
-      else
-        x
-    string: #(x, func)
-      let parts = walk-array x.parts, func
-      if parts != x.parts
-        ParserNode x.type, x.start-index, x.end-index, { parts }
-      else
-        x
-    this: identity
-    tmp: identity
-    try-catch: #(x, func)
-      let try-body = walk x.try-body, func
-      let catch-ident = walk x.catch-ident, func
-      let catch-body = walk x.catch-body, func
-      if try-body != x.try-body or catch-ident != x.catch-ident or catch-body != x.catch-body
-        ParserNode x.type, x.start-index, x.end-index, { try-body, catch-ident, catch-body }
-      else
-        x
-    try-finally: #(x, func)
-      let try-body = walk x.try-body, func
-      let finally-body = walk x.finally-body, func
-      if try-body != x.try-body or finally-body != x.finally-body
-        ParserNode x.type, x.start-index, x.end-index, { try-body, finally-body }
-      else
-        x
-    unary: #(x, func)
-      let node = walk x.node, func
-      if node != x.node
-        ParserNode x.type, x.start-index, x.end-index, { x.op, node }
-      else
-        x
-    use-macro: #(x, func)
-      let node = walk x.node, func
-      if node != x.node
-        ParserNode x.type, x.start-index, x.end-index, { node, x.tmps, x.macro-helpers }
-      else
-        x
-    yield: #(x, func)
-      let node = walk x.node, func
-      if node != x.node
-        ParserNode x.type, x.start-index, x.end-index, { node, x.multiple }
-      else
-        x
-  }
   let walk(node, func)
     if not node or typeof node != \object or node instanceof RegExp
       return node
     
-    //if node not instanceof ParserNode
-    //  throw Error "Unexpected type to walk through: $(typeof! node)"
+    if node not instanceof Node
+      throw Error "Unexpected type to walk through: $(typeof! node)"
     
-    unless walkers ownskey node.type
-      throw Error "Unknown node type to walk through: $(node.type)"
-    
-    return? func node
-    walkers[node.type](node, func)
-  let walk-array(array, func) -> map array, walk, func
+    func(node) ? node.walk(#(x) -> walk x, func)
   
-  MacroHelper.fix-asts := #(result) -> walk result, #->
+  MacroHelper.fix-asts := #(result) -> walk result, #(node)
+    if node instanceof AstNode
+      constify-object node.node, node.start-index, node.end-index
   
   MacroHelper.wrap := #(value = [])
     if Array.is-array(value)
@@ -3386,24 +3054,24 @@ let MacroHelper = do
         let nodes = []
         for item in value
           let wrapped = MacroHelper.wrap(item)
-          if wrapped.type == \block
+          if wrapped instanceof BlockNode
             nodes.push ...wrapped.nodes
           else
             nodes.push wrapped
-        ParserNode \block, 0, 0, { nodes }
+        BlockNode 0, 0, nodes
     else if typeof value != \object or value instanceof RegExp
       throw Error "Trying to wrap a non-object: $(typeof! value)"
     else
       value
   
-  MacroHelper.node := #(type, start-index, end-index, data)
-    ParserNode type, start-index, end-index, data
+  MacroHelper.node := #(type, start-index, end-index, ...args)
+    Node[type] start-index, end-index, ...args
   
   MacroHelper::has-func := #(node)
     let FOUND = {}
     try
       walk node, #(x)
-        if x.type == \function
+        if x instanceof FunctionNode
           throw FOUND
     catch e
       if e != FOUND
@@ -3412,41 +3080,45 @@ let MacroHelper = do
     false
   
   let mutators = {
-    block: #(x, func)
+    Block: #(x, func)
       let nodes = x.nodes
       let len = nodes.length
       if len != 0
         let last-node = @mutate-last(nodes[len - 1], func)
         if last-node != nodes[len - 1]
-          return ParserNode x.type, x.start-index, x.end-index, { nodes: [...nodes[:len - 1], last-node] }
+          return BlockNode  x.start-index, x.end-index, [...nodes[:len - 1], last-node]
       x
-    if: #(x, func)
+    If: #(x, func)
       let when-true = @mutate-last x.when-true, func
       let when-false = @mutate-last x.when-false, func
       if when-true != x.when-true or when-false != x.when-false
-        ParserNode x.type, x.start-index, x.end-index, { x.test, when-true, when-false }
+        IfNode x.start-index, x.end-index, x.test, when-true, when-false
       else
         x
-    use-macro: #(x, func)
+    UseMacro: #(x, func)
       let node = @mutate-last x.node, func
       if node != x.node
-        ParserNode x.type, x.start-index, x.end-index, { node, x.tmps, x.macro-helpers }
+        UseMacroNode x.start-index, x.end-index, node, x.tmps, x.macro-helpers
       else
         x
-    break: identity
-    continue: identity
-    nothing: identity
-    return: identity
-    debugger: identity
-    throw: identity
+    Break: identity
+    Continue: identity
+    Nothing: identity
+    Return: identity
+    Debugger: identity
+    Throw: identity
   }
   MacroHelper::mutate-last := #(node, func)
     if not node or typeof node != \object or node instanceof RegExp
-      node
-    else if mutators not ownskey node.type
+      return node
+    
+    if node not instanceof Node
+      throw Error "Unexpected type to mutate-last through: $(typeof! node)"
+    
+    if mutators not ownskey node.constructor.capped-name
       func(node) ? node
     else
-      mutators[node.type].call(this, node, func)
+      mutators[node.constructor.capped-name].call(this, node, func)
   
   MacroHelper
 
@@ -3490,20 +3162,89 @@ let MacroHolder = do
   
   MacroHolder
 
-let ParserNode = do
-  let ParserNode(type as String, start-index as Number, end-index as Number, data as (Object|null))
-    if Array.is-array(data)
-      throw TypeError "Expected a non-array for data"
-    let self = if this instanceof ParserNode then this else ^ParserNode.prototype
-    self.type := type
-    self.start-index := start-index
-    self.end-index := end-index
-    if data?
-      for k, v of data
-        self[k] := v
-    self
+let Node = do
+  let Node()
+    throw Error "Node should not be instantiated directly"
   
-  ParserNode
+  Node
+
+macro node-type!
+  syntax name as Expression, args as (",", this as Parameter)*, methods as (",", this as ObjectLiteral)?
+    if not @is-const(name) or typeof @value(name) != \string
+      throw Error "Expected a constant string name"
+    
+    let params = [@param(AST start-index), @param(AST end-index)]
+    let name-str = @value(name)
+    let mutable capped-name = name-str.char-at(0).to-upper-case() & name-str.substring(1)
+    let type = @ident(capped-name & "Node")
+    let body = [
+      AST let self = ^$type.prototype
+      AST self.type := $name
+      AST self.start-index := start-index
+      AST self.end-index := end-index
+    ]
+    let mutable arg-names = []
+    for arg in args
+      params.push arg
+      let ident = @param-ident arg
+      let key = @const(@name(ident))
+      body.push AST self[$key] := $ident
+      arg-names.push key
+    body.push AST self
+    
+    let add-methods = []
+    let found-walk = false
+    unless @empty(methods)
+      for pair in @pairs(methods)
+        let key = pair.key
+        let value = pair.value
+        add-methods.push AST $type::[$key] := $value
+        if @is-const(key) and @value(key) == "walk"
+          found-walk := true
+    
+    if not found-walk
+      let mutable walk-func = void
+      if args.length
+        let walk-init = []
+        let walk-check = AST false
+        let mutable walk-args = []
+        for arg in args
+          let ident = @param-ident arg
+          let key = @const(@name(ident))
+          if @is-ident(@param-type(arg)) and @name(@param-type(arg)) == \Node
+            walk-init.push AST let $ident = f this[$key]
+            walk-check := AST $walk-check or $ident != this[$key]
+            walk-args.push ident
+          else if @param-type(arg).type == \type-array and @is-ident(@param-type(arg).subtype) and @name(@param-type(arg).subtype) == \Node
+          //else if @is-type-array(@param-type(arg)) and @is-ident(@subtype(@param-type(arg))) and @name(@subtype(@param-type(arg))) == \Node
+            walk-init.push AST let $ident = map this[$key], f
+            walk-check := AST $walk-check or $ident != this[$key]
+            walk-args.push ident
+          else
+            walk-args.push AST this[$key]
+        walk-args := @array walk-args
+        walk-func := @func([@param(AST f)], AST
+          $walk-init
+          if $walk-check
+            $type @start-index, @end-index, ...$walk-args
+          else
+            this)
+      else
+        walk-func := AST ret-this
+      add-methods.push AST $type::walk := $walk-func
+      
+    let func = @func params, AST $body
+    arg-names := @array arg-names
+    capped-name := @const capped-name
+    AST let $type = Node[$capped-name] := do
+      let $type = $func
+      $type.prototype := ^Node.prototype
+      $type::constructor := $type
+      $type.capped-name := $capped-name
+      $type.arg-names := $arg-names
+      State.add-node-factory $name, $type
+      $add-methods
+      $type
 
 let State = do
   let State(@data, @macros = new MacroHolder(), @index = 0, @failures = new FailureManager(), @cache = [], @indent = new Stack(1), @current-macro = null)! ->
@@ -3536,8 +3277,7 @@ let State = do
     syntax: #(index, params, body)
       let next-parts = []
       let calc-param(param)@
-        let type = param.type
-        if type == \ident
+        if param instanceof IdentNode
           let ident = param.name
           if ident == \Logic
             Logic
@@ -3555,14 +3295,18 @@ let State = do
             Declarable
           else if ident == \Parameter
             Parameter
+          else if ident == \ObjectLiteral
+            ObjectLiteral
+          else if ident == \ArrayLiteral
+            ArrayLiteral
           else if ident == \DedentedBody
             DedentedBody
           else
             // TODO: add specific index
             @error "Unexpected type ident: $ident"
-        else if type == \syntax-sequence
+        else if param instanceof SyntaxSequenceNode
           handle-params param.params, []
-        else if type == \syntax-choice
+        else if param instanceof SyntaxChoiceNode
           let choices = for choice in param.choices
             calc-param choice
           cache! #(o)
@@ -3572,7 +3316,7 @@ let State = do
               if result
                 return result
             false
-        else if type == \const
+        else if param instanceof ConstNode
           let string = param.value
           if typeof string != \string
             @error "Expected a constant string parameter, got $(typeof! string)"
@@ -3584,7 +3328,7 @@ let State = do
             Nothing
           else
             word-or-symbol string
-        else if type == \syntax-many
+        else if param instanceof SyntaxManyNode
           let multiplier = param.multiplier
           let calced = calc-param param.inner
           if multiplier == "*"
@@ -3596,17 +3340,16 @@ let State = do
           else
             throw Error("Unknown syntax multiplier: $multiplier")
         else
-          @error "Unexpected type: $type"
+          @error "Unexpected type: $(typeof! param)"
     
       let handle-params(params, sequence)@
         for param in params
           // TODO: fix this, it's ugly
-          if param.type != \syntax-param or not param.as-type or (param.as-type.type != \syntax-many and (param.as-type.type != \ident or param.as-type.name != \DedentedBody))
+          if param not instanceof SyntaxParamNode or not param.as-type or (param.as-type not instanceof SyntaxManyNode and (param.as-type not instanceof IdentNode or param.as-type.name != \DedentedBody))
             sequence.push ...next-parts
             next-parts := []
         
-          let type = param.type
-          if type == \const
+          if param instanceof ConstNode
             let string = param.value
             if typeof string != \string
               @error "Expected a constant string parameter, got $(typeof! string)"
@@ -3617,22 +3360,22 @@ let State = do
               sequence.push Semicolon
             else
               sequence.push word-or-symbol string
-          else if type == \syntax-param
+          else if param instanceof SyntaxParamNode
             let ident = param.ident
-            let key = if ident.type == \ident
+            let key = if ident instanceof IdentNode
               ident.name
-            else if ident.type == \this
+            else if ident instanceof ThisNode
               \this
             else
-              throw Error "Don't know how to handle ident type: $(ident.type)"
-            let type = param.as-type ? ParserNode \ident, 0, 0, { name: \Expression }
+              throw Error "Don't know how to handle ident type: $(typeof! ident)"
+            let type = param.as-type ? IdentNode 0, 0, \Expression
             sequence.push [key, calc-param type]
           else
-            @error "Unexpected parameter type: $type"
+            @error "Unexpected parameter type: $(typeof! param)"
         sequential sequence
     
       let func-params = for param in params
-        if param.type == \syntax-param
+        if param instanceof SyntaxParamNode
           {
             key: @const index, param.ident.name
             value: @param index, param.ident, void, false, true, void
@@ -3712,55 +3455,179 @@ let State = do
     let macro-id = macros.add-macro(mutator)
     m.data.push func
   
-  State::regexp := #(index, text, flags) -> ParserNode \regexp, index, @index, { text, flags }
-  State::this := #(index) -> ParserNode \this, index, @index
-  State::break := #(index) -> ParserNode \break, index, @index
-  State::continue := #(index) -> ParserNode \continue, index, @index
-  State::const := #(index, value) -> ParserNode \const, index, @index, { value }
-  State::string := #(index, parts as Array) -> ParserNode \string, index, @index, { parts }
-  State::args := #(index) -> ParserNode \arguments, index, @index
-  State::ident := #(index, name as String) -> ParserNode \ident, index, @index, { name }
-  State::operator := #(index, op as String) -> ParserNode \operator, index, @index, { op }
-  State::array := #(index, elements as Array) -> ParserNode \array, index, @index, { elements }
-  State::array-param := State::array
-  State::object := #(index, pairs as [Object]) -> ParserNode \object, index, @index, { pairs }
-  State::object-param := State::object
-  State::access := #(index, parent as Object, child as Object) -> ParserNode \access, index, @index, { parent, child }
-  State::access-index := #(index, parent as Object, child as Object) -> ParserNode \index, index, @index, { parent, child }
-  State::unary := #(index as Number, op as String, node as Object) -> ParserNode \unary, index, @index, { op, node }
-  State::type-union := #(index as Number, types as Array) -> ParserNode \type-union, index, @index, { types }
-  State::type-array := #(index as Number, subtype as Object) -> ParserNode \type-array, index, @index, { subtype }
-  State::param := #(index as Number, ident, default-value, spread as Boolean, is-mutable as Boolean, as-type) -> ParserNode \param, index, @index, { ident, default-value, spread, is-mutable, as-type }
-  State::nothing := #(index as Number) -> ParserNode \nothing, index, @index
-  State::debugger := #(index as Number) -> ParserNode \debugger, index, @index
-  State::function := #(index as Number, params as [Object], body as Object, auto-return as Boolean = true, bound as Boolean = false) -> ParserNode \function, index, @index, { params, body, auto-return, bound }
-  State::syntax-sequence := #(index as Number, params as [Object]) -> ParserNode \syntax-sequence, index, @index, { params }
-  State::syntax-choice := #(index as Number, choices as [Object]) -> ParserNode \syntax-choice, index, @index, { choices }
-  State::syntax-param := #(index as Number, ident as Object, as-type) -> ParserNode \syntax-param, index, @index, { ident, as-type }
-  State::syntax-many := #(index as Number, inner as Object, multiplier as String) -> ParserNode \syntax-many, index, @index, { inner, multiplier }
-  State::define-helper := #(index as Number, name as Object, value as Object) -> ParserNode \define-helper, index, @index, { name, value }
-  State::assign := #(index as Number, left as Object, op as String, right as Object) -> ParserNode \assign, index, @index, { left, op, right }
-  State::call-chain := #(index as Number, head as Object, links as [Object]) -> ParserNode \call-chain, index, @index, { head, links }
-  State::binary := #(index as Number, left as Object, op as String, right as Object) -> ParserNode \binary, index, @index, { left, op, right }
-  State::return := #(index as Number, node as Object, existential as Boolean) -> ParserNode \return, index, @index, { node, existential }
-  State::spread := #(index as Number, node as Object) -> ParserNode \spread, index, @index, { node }
-  State::ast := #(index as Number, node as Object) -> ParserNode \ast, index, @index, { node }
-  State::eval := #(index as Number, code as Object) -> ParserNode \eval, index, @index, { code }
-  State::yield := #(index as Number, node as Object, multiple as Boolean) -> ParserNode \yield, index, @index, { node, multiple }
-  State::block := #(index as Number, nodes as [Object]) -> ParserNode \block, index, @index, { nodes }
-  State::root := #(index as Number, body as Object) -> ParserNode \root, index, @index, { body }
-  State::macro-access := #(index as Number, id as Number, data as Object) -> ParserNode \macro-access, index, @index, { id, data }
-  State::use-macro := #(index as Number, node as Object, tmps as Array, macro-helpers as Array) -> ParserNode \use-macro, index, @index, { node, tmps, macro-helpers }
-  State::declarable := #(index as Number, ident as Object, is-mutable as Boolean) -> ParserNode \declarable, index, @index, { ident, is-mutable }
-  State::let := #(index as Number, left as Object, right as Object) -> ParserNode \let, index, @index, { left, right }
-  State::if := #(index as Number, test as Object, when-true as Object, when-false as (Object|null)) -> ParserNode \if, index, @index, { test, when-true, when-false }
-  State::try-catch := #(index as Number, try-body as Object, catch-ident as Object, catch-body as Object) -> ParserNode \try-catch, index, @index, { try-body, catch-ident, catch-body }
-  State::try-finally := #(index as Number, try-body as Object, finally-body as Object) -> ParserNode \try-finally, index, @index, { try-body, finally-body }
-  State::for := #(index as Number, init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> ParserNode \for, index, @index, { init, test, step, body }
-  State::for-in := #(index as Number, key as Object, object as Object, body as Object) -> ParserNode \for-in, index, @index, { key, object, body }
-  State::tmp := #(index as Number, id as Number, name as String) -> ParserNode \tmp, index, @index, { id, name }
+  State.add-node-factory := #(name, type)!
+    State::[name] := #(index) -> type(index, @index, ...arguments[1:])
   
   State
+
+node-type! \access, parent as Node, child as Node
+node-type! \access-index, parent as Node, child as Object, {
+  walk: do
+    let index-types = {
+      single: #(x, f)
+        let node = f x.node
+        if node != x.node
+          { type: \single, node }
+        else
+          x
+    }
+    #(f)
+      unless index-types ownskey @child.type
+        throw Error "Unknown index type: $(@child.type)"
+      let parent = f @parent
+      let child = index-types[@child.type](@child, f)
+      if parent != @parent or child != @child
+        AccessIndexNode @start-index, @end-index, parent, child
+      else
+        this
+}
+node-type! \args
+node-type! \array, elements as [Node]
+State::array-param := State::array
+node-type! \assign, left as Node, op as String, right as Node
+node-type! \ast, node as Node, {
+  walk: #-> throw Error "Walking over AstNode is not supported, should have been handled through fix-asts"
+}
+node-type! \binary, left as Node, op as String, right as Node
+node-type! \block, nodes as [Node]
+node-type! \break
+node-type! \call-chain, head as Node, links as Array, {
+  walk: do
+    let link-types = {
+      access: #(link, func)
+        let child = func link.child
+        if child != link.child
+          {
+            type: \access
+            child
+            link.existential
+          }
+        else
+          link
+      access-index: do
+        let index-types = {
+          single: #(x, func)
+            let node = func x.node
+            if node != x.node
+              {
+                type: \single
+                node
+              }
+            else
+              x
+          slice: #(x, func)
+            let left = func x.left
+            let right = func x.right
+            if left != x.left or right != x.right
+              {
+                type: \slice
+                left
+                right
+              }
+            else
+              x
+          multi: #(x, func)
+            let elements = map x.elements, func
+            if elements != x.elements
+              {
+                type: \multi
+                elements
+              }
+            else
+              x
+        }
+        #(link, func)
+          let type = link.child.type
+          unless index-types ownskey type
+            throw Error "Unknown index type: $type"
+          
+          let child = index-types[type](link.child, func)
+          if child != link.child
+            {
+              type: \access-index
+              child
+              x.existential
+            }
+          else
+            link
+      call: #(link, func)
+        let args = map link.args, func
+        if args != link.args
+          {
+            type: \call
+            args
+            link.existential
+            link.is-new
+          }
+        else
+          link
+    }
+    let walk-link(link, func)
+      unless link-types ownskey link.type
+        throw Error "Unknown call-chain link type: $(link.type)"
+      
+      link-types[link.type](link, func)
+    #(func)
+      let head = func @head
+      let links = map @links, walk-link, func
+      if head != @head or links != @links
+        CallChainNode @start-index, @end-index, head, links
+      else
+        this
+}
+node-type! \const, value as (Number|String|Boolean|RegExp|void|null)
+node-type! \continue
+node-type! \debugger
+node-type! \declarable, ident as Node, is-mutable as Boolean
+node-type! \define-helper, name as Node, value as Node
+node-type! \eval, code as Node
+node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node
+node-type! \for-in, key as Node, object as Node, body as Node
+node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false
+node-type! \ident, name as String
+node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0)
+node-type! \let, left as Node, right as Node
+node-type! \macro-access, id as Number, data as Object
+node-type! \nothing
+node-type! \object, pairs as Array // as [{ key: Node, value: Node }]
+State::object-param := State::object
+node-type! \operator, op as String
+node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void), {
+  walk: #(func)
+    let ident = func @ident
+    let default-value = if @default-value? then func @default-value else @default-value
+    let as-type = if @as-type? then func @as-type else @default-value
+    if ident != @ident or default-value != @default-value or as-type != @as-type
+      ParamNode @start-index, @end-index, ident, default-value, @spread, @is-mutable, as-type
+    else
+      this
+}
+node-type! \regexp, text as Node, flags as String
+node-type! \return, node as Node = ConstNode(0, 0, void), existential as Boolean
+node-type! \root, body as Node
+node-type! \spread, node as Node
+node-type! \string, parts as [Node]
+node-type! \syntax-choice, choices as [Node]
+node-type! \syntax-many, inner as Node, multiplier as String
+node-type! \syntax-param, ident as Node, as-type as (Node|void), {
+  walk: #(func)
+    let ident = func @ident
+    let as-type = if @as-type? then func @as-type else @as-type
+    if ident != @ident or as-type != @as-type
+      SyntaxParamNode @start-index, @end-index, ident, as-type
+    else
+      this
+}
+node-type! \syntax-sequence, params as [Node]
+node-type! \this
+node-type! \tmp, id as Number, name as String
+node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node
+node-type! \try-finally, try-body as Node, finally-body as Node
+node-type! \type-array, subtype as Node
+node-type! \type-union, types as [Node]
+node-type! \unary, op as String, node as Node
+node-type! \use-macro, node as Node, tmps as Array, macro-helpers as Array
+node-type! \yield, node as Node, multiple as Boolean
 
 let unique(array)
   let result = []
@@ -3811,4 +3678,4 @@ let parse(text, macros, options = {})
     }
 module.exports := parse
 module.exports.ParserError := ParserError
-module.exports.ParserNode := ParserNode
+module.exports.Node := Node

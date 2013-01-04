@@ -3,6 +3,7 @@ require! path
 require! assert
 require! './monkey'
 
+let no-prelude = false
 let mutable passed-tests = 0
 let add-global(name, func)!
   global[name] := #(...args)
@@ -83,7 +84,7 @@ if process.argv.length > 2
       file
 
 asyncfor next, file, i in files
-  if i == 0
+  if i == 0 and not no-prelude
     monkey.init()
   unless r'\.ms$'i.test(file)
     return next()
@@ -99,7 +100,7 @@ asyncfor next, file, i in files
   let start-time = Date.now()
   let mutable end-time = void
   try
-    result := monkey.eval code.to-string(), include-globals: true
+    result := monkey.eval code.to-string(), include-globals: true, no-prelude: no-prelude
   catch e
     failure := true
     add-failure basename, e

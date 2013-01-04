@@ -47,7 +47,7 @@ set-timeout (#
 
 let parse = exports.parse := #(source, options = {})
   if options.no-prelude
-    parser(source, null, options).result
+    parser(source, null, options)
   else
     let prelude = fetch-and-parse-prelude.sync()
     parser(source, prelude.macros, options)
