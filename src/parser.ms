@@ -2003,7 +2003,7 @@ define Ast = in-ast short-circuit! AstToken, sequential! [
       true
   AstToken
   [\this, BodyOrStatement]
-], #(x, o, i) -> MacroHelper.fix-asts o.ast i, x
+], #(x, o, i) -> MacroHelper.constify-object x, i, o.index
 
 define Debugger = word \debugger, #(x, o, i) -> o.debugger i
 
@@ -3042,10 +3042,6 @@ let MacroHelper = do
     
     func(node) ? node.walk(#(x) -> walk x, func)
   
-  MacroHelper.fix-asts := #(result) -> walk result, #(node)
-    if node instanceof AstNode
-      constify-object node.node, node.start-index, node.end-index
-  
   MacroHelper.wrap := #(value = [])
     if Array.is-array(value)
       if value.length == 1
@@ -3435,7 +3431,7 @@ let State = do
     if not @current-macro
       this.error "Attempting to specify a macro syntax when not in a macro"
 
-    let data = macro-syntax-types[type].call this, index, params, MacroHelper.fix-asts(body)
+    let data = macro-syntax-types[type].call this, index, params, body
     let handler = data.handler
     let rule = data.rule
     let macro-helpers = data.macro-helpers
@@ -3485,9 +3481,6 @@ node-type! \args
 node-type! \array, elements as [Node]
 State::array-param := State::array
 node-type! \assign, left as Node, op as String, right as Node
-node-type! \ast, node as Node, {
-  walk: #-> throw Error "Walking over AstNode is not supported, should have been handled through fix-asts"
-}
 node-type! \binary, left as Node, op as String, right as Node
 node-type! \block, nodes as [Node]
 node-type! \break
