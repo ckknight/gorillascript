@@ -1,5 +1,6 @@
 require! './ast'
 require! './types'
+require! './parser'
 
 let needs-caching(item)
   return item not instanceofsome [ast.Ident, ast.Const, ast.This, ast.Arguments]
@@ -102,6 +103,12 @@ let Scope = do
   
   Scope::add-variable := #(ident as ast.Ident)!
     @variables[ident.name] := true
+  
+  Scope::has-variable := #(ident as ast.Ident)
+    if @variables[ident.name]
+      @variables haskey ident.name
+    else
+      false
   
   Scope::remove-variable := #(ident as ast.Ident)!
     delete @variables[ident.name]
@@ -330,11 +337,20 @@ let binary-ops = {
     scope.add-helper \__xor
     ast.Call ast.Ident(\__xor), [left, right]
   "?": #(left, right, scope)
-    async set-left, left <- scope.maybe-cache left
-    ast.IfExpression(
-      ast.Binary set-left, "!=", ast.Const(null)
-      left
-      right)
+    if left instanceof ast.Ident and not scope.has-variable left
+      ast.IfExpression(
+        ast.Binary(
+          ast.Binary ast.Unary("typeof", left), "!==", ast.Const "undefined"
+          "&&"
+          ast.Binary left, "!==", ast.Const null)
+        left,
+        right)
+    else
+      async set-left, left <- scope.maybe-cache left
+      ast.IfExpression(
+        ast.Binary set-left, "!=", ast.Const(null)
+        left
+        right)
   "~bitand": "&"
   bitand: #(left, right, scope)
     ast.Binary num-wrap(left, scope), "&", num-wrap(right, scope)
@@ -357,7 +373,14 @@ let unary-ops = {
   bool: #(node, scope, location, auto-return)
     auto-return ast.Unary("!", ast.Unary("!", translate node.node, scope, \expression))
   "?": #(node, scope, location, auto-return)
-    auto-return ast.Binary(translate(node.node, scope, \expression), "!=", ast.Const(null))
+    let translated = translate node.node, scope, \expression
+    if translated instanceof ast.Ident and not scope.has-variable translated
+      auto-return ast.Binary(
+        ast.Binary ast.Unary("typeof", translated), "!==", ast.Const "undefined"
+        "&&"
+        ast.Binary translated, "!==", ast.Const null)
+    else
+      auto-return ast.Binary(translated, "!=", ast.Const(null))
   "~bitnot": "~"
   bitnot: #(node, scope, location, auto-return)
     auto-return ast.Unary("~", num-wrap(translate(node.node, scope, \expression), scope))
@@ -425,7 +448,6 @@ let HELPERS = {}
 
 let wrap-in-function-call(node)
   // TODO: the translator shouldn't be making parser.Nodes
-  require! './parser'
   
   parser.Node.CallChain(node.start-index, node.end-index
     parser.Node.Function node.start-index, node.end-index, [], node, true, true
@@ -439,7 +461,7 @@ let flatten-spread-array(elements)
   let result = []
   let mutable changed = false
   for element in elements
-    if element.type == \spread and element.node.type == \array
+    if element instanceof parser.Node.Spread and element.node instanceof parser.Node.Array
       result.push ...element.node.elements
       changed := true
     else
@@ -455,7 +477,7 @@ let array-translate(elements, scope, replace-with-slice)
   let mutable current = []
   translated-items.push(current)
   for element in flatten-spread-array elements
-    if element.type == \spread
+    if element instanceof parser.Node.Spread
       translated-items.push translate element.node, scope, \expression
       current := []
       translated-items.push current
@@ -495,15 +517,18 @@ let array-translate(elements, scope, replace-with-slice)
         translated-items[1:])
 
 let translators = {
-  access: #(node, scope, location, auto-return)
+  Access: #(node, scope, location, auto-return)
     return auto-return ast.Access(
       translate node.parent, scope, \expression
       translate node.child, scope, \expression)
-  args: #(node, scope, location, auto-return)
+  
+  Args: #(node, scope, location, auto-return)
     auto-return ast.Arguments()
-  array: #(node, scope, location, auto-return)
+  
+  Array: #(node, scope, location, auto-return)
     auto-return array-translate node.elements, scope, true
-  assign: do
+  
+  Assign: do
     let ops = {
       "~^=": #(left, right, scope)
         async set-left, left <- scope.maybe-cache-access left
@@ -690,8 +715,8 @@ let translators = {
           ast.Ident \__splice
           [
             parent
-            if left and left.type != \nothing then translate(left, scope, \expression) else ast.Const(0)
-            if right and right.type != \nothing then translate(right, scope, \expression) else ast.Const(Infinity)
+            if left and left not instanceof parser.Node.Nothing then translate(left, scope, \expression) else ast.Const(0)
+            if right and right not instanceof parser.Node.Nothing then translate(right, scope, \expression) else ast.Const(Infinity)
             value
           ])
       multi: #(parent, child, value, scope, location)
@@ -709,7 +734,7 @@ let translators = {
     #(node, scope, location, auto-return)
       let op = node.op
       // TODO: this is ugly
-      if op == ":=" and node.left.type == \access-index
+      if op == ":=" and node.left instanceof parser.Node.AccessIndex
         let type = node.left.child.type
         unless indexes ownskey type
           throw Error "Unexpected index type for assignment: $(JSON.stringify type)"
@@ -733,7 +758,8 @@ let translators = {
           auto-return ast.Binary(left, handler, right)
         else
           throw Error "Unexpected handler type: $(typeof! handler)"
-  binary: #(node, scope, location, auto-return)
+  
+  Binary: #(node, scope, location, auto-return)
     let op = node.op
     unless binary-ops ownskey op
       throw Error "Unexpected binary operator: $(JSON.stringify op)"
@@ -747,10 +773,13 @@ let translators = {
       auto-return ast.Binary(left, handler, right)
     else
       throw Error "Unexpected handler type: $(typeof! handler)"
-  block: #(node, scope, location, auto-return)
+  
+  Block: #(node, scope, location, auto-return)
     ast.Block translate-array(node.nodes, scope, location, auto-return)
-  break: #(node) -> ast.Break()
-  call-chain: do
+  
+  Break: #(node) -> ast.Break()
+  
+  CallChain: do
     let link-types = {
       access: do
         let index-types = {
@@ -862,16 +891,23 @@ let translators = {
     #(node, scope, location, auto-return)
       auto-return handle node.links, scope, 0, translate(node.head, scope, \expression)
   
-  const: #(node, scope, location, auto-return) -> auto-return ast.Const(node.value)
-  continue: # -> ast.Continue()
-  debugger: #(node, scope, location, auto-return)
+  Const: #(node, scope, location, auto-return) -> auto-return ast.Const(node.value)
+  
+  Continue: # -> ast.Continue()
+  
+  Debugger: #(node, scope, location, auto-return)
     if location == \expression
       ast.Call(
         ast.Func(null, [], [], [ast.Debugger()])
         [])
     else
       ast.Debugger()
-  define-helper: #(node, scope, location, auto-return)
+  
+  Def: #(node, scope, location, auto-return)
+    // TODO: line numbers
+    throw Error "Cannot have a stray def"
+  
+  DefineHelper: #(node, scope, location, auto-return)
     let ident = translate node.name, scope, \left-expression
     unless ident instanceof ast.Ident
       throw Error "Expected name to be an Ident, got $(typeof! ident)"
@@ -879,15 +915,18 @@ let translators = {
     HELPERS[ident.name] := #-> value
     KNOWN_HELPERS.push(ident.name)
     ast.BlockExpression()
-  eval: #(node, scope, location, auto-return)
+  
+  Eval: #(node, scope, location, auto-return)
     auto-return ast.Eval translate(node.code, scope, \expression)
-  for: #(node, scope, location, auto-return)
+  
+  For: #(node, scope, location, auto-return)
     ast.For(
       if node.init? then translate node.init, scope, \expression
       if node.test? then translate node.test, scope, \expression
       if node.step? then translate node.step, scope, \expression
       translate node.body, scope, \statement)
-  for-in: #(node, scope, location, auto-return)
+  
+  ForIn: #(node, scope, location, auto-return)
     let key = translate node.key, scope, \left-expression
     if key not instanceof ast.Ident
       throw Error("Expected an Ident for a for-in key")
@@ -896,7 +935,8 @@ let translators = {
       key
       translate node.object, scope, \expression
       translate node.body, scope, \statement)
-  function: do
+  
+  Function: do
     let primitive-types = {
       Boolean: \boolean
       String: \string
@@ -924,7 +964,7 @@ let translators = {
             \instanceof
             ast.Ident(type)))
     let translate-type-checks = {
-      ident: #(ident, node, scope, has-default-value, array-index)
+      Ident: #(ident, node, scope, has-default-value, array-index)
         let access = if array-index?
           ast.Access(ident, array-index)
         else
@@ -956,7 +996,7 @@ let translators = {
             result)
         else
           result
-      access: #(ident, node, scope, has-default-value, array-index)
+      Access: #(ident, node, scope, has-default-value, array-index)
         let access = if array-index?
           ast.Access(ident, array-index)
         else
@@ -987,7 +1027,7 @@ let translators = {
                   ast.Call(
                     ast.Ident(\__typeof)
                     [ident]))])))
-      type-union: #(ident, node, scope, has-default-value, array-index)
+      TypeUnion: #(ident, node, scope, has-default-value, array-index)
         // TODO: cache typeof ident if requested more than once.
         if array-index?
           throw Error "Not implemented: type-union in type-array"
@@ -999,7 +1039,7 @@ let translators = {
         let names = []
         let tests = []
         for type in node.types
-          if type.type == \const
+          if type instanceof parser.Node.Const
             if type.value == null
               has-null := true
               names.push \null
@@ -1008,13 +1048,13 @@ let translators = {
               names.push \undefined
             else
               throw Error "Unknown const value for typechecking: $(String type.value)"
-          else
-            if type.type != \ident
-              throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
+          else if type instanceof parser.Node.Ident
             if type.name == \Boolean
               has-boolean := true
             names.push type.name
             tests.push make-type-check-test ident, type.name, scope
+          else
+            throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
         
         if has-null and has-void and not has-default-value
           tests.unshift ast.Binary ident, "!=", ast.Const(null)
@@ -1042,7 +1082,7 @@ let translators = {
               ast.Assign ident, ast.Const(false)
               result)
         result
-      type-array: #(ident, node, scope, has-default-value, array-index)
+      TypeArray: #(ident, node, scope, has-default-value, array-index)
         if array-index
           throw Error "Not implemented: arrays within arrays as types"
         scope.add-helper \__is-array
@@ -1072,14 +1112,14 @@ let translators = {
             translate-type-check(ident, node.subtype, scope, false, index)))
     }
     let translate-type-check(ident, node, scope, has-default-value, array-index)
-      unless translate-type-checks ownskey node.type
-        throw Error "Unknown type: $(String node.type)"
+      unless translate-type-checks ownskey node.constructor.capped-name
+        throw Error "Unknown type: $(String node.constructor.capped-name)"
       
-      translate-type-checks[node.type] ident, node, scope, has-default-value, array-index
+      translate-type-checks[node.constructor.capped-name] ident, node, scope, has-default-value, array-index
     let translate-param-types = {
-      param: #(param, scope, inner)
+      Param: #(param, scope, inner)
         let mutable ident = translate param.ident, scope, \param
-        if param.ident.type == \tmp
+        if param.ident instanceof parser.Node.Tmp
           scope.mark-as-param ident
         
         let later-init = []
@@ -1108,7 +1148,7 @@ let translators = {
           spread: not not param.spread
         }
       
-      array: #(array, scope, inner)
+      Array: #(array, scope, inner)
         let array-ident = if inner then scope.reserve-ident \p else scope.reserve-param()
         let init = []
         let mutable found-spread = -1
@@ -1169,7 +1209,7 @@ let translators = {
           spread: false
         }
       
-      object: #(object, scope, inner)
+      Object: #(object, scope, inner)
         let object-ident = if inner then scope.reserve-ident \p else scope.reserve-param()
         let init = []
         
@@ -1195,7 +1235,7 @@ let translators = {
     }
     
     let translate-param(param, scope, inner)
-      let type = param.type
+      let type = param.constructor.capped-name
       unless translate-param-types ownskey type
         throw Error "Unknown parameter type: $(type)"
       translate-param-types[type](param, scope, inner)
@@ -1273,8 +1313,10 @@ let translators = {
           body.unshift ast.Assign fake-this, ast.This()
       let func = ast.Func null, param-idents, inner-scope.get-variables(), body
       auto-return func
-  ident: #(node, scope, location, auto-return) -> auto-return ast.Ident(node.name)
-  if: #(node, scope, location, auto-return)
+  
+  Ident: #(node, scope, location, auto-return) -> auto-return ast.Ident(node.name)
+  
+  If: #(node, scope, location, auto-return)
     let inner-location = if location in [\statement, \top-statement]
       \statement
     else
@@ -1283,7 +1325,8 @@ let translators = {
       translate node.test, scope, \expression
       translate node.when-true, scope, inner-location, auto-return
       if node.when-false? then translate node.when-false, scope, inner-location, auto-return)
-  access-index: #(node, scope, location, auto-return)
+  
+  AccessIndex: #(node, scope, location, auto-return)
     let type = node.child.type
     if type == \single
       auto-return ast.Access(
@@ -1295,10 +1338,11 @@ let translators = {
       throw Error "Not implemented: index slice"
     else
       throw Error "Unknown index type: $type"
-  let: do
+  
+  Let: do
     let declarables = {
-      declarable: #(node, scope)
-        if node.ident.type == \declarable
+      Declarable: #(node, scope)
+        if node.ident instanceof parser.Node.Declarable
           translate-declarable node.ident, scope
         else
           let ident = translate node.ident, scope, \left-expression
@@ -1306,9 +1350,9 @@ let translators = {
           ident
     }
     let translate-declarable(node, scope)
-      unless declarables ownskey node.type
-        throw Error "Unknown declarable type $(node.type)"
-      declarables[node.type](node, scope)
+      unless declarables ownskey node.constructor.capped-name
+        throw Error "Unknown declarable type $(node.constructor.capped-name)"
+      declarables[node.constructor.capped-name](node, scope)
     #(node, scope, location, auto-return)
       let left = translate-declarable node.left, scope
       let right = translate node.right, scope, \expression
@@ -1317,15 +1361,18 @@ let translators = {
         auto-return ast.Func(left, right.params, right.variables, right.body, right.declarations)
       else
         auto-return ast.Assign(left, right)
-  macro-helper: #(node, scope, location, auto-return)
+  
+  MacroHelper: #(node, scope, location, auto-return)
     let name = node.name
     scope.add-macro-helper name
     auto-return ast.Obj [
       ast.Obj.Pair \type, ast.Const(\ident)
       ast.Obj.Pair \name, ast.Const(name)
     ]
-  nothing: #-> ast.BlockExpression()
-  object: #(node, scope, location, auto-return)
+  
+  Nothing: #-> ast.BlockExpression()
+  
+  Object: #(node, scope, location, auto-return)
     let const-pairs = []
     let post-const-pairs = []
     let mutable current-pairs = const-pairs
@@ -1355,7 +1402,8 @@ let translators = {
       ]
       scope.release-ident ident
       auto-return result
-  operator: do
+  
+  Operator: do
     let make-num-op(op) -> #(scope)
       let left = ast.Ident \x
       let right = ast.Ident \y
@@ -1568,7 +1616,8 @@ let translators = {
         auto-return ast.Func(null, [value], [], [ast.Return(ast.Unary(unary-ops[op], value))])
       else
         throw Error "Unknown operator: $(String op)"
-  regexp: #(node, scope, location, auto-return)
+  
+  Regexp: #(node, scope, location, auto-return)
     let text = translate node.text, scope, \expression
     let flags = node.flags
     if text instanceof ast.Const and typeof text.value == \string
@@ -1577,7 +1626,8 @@ let translators = {
       auto-return ast.Call(
         ast.Ident(\RegExp)
         [text, ast.Const(flags)])
-  return: #(node, scope)
+  
+  Return: #(node, scope)
     let value = translate node.node, scope, \expression
     if node.existential
       async set-value, value <- scope.maybe-cache value
@@ -1589,7 +1639,8 @@ let translators = {
         ast.Return(value))
     else
       ast.Return(value)
-  root: #(node, scope)
+  
+  Root: #(node, scope)
     let body = translate node.body, scope, \top-statement, scope.options.return
     let init = []
     if scope.has-bound and scope.used-this
@@ -1606,7 +1657,8 @@ let translators = {
       [...init, body]
       scope.get-variables()
       ["use strict"])
-  string: #(node, scope, location, auto-return)
+  
+  String: #(node, scope, location, auto-return)
     let parts = node.parts
     
     let mutable current = void
@@ -1624,28 +1676,32 @@ let translators = {
       current := ast.Const("")
     auto-return current
   
-  tmp: #(node, scope, location, auto-return)
+  Super: #(node, scope, location, auto-return)
+    // TODO: line numbers
+    throw Error "Cannot have a stray super call"
+  
+  Tmp: #(node, scope, location, auto-return)
     auto-return scope.get-tmp(node.id, node.name)
   
-  this: #(node, scope, location, auto-return)
+  This: #(node, scope, location, auto-return)
     scope.used-this := true
     auto-return if scope.bound
       ast.Ident(\_this)
     else
       ast.This()
   
-  try-catch: #(node, scope, location, auto-return)
+  TryCatch: #(node, scope, location, auto-return)
     ast.TryCatch(
       translate node.try-body, scope, \statement, auto-return
       translate node.catch-ident, scope, \left-expression
       translate node.catch-body, scope, \expression, auto-return)
   
-  try-finally: #(node, scope, location, auto-return)
+  TryFinally: #(node, scope, location, auto-return)
     ast.TryFinally(
       translate node.try-body, scope, \statement, auto-return
       translate node.finally-body, scope, \statement)
   
-  unary: #(node, scope, location, auto-return)
+  Unary: #(node, scope, location, auto-return)
     let op = node.op
     unless unary-ops ownskey op
       throw Error "Unexpected unary operator: $(JSON.stringify op)"
@@ -1658,7 +1714,7 @@ let translators = {
     else
       throw Error "Unexpected handler type: $(typeof! handler)"
   
-  use-macro: #(node, scope, location, auto-return)
+  UseMacro: #(node, scope, location, auto-return)
     let result = translate node.node, scope, location, auto-return
     for tmp in node.tmps
       scope.release-tmp tmp
@@ -1673,10 +1729,10 @@ let translate(node as Object, scope as Scope, location as String, auto-return)
   if typeof auto-return != \function
     auto-return := make-auto-return auto-return
   
-  unless translators ownskey node.type
-    throw Error "Unable to translate unknown node type: $(JSON.stringify node.type)"
+  unless translators ownskey node.constructor.capped-name
+    throw Error "Unable to translate unknown node type: $(String node.constructor.capped-name)"
   
-  translators[node.type](node, scope, location, auto-return)
+  translators[node.constructor.capped-name](node, scope, location, auto-return)
 
 let translate-array(nodes as Array, scope as Scope, location as String, auto-return)
   return for node, i, len in nodes

@@ -47,9 +47,21 @@ define helper __strnum = #(strnum)
     throw TypeError("Expected a string or number, got " ~& type)
 
 macro do
-  syntax body as Body
-    let func = AST #@-> $body
-    AST $func()
+  syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as Body
+    let params = []
+    let values = []
+    if not @empty(locals)
+      if not @empty(locals.ident)
+        params.push @param locals.ident
+        values.push locals.value
+      let f(i)@
+        if i ~< locals.rest.length
+          if not @empty(locals.rest[i].ident)
+            params.push @param locals.rest[i].ident
+            values.push locals.rest[i].value
+          f i ~+ 1
+      f 0
+    @call(@func(params, body, true, true), values)
 
 macro with
   syntax node as Expression, body as Body
@@ -834,3 +846,193 @@ macro asyncunless
         let $done($result)@
           $rest
         $current
+
+macro class
+  syntax name as SimpleAssignable?, superclass as ("extends", this)?, body as Body?
+    let mutable declaration = void
+    let mutable assignment = void
+    if @is-ident(name)
+      declaration := name
+    else if @is-access(name)
+      assignment := name
+      if @is-const(@child(name)) and typeof @value(@child(name)) == \string
+        name := @ident(@value(@child(name))) ? @tmp \class
+      else
+        name := @tmp \class
+    else
+      name := @tmp \class
+    
+    let has-superclass-const = @const not @empty(superclass)
+    let sup = if @empty(superclass) then superclass else @tmp \super
+    let init = []
+    let superproto = if @empty(superclass) then AST Object.prototype else @tmp \superproto
+    let prototype = @tmp \proto
+    if not @empty(superclass)
+      init.push AST let $superproto = $sup.prototype
+      init.push AST let $prototype = $name.prototype := ^$superproto
+      init.push AST $prototype.constructor := $name
+    else
+      init.push AST let $prototype = $name.prototype
+    
+    let display-name = if @is-ident(name) then @const(@name(name))
+    if display-name?
+      init.push AST $name.display-name := $display-name
+    
+    let fix-supers(node)@ -> @walk node, #(node)@
+      if @is-super(node)
+        let mutable child = @super-child(node)
+        if child?
+          child := fix-supers child
+        let args = []
+        let super-args = @super-args node
+        let mutable i = 0
+        let len = super-args.length
+        while i ~< len, i ~+= 1
+          args.push fix-supers super-args[i]
+        @call(
+          if child?
+            AST $superproto[$child].apply
+          else if @empty(superclass)
+            AST Object.apply
+          else
+            AST $sup.apply
+          [
+            AST this
+            @array args
+          ])
+    body := fix-supers body
+    
+    let remove-auto-return(func)
+      if @func-is-auto-return(func)
+        @func(
+          @func-params func
+          @func-body func
+          false
+          @func-is-bound func)
+      else
+        func
+    
+    let mutable constructor-count = 0
+    @walk body, #(node)@
+      if @is-def(node)
+        let key = @left(node)
+        if @is-const(key) and @value(key) == \constructor
+          constructor-count ~+= 1
+      void
+    
+    let mutable has-top-level-constructor = false
+    if constructor-count == 1
+      @walk body, #(node)@
+        if @is-def(node)
+          let key = @left(node)
+          if @is-const(key) and @value(key) == \constructor and @is-func(@right(node))
+            has-top-level-constructor := true
+          node
+        else if not @is-block(node)
+          node
+          
+    let self = @tmp \this
+    if has-top-level-constructor
+      body := @walk body, #(node)@
+        if @is-def(node)
+          let key = @left(node)
+          if @is-const(key) and @value(key) == \constructor
+            let value = @right(node)
+            let constructor = if @func-is-bound(value)
+              let func-body = [
+                AST let $self = if this instanceof $name then this else ^$prototype
+                @walk @func-body(value), #(node)@
+                  if @is-func(node)
+                    unless @func-is-bound(node)
+                      node
+                  else if @is-this(node)
+                    self
+                AST return $self
+              ]
+              @func(
+                @func-params value
+                AST $func-body
+                false
+                false)
+            else
+              let error-message = if display-name?
+                AST "$($display-name) must be called with new"
+              else
+                AST "Must be called with new"
+              let func-body = [
+                AST if this not instanceof $name
+                  throw TypeError $error-message
+                @func-body(value)
+              ]
+              @func(
+                @func-params value
+                AST $func-body
+                false
+                false)
+            AST let $name = $constructor
+                
+        else if not @is-block(node)
+          node
+    else if constructor-count != 0
+      let ctor = @tmp \ctor
+      let result = @tmp \ref
+      init.push AST
+        let mutable $ctor = void
+        let $name()
+          let $self = if this instanceof $name then this else ^$prototype
+          
+          if typeof $ctor == "function"
+            let $result = $ctor.apply($self, arguments)
+            if Object($result) == $result
+              return $result
+          else if $has-superclass-const
+            let $result = $sup.apply($self, arguments)
+            if Object($result) == $result
+              return $result
+          $self
+      body := @walk body, #(node)@
+        if @is-def(node)
+          let key = @left(node)
+          if @is-const(key) and @value(key) == \constructor
+            let value = @right(node)
+            AST $ctor := $value
+    else
+      if @empty(superclass)
+        init.push AST
+          let $name() -> if this instanceof $name then this else ^$prototype
+      else
+        let result = @tmp \ref
+        init.push AST
+          let $name()
+            let $self = if this instanceof $name then this else ^$prototype
+            let $result = $sup.apply($self, arguments)
+            if Object($result) == $result
+              $result
+            else
+              $self
+    
+    let change-defs(node)@ -> @walk node, #(node)@
+      if @is-def(node)
+        let key = @left(node)
+        let value = @right(node)
+        change-defs AST $prototype[$key] := $value
+    body := change-defs body
+    
+    body := @walk body, #(node)@
+      if @is-func(node)
+        unless @func-is-bound(node)
+          node
+      else if @is-this(node)
+        name
+    
+    let mutable result = AST do $sup = $superclass
+      $init
+      $body
+      $name
+    
+    if declaration?
+      AST let $declaration = $result
+    else if assignment?
+      AST $assignment := $result
+    else
+      result

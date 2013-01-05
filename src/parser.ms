@@ -1806,9 +1806,10 @@ define Body = sequential! [
   EmptyLines
   [\this, InBlock]
 ]
-define BodyOrStatement = one-of! [
+define BodyOrStatementOrNothing = one-of! [
   Body
   Statement
+  Nothing
 ]
 
 define DedentedBody = sequential! [
@@ -1995,14 +1996,16 @@ define FunctionLiteral = short-circuit! HashSign, sequential! [
 ]
 
 define AstToken = word \AST
-define Ast = in-ast short-circuit! AstToken, sequential! [
+define Ast = short-circuit! AstToken, sequential! [
   #(o)
     if not _in-macro.peek()
       o.error "Can only use AST inside a macro"
+    else if _in-ast.peek()
+      o.error "Cannot use AST inside an AST"
     else
       true
   AstToken
-  [\this, BodyOrStatement]
+  [\this, in-ast BodyOrStatementOrNothing]
 ], #(x, o, i) -> MacroHelper.constify-object x, i, o.index
 
 define Debugger = word \debugger, #(x, o, i) -> o.debugger i
@@ -2479,6 +2482,26 @@ define BasicInvocationOrAccess = sequential! [
   
   o.call-chain i, head.node, links
 
+define SuperToken = word "super"
+define SuperInvocation = short-circuit! SuperToken, sequential! [
+  SuperToken
+  ["child", maybe! (oneOf! [
+    sequential! [
+      EmptyLines
+      Space
+      Period
+      [\this, IdentifierNameConstOrNumberLiteral]
+    ]
+    sequential! [
+      OpenSquareBracketChar
+      [\this, Expression]
+      CloseSquareBracket
+    ]
+  ]), NOTHING]
+  ["args", InvocationArguments]
+], #(x, o, i)
+  o.super i, if x.child != NOTHING then x.child else void, x.args
+
 define EvalToken = word \eval
 define Eval = short-circuit! EvalToken, sequential! [
   EvalToken
@@ -2490,6 +2513,7 @@ define Eval = short-circuit! EvalToken, sequential! [
 
 define InvocationOrAccess = one-of! [
   BasicInvocationOrAccess
+  SuperInvocation
   Eval
 ]
 
@@ -2703,6 +2727,19 @@ define Let = short-circuit! LetToken, sequential! [
   ]]
 ], #(x, o, i) -> o.let i, x.left, x.right
 
+define DefToken = word \def
+define Def = short-circuit! DefToken, sequential! [
+  DefToken
+  [\left, ObjectKey]
+  [\right, maybe! (one-of! [
+    sequential! [
+      DeclareEqualSymbol
+      [\this, ExpressionOrAssignment]
+    ]
+    FunctionDeclaration
+  ]), NOTHING]
+], #(x, o, i) -> o.def i, x.left, if x.right == NOTHING then void else x.right
+
 define ReturnToken = word \return
 define Return = short-circuit! ReturnToken, sequential! [
   ReturnToken
@@ -2724,7 +2761,7 @@ define Continue = word \continue, #(x, o, i) -> o.continue i
 define Statement = sequential! [
   [\this, in-statement one-of! [
     Let
-    //Def
+    Def
     Return
     Yield
     Break
@@ -2862,8 +2899,9 @@ let MacroHelper = do
   
   MacroHelper::is-ident := #(node) -> node instanceof IdentNode
   MacroHelper::name := #(node) -> if @is-ident node then node.name
-  MacroHelper::ident := #(name)
-    @state.ident @index, name
+  MacroHelper::ident := #(name as String)
+    if require('./ast').is-acceptable-ident(name)
+      @state.ident @index, name
   
   MacroHelper::is-call := #(node)
     if node instanceof CallChainNode
@@ -2886,6 +2924,16 @@ let MacroHelper = do
       let links = node.links
       if links[links.length - 1].type == \call
         links[links.length - 1].args
+  
+  MacroHelper::is-super := #(node) -> node instanceof SuperNode
+  
+  MacroHelper::super-child := #(node)
+    if @is-super(node)
+      node.child
+    
+  MacroHelper::super-args := #(node)
+    if @is-super(node)
+      node.args
   
   MacroHelper::call-is-new := #(node)
     if node instanceof CallChainNode
@@ -2916,14 +2964,14 @@ let MacroHelper = do
   MacroHelper::func := #(params, body, auto-return = true, bound = false)
     @state.function 0, params, body, auto-return, bound
   
-  MacroHelper::param := #(ident, default-value, spread, is-mutable, as-type)
-    @state.param 0, ident, default-value, spread, is-mutable, as-type
-  
   MacroHelper::is-func := #(node) -> node instanceof FunctionNode
   MacroHelper::func-body := #(node) -> if @is-func node then node.body
   MacroHelper::func-params := #(node) -> if @is-func node then node.params
-  MacroHelper::func-is-auto-return := #(node) -> if @is-func node then not not node.is-auto-return
-  MacroHelper::func-is-bound := #(node) -> if @is-func node then not not node.is-bound
+  MacroHelper::func-is-auto-return := #(node) -> if @is-func node then not not node.auto-return
+  MacroHelper::func-is-bound := #(node) -> if @is-func node then not not node.bound
+  
+  MacroHelper::param := #(ident, default-value, spread, is-mutable, as-type)
+    @state.param 0, ident, default-value, spread, is-mutable, as-type
   
   MacroHelper::is-param := #(node) -> node instanceof ParamNode
   MacroHelper::param-ident := #(node) -> if @is-param node then node.ident
@@ -2937,6 +2985,9 @@ let MacroHelper = do
   
   MacroHelper::is-object := #(node) -> node instanceof ObjectNode
   MacroHelper::pairs := #(node) -> if @is-object node then node.pairs
+  
+  MacroHelper::is-block := #(node) -> node instanceof BlockNode
+  MacroHelper::nodes := #(node) -> if @is-block node then node.nodes
   
   MacroHelper::array := #(elements)
     @state.array 0, elements
@@ -2955,6 +3006,9 @@ let MacroHelper = do
   
   MacroHelper::is-type-array := #(node) -> node instanceof TypeArrayNode
   MacroHelper::subtype := #(node) -> @is-type-array(node) and node.subtype
+  
+  MacroHelper::is-this := #(node) -> node instanceof ThisNode
+  MacroHelper::is-arguments := #(node) -> node instanceof ArgsNode
   
   MacroHelper::cache := #(node, init, name as String = \ref, save as Boolean)
     if @is-complex node
@@ -2979,8 +3033,6 @@ let MacroHelper = do
     ArrayNode start-index, end-index, for x in array
       constify-object x, start-index, end-index
   
-  let KNOWN_HELPERS = require('./translator').known-helpers
-  
   let constify-object(obj, start-index, end-index)
     if not obj or typeof obj != \object or obj instanceof RegExp
       ConstNode start-index, end-index, obj
@@ -2995,7 +3047,7 @@ let MacroHelper = do
           existential: false
           is-new: false
         }])
-    else if obj instanceof IdentNode and obj.name in KNOWN_HELPERS
+    else if obj instanceof IdentNode and obj.name in require('./translator').known-helpers
       MacroHelperNode obj.start-index, obj.end-index, obj.name
     else if obj instanceof MacroAccessNode
       CallChainNode(obj.start-index, obj.end-index
@@ -3062,6 +3114,30 @@ let MacroHelper = do
   
   MacroHelper.node := #(type, start-index, end-index, ...args)
     Node[type] start-index, end-index, ...args
+  
+  MacroHelper::is-def := #(node) -> node instanceof DefNode
+  MacroHelper::is-assign := #(node) -> node instanceof AssignNode
+  MacroHelper::is-let := #(node) -> node instanceof LetNode
+  MacroHelper::is-binary := #(node) -> node instanceof BinaryNode
+  MacroHelper::is-unary := #(node) -> node instanceof UnaryNode
+  MacroHelper::op := #(node)
+    if @is-assign(node) or @is-binary(node) or @is-unary(node)
+      node.op
+  MacroHelper::left := #(node)
+    if @is-def(node) or @is-let(node) or @is-binary(node)
+      node.left
+  MacroHelper::right := #(node)
+    if @is-def(node) or @is-let(node) or @is-binary(node)
+      node.right
+  MacroHelper::unary-node := #(node)
+    if @is-unary(node)
+      node.node
+  
+  MacroHelper::is-access := #(node) -> node instanceof AccessNode
+  MacroHelper::parent := #(node) -> if @is-access(node) then node.parent
+  MacroHelper::child := #(node) -> if @is-access(node) then node.child
+  
+  MacroHelper::walk := #(node as Node, func as Function) -> walk node, func
   
   MacroHelper::has-func := #(node)
     let FOUND = {}
@@ -3175,7 +3251,8 @@ macro node-type!
     let type = @ident(capped-name & "Node")
     let body = [
       AST let self = ^$type.prototype
-      AST self.type := $name
+      //AST self.type := $name
+      AST Object.define-property self, \type, get: #-> throw Error "Don't access type on Node"
       AST self.start-index := start-index
       AST self.end-index := end-index
     ]
@@ -3211,8 +3288,7 @@ macro node-type!
             walk-init.push AST let $ident = f this[$key]
             walk-check := AST $walk-check or $ident != this[$key]
             walk-args.push ident
-          else if @param-type(arg).type == \type-array and @is-ident(@param-type(arg).subtype) and @name(@param-type(arg).subtype) == \Node
-          //else if @is-type-array(@param-type(arg)) and @is-ident(@subtype(@param-type(arg))) and @name(@subtype(@param-type(arg))) == \Node
+          else if @is-type-array(@param-type(arg)) and @is-ident(@subtype(@param-type(arg))) and @name(@subtype(@param-type(arg))) == \Node
             walk-init.push AST let $ident = map this[$key], f
             walk-check := AST $walk-check or $ident != this[$key]
             walk-args.push ident
@@ -3287,6 +3363,8 @@ let State = do
             Body
           else if ident == \Identifier
             Identifier
+          else if ident == \SimpleAssignable
+            SimpleAssignable
           else if ident == \Declarable
             Declarable
           else if ident == \Parameter
@@ -3572,6 +3650,15 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null)
 node-type! \continue
 node-type! \debugger
 node-type! \declarable, ident as Node, is-mutable as Boolean
+node-type! \def, left as Node, right as (Node|void), {
+  walk: #(func)
+    let left = func @left
+    let right = if @right? then func @right else @right
+    if left != @left or right != @right
+      DefNode @start-index, @end-index, left, right
+    else
+      this
+}
 node-type! \define-helper, name as Node, value as Node
 node-type! \eval, code as Node
 node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node
@@ -3600,6 +3687,15 @@ node-type! \return, node as Node = ConstNode(0, 0, void), existential as Boolean
 node-type! \root, body as Node
 node-type! \spread, node as Node
 node-type! \string, parts as [Node]
+node-type! \super, child as (Node|void), args as [Node], {
+  walk: #(func)
+    let child = if @child? then func @child else @child
+    let args = map @args, func
+    if child != @child or args != @args
+      SuperNode @start-index, @end-index, child, args
+    else
+      this
+}
 node-type! \syntax-choice, choices as [Node]
 node-type! \syntax-many, inner as Node, multiplier as String
 node-type! \syntax-param, ident as Node, as-type as (Node|void), {
