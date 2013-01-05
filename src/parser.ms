@@ -3091,7 +3091,7 @@ let MacroHelper = do
     
     if node not instanceof Node
       throw Error "Unexpected type to walk through: $(typeof! node)"
-    if node not instanceof BlockNode?
+    if node not instanceof BlockNode
       return? func(node)
     node.walk(#(x) -> walk x, func)
   
