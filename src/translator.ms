@@ -819,34 +819,56 @@ let translators = {
       access-index: #(...args)
         link-types.access.apply this, args
       call: do
-        let handle-spread-call(func, array, is-new, scope)
-          if is-new
-            scope.add-helper \__new
-            ast.Call ast.Ident(\__new), [func, array]
-          else if func instanceof ast.Binary and func.op == "."
-            async set-parent, parent <- scope.maybe-cache func.left
-            ast.Call(
-              ast.Access ast.Access(set-parent, func.right), \apply
-              [parent, array])
+        let make-call(func, mutable args, is-new, is-apply, scope)
+          let mutable this-arg = void
+          if is-apply and (args.length == 0 or args[0] not instanceof parser.Node.Spread)
+            let start = translate args[0], scope, \expression
+            let arg-array = array-translate args[1:], scope, false
+            if arg-array instanceof ast.Arr
+              ast.Call(
+                ast.Access func, \call
+                [start, ...arg-array.elements])
+            else
+              ast.Call(
+                ast.Access func, \apply
+                [start, arg-array])
           else
-            ast.Call(
-              ast.Access func, \apply
-              [ast.Const(void), array])
-        
-        let make-call(func, args, is-new, scope)
-          let arg-array = array-translate args, scope, false
-          
-          if arg-array not instanceof ast.Arr
-            handle-spread-call(func, arg-array, is-new, scope)
-          else
-            ast.Call(
-              func
-              arg-array.elements
-              is-new)
+            let arg-array = array-translate args, scope, false
+            
+            if is-apply
+              async set-array, array <- scope.maybe-cache arg-array
+              scope.add-helper \__slice
+              ast.Call(
+                ast.Access func, \apply
+                [
+                  ast.Access set-array, 0
+                  ast.Call(
+                    ast.Ident \__slice
+                    [array, ast.Const 1])])
+            else if arg-array instanceof ast.Arr
+              ast.Call(
+                func
+                arg-array.elements
+                is-new)
+            else if is-new
+              scope.add-helper \__new
+              ast.Call ast.Ident(\__new), [func, arg-array]
+            else if func instanceof ast.Binary and func.op == "."
+              async set-parent, parent <- scope.maybe-cache func.left
+              ast.Call(
+                ast.Access ast.Access(set-parent, func.right), \apply
+                [parent, arg-array])
+            else
+              ast.Call(
+                ast.Access func, \apply
+                [ast.Const(void), arg-array])
         
         #(links, link, scope, i, current)
+          if link.is-new and link.is-apply
+            throw Error "Cannot have a call link with both is-new and is-apply"
+          
           unless link.existential
-            handle links, scope, i + 1, make-call(current, link.args, link.is-new, scope)
+            handle links, scope, i + 1, make-call(current, link.args, link.is-new, link.is-apply, scope)
           else
             if current instanceof ast.Binary and current.op == "."
               async set-parent, parent <- scope.maybe-cache current.left
@@ -856,7 +878,7 @@ let translators = {
                   ast.Unary \typeof, ast.Access(set-parent, set-child)
                   "==="
                   \function)
-                handle links, scope, i + 1, make-call(ast.Access(parent, child), link.args, link.is-new, scope))
+                handle links, scope, i + 1, make-call(ast.Access(parent, child), link.args, link.is-new, link.is-apply, scope))
             else
               async set-func, func <- scope.maybe-cache current
               ast.If(
@@ -864,7 +886,7 @@ let translators = {
                   ast.Unary \typeof, set-func
                   "==="
                   \function)
-                handle links, scope, i + 1, make-call(func, link.args, link.is-new, scope))
+                handle links, scope, i + 1, make-call(func, link.args, link.is-new, link.is-apply, scope))
       "?": #(links, link, scope, i, current)
         async set-left, left <- scope.maybe-cache current
         ast.IfExpression(

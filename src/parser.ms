@@ -2434,12 +2434,14 @@ define BasicInvocationOrAccess = sequential! [
     }
     sequential! [
       [\existential, MaybeExistentialSymbolNoSpace]
+      [\is-apply, maybe! AtSign, NOTHING]
       [\args, InvocationArguments]
     ], #(x) -> {
       type: \call
       x.args
       existential: x.existential == "?"
       is-new: false
+      is-apply: x.is-apply != NOTHING
     }
     sequential! [
       ExistentialSymbolNoSpace
@@ -2470,20 +2472,22 @@ define BasicInvocationOrAccess = sequential! [
     else if part.type in [\access, \access-index]
       links.push part
     else if part.type == \call
+      if is-new and part.is-apply
+        o.error "Cannot call with both new and @ at the same time"
       let clone = copy(part)
       clone.is-new := is-new
       is-new := false
       links.push clone
     else if part.type == "?"
       if is-new
-        links.push { type: \call, args: [], existential: false, is-new: true }
+        links.push { type: \call, args: [], existential: false, is-new: true, is-apply: false }
         is-new := false
       links.push part
     else
       o.error "Unknown link type: $(part.type)"
   
   if is-new
-    links.push { type: \call, args: [], existential: false, is-new: true }
+    links.push { type: \call, args: [], existential: false, is-new: true, is-apply: false }
   
   o.call-chain i, head.node, links
 
@@ -2947,7 +2951,17 @@ let MacroHelper = do
         return not not links[links.length - 1].is-new
     false
   
-  MacroHelper::call := #(func as Node, args as [Node], is-new as Boolean = false)
+  MacroHelper::call-is-apply := #(node)
+    if node instanceof CallChainNode
+      let links = node.links
+      if links[links.length - 1].type == \call
+        return not not links[links.length - 1].is-apply
+    false
+  
+  MacroHelper::call := #(func as Node, args as [Node], is-new as Boolean = false, is-apply as Boolean = false)
+    if is-new and is-apply
+      throw Error "Cannot specify both is-new and is-apply"
+    
     if func instanceof CallChainNode
       @state.call-chain func.start-index, func.head, [
         ...func.links
@@ -2955,6 +2969,7 @@ let MacroHelper = do
           type: \call
           args
           is-new
+          is-apply
         }
       ]
     else
@@ -2963,6 +2978,7 @@ let MacroHelper = do
           type: \call
           args
           is-new
+          is-apply
         }
       ]
   
@@ -3051,6 +3067,7 @@ let MacroHelper = do
           args: [IdentNode obj.start-index, obj.end-index, obj.name.substring 1]
           existential: false
           is-new: false
+          is-apply: false
         }])
     else if obj instanceof IdentNode and obj.name in require('./translator').known-helpers
       MacroHelperNode obj.start-index, obj.end-index, obj.name
@@ -3065,6 +3082,7 @@ let MacroHelper = do
           ]
           existential: false
           is-new: false
+          is-apply: false
         }])
     else if obj instanceof Node
       if obj.constructor == Node
@@ -3635,6 +3653,7 @@ node-type! \call-chain, head as Node, links as Array, {
             args
             link.existential
             link.is-new
+            link.is-apply
           }
         else
           link
