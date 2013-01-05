@@ -1,10 +1,7 @@
 macro if
-  syntax test as Logic, "then", body, else-body as ("else", this)?
-    @if(test, body, else-body)
-  
   syntax test as Logic, "then", body, else-ifs as ("else", "if", test as Logic, "then", body)*, else-body as ("else", this)?
     let f(i, current)
-      if i ~< 0 then current else f.call(this, i ~- 1, @if(else-ifs[i].test, else-ifs[i].body, current))
+      (i ~>= 0 and f.call(this, i ~- 1, @if(else-ifs[i].test, else-ifs[i].body, current))) or current
     @if(test, body, f.call(this, else-ifs.length ~- 1, else-body))
   
   syntax test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?
