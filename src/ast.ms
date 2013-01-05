@@ -716,7 +716,7 @@ exports.Call := class Call extends Expression
       if func instanceof Ident
         if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name and PURE_PRIMORDIAL_FUNCTIONS[func.name] == true and typeof global != "undefined" and typeof global[func.name] == "function"
           try
-            return to-const global[func.name].apply(null, for arg in args
+            return to-const global[func.name]@ void, ...(for arg in args
               arg.const-value())
           catch e
             void

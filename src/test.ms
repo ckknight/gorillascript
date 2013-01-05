@@ -7,7 +7,7 @@ let no-prelude = false
 let mutable passed-tests = 0
 let add-global(name, func)!
   global[name] := #(...args)
-    let result = func.apply(null, args)
+    let result = func ...args
     passed-tests += 1
     result
 
@@ -46,7 +46,7 @@ global.test := #(description, fn)!
       description
       current-file
     }
-    fn.call(fn)
+    fn@ fn
   catch e
     e.description := description
     e.source := fn.to-string()

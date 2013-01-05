@@ -1,26 +1,26 @@
 macro if
   syntax test as Logic, "then", body, else-ifs as ("else", "if", test as Logic, "then", body)*, else-body as ("else", this)?
-    let f(i, current)
-      (i ~>= 0 and f.call(this, i ~- 1, @if(else-ifs[i].test, else-ifs[i].body, current))) or current
-    @if(test, body, f.call(this, else-ifs.length ~- 1, else-body))
+    let f(i, current)@
+      (i ~>= 0 and f(i ~- 1, @if(else-ifs[i].test, else-ifs[i].body, current))) or current
+    @if(test, body, f(else-ifs.length ~- 1, else-body))
   
   syntax test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?
-    let f(i, current)
+    let f(i, current)@
       let mutable test = else-ifs[i]?.test
       test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
-      if i ~< 0 then current else f.call(this, i ~- 1, @if(test, else-ifs[i].body, current))
-    @if(test, body, f.call(this, else-ifs.length ~- 1, else-body))
+      if i ~< 0 then current else f(i ~- 1, @if(test, else-ifs[i].body, current))
+    @if(test, body, f(else-ifs.length ~- 1, else-body))
 
 macro unless
   syntax test as Logic, "then", body, else-body as ("else", this)?
     AST if not $test then $body else $else-body
   
   syntax test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?
-    let f(i, current)
+    let f(i, current)@
       let mutable test = else-ifs[i]?.test
       test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
-      if i ~< 0 then current else f.call(this, i ~- 1, @if(test, else-ifs[i].body, current))
-    @if((AST not $test), body, f.call(this, else-ifs.length ~- 1, else-body))
+      if i ~< 0 then current else f(i ~- 1, @if(test, else-ifs[i].body, current))
+    @if((AST not $test), body, f(else-ifs.length ~- 1, else-body))
 
 define helper __num = #(num)
   if typeof num != "number"
@@ -66,7 +66,7 @@ macro with
       AST #-> $body
     else
       AST #!-> $body
-    AST $func.call($node)
+    AST $func@($node)
 
 define helper __lt = #(x, y)
   let type = typeof x
@@ -88,13 +88,15 @@ define helper __lte = #(x, y)
 
 define helper __owns = do
   let has = Object.prototype.has-own-property
-  #(parent, child) -> has.call(parent, child)
+  #(parent, child) -> has@(parent, child)
 
 define helper __in = do
   let index-of = Array.prototype.index-of
-  #(child, parent) -> index-of.call(parent, child) != -1
+  #(child, parent) -> index-of@(parent, child) != -1
 
-define helper __slice = Function.prototype.call.bind(Array.prototype.slice)
+define helper __slice = do
+  let slice = Array.prototype.slice
+  #(array, start, end) -> slice@(array, start, end)
 
 define helper __splice = do
   let splice = Array.prototype.splice
@@ -104,7 +106,7 @@ define helper __splice = do
       start ~+= len
     if end ~< 0
       end ~+= len
-    splice.apply array, [start, end ~- start, ...right]
+    splice@ array, start, end ~- start, ...right
     right
 
 define helper __typeof = do
@@ -115,7 +117,7 @@ define helper __typeof = do
     else if o == null
       "Null"
     else
-      (o.constructor and o.constructor.name) or _to-string.call(o).slice(8, -1)
+      (o.constructor and o.constructor.name) or _to-string@(o).slice(8, -1)
 
 define helper __cmp = #(left, right)
   if left == right
@@ -146,7 +148,7 @@ define helper __is-array = if typeof Array.is-array == "function"
 else
   do
     let _to-string = Object.prototype.to-string
-    #(x) -> _to-string.call(x) == "[object Array]"
+    #(x) -> _to-string@(x) == "[object Array]"
 
 define helper __to-array = #(x)
   if __is-array(x)
@@ -886,17 +888,17 @@ macro class
         let len = super-args.length
         while i ~< len, i ~+= 1
           args.push fix-supers super-args[i]
+        
         @call(
           if child?
-            AST $superproto[$child].apply
+            AST $superproto[$child]
           else if @empty(superclass)
-            AST Object.apply
+            AST Object
           else
-            AST $sup.apply
-          [
-            AST this
-            @array args
-          ])
+            AST $sup
+          [AST this].concat(args)
+          false
+          true)
     body := fix-supers body
     
     let mutable constructor-count = 0
@@ -969,11 +971,11 @@ macro class
           let $self = if this instanceof $name then this else ^$prototype
           
           if typeof $ctor == "function"
-            let $result = $ctor.apply($self, arguments)
+            let $result = $ctor@ $self, ...arguments
             if Object($result) == $result
               return $result
           else if $has-superclass-const
-            let $result = $sup.apply($self, arguments)
+            let $result = $sup@ $self, ...arguments
             if Object($result) == $result
               return $result
           $self
@@ -992,7 +994,7 @@ macro class
         init.push AST
           let $name()
             let $self = if this instanceof $name then this else ^$prototype
-            let $result = $sup.apply($self, arguments)
+            let $result = $sup@ $self, ...arguments
             if Object($result) == $result
               $result
             else
@@ -1097,17 +1099,18 @@ macro namespace
         let len = super-args.length
         while i ~< len, i ~+= 1
           args.push fix-supers super-args[i]
+        let parent = if @empty(superobject)
+          AST Object.prototype
+        else
+          AST $sup
         @call(
           if child?
-            AST $sup[$child].apply
-          else if @empty(superobject)
-            AST Object.prototype.apply
+            AST $parent[$child]
           else
-            AST $sup.apply
-          [
-            AST this
-            @array args
-          ])
+            AST $parent
+          [AST this].concat(args)
+          false
+          true)
     body := fix-supers body
     
     let change-defs(node)@ -> @walk node, #(node)@

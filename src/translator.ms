@@ -817,12 +817,12 @@ let translators = {
               ast.Binary set-obj, "!=", null
               handle links, scope, i + 1, make-access(obj))
       access-index: #(...args)
-        link-types.access.apply this, args
+        link-types.access@ this, ...args
       call: do
         let make-call(func, mutable args, is-new, is-apply, scope)
           let mutable this-arg = void
           if is-apply and (args.length == 0 or args[0] not instanceof parser.Node.Spread)
-            let start = translate args[0], scope, \expression
+            let start = if args.length == 0 then ast.Const(void) else translate args[0], scope, \expression
             let arg-array = array-translate args[1:], scope, false
             if arg-array instanceof ast.Arr
               ast.Call(

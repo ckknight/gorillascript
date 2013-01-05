@@ -3214,7 +3214,7 @@ let MacroHelper = do
     if mutators not ownskey node.constructor.capped-name
       func(node) ? node
     else
-      mutators[node.constructor.capped-name].call(this, node, func)
+      mutators[node.constructor.capped-name]@(this, node, func)
   
   MacroHelper
 
@@ -3533,7 +3533,7 @@ let State = do
     if not @current-macro
       this.error "Attempting to specify a macro syntax when not in a macro"
 
-    let data = macro-syntax-types[type].call this, index, params, body
+    let data = macro-syntax-types[type]@(this, index, params, body)
     let handler = data.handler
     let rule = data.rule
     let macro-helpers = data.macro-helpers
@@ -3544,7 +3544,7 @@ let State = do
         o.macro-access i, macro-id, x
       else
         let macro-helper = new MacroHelper o, i, not _statement.peek()
-        let result = handler.call macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data)
+        let result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data)
           macros.get-by-id(id)(data, o, i)
         let tmps = macro-helper.get-tmps()
         o.use-macro i, result, tmps.unsaved, macro-helpers
