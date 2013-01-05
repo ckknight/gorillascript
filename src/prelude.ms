@@ -371,14 +371,14 @@ macro for
           $else-body
   
   syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as Body, else-body as ("else", this as Body)?
+    if @empty(reducer)
+      reducer := null
+  
     if not @empty(else-body)
       if @expr
         throw Error("Cannot use a for loop with an else as an expression")
       else if reducer
         throw Error("Cannot use a for loop with an else with " ~& reducer)
-    
-    if @empty(reducer)
-      reducer := null
     
     let mutable index = null
     if @empty(value)
@@ -902,16 +902,6 @@ macro class
           ])
     body := fix-supers body
     
-    let remove-auto-return(func)
-      if @func-is-auto-return(func)
-        @func(
-          @func-params func
-          @func-body func
-          false
-          @func-is-bound func)
-      else
-        func
-    
     let mutable constructor-count = 0
     @walk body, #(node)@
       if @is-def(node)
@@ -928,7 +918,7 @@ macro class
           if @is-const(key) and @value(key) == \constructor and @is-func(@right(node))
             has-top-level-constructor := true
           node
-        else if not @is-block(node)
+        else
           node
           
     let self = @tmp \this
@@ -971,7 +961,7 @@ macro class
                 false)
             AST let $name = $constructor
                 
-        else if not @is-block(node)
+        else
           node
     else if constructor-count != 0
       let ctor = @tmp \ctor
@@ -1028,7 +1018,119 @@ macro class
     let mutable result = AST do $sup = $superclass
       $init
       $body
-      $name
+      return $name
+    
+    if declaration?
+      AST let $declaration = $result
+    else if assignment?
+      AST $assignment := $result
+    else
+      result
+
+macro enum
+  syntax name as SimpleAssignable?, body as Body?
+    let mutable declaration = void
+    let mutable assignment = void
+    if @is-ident(name)
+      declaration := name
+    else if @is-access(name)
+      assignment := name
+      if @is-const(@child(name)) and typeof @value(@child(name)) == \string
+        name := @ident(@value(@child(name))) ? @tmp \enum
+      else
+        name := @tmp \enum
+    else
+      name := @tmp \enum
+    
+    let mutable index = 0
+    body := @walk body, #(node)@
+      if @is-def node
+        let key = @left node
+        let mutable value = @right node
+        if not @is-const key
+          throw Error "Cannot have non-const enum keys"
+        if @empty value
+          index ~+= 1
+          value := @const index
+        AST this[$key] := $value
+      else
+        node
+    
+    let result = AST with {}
+      $body
+      return this
+    
+    if declaration?
+      AST let $declaration = $result
+    else if assignment?
+      AST $assignment := $result
+    else
+      result
+
+macro namespace
+  syntax name as SimpleAssignable?, superobject as ("extends", this)?, body as Body?
+    let mutable declaration = void
+    let mutable assignment = void
+    if @is-ident(name)
+      declaration := name
+    else if @is-access(name)
+      assignment := name
+      if @is-const(@child(name)) and typeof @value(@child(name)) == \string
+        name := @ident(@value(@child(name))) ? @tmp \ns
+      else
+        name := @tmp \ns
+    else
+      name := @tmp \ns
+    
+    let sup = if @empty(superobject) then superobject else @tmp \super
+    let init = []
+    if @empty(superobject)
+      init.push AST let $name = {}
+    else
+      init.push AST let $name = ^$sup
+    
+    let fix-supers(node)@ -> @walk node, #(node)@
+      if @is-super(node)
+        let mutable child = @super-child(node)
+        if child?
+          child := fix-supers child
+        let args = []
+        let super-args = @super-args node
+        let mutable i = 0
+        let len = super-args.length
+        while i ~< len, i ~+= 1
+          args.push fix-supers super-args[i]
+        @call(
+          if child?
+            AST $sup[$child].apply
+          else if @empty(superobject)
+            AST Object.prototype.apply
+          else
+            AST $sup.apply
+          [
+            AST this
+            @array args
+          ])
+    body := fix-supers body
+    
+    let change-defs(node)@ -> @walk node, #(node)@
+      if @is-def(node)
+        let key = @left(node)
+        let value = @right(node)
+        change-defs AST $name[$key] := $value
+    body := change-defs body
+    
+    body := @walk body, #(node)@
+      if @is-func(node)
+        unless @func-is-bound(node)
+          node
+      else if @is-this(node)
+        name
+    
+    let mutable result = AST do $sup = $superobject
+      $init
+      $body
+      return $name
     
     if declaration?
       AST let $declaration = $result
