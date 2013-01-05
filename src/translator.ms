@@ -147,7 +147,7 @@ let strnum-wrap(node, scope)
   if node.type().is-subset-of(types.string)
     node
   else if node.type().is-subset-of(types.string-or-number)
-    ast.Binary ast.Const(""), "+", node
+    ast.Binary "", "+", node
   else
     scope.add-helper \__strnum
     ast.Call ast.Ident(\__strnum), [node]
@@ -155,7 +155,7 @@ let strnum-wrap(node, scope)
 let binary-ops = {
   "~^": #(left, right)
     ast.Call(
-      ast.Access ast.Ident(\Math), ast.Const(\pow)
+      ast.Access ast.Ident(\Math), \pow
       [left, right])
   "^": #(left, right, scope)
     binary-ops["~^"] num-wrap(left, scope), num-wrap(right, scope)
@@ -170,7 +170,7 @@ let binary-ops = {
     ast.Binary num-wrap(left, scope), "%", num-wrap(right, scope)
   "~\\": #(left, right)
     ast.Call(
-      ast.Access ast.Ident(\Math), ast.Const(\floor)
+      ast.Access ast.Ident(\Math), \floor
       [ast.Binary left, "/", right])
   "\\": #(left, right, scope)
     binary-ops["~\\"] num-wrap(left, scope), num-wrap(right, scope)
@@ -224,12 +224,12 @@ let binary-ops = {
       right)
   "~&": #(mutable left, right)
     if left.type().overlaps(types.number) and right.type().overlaps(types.number)
-      left := ast.Binary ast.Const(""), "+", left
+      left := ast.Binary "", "+", left
     ast.Binary left, "+", right
   "&": #(mutable left, mutable right, scope)
     if not left.type().is-subset-of(types.string)
       if left.type().is-subset-of(types.string-or-number) and not right.type().is-subset-of(types.string)
-        left := ast.Binary ast.Const(""), "+", left
+        left := ast.Binary "", "+", left
       else
         left := strnum-wrap left, scope
     if not right.type().is-subset-of(types.string-or-number)
@@ -340,15 +340,15 @@ let binary-ops = {
     if left instanceof ast.Ident and not scope.has-variable left
       ast.IfExpression(
         ast.Binary(
-          ast.Binary ast.Unary("typeof", left), "!==", ast.Const "undefined"
+          ast.Binary ast.Unary("typeof", left), "!==", "undefined"
           "&&"
-          ast.Binary left, "!==", ast.Const null)
+          ast.Binary left, "!==", null)
         left,
         right)
     else
       async set-left, left <- scope.maybe-cache left
       ast.IfExpression(
-        ast.Binary set-left, "!=", ast.Const(null)
+        ast.Binary set-left, "!=", null
         left
         right)
   "~bitand": "&"
@@ -376,11 +376,11 @@ let unary-ops = {
     let translated = translate node.node, scope, \expression
     if translated instanceof ast.Ident and not scope.has-variable translated
       auto-return ast.Binary(
-        ast.Binary ast.Unary("typeof", translated), "!==", ast.Const "undefined"
+        ast.Binary ast.Unary("typeof", translated), "!==", "undefined"
         "&&"
-        ast.Binary translated, "!==", ast.Const null)
+        ast.Binary translated, "!==", null)
     else
-      auto-return ast.Binary(translated, "!=", ast.Const(null))
+      auto-return ast.Binary translated, "!=", null
   "~bitnot": "~"
   bitnot: #(node, scope, location, auto-return)
     auto-return ast.Unary("~", num-wrap(translate(node.node, scope, \expression), scope))
@@ -435,7 +435,7 @@ let unary-ops = {
     else
       async set-node, node <- scope.maybe-cache translate node.node, scope, \expression
       ast.If(
-        ast.Binary set-node, "!=", ast.Const(null)
+        ast.Binary set-node, "!=", null
         ast.Throw(node, scope, \expression))
   "^": #(node, scope, location, auto-return)
     scope.add-helper \__create
@@ -511,9 +511,7 @@ let array-translate(elements, scope, replace-with-slice)
         array
     else
       ast.Call(
-        ast.Access(
-          translated-items[0]
-          ast.Const(\concat))
+        ast.Access translated-items[0], \concat
         translated-items[1:])
 
 let translators = {
@@ -570,7 +568,7 @@ let translators = {
           else if right.value == -1
             ast.Unary "--", left
           else
-            ast.Binary left, "-=", ast.Const(-right.value)
+            ast.Binary left, "-=", -right.value
         else
           unless right.type().is-subset-of types.number
             right := ast.Unary "+", right
@@ -641,7 +639,7 @@ let translators = {
       "~&=": #(left, right, scope)
         if left.type().overlaps(types.number) and right.type().overlaps(types.number)
           async set-left, left <- scope.maybe-cache-access left
-          ast.Binary set-left, "+=", ast.Binary(ast.Const(""), "+", right)
+          ast.Binary set-left, "+=", ast.Binary("", "+", right)
         else
           ast.Binary left, "+=", right
       "&=": #(left, mutable right, scope)
@@ -676,8 +674,8 @@ let translators = {
         async set-left, left <- scope.maybe-cache-access left
         async set-left, left-value <- scope.maybe-cache set-left
         ast.If(
-          ast.Binary set-left, "!=", ast.Const(null),
-          left-value,
+          ast.Binary set-left, "!=", null
+          left-value
           ast.Binary left, "=", right)
       "~bitand=": "&="
       "bitand=": #(left, right, scope)
@@ -726,7 +724,7 @@ let translators = {
         let lines = for element, i in elements
           ast.Assign(
             ast.Access if i == 0 then set-parent else parent, element
-            ast.Access if i == 0 then set-value else value, ast.Const(i))
+            ast.Access if i == 0 then set-value else value, i)
         if location == \expression
           lines.push value
         ast.Block lines
@@ -816,7 +814,7 @@ let translators = {
           else
             async set-obj, obj <- scope.maybe-cache current
             ast.If(
-              ast.Binary set-obj, "!=", ast.Const(null)
+              ast.Binary set-obj, "!=", null
               handle links, scope, i + 1, make-access(obj))
       access-index: #(...args)
         link-types.access.apply this, args
@@ -828,11 +826,11 @@ let translators = {
           else if func instanceof ast.Binary and func.op == "."
             async set-parent, parent <- scope.maybe-cache func.left
             ast.Call(
-              ast.Access(ast.Access(set-parent, func.right), ast.Const(\apply))
+              ast.Access ast.Access(set-parent, func.right), \apply
               [parent, array])
           else
             ast.Call(
-              ast.Access(func, ast.Const(\apply))
+              ast.Access func, \apply
               [ast.Const(void), array])
         
         let make-call(func, args, is-new, scope)
@@ -857,20 +855,20 @@ let translators = {
                 ast.Binary(
                   ast.Unary \typeof, ast.Access(set-parent, set-child)
                   "==="
-                  ast.Const(\function))
+                  \function)
                 handle links, scope, i + 1, make-call(ast.Access(parent, child), link.args, link.is-new, scope))
             else
               async set-func, func <- scope.maybe-cache current
               ast.If(
                 ast.Binary(
-                  ast.Unary(\typeof, set-func)
+                  ast.Unary \typeof, set-func
                   "==="
-                  ast.Const(\function))
+                  \function)
                 handle links, scope, i + 1, make-call(func, link.args, link.is-new, scope))
       "?": #(links, link, scope, i, current)
         async set-left, left <- scope.maybe-cache current
         ast.IfExpression(
-          ast.Binary set-left, "!=", ast.Const(null)
+          ast.Binary set-left, "!=", null
           left
           translate link.child, scope, \expression)
     }
@@ -948,7 +946,7 @@ let translators = {
         ast.Binary(
           ast.Unary \typeof, ident
           "!=="
-          ast.Const primitive-types[type])
+          primitive-types[type])
       else if type == \Array
         scope.add-helper \__is-array
         ast.Unary(
@@ -966,7 +964,7 @@ let translators = {
     let translate-type-checks = {
       Ident: #(ident, node, scope, has-default-value, array-index)
         let access = if array-index?
-          ast.Access(ident, array-index)
+          ast.Access ident, array-index
         else
           ident
         scope.add-helper \__typeof
@@ -977,28 +975,28 @@ let translators = {
               ast.Ident(\TypeError)
               [if array-index?
                 ast.Concat(
-                  ast.Const("Expected $(ident.name)[")
+                  "Expected $(ident.name)["
                   array-index
-                  ast.Const("] to be a $(node.name), got ")
+                  "] to be a $(node.name), got "
                   ast.Call(
                     ast.Ident(\__typeof)
                     [access]))
               else
                 ast.Concat(
-                  ast.Const("Expected $(ident.name) to be a $(node.name), got ")
+                  "Expected $(ident.name) to be a $(node.name), got "
                   ast.Call(
                     ast.Ident(\__typeof)
                     [ident]))])))
         if not has-default-value and node.name == \Boolean
           ast.If(
-            ast.Binary ident, "==", ast.Const(null)
+            ast.Binary ident, "==", null
             ast.Assign ident, ast.Const(false)
             result)
         else
           result
       Access: #(ident, node, scope, has-default-value, array-index)
         let access = if array-index?
-          ast.Access(ident, array-index)
+          ast.Access ident, array-index
         else
           ident
         scope.add-helper \__typeof
@@ -1015,15 +1013,15 @@ let translators = {
               ast.Ident(\TypeError)
               [if array-index?
                 ast.Concat(
-                  ast.Const("Expected $(ident.name)[")
+                  "Expected $(ident.name)["
                   array-index
-                  ast.Const("] to be a $(type.right.value), got ")
+                  "] to be a $(type.right.value), got "
                   ast.Call(
                     ast.Ident(\__typeof)
                     [access]))
               else
                 ast.Concat(
-                  ast.Const("Expected $(ident.name) to be a $(type.right.value), got ")
+                  "Expected $(ident.name) to be a $(type.right.value), got "
                   ast.Call(
                     ast.Ident(\__typeof)
                     [ident]))])))
@@ -1057,14 +1055,14 @@ let translators = {
             throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
         
         if has-null and has-void and not has-default-value
-          tests.unshift ast.Binary ident, "!=", ast.Const(null)
+          tests.unshift ast.Binary ident, "!=", null
         let mutable result = ast.If(
           ast.And ...tests
           ast.Throw(
             ast.Call(
               ast.Ident(\TypeError)
               [ast.Concat(
-                ast.Const("Expected $(ident.name) to be a $(names.join ' or '), got ")
+                "Expected $(ident.name) to be a $(names.join ' or '), got "
                 ast.Call(
                   ast.Ident(\__typeof)
                   [ident]))])))
@@ -1073,12 +1071,12 @@ let translators = {
           if has-null or has-void
             if has-null xor has-void
               result := ast.If(
-                ast.Binary ident, "==", ast.Const(null)
+                ast.Binary ident, "==", null
                 ast.Assign ident, ast.Const(if has-null then null else void)
                 result)
           else if has-boolean
             result := ast.If(
-              ast.Binary ident, "==", ast.Const(null)
+              ast.Binary ident, "==", null
               ast.Assign ident, ast.Const(false)
               result)
         result
@@ -1098,17 +1096,17 @@ let translators = {
             ast.Call(
               ast.Ident(\TypeError)
               [ast.Concat(
-                ast.Const("Expected $(ident.name) to be an Array, got ")
+                "Expected $(ident.name) to be an Array, got "
                 ast.Call(
                   ast.Ident(\__typeof)
                   [ident]))]))
           ast.For(
             ast.Block [
               ast.Assign index, ast.Const 0
-              ast.Assign length, ast.Access ident, ast.Const \length
+              ast.Assign length, ast.Access ident, \length
             ]
-            ast.Binary(index, "<", length)
-            ast.Unary("++", index)
+            ast.Binary index, "<", length
+            ast.Unary "++", index
             translate-type-check(ident, node.subtype, scope, false, index)))
     }
     let translate-type-check(ident, node, scope, has-default-value, array-index)
@@ -1137,7 +1135,7 @@ let translators = {
         let type-check = if param.as-type then translate-type-check(ident, param.as-type, scope, param.default-value?)
         if param.default-value?
           init.push ast.If(
-            ast.Binary ident, "==", ast.Const(null)
+            ast.Binary ident, "==", null
             ast.Assign ident, translate(param.default-value, scope, \expression)
             type-check)
         else if type-check
@@ -1159,14 +1157,14 @@ let translators = {
             if found-spread == -1
               init.push ast.Assign(
                 param.ident
-                ast.Access array-ident, ast.Const(i))
+                ast.Access array-ident, i)
             else
               let diff = i - found-spread - 1
               init.push ast.Assign(
                 param.ident
                 ast.Access(
                   array-ident
-                  if diff == 0 then spread-counter else ast.Binary spread-counter, "+", ast.Const(diff)))
+                  if diff == 0 then spread-counter else ast.Binary spread-counter, "+", diff))
           else
             if found-spread != -1
               throw Error "Encountered multiple spread parameters"
@@ -1184,14 +1182,14 @@ let translators = {
                 param.ident
                 ast.IfExpresion(
                   ast.Binary(
-                    ast.Const(i)
+                    i
                     "<"
                     ast.Assign(
                       spread-counter
                       ast.Binary(
-                        ast.Binary array-ident, ".", ast.Const(\length)
+                        ast.Access array-ident, \length
                         "-"
-                        ast.Const(len - i - 1))))
+                        len - i - 1)))
                   ast.Call(
                     ast.Ident \__slice
                     [array-ident, ast.Const(i), spread-counter])
@@ -1259,7 +1257,7 @@ let translators = {
               param.ident
               ast.Access(
                 ast.Arguments()
-                if diff == 0 then spread-counter else ast.Binary(spread-counter, "+", ast.Const(diff))))
+                if diff == 0 then spread-counter else ast.Binary(spread-counter, "+", diff)))
         else
           if found-spread != -1
             throw Error "Encountered multiple spread parameters"
@@ -1278,14 +1276,14 @@ let translators = {
               param.ident
               ast.IfExpression(
                 ast.Binary(
-                  ast.Const(i)
+                  i
                   "<"
                   ast.Assign(
                     spread-counter
                     ast.Binary(
-                      ast.Binary ast.Arguments(), ".", ast.Const(\length)
+                      ast.Access ast.Arguments(), \length
                       "-"
-                      ast.Const(len - i - 1))))
+                      len - i - 1)))
                 ast.Call(
                   ast.Ident \__slice
                   [ast.Arguments(), ast.Const(i), spread-counter])
@@ -1412,13 +1410,13 @@ let translators = {
         op
         num-wrap right, scope))]
     let operators = {
-      "~^": #(scope) -> ast.Access ast.Ident(\Math), ast.Const(\pow)
+      "~^": #(scope) -> ast.Access ast.Ident(\Math), \pow
       "^": #(scope)
         let left = ast.Ident \x
         let right = ast.Ident \y
         ast.Func null, [left, right], [], [ast.Return(
           ast.Call(
-            ast.Access ast.Ident(\Math), ast.Const(\pow)
+            ast.Access ast.Ident(\Math), \pow
             [num-wrap(left, scope), num-wrap(right, scope)]))]
       "*": make-num-op "*"
       "/": make-num-op "/"
@@ -1428,14 +1426,14 @@ let translators = {
         let right = ast.Ident \y
         ast.Func null, [left, right], [], [ast.Return(
           ast.Call(
-            ast.Access ast.Ident(\Math), ast.Const(\floor)
+            ast.Access ast.Ident(\Math), \floor
             [ast.Binary left, "/", right]))]
       "\\": #(scope)
         let left = ast.Ident \x
         let right = ast.Ident \y
         ast.Func null, [left, right], [], [ast.Return(
           ast.Call(
-            ast.Access ast.Ident(\Math), ast.Const(\floor)
+            ast.Access ast.Ident(\Math), \floor
             [ast.Binary num-wrap(left, scope), "/", num-wrap(right, scope)]))]
       "~+": #(scope)
         let left = ast.Ident \x
@@ -1484,10 +1482,7 @@ let translators = {
         let left = ast.Ident \x
         let right = ast.Ident \y
         ast.Func null, [left, right], [], [ast.Return(ast.Binary(
-          ast.Binary(
-            ast.Const ""
-            "+"
-            left)
+          ast.Binary "", "+", left
           "+"
           right))]
       "&": #(scope)
@@ -1561,7 +1556,7 @@ let translators = {
         let left = ast.Ident \x
         let right = ast.Ident \y
         ast.Func null, [left, right], [], [ast.Return(ast.IfExpression(
-          ast.Binary left, "!=", ast.Const(null)
+          ast.Binary left, "!=", null
           left
           right))]
       bitnot: #(scope)
@@ -1600,8 +1595,8 @@ let translators = {
         let error = ast.Ident \e
         ast.Func null, [error], [], [
           ast.IfStatement(
-            ast.Binary(error, "!=", ast.Const(null))
-            ast.Throw(error))]
+            ast.Binary error, "!=", null
+            ast.Throw error)]
     }
     #(node, scope, location, auto-return)
       let op = node.op
@@ -1632,13 +1627,10 @@ let translators = {
     if node.existential
       async set-value, value <- scope.maybe-cache value
       ast.IfStatement(
-        ast.Binary(
-          set-value
-          "!="
-          ast.Const(null))
-        ast.Return(value))
+        ast.Binary set-value, "!=", null
+        ast.Return value)
     else
-      ast.Return(value)
+      ast.Return value
   
   Root: #(node, scope)
     let body = translate node.body, scope, \top-statement, scope.options.return
@@ -1732,7 +1724,10 @@ let translate(node as Object, scope as Scope, location as String, auto-return)
   unless translators ownskey node.constructor.capped-name
     throw Error "Unable to translate unknown node type: $(String node.constructor.capped-name)"
   
-  translators[node.constructor.capped-name](node, scope, location, auto-return)
+  let ret = translators[node.constructor.capped-name](node, scope, location, auto-return)
+  if ret not instanceofsome [ast.Node, ast.Root]
+    throw Error "Translated non-node: $(typeof! ret)"
+  ret
 
 let translate-array(nodes as Array, scope as Scope, location as String, auto-return)
   return for node, i, len in nodes

@@ -1814,9 +1814,14 @@ define BodyOrStatementOrNothing = one-of! [
 
 define DedentedBody = sequential! [
   Space
-  Newline
-  EmptyLines
-  [\this, Block]
+  [\this, oneOf! [
+    sequential! [
+      Newline
+      EmptyLines
+      [\this, Block]
+    ]
+    Nothing
+  ]]
 ]
 
 define DeclareEqualSymbol = withSpace character! "="
@@ -2732,11 +2737,11 @@ define Def = short-circuit! DefToken, sequential! [
   DefToken
   [\left, ObjectKey]
   [\right, maybe! (one-of! [
-    sequential! [
+    short-circuit! DeclareEqualSymbol, sequential! [
       DeclareEqualSymbol
       [\this, ExpressionOrAssignment]
     ]
-    FunctionDeclaration
+    short-circuit! OpenParenthesisChar, FunctionDeclaration
   ]), NOTHING]
 ], #(x, o, i) -> o.def i, x.left, if x.right == NOTHING then void else x.right
 
@@ -3677,7 +3682,7 @@ node-type! \param, ident as Node, default-value as (Node|void), spread as Boolea
   walk: #(func)
     let ident = func @ident
     let default-value = if @default-value? then func @default-value else @default-value
-    let as-type = if @as-type? then func @as-type else @default-value
+    let as-type = if @as-type? then func @as-type else @as-type
     if ident != @ident or default-value != @default-value or as-type != @as-type
       ParamNode @start-index, @end-index, ident, default-value, @spread, @is-mutable, as-type
     else

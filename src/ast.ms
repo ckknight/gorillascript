@@ -158,87 +158,69 @@ let is-acceptable-ident = exports.is-acceptable-ident := do
   #(name as String)
     IDENTIFIER_REGEX.test(name) and name not in RESERVED
 
-let Node = exports.Node := do
-  let Node()!
+exports.Node := class Node
+  def constructor()@
     throw Error "Node cannot be instantiated directly"
   
-  Node::to-string := #
+  def to-string()
     let sb = StringBuilder()
     @compile-as-statement { indent: 0 }, true, sb
     sb.to-string()
   
-  Node::to-function := #
+  def to-function()
     new Function @to-string()
   
-  Node::compile := # -> throw Error "compile not implemented: $(@constructor.name)"
+  def compile() -> throw Error "compile not implemented: $(@constructor.name)"
   
-  Node::maybe-to-statement := #
+  def maybe-to-statement()
     if typeof @to-statement == "function"
       @to-statement()
     else
       this
   
-  Node::is-const := #-> false
-  Node::is-noop := #-> false
-  Node::const-value := #-> throw Error "$(@constructor.name) has no const value"
+  def is-const() -> false
+  def is-noop() -> false
+  def const-value() -> throw Error "$(@constructor.name) has no const value"
   
-  Node::is-large := #-> true
-  Node::is-small := #-> not @is-large()
-  
-  Node
+  def is-large() -> true
+  def is-small() -> not @is-large()
 
-let Expression = exports.Expression := do
-  let Expression()!
+exports.Expression := class Expression extends Node
+  def constructor()@
     throw Error "Expression cannot be instantiated directly"
-  Expression.prototype := ^Node.prototype
-  Expression::constructor := Expression
   
-  Expression::to-string := #-> Node::to-string.call(this) & ";"
+  def to-string() -> super.to-string() & ";"
   
-  Expression::compile-as-statement := #(options, line-start, sb)!
+  def compile-as-statement(options, line-start, sb)!
     if typeof @to-statement == "function"
       @to-statement().compile-as-statement options, line-start, sb
     else
       @compile options, Level.block, line-start, sb
       sb ";"
   
-  Expression::type := #-> types.any
+  def type() -> types.any
   
-  Expression::is-large := #-> false
-  
-  Expression
+  def is-large() -> false
 
-let Statement = exports.Statement := do
-  let Statement()!
+exports.Statement := class Statement extends Node
+  def constructor()@
     throw Error "Expression cannot be instantiated directly"
-  Statement.prototype := ^Node.prototype
-  Statement::constructor := Statement
   
-  Statement::compile-as-statement := #(options, line-start, sb)
+  def compile-as-statement(options, line-start, sb)
     @compile options, Level.block, line-start, sb
-  
-  Statement
 
-let Access = exports.Access := #(parent, ...children)
+exports.Access := #(parent, ...children)
   let mutable current = parent
   for child in children
     current := Binary current, ".", child
   current
 
-let Arguments = exports.Arguments := do
-  let Arguments()
-    let self = if this instanceof Arguments then this else ^Arguments.prototype
-    self
-  Arguments.prototype := ^Expression.prototype
-  Arguments::constructor := Arguments
+exports.Arguments := class Arguments extends Expression
+  def constructor()@ ->
   
-  Arguments::compile := #(options, level, line-start, sb)! -> sb "arguments"
-  
-  Arguments::type := #-> types.args
-  
-  Arguments::walk := #-> this
-  
-  Arguments
+  def compile(options, level, line-start, sb)! -> sb "arguments"
+  def type() -> types.args
+  def walk() -> this
 
 let walk-array(array as Array, walker as Function)
   let mutable changed = false
@@ -254,13 +236,9 @@ let walk-array(array as Array, walker as Function)
   else
     array
 
-let Arr = exports.Arr := do
-  let Arr(elements as [Expression] = [])
-    let self = if this instanceof Arr then this else ^Arr.prototype
-    self.elements := elements
-    self
-  Arr.prototype := ^Expression.prototype
-  Arr::constructor := Arr
+exports.Arr := class Arr extends Expression
+  def constructor(elements as [Expression] = [])@
+    @elements := elements
   
   let compile-large(elements, options, level, line-start, sb)!
     let child-options = inc-indent options
@@ -278,15 +256,15 @@ let Arr = exports.Arr := do
         if i > 0
           sb ", "
         item.compile options, Level.sequence, false, sb
-  Arr::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     sb "["
     let f = if @should-compile-large() then compile-large else compile-small
     f(@elements, options, level, line-start, sb)
     sb "]"
   
-  Arr::type := #-> types.array
+  def type() -> types.array
   
-  Arr::should-compile-large := #
+  def should-compile-large()
     let len = @elements.length
     if len == 0
       false
@@ -295,7 +273,7 @@ let Arr = exports.Arr := do
     else
       @is-large()
   
-  Arr::is-small := #
+  def is-small()
     let len = @elements.length
     if len == 0
       true
@@ -303,29 +281,28 @@ let Arr = exports.Arr := do
       @elements[0].is-small()
     else
       false
-  Arr::is-large := #
+  
+  def is-large()
     @_is-large ?= @elements.length > 4 or for some element in @elements
       not element.is-small()
   
-  Arr::walk := #(walker)
+  def walk(walker)
     let elements = walk-array @elements, walker
     if @elements != elements
       Arr elements
     else
       this
-  
-  Arr
 
-let Assign = exports.Assign := #(left as Expression, right as Expression)
+exports.Assign := #(left, right)
   Binary left, "=", right
 
-let Concat = exports.Concat := #(...args as [Expression])
+exports.Concat := #(...args)
   let mutable current = Const ""
   for arg in args
     current := Binary current, "+", arg
   current
 
-let And = exports.And := #(...args as [Expression])
+exports.And := #(...args)
   if args.length == 0
     Const true
   else
@@ -334,7 +311,7 @@ let And = exports.And := #(...args as [Expression])
       current := Binary current, "&&", args[i]
     current
 
-let Or = exports.Or := #(...args as [Expression])
+exports.Or := #(...args)
   if args.length == 0
     Const false
   else
@@ -343,37 +320,33 @@ let Or = exports.Or := #(...args as [Expression])
       current := Binary current, "||", args[i]
     current
 
-let Binary = exports.Binary := do
-  let Binary(mutable left, op as String, mutable right)
-    let self = if this instanceof Binary then this else ^Binary.prototype
+exports.Binary := class Binary extends Expression
+  def constructor(mutable left, op as String, mutable right)@
     if OPERATOR_PRECEDENCE not ownskey op
       throw Error "Unknown binary operator: $(JSON.stringify op)"
     
     if left not instanceof Expression
-      left := to-const(left)
+      left := to-const left
     if right not instanceof Expression
-      right := to-const(right)
+      right := to-const right
     
-    if left.is-const() and right.is-const() and CONST_OPERATIONS ownskey op
-      let node = CONST_OPERATIONS[op](left.const-value(), right.const-value())
+    if CONST_OPERATIONS ownskey op and left.is-const() and right.is-const()
+      let node = CONST_OPERATIONS[op] left.const-value(), right.const-value()
       if node != void
-        if node instanceof Expression
-          return node
+        return if node instanceof Expression
+          node
         else
-          return Const node
+          Const node
     
-    if left.is-const() and LEFT_CONSTANT_OPERATIONS ownskey op
-      return? LEFT_CONSTANT_OPERATIONS[op](left, right)
+    if LEFT_CONSTANT_OPERATIONS ownskey op and left.is-const()
+      return? LEFT_CONSTANT_OPERATIONS[op] left, right
     
-    if right.is-const() and RIGHT_CONSTANT_OPERATIONS ownskey op
-      return? RIGHT_CONSTANT_OPERATIONS[op](left, right)
+    if RIGHT_CONSTANT_OPERATIONS ownskey op and right.is-const()
+      return? RIGHT_CONSTANT_OPERATIONS[op] left, right
     
-    self.left := left
-    self.op := op
-    self.right := right
-    self
-  Binary.prototype := ^Expression.prototype
-  Binary::constructor := Binary
+    @left := left
+    @op := op
+    @right := right
   
   let compile-access(op, left, right, options, level, line-start, sb)!
     let dot-access = right instanceof Const and typeof right.value == "string" and is-acceptable-ident(right.value)
@@ -418,7 +391,7 @@ let Binary = exports.Binary := do
     if wrap
       sb ")"
   
-  Binary::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     let f = if @op == "." then compile-access else compile-other
     f(@op, @left, @right, options, level, line-start, sb)
   
@@ -481,7 +454,7 @@ let Binary = exports.Binary := do
     "|=": types.number
   }
   
-  Binary::type := #-> @_type ?= do
+  def type() -> @_type ?= do
     let handler = OPERATOR_TYPES[@op]
     if typeof handler == "function"
       handler @left.type(), @right.type()
@@ -611,13 +584,13 @@ let Binary = exports.Binary := do
     (Level.assignment): "right"
   }
   
-  Binary::is-large := #
-    @_is-large := not @left.is-small() or not @right.is-small()
+  def is-large()
+    @_is-large ?= not @left.is-small() or not @right.is-small()
   
-  Binary::is-small := #
-    @_is-small := @left.is-small() and @right.is-small()
+  def is-small()
+    @_is-small ?= @left.is-small() and @right.is-small()
   
-  Binary::walk := #(walker)
+  def walk(walker)
     let mutable changed = false
     let left = walker(@left) ? @left.walk(walker)
     let right = walker(@right) ? @right.walk(walker)
@@ -625,13 +598,9 @@ let Binary = exports.Binary := do
       Binary left, @op, right
     else
       this
-  
-  Binary
 
-let BlockStatement = exports.BlockStatement := do
-  let BlockStatement(body as [Node] = [])
-    let self = if this instanceof BlockStatement then this else ^BlockStatement.prototype
-    
+exports.BlockStatement := class BlockStatement extends Statement
+  def constructor(body as [Node] = [])@
     let result = []
     for item in body
       let statement = item.maybe-to-statement()
@@ -640,14 +609,13 @@ let BlockStatement = exports.BlockStatement := do
           result.push ...statement.body
         else
           result.push statement
-    if result.length == 1
+    if result.length == 0
+      return Noop()
+    else if result.length == 1
       return result[0]
-    self.body := result
-    self
-  BlockStatement.prototype := ^Statement.prototype
-  BlockStatement::constructor := BlockStatement
+    @body := result
   
-  BlockStatement::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -657,21 +625,15 @@ let BlockStatement = exports.BlockStatement := do
         sb.indent options.indent
       item.compile-as-statement options, true, sb
   
-  BlockStatement::is-noop := #-> @body.length == 0
-  
-  BlockStatement::walk := #(walker)
+  def walk(walker)
     let body = walk-array(@body, walker)
     if @body != body
       Block body
     else
       this
-  
-  BlockStatement
 
-let BlockExpression = exports.BlockExpression := do
-  let BlockExpression(body as [Expression] = [])
-    let self = if this instanceof BlockExpression then this else ^BlockExpression.prototype
-    
+exports.BlockExpression := class BlockExpression extends Expression
+  def constructor(body as [Expression] = [])@
     let result = []
     result := []
     for item, i, len in body
@@ -682,16 +644,15 @@ let BlockExpression = exports.BlockExpression := do
             result.pop()
         else
           result.push item
-    if result.length == 1
+    if result.length == 0
+      return Noop()
+    else if result.length == 1
       return result[0]
-    self.body := result
-    self
-  BlockExpression.prototype := ^Expression.prototype
-  BlockExpression::constructor := BlockExpression
+    @body := result
   
-  BlockExpression::to-statement := #-> BlockStatement @body
+  def to-statement() -> BlockStatement @body
   
-  BlockExpression::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level == Level.block
       @to-statement().compile options, level, line-start, sb
     else
@@ -712,63 +673,48 @@ let BlockExpression = exports.BlockExpression := do
         if wrap
           sb ")"
   
-  BlockExpression::is-const := #-> @body.length == 0
-  BlockExpression::is-noop := BlockExpression::is-const
-  BlockExpression::const-value := #
-    if @body.length == 0
-      void
-    else
-      throw Error "BlockExpression has no const value"
-  
-  BlockExpression::type := #
+  def type()
     let body = @body
     if body.length == 0
       types.undefined
     else
       body[body.length - 1].type()
   
-  BlockExpression::is-large := #
+  def is-large()
     @_is-large ?= @body.length > 4 or for some part in @body
       part.is-large()
   
-  BlockExpression::is-small := #-> false
+  def is-small() -> false
   
-  BlockExpression::walk := BlockStatement::walk
-  
-  BlockExpression
+  def walk = BlockStatement::walk
 
 let Block = exports.Block := #(body as [Node] = [])
-  let all-expressions = for every item in body
-    item instanceof Expression
-  if all-expressions
-    BlockExpression body
+  if body.length == 0
+    Noop()
   else
-    BlockStatement body
+    let all-expressions = for every item in body
+      item instanceof Expression
+    if all-expressions
+      BlockExpression body
+    else
+      BlockStatement body
 
-let Break = exports.Break := do
-  let Break()
-    let self = if this instanceof Break then this else ^Break.prototype
-    self
-  Break.prototype := ^Statement.prototype
-  Break::constructor := Break
+exports.Break := class Break extends Statement
+  def constructor()@ ->
   
-  Break::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     sb "break;"
   
-  Break::walk := #-> this
-  
-  Break
+  def walk() -> this
 
-let Call = exports.Call := do
-  let Call(func as Expression, args as [Expression] = [], is-new as Boolean)
-    let self = if this instanceof Call then this else ^Call.prototype
-    
+exports.Call := class Call extends Expression
+  def constructor(func as Expression, args as [Expression] = [], is-new as Boolean)@
     if not is-new and for every arg in args
         arg.is-const()
       if func instanceof Ident
-        if PRIMORDIAL_FUNCTIONS ownskey func.name and PRIMORDIAL_FUNCTIONS[func.name] == true and typeof global != "undefined" and typeof global[func.name] == "function"
+        if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name and PURE_PRIMORDIAL_FUNCTIONS[func.name] == true and typeof global != "undefined" and typeof global[func.name] == "function"
           try
             return to-const global[func.name].apply(null, for arg in args
               arg.const-value())
@@ -782,20 +728,17 @@ let Call = exports.Call := do
                 arg.const-value()
             catch e
               void
-        else if func.left instanceof Ident and func.right.is-const() and typeof func.right.const-value() == "string" and PRIMORDIAL_FUNCTIONS ownskey func.left.name and typeof PRIMORDIAL_FUNCTIONS[func.left.name] == "object" and PRIMORDIAL_FUNCTIONS[func.left.name][func.right.const-value()] == true and typeof Object(global[func.left.name])[func.right.const-value()] == "function"
+        else if func.left instanceof Ident and func.right.is-const() and typeof func.right.const-value() == "string" and PURE_PRIMORDIAL_FUNCTIONS ownskey func.left.name and typeof PURE_PRIMORDIAL_FUNCTIONS[func.left.name] == "object" and PURE_PRIMORDIAL_FUNCTIONS[func.left.name][func.right.const-value()] == true and typeof Object(global[func.left.name])[func.right.const-value()] == "function"
           try
             return to-const global[func.left.name][func.right.const-value()] ...for arg in args
               arg.const-value()
           catch e
             void
-    self.func := func
-    self.args := args
-    self.is-new := is-new
-    self
-  Call.prototype := ^Expression.prototype
-  Call::constructor := Call
+    @func := func
+    @args := args
+    @is-new := is-new
   
-  let PRIMORDIAL_FUNCTIONS = {
+  let PURE_PRIMORDIAL_FUNCTIONS = {
     escape: true
     unescape: true
     parseInt: true
@@ -857,7 +800,7 @@ let Call = exports.Call := do
         sb ", "
       arg.compile options, Level.sequence, false, sb
     sb ")"
-  Call::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if @is-new
       sb "new "
     
@@ -870,23 +813,23 @@ let Call = exports.Call := do
     if wrap
       sb ")"
   
-  Call::should-compile-large := #
+  def should-compile-large()
     if @args.length > 4
       true
     else
       for some arg in @args[:-1]
         not arg.is-small()
   
-  Call::has-large-args := #
+  def has-large-args()
     @_has-large-args ?= if @args.length > 4
       true
     else
       for some arg in @args
         not arg.is-small()
   
-  Call::is-large := #-> @func.is-large() or @has-large-args()
+  def is-large() -> @func.is-large() or @has-large-args()
   
-  Call::is-small := #
+  def is-small()
     @_is-small ?= if not @func.is-small()
       false
     else if @args.length == 0
@@ -896,7 +839,7 @@ let Call = exports.Call := do
     else
       false
   
-  Call::walk := #(walker)
+  def walk(walker)
     let func = walker(@func) ? @func.walk(walker)
     let args = walk-array(@args, walker)
     if @func != func or @args != args
@@ -941,7 +884,7 @@ let Call = exports.Call := do
       types.boolean.union(if args.length >= 2 then args[1].type() else types.undefined)
   }
   
-  Call::type := #
+  def type()
     @_type ?= if @func instanceof Ident and HELPER_TYPES ownskey @func.name
       let helper = HELPER_TYPES[@func.name]
       if typeof helper == "function"
@@ -950,10 +893,8 @@ let Call = exports.Call := do
         helper
     else
       types.any
-  
-  Call
 
-let to-const = #(value)
+let to-const(value)
   if value instanceof Node
     throw Error "Cannot convert $(typeof! value) to a Const"
   else if Array.is-array(value)
@@ -965,15 +906,11 @@ let to-const = #(value)
   else
     Const value
 
-let Const = exports.Const := do
-  let Const(value as (void|null|Boolean|Number|String|RegExp))
-    let self = if this instanceof Const then this else ^Const.prototype
-    self.value := value
-    self
-  Const.prototype := ^Expression.prototype
-  Const::constructor := Const
+exports.Const := class Const extends Expression
+  def constructor(value as (void|null|Boolean|Number|String|RegExp))@
+    @value := value
   
-  Const::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     let value = @value
     let wrap = level >= Level.increment and (value == undefined or (typeof value == "number" and not is-finite(value)))
     if wrap
@@ -982,11 +919,11 @@ let Const = exports.Const := do
     if wrap
       sb ")"
   
-  Const::is-const := #-> true
-  Const::is-noop := Const::is-const
-  Const::const-value := #-> @value
+  def is-const() -> true
+  def is-noop = @::is-const
+  def const-value() -> @value
   
-  Const::type := #
+  def type()
     let value = @value
     let type = typeof value
     if type == "undefined"
@@ -1004,52 +941,34 @@ let Const = exports.Const := do
     else
       throw Error "Unknown value type: $type"
   
-  Const::walk := #-> this
-  
-  Const
+  def walk() -> this
 
-let Continue = exports.Continue := do
-  let Continue()
-    let self = if this instanceof Continue then this else ^Continue.prototype
-    self
-  Continue.prototype := ^Statement.prototype
-  Continue::constructor := Continue
+exports.Continue := class Continue extends Expression
+  def constructor()@ ->
   
-  Continue::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     sb "continue;"
   
-  Continue::walk := #-> this
-  
-  Continue
+  def walk() -> this
 
-let Debugger = exports.Debugger := do
-  let Debugger()
-    let self = if this instanceof Debugger then this else ^Debugger.prototype
-    self
-  Debugger.prototype := ^Statement.prototype
-  Debugger::constructor := Debugger
+exports.Debugger := class Continue extends Expression
+  def constructor()@ ->
   
-  Debugger::compile := #(options, level, line-start, sb)
+  def compile(options, level, line-start, sb)
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     sb "debugger;"
   
-  Debugger::walk := #-> this
-  
-  Debugger
+  def walk() -> this
 
-let DoWhile = exports.DoWhile := do
-  let DoWhile(body as Node, test as Expression)
-    let self = if this instanceof DoWhile then this else ^DoWhile.prototype
-    self.body := body.maybe-to-statement()
-    self.test := test
-    self
-  DoWhile.prototype := ^Statement.prototype
-  DoWhile::constructor := DoWhile
+exports.DoWhile := class DoWhile extends Statement
+  def constructor(body as Node, test as Expression)@
+    @body := body.maybe-to-statement()
+    @test := test
   
-  DoWhile::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -1067,55 +986,43 @@ let DoWhile = exports.DoWhile := do
     @test.compile options, Level.inside-parentheses, false, sb
     sb ");"
   
-  DoWhile::walk := #(walker)
+  def walk(walker)
     let body = walker(@body) ? @body.walk(walker)
     let test = walker(@test) ? @test.walk(walker)
     if body != @body or test != @test
       DoWhile body, test
     else
       this
-  
-  DoWhile
 
-let Eval = exports.Eval := do
-  let Eval(mutable code)
-    let self = if this instanceof Eval then this else ^Eval.prototype
+exports.Eval := class Eval extends Expression
+  def constructor(mutable code)@
     if code not instanceof Expression
       code := to-const code
-    self.code := code
-    self
-  Eval.prototype := ^Expression.prototype
-  Eval::constructor := Eval
+    @code := code
   
-  Eval::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if @code instanceof Const
       sb String(@code.value)
     else
       sb "eval("
       @code.compile options, Level.sequence, false, sb
       sb ")"
-    
-  Eval::walk := #(walker)
+  
+  def walk(walker)
     let code = walker(@code) ? @code.walk(walker)
     if code != @code
       Eval code
     else
       this
-  
-  Eval
 
-let For = exports.For := do
-  let For(init as Expression = BlockExpression(), test as Expression = Const(true), step as Expression = BlockExpression(), body as Node)
-    let self = if this instanceof For then this else ^For.prototype
-    self.init := init
-    self.test := test
-    self.step := step
-    self.body := body.maybe-to-statement()
-    self
-  For.prototype := ^Statement.prototype
-  For::constructor := For
+exports.For := class For extends Statement
+  def constructor(init as Expression = Noop(), test as Expression = Const(true), step as Expression = Noop(), body as Node)@
+    @init := init
+    @test := test
+    @step := step
+    @body := body.maybe-to-statement()
   
-  For::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -1139,7 +1046,7 @@ let For = exports.For := do
       sb.indent options.indent
       sb "}"
   
-  For::walk := #(walker)
+  def walk(walker)
     let init = walker(@init) ? @init.walk(walker)
     let test = walker(@test) ? @test.walk(walker)
     let step = walker(@step) ? @step.walk(walker)
@@ -1148,20 +1055,14 @@ let For = exports.For := do
       For init, test, step, body
     else
       this
-  
-  For
 
-let ForIn = exports.ForIn := do
-  let ForIn(key as Ident, object as Expression, body as Node)
-    let self = if this instanceof ForIn then this else ^ForIn.prototype
-    self.key := key
-    self.object := object
-    self.body := body.maybe-to-statement()
-    self
-  ForIn.prototype := ^Statement.prototype
-  ForIn::constructor := ForIn
+exports.ForIn := class ForIn extends Statement
+  def constructor(key as Ident, object as Expression, body as Node)@
+    @key := key
+    @object := object
+    @body := body.maybe-to-statement()
   
-  ForIn::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -1180,7 +1081,7 @@ let ForIn = exports.ForIn := do
       sb.indent options.indent
       sb "}"
   
-  ForIn::walk := #(walker)
+  def walk(walker)
     let key = walker(@key) ? @key.walk(walker)
     let object = walker(@object) ? @object.walk(walker)
     let body = walker(@body) ? @body.walk(walker)
@@ -1188,8 +1089,6 @@ let ForIn = exports.ForIn := do
       ForIn key, object, body
     else
       this
-  
-  ForIn
 
 let validate-func-params-and-variables(params, variables)!
   let names = []
@@ -1238,20 +1137,16 @@ let compile-func(options, sb, name, params, declarations, variables, body)
     sb.indent options.indent
   sb "}"
 
-let Func = exports.Func := do
-  let Func(name as (null|Ident), params as [Ident] = [], variables as [String] = [], body as [Node] = [], declarations as [String] = [])
-    let self = if this instanceof Func then this else ^Func.prototype
+exports.Func := class Func extends Expression
+  def constructor(name as (null|Ident), params as [Ident] = [], variables as [String] = [], body as [Node] = [], declarations as [String] = [])@
     validate-func-params-and-variables params, variables
-    self.name := name
-    self.params := params
-    self.variables := variables
-    self.body := body
-    self.declarations := declarations
-    self
-  Func.prototype := ^Expression.prototype
-  Func::constructor := Func
+    @name := name
+    @params := params
+    @variables := variables
+    @body := body
+    @declarations := declarations
   
-  Func::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     let wrap = line-start and not @name
     if wrap
       sb "("
@@ -1259,16 +1154,16 @@ let Func = exports.Func := do
     if wrap
       sb ")"
   
-  Func::compile-as-statement := #(options, line-start, sb)!
+  def compile-as-statement(options, line-start, sb)!
     @compile options, Level.block, line-start, sb
     unless line-start and @name
       sb ";"
   
-  Func::type := #-> types.function
+  def type() -> types.function
   
-  Func::is-large := #-> true
+  def is-large() -> true
   
-  Func::walk := #(walker)
+  def walk(walker)
     let name = if @name then walker(@name) ? @name.walk(walker) else @name
     let params = walk-array(@params, walker)
     let body = walk-array(@body, walker)
@@ -1276,32 +1171,22 @@ let Func = exports.Func := do
       Func name, params, @variables, body, @declarations
     else
       this
-  
-  Func
 
-let Ident = exports.Ident := do
-  let Ident(name as String)
-    let self = if this instanceof Ident then this else ^Ident.prototype
+exports.Ident := class Ident extends Expression
+  def constructor(name as String)@
     unless is-acceptable-ident name
       throw Error "Not an acceptable identifier name: $name"
-    self.name := name
-    self
-  Ident.prototype := ^Expression.prototype
-  Ident::constructor := Ident
+    @name := name
   
-  Ident::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     sb @name
   
-  Ident::walk := #-> this
-  
-  Ident
+  def walk() -> this
 
-let IfStatement = exports.IfStatement := do
-  let IfStatement(test as Expression, mutable when-true as Node, mutable when-false as Node = BlockExpression())
-    let self = if this instanceof IfStatement then this else ^IfStatement.prototype
-    
+exports.IfStatement := class IfStatement extends Statement
+  def constructor(test as Expression, mutable when-true as Node, mutable when-false as Node = Noop())@
     if test.is-const()
-      if test.const-value()
+      return if test.const-value()
         when-true
       else
         when-false
@@ -1310,21 +1195,17 @@ let IfStatement = exports.IfStatement := do
       when-false := when-false.maybe-to-statement()
       if when-true.is-noop()
         if when-false.is-noop()
-          test
+          test.maybe-to-statement()
         else
-          IfStatement.call(self
-            Unary "!", test
-            when-false
-            BlockStatement())
+          @test := Unary "!", test
+          @when-true := when-false
+          @when-false := when-true
       else
-        self.test := test
-        self.when-true := when-true
-        self.when-false := when-false
-        self
-  IfStatement.prototype := ^Statement.prototype
-  IfStatement::constructor := IfStatement
+        @test := test
+        @when-true := when-true
+        @when-false := when-false
   
-  IfStatement::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -1350,7 +1231,7 @@ let IfStatement = exports.IfStatement := do
         sb.indent options.indent
         sb "}"
         
-  IfStatement::walk := #(walker)
+  def walk(walker)
     let test = walker(@test) ? @test.walk walker
     let when-true = walker(@when-true) ? @when-true.walk walker
     let when-false = walker(@when-false) ? @when-false.walk walker
@@ -1359,29 +1240,20 @@ let IfStatement = exports.IfStatement := do
       If test, when-true, when-false
     else
       this
-  
-  IfStatement
 
-let IfExpression = exports.IfExpression := do
-  let IfExpression(test as Expression, when-true as Expression, when-false as Expression = BlockExpression())
-    let self = if this instanceof IfExpression then this else ^IfExpression.prototype
-    
+exports.IfExpression := class IfExpression extends Expression
+  def constructor(test as Expression, when-true as Expression, when-false as Expression = Noop())@
     if test.is-const()
-      if test.const-value()
+      return if test.const-value()
         when-true
       else
         when-false
-    else if when-true.is-const() and when-false.is-const() and when-true.const-value() == when-false.const-value()
-      BlockExpression [test, when-true]
     else
-      self.test := test
-      self.when-true := when-true
-      self.when-false := when-false
-      self
-  IfExpression.prototype := ^Expression.prototype
-  IfExpression::constructor := IfExpression
+      @test := test
+      @when-true := when-true
+      @when-false := when-false
   
-  IfExpression::to-statement := #-> IfStatement @test, @when-true, @when-false
+  def to-statement() -> IfStatement @test, @when-true, @when-false
   
   let compile-small(test, when-true, when-false, options, line-start, sb)!
     test.compile options, Level.inline-condition, line-start, sb
@@ -1417,7 +1289,7 @@ let IfExpression = exports.IfExpression := do
       compile-large when-false.test, when-false.when-true, when-false.when-false, options, false, sb
     else
       when-false.compile child-options, Level.inline-condition, false, sb
-  IfExpression::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level == Level.block
       @to-statement().compile(options, level, line-start, sb)
     else
@@ -1429,17 +1301,15 @@ let IfExpression = exports.IfExpression := do
       if wrap
         sb ")"
   
-  IfExpression::type := #-> @_type ?= @when-true.type().union(@when-false.type())
+  def type() -> @_type ?= @when-true.type().union(@when-false.type())
   
-  IfExpression::is-large := #
+  def is-large()
     @_is-large ?= for some part in [@test, @when-true, @when-false]
       not part.is-small()
   
-  IfExpression::is-small := #-> false
+  def is-small() -> false
   
-  IfExpression::walk := IfStatement::walk
-  
-  IfExpression
+  def walk = IfStatement::walk
 
 let If = exports.If := #(test, when-true, when-false)
   if when-true instanceof Expression and (not when-false or when-false instanceof Expression)
@@ -1447,7 +1317,24 @@ let If = exports.If := #(test, when-true, when-false)
   else
     IfStatement test, when-true, when-false
 
-let Obj = exports.Obj := do
+exports.Noop := class Noop extends Expression
+  def constructor()@ ->
+
+  def compile-as-statement() ->
+
+  def compile(options, level, line-start, sb)!
+    if level > Level.block
+      Const(void).compile options, level, line-start, sb
+
+  def is-const() -> true
+  def is-noop = @::is-const
+  def const-value() -> void
+
+  def type() -> types.undefined
+
+  def walk() -> this
+
+exports.Obj := class Obj extends Expression
   let validate-unique-keys(elements)!
     let keys = []
     for pair in elements
@@ -1456,13 +1343,9 @@ let Obj = exports.Obj := do
         throw Error "Found duplicate key: $(to-JS-source key)"
       keys.push key
   
-  let Obj(elements as [ObjPair] = [])
-    let self = if this instanceof Obj then this else ^Obj.prototype
+  def constructor(elements as [ObjPair] = [])@
     validate-unique-keys elements
-    self.elements := elements
-    self
-  Obj.prototype := ^Expression.prototype
-  Obj::constructor := Obj
+    @elements := elements
   
   let compile-large(elements, options, sb)!
     let child-options = inc-indent options
@@ -1496,7 +1379,7 @@ let Obj = exports.Obj := do
         element.value.compile options, Level.sequence, false, sb
       sb " "
   
-  Obj::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if line-start
       sb "("
     sb "{"
@@ -1506,9 +1389,9 @@ let Obj = exports.Obj := do
     if line-start
       sb ")"
   
-  Obj::type := #-> types.object
+  def type() -> types.object
   
-  Obj::should-compile-large := #
+  def should-compile-large()
     let len = @elements.length
     if len == 0
       false
@@ -1517,7 +1400,7 @@ let Obj = exports.Obj := do
     else
       @is-large()
   
-  Obj::is-small := #
+  def is-small()
     let len = @elements.length
     if len == 0
       true
@@ -1525,80 +1408,65 @@ let Obj = exports.Obj := do
       @elements[0].is-small()
     else
       false
-  Obj::is-large := #
+  def is-large()
     @_is-large ?= @elements.length > 4 or for some element in @elements
       not element.is-small()
   
-  Obj::walk := #(walker)
+  def walk(walker)
     let elements = walk-array(@elements, walker)
     if elements != @elements
       Obj elements
     else
       this
   
-  let ObjPair(key as String, mutable value)
-    let self = if this instanceof ObjPair then this else ^ObjPair.prototype
-    self.key := key
-    if value not instanceof Expression
-      value := to-const value
-    self.value := value
-    self
-  Obj.Pair := ObjPair
-  
-  ObjPair::is-small := #-> @value.is-small()
-  ObjPair::is-large := #-> @value.is-large()
-  
-  ObjPair::walk := #(walker)
-    let value = walker(@value) ? @value.walk(walker)
-    if value != @value
-      ObjPair @key, value
-    else
-      this
-  
-  Obj
+  Obj.Pair := class ObjPair
+    def constructor(key as String, mutable value)@
+      if value not instanceof Expression
+        value := to-const value
+      @key := key
+      @value := value
+    
+    def is-small() -> @value.is-small()
+    def is-large() -> @value.is-large()
+    def walk(walker)
+      let value = walker(@value) ? @value.walk(walker)
+      if value != @value
+        ObjPair @key, value
+      else
+        this
 
-let Return = exports.Return := do
-  let Return(@node as Expression = Const(void))
-    let self = if this instanceof Return then this else ^Return.prototype
-    self.node := node
-    self
-  Return.prototype := ^Statement.prototype
-  Return::constructor := Return
+exports.Return := class Return extends Statement
+  def constructor(node as Expression = Const(void))@
+    @node := node
   
-  Return::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     sb "return"
     unless @node.is-const() and @node.const-value() == void
       sb " "
       @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
   
-  Return::walk := #(walker)
+  def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
     if node != @node
       Return node
     else
       this
-  
-  Return
 
-let Root = exports.Root := do
-  let Root(body as [Node] = [], variables as [String] = [], declarations as [String] = [])
-    let self = if this instanceof Root then this else ^Root.prototype
-    
+exports.Root := class Root
+  def constructor(body as [Node] = [], variables as [String] = [], declarations as [String] = [])@
     validate-func-params-and-variables [], variables
-    
-    self.body := []
+    @body := []
     for item in body
       let statement = item.maybe-to-statement()
       if statement instanceof BlockStatement
-        self.body.push ...statement.body
+        @body.push ...statement.body
       else
-        self.body.push statement
-    self.variables := variables
-    self.declarations := declarations
-    self
-  
-  Root::compile := #(options = {})
+        @body.push statement
+    @variables := variables
+    @declarations := declarations
+
+  def compile(options = {})
     if not options.indent
       options.indent := 0
     
@@ -1606,68 +1474,49 @@ let Root = exports.Root := do
     compile-func-body(options, sb, @declarations, @variables, @body)
     sb.to-string()
   
-  Root::to-string := #-> @compile()
+  def to-string() -> @compile()
   
-  Root::to-function := Node::to-function
+  def to-function = Node::to-function
   
-  Root::is-large := #-> true
+  def is-large() -> true
   
-  Root::walk := #(walker)
+  def walk(walker)
     let body = walk-array(@body, walker)
     if body != @body
       Root body, @variables, @declarations
     else
       this
-  
-  Root
 
-let This = exports.This := do
-  let This()
-    let self = if this instanceof This then this else ^This.prototype
-    self
-  This.prototype := ^Expression.prototype
-  This::constructor := This
+exports.This := class This extends Expression
+  def constructor()@ ->
   
-  This::compile := #(options, level, line-start, sb)!
-    sb "this"
+  def compile(options, level, line-start, sb)! -> sb "this"
   
-  This::walk := #-> this
-  
-  This
+  def walk() -> this
 
-let Throw = exports.Throw := do
-  let Throw(node as Expression)
-    let self = if this instanceof Throw then this else ^Throw.prototype
-    self.node := node
-    self
-  Throw.prototype := ^Statement.prototype
-  Throw::constructor := Throw
+exports.Throw := class Throw extends Statement
+  def constructor(node as Expression)@
+    @node := node
   
-  Throw::compile := #(options, level, line-start, sb)
+  def compile(options, level, line-start, sb)
     sb "throw "
     @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
   
-  Throw::walk := #(walker)
+  def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
     if node != @node
       Throw node
     else
       this
-  
-  Throw
 
-let Switch = exports.Switch := do
-  let Switch(node as Expression, cases as [SwitchCase] = [], default-case as Node = BlockStatement())
-    let self = if this instanceof Switch then this else ^Switch.prototype
-    self.node := node
-    self.cases := cases
-    self.default-case := default-case.maybe-to-statement()
-    self
-  Switch.prototype := ^Statement.prototype
-  Switch::constructor := Switch
+exports.Switch := class Switch extends Statement
+  def constructor(node as Expression, cases as [SwitchCase] = [], default-case as Node = Noop())@
+    @node := node
+    @cases := cases
+    @default-case := default-case.maybe-to-statement()
   
-  Switch::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -1695,7 +1544,7 @@ let Switch = exports.Switch := do
     sb.indent options.indent
     sb "}"
   
-  Switch::walk := #(walker)
+  def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
     let cases = walk-array(@cases, walker)
     let default-case = walker(@default-case) ? @default-case.walk(walker)
@@ -1704,39 +1553,31 @@ let Switch = exports.Switch := do
     else
       this
   
-  let SwitchCase(node as Expression, body as Node)
-    let self = if this instanceof SwitchCase then this else ^SwitchCase.prototype
-    self.node := node
-    self.body := body.maybe-to-statement()
-    self
-  Switch.Case := SwitchCase
-  
-  SwitchCase::is-large := #-> true
-  
-  SwitchCase::walk := #(walker)
-    let node = walker(@node) ? @node.walk(walker)
-    let body = walker(@body) ? @body.walk(walker)
-    if node != @node or body != @body
-      SwitchCase(node, body)
-    else
-      this
-  
-  Switch
-
-let TryCatch = exports.TryCatch := do
-  let TryCatch(try-body as Node, catch-ident as Ident, catch-body as Node)
-    let self = if this instanceof TryCatch then this else ^TryCatch.prototype
+  Switch.Case := class SwitchCase
+    def constructor(node as Expression, body as Node)
+      @node := node
+      @body := body.maybe-to-statement()
     
-    self.try-body := try-body.maybe-to-statement()
-    if self.try-body.is-noop()
-      return BlockStatement()
-    self.catch-ident := catch-ident
-    self.catch-body := catch-body.maybe-to-statement()
-    self
-  TryCatch.prototype := ^Statement.prototype
-  TryCatch::constructor := TryCatch
+    def is-large() -> true
+    def is-small() -> false
+    
+    def walk(walker)
+      let node = walker(@node) ? @node.walk(walker)
+      let body = walker(@body) ? @body.walk(walker)
+      if node != @node or body != @body
+        SwitchCase(node, body)
+      else
+        this
+
+exports.TryCatch := class TryCatch extends Statement
+  def constructor(try-body as Node, catch-ident as Ident, catch-body as Node)@
+    @try-body := try-body.maybe-to-statement()
+    if @try-body.is-noop()
+      return @try-body
+    @catch-ident := catch-ident
+    @catch-body := catch-body.maybe-to-statement()
   
-  TryCatch::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -1757,7 +1598,7 @@ let TryCatch = exports.TryCatch := do
       sb.indent options.indent
     sb "}"
   
-  TryCatch::walk := #(walker)
+  def walk(walker)
     let try-body = walker(@try-body) ? @try-body.walk(walker)
     let catch-ident = walker(@catch-ident) ? @catch-ident.walk(walker)
     let catch-body = walker(@catch-body) ? @catch-body.walk(walker)
@@ -1765,27 +1606,17 @@ let TryCatch = exports.TryCatch := do
       TryCatch try-body, catch-ident, catch-body
     else
       this
-  
-  TryCatch
 
-let TryFinally = exports.TryFinally := do
-  let TryFinally(try-body as Node, finally-body as Node)
-    let self = if this instanceof TryFinally then this else ^TryFinally.prototype
-    self.try-body := try-body.maybe-to-statement()
-    self.finally-body := finally-body.maybe-to-statement()
-    if self.try-body.is-noop()
-      if self.finally-body.is-noop()
-        BlockStatement()
-      else
-        self.finally-body
-    else if self.finally-body.is-noop()
-      self.try-body
-    else
-      self
-  TryFinally.prototype := ^Statement.prototype
-  TryFinally::constructor := TryFinally
+exports.TryFinally := class TryFinally extends Statement
+  def constructor(try-body as Node, finally-body as Node)@
+    @try-body := try-body.maybe-to-statement()
+    @finally-body := finally-body.maybe-to-statement()
+    if @try-body.is-noop()
+      return @finally-body
+    else if @finally-body.is-noop()
+      return @try-body
   
-  TryFinally::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -1816,42 +1647,35 @@ let TryFinally = exports.TryFinally := do
     sb.indent options.indent
     sb "}"
   
-  TryFinally::walk := #(walker)
+  def walk(walker)
     let try-body = walker(@try-body) ? @try-body.walk(walker)
     let finally-body = walker(@finally-body) ? @finally-body.walk(walker)
     if try-body != @try-body or finally-body != @finally-body
-      TryCatch try-body, finally-body
+      TryFinally try-body, finally-body
     else
       this
 
-  TryFinally
-
-let Unary = exports.Unary := do
-  let Unary(op as String, mutable node)
-    let self = if this instanceof Unary then this else ^Unary.prototype
-    
+exports.Unary := class Unary extends Expression
+  def constructor(op as String, mutable node)@
     if op not in KNOWN_OPERATORS
       throw Error "Unknown unary operator: $op"
     
+    if node not instanceof Expression
+      node := to-const node
+
     if op == "delete" and (node not instanceof Binary or node.op != ".")
       throw Error "Cannot use delete operator on a non-access"
     
-    if node not instanceof Expression
-      node := to-const node
-    
-    if node.is-const() and CONST_OPERATIONS ownskey op
+    if CONST_OPERATIONS ownskey op and node.is-const()
       return Const CONST_OPERATIONS[op](node.const-value())
     
     if NONCONST_OPERATIONS ownskey op
       return? NONCONST_OPERATIONS[op](node)
     
-    self.op := op
-    self.node := node
-    self
-  Unary.prototype := ^Expression.prototype
-  Unary::constructor := Unary
+    @op := op
+    @node := node
   
-  Unary::compile := #(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!
     let op = @op
     if op in ["++post", "--post"]
       @node.compile options, Level.unary, false, sb
@@ -1939,19 +1763,17 @@ let Unary = exports.Unary := do
     "delete": types.boolean
   }
   
-  Unary::type := #-> OPERATOR_TYPES[@op]
+  def type() -> OPERATOR_TYPES[@op]
   
-  Unary::is-large := #-> @node.is-large()
-  Unary::is-small := #-> @node.is-small()
+  def is-large() -> @node.is-large()
+  def is-small() -> @node.is-small()
   
-  Unary::walk := #(walker)
+  def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
     if node != @node
       Unary(@op, node)
     else
       this
-  
-  Unary
 
 let While = exports.While := #(test, body)
   For(null, test, null, body)

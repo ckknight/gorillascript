@@ -556,3 +556,27 @@ test "two constructors on top-level", -> do
   end"""), (e) -> e.line == 3
 end
 */
+
+test "default value on method", #
+  class Class
+    def method(value = "hello")
+      value
+  
+  ok new Class instanceof Class
+  eq "hello", new Class().method()
+  eq "there", new Class().method("there")
+
+test "type checking on method", #
+  class Class
+    def method(value as String)
+      value
+  
+  ok new Class instanceof Class
+  eq "hello", new Class().method("hello")
+  eq "there", new Class().method("there")
+  throws #-> new Class().method(), TypeError
+  throws #-> new Class().method(void), TypeError
+  throws #-> new Class().method(null), TypeError
+  throws #-> new Class().method(0), TypeError
+  throws #-> new Class().method({}), TypeError
+  throws #-> new Class().method([]), TypeError

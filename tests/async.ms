@@ -44,6 +44,20 @@ test "asyncfor with result", #
     next(x)
   array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
 
+test "asyncfor with no after-body", #
+  let mutable sum = 0
+  let mutable i = 0
+  if true
+    asyncfor next, ; i < 10; i += 1
+      let value = run-once(i)
+      async err, x <- dont-wait value
+      eq null, err
+      ok value.ran
+      sum += x
+      next()
+    
+  eq 45, sum
+
 test "asyncfor range", #
   let mutable sum = 0
   if true
