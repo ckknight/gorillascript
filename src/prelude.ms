@@ -1,20 +1,186 @@
+define operator binary and with precedence: 0
+  @binary left, "and", right
+
+define operator binary or with precedence: 0
+  @binary left, "or", right
+
 macro if
+  // this uses eval instead of normal operators since those aren't defined yet
+  // thankfully the eval uses constant strings and turns into pure code
   syntax test as Logic, "then", body, else-ifs as ("else", "if", test as Logic, "then", body)*, else-body as ("else", this)?
     let f(i, current)@
-      (i ~>= 0 and f(i ~- 1, @if(else-ifs[i].test, else-ifs[i].body, current))) or current
-    @if(test, body, f(else-ifs.length ~- 1, else-body))
-  
+      (eval("i >= 0") and f(eval("i - 1"), @if(else-ifs[i].test, else-ifs[i].body, current))) or current
+    let len = else-ifs.length
+    @if(test, body, f(eval("len - 1"), else-body))
+
   syntax test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?
     let f(i, current)@
       let mutable test = else-ifs[i]?.test
-      test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
-      if i ~< 0 then current else f(i ~- 1, @if(test, else-ifs[i].body, current))
-    @if(test, body, f(else-ifs.length ~- 1, else-body))
+      let type = else-ifs[i]?.type
+      test := if eval('type === "unless"') then (AST not $test) else test
+      if eval("i >= 0") then f(eval("i - 1"), @if(test, else-ifs[i].body, current)) else current
+    let len = else-ifs.length
+    @if(test, body, f(eval("len - 1"), else-body))
+
+define operator binary == with precedence: 1, maximum: 1
+  @binary left, "==", right
+
+define operator binary != with precedence: 1, maximum: 1
+  AST not ($left == $right)
+
+define operator binary ~= with precedence: 1, maximum: 1
+  @binary left, "~=", right
+
+define operator binary !~= with precedence: 1, maximum: 1
+  AST not ($left ~= $right)
+
+define operator binary ~<, ~<= with precedence: 1, maximum: 1
+  @binary left, op, right
+
+define operator binary ~>, ~>= with precedence: 1, maximum: 1
+  if op == "~>"
+    AST not ($left ~<= $right)
+  else
+    AST not ($left ~< $right)
+
+// let's define the unstrict operators first
+
+define operator binary xor with precedence: 0
+  // TODO: turn into __xor call
+  @binary left, "xor", right
+
+define operator binary ? with precedence: 0
+  // TODO: probably define this right here.
+  @binary left, "?", right
+
+define operator binary bitand with precedence: 0
+  @binary left, "bitand", right
+
+define operator binary bitor with precedence: 0
+  @binary left, "bitor", right
+
+define operator binary bitxor with precedence: 0
+  @binary left, "bitxor", right
+
+define operator binary ~^ with precedence: 9, right-to-left: true
+  AST Math.pow $left, $right
+
+define operator binary ~*, ~/, ~%, ~\ with precedence: 8
+  if op == "~\\"
+    let div = @binary left, "~/", right
+    AST Math.floor $div
+  else
+    @binary left, op, right
+
+define operator binary ~+, ~- with precedence: 7
+  @binary left, op, right
+
+define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 6, maximum: 1
+  @binary left, op, right
+
+define operator binary ~& with precedence: 4
+  @binary left, op, right
+
+// strict operators, should have same precedence as their respective unstrict versions
+define operator binary ^ with precedence: 9, right-to-left: true
+  AST +$left ~^ +$right
+
+define operator binary *, /, %, \ with precedence: 8
+  if op == "*"
+    AST +$left ~* +$right
+  else if op == "/"
+    AST +$left ~/ +$right
+  else if op == "%"
+    AST +$left ~% +$right
+  else
+    AST +$left ~\ +$right
+
+define operator binary +, - with precedence: 7
+  if op == "+"
+    AST +$left ~+ +$right
+  else
+    AST +$left ~- +$right
+
+define operator binary bitlshift, bitrshift, biturshift with precedence: 6, maximum: 1
+  if op == "bitlshift"
+    AST +$left ~bitlshift +$right
+  else if op == "bitrshift"
+    AST +$left ~bitrshift +$right
+  else
+    AST +$left ~biturshift +$right
+
+define operator binary & with precedence: 4
+  AST (strnum! $left) ~& (strnum! $right)
+
+define operator binary in, haskey, ownskey, instanceof, instanceofsome with precedence: 3, maximum: 1, invertible: true
+  let result = @binary left, op, right
+  if inverted
+    AST not $result
+  else
+    result
+
+define operator binary <=> with precedence: 2, maximum: 1
+  // TODO: work by just calling __cmp
+  @binary left, op, right
+
+define operator binary %% with precedence: 1, maximum: 1
+  AST $left % $right == 0
+
+define operator binary !%% with precedence: 1, maximum: 1
+  AST not ($left %% $right)
+
+define operator binary ~%% with precedence: 1, maximum: 1
+  AST $left ~% $right == 0
+
+define operator binary !~%% with precedence: 1, maximum: 1
+  AST not ($left ~%% $right)
+
+define operator binary <, <= with precedence: 1, maximum: 1
+  // TODO: change to __lt and __lte
+  @binary left, op, right
+
+define operator binary >, >= with precedence: 1, maximum: 1
+  if op == ">"
+    AST not ($left <= $right)
+  else
+    AST not ($left < $right)
+
+define operator binary ~min with precedence: 5
+  let init = []
+  left := @cache left, init, \ref
+  right := @cache right, init, \ref
+  AST
+    $init
+    if $left ~< $right then $left else $right
+
+define operator binary ~max with precedence: 5
+  let init = []
+  left := @cache left, init, \ref
+  right := @cache right, init, \ref
+  AST
+    $init
+    if $left ~> $right then $left else $right
+
+define operator binary min with precedence: 5
+  let init = []
+  left := @cache left, init, \ref
+  right := @cache right, init, \ref
+  AST
+    $init
+    if $left < $right then $left else $right
+
+define operator binary max with precedence: 5
+  let init = []
+  left := @cache left, init, \ref
+  right := @cache right, init, \ref
+  AST
+    $init
+    if $left > $right then $left else $right
 
 macro unless
   syntax test as Logic, "then", body, else-body as ("else", this)?
     AST if not $test then $body else $else-body
-  
+
   syntax test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?
     let f(i, current)@
       let mutable test = else-ifs[i]?.test
@@ -24,13 +190,13 @@ macro unless
 
 define helper __num = #(num)
   if typeof num != "number"
-    throw TypeError("Expected a number, got " & typeof num)
+    throw TypeError("Expected a number, got " ~& typeof num)
   else
     num
 
 define helper __str = #(str)
   if typeof str != "string"
-    throw TypeError("Expected a string, got " & typeof str)
+    throw TypeError("Expected a string, got " ~& typeof str)
   else
     num
 
@@ -73,7 +239,7 @@ define helper __lt = #(x, y)
   if type not in ["number", "string"]
     throw TypeError("Cannot compare a non-number/string: " ~& type)
   else if type != typeof y
-    throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " & typeof y)
+    throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof y)
   else
     x ~< y
 
@@ -82,7 +248,7 @@ define helper __lte = #(x, y)
   if type not in ["number", "string"]
     throw TypeError("Cannot compare a non-number/string: " ~& type)
   else if type != typeof y
-    throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " & typeof y)
+    throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof y)
   else
     x ~<= y
 
@@ -127,7 +293,7 @@ define helper __cmp = #(left, right)
     if type != "number" and type != "string"
       throw TypeError("Cannot compare a non-number/string: " ~& type)
     else if type != typeof right
-      throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " & typeof right)
+      throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof right)
     else if left ~< right
       -1
     else

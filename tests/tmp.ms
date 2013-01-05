@@ -1,3 +1,6 @@
-class Root
-  def compile(options = true)
-    options
+/*
+define operator binary !
+  @binary(left, "poop", right)
+
+5 ! 6
+*/

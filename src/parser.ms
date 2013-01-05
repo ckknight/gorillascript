@@ -2157,6 +2157,35 @@ define DefineHelper = short-circuit! DefineHelperStart, sequential! [
   [\value, Expression]
 ], #(x, o, i) -> o.define-helper i, x.name, x.value
 
+define DefineOperatorStart = sequential! [word(\define), word(\operator)]
+define DefineOperatorBinary = sequential! [
+  DefineOperatorStart
+  word \binary
+  [\head, NameOrSymbol]
+  [\tail, zero-or-more! sequential! [
+    Comma
+    [\this, NameOrSymbol]
+  ]]
+  [\options, maybe! (sequential! [
+    word \with
+    [\this, UnclosedObjectLiteral]
+  ]), NOTHING]
+  [\body, FunctionBody]
+], #(x, o, i)
+  let options = {}
+  if x.options != NOTHING
+    for pair in x.options.pairs
+      if pair.key not instanceof ConstNode
+        o.error "Cannot have non-const keys in the options"
+      if pair.value not instanceof ConstNode
+        o.error "Cannot have non-const value in the options"
+      options[pair.key.value] := pair.value.value
+  o.define-binary-operator i, [x.head, ...x.tail], options, x.body
+define DefineOperator = short-circuit! DefineOperatorStart, in-macro one-of! [
+  DefineOperatorBinary
+  #(o) -> false
+]
+
 define Nothing = #(o) -> o.nothing o.index
 define ExpressionOrNothing = one-of! [
   Expression
@@ -2648,64 +2677,70 @@ macro make-binary!(operators, next-rule, minimum-extra, maximum-extra, right-to-
   else
     result
 
-define Exponentiation = make-binary! ["^", "~^"], Negate, 0, 0, true
+let get-use-custom-binary-operator = do
+  let precedence-cache = []
+  #(precedence) -> precedence-cache[precedence] ?= cache #(o)
+    let start-index = o.index
+    let binary-operators = o.macros.binary-operators
+    if binary-operators.length < precedence
+      Negate o
+    else
+      let next-rule = get-use-custom-binary-operator(precedence + 1)
+      let head = next-rule o
+      if not head
+        false
+      else
+        let operators = binary-operators[precedence]
+        if operators
+          for operator in operators
+            let rule = operator.rule
+            let tail = []
+            while true
+              let clone = o.clone()
+              let mutable inverted = false
+              if operator.invertible
+                inverted := MaybeNotToken clone
+                if not inverted
+                  break
+              let op = rule clone
+              if not op
+                break
+              let node = next-rule clone
+              if not node
+                break
+              o.update clone
+              tail.push { inverted: inverted == "not", op, node }
+              if operator.maximum and tail.length >= operator.maximum
+                break
+            if tail.length
+              if not operator.right-to-left
+                let mutable current = head
+                for part in tail
+                  current := operator.func {
+                    left: current
+                    part.inverted
+                    part.op
+                    right: part.node
+                  }, o, start-index
+                return current
+              else
+                let mutable current = tail[tail.length - 1].node
+                for j = tail.length - 1, 0, -1
+                  current := operator.func {
+                    left: tail[j - 1].node
+                    tail[j].inverted
+                    tail[j].op
+                    right: current
+                  }, o, start-index
+                return operator.func {
+                  left: head
+                  tail[0].inverted
+                  tail[0].op
+                  right: current
+                }, o, start-index
+        head
 
-define Multiplication = make-binary! ["*", "/", "%", "\\", "~*", "~/", "~%", "~\\"], Exponentiation
-define Addition = make-binary! ["+", "-", "~+", "~-"], Multiplication
-
-define BitwiseShift = make-binary! [\bitlshift, \bitrshift, \biturshift], Addition, 0, 1
-
-define Min = make-binary! \min, BitwiseShift, 1
-define Max = make-binary! \max, BitwiseShift, 0
-define MinMax = one-of! [
-  Min
-  Max
-]
-
-define StringConcatenation = make-binary! ["&", "~&"], MinMax
-
-define Containment = mutate! (make-binary! (sequential! [
-  [\inverse, MaybeNotToken]
-  [\op, one-of! [
-    \in
-    \haskey
-    \ownskey
-    \instanceof
-    \instanceofsome
-  ]]
-], #(x)
-  if x.inverse == \not
-    "not $(x.op)"
-  else
-    x.op), StringConcatenation, 0, 1), #(x, o, i)
-  if x instanceof BinaryNode and x.op.substring(0, 4) == "not "
-    o.unary i, \not, o.binary(i, x.left, x.op.substring(4), x.right)
-  else
-    x
-
-define Spaceship = make-binary! "<=>", Containment, 0, 1
-
-define Comparison = make-binary! ["~=", "!~=", "==", "!=", "%%", "!%%", "~%%", "!~%%", "<", "<=", ">", ">=", "~<", "~<=", "~>", "~>="], Spaceship, 0, 1
-
-define LogicalAnd = make-binary! \and, Comparison, 1
-define LogicalOr = make-binary! \or, Comparison, 1
-define LogicalXor = make-binary! \xor, Comparison, 1
-define ExistentialOr = make-binary! ExistentialSymbol, Comparison, 1, 0, true
-define BitwiseAnd = make-binary! \bitand, Comparison, 1
-define BitwiseOr = make-binary! \bitor, Comparison, 1
-define BitwiseXor = make-binary! \bitxor, Comparison, 1
-
-define Logic = one-of! [
-  LogicalAnd
-  LogicalOr
-  LogicalXor
-  ExistentialOr
-  BitwiseAnd
-  BitwiseOr
-  BitwiseXor
-  Comparison
-]
-
+let Logic = named("Logic", get-use-custom-binary-operator(0))
 define ExpressionAsStatement = one-of! [
   UseMacro
   Logic
@@ -2777,6 +2812,7 @@ define Statement = sequential! [
     Continue
     Macro
     DefineHelper
+    DefineOperator
     //Constructor
     Assignment
     ExpressionAsStatement
@@ -2868,7 +2904,7 @@ let FailureManager = do
   FailureManager
 
 let MacroHelper = do
-  let MacroHelper(@state, @index, @expr)!
+  let MacroHelper(@state as State, @index, @expr)!
     if this not instanceof MacroHelper
       throw TypeError "Must be instantiated with new"
     @unsaved-tmps := []
@@ -2879,6 +2915,8 @@ let MacroHelper = do
   MacroHelper::for-in := #(key as Object, object as Object, body as Object) -> @state.for-in @index, key, object, body
   MacroHelper::try-catch := #(try-body as Object, catch-ident as Object, catch-body as Object) -> @state.try-catch @index, try-body, catch-ident, catch-body
   MacroHelper::try-finally := #(try-body as Object, finally-body as Object) -> @state.try-finally @index, try-body, finally-body
+  MacroHelper::binary := #(left as Object, op as String, right as Object) -> @state.binary @index, left, op, right
+  MacroHelper::unary := #(op as String, node as Object) -> @state.unary @index, op, node
   
   let get-tmp-id = do
     let id = -1
@@ -3224,6 +3262,7 @@ let MacroHolder = do
       throw TypeError "Must be instantiated with new"
     @by-name := {}
     @by-id := []
+    @binary-operators := []
   
   MacroHolder::get-by-name := #(name)
     let by-name = @by-name
@@ -3255,6 +3294,27 @@ let MacroHolder = do
     let by-id = @by-id
     by-id.push m
     by-id.length - 1
+  
+  let one-of(rules) -> #(o)
+    for rule in rules
+      let result = rule o
+      if result
+        return result
+    false
+  
+  MacroHolder::add-binary-operator := #(operators, m, options)
+    let precedence = Number(options.precedence) or 0
+    let binary-operators = @binary-operators[precedence] ?= []
+    binary-operators.push {
+      rule: one-of for op in operators
+        word-or-symbol op
+      func: m
+      right-to-left: not not options.right-to-left
+      maximum: options.maximum or 0
+      minimum: options.minimum or 0
+      invertible: not not options.invertible
+    }
+    @add-macro m
   
   MacroHolder
 
@@ -3519,9 +3579,38 @@ let State = do
         rule: InvocationArguments
         translated.macro-helpers
       }
+    
+    binary-operator: #(index, operators, body, options)
+      let raw-func = @root index, @return index, @function(index
+        [
+          @object-param index, [
+            { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
+            { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
+            { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
+            ...(if options.invertible
+              [{ key: @const(index, \inverted), value: @param index, (@ident index, \inverted), void, false, true, void }]
+            else
+              [])
+          ]
+          @param index, (@ident index, \__wrap), void, false, true, void
+          @param index, (@ident index, \__node), void, false, true, void
+          @param index, (@ident index, \__macro), void, false, true, void
+        ]
+        body
+        true
+        false)
+      let translated = require('./translator')(raw-func)
+      let handler = translated.node.to-function()()
+      if typeof handler != \function
+        throw Error "Error creating function for binary operator $(operators.join ', ')"
+      {
+        handler
+        rule: void
+        translated.macro-helpers
+      }
   }
   
-  State::macro-syntax := #(index, type, params, body)!
+  State::macro-syntax := #(index, type, params, body, options = {})!
     if not Array.is-array params
       throw TypeError "Expected params to be an array, got $(typeof! params)"
     else if not body or typeof body != \object or body instanceof RegExp
@@ -3533,12 +3622,13 @@ let State = do
     if not @current-macro
       this.error "Attempting to specify a macro syntax when not in a macro"
 
-    let data = macro-syntax-types[type]@(this, index, params, body)
+    let data = macro-syntax-types[type]@(this, index, params, body, options)
     let handler = data.handler
     let rule = data.rule
     let macro-helpers = data.macro-helpers
     
     let macros = @macros
+    let mutable macro-id = void
     let mutator = #(x, o, i)
       if _in-ast.peek()
         o.macro-access i, macro-id, x
@@ -3548,10 +3638,21 @@ let State = do
           macros.get-by-id(id)(data, o, i)
         let tmps = macro-helper.get-tmps()
         o.use-macro i, result, tmps.unsaved, macro-helpers
-    let m = macros.get-or-add-by-name @current-macro
-    let func = sequential! [m.token, [\this, rule]], mutator
-    let macro-id = macros.add-macro(mutator)
-    m.data.push func
+    if @current-macro == BINARY_OPERATOR
+      macro-id := macros.add-binary-operator(params, mutator, options)
+    else
+      let m = macros.get-or-add-by-name @current-macro
+      m.data.push sequential! [m.token, [\this, rule]], mutator
+      macro-id := macros.add-macro(mutator)
+  
+  let BINARY_OPERATOR = {}
+  State::define-binary-operator := #(index, operators, options, body)
+    @start-macro BINARY_OPERATOR
+    try
+      @macro-syntax index, \binary-operator, operators, body, options
+    finally
+      @end-macro()
+    @nothing(index)
   
   State.add-node-factory := #(name, type)!
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])

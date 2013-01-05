@@ -607,7 +607,7 @@ exports.BlockStatement := class BlockStatement extends Statement
       if not statement.is-noop()
         if statement instanceof BlockStatement
           result.push ...statement.body
-        else
+        else if statement not instanceof Noop
           result.push statement
     if result.length == 0
       return Noop()
@@ -642,7 +642,7 @@ exports.BlockExpression := class BlockExpression extends Expression
           result.push ...item.body
           if i < len - 1 and result[result.length - 1].is-noop()
             result.pop()
-        else
+        else if item not instanceof Noop
           result.push item
     if result.length == 0
       return Noop()
@@ -1461,7 +1461,7 @@ exports.Root := class Root
       let statement = item.maybe-to-statement()
       if statement instanceof BlockStatement
         @body.push ...statement.body
-      else
+      else if statement not instanceof Noop
         @body.push statement
     @variables := variables
     @declarations := declarations
