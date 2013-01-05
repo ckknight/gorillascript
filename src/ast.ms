@@ -1,24 +1,25 @@
 require! './types'
 
-let LEVEL_BLOCK = 0 // { f(); `...`; g(); }
-let LEVEL_INSIDE_PARENTHESES = 1 // f() + (`...`) + g() or f[`...`]
-let LEVEL_SEQUENCE = 2 // [f(), `...`, g()] or x(f(), `...`, g())
-let LEVEL_ASSIGNMENT = 3  // `...` += x
-let LEVEL_INLINE_CONDITION = 4 // `...` ? x : y
-let LEVEL_LOGICAL_OR = 5 // f() || `...`
-let LEVEL_LOGICAL_AND = 6 // f() && `...`
-let LEVEL_BITWISE_OR = 7 // f() | `...`
-let LEVEL_BITWISE_XOR = 8 // f() ^ `...`
-let LEVEL_BITWISE_AND = 9 // f() & `...`
-let LEVEL_EQUALITY = 10 // f() == `...`
-let LEVEL_RELATIONAL = 11 // f() < `...` or f() in `...` or f() instanceof `...`
-let LEVEL_BITWISE_SHIFT = 12 // f() << `...` or f() >> `...` or f() >>> `...`
-let LEVEL_ADDITION = 13 // f() + `...` or f() - `...`
-let LEVEL_MULTIPLICATION = 14 // f() * `...` or f() / `...` or f() % `...`
-let LEVEL_UNARY = 14 // +`...` or !`...`
-let LEVEL_INCREMENT = 15 // ++`...` or `...`++ or --`...` or `...`--
-let LEVEL_CALL = 16 // `...`()
-let LEVEL_ACCESS = 17 // `...`[0] or `...`.item
+enum Level
+  def block // { f(); `...`; g(); }
+  def inside-parentheses // f() + (`...`) + g() or f[`...`]
+  def sequence // [f(), `...`, g()] or x(f(), `...`, g())
+  def assignment  // `...` += x
+  def inline-condition // `...` ? x : y
+  def logical-or // f() || `...`
+  def logical-and // f() && `...`
+  def bitwise-or // f() | `...`
+  def bitwise-and // f() ^ `...`
+  def bitwise-xor // f() & `...`
+  def equality // f() == `...`
+  def relational // f() < `...` or f() in `...` or f() instanceof `...`
+  def bitwise-shift // f() << `...` or f() >> `...` or f() >>> `...`
+  def addition // f() + `...` or f() - `...`
+  def multiplication // f() * `...` or f() / `...` or f() % `...`
+  def unary // +`...` or !`...`
+  def increment // ++`...` or `...`++ or --`...` or `...`--
+  def call // `...`()
+  def access // `...`[0] or `...`.item
 
 let INDENT = "  "
 
@@ -198,7 +199,7 @@ let Expression = exports.Expression := do
     if typeof @to-statement == "function"
       @to-statement().compile-as-statement options, line-start, sb
     else
-      @compile options, LEVEL_BLOCK, line-start, sb
+      @compile options, Level.block, line-start, sb
       sb ";"
   
   Expression::type := #-> types.any
@@ -214,7 +215,7 @@ let Statement = exports.Statement := do
   Statement::constructor := Statement
   
   Statement::compile-as-statement := #(options, line-start, sb)
-    @compile options, LEVEL_BLOCK, line-start, sb
+    @compile options, Level.block, line-start, sb
   
   Statement
 
@@ -266,7 +267,7 @@ let Arr = exports.Arr := do
     for item, i, len in elements
       sb "\n"
       sb.indent child-options.indent
-      item.compile child-options, LEVEL_SEQUENCE, false, sb
+      item.compile child-options, Level.sequence, false, sb
       if i < len - 1
         sb ","
     sb "\n"
@@ -276,7 +277,7 @@ let Arr = exports.Arr := do
       for item, i in elements
         if i > 0
           sb ", "
-        item.compile options, LEVEL_SEQUENCE, false, sb
+        item.compile options, Level.sequence, false, sb
   Arr::compile := #(options, level, line-start, sb)!
     sb "["
     let f = if @should-compile-large() then compile-large else compile-small
@@ -392,14 +393,14 @@ let Binary = exports.Binary := do
       sb to-JS-source(void)
       sb ")"
     else
-      left.compile options, LEVEL_ACCESS, line-start, sb
+      left.compile options, Level.access, line-start, sb
     
     if dot-access
       sb "."
       sb right.value
     else
       sb "["
-      right.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+      right.compile options, Level.inside-parentheses, false, sb
       sb "]"
   
   let compile-other(op, left, right, options, level, line-start, sb)!
@@ -560,54 +561,54 @@ let Binary = exports.Binary := do
   }
   
   let OPERATOR_PRECEDENCE = {
-    ".": LEVEL_ACCESS
-    "*": LEVEL_MULTIPLICATION
-    "/": LEVEL_MULTIPLICATION
-    "%": LEVEL_MULTIPLICATION
-    "+": LEVEL_ADDITION
-    "-": LEVEL_ADDITION
-    "<<": LEVEL_BITWISE_SHIFT
-    ">>": LEVEL_BITWISE_SHIFT
-    ">>>": LEVEL_BITWISE_SHIFT
-    "<": LEVEL_RELATIONAL
-    "<=": LEVEL_RELATIONAL
-    ">": LEVEL_RELATIONAL
-    ">=": LEVEL_RELATIONAL
-    "in": LEVEL_RELATIONAL
-    "instanceof": LEVEL_RELATIONAL
-    "==": LEVEL_EQUALITY
-    "!=": LEVEL_EQUALITY
-    "===": LEVEL_EQUALITY
-    "!==": LEVEL_EQUALITY
-    "&": LEVEL_BITWISE_AND
-    "^": LEVEL_BITWISE_XOR
-    "|": LEVEL_BITWISE_OR
-    "&&": LEVEL_LOGICAL_AND
-    "||": LEVEL_LOGICAL_OR
-    "=": LEVEL_ASSIGNMENT
-    "+=": LEVEL_ASSIGNMENT
-    "-=": LEVEL_ASSIGNMENT
-    "*=": LEVEL_ASSIGNMENT
-    "/=": LEVEL_ASSIGNMENT
-    "%=": LEVEL_ASSIGNMENT
-    "<<=": LEVEL_ASSIGNMENT
-    ">>=": LEVEL_ASSIGNMENT
-    ">>>=": LEVEL_ASSIGNMENT
-    "&=": LEVEL_ASSIGNMENT
-    "^=": LEVEL_ASSIGNMENT
-    "|=": LEVEL_ASSIGNMENT
+    ".": Level.access
+    "*": Level.multiplication
+    "/": Level.multiplication
+    "%": Level.multiplication
+    "+": Level.addition
+    "-": Level.addition
+    "<<": Level.bitwise-shift
+    ">>": Level.bitwise-shift
+    ">>>": Level.bitwise-shift
+    "<": Level.relational
+    "<=": Level.relational
+    ">": Level.relational
+    ">=": Level.relational
+    "in": Level.relational
+    "instanceof": Level.relational
+    "==": Level.equality
+    "!=": Level.equality
+    "===": Level.equality
+    "!==": Level.equality
+    "&": Level.bitwise-and
+    "^": Level.bitwise-xor
+    "|": Level.bitwise-or
+    "&&": Level.logical-and
+    "||": Level.logical-or
+    "=": Level.assignment
+    "+=": Level.assignment
+    "-=": Level.assignment
+    "*=": Level.assignment
+    "/=": Level.assignment
+    "%=": Level.assignment
+    "<<=": Level.assignment
+    ">>=": Level.assignment
+    ">>>=": Level.assignment
+    "&=": Level.assignment
+    "^=": Level.assignment
+    "|=": Level.assignment
   }
   
   let LEVEL_TO_ASSOCIATIVITY = {
-    (LEVEL_EQUALITY): "paren"
-    (LEVEL_RELATIONAL): "paren"
-    (LEVEL_ADDITION): "left"
-    (LEVEL_MULTIPLICATION): "left"
-    (LEVEL_BITWISE_AND): "none"
-    (LEVEL_BITWISE_OR): "none"
-    (LEVEL_BITWISE_XOR): "none"
-    (LEVEL_BITWISE_SHIFT): "left"
-    (LEVEL_ASSIGNMENT): "right"
+    (Level.equality): "paren"
+    (Level.relational): "paren"
+    (Level.addition): "left"
+    (Level.multiplication): "left"
+    (Level.bitwise-and): "none"
+    (Level.bitwise-or): "none"
+    (Level.bitwise-xor): "none"
+    (Level.bitwise-shift): "left"
+    (Level.assignment): "right"
   }
   
   Binary::is-large := #
@@ -647,7 +648,7 @@ let BlockStatement = exports.BlockStatement := do
   BlockStatement::constructor := BlockStatement
   
   BlockStatement::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
     for item, i in @body
@@ -691,7 +692,7 @@ let BlockExpression = exports.BlockExpression := do
   BlockExpression::to-statement := #-> BlockStatement @body
   
   BlockExpression::compile := #(options, level, line-start, sb)!
-    if level == LEVEL_BLOCK
+    if level == Level.block
       @to-statement().compile options, level, line-start, sb
     else
       let body = @body
@@ -701,13 +702,13 @@ let BlockExpression = exports.BlockExpression := do
       else if len == 1
         body[0].compile options, level, line-start, sb
       else
-        let wrap = level > LEVEL_INSIDE_PARENTHESES
+        let wrap = level > Level.inside-parentheses
         if wrap
           sb "("
         for item, i in body
           if i > 0
             sb ", "
-          item.compile options, LEVEL_SEQUENCE, false, sb
+          item.compile options, Level.sequence, false, sb
         if wrap
           sb ")"
   
@@ -752,7 +753,7 @@ let Break = exports.Break := do
   Break::constructor := Break
   
   Break::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     sb "break;"
   
@@ -843,7 +844,7 @@ let Call = exports.Call := do
     for item, i, len in args
       sb "\n"
       sb.indent child-options.indent
-      item.compile child-options, LEVEL_SEQUENCE, false, sb
+      item.compile child-options, Level.sequence, false, sb
       if i < len - 1
         sb ","
     sb "\n"
@@ -854,7 +855,7 @@ let Call = exports.Call := do
     for arg, i in args
       if i > 0
         sb ", "
-      arg.compile options, LEVEL_SEQUENCE, false, sb
+      arg.compile options, Level.sequence, false, sb
     sb ")"
   Call::compile := #(options, level, line-start, sb)!
     if @is-new
@@ -863,7 +864,7 @@ let Call = exports.Call := do
     let wrap = not @is-new and (@func instanceof Func or (@func instanceof Binary and @func.op == "." and @func.left instanceof Func))
     if wrap
       sb "("
-    @func.compile options, LEVEL_CALL, line-start and not wrap and not @is-new, sb
+    @func.compile options, Level.call, line-start and not wrap and not @is-new, sb
     let f = if @should-compile-large() then compile-large else compile-small
     f(@args, options, level, line-start, sb)
     if wrap
@@ -974,7 +975,7 @@ let Const = exports.Const := do
   
   Const::compile := #(options, level, line-start, sb)!
     let value = @value
-    let wrap = level >= LEVEL_INCREMENT and (value == undefined or (typeof value == "number" and not is-finite(value)))
+    let wrap = level >= Level.increment and (value == undefined or (typeof value == "number" and not is-finite(value)))
     if wrap
       sb "("
     sb to-JS-source(value)
@@ -1015,7 +1016,7 @@ let Continue = exports.Continue := do
   Continue::constructor := Continue
   
   Continue::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     sb "continue;"
   
@@ -1031,7 +1032,7 @@ let Debugger = exports.Debugger := do
   Debugger::constructor := Debugger
   
   Debugger::compile := #(options, level, line-start, sb)
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     sb "debugger;"
   
@@ -1049,7 +1050,7 @@ let DoWhile = exports.DoWhile := do
   DoWhile::constructor := DoWhile
   
   DoWhile::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "do"
@@ -1063,7 +1064,7 @@ let DoWhile = exports.DoWhile := do
       sb.indent options.indent
       sb "}"
     sb " while ("
-    @test.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+    @test.compile options, Level.inside-parentheses, false, sb
     sb ");"
   
   DoWhile::walk := #(walker)
@@ -1091,7 +1092,7 @@ let Eval = exports.Eval := do
       sb String(@code.value)
     else
       sb "eval("
-      @code.compile options, LEVEL_SEQUENCE, false, sb
+      @code.compile options, Level.sequence, false, sb
       sb ")"
     
   Eval::walk := #(walker)
@@ -1115,18 +1116,18 @@ let For = exports.For := do
   For::constructor := For
   
   For::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "for ("
     if not @init.is-noop()
-      @init.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+      @init.compile options, Level.inside-parentheses, false, sb
     sb "; "
     if not @test.is-const() or not @test.const-value()
-      @test.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+      @test.compile options, Level.inside-parentheses, false, sb
     sb "; "
     if not @step.is-noop()
-      @step.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+      @step.compile options, Level.inside-parentheses, false, sb
     sb ")"
     if @body.is-noop()
       sb ";"
@@ -1161,13 +1162,13 @@ let ForIn = exports.ForIn := do
   ForIn::constructor := ForIn
   
   ForIn::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "for ("
-    @key.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+    @key.compile options, Level.inside-parentheses, false, sb
     sb " in "
-    @object.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+    @object.compile options, Level.inside-parentheses, false, sb
     sb ")"
     if @body.is-noop()
       sb ";"
@@ -1224,12 +1225,12 @@ let compile-func-body(options, sb, declarations, variables, body)!
 let compile-func(options, sb, name, params, declarations, variables, body)
   sb "function "
   if name?
-    name.compile sb, LEVEL_INSIDE_PARENTHESES, false, sb
+    name.compile sb, Level.inside-parentheses, false, sb
   sb "("
   for param, i in params
     if i > 0
       sb ", "
-    param.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+    param.compile options, Level.inside-parentheses, false, sb
   sb ") {"
   if variables.length or declarations.length or body.length
     sb "\n"
@@ -1259,7 +1260,7 @@ let Func = exports.Func := do
       sb ")"
   
   Func::compile-as-statement := #(options, line-start, sb)!
-    @compile options, LEVEL_BLOCK, line-start, sb
+    @compile options, Level.block, line-start, sb
     unless line-start and @name
       sb ";"
   
@@ -1324,11 +1325,11 @@ let IfStatement = exports.IfStatement := do
   IfStatement::constructor := IfStatement
   
   IfStatement::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "if ("
-    @test.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+    @test.compile options, Level.inside-parentheses, false, sb
     sb ") {\n"
     let child-options = inc-indent options
     sb.indent child-options.indent
@@ -1383,17 +1384,17 @@ let IfExpression = exports.IfExpression := do
   IfExpression::to-statement := #-> IfStatement @test, @when-true, @when-false
   
   let compile-small(test, when-true, when-false, options, line-start, sb)!
-    test.compile options, LEVEL_INLINE_CONDITION, line-start, sb
+    test.compile options, Level.inline-condition, line-start, sb
     sb " ? "
-    when-true.compile options, LEVEL_INLINE_CONDITION, false, sb
+    when-true.compile options, Level.inline-condition, false, sb
     sb " : "
-    when-false.compile options, LEVEL_INLINE_CONDITION, false, sb
+    when-false.compile options, Level.inline-condition, false, sb
   let compile-large(test, when-true, when-false, options, line-start, sb)!
     let child-options = inc-indent options
     let wrap-test = test instanceof IfExpression
     if wrap-test
       sb "("
-    test.compile child-options, if wrap-test then LEVEL_INSIDE_PARENTHESES else LEVEL_INLINE_CONDITION, line-start and not wrap-test, sb
+    test.compile child-options, if wrap-test then Level.inside-parentheses else Level.inline-condition, line-start and not wrap-test, sb
     if wrap-test
       sb ")"
     let large-when-true = when-true.is-large()
@@ -1406,7 +1407,7 @@ let IfExpression = exports.IfExpression := do
     let wrap-when-true = when-true instanceof IfExpression
     if wrap-when-true
       sb "("
-    when-true.compile child-options, if wrap-when-true then LEVEL_INSIDE_PARENTHESES else LEVEL_INLINE_CONDITION, false, sb
+    when-true.compile child-options, if wrap-when-true then Level.inside-parentheses else Level.inline-condition, false, sb
     if wrap-when-true
       sb ")"
     sb "\n"
@@ -1415,12 +1416,12 @@ let IfExpression = exports.IfExpression := do
     if when-false instanceof IfExpression
       compile-large when-false.test, when-false.when-true, when-false.when-false, options, false, sb
     else
-      when-false.compile child-options, LEVEL_INLINE_CONDITION, false, sb
+      when-false.compile child-options, Level.inline-condition, false, sb
   IfExpression::compile := #(options, level, line-start, sb)!
-    if level == LEVEL_BLOCK
+    if level == Level.block
       @to-statement().compile(options, level, line-start, sb)
     else
-      let wrap = level > LEVEL_INLINE_CONDITION
+      let wrap = level > Level.inline-condition
       if wrap
         sb "("
       let f = if @when-true.is-large() or @when-false.is-large() then compile-large else compile-small
@@ -1474,7 +1475,7 @@ let Obj = exports.Obj := do
       else
         to-JS-source key
       sb ": "
-      element.value.compile child-options, LEVEL_SEQUENCE, false, sb
+      element.value.compile child-options, Level.sequence, false, sb
       if i < len - 1
         sb ","
     sb "\n"
@@ -1492,7 +1493,7 @@ let Obj = exports.Obj := do
         else
           to-JS-source key
         sb ": "
-        element.value.compile options, LEVEL_SEQUENCE, false, sb
+        element.value.compile options, Level.sequence, false, sb
       sb " "
   
   Obj::compile := #(options, level, line-start, sb)!
@@ -1568,7 +1569,7 @@ let Return = exports.Return := do
     sb "return"
     unless @node.is-const() and @node.const-value() == void
       sb " "
-      @node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+      @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
   
   Return::walk := #(walker)
@@ -1644,7 +1645,7 @@ let Throw = exports.Throw := do
   
   Throw::compile := #(options, level, line-start, sb)
     sb "throw "
-    @node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+    @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
   
   Throw::walk := #(walker)
@@ -1667,18 +1668,18 @@ let Switch = exports.Switch := do
   Switch::constructor := Switch
   
   Switch::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "switch ("
-    @node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+    @node.compile options, Level.inside-parentheses, false, sb
     sb ") {"
     let child-options = inc-indent options
     for case_ in @cases
       sb "\n"
       sb.indent options.indent
       sb "case "
-      case_.node.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+      case_.node.compile options, Level.inside-parentheses, false, sb
       sb ":"
       if not case_.body.is-noop()
         sb "\n"
@@ -1736,7 +1737,7 @@ let TryCatch = exports.TryCatch := do
   TryCatch::constructor := TryCatch
   
   TryCatch::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "try {\n"
@@ -1746,7 +1747,7 @@ let TryCatch = exports.TryCatch := do
     sb "\n"
     sb.indent options.indent
     sb "} catch ("
-    @catch-ident.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+    @catch-ident.compile options, Level.inside-parentheses, false, sb
     sb ") {"
     if not @catch-body.is-noop()
       sb "\n"
@@ -1785,7 +1786,7 @@ let TryFinally = exports.TryFinally := do
   TryFinally::constructor := TryFinally
   
   TryFinally::compile := #(options, level, line-start, sb)!
-    if level != LEVEL_BLOCK
+    if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
     sb "try {\n"
@@ -1796,7 +1797,7 @@ let TryFinally = exports.TryFinally := do
       sb "\n"
       sb.indent options.indent
       sb "} catch ("
-      @try-body.catch-ident.compile options, LEVEL_INSIDE_PARENTHESES, false, sb
+      @try-body.catch-ident.compile options, Level.inside-parentheses, false, sb
       sb ") {"
       if not @try-body.catch-body.is-noop()
         sb "\n"
@@ -1853,13 +1854,13 @@ let Unary = exports.Unary := do
   Unary::compile := #(options, level, line-start, sb)!
     let op = @op
     if op in ["++post", "--post"]
-      @node.compile options, LEVEL_UNARY, false, sb
+      @node.compile options, Level.unary, false, sb
       sb op.substring(0, 2)
     else
       sb op
       if op in ["typeof", "void", "delete"] or (op in ["+", "-", "++", "--"] and ((@node instanceof Unary and op in ["+", "-", "++", "--"]) or (@node instanceof Const and typeof this.node.value == "number" and this.node.value < 0)))
         sb " "
-      @node.compile options, LEVEL_UNARY, false, sb
+      @node.compile options, Level.unary, false, sb
   
   let KNOWN_OPERATORS = [
     "++" // prefix
