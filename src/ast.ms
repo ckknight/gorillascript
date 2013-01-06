@@ -184,6 +184,8 @@ exports.Node := class Node
   
   def is-large() -> true
   def is-small() -> not @is-large()
+  
+  def mutate-last() -> this
 
 exports.Expression := class Expression extends Node
   def constructor()@
@@ -201,6 +203,8 @@ exports.Expression := class Expression extends Node
   def type() -> types.any
   
   def is-large() -> false
+  
+  def mutate-last(func) -> func(this)
 
 exports.Statement := class Statement extends Node
   def constructor()@
@@ -377,19 +381,22 @@ exports.Binary := class Binary extends Expression
       sb "]"
   
   let compile-other(op, left, right, options, level, line-start, sb)!
-    let op-level = OPERATOR_PRECEDENCE[op]
-    let associativity = LEVEL_TO_ASSOCIATIVITY[op-level]
-    let wrap = if associativity == "paren" then level >= op-level else level > op-level
+    if level == Level.block and ASSIGNMENT_OPS ownskey op and left instanceof Ident and typeof right.to-statement == "function"
+      right.to-statement().mutate-last((#(node) -> Binary left, "=", node), true).compile(options, level, line-start, sb)
+    else
+      let op-level = OPERATOR_PRECEDENCE[op]
+      let associativity = LEVEL_TO_ASSOCIATIVITY[op-level]
+      let wrap = if associativity == "paren" then level >= op-level else level > op-level
     
-    if wrap
-      sb "("
-    left.compile options, if associativity == "right" and left instanceof Binary and OPERATOR_PRECEDENCE[left.op] == op-level then op-level + 1 else op-level, line-start and not wrap, sb
-    sb " "
-    sb op
-    sb " "
-    right.compile options, if associativity == "left" and right instanceof Binary and OPERATOR_PRECEDENCE[right.op] == op-level then op-level + 1 else op-level, false, sb
-    if wrap
-      sb ")"
+      if wrap
+        sb "("
+      left.compile options, if associativity == "right" and left instanceof Binary and OPERATOR_PRECEDENCE[left.op] == op-level then op-level + 1 else op-level, line-start and not wrap, sb
+      sb " "
+      sb op
+      sb " "
+      right.compile options, if associativity == "left" and right instanceof Binary and OPERATOR_PRECEDENCE[right.op] == op-level then op-level + 1 else op-level, false, sb
+      if wrap
+        sb ")"
   
   def compile(options, level, line-start, sb)!
     let f = if @op == "." then compile-access else compile-other
@@ -632,6 +639,17 @@ exports.BlockStatement := class BlockStatement extends Statement
   def walk(walker)
     let body = walk-array(@body, walker)
     if @body != body
+      Block body
+    else
+      this
+  
+  def mutate-last(func, include-noop)
+    let mutable body = @body
+    let last = body[body.length - 1]
+    let new-last = last.mutate-last(func, include-noop)
+    if last != new-last
+      body := body[:body.length - 1]
+      body.push new-last
       Block body
     else
       this
@@ -947,7 +965,7 @@ exports.Const := class Const extends Expression
   
   def walk() -> this
 
-exports.Continue := class Continue extends Expression
+exports.Continue := class Continue extends Statement
   def constructor()@ ->
   
   def compile(options, level, line-start, sb)
@@ -957,7 +975,7 @@ exports.Continue := class Continue extends Expression
   
   def walk() -> this
 
-exports.Debugger := class Continue extends Expression
+exports.Debugger := class Debugger extends Statement
   def constructor()@ ->
   
   def compile(options, level, line-start, sb)
@@ -1199,7 +1217,7 @@ exports.IfStatement := class IfStatement extends Statement
       when-false := when-false.maybe-to-statement()
       if when-true.is-noop()
         if when-false.is-noop()
-          test.maybe-to-statement()
+          return test.maybe-to-statement()
         else
           @test := Unary "!", test
           @when-true := when-false
@@ -1242,6 +1260,14 @@ exports.IfStatement := class IfStatement extends Statement
     
     if test != @test or when-true != @when-true or when-false != @when-false
       If test, when-true, when-false
+    else
+      this
+  
+  def mutate-last(func, include-noop)
+    let when-true = @when-true.mutate-last(func, include-noop)
+    let when-false = @when-false.mutate-last(func, include-noop)
+    if when-true != @when-true or when-false != @when-false
+      If @test, when-true, when-false
     else
       this
 
@@ -1337,6 +1363,11 @@ exports.Noop := class Noop extends Expression
   def type() -> types.undefined
 
   def walk() -> this
+  def mutate-last(func, include-noop)
+    if include-noop
+      func(this)
+    else
+      this
 
 exports.Obj := class Obj extends Expression
   let validate-unique-keys(elements)!
@@ -1441,6 +1472,8 @@ exports.Obj := class Obj extends Expression
 
 exports.Return := class Return extends Statement
   def constructor(node as Expression = Const(void))@
+    if typeof node.to-statement == "function"
+      return node.to-statement().mutate-last Return
     @node := node
   
   def compile(options, level, line-start, sb)!
@@ -1490,6 +1523,13 @@ exports.Root := class Root
       Root body, @variables, @declarations
     else
       this
+  
+  def mutate-last(func, include-noop)
+    let body = @body.mutate-last func, include-noop
+    if body != @body
+      Root body, @variables, @declarations
+    else
+      this
 
 exports.This := class This extends Expression
   def constructor()@ ->
@@ -1500,6 +1540,8 @@ exports.This := class This extends Expression
 
 exports.Throw := class Throw extends Statement
   def constructor(node as Expression)@
+    if typeof node.to-statement == "function"
+      return node.to-statement().mutate-last Throw, true
     @node := node
   
   def compile(options, level, line-start, sb)
