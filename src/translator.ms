@@ -5,13 +5,19 @@ require! './parser'
 let needs-caching(item)
   return item not instanceofsome [ast.Ident, ast.Const, ast.This, ast.Arguments]
 
-let Scope = do
-  let Scope(@options = {}, @bound = false, @used-tmps = {}, @helpers = {}, @macro-helpers = {}, variables, @tmps = {})!
+class Scope
+  def constructor(options = {}, bound = false, used-tmps = {}, helpers = {}, macro-helpers = {}, variables, tmps = {})@
+    @options := options
+    @bound := bound
+    @used-tmps := used-tmps
+    @helpers := helpers
+    @macro-helpers := macro-helpers
     @variables := if variables then ^variables else {}
+    @tmps := tmps
     @has-bound := false
     @used-this := false
   
-  Scope::maybe-cache := #(item as ast.Expression, func as Function)
+  def maybe-cache(item as ast.Expression, func as Function)
     unless needs-caching item
       func item, item, false
     else
@@ -20,7 +26,7 @@ let Scope = do
       @release-ident(ident)
       result
   
-  Scope::maybe-cache-access := #(item as ast.Expression, func as Function)
+  def maybe-cache-access(item as ast.Expression, func as Function)
     if item instanceof ast.Binary and item.op == "."
       async set-left, left <- @maybe-cache item.left
       async set-right, right <- @maybe-cache item.right
@@ -31,7 +37,7 @@ let Scope = do
     else
       func item, item, false
   
-  Scope::reserve-ident := #(name-part = \ref)
+  def reserve-ident(name-part = \ref)
     // TODO: would be better as for first
     for i = 1, Infinity
       let name = if i == 1 then "_$(name-part)" else "_$(name-part)$i"
@@ -41,7 +47,7 @@ let Scope = do
         @add-variable ident
         return ident
   
-  Scope::reserve-param := #
+  def reserve-param()
     // TODO: would be better as for first
     for i = 1, Infinity
       let name = if i == 1 then "_p" else "_p$i"
@@ -49,7 +55,7 @@ let Scope = do
         @used-tmps[name] := true
         return ast.Ident name
   
-  Scope::get-tmp := #(id, name)
+  def get-tmp(id, name)
     let tmps = @tmps
     if tmps haskey id
       let tmp = tmps[id]
@@ -57,19 +63,19 @@ let Scope = do
         return tmp
     tmps[id] := @reserve-ident name or \tmp
   
-  Scope::release-tmp := #(id)!
+  def release-tmp(id)!
     if @tmps ownskey id
       // FIXME: change when delete can be used in an expression
       let ident = @tmps[id]
       delete @tmps[id]
       @release-ident(ident)
   
-  Scope::release-tmps := #!
+  def release-tmps()!
     for id of @tmps
       @release-tmp(id)
     @tmps := {}
   
-  Scope::release-ident := #(ident as ast.Ident)!
+  def release-ident(ident as ast.Ident)!
     
     unless @used-tmps ownskey ident.name
       if maybe
@@ -78,53 +84,51 @@ let Scope = do
     
     delete @used-tmps[ident.name]
   
-  Scope::mark-as-param := #(ident as ast.Ident)!
+  def mark-as-param(ident as ast.Ident)!
     @remove-variable(ident)
   
-  Scope::add-helper := #(name)!
+  def add-helper(name)!
     @helpers[name] := true
   
   let lower-sorter(a, b) -> a.to-lower-case() <=> b.to-lower-case()
   
-  Scope::get-helpers := #
+  def get-helpers()
     let helpers = for k of @helpers
       k
     
     helpers.sort lower-sorter
   
-  Scope::add-macro-helper := #(name)!
+  def add-macro-helper(name)!
     @macro-helpers[name] := true
   
-  Scope::get-macro-helpers := #
+  def get-macro-helpers()
     let helpers = for k of @macro-helpers
       k
     
     helpers.sort lower-sorter
   
-  Scope::add-variable := #(ident as ast.Ident)!
+  def add-variable(ident as ast.Ident)!
     @variables[ident.name] := true
   
-  Scope::has-variable := #(ident as ast.Ident)
+  def has-variable(ident as ast.Ident)
     if @variables[ident.name]
       @variables haskey ident.name
     else
       false
   
-  Scope::remove-variable := #(ident as ast.Ident)!
+  def remove-variable(ident as ast.Ident)!
     delete @variables[ident.name]
   
-  Scope::get-variables := #
+  def get-variables()
     let variables = for k of @variables
       k
     
     variables.sort lower-sorter
   
-  Scope::clone := #(bound)
+  def clone(bound)
     if bound
       @has-bound := true
-    new Scope(@options, bound, ^@used-tmps, @helpers, @macro-helpers, @variables, ^@tmps)
-  
-  Scope
+    Scope(@options, bound, ^@used-tmps, @helpers, @macro-helpers, @variables, ^@tmps)
 
 let wrap-return(x)
   if x instanceof ast.Throw
@@ -1756,7 +1760,7 @@ let translate-array(nodes as Array, scope as Scope, location as String, auto-ret
     translate nodes[i], scope, location, i == len - 1 and auto-return
 
 module.exports := #(node, options = {})
-  let scope = new Scope(options, false)
+  let scope = Scope(options, false)
   let result = translate node, scope, \statement, false
   scope.release-tmps()
   return {
