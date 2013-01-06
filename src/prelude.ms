@@ -45,23 +45,6 @@ define operator binary ~>, ~>= with precedence: 1, maximum: 1
 
 // let's define the unstrict operators first
 
-define operator binary xor with precedence: 0
-  // TODO: turn into __xor call
-  @binary left, "xor", right
-
-define operator binary ? with precedence: 0
-  // TODO: probably define this right here.
-  @binary left, "?", right
-
-define operator binary bitand with precedence: 0
-  @binary left, "bitand", right
-
-define operator binary bitor with precedence: 0
-  @binary left, "bitor", right
-
-define operator binary bitxor with precedence: 0
-  @binary left, "bitxor", right
-
 define operator binary ~^ with precedence: 9, right-to-left: true
   AST Math.pow $left, $right
 
@@ -176,6 +159,32 @@ define operator binary max with precedence: 5
   AST
     $init
     if $left > $right then $left else $right
+
+define operator binary xor with precedence: 0
+  // TODO: turn into __xor call
+  @binary left, "xor", right
+
+define operator binary ? with precedence: 0
+  // TODO: probably define this right here.
+  @binary left, "?", right
+
+define operator binary ~bitand with precedence: 0
+  @binary left, "~bitand", right
+
+define operator binary ~bitor with precedence: 0
+  @binary left, "~bitor", right
+
+define operator binary ~bitxor with precedence: 0
+  @binary left, "~bitxor", right
+
+define operator binary bitand with precedence: 0
+  @binary AST +$left, "~bitand", AST +$right
+
+define operator binary bitor with precedence: 0
+  @binary AST +$left, "~bitor", AST +$right
+
+define operator binary bitxor with precedence: 0
+  @binary AST +$left, "~bitxor", AST +$right
 
 macro unless
   syntax test as Logic, "then", body, else-body as ("else", this)?
@@ -1169,7 +1178,9 @@ macro class
     let change-defs(node)@ -> @walk node, #(node)@
       if @is-def(node)
         let key = @left(node)
-        let value = @right(node)
+        let mutable value = @right(node)
+        if @empty(value)
+          value := AST #-> throw Error "Not implemented: $(@constructor.name).$($key)()"
         change-defs AST $prototype[$key] := $value
     body := change-defs body
     

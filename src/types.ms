@@ -1,19 +1,16 @@
-module.exports := do
-  let Type()!
+module.exports := class Type
+  def constructor()@
     throw TypeError "Type should not be instantiated"
   
-  let not-implemented(name)
-    #-> throw Error "Not implemented: $(@constructor.name).$name"
-  
-  Type::is-subset-of := not-implemented "isSubsetOf"
-  Type::is-superset-of := #(other) -> other.is-subset-of(this)
-  Type::overlaps := not-implemented "overlaps"
-  Type::compare := not-implemented "compare"
-  Type::equals := not-implemented "equals"
-  Type::union := not-implemented "union"
-  Type::intersect := not-implemented "intersect"
-  Type::complement := not-implemented "complement"
-  Type::array := #-> @_array ?= new ArrayType(this)
+  def is-subset-of
+  def is-superset-of(other) -> other.is-subset-of(this)
+  def overlaps
+  def compare
+  def equals
+  def union
+  def intersect
+  def complement
+  def array() -> @_array ?= ArrayType(this)
   
   let contains(alpha, bravo)
     for item in alpha
@@ -179,33 +176,30 @@ module.exports := do
     else
       if needs-sort
         types.sort type-comparer
-      new UnionType(types)
+      UnionType(types)
   
   let make-complement-type(types)
     if types.length == 0
       Type.any
     else
-      new ComplementType(types)
+      ComplementType(types)
   
-  let SimpleType = do
+  class SimpleType extends Type
     let get-id = do
       let mutable id = -1
       #
         id += 1
         id
     
-    let SimpleType(@name as String)!
-      if this not instanceof SimpleType
-        throw TypeError("Must be instantiated with new")
+    def constructor(name as String)@
+      @name := name
       @id := get-id()
-    SimpleType.prototype := ^Type.prototype
-    SimpleType::constructor := SimpleType
     
-    SimpleType::to-string := #-> @name
+    def to-string() -> @name
     
-    SimpleType::equals := #(other) -> this == other
+    def equals(other) -> this == other
     
-    SimpleType::compare := #(other)
+    def compare(other)
       if this == other
         0
       else if other instanceof SimpleType
@@ -213,10 +207,8 @@ module.exports := do
       else
         "SimpleType" <=> other.constructor.name
     
-    SimpleType::union := #(other)
-      if other not instanceof Type
-        throw TypeError("Expected other to be a Type, got $(typeof! other)")
-      else if other instanceof SimpleType
+    def union(other as Type)
+      if other instanceof SimpleType
         if this == other
           this
         else
@@ -224,10 +216,8 @@ module.exports := do
       else
         other.union this
     
-    SimpleType::intersect := #(other)
-      if other not instanceof Type
-        throw TypeError("Expected other to be a Type, got $(typeof! other)")
-      else if other instanceof SimpleType
+    def intersect(other as Type)
+      if other instanceof SimpleType
         if this == other
           this
         else
@@ -235,7 +225,7 @@ module.exports := do
       else
         other.intersect this
     
-    SimpleType::is-subset-of := #(other)
+    def is-subset-of(other as Type)
       if other instanceof SimpleType
         this == other
       else if other instanceof UnionType
@@ -247,42 +237,34 @@ module.exports := do
       else
         other == Type.any
     
-    SimpleType::overlaps := #(other)
+    def overlaps(other as Type)
       if other instanceof SimpleType
         this == other
       else
         other.overlaps this
     
-    SimpleType::complement := #
-      new ComplementType [this]
-    
-    SimpleType
-  Type.make := #(name) -> new SimpleType(name)
+    def complement() -> ComplementType [this]
+  @make := #(name) -> SimpleType(name)
   
-  let ArrayType = do
-    let ArrayType(@subtype as Type)!
-      if this not instanceof ArrayType
-        throw TypeError("Must be instantiated with new")
-    ArrayType.prototype := ^Type.prototype
-    ArrayType::constructor := ArrayType
-
-    ArrayType::to-string := #-> @_name ?= "[$(@subtype.to-string())]"
-
-    ArrayType::equals := #(other)
+  class ArrayType extends Type
+    def constructor(subtype as Type)@
+      @subtype := subtype
+    
+    def to-string() -> @_name ?= "[$(String @subtype)]"
+    
+    def equals(other)
       other == this or (other instanceof ArrayType and @subtype.equals(other.subtype))
-
-    ArrayType::compare := #(other)
+    
+    def compare(other)
       if this == other
         0
       else if other instanceof ArrayType
         @subtype.compare(other.subtype)
       else
         "ArrayType" <=> other.constructor.name
-
-    ArrayType::union := #(other)
-      if other not instanceof Type
-        throw TypeError("Expected other to be a Type, got $(typeof! other)")
-      else if other instanceof ArrayType
+    
+    def union(other as Type)
+      if other instanceof ArrayType
         if @equals(other)
           this
         else
@@ -296,11 +278,9 @@ module.exports := do
         make-union-type [this, other], true
       else
         other.union this
-
-    ArrayType::intersect := #(other)
-      if other not instanceof Type
-        throw TypeError("Expected other to be a Type, got $(typeof! other)")
-      else if other instanceof ArrayType
+    
+    def intersect(other as Type)
+      if other instanceof ArrayType
         if @equals(other)
           this
         else
@@ -315,7 +295,7 @@ module.exports := do
       else
         other.intersect this
 
-    ArrayType::is-subset-of := #(other)
+    def is-subset-of(other as Type)
       if other instanceof ArrayType
         @subtype.is-subset-of(other.subtype)
       else if other instanceof UnionType
@@ -327,7 +307,7 @@ module.exports := do
       else
         other == Type.any
 
-    ArrayType::overlaps := #(other)
+    def overlaps(other as Type)
       if other instanceof ArrayType
         @subtype.overlaps(other.subtype)
       else if other instanceof SimpleType
@@ -335,23 +315,17 @@ module.exports := do
       else
         other.overlaps this
 
-    ArrayType::complement := #
-      new ComplementType [this]
-
-    ArrayType
+    def complement() -> ComplementType [this]
   
-  let UnionType = do
-    let UnionType(@types as [Type])!
-      if this not instanceof UnionType
-        throw TypeError "Must be instantiated with new"
+  class UnionType extends Type
+    def constructor(types as [Type])@
       if types.length <= 1
         throw Error "Must provide at least 2 types to UnionType"
-    UnionType.prototype := ^Type.prototype
-    UnionType::constructor := UnionType
+      @types := types
     
-    UnionType::to-string := #-> @_name ?= "($(@types.join '|'))"
+    def to-string() -> @_name ?= "($(@types.join '|'))"
     
-    UnionType::equals := #(other)
+    def equals(other)
       if other == this
         true
       else if other instanceof UnionType
@@ -359,7 +333,7 @@ module.exports := do
       else
         false
     
-    UnionType::compare := #(other)
+    def compare(other)
       if other == this
         0
       else if other instanceof UnionType
@@ -367,7 +341,7 @@ module.exports := do
       else
         "UnionType" <=> other.constructor.name
     
-    UnionType::union := #(other)
+    def union(other as Type)
       if other instanceofsome [SimpleType, ArrayType]
         let types = union @types, [other]
         if types == @types
@@ -385,7 +359,7 @@ module.exports := do
       else
         other.union this
     
-    UnionType::intersect := #(other)
+    def intersect(other as Type)
       if other instanceofsome [SimpleType, ArrayType]
         make-union-type intersect @types, [other]
       else if other instanceof UnionType
@@ -399,7 +373,7 @@ module.exports := do
       else
         other.intersect this
     
-    UnionType::is-subset-of := #(other)
+    def is-subset-of(other as Type)
       if other instanceof UnionType
         is-subset-of @types, other.types
       else if other instanceof ComplementType
@@ -407,7 +381,7 @@ module.exports := do
       else
         other == Type.any
     
-    UnionType::overlaps := #(other)
+    def overlaps(other as Type)
       if other instanceofsome [SimpleType, ArrayType]
         contains @types, other
       else if other instanceof UnionType
@@ -415,26 +389,21 @@ module.exports := do
       else
         other.overlaps this
     
-    UnionType::complement := #-> new ComplementType @types
-    
-    UnionType
+    def complement() -> ComplementType @types
   
-  let ComplementType = do
-    let ComplementType(@untypes as [Type])!
-      if this not instanceof ComplementType
-        throw TypeError "Must be instantiated with new"
-      else if untypes.length == 0
+  class ComplementType extends Type
+    def constructor(untypes as [Type])@
+      if untypes.length == 0
         throw Error "Must provide at least 1 untype to ComplementType"
-    ComplementType.prototype := ^Type.prototype
-    ComplementType::constructor := ComplementType
+      @untypes := untypes
     
-    ComplementType::to-string := #
+    def to-string()
       @_name ?= if @untypes.length == 1
-        "any \\ $(@untypes[0].to-string())"
+        "any \\ $(String @untypes[0])"
       else
         "any \\ ($(@untypes.join '|'))"
     
-    ComplementType::equals := #(other)
+    def equals(other)
       if this == other
         true
       else if other instanceof ComplementType
@@ -442,7 +411,7 @@ module.exports := do
       else
         false
     
-    ComplementType::compare := #(other)
+    def compare(other)
       if this == other
         0
       else if other instanceof ComplementType
@@ -450,7 +419,7 @@ module.exports := do
       else
         "ComplementType" <=> other.constructor.name
     
-    ComplementType::union := #(other)
+    def union(other as Type)
       if other instanceofsome [SimpleType, ArrayType]
         let untypes = relative-complement @untypes, [other]
         if untypes == @untypes
@@ -474,7 +443,7 @@ module.exports := do
       else
         other.union this
     
-    ComplementType::intersect := #(other)
+    def intersect(other as Type)
       if other instanceofsome [SimpleType, ArrayType]
         if contains @untypes, other
           Type.none
@@ -497,13 +466,13 @@ module.exports := do
       else
         other.intersect this
     
-    ComplementType::is-subset-of := #(other)
+    def is-subset-of(other as Type)
       if other instanceof ComplementType
         is-subset-of other.untypes, @untypes
       else
         other == Type.any
     
-    ComplementType::overlaps := #(other)
+    def overlaps(other as Type)
       if other instanceofsome [SimpleType, ArrayType]
         not contains @untypes, other
       else if other instanceof UnionType
@@ -513,79 +482,65 @@ module.exports := do
       else
         other.overlaps this
     
-    ComplementType::complement := #(other)
+    def complement()
       let untypes = @untypes
       if untypes.length == 1
         untypes[0]
       else
         make-union-type untypes
-    
-    ComplementType
   
-  Type.any := do
-    let AnyType()!
-      if this not instanceof AnyType
-        throw TypeError "Must be instantiated with new"
+  Type.any := new class AnyType extends Type
+    def constructor()@
       if Type.any
         throw Error "Cannot instantiate more than once"
-    AnyType.prototype := ^Type.prototype
-    AnyType::constructor := AnyType
     
-    AnyType::to-string := #-> "any"
+    def to-string() -> "any"
     
-    AnyType::equals := #(other) -> this == other
+    def equals(other) -> this == other
     
-    AnyType::compare := #(other)
+    def compare(other)
       if this == other
         0
       else
         "AnyType" <=> other.constructor.name
     
-    AnyType::union := #(other) -> this
-    AnyType::intersect := #(other) -> other
-    AnyType::is-subset-of := #(other) -> this == other
-    AnyType::overlaps := #(other) -> true
-    AnyType::complement := #-> Type.none
-    
-    new AnyType()
+    def union(other) -> this
+    def intersect(other) -> other
+    def is-subset-of(other) -> this == other
+    def overlaps(other) -> true
+    def complement() -> Type.none
   
-  Type.none := do
-    let NoneType()!
-      if this not instanceof NoneType
-        throw TypeError "Must be instantiated with new"
+  Type.none := new class NoneType extends Type
+    def constructor()@
       if Type.none
         throw Error "Cannot instantiate more than once"
-    NoneType.prototype := ^Type.prototype
-    NoneType::constructor := NoneType
     
-    NoneType::to-string := #-> "none"
+    def to-string() -> "none"
     
-    NoneType::equals := #(other) -> this == other
+    def equals(other) -> this == other
     
-    NoneType::compare := #(other)
+    def compare(other)
       if this == other
         0
       else
         "NoneType" <=> other.constructor.name
     
-    NoneType::union := #(other) -> other
-    NoneType::intersect := #(other) -> this
-    NoneType::is-subset-of := #(other) -> true
-    NoneType::overlaps := #(other) -> false
-    NoneType::complement := #-> Type.any
-    
-    new NoneType()
+    def union(other) -> other
+    def intersect(other) -> this
+    def is-subset-of(other) -> true
+    def overlaps(other) -> false
+    def complement() -> Type.any
   
-  Type.undefined := new SimpleType "undefined"
-  Type.null := new SimpleType "null"
-  Type.boolean := new SimpleType "Boolean"
-  Type.string := new SimpleType "String"
-  Type.number := new SimpleType "Number"
+  Type.undefined := Type.make "undefined"
+  Type.null := Type.make "null"
+  Type.boolean := Type.make "Boolean"
+  Type.string := Type.make "String"
+  Type.number := Type.make "Number"
   Type.array := Type.any.array()
-  Type.args := new SimpleType "Arguments"
-  Type.object := new SimpleType "Object"
-  Type.function := new SimpleType "Function"
-  Type.regexp := new SimpleType "RegExp"
+  Type.args := Type.make "Arguments"
+  Type.object := Type.make "Object"
+  Type.function := Type.make "Function"
+  Type.regexp := Type.make "RegExp"
   Type.string-or-number := Type.string.union(Type.number)
   Type.array-like := Type.array.union(Type.args)
   Type.undefined-or-null := Type.undefined.union(Type.null)
@@ -596,5 +551,3 @@ module.exports := do
   Type.potentially-truthy := Type.always-falsy.complement()
   Type.potentially-falsy := Type.always-falsy.union(Type.number).union(Type.string).union(Type.boolean)
   Type.always-truthy := Type.potentially-falsy.complement()
-  
-  Type

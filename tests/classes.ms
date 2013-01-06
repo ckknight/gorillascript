@@ -580,3 +580,14 @@ test "type checking on method", #
   throws #-> new Class().method(0), TypeError
   throws #-> new Class().method({}), TypeError
   throws #-> new Class().method([]), TypeError
+
+test "Empty definition turns into not implemented", #
+  class Class
+    def method
+  
+  throws #-> new Class().method(), #(e) -> e.message == "Not implemented: Class.method()"
+
+test "Immediate new call of a class", #
+  let object = new class
+  
+  eq "object", typeof object
