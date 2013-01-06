@@ -8,6 +8,12 @@ define operator binary and with precedence: 0
 define operator binary or with precedence: 0
   @binary left, \or, right
 
+define operator unary not
+  @unary "not", node
+
+define operator unary typeof
+  @unary "typeof", node
+
 define operator assign and=
   @maybe-cache-access left, #(set-left, left)@
     AST $set-left and ($left := $right)
@@ -46,6 +52,10 @@ define operator binary ~= with precedence: 1, maximum: 1
 define operator binary !~= with precedence: 1, maximum: 1
   AST not ($left ~= $right)
 
+define operator unary ? with postfix: true
+  // TODO: support when node is not in-scope and thus should be typeof node != "undefined" and node != null
+  AST $node !~= null
+
 define operator binary ~<, ~<= with precedence: 1, maximum: 1
   @binary left, op, right
 
@@ -56,7 +66,6 @@ define operator binary ~>, ~>= with precedence: 1, maximum: 1
     AST not ($left ~< $right)
 
 // let's define the unstrict operators first
-
 define operator binary ~^ with precedence: 9, right-to-left: true
   AST Math.pow $left, $right
 
@@ -81,12 +90,21 @@ define operator assign ~\=
 define operator binary ~+, ~- with precedence: 7
   @binary left, op, right
 
+define operator unary ~+, ~-
+  if @is-const(node)
+    let mutable value = Number(@value(node))
+    if op == "~-"
+      value := 0 ~- value
+    @const value
+  else
+    @unary op, node
+
 define operator assign ~+=
   if @is-const(right)
     let value = @value(right)
     if value == 1
       return @unary "inc", left
-    else if value == -1
+    else if value == ~-1
       return @unary "dec", left
   @assign left, "~+=", right
 
@@ -95,7 +113,7 @@ define operator assign ~-=
     let value = @value(right)
     if value == 1
       return @unary "dec", left
-    else if value == -1
+    else if value == ~-1
       return @unary "inc", left
   @assign left, "~-=", right
 
@@ -111,15 +129,12 @@ define operator binary ~& with precedence: 4
 define operator assign ~&=
   @assign left, op, AST "" ~& right
 
+define operator unary throw
+  @unary "throw", node
+
 define helper __num = #(num)
   if typeof num != "number"
     throw TypeError("Expected a number, got " ~& typeof num)
-  else
-    num
-
-define helper __str = #(str)
-  if typeof str != "string"
-    throw TypeError("Expected a string, got " ~& typeof str)
   else
     num
 
@@ -133,6 +148,19 @@ define helper __strnum = #(strnum)
     throw TypeError("Expected a string or number, got " ~& type)
 
 // strict operators, should have same precedence as their respective unstrict versions
+
+define operator unary +
+  if @is-type node, "number"
+    node
+  else
+    AST __num($node)
+
+define operator unary -
+  if @is-const(node) and typeof @value(node) == "number"
+    @const(~-@value(node))
+  else
+    AST ~-(+$node)
+
 define operator binary ^ with precedence: 9, right-to-left: true
   AST +$left ~^ +$right
 
@@ -350,6 +378,34 @@ define operator binary bitor with precedence: 0
 define operator binary bitxor with precedence: 0
   @binary AST +$left, "~bitxor", AST +$right
 
+define operator unary ~bitnot
+  @unary "~bitnot", node
+
+define operator unary bitnot
+  AST ~bitnot +$node
+
+define operator unary typeof!
+  AST __typeof($node)
+
+define operator unary delete with standalone: false
+  if not @is-access(node)
+    throw Error "Can only use delete on an access"
+  if @expr
+    @maybe-cache-access node, #(set-node, node)@
+      let tmp = @tmp \ref
+      let del = @unary "delete", node
+      AST
+        let $tmp = $set-node
+        $del
+        $tmp
+  else
+    @unary "delete", node
+
+define operator unary throw?
+  @maybe-cache node, #(set-node, node)
+    AST if $set-node?
+      throw $node
+
 define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, bitand=, bitor=, bitxor=
   // TODO: if left is proven to be a number, use raw operators instead
   @maybe-cache-access left, #(set-left, left)@
@@ -488,6 +544,9 @@ else
     let F = #->
     F.prototype := x
     new F()
+
+define operator unary ^
+  AST __create($node)
 
 define helper __pow = Math.pow
 define helper __floor = Math.floor

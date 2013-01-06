@@ -1174,6 +1174,7 @@ test "Operators as functions", #
   eq true, (not)(void)
   eq true, (not)(null)
   
+  /*
   eq "function", typeof (not not)
   eq false, (not not)(false)
   eq true, (not not)(true)
@@ -1183,7 +1184,7 @@ test "Operators as functions", #
   eq true, (not not)(1)
   eq false, (not not)(void)
   eq false, (not not)(null)
-  
+  */
   eq "function", typeof (bitnot)
   eq -1, (bitnot)(0)
   eq -2, (bitnot)(1)
@@ -1210,6 +1211,7 @@ test "Operators as functions", #
   eq "boolean", (typeof)(true)
   eq "boolean", (typeof)(false)
   
+  /*
   eq "function", typeof (typeof!)
   eq "Number", (typeof!)(0)
   eq "Number", (typeof!)(1)
@@ -1222,19 +1224,7 @@ test "Operators as functions", #
   eq "Function", (typeof!)(#->)
   eq "Boolean", (typeof!)(true)
   eq "Boolean", (typeof!)(false)
-  
-  let d(f, obj, key, expected)
-    eq "function", typeof f
-    eq expected, f(obj, key)
-    ok obj not ownskey key
-  
-  d (delete), {}, "hello", void
-  d (delete), {hello: void}, "hello", void
-  d (delete), {hello: "there"}, "hello", "there"
-  let obj = ^{hello: "there"}
-  d (delete), obj, "hello", "there"
-  ok obj haskey "hello"
-  
+  */
   let t(f, obj, should-catch)
     eq "function", typeof f
     let mutable caught = false
@@ -1248,9 +1238,10 @@ test "Operators as functions", #
   t (throw), false, true
   t (throw), null, true
   t (throw), void, true
+  /*
   t (throw?), {}, true
   t (throw?), false, true
   t (throw?), null, false
   t (throw?), void, false
-  
+  */
   // TODO: check num!, str!, strnum!

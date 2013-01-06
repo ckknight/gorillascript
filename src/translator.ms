@@ -131,22 +131,6 @@ let identity(x) -> x
 
 let make-auto-return(x) -> if x then wrap-return else identity
 
-let num-wrap(node, scope)
-  if node.type().is-subset-of(types.number)
-    node
-  else
-    scope.add-helper \__num
-    ast.Call ast.Ident(\__num), [node]
-
-let strnum-wrap(node, scope)
-  if node.type().is-subset-of(types.string)
-    node
-  else if node.type().is-subset-of(types.string-or-number)
-    ast.Binary "", "+", node
-  else
-    scope.add-helper \__strnum
-    ast.Call ast.Ident(\__strnum), [node]
-
 let binary-ops = {
   "~*": "*"
   "~/": "/"
@@ -184,86 +168,20 @@ let binary-ops = {
 
 let unary-ops = {
   "~-": "-"
-  "-": #(node, scope, location, auto-return)
-    auto-return ast.Unary("-", num-wrap(translate(node.node, scope, \expression), scope))
   "~+": "+"
-  "+": #(node, scope, location, auto-return)
-    auto-return num-wrap(translate(node.node, scope, \expression), scope)
   dec: "--"
   inc: "++"
   not: "!"
-  bool: #(node, scope, location, auto-return)
-    auto-return ast.Unary("!", ast.Unary("!", translate node.node, scope, \expression))
-  "?": #(node, scope, location, auto-return)
-    let translated = translate node.node, scope, \expression
-    if translated instanceof ast.Ident and not scope.has-variable translated
-      auto-return ast.Binary(
-        ast.Binary ast.Unary("typeof", translated), "!==", "undefined"
-        "&&"
-        ast.Binary translated, "!==", null)
-    else
-      auto-return ast.Binary translated, "!=", null
   "~bitnot": "~"
-  bitnot: #(node, scope, location, auto-return)
-    auto-return ast.Unary("~", num-wrap(translate(node.node, scope, \expression), scope))
   typeof: \typeof
-  "typeof!": #(node, scope, location, auto-return)
-    scope.add-helper \__typeof
-    auto-return ast.Call(
-      ast.Ident \__typeof
-      [translate node.node, scope, \expression])
-  "num!": #(node, scope, location, auto-return)
-    let translated = translate node.node, scope, \expression
-    if translated.type().is-subset-of(types.number)
-      auto-return translated
-    else
-      scope.add-helper \__num
-      auto-return ast.Call(
-        ast.Ident \__num
-        [translated])
-  "str!": #(node, scope, location, auto-return)
-    let translated = translate node.node, scope, \expression
-    if translated.type().is-subset-of(types.string)
-      auto-return translated
-    else
-      scope.add-helper \__str
-      auto-return ast.Call(
-        ast.Ident \__str
-        [translated])
-  "strnum!": #(node, scope, location, auto-return)
-    let translated = translate node.node, scope, \expression
-    strnum-wrap translated, scope
   delete: #(node, scope, location, auto-return)
-    if location == \expression
-      async set-node, node <- scope.maybe-cache-access translate node.node, scope, \expression
-      let ident = scope.reserve-ident \ref
-      let block = ast.Block [
-        ast.Assign ident, set-node
-        ast.Unary "delete", node, scope, \expression
-        ident
-      ]
-      scope.release-ident(ident)
-      block
-    else
-      auto-return ast.Unary("delete", translate node.node, scope, \expression)
+    auto-return ast.Unary("delete", translate node.node, scope, \expression)
   throw: #(node, scope, location)
+    // TODO: the expression handling _should_ be handled through the operator in prelude.ms
     if location == \expression
       translate wrap-in-function-call(node), scope, \expression
     else
       ast.Throw(translate node.node, scope, \expression)
-  "throw?": #(node, scope, location)
-    if location == \expression
-      translate wrap-in-function-call(node), scope, \expression
-    else
-      async set-node, node <- scope.maybe-cache translate node.node, scope, \expression
-      ast.If(
-        ast.Binary set-node, "!=", null
-        ast.Throw(node, scope, \expression))
-  "^": #(node, scope, location, auto-return)
-    scope.add-helper \__create
-    auto-return ast.Call(
-      ast.Ident \__create
-      [translate node.node, scope, \expression])
 }
 
 let HELPERS = {}
@@ -1099,68 +1017,6 @@ let translators = {
       scope.release-ident ident
       auto-return result
   
-  Operator: do
-    let make-num-op(op) -> #(scope)
-      let left = ast.Ident \x
-      let right = ast.Ident \y
-      ast.Func null, [left, right], [], [ast.Return(ast.Binary(
-        num-wrap left, scope
-        op
-        num-wrap right, scope))]
-    let operators = {
-      bitnot: #(scope)
-        let left = ast.Ident \x
-        ast.Func null, [left], [], [ast.Return(ast.Unary(
-          "~"
-          num-wrap(left, scope)))]
-      bool: #(scope)
-        let value = ast.Ident \x
-        ast.Func null, [value], [], [ast.Return(ast.Unary("!", ast.Unary("!", value)))]
-      "typeof!": #(scope)
-        scope.add-helper \__typeof
-        ast.Ident \__typeof
-      "num!": #(scope)
-        scope.add-helper \__num
-        ast.Ident \__num
-      "str!": #(scope)
-        scope.add-helper \__str
-        ast.Ident \__str
-      "strnum!": #(scope)
-        scope.add-helper \__strnum
-        ast.Ident \__strnum
-      delete: #(scope)
-        let object = ast.Ident \o
-        let key = ast.Ident \k
-        let ident = ast.Ident \v
-        ast.Func null, [object, key], [ident.name], [
-          ast.Assign(ident, ast.Access(object, key))
-          ast.Unary(\delete, ast.Access(object, key))
-          ast.Return(ident)]
-      throw: #(scope)
-        let error = ast.Ident \e
-        ast.Func null, [error], [], [
-          ast.Throw(error)]
-      "throw?": #(scope)
-        let error = ast.Ident \e
-        ast.Func null, [error], [], [
-          ast.IfStatement(
-            ast.Binary error, "!=", null
-            ast.Throw error)]
-    }
-    #(node, scope, location, auto-return)
-      let op = node.op
-      if operators ownskey op
-        auto-return operators[op](scope)
-      else if binary-ops ownskey op and typeof binary-ops[op] == \string
-        let left = ast.Ident \x
-        let right = ast.Ident \y
-        auto-return ast.Func(null, [left, right], [], [ast.Return(ast.Binary(left, binary-ops[op], right))])
-      else if unary-ops ownskey op and typeof unary-ops[op] == \string
-        let value = ast.Ident \x
-        auto-return ast.Func(null, [value], [], [ast.Return(ast.Unary(unary-ops[op], value))])
-      else
-        throw Error "Unknown operator: $(String op)"
-  
   Regexp: #(node, scope, location, auto-return)
     let text = translate node.text, scope, \expression
     let flags = node.flags
@@ -1200,18 +1056,26 @@ let translators = {
   
   String: #(node, scope, location, auto-return)
     let parts = node.parts
-    
+  
     let mutable current = void
     for p in parts
-      let part = if typeof p == \string
+      let mutable part = if typeof p == \string
         ast.Const p
       else
         translate p, scope, \expression
       
-      if current?
-        current := ast.Binary current, "+", strnum-wrap(part, scope)
+      if not part.type().is-subset-of(types.string)
+        if part.type().is-subset-of(types.string-or-number)
+          if not current?
+            current := ast.Const ""
+        else
+          scope.add-helper \__strnum
+          part := ast.Call ast.Ident(\__strnum), [part]
+      
+      current := if current?
+        ast.Binary current, "+", part
       else
-        current := strnum-wrap(part, scope)
+        part
     unless current?
       current := ast.Const("")
     auto-return current

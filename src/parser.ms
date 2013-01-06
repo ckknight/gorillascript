@@ -1475,66 +1475,55 @@ define ExistentialSymbolNoSpace = sequential! [
 ]
 define MaybeExistentialSymbolNoSpace = maybe! ExistentialSymbolNoSpace, true
 
-define CustomOperator = #(o)
-  let i = o.index
-  for operators in o.macros.binary-operators
-    if operators
-      for operator in operators
-        let rule = operator.rule
-        let op = rule o
-        if op
-          let left = o.ident i, \x
-          let right = o.ident i, \y
-          return o.function(i
-            [
-              o.param i, left
-              o.param i, right
-            ]
-            operator.func {
-              left
-              inverted: false
-              op
-              right
-            }, o, i
-            true
-            false)
-  return false
-
-define Operator = one-of! [
-  CustomOperator
-  one-of! [
-    sequential! [
-      NotToken
-      [\this, MaybeNotToken]
-    ], #(x) -> if x == \not then \bool else \not
-    \bitnot
-    "~bitnot"
-    sequential! [
-      word \typeof
-      [\this, maybe! (character! "!"), NOTHING]
-    ], #(x) -> if x != NOTHING then "typeof!" else \typeof
-    sequential! [
-      [\this, one-of! [
-        word \num
-        word \str
-        word \strnum
-      ]]
-      character! "!"
-    ], #(x) -> x & "!"
-    \delete
-    sequential! [
-      word \throw
-      [\this, MaybeExistentialSymbolNoSpace]
-    ], #(x) -> if x == "?" then "throw?" else \throw
-  ], #(x, o, i) -> o.operator i, x
-]
+define CustomOperator = do
+  let handle-unary-operator(operator, o, i)
+    let rule = operator.rule
+    let op = rule o
+    if op
+      let node = o.ident i, \x
+      o.function(i
+        [o.param i, node]
+        operator.func {
+          op
+          node
+        }, o, i
+        true
+        false)
+  #(o)
+    let i = o.index
+    for operators in o.macros.binary-operators
+      if operators
+        for operator in operators
+          let rule = operator.rule
+          let op = rule o
+          if op
+            let left = o.ident i, \x
+            let right = o.ident i, \y
+            return o.function(i
+              [
+                o.param i, left
+                o.param i, right
+              ]
+              operator.func {
+                left
+                inverted: false
+                op
+                right
+              }, o, i
+              true
+              false)
+    for operator in o.macros.prefix-unary-operators
+      return? handle-unary-operator operator, o, i
+    for operator in o.macros.postfix-unary-operators
+      return? handle-unary-operator operator, o, i
+    false
 
 define Parenthetical = sequential! [
   OpenParenthesis
   [\this, one-of! [
     Assignment
     Expression
-    Operator
+    CustomOperator
   ]]
   CloseParenthesis
 ], #(node, o, i) -> node
@@ -1706,7 +1695,7 @@ define SingularObjectKey = one-of! [
   ], #(x, o, i)
     {
       key: o.const i, String(-x.value)
-      value: o.unary i, "-", x
+      value: o.unary i, "~-", x
     }
   sequential! [
     [\this, Parenthetical]
@@ -2423,11 +2412,19 @@ define BasicInvocationOrAccess = sequential! [
       OpenSquareBracketChar
       [\child, Index]
       CloseSquareBracket
-    ], #(x) -> {
-      x.type
-      x.child
-      existential: x.existential == "?"
-    }
+    ], #(x)
+      if x.child.type == \single
+        {
+          type: if x.type == \access-index then \access else \proto-access
+          child: x.child.node
+          existential: x.existential == "?"
+        }
+      else
+        {
+          x.type
+          x.child
+          existential: x.existential == "?"
+        }
     sequential! [
       [\existential, MaybeExistentialSymbolNoSpace]
       [\is-apply, maybe! AtSign, NOTHING]
@@ -2522,25 +2519,16 @@ define InvocationOrAccess = one-of! [
   Eval
 ]
 
-define ExistentialUnary = sequential! [
-  [\node, InvocationOrAccess]
-  [\op, MaybeExistentialSymbolNoSpace]
-], #(x, o, i)
-  if x.op == "?"
-    o.unary i, x.op, x.node
-  else
-    x.node
-
 define CustomPostfixUnary = #(o)
   let start-index = o.index
-  let node = ExistentialUnary o
+  let node = InvocationOrAccess o
   if not node
     false
   else
     for operator in o.macros.postfix-unary-operators
       let clone = o.clone()
       let rule = operator.rule
-      let op = rule sub-clone
+      let op = rule clone
       if not op
         continue
       o.update clone
@@ -2568,67 +2556,13 @@ define CustomPrefixUnary = #(o)
     }, o, start-index
   CustomPostfixUnary o
 
-define Unary = sequential! [
-  [\op, maybe! (one-of! [
-    sequential! [
-      NotToken
-      [\this, MaybeNotToken]
-    ], #(x) -> if x == \not then \bool else \not
-    word \bitnot
-    word-or-symbol "~bitnot"
-    sequential! [
-      word \typeof
-      [\this, maybe! (character! "!"), NOTHING]
-    ], #(x) -> if x != NOTHING then "typeof!" else \typeof
-    sequential! [
-      [\this, one-of! [
-        word \num
-        word \str
-        word \strnum
-      ]]
-      character! "!"
-    ], #(x) -> x & "!"
-    word \delete
-    sequential! [
-      word \throw
-      [\this, MaybeExistentialSymbolNoSpace]
-    ], #(x) -> if x == "?" then "throw?" else \throw
-  ]), NOTHING]
-  [\node, CustomPrefixUnary]
-], #(x, o, i)
-  if x.op != NOTHING
-    o.unary i, x.op, x.node
-  else
-    x.node
-
-define Negate = sequential! [
-  [\op, maybe! (sequential! [
-    [\this, one-of! [
-      symbol "+"
-      symbol "-"
-      symbol "~+"
-      symbol "~-"
-      symbol "^"
-    ]]
-    NoSpace
-  ]), NOTHING]
-  [\node, Unary]
-], #(x, o, i)
-  if x.op != NOTHING
-    if x.node instanceof ConstNode and typeof x.node.value == \number and x.op in ["+", "-", "~+", "~-"]
-      o.const i, if x.op in ["+", "~+"] then +x.node.value else -x.node.value
-    else
-      o.unary i, x.op, x.node
-  else
-    x.node
-
 let get-use-custom-binary-operator = do
   let precedence-cache = []
   #(precedence) -> precedence-cache[precedence] ?= cache #(o)
     let start-index = o.index
     let binary-operators = o.macros.binary-operators
     if binary-operators.length < precedence
-      Negate o
+      CustomPrefixUnary o
     else
       let next-rule = get-use-custom-binary-operator(precedence + 1)
       let head = next-rule o
@@ -3323,8 +3257,22 @@ let MacroHolder = do
     let data = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
     data.push {
       rule: one-of for op in operators
-        word-or-symbol op
+        let rule = word-or-symbol op
+        if not r"[a-zA-Z]".test(op)
+          if options.postfix
+            sequential [
+              NoSpace
+              [\this, rule]
+            ]
+          else
+            sequential [
+              [\this, rule]
+              NoSpace
+            ]
+        else
+          rule
       func: m
+      standalone: not options ownskey \standalone or not not options.standalone
     }
     @add-macro m
   
@@ -3698,7 +3646,10 @@ let State = do
         let result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data)
           macros.get-by-id(id)(data, o, i)
         let tmps = macro-helper.get-tmps()
-        o.use-macro i, result, tmps.unsaved, macro-helpers
+        if tmps.unsaved.length or macro-helpers.length
+          o.use-macro i, result, tmps.unsaved, macro-helpers
+        else
+          result
     if @current-macro == BINARY_OPERATOR
       macro-id := macros.add-binary-operator(params, mutator, options)
     else if @current-macro == ASSIGN_OPERATOR
@@ -3973,9 +3924,6 @@ node-type! \object, pairs as Array, {
   type: # -> types.object
 }
 State::object-param := State::object
-node-type! \operator, op as String, {
-  type: # -> types.function
-}
 node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void), {
   walk: #(func)
     let ident = func @ident
