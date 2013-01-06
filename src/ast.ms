@@ -471,9 +471,9 @@ exports.Binary := class Binary extends Expression
       else
         x ~& y
     "-": (~-)
-    "<<": (bitlshift) // TODO: change to ~bitlshift
-    ">>": (bitrshift)
-    ">>>": (biturshift)
+    "<<": (~bitlshift)
+    ">>": (~bitrshift)
+    ">>>": (~biturshift)
     "<": (~<)
     "<=": (~<=)
     ">": (~>)
@@ -482,9 +482,9 @@ exports.Binary := class Binary extends Expression
     "!==": (!=)
     "==": (~=)
     "!=": (!~=)
-    "&": (bitand)
-    "^": (bitxor)
-    "|": (bitor)
+    "&": (~bitand)
+    "^": (~bitxor)
+    "|": (~bitor)
     "&&": (and)
     "||": (or)
     ".": #(x, y)
