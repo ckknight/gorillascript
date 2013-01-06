@@ -3,10 +3,18 @@ macro do
     AST (#@ -> $body)()
 
 define operator binary and with precedence: 0
-  @binary left, "and", right
+  @binary left, \and, right
 
 define operator binary or with precedence: 0
-  @binary left, "or", right
+  @binary left, \or, right
+
+define operator assign and=
+  @maybe-cache-access left, #(set-left, left)@
+    AST $set-left and ($left := $right)
+
+define operator assign or=
+  @maybe-cache-access left, #(set-left, left)@
+    AST $set-left or ($left := $right)
 
 macro if
   // this uses eval instead of normal operators since those aren't defined yet
@@ -52,6 +60,10 @@ define operator binary ~>, ~>= with precedence: 1, maximum: 1
 define operator binary ~^ with precedence: 9, right-to-left: true
   AST Math.pow $left, $right
 
+define operator assign ~^=
+  @maybe-cache-access left, #(set-left, left)
+    AST $set-left := $left ~^ $right
+
 define operator binary ~*, ~/, ~%, ~\ with precedence: 8
   if op == "~\\"
     let div = @binary left, "~/", right
@@ -59,14 +71,45 @@ define operator binary ~*, ~/, ~%, ~\ with precedence: 8
   else
     @binary left, op, right
 
+define operator assign ~*=, ~/=, ~%=
+  @assign left, op, right
+
+define operator assign ~\=
+  @maybe-cache-access left, #(set-left, left)
+    AST $set-left := $left ~\ $right
+
 define operator binary ~+, ~- with precedence: 7
   @binary left, op, right
+
+define operator assign ~+=
+  if @is-const(right)
+    let value = @value(right)
+    if value == 1
+      return @unary "inc", left
+    else if value == -1
+      return @unary "dec", left
+  @assign left, "~+=", right
+
+define operator assign ~-=
+  if @is-const(right)
+    let value = @value(right)
+    if value == 1
+      return @unary "dec", left
+    else if value == -1
+      return @unary "inc", left
+  @assign left, "~-=", right
 
 define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 6, maximum: 1
   @binary left, op, right
 
+define operator assign ~bitlshift=, ~bitrshift=, ~biturshift=
+  @assign left, op, right
+
 define operator binary ~& with precedence: 4
   @binary left, op, right
+
+define operator assign ~&=
+  @assign left, op, AST "" ~& right
 
 define helper __num = #(num)
   if typeof num != "number"
@@ -93,6 +136,10 @@ define helper __strnum = #(strnum)
 define operator binary ^ with precedence: 9, right-to-left: true
   AST +$left ~^ +$right
 
+define operator assign ^=
+  @maybe-cache-access left, #(set-left, left)@
+    AST $set-left := $left ^ $right
+
 define operator binary *, /, %, \ with precedence: 8
   if op == "*"
     AST +$left ~* +$right
@@ -117,8 +164,21 @@ define operator binary bitlshift, bitrshift, biturshift with precedence: 6, maxi
   else
     AST +$left ~biturshift +$right
 
+define operator assign \=
+  @maybe-cache-access left, #(set-left, left)@
+    AST $set-left := $left \ $right
+
 define operator binary & with precedence: 4
-  AST (__strnum $left) ~& (__strnum $right)
+  if not @is-type left, \string
+    left := AST __strnum $left
+  if not @is-type right, \string
+    right := AST __strnum $right
+  AST $left ~& $right
+
+define operator assign &=
+  // TODO: if left is proven to be a string, use raw operators instead
+  @maybe-cache-access left, #(set-left, left)@
+    AST $set-left := $left & $right
 
 define helper __in = do
   let index-of = Array.prototype.index-of
@@ -248,6 +308,27 @@ define operator binary ? with precedence: 0
   @maybe-cache left, #(set-left, left)@
     AST if $set-left? then $left else $right
 
+define operator assign ~min=, ~max=, min=, max=, xor=
+  @maybe-cache-access left, #(set-left, left)@
+    let action = if op == "~min="
+      AST $left ~min $right
+    else if op == "~max="
+      AST $left ~max $right
+    else if op == "min="
+      AST $left min $right
+    else if op == "max="
+      AST $left max $right
+    else if op == "xor="
+      AST $left xor $right
+    else
+      throw Error()
+    AST $set-left := $action
+
+define operator assign ?=
+  @maybe-cache-access left, #(set-left, left)@
+    @maybe-cache set-left, #(set-left, left-value)@
+      AST if $set-left? then $left-value else ($left := $right)
+
 define operator binary ~bitand with precedence: 0
   @binary left, "~bitand", right
 
@@ -257,6 +338,9 @@ define operator binary ~bitor with precedence: 0
 define operator binary ~bitxor with precedence: 0
   @binary left, "~bitxor", right
 
+define operator assign ~bitand=, ~bitor=, ~bitxor=
+  @assign left, op, right
+
 define operator binary bitand with precedence: 0
   @binary AST +$left, "~bitand", AST +$right
 
@@ -265,6 +349,35 @@ define operator binary bitor with precedence: 0
 
 define operator binary bitxor with precedence: 0
   @binary AST +$left, "~bitxor", AST +$right
+
+define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, bitand=, bitor=, bitxor=
+  // TODO: if left is proven to be a number, use raw operators instead
+  @maybe-cache-access left, #(set-left, left)@
+    let action = if op == "*="
+      AST $left * $right
+    else if op == "/="
+      AST $left / $right
+    else if op == "%="
+      AST $left % $right
+    else if op == "+="
+      AST $left + $right
+    else if op == "-="
+      AST $left - $right
+    else if op == "bitlshift="
+      AST $left bitlshift $right
+    else if op == "bitrshift="
+      AST $left bitrshift $right
+    else if op == "biturshift="
+      AST $left biturshift $right
+    else if op == "bitand="
+      AST $left bitand $right
+    else if op == "bitor="
+      AST $left bitor $right
+    else if op == "bitxor="
+      AST $left bitxor $right
+    else
+      throw Error()
+    AST $set-left := $action
 
 macro unless
   syntax test as Logic, "then", body, else-body as ("else", this)?

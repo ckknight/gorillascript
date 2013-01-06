@@ -503,6 +503,8 @@ exports.Binary := class Binary extends Expression
     "+": #(x, y)
       if x.const-value() == 0
         Unary "+", y
+      else if x.const-value() == "" and y.type().is-subset-of(types.string)
+        y
     "-": #(x, y)
       if x.const-value() == 0
         Unary "-", y
@@ -525,6 +527,8 @@ exports.Binary := class Binary extends Expression
         Unary "+", x
       else if typeof y-value == "number" and y-value < 0
         Binary x, "-", Const(-y-value)
+      else if y-value == "" and x.type().is-subset-of(types.string)
+        x
     "-": #(x, y)
       let y-value = y.const-value()
       if y-value == 0

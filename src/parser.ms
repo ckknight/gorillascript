@@ -1,3 +1,5 @@
+require! './types'
+
 let freeze = if typeof Object.freeze == \function then Object.freeze else #(o) -> o
 
 let SHORT_CIRCUIT = freeze ^{ to-string: #-> "short-circuit" }
@@ -2128,9 +2130,13 @@ define DefineHelper = short-circuit! DefineHelperStart, sequential! [
 ], #(x, o, i) -> o.define-helper i, x.name, x.value
 
 define DefineOperatorStart = sequential! [word(\define), word(\operator)]
-define DefineOperatorBinary = sequential! [
+define DefineOperator = short-circuit! DefineOperatorStart, in-macro sequential! [
   DefineOperatorStart
-  word \binary
+  [\type, one-of! [
+    \binary
+    \assign
+    \unary
+  ]]
   [\head, NameOrSymbol]
   [\tail, zero-or-more! sequential! [
     Comma
@@ -2150,11 +2156,16 @@ define DefineOperatorBinary = sequential! [
       if pair.value not instanceof ConstNode
         o.error "Cannot have non-const value in the options"
       options[pair.key.value] := pair.value.value
-  o.define-binary-operator i, [x.head, ...x.tail], options, x.body
-define DefineOperator = short-circuit! DefineOperatorStart, in-macro one-of! [
-  DefineOperatorBinary
-  #(o) -> false
-]
+  
+  let ops = [x.head, ...x.tail]
+  if x.type == \binary
+    o.define-binary-operator i, ops, options, x.body
+  else if x.type == \assign
+    o.define-assign-operator i, ops, options, x.body
+  else if x.type == \unary
+    o.define-unary-operator i, ops, options, x.body
+  else
+    throw Error()
 
 define Nothing = #(o) -> o.nothing o.index
 define ExpressionOrNothing = one-of! [
@@ -2218,7 +2229,10 @@ define IdentifierOrAccessStart = one-of! [
     let mutable parent = x.parent
     if x.is-proto != NOTHING
       parent := o.access i, parent, o.const i, \prototype
-    o.access-index i, parent, x.child
+    if x.child.type == \single
+      o.access i, parent, x.child.node
+    else
+      o.access-index i, parent, x.child
 ]
 
 define IdentifierOrAccessPart = one-of! [
@@ -2237,7 +2251,10 @@ define IdentifierOrAccessPart = one-of! [
   ], #(x, o, i) -> #(mutable parent)
     if x.type != NOTHING
       parent := o.access i, parent, o.const i, \prototype
-    o.access-index i, parent, x.child
+    if x.child.type == \single
+      o.access i, parent, x.child.node
+    else
+      o.access-index i, parent, x.child
 ]
 
 define IdentifierOrAccess = sequential! [
@@ -2274,52 +2291,32 @@ define DirectAssignment = sequential! [
   [\right, ExpressionOrAssignment]
 ], #(x, o, i) -> o.assign i, x.left, x.op, x.right
 
-define CompoundAssignmentOp = one-of! [
-  "&="
-  "+="
-  "-="
-  "/="
-  "\\="
-  "%="
-  "*="
-  "^="
-  "~&="
-  "~+="
-  "~-="
-  "~/="
-  "~\\="
-  "~%="
-  "~*="
-  "~^="
-  "?="
-  "or="
-  "and="
-  "xor="
-  "bitand="
-  "bitor="
-  "bitxor="
-  "bitlshift="
-  "bitrshift="
-  "biturshift="
-  "min="
-  "max="
-  "~bitand="
-  "~bitor="
-  "~bitxor="
-  "~bitlshift="
-  "~bitrshift="
-  "~biturshift="
-  "~min="
-  "~max="
+define CustomAssignment = #(o)
+  let start-index = o.index
+  let clone = o.clone()
+  let left = SimpleAssignable clone
+  if left
+    for operator in o.macros.assign-operators
+      let sub-clone = clone.clone()
+      let rule = operator.rule
+      let op = rule sub-clone
+      if not op
+        continue
+      let right = ExpressionOrAssignment sub-clone
+      if not right
+        continue
+      o.update sub-clone
+      return operator.func {
+        left
+        op
+        right
+      }, o, start-index
+  false
+
+define Assignment = one-of! [
+  DirectAssignment
+  CustomAssignment
 ]
-
-define CompoundAssignment = sequential! [
-  [\left, SimpleAssignable]
-  [\op, CompoundAssignmentOp]
-  [\right, ExpressionOrAssignment]
-], #(x, o, i) -> o.assign i, x.left, x.op, x.right
-
-define Assignment = one-of! [DirectAssignment, CompoundAssignment]
 
 define PrimaryExpression = one-of! [
   UnclosedObjectLiteral
@@ -2534,6 +2531,43 @@ define ExistentialUnary = sequential! [
   else
     x.node
 
+define CustomPostfixUnary = #(o)
+  let start-index = o.index
+  let node = ExistentialUnary o
+  if not node
+    false
+  else
+    for operator in o.macros.postfix-unary-operators
+      let clone = o.clone()
+      let rule = operator.rule
+      let op = rule sub-clone
+      if not op
+        continue
+      o.update clone
+      return operator.func {
+        op
+        node
+      }, o, start-index
+    node
+
+define CustomPrefixUnary = #(o)
+  let start-index = o.index
+  for operator in o.macros.prefix-unary-operators
+    let clone = o.clone()
+    let rule = operator.rule
+    let op = rule clone
+    if not op
+      continue
+    let node = CustomPrefixUnary clone
+    if not node
+      continue
+    o.update clone
+    return operator.func {
+      op
+      node
+    }, o, start-index
+  CustomPostfixUnary o
+
 define Unary = sequential! [
   [\op, maybe! (one-of! [
     sequential! [
@@ -2560,7 +2594,7 @@ define Unary = sequential! [
       [\this, MaybeExistentialSymbolNoSpace]
     ], #(x) -> if x == "?" then "throw?" else \throw
   ]), NOTHING]
-  [\node, ExistentialUnary]
+  [\node, CustomPrefixUnary]
 ], #(x, o, i)
   if x.op != NOTHING
     o.unary i, x.op, x.node
@@ -2587,65 +2621,6 @@ define Negate = sequential! [
       o.unary i, x.op, x.node
   else
     x.node
-
-let binary-left-to-right(x, o, i)
-  let mutable current = x.head
-  for part in x.tail
-    current := o.binary i, current, part.op, part.node
-  current
-
-let binary-right-to-left(x, o, i)
-  let head = x.head
-  let tail = x.tail
-
-  if tail.length == 0
-    head
-  else
-    let mutable current = tail[tail.length - 1].node
-    for j = tail.length - 1, 0, -1
-      current := o.binary i, tail[j - 1].node, tail[j].op, current
-    o.binary i, head, tail[0].op, current
-macro make-binary!(operators, next-rule, minimum-extra, maximum-extra, right-to-left)
-  if not @is-array operators
-    operators := @array [operators]
-  
-  let init = []
-  next-rule := @cache next-rule, init, \rule, true
-  
-  let op-choices = @array for x in @elements(operators)
-    if @is-const(x)
-      unless typeof @value(x) == \string
-        throw Error "Unexpected non-string const: $(@value x)"
-      AST word-or-symbol $x
-    else
-      x
-  
-  if not minimum-extra
-    minimum-extra := AST 0
-  if not maximum-extra
-    maximum-extra := AST 0
-  //if not @is-const(minimum-extra) or typeof @value(minimum-extra) != \number
-  //  throw Error "Expected minimum-extra to be a const number"
-  //if not @is-const(maximum-extra) or typeof @value(maximum-extra) != \number
-  //  throw Error "Expected maximum-extra to be a const number"
-  if right-to-left and not @is-const(right-to-left)
-    throw Error "Expected right-to-left to be a const"
-  
-  let mutator = if @value(right-to-left) then AST binary-right-to-left else AST binary-left-to-right
-  
-  let result = AST sequential! [
-    [\head, $next-rule]
-    [\tail, multiple! $minimum-extra, $maximum-extra, sequential! [
-      [\op, one-of! $op-choices]
-      [\node, $next-rule]
-    ]]
-  ], $mutator
-  if init.length
-    AST do
-      $init
-      $result
-  else
-    result
 
 let get-use-custom-binary-operator = do
   let precedence-cache = []
@@ -2885,6 +2860,7 @@ let MacroHelper = do
   MacroHelper::for-in := #(key as Object, object as Object, body as Object) -> @state.for-in @index, key, object, body
   MacroHelper::try-catch := #(try-body as Object, catch-ident as Object, catch-body as Object) -> @state.try-catch @index, try-body, catch-ident, catch-body
   MacroHelper::try-finally := #(try-body as Object, finally-body as Object) -> @state.try-finally @index, try-body, finally-body
+  MacroHelper::assign := #(left as Object, op as String, right as Object) -> @state.assign @index, left, op, right
   MacroHelper::binary := #(left as Object, op as String, right as Object) -> @state.binary @index, left, op, right
   MacroHelper::unary := #(op as String, node as Object) -> @state.unary @index, op, node
   
@@ -3031,7 +3007,7 @@ let MacroHelper = do
     @state.object 0, pairs
   
   MacroHelper::is-complex := #(node)
-    node? and node not instanceofsome [ConstNode, IdentNode, TmpNode] and not (node instanceof BlockNode and node.nodes.length == 0)
+    node? and node not instanceofsome [ConstNode, IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
   
   MacroHelper::is-type-array := #(node) -> node instanceof TypeArrayNode
   MacroHelper::subtype := #(node) -> @is-type-array(node) and node.subtype
@@ -3048,9 +3024,23 @@ let MacroHelper = do
   MacroHelper::maybe-cache := #(node, func, name as String = \ref, save as Boolean)
     if @is-complex node
       let tmp = @tmp(name, save)
-      func(@state.let(@index, @state.declarable(@index, tmp, false), node), tmp, true)
+      func @state.let(@index, @state.declarable(@index, tmp, false), node), tmp, true
     else
-      func(node, node, false)
+      func node, node, false
+  
+  MacroHelper::maybe-cache-access := #(node, func)
+    if @is-access(node)
+      @maybe-cache @parent(node), #(set-parent, parent, parent-cached)@
+        @maybe-cache @child(node), #(set-child, child, child-cached)@
+          if parent-cached or child-cached
+            func(
+              @state.access(@index, set-parent, set-child)
+              @state.access(@index, parent, child)
+              true)
+          else
+            func node, node, false
+    else
+      func node, node, false
   
   MacroHelper::empty := #(node)
     if not node?
@@ -3082,8 +3072,6 @@ let MacroHelper = do
           is-new: false
           is-apply: false
         }])
-    else if obj instanceof IdentNode and obj.name in require('./translator').known-helpers
-      MacroHelperNode obj.start-index, obj.end-index, obj.name
     else if obj instanceof MacroAccessNode
       CallChainNode(obj.start-index, obj.end-index
         IdentNode obj.start-index, obj.end-index, \__macro
@@ -3170,9 +3158,32 @@ let MacroHelper = do
     if @is-unary(node)
       node.node
   
-  MacroHelper::is-access := #(node) -> node instanceof AccessNode
-  MacroHelper::parent := #(node) -> if @is-access(node) then node.parent
-  MacroHelper::child := #(node) -> if @is-access(node) then node.child
+  MacroHelper::is-access := #(node)
+    if node instanceof AccessNode
+      true
+    else if node instanceof CallChainNode
+      let links = node.links
+      let last-link = links[links.length - 1]
+      last-link.type == \access or last-link.type == \index
+    else
+      false
+  MacroHelper::parent := #(node)
+    if node instanceof AccessNode
+      node.parent
+    else if node instanceof CallChainNode
+      let links = node.links
+      if links[links.length - 1].type == \access
+        if links.length == 1
+          node.head
+        else
+          CallChainNode node.start-index, node.end-index, node.head, links[:links.length - 1]
+  MacroHelper::child := #(node)
+    if node instanceof AccessNode
+      node.child
+    else if node instanceof CallChainNode
+      let links = node.links
+      if links[links.length - 1].type == \access
+        links[links.length - 1].child
   
   MacroHelper::walk := #(node as Node, func as Function) -> walk node, func
   
@@ -3187,6 +3198,12 @@ let MacroHelper = do
         throw e
       return true
     false
+  
+  MacroHelper::is-type := #(node, name as String)
+    let type = types[name]
+    if not type? or type not instanceof types
+      throw Error "$name is not a known type name"
+    node.type().is-subset-of(type)
   
   let mutators = {
     Block: #(x, func)
@@ -3238,6 +3255,9 @@ let MacroHolder = do
     @by-name := {}
     @by-id := []
     @binary-operators := []
+    @assign-operators := []
+    @prefix-unary-operators := []
+    @postfix-unary-operators := []
   
   MacroHolder::get-by-name := #(name)
     let by-name = @by-name
@@ -3291,11 +3311,30 @@ let MacroHolder = do
     }
     @add-macro m
   
+  MacroHolder::add-assign-operator := #(operators, m, options)
+    @assign-operators.push {
+      rule: one-of for op in operators
+        word-or-symbol op
+      func: m
+    }
+    @add-macro m
+  
+  MacroHolder::add-unary-operator := #(operators, m, options)
+    let data = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
+    data.push {
+      rule: one-of for op in operators
+        word-or-symbol op
+      func: m
+    }
+    @add-macro m
+  
   MacroHolder
 
 let Node = do
   let Node()
     throw Error "Node should not be instantiated directly"
+  
+  Node::type := #-> types.any
   
   Node
 
@@ -3310,8 +3349,6 @@ macro node-type!
     let type = @ident(capped-name & "Node")
     let body = [
       AST let self = ^$type.prototype
-      //AST self.type := $name
-      AST Object.define-property self, \type, get: #-> throw Error "Don't access type on Node"
       AST self.start-index := start-index
       AST self.end-index := end-index
     ]
@@ -3583,6 +3620,55 @@ let State = do
         rule: void
         translated.macro-helpers
       }
+    
+    assign-operator: #(index, operators, body, options)
+      let raw-func = @root index, @return index, @function(index
+        [
+          @object-param index, [
+            { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
+            { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
+            { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
+          ]
+          @param index, (@ident index, \__wrap), void, false, true, void
+          @param index, (@ident index, \__node), void, false, true, void
+          @param index, (@ident index, \__macro), void, false, true, void
+        ]
+        body
+        true
+        false)
+      let translated = require('./translator')(raw-func)
+      let handler = translated.node.to-function()()
+      if typeof handler != \function
+        throw Error "Error creating function for assign operator $(operators.join ', ')"
+      {
+        handler
+        rule: void
+        translated.macro-helpers
+      }
+    
+    unary-operator: #(index, operators, body, options)
+      let raw-func = @root index, @return index, @function(index
+        [
+          @object-param index, [
+            { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
+            { key: @const(index, \node), value: @param index, (@ident index, \node), void, false, true, void }
+          ]
+          @param index, (@ident index, \__wrap), void, false, true, void
+          @param index, (@ident index, \__node), void, false, true, void
+          @param index, (@ident index, \__macro), void, false, true, void
+        ]
+        body
+        true
+        false)
+      let translated = require('./translator')(raw-func)
+      let handler = translated.node.to-function()()
+      if typeof handler != \function
+        throw Error "Error creating function for unary operator $(operators.join ', ')"
+      {
+        handler
+        rule: void
+        translated.macro-helpers
+      }
   }
   
   State::macro-syntax := #(index, type, params, body, options = {})!
@@ -3615,16 +3701,38 @@ let State = do
         o.use-macro i, result, tmps.unsaved, macro-helpers
     if @current-macro == BINARY_OPERATOR
       macro-id := macros.add-binary-operator(params, mutator, options)
+    else if @current-macro == ASSIGN_OPERATOR
+      macro-id := macros.add-assign-operator(params, mutator, options)
+    else if @current-macro == UNARY_OPERATOR
+      macro-id := macros.add-unary-operator(params, mutator, options)
     else
       let m = macros.get-or-add-by-name @current-macro
       m.data.push sequential! [m.token, [\this, rule]], mutator
       macro-id := macros.add-macro(mutator)
   
-  let BINARY_OPERATOR = {}
+  let BINARY_OPERATOR = freeze {}
   State::define-binary-operator := #(index, operators, options, body)
     @start-macro BINARY_OPERATOR
     try
       @macro-syntax index, \binary-operator, operators, body, options
+    finally
+      @end-macro()
+    @nothing(index)
+  
+  let ASSIGN_OPERATOR = freeze {}
+  State::define-assign-operator := #(index, operators, options, body)
+    @start-macro ASSIGN_OPERATOR
+    try
+      @macro-syntax index, \assign-operator, operators, body, options
+    finally
+      @end-macro()
+    @nothing(index)
+  
+  let UNARY_OPERATOR = freeze {}
+  State::define-unary-operator := #(index, operators, options, body)
+    @start-macro UNARY_OPERATOR
+    try
+      @macro-syntax index, \unary-operator, operators, body, options
     finally
       @end-macro()
     @nothing(index)
@@ -3655,12 +3763,77 @@ node-type! \access-index, parent as Node, child as Object, {
       else
         this
 }
-node-type! \args
-node-type! \array, elements as [Node]
+node-type! \args, {
+  type: #-> types.args
+}
+node-type! \array, elements as [Node], {
+  type: #-> types.array
+}
 State::array-param := State::array
-node-type! \assign, left as Node, op as String, right as Node
-node-type! \binary, left as Node, op as String, right as Node
-node-type! \block, nodes as [Node]
+node-type! \assign, left as Node, op as String, right as Node, {
+  type: do
+    let ops = {
+      ":=": #(left, right) -> right.type()
+      "~+=": types.number
+      "~&=": types.string
+      "~-=": types.number
+      "~*=": types.number
+      "~/=": types.number
+      "~%=": types.number
+      "~bitlshift=": types.number
+      "~bitrshift=": types.number
+      "~biturshift=": types.number
+      "~bitand=": types.number
+      "~bitxor=": types.number
+      "~bitor=": types.number
+    }
+    #
+      let type = ops ownskey @op and ops[@op]
+      if not type
+        types.any
+      else if typeof type == "function"
+        type(@left, @right)
+      else
+        type
+}
+node-type! \binary, left as Node, op as String, right as Node, {
+  type: do
+    let ops = {
+      "~*": types.number
+      "~/": types.number
+      "~%": types.number
+      "~+": types.number
+      "~-": types.number
+      "~&": types.string
+      "~bitlshift": types.number
+      "~bitrshift": types.number
+      "~biturshift": types.number
+      "~<": types.boolean
+      "~<=": types.boolean
+      "~>": types.boolean
+      "~>=": types.boolean
+      "~haskey": types.boolean
+      "~instanceof": types.boolean
+      "~==": types.boolean
+      "~!=": types.boolean
+      "~~=": types.boolean
+      "~!~=": types.boolean
+      "~bitand": types.number
+      "~bitxor": types.number
+      "~bitor": types.number
+    }
+    #
+      let type = ops ownskey @op and ops[@op]
+      type or types.any
+}
+node-type! \block, nodes as [Node], {
+  type: #
+    let nodes = @nodes
+    if nodes.length == 0
+      types.undefined
+    else
+      nodes[nodes.length - 1].type()
+}
 node-type! \break
 node-type! \call-chain, head as Node, links as Array, {
   walk: do
@@ -3747,7 +3920,25 @@ node-type! \call-chain, head as Node, links as Array, {
       else
         this
 }
-node-type! \const, value as (Number|String|Boolean|RegExp|void|null)
+node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
+  type: #
+    if @value == null
+      types.null
+    else
+      let type = typeof @value
+      if type == "number"
+        types.number
+      else if type == "string"
+        types.string
+      else if type == "boolean"
+        types.boolean
+      else if type == "undefined"
+        types.undefined
+      else if @value instanceof RegExp
+        types.regexp
+      else
+        throw Error("Unknown type for $(String @value)")
+}
 node-type! \continue
 node-type! \debugger
 node-type! \declarable, ident as Node, is-mutable as Boolean
@@ -3764,15 +3955,27 @@ node-type! \define-helper, name as Node, value as Node
 node-type! \eval, code as Node
 node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node
 node-type! \for-in, key as Node, object as Node, body as Node
-node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false
+node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, {
+  type: # -> types.function
+}
 node-type! \ident, name as String
-node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0)
-node-type! \let, left as Node, right as Node
+node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0), {
+  type: # -> @_type ?= @when-true.type().union(@when-false.type())
+}
+node-type! \let, left as Node, right as Node, {
+  type: # -> @right.type()
+}
 node-type! \macro-access, id as Number, data as Object
-node-type! \nothing
-node-type! \object, pairs as Array // as [{ key: Node, value: Node }]
+node-type! \nothing, {
+  type: # -> types.undefined
+}
+node-type! \object, pairs as Array, {
+  type: # -> types.object
+}
 State::object-param := State::object
-node-type! \operator, op as String
+node-type! \operator, op as String, {
+  type: # -> types.function
+}
 node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void), {
   walk: #(func)
     let ident = func @ident
@@ -3783,11 +3986,17 @@ node-type! \param, ident as Node, default-value as (Node|void), spread as Boolea
     else
       this
 }
-node-type! \regexp, text as Node, flags as String
-node-type! \return, node as Node = ConstNode(0, 0, void), existential as Boolean
+node-type! \regexp, text as Node, flags as String, {
+  type: # -> types.regexp
+}
+node-type! \return, node as Node = ConstNode(0, 0, void), existential as Boolean, {
+  type: # -> @node.type()
+}
 node-type! \root, body as Node
 node-type! \spread, node as Node
-node-type! \string, parts as [Node]
+node-type! \string, parts as [Node], {
+  type: # -> types.string
+}
 node-type! \super, child as (Node|void), args as [Node], {
   walk: #(func)
     let child = if @child? then func @child else @child
@@ -3811,12 +4020,45 @@ node-type! \syntax-param, ident as Node, as-type as (Node|void), {
 node-type! \syntax-sequence, params as [Node]
 node-type! \this
 node-type! \tmp, id as Number, name as String
-node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node
-node-type! \try-finally, try-body as Node, finally-body as Node
+node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node, {
+  type: # -> @_type ?= @try-body.type().union(@catch-body.type())
+}
+node-type! \try-finally, try-body as Node, finally-body as Node, {
+  type: # -> @try-body.type()
+}
 node-type! \type-array, subtype as Node
 node-type! \type-union, types as [Node]
-node-type! \unary, op as String, node as Node
-node-type! \use-macro, node as Node, tmps as Array, macro-helpers as Array
+node-type! \unary, op as String, node as Node, {
+  type: do
+    let ops = {
+      "~-": types.number
+      "-": types.number
+      "~+": types.number
+      "+": types.number
+      dec: types.number
+      inc: types.number
+      not: types.boolean
+      bool: types.boolean
+      "?": types.boolean
+      "~bitnot": types.number
+      bitnot: types.number
+      typeof: types.string
+      "typeof!": types.string
+      "num!": types.number
+      "str!": types.string
+      "strnum!": types.string
+      delete: types.any
+      throw: types.none
+      "throw?": types.undefined
+      "^": types.object
+    }
+    #
+      let type = ops ownskey @op and ops[@op]
+      type or types.any
+}
+node-type! \use-macro, node as Node, tmps as Array, macro-helpers as Array, {
+  type: # -> @node.type()
+}
 node-type! \yield, node as Node, multiple as Boolean
 
 let unique(array)

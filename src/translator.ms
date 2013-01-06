@@ -148,213 +148,38 @@ let strnum-wrap(node, scope)
     ast.Call ast.Ident(\__strnum), [node]
 
 let binary-ops = {
-  "~^": #(left, right)
-    ast.Call(
-      ast.Access ast.Ident(\Math), \pow
-      [left, right])
-  "^": #(left, right, scope)
-    binary-ops["~^"] num-wrap(left, scope), num-wrap(right, scope)
   "~*": "*"
-  "*": #(left, right, scope)
-    ast.Binary num-wrap(left, scope), "*", num-wrap(right, scope)
   "~/": "/"
-  "/": #(left, right, scope)
-    ast.Binary num-wrap(left, scope), "/", num-wrap(right, scope)
   "~%": "%"
-  "%": #(left, right, scope)
-    ast.Binary num-wrap(left, scope), "%", num-wrap(right, scope)
-  "~\\": #(left, right)
-    ast.Call(
-      ast.Access ast.Ident(\Math), \floor
-      [ast.Binary left, "/", right])
-  "\\": #(left, right, scope)
-    binary-ops["~\\"] num-wrap(left, scope), num-wrap(right, scope)
   "~+": #(left, right)
     unless left.type().is-subset-of types.number
       left := ast.Unary "+", left
     unless right.type().is-subset-of types.number
       right := ast.Unary "+", right
     ast.Binary left, "+", right
-  "+": #(left, right, scope)
-    ast.Binary num-wrap(left, scope), "+", num-wrap(right, scope)
   "~-": "-"
-  "-": #(left, right, scope)
-    ast.Binary num-wrap(left, scope), "-", num-wrap(right, scope)
   "~bitlshift": "<<"
-  bitlshift: #(left, right, scope)
-    ast.Binary num-wrap(left, scope), "<<", num-wrap(right, scope)
   "~bitrshift": ">>"
-  bitrshift: #(left, right, scope)
-    ast.Binary num-wrap(left, scope), ">>", num-wrap(right, scope)
   "~biturshift": ">>>"
-  biturshift: #(left, right, scope)
-    ast.Binary num-wrap(left, scope), ">>>", num-wrap(right, scope)
-  "~min": #(left, right, scope)
-    async set-left, left <- scope.maybe-cache left
-    async set-right, right <- scope.maybe-cache right
-    ast.IfExpression(
-      ast.Binary set-left, "<", set-right
-      left
-      right)
-  min: #(left, right, scope)
-    async set-left, left <- scope.maybe-cache left
-    async set-right, right <- scope.maybe-cache right
-    ast.IfExpression(
-      binary-ops["<"](set-left, set-right, scope)
-      left
-      right)
-  "~max": #(left, right, scope)
-    async set-left, left <- scope.maybe-cache left
-    async set-right, right <- scope.maybe-cache right
-    ast.IfExpression(
-      ast.Binary set-left, ">", set-right
-      left
-      right)
-  max: #(left, right, scope)
-    async set-left, left <- scope.maybe-cache left
-    async set-right, right <- scope.maybe-cache right
-    ast.IfExpression(
-      binary-ops[">"](set-left, set-right, scope)
-      left
-      right)
   "~&": #(mutable left, right)
     if left.type().overlaps(types.number) and right.type().overlaps(types.number)
       left := ast.Binary "", "+", left
     ast.Binary left, "+", right
-  "&": #(mutable left, mutable right, scope)
-    if not left.type().is-subset-of(types.string)
-      if left.type().is-subset-of(types.string-or-number) and not right.type().is-subset-of(types.string)
-        left := ast.Binary "", "+", left
-      else
-        left := strnum-wrap left, scope
-    if not right.type().is-subset-of(types.string-or-number)
-      right := strnum-wrap right, scope
-    ast.Binary left, "+", right
-  in: #(left, right, scope)
-    if right instanceof ast.Arr
-      let elements = right.elements
-      let len = elements.length
-      if len == 0
-        if needs-caching left
-          ast.BlockExpression [left, ast.Const(false)]
-        else
-          ast.Const(false)
-      else if len == 1
-        ast.Binary left, "===", elements[0]
-      else
-        async set-left, left <- scope.maybe-cache left
-        let mutable current = void
-        for i = len - 1, 0, -1
-          let check = ast.Binary left, "===", elements[i]
-          unless current?
-            current := check
-          else
-            current := ast.Binary check, "||", current
-        ast.Binary(
-          ast.Binary set-left, "===", elements[0]
-          "||"
-          current)
-    else
-      scope.add-helper \__in
-      ast.Call ast.Ident(\__in), [left, right]
   haskey: #(left, right, scope) -> ast.Binary right, "in", left
-  ownskey: #(left, right, scope)
-    scope.add-helper \__owns
-    ast.Call ast.Ident(\__owns), [left, right]
   instanceof: \instanceof
-  instanceofsome: #(left, right, scope)
-    if right instanceof ast.Arr
-      let elements = right.elements
-      let len = elements.length
-      if len == 0
-        if needs-caching left
-          ast.BlockExpression [left, ast.Const(false)]
-        else
-          ast.Const(false)
-      else if len == 1
-        ast.Binary left, \instanceof, elements[0]
-      else
-        async set-left, left <- scope.maybe-cache left
-        let mutable current = void
-        for i = len - 1, 0, -1
-          let check = ast.Binary left, \instanceof, elements[i]
-          unless current?
-            current := check
-          else
-            current := ast.Binary check, "||", current
-        ast.Binary(
-          ast.Binary set-left, \instanceof, elements[0]
-          "||"
-          current)
-    else
-      scope.add-helper \__instanceofsome
-      ast.Call ast.Ident(\__instanceofsome), [left, right]
-  "<=>": #(left, right, scope)
-    scope.add-helper \__cmp
-    ast.Call ast.Ident(\__cmp), [left, right]
   "~=": "=="
   "!~=": "!="
   "==": "==="
   "!=": "!=="
-  "~%%": #(left, right)
-    ast.Binary(
-      ast.Binary left, "%", right
-      "==="
-      ast.Const(0))
-  "%%": #(left, right, scope)
-    ast.Binary(
-      ast.Binary num-wrap(left, scope), "%", num-wrap(right, scope)
-      "==="
-      ast.Const(0))
-  "!~%%": #(left, right, scope)
-    ast.Unary "!", binary-ops["~%%"](left, right, scope)
-  "!%%": #(left, right, scope)
-    ast.Unary "!", binary-ops["%%"](left, right, scope)
   "~<": "<"
   "~<=": "<="
   "~>": ">"
   "~>=": ">="
-  "<": #(left, right, scope)
-    scope.add-helper \__lt
-    ast.Call ast.Ident(\__lt), [left, right]
-  "<=": #(left, right, scope)
-    scope.add-helper \__lte
-    ast.Call ast.Ident(\__lte), [left, right]
-  ">": #(left, right, scope)
-    scope.add-helper \__lte
-    ast.Unary "!", ast.Call ast.Ident(\__lte), [left, right]
-  ">=": #(left, right, scope)
-    scope.add-helper \__lt
-    ast.Unary "!", ast.Call ast.Ident(\__lt), [left, right]
   and: "&&"
   or: "||"
-  xor: #(left, right, scope)
-    scope.add-helper \__xor
-    ast.Call ast.Ident(\__xor), [left, right]
-  "?": #(left, right, scope)
-    if left instanceof ast.Ident and not scope.has-variable left
-      ast.IfExpression(
-        ast.Binary(
-          ast.Binary ast.Unary("typeof", left), "!==", "undefined"
-          "&&"
-          ast.Binary left, "!==", null)
-        left,
-        right)
-    else
-      async set-left, left <- scope.maybe-cache left
-      ast.IfExpression(
-        ast.Binary set-left, "!=", null
-        left
-        right)
   "~bitand": "&"
-  bitand: #(left, right, scope)
-    ast.Binary num-wrap(left, scope), "&", num-wrap(right, scope)
   "~bitor": "|"
-  bitor: #(left, right, scope)
-    ast.Binary num-wrap(left, scope), "|", num-wrap(right, scope)
   "~bitxor": "^"
-  bitxor: #(left, right, scope)
-    ast.Binary num-wrap(left, scope), "^", num-wrap(right, scope)
 }
 
 let unary-ops = {
@@ -364,6 +189,8 @@ let unary-ops = {
   "~+": "+"
   "+": #(node, scope, location, auto-return)
     auto-return num-wrap(translate(node.node, scope, \expression), scope)
+  dec: "--"
+  inc: "++"
   not: "!"
   bool: #(node, scope, location, auto-return)
     auto-return ast.Unary("!", ast.Unary("!", translate node.node, scope, \expression))
@@ -523,47 +350,12 @@ let translators = {
   
   Assign: do
     let ops = {
-      "~^=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Assign set-left, binary-ops["~^"](left, right, scope)
-      "^=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Assign set-left, binary-ops["^"](left, right, scope)
       "~*=": "*="
-      "*=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          ast.Binary left, "*=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops["*"](left, right, scope)
       "~/=": "/="
-      "/=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          ast.Binary left, "/=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops["/"](left, right, scope)
       "~%=": "%="
-      "%=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          ast.Binary left, "%=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops["%"](left, right, scope)
-      "~\\=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Assign set-left, binary-ops["~\\"](left, right, scope)
-      "\\=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Assign set-left, binary-ops["\\"](left, right, scope)
       "~+=": #(left, mutable right, scope)
         if right instanceof ast.Const and typeof right.value == \number
-          if right.value == 1
-            ast.Unary "++", left
-          else if right.value == -1
-            ast.Unary "--", left
-          else
-            ast.Binary left, "-=", -right.value
+          ast.Binary left, "-=", -right.value
         else
           unless right.type().is-subset-of types.number
             right := ast.Unary "+", right
@@ -573,126 +365,19 @@ let translators = {
             ast.Assign set-left, ast.Binary(ast.Unary("+", left), "+", right)
           else
             ast.Binary left, "+=", right
-      "+=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          if right.type().is-subset-of(types.number)
-            ops["~+="](left, right, scope)
-          else
-            ast.Binary left, "-=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops["+"](left, right, scope)
-      "~-=": #(left, right, scope)
-        if right instanceof ast.Const and typeof right.value == \number
-          if right.value == 1
-            return ast.Unary "--", left
-          else if right.value == -1
-            return ast.Unary "++", left
-        ast.Binary left, "-=", right
-      "-=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          if right.type().is-subset-of(types.number)
-            ops["~-="](left, right, scope)
-          else
-            ast.Binary left, "-=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops["-"](left, right, scope)
+      "~-=": "-="
       "~bitlshift=": "<<="
-      "bitlshift=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          ast.Binary left, "<<=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops.bitlshift(left, right, scope)
       "~bitrshift=": ">>="
-      "bitrshift=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          ast.Binary left, ">>=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops.bitrshift(left, right, scope)
       "~biturshift=": ">>>="
-      "biturshift=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          ast.Binary left, ">>>=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops.bitrshift(left, right, scope)
-      "~min=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Assign set-left, binary-ops["~min"](left, right, scope)
-      "min=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Assign set-left, binary-ops.min(left, right, scope)
-      "~max=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Assign set-left, binary-ops["~max"](left, right, scope)
-      "max=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Assign set-left, binary-ops.max(left, right, scope)
       "~&=": #(left, right, scope)
         if left.type().overlaps(types.number) and right.type().overlaps(types.number)
           async set-left, left <- scope.maybe-cache-access left
           ast.Binary set-left, "+=", ast.Binary("", "+", right)
         else
           ast.Binary left, "+=", right
-      "&=": #(left, mutable right, scope)
-        if left.type().is-subset-of(types.string)
-          ast.Binary left, "+=", strnum-wrap right, scope
-        else if left.type().is-subset-of(types.string-or-number)
-          if right.type().is-subset-of(types.string)
-            ast.Binary left, "+=", right
-          else
-            ast.Binary left, "+=", strnum-wrap right, scope
-        else
-          if not right.type().is-subset-of(types.string-or-number)
-            right := strnum-wrap right, scope
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign(
-            set-left
-            ast.Binary(
-              strnum-wrap left, scope
-              "+"
-              right))
-      "and=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Binary set-left, "&&", ast.Assign(left, right)
-      "or=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Binary set-left, "||", ast.Assign(left, right)
-      "xor=": #(left, right, scope)
-        scope.add-helper \__xor
-        async set-left, left <- scope.maybe-cache-access left
-        ast.Assign(set-left, ast.Call ast.Ident(\__xor), [left, right])
-      "?=": #(left, right, scope)
-        async set-left, left <- scope.maybe-cache-access left
-        async set-left, left-value <- scope.maybe-cache set-left
-        ast.If(
-          ast.Binary set-left, "!=", null
-          left-value
-          ast.Binary left, "=", right)
       "~bitand=": "&="
-      "bitand=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          ast.Binary left, "&=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops.bitand(left, right, scope)
       "~bitor=": "|="
-      "bitor=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          ast.Binary left, "|=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops.bitor(left, right, scope)
       "~bitxor=": "^="
-      "bitxor=": #(left, right, scope)
-        if left.type().is-subset-of(types.number)
-          ast.Binary left, "^=", num-wrap(right, scope)
-        else
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Assign set-left, binary-ops.bitxor(left, right, scope)
       ":=": "="
     }
     let indexes = {
