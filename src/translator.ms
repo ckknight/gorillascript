@@ -98,15 +98,6 @@ class Scope
     
     helpers.sort lower-sorter
   
-  def add-macro-helper(name)!
-    @macro-helpers[name] := true
-  
-  def get-macro-helpers()
-    let helpers = for k of @macro-helpers
-      k
-    
-    helpers.sort lower-sorter
-  
   def add-variable(ident as ast.Ident)!
     @variables[ident.name] := true
   
@@ -1338,7 +1329,11 @@ let translators = {
       let func = ast.Func null, param-idents, inner-scope.get-variables(), body
       auto-return func
   
-  Ident: #(node, scope, location, auto-return) -> auto-return ast.Ident(node.name)
+  Ident: #(node, scope, location, auto-return)
+    let name = node.name
+    if name.length > 2 and name.charCodeAt(0) == "_".charCodeAt(0) and name.charCodeAt(1) == "_".charCodeAt(0)
+      scope.add-helper name
+    auto-return ast.Ident(name)
   
   If: #(node, scope, location, auto-return)
     let inner-location = if location in [\statement, \top-statement]
@@ -1385,14 +1380,6 @@ let translators = {
         auto-return ast.Func(left, right.params, right.variables, right.body, right.declarations)
       else
         auto-return ast.Assign(left, right)
-  
-  MacroHelper: #(node, scope, location, auto-return)
-    let name = node.name
-    scope.add-macro-helper name
-    auto-return ast.Obj [
-      ast.Obj.Pair \type, ast.Const(\ident)
-      ast.Obj.Pair \name, ast.Const(name)
-    ]
   
   Nothing: #-> ast.BlockExpression()
   
@@ -1517,11 +1504,10 @@ let translators = {
       scope.add-variable fake-this
       init.push ast.Assign fake-this, ast.This()
     for helper in scope.get-helpers()
-      unless HELPERS ownskey helper
-        throw Error "Helper not defined: $helper"
-      let ident = ast.Ident(helper)
-      scope.add-variable ident
-      init.push ast.Assign ident, HELPERS[helper]()
+      if HELPERS ownskey helper
+        let ident = ast.Ident(helper)
+        scope.add-variable ident
+        init.push ast.Assign ident, HELPERS[helper]()
     ast.Root(
       [...init, body]
       scope.get-variables()
@@ -1616,7 +1602,7 @@ module.exports := #(node, options = {})
   scope.release-tmps()
   return {
     node: result
-    macro-helpers: scope.get-macro-helpers()
+    macro-helpers: []
   }
 
 let KNOWN_HELPERS = module.exports.known-helpers := []

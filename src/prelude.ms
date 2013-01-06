@@ -1,3 +1,7 @@
+macro do
+  syntax body as Body
+    AST (#@ -> $body)()
+
 define operator binary and with precedence: 0
   @binary left, "and", right
 
@@ -64,6 +68,27 @@ define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 6, m
 define operator binary ~& with precedence: 4
   @binary left, op, right
 
+define helper __num = #(num)
+  if typeof num != "number"
+    throw TypeError("Expected a number, got " ~& typeof num)
+  else
+    num
+
+define helper __str = #(str)
+  if typeof str != "string"
+    throw TypeError("Expected a string, got " ~& typeof str)
+  else
+    num
+
+define helper __strnum = #(strnum)
+  let type = typeof strnum
+  if type == "string"
+    strnum
+  else if type == "number"
+    String(strnum)
+  else
+    throw TypeError("Expected a string or number, got " ~& type)
+
 // strict operators, should have same precedence as their respective unstrict versions
 define operator binary ^ with precedence: 9, right-to-left: true
   AST +$left ~^ +$right
@@ -93,11 +118,37 @@ define operator binary bitlshift, bitrshift, biturshift with precedence: 6, maxi
     AST +$left ~biturshift +$right
 
 define operator binary & with precedence: 4
-  AST (strnum! $left) ~& (strnum! $right)
+  AST (__strnum $left) ~& (__strnum $right)
+
+define helper __in = do
+  let index-of = Array.prototype.index-of
+  #(child, parent) -> index-of@(parent, child) != -1
 
 define operator binary in with precedence: 3, maximum: 1, invertible: true
-  // TODO: change to __in
-  let result = @binary left, op, right
+  let result = if @is-array(right)
+    let elements = @elements(right)
+    if elements.length == 0
+      if @is-complex(left)
+        AST
+          $left
+          false
+      else
+        AST false
+    else if elements.length == 1
+      let element = elements[0]
+      AST $left == $element
+    else
+      let f(i, current, left)
+        if i ~< elements.length
+          let element = elements[i]
+          f(i ~+ 1, AST $current or $left == $element, left)
+        else
+          current
+      @maybe-cache left, #(set-left, left)
+        let element = elements[0]
+        f(1, AST $set-left == $element, left)
+  else
+    AST __in($left, $right)
   if inverted
     AST not $result
   else
@@ -111,9 +162,12 @@ define operator binary haskey with precedence: 3, maximum: 1, invertible: true
   else
     result
 
+define helper __owns = do
+  let has = Object.prototype.has-own-property
+  #(parent, child) -> has@(parent, child)
+
 define operator binary ownskey with precedence: 3, maximum: 1, invertible: true
-  // TODO: change to __owns
-  let result = @binary left, op, right
+  let result = AST __owns($left, $right)
   if inverted
     AST not $result
   else
@@ -126,9 +180,22 @@ define operator binary instanceof with precedence: 3, maximum: 1, invertible: tr
   else
     result
 
+define helper __cmp = #(left, right)
+  if left == right
+    0
+  else
+    let type = typeof left
+    if type != \number and type != \string
+      throw TypeError "Cannot compare a non-number/string: " ~& type
+    else if type != typeof right
+      throw TypeError "Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof right
+    else if left ~< right
+      -1
+    else
+      1
+
 define operator binary <=> with precedence: 2, maximum: 1
-  // TODO: work by just calling __cmp
-  @binary left, op, right
+  AST __cmp($left, $right)
 
 define operator binary %% with precedence: 1, maximum: 1
   AST $left % $right == 0
@@ -143,8 +210,10 @@ define operator binary !~%% with precedence: 1, maximum: 1
   AST not ($left ~%% $right)
 
 define operator binary <, <= with precedence: 1, maximum: 1
-  // TODO: change to __lt and __lte
-  @binary left, op, right
+  if op == "<"
+    AST __lt($left, $right)
+  else
+    AST __lte($left, $right)
 
 define operator binary >, >= with precedence: 1, maximum: 1
   if op == ">"
@@ -173,8 +242,7 @@ define operator binary max with precedence: 5
       AST if $set-left > $set-right then $left else $right
 
 define operator binary xor with precedence: 0
-  // TODO: turn into __xor call
-  @binary left, "xor", right
+  AST __xor($left, $right)
 
 define operator binary ? with precedence: 0
   @maybe-cache left, #(set-left, left)@
@@ -208,27 +276,6 @@ macro unless
       test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
       if i ~< 0 then current else f(i ~- 1, @if(test, else-ifs[i].body, current))
     @if((AST not $test), body, f(else-ifs.length ~- 1, else-body))
-
-define helper __num = #(num)
-  if typeof num != "number"
-    throw TypeError("Expected a number, got " ~& typeof num)
-  else
-    num
-
-define helper __str = #(str)
-  if typeof str != "string"
-    throw TypeError("Expected a string, got " ~& typeof str)
-  else
-    num
-
-define helper __strnum = #(strnum)
-  let type = typeof strnum
-  if type == "string"
-    strnum
-  else if type == "number"
-    String(strnum)
-  else
-    throw TypeError("Expected a string or number, got " ~& type)
 
 macro do
   syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as Body
@@ -273,14 +320,6 @@ define helper __lte = #(x, y)
   else
     x ~<= y
 
-define helper __owns = do
-  let has = Object.prototype.has-own-property
-  #(parent, child) -> has@(parent, child)
-
-define helper __in = do
-  let index-of = Array.prototype.index-of
-  #(child, parent) -> index-of@(parent, child) != -1
-
 define helper __slice = do
   let slice = Array.prototype.slice
   #(array, start, end) -> slice@(array, start, end)
@@ -305,20 +344,6 @@ define helper __typeof = do
       "Null"
     else
       (o.constructor and o.constructor.name) or _to-string@(o).slice(8, -1)
-
-define helper __cmp = #(left, right)
-  if left == right
-    0
-  else
-    let type = typeof left
-    if type != "number" and type != "string"
-      throw TypeError("Cannot compare a non-number/string: " ~& type)
-    else if type != typeof right
-      throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof right)
-    else if left ~< right
-      -1
-    else
-      1
 
 define helper __freeze = if typeof Object.freeze == "function"
   Object.freeze
@@ -743,8 +768,7 @@ define operator binary instanceofsome with precedence: 3, maximum: 1, invertible
         let element = elements[0]
         f(1, AST $set-left instanceof $element, left)
   else
-    // TODO: change to __instanceofsome
-    @binary left, op, right
+    AST __instanceofsome($left, $right)
   if inverted
     AST not $result
   else
