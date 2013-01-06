@@ -1473,89 +1473,59 @@ define ExistentialSymbolNoSpace = sequential! [
 ]
 define MaybeExistentialSymbolNoSpace = maybe! ExistentialSymbolNoSpace, true
 
+define CustomOperator = #(o)
+  let i = o.index
+  for operators in o.macros.binary-operators
+    if operators
+      for operator in operators
+        let rule = operator.rule
+        let op = rule o
+        if op
+          let left = o.ident i, \x
+          let right = o.ident i, \y
+          return o.function(i
+            [
+              o.param i, left
+              o.param i, right
+            ]
+            operator.func {
+              left
+              inverted: false
+              op
+              right
+            }, o, i
+            true
+            false)
+  return false
+
 define Operator = one-of! [
-  "^"
-  "*"
-  "/"
-  "\\"
-  "%"
-  "+"
-  "-"
-  \bitlshift
-  \bitrshift
-  \biturshift
-  \min
-  \max
-  "&"
-  "~^"
-  "~*"
-  "~/"
-  "~\\"
-  "~%"
-  "~+"
-  "~-"
-  "~bitlshift"
-  "~bitrshift"
-  "~biturshift"
-  "~min"
-  "~max"
-  "~&"
-  \in
-  \haskey
-  \ownskey
-  \instanceof
-  \instanceofsome
-  "<=>"
-  "~="
-  "!~="
-  "=="
-  "!="
-  "%%"
-  "!%%"
-  "~%%"
-  "!~%%"
-  "<"
-  "<="
-  ">"
-  ">="
-  "~<"
-  "~<="
-  "~>"
-  "~>="
-  \and
-  \or
-  \xor
-  "?"
-  \bitand
-  \bitor
-  \bitxor
-  "~bitand"
-  "~bitor"
-  "~bitxor"
-  sequential! [
-    NotToken
-    [\this, MaybeNotToken]
-  ], #(x) -> if x == \not then \bool else \not
-  \bitnot
-  "~bitnot"
-  sequential! [
-    word \typeof
-    [\this, maybe! (character! "!"), NOTHING]
-  ], #(x) -> if x != NOTHING then "typeof!" else \typeof
-  sequential! [
-    [\this, one-of! [
-      word \num
-      word \str
-      word \strnum
-    ]]
-    character! "!"
-  ], #(x) -> x & "!"
-  \delete
-  sequential! [
-    word \throw
-    [\this, MaybeExistentialSymbolNoSpace]
-  ], #(x) -> if x == "?" then "throw?" else \throw
-], #(x, o, i) -> o.operator i, x
+  CustomOperator
+  one-of! [
+    sequential! [
+      NotToken
+      [\this, MaybeNotToken]
+    ], #(x) -> if x == \not then \bool else \not
+    \bitnot
+    "~bitnot"
+    sequential! [
+      word \typeof
+      [\this, maybe! (character! "!"), NOTHING]
+    ], #(x) -> if x != NOTHING then "typeof!" else \typeof
+    sequential! [
+      [\this, one-of! [
+        word \num
+        word \str
+        word \strnum
+      ]]
+      character! "!"
+    ], #(x) -> x & "!"
+    \delete
+    sequential! [
+      word \throw
+      [\this, MaybeExistentialSymbolNoSpace]
+    ], #(x) -> if x == "?" then "throw?" else \throw
+  ], #(x, o, i) -> o.operator i, x
+]
 
 define Parenthetical = sequential! [
   OpenParenthesis
