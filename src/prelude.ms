@@ -129,44 +129,32 @@ define operator binary >, >= with precedence: 1, maximum: 1
     AST not ($left < $right)
 
 define operator binary ~min with precedence: 5
-  let init = []
-  left := @cache left, init, \ref
-  right := @cache right, init, \ref
-  AST
-    $init
-    if $left ~< $right then $left else $right
+  @maybe-cache left, #(set-left, left)@
+    @maybe-cache right, #(set-right, right)@
+      AST if $set-left ~< $set-right then $left else $right
 
 define operator binary ~max with precedence: 5
-  let init = []
-  left := @cache left, init, \ref
-  right := @cache right, init, \ref
-  AST
-    $init
-    if $left ~> $right then $left else $right
+  @maybe-cache left, #(set-left, left)@
+    @maybe-cache right, #(set-right, right)@
+      AST if $set-left ~> $set-right then $left else $right
 
 define operator binary min with precedence: 5
-  let init = []
-  left := @cache left, init, \ref
-  right := @cache right, init, \ref
-  AST
-    $init
-    if $left < $right then $left else $right
+  @maybe-cache left, #(set-left, left)@
+    @maybe-cache right, #(set-right, right)@
+      AST if $set-left < $set-right then $left else $right
 
 define operator binary max with precedence: 5
-  let init = []
-  left := @cache left, init, \ref
-  right := @cache right, init, \ref
-  AST
-    $init
-    if $left > $right then $left else $right
+  @maybe-cache left, #(set-left, left)@
+    @maybe-cache right, #(set-right, right)@
+      AST if $set-left > $set-right then $left else $right
 
 define operator binary xor with precedence: 0
   // TODO: turn into __xor call
   @binary left, "xor", right
 
 define operator binary ? with precedence: 0
-  // TODO: probably define this right here.
-  @binary left, "?", right
+  @maybe-cache left, #(set-left, left)@
+    AST if $set-left? then $left else $right
 
 define operator binary ~bitand with precedence: 0
   @binary left, "~bitand", right

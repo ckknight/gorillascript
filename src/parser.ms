@@ -3070,12 +3070,17 @@ let MacroHelper = do
   MacroHelper::is-arguments := #(node) -> node instanceof ArgsNode
   
   MacroHelper::cache := #(node, init, name as String = \ref, save as Boolean)
+    @maybe-cache node, (#(set-node, node, cached)
+      if cached
+        init.push set-node
+      node), name, save
+  
+  MacroHelper::maybe-cache := #(node, func, name as String = \ref, save as Boolean)
     if @is-complex node
       let tmp = @tmp(name, save)
-      init.push @state.let @index, (@state.declarable @index, tmp, false), node
-      tmp
+      func(@state.let(@index, @state.declarable(@index, tmp, false), node), tmp, true)
     else
-      node
+      func(node, node, false)
   
   MacroHelper::empty := #(node)
     if not node?
