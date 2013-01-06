@@ -95,7 +95,31 @@ define operator binary bitlshift, bitrshift, biturshift with precedence: 6, maxi
 define operator binary & with precedence: 4
   AST (strnum! $left) ~& (strnum! $right)
 
-define operator binary in, haskey, ownskey, instanceof, instanceofsome with precedence: 3, maximum: 1, invertible: true
+define operator binary in with precedence: 3, maximum: 1, invertible: true
+  // TODO: change to __in
+  let result = @binary left, op, right
+  if inverted
+    AST not $result
+  else
+    result
+
+define operator binary haskey with precedence: 3, maximum: 1, invertible: true
+  // op == "in", switch left and right
+  let result = @binary left, op, right
+  if inverted
+    AST not $result
+  else
+    result
+
+define operator binary ownskey with precedence: 3, maximum: 1, invertible: true
+  // TODO: change to __owns
+  let result = @binary left, op, right
+  if inverted
+    AST not $result
+  else
+    result
+
+define operator binary instanceof with precedence: 3, maximum: 1, invertible: true
   let result = @binary left, op, right
   if inverted
     AST not $result
@@ -694,6 +718,37 @@ define helper __new = do
 define helper __instanceofsome = #(value, array)
   for some item in array
     value instanceof item
+
+define operator binary instanceofsome with precedence: 3, maximum: 1, invertible: true
+  let result = if @is-array(right)
+    let elements = @elements(right)
+    if elements.length == 0
+      if @is-complex(left)
+        AST
+          $left
+          false
+      else
+        AST false
+    else if elements.length == 1
+      let element = elements[0]
+      AST $left instanceof $element
+    else
+      let f(i, current, left)
+        if i ~< elements.length
+          let element = elements[i]
+          f(i ~+ 1, AST $current or $left instanceof $element, left)
+        else
+          current
+      @maybe-cache left, #(set-left, left)
+        let element = elements[0]
+        f(1, AST $set-left instanceof $element, left)
+  else
+    // TODO: change to __instanceofsome
+    @binary left, op, right
+  if inverted
+    AST not $result
+  else
+    result
 
 macro try
   syntax try-body as Body, catch-part as ("catch", ident as Identifier, body as Body)?, else-body as ("else", this as Body)?, finally-body as ("finally", this as Body)?
