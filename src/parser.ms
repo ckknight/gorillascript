@@ -528,22 +528,22 @@ macro define
     let name-str = @const @name(name)
     AST let $name = cache named $name-str, $value
 
-let Stack = do
-  let Stack(@initial, @data = [])!
-    if this not instanceof Stack
-      throw TypeError "Must be instantiated with new"
+class Stack
+  def constructor(initial, data = [])@
+    @initial := initial
+    @data := data
   
-  Stack::push := #(value) -> @data.push value
-  Stack::pop := #
+  def push(value) -> @data.push value
+  def pop()
     let data = @data
     let len = data.length
     if len == 0
       throw Error "Cannot pop"
     data.pop()
   
-  Stack::can-pop := #-> @data.length > 0
+  def can-pop() -> @data.length > 0
   
-  Stack::peek := #
+  def peek()
     let data = @data
     let len = data.length
     if len == 0
@@ -551,9 +551,7 @@ let Stack = do
     else
       data[len - 1]
   
-  Stack::clone := #-> new Stack @initial, @data[:]
-  
-  Stack
+  def clone() -> Stack @initial, @data[:]
 
 let make-alter-stack(stack, value)
   if stack not instanceof Stack
@@ -572,14 +570,14 @@ let make-alter-stack(stack, value)
         stack.pop()
       result
 
-let _statement = new Stack true
+let _statement = Stack true
 let in-statement = make-alter-stack _statement, true
 let in-expression = make-alter-stack _statement, false
 
-let _in-macro = new Stack false
+let _in-macro = Stack false
 let in-macro = make-alter-stack _in-macro, true
 
-let _in-ast = new Stack false
+let _in-ast = Stack false
 let in-ast = make-alter-stack _in-ast, true
 
 define Eof = #(o) -> o.index >= o.data.length
@@ -2153,7 +2151,7 @@ define ExpressionOrNothing = one-of! [
   Nothing
 ]
 
-let _indexSlice = new Stack false
+let _indexSlice = Stack false
 let inIndexSlice = make-alter-stack _indexSlice, true
 
 define IndexSlice = inIndexSlice sequential! [
@@ -2728,21 +2726,13 @@ define Root = sequential! [
   Space
 ], #(x, o, i) -> o.root i, x
 
-let ParserError = do
-  let ParserError(message, text, index)
-    let _this = ^ParserError.prototype
-    Error.call _this, message
+class ParserError extends Error
+  def constructor(message, text, index)@
+    super(message)
     
-    // TODO: line numbers
-    _this.message := "$message at $index"
-    _this.text := text
-    _this.index := index
-    
-    _this
-  ParserError.prototype := ^Error.prototype
-  ParserError::constructor := ParserError
-
-  ParserError
+    @message := "$message at $index"
+    @text := text
+    @index := index
 
 let map(array, func, arg)
   let result = []
@@ -2757,55 +2747,52 @@ let map(array, func, arg)
   else
     array
 
-let FailureManager = do
-  let FailureManager()!
-    if this not instanceof FailureManager
-      throw TypeError "Must be instantiated with new"
+class FailureManager
+  def constructor()@
     @messages := []
     @position := 0
   
-  FailureManager::add := #(message, index)!
+  def add(message, index)!
     if index > @position
       @messages := []
       @position := index
     if index >= @position
       @messages.push message
-  
-  FailureManager
 
-let MacroHelper = do
-  let MacroHelper(@state as State, @index, @expr)!
-    if this not instanceof MacroHelper
-      throw TypeError "Must be instantiated with new"
+class MacroHelper
+  def constructor(state as State, index, expr)@
     @unsaved-tmps := []
     @saved-tmps := []
+    @state := state
+    @index := index
+    @expr := expr
   
-  MacroHelper::if := #(test as Object, when-true as Object, when-false as (Object|null)) -> @state.if @index, test, when-true, when-false
-  MacroHelper::for := #(init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> @state.for @index, init, test, step, body
-  MacroHelper::for-in := #(key as Object, object as Object, body as Object) -> @state.for-in @index, key, object, body
-  MacroHelper::try-catch := #(try-body as Object, catch-ident as Object, catch-body as Object) -> @state.try-catch @index, try-body, catch-ident, catch-body
-  MacroHelper::try-finally := #(try-body as Object, finally-body as Object) -> @state.try-finally @index, try-body, finally-body
-  MacroHelper::assign := #(left as Object, op as String, right as Object) -> @state.assign @index, left, op, right
-  MacroHelper::binary := #(left as Object, op as String, right as Object) -> @state.binary @index, left, op, right
-  MacroHelper::unary := #(op as String, node as Object) -> @state.unary @index, op, node
-  MacroHelper::throw := #(node as Node) -> @state.throw @index, node
+  def if(test as Object, when-true as Object, when-false as (Object|null)) -> @state.if @index, test, when-true, when-false
+  def for(init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> @state.for @index, init, test, step, body
+  def for-in(key as Object, object as Object, body as Object) -> @state.for-in @index, key, object, body
+  def try-catch(try-body as Object, catch-ident as Object, catch-body as Object) -> @state.try-catch @index, try-body, catch-ident, catch-body
+  def try-finally(try-body as Object, finally-body as Object) -> @state.try-finally @index, try-body, finally-body
+  def assign(left as Object, op as String, right as Object) -> @state.assign @index, left, op, right
+  def binary(left as Object, op as String, right as Object) -> @state.binary @index, left, op, right
+  def unary(op as String, node as Object) -> @state.unary @index, op, node
+  def throw(node as Node) -> @state.throw @index, node
   
   let get-tmp-id = do
     let id = -1
     #-> id += 1
   
-  MacroHelper::tmp := #(name as String = \ref, save as Boolean)
+  def tmp(name as String = \ref, save as Boolean)
     let id = get-tmp-id()
     (if save then @saved-tmps else @unsaved-tmps).push id
     @state.tmp @index, id, name
   
-  MacroHelper::get-tmps := #-> {
+  def get-tmps() -> {
     unsaved: @unsaved-tmps[:]
     saved: @saved-tmps[:]
   }
   
-  MacroHelper::is-const := #(node) -> node == void or (node? and (node instanceof ConstNode or (node instanceof BlockNode and node.nodes.length == 0)))
-  MacroHelper::value := #(node)
+  def is-const(node) -> node == void or (node? and (node instanceof ConstNode or (node instanceof BlockNode and node.nodes.length == 0)))
+  def value(node)
     if node == void
       void
     else if node?
@@ -2813,23 +2800,23 @@ let MacroHelper = do
         node.value
       else if node instanceof BlockNode and node.nodes.length == 0
         void
-  MacroHelper::const := #(value)
+  def const(value)
     @state.const @index, value
   
-  MacroHelper::is-ident := #(node) -> node instanceof IdentNode
-  MacroHelper::name := #(node) -> if @is-ident node then node.name
-  MacroHelper::ident := #(name as String)
+  def is-ident(node) -> node instanceof IdentNode
+  def name(node) -> if @is-ident node then node.name
+  def ident(name as String)
     if require('./ast').is-acceptable-ident(name)
       @state.ident @index, name
   
-  MacroHelper::is-call := #(node)
+  def is-call(node)
     if node instanceof CallChainNode
       let links = node.links
       links[links.length - 1].type == \call
     else
       false
   
-  MacroHelper::call-func := #(node)
+  def call-func(node)
     if node instanceof CallChainNode
       let links = node.links
       if links[links.length - 1].type == \call
@@ -2838,37 +2825,37 @@ let MacroHelper = do
         else
           CallChainNode node.start-index, node.end-index, node.head, links[:links.length - 1]
   
-  MacroHelper::call-args := #(node)
+  def call-args(node)
     if node instanceof CallChainNode
       let links = node.links
       if links[links.length - 1].type == \call
         links[links.length - 1].args
   
-  MacroHelper::is-super := #(node) -> node instanceof SuperNode
+  def is-super(node) -> node instanceof SuperNode
   
-  MacroHelper::super-child := #(node)
+  def super-child(node)
     if @is-super(node)
       node.child
-    
-  MacroHelper::super-args := #(node)
+  
+  def super-args(node)
     if @is-super(node)
       node.args
   
-  MacroHelper::call-is-new := #(node)
+  def call-is-new(node)
     if node instanceof CallChainNode
       let links = node.links
       if links[links.length - 1].type == \call
         return not not links[links.length - 1].is-new
     false
   
-  MacroHelper::call-is-apply := #(node)
+  def call-is-apply(node)
     if node instanceof CallChainNode
       let links = node.links
       if links[links.length - 1].type == \call
         return not not links[links.length - 1].is-apply
     false
   
-  MacroHelper::call := #(func as Node, args as [Node], is-new as Boolean = false, is-apply as Boolean = false)
+  def call(func as Node, args as [Node], is-new as Boolean = false, is-apply as Boolean = false)
     if is-new and is-apply
       throw Error "Cannot specify both is-new and is-apply"
     
@@ -2892,37 +2879,37 @@ let MacroHelper = do
         }
       ]
   
-  MacroHelper::func := #(params, body, auto-return = true, bound = false)
+  def func(params, body, auto-return = true, bound = false)
     @state.function 0, params, body, auto-return, bound
   
-  MacroHelper::is-func := #(node) -> node instanceof FunctionNode
-  MacroHelper::func-body := #(node) -> if @is-func node then node.body
-  MacroHelper::func-params := #(node) -> if @is-func node then node.params
-  MacroHelper::func-is-auto-return := #(node) -> if @is-func node then not not node.auto-return
-  MacroHelper::func-is-bound := #(node) -> if @is-func node then not not node.bound
+  def is-func(node) -> node instanceof FunctionNode
+  def func-body(node) -> if @is-func node then node.body
+  def func-params(node) -> if @is-func node then node.params
+  def func-is-auto-return(node) -> if @is-func node then not not node.auto-return
+  def func-is-bound(node) -> if @is-func node then not not node.bound
   
-  MacroHelper::param := #(ident, default-value, spread, is-mutable, as-type)
+  def param(ident, default-value, spread, is-mutable, as-type)
     @state.param 0, ident, default-value, spread, is-mutable, as-type
   
-  MacroHelper::is-param := #(node) -> node instanceof ParamNode
-  MacroHelper::param-ident := #(node) -> if @is-param node then node.ident
-  MacroHelper::param-default-value := #(node) -> if @is-param node then node.default-value
-  MacroHelper::param-is-spread := #(node) -> if @is-param node then not not node.spread
-  MacroHelper::param-is-mutable := #(node) -> if @is-param node then not not node.is-mutable
-  MacroHelper::param-type := #(node) -> if @is-param node then node.as-type
+  def is-param(node) -> node instanceof ParamNode
+  def param-ident(node) -> if @is-param node then node.ident
+  def param-default-value(node) -> if @is-param node then node.default-value
+  def param-is-spread(node) -> if @is-param node then not not node.spread
+  def param-is-mutable(node) -> if @is-param node then not not node.is-mutable
+  def param-type(node) -> if @is-param node then node.as-type
   
-  MacroHelper::is-array := #(node) -> node instanceof ArrayNode
-  MacroHelper::elements := #(node) -> if @is-array node then node.elements
+  def is-array(node) -> node instanceof ArrayNode
+  def elements(node) -> if @is-array node then node.elements
   
-  MacroHelper::is-object := #(node) -> node instanceof ObjectNode
-  MacroHelper::pairs := #(node) -> if @is-object node then node.pairs
+  def is-object(node) -> node instanceof ObjectNode
+  def pairs(node) -> if @is-object node then node.pairs
   
-  MacroHelper::is-block := #(node) -> node instanceof BlockNode
-  MacroHelper::nodes := #(node) -> if @is-block node then node.nodes
+  def is-block(node) -> node instanceof BlockNode
+  def nodes(node) -> if @is-block node then node.nodes
   
-  MacroHelper::array := #(elements)
+  def array(elements)
     @state.array 0, elements
-  MacroHelper::object := #(pairs as Array)
+  def object(pairs as Array)
     for pair, i in pairs
       if not pair or typeof pair != \object
         throw Error "Expected an object at index #$i, got $(typeof! pair)"
@@ -2932,43 +2919,43 @@ let MacroHelper = do
         throw Error "Expected an object with Node 'value' at index #$i, got $(typeof! pair.value)"
     @state.object 0, pairs
   
-  MacroHelper::is-complex := #(node)
+  def is-complex(node)
     node? and node not instanceofsome [ConstNode, IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
   
-  MacroHelper::is-type-array := #(node) -> node instanceof TypeArrayNode
-  MacroHelper::subtype := #(node) -> @is-type-array(node) and node.subtype
+  def is-type-array(node) -> node instanceof TypeArrayNode
+  def subtype(node) -> @is-type-array(node) and node.subtype
   
-  MacroHelper::is-this := #(node) -> node instanceof ThisNode
-  MacroHelper::is-arguments := #(node) -> node instanceof ArgsNode
+  def is-this(node) -> node instanceof ThisNode
+  def is-arguments(node) -> node instanceof ArgsNode
   
-  MacroHelper::cache := #(node, init, name as String = \ref, save as Boolean)
+  def cache(node, init, name as String = \ref, save as Boolean)
     @maybe-cache node, (#(set-node, node, cached)
       if cached
         init.push set-node
       node), name, save
   
-  MacroHelper::maybe-cache := #(node, func, name as String = \ref, save as Boolean)
+  def maybe-cache(node, func, name as String = \ref, save as Boolean)
     if @is-complex node
       let tmp = @tmp(name, save)
       func @state.let(@index, @state.declarable(@index, tmp, false), node), tmp, true
     else
       func node, node, false
   
-  MacroHelper::maybe-cache-access := #(node, func)
+  def maybe-cache-access(node, func, parent-name as String = \ref, child-name as String = \ref, save as Boolean)
     if @is-access(node)
-      @maybe-cache @parent(node), #(set-parent, parent, parent-cached)@
-        @maybe-cache @child(node), #(set-child, child, child-cached)@
+      @maybe-cache @parent(node), (#(set-parent, parent, parent-cached)@
+        @maybe-cache @child(node), (#(set-child, child, child-cached)@
           if parent-cached or child-cached
             func(
               @state.access(@index, set-parent, set-child)
               @state.access(@index, parent, child)
               true)
           else
-            func node, node, false
+            func node, node, false), child-name, save), parent-name, save
     else
       func node, node, false
   
-  MacroHelper::empty := #(node)
+  def empty(node)
     if not node?
       true
     else if node not instanceof Node
@@ -3033,7 +3020,7 @@ let MacroHelper = do
           key: ConstNode start-index, end-index, k
           value: constify-object v, start-index, end-index
         }
-  MacroHelper.constify-object := constify-object
+  @constify-object := constify-object
   
   let walk(node, func)
     if not node or typeof node != \object or node instanceof RegExp
@@ -3045,7 +3032,7 @@ let MacroHelper = do
       return? func(node)
     node.walk(#(x) -> walk x, func)
   
-  MacroHelper.wrap := #(value = [])
+  @wrap := #(value = [])
     if Array.is-array(value)
       if value.length == 1
         MacroHelper.wrap(value[0])
@@ -3063,28 +3050,28 @@ let MacroHelper = do
     else
       value
   
-  MacroHelper.node := #(type, start-index, end-index, ...args)
+  @node := #(type, start-index, end-index, ...args)
     Node[type] start-index, end-index, ...args
   
-  MacroHelper::is-def := #(node) -> node instanceof DefNode
-  MacroHelper::is-assign := #(node) -> node instanceof AssignNode
-  MacroHelper::is-let := #(node) -> node instanceof LetNode
-  MacroHelper::is-binary := #(node) -> node instanceof BinaryNode
-  MacroHelper::is-unary := #(node) -> node instanceof UnaryNode
-  MacroHelper::op := #(node)
+  def is-def(node) -> node instanceof DefNode
+  def is-assign(node) -> node instanceof AssignNode
+  def is-let(node) -> node instanceof LetNode
+  def is-binary(node) -> node instanceof BinaryNode
+  def is-unary(node) -> node instanceof UnaryNode
+  def op(node)
     if @is-assign(node) or @is-binary(node) or @is-unary(node)
       node.op
-  MacroHelper::left := #(node)
+  def left(node)
     if @is-def(node) or @is-let(node) or @is-binary(node)
       node.left
-  MacroHelper::right := #(node)
+  def right(node)
     if @is-def(node) or @is-let(node) or @is-binary(node)
       node.right
-  MacroHelper::unary-node := #(node)
+  def unary-node(node)
     if @is-unary(node)
       node.node
   
-  MacroHelper::is-access := #(node)
+  def is-access(node)
     if node instanceof AccessNode
       true
     else if node instanceof CallChainNode
@@ -3093,7 +3080,7 @@ let MacroHelper = do
       last-link.type == \access or last-link.type == \index
     else
       false
-  MacroHelper::parent := #(node)
+  def parent(node)
     if node instanceof AccessNode
       node.parent
     else if node instanceof CallChainNode
@@ -3103,7 +3090,7 @@ let MacroHelper = do
           node.head
         else
           CallChainNode node.start-index, node.end-index, node.head, links[:links.length - 1]
-  MacroHelper::child := #(node)
+  def child(node)
     if node instanceof AccessNode
       node.child
     else if node instanceof CallChainNode
@@ -3111,9 +3098,9 @@ let MacroHelper = do
       if links[links.length - 1].type == \access
         links[links.length - 1].child
   
-  MacroHelper::walk := #(node as Node, func as Function) -> walk node, func
+  def walk(node as Node, func as Function) -> walk node, func
   
-  MacroHelper::has-func := #(node)
+  def has-func(node)
     let FOUND = {}
     try
       walk node, #(x)
@@ -3125,13 +3112,13 @@ let MacroHelper = do
       return true
     false
   
-  MacroHelper::is-type := #(node, name as String)
+  def is-type(node, name as String)
     let type = types[name]
     if not type? or type not instanceof types
       throw Error "$name is not a known type name"
     node.type().is-subset-of(type)
   
-  MacroHelper::has-type := #(node, name as String)
+  def has-type(node, name as String)
     let type = types[name]
     if not type? or type not instanceof types
       throw Error "$name is not a known type name"
@@ -3166,7 +3153,7 @@ let MacroHelper = do
     Debugger: identity
     Throw: identity
   }
-  MacroHelper::mutate-last := #(node, func)
+  def mutate-last(node, func)
     if not node or typeof node != \object or node instanceof RegExp
       return node
     
@@ -3177,26 +3164,22 @@ let MacroHelper = do
       func(node) ? node
     else
       mutators[node.constructor.capped-name]@(this, node, func)
-  
-  MacroHelper
 
-let MacroHolder = do
-  let MacroHolder()!
-    if this not instanceof MacroHolder
-      throw TypeError "Must be instantiated with new"
+class MacroHolder
+  def constructor()@
     @by-name := {}
     @by-id := []
     @binary-operators := []
     @assign-operators := []
     @prefix-unary-operators := []
     @postfix-unary-operators := []
-  
-  MacroHolder::get-by-name := #(name)
+
+  def get-by-name(name)
     let by-name = @by-name
     if by-name ownskey name
       by-name[name]
   
-  MacroHolder::get-or-add-by-name := #(name)
+  def get-or-add-by-name(name)
     let by-name = @by-name
     if by-name ownskey name
       by-name[name]
@@ -3212,12 +3195,12 @@ let MacroHolder = do
       m.data := []
       by-name[name] := m
   
-  MacroHolder::get-by-id := #(id)
+  def get-by-id(id)
     let by-id = @by-id
     if id >= 0 and id < by-id.length
       by-id[id]
   
-  MacroHolder::add-macro := #(m)
+  def add-macro(m)
     let by-id = @by-id
     by-id.push m
     by-id.length - 1
@@ -3229,7 +3212,7 @@ let MacroHolder = do
         return result
     false
   
-  MacroHolder::add-binary-operator := #(operators, m, options)
+  def add-binary-operator(operators, m, options)
     let precedence = Number(options.precedence) or 0
     let binary-operators = @binary-operators[precedence] ?= []
     binary-operators.push {
@@ -3243,7 +3226,7 @@ let MacroHolder = do
     }
     @add-macro m
   
-  MacroHolder::add-assign-operator := #(operators, m, options)
+  def add-assign-operator(operators, m, options)
     @assign-operators.push {
       rule: one-of for op in operators
         word-or-symbol op
@@ -3251,7 +3234,7 @@ let MacroHolder = do
     }
     @add-macro m
   
-  MacroHolder::add-unary-operator := #(operators, m, options)
+  def add-unary-operator(operators, m, options)
     let data = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
     data.push {
       rule: one-of for op in operators
@@ -3273,16 +3256,11 @@ let MacroHolder = do
       standalone: not options ownskey \standalone or not not options.standalone
     }
     @add-macro m
-  
-  MacroHolder
 
-let Node = do
-  let Node()
-    throw Error "Node should not be instantiated directly"
+class Node
+  def constructor() -> throw Error "Node should not be instantiated directly"
   
-  Node::type := #-> types.any
-  
-  Node
+  def type() -> types.any
 
 macro node-type!
   syntax name as Expression, args as (",", this as Parameter)*, methods as (",", this as ObjectLiteral)?
@@ -3360,28 +3338,35 @@ macro node-type!
       $add-methods
       $type
 
-let State = do
-  let State(@data, @macros = new MacroHolder(), @index = 0, @failures = new FailureManager(), @cache = [], @indent = new Stack(1), @current-macro = null)! ->
+class State
+  def constructor(data, macros = MacroHolder(), index = 0, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null)@
+    @data := data
+    @macros := macros
+    @index := index
+    @failures := failures
+    @cache := cache
+    @indent := indent
+    @current-macro := current-macro
   
-  State::clone := #-> new State @data, @macros, @index, @failures, @cache, @indent.clone(), @current-macro
+  def clone() -> State @data, @macros, @index, @failures, @cache, @indent.clone(), @current-macro
   
-  State::update := #(clone)!
+  def update(clone)!
     @index := clone.index
     @indent := clone.indent.clone()
     @macros := clone.macros
   
-  State::fail := #(message)!
+  def fail(message)!
     @failures.add message, @index
   
-  State::error := #(message)!
+  def error(message)!
     throw ParserError message, @data, @index
   
-  State::start-macro := #(name)!
+  def start-macro(name)!
     if @current-macro
       @error "Attempting to define a macro $name inside a macro $(@current-macro)"
     @current-macro := name
   
-  State::end-macro := #()
+  def end-macro()
     if not @current-macro
       @error "Ending a macro when not in a macro"
     @current-macro := null
@@ -3617,7 +3602,7 @@ let State = do
       }
   }
   
-  State::macro-syntax := #(index, type, params, body, options = {})!
+  def macro-syntax(index, type, params, body, options = {})!
     if not Array.is-array params
       throw TypeError "Expected params to be an array, got $(typeof! params)"
     else if not body or typeof body != \object or body instanceof RegExp
@@ -3640,7 +3625,7 @@ let State = do
       if _in-ast.peek()
         o.macro-access i, macro-id, x
       else
-        let macro-helper = new MacroHelper o, i, not _statement.peek()
+        let macro-helper = MacroHelper o, i, not _statement.peek()
         let result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data)
           macros.get-by-id(id)(data, o, i)
         let tmps = macro-helper.get-tmps()
@@ -3660,7 +3645,7 @@ let State = do
       macro-id := macros.add-macro(mutator)
   
   let BINARY_OPERATOR = freeze {}
-  State::define-binary-operator := #(index, operators, options, body)
+  def define-binary-operator(index, operators, options, body)
     @start-macro BINARY_OPERATOR
     try
       @macro-syntax index, \binary-operator, operators, body, options
@@ -3669,7 +3654,7 @@ let State = do
     @nothing(index)
   
   let ASSIGN_OPERATOR = freeze {}
-  State::define-assign-operator := #(index, operators, options, body)
+  def define-assign-operator(index, operators, options, body)
     @start-macro ASSIGN_OPERATOR
     try
       @macro-syntax index, \assign-operator, operators, body, options
@@ -3678,7 +3663,7 @@ let State = do
     @nothing(index)
   
   let UNARY_OPERATOR = freeze {}
-  State::define-unary-operator := #(index, operators, options, body)
+  def define-unary-operator(index, operators, options, body)
     @start-macro UNARY_OPERATOR
     try
       @macro-syntax index, \unary-operator, operators, body, options
@@ -3686,10 +3671,8 @@ let State = do
       @end-macro()
     @nothing(index)
   
-  State.add-node-factory := #(name, type)!
+  @add-node-factory := #(name, type)!
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
-  
-  State
 
 node-type! \access, parent as Node, child as Node
 node-type! \access-index, parent as Node, child as Object, {
@@ -4040,7 +4023,7 @@ let parse(text, macros, options = {})
   if typeof text != \string
     throw TypeError "Expected text to be a string, got $(typeof! text)"
   
-  let o = new State text, macros
+  let o = State text, macros
   
   let result = try
     Root(o)
