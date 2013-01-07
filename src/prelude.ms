@@ -1384,6 +1384,7 @@ macro class
           
     let self = @tmp \this
     if has-top-level-constructor
+      let mutable body-constructor = []
       body := @walk body, #(node)@
         if @is-def(node)
           let key = @left(node)
@@ -1420,10 +1421,14 @@ macro class
                 AST $func-body
                 false
                 false)
-            AST let $name = $constructor
-                
+            body-constructor.push AST let $name = $constructor
+            let noop = []
+            AST $noop
         else
           node
+      body := AST
+        $body-constructor
+        $body
     else if constructor-count != 0
       let ctor = @tmp \ctor
       let result = @tmp \ref

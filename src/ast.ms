@@ -383,26 +383,33 @@ exports.Binary := class Binary extends Expression
       sb "]"
   
   let compile-other(op, left, right, options, level, line-start, sb)!
-    if level == Level.block and ASSIGNMENT_OPS ownskey op and left instanceof Ident and typeof right.to-statement == "function"
-      right.to-statement().mutate-last((#(node) -> Binary left, "=", node), true).compile(options, level, line-start, sb)
-    else
-      let op-level = OPERATOR_PRECEDENCE[op]
-      let associativity = LEVEL_TO_ASSOCIATIVITY[op-level]
-      let wrap = if associativity == "paren" then level >= op-level else level > op-level
-    
-      if wrap
-        sb "("
-      left.compile options, if associativity == "right" and left instanceof Binary and OPERATOR_PRECEDENCE[left.op] == op-level then op-level + 1 else op-level, line-start and not wrap, sb
-      sb " "
-      sb op
-      sb " "
-      right.compile options, if associativity == "left" and right instanceof Binary and OPERATOR_PRECEDENCE[right.op] == op-level then op-level + 1 else op-level, false, sb
-      if wrap
-        sb ")"
+    let op-level = OPERATOR_PRECEDENCE[op]
+    let associativity = LEVEL_TO_ASSOCIATIVITY[op-level]
+    let wrap = if associativity == "paren" then level >= op-level else level > op-level
+  
+    if wrap
+      sb "("
+    left.compile options, if associativity == "right" and left instanceof Binary and OPERATOR_PRECEDENCE[left.op] == op-level then op-level + 1 else op-level, line-start and not wrap, sb
+    sb " "
+    sb op
+    sb " "
+    right.compile options, if associativity == "left" and right instanceof Binary and OPERATOR_PRECEDENCE[right.op] == op-level then op-level + 1 else op-level, false, sb
+    if wrap
+      sb ")"
   
   def compile(options, level, line-start, sb)!
     let f = if @op == "." then compile-access else compile-other
     f(@op, @left, @right, options, level, line-start, sb)
+  
+  def compile-as-statement(options, line-start, sb)!
+    let left = @left
+    let op = @op
+    if ASSIGNMENT_OPS ownskey op and left instanceof Ident and typeof @right.to-statement == "function"
+      @right.to-statement()
+        .mutate-last((#(node) -> Binary left, op, node), true)
+        .compile-as-statement(options, line-start, sb)
+    else
+      super.compile-as-statement(options, line-start, sb)
   
   let ASSIGNMENT_OPS = {
     "=": true
