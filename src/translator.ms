@@ -28,12 +28,15 @@ class Scope
   
   def maybe-cache-access(item as ast.Expression, func as Function)
     if item instanceof ast.Binary and item.op == "."
-      async set-left, left <- @maybe-cache item.left
-      async set-right, right <- @maybe-cache item.right
-      func(
-        ast.Access set-left, set-right
-        ast.Access left, right
-        true)
+      async set-left, left, left-cached <- @maybe-cache item.left
+      async set-right, right, right-cached <- @maybe-cache item.right
+      if left-cached or right-cached
+        func(
+          ast.Access set-left, set-right
+          ast.Access left, right
+          true)
+      else
+        func item, item, false
     else
       func item, item, false
   
@@ -172,46 +175,74 @@ let array-translate(elements, scope, replace-with-slice)
       current.push translate element, scope, \expression
   
   if translated-items.length == 1
-    ast.Arr translated-items[0]
+    #-> ast.Arr for item in translated-items[0]
+      item()
   else
     for i = translated-items.length - 1, -1, -1
       let translated-item = translated-items[i]
       if i %% 2
         if translated-item.length > 0
-          translated-items[i] := ast.Arr translated-item
+          translated-items[i] := #-> ast.Arr for item in translated-item
+            item()
         else
           translated-items.splice i, 1
       else
-        unless translated-item.type().is-subset-of types.array
-          scope.add-helper \__slice // FIXME, these shouldn't be required to specify
-          scope.add-helper \__is-array
-          scope.add-helper \__to-array
-          translated-items[i] := ast.Call(
-            ast.Ident \__to-array
-            [translated-item])
+        translated-items[i] := #
+          let item = translated-item()
+          if item.type().is-subset-of types.array
+            item
+          else
+            scope.add-helper \__slice // FIXME, these shouldn't be required to specify
+            scope.add-helper \__is-array
+            scope.add-helper \__to-array
+            ast.Call(
+              ast.Ident \__to-array
+              [item])
     
     if translated-items.length == 1
-      let array = translated-items[0]
-      if replace-with-slice and array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array
-        ast.Call(ast.Ident(\__slice), array.args)
-      else
-        array
+      #
+        let array = translated-items[0]()
+        if replace-with-slice and array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array
+          ast.Call(ast.Ident(\__slice), array.args)
+        else
+          array
     else
-      ast.Call(
-        ast.Access translated-items[0], \concat
-        translated-items[1:])
+      #
+        let head = translated-items[0]()
+        let rest = for item in translated-items[1:]
+          item()
+        ast.Call(
+          ast.Access head, \concat
+          rest)
 
 let translators = {
   Access: #(node, scope, location, auto-return)
-    return auto-return ast.Access(
-      translate node.parent, scope, \expression
-      translate node.child, scope, \expression)
+    let t-parent = translate node.parent, scope, \expression
+    let t-child = translate node.child, scope, \expression
+    #-> auto-return ast.Access(t-parent(), t-child())
+  
+  AccessIndex: do
+    let indexes = {
+      single: #(node, scope, location, auto-return)
+        let t-parent = translate node.parent, scope, \expression
+        let t-child = translate node.child.node, scope, \expression
+        #-> auto-return ast.Access(t-parent(), t-child())
+      multi: #-> throw Error "Not implemented: index multi"
+      slice: #-> throw Error "Not implemented: index slice"
+    }
+    #(node, scope, location, auto-return)
+      let type = node.child.type
+      unless indexes ownskey type
+        throw Error "Unknown index type: $type"
+      
+      indexes[type](node, scope, location, auto-return)
   
   Args: #(node, scope, location, auto-return)
-    auto-return ast.Arguments()
+    #-> auto-return ast.Arguments()
   
   Array: #(node, scope, location, auto-return)
-    auto-return array-translate node.elements, scope, true
+    let t-arr = array-translate node.elements, scope, true
+    #-> auto-return t-arr()
   
   Assign: do
     let ops = {
@@ -229,33 +260,36 @@ let translators = {
       "^="
     }
     let indexes = {
-      single: #(parent, child, value, scope)
-        ast.Assign(
-          ast.Access parent, translate child.node, scope, \expression
-          value)
-      slice: #(parent, child, value, scope)
+      single: #(t-parent, child, t-value, scope)
+        let t-child = translate child.node, scope, \expression
+        #-> ast.Assign(ast.Access(t-parent(), t-child()), t-value())
+      slice: #(t-parent, child, value, scope)
         let left = child.left
         let right = child.right
-        scope.add-helper \__splice
-        ast.Call(
-          ast.Ident \__splice
-          [
-            parent
-            if left and left not instanceof parser.Node.Nothing then translate(left, scope, \expression) else ast.Const(0)
-            if right and right not instanceof parser.Node.Nothing then translate(right, scope, \expression) else ast.Const(Infinity)
-            value
-          ])
-      multi: #(parent, child, value, scope, location)
-        async set-parent, parent <- scope.maybe-cache parent
-        async set-value, value <- scope.maybe-cache value
-        let elements = translate-array child.elements, scope, \expression
-        let lines = for element, i in elements
-          ast.Assign(
-            ast.Access if i == 0 then set-parent else parent, element
-            ast.Access if i == 0 then set-value else value, i)
-        if location == \expression
-          lines.push value
-        ast.Block lines
+        let t-left = if left and left not instanceof parser.Node.Nothing then translate(left, scope, \expression) else #-> ast.Const(0)
+        let t-right = if right and right not instanceof parser.Node.Nothing then translate(right, scope, \expression) else #-> ast.Const(Infinity)
+        #
+          scope.add-helper \__splice
+          ast.Call(
+            ast.Ident \__splice
+            [
+              t-parent()
+              t-left()
+              t-right()
+              value()
+            ])
+      multi: #(t-parent, child, t-value, scope, location)
+        let t-elements = translate-array child.elements, scope, \expression
+        #
+          async set-parent, parent <- scope.maybe-cache t-parent()
+          async set-value, value <- scope.maybe-cache t-value()
+          let lines = for t-element, i in t-elements
+            ast.Assign(
+              ast.Access if i == 0 then set-parent else parent, t-element()
+              ast.Access if i == 0 then set-value else value, i)
+          if location == \expression
+            lines.push value
+          ast.Block lines
     }
     #(node, scope, location, auto-return)
       let op = node.op
@@ -265,62 +299,61 @@ let translators = {
         unless indexes ownskey type
           throw Error "Unexpected index type for assignment: $(JSON.stringify type)"
         
-        auto-return indexes[type](
-            translate node.left.parent, scope, \expression
-            node.left.child
-            translate node.right, scope, \expression
-            scope
-            location)
+        let result = indexes[type](
+          translate node.left.parent, scope, \expression
+          node.left.child
+          translate node.right, scope, \expression
+          scope
+          location)
+        #-> auto-return result()
       else
         let left = translate node.left, scope, \left-expression
         let right = translate node.right, scope, \expression
-        unless ops ownskey op
-          throw Error "Unexpected assign operator: $(JSON.stringify op)"
-      
-        let handler = ops[op]
-        if typeof handler == \function
-          auto-return handler(left, right, scope)
-        else if typeof handler == \string
-          auto-return ast.Binary(left, handler, right)
-        else
-          throw Error "Unexpected handler type: $(typeof! handler)"
+        
+        #-> auto-return ast.Binary(left(), op, right())
   
   Binary: #(node, scope, location, auto-return)
-    auto-return ast.Binary(
-      translate node.left, scope, \expression
-      node.op
-      translate node.right, scope, \expression)
+    let t-left = translate node.left, scope, \expression
+    let t-right = translate node.right, scope, \expression
+    #-> auto-return ast.Binary(t-left(), node.op, t-right())
   
   Block: #(node, scope, location, auto-return)
-    ast.Block translate-array(node.nodes, scope, location, auto-return)
+    let t-nodes = translate-array(node.nodes, scope, location, auto-return)
+    #-> ast.Block for t-node in t-nodes
+      t-node()
   
-  Break: #(node) -> ast.Break()
+  Break: #-> #-> ast.Break()
   
   CallChain: do
     let link-types = {
       access: do
         let index-types = {
-          single: #(child, scope) -> #(parent)
-            ast.Access parent, translate child.node, scope, \expression
-          slice: #(child, scope) -> #(parent)
-            let left = child.left
-            let right = child.right
-            let args = [parent]
-            if left or right
-              args.push if left then translate(left, scope, \expression) else ast.Const(0)
-            if right
-              args.push translate right, scope, \expression
-            scope.add-helper \__slice
-            ast.Call(ast.Ident(\__slice), args)
-          multi: #(child, scope) -> #(parent)
-            async set-parent, parent <- scope.maybe-cache parent
-            let elements = translate-array child.elements, scope, \expression
-            ast.Arr for element, i in elements
-              ast.Access(if i == 0 then set-parent else parent, element)
+          single: #(child, scope)
+            let t-child = translate child.node, scope, \expression
+            #(parent)
+              ast.Access parent, t-child()
+          slice: #(child, scope)
+            let t-left = if child.left then translate child.left, scope, \expression
+            let t-right = if child.right then translate child.right, scope, \expression
+            #(parent)
+              let args = [parent]
+              if t-left or t-right
+                args.push if t-left then t-left() else ast.Const(0)
+              if t-right
+                args.push t-right()
+              scope.add-helper \__slice
+              ast.Call(ast.Ident(\__slice), args)
+          multi: #(child, scope)
+            let t-elements = translate-array child.elements, scope, \expression
+            #(parent)
+              async set-parent, parent <- scope.maybe-cache parent
+              ast.Arr for t-element, i in t-elements
+                ast.Access(if i == 0 then set-parent else parent, t-element())
         }
-        #(links, link, scope, i, current)
+        #(links, link, scope, i, t-current)
           let make-access = if link.type == \access
-            #(parent) -> ast.Access parent, translate link.child, scope, \expression
+            let t-child = translate link.child, scope, \expression
+            #(parent) -> ast.Access parent, t-child()
           else if link.type == \access-index
             unless index-types ownskey link.child.type
               throw Error "Unknown index type: $(link.child.type)"
@@ -329,94 +362,121 @@ let translators = {
             throw Error "Unknown link type: $(link.type)"
         
           unless link.existential
-            handle links, scope, i + 1, make-access(current)
+            handle links, scope, i + 1, #-> make-access(t-current())
           else
-            async set-obj, obj <- scope.maybe-cache current
-            ast.If(
-              ast.Binary set-obj, "!=", null
-              handle links, scope, i + 1, make-access(obj))
-      access-index: #(...args)
-        link-types.access@ this, ...args
+            let mutable _set-obj = void
+            let mutable _obj = void
+            let mutable uncache()!
+              if _obj == void
+                scope.maybe-cache t-current(), #(set-obj, obj)!
+                  _set-obj := set-obj
+                  _obj := obj
+                if _obj == void
+                  throw Error()
+            let t-right = handle links, scope, i + 1, #
+              uncache()
+              make-access(_obj)
+            #
+              uncache()
+              ast.If(
+                ast.Binary _set-obj, "!=", null
+                t-right())
       call: do
-        let make-call(func, mutable args, is-new, is-apply, scope)
+        let make-make-call(mutable args, is-new, is-apply, scope)
           let mutable this-arg = void
           if is-apply and (args.length == 0 or args[0] not instanceof parser.Node.Spread)
-            let start = if args.length == 0 then ast.Const(void) else translate args[0], scope, \expression
-            let arg-array = array-translate args[1:], scope, false
-            if arg-array instanceof ast.Arr
-              ast.Call(
-                ast.Access func, \call
-                [start, ...arg-array.elements])
-            else
-              ast.Call(
-                ast.Access func, \apply
-                [start, arg-array])
+            let t-start = if args.length == 0 then #-> ast.Const(void) else translate(args[0], scope, \expression)
+            let t-arg-array = array-translate(args[1:], scope, false)
+            #(func)
+              let arg-array = t-arg-array()
+              if arg-array instanceof ast.Arr
+                ast.Call(
+                  ast.Access func, \call
+                  [t-start(), ...arg-array.elements])
+              else
+                ast.Call(
+                  ast.Access func, \apply
+                  [t-start(), arg-array])
           else
-            let arg-array = array-translate args, scope, false
+            let t-arg-array = array-translate(args, scope, false)
+            #(func)
+              let arg-array = t-arg-array()
             
-            if is-apply
-              async set-array, array <- scope.maybe-cache arg-array
-              scope.add-helper \__slice
-              ast.Call(
-                ast.Access func, \apply
-                [
-                  ast.Access set-array, 0
-                  ast.Call(
-                    ast.Ident \__slice
-                    [array, ast.Const 1])])
-            else if arg-array instanceof ast.Arr
-              ast.Call(
-                func
-                arg-array.elements
-                is-new)
-            else if is-new
-              scope.add-helper \__new
-              ast.Call ast.Ident(\__new), [func, arg-array]
-            else if func instanceof ast.Binary and func.op == "."
-              async set-parent, parent <- scope.maybe-cache func.left
-              ast.Call(
-                ast.Access ast.Access(set-parent, func.right), \apply
-                [parent, arg-array])
-            else
-              ast.Call(
-                ast.Access func, \apply
-                [ast.Const(void), arg-array])
+              if is-apply
+                async set-array, array <- scope.maybe-cache arg-array
+                scope.add-helper \__slice
+                ast.Call(
+                  ast.Access func, \apply
+                  [
+                    ast.Access set-array, 0
+                    ast.Call(
+                      ast.Ident \__slice
+                      [array, ast.Const 1])])
+              else if arg-array instanceof ast.Arr
+                ast.Call(
+                  func
+                  arg-array.elements
+                  is-new)
+              else if is-new
+                scope.add-helper \__new
+                ast.Call ast.Ident(\__new), [func, arg-array]
+              else if func instanceof ast.Binary and func.op == "."
+                async set-parent, parent <- scope.maybe-cache func.left
+                ast.Call(
+                  ast.Access ast.Access(set-parent, func.right), \apply
+                  [parent, arg-array])
+              else
+                ast.Call(
+                  ast.Access func, \apply
+                  [ast.Const(void), arg-array])
         
-        #(links, link, scope, i, current)
+        #(links, link, scope, i, t-current)
           if link.is-new and link.is-apply
             throw Error "Cannot have a call link with both is-new and is-apply"
           
+          let make-call = make-make-call(link.args, link.is-new, link.is-apply, scope)
           unless link.existential
-            handle links, scope, i + 1, make-call(current, link.args, link.is-new, link.is-apply, scope)
+            handle links, scope, i + 1, #-> make-call(t-current())
           else
-            if current instanceof ast.Binary and current.op == "."
-              async set-parent, parent <- scope.maybe-cache current.left
-              async set-child, child <- scope.maybe-cache current.right
+            let mutable _set-func = void
+            let mutable _func = void
+            let mutable uncache()!
+              if _func == void
+                let f(set-func, func)!
+                  _set-func := set-func
+                  _func := func
+                let current = t-current()
+                if current instanceof ast.Binary and current.op == "."
+                  scope.maybe-cache-access current, f
+                else
+                  scope.maybe-cache current, f
+                if _func == void
+                  throw Error()
+            let t-right = handle links, scope, i + 1, #
+              uncache()
+              make-call(_func)
+            #
+              uncache()
               ast.If(
                 ast.Binary(
-                  ast.Unary \typeof, ast.Access(set-parent, set-child)
+                  ast.Unary \typeof, _set-func
                   "==="
                   \function)
-                handle links, scope, i + 1, make-call(ast.Access(parent, child), link.args, link.is-new, link.is-apply, scope))
-            else
-              async set-func, func <- scope.maybe-cache current
-              ast.If(
-                ast.Binary(
-                  ast.Unary \typeof, set-func
-                  "==="
-                  \function)
-                handle links, scope, i + 1, make-call(func, link.args, link.is-new, link.is-apply, scope))
-      "?": #(links, link, scope, i, current)
-        async set-left, left <- scope.maybe-cache current
-        ast.IfExpression(
-          ast.Binary set-left, "!=", null
-          left
-          translate link.child, scope, \expression)
+                t-right())
+      "?": #(links, link, scope, i, t-current)
+        let t-child = translate link.child, scope, \expression
+        #
+          async set-left, left <- scope.maybe-cache t-current()
+          ast.IfExpression(
+            ast.Binary set-left, "!=", null
+            left
+            t-child())
     }
+    link-types.access-index := link-types.access
     
-    let handle(links, scope, i, current)
+    let handle(links, scope, i, t-current)
       if i >= links.length
-        current
+        t-current
       else
         let link = links[i]
         unless link?
@@ -425,55 +485,63 @@ let translators = {
         unless link-types ownskey link.type
           throw Error "Unknown call-chain link: $(link.type)"
         
-        link-types[link.type](links, link, scope, i, current)
+        link-types[link.type](links, link, scope, i, t-current)
     
     #(node, scope, location, auto-return)
-      auto-return handle node.links, scope, 0, translate(node.head, scope, \expression)
+      let t-result = handle node.links, scope, 0, translate(node.head, scope, \expression)
+      #-> auto-return t-result()
   
-  Const: #(node, scope, location, auto-return) -> auto-return ast.Const(node.value)
+  Const: #(node, scope, location, auto-return) -> #-> auto-return ast.Const(node.value)
   
-  Continue: # -> ast.Continue()
+  Continue: #-> #-> ast.Continue()
   
   Debugger: #(node, scope, location, auto-return)
     if location == \expression
-      ast.Call(
+      #-> ast.Call(
         ast.Func(null, [], [], [ast.Debugger()])
         [])
     else
-      ast.Debugger()
+      #-> ast.Debugger()
   
   Def: #(node, scope, location, auto-return)
     // TODO: line numbers
     throw Error "Cannot have a stray def"
   
   DefineHelper: #(node, scope, location, auto-return)
-    let ident = translate node.name, scope, \left-expression
+    // TODO: should these translations be auto-called?
+    let ident = translate(node.name, scope, \left-expression)()
     unless ident instanceof ast.Ident
       throw Error "Expected name to be an Ident, got $(typeof! ident)"
-    let value = translate node.value, scope, \expression
+    let value = translate(node.value, scope, \expression)()
     HELPERS[ident.name] := #-> value
     KNOWN_HELPERS.push(ident.name)
-    ast.BlockExpression()
+    #-> ast.BlockExpression()
   
   Eval: #(node, scope, location, auto-return)
-    auto-return ast.Eval translate(node.code, scope, \expression)
+    let t-code = translate node.code, scope, \expression
+    #-> auto-return ast.Eval t-code()
   
   For: #(node, scope, location, auto-return)
-    ast.For(
-      if node.init? then translate node.init, scope, \expression
-      if node.test? then translate node.test, scope, \expression
-      if node.step? then translate node.step, scope, \expression
-      translate node.body, scope, \statement)
+    let t-init = if node.init? then translate node.init, scope, \expression
+    let t-test = if node.test? then translate node.test, scope, \expression
+    let t-step = if node.step? then translate node.step, scope, \expression
+    let t-body = translate node.body, scope, \statement
+    # -> ast.For(
+      if t-init? then t-init()
+      if t-test? then t-test()
+      if t-step? then t-step()
+      t-body())
   
   ForIn: #(node, scope, location, auto-return)
-    let key = translate node.key, scope, \left-expression
-    if key not instanceof ast.Ident
-      throw Error("Expected an Ident for a for-in key")
-    scope.add-variable key
-    ast.ForIn(
-      key
-      translate node.object, scope, \expression
-      translate node.body, scope, \statement)
+    let t-key = translate node.key, scope, \left-expression
+    let t-object = translate node.object, scope, \expression
+    let t-body = translate node.body, scope, \statement
+    #
+      let key = t-key()
+      if key not instanceof ast.Ident
+        throw Error("Expected an Ident for a for-in key")
+      scope.add-variable key
+      ast.ForIn(key, t-object(), t-body())
   
   Function: do
     let primitive-types = {
@@ -541,7 +609,7 @@ let translators = {
         else
           ident
         scope.add-helper \__typeof
-        let type = translate(node, scope, \expression)
+        let type = translate(node, scope, \expression)()
         ast.If(
           ast.Unary(
             "!"
@@ -627,7 +695,7 @@ let translators = {
         scope.add-helper \__is-array
         let index = scope.reserve-ident \i
         let length = scope.reserve-ident \len
-        ast.If(
+        let result = ast.If(
           ast.Unary(
             "!"
             ast.Call(
@@ -649,6 +717,9 @@ let translators = {
             ast.Binary index, "<", length
             ast.Unary "++", index
             translate-type-check(ident, node.subtype, scope, false, index)))
+        scope.release-ident index
+        scope.release-ident length
+        result
     }
     let translate-type-check(ident, node, scope, has-default-value, array-index)
       unless translate-type-checks ownskey node.constructor.capped-name
@@ -657,7 +728,7 @@ let translators = {
       translate-type-checks[node.constructor.capped-name] ident, node, scope, has-default-value, array-index
     let translate-param-types = {
       Param: #(param, scope, inner)
-        let mutable ident = translate param.ident, scope, \param
+        let mutable ident = translate(param.ident, scope, \param)()
         if param.ident instanceof parser.Node.Tmp
           scope.mark-as-param ident
         
@@ -677,7 +748,7 @@ let translators = {
         if param.default-value?
           init.push ast.If(
             ast.Binary ident, "==", null
-            ast.Assign ident, translate(param.default-value, scope, \expression)
+            ast.Assign ident, translate(param.default-value, scope, \expression)()
             type-check)
         else if type-check
           init.push type-check
@@ -753,7 +824,7 @@ let translators = {
         let init = []
         
         for pair in object.pairs
-          let key = translate pair.key, scope, \expression
+          let key = translate(pair.key, scope, \expression)()
           unless key instanceof ast.Const
             throw Error "Unexpected non-const object key: $(typeof! key)"
           
@@ -779,7 +850,7 @@ let translators = {
         throw Error "Unknown parameter type: $(type)"
       translate-param-types[type](param, scope, inner)
     
-    #(node, scope, location, auto-return)
+    #(node, scope, location, auto-return) -> #
       let inner-scope = scope.clone(node.bound)
       let param-idents = []
       let initializers = []
@@ -836,7 +907,7 @@ let translators = {
       if spread-counter
         inner-scope.release-ident spread-counter
       
-      let mutable body = translate node.body, inner-scope, \top-statement, node.auto-return
+      let mutable body = translate(node.body, inner-scope, \top-statement, node.auto-return)()
       body := if body instanceofsome [ast.BlockExpression, ast.BlockStatement]
         body.body
       else
@@ -857,30 +928,17 @@ let translators = {
     let name = node.name
     if name.length > 2 and name.charCodeAt(0) == "_".charCodeAt(0) and name.charCodeAt(1) == "_".charCodeAt(0)
       scope.add-helper name
-    auto-return ast.Ident(name)
+    #-> auto-return ast.Ident(name)
   
   If: #(node, scope, location, auto-return)
     let inner-location = if location in [\statement, \top-statement]
       \statement
     else
       location
-    ast.If(
-      translate node.test, scope, \expression
-      translate node.when-true, scope, inner-location, auto-return
-      if node.when-false? then translate node.when-false, scope, inner-location, auto-return)
-  
-  AccessIndex: #(node, scope, location, auto-return)
-    let type = node.child.type
-    if type == \single
-      auto-return ast.Access(
-        translate node.parent, scope, \expression
-        translate node.child.node, scope, \expression)
-    else if type == \multi
-      throw Error "Not implemented: index multi"
-    else if type == \slice
-      throw Error "Not implemented: index slice"
-    else
-      throw Error "Unknown index type: $type"
+    let t-test = translate node.test, scope, \expression
+    let t-when-true = translate node.when-true, scope, inner-location, auto-return
+    let t-when-false = if node.when-false? then translate node.when-false, scope, inner-location, auto-return
+    #-> ast.If(t-test(), t-when-true(), if t-when-false? then t-when-false())
   
   Let: do
     let declarables = {
@@ -888,184 +946,209 @@ let translators = {
         if node.ident instanceof parser.Node.Declarable
           translate-declarable node.ident, scope
         else
-          let ident = translate node.ident, scope, \left-expression
-          scope.add-variable ident
-          ident
+          let t-ident = translate node.ident, scope, \left-expression
+          #
+            let ident = t-ident()
+            scope.add-variable ident
+            ident
     }
     let translate-declarable(node, scope)
       unless declarables ownskey node.constructor.capped-name
         throw Error "Unknown declarable type $(node.constructor.capped-name)"
       declarables[node.constructor.capped-name](node, scope)
     #(node, scope, location, auto-return)
-      let left = translate-declarable node.left, scope
-      let right = translate node.right, scope, \expression
-      if location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name?
-        scope.remove-variable left
-        auto-return ast.Func(left, right.params, right.variables, right.body, right.declarations)
-      else
-        auto-return ast.Assign(left, right)
+      let t-left = translate-declarable node.left, scope
+      let t-right = translate node.right, scope, \expression
+      #
+        let left = t-left()
+        let right = t-right()
+        if location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name?
+          scope.remove-variable left
+          auto-return ast.Func(left, right.params, right.variables, right.body, right.declarations)
+        else
+          auto-return ast.Assign(left, right)
   
-  Nothing: #-> ast.BlockExpression()
+  Nothing: #-> #-> ast.Noop()
   
   Object: #(node, scope, location, auto-return)
-    let const-pairs = []
-    let post-const-pairs = []
-    let mutable current-pairs = const-pairs
+    let t-keys = []
+    let t-values = []
     for pair in node.pairs
-      let key = translate pair.key, scope, \expression
-      let value = translate pair.value, scope, \expression
-      
-      if key not instanceof ast.Const
-        current-pairs := post-const-pairs
-      
-      current-pairs.push { key, value }
+      t-keys.push translate pair.key, scope, \expression
+      t-values.push translate pair.value, scope, \expression
     
-    let obj = ast.Obj for pair in const-pairs
-      ast.Obj.Pair String(pair.key.value), pair.value
+    #
+      let const-pairs = []
+      let post-const-pairs = []
+      let mutable current-pairs = const-pairs
+      for t-key, i in t-keys
+        let t-value = t-values[i]
+        let key = t-key()
+        let value = t-value()
+      
+        if key not instanceof ast.Const
+          current-pairs := post-const-pairs
+      
+        current-pairs.push { key, value }
     
-    if post-const-pairs.length == 0
-      auto-return obj
-    else
-      let ident = scope.reserve-ident \o
-      let result = ast.BlockExpression [
-        ast.Assign ident, obj
-        ...for pair in post-const-pairs
-          ast.Assign(
-            ast.Access(ident, pair.key)
-            pair.value)
-        ident
-      ]
-      scope.release-ident ident
-      auto-return result
+      let obj = ast.Obj for pair in const-pairs
+        ast.Obj.Pair String(pair.key.value), pair.value
+    
+      if post-const-pairs.length == 0
+        auto-return obj
+      else
+        let ident = scope.reserve-ident \o
+        let result = ast.BlockExpression [
+          ast.Assign ident, obj
+          ...for pair in post-const-pairs
+            ast.Assign(
+              ast.Access(ident, pair.key)
+              pair.value)
+          ident
+        ]
+        scope.release-ident ident
+        auto-return result
   
   Regexp: #(node, scope, location, auto-return)
-    let text = translate node.text, scope, \expression
+    let t-text = translate node.text, scope, \expression
     let flags = node.flags
-    if text instanceof ast.Const and typeof text.value == \string
-      auto-return ast.Const(RegExp(text.value, flags))
-    else
-      auto-return ast.Call(
-        ast.Ident(\RegExp)
-        [text, ast.Const(flags)])
+    #
+      let text = t-text()
+      if text instanceof ast.Const and typeof text.value == \string
+        auto-return ast.Const(RegExp(text.value, flags))
+      else
+        auto-return ast.Call(
+          ast.Ident(\RegExp)
+          [text, ast.Const(flags)])
   
   Return: #(node, scope)
-    let value = translate node.node, scope, \expression
+    let t-value = translate node.node, scope, \expression
     if node.existential
-      async set-value, value <- scope.maybe-cache value
-      ast.IfStatement(
-        ast.Binary set-value, "!=", null
-        ast.Return value)
+      #
+        async set-value, value <- scope.maybe-cache t-value()
+        ast.IfStatement(
+          ast.Binary set-value, "!=", null
+          ast.Return value)
     else
-      ast.Return value
+      #-> ast.Return t-value()
   
   Root: #(node, scope)
-    let body = translate node.body, scope, \top-statement, scope.options.return
-    let init = []
-    if scope.has-bound and scope.used-this
-      let fake-this = ast.Ident(\_this)
-      scope.add-variable fake-this
-      init.push ast.Assign fake-this, ast.This()
-    for helper in scope.get-helpers()
-      if HELPERS ownskey helper
-        let ident = ast.Ident(helper)
-        scope.add-variable ident
-        init.push ast.Assign ident, HELPERS[helper]()
+    let t-body = translate node.body, scope, \top-statement, scope.options.return
     
-    if scope.options.bare
-      ast.Root(
-        [...init, body]
-        scope.get-variables()
-        ["use strict"])
-    else
-      let mutable call-func = ast.Call(
-        ast.Access(
-          ast.Func(
-            null
-            []
-            scope.get-variables()
-            [...init, body]
-            ["use strict"])
-          \call)
-        [ast.This()])
-      if scope.options.return
-        call-func := ast.Return(call-func)
-      ast.Root(
-        [call-func]
-        []
-        [])
+    #
+      let body = t-body()
+      let init = []
+      if scope.has-bound and scope.used-this
+        let fake-this = ast.Ident(\_this)
+        scope.add-variable fake-this
+        init.push ast.Assign fake-this, ast.This()
+      for helper in scope.get-helpers()
+        if HELPERS ownskey helper
+          let ident = ast.Ident(helper)
+          scope.add-variable ident
+          init.push ast.Assign ident, HELPERS[helper]()
+      
+      if scope.options.bare
+        ast.Root(
+          [...init, body]
+          scope.get-variables()
+          ["use strict"])
+      else
+        let mutable call-func = ast.Call(
+          ast.Access(
+            ast.Func(
+              null
+              []
+              scope.get-variables()
+              [...init, body]
+              ["use strict"])
+            \call)
+          [ast.This()])
+        if scope.options.return
+          call-func := ast.Return(call-func)
+        ast.Root(
+          [call-func]
+          []
+          [])
   
   String: #(node, scope, location, auto-return)
     let parts = node.parts
-  
-    let mutable current = void
-    for p in parts
-      let mutable part = if typeof p == \string
-        ast.Const p
+    
+    let t-parts = for p in parts
+      if typeof p == \string
+        #-> ast.Const p
       else
         translate p, scope, \expression
+    
+    #
+      let mutable current = void
+      for t-part in t-parts
+        let part = t-part()
       
-      if not part.type().is-subset-of(types.string)
-        if part.type().is-subset-of(types.string-or-number)
-          if not current?
-            current := ast.Const ""
+        if not part.type().is-subset-of(types.string)
+          if part.type().is-subset-of(types.string-or-number)
+            if not current?
+              current := ast.Const ""
+          else
+            scope.add-helper \__strnum
+            part := ast.Call ast.Ident(\__strnum), [part]
+      
+        current := if current?
+          ast.Binary current, "+", part
         else
-          scope.add-helper \__strnum
-          part := ast.Call ast.Ident(\__strnum), [part]
-      
-      current := if current?
-        ast.Binary current, "+", part
-      else
-        part
-    unless current?
-      current := ast.Const("")
-    auto-return current
+          part
+      unless current?
+        current := ast.Const("")
+      auto-return current
   
   Super: #(node, scope, location, auto-return)
     // TODO: line numbers
     throw Error "Cannot have a stray super call"
   
   Tmp: #(node, scope, location, auto-return)
-    auto-return scope.get-tmp(node.id, node.name)
+    #-> auto-return scope.get-tmp(node.id, node.name)
   
   This: #(node, scope, location, auto-return)
-    scope.used-this := true
-    auto-return if scope.bound
-      ast.Ident(\_this)
-    else
-      ast.This()
+    #
+      scope.used-this := true
+      auto-return if scope.bound
+        ast.Ident(\_this)
+      else
+        ast.This()
   
   Throw: #(node, scope, location)    
     // TODO: the expression handling _should_ be handled through the operator in prelude.ms
     if location == \expression
       translate wrap-in-function-call(node), scope, \expression
     else
-      ast.Throw(translate node.node, scope, \expression)
+      let t-node = translate node.node, scope, \expression
+      #-> ast.Throw t-node()
   
   TryCatch: #(node, scope, location, auto-return)
-    ast.TryCatch(
-      translate node.try-body, scope, \statement, auto-return
-      translate node.catch-ident, scope, \left-expression
-      translate node.catch-body, scope, \expression, auto-return)
+    let t-try-body = translate node.try-body, scope, \statement, auto-return
+    let t-catch-ident = translate node.catch-ident, scope, \left-expression
+    let t-catch-body = translate node.catch-body, scope, \statement, auto-return
+    #-> ast.TryCatch t-try-body(), t-catch-ident(), t-catch-body()
   
   TryFinally: #(node, scope, location, auto-return)
-    ast.TryFinally(
-      translate node.try-body, scope, \statement, auto-return
-      translate node.finally-body, scope, \statement)
+    let t-try-body = translate node.try-body, scope, \statement, auto-return
+    let t-finally-body = translate node.finally-body, scope, \statement
+    #-> ast.TryFinally t-try-body(), t-finally-body()
   
   Unary: #(node, scope, location, auto-return)
-    auto-return ast.Unary(
-      node.op
-      translate node.node, scope, \expression)
+    let t-subnode = translate node.node, scope, \expression
+    #-> auto-return ast.Unary node.op, t-subnode()
   
   UseMacro: #(node, scope, location, auto-return)
-    let result = translate node.node, scope, location, auto-return
-    for tmp in node.tmps
-      scope.release-tmp tmp
+    let t-result = translate node.node, scope, location, auto-return
     
-    for helper in node.macro-helpers
-      scope.add-helper helper
-    
-    result
+    #
+      let result = t-result()
+      for tmp in node.tmps
+        scope.release-tmp tmp
+      for helper in node.macro-helpers
+        scope.add-helper helper
+      result
 }
 
 let translate(node as Object, scope as Scope, location as String, auto-return)
@@ -1076,8 +1159,8 @@ let translate(node as Object, scope as Scope, location as String, auto-return)
     throw Error "Unable to translate unknown node type: $(String node.constructor.capped-name)"
   
   let ret = translators[node.constructor.capped-name](node, scope, location, auto-return)
-  if ret not instanceofsome [ast.Node, ast.Root]
-    throw Error "Translated non-node: $(typeof! ret)"
+  if typeof ret != "function"
+    throw Error "Translated non-function: $(typeof! ret)"
   ret
 
 let translate-array(nodes as Array, scope as Scope, location as String, auto-return)
@@ -1086,7 +1169,7 @@ let translate-array(nodes as Array, scope as Scope, location as String, auto-ret
 
 module.exports := #(node, options = {})
   let scope = Scope(options, false)
-  let result = translate node, scope, \statement, false
+  let result = translate(node, scope, \statement, false)()
   scope.release-tmps()
   return {
     node: result

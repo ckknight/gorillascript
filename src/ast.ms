@@ -1182,7 +1182,16 @@ exports.Func := class Func extends Expression
     @name := name
     @params := params
     @variables := variables
-    @body := body
+    @body := []
+    for item in body
+      let statement = item.maybe-to-statement()
+      if not statement.is-noop()
+        if statement instanceof BlockStatement
+          @body.push ...statement.body
+        else
+          @body.push statement
+        if statement.exit-type()?
+          break
     @declarations := declarations
   
   def compile(options, level, line-start, sb)!
