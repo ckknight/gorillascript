@@ -164,7 +164,7 @@ exports.Node := class Node
   
   def to-string()
     let sb = StringBuilder()
-    @compile-as-statement { indent: 0 }, true, sb
+    @compile-as-statement { indent: 0, bare: true }, true, sb
     sb.to-string()
   
   def to-function()

@@ -970,10 +970,29 @@ let translators = {
         let ident = ast.Ident(helper)
         scope.add-variable ident
         init.push ast.Assign ident, HELPERS[helper]()
-    ast.Root(
-      [...init, body]
-      scope.get-variables()
-      ["use strict"])
+    
+    if scope.options.bare
+      ast.Root(
+        [...init, body]
+        scope.get-variables()
+        ["use strict"])
+    else
+      let mutable call-func = ast.Call(
+        ast.Access(
+          ast.Func(
+            null
+            []
+            scope.get-variables()
+            [...init, body]
+            ["use strict"])
+          \call)
+        [ast.This()])
+      if scope.options.return
+        call-func := ast.Return(call-func)
+      ast.Root(
+        [call-func]
+        []
+        [])
   
   String: #(node, scope, location, auto-return)
     let parts = node.parts

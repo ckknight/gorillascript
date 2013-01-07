@@ -3507,7 +3507,7 @@ let State = do
         body
         true
         false), false
-      let translated = require('./translator')(raw-func)
+      let translated = require('./translator')(raw-func, return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
@@ -3528,7 +3528,7 @@ let State = do
         body
         true
         false)
-      let translated = require('./translator')(raw-func)
+      let translated = require('./translator')(raw-func, return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
@@ -3557,7 +3557,7 @@ let State = do
         body
         true
         false)
-      let translated = require('./translator')(raw-func)
+      let translated = require('./translator')(raw-func, return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for binary operator $(operators.join ', ')"
@@ -3582,7 +3582,7 @@ let State = do
         body
         true
         false)
-      let translated = require('./translator')(raw-func)
+      let translated = require('./translator')(raw-func, return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for assign operator $(operators.join ', ')"
@@ -3606,7 +3606,7 @@ let State = do
         body
         true
         false)
-      let translated = require('./translator')(raw-func)
+      let translated = require('./translator')(raw-func, return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for unary operator $(operators.join ', ')"
