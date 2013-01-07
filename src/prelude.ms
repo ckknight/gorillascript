@@ -3,13 +3,13 @@ macro do
     AST (#@ -> $body)()
 
 define operator binary and with precedence: 0
-  @binary left, \and, right
+  @binary left, "&&", right
 
 define operator binary or with precedence: 0
-  @binary left, \or, right
+  @binary left, "||", right
 
 define operator unary not
-  @unary "not", node
+  @unary "!", node
 
 define operator unary typeof
   @unary "typeof", node
@@ -41,13 +41,13 @@ macro if
     @if(test, body, f(eval("len - 1"), else-body))
 
 define operator binary == with precedence: 1, maximum: 1
-  @binary left, "==", right
+  @binary left, "===", right
 
 define operator binary != with precedence: 1, maximum: 1
   AST not ($left == $right)
 
 define operator binary ~= with precedence: 1, maximum: 1
-  @binary left, "~=", right
+  @binary left, "==", right
 
 define operator binary !~= with precedence: 1, maximum: 1
   AST not ($left ~= $right)
@@ -57,7 +57,10 @@ define operator unary ? with postfix: true
   AST $node !~= null
 
 define operator binary ~<, ~<= with precedence: 1, maximum: 1
-  @binary left, op, right
+  if op == "~<"
+    @binary left, "<", right
+  else
+    @binary left, "<=", right
 
 define operator binary ~>, ~>= with precedence: 1, maximum: 1
   if op == "~>"
@@ -75,20 +78,36 @@ define operator assign ~^=
 
 define operator binary ~*, ~/, ~%, ~\ with precedence: 8
   if op == "~\\"
-    let div = @binary left, "~/", right
+    let div = @binary left, "/", right
     AST Math.floor $div
+  else if op == "~*"
+    @binary left, "*", right
+  else if op == "~/"
+    @binary left, "/", right
   else
-    @binary left, op, right
+    @binary left, "%", right
 
 define operator assign ~*=, ~/=, ~%=
-  @assign left, op, right
+  if op == "~*="
+    @assign left, "*=", right
+  else if op == "~/="
+    @assign left, "/=", right
+  else
+    @assign left, "%=", right
 
 define operator assign ~\=
   @maybe-cache-access left, #(set-left, left)
     AST $set-left := $left ~\ $right
 
 define operator binary ~+, ~- with precedence: 7
-  @binary left, op, right
+  if op == "~+"
+    if not @is-type left, "number"
+      left := @unary "+", left
+    if not @is-type right, "number"
+      right := @unary "+", right
+    @binary left, "+", right
+  else
+    @binary left, "-", right
 
 define operator unary ~+, ~-
   if @is-const(node)
@@ -97,40 +116,65 @@ define operator unary ~+, ~-
       value := 0 ~- value
     @const value
   else
-    @unary op, node
+    if op == "~+"
+      @unary "+", node
+    else
+      @unary "-", node
 
 define operator assign ~+=
   if @is-const(right)
     let value = @value(right)
     if value == 1
-      return @unary "inc", left
+      return @unary "++", left
     else if value == ~-1
-      return @unary "dec", left
-  @assign left, "~+=", right
+      return @unary "--", left
+    else if typeof value == \number
+      return @binary left, "-=", @const(~-value)
+  
+  if @is-type left, \number
+    if not @is-type right, \number
+      right := @unary "+", right
+    @binary left, "+=", right
+  else
+    @binary left, "-=", @unary "-", right
 
 define operator assign ~-=
   if @is-const(right)
     let value = @value(right)
     if value == 1
-      return @unary "dec", left
+      return @unary "--", left
     else if value == ~-1
-      return @unary "inc", left
-  @assign left, "~-=", right
+      return @unary "++", left
+  @assign left, "-=", right
 
 define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 6, maximum: 1
-  @binary left, op, right
+  if op == "~bitlshift"
+    @binary left, "<<", right
+  else if op == "~bitrshift"
+    @binary left, ">>", right
+  else
+    @binary left, ">>>", right
 
 define operator assign ~bitlshift=, ~bitrshift=, ~biturshift=
-  @assign left, op, right
+  if op == "~bitlshift="
+    @assign left, "<<=", right
+  else if op == "~bitrshift="
+    @assign left, ">>=", right
+  else
+    @assign left, ">>>=", right
 
 define operator binary ~& with precedence: 4
-  @binary left, op, right
+  if @has-type(left, \number) and @has-type(right, \number)
+    left := @binary @const(""), "+", left
+  @binary left, "+", right
 
 define operator assign ~&=
-  @assign left, op, AST "" ~& right
+  if @has-type(right, \number)
+    right := AST "" ~& right
+  @assign left, "+=", right
 
 define operator unary throw
-  @unary "throw", node
+  @throw node
 
 define helper __num = #(num)
   if typeof num != "number"
@@ -243,8 +287,7 @@ define operator binary in with precedence: 3, maximum: 1, invertible: true
     result
 
 define operator binary haskey with precedence: 3, maximum: 1, invertible: true
-  // op == "in", switch left and right
-  let result = @binary left, op, right
+  let result = @binary right, \in, left
   if inverted
     AST not $result
   else
@@ -262,7 +305,7 @@ define operator binary ownskey with precedence: 3, maximum: 1, invertible: true
     result
 
 define operator binary instanceof with precedence: 3, maximum: 1, invertible: true
-  let result = @binary left, op, right
+  let result = @binary left, \instanceof, right
   if inverted
     AST not $result
   else
@@ -358,28 +401,33 @@ define operator assign ?=
       AST if $set-left? then $left-value else ($left := $right)
 
 define operator binary ~bitand with precedence: 0
-  @binary left, "~bitand", right
+  @binary left, "&", right
 
 define operator binary ~bitor with precedence: 0
-  @binary left, "~bitor", right
+  @binary left, "|", right
 
 define operator binary ~bitxor with precedence: 0
-  @binary left, "~bitxor", right
+  @binary left, "^", right
 
 define operator assign ~bitand=, ~bitor=, ~bitxor=
-  @assign left, op, right
+  if op == "~bitand="
+    @assign left, "&=", right
+  else if op == "~bitor="
+    @assign left, "|=", right
+  else
+    @assign left, "^=", right
 
 define operator binary bitand with precedence: 0
-  @binary AST +$left, "~bitand", AST +$right
+  AST +$left ~bitand +$right
 
 define operator binary bitor with precedence: 0
-  @binary AST +$left, "~bitor", AST +$right
+  AST +$left ~bitor +$right
 
 define operator binary bitxor with precedence: 0
-  @binary AST +$left, "~bitxor", AST +$right
+  AST +$left ~bitxor +$right
 
 define operator unary ~bitnot
-  @unary "~bitnot", node
+  @unary "~", node
 
 define operator unary bitnot
   AST ~bitnot +$node

@@ -131,59 +131,6 @@ let identity(x) -> x
 
 let make-auto-return(x) -> if x then wrap-return else identity
 
-let binary-ops = {
-  "~*": "*"
-  "~/": "/"
-  "~%": "%"
-  "~+": #(left, right)
-    unless left.type().is-subset-of types.number
-      left := ast.Unary "+", left
-    unless right.type().is-subset-of types.number
-      right := ast.Unary "+", right
-    ast.Binary left, "+", right
-  "~-": "-"
-  "~bitlshift": "<<"
-  "~bitrshift": ">>"
-  "~biturshift": ">>>"
-  "~&": #(mutable left, right)
-    if left.type().overlaps(types.number) and right.type().overlaps(types.number)
-      left := ast.Binary "", "+", left
-    ast.Binary left, "+", right
-  haskey: #(left, right, scope) -> ast.Binary right, "in", left
-  instanceof: \instanceof
-  "~=": "=="
-  "!~=": "!="
-  "==": "==="
-  "!=": "!=="
-  "~<": "<"
-  "~<=": "<="
-  "~>": ">"
-  "~>=": ">="
-  and: "&&"
-  or: "||"
-  "~bitand": "&"
-  "~bitor": "|"
-  "~bitxor": "^"
-}
-
-let unary-ops = {
-  "~-": "-"
-  "~+": "+"
-  dec: "--"
-  inc: "++"
-  not: "!"
-  "~bitnot": "~"
-  typeof: \typeof
-  delete: #(node, scope, location, auto-return)
-    auto-return ast.Unary("delete", translate node.node, scope, \expression)
-  throw: #(node, scope, location)
-    // TODO: the expression handling _should_ be handled through the operator in prelude.ms
-    if location == \expression
-      translate wrap-in-function-call(node), scope, \expression
-    else
-      ast.Throw(translate node.node, scope, \expression)
-}
-
 let HELPERS = {}
 
 let wrap-in-function-call(node)
@@ -268,35 +215,18 @@ let translators = {
   
   Assign: do
     let ops = {
-      "~*=": "*="
-      "~/=": "/="
-      "~%=": "%="
-      "~+=": #(left, mutable right, scope)
-        if right instanceof ast.Const and typeof right.value == \number
-          ast.Binary left, "-=", -right.value
-        else
-          unless right.type().is-subset-of types.number
-            right := ast.Unary "+", right
-          
-          unless left.type().is-subset-of types.number
-            async set-left, left <- scope.maybe-cache-access left
-            ast.Assign set-left, ast.Binary(ast.Unary("+", left), "+", right)
-          else
-            ast.Binary left, "+=", right
-      "~-=": "-="
-      "~bitlshift=": "<<="
-      "~bitrshift=": ">>="
-      "~biturshift=": ">>>="
-      "~&=": #(left, right, scope)
-        if left.type().overlaps(types.number) and right.type().overlaps(types.number)
-          async set-left, left <- scope.maybe-cache-access left
-          ast.Binary set-left, "+=", ast.Binary("", "+", right)
-        else
-          ast.Binary left, "+=", right
-      "~bitand=": "&="
-      "~bitor=": "|="
-      "~bitxor=": "^="
-      ":=": "="
+      "="
+      "*="
+      "/="
+      "%="
+      "+="
+      "-="
+      "<<="
+      ">>="
+      ">>>="
+      "&="
+      "|="
+      "^="
     }
     let indexes = {
       single: #(parent, child, value, scope)
@@ -330,7 +260,7 @@ let translators = {
     #(node, scope, location, auto-return)
       let op = node.op
       // TODO: this is ugly
-      if op == ":=" and node.left instanceof parser.Node.AccessIndex
+      if op in "=" and node.left instanceof parser.Node.AccessIndex
         let type = node.left.child.type
         unless indexes ownskey type
           throw Error "Unexpected index type for assignment: $(JSON.stringify type)"
@@ -356,19 +286,10 @@ let translators = {
           throw Error "Unexpected handler type: $(typeof! handler)"
   
   Binary: #(node, scope, location, auto-return)
-    let op = node.op
-    unless binary-ops ownskey op
-      throw Error "Unexpected binary operator: $(JSON.stringify op)"
-    
-    let handler = binary-ops[op]
-    let left = translate node.left, scope, \expression
-    let right = translate node.right, scope, \expression
-    if typeof handler == \function
-      auto-return handler(left, right, scope)
-    else if typeof handler == \string
-      auto-return ast.Binary(left, handler, right)
-    else
-      throw Error "Unexpected handler type: $(typeof! handler)"
+    auto-return ast.Binary(
+      translate node.left, scope, \expression
+      node.op
+      translate node.right, scope, \expression)
   
   Block: #(node, scope, location, auto-return)
     ast.Block translate-array(node.nodes, scope, location, auto-return)
@@ -1094,6 +1015,13 @@ let translators = {
     else
       ast.This()
   
+  Throw: #(node, scope, location)    
+    // TODO: the expression handling _should_ be handled through the operator in prelude.ms
+    if location == \expression
+      translate wrap-in-function-call(node), scope, \expression
+    else
+      ast.Throw(translate node.node, scope, \expression)
+  
   TryCatch: #(node, scope, location, auto-return)
     ast.TryCatch(
       translate node.try-body, scope, \statement, auto-return
@@ -1106,17 +1034,9 @@ let translators = {
       translate node.finally-body, scope, \statement)
   
   Unary: #(node, scope, location, auto-return)
-    let op = node.op
-    unless unary-ops ownskey op
-      throw Error "Unexpected unary operator: $(JSON.stringify op)"
-    
-    let handler = unary-ops[op]
-    if typeof handler == \function
-      handler node, scope, location, auto-return
-    else if typeof handler == \string
-      auto-return ast.Unary(handler, translate node.node, scope, \expression)
-    else
-      throw Error "Unexpected handler type: $(typeof! handler)"
+    auto-return ast.Unary(
+      node.op
+      translate node.node, scope, \expression)
   
   UseMacro: #(node, scope, location, auto-return)
     let result = translate node.node, scope, location, auto-return

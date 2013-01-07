@@ -1689,15 +1689,6 @@ define SingularObjectKey = one-of! [
       value: node
     }
   sequential! [
-    symbol("-")
-    [\this, one-of! [NumberLiteral, InfinityLiteral]]
-    NotColon
-  ], #(x, o, i)
-    {
-      key: o.const i, String(-x.value)
-      value: o.unary i, "~-", x
-    }
-  sequential! [
     [\this, Parenthetical]
     NotColon
   ], #(node) -> { key: node, value: node }
@@ -2276,9 +2267,9 @@ define ExpressionOrAssignment = oneOf! [
 
 define DirectAssignment = sequential! [
   [\left, ComplexAssignable]
-  [\op, ColonEqual]
+  ColonEqual
   [\right, ExpressionOrAssignment]
-], #(x, o, i) -> o.assign i, x.left, x.op, x.right
+], #(x, o, i) -> o.assign i, x.left, "=", x.right
 
 define CustomAssignment = #(o)
   let start-index = o.index
@@ -2797,6 +2788,7 @@ let MacroHelper = do
   MacroHelper::assign := #(left as Object, op as String, right as Object) -> @state.assign @index, left, op, right
   MacroHelper::binary := #(left as Object, op as String, right as Object) -> @state.binary @index, left, op, right
   MacroHelper::unary := #(op as String, node as Object) -> @state.unary @index, op, node
+  MacroHelper::throw := #(node as Node) -> @state.throw @index, node
   
   let get-tmp-id = do
     let id = -1
@@ -3138,6 +3130,12 @@ let MacroHelper = do
     if not type? or type not instanceof types
       throw Error "$name is not a known type name"
     node.type().is-subset-of(type)
+  
+  MacroHelper::has-type := #(node, name as String)
+    let type = types[name]
+    if not type? or type not instanceof types
+      throw Error "$name is not a known type name"
+    node.type().overlaps(type)
   
   let mutators = {
     Block: #(x, func)
@@ -3724,58 +3722,73 @@ State::array-param := State::array
 node-type! \assign, left as Node, op as String, right as Node, {
   type: do
     let ops = {
-      ":=": #(left, right) -> right.type()
-      "~+=": types.number
-      "~&=": types.string
-      "~-=": types.number
-      "~*=": types.number
-      "~/=": types.number
-      "~%=": types.number
-      "~bitlshift=": types.number
-      "~bitrshift=": types.number
-      "~biturshift=": types.number
-      "~bitand=": types.number
-      "~bitxor=": types.number
-      "~bitor=": types.number
+      "=": #(left, right) -> right
+      "+=": #(left, right)
+        if left.is-subset-of(types.number) and right.is-subset-of(types.number)
+          types.number
+        else if left.overlaps(types.number) and right.overlaps(types.number)
+          types.string-or-number
+        else
+          types.string
+      "-=": types.number
+      "*=": types.number
+      "/=": types.number
+      "%=": types.number
+      "<<=": types.number
+      ">>=": types.number
+      ">>>=": types.number
+      "&=": types.number
+      "^=": types.number
+      "|=": types.number
     }
-    #
+    # -> @_type ?= do
       let type = ops ownskey @op and ops[@op]
       if not type
         types.any
       else if typeof type == "function"
-        type(@left, @right)
+        type @left.type(), @right.type()
       else
         type
 }
 node-type! \binary, left as Node, op as String, right as Node, {
   type: do
     let ops = {
-      "~*": types.number
-      "~/": types.number
-      "~%": types.number
-      "~+": types.number
-      "~-": types.number
-      "~&": types.string
-      "~bitlshift": types.number
-      "~bitrshift": types.number
-      "~biturshift": types.number
-      "~<": types.boolean
-      "~<=": types.boolean
-      "~>": types.boolean
-      "~>=": types.boolean
-      "~haskey": types.boolean
-      "~instanceof": types.boolean
-      "~==": types.boolean
-      "~!=": types.boolean
-      "~~=": types.boolean
-      "~!~=": types.boolean
-      "~bitand": types.number
-      "~bitxor": types.number
-      "~bitor": types.number
+      "*": types.number
+      "/": types.number
+      "%": types.number
+      "+": #(left, right)
+        if left.is-subset-of(types.number) and right.is-subset-of(types.number)
+          types.number
+        else if left.overlaps(types.number) and right.overlaps(types.number)
+          types.string-or-number
+        else
+          types.string
+      "-": types.number
+      "<<": types.number
+      ">>": types.number
+      ">>>": types.number
+      "<": types.boolean
+      "<=": types.boolean
+      ">": types.boolean
+      ">=": types.boolean
+      "in": types.boolean
+      "instanceof": types.boolean
+      "==": types.boolean
+      "!=": types.boolean
+      "===": types.boolean
+      "!==": types.boolean
+      "&": types.number
+      "^": types.number
+      "|": types.number
     }
-    #
+    # -> @_type ?= do
       let type = ops ownskey @op and ops[@op]
-      type or types.any
+      if not type
+        types.any
+      else if typeof type == "function"
+        type @left.type(), @right.type()
+      else
+        type
 }
 node-type! \block, nodes as [Node], {
   type: #
@@ -3967,6 +3980,9 @@ node-type! \syntax-param, ident as Node, as-type as (Node|void), {
 }
 node-type! \syntax-sequence, params as [Node]
 node-type! \this
+node-type! \throw, node as Node, {
+  type: # -> types.none
+}
 node-type! \tmp, id as Number, name as String
 node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node, {
   type: # -> @_type ?= @try-body.type().union(@catch-body.type())
@@ -3979,26 +3995,14 @@ node-type! \type-union, types as [Node]
 node-type! \unary, op as String, node as Node, {
   type: do
     let ops = {
-      "~-": types.number
       "-": types.number
-      "~+": types.number
       "+": types.number
-      dec: types.number
-      inc: types.number
-      not: types.boolean
-      bool: types.boolean
-      "?": types.boolean
-      "~bitnot": types.number
-      bitnot: types.number
+      "--": types.number
+      "++": types.number
+      "!": types.boolean
+      "~": types.number
       typeof: types.string
-      "typeof!": types.string
-      "num!": types.number
-      "str!": types.string
-      "strnum!": types.string
-      delete: types.any
-      throw: types.none
-      "throw?": types.undefined
-      "^": types.object
+      delete: types.boolean
     }
     #
       let type = ops ownskey @op and ops[@op]

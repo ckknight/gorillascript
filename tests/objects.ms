@@ -204,7 +204,7 @@ test "implicit values", #
   eq "alpha", other.alpha
   eq "charlie", other.charlie
   
-  let fun = #-> { undefined, this, arguments, true, false, 0, Infinity, -Infinity, NaN, 1, -1 }
+  let fun = #-> { undefined, this, arguments, true, false, 0, Infinity, NaN, 1 }
   let strange = fun.call(obj, "alpha", "bravo", "charlie")
   
   ok strange ownskey "undefined"
@@ -214,10 +214,8 @@ test "implicit values", #
   ok strange ownskey "false"
   ok strange ownskey "0"
   ok strange ownskey "Infinity"
-  ok strange ownskey "-Infinity"
   ok strange ownskey "NaN"
   ok strange ownskey "1"
-  ok strange ownskey "-1"
   eq undefined, strange.undefined
   eq obj, strange.this
   ok not Array.is-array(strange.arguments)
@@ -226,10 +224,8 @@ test "implicit values", #
   eq false, strange.false
   eq 0, strange["0"]
   eq Infinity, strange.Infinity
-  eq -Infinity, strange["-Infinity"]
   array-eq NaN, strange.NaN
   eq 1, strange["1"]
-  eq -1, strange["-1"]
 
 test "implicit values as accesses", #
   let fun(obj) -> { obj.alpha, this.bravo, @charlie, obj.golf.hotel.india, obj::kilo }
