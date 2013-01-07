@@ -939,7 +939,7 @@ let to-const(value)
       to-const item)
   else if value and typeof value == "object" and value not instanceof RegExp
     Obj (for k, v of value
-      ObjPair k, to-const v)
+      Obj.Pair k, to-const v)
   else
     Const value
 
@@ -1793,11 +1793,11 @@ exports.Unary := class Unary extends Expression
   ]
   
   let CONST_OPERATIONS = {
-    "!": #(x) -> not x
-    "~": #(x) -> bitnot x
+    "!": (not)
+    "~": (bitnot)
     "+": #(x) -> +x
     "-": #(x) -> -x
-    "typeof": #(x) -> typeof x
+    "typeof": (typeof)
   }
   
   let NONCONST_OPERATIONS = {

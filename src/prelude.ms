@@ -14,14 +14,6 @@ define operator unary not
 define operator unary typeof
   @unary "typeof", node
 
-define operator assign and=
-  @maybe-cache-access left, #(set-left, left)@
-    AST $set-left and ($left := $right)
-
-define operator assign or=
-  @maybe-cache-access left, #(set-left, left)@
-    AST $set-left or ($left := $right)
-
 macro if
   // this uses eval instead of normal operators since those aren't defined yet
   // thankfully the eval uses constant strings and turns into pure code
@@ -39,6 +31,22 @@ macro if
       if eval("i >= 0") then f(eval("i - 1"), @if(test, else-ifs[i].body, current)) else current
     let len = else-ifs.length
     @if(test, body, f(eval("len - 1"), else-body))
+
+define operator assign and=
+  @maybe-cache-access left, #(set-left, left)@
+    if @expr or true // FIXME
+      AST $set-left and ($left := $right)
+    else
+      AST if $set-left
+        $left := $right
+
+define operator assign or=
+  @maybe-cache-access left, #(set-left, left)@
+    if @expr or true // FIXME
+      AST $set-left or ($left := $right)
+    else
+      AST if not $set-left
+        $left := $right
 
 define operator binary == with precedence: 1, maximum: 1
   @binary left, "===", right
@@ -101,11 +109,12 @@ define operator assign ~\=
 
 define operator binary ~+, ~- with precedence: 7
   if op == "~+"
-    if not @is-type left, "number"
-      left := @unary "+", left
     if not @is-type right, "number"
-      right := @unary "+", right
-    @binary left, "+", right
+      @binary left, "-", @unary "-", right
+    else
+      if not @is-type left, "number"
+        left := @unary "+", left
+      @binary left, "+", right
   else
     @binary left, "-", right
 
@@ -398,7 +407,11 @@ define operator assign ~min=, ~max=, min=, max=, xor=
 define operator assign ?=
   @maybe-cache-access left, #(set-left, left)@
     @maybe-cache set-left, #(set-left, left-value)@
-      AST if $set-left? then $left-value else ($left := $right)
+      if @expr or true // FIXME
+        AST if $set-left? then $left-value else ($left := $right)
+      else
+        AST if not $set-left?
+          $left := $right
 
 define operator binary ~bitand with precedence: 0
   @binary left, "&", right

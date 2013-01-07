@@ -3854,7 +3854,7 @@ node-type! \call-chain, head as Node, links as Array, {
             {
               type: \access-index
               child
-              x.existential
+              link.existential
             }
           else
             link

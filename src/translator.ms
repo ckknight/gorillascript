@@ -85,8 +85,6 @@ class Scope
   def release-ident(ident as ast.Ident)!
     
     unless @used-tmps ownskey ident.name
-      if maybe
-        return
       throw Error "Trying to release a non-reserved ident: $(ident.name)"
     
     delete @used-tmps[ident.name]
