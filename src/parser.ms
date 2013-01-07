@@ -3272,18 +3272,16 @@ macro node-type!
     let mutable capped-name = name-str.char-at(0).to-upper-case() & name-str.substring(1)
     let type = @ident(capped-name & "Node")
     let body = [
-      AST let self = ^$type.prototype
-      AST self.start-index := start-index
-      AST self.end-index := end-index
+      AST @start-index := start-index
+      AST @end-index := end-index
     ]
     let mutable arg-names = []
     for arg in args
       params.push arg
       let ident = @param-ident arg
       let key = @const(@name(ident))
-      body.push AST self[$key] := $ident
+      body.push AST @[$key] := $ident
       arg-names.push key
-    body.push AST self
     
     let add-methods = []
     let found-walk = false
@@ -3291,7 +3289,7 @@ macro node-type!
       for pair in @pairs(methods)
         let key = pair.key
         let value = pair.value
-        add-methods.push AST $type::[$key] := $value
+        add-methods.push AST def ($key) = $value
         if @is-const(key) and @value(key) == "walk"
           found-walk := true
     
@@ -3323,20 +3321,17 @@ macro node-type!
             this)
       else
         walk-func := AST ret-this
-      add-methods.push AST $type::walk := $walk-func
+      add-methods.push AST def walk = $walk-func
       
-    let func = @func params, AST $body
+    let func = @func params, AST $body, false, true
     arg-names := @array arg-names
     capped-name := @const capped-name
-    AST let $type = Node[$capped-name] := do
-      let $type = $func
-      $type.prototype := ^Node.prototype
-      $type::constructor := $type
-      $type.capped-name := $capped-name
-      $type.arg-names := $arg-names
-      State.add-node-factory $name, $type
+    AST Node[$capped-name] := class $type extends Node
+      def constructor = $func
+      @capped-name := $capped-name
+      @arg-names := $arg-names
+      State.add-node-factory $name, this
       $add-methods
-      $type
 
 class State
   def constructor(data, macros = MacroHolder(), index = 0, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null)@
