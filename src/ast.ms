@@ -186,6 +186,8 @@ exports.Node := class Node
   def is-small() -> not @is-large()
   
   def mutate-last() -> this
+  
+  def exit-type() -> null
 
 exports.Expression := class Expression extends Node
   def constructor()@
@@ -618,8 +620,10 @@ exports.BlockStatement := class BlockStatement extends Statement
       if not statement.is-noop()
         if statement instanceof BlockStatement
           result.push ...statement.body
-        else if statement not instanceof Noop
+        else
           result.push statement
+        if statement.exit-type()?
+          break
     if result.length == 0
       return Noop()
     else if result.length == 1
@@ -653,6 +657,8 @@ exports.BlockStatement := class BlockStatement extends Statement
       Block body
     else
       this
+  
+  def exit-type() -> @body[@body.length - 1].exit-type()
 
 exports.BlockExpression := class BlockExpression extends Expression
   def constructor(body as [Expression] = [])@
@@ -730,6 +736,8 @@ exports.Break := class Break extends Statement
     sb "break;"
   
   def walk() -> this
+  
+  def exit-type() -> \break
 
 exports.Call := class Call extends Expression
   def constructor(func as Expression, args as [Expression] = [], is-new as Boolean)@
@@ -974,6 +982,8 @@ exports.Continue := class Continue extends Statement
     sb "continue;"
   
   def walk() -> this
+  
+  def exit-type() -> \continue
 
 exports.Debugger := class Debugger extends Statement
   def constructor()@ ->
@@ -1270,6 +1280,17 @@ exports.IfStatement := class IfStatement extends Statement
       If @test, when-true, when-false
     else
       this
+  
+  def exit-type()
+    if @_exit-type == void
+      let true-exit = @when-true.exit-type()
+      let false-exit = @when-false.exit-type()
+      @_exit-type := if true-exit == false-exit
+        true-exit
+      else
+        null
+    else
+      @_exit-type
 
 exports.IfExpression := class IfExpression extends Expression
   def constructor(test as Expression, when-true as Expression, when-false as Expression = Noop())@
@@ -1489,6 +1510,8 @@ exports.Return := class Return extends Statement
       Return node
     else
       this
+  
+  def exit-type() -> \return
 
 exports.Root := class Root
   def constructor(body as [Node] = [], variables as [String] = [], declarations as [String] = [])@
@@ -1496,10 +1519,13 @@ exports.Root := class Root
     @body := []
     for item in body
       let statement = item.maybe-to-statement()
-      if statement instanceof BlockStatement
-        @body.push ...statement.body
-      else if statement not instanceof Noop
-        @body.push statement
+      if not statement.is-noop()
+        if statement instanceof BlockStatement
+          @body.push ...statement.body
+        else
+          @body.push statement
+        if statement.exit-type()?
+          break
     @variables := variables
     @declarations := declarations
 
@@ -1530,6 +1556,8 @@ exports.Root := class Root
       Root body, @variables, @declarations
     else
       this
+  
+  def exit-type() -> @body[@body.length - 1].exit-type()
 
 exports.This := class This extends Expression
   def constructor()@ ->
@@ -1555,6 +1583,8 @@ exports.Throw := class Throw extends Statement
       Throw node
     else
       this
+  
+  def exit-type() -> \throw
 
 exports.Switch := class Switch extends Statement
   def constructor(node as Expression, cases as [SwitchCase] = [], default-case as Node = Noop())@
