@@ -6,6 +6,9 @@ let needs-caching(item)
   return item not instanceofsome [ast.Ident, ast.Const, ast.This, ast.Arguments]
 
 class Scope
+  let get-id = do
+    let mutable id = -1
+    # -> id += 1
   def constructor(options = {}, bound = false, used-tmps = {}, helpers = {}, macro-helpers = {}, variables, tmps = {})@
     @options := options
     @bound := bound
@@ -16,6 +19,7 @@ class Scope
     @tmps := tmps
     @has-bound := false
     @used-this := false
+    @id := get-id()
   
   def maybe-cache(item as ast.Expression, func as Function)
     unless needs-caching item
@@ -1106,7 +1110,8 @@ let translators = {
     throw Error "Cannot have a stray super call"
   
   Tmp: #(node, scope, location, auto-return)
-    #-> auto-return scope.get-tmp(node.id, node.name)
+    let ident = scope.get-tmp(node.id, node.name)
+    # -> auto-return ident
   
   This: #(node, scope, location, auto-return)
     #
@@ -1141,11 +1146,11 @@ let translators = {
   
   UseMacro: #(node, scope, location, auto-return)
     let t-result = translate node.node, scope, location, auto-return
+    for tmp in node.tmps
+      scope.release-tmp tmp
     
     #
       let result = t-result()
-      for tmp in node.tmps
-        scope.release-tmp tmp
       for helper in node.macro-helpers
         scope.add-helper helper
       result

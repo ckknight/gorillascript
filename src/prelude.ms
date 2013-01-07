@@ -675,6 +675,8 @@ macro for
     if @empty(step)
       step := AST 1
     
+    let has-func = @has-func(body)
+    
     let init = []
     
     if @is-const(start)
@@ -688,7 +690,7 @@ macro for
       if typeof @value(end) != "number"
         throw Error "Cannot end with a non-number: #(@value start)"
     else if @is-complex(end)
-      end := @cache (AST +$end), init, \end
+      end := @cache (AST +$end), init, \end, has-func
     else
       init.push AST +$end
     
@@ -696,7 +698,7 @@ macro for
       if typeof @value(step) != "number"
         throw Error "Cannot step with a non-number: #(@value step)"
     else if @is-complex(step)
-      step := @cache (AST +$step), init, \step
+      step := @cache (AST +$step), init, \step, has-func
     else
       init.push AST +$step
     
@@ -714,7 +716,7 @@ macro for
     else
       AST if $step ~> 0 then $ident ~< $end else $ident ~> $end
     
-    if @has-func(body)
+    if has-func
       let func = @tmp \f
       init.push (AST let $func = #($ident) -> $body)
       body := (AST $func($ident))
@@ -751,8 +753,10 @@ macro for
     if @empty(reducer)
       reducer := null
     
+    let has-func = @has-func(body)
+    
     let init = []
-    array := @cache array, init, \arr
+    array := @cache array, init, \arr, has-func
     
     let mutable length = null
     if @empty(index)
@@ -771,7 +775,7 @@ macro for
       let $value = $array[$index]
       $body
     
-    if @has-func(body)
+    if has-func
       let func = @tmp \f
       init.push AST let $func = #($index) -> $body
       body := AST $func($index)
@@ -820,17 +824,18 @@ macro for
       if @empty(index)
         index := null
     
+    let has-func = @has-func(body)
     let own = type == "of"
     let init = []
     if own or value
-      object := @cache object, init, \obj
+      object := @cache object, init, \obj, has-func
     
     if value
       body := AST
         let $value = $object[$key]
         $body
     
-    if @has-func(body)
+    if has-func
       let func = @tmp \f
       if index
         init.push (AST let $func = #($key, $index) -> $body)
@@ -1146,7 +1151,7 @@ macro asyncfor
       if typeof @value(end) != "number"
         throw Error "Cannot end with a non-number: #(@value start)"
     else if @is-complex(end)
-      end := @cache (AST +$end), init, \end
+      end := @cache (AST +$end), init, \end, true
     else
       init.push AST +$end
     
@@ -1154,7 +1159,7 @@ macro asyncfor
       if typeof @value(step) != "number"
         throw Error "Cannot step with a non-number: #(@value step)"
     else if @is-complex(step)
-      step := @cache (AST +$step), init, \step
+      step := @cache (AST +$step), init, \step, true
     else
       init.push AST +$step
     
@@ -1179,7 +1184,7 @@ macro asyncfor
   
   syntax result as (this as Identifier, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as Body, rest as DedentedBody
     let init = []
-    array := @cache array, init, \arr
+    array := @cache array, init, \arr, true
     
     let mutable length = null
     if @empty(index)
@@ -1206,7 +1211,7 @@ macro asyncfor
   syntax result as (this as Identifier, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as Body, rest as DedentedBody
     let own = type == "of"
     let init = []
-    object := @cache object, init, \obj
+    object := @cache object, init, \obj, true
     
     let mutable index = null
     if @empty(value)
@@ -1384,7 +1389,6 @@ macro class
           
     let self = @tmp \this
     if has-top-level-constructor
-      let mutable body-constructor = []
       body := @walk body, #(node)@
         if @is-def(node)
           let key = @left(node)
@@ -1421,14 +1425,11 @@ macro class
                 AST $func-body
                 false
                 false)
-            body-constructor.push AST let $name = $constructor
+            init.unshift AST let $name = $constructor
             let noop = []
             AST $noop
         else
           node
-      body := AST
-        $body-constructor
-        $body
     else if constructor-count != 0
       let ctor = @tmp \ctor
       let result = @tmp \ref
