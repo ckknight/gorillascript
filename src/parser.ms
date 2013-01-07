@@ -2090,11 +2090,8 @@ define Macro = in-macro short-circuit! MacroToken, sequential! [
   named "(identifier MacroBody)", #(o)
     let name = MacroName o
     if name
-      o.start-macro(name)
-      try
+      o.enter-macro name, #
         MacroBody o
-      finally
-        o.end-macro()
     else
       false
 ], #(x, o, i) -> o.nothing i
@@ -3356,15 +3353,14 @@ class State
   def error(message)!
     throw ParserError message, @data, @index
   
-  def start-macro(name)!
+  def enter-macro(name, func)
     if @current-macro
       @error "Attempting to define a macro $name inside a macro $(@current-macro)"
-    @current-macro := name
-  
-  def end-macro()
-    if not @current-macro
-      @error "Ending a macro when not in a macro"
-    @current-macro := null
+    try
+      @current-macro := name
+      func()
+    finally
+      @current-macro := null
     @nothing @index
   
   let macro-syntax-types = {
@@ -3641,30 +3637,18 @@ class State
   
   let BINARY_OPERATOR = freeze {}
   def define-binary-operator(index, operators, options, body)
-    @start-macro BINARY_OPERATOR
-    try
+    @enter-macro BINARY_OPERATOR, #@
       @macro-syntax index, \binary-operator, operators, body, options
-    finally
-      @end-macro()
-    @nothing(index)
   
   let ASSIGN_OPERATOR = freeze {}
   def define-assign-operator(index, operators, options, body)
-    @start-macro ASSIGN_OPERATOR
-    try
+    @enter-macro ASSIGN_OPERATOR, #@
       @macro-syntax index, \assign-operator, operators, body, options
-    finally
-      @end-macro()
-    @nothing(index)
   
   let UNARY_OPERATOR = freeze {}
   def define-unary-operator(index, operators, options, body)
-    @start-macro UNARY_OPERATOR
-    try
+    @enter-macro UNARY_OPERATOR, #@
       @macro-syntax index, \unary-operator, operators, body, options
-    finally
-      @end-macro()
-    @nothing(index)
   
   @add-node-factory := #(name, type)!
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
