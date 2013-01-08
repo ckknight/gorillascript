@@ -1231,6 +1231,10 @@ exports.IfStatement := class IfStatement extends Statement
           @test := Unary "!", test
           @when-true := when-false
           @when-false := when-true
+      else if when-false.is-noop() and when-true instanceof IfStatement and when-true.when-false.is-noop()
+        @test := Binary test, "&&", when-true.test
+        @when-true := when-true.when-true
+        @when-false := when-false
       else
         @test := test
         @when-true := when-true
@@ -1298,6 +1302,10 @@ exports.IfExpression := class IfExpression extends Expression
         when-true
       else
         when-false
+    else if when-false.is-noop() and when-true instanceof IfExpression and when-true.when-false.is-noop()
+      @test := Binary test, "&&", when-true.test
+      @when-true := when-true.when-true
+      @when-false := when-false
     else
       @test := test
       @when-true := when-true
