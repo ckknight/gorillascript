@@ -1142,92 +1142,72 @@ test "loop up to -Infinity", #
   for i = 0, -Infinity
     fail()
 
-/*
-let array-to-generator = (array) -> do
+let array-to-iterator(array)
   {
-    next: -> do
+    next: #
       if @index >= @array.length
         throw StopIteration
-      end
       let element = @array[@index]
       @index += 1
       element
-    end
-    array: array
+    array
     index: 0
   }
-end
 
-test "generator loop", -> do
+test "iterator loop", #
   let mutable sum = 0
-  for value from array-to-generator([1, 4, 9, 16])
+  for value from array-to-iterator [1, 4, 9, 16]
     sum += value
-  end
   eq 30, sum
-end
 
-test "generator loop with else", -> do
+test "iterator loop with else", #
   let mutable sum = 0
-  for value from array-to-generator([1, 4, 9, 16])
+  for value from array-to-iterator [1, 4, 9, 16]
     sum += value
   else
     fail()
-  end
   eq 30, sum
   
   let mutable hit-else = false
-  for value from array-to-generator([])
+  for value from array-to-iterator []
     fail()
   else
     hit-else := true
     success()
-  end
   ok hit-else
-end
 
-test "generator loop only calculates generator once", -> do
-  let generator = run-once(array-to-generator([1, 4, 9, 16]))
+test "iterator loop only calculates iterator once", #
+  let iterator = run-once(array-to-iterator([1, 4, 9, 16]))
   let mutable sum = 0
-  for value from generator()
+  for value from iterator()
     sum += value
-  end
   eq 30, sum
-end
 
-test "generator loop with index", -> do
+test "iterator loop with index", #
   let mutable sum = 0
   let mutable j = 0
-  for value, index from array-to-generator([1, 4, 9, 16])
+  for value, index from array-to-iterator([1, 4, 9, 16])
     sum += value
     eq j, index
     j += 1
-  end
   eq 30, sum
-end
 
-test "generator iteration loop scope", -> do
+test "iterator iteration loop scope", #
   let value-factories = []
-  for v from array-to-generator([1, 4, 9, 16])
-    value-factories.push(-> v)
-  end
+  for v from array-to-iterator([1, 4, 9, 16])
+    value-factories.push(#-> v)
   
   let mutable sum = 0
   for factory in value-factories
     sum += factory()
-  end
   eq 30, sum
-end
 
-test "generator iteration loop scope with multiple", -> do
+test "iterator iteration loop scope with multiple", #
   let funcs = []
-  for alpha, i from array-to-generator(["alpha", "bravo", "charlie"])
-    for bravo, j from array-to-generator(["delta", "echo", "foxtrot"])
-      funcs.push(-> [i, alpha, j, bravo])
-    end
-  end
+  for alpha, i from array-to-iterator(["alpha", "bravo", "charlie"])
+    for bravo, j from array-to-iterator(["delta", "echo", "foxtrot"])
+      funcs.push(#-> [i, alpha, j, bravo])
 
   array-eq [0, "alpha", 0, "delta"], funcs[0]()
   array-eq [1, "bravo", 1, "echo"], funcs[4]()
   array-eq [2, "charlie", 2, "foxtrot"], funcs[8]()
-end
-*/

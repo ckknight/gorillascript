@@ -19,6 +19,7 @@ class Scope
     @tmps := tmps
     @has-bound := false
     @used-this := false
+    @has-stop-iteration := false
     @id := get-id()
   
   def maybe-cache(item as ast.Expression, func as Function)
@@ -921,6 +922,8 @@ let translators = {
           let fake-this = ast.Ident \_this
           inner-scope.add-variable fake-this
           body.unshift ast.Assign fake-this, ast.This()
+      if inner-scope.has-stop-iteration
+        scope.has-stop-iteration := true
       let func = ast.Func null, param-idents, inner-scope.get-variables(), body
       auto-return func
   
@@ -928,6 +931,8 @@ let translators = {
     let name = node.name
     if name.length > 2 and name.charCodeAt(0) == "_".charCodeAt(0) and name.charCodeAt(1) == "_".charCodeAt(0)
       scope.add-helper name
+    if name == \StopIteration
+      scope.has-stop-iteration := true
     #-> auto-return ast.Ident(name)
   
   If: #(node, scope, location, auto-return)
@@ -1048,9 +1053,33 @@ let translators = {
           scope.add-variable ident
           init.push ast.Assign ident, HELPERS[helper]()
       
+      let bare-init = []
+      if scope.has-stop-iteration
+        // This probably needs to be redone to check StopIteration on the global object (whichever that is), so that cross-file generators work properly.
+        bare-init.push ast.If(
+          ast.Binary(
+            ast.Unary \typeof, ast.Ident \StopIteration
+            "==="
+            \undefined)
+          ast.Assign(
+            ast.Ident \StopIteration
+            ast.If(
+              ast.Binary(
+                ast.Unary \typeof, ast.Access(
+                  ast.Ident \Object
+                  \freeze)
+                "==="
+                \function)
+              ast.Call(
+                ast.Access(
+                  ast.Ident \Object
+                  \freeze)
+                [ast.Obj()])
+              ast.Obj())))
+      
       if scope.options.bare
         ast.Root(
-          [...init, body]
+          [...bare-init, ...init, body]
           scope.get-variables()
           ["use strict"])
       else
@@ -1067,7 +1096,7 @@ let translators = {
         if scope.options.return
           call-func := ast.Return(call-func)
         ast.Root(
-          [call-func]
+          [...bare-init, call-func]
           []
           [])
   

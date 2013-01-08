@@ -614,6 +614,48 @@ define helper __floor = Math.floor
 define helper __sqrt = Math.sqrt
 define helper __log = Math.log
 
+macro try
+  syntax try-body as (Body | (";", this as Statement)), catch-part as ("\n", "catch", ident as Identifier, body as (Body | (";", this as Statement)))?, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (Body | (";", this as Statement)))?
+    let has-else = not @empty(else-body)
+    if @empty(catch-part) and has-else and @empty(finally-body)
+      throw Error("Must provide at least a catch, else, or finally to a try block")
+    
+    let mutable catch-ident = if not @empty(catch-part) then catch-part.ident
+    let mutable catch-body = if not @empty(catch-part) then catch-part.body
+    let init = []
+    let mutable run-else = void
+    if has-else
+      run-else := @tmp \else
+      init.push AST let $run-else = true
+      if catch-body
+        catch-body := AST
+          $run-else := false
+          $catch-body
+      else
+        catch-ident := @tmp \err
+        catch-body := AST
+          $run-else := false
+          throw $catch-ident
+    
+    let mutable current = try-body
+    if catch-body
+      current := @try-catch(current, catch-ident, catch-body)
+    if has-else
+      current := @try-finally current, AST
+        if $run-else
+          $else-body
+    if not @empty(finally-body)
+      current := @try-finally(current, finally-body)
+    
+    if @expr
+      AST do
+        $init
+        $current
+    else
+      AST
+        $init
+        $current
+
 macro for
   // FIXME: init should be an Expression or Assignment or Let
   syntax reducer as ("every" | "some" | "first")?, init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
@@ -923,6 +965,80 @@ macro for
       $init
       $loop
       $post
+  
+  syntax reducer as ("every" | "some" | "first")?, value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+    if not @empty(else-body) and @expr
+      throw Error("Cannot use a for loop with an else as an expression")
+
+    if @empty(reducer)
+      reducer := null
+
+    let has-func = @has-func(body)
+
+    let init = []
+    iterator := @cache iterator, init, \iter, has-func
+    
+    let step = []
+    if not @empty(index)
+      init.push AST let mutable $index = 0
+      step.push AST $index ~+= 1
+    
+    let capture-value = AST try
+      let $value = $iterator.next()
+    catch e
+      if e == StopIteration
+        break
+      else
+        throw e
+    
+    let post = []
+    if not @empty(else-body)
+      let run-else = @tmp \else
+      init.push (AST let $run-else = true)
+      body := AST
+        $run-else := false
+        $body
+      post.push AST
+        if $run-else
+          $else-body
+    
+    if has-func
+      let func = @tmp \f
+      if @empty(index)
+        init.push AST let $func = #($value) -> $body
+        body := AST
+          $capture-value
+          $func($value)
+      else
+        init.push AST let $func = #($value, $index) -> $body
+        body := AST
+          $capture-value
+          $func($value, $index)
+    else
+      body := AST
+        $capture-value
+        $body
+
+    if reducer == "every"
+      AST
+        for every $init; true; $step
+          $body
+        $post
+    else if reducer == "some"
+      AST
+        for some $init; true; $step
+          $body
+        $post
+    else if reducer == "first"
+      AST
+        for first $init; true; $step
+          $body
+        $post
+    else
+      AST
+        for $init; true; $step
+          $body
+        $post
 
 macro while
   syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
@@ -1011,48 +1127,6 @@ define operator binary instanceofsome with precedence: 3, maximum: 1, invertible
     AST not $result
   else
     result
-
-macro try
-  syntax try-body as (Body | (";", this as Statement)), catch-part as ("\n", "catch", ident as Identifier, body as (Body | (";", this as Statement)))?, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (Body | (";", this as Statement)))?
-    let has-else = not @empty(else-body)
-    if @empty(catch-part) and has-else and @empty(finally-body)
-      throw Error("Must provide at least a catch, else, or finally to a try block")
-    
-    let mutable catch-ident = if not @empty(catch-part) then catch-part.ident
-    let mutable catch-body = if not @empty(catch-part) then catch-part.body
-    let init = []
-    let mutable run-else = void
-    if has-else
-      run-else := @tmp \else
-      init.push AST let $run-else = true
-      if catch-body
-        catch-body := AST
-          $run-else := false
-          $catch-body
-      else
-        catch-ident := @tmp \err
-        catch-body := AST
-          $run-else := false
-          throw $catch-ident
-    
-    let mutable current = try-body
-    if catch-body
-      current := @try-catch(current, catch-ident, catch-body)
-    if has-else
-      current := @try-finally current, AST
-        if $run-else
-          $else-body
-    if not @empty(finally-body)
-      current := @try-finally(current, finally-body)
-    
-    if @expr
-      AST do
-        $init
-        $current
-    else
-      AST
-        $init
-        $current
 
 macro switch
   syntax node as Logic, cases as ("\n", "case", node-head as Logic, node-tail as (",", this as Logic)*, body as (Body | (";", this as Statement))?)*, default-case as ("\n", "default", this as (Body | (";", this as Statement))?)?
