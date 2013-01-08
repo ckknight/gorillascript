@@ -20,7 +20,7 @@ test "async", #
     ok value.ran
     body-ran := true
   ok not value.ran
-  set-timeout((#-> ok value.ran), 17)
+  set-timeout((#-> ok value.ran), 50)
 
 test "asyncfor", #
   let mutable sum = 0
@@ -71,7 +71,7 @@ test "asyncfor range", #
         sum += x
         next()
       ok not value.ran
-      set-timeout((#-> ok value.ran), 17)
+      set-timeout((#-> ok value.ran), 50)
     eq 45, sum
   eq 0, sum
 
@@ -88,7 +88,7 @@ test "asyncfor range with result", #
         sum += x
         next(sum)
       ok not value.ran
-      set-timeout((#-> ok value.ran), 17)
+      set-timeout((#-> ok value.ran), 50)
     array-eq [0, 1, 3, 6, 10, 15, 21, 28, 36, 45], result
   eq 0, sum
 
@@ -105,7 +105,7 @@ test "asyncfor in array", #
         sum += x
         next()
       ok not value.ran
-      set-timeout((#-> ok value.ran), 17)
+      set-timeout((#-> ok value.ran), 50)
     eq 15, sum
   eq 0, sum
 
@@ -122,7 +122,7 @@ test "asyncfor in array with result", #
         sum += x
         next(sum)
       ok not value.ran
-      set-timeout((#-> ok value.ran), 17)
+      set-timeout((#-> ok value.ran), 50)
     array-eq [1, 3, 7, 15], result
   eq 0, sum
 
@@ -139,7 +139,7 @@ test "asyncfor of object", #
         sum += x
         next()
       ok not value.ran
-      set-timeout((#-> ok value.ran), 17)
+      set-timeout((#-> ok value.ran), 50)
     eq 15, sum
   eq 0, sum
 
@@ -153,7 +153,7 @@ test "asyncfor of object with result", #
       ok value.ran
       next(x)
     ok not value.ran
-    set-timeout((#-> ok value.ran), 17)
+    set-timeout((#-> ok value.ran), 50)
   array-eq [1, 2, 4, 8], result.sort()
 
 test "asyncwhile", #
@@ -215,7 +215,7 @@ test "asyncif", #
     ok check xor after
     set-timeout((#
       ok not (check xor value.ran)
-      ok after), 17)
+      ok after), 50)
   run true
   run false
 
@@ -237,7 +237,7 @@ test "asyncif with else", #
     ok check xor after
     set-timeout((#
       ok not (check xor value.ran)
-      ok after), 17)
+      ok after), 50)
   run true
   run false
 
@@ -257,7 +257,7 @@ test "asyncunless", #
     ok not (check xor after)
     set-timeout((#
       ok check xor value.ran
-      ok after), 17)
+      ok after), 50)
   run true
   run false
 
@@ -279,6 +279,6 @@ test "asyncunless with else", #
     ok not (check xor after)
     set-timeout((#
       ok check xor value.ran
-      ok after), 17)
+      ok after), 50)
   run true
   run false

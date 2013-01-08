@@ -175,7 +175,7 @@ test "existential or operator", #
   
   eq f, f ? "hey"
   eq f, f ?"hey"
-  eq f, f?"hey"
+  //eq f, f?"hey"
   eq "hey", f? "hey"
 
 test "existential or assign", #

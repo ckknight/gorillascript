@@ -191,6 +191,12 @@ define helper __num = #(num)
   else
     num
 
+define helper __str = #(str)
+  if typeof str != "string"
+    throw TypeError("Expected a string, got " ~& typeof str)
+  else
+    str
+
 define helper __strnum = #(strnum)
   let type = typeof strnum
   if type == "string"
@@ -350,7 +356,39 @@ define operator binary !~%% with precedence: 1, maximum: 1
   AST not ($left ~%% $right)
 
 define operator binary <, <= with precedence: 1, maximum: 1
-  if op == "<"
+  if @is-type left, \number
+    if @is-type right, \number
+      if op == "<"
+        AST $left ~< $right
+      else
+        AST $left ~<= $right
+    else
+      if op == "<"
+        AST $left ~< __num($right)
+      else
+        AST $left ~<= __num($right)
+  else if @is-type left, \string
+    if @is-type right, \string
+      if op == "<"
+        AST $left ~< $right
+      else
+        AST $left ~<= $right
+    else
+      if op == "<"
+        AST $left ~< __str($right)
+      else
+        AST $left ~<= __str($right)
+  else if @is-type right, \number
+    if op == "<"
+      AST __num($left) ~< $right
+    else
+      AST __num($left) ~<= $right
+  else if @is-type right, \string
+    if op == "<"
+      AST __str($left) ~< $right
+    else
+      AST __str($left) ~<= $right
+  else if op == "<"
     AST __lt($left, $right)
   else
     AST __lte($left, $right)
@@ -1161,6 +1199,7 @@ macro switch
         body
         fallthrough: is-fallthrough
       }
+    
     let result = @switch(node, result-cases, default-case)
     if @expr
       AST do

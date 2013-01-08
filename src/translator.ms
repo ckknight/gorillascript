@@ -1101,6 +1101,7 @@ let translators = {
           [])
   
   String: #(node, scope, location, auto-return)
+    throw Error "strings should have been reduced out"
     let parts = node.parts
     
     let t-parts = for p in parts

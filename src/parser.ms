@@ -2426,6 +2426,7 @@ define BasicInvocationOrAccess = sequential! [
       is-new: false
       is-apply: x.is-apply != NOTHING
     }
+    /*
     sequential! [
       ExistentialSymbolNoSpace
       [\this, InvocationOrAccess]
@@ -2433,6 +2434,7 @@ define BasicInvocationOrAccess = sequential! [
       type: "?"
       child: x
     }
+    */
   ]]
 ], #(x, o, i)
   let mutable is-new = x.is-new != NOTHING
@@ -2768,17 +2770,17 @@ class MacroHelper
     @expr := expr
   
   def noop() -> @state.nothing @index
-  def block(nodes as Array) -> @state.block @index, nodes
-  def if(test as Object, when-true as Object, when-false as (Object|null)) -> @state.if @index, test, when-true, when-false
-  def switch(node as Object, cases as Array, default-case as (Object|null)) -> @state.switch @index, node, cases, default-case
-  def for(init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> @state.for @index, init, test, step, body
-  def for-in(key as Object, object as Object, body as Object) -> @state.for-in @index, key, object, body
-  def try-catch(try-body as Object, catch-ident as Object, catch-body as Object) -> @state.try-catch @index, try-body, catch-ident, catch-body
-  def try-finally(try-body as Object, finally-body as Object) -> @state.try-finally @index, try-body, finally-body
-  def assign(left as Object, op as String, right as Object) -> @state.assign @index, left, op, right
-  def binary(left as Object, op as String, right as Object) -> @state.binary @index, left, op, right
-  def unary(op as String, node as Object) -> @state.unary @index, op, node
-  def throw(node as Node) -> @state.throw @index, node
+  def block(nodes as Array) -> @state.block(@index, nodes).reduce()
+  def if(test as Object, when-true as Object, when-false as (Object|null)) -> @state.if(@index, test, when-true, when-false).reduce()
+  def switch(node as Object, cases as Array, default-case as (Object|null)) -> @state.switch(@index, node, cases, default-case).reduce()
+  def for(init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> @state.for(@index, init, test, step, body).reduce()
+  def for-in(key as Object, object as Object, body as Object) -> @state.for-in(@index, key, object, body).reduce()
+  def try-catch(try-body as Object, catch-ident as Object, catch-body as Object) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce()
+  def try-finally(try-body as Object, finally-body as Object) -> @state.try-finally(@index, try-body, finally-body).reduce()
+  def assign(left as Object, op as String, right as Object) -> @state.assign(@index, left, op, right).reduce()
+  def binary(left as Object, op as String, right as Object) -> @state.binary(@index, left, op, right).reduce()
+  def unary(op as String, node as Object) -> @state.unary(@index, op, node).reduce()
+  def throw(node as Node) -> @state.throw(@index, node).reduce()
   
   let get-tmp-id = do
     let id = -1
@@ -2863,7 +2865,7 @@ class MacroHelper
       throw Error "Cannot specify both is-new and is-apply"
     
     if func instanceof CallChainNode
-      @state.call-chain func.start-index, func.head, [
+      @state.call-chain(func.start-index, func.head, [
         ...func.links
         {
           type: \call
@@ -2871,19 +2873,19 @@ class MacroHelper
           is-new
           is-apply
         }
-      ]
+      ]).reduce()
     else
-      @state.call-chain func.start-index, func, [
+      @state.call-chain(func.start-index, func, [
         {
           type: \call
           args
           is-new
           is-apply
         }
-      ]
+      ]).reduce()
   
   def func(params, body, auto-return = true, bound = false)
-    @state.function 0, params, body, auto-return, bound
+    @state.function(0, params, body, auto-return, bound).reduce()
   
   def is-func(node) -> node instanceof FunctionNode
   def func-body(node) -> if @is-func node then node.body
@@ -2892,7 +2894,7 @@ class MacroHelper
   def func-is-bound(node) -> if @is-func node then not not node.bound
   
   def param(ident, default-value, spread, is-mutable, as-type)
-    @state.param 0, ident, default-value, spread, is-mutable, as-type
+    @state.param(0, ident, default-value, spread, is-mutable, as-type).reduce()
   
   def is-param(node) -> node instanceof ParamNode
   def param-ident(node) -> if @is-param node then node.ident
@@ -2911,7 +2913,7 @@ class MacroHelper
   def nodes(node) -> if @is-block node then node.nodes
   
   def array(elements)
-    @state.array 0, elements
+    @state.array(0, elements).reduce()
   def object(pairs as Array)
     for pair, i in pairs
       if not pair or typeof pair != \object
@@ -2920,7 +2922,7 @@ class MacroHelper
         throw Error "Expected an object with Node 'key' at index #$i, got $(typeof! pair.key)"
       else if pair.value not instanceof Node
         throw Error "Expected an object with Node 'value' at index #$i, got $(typeof! pair.value)"
-    @state.object 0, pairs
+    @state.object(0, pairs).reduce()
   
   def is-complex(node)
     node? and node not instanceofsome [ConstNode, IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
@@ -3037,24 +3039,14 @@ class MacroHelper
   
   @wrap := #(value = [])
     if Array.is-array(value)
-      if value.length == 1
-        MacroHelper.wrap(value[0])
-      else
-        let nodes = []
-        for item in value
-          let wrapped = MacroHelper.wrap(item)
-          if wrapped instanceof BlockNode
-            nodes.push ...wrapped.nodes
-          else
-            nodes.push wrapped
-        BlockNode 0, 0, nodes
+      BlockNode(0, 0, value).reduce()
     else if typeof value != \object or value instanceof RegExp
       throw Error "Trying to wrap a non-object: $(typeof! value)"
     else
       value
   
   @node := #(type, start-index, end-index, ...args)
-    Node[type] start-index, end-index, ...args
+    Node[type](start-index, end-index, ...args).reduce()
   
   def is-def(node) -> node instanceof DefNode
   def is-assign(node) -> node instanceof AssignNode
@@ -3271,6 +3263,19 @@ class Node
   def constructor() -> throw Error "Node should not be instantiated directly"
   
   def type() -> types.any
+  def walk() -> this
+  let reduce-node(node) -> node.reduce()
+  def _reduce()
+    @walk reduce-node
+  def reduce()
+    if @_reduced?
+      @_reduced
+    else
+      let reduced = @_reduce()
+      if reduced == this
+        @_reduced := this
+      else
+        @_reduced := reduced._reduced ?= reduced
 
 macro node-type!
   syntax name as Expression, args as (",", this as Parameter)*, methods as (",", this as ObjectLiteral)?
@@ -3471,7 +3476,7 @@ class State
         body
         true
         false), false
-      let translated = require('./translator')(raw-func, return: true)
+      let translated = require('./translator')(raw-func.reduce(), return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
@@ -3492,7 +3497,7 @@ class State
         body
         true
         false)
-      let translated = require('./translator')(raw-func, return: true)
+      let translated = require('./translator')(raw-func.reduce(), return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
@@ -3521,7 +3526,7 @@ class State
         body
         true
         false)
-      let translated = require('./translator')(raw-func, return: true)
+      let translated = require('./translator')(raw-func.reduce(), return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for binary operator $(operators.join ', ')"
@@ -3546,7 +3551,7 @@ class State
         body
         true
         false)
-      let translated = require('./translator')(raw-func, return: true)
+      let translated = require('./translator')(raw-func.reduce(), return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for assign operator $(operators.join ', ')"
@@ -3570,7 +3575,7 @@ class State
         body
         true
         false)
-      let translated = require('./translator')(raw-func, return: true)
+      let translated = require('./translator')(raw-func.reduce(), return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for unary operator $(operators.join ', ')"
@@ -3604,8 +3609,9 @@ class State
         o.macro-access i, macro-id, x
       else
         let macro-helper = MacroHelper o, i, not _statement.peek()
-        let result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data)
+        let mutable result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data)
           macros.get-by-id(id)(data, o, i)
+        result := result.reduce()
         let tmps = macro-helper.get-tmps()
         if tmps.unsaved.length or macro-helpers.length
           o.use-macro i, result, tmps.unsaved, macro-helpers
@@ -3649,6 +3655,19 @@ node-type! \access-index, parent as Node, child as Object, {
         let node = f x.node
         if node != x.node
           { type: \single, node }
+        else
+          x
+      multi: #(x, f)
+        let elements = map x.elements, f
+        if elements != x.elements
+          { type: \multi, elements }
+        else
+          x
+      slice: #(x, f)
+        let left = if x.left? then f x.left else x.left
+        let right = if x.right? then f x.right else x.right
+        if left != x.left or right != x.right
+          { type: \slice, left, right }
         else
           x
     }
@@ -3730,6 +3749,8 @@ node-type! \binary, left as Node, op as String, right as Node, {
       "&": types.number
       "^": types.number
       "|": types.number
+      "&&": #(left, right) -> left.intersect(types.potentially-falsy).union(right)
+      "||": #(left, right) -> left.intersect(types.potentially-truthy).union(right)
     }
     # -> @_type ?= do
       let type = ops ownskey @op and ops[@op]
@@ -3739,6 +3760,90 @@ node-type! \binary, left as Node, op as String, right as Node, {
         type @left.type(), @right.type()
       else
         type
+  _reduce: do
+    let const-ops = {
+      "*": (~*)
+      "/": (~/)
+      "%": (~%)
+      "+": #(left, right)
+        if typeof left == \number and typeof right == \number
+          left ~+ right
+        else
+          left ~& right
+      "-": (~-)
+      "<<": (~bitlshift)
+      ">>": (~bitrshift)
+      ">>>": (~biturshift)
+      "<": (~<)
+      "<=": (~<=)
+      ">": (~>)
+      ">=": (~>=)
+      "==": (~=)
+      "!=": (!~=)
+      "===": (==)
+      "!==": (!=)
+      "&": (~bitand)
+      "^": (~bitxor)
+      "|": (~bitor)
+      "&&": (and)
+      "||": (or)
+    }
+    let left-const-ops = {
+      "&&": #(x, y) -> if x.value then y else x
+      "||": #(x, y) -> if x.value then x else y
+      "*": #(x, y)
+        if x.value == 1
+          UnaryNode @start-index, @end-index, "+", y
+        else if x.value == -1
+          UnaryNode @start-index, @end-index, "-", y
+      "+": #(x, y)
+        if x.value == 0 and y.type().is-subset-of(types.number)
+          UnaryNode @start-index, @end-index, "+", y
+        else if x.value == "" and y.type().is-subset-of(types.string)
+          y
+      "-": #(x, y)
+        if x.value == 0
+          UnaryNode @start-index, @end-index, "-", y
+    }
+    let right-const-ops = {
+      "*": #(x, y)
+        if y.value == 1
+          UnaryNode @start-index, @end-index, "+", x
+        else if y.value == -1
+          UnaryNode @start-index, @end-index, "-", x
+      "/": #(x, y)
+        if y.value == 1
+          UnaryNode @start-index, @end-index, "+", x
+        else if y.value == -1
+          UnaryNode @start-index, @end-index, "-", x
+      "+": #(x, y)
+        if y.value == 0 and x.type().is-subset-of(types.number)
+          UnaryNode @start-index, @end-index, "+", x
+        else if typeof y.value == "number" and y.value < 0 and x.type().is-subset-of(types.number)
+          BinaryNode @start-index, @end-index, x, "-", Const(-y.value)
+        else if y.value == "" and x.type().is-subset-of(types.string)
+          x
+      "-": #(x, y)
+        if y.value == 0
+          UnaryNode @start-index, @end-index, "+", x
+        else if typeof y.value == "number" and y.value < 0 and x.type().is-subset-of(types.number)
+          BinaryNode @start-index, @end-index, x, "+", Const(-y.value)
+    }
+    #
+      let left = @left.reduce()
+      let right = @right.reduce()
+      let op = @op
+      if left instanceof ConstNode
+        if right instanceof ConstNode and const-ops ownskey op
+          return ConstNode @start-index, @end-index, const-ops[op](left.value, right.value)
+        if left-const-ops ownskey op
+          return? left-const-ops[op]@(this, left, right)
+      if right instanceof ConstNode and right-const-ops ownskey op
+        return? right-const-ops[op]@(this, left, right)
+      if left != @left or right != @right
+        BinaryNode @start-index, @end-index, left, op, right
+      else
+        this
 }
 node-type! \block, nodes as [Node], {
   type: #
@@ -3747,6 +3852,35 @@ node-type! \block, nodes as [Node], {
       types.undefined
     else
       nodes[nodes.length - 1].type()
+  _reduce: #
+    let changed = false
+    let body = []
+    for node, i, len in @nodes
+      let reduced = node.reduce()
+      if reduced instanceof BlockNode
+        body.push ...reduced.nodes
+        changed := true
+      else if reduced instanceof NothingNode
+        changed := true
+      else if reduced instanceofsome [BreakNode, ContinueNode, ThrowNode, ReturnNode] and not reduced.existential
+        body.push reduced
+        if reduced != node or i < len - 1
+          changed := true
+        break
+      else
+        body.push reduced
+        if reduced != node
+          changed := true
+    switch body.length
+    case 0
+      NothingNode @start-index, @end-index
+    case 1
+      body[0]
+    default
+      if changed
+        BlockNode @start-index, @end-index, body
+      else
+        this
 }
 node-type! \break
 node-type! \call-chain, head as Node, links as Array, {
@@ -3872,6 +4006,17 @@ node-type! \function, params as [Node], body as Node, auto-return as Boolean = t
 node-type! \ident, name as String
 node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0), {
   type: # -> @_type ?= @when-true.type().union(@when-false.type())
+  _reduce: #
+    let test = @test.reduce()
+    let when-true = @when-true.reduce()
+    let when-false = @when-false.reduce()
+    if test instanceof ConstNode
+      if test.value
+        when-true
+      else
+        when-false
+    else
+      IfNode @start-index, @end-index, test, when-true, when-false
 }
 node-type! \let, left as Node, right as Node, {
   type: # -> @right.type()
@@ -3882,6 +4027,20 @@ node-type! \nothing, {
 }
 node-type! \object, pairs as Array, {
   type: # -> types.object
+  walk: do
+    let walk-pair(pair, func)
+      let key = func pair.key
+      let value = func pair.value
+      if key != pair.key or value != pair.value
+        { key, value }
+      else
+        pair
+    #(func)
+      let pairs = map @pairs, walk-pair, func
+      if pairs != @pairs
+        ObjectNode @start-index, @end-index, pairs
+      else
+        this
 }
 State::object-param := State::object
 node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void), {
@@ -3904,6 +4063,36 @@ node-type! \root, body as Node
 node-type! \spread, node as Node
 node-type! \string, parts as [Node], {
   type: # -> types.string
+  _reduce: #
+    let segments = [ConstNode @start-index, @start-index, ""]
+    for part in @parts
+      let reduced = part.reduce()
+      if reduced instanceof ConstNode
+        if typeof reduced.value != \string
+          segments.push ConstNode reduced.start-index, reduced.end-index, String(reduced.value)
+        else
+          segments.push reduced
+      else
+        if not reduced.type().is-subset-of(types.string-or-number)
+          let i = reduced.start-index
+          let j = reduced.end-index
+          segments.push CallChainNode i, j, IdentNode(i, j, \__strnum), [{ type: \call, args: [reduced] }]
+        else
+          segments.push reduced
+    for i = segments.length - 1, 0, -1
+      let left = segments[i - 1]
+      let right = segments[i]
+      if left instanceof ConstNode and right instanceof ConstNode
+        segments.splice i - 1, 2, ConstNode left.start-index, right.end-index, left.value & right.value
+      else if right instanceof ConstNode and right.value == ""
+        segments.splice i, 1
+    if segments.length > 1 and segments[0] instanceof ConstNode and segments[0].value == "" and (segments[1].type().is-subset-of(types.string) or (segments.length > 2 and segments[2].type().is-subset-of(types.string)))
+      segments.shift()
+    let mutable result = segments[0]
+    for i = 1, segments.length
+      let segment = segments[i]
+      result := BinaryNode result.start-index, segment.end-index, result, "+", segment
+    result
 }
 node-type! \super, child as (Node|void), args as [Node], {
   walk: #(func)
@@ -3926,7 +4115,7 @@ node-type! \switch, node as Node, cases as Array, default-case as (Node|void), {
         case_
     let default-case = func @default-case
     if node != @node or cases != @cases or default-case != @default-case
-      SwitchNode node, cases, default-case
+      SwitchNode @start-index, @end-index, node, cases, default-case
     else
       this
 }
@@ -3952,6 +4141,17 @@ node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node
 }
 node-type! \try-finally, try-body as Node, finally-body as Node, {
   type: # -> @try-body.type()
+  _reduce: #
+    let try-body = @try-body.reduce()
+    let finally-body = @finally-body.reduce()
+    if finally-body instanceof NothingNode
+      try-body
+    else if try-body instanceof NothingNode
+      finally-body
+    else if try-body != @try-body or finally-body != @finally-body
+      TryFinallyNode @start-index, @end-index, try-body, finally-body
+    else
+      this
 }
 node-type! \type-array, subtype as Node
 node-type! \type-union, types as [Node]
@@ -3970,9 +4170,80 @@ node-type! \unary, op as String, node as Node, {
     #
       let type = ops ownskey @op and ops[@op]
       type or types.any
+  _reduce: do
+    let const-ops = {
+      "-": #(x) -> ~-x
+      "+": #(x) -> ~+x
+      "!": #(x) -> not x
+      "~": #(x) -> ~bitnot x
+      typeof: #(x) -> typeof x
+    }
+    let nonconst-ops = {
+      "+": #(node)
+        if node.type().is-subset-of types.number
+          node
+      "-": #(node)
+        if node instanceof UnaryNode
+          if node.op in ["-", "+"]
+            UnaryNode @start-index, @end-index, if node.op == "-" then "+" else "-", node.node
+        else if node instanceof BinaryNode
+          if node.op in ["-", "+"]
+            BinaryNode @start-index, @end-index, node.left, if node.op == "-" then "+" else "-", node.right
+          else if node.op in ["*", "/"]
+            BinaryNode @start-index, @end-index, Unary("-", node.left), node.op, node.right
+      "!": do
+        let invertible-binary-ops = {
+          "<": ">="
+          "<=": ">"
+          ">": "<="
+          ">=": "<"
+          "==": "!="
+          "!=": "=="
+          "===": "!=="
+          "!==": "==="
+          "&&": #(x, y) -> BinaryNode @start-index, @end-index, UnaryNode(x.start-index, x.end-index, "!", x), "||", UnaryNode(y.start-index, y.end-index, "!", y)
+          "||": #(x, y) -> BinaryNode @start-index, @end-index, UnaryNode(x.start-index, x.end-index, "!", x), "&&", UnaryNode(y.start-index, y.end-index, "!", y)
+        }
+        #(node)
+          if node instanceof UnaryNode
+            if node.op == "!" and node.node.type().is-subset-of(types.boolean)
+              node.node
+          else if node instanceof BinaryNode
+            if invertible-binary-ops ownskey node.op
+              let invert = invertible-binary-ops[node.op]
+              if typeof invert == \function
+                invert@ this, node.left, node.right
+              else
+                BinaryNode @start-index, @end-index, node.left, invert, node.right
+    }
+    
+    #
+      let node = @node.reduce()
+      let op = @op
+      if node instanceof ConstNode and const-ops ownskey op
+        return ConstNode @start-index, @end-index, const-ops[op](node.value)
+      
+      if nonconst-ops ownskey op
+        let handler = nonconst-ops[op]
+        let result = handler@ this, node
+        if result?
+          return result.reduce()
+      
+      if node != @node
+        UnaryNode @start-index, @end-index, op, node
+      else
+        this
 }
 node-type! \use-macro, node as Node, tmps as Array, macro-helpers as Array, {
   type: # -> @node.type()
+  _reduce: #
+    let node = @node.reduce()
+    if @tmps.length == 0 and @macro-helpers.length == 0
+      node
+    else if @node != node
+      UseMacroNode @start-index, @end-index, node, @tmps, @macro-helpers
+    else
+      this
 }
 node-type! \yield, node as Node, multiple as Boolean
 
@@ -4022,7 +4293,7 @@ let parse(text, macros, options = {})
     throw ParserError build-error-message(o.failures.messages, last-token), o.data, position
   else
     {
-      result
+      result: result.reduce()
       o.macros
     }
 module.exports := parse

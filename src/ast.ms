@@ -28,12 +28,21 @@ let inc-indent(options)
   clone.indent += 1
   clone
 
+let get-indent = do
+  let cache = [""]
+  #(indent)
+    if indent >= cache.length
+      let mutable result = cache[cache.length - 1]
+      for i = cache.length, indent
+        result &= INDENT
+        cache.push result
+    cache[indent]
+
 let StringBuilder()
   let data = []
   let sb = #(item)! -> data.push item
   sb.indent := #(count)!
-    for i = 0, count
-      data.push INDENT
+    data.push get-indent(count)
   sb.to-string := #
     switch data.length
     case 0; ""
