@@ -12,21 +12,17 @@ test "nested with statements", #
       eq this, other
     eq this, obj
 
-/*
-test "class nested in with", -> do
+test "class nested in with", #
   let obj = {}
   with obj
     eq this, obj
     let c = class this.Class
-      def alpha = -> "bravo"
-    end
+      def alpha() -> "bravo"
     eq this, obj
     eq c, obj.Class
-  end
   eq "bravo", new obj.Class().alpha()
-end
 
-test "enum nested in with", -> do
+test "enum nested in with", #
   let obj = {}
   with obj
     eq this, obj
@@ -35,14 +31,10 @@ test "enum nested in with", -> do
       def Bravo
       def Charlie
       
-      this.thing := -> "blah"
-    end
+      this.thing := #-> "blah"
     eq this, obj
     eq e, obj.Enum
-  end
   eq 1, obj.Enum.Alpha
   eq 2, obj.Enum.Bravo
   eq 3, obj.Enum.Charlie
   eq "blah", obj.Enum.thing()
-end
-*/

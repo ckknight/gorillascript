@@ -1,5 +1,5 @@
 macro do
-  syntax body as Body
+  syntax body as (Body | (";", this))
     AST (#@ -> $body)()
 
 define operator binary and with precedence: 0
@@ -23,7 +23,7 @@ macro if
     let len = else-ifs.length
     @if(test, body, f(eval("len - 1"), else-body))
 
-  syntax test as Logic, body as Body, else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("\n", "else", this as Body)?
+  syntax test as Logic, body as (Body | (";", this)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this)))*, else-body as ("\n", "else", this as (Body | (";", this)))?
     let f(i, current)@
       let mutable test = else-ifs[i]?.test
       let type = else-ifs[i]?.type
@@ -500,7 +500,7 @@ macro unless
   syntax test as Logic, "then", body, else-body as ("else", this)?
     AST if not $test then $body else $else-body
 
-  syntax test as Logic, body as Body, else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("\n", "else", this as Body)?
+  syntax test as Logic, body as (Body | (";", this)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this)))*, else-body as ("\n", "else", this as (Body | (";", this)))?
     let f(i, current)@
       let mutable test = else-ifs[i]?.test
       test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
@@ -508,7 +508,7 @@ macro unless
     @if((AST not $test), body, f(else-ifs.length ~- 1, else-body))
 
 macro do
-  syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as Body
+  syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as (Body | (";", this))
     let params = []
     let values = []
     if not @empty(locals)
@@ -525,7 +525,7 @@ macro do
     @call(@func(params, body, true, true), values)
 
 macro with
-  syntax node as Expression, body as Body
+  syntax node as Expression, body as (Body | (";", this))
     let func = if @expr
       AST #-> $body
     else
@@ -616,7 +616,7 @@ define helper __log = Math.log
 
 macro for
   // FIXME: init should be an Expression or Assignment or Let
-  syntax reducer as ("every" | "some" | "first")?, init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), body as Body, else-body as ("\n", "else", this as Body)?
+  syntax reducer as ("every" | "some" | "first")?, init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this)), else-body as ("\n", "else", this as (Body | (";", this)))?
     if @empty(init)
       init := []
       init := AST $init
@@ -679,7 +679,7 @@ macro for
       else
         @for(init, test, step, body)
   
-  syntax reducer as ("every" | "some" | "first")?, ident as Identifier, "=", start, ",", end, step as (",", this)?, body as Body, else-body as ("\n", "else", this as Body)?
+  syntax reducer as ("every" | "some" | "first")?, ident as Identifier, "=", start, ",", end, step as (",", this)?, body as (Body | (";", this)), else-body as ("\n", "else", this as (Body | (";", this)))?
     if not @empty(else-body) and @expr
       throw Error("Cannot use a for loop with an else as an expression")
     
@@ -759,7 +759,7 @@ macro for
         else
           $else-body
   
-  syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as Body, else-body as ("\n", "else", this as Body)?
+  syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this)), else-body as ("\n", "else", this as (Body | (";", this)))?
     if not @empty(else-body) and @expr
       throw Error("Cannot use a for loop with an else as an expression")
     
@@ -818,7 +818,7 @@ macro for
         else
           $else-body
   
-  syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as Body, else-body as ("\n", "else", this as Body)?
+  syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this)), else-body as ("\n", "else", this as (Body | (";", this)))?
     if @empty(reducer)
       reducer := null
   
@@ -925,7 +925,7 @@ macro for
       $post
 
 macro while
-  syntax test as Logic, step as (",", this as Statement)?, body as Body, else-body as ("\n", "else", this as Body)?
+  syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this)), else-body as ("\n", "else", this as (Body | (";", this)))?
     if not @empty(else-body)
       if @expr
         throw Error("Cannot use a while loop with an else as an expression")
@@ -940,7 +940,7 @@ macro while
           $body
 
 macro until
-  syntax test as Logic, step as (",", this as Statement)?, body as Body, else-body as ("\n", "else", this as Body)?
+  syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this)), else-body as ("\n", "else", this as (Body | (";", this)))?
     AST
       while not $test, $step
         $body
@@ -1013,7 +1013,7 @@ define operator binary instanceofsome with precedence: 3, maximum: 1, invertible
     result
 
 macro try
-  syntax try-body as Body, catch-part as ("\n", "catch", ident as Identifier, body as Body)?, else-body as ("\n", "else", this as Body)?, finally-body as ("\n", "finally", this as Body)?
+  syntax try-body as (Body | (";", this)), catch-part as ("\n", "catch", ident as Identifier, body as (Body | (";", this)))?, else-body as ("\n", "else", this as (Body | (";", this)))?, finally-body as ("\n", "finally", this as (Body | (";", this)))?
     let has-else = not @empty(else-body)
     if @empty(catch-part) and has-else and @empty(finally-body)
       throw Error("Must provide at least a catch, else, or finally to a try block")
@@ -1129,7 +1129,7 @@ macro require!
       AST let $ident = require $path
 
 macro asyncfor
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", init as (Statement|""), ";", test as (Logic|""), ";", step as (Statement|""), body as Body, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", init as (Statement|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this)), rest as DedentedBody
     if @empty(init)
       init := []
       init := AST $init
@@ -1187,7 +1187,7 @@ macro asyncfor
           $body
         $next()
   
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", ident as Identifier, "=", start, ",", end, step as (",", this)?, body as Body, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", ident as Identifier, "=", start, ",", end, step as (",", this)?, body as (Body | (";", this)), rest as DedentedBody
     if @empty(step)
       step := AST 1
     
@@ -1235,7 +1235,7 @@ macro asyncfor
         $body
       $rest
   
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as Body, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this)), rest as DedentedBody
     let init = []
     array := @cache array, init, \arr, true
     
@@ -1261,7 +1261,7 @@ macro asyncfor
         $body
       $rest
   
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as Body, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this)), rest as DedentedBody
     let own = type == "of"
     let init = []
     object := @cache object, init, \obj, true
@@ -1297,21 +1297,21 @@ macro asyncfor
       $rest
 
 macro asyncwhile
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as Body, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this)), rest as DedentedBody
     AST
       asyncfor $result <- $next, ; $test; $step
         $body
       $rest
 
 macro asyncuntil
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as Body, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this)), rest as DedentedBody
     AST
       asyncwhile $result <- $next, not $test, $step
         $body
       $rest
 
 macro asyncif
-  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("\n", "else", this as Body)?, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this)))*, else-body as ("\n", "else", this as (Body | (";", this)))?, rest as DedentedBody
     
     let mutable current = else-body
     if @empty(else-body)
@@ -1339,7 +1339,7 @@ macro asyncif
         $current
 
 macro asyncunless
-  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("\n", "else", this as Body)?, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this)))*, else-body as ("\n", "else", this as (Body | (";", this)))?, rest as DedentedBody
     
     let mutable current = else-body
     if @empty(else-body)

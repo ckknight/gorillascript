@@ -89,14 +89,14 @@ test "single-line", #
   let y = unless true then fail() else obj
   eq obj, y
 
-/*
 test "single-line with semicolons", #
   let obj = {}
-  let x = if false;fail();else;obj
+  let x = if false;fail()
+  else;obj
   eq obj, x
-  let y = unless true;fail();else;obj
+  let y = unless true;fail()
+  else;obj
   eq obj, y
-*/
 
 /*
 test "If statement doesn't use ternary", #
