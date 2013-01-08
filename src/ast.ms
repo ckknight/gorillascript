@@ -730,75 +730,9 @@ exports.Break := class Break extends Statement
 
 exports.Call := class Call extends Expression
   def constructor(func as Expression, args as [Expression] = [], is-new as Boolean)@
-    if not is-new and for every arg in args
-        arg.is-const()
-      if func instanceof Ident
-        if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name and PURE_PRIMORDIAL_FUNCTIONS[func.name] == true and typeof global != "undefined" and typeof global[func.name] == "function"
-          try
-            return to-const global[func.name]@ void, ...(for arg in args
-              arg.const-value())
-          catch e
-            void
-      else if func instanceof Binary and func.op == "."
-        if func.left.is-const() and func.right.is-const()
-          if typeof func.left.const-value()[func.right.const-value()] == "function"
-            try
-              return to-const func.left.const-value()[func.right.const-value()] ...for arg in args
-                arg.const-value()
-            catch e
-              void
-        else if func.left instanceof Ident and func.right.is-const() and typeof func.right.const-value() == "string" and PURE_PRIMORDIAL_FUNCTIONS ownskey func.left.name and typeof PURE_PRIMORDIAL_FUNCTIONS[func.left.name] == "object" and PURE_PRIMORDIAL_FUNCTIONS[func.left.name][func.right.const-value()] == true and typeof Object(global[func.left.name])[func.right.const-value()] == "function"
-          try
-            return to-const global[func.left.name][func.right.const-value()] ...for arg in args
-              arg.const-value()
-          catch e
-            void
     @func := func
     @args := args
     @is-new := is-new
-  
-  let PURE_PRIMORDIAL_FUNCTIONS = {
-    escape: true
-    unescape: true
-    parseInt: true
-    parseFloat: true
-    isNaN: true
-    isFinite: true
-    decodeURI: true
-    decodeURIComponent: true
-    encodeURI: true
-    encodeURIComponent: true
-    String: {
-      fromCharCode: true
-    }
-    Number: {
-      isFinite: true
-      isNaN: true
-    }
-    Math: {
-      abs: true
-      acos: true
-      asin: true
-      atan: true
-      atan2: true
-      ceil: true
-      cos: true
-      exp: true
-      floor: true
-      log: true
-      max: true
-      min: true
-      pow: true
-      round: true
-      sin: true
-      sqrt: true
-      tan: true
-    }
-    JSON: {
-      parse: true
-      stringify: true
-    }
-  }
   
   let compile-large(args, options, level, line-start, sb)!
     sb "("

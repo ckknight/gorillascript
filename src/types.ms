@@ -175,7 +175,7 @@ module.exports := class Type
   
   let make-union-type(types, needs-sort)
     switch types.length
-    case 0; Type.none
+    case 0; none
     case 1; types[0]
     default
       if needs-sort
@@ -184,7 +184,7 @@ module.exports := class Type
   
   let make-complement-type(types)
     if types.length == 0
-      Type.any
+      any
     else
       ComplementType(types)
   
@@ -225,7 +225,7 @@ module.exports := class Type
         if this == other
           this
         else
-          Type.none
+          none
       else
         other.intersect this
     
@@ -239,7 +239,7 @@ module.exports := class Type
         for every type in other.untypes
           this != type
       else
-        other == Type.any
+        other == any
     
     def overlaps(other as Type)
       if other instanceof SimpleType
@@ -291,9 +291,9 @@ module.exports := class Type
         else if other.subtype.is-subset-of(@subtype)
           other
         else
-          Type.none.array()
+          none.array()
       else if other instanceof SimpleType
-        Type.none
+        none
       else
         other.intersect this
 
@@ -307,7 +307,7 @@ module.exports := class Type
         for every type in other.untypes
           not @equals(type)
       else
-        other == Type.any
+        other == any
 
     def overlaps(other as Type)
       if other instanceof ArrayType
@@ -381,7 +381,7 @@ module.exports := class Type
       else if other instanceof ComplementType
         not overlaps @types, other.untypes
       else
-        other == Type.any
+        other == any
     
     def overlaps(other as Type)
       if other instanceofsome [SimpleType, ArrayType]
@@ -448,7 +448,7 @@ module.exports := class Type
     def intersect(other as Type)
       if other instanceofsome [SimpleType, ArrayType]
         if contains @untypes, other
-          Type.none
+          none
         else
           other
       else if other instanceof UnionType
@@ -472,7 +472,7 @@ module.exports := class Type
       if other instanceof ComplementType
         is-subset-of other.untypes, @untypes
       else
-        other == Type.any
+        other == any
     
     def overlaps(other as Type)
       if other instanceofsome [SimpleType, ArrayType]
@@ -491,9 +491,9 @@ module.exports := class Type
       else
         make-union-type untypes
   
-  Type.any := new class AnyType extends Type
+  let any = @any := new class AnyType extends Type
     def constructor()@
-      if Type.any
+      if any
         throw Error "Cannot instantiate more than once"
     
     def to-string() -> "any"
@@ -510,11 +510,11 @@ module.exports := class Type
     def intersect(other) -> other
     def is-subset-of(other) -> this == other
     def overlaps(other) -> true
-    def complement() -> Type.none
+    def complement() -> none
   
-  Type.none := new class NoneType extends Type
+  let none = @none := new class NoneType extends Type
     def constructor()@
-      if Type.none
+      if none
         throw Error "Cannot instantiate more than once"
     
     def to-string() -> "none"
@@ -531,27 +531,27 @@ module.exports := class Type
     def intersect(other) -> this
     def is-subset-of(other) -> true
     def overlaps(other) -> false
-    def complement() -> Type.any
+    def complement() -> any
   
-  Type.undefined := Type.make "undefined"
-  Type.null := Type.make "null"
-  Type.boolean := Type.make "Boolean"
-  Type.string := Type.make "String"
-  Type.number := Type.make "Number"
-  Type.array := Type.any.array()
-  Type.args := Type.make "Arguments"
-  Type.object := Type.make "Object"
-  Type.function := Type.make "Function"
-  Type.regexp := Type.make "RegExp"
-  Type.date := Type.make "Date"
-  Type.error := Type.make "Error"
-  Type.string-or-number := Type.string.union(Type.number)
-  Type.array-like := Type.array.union(Type.args)
-  Type.undefined-or-null := Type.undefined.union(Type.null)
-  Type.not-undefined-or-null := Type.undefined-or-null.complement()
-  Type.primitive := Type.undefined-or-null.union(Type.boolean).union(Type.string).union(Type.number)
-  Type.non-primitive := Type.primitive.complement()
-  Type.always-falsy := Type.undefined-or-null
-  Type.potentially-truthy := Type.always-falsy.complement()
-  Type.potentially-falsy := Type.always-falsy.union(Type.number).union(Type.string).union(Type.boolean)
-  Type.always-truthy := Type.potentially-falsy.complement()
+  @undefined := @make "undefined"
+  @null := @make "null"
+  @boolean := @make "Boolean"
+  @string := @make "String"
+  @number := @make "Number"
+  @array := any.array()
+  @args := @make "Arguments"
+  @object := @make "Object"
+  @function := @make "Function"
+  @regexp := @make "RegExp"
+  @date := @make "Date"
+  @error := @make "Error"
+  @string-or-number := @string.union(@number)
+  @array-like := @array.union(@args)
+  @undefined-or-null := @undefined.union(@null)
+  @not-undefined-or-null := @undefined-or-null.complement()
+  @primitive := @undefined-or-null.union(@boolean).union(@string).union(@number)
+  @non-primitive := @primitive.complement()
+  @always-falsy := @undefined-or-null
+  @potentially-truthy := @always-falsy.complement()
+  @potentially-falsy := @always-falsy.union(@number).union(@string).union(@boolean)
+  @always-truthy := @potentially-falsy.complement()

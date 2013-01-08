@@ -1,5 +1,7 @@
 require! './types'
 
+let GLOBAL = if typeof window != \undefined then window else global
+
 let freeze = if typeof Object.freeze == \function then Object.freeze else #(o) -> o
 
 let SHORT_CIRCUIT = freeze ^{ to-string: #-> "short-circuit" }
@@ -27,6 +29,10 @@ let named(name as (null|String), func as Function)
 
 let identity(x) -> x
 let ret-this() -> this
+
+let get-tmp-id = do
+  let id = -1
+  #-> id += 1
 
 let cache(rule as Function, dont-cache as Boolean)
   if dont-cache
@@ -62,6 +68,11 @@ macro cache!(rule, dont-cache)
       AST cache $rule
   else
     AST cache $rule, $dont-cache
+
+macro C(string, index)
+  if @empty(index)
+    index := AST 0
+  AST $string.char-code-at($index)
 
 macro mutate!(rule, mutator)
   if mutator? and (not @is-const(mutator) or @value(mutator) != void)
@@ -401,12 +412,12 @@ macro character!(chars)
     throw Error "Must provide a literal string"
   chars := @value(chars)
   if chars.length == 1
-    let code = @const chars.char-code-at 0
+    let code = @const C(chars)
     let ch = chars.char-at 0
     let name = @const if ch == '"' then "'\"'" else (JSON.stringify ch)
     AST
       named $name, #(o)
-        let c = o.data.char-code-at o.index
+        let c = C(o.data, o.index)
         if c == $code
           o.index += 1
           c
@@ -417,7 +428,7 @@ macro character!(chars)
     let name = @const "[$((JSON.stringify chars).slice(1, -1))]"
     let codes = []
     for i = 0, chars.length
-      codes.push chars.char-code-at i
+      codes.push C(chars, i)
     codes.sort #(x, y) -> x <=> y
     let chunks = []
     let mutable current-start = void
@@ -457,7 +468,7 @@ macro character!(chars)
         current := test
     AST
       named $name, #(o)
-        let c = o.data.char-code-at o.index
+        let c = C(o.data, o.index)
         if $current
           o.index += 1
           c
@@ -607,12 +618,11 @@ define NewlineWithCheckIndent = sequential! [
 define SingleLineComment = #(o)
   let data = o.data
   let index = o.index
-  if data.char-code-at(index) == "/".char-code-at(0) and data.char-code-at(index + 1) == "/".char-code-at(0)
+  if C(data, index) == C("/") and C(data, index ~+ 1) == C("/")
     let len = data.length
     index += 2
-    while true, index += 1
-      let c = data.char-code-at(index)
-      if index >= len or c in ["\r".char-code-at(0), "\n".char-code-at(0)]
+    while true, index ~+= 1
+      if index ~>= len or C(data, index) in [C("\r"), C("\n")]
         o.index := index
         return true
   else
@@ -621,18 +631,16 @@ define SingleLineComment = #(o)
 define MultiLineComment = #(o)
   let data = o.data
   let index = o.index
-  if data.char-code-at(index) == "/".char-code-at(0) and data.char-code-at(index + 1) == "*".char-code-at(0)
+  if C(data, index) == C("/") and C(data, index ~+ 1) == C("*")
     let len = data.length
     index += 2
-    while true, index += 1
-      if index >= len
+    while true, index ~+= 1
+      if index ~>= len
         o.error "Multi-line comment never ends"
-      else
-        let c = data.char-code-at(index)
-        if c == "*".char-code-at(0) and data.char-code-at(index + 1) == "/".char-code-at(0)
-          o.index := index + 2
-          Space o
-          return true
+      else if C(data, index) == C("*") and C(data, index ~+ 1) == C("/")
+        o.index := index ~+ 2
+        Space o
+        return true
   else
     false
 
@@ -664,8 +672,8 @@ define Shebang = sequential! [
 ], true
 
 let INDENTS = {
-  ("\t".char-code-at(0)): 4
-  (" ".char-code-at(0)): 1
+  (C "\t"): 4
+  (C " "): 1
 }
 define CountIndent = zero-or-more! SpaceChar, #(x)
   let mutable count = 1
@@ -845,8 +853,8 @@ define AnyChar = #(o)
     o.fail "any"
     false
   else
-    o.index += 1
-    o.data.char-code-at(index) or -1
+    o.index ~+= 1
+    C(o.data, index) or -1
 
 define ThisLiteral = word \this, #(x, o, i) -> o.this i
 
@@ -961,12 +969,12 @@ define RadixInteger = do
       default
         let chars = []
         for i = 0, radix max 10
-          chars[i + "0".char-code-at(0)] := true
+          chars[i + C("0")] := true
         for i = 10, radix max 36
-          chars[i - 10 + "a".char-code-at(0)] := true
-          chars[i - 10 + "A".char-code-at(0)] := true
+          chars[i - 10 + C("a")] := true
+          chars[i - 10 + C("A")] := true
         #(o)
-          let c = o.data.char-code-at(o.index)
+          let c = C(o.data, o.index)
           if chars[c]
             o.index += 1
             c
@@ -1073,20 +1081,20 @@ define UnicodeEscapeSequence = short-circuit! LowerU, sequential! [
 
 define SingleEscapeCharacter = do
   let ESCAPED_CHARACTERS = {
-    ("b".char-code-at(0)): "\b".char-code-at(0)
-    ("f".char-code-at(0)): "\f".char-code-at(0)
-    ("r".char-code-at(0)): "\r".char-code-at(0)
-    ("n".char-code-at(0)): "\n".char-code-at(0)
-    ("t".char-code-at(0)): "\t".char-code-at(0)
-    ("v".char-code-at(0)): "\v".char-code-at(0)
-    ("0".char-code-at(0)): -1
-    ("1".char-code-at(0)): 1
-    ("2".char-code-at(0)): 2
-    ("3".char-code-at(0)): 3
-    ("4".char-code-at(0)): 4
-    ("5".char-code-at(0)): 5
-    ("6".char-code-at(0)): 6
-    ("7".char-code-at(0)): 7
+    (C "b"): C "\b"
+    (C "f"): C "\f"
+    (C "r"): C "\r"
+    (C "n"): C "\n"
+    (C "t"): C "\t"
+    (C "v"): C "\v"
+    (C "0"): -1 // to be non-falsy
+    (C "1"): 1
+    (C "2"): 2
+    (C "3"): 3
+    (C "4"): 4
+    (C "5"): 5
+    (C "6"): 6
+    (C "7"): 7
   }
   
   mutate! AnyChar, #(c)
@@ -1282,11 +1290,11 @@ define RegexLiteral = one-of! [
       sequential! [
         DoubleQuote
         DoubleQuote
-      ], '"'.char-code-at 0
+      ], C('"')
       sequential! [
         Backslash
         DollarSign
-      ], "\$".char-code-at 0
+      ], C('$')
       any-except! [
         DoubleQuote
         Newline
@@ -1303,7 +1311,7 @@ define RegexLiteral = one-of! [
       sequential! [
         SingleQuote
         SingleQuote
-      ], "'".char-code-at 0
+      ], C("'")
       any-except! [
         SingleQuote
         Newline
@@ -2427,56 +2435,149 @@ define BasicInvocationOrAccess = sequential! [
       is-new: false
       is-apply: x.is-apply != NOTHING
     }
-    /*
-    sequential! [
-      ExistentialSymbolNoSpace
-      [\this, InvocationOrAccess]
-    ], #(x) -> {
-      type: "?"
-      child: x
-    }
-    */
   ]]
-], #(x, o, i)
-  let mutable is-new = x.is-new != NOTHING
-  let head = x.head
-  let tail = x.tail
+], do
+  let link-types = {
+    access: do
+      let index-types = {
+        slice: #(o, i, child) -> #(parent)
+          let args = [parent]
+          if child.left or child.right
+            args.push child.left or o.const(i, 0)
+          if child.right
+            args.push child.right
+          o.call(i, o.ident(i, \__slice), args)
+        multi: #(o, i, child) -> #(parent)
+          let mutable set-parent = parent
+          let tmp-ids = []
+          if parent.cacheable
+            let tmp = o.tmp(i, get-tmp-id(), \ref)
+            tmp-ids.push tmp.id
+            set-parent := o.assign(i, tmp, "=", parent)
+            parent := tmp
+          let result = o.array(i, for element, j in child.elements
+            o.access(i, if j == 0 then set-parent else parent, element))
+          if tmp-ids.length
+            o.tmp-wrapper(i, result, tmp-ids)
+          else
+            result
+      }
+      #(o, i, mutable head, link, j, links)
+        let make-access = switch link.type
+        case \access
+          #(parent) -> o.access i, parent, link.child
+        case \access-index
+          unless index-types ownskey link.child.type
+            throw Error "Unknown index type: $(link.child.type)"
+          index-types[link.child.type](o, i, link.child)
+        default
+          throw Error "Unknown link type: $(link.type)"
 
-  if tail.length == 0 and not is-new and head.type == \normal
-    return head.node
-
-  let links = []
-  if head.type == \this-access
-    links.push { type: \access, head.child, head.existential }
+        unless link.existential
+          convert-call-chain(o, i, make-access(head), j + 1, links)
+        else
+          let tmp-ids = []
+          let mutable set-head = head
+          if head.cacheable
+            let tmp = o.tmp(i, get-tmp-id(), \ref)
+            tmp-ids.push tmp.id
+            set-head := o.assign(i, tmp, "=", head)
+            head := tmp
+          let result = o.if(i
+            o.binary(i, set-head, "!=", o.const(i, null))
+            convert-call-chain(o, i, make-access(head), j + 1, links))
+          if tmp-ids.length
+            o.tmp-wrapper(i, result, tmp-ids)
+          else
+            result
+    call: do
+      #(o, i, mutable head, link, j, links)
+        unless link.existential
+          convert-call-chain(o, i, o.call(i, head, link.args, link.is-new, link.is-apply), j + 1, links)
+        else
+          let tmp-ids = []
+          let mutable set-head = head
+          if head instanceof AccessNode and head.op == "." and not link.is-apply and not link.is-new
+            let mutable parent = head.parent
+            let mutable set-parent = parent
+            let mutable child = head.child
+            let mutable set-parent = child
+            if parent.cacheable
+              let tmp = o.tmp(i, get-tmp-id(), \ref)
+              tmp-ids.push tmp.id
+              set-parent := o.assign(i, tmp, "=", parent)
+              parent := tmp
+            if child.cacheable
+              let tmp = o.tmp(i, get-tmp-id(), \ref)
+              tmp-ids.push tmp.id
+              set-child := o.assign(i, tmp, "=", parent)
+              child := tmp
+            if parent != set-parent or child != set-child
+              set-head := o.access(i, set-parent, set-child)
+              head := o.access(i, parent, child)
+          else
+            if head.cacheable
+              let tmp = o.tmp(i, get-tmp-id(), \ref)
+              tmp-ids.push tmp.id
+              set-head := o.assign(i, tmp, "=", head)
+              head := tmp
+          let result = o.if(i
+            o.binary(i
+              o.unary(i, \typeof, set-head)
+              "==="
+              o.const(i, \function))
+            convert-call-chain(o, i, o.call(i, head, link.args, link.is-new, link.is-apply), j + 1, links))
+          if tmp-ids.length
+            o.tmp-wrapper(i, result, tmp-ids)
+          else
+            result
+  }
+  link-types.access-index := link-types.access
   
-  for part in tail
-    switch part.type
-    case \proto-access, \proto-access-index
-      links.push { type: \access, child: o.const(i, \prototype), part.existential }
-      let clone = copy(part)
-      clone.type := if part.type == \proto-access then \access else \access-index
-      links.push clone
-    case \access, \access-index
-      links.push part
-    case \call
-      if is-new and part.is-apply
-        o.error "Cannot call with both new and @ at the same time"
-      let clone = copy(part)
-      clone.is-new := is-new
-      is-new := false
-      links.push clone
-    case "?"
-      if is-new
-        links.push { type: \call, args: [], existential: false, is-new: true, is-apply: false }
+  let convert-call-chain(o, i, head, j, links)
+    if j >= links.length
+      head
+    else
+      let link = links[j]
+      unless link-types ownskey link.type
+        throw Error "Unknown call-chain link: $(link.type)"
+      
+      link-types[link.type](o, i, head, link, j, links)
+  #(x, o, i)
+    let mutable is-new = x.is-new != NOTHING
+    let mutable head = x.head
+    let tail = x.tail
+  
+    if tail.length == 0 and not is-new and head.type == \normal
+      return head.node
+  
+    let links = []
+    if head.type == \this-access
+      links.push { type: \access, head.child, head.existential }
+  
+    for part in tail
+      switch part.type
+      case \proto-access, \proto-access-index
+        links.push { type: \access, child: o.const(i, \prototype), part.existential }
+        let clone = copy(part)
+        clone.type := if part.type == \proto-access then \access else \access-index
+        links.push clone
+      case \access, \access-index
+        links.push part
+      case \call
+        if is-new and part.is-apply
+          o.error "Cannot call with both new and @ at the same time"
+        let clone = copy(part)
+        clone.is-new := is-new
         is-new := false
-      links.push part
-    default
-      o.error "Unknown link type: $(part.type)"
+        links.push clone
+      default
+        o.error "Unknown link type: $(part.type)"
   
-  if is-new
-    links.push { type: \call, args: [], existential: false, is-new: true, is-apply: false }
-  
-  o.call-chain i, head.node, links
+    if is-new
+      links.push { type: \call, args: [], existential: false, is-new: true, is-apply: false }
+    
+    convert-call-chain o, i, head.node, 0, links
 
 define SuperToken = word "super"
 define SuperInvocation = short-circuit! SuperToken, sequential! [
@@ -2783,10 +2884,6 @@ class MacroHelper
   def unary(op as String, node as Object) -> @state.unary(@index, op, node).reduce()
   def throw(node as Node) -> @state.throw(@index, node).reduce()
   
-  let get-tmp-id = do
-    let id = -1
-    #-> id += 1
-  
   def tmp(name as String = \ref, save as Boolean)
     let id = get-tmp-id()
     (if save then @saved-tmps else @unsaved-tmps).push id
@@ -2815,27 +2912,15 @@ class MacroHelper
     if require('./ast').is-acceptable-ident(name)
       @state.ident @index, name
   
-  def is-call(node)
-    if node instanceof CallChainNode
-      let links = node.links
-      links[links.length - 1].type == \call
-    else
-      false
+  def is-call(node) -> node instanceof CallNode
   
   def call-func(node)
-    if node instanceof CallChainNode
-      let links = node.links
-      if links[links.length - 1].type == \call
-        if links.length == 1
-          node.head
-        else
-          CallChainNode node.start-index, node.end-index, node.head, links[:links.length - 1]
+    if node instanceof CallNode
+      node.func
   
   def call-args(node)
-    if node instanceof CallChainNode
-      let links = node.links
-      if links[links.length - 1].type == \call
-        links[links.length - 1].args
+    if node instanceof CallNode
+      node.args
   
   def is-super(node) -> node instanceof SuperNode
   
@@ -2848,42 +2933,22 @@ class MacroHelper
       node.args
   
   def call-is-new(node)
-    if node instanceof CallChainNode
-      let links = node.links
-      if links[links.length - 1].type == \call
-        return not not links[links.length - 1].is-new
-    false
+    if node instanceof CallNode
+      not not node.is-new
+    else
+      false
   
   def call-is-apply(node)
-    if node instanceof CallChainNode
-      let links = node.links
-      if links[links.length - 1].type == \call
-        return not not links[links.length - 1].is-apply
-    false
+    if node instanceof CallNode
+      not not node.is-apply
+    else
+      false
   
   def call(func as Node, args as [Node], is-new as Boolean = false, is-apply as Boolean = false)
     if is-new and is-apply
       throw Error "Cannot specify both is-new and is-apply"
     
-    if func instanceof CallChainNode
-      @state.call-chain(func.start-index, func.head, [
-        ...func.links
-        {
-          type: \call
-          args
-          is-new
-          is-apply
-        }
-      ]).reduce()
-    else
-      @state.call-chain(func.start-index, func, [
-        {
-          type: \call
-          args
-          is-new
-          is-apply
-        }
-      ]).reduce()
+    @state.call(func.start-index, func, args, is-new, is-apply).reduce()
   
   def func(params, body, auto-return = true, bound = false)
     @state.function(0, params, body, auto-return, bound).reduce()
@@ -2981,45 +3046,30 @@ class MacroHelper
       ConstNode start-index, end-index, obj
     else if Array.is-array obj
       constify-array obj, start-index, end-index
-    else if obj instanceof IdentNode and obj.name.char-code-at(0) == "\$".char-code-at(0)
-      CallChainNode(obj.start-index, obj.end-index
+    else if obj instanceof IdentNode and C(obj.name, 0) == C('$')
+      CallNode(obj.start-index, obj.end-index
         IdentNode obj.start-index, obj.end-index, \__wrap
-        [{
-          type: \call
-          args: [IdentNode obj.start-index, obj.end-index, obj.name.substring 1]
-          existential: false
-          is-new: false
-          is-apply: false
-        }])
+        [IdentNode obj.start-index, obj.end-index, obj.name.substring 1])
     else if obj instanceof MacroAccessNode
-      CallChainNode(obj.start-index, obj.end-index
+      CallNode(obj.start-index, obj.end-index
         IdentNode obj.start-index, obj.end-index, \__macro
-        [{
-          type: \call
-          args: [
-            ConstNode obj.start-index, obj.end-index, obj.id
-            constify-object obj.data, obj.start-index, obj.end-index
-          ]
-          existential: false
-          is-new: false
-          is-apply: false
-        }])
+        [
+          ConstNode obj.start-index, obj.end-index, obj.id
+          constify-object obj.data, obj.start-index, obj.end-index
+        ])
     else if obj instanceof Node
       if obj.constructor == Node
         throw Error "Cannot constify a raw node"
       
-      CallChainNode(obj.start-index, obj.end-index
+      CallNode(obj.start-index, obj.end-index
         IdentNode obj.start-index, obj.end-index, \__node
-        [{
-          type: \call
-          args: [
-            ConstNode obj.start-index, obj.end-index, obj.constructor.capped-name
-            ConstNode obj.start-index, obj.end-index, obj.start-index
-            ConstNode obj.start-index, obj.end-index, obj.end-index
-            ...(for k in obj.constructor.arg-names
-              constify-object obj[k], start-index, end-index)
-          ]
-        }])
+        [
+          ConstNode obj.start-index, obj.end-index, obj.constructor.capped-name
+          ConstNode obj.start-index, obj.end-index, obj.start-index
+          ConstNode obj.start-index, obj.end-index, obj.end-index
+          ...(for k in obj.constructor.arg-names
+            constify-object obj[k], start-index, end-index)
+        ])
     else
       ObjectNode start-index, end-index, for k, v of obj
         {
@@ -3067,32 +3117,13 @@ class MacroHelper
     if @is-unary(node)
       node.node
   
-  def is-access(node)
-    if node instanceof AccessNode
-      true
-    else if node instanceof CallChainNode
-      let links = node.links
-      let last-link = links[links.length - 1]
-      last-link.type == \access or last-link.type == \index
-    else
-      false
+  def is-access(node) -> node instanceof AccessNode
   def parent(node)
     if node instanceof AccessNode
       node.parent
-    else if node instanceof CallChainNode
-      let links = node.links
-      if links[links.length - 1].type == \access
-        if links.length == 1
-          node.head
-        else
-          CallChainNode node.start-index, node.end-index, node.head, links[:links.length - 1]
   def child(node)
     if node instanceof AccessNode
       node.child
-    else if node instanceof CallChainNode
-      let links = node.links
-      if links[links.length - 1].type == \access
-        links[links.length - 1].child
   
   def walk(node as Node, func as Function) -> walk node, func
   
@@ -3139,7 +3170,7 @@ class MacroHelper
     UseMacro: #(x, func)
       let node = @mutate-last x.node, func
       if node != x.node
-        UseMacroNode x.start-index, x.end-index, node, x.tmps, x.macro-helpers
+        TmpWrapperNode x.start-index, x.end-index, node, x.tmps
       else
         x
     Break: identity
@@ -3266,6 +3297,7 @@ class Node
   def type() -> types.any
   def walk() -> this
   let reduce-node(node) -> node.reduce()
+  def cacheable = true
   def _reduce()
     @walk reduce-node
   def reduce()
@@ -3484,7 +3516,6 @@ class State
       {
         handler
         rule: handle-params params, []
-        translated.macro-helpers
       }
     
     call: #(index, params, body)
@@ -3505,7 +3536,6 @@ class State
       {
         handler
         rule: InvocationArguments
-        translated.macro-helpers
       }
     
     binary-operator: #(index, operators, body, options)
@@ -3534,7 +3564,6 @@ class State
       {
         handler
         rule: void
-        translated.macro-helpers
       }
     
     assign-operator: #(index, operators, body, options)
@@ -3559,7 +3588,6 @@ class State
       {
         handler
         rule: void
-        translated.macro-helpers
       }
     
     unary-operator: #(index, operators, body, options)
@@ -3583,7 +3611,6 @@ class State
       {
         handler
         rule: void
-        translated.macro-helpers
       }
   }
   
@@ -3602,7 +3629,6 @@ class State
     let data = macro-syntax-types[type]@(this, index, params, body, options)
     let handler = data.handler
     let rule = data.rule
-    let macro-helpers = data.macro-helpers
     
     let macros = @macros
     let mutator = #(x, o, i)
@@ -3614,8 +3640,8 @@ class State
           macros.get-by-id(id)(data, o, i)
         result := result.reduce()
         let tmps = macro-helper.get-tmps()
-        if tmps.unsaved.length or macro-helpers.length
-          o.use-macro i, result, tmps.unsaved, macro-helpers
+        if tmps.unsaved.length
+          o.tmp-wrapper i, result, tmps.unsaved
         else
           result
     let macro-id = switch @current-macro
@@ -3652,12 +3678,6 @@ node-type! \access, parent as Node, child as Node
 node-type! \access-index, parent as Node, child as Object, {
   walk: do
     let index-types = {
-      single: #(x, f)
-        let node = f x.node
-        if node != x.node
-          { type: \single, node }
-        else
-          x
       multi: #(x, f)
         let elements = map x.elements, f
         if elements != x.elements
@@ -3684,6 +3704,7 @@ node-type! \access-index, parent as Node, child as Object, {
 }
 node-type! \args, {
   type: #-> types.args
+  cacheable: false
 }
 node-type! \array, elements as [Node], {
   type: #-> types.array
@@ -3884,6 +3905,302 @@ node-type! \block, nodes as [Node], {
         this
 }
 node-type! \break
+node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as Boolean, {
+  type: do
+    let PRIMORDIAL_FUNCTIONS = {
+      Object: types.object
+      String: types.string
+      Number: types.number
+      Boolean: types.boolean
+      Function: types.function
+      Array: types.array
+      Date: types.string
+      RegExp: types.regexp
+      Error: types.error
+      RangeError: types.error
+      ReferenceError: types.error
+      SyntaxError: types.error
+      TypeError: types.error
+      URIError: types.error
+      escape: types.string
+      unescape: types.string
+      parseInt: types.number
+      parseFloat: types.number
+      isNaN: types.boolean
+      isFinite: types.boolean
+      decodeURI: types.string
+      decodeURIComponent: types.string
+      encodeURI: types.string
+      encodeURIComponent: types.string
+    }
+    let PRIMORDIAL_SUBFUNCTIONS = {
+      Object: {
+        getPrototypeOf: types.object
+        getOwnPropertyDescriptor: types.object
+        getOwnPropertyNames: types.string.array()
+        create: types.object
+        defineProperty: types.object
+        defineProperties: types.object
+        seal: types.object
+        freeze: types.object
+        preventExtensions: types.object
+        isSealed: types.boolean
+        isFrozen: types.boolean
+        isExtensible: types.boolean
+        keys: types.string.array()
+      }
+      String: {
+        fromCharCode: types.string
+      }
+      Number: {
+        isFinite: types.boolean
+        isNaN: types.boolean
+      }
+      Array: {
+        isArray: types.boolean
+      }
+      Math: {
+        abs: types.number
+        acos: types.number
+        asin: types.number
+        atan: types.number
+        atan2: types.number
+        ceil: types.number
+        cos: types.number
+        exp: types.number
+        floor: types.number
+        log: types.number
+        max: types.number
+        min: types.number
+        pow: types.number
+        random: types.number
+        round: types.number
+        sin: types.number
+        sqrt: types.number
+        tan: types.number
+      }
+      JSON: {
+        stringify: types.string.union(types.undefined)
+        parse: types.string.union(types.number).union(types.boolean).union(types.null).union(types.array).union(types.object)
+      }
+      Date: {
+        UTC: types.number
+        now: types.number
+      }
+    }
+    let PRIMORDIAL_METHODS = {
+      String: {
+        toString: types.string
+        valueOf: types.string
+        charAt: types.string
+        charCodeAt: types.number
+        concat: types.string
+        indexOf: types.number
+        lastIndexOf: types.number
+        localeCompare: types.number
+        match: types.array.union(types.null)
+        replace: types.string
+        search: types.number
+        slice: types.string
+        split: types.string.array()
+        substring: types.string
+        toLowerCase: types.string
+        toLocaleLowerCase: types.string
+        toUpperCase: types.string
+        toLocaleUpperCase: types.string
+        trim: types.string
+      }
+      Boolean: {
+        toString: types.string
+        valueOf: types.boolean
+      }
+      Number: {
+        toString: types.string
+        valueOf: types.number
+        toLocaleString: types.string
+        toFixed: types.string
+        toExponential: types.string
+        toPrecision: types.string
+      }
+      Date: {
+        toString: types.string
+        toDateString: types.string
+        toTimeString: types.string
+        toLocaleString: types.string
+        toLocaleDateString: types.string
+        toLocaleTimeString: types.string
+        valueOf: types.number
+        getTime: types.number
+        getFullYear: types.number
+        getUTCFullYear: types.number
+        getMonth: types.number
+        getUTCMonth: types.number
+        getDate: types.number
+        getUTCDate: types.number
+        getDay: types.number
+        getUTCDay: types.number
+        getHours: types.number
+        getUTCHours: types.number
+        getMinutes: types.number
+        getUTCMinutes: types.number
+        getSeconds: types.number
+        getUTCSeconds: types.number
+        getMilliseconds: types.number
+        getUTCMilliseconds: types.number
+        getTimezoneOffset: types.number
+        setTime: types.number
+        setMilliseconds: types.number
+        setUTCMilliseconds: types.number
+        setSeconds: types.number
+        setUTCSeconds: types.number
+        setMinutes: types.number
+        setUTCMinutes: types.number
+        setHours: types.number
+        setUTCHours: types.number
+        setDate: types.number
+        setUTCDate: types.number
+        setMonth: types.number
+        setUTCMonth: types.number
+        setFullYear: types.number
+        setUTCFullYear: types.number
+        toUTCString: types.string
+        toISOString: types.string
+        toJSON: types.string
+      }
+      RegExp: {
+        test: types.boolean
+        toString: types.string
+      }
+      Error: {
+        toString: types.string
+      }
+    }
+    let helper-type-cache = {}
+    let calculate-type(node)  
+      let ast = require('./ast')
+      let last = node.last()
+      if last instanceof ast.Func
+        last.meta?.as-type ? types.any
+      else if last instanceof ast.Return
+        calculate-type(last.node)
+      else if last instanceof ast.Call and last.func instanceof ast.Func
+        calculate-type(last.func.body[last.func.body.length - 1])
+      else
+        types.any
+    #-> @_type ?= do
+      let func = @func
+      if func instanceof IdentNode
+        let name = func.name
+        if PRIMORDIAL_FUNCTIONS ownskey name
+          return PRIMORDIAL_FUNCTIONS[name]
+        else if name.length > 2 and C(name, 0) == C("_") and C(name, 1) == C("_")
+          let helpers = require('./translator').helpers
+          if helpers.has name
+            return if helper-type-cache ownskey name
+              helper-type-cache[name]
+            else
+              helper-type-cache[name] := calculate-type helpers.get name
+      /*
+      else if links.length == 2 and links[0].type == \access and not links[0].existential and links[1].type == \call and not links[1].existential and links[0].child instanceof ConstNode
+          if PRIMORDIAL_SUBFUNCTIONS ownskey name and PRIMORDIAL_SUBFUNCTIONS[name] ownskey links[0].child.value
+            return PRIMORDIAL_SUBFUNCTIONS[name][links[0].child.value]
+      */
+      types.any
+  _reduce: do
+    let PURE_PRIMORDIAL_FUNCTIONS = {
+      escape: true
+      unescape: true
+      parseInt: true
+      parseFloat: true
+      isNaN: true
+      isFinite: true
+      decodeURI: true
+      decodeURIComponent: true
+      encodeURI: true
+      encodeURIComponent: true
+      String: true
+      Boolean: true
+      Number: true
+      RegExp: true
+    }
+    let PURE_PRIMORDIAL_SUBFUNCTIONS = {
+      String: {
+        fromCharCode: true
+      }
+      Number: {
+        isFinite: true
+        isNaN: true
+      }
+      Math: {
+        abs: true
+        acos: true
+        asin: true
+        atan: true
+        atan2: true
+        ceil: true
+        cos: true
+        exp: true
+        floor: true
+        log: true
+        max: true
+        min: true
+        pow: true
+        round: true
+        sin: true
+        sqrt: true
+        tan: true
+      }
+      JSON: {
+        parse: true
+        stringify: true
+      }
+    }
+    #
+      let func = @func.reduce()
+      let args = map @args, #(node) -> node.reduce()
+      if not @is-new and not @is-apply
+        let const-args = []
+        let mutable all-const = true
+        for arg in args
+          if arg instanceof ConstNode
+            const-args.push arg.value
+          else
+            all-const := false
+            break
+        if all-const
+          if func instanceof IdentNode
+            if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name
+              try
+                let value = GLOBAL[func.name]@ void, ...const-args
+                return ConstNode @start-index, @end-index, value
+              catch e
+                // TODO: do something here to alert the user
+                void
+          else if func instanceof AccessNode and func.child instanceof ConstNode
+            let parent = func.parent
+            let child = func.child
+            if parent instanceof ConstNode
+              if typeof parent.value[child.value] == \function
+                try
+                  let value = parent.value[child.value] ...const-args
+                  return ConstNode @start-index, @end-index, value
+                catch e
+                  // TODO: do something here to alert the user
+                  void
+            else if parent instanceof IdentNode
+              if PURE_PRIMORDIAL_SUBFUNCTIONS ownskey parent.name and PURE_PRIMORDIAL_SUBFUNCTIONS[parent.name] ownskey child.value
+                try
+                  let value = GLOBAL[parent.name][child.value] ...const-args
+                  return ConstNode @start-index, @end-index, value
+                catch e
+                  // TODO: do something here to alert the user
+                  void
+      if func != @func or args != @args
+        CallNode @start-index, @end-index, func, args, @is-new, @is-apply
+      else
+        this
+}
+/*
 node-type! \call-chain, head as Node, links as Array, {
   type: do
     let PRIMORDIAL_FUNCTIONS = {
@@ -4101,15 +4418,6 @@ node-type! \call-chain, head as Node, links as Array, {
           link
       access-index: do
         let index-types = {
-          single: #(x, func)
-            let node = func x.node
-            if node != x.node
-              {
-                type: \single
-                node
-              }
-            else
-              x
           slice: #(x, func)
             let left = func x.left
             let right = func x.right
@@ -4171,6 +4479,7 @@ node-type! \call-chain, head as Node, links as Array, {
       else
         this
 }
+*/
 node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
   type: #
     let value = @value
@@ -4186,6 +4495,7 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
         types.regexp
       else
         throw Error("Unknown type for $(String value)")
+  cacheable: false
 }
 node-type! \continue
 node-type! \debugger
@@ -4214,7 +4524,9 @@ node-type! \function, params as [Node], body as Node, auto-return as Boolean = t
     else
       this
 }
-node-type! \ident, name as String
+node-type! \ident, name as String, {
+  cacheable: false
+}
 node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0), {
   type: # -> @_type ?= @when-true.type().union(@when-false.type())
   _reduce: #
@@ -4235,6 +4547,7 @@ node-type! \let, left as Node, right as Node, {
 node-type! \macro-access, id as Number, data as Object
 node-type! \nothing, {
   type: # -> types.undefined
+  cacheable: false
 }
 node-type! \object, pairs as Array, {
   type: # -> types.object
@@ -4287,7 +4600,7 @@ node-type! \string, parts as [Node], {
         if not reduced.type().is-subset-of(types.string-or-number)
           let i = reduced.start-index
           let j = reduced.end-index
-          segments.push CallChainNode i, j, IdentNode(i, j, \__strnum), [{ type: \call, args: [reduced] }]
+          segments.push CallNode i, j, IdentNode(i, j, \__strnum), [reduced]
         else
           segments.push reduced
     for i = segments.length - 1, 0, -1
@@ -4342,11 +4655,15 @@ node-type! \syntax-param, ident as Node, as-type as (Node|void), {
       this
 }
 node-type! \syntax-sequence, params as [Node]
-node-type! \this
+node-type! \this, {
+  cacheable: false
+}
 node-type! \throw, node as Node, {
   type: # -> types.none
 }
-node-type! \tmp, id as Number, name as String
+node-type! \tmp, id as Number, name as String, {
+  cacheable: false
+}
 node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node, {
   type: # -> @_type ?= @try-body.type().union(@catch-body.type())
 }
@@ -4445,14 +4762,14 @@ node-type! \unary, op as String, node as Node, {
       else
         this
 }
-node-type! \use-macro, node as Node, tmps as Array, macro-helpers as Array, {
+node-type! \tmp-wrapper, node as Node, tmps as Array, {
   type: # -> @node.type()
   _reduce: #
     let node = @node.reduce()
-    if @tmps.length == 0 and @macro-helpers.length == 0
+    if @tmps.length == 0
       node
     else if @node != node
-      UseMacroNode @start-index, @end-index, node, @tmps, @macro-helpers
+      TmpWrapperNode @start-index, @end-index, node, @tmps
     else
       this
 }
