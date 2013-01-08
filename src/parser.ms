@@ -68,7 +68,8 @@ macro mutate!(rule, mutator)
     let init = []
     rule := @cache rule, init, \rule, true
     mutator := @cache mutator, init, \mutator, true
-    let result = AST named($rule?.parser-name, #(o)
+    let unknown-name = @const(if @is-ident(rule) then @name(rule) else "<unknown>")
+    let result = AST named($rule?.parser-name or $unknown-name, #(o)
       let index = o.index
       let result = $rule o
       if not result
@@ -257,7 +258,9 @@ macro maybe!(rule, missing-value, found-value)
   missing-value := @cache missing-value, init, \missing, true
   found-value := @cache found-value, init, \found, true
   
-  let result = AST named(($rule?.parser-name or "<unknown>") & "?", #(o)
+  let unknown-name = @const(if @is-ident(rule) then @name(rule) else "<unknown>")
+  
+  let result = AST named(($rule?.parser-name or $unknown-name) & "?", #(o)
     let index = o.index
     let clone = o.clone()
     let result = $rule clone
@@ -286,7 +289,8 @@ macro except!(rule)
   let init = []
   rule := @cache rule, init, \rule, true
   
-  let result = AST named("!" & ($rule?.parser-name or "<unknown>"), #(o)
+  let unknown-name = @const(if @is-ident(rule) then @name(rule) else "<unknown>")
+  let result = AST named("!" & ($rule?.parser-name or $unknown-name), #(o)
     not $rule o.clone())
   if init.length
     AST do
@@ -308,7 +312,8 @@ macro short-circuit!(expected, backend)
   expected := @cache expected, init, \expected, true
   backend := @cache backend, init, \backend, true
   
-  let result = AST named($backend?.parser-name, #(o)
+  let unknown-name = @const(if @is-ident(backend) then @name(backend) else "<unknown>")
+  let result = AST named($backend?.parser-name or $unknown-name, #(o)
     if not $expected(o.clone())
       false
     else
@@ -361,7 +366,8 @@ macro multiple!(min-count, max-count, rule, mutator)
   else
     let init = []
     rule := @cache rule, init, \rule, true
-    let result = AST mutate! named(calculate-multiple-name!($rule?.parser-name or "<nothing>", $min-count, $max-count), #(o)
+    let unknown-name = @const(if @is-ident(rule) then @name(rule) else "<unknown>")
+    let result = AST mutate! named(calculate-multiple-name!($rule?.parser-name or $unknown-name, $min-count, $max-count), #(o)
       let clone = o.clone()
       let result = []
       while true
@@ -591,6 +597,11 @@ define Newline = sequential! [
 ], true
 define Stop = one-of! [Newline, Eof]
 define CheckStop = check! Stop
+define NewlineWithCheckIndent = sequential! [
+  Newline
+  EmptyLines
+  CheckIndent
+]
 
 define SingleLineComment = #(o)
   let data = o.data
@@ -1405,7 +1416,6 @@ define Identifier = do
     \eval
     \export
     \extends
-    \fallthrough
     \false
     \finally
     \for
@@ -2764,7 +2774,10 @@ class MacroHelper
     @index := index
     @expr := expr
   
+  def noop() -> @state.nothing @index
+  def block(nodes as Array) -> @state.block @index, nodes
   def if(test as Object, when-true as Object, when-false as (Object|null)) -> @state.if @index, test, when-true, when-false
+  def switch(node as Object, cases as Array, default-case as (Object|null)) -> @state.switch @index, node, cases, default-case
   def for(init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> @state.for @index, init, test, step, body
   def for-in(key as Object, object as Object, body as Object) -> @state.for-in @index, key, object, body
   def try-catch(try-body as Object, catch-ident as Object, catch-body as Object) -> @state.try-catch @index, try-body, catch-ident, catch-body
@@ -3162,6 +3175,20 @@ class MacroHelper
     else
       mutators[node.constructor.capped-name]@(this, node, func)
 
+let one-of(rules as [Function])
+  let name = ["("]
+  for rule, i in rules
+    if i > 0
+      name.push " | "
+    name.push rule.parser-name or "<unknown>"
+  name.push ")"
+  named name.join(""), #(o)
+    for rule in rules
+      let result = rule o
+      if result
+        return result
+    false
+
 class MacroHolder
   def constructor()@
     @by-name := {}
@@ -3201,13 +3228,6 @@ class MacroHolder
     let by-id = @by-id
     by-id.push m
     by-id.length - 1
-  
-  let one-of(rules) -> #(o)
-    for rule in rules
-      let result = rule o
-      if result
-        return result
-    false
   
   def add-binary-operator(operators, m, options)
     let precedence = Number(options.precedence) or 0
@@ -3365,7 +3385,6 @@ class State
   
   let macro-syntax-types = {
     syntax: #(index, params, body)
-      let next-parts = []
       let calc-param(param)@
         if param instanceof IdentNode
           let ident = param.name
@@ -3376,8 +3395,6 @@ class State
           else if ident == \Statement
             Statement
           else if ident == \Body
-            // TODO: this is definitely wrong
-            next-parts.push Newline, EmptyLines, CheckIndent
             Body
           else if ident == \Identifier
             Identifier
@@ -3399,15 +3416,8 @@ class State
         else if param instanceof SyntaxSequenceNode
           handle-params param.params, []
         else if param instanceof SyntaxChoiceNode
-          let choices = for choice in param.choices
+          cache! one-of for choice in param.choices
             calc-param choice
-          cache! #(o)
-            // TODO: change for to for first-else
-            for rule in choices
-              let result = rule o
-              if result
-                return result
-            false
         else if param instanceof ConstNode
           let string = param.value
           if typeof string != \string
@@ -3418,6 +3428,8 @@ class State
             Semicolon
           else if string == ""
             Nothing
+          else if string == "\n"
+            NewlineWithCheckIndent
           else
             word-or-symbol string
         else if param instanceof SyntaxManyNode
@@ -3428,7 +3440,7 @@ class State
           else if multiplier == "+"
             one-or-more! calced
           else if multiplier == "?"
-            one-of! [calced, Nothing]
+            maybe! calced, #(x, o, i) -> o.nothing(i)
           else
             throw Error("Unknown syntax multiplier: $multiplier")
         else
@@ -3436,11 +3448,6 @@ class State
     
       let handle-params(params, sequence)@
         for param in params
-          // TODO: fix this, it's ugly
-          if param not instanceof SyntaxParamNode or not param.as-type or (param.as-type not instanceof SyntaxManyNode and (param.as-type not instanceof IdentNode or param.as-type.name != \DedentedBody))
-            sequence.push ...next-parts
-            next-parts := []
-        
           if param instanceof ConstNode
             let string = param.value
             if typeof string != \string
@@ -3450,6 +3457,10 @@ class State
               sequence.push Comma
             else if string == ";"
               sequence.push Semicolon
+            else if string == ""
+              sequence.push Nothing
+            else if string == "\n"
+              sequence.push NewlineWithCheckIndent
             else
               sequence.push word-or-symbol string
           else if param instanceof SyntaxParamNode
@@ -3926,6 +3937,22 @@ node-type! \super, child as (Node|void), args as [Node], {
     let args = map @args, func
     if child != @child or args != @args
       SuperNode @start-index, @end-index, child, args
+    else
+      this
+}
+node-type! \switch, node as Node, cases as Array, default-case as (Node|void), {
+  walk: #(func)
+    let node = func @node
+    let cases = map @cases, #(case_)
+      let case-node = func case_.node
+      let case-body = func case_.body
+      if case-node != case_.node or case-body != case_.body
+        { node: case-node, body: case-body, case_.fallthrough }
+      else
+        case_
+    let default-case = func @default-case
+    if node != @node or cases != @cases or default-case != @default-case
+      SwitchNode node, cases, default-case
     else
       this
 }

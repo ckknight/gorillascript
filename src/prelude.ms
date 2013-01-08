@@ -23,7 +23,7 @@ macro if
     let len = else-ifs.length
     @if(test, body, f(eval("len - 1"), else-body))
 
-  syntax test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?
+  syntax test as Logic, body as Body, else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("\n", "else", this as Body)?
     let f(i, current)@
       let mutable test = else-ifs[i]?.test
       let type = else-ifs[i]?.type
@@ -500,7 +500,7 @@ macro unless
   syntax test as Logic, "then", body, else-body as ("else", this)?
     AST if not $test then $body else $else-body
 
-  syntax test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?
+  syntax test as Logic, body as Body, else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("\n", "else", this as Body)?
     let f(i, current)@
       let mutable test = else-ifs[i]?.test
       test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
@@ -616,7 +616,7 @@ define helper __log = Math.log
 
 macro for
   // FIXME: init should be an Expression or Assignment or Let
-  syntax reducer as ("every" | "some" | "first")?, init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), body as Body, else-body as ("else", this as Body)?
+  syntax reducer as ("every" | "some" | "first")?, init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), body as Body, else-body as ("\n", "else", this as Body)?
     if @empty(init)
       init := []
       init := AST $init
@@ -679,7 +679,7 @@ macro for
       else
         @for(init, test, step, body)
   
-  syntax reducer as ("every" | "some" | "first")?, ident as Identifier, "=", start, ",", end, step as (",", this)?, body as Body, else-body as ("else", this as Body)?
+  syntax reducer as ("every" | "some" | "first")?, ident as Identifier, "=", start, ",", end, step as (",", this)?, body as Body, else-body as ("\n", "else", this as Body)?
     if not @empty(else-body) and @expr
       throw Error("Cannot use a for loop with an else as an expression")
     
@@ -759,7 +759,7 @@ macro for
         else
           $else-body
   
-  syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as Body, else-body as ("else", this as Body)?
+  syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as Body, else-body as ("\n", "else", this as Body)?
     if not @empty(else-body) and @expr
       throw Error("Cannot use a for loop with an else as an expression")
     
@@ -818,7 +818,7 @@ macro for
         else
           $else-body
   
-  syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as Body, else-body as ("else", this as Body)?
+  syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as Body, else-body as ("\n", "else", this as Body)?
     if @empty(reducer)
       reducer := null
   
@@ -925,7 +925,7 @@ macro for
       $post
 
 macro while
-  syntax test as Logic, step as (",", this as Statement)?, body as Body, else-body as ("else", this as Body)?
+  syntax test as Logic, step as (",", this as Statement)?, body as Body, else-body as ("\n", "else", this as Body)?
     if not @empty(else-body)
       if @expr
         throw Error("Cannot use a while loop with an else as an expression")
@@ -940,7 +940,7 @@ macro while
           $body
 
 macro until
-  syntax test as Logic, step as (",", this as Statement)?, body as Body, else-body as ("else", this as Body)?
+  syntax test as Logic, step as (",", this as Statement)?, body as Body, else-body as ("\n", "else", this as Body)?
     AST
       while not $test, $step
         $body
@@ -1013,7 +1013,7 @@ define operator binary instanceofsome with precedence: 3, maximum: 1, invertible
     result
 
 macro try
-  syntax try-body as Body, catch-part as ("catch", ident as Identifier, body as Body)?, else-body as ("else", this as Body)?, finally-body as ("finally", this as Body)?
+  syntax try-body as Body, catch-part as ("\n", "catch", ident as Identifier, body as Body)?, else-body as ("\n", "else", this as Body)?, finally-body as ("\n", "finally", this as Body)?
     let has-else = not @empty(else-body)
     if @empty(catch-part) and has-else and @empty(finally-body)
       throw Error("Must provide at least a catch, else, or finally to a try block")
@@ -1053,6 +1053,46 @@ macro try
       AST
         $init
         $current
+
+macro switch
+  syntax node as Logic, cases as ("\n", "case", node-head as Logic, node-tail as (",", this as Logic)*, body as (Body | (";", this))?)*, default-case as ("\n", "default", this as (Body | (";", this))?)?
+    let result-cases = []
+    let mutable i = 0
+    while i ~< cases.length, i ~+= 1
+      let case_ = cases[i]
+      let case-nodes = [case_.node-head].concat(case_.node-tail)
+      let mutable body = case_.body
+      let mutable is-fallthrough = false
+      if @is-block(body)
+        let nodes = @nodes(body)
+        let last-node = nodes[nodes.length ~- 1]
+        if @is-ident(last-node) and @name(last-node) == \fallthrough
+          body := nodes.slice(0, ~-1)
+          body := AST $body
+          is-fallthrough := true
+      else if @is-ident(body) and @name(body) == \fallthrough
+        body := []
+        body := AST $body
+        is-fallthrough := true
+      
+      let mutable j = 0
+      while j ~< case-nodes.length ~- 1, j ~+= 1
+        result-cases.push {
+          node: case-nodes[j]
+          body: @noop()
+          fallthrough: true
+        }
+      result-cases.push {
+        node: case-nodes[j]
+        body
+        fallthrough: is-fallthrough
+      }
+    let result = @switch(node, result-cases, default-case)
+    if @expr
+      AST do
+        $result
+    else
+      result
 
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
@@ -1271,7 +1311,7 @@ macro asyncuntil
       $rest
 
 macro asyncif
-  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("\n", "else", this as Body)?, rest as DedentedBody
     
     let mutable current = else-body
     if @empty(else-body)
@@ -1299,7 +1339,7 @@ macro asyncif
         $current
 
 macro asyncunless
-  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, else-ifs as ("else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("else", this as Body)?, rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as Body, else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as Body)*, else-body as ("\n", "else", this as Body)?, rest as DedentedBody
     
     let mutable current = else-body
     if @empty(else-body)

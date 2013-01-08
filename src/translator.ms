@@ -127,10 +127,7 @@ class Scope
     Scope(@options, bound, ^@used-tmps, @helpers, @macro-helpers, @variables, ^@tmps)
 
 let wrap-return(x)
-  if x instanceof ast.Throw
-    x
-  else
-    ast.Return x
+  x.mutate-last ast.Return
 
 let identity(x) -> x
 
@@ -1102,6 +1099,28 @@ let translators = {
       unless current?
         current := ast.Const("")
       auto-return current
+  
+  Switch: #(node, scope, location, auto-return)
+    let t-node = translate node.node, scope, \expression
+    let t-cases = for case_ in node.cases
+      {
+        t-node: translate case_.node, scope, \expression
+        t-body: translate case_.body, scope, \statement
+        case_.fallthrough
+      }
+    let t-default-case = if node.default-case? then translate node.default-case, scope, \statement
+    #
+      let node = t-node()
+      let default-case = if t-default-case? then auto-return t-default-case() else ast.Noop()
+      ast.Switch(
+        node
+        for case_, i, len in t-cases
+          let case-node = case_.t-node()
+          let mutable case-body = case_.t-body()
+          if not case_.fallthrough or (i == len - 1 and default-case.is-noop())
+            case-body := ast.Block [auto-return(case-body), ast.Break()]
+          ast.Switch.Case(case-node, case-body)
+        default-case)
   
   Super: #(node, scope, location, auto-return)
     // TODO: line numbers

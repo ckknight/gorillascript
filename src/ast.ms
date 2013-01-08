@@ -1646,7 +1646,7 @@ exports.Switch := class Switch extends Statement
       this
   
   Switch.Case := class SwitchCase
-    def constructor(node as Expression, body as Node)
+    def constructor(node as Expression, body as Node)@
       @node := node
       @body := body.maybe-to-statement()
     
