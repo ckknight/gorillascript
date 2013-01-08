@@ -350,14 +350,15 @@ let translators = {
                 ast.Access(if i == 0 then set-parent else parent, t-element())
         }
         #(links, link, scope, i, t-current)
-          let make-access = if link.type == \access
+          let make-access = switch link.type
+          case \access
             let t-child = translate link.child, scope, \expression
             #(parent) -> ast.Access parent, t-child()
-          else if link.type == \access-index
+          case \access-index
             unless index-types ownskey link.child.type
               throw Error "Unknown index type: $(link.child.type)"
             index-types[link.child.type](link.child, scope)
-          else
+          default
             throw Error "Unknown link type: $(link.type)"
         
           unless link.existential

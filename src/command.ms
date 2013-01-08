@@ -53,11 +53,10 @@ cli.main #(filenames, options)
         let end-time = Date.now()
         process.stdout.write "$(((end-time - start-time) / 1000_ms).toFixed(3)) seconds\n"
         compiled[filename] := js-code
+      else if options.stdout
+        process.stdout.write monkey.compile(code) & "\n"
       else
-        if options.stdout
-          process.stdout.write monkey.compile(code) & "\n"
-        else
-          monkey.run code, { filename }
+        monkey.run code, { filename }
     
     if options.compile
       asyncfor next, filename in filenames
@@ -78,6 +77,5 @@ cli.main #(filenames, options)
         if err
           cli.error err.to-string()
         next()
-      void // FIXME
   else
     require './repl'

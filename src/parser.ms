@@ -106,12 +106,13 @@ macro one-of!(array, mutator)
     throw Error "Expected a literal array"
   
   let elements = @elements(array)
-  if elements.length == 0
+  switch elements.length
+  case 0
     throw Error "Cannot provide an empty array"
-  else if elements.length == 1
+  case 1
     let rule = elements[0]
     AST mutate! $rule, $mutator
-  else
+  default
     let init = []
     let checks = void
     for rule, i, len in elements
@@ -337,12 +338,12 @@ macro calculate-multiple-name!(name, min-count, max-count)
   if @value(min-count) == 0
     if @value(max-count) == 0
       return AST "$($name)*"
-    else if @value
+    else if @value(max-count) == 1
       return AST "$($name)?"
   else if @value(min-count) == 1
     if @value(max-count) == 0
       return AST "$($name)+"
-    else
+    else if @value(max-count) == 1
       return name
   let ending = @const(if @value(min-count) == @value(max-count)
     "{$(@value min-count)}"
@@ -952,29 +953,25 @@ define RadixInteger = do
   let GetDigits = do
     let digit-cache = []
     #(radix) -> digit-cache[radix] ?= do
-      let digit = if radix == 2
-        BinaryDigit
-      else if radix == 8
-        OctalDigit
-      else if radix == 10
-        DecimalDigit
-      else if radix == 16
-        HexDigit
-      else
-        do
-          let chars = []
-          for i = 0, radix max 10
-            chars[i + "0".char-code-at(0)] := true
-          for i = 10, radix max 36
-            chars[i - 10 + "a".char-code-at(0)] := true
-            chars[i - 10 + "A".char-code-at(0)] := true
-          #(o)
-            let c = o.data.char-code-at(o.index)
-            if chars[c]
-              o.index += 1
-              c
-            else
-              false
+      let digit = switch radix
+      case 2; BinaryDigit
+      case 8; OctalDigit
+      case 10; DecimalDigit
+      case 16; HexDigit
+      default
+        let chars = []
+        for i = 0, radix max 10
+          chars[i + "0".char-code-at(0)] := true
+        for i = 10, radix max 36
+          chars[i - 10 + "a".char-code-at(0)] := true
+          chars[i - 10 + "A".char-code-at(0)] := true
+        #(o)
+          let c = o.data.char-code-at(o.index)
+          if chars[c]
+            o.index += 1
+            c
+          else
+            false
       sequential! [
         [\head, one-or-more! digit]
         [\tail, zero-or-more! sequential! [
@@ -2143,14 +2140,11 @@ define DefineOperator = short-circuit! DefineOperatorStart, in-macro sequential!
       options[pair.key.value] := pair.value.value
   
   let ops = [x.head, ...x.tail]
-  if x.type == \binary
-    o.define-binary-operator i, ops, options, x.body
-  else if x.type == \assign
-    o.define-assign-operator i, ops, options, x.body
-  else if x.type == \unary
-    o.define-unary-operator i, ops, options, x.body
-  else
-    throw Error()
+  switch x.type
+  case \binary; o.define-binary-operator i, ops, options, x.body
+  case \assign; o.define-assign-operator i, ops, options, x.body
+  case \unary; o.define-unary-operator i, ops, options, x.body
+  default; throw Error()
 
 define Nothing = #(o) -> o.nothing o.index
 define ExpressionOrNothing = one-of! [
@@ -2453,26 +2447,27 @@ define BasicInvocationOrAccess = sequential! [
     links.push { type: \access, head.child, head.existential }
   
   for part in tail
-    if part.type in [\proto-access, \proto-access-index]
+    switch part.type
+    case \proto-access, \proto-access-index
       links.push { type: \access, child: o.const(i, \prototype), part.existential }
       let clone = copy(part)
       clone.type := if part.type == \proto-access then \access else \access-index
       links.push clone
-    else if part.type in [\access, \access-index]
+    case \access, \access-index
       links.push part
-    else if part.type == \call
+    case \call
       if is-new and part.is-apply
         o.error "Cannot call with both new and @ at the same time"
       let clone = copy(part)
       clone.is-new := is-new
       is-new := false
       links.push clone
-    else if part.type == "?"
+    case "?"
       if is-new
         links.push { type: \call, args: [], existential: false, is-new: true, is-apply: false }
         is-new := false
       links.push part
-    else
+    default
       o.error "Unknown link type: $(part.type)"
   
   if is-new
@@ -2715,12 +2710,10 @@ define Block = sequential! [
       nodes.push ...item.nodes
     else if item not instanceof NothingNode
       nodes.push item
-  if nodes.length == 0
-    o.nothing i
-  else if nodes.length == 1
-    nodes[0]
-  else
-    o.block i, nodes
+  switch nodes.length
+  case 0; o.nothing i
+  case 1; nodes[0]
+  default; o.block i, nodes
 
 define Root = sequential! [
   maybe! Shebang, true
@@ -3383,36 +3376,34 @@ class State
       @current-macro := null
     @nothing @index
   
+  let macro-syntax-idents = {
+    Logic
+    Expression
+    Statement
+    Body
+    Identifier
+    SimpleAssignable
+    Declarable
+    Parameter
+    ObjectLiteral
+    ArrayLiteral
+    DedentedBody
+  }
+  
+  let macro-syntax-const-literals = {
+    ",": Comma
+    ";": Semicolon
+    "": Nothing
+    "\n": NewlineWithCheckIndent
+  }
+  
   let macro-syntax-types = {
     syntax: #(index, params, body)
       let calc-param(param)@
         if param instanceof IdentNode
-          let ident = param.name
-          if ident == \Logic
-            Logic
-          else if ident == \Expression
-            Expression
-          else if ident == \Statement
-            Statement
-          else if ident == \Body
-            Body
-          else if ident == \Identifier
-            Identifier
-          else if ident == \SimpleAssignable
-            SimpleAssignable
-          else if ident == \Declarable
-            Declarable
-          else if ident == \Parameter
-            Parameter
-          else if ident == \ObjectLiteral
-            ObjectLiteral
-          else if ident == \ArrayLiteral
-            ArrayLiteral
-          else if ident == \DedentedBody
-            DedentedBody
-          else
-            // TODO: add specific index
+          unless macro-syntax-idents ownskey param.name
             @error "Unexpected type ident: $ident"
+          macro-syntax-idents[param.name]
         else if param instanceof SyntaxSequenceNode
           handle-params param.params, []
         else if param instanceof SyntaxChoiceNode
@@ -3422,26 +3413,18 @@ class State
           let string = param.value
           if typeof string != \string
             @error "Expected a constant string parameter, got $(typeof! string)"
-          if string == ","
-            Comma
-          else if string == ";"
-            Semicolon
-          else if string == ""
-            Nothing
-          else if string == "\n"
-            NewlineWithCheckIndent
+          if macro-syntax-const-literals ownskey string
+            macro-syntax-const-literals[string]
           else
             word-or-symbol string
         else if param instanceof SyntaxManyNode
           let multiplier = param.multiplier
           let calced = calc-param param.inner
-          if multiplier == "*"
-            zero-or-more! calced
-          else if multiplier == "+"
-            one-or-more! calced
-          else if multiplier == "?"
-            maybe! calced, #(x, o, i) -> o.nothing(i)
-          else
+          switch multiplier
+          case "*"; zero-or-more! calced
+          case "+"; one-or-more! calced
+          case "?"; maybe! calced, #(x, o, i) -> o.nothing(i)
+          default
             throw Error("Unknown syntax multiplier: $multiplier")
         else
           @error "Unexpected type: $(typeof! param)"
@@ -3453,14 +3436,8 @@ class State
             if typeof string != \string
               @error "Expected a constant string parameter, got $(typeof! string)"
           
-            if string == ","
-              sequence.push Comma
-            else if string == ";"
-              sequence.push Semicolon
-            else if string == ""
-              sequence.push Nothing
-            else if string == "\n"
-              sequence.push NewlineWithCheckIndent
+            if macro-syntax-const-literals ownskey string
+              sequence.push macro-syntax-const-literals[string]
             else
               sequence.push word-or-symbol string
           else if param instanceof SyntaxParamNode
@@ -3622,7 +3599,6 @@ class State
     let macro-helpers = data.macro-helpers
     
     let macros = @macros
-    let mutable macro-id = void
     let mutator = #(x, o, i)
       if _in-ast.peek()
         o.macro-access i, macro-id, x
@@ -3635,16 +3611,17 @@ class State
           o.use-macro i, result, tmps.unsaved, macro-helpers
         else
           result
-    if @current-macro == BINARY_OPERATOR
-      macro-id := macros.add-binary-operator(params, mutator, options)
-    else if @current-macro == ASSIGN_OPERATOR
-      macro-id := macros.add-assign-operator(params, mutator, options)
-    else if @current-macro == UNARY_OPERATOR
-      macro-id := macros.add-unary-operator(params, mutator, options)
-    else
+    let macro-id = switch @current-macro
+    case BINARY_OPERATOR
+      macros.add-binary-operator(params, mutator, options)
+    case ASSIGN_OPERATOR
+      macros.add-assign-operator(params, mutator, options)
+    case UNARY_OPERATOR
+      macros.add-unary-operator(params, mutator, options)
+    default
       let m = macros.get-or-add-by-name @current-macro
       m.data.push sequential! [m.token, [\this, rule]], mutator
-      macro-id := macros.add-macro(mutator)
+      macros.add-macro(mutator)
   
   let BINARY_OPERATOR = freeze {}
   def define-binary-operator(index, operators, options, body)
@@ -3859,22 +3836,19 @@ node-type! \call-chain, head as Node, links as Array, {
 }
 node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
   type: #
-    if @value == null
-      types.null
-    else
-      let type = typeof @value
-      if type == "number"
-        types.number
-      else if type == "string"
-        types.string
-      else if type == "boolean"
-        types.boolean
-      else if type == "undefined"
-        types.undefined
-      else if @value instanceof RegExp
+    let value = @value
+    switch typeof value
+    case \number; types.number
+    case \string; types.string
+    case \boolean; types.boolean
+    case \undefined; types.undefined
+    default
+      if value == null
+        types.null
+      else if value instanceof RegExp
         types.regexp
       else
-        throw Error("Unknown type for $(String @value)")
+        throw Error("Unknown type for $(String value)")
 }
 node-type! \continue
 node-type! \debugger
@@ -4002,25 +3976,27 @@ node-type! \use-macro, node as Node, tmps as Array, macro-helpers as Array, {
 }
 node-type! \yield, node as Node, multiple as Boolean
 
-let unique(array)
+let without-repeats(array)
   let result = []
+  let mutable last-item = void
   for item in array
-    if item not in result
+    if item != last-item
       result.push item
+    else
+      last-item := item
   result
 
 let build-expected(errors)
-  let errs = unique errors
-  errs.sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
-  let len = errs.length
-  if len == 0
+  let errs = without-repeats errors[:].sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
+  switch errs.length
+  case 0
     "End of input"
-  else if len == 1
+  case 1
     errs[0]
-  else if len == 2
+  case 2
     "$(errs[0]) or $(errs[1])"
-  else
-    "$(errs[:len - 1].join ', '), or $(errs[errs.length - 1])"
+  default
+    "$(errs[:-1].join ', ') or $(errs[errs.length - 1])"
 
 let build-error-message(errors, last-token)
   "Expected $(build-expected errors), but $(last-token) found"

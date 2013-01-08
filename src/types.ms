@@ -19,6 +19,8 @@ module.exports := class Type
     false
   
   let union(alpha, bravo)
+    if alpha == bravo
+      return alpha
     let result = []
     let alpha-len = alpha.length
     let bravo-len = bravo.length
@@ -43,15 +45,14 @@ module.exports := class Type
     while j < bravo-len, j += 1
       result.push bravo[j]
     
-    let result-len = result.length
-    if result-len == alpha-len
-      alpha
-    else if result-len == bravo-len
-      bravo
-    else
-      result
+    switch result.length
+    case alpha-len; alpha
+    case bravo-len; bravo
+    default; result
   
   let intersect(alpha, bravo)
+    if alpha == bravo
+      return alpha
     let alpha-len = alpha.length
     let bravo-len = bravo.length
     
@@ -72,18 +73,21 @@ module.exports := class Type
       else
         j += 1
     
-    let result-len = result.length
-    if result-len == alpha-len
-      alpha
-    else if result-len == bravo-len
-      bravo
-    else
-      result
+    switch result.length
+    case alpha-len; alpha
+    case bravo-len; bravo
+    default; result
   
   let relative-complement(alpha, bravo)
+    if alpha == bravo
+      return []
     let result = []
     let alpha-len = alpha.length
+    if alpha-len == 0
+      return result
     let bravo-len = bravo.length
+    if bravo-len == 0
+      return alpha
     let mutable i = 0
     let mutable j = 0
     while i < alpha-len and j < bravo-len
@@ -106,6 +110,8 @@ module.exports := class Type
   
   let is-subset-of(alpha, bravo)
     let alpha-len = alpha.length
+    if alpha-len == 0
+      return true
     let bravo-len = bravo.length
     if alpha-len > bravo-len
       false
@@ -168,12 +174,10 @@ module.exports := class Type
   let type-comparer(a, b) -> a.compare(b)
   
   let make-union-type(types, needs-sort)
-    let len = types.length
-    if len == 0
-      Type.none
-    else if len == 1
-      types[0]
-    else
+    switch types.length
+    case 0; Type.none
+    case 1; types[0]
+    default
       if needs-sort
         types.sort type-comparer
       UnionType(types)
@@ -267,13 +271,12 @@ module.exports := class Type
       if other instanceof ArrayType
         if @equals(other)
           this
+        else if @subtype.is-subset-of(other.subtype)
+          other
+        else if other.subtype.is-subset-of(@subtype)
+          this
         else
-          if @subtype.is-subset-of(other.subtype)
-            other
-          else if other.subtype.is-subset-of(@subtype)
-            this
-          else
-            make-union-type [this, other], true
+          make-union-type [this, other], true
       else if other instanceof SimpleType
         make-union-type [this, other], true
       else
@@ -283,13 +286,12 @@ module.exports := class Type
       if other instanceof ArrayType
         if @equals(other)
           this
+        else if @subtype.is-subset-of(other.subtype)
+          this
+        else if other.subtype.is-subset-of(@subtype)
+          other
         else
-          if @subtype.is-subset-of(other.subtype)
-            this
-          else if other.subtype.is-subset-of(@subtype)
-            other
-          else
-            Type.none.array()
+          Type.none.array()
       else if other instanceof SimpleType
         Type.none
       else

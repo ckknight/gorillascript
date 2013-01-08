@@ -35,30 +35,23 @@ let StringBuilder()
     for i = 0, count
       data.push INDENT
   sb.to-string := #
-    let len = data.length
-    if len == 0
-      ""
-    else if len == 1
-      data[0]
-    else
+    switch data.length
+    case 0; ""
+    case 1; data[0]
+    default
       let text = data.join ""
-      data.splice 0, len, text
+      data.splice 0, data.length, text
       text
   sb
 
 let escape-unicode-helper(m)
   let num = m.char-code-at(0).to-string(16)
-  let len = num.length
-  if len == 1
-    "\\u000$num"
-  else if len == 2
-    "\\u00$num"
-  else if len == 3
-    "\\u0$num"
-  else if len == 4
-    "\\u$num"
-  else
-    throw Error()
+  switch num.length
+  case 1; "\\u000$num"
+  case 2; "\\u00$num"
+  case 3; "\\u0$num"
+  case 4; "\\u$num"
+  default; throw Error()
 
 let escape-unicode(text)
   text.replace r'[\u0000-\u001f\u0080-\uffff]'g, escape-unicode-helper
@@ -271,22 +264,16 @@ exports.Arr := class Arr extends Expression
   def type() -> types.array
   
   def should-compile-large()
-    let len = @elements.length
-    if len == 0
-      false
-    else if len == 1
-      @elements[0].is-large()
-    else
-      @is-large()
+    switch @elements.length
+    case 0; false
+    case 1; @elements[0].is-large()
+    default; @is-large()
   
   def is-small()
-    let len = @elements.length
-    if len == 0
-      true
-    else if len == 1
-      @elements[0].is-small()
-    else
-      false
+    switch @elements.length
+    case 0; true
+    case 1; @elements[0].is-small()
+    default; false
   
   def is-large()
     @_is-large ?= @elements.length > 4 or for some element in @elements
@@ -631,10 +618,9 @@ exports.BlockStatement := class BlockStatement extends Statement
           result.push statement
         if statement.exit-type()?
           break
-    if result.length == 0
-      return Noop()
-    else if result.length == 1
-      return result[0]
+    switch result.length
+    case 0; return Noop()
+    case 1; return result[0]
     @body := result
   
   def compile(options, level, line-start, sb)!
@@ -679,10 +665,9 @@ exports.BlockExpression := class BlockExpression extends Expression
             result.pop()
         else if item not instanceof Noop
           result.push item
-    if result.length == 0
-      return Noop()
-    else if result.length == 1
-      return result[0]
+    switch result.length
+    case 0; return Noop()
+    case 1; return result[0]
     @body := result
   
   def to-statement() -> BlockStatement @body
@@ -691,22 +676,15 @@ exports.BlockExpression := class BlockExpression extends Expression
     if level == Level.block
       @to-statement().compile options, level, line-start, sb
     else
-      let body = @body
-      let len = body.length
-      if len == 0
-        Const(void).compile options, level, line-start, sb
-      else if len == 1
-        body[0].compile options, level, line-start, sb
-      else
-        let wrap = level > Level.inside-parentheses
-        if wrap
-          sb "("
-        for item, i in body
-          if i > 0
-            sb ", "
-          item.compile options, Level.sequence, false, sb
-        if wrap
-          sb ")"
+      let wrap = level > Level.inside-parentheses
+      if wrap
+        sb "("
+      for item, i in @body
+        if i > 0
+          sb ", "
+        item.compile options, Level.sequence, false, sb
+      if wrap
+        sb ")"
   
   def type()
     let body = @body
@@ -727,9 +705,7 @@ let Block = exports.Block := #(body as [Node] = [])
   if body.length == 0
     Noop()
   else
-    let all-expressions = for every item in body
-      item instanceof Expression
-    if all-expressions
+    if (for every item in body; item instanceof Expression)
       BlockExpression body
     else
       BlockStatement body
@@ -869,12 +845,12 @@ exports.Call := class Call extends Expression
   def is-small()
     @_is-small ?= if not @func.is-small()
       false
-    else if @args.length == 0
-      true
-    else if @args.length == 1
-      @args[0].is-small()
     else
-      false
+      do // FIXME
+        switch @args.length
+        case 0; true
+        case 1; @args[0].is-small()
+        default; false
   
   def walk(walker)
     let func = walker(@func) ? @func.walk(walker)
@@ -938,8 +914,7 @@ let to-const(value)
     Arr (for item in value
       to-const item)
   else if value and typeof value == "object" and value not instanceof RegExp
-    Obj (for k, v of value
-      Obj.Pair k, to-const v)
+    Obj (for k, v of value; Obj.Pair k, to-const v)
   else
     Const value
 
@@ -962,21 +937,18 @@ exports.Const := class Const extends Expression
   
   def type()
     let value = @value
-    let type = typeof value
-    if type == "undefined"
-      types.undefined
-    else if type == "boolean"
-      types.boolean
-    else if type == "number"
-      types.number
-    else if type == "string"
-      types.string
-    else if value == null
-      types.null
-    else if value instanceof RegExp
-      types.regexp
-    else
-      throw Error "Unknown value type: $type"
+    switch typeof value
+    case \undefined; types.undefined
+    case \boolean; types.boolean
+    case \number; types.number
+    case \string; types.string
+    default
+      if value == null
+        types.null
+      else if value instanceof RegExp
+        types.regexp
+      else
+        throw Error "Unknown value type: $type"
   
   def walk() -> this
 
@@ -1006,6 +978,8 @@ exports.DoWhile := class DoWhile extends Statement
   def constructor(body as Node, test as Expression)@
     @body := body.maybe-to-statement()
     @test := test
+    if test.is-const() and not test.const-value()
+      return @body
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
@@ -1056,6 +1030,8 @@ exports.Eval := class Eval extends Expression
 
 exports.For := class For extends Statement
   def constructor(init as Expression = Noop(), test as Expression = Const(true), step as Expression = Noop(), body as Node)@
+    if test.is-const() and not test.const-value()
+      return init
     @init := init
     @test := test
     @step := step
@@ -1464,22 +1440,17 @@ exports.Obj := class Obj extends Expression
   def type() -> types.object
   
   def should-compile-large()
-    let len = @elements.length
-    if len == 0
-      false
-    else if len == 1
-      @elements[0].is-large()
-    else
-      @is-large()
+    switch @elements.length
+    case 0; false
+    case 1; @elements[0].is-large()
+    default; @is-large()
   
   def is-small()
-    let len = @elements.length
-    if len == 0
-      true
-    else if len == 1
-      @elements[0].is-small()
-    else
-      false
+    switch @elements.length
+    case 0; true
+    case 1; @elements[0].is-small()
+    default; false
+  
   def is-large()
     @_is-large ?= @elements.length > 4 or for some element in @elements
       not element.is-small()
@@ -1631,7 +1602,7 @@ exports.Switch := class Switch extends Statement
       sb.indent options.indent
       sb "default:\n"
       sb.indent child-options.indent
-      @default-case.compile-as-statement options, true, sb
+      @default-case.compile-as-statement child-options, true, sb
     sb "\n"
     sb.indent options.indent
     sb "}"
@@ -1833,11 +1804,12 @@ exports.Unary := class Unary extends Expression
         else if x instanceof Binary
           if BINARY_INVERTABLE ownskey x.op
             let invert = BINARY_INVERTABLE[x.op]
-            if typeof invert == "function"
+            switch typeof invert
+            case \function
               invert x.left, x.right
-            else if typeof invert == "string"
+            case \string
               Binary x.left, invert, x.right
-            else
+            default
               throw Error()
   }
   
