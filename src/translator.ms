@@ -134,7 +134,21 @@ let identity(x) -> x
 
 let make-auto-return(x) -> if x then wrap-return else identity
 
-let HELPERS = {}
+let HELPERS = new class Helpers
+  def constructor()@
+    @data := {}
+  
+  def add(name as String, value as ast.Expression)
+    @data[name] := value
+  
+  def has(name as String)
+    @data ownskey name
+  
+  def get(name as String)
+    if @data ownskey name
+      @data[name]
+    else
+      throw Error "No such helper: $name"
 
 let wrap-in-function-call(node)
   // TODO: the translator shouldn't be making parser.Nodes
@@ -514,9 +528,8 @@ let translators = {
     unless ident instanceof ast.Ident
       throw Error "Expected name to be an Ident, got $(typeof! ident)"
     let value = translate(node.value, scope, \expression)()
-    HELPERS[ident.name] := #-> value
-    KNOWN_HELPERS.push(ident.name)
-    #-> ast.BlockExpression()
+    HELPERS.add(ident.name, value)
+    #-> ast.Noop()
   
   Eval: #(node, scope, location, auto-return)
     let t-code = translate node.code, scope, \expression
@@ -851,6 +864,39 @@ let translators = {
         throw Error "Unknown parameter type: $(type)"
       translate-param-types[type](param, scope, inner)
     
+    let translate-type = do
+      let translate-types = {
+        Ident: do
+          let primordial-types = {
+            String: types.string
+            Number: types.number
+            Boolean: types.boolean
+            Function: types.function
+            Array: types.array
+          }
+          #(node, scope)
+            unless primordial-types ownskey node.name
+              throw Error "Not implemented: custom type $(node.name)"
+            primordial-types[node.name]
+        Const: #(node, scope)
+          switch node.value
+          case null; types.null
+          case void; types.undefined
+          default
+            throw Error "Unexpected const type: $(String node.value)"
+        TypeArray: #(node, scope)
+          translate-type(node.subtype, scope).array()
+        TypeUnion: #(node, scope)
+          let mutable current = types.none
+          for type in node.types
+            current := current.union(translate-type(type))
+          current
+      }
+      #(node, scope)
+        unless translate-types ownskey node.constructor.capped-name
+          throw Error "Unknown type to translate: $(String node.constructor.capped-name)"
+        translate-types[node.constructor.capped-name](node, scope)
+    
     #(node, scope, location, auto-return) -> #
       let inner-scope = scope.clone(node.bound)
       let param-idents = []
@@ -924,7 +970,8 @@ let translators = {
           body.unshift ast.Assign fake-this, ast.This()
       if inner-scope.has-stop-iteration
         scope.has-stop-iteration := true
-      let func = ast.Func null, param-idents, inner-scope.get-variables(), body
+      let as-type = if node.as-type? then translate-type(node.as-type, scope)
+      let func = ast.Func null, param-idents, inner-scope.get-variables(), body, [], { as-type }
       auto-return func
   
   Ident: #(node, scope, location, auto-return)
@@ -1048,10 +1095,10 @@ let translators = {
         scope.add-variable fake-this
         init.push ast.Assign fake-this, ast.This()
       for helper in scope.get-helpers()
-        if HELPERS ownskey helper
+        if HELPERS.has(helper)
           let ident = ast.Ident(helper)
           scope.add-variable ident
-          init.push ast.Assign ident, HELPERS[helper]()
+          init.push ast.Assign ident, HELPERS.get(helper)
       
       let bare-init = []
       if scope.has-stop-iteration
@@ -1229,4 +1276,4 @@ module.exports := #(node, options = {})
     macro-helpers: []
   }
 
-let KNOWN_HELPERS = module.exports.known-helpers := []
+module.exports.helpers := HELPERS

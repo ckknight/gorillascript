@@ -185,19 +185,19 @@ define operator assign ~&=
 define operator unary throw
   @throw node
 
-define helper __num = #(num)
+define helper __num = #(num) as Number
   if typeof num != "number"
     throw TypeError("Expected a number, got " ~& typeof num)
   else
     num
 
-define helper __str = #(str)
+define helper __str = #(str) as String
   if typeof str != "string"
     throw TypeError("Expected a string, got " ~& typeof str)
   else
     str
 
-define helper __strnum = #(strnum)
+define helper __strnum = #(strnum) as String
   let type = typeof strnum
   if type == "string"
     strnum
@@ -269,7 +269,7 @@ define operator assign &=
 
 define helper __in = do
   let index-of = Array.prototype.index-of
-  #(child, parent) -> index-of@(parent, child) != -1
+  #(child, parent) as Boolean -> index-of@(parent, child) != -1
 
 define operator binary in with precedence: 3, maximum: 1, invertible: true
   let result = if @is-array(right)
@@ -310,7 +310,7 @@ define operator binary haskey with precedence: 3, maximum: 1, invertible: true
 
 define helper __owns = do
   let has = Object.prototype.has-own-property
-  #(parent, child) -> has@(parent, child)
+  #(parent, child) as Boolean -> has@(parent, child)
 
 define operator binary ownskey with precedence: 3, maximum: 1, invertible: true
   let result = AST __owns($left, $right)
@@ -326,7 +326,7 @@ define operator binary instanceof with precedence: 3, maximum: 1, invertible: tr
   else
     result
 
-define helper __cmp = #(left, right)
+define helper __cmp = #(left, right) as Number
   if left == right
     0
   else
@@ -570,7 +570,7 @@ macro with
       AST #!-> $body
     AST $func@($node)
 
-define helper __lt = #(x, y)
+define helper __lt = #(x, y) as Boolean
   let type = typeof x
   if type not in ["number", "string"]
     throw TypeError("Cannot compare a non-number/string: " ~& type)
@@ -579,7 +579,7 @@ define helper __lt = #(x, y)
   else
     x ~< y
 
-define helper __lte = #(x, y)
+define helper __lte = #(x, y) as Boolean
   let type = typeof x
   if type not in ["number", "string"]
     throw TypeError("Cannot compare a non-number/string: " ~& type)
@@ -590,11 +590,11 @@ define helper __lte = #(x, y)
 
 define helper __slice = do
   let slice = Array.prototype.slice
-  #(array, start, end) -> slice@(array, start, end)
+  #(array, start, end) as Array -> slice@(array, start, end)
 
 define helper __splice = do
   let splice = Array.prototype.splice
-  #(array, mutable start, mutable end, right)
+  #(array, mutable start, mutable end, right) as Array
     let len = array.length
     if start ~< 0
       start ~+= len
@@ -605,7 +605,7 @@ define helper __splice = do
 
 define helper __typeof = do
   let _to-string = Object.prototype.to-string
-  #(o)
+  #(o) as String
     if o == undefined
       "Undefined"
     else if o == null
@@ -628,9 +628,9 @@ define helper __is-array = if typeof Array.is-array == "function"
 else
   do
     let _to-string = Object.prototype.to-string
-    #(x) -> _to-string@(x) == "[object Array]"
+    #(x) as Boolean -> _to-string@(x) == "[object Array]"
 
-define helper __to-array = #(x)
+define helper __to-array = #(x) as Array
   if __is-array(x)
     x
   else
@@ -1104,13 +1104,13 @@ macro until
 define helper __keys = if typeof Object.keys == "function"
   Object.keys
 else
-  #(x)
+  #(x) as [String]
     let keys = []
     for key of x
       keys.push key
     keys
 
-define helper __allkeys = #(x)
+define helper __allkeys = #(x) as [String]
   let keys = []
   for key ofall x
     keys.push key
@@ -1132,7 +1132,7 @@ define helper __new = do
       new-creators[length] := creator
     creator(Ctor, args)
 
-define helper __instanceofsome = #(value, array)
+define helper __instanceofsome = #(value, array) as Boolean
   for some item in array
     value instanceof item
 

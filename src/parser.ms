@@ -1947,10 +1947,11 @@ define FunctionBody = one-of! [
 
 define FunctionDeclaration = sequential! [
   [\params, maybe! ParameterSequence, #-> []]
+  [\as-type, MaybeAsType]
   [\auto-return, maybe! character!("!"), NOTHING]
   [\bound, maybe! AtSign, NOTHING]
   [\body, FunctionBody]
-], #(x, o, i) -> o.function i, x.params, x.body, x.auto-return == NOTHING, x.bound != NOTHING
+], #(x, o, i) -> o.function i, x.params, x.body, x.auto-return == NOTHING, x.bound != NOTHING, if x.as-type != NOTHING then x.as-type
 
 define FunctionLiteral = short-circuit! HashSign, sequential! [
   HashSign
@@ -3884,6 +3885,109 @@ node-type! \block, nodes as [Node], {
 }
 node-type! \break
 node-type! \call-chain, head as Node, links as Array, {
+  type: do
+    let PRIMORDIAL_FUNCTIONS = {
+      Object: types.object
+      String: types.string
+      Number: types.number
+      Boolean: types.boolean
+      Function: types.function
+      Array: types.array
+      escape: types.string
+      unescape: types.string
+      parseInt: types.number
+      parseFloat: types.number
+      isNaN: types.boolean
+      isFinite: types.boolean
+      decodeURI: types.string
+      decodeURIComponent: types.string
+      encodeURI: types.string
+      encodeURIComponent: types.string
+    }
+    let PRIMORDIAL_SUBFUNCTIONS = {
+      Object: {
+        getPrototypeOf: types.object
+        getOwnPropertyDescriptor: types.object
+        getOwnPropertyNames: types.string.array()
+        create: types.object
+        defineProperty: types.object
+        defineProperties: types.object
+        seal: types.object
+        freeze: types.object
+        preventExtensions: types.object
+        isSealed: types.boolean
+        isFrozen: types.boolean
+        isExtensible: types.boolean
+        keys: types.string.array()
+      }
+      String: {
+        fromCharCode: types.string
+      }
+      Number: {
+        isFinite: types.boolean
+        isNaN: types.boolean
+      }
+      Array: {
+        isArray: types.boolean
+      }
+      Math: {
+        abs: types.number
+        acos: types.number
+        asin: types.number
+        atan: types.number
+        atan2: types.number
+        ceil: types.number
+        cos: types.number
+        exp: types.number
+        floor: types.number
+        log: types.number
+        max: types.number
+        min: types.number
+        pow: types.number
+        random: types.number
+        round: types.number
+        sin: types.number
+        sqrt: types.number
+        tan: types.number
+      }
+      JSON: {
+        stringify: types.string.union(types.undefined)
+        parse: types.string.union(types.number).union(types.boolean).union(types.null).union(types.array).union(types.object)
+      }
+    }
+    let helper-type-cache = {}
+    let calculate-type(node)  
+      let ast = require('./ast')
+      let last = node.last()
+      if last instanceof ast.Func
+        last.meta?.as-type ? types.any
+      else if last instanceof ast.Return
+        calculate-type(last.node)
+      else if last instanceof ast.Call and last.func instanceof ast.Func
+        calculate-type(last.func.body[last.func.body.length - 1])
+      else
+        types.any
+    #-> @_type ?= do
+      let head = @head
+      let links = @links
+      if head instanceof IdentNode
+        let name = head.name
+        if links.length == 1 and links[0].type == \call and not links[0].existential
+          if name.substring(0, 2) == "__"
+            let helpers = require('./translator').helpers
+            if helpers.has name
+              if helper-type-cache ownskey name
+                return helper-type-cache[name]
+              else
+                let type = calculate-type(helpers.get(name))
+                if type?
+                  return (helper-type-cache[name] := type)
+          else if PRIMORDIAL_FUNCTIONS ownskey name
+            return PRIMORDIAL_FUNCTIONS[head.name]
+        else if links.length == 2 and links[0].type == \access and not links[0].existential and links[1].type == \call and not links[1].existential and links[0].child instanceof ConstNode
+          if PRIMORDIAL_SUBFUNCTIONS ownskey name and PRIMORDIAL_SUBFUNCTIONS[name] ownskey links[0].child.value
+            return PRIMORDIAL_SUBFUNCTIONS[name][links[0].child.value]
+      types.any
   walk: do
     let link-types = {
       access: #(link, func)
@@ -4000,8 +4104,16 @@ node-type! \define-helper, name as Node, value as Node
 node-type! \eval, code as Node
 node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node
 node-type! \for-in, key as Node, object as Node, body as Node
-node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, {
+node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), {
   type: # -> types.function
+  walk: #(func)
+    let params = map @params, func
+    let body = func @body
+    let as-type = if @as-type? then func @as-type else @as-type
+    if params != @params or body != @body or as-type != @as-type
+      FunctionNode @start-index, @end-index, params, body, @auto-return, @bound, @as-type
+    else
+      this
 }
 node-type! \ident, name as String
 node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0), {

@@ -190,6 +190,7 @@ exports.Node := class Node
   def mutate-last() -> this
   
   def exit-type() -> null
+  def last() -> this
 
 exports.Expression := class Expression extends Node
   def constructor()@
@@ -650,17 +651,17 @@ exports.BlockStatement := class BlockStatement extends Statement
       this
   
   def mutate-last(func, include-noop)
-    let mutable body = @body
-    let last = body[body.length - 1]
+    let last = @last()
     let new-last = last.mutate-last(func, include-noop)
     if last != new-last
-      body := body[:body.length - 1]
+      let body = @body[:-1]
       body.push new-last
       Block body
     else
       this
   
-  def exit-type() -> @body[@body.length - 1].exit-type()
+  def exit-type() -> @last().exit-type()
+  def last() -> @body[@body.length - 1]
 
 exports.BlockExpression := class BlockExpression extends Expression
   def constructor(body as [Expression] = [])@
@@ -695,12 +696,7 @@ exports.BlockExpression := class BlockExpression extends Expression
       if wrap
         sb ")"
   
-  def type()
-    let body = @body
-    if body.length == 0
-      types.undefined
-    else
-      body[body.length - 1].type()
+  def type() -> @last().type()
   
   def is-large()
     @_is-large ?= @body.length > 4 or for some part in @body
@@ -709,6 +705,7 @@ exports.BlockExpression := class BlockExpression extends Expression
   def is-small() -> false
   
   def walk = BlockStatement::walk
+  def last() -> @body[@body.length - 1]
 
 let Block = exports.Block := #(body as [Node] = [])
   if body.length == 0
@@ -1162,7 +1159,7 @@ let compile-func(options, sb, name, params, declarations, variables, body)
   sb "}"
 
 exports.Func := class Func extends Expression
-  def constructor(name as (null|Ident), params as [Ident] = [], variables as [String] = [], body as [Node] = [], declarations as [String] = [])@
+  def constructor(name as (null|Ident), params as [Ident] = [], variables as [String] = [], body as [Node] = [], declarations as [String] = [], meta)@
     validate-func-params-and-variables params, variables
     @name := name
     @params := params
@@ -1178,6 +1175,7 @@ exports.Func := class Func extends Expression
         if statement.exit-type()?
           break
     @declarations := declarations
+    @meta := meta
   
   def compile(options, level, line-start, sb)!
     let wrap = line-start and not @name
@@ -1201,7 +1199,7 @@ exports.Func := class Func extends Expression
     let params = walk-array(@params, walker)
     let body = walk-array(@body, walker)
     if name != @name or params != @params or body != @body
-      Func name, params, @variables, body, @declarations
+      Func name, params, @variables, body, @declarations, @meta
     else
       this
 
@@ -1553,7 +1551,8 @@ exports.Root := class Root
     else
       this
   
-  def exit-type() -> @body[@body.length - 1].exit-type()
+  def exit-type() -> @last().exit-type()
+  def last() -> @body[@body.length - 1]
 
 exports.This := class This extends Expression
   def constructor()@ ->
