@@ -3893,6 +3893,14 @@ node-type! \call-chain, head as Node, links as Array, {
       Boolean: types.boolean
       Function: types.function
       Array: types.array
+      Date: types.string
+      RegExp: types.regexp
+      Error: types.error
+      RangeError: types.error
+      ReferenceError: types.error
+      SyntaxError: types.error
+      TypeError: types.error
+      URIError: types.error
       escape: types.string
       unescape: types.string
       parseInt: types.number
@@ -3953,6 +3961,97 @@ node-type! \call-chain, head as Node, links as Array, {
       JSON: {
         stringify: types.string.union(types.undefined)
         parse: types.string.union(types.number).union(types.boolean).union(types.null).union(types.array).union(types.object)
+      }
+      Date: {
+        UTC: types.number
+        now: types.number
+      }
+    }
+    let PRIMORDIAL_METHODS = {
+      String: {
+        toString: types.string
+        valueOf: types.string
+        charAt: types.string
+        charCodeAt: types.number
+        concat: types.string
+        indexOf: types.number
+        lastIndexOf: types.number
+        localeCompare: types.number
+        match: types.array.union(types.null)
+        replace: types.string
+        search: types.number
+        slice: types.string
+        split: types.string.array()
+        substring: types.string
+        toLowerCase: types.string
+        toLocaleLowerCase: types.string
+        toUpperCase: types.string
+        toLocaleUpperCase: types.string
+        trim: types.string
+      }
+      Boolean: {
+        toString: types.string
+        valueOf: types.boolean
+      }
+      Number: {
+        toString: types.string
+        valueOf: types.number
+        toLocaleString: types.string
+        toFixed: types.string
+        toExponential: types.string
+        toPrecision: types.string
+      }
+      Date: {
+        toString: types.string
+        toDateString: types.string
+        toTimeString: types.string
+        toLocaleString: types.string
+        toLocaleDateString: types.string
+        toLocaleTimeString: types.string
+        valueOf: types.number
+        getTime: types.number
+        getFullYear: types.number
+        getUTCFullYear: types.number
+        getMonth: types.number
+        getUTCMonth: types.number
+        getDate: types.number
+        getUTCDate: types.number
+        getDay: types.number
+        getUTCDay: types.number
+        getHours: types.number
+        getUTCHours: types.number
+        getMinutes: types.number
+        getUTCMinutes: types.number
+        getSeconds: types.number
+        getUTCSeconds: types.number
+        getMilliseconds: types.number
+        getUTCMilliseconds: types.number
+        getTimezoneOffset: types.number
+        setTime: types.number
+        setMilliseconds: types.number
+        setUTCMilliseconds: types.number
+        setSeconds: types.number
+        setUTCSeconds: types.number
+        setMinutes: types.number
+        setUTCMinutes: types.number
+        setHours: types.number
+        setUTCHours: types.number
+        setDate: types.number
+        setUTCDate: types.number
+        setMonth: types.number
+        setUTCMonth: types.number
+        setFullYear: types.number
+        setUTCFullYear: types.number
+        toUTCString: types.string
+        toISOString: types.string
+        toJSON: types.string
+      }
+      RegExp: {
+        test: types.boolean
+        toString: types.string
+      }
+      Error: {
+        toString: types.string
       }
     }
     let helper-type-cache = {}
