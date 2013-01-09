@@ -1076,7 +1076,7 @@ let translators = {
     let t-body = translate node.body, scope, \top-statement, scope.options.return or scope.options.eval
 
     #
-      let body = t-body()
+      let mutable body = t-body()
       let init = []
       if scope.has-bound and scope.used-this
         let fake-this = ast.Ident(\_this)
@@ -1118,6 +1118,13 @@ let translators = {
           scope.get-variables()
           ["use strict"])
       else
+        if scope.options.eval
+          let walker = #(node)
+            if node instanceof ast.Func
+              node
+            else if node instanceof ast.Binary and node.op == "=" and node.left instanceof ast.Ident
+              ast.Assign ast.Access(ast.Ident("GLOBAL"), node.left.name), node.walk walker
+          body := body.walk walker
         let mutable call-func = ast.Call(
           ast.Access(
             ast.Func(
