@@ -1238,7 +1238,7 @@ macro require!
       AST let $ident = require $name
     else
       let ident = name
-      let path = @const @name name
+      let path = @name name
       AST let $ident = require $path
 
 macro asyncfor
@@ -1494,7 +1494,7 @@ macro class
     else
       name := @tmp \class
     
-    let has-superclass-const = @const not @empty(superclass)
+    let has-superclass = not @empty(superclass)
     let sup = if @empty(superclass) then superclass else @tmp \super
     let init = []
     let superproto = if @empty(superclass) then AST Object.prototype else @tmp \superproto
@@ -1608,7 +1608,7 @@ macro class
             let $result = $ctor@ $self, ...arguments
             if Object($result) == $result
               return $result
-          else if $has-superclass-const
+          else if $has-superclass
             let $result = $sup@ $self, ...arguments
             if Object($result) == $result
               return $result
@@ -1686,7 +1686,7 @@ macro enum
           throw Error "Cannot have non-const enum keys"
         if @empty value
           index ~+= 1
-          value := @const index
+          value := index
         AST this[$key] := $value
       else
         node

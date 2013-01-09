@@ -79,7 +79,7 @@ macro mutate!(rule, mutator)
     let init = []
     rule := @cache rule, init, \rule, true
     mutator := @cache mutator, init, \mutator, true
-    let unknown-name = @const(if @is-ident(rule) then @name(rule) else "<unknown>")
+    let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
     let result = AST named($rule?.parser-name or $unknown-name, #(o)
       let index = o.index
       let result = $rule o
@@ -236,7 +236,6 @@ macro sequential!(array, mutator)
       code := check
     else
       code := AST $code and $check
-  has-this := @const(has-this)
   
   let result = if has-result
     AST mutate! (#(o)
@@ -270,7 +269,7 @@ macro maybe!(rule, missing-value, found-value)
   missing-value := @cache missing-value, init, \missing, true
   found-value := @cache found-value, init, \found, true
   
-  let unknown-name = @const(if @is-ident(rule) then @name(rule) else "<unknown>")
+  let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
   
   let result = AST named(($rule?.parser-name or $unknown-name) & "?", #(o)
     let index = o.index
@@ -301,7 +300,7 @@ macro except!(rule)
   let init = []
   rule := @cache rule, init, \rule, true
   
-  let unknown-name = @const(if @is-ident(rule) then @name(rule) else "<unknown>")
+  let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
   let result = AST named("!" & ($rule?.parser-name or $unknown-name), #(o)
     not $rule o.clone())
   if init.length
@@ -324,7 +323,7 @@ macro short-circuit!(expected, backend)
   expected := @cache expected, init, \expected, true
   backend := @cache backend, init, \backend, true
   
-  let unknown-name = @const(if @is-ident(backend) then @name(backend) else "<unknown>")
+  let unknown-name = if @is-ident(backend) then @name(backend) else "<unknown>"
   let result = AST named($backend?.parser-name or $unknown-name, #(o)
     if not $expected(o.clone())
       false
@@ -356,10 +355,10 @@ macro calculate-multiple-name!(name, min-count, max-count)
       return AST "$($name)+"
     else if @value(max-count) == 1
       return name
-  let ending = @const(if @value(min-count) == @value(max-count)
+  let ending = if @value(min-count) == @value(max-count)
     "{$(@value min-count)}"
   else
-    "{$(@value min-count),$(@value max-count)}")
+    "{$(@value min-count),$(@value max-count)}"
   if @value(min-count) == @value(max-count)
     AST "$($name)$($ending)"
   else
@@ -378,7 +377,7 @@ macro multiple!(min-count, max-count, rule, mutator)
   else
     let init = []
     rule := @cache rule, init, \rule, true
-    let unknown-name = @const(if @is-ident(rule) then @name(rule) else "<unknown>")
+    let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
     let result = AST mutate! named(calculate-multiple-name!($rule?.parser-name or $unknown-name, $min-count, $max-count), #(o)
       let clone = o.clone()
       let result = []
@@ -505,10 +504,10 @@ macro character!(chars, name)
   if has-uncommon
     current := AST if c ~< 128 then $current else $uncommon-current
   if chunks.length == 1 and chunks[0].start == chunks[0].end
-    let code = @const chunks[0].start
+    let code = chunks[0].start
     if @empty(name)
       let ch = String.from-char-code chunks[0].start
-      name := @const if ch == '"' then "'\"'" else (JSON.stringify ch)
+      name := if ch == '"' then "'\"'" else (JSON.stringify ch)
     AST
       named $name, #(o)
         if C(o.data, o.index) == $code
@@ -533,7 +532,7 @@ macro character!(chars, name)
             name.push "\\"
           name.push end
       name.push "]"
-      name := @const name.join ""
+      name := name.join ""
     AST
       named $name, #(o)
         let c = C(o.data, o.index)
@@ -611,7 +610,7 @@ let wrap(func, name = get-func-name(func))
 
 macro define
   syntax name as Identifier, "=", value
-    let name-str = @const @name(name)
+    let name-str = @name(name)
     AST let $name = cache named $name-str, $value
 
 class Stack
@@ -4226,7 +4225,7 @@ macro node-type!
         let mutable walk-args = []
         for arg in args
           let ident = @param-ident arg
-          let key = @const(@name(ident))
+          let key = @name(ident)
           if @is-ident(@param-type(arg)) and @name(@param-type(arg)) == \Node
             walk-init.push AST let $ident = f this[$key]
             walk-check := AST $walk-check or $ident != this[$key]
@@ -4250,7 +4249,6 @@ macro node-type!
       
     let func = @func params, AST $body, false, true
     arg-names := @array arg-names
-    capped-name := @const capped-name
     AST Node[$capped-name] := class $type extends Node
       def constructor = $func
       @capped-name := $capped-name
