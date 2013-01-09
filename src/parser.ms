@@ -407,65 +407,67 @@ macro one-or-more!(rule, mutator) -> AST multiple! 1, 0, $rule, $mutator
 macro zero-or-more-of!(array, mutator) -> AST zero-or-more! (one-of! $array), $mutator
 macro one-or-more-of!(array, mutator) -> AST one-or-more! (one-of! $array), $mutator
 
-macro character!(chars)
-  if not @is-const(chars) or typeof @value(chars) != \string
-    throw Error "Must provide a literal string"
+macro character!(chars, name)
+  if @is-const(chars)
+    if typeof @value(chars) != \string
+      throw Error "Must provide a literal array or string"
+  else if not @is-array(chars)
+    throw Error "Must provide a literal array or string"
   chars := @value(chars)
-  if chars.length == 1
-    let code = @const C(chars)
-    let ch = chars.char-at 0
-    let name = @const if ch == '"' then "'\"'" else (JSON.stringify ch)
+  let codes = []
+  for i = 0, chars.length
+    codes.push C(chars, i)
+  codes.sort #(x, y) -> x <=> y
+  let chunks = []
+  let mutable current-start = void
+  let mutable current-end = void
+  for code in codes
+    if not current-start?
+      current-start := code
+      current-end := code
+    else if code == current-end + 1
+      current-end := code
+    else
+      chunks.push {
+        start: current-start
+        end: current-end
+      }
+      current-start := code
+      current-end := code
+  chunks.push {
+    start: current-start
+    end: current-end
+  }
+  
+  let mutable current = AST false
+  for chunk in chunks
+    let start = chunk.start
+    let end = chunk.end
+    let start-const = @const(start)
+    let end-const = @const(end)
+    let test = if start == end
+      AST c == $start-const
+    else if end == start + 1
+      AST c == $start-const or c == $end-const
+    else
+      AST c ~>= $start-const and c ~<= $end-const
+    current := AST $current or $test
+  if chunks.length == 1 and chunks[0].start == chunks[0].end
+    let code = @const chunks[0].start
+    if @empty(name)
+      let ch = String.from-char-code chunks[0].start
+      name := @const if ch == '"' then "'\"'" else (JSON.stringify ch)
     AST
       named $name, #(o)
-        let c = C(o.data, o.index)
-        if c == $code
+        if C(o.data, o.index) == $code
           o.index += 1
-          c
+          $code
         else
           o.fail $name
           false
   else
-    let name = @const "[$((JSON.stringify chars).slice(1, -1))]"
-    let codes = []
-    for i = 0, chars.length
-      codes.push C(chars, i)
-    codes.sort #(x, y) -> x <=> y
-    let chunks = []
-    let mutable current-start = void
-    let mutable current-end = void
-    for code in codes
-      if not current-start?
-        current-start := code
-        current-end := code
-      else if code == current-end + 1
-        current-end := code
-      else
-        chunks.push {
-          start: current-start
-          end: current-end
-        }
-        current-start := code
-        current-end := code
-    chunks.push {
-      start: current-start
-      end: current-end
-    }
-    let mutable current = void
-    for chunk in chunks
-      let start = chunk.start
-      let end = chunk.end
-      let start-const = @const(start)
-      let end-const = @const(end)
-      let test = if start == end
-        AST c == $start-const
-      else if end == start + 1
-        AST c == $start-const or c == $end-const
-      else
-        AST c ~>= $start-const and c ~<= $end-const
-      if current?
-        current := AST $current or $test
-      else
-        current := test
+    if @empty(name)
+      name := @const "[$((JSON.stringify chars).slice(1, -1))]"
     AST
       named $name, #(o)
         let c = C(o.data, o.index)
@@ -665,12 +667,6 @@ define EmptyLine = SpaceNewline
 define EmptyLines = zero-or-more! EmptyLine, true
 define SomeEmptyLines = one-or-more! EmptyLine, true
 
-define Shebang = sequential! [
-  character! "#"
-  character! "!"
-  zero-or-more! any-except! Newline
-], true
-
 let INDENTS = {
   (C "\t"): 4
   (C " "): 1
@@ -720,29 +716,23 @@ let PopIndent = named \PopIndent, #(o)
   else
     o.error "Unexpected dedent"
 
-let withSpace(func)
-  if typeof func != \function
-    throw TypeError "Expected a function, got $(typeof! func)"
-  
-  sequential! [
+macro with-space!(rule)
+  AST sequential! [
     Space
-    [\this, func]
+    [\this, $rule]
   ]
-
+  
 define Zero = character! "0"
 define DecimalDigit = character! "0123456789"
 define Period = character! "."
 define ColonChar = character! ":"
 define PipeChar = character! "|"
-define Pipe = withSpace PipeChar
+define Pipe = with-space! PipeChar
 define DoubleColon = sequential! [ColonChar, ColonChar], "::"
 define eE = character! "eE"
 define Minus = character! "-"
 define Plus = character! "+"
 define PlusOrMinus = one-of! [Minus, Plus]
-define xX = character! "xX"
-define oO = character! "oO"
-define bB = character! "bB"
 define LowerU = character! "u"
 define LowerX = character! "x"
 define HexDigit = character! "0123456789abcdefABCDEF"
@@ -753,7 +743,7 @@ define AlphaNum = character! "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX
 define Underscore = character! "_"
 define DollarSign = character! "\$"
 define AtSign = character! "@"
-define HashSign = withSpace character! "#"
+define HashSign = with-space! character! "#"
 define NameStart = one-of! [Letter, Underscore, DollarSign]
 define NameChar = one-of! [NameStart, DecimalDigit]
 define SymbolChar = character! "!#%&*+-/<=>?\\^`|~"
@@ -762,18 +752,18 @@ define SingleQuote = character! "'"
 define TripleDoubleQuote = multiple! 3, 3, DoubleQuote, '"""'
 define TripleSingleQuote = multiple! 3, 3, SingleQuote, "'''"
 define SemicolonChar = character! ";"
-define Semicolon = withSpace SemicolonChar
+define Semicolon = with-space! SemicolonChar
 define Asterix = character! "*"
 define OpenParenthesisChar = character! "("
-define OpenParenthesis = withSpace OpenParenthesisChar
-define CloseParenthesis = withSpace character! ")"
+define OpenParenthesis = with-space! OpenParenthesisChar
+define CloseParenthesis = with-space! character! ")"
 define OpenSquareBracketChar = character! "["
-define OpenSquareBracket = withSpace OpenSquareBracketChar
-define CloseSquareBracket = withSpace character! "]"
-define OpenCurlyBrace = withSpace character! "{"
-define CloseCurlyBrace = withSpace character! "}"
+define OpenSquareBracket = with-space! OpenSquareBracketChar
+define CloseSquareBracket = with-space! character! "]"
+define OpenCurlyBrace = with-space! character! "{"
+define CloseCurlyBrace = with-space! character! "}"
 define Backslash = character! "\\"
-define Comma = withSpace character! ","
+define Comma = with-space! character! ","
 define MaybeComma = maybe! Comma, true
 define CommaOrNewline = one-of! [
   sequential! [
@@ -825,26 +815,17 @@ define _Name = sequential! [
     process-char-codes part[1:], parts
   parts.join ""
 
-define Name = sequential! [
-  Space
-  [\this, _Name]
-]
+define Name = with-space! _Name
 
 define _Symbol = one-or-more! SymbolChar, #(x) -> process-char-codes(x).join ""
 
-define Symbol = sequential! [
-  Space
-  [\this, _Symbol]
-]
+define Symbol = with-space! _Symbol
 
 let _NameOrSymbol = one-or-more-of! [
   _Name
   _Symbol
 ], #(x) -> x.join ""
-let NameOrSymbol = sequential! [
-  Space
-  [\this, _NameOrSymbol]
-]
+let NameOrSymbol = with-space! _NameOrSymbol
 
 define AnyChar = #(o)
   let data = o.data
@@ -953,9 +934,9 @@ let make-radix-integer(radix, separator, digit)
           decimal := decimal.slice(0, -1)
     o.const i, value
 
-define HexInteger = make-radix-integer 16, xX, HexDigit
-define OctalInteger = make-radix-integer 8, oO, OctalDigit
-define BinaryInteger = make-radix-integer 2, bB, BinaryDigit
+define HexInteger = make-radix-integer 16, character!("xX"), HexDigit
+define OctalInteger = make-radix-integer 8, character!("oO"), OctalDigit
+define BinaryInteger = make-radix-integer 2, character!("bB"), BinaryDigit
 
 define RadixInteger = do
   let GetDigits = do
@@ -1035,15 +1016,12 @@ define RadixInteger = do
     o.update clone
     o.const start-index, value
 
-define NumberLiteral = sequential! [
-  Space
-  [\this, one-of! [
-    HexInteger
-    OctalInteger
-    BinaryInteger
-    RadixInteger
-    DecimalNumber
-  ]]
+define NumberLiteral = with-space! one-of! [
+  HexInteger
+  OctalInteger
+  BinaryInteger
+  RadixInteger
+  DecimalNumber
 ]
 
 let make-const-literal(name, value)
@@ -1350,22 +1328,19 @@ define BackslashStringLiteral = sequential! [
   [\this, IdentifierNameConst]
 ]
 
-define StringLiteral = sequential! [
-  Space
-  [\this, one-of! [
-    BackslashStringLiteral
-    TripleSingleStringLiteral
-    TripleDoubleStringLiteral
-    SingleStringLiteral
-    DoubleStringLiteral
-    RegexLiteral
-    /*
-    RawTripleSingleStringLiteral
-    RawTripleDoubleStringLiteral
-    RawSingleStringLiteral
-    RawDoubleStringLiteral
-    */
-  ]]
+define StringLiteral = with-space! one-of! [
+  BackslashStringLiteral
+  TripleSingleStringLiteral
+  TripleDoubleStringLiteral
+  SingleStringLiteral
+  DoubleStringLiteral
+  RegexLiteral
+  /*
+  RawTripleSingleStringLiteral
+  RawTripleDoubleStringLiteral
+  RawSingleStringLiteral
+  RawDoubleStringLiteral
+  */
 ]
 
 define ConstantLiteral = one-of! [
@@ -1789,7 +1764,7 @@ define DedentedBody = sequential! [
   ]]
 ]
 
-define DeclareEqualSymbol = withSpace character! "="
+define DeclareEqualSymbol = with-space! character! "="
 
 define MutableToken = word \mutable
 define MaybeMutableToken = maybe! MutableToken, true
@@ -1981,13 +1956,10 @@ define Ast = short-circuit! AstToken, sequential! [
 
 define Debugger = word \debugger, #(x, o, i) -> o.debugger i
 
-define MacroName = sequential! [
-  Space
-  [\this, one-or-more-of! [
-    _Symbol
-    _Name
-  ], #(x) -> x.join ""]
-]
+define MacroName = with-space! one-or-more-of! [
+  _Symbol
+  _Name
+], #(x) -> x.join ""
 
 define UseMacro = #(o)
   let clone = o.clone()
@@ -2819,6 +2791,12 @@ define Block = sequential! [
   case 1; nodes[0]
   default; o.block i, nodes
 
+define Shebang = sequential! [
+  character! "#"
+  character! "!"
+  zero-or-more! any-except! Newline
+], true
+
 define Root = sequential! [
   maybe! Shebang, true
   EmptyLines
@@ -3091,10 +3069,12 @@ class MacroHelper
   @wrap := #(value = [])
     if Array.is-array(value)
       BlockNode(0, 0, value).reduce()
-    else if typeof value != \object or value instanceof RegExp
-      throw Error "Trying to wrap a non-object: $(typeof! value)"
-    else
+    else if value instanceof Node
       value
+    else if value instanceof RegExp or value == null or typeof value in [\undefined, \string, \boolean, \number]
+      ConstNode(0, 0, value)
+    else
+      throw Error "Trying to wrap an unknown object: $(typeof! value)"
   
   @node := #(type, start-index, end-index, ...args)
     Node[type](start-index, end-index, ...args).reduce()
