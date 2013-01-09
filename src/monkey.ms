@@ -61,6 +61,7 @@ let compile = exports.compile := #(source, options = {})
   node.compile options
 
 exports.eval := #(source, options = {})
+  options.eval := true
   options.return := false
   let root = translate source, options
   let {Script} = require('vm')
