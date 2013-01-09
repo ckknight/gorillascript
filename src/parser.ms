@@ -2265,17 +2265,17 @@ define IdentifierNameConstOrNumberLiteral = one-of! [IdentifierNameConst, Number
 
 define Identifier = do
   let RESERVED = [
-    \and
+    //\and
     \as
     \AST
     \arguments
-    \bitand
-    \bitlshift
-    \bitnot
-    \bitor
-    \bitrshift
-    \biturshift
-    \bitxor
+    //\bitand
+    //\bitlshift
+    //\bitnot
+    //\bitor
+    //\bitrshift
+    //\biturshift
+    //\bitxor
     \break
     \case
     \catch
@@ -2296,29 +2296,33 @@ define Identifier = do
     \finally
     \for
     \function
-    \haskey
+    //\haskey
     \if
     \import
     \Infinity
-    \instanceofsome
+    //\instanceofsome
     \instanceof
     \in
     \let
-    \log
+    //\log
     \macro
-    \max
-    \min
-    \mutable
-    \namespace
+    //\max
+    //\min
+    //\mutable
+    //\namespace
     \NaN
     \new
     \not
     \null
-    \or
-    \ownskey
-    \repeat
+    //\or
+    //\ownskey
+    \package
+    \private
+    \protected
+    \public
+    //\repeat
     \return
-    //"StopIteration"
+    \static
     \super
     \switch
     \then
@@ -2328,20 +2332,20 @@ define Identifier = do
     \try
     \typeof
     \undefined
-    \unless
-    \until
+    //\unless
+    //\until
     \var
     \void
     \while
     \with
-    \xor
+    //\xor
     \yield
   ]
   #(o)
     let index = o.index
     let clone = o.clone()
     let result = Name clone
-    if not result or result in RESERVED
+    if not result or result in RESERVED or o.macros.has-operator result
       o.fail "identifier"
       false
     else
@@ -4086,6 +4090,7 @@ class MacroHolder
   def constructor()@
     @by-name := {}
     @by-id := []
+    @operator-names := {}
     @binary-operators := []
     @assign-operators := []
     @prefix-unary-operators := []
@@ -4122,7 +4127,12 @@ class MacroHolder
     by-id.push m
     by-id.length - 1
   
+  def has-operator(name)
+    @operator-names ownskey name
+  
   def add-binary-operator(operators, m, options)
+    for op in operators
+      @operator-names[op] := true
     let precedence = Number(options.precedence) or 0
     let binary-operators = @binary-operators[precedence] ?= []
     binary-operators.push {
@@ -4137,6 +4147,8 @@ class MacroHolder
     @add-macro m
   
   def add-assign-operator(operators, m, options)
+    for op in operators
+      @operator-names[op] := true
     @assign-operators.push {
       rule: one-of for op in operators
         word-or-symbol op
@@ -4145,6 +4157,8 @@ class MacroHolder
     @add-macro m
   
   def add-unary-operator(operators, m, options)
+    for op in operators
+      @operator-names[op] := true
     let data = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
     data.push {
       rule: one-of for op in operators
