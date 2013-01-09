@@ -120,21 +120,17 @@ macro one-of!(array, mutator)
   case 0
     throw Error "Cannot provide an empty array"
   case 1
-    let rule = elements[0]
-    AST mutate! $rule, $mutator
+    AST mutate! $(elements[0]), $mutator
   default
     let init = []
-    let checks = void
+    let checks = AST false
     for rule, i, len in elements
       if @is-const(rule)
         if typeof @value(rule) != \string
           throw Error "Can only handle constant string literals"
         rule := AST word-or-symbol $rule
       rule := @cache rule, init, \rule, true
-      if checks == void
-        checks := AST $rule o
-      else
-        checks := AST $checks or $rule o
+      checks := AST $checks or $rule o
     let ret = AST mutate! (#(o) -> $checks), $mutator
     if init.length
       AST do
@@ -229,12 +225,9 @@ macro sequential!(array, mutator)
     else
       let rule = @cache item, init, \rule, true
       AST $rule clone
-  let mutable code = void
+  let mutable code = AST true
   for check in checks
-    if code == void
-      code := check
-    else
-      code := AST $code and $check
+    code := AST $code and $check
   
   let result = if has-result
     AST mutate! (#(o)
@@ -358,10 +351,7 @@ macro calculate-multiple-name!(name, min-count, max-count)
     "{$(@value min-count)}"
   else
     "{$(@value min-count),$(@value max-count)}"
-  if @value(min-count) == @value(max-count)
-    AST "$($name)$($ending)"
-  else
-    AST "$($name)$($ending)"
+  AST "$($name)$($ending)"
 
 macro multiple!(min-count, max-count, rule, mutator)
   if not @is-const(min-count) or typeof @value(min-count) != \number
