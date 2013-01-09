@@ -4011,10 +4011,16 @@ class MacroHelper
       ConstNode start-index, end-index, obj
     else if Array.is-array obj
       constify-array obj, start-index, end-index
-    else if obj instanceof IdentNode and C(obj.name, 0) == C('$')
+    else if obj instanceof IdentNode and obj.name.length > 1 and C(obj.name, 0) == C('$')
       CallNode(obj.start-index, obj.end-index
         IdentNode obj.start-index, obj.end-index, \__wrap
         [IdentNode obj.start-index, obj.end-index, obj.name.substring 1])
+    else if obj instanceof CallNode and not obj.is-new and not obj.is-apply and obj.func instanceof IdentNode and obj.func.name == '$'
+      if obj.args.length != 1 or obj.args[0] instanceof SpreadNode
+        throw Error "Can only use \$() in an AST if it has one argument."
+      CallNode(obj.start-index, obj.end-index
+        IdentNode obj.start-index, obj.end-index, \__wrap
+        obj.args)
     else if obj instanceof MacroAccessNode
       CallNode(obj.start-index, obj.end-index
         IdentNode obj.start-index, obj.end-index, \__macro

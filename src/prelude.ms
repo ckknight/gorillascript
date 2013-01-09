@@ -14,23 +14,45 @@ define operator unary not
 define operator unary typeof
   @unary "typeof", node
 
+define operator binary == with precedence: 1, maximum: 1
+  @binary left, "===", right
+
+define operator binary != with precedence: 1, maximum: 1
+  AST not ($left == $right)
+
+define operator binary ~= with precedence: 1, maximum: 1
+  @binary left, "==", right
+
+define operator binary !~= with precedence: 1, maximum: 1
+  AST not ($left ~= $right)
+
+define operator binary ~<, ~<= with precedence: 1, maximum: 1
+  // avoiding if statement for now
+  (op == "~<" and @binary left, "<", right) or @binary left, "<=", right
+
+define operator binary ~>, ~>= with precedence: 1, maximum: 1
+  // avoiding if statement for now
+  (op == "~>" and AST not ($left ~<= $right)) or AST not ($left ~< $right)
+
 macro if
   // this uses eval instead of normal operators since those aren't defined yet
   // thankfully the eval uses constant strings and turns into pure code
   syntax test as Logic, "then", body, else-ifs as ("else", "if", test as Logic, "then", body)*, else-body as ("else", this)?
+    let dec(x) -> eval "x - 1"
     let f(i, current)@
-      (eval("i >= 0") and f(eval("i - 1"), @if(else-ifs[i].test, else-ifs[i].body, current))) or current
+      (i ~>= 0 and f(dec(i), @if(else-ifs[i].test, else-ifs[i].body, current))) or current
     let len = else-ifs.length
-    @if(test, body, f(eval("len - 1"), else-body))
+    @if(test, body, f(dec(len), else-body))
 
   syntax test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+    let dec(x) -> eval "x - 1"
     let f(i, current)@
       let mutable test = else-ifs[i]?.test
       let type = else-ifs[i]?.type
-      test := if eval('type === "unless"') then (AST not $test) else test
-      if eval("i >= 0") then f(eval("i - 1"), @if(test, else-ifs[i].body, current)) else current
+      test := if type == "unless" then (AST not $test) else test
+      if i ~>= 0 then f(dec(i), @if(test, else-ifs[i].body, current)) else current
     let len = else-ifs.length
-    @if(test, body, f(eval("len - 1"), else-body))
+    @if(test, body, f(dec(len), else-body))
 
 define operator assign and=
   @maybe-cache-access left, #(set-left, left)@
@@ -48,33 +70,9 @@ define operator assign or=
       AST if not $set-left
         $left := $right
 
-define operator binary == with precedence: 1, maximum: 1
-  @binary left, "===", right
-
-define operator binary != with precedence: 1, maximum: 1
-  AST not ($left == $right)
-
-define operator binary ~= with precedence: 1, maximum: 1
-  @binary left, "==", right
-
-define operator binary !~= with precedence: 1, maximum: 1
-  AST not ($left ~= $right)
-
 define operator unary ? with postfix: true
   // TODO: support when node is not in-scope and thus should be typeof node != "undefined" and node != null
   AST $node !~= null
-
-define operator binary ~<, ~<= with precedence: 1, maximum: 1
-  if op == "~<"
-    @binary left, "<", right
-  else
-    @binary left, "<=", right
-
-define operator binary ~>, ~>= with precedence: 1, maximum: 1
-  if op == "~>"
-    AST not ($left ~<= $right)
-  else
-    AST not ($left ~< $right)
 
 // let's define the unstrict operators first
 define operator binary ~^ with precedence: 9, right-to-left: true
@@ -282,18 +280,15 @@ define operator binary in with precedence: 3, maximum: 1, invertible: true
       else
         AST false
     else if elements.length == 1
-      let element = elements[0]
-      AST $left == $element
+      AST $left == $(elements[0])
     else
       let f(i, current, left)
         if i ~< elements.length
-          let element = elements[i]
-          f(i ~+ 1, AST $current or $left == $element, left)
+          f(i ~+ 1, AST $current or $left == $(elements[i]), left)
         else
           current
       @maybe-cache left, #(set-left, left)
-        let element = elements[0]
-        f(1, AST $set-left == $element, left)
+        f(1, AST $set-left == $(elements[0]), left)
   else
     AST __in($left, $right)
 
@@ -327,17 +322,11 @@ define helper __cmp = #(left, right) as Number
 define operator binary <=> with precedence: 2, maximum: 1
   AST __cmp($left, $right)
 
-define operator binary %% with precedence: 1, maximum: 1
+define operator binary %% with precedence: 1, maximum: 1, invertible: true
   AST $left % $right == 0
 
-define operator binary !%% with precedence: 1, maximum: 1
-  AST not ($left %% $right)
-
-define operator binary ~%% with precedence: 1, maximum: 1
+define operator binary ~%% with precedence: 1, maximum: 1, invertible: true
   AST $left ~% $right == 0
-
-define operator binary !~%% with precedence: 1, maximum: 1
-  AST not ($left ~%% $right)
 
 define operator binary <, <= with precedence: 1, maximum: 1
   if @is-type left, \number

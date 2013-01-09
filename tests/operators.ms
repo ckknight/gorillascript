@@ -844,16 +844,16 @@ test "divisibility", #
   ok not (10 %% 9)
   ok 10 %% 10
   
-  ok not (10 !%% 1)
-  ok not (10 !%% 2)
-  ok 10 !%% 3
-  ok 10 !%% 4
-  ok not (10 !%% 5)
-  ok 10 !%% 6
-  ok 10 !%% 7
-  ok 10 !%% 8
-  ok 10 !%% 9
-  ok not (10 !%% 10)
+  ok not (10 not %% 1)
+  ok not (10 not %% 2)
+  ok 10 not %% 3
+  ok 10 not %% 4
+  ok not (10 not %% 5)
+  ok 10 not %% 6
+  ok 10 not %% 7
+  ok 10 not %% 8
+  ok 10 not %% 9
+  ok not (10 not %% 10)
 
 test "floor division", #
   eq 4, 9 \ 2
@@ -1066,10 +1066,12 @@ test "Operators as functions", #
   n (~%%), 10, 5, true, false
   n (%%), 10, 6, false, true
   n (~%%), 10, 6, false, false
-  n (!%%), 10, 5, false, true
-  n (!~%%), 10, 5, false, false
-  n (!%%), 10, 6, true, true
-  n (!~%%), 10, 6, true, false
+  /*
+  n (not %%), 10, 5, false, true
+  n (not ~%%), 10, 5, false, false
+  n (not %%), 10, 6, true, true
+  n (not ~%%), 10, 6, true, false
+  */
   
   n (<), 1, 5, true, true
   n (~<), 1, 5, true, false
