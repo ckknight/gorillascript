@@ -272,7 +272,7 @@ define helper __in = do
   #(child, parent) as Boolean -> index-of@(parent, child) != -1
 
 define operator binary in with precedence: 3, maximum: 1, invertible: true
-  let result = if @is-array(right)
+  if @is-array(right)
     let elements = @elements(right)
     if elements.length == 0
       if @is-complex(left)
@@ -296,35 +296,19 @@ define operator binary in with precedence: 3, maximum: 1, invertible: true
         f(1, AST $set-left == $element, left)
   else
     AST __in($left, $right)
-  if inverted
-    AST not $result
-  else
-    result
 
 define operator binary haskey with precedence: 3, maximum: 1, invertible: true
-  let result = @binary right, \in, left
-  if inverted
-    AST not $result
-  else
-    result
+  @binary right, \in, left
 
 define helper __owns = do
   let has = Object.prototype.has-own-property
   #(parent, child) as Boolean -> has@(parent, child)
 
 define operator binary ownskey with precedence: 3, maximum: 1, invertible: true
-  let result = AST __owns($left, $right)
-  if inverted
-    AST not $result
-  else
-    result
+  AST __owns($left, $right)
 
 define operator binary instanceof with precedence: 3, maximum: 1, invertible: true
-  let result = @binary left, \instanceof, right
-  if inverted
-    AST not $result
-  else
-    result
+  @binary left, \instanceof, right
 
 define helper __cmp = #(left, right) as Number
   if left == right
@@ -1137,7 +1121,7 @@ define helper __instanceofsome = #(value, array) as Boolean
     value instanceof item
 
 define operator binary instanceofsome with precedence: 3, maximum: 1, invertible: true
-  let result = if @is-array(right)
+  if @is-array(right)
     let elements = @elements(right)
     if elements.length == 0
       if @is-complex(left)
@@ -1161,10 +1145,6 @@ define operator binary instanceofsome with precedence: 3, maximum: 1, invertible
         f(1, AST $set-left instanceof $element, left)
   else
     AST __instanceofsome($left, $right)
-  if inverted
-    AST not $result
-  else
-    result
 
 macro switch
   syntax node as Logic, cases as ("\n", "case", node-head as Logic, node-tail as (",", this as Logic)*, body as (Body | (";", this as Statement))?)*, default-case as ("\n", "default", this as (Body | (";", this as Statement))?)?

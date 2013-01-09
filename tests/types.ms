@@ -25,11 +25,7 @@ test "Basic string representation", #
   eq "any \\ (Boolean|Number|String|null|undefined)", T.always-truthy.to-string()
 
 define operator binary subset with maximum: 1, invertible: true
-  let result = AST $left.is-subset-of $right
-  if inverted
-    AST not $result
-  else
-    result
+  AST $left.is-subset-of $right
 
 define operator binary union
   AST $left.union $right
@@ -41,18 +37,10 @@ define operator unary ~
   AST $node.complement()
 
 define operator binary equals with maximum: 1, invertible: true
-  let result = AST $left.equals $right
-  if inverted
-    AST not $result
-  else
-    result
+  AST $left.equals $right
 
 define operator binary overlaps with maximum: 1, invertible: true
-  let result = AST $left.overlaps $right
-  if inverted
-    AST not $result
-  else
-    result
+  AST $left.overlaps $right
 
 test "Complement", #
   eq T.any, ~T.none

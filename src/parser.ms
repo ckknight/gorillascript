@@ -4434,10 +4434,6 @@ class State
             { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
             { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
             { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
-            ...(if options.invertible
-              [{ key: @const(index, \inverted), value: @param index, (@ident index, \inverted), void, false, true, void }]
-            else
-              [])
           ]
           @param index, (@ident index, \__wrap), void, false, true, void
           @param index, (@ident index, \__node), void, false, true, void
@@ -4447,9 +4443,17 @@ class State
         true
         false)
       let translated = require('./translator')(raw-func.reduce(), return: true)
-      let handler = translated.node.to-function()()
+      let mutable handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for binary operator $(operators.join ', ')"
+      if options.invertible
+        handler := do inner = handler
+          #(p, ...args)
+            let result = inner@ this, p, ...args
+            if p.inverted
+              UnaryNode(result.start-index, result.end-index, "!", result)
+            else
+              result
       {
         handler
         rule: void
