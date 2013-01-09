@@ -10,6 +10,24 @@ test "array parameter", #
   array-eq ["a", "b"], fun(["a", "b"], "c")
   array-eq ["a", void], fun(["a"], "b", "c")
 
+test "array parameter destructure with spread", #
+  let fun([a, ...b]) -> [a, b]
+  
+  array-eq [void, []], fun([])
+  array-eq ["a", []], fun(["a"])
+  array-eq ["a", ["b"]], fun(["a", "b"])
+  array-eq ["a", ["b", "c"]], fun(["a", "b", "c"])
+
+
+test "array parameter destructure with spread in middle", #
+  let fun([a, ...b, c]) -> [a, b, c]
+  
+  array-eq [void, [], void], fun([])
+  array-eq ["a", [], void], fun(["a"])
+  array-eq ["a", [], "b"], fun(["a", "b"])
+  array-eq ["a", ["b"], "c"], fun(["a", "b", "c"])
+  array-eq ["a", ["b", "c"], "d"], fun(["a", "b", "c", "d"])
+
 test "array parameter with this params", #
   let fun([@a, @b]) -> [a, b]
   

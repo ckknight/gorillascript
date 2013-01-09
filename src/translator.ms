@@ -680,7 +680,7 @@ let translators = {
               spread-counter := scope.reserve-ident \ref
               init.push ast.Assign(
                 param.ident
-                ast.IfExpresion(
+                ast.IfExpression(
                   ast.Binary(
                     i
                     "<"
