@@ -66,9 +66,7 @@ let autocomplete(text) -> complete-attribute(text) or complete-variable(text) or
 let complete-attribute(text)
   let match = text.match ACCESSOR
   if match
-    let all = match[0]
-    let obj = match[1]
-    let prefix = match[2]
+    let [all, obj, prefix] = match
     let val = try
       vm.Script.run-in-context obj, sandbox
     catch err

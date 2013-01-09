@@ -1335,7 +1335,7 @@ exports.Obj := class Obj extends Expression
   let validate-unique-keys(elements)!
     let keys = []
     for pair in elements
-      let key = pair.key
+      let {key} = pair
       if key in keys
         throw Error "Found duplicate key: $(to-JS-source key)"
       keys.push key
@@ -1349,7 +1349,7 @@ exports.Obj := class Obj extends Expression
     for element, i, len in elements
       sb "\n"
       sb.indent child-options.indent
-      let key = element.key
+      let {key} = element
       sb if is-acceptable-ident key
         key
       else
@@ -1367,7 +1367,7 @@ exports.Obj := class Obj extends Expression
       for element, i in elements
         if i > 0
           sb ", "
-        let key = element.key
+        let {key} = element
         sb if is-acceptable-ident key
           key
         else

@@ -677,7 +677,7 @@ let translators = {
                   ast.Ident(\__slice)
                   [array-ident, ...(if i == 0 then [] else [ast.Const(i)])]))
             else
-              spread-counter := scope.reserve-ident \ref
+              spread-counter := scope.reserve-ident \i
               init.push ast.Assign(
                 param.ident
                 ast.IfExpression(
@@ -867,6 +867,12 @@ let translators = {
     #-> ast.If(t-test(), t-when-true(), if t-when-false? then t-when-false())
 
   Let: do
+    class ArrayDeclarable
+      def constructor(elements)@
+        @elements := elements
+    class ObjectDeclarable
+      def constructor(pairs)@
+        @pairs := pairs
     let declarables = {
       Declarable: #(node, scope)
         if node.ident instanceof parser.Node.Declarable
@@ -877,7 +883,122 @@ let translators = {
             let ident = t-ident()
             scope.add-variable ident
             ident
+      ArrayDeclarable: #(node, scope)
+        let elements = for element in node.elements
+          {
+            t-declarable: translate-declarable element, scope
+            spread: element.spread
+          }
+        # -> ArrayDeclarable(for element in elements
+          {
+            declarable: element.t-declarable()
+            element.spread
+          })
+      ObjectDeclarable: #(node, scope)
+        let pairs = for pair in node.pairs
+          {
+            t-key: translate pair.key, scope, \expresion
+            t-value: translate-declarable pair.value, scope
+          }
+        # -> ObjectDeclarable(for pair in pairs
+          {
+            key: pair.t-key()
+            value: pair.t-value()
+          })
     }
+    let handle-declarable(scope, location, auto-return, left, right)
+      if location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name?
+        scope.remove-variable left
+        let func = ast.Func(left, right.params, right.variables, right.body, right.declarations)
+        if auto-return != identity
+          ast.Block [
+            func
+            auto-return left
+          ]
+        else
+          func
+      else if left instanceof ArrayDeclarable
+        if left.elements.length == 1 and not left.elements[0].spread
+          auto-return ast.Assign left.elements[0].declarable, ast.Access(right, 0)
+        else
+          let init = []
+          let mutable array-ident = void
+          if needs-caching right
+            array-ident := scope.reserve-ident \a
+            init.push ast.Assign(array-ident, right)
+          else
+            array-ident := right
+          let mutable found-spread = -1
+          let mutable spread-counter = void
+          for element, i, len in left.elements
+            let node = element.declarable
+            unless element.spread
+              if found-spread == -1
+                init.push handle-declarable scope, location, identity, node, ast.Access(array-ident, i)
+              else
+                let diff = i - found-spread - 1
+                init.push handle-declarable scope, location, identity, node, ast.Access(
+                  array-ident
+                  if diff == 0
+                    spread-counter
+                  else
+                    ast.Binary spread-counter, "+", diff)
+            else
+              if found-spread != -1
+                throw Error "Encountered multiple spread identifiers"
+              found-spread := i
+              scope.add-helper \__slice
+              if i == len - 1
+                init.push handle-declarable scope, location, identity, node, ast.Call(
+                  ast.Ident(\__slice)
+                  [array-ident, ...(if i == 0 then [] else [ast.Const(i)])])
+              else
+                spread-counter := scope.reserve-ident \i
+                init.push handle-declarable scope, location, identity, node, ast.IfExpression(
+                  ast.Binary(
+                    i
+                    "<"
+                    ast.Assign(
+                      spread-counter
+                      ast.Binary(
+                        ast.Access array-ident, \length
+                        "-"
+                        len - i - 1)))
+                  ast.Call(
+                    ast.Ident \__slice
+                    [array-ident, ast.Const(i), spread-counter])
+                  ast.BlockExpression [
+                    ast.Assign spread-counter, ast.Const(i)
+                    ast.Arr()])
+          if spread-counter?
+            scope.release-ident spread-counter
+          if auto-return != identity
+            init.push auto-return array-ident
+          if array-ident != right
+            scope.release-ident array-ident
+          ast.Block init
+      else if left instanceof ObjectDeclarable
+        if left.pairs.length == 1
+          auto-return ast.Assign left.pairs[0].value, ast.Access(right, left.pairs[0].key)
+        else
+          let init = []
+          let mutable object-ident = void
+          if needs-caching right
+            object-ident := scope.reserve-ident \o
+            init.push ast.Assign(object-ident, right)
+          else
+            object-ident := right
+          
+          for pair in left.pairs
+            init.push handle-declarable scope, location, identity, pair.value, ast.Access(object-ident, pair.key)
+          
+          if auto-return != identity
+            init.push auto-return object-ident
+          if object-ident != right
+            scope.release-ident object-ident
+          ast.Block init
+      else
+        auto-return ast.Assign(left, right)
     let translate-declarable(node, scope)
       unless declarables ownskey node.constructor.capped-name
         throw Error "Unknown declarable type $(node.constructor.capped-name)"
@@ -885,14 +1006,7 @@ let translators = {
     #(node, scope, location, auto-return)
       let t-left = translate-declarable node.left, scope
       let t-right = translate node.right, scope, \expression
-      #
-        let left = t-left()
-        let right = t-right()
-        if location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name?
-          scope.remove-variable left
-          auto-return ast.Func(left, right.params, right.variables, right.body, right.declarations)
-        else
-          auto-return ast.Assign(left, right)
+      # -> handle-declarable scope, location, auto-return, t-left(), t-right()
 
   Nothing: #-> #-> ast.Noop()
 

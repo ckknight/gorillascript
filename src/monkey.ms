@@ -63,7 +63,7 @@ let compile = exports.compile := #(source, options = {})
 exports.eval := #(source, options = {})
   options.return := false
   let root = translate source, options
-  let Script = require('vm').Script
+  let {Script} = require('vm')
   if Script
     let mutable sandbox = Script.create-context()
     sandbox.global := (sandbox.root := (sandbox.GLOBAL := sandbox))
@@ -104,7 +104,7 @@ exports.run := #(source, options = {})
     ".")
   main-module.module-cache and= {}
   if process.binding('natives').module
-    let Module = require('module').Module
+    let {Module} = require('module')
     main-module.paths := Module._node-module-paths path.dirname options.filename
   if path.extname(main-module.filename) != ".ms" or require.extensions
     main-module._compile compile(source, options), main-module.filename

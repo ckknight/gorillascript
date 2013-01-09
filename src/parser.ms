@@ -40,11 +40,10 @@ let cache(rule as Function, dont-cache as Boolean)
   else
     let cache-key = generate-cache-key()
     named rule?.parser-name, #(o)
-      let cache = o.cache
+      let {cache, index} = o
       let indent = o.indent.peek()
       let indent-cache = (cache[indent] ?= [])
       let inner = (indent-cache[cache-key] ?= [])
-      let index = o.index
       let item = inner[index]
       if item == void
         let result = rule o
@@ -81,7 +80,7 @@ macro mutate!(rule, mutator)
     mutator := @cache mutator, init, \mutator, true
     let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
     let result = AST named($rule?.parser-name or $unknown-name, #(o)
-      let index = o.index
+      let {index} = o
       let result = $rule o
       if not result
         false
@@ -272,7 +271,7 @@ macro maybe!(rule, missing-value, found-value)
   let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
   
   let result = AST named(($rule?.parser-name or $unknown-name) & "?", #(o)
-    let index = o.index
+    let {index} = o
     let clone = o.clone()
     let result = $rule clone
     if not result
@@ -488,8 +487,7 @@ macro character!(chars, name)
   let mutable uncommon-current = AST false
   let mutable has-uncommon = false
   for chunk in chunks
-    let start = chunk.start
-    let end = chunk.end
+    let {start, end} = chunk
     let test = if start == end
       AST c == $start
     else if end == start + 1
@@ -677,7 +675,7 @@ define SpaceChar = character! [
   8287
   12288
   65263
-]
+], "space"
 define _Space = zero-or-more! SpaceChar, true
 define Newline = one-of! [
   sequential! [
@@ -695,8 +693,7 @@ define NewlineWithCheckIndent = sequential! [
 ]
 
 define SingleLineComment = #(o)
-  let data = o.data
-  let index = o.index
+  let {data, index} = o
   if C(data, index) == C("/") and C(data, index ~+ 1) == C("/")
     let len = data.length
     index += 2
@@ -708,8 +705,7 @@ define SingleLineComment = #(o)
     false
 
 define MultiLineComment = #(o)
-  let data = o.data
-  let index = o.index
+  let {data, index} = o
   if C(data, index) == C("/") and C(data, index ~+ 1) == C("*")
     let len = data.length
     index += 2
@@ -1724,8 +1720,7 @@ let _NameOrSymbol = one-or-more-of! [
 let NameOrSymbol = with-space! _NameOrSymbol
 
 define AnyChar = #(o)
-  let data = o.data
-  let index = o.index
+  let {data, index} = o
   if index >= data.length
     o.fail "any"
     false
@@ -1779,10 +1774,9 @@ define DecimalNumber = sequential! [
     NamePart
   ]), true
 ], #(x, o, i)
-  let mutable decimal = x.decimal
+  let {mutable decimal, mutable scientific} = x
   if decimal == NOTHING
     decimal := ""
-  let mutable scientific = x.scientific
   if scientific == NOTHING
     scientific := ""
   let text = x.integer & decimal & scientific
@@ -1812,8 +1806,7 @@ let make-radix-integer(radix, separator, digit)
       [\this, digits]
     ]), NOTHING]
   ], #(x, o, i)
-    let integer = x.integer
-    let mutable decimal = x.decimal
+    let {integer, mutable decimal} = x
     if decimal == NOTHING
       decimal := ""
     let mutable value = parse-int integer, radix
@@ -2254,10 +2247,10 @@ define Literal = one-of! [
 ]
 
 define IdentifierNameConst = #(o)
-  let start-index = o.index
+  let {index} = o
   let result = Name o
   if result
-    o.const start-index, result
+    o.const index, result
   else
     false
 
@@ -2308,7 +2301,7 @@ define Identifier = do
     \macro
     //\max
     //\min
-    //\mutable
+    \mutable
     //\namespace
     \NaN
     \new
@@ -2342,7 +2335,7 @@ define Identifier = do
     \yield
   ]
   #(o)
-    let index = o.index
+    let {index} = o
     let clone = o.clone()
     let result = Name clone
     if not result or result in RESERVED or o.macros.has-operator result
@@ -2365,7 +2358,7 @@ define MaybeExistentialSymbolNoSpace = maybe! ExistentialSymbolNoSpace, true
 
 define CustomOperator = do
   let handle-unary-operator(operator, o, i)
-    let rule = operator.rule
+    let {rule} = operator
     let op = rule o
     if op
       let node = o.ident i, \x
@@ -2382,7 +2375,7 @@ define CustomOperator = do
     for operators in o.macros.binary-operators
       if operators
         for operator in operators
-          let rule = operator.rule
+          let {rule} = operator
           let op = rule o
           if op
             let left = o.ident i, \x
@@ -2501,7 +2494,7 @@ define IdentifierOrSimpleAccessStart = one-of! [
     [\child, Expression]
     CloseSquareBracket
   ], #(x, o, i)
-    let mutable parent = x.parent
+    let {mutable parent} = x
     if x.is-proto != NOTHING
       parent := o.access i, parent, o.const i, \prototype
     o.access i, parent, x.child
@@ -2513,7 +2506,7 @@ define IdentifierOrSimpleAccessPart = one-of! [
     [\child, IdentifierNameConstOrNumberLiteral]
   ], #(x, o, i)
     let is-proto = x.type == "::"
-    let child = x.child
+    let {child} = x
     #(parent) -> o.access(i
       if is-proto then o.access i, parent, o.const i, \prototype else parent
       child)
@@ -2524,7 +2517,7 @@ define IdentifierOrSimpleAccessPart = one-of! [
     CloseSquareBracket
   ], #(x, o, i)
     let is-proto = x.type != NOTHING
-    let child = x.child
+    let {child} = x
     #(parent) -> o.access(i
       if is-proto then o.access i, parent, o.const i, \prototype else parent
       child)
@@ -2774,7 +2767,7 @@ define ParamSingularObjectKey = sequential! [
   [\this, IdentifierParameter]
   NotColon
 ], #(param, o, i)
-  let ident = param.ident
+  let {ident} = param
   let key = if ident instanceof IdentNode
     o.const i, ident.name
   else if ident instanceof AccessNode
@@ -2863,7 +2856,7 @@ define MacroName = with-space! one-or-more-of! [
 
 define UseMacro = #(o)
   let clone = o.clone()
-  let macros = clone.macros
+  let {macros} = clone
   let name = MacroName clone
   if name
     let m = macros.get-by-name(name)
@@ -3086,7 +3079,7 @@ define IdentifierOrAccessStart = one-of! [
     [\child, Index]
     CloseSquareBracket
   ], #(x, o, i)
-    let mutable parent = x.parent
+    let {mutable parent} = x
     if x.is-proto != NOTHING
       parent := o.access i, parent, o.const i, \prototype
     if x.child.type == \single
@@ -3158,7 +3151,7 @@ define CustomAssignment = #(o)
   if left
     for operator in o.macros.assign-operators
       let sub-clone = clone.clone()
-      let rule = operator.rule
+      let {rule} = operator
       let op = rule sub-clone
       if not op
         continue
@@ -3370,9 +3363,8 @@ define BasicInvocationOrAccess = sequential! [
           let tmp-ids = []
           let mutable set-head = head
           if head instanceof AccessNode and head.op == "." and not link.is-apply and not link.is-new
-            let mutable parent = head.parent
+            let {mutable parent, mutable child} = head
             let mutable set-parent = parent
-            let mutable child = head.child
             let mutable set-parent = child
             if parent.cacheable
               let tmp = o.tmp(i, get-tmp-id(), \ref)
@@ -3417,8 +3409,7 @@ define BasicInvocationOrAccess = sequential! [
       link-types[link.type](o, i, head, link, j, links)
   #(x, o, i)
     let mutable is-new = x.is-new != NOTHING
-    let mutable head = x.head
-    let tail = x.tail
+    let {head, tail} = x
   
     if tail.length == 0 and not is-new and head.type == \normal
       return head.node
@@ -3494,7 +3485,7 @@ define CustomPostfixUnary = #(o)
   else
     for operator in o.macros.postfix-unary-operators
       let clone = o.clone()
-      let rule = operator.rule
+      let {rule} = operator
       let op = rule clone
       if not op
         continue
@@ -3509,7 +3500,7 @@ define CustomPrefixUnary = #(o)
   let start-index = o.index
   for operator in o.macros.prefix-unary-operators
     let clone = o.clone()
-    let rule = operator.rule
+    let {rule} = operator
     let op = rule clone
     if not op
       continue
@@ -3527,7 +3518,7 @@ let get-use-custom-binary-operator = do
   let precedence-cache = []
   #(precedence) -> precedence-cache[precedence] ?= cache #(o)
     let start-index = o.index
-    let binary-operators = o.macros.binary-operators
+    let {binary-operators} = o.macros
     if binary-operators.length < precedence
       CustomPrefixUnary o
     else
@@ -3539,7 +3530,7 @@ let get-use-custom-binary-operator = do
         let operators = binary-operators[precedence]
         if operators
           for operator in operators
-            let rule = operator.rule
+            let {rule} = operator
             let tail = []
             while true
               let clone = o.clone()
@@ -3596,12 +3587,108 @@ define Expression = in-expression ExpressionAsStatement
 define IdentifierDeclarable = sequential! [
   [\is-mutable, MaybeMutableToken]
   [\ident, Identifier]
-], #(x, o, i) -> o.declarable i, x.ident, x.is-mutable == \mutable
+  [\as-type, MaybeAsType]
+], #(x, o, i) -> o.declarable i, x.ident, x.is-mutable == \mutable, false, if x.as-type != NOTHING then x.as-type else void
+
+define SpreadDeclarable = sequential! [
+  [\is-mutable, MaybeMutableToken]
+  SpreadToken
+  [\ident, Identifier]
+  [\as-type, MaybeAsType]
+], #(x, o, i) -> o.declarable i, x.ident, x.is-mutable == \mutable, true, if x.as-type != NOTHING then x.as-type else void
+
+define ArrayDeclarableElement = one-of! [
+  SpreadDeclarable
+  Declarable
+  Nothing
+]
+
+define ArrayDeclarable = sequential! [
+  OpenSquareBracket
+  Space
+  [\first, maybe! (sequential! [
+    [\head, ArrayDeclarableElement],
+    [\tail, zero-or-more! sequential! [
+      Comma
+      [\this, ArrayDeclarableElement]
+    ]]
+    MaybeComma
+  ], #(x) -> [x.head, ...x.tail]), #-> []]
+  [\rest, maybe! (sequential! [
+    SomeEmptyLines
+    MaybeAdvance
+    [\this, maybe! (sequential! [
+      CheckIndent
+      [\head, ArrayDeclarableElement]
+      [\tail, zero-or-more! sequential! [
+        CommaOrNewlineWithCheckIndent
+        [\this, ArrayDeclarableElement]
+      ]]
+    ], #(x) -> [x.head, ...x.tail]), #-> []]
+    EmptyLines
+    MaybeCommaOrNewline
+    PopIndent
+  ]), #-> []]
+  CloseSquareBracket
+], #(x, o, i)
+  let nodes = [...x.first, ...x.rest]
+  let mutable spread-count = 0
+  for node in nodes
+    if node instanceof DeclarableNode and node.spread
+      spread-count += 1
+      if spread-count > 1
+        o.error "Cannot have more than one spread declarable in the same array"
+  o.array-declarable i, nodes
+
+define DeclarableDualObjectKey = short-circuit! ObjectKeyColon, sequential! [
+  [\key, ObjectKeyColon]
+  [\value, Declarable]
+]
+
+define DeclarableSingularObjectKey = mutate! IdentifierDeclarable, #(value, o, i)
+  {
+    key: o.const i, value.ident.name
+    value
+  }
+
+define DeclarableKeyValuePair = one-of! [
+  DeclarableDualObjectKey
+  DeclarableSingularObjectKey
+]
+
+define ObjectDeclarable = sequential! [
+  OpenCurlyBrace
+  Space
+  [\first, maybe! (sequential! [
+    [\head, DeclarableKeyValuePair],
+    [\tail, zero-or-more! sequential! [
+      Comma
+      [\this, DeclarableKeyValuePair]
+    ]]
+    MaybeComma
+  ], #(x) -> [x.head, ...x.tail]), #-> []]
+  [\rest, maybe! (sequential! [
+    SomeEmptyLines
+    MaybeAdvance
+    [\this, maybe! (sequential! [
+      CheckIndent
+      [\head, DeclarableKeyValuePair]
+      [\tail, zero-or-more! sequential! [
+        CommaOrNewlineWithCheckIndent
+        [\this, DeclarableKeyValuePair]
+      ]]
+    ], #(x) -> [x.head, ...x.tail]), #-> []]
+    EmptyLines
+    MaybeCommaOrNewline
+    PopIndent
+  ]), #-> []]
+  CloseCurlyBrace
+], #(x, o, i) -> o.object-declarable i, [...x.first, ...x.rest]
 
 define Declarable = one-of! [
   IdentifierDeclarable
-  //ArrayDeclarable
-  //ObjectDeclarable
+  ArrayDeclarable
+  ObjectDeclarable
 ]
 
 define LetToken = word \let
@@ -4033,7 +4120,7 @@ class MacroHelper
   
   let mutators = {
     Block: #(x, func)
-      let nodes = x.nodes
+      let {nodes} = x
       let len = nodes.length
       if len != 0
         let last-node = @mutate-last(nodes[len - 1], func)
@@ -4225,8 +4312,7 @@ macro node-type!
     let found-walk = false
     unless @empty(methods)
       for pair in @pairs(methods)
-        let key = pair.key
-        let value = pair.value
+        let {key, value} = pair
         add-methods.push AST def ($key) = $value
         if @is-const(key) and @value(key) == "walk"
           found-walk := true
@@ -4345,7 +4431,7 @@ class State
           else
             word-or-symbol string
         else if param instanceof SyntaxManyNode
-          let multiplier = param.multiplier
+          let {multiplier} = param
           let calced = calc-param param.inner
           switch multiplier
           case "*"; zero-or-more! calced
@@ -4368,7 +4454,7 @@ class State
             else
               sequence.push word-or-symbol string
           else if param instanceof SyntaxParamNode
-            let ident = param.ident
+            let {ident} = param
             let key = if ident instanceof IdentNode
               ident.name
             else if ident instanceof ThisNode
@@ -4518,10 +4604,8 @@ class State
     
     if not @current-macro
       this.error "Attempting to specify a macro syntax when not in a macro"
-
-    let data = macro-syntax-types[type]@(this, index, params, body, options)
-    let handler = data.handler
-    let rule = data.rule
+    
+    let {handler, rule} = macro-syntax-types[type]@(this, index, params, body, options)
     
     let macros = @macros
     let mutator = #(x, o, i)
@@ -4603,6 +4687,9 @@ node-type! \array, elements as [Node], {
   type: #-> types.array
 }
 State::array-param := State::array
+node-type! \array-declarable, elements as [Node], {
+  type: #-> types.array
+}
 node-type! \assign, left as Node, op as String, right as Node, {
   type: do
     let ops = {
@@ -4983,11 +5070,11 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
     #-> @_type ?= do
       let func = @func
       if func instanceof IdentNode
-        let name = func.name
+        let {name} = func
         if PRIMORDIAL_FUNCTIONS ownskey name
           return PRIMORDIAL_FUNCTIONS[name]
         else if name.length > 2 and C(name, 0) == C("_") and C(name, 1) == C("_")
-          let helpers = require('./translator').helpers
+          let {helpers} = require('./translator')
           if helpers.has name
             return if helper-type-cache ownskey name
               helper-type-cache[name]
@@ -5070,8 +5157,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
                 // TODO: do something here to alert the user
                 void
           else if func instanceof AccessNode and func.child instanceof ConstNode
-            let parent = func.parent
-            let child = func.child
+            let {parent, child} = func
             if parent instanceof ConstNode
               if typeof parent.value[child.value] == \function
                 try
@@ -5093,286 +5179,6 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
       else
         this
 }
-/*
-node-type! \call-chain, head as Node, links as Array, {
-  type: do
-    let PRIMORDIAL_FUNCTIONS = {
-      Object: types.object
-      String: types.string
-      Number: types.number
-      Boolean: types.boolean
-      Function: types.function
-      Array: types.array
-      Date: types.string
-      RegExp: types.regexp
-      Error: types.error
-      RangeError: types.error
-      ReferenceError: types.error
-      SyntaxError: types.error
-      TypeError: types.error
-      URIError: types.error
-      escape: types.string
-      unescape: types.string
-      parseInt: types.number
-      parseFloat: types.number
-      isNaN: types.boolean
-      isFinite: types.boolean
-      decodeURI: types.string
-      decodeURIComponent: types.string
-      encodeURI: types.string
-      encodeURIComponent: types.string
-    }
-    let PRIMORDIAL_SUBFUNCTIONS = {
-      Object: {
-        getPrototypeOf: types.object
-        getOwnPropertyDescriptor: types.object
-        getOwnPropertyNames: types.string.array()
-        create: types.object
-        defineProperty: types.object
-        defineProperties: types.object
-        seal: types.object
-        freeze: types.object
-        preventExtensions: types.object
-        isSealed: types.boolean
-        isFrozen: types.boolean
-        isExtensible: types.boolean
-        keys: types.string.array()
-      }
-      String: {
-        fromCharCode: types.string
-      }
-      Number: {
-        isFinite: types.boolean
-        isNaN: types.boolean
-      }
-      Array: {
-        isArray: types.boolean
-      }
-      Math: {
-        abs: types.number
-        acos: types.number
-        asin: types.number
-        atan: types.number
-        atan2: types.number
-        ceil: types.number
-        cos: types.number
-        exp: types.number
-        floor: types.number
-        log: types.number
-        max: types.number
-        min: types.number
-        pow: types.number
-        random: types.number
-        round: types.number
-        sin: types.number
-        sqrt: types.number
-        tan: types.number
-      }
-      JSON: {
-        stringify: types.string.union(types.undefined)
-        parse: types.string.union(types.number).union(types.boolean).union(types.null).union(types.array).union(types.object)
-      }
-      Date: {
-        UTC: types.number
-        now: types.number
-      }
-    }
-    let PRIMORDIAL_METHODS = {
-      String: {
-        toString: types.string
-        valueOf: types.string
-        charAt: types.string
-        charCodeAt: types.number
-        concat: types.string
-        indexOf: types.number
-        lastIndexOf: types.number
-        localeCompare: types.number
-        match: types.array.union(types.null)
-        replace: types.string
-        search: types.number
-        slice: types.string
-        split: types.string.array()
-        substring: types.string
-        toLowerCase: types.string
-        toLocaleLowerCase: types.string
-        toUpperCase: types.string
-        toLocaleUpperCase: types.string
-        trim: types.string
-      }
-      Boolean: {
-        toString: types.string
-        valueOf: types.boolean
-      }
-      Number: {
-        toString: types.string
-        valueOf: types.number
-        toLocaleString: types.string
-        toFixed: types.string
-        toExponential: types.string
-        toPrecision: types.string
-      }
-      Date: {
-        toString: types.string
-        toDateString: types.string
-        toTimeString: types.string
-        toLocaleString: types.string
-        toLocaleDateString: types.string
-        toLocaleTimeString: types.string
-        valueOf: types.number
-        getTime: types.number
-        getFullYear: types.number
-        getUTCFullYear: types.number
-        getMonth: types.number
-        getUTCMonth: types.number
-        getDate: types.number
-        getUTCDate: types.number
-        getDay: types.number
-        getUTCDay: types.number
-        getHours: types.number
-        getUTCHours: types.number
-        getMinutes: types.number
-        getUTCMinutes: types.number
-        getSeconds: types.number
-        getUTCSeconds: types.number
-        getMilliseconds: types.number
-        getUTCMilliseconds: types.number
-        getTimezoneOffset: types.number
-        setTime: types.number
-        setMilliseconds: types.number
-        setUTCMilliseconds: types.number
-        setSeconds: types.number
-        setUTCSeconds: types.number
-        setMinutes: types.number
-        setUTCMinutes: types.number
-        setHours: types.number
-        setUTCHours: types.number
-        setDate: types.number
-        setUTCDate: types.number
-        setMonth: types.number
-        setUTCMonth: types.number
-        setFullYear: types.number
-        setUTCFullYear: types.number
-        toUTCString: types.string
-        toISOString: types.string
-        toJSON: types.string
-      }
-      RegExp: {
-        test: types.boolean
-        toString: types.string
-      }
-      Error: {
-        toString: types.string
-      }
-    }
-    let helper-type-cache = {}
-    let calculate-type(node)  
-      let ast = require('./ast')
-      let last = node.last()
-      if last instanceof ast.Func
-        last.meta?.as-type ? types.any
-      else if last instanceof ast.Return
-        calculate-type(last.node)
-      else if last instanceof ast.Call and last.func instanceof ast.Func
-        calculate-type(last.func.body[last.func.body.length - 1])
-      else
-        types.any
-    #-> @_type ?= do
-      let head = @head
-      let links = @links
-      if head instanceof IdentNode
-        let name = head.name
-        if links.length == 1 and links[0].type == \call and not links[0].existential
-          if name.substring(0, 2) == "__"
-            let helpers = require('./translator').helpers
-            if helpers.has name
-              if helper-type-cache ownskey name
-                return helper-type-cache[name]
-              else
-                let type = calculate-type(helpers.get(name))
-                if type?
-                  return (helper-type-cache[name] := type)
-          else if PRIMORDIAL_FUNCTIONS ownskey name
-            return PRIMORDIAL_FUNCTIONS[head.name]
-        else if links.length == 2 and links[0].type == \access and not links[0].existential and links[1].type == \call and not links[1].existential and links[0].child instanceof ConstNode
-          if PRIMORDIAL_SUBFUNCTIONS ownskey name and PRIMORDIAL_SUBFUNCTIONS[name] ownskey links[0].child.value
-            return PRIMORDIAL_SUBFUNCTIONS[name][links[0].child.value]
-      types.any
-  walk: do
-    let link-types = {
-      access: #(link, func)
-        let child = func link.child
-        if child != link.child
-          {
-            type: \access
-            child
-            link.existential
-          }
-        else
-          link
-      access-index: do
-        let index-types = {
-          slice: #(x, func)
-            let left = func x.left
-            let right = func x.right
-            if left != x.left or right != x.right
-              {
-                type: \slice
-                left
-                right
-              }
-            else
-              x
-          multi: #(x, func)
-            let elements = map x.elements, func
-            if elements != x.elements
-              {
-                type: \multi
-                elements
-              }
-            else
-              x
-        }
-        #(link, func)
-          let type = link.child.type
-          unless index-types ownskey type
-            throw Error "Unknown index type: $type"
-          
-          let child = index-types[type](link.child, func)
-          if child != link.child
-            {
-              type: \access-index
-              child
-              link.existential
-            }
-          else
-            link
-      call: #(link, func)
-        let args = map link.args, func
-        if args != link.args
-          {
-            type: \call
-            args
-            link.existential
-            link.is-new
-            link.is-apply
-          }
-        else
-          link
-    }
-    let walk-link(link, func)
-      unless link-types ownskey link.type
-        throw Error "Unknown call-chain link type: $(link.type)"
-      
-      link-types[link.type](link, func)
-    #(func)
-      let head = func @head
-      let links = map @links, walk-link, func
-      if head != @head or links != @links
-        CallChainNode @start-index, @end-index, head, links
-      else
-        this
-}
-*/
 node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
   type: #
     let value = @value
@@ -5392,7 +5198,15 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
 }
 node-type! \continue
 node-type! \debugger
-node-type! \declarable, ident as Node, is-mutable as Boolean
+node-type! \declarable, ident as Node, is-mutable as Boolean, spread as Boolean, as-type as (Node|void), {
+  walk: #(func)
+    let ident = func @ident
+    let as-type = if @as-type? then func @as-type else @as-type
+    if ident != @ident or as-type != @as-type
+      DeclarableNode @start-index, @end-index, ident, @is-mutable, @spread, as-type
+    else
+      this
+}
 node-type! \def, left as Node, right as (Node|void), {
   walk: #(func)
     let left = func @left
@@ -5460,6 +5274,23 @@ node-type! \object, pairs as Array, {
         this
 }
 State::object-param := State::object
+node-type! \object-declarable, pairs as Array, {
+  type: # -> types.object
+  walk: do
+    let walk-pair(pair, func)
+      let key = func pair.key
+      let value = func pair.value
+      if key != pair.key or value != pair.value
+        { key, value }
+      else
+        pair
+    #(func)
+      let pairs = map @pairs, walk-pair, func
+      if pairs != @pairs
+        ObjectDeclarableNode @start-index, @end-index, pairs
+      else
+        this
+}
 node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void), {
   walk: #(func)
     let ident = func @ident
@@ -5688,7 +5519,7 @@ let build-expected(errors)
   case 2
     "$(errs[0]) or $(errs[1])"
   default
-    "$(errs[:-1].join ', ') or $(errs[errs.length - 1])"
+    "$(errs[:-1].join ', '), or $(errs[errs.length - 1])"
 
 let build-error-message(errors, last-token)
   "Expected $(build-expected errors), but $(last-token) found"
@@ -5706,12 +5537,12 @@ let parse(text, macros, options = {})
       throw e
   
   if not result or o.index < o.data.length
-    let position = o.failures.position
+    let {position, messages} = o.failures
     let last-token = if position < o.data.length
       JSON.stringify o.data.substring(position, position + 20)
     else
       "end-of-input"
-    throw ParserError build-error-message(o.failures.messages, last-token), o.data, position
+    throw ParserError build-error-message(messages, last-token), o.data, position
   else
     {
       result: result.reduce()
