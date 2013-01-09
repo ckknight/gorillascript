@@ -1121,7 +1121,13 @@ let translators = {
         if scope.options.eval
           let walker = #(node)
             if node instanceof ast.Func
-              node
+              if node.name?
+                ast.Block [
+                  node
+                  ast.Assign ast.Access(ast.Ident("GLOBAL"), node.name.name), node.name
+                ]
+              else
+                node
             else if node instanceof ast.Binary and node.op == "=" and node.left instanceof ast.Ident
               ast.Assign ast.Access(ast.Ident("GLOBAL"), node.left.name), node.walk walker
           body := body.walk walker
