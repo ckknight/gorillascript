@@ -77,6 +77,47 @@ test "existential member access with trailing invocation", #
   throws #-> get({alpha: {}}), TypeError
   eq "charlie", get({alpha: { bravo: #-> "charlie" }})
 
+test "deep existential access", #
+  let fun(a, b, c, d) -> a?[b()]?[c()]?[d()]?()
+  
+  eq "hello", fun({
+    x: {
+      y: {
+        z: #-> "hello"
+      }
+    }
+  }, runOnce(\x), runOnce(\y), runOnce(\z))
+  eq void, fun({
+    x: {
+      y: {
+        z: "hello"
+      }
+    }
+  }, runOnce(\x), runOnce(\y), runOnce(\z))
+  eq void, fun({
+    x: {
+      y: {
+        z: #-> "hello"
+      }
+    }
+  }, runOnce(\x), runOnce(\y), runOnce(\w))
+  eq void, fun({
+    x: {
+      y: {
+        z: #-> "hello"
+      }
+    }
+  }, runOnce(\x), runOnce(\w), fail)
+  eq void, fun({
+    x: {
+      y: {
+        z: #-> "hello"
+      }
+    }
+  }, runOnce(\w), fail, fail)
+  eq void, fun(null, fail, fail, fail)
+  eq void, fun(void, fail, fail, fail)
+
 test "existential new", #
   let call(func) -> new func?()
   
