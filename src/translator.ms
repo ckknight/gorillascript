@@ -875,7 +875,7 @@ let translators = {
         @pairs := pairs
     let declarables = {
       Declarable: #(node, scope)
-        if node.ident instanceof parser.Node.Declarable
+        if node.ident instanceofsome [parser.Node.Declarable, parser.Node.ArrayDeclarable, parser.Node.ObjectDeclarable]
           translate-declarable node.ident, scope
         else
           let t-ident = translate node.ident, scope, \left-expression

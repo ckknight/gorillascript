@@ -871,7 +871,7 @@ macro for
         else
           $else-body
   
-  syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if @empty(reducer)
       reducer := null
   
@@ -1343,7 +1343,7 @@ macro asyncfor
         $body
       $rest
   
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Identifier, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
     let own = type == "of"
     let init = []
     object := @cache object, init, \obj, true

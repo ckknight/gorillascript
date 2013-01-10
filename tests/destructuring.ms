@@ -182,3 +182,45 @@ test "let object destructure with a single element and named key", #
   let {a: b} = fun()
   
   eq "b", b
+
+test "for loop in array with destructuring", #
+  let arr = [["a", "b"], ["c", "d"], ["e", "f"]]
+  
+  let result = []
+  for [x, y] in arr
+    result.push x
+    result.push y
+  
+  array-eq ["a", "b", "c", "d", "e", "f"], result
+
+test "for loop in array with destructuring and functions", #
+  let arr = [["a", "b"], ["c", "d"], ["e", "f"]]
+  
+  let result = []
+  for [x, y] in arr
+    result.push #-> x
+    result.push #-> y
+  
+  array-eq ["a", "b", "c", "d", "e", "f"], for f in result; f()
+
+test "for loop of object with destructuring", #
+  let obj = { x: ["a", "b"], y: ["c", "d"], z: ["e", "f"] }
+  
+  let result = []
+  for k, [x, y] of obj
+    result.push k
+    result.push x
+    result.push y
+  
+  array-eq ["a", "b", "c", "d", "e", "f", "x", "y", "z"], result.sort()
+
+test "for loop of object with destructuring and functions", #
+  let obj = { x: ["a", "b"], y: ["c", "d"], z: ["e", "f"] }
+
+  let result = []
+  for k, [x, y] of obj
+    result.push #-> k
+    result.push #-> x
+    result.push #-> y
+
+  array-eq ["a", "b", "c", "d", "e", "f", "x", "y", "z"], (for f in result; f()).sort()
