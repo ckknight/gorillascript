@@ -2803,7 +2803,7 @@ define ParameterSequence = sequential! [
   CloseParenthesis
 ]
 
-define FunctionBody = one-of! [
+define _FunctionBody = one-of! [
   sequential! [
     symbol "->"
     [\this, maybe! Statement, #(x, o, i) -> o.nothing i]
@@ -2811,13 +2811,23 @@ define FunctionBody = one-of! [
   Body
 ]
 
+let _in-generator = Stack false
+define FunctionBody = make-alter-stack(_in-generator, false)(_FunctionBody)
+define GeneratorFunctionBody = make-alter-stack(_in-generator, true)(_FunctionBody)
 define FunctionDeclaration = sequential! [
   [\params, maybe! ParameterSequence, #-> []]
   [\as-type, MaybeAsType]
   [\auto-return, maybe! character!("!"), NOTHING]
   [\bound, maybe! AtSign, NOTHING]
-  [\body, FunctionBody]
-], #(x, o, i) -> o.function i, x.params, x.body, x.auto-return == NOTHING, x.bound != NOTHING, if x.as-type != NOTHING then x.as-type
+  [\generator-body, #(o)
+    let generator = not not Asterix(o)
+    _in-generator.push(generator)
+    let body = if generator
+      GeneratorFunctionBody(o)
+    else
+      FunctionBody(o)
+    body and { generator, body}]
+], #(x, o, i) -> o.function i, x.params, x.generator-body.body, x.auto-return == NOTHING, x.bound != NOTHING, if x.as-type != NOTHING then x.as-type, x.generator-body.generator
 
 define FunctionLiteral = short-circuit! HashSign, sequential! [
   HashSign
@@ -3717,6 +3727,11 @@ define Return = short-circuit! ReturnToken, sequential! [
 define YieldToken = word \yield
 define Yield = short-circuit! YieldToken, sequential! [
   YieldToken
+  #(o)
+    if not _in-generator.peek()
+      o.error("Can only use the yield statement in a generator function")
+    else
+      true
   [\multiple, maybe! Asterix, NOTHING]
   [\node, Expression]
 ], #(x, o, i) -> o.yield i, x.node, x.multiple != NOTHING
@@ -5216,14 +5231,14 @@ node-type! \define-helper, name as Node, value as Node
 node-type! \eval, code as Node
 node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node
 node-type! \for-in, key as Node, object as Node, body as Node
-node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), {
+node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), generator as Boolean, {
   type: # -> types.function
   walk: #(func)
     let params = map @params, func
     let body = func @body
     let as-type = if @as-type? then func @as-type else @as-type
     if params != @params or body != @body or as-type != @as-type
-      FunctionNode @start-index, @end-index, params, body, @auto-return, @bound, @as-type
+      FunctionNode @start-index, @end-index, params, body, @auto-return, @bound, @as-type, @generator
     else
       this
 }
