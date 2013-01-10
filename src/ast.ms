@@ -1149,7 +1149,9 @@ exports.Ident := class Ident extends Expression
   def walk() -> this
 
 exports.IfStatement := class IfStatement extends Statement
-  def constructor(test as Expression, mutable when-true as Node, mutable when-false as Node = Noop())@
+  def constructor(mutable test as Expression, mutable when-true as Node, mutable when-false as Node = Noop())@
+    if test instanceof Unary and test.op == "!" and test.node instanceof Unary and test.node.op == "!"
+      test := test.node.node
     if test.is-const()
       return if test.const-value()
         when-true
@@ -1162,9 +1164,7 @@ exports.IfStatement := class IfStatement extends Statement
         if when-false.is-noop()
           return test.maybe-to-statement()
         else
-          @test := Unary "!", test
-          @when-true := when-false
-          @when-false := when-true
+          return IfStatement@ this, Unary("!", test), when-false, when-true
       else if when-false.is-noop() and when-true instanceof IfStatement and when-true.when-false.is-noop()
         @test := Binary test, "&&", when-true.test
         @when-true := when-true.when-true
@@ -1230,7 +1230,9 @@ exports.IfStatement := class IfStatement extends Statement
       @_exit-type
 
 exports.IfExpression := class IfExpression extends Expression
-  def constructor(test as Expression, when-true as Expression, when-false as Expression = Noop())@
+  def constructor(mutable test as Expression, when-true as Expression, when-false as Expression = Noop())@
+    if test instanceof Unary and test.op == "!" and test.node instanceof Unary and test.node.op == "!"
+      test := test.node.node
     if test.is-const()
       return if test.const-value()
         when-true
