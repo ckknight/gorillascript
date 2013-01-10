@@ -282,3 +282,49 @@ test "asyncunless with else", #
       ok after), 50)
   run true
   run false
+
+let array-to-iterator(array)
+  {
+    next: #
+      if @index >= @array.length
+        throw StopIteration
+      let element = @array[@index]
+      @index += 1
+      element
+    array
+    index: 0
+  }
+
+test "asyncfor from iterator", #
+  let mutable sum = 0
+  if true
+    asyncfor next, v from array-to-iterator [1, 2, 4, 8]
+      let value = run-once(v)
+      if true
+        async err, x <- wait value
+        eq null, err
+        eq v, x
+        ok value.ran
+        sum += x
+        next()
+      ok not value.ran
+      set-timeout((#-> ok value.ran), 50)
+    eq 15, sum
+  eq 0, sum
+
+test "asyncfor from iterator with result", #
+  let mutable sum = 0
+  if true
+    asyncfor result <- next, v from array-to-iterator [1, 2, 4, 8]
+      let value = run-once(v)
+      if true
+        async err, x <- wait value
+        eq null, err
+        eq v, x
+        ok value.ran
+        sum += x
+        next(sum)
+      ok not value.ran
+      set-timeout((#-> ok value.ran), 50)
+    array-eq [1, 3, 7, 15], result
+  eq 0, sum

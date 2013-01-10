@@ -1377,6 +1377,35 @@ macro asyncfor
       asyncfor $result <- $next, $key, $index in $keys
         $body
       $rest
+  
+  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), rest as DedentedBody
+    let init = []
+    iterator := @cache iterator, init, \iter, true
+
+    let step = []
+    if not @empty(index)
+      init.push AST let mutable $index = 0
+      step.push AST $index ~+= 1
+    
+    let broken = @tmp \end, true
+    init.push AST let mutable $broken = false
+    let capture-value = AST try
+      let $value = $iterator.next()
+    catch e
+      if e == StopIteration
+        $broken := true
+        return $next()
+      else
+        throw e
+    
+    body := AST
+      $capture-value
+      $body
+    
+    AST
+      asyncfor $result <- $next, $init; not $broken; $step
+        $body
+      $rest
 
 macro asyncwhile
   syntax result as (this as Identifier, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
