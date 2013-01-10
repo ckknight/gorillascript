@@ -300,9 +300,17 @@ exports.Assign := #(left, right)
   Binary left, "=", right
 
 exports.Concat := #(...args)
-  let mutable current = Const ""
+  let mutable current = void
   for arg in args
-    current := Binary current, "+", arg
+    if arg not instanceof Expression
+      arg := to-const arg
+    if not current?
+      if arg.type().is-subset-of(types.string)
+        current := arg
+      else
+        current := Binary "", "+", arg
+    else
+      current := Binary current, "+", arg
   current
 
 exports.And := #(...args)
@@ -332,20 +340,6 @@ exports.Binary := class Binary extends Expression
       left := to-const left
     if right not instanceof Expression
       right := to-const right
-    
-    if CONST_OPERATIONS ownskey op and left.is-const() and right.is-const()
-      let node = CONST_OPERATIONS[op] left.const-value(), right.const-value()
-      if node != void
-        return if node instanceof Expression
-          node
-        else
-          Const node
-    
-    if LEFT_CONSTANT_OPERATIONS ownskey op and left.is-const()
-      return? LEFT_CONSTANT_OPERATIONS[op] left, right
-    
-    if RIGHT_CONSTANT_OPERATIONS ownskey op and right.is-const()
-      return? RIGHT_CONSTANT_OPERATIONS[op] left, right
     
     @left := left
     @op := op
@@ -473,82 +467,6 @@ exports.Binary := class Binary extends Expression
       handler @left.type(), @right.type()
     else
       handler
-  
-  let CONST_OPERATIONS = {
-    "*": (~*)
-    "/": (~/)
-    "%": (~%)
-    "+": #(x, y)
-      if typeof x == "number" and typeof y == "number"
-        x ~+ y
-      else
-        x ~& y
-    "-": (~-)
-    "<<": (~bitlshift)
-    ">>": (~bitrshift)
-    ">>>": (~biturshift)
-    "<": (~<)
-    "<=": (~<=)
-    ">": (~>)
-    ">=": (~>=)
-    "===": (==)
-    "!==": (!=)
-    "==": (~=)
-    "!=": (!~=)
-    "&": (~bitand)
-    "^": (~bitxor)
-    "|": (~bitor)
-    "&&": (and)
-    "||": (or)
-    ".": #(x, y)
-      if Object(x) haskey y and typeof x[y] != "function"
-        to-const x[y]
-  }
-  
-  let LEFT_CONSTANT_OPERATIONS = {
-    "&&": #(x, y) -> if x.const-value() then y else x
-    "||": #(x, y) -> if x.const-value() then x else y
-    "*": #(x, y)
-      if x.const-value() == 1
-        Unary "+", y
-      else if x.const-value() == -1
-        Unary "-", y
-    "+": #(x, y)
-      if x.const-value() == 0
-        Unary "+", y
-      else if x.const-value() == "" and y.type().is-subset-of(types.string)
-        y
-    "-": #(x, y)
-      if x.const-value() == 0
-        Unary "-", y
-  }
-  
-  let RIGHT_CONSTANT_OPERATIONS = {
-    "*": #(x, y)
-      if y.const-value() == 1
-        Unary "+", x
-      else if y.const-value() == -1
-        Unary "-", x
-    "/": #(x, y)
-      if y.const-value() == 1
-        Unary "+", x
-      else if y.const-value() == -1
-        Unary "-", x
-    "+": #(x, y)
-      let y-value = y.const-value()
-      if y-value == 0
-        Unary "+", x
-      else if typeof y-value == "number" and y-value < 0
-        Binary x, "-", Const(-y-value)
-      else if y-value == "" and x.type().is-subset-of(types.string)
-        x
-    "-": #(x, y)
-      let y-value = y.const-value()
-      if y-value == 0
-        Unary "+", x
-      else if typeof y-value == "number" and y-value < 0
-        Binary x, "+", Const(-y-value)
-  }
   
   let OPERATOR_PRECEDENCE = {
     ".": Level.access
@@ -1155,6 +1073,7 @@ exports.IfStatement := class IfStatement extends Statement
         if when-false.is-noop()
           return test.maybe-to-statement()
         else
+          // TODO: the test inversion doesn't change the inner operators, just wraps it all
           return IfStatement@ this, Unary("!", test), when-false, when-true
       else if when-false.is-noop() and when-true instanceof IfStatement and when-true.when-false.is-noop()
         @test := Binary test, "&&", when-true.test
@@ -1663,12 +1582,6 @@ exports.Unary := class Unary extends Expression
     if op == "delete" and (node not instanceof Binary or node.op != ".")
       throw Error "Cannot use delete operator on a non-access"
     
-    if CONST_OPERATIONS ownskey op and node.is-const()
-      return Const CONST_OPERATIONS[op](node.const-value())
-    
-    if NONCONST_OPERATIONS ownskey op
-      return? NONCONST_OPERATIONS[op](node)
-    
     @op := op
     @node := node
   
@@ -1696,56 +1609,6 @@ exports.Unary := class Unary extends Expression
     "void"
     "delete"
   ]
-  
-  let CONST_OPERATIONS = {
-    "!": (not)
-    "~": (bitnot)
-    "+": #(x) -> +x
-    "-": #(x) -> -x
-    "typeof": (typeof)
-  }
-  
-  let NONCONST_OPERATIONS = {
-    "+": #(x)
-      if x.type().is-subset-of types.number
-        x
-    "-": #(x)
-      if x instanceof Unary
-        if x.op in ["-", "+"]
-          Unary if x.op == "-" then "+" else "-", x.node
-      else if x instanceof Binary
-        if x.op in ["-", "+"]
-          Binary x.left, if x.op == "-" then "+" else "-", x.right
-        else if x.op in ["*", "/"]
-          Binary Unary("-", x.left), x.op, x.right
-    "!": do
-      let BINARY_INVERTABLE = {
-        "<": ">="
-        "<=": ">"
-        ">": "<="
-        ">=": "<"
-        "==": "!="
-        "!=": "=="
-        "===": "!=="
-        "!==": "==="
-        "&&": #(x, y) -> Binary Unary("!", x), "||", Unary("!", y)
-        "||": #(x, y) -> Binary Unary("!", x), "&&", Unary("!", y)
-      }
-      #(x)
-        if x instanceof Unary
-          if x.op == "!" and x.node.type().is-subset-of(types.boolean)
-            x.node
-        else if x instanceof Binary
-          if BINARY_INVERTABLE ownskey x.op
-            let invert = BINARY_INVERTABLE[x.op]
-            switch typeof invert
-            case \function
-              invert x.left, x.right
-            case \string
-              Binary x.left, invert, x.right
-            default
-              throw Error()
-  }
   
   let OPERATOR_TYPES = {
     "++": types.number

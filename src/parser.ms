@@ -2022,7 +2022,7 @@ define DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
   
   if string-parts.length == 0
     o.const i, ""
-  else if string-parts.length == 1 and string-parts[0] instanceof ConstNode and typeof string-parts[0].value == "string"
+  else if string-parts.length == 1 and string-parts[0].is-const() and typeof string-parts[0].const-value() == "string"
     string-parts[0]
   else
     o.string i, string-parts
@@ -2129,7 +2129,7 @@ let makeTripleString(quote, line)
     
     if string-parts.length == 0
       o.const i, ""
-    else if string-parts.length == 1 and string-parts[0] instanceof ConstNode and typeof string-parts[0].value == \string
+    else if string-parts.length == 1 and string-parts[0].is-const() and typeof string-parts[0].const-value() == \string
       string-parts[0]
     else
       o.string i, string-parts
@@ -2195,7 +2195,7 @@ define RegexLiteral = one-of! [
 
   let text = if string-parts.length == 0
     o.const i, ""
-  else if string-parts.length == 1 and string-parts[0] instanceof ConstNode and typeof string-parts[0].value == \string
+  else if string-parts.length == 1 and string-parts[0].is-const() and typeof string-parts[0].const-value() == \string
     string-parts[0]
   else
     o.string i, string-parts
@@ -2538,8 +2538,8 @@ define SingularObjectKey = one-of! [
     [\this, ConstantLiteral]
     NotColon
   ], #(node, o, i)
-    let key = if node instanceof ConstNode and typeof node.value != \string
-      o.const i, String(node.value)
+    let key = if node.is-const() and typeof node.const-value()
+      o.const i, String(node.const-value())
     else
       node
     { key, value: node }
@@ -3007,11 +3007,11 @@ define DefineOperator = short-circuit! DefineOperatorStart, in-macro sequential!
   let options = {}
   if x.options != NOTHING
     for pair in x.options.pairs
-      if pair.key not instanceof ConstNode
+      unless pair.key.is-const()
         o.error "Cannot have non-const keys in the options"
-      if pair.value not instanceof ConstNode
+      unless pair.value.is-const()
         o.error "Cannot have non-const value in the options"
-      options[pair.key.value] := pair.value.value
+      options[pair.key.const-value()] := pair.value.const-value()
   
   let ops = [x.head, ...x.tail]
   switch x.type
@@ -3867,15 +3867,12 @@ class MacroHelper
     saved: @saved-tmps[:]
   }
   
-  def is-const(node) -> node == void or (node? and (node instanceof ConstNode or (node instanceof BlockNode and node.nodes.length == 0)))
+  def is-const(node) -> node == void or (node instanceof Node and node.is-const())
   def value(node)
     if node == void
       void
-    else if node?
-      if node instanceof ConstNode
-        node.value
-      else if node instanceof BlockNode and node.nodes.length == 0
-        void
+    else if node instanceof Node and node.is-const()
+      node.const-value()
   def const(value)
     @state.const @index, value
   
@@ -4300,6 +4297,8 @@ class Node
         @_reduced := this
       else
         @_reduced := reduced._reduced ?= reduced
+  def is-const() -> false
+  def const-value() -> throw Error("Not a const: $(typeof! node)")
 
 macro node-type!
   syntax name as Expression, args as (",", this as Parameter)*, methods as (",", this as ObjectLiteral)?
@@ -4424,6 +4423,18 @@ class State
     "\n": NewlineWithCheckIndent
   }
   
+  let reduce-object(obj)
+    if Array.is-array(obj)
+      return for item in obj; reduce-object item
+    else if obj instanceof Node
+      obj.reduce()
+    else if typeof obj == \object and obj != null
+      let result = {}
+      for k, v of obj
+        result[k] := reduce-object v
+      result
+    else
+      obj
   let macro-syntax-types = {
     syntax: #(index, params, body)
       let calc-param(param)@
@@ -4436,8 +4447,8 @@ class State
         else if param instanceof SyntaxChoiceNode
           cache! one-of for choice in param.choices
             calc-param choice
-        else if param instanceof ConstNode
-          let string = param.value
+        else if param.is-const()
+          let string = param.const-value()
           if typeof string != \string
             @error "Expected a constant string parameter, got $(typeof! string)"
           if macro-syntax-const-literals ownskey string
@@ -4458,8 +4469,8 @@ class State
     
       let handle-params(params, sequence)@
         for param in params
-          if param instanceof ConstNode
-            let string = param.value
+          if param.is-const()
+            let string = param.const-value()
             if typeof string != \string
               @error "Expected a constant string parameter, got $(typeof! string)"
           
@@ -4502,6 +4513,8 @@ class State
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
+      handler := do inner = handler
+        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
       {
         handler
         rule: handle-params params, []
@@ -4519,9 +4532,12 @@ class State
         true
         false)
       let translated = require('./translator')(raw-func.reduce(), return: true)
-      let handler = translated.node.to-function()()
+      let mutable handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
+      handler := do inner = handler
+        #(args, ...rest)
+          inner@(this, reduce-object(args), ...rest).reduce()
       {
         handler
         rule: InvocationArguments
@@ -4548,12 +4564,15 @@ class State
         throw Error "Error creating function for binary operator $(operators.join ', ')"
       if options.invertible
         handler := do inner = handler
-          #(p, ...args)
-            let result = inner@ this, p, ...args
-            if p.inverted
-              UnaryNode(result.start-index, result.end-index, "!", result)
+          #(args, ...rest)
+            let result = inner@ this, reduce-object(args), ...rest
+            if args.inverted
+              UnaryNode(result.start-index, result.end-index, "!", result).reduce()
             else
-              result
+              result.reduce()
+      else
+        handler := do inner = handler
+          #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
       {
         handler
         rule: void
@@ -4578,6 +4597,8 @@ class State
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for assign operator $(operators.join ', ')"
+      handler := do inner = handler
+        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
       {
         handler
         rule: void
@@ -4601,6 +4622,8 @@ class State
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for unary operator $(operators.join ', ')"
+      handler := do inner = handler
+        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
       {
         handler
         rule: void
@@ -4665,7 +4688,22 @@ class State
   @add-node-factory := #(name, type)!
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
 
-node-type! \access, parent as Node, child as Node
+node-type! \access, parent as Node, child as Node, {
+  _reduce: #
+    let parent = @parent.reduce()
+    let child = @child.reduce()
+    if parent.is-const() and child.is-const()
+      let p-value = parent.const-value()
+      let c-value = child.const-value()
+      if Object(p-value) haskey c-value
+        let value = p-value[c-value]
+        if value == null or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
+          return ConstNode @start-index, @end-index, value
+    if parent != @parent or child != @child
+      AccessNode @start-index, @end-index, parent, child
+    else
+      this
+}
 node-type! \access-index, parent as Node, child as Object, {
   walk: do
     let index-types = {
@@ -4805,56 +4843,56 @@ node-type! \binary, left as Node, op as String, right as Node, {
       "||": (or)
     }
     let left-const-ops = {
-      "&&": #(x, y) -> if x.value then y else x
-      "||": #(x, y) -> if x.value then x else y
+      "&&": #(x, y) -> if x.const-value() then y else x
+      "||": #(x, y) -> if x.const-value() then x else y
       "*": #(x, y)
-        if x.value == 1
+        if x.const-value() == 1
           UnaryNode @start-index, @end-index, "+", y
-        else if x.value == -1
+        else if x.const-value() == -1
           UnaryNode @start-index, @end-index, "-", y
       "+": #(x, y)
-        if x.value == 0 and y.type().is-subset-of(types.number)
+        if x.const-value() == 0 and y.type().is-subset-of(types.number)
           UnaryNode @start-index, @end-index, "+", y
-        else if x.value == "" and y.type().is-subset-of(types.string)
+        else if x.const-value() == "" and y.type().is-subset-of(types.string)
           y
       "-": #(x, y)
-        if x.value == 0
+        if x.const-value() == 0
           UnaryNode @start-index, @end-index, "-", y
     }
     let right-const-ops = {
       "*": #(x, y)
-        if y.value == 1
+        if y.const-value() == 1
           UnaryNode @start-index, @end-index, "+", x
-        else if y.value == -1
+        else if y.const-value() == -1
           UnaryNode @start-index, @end-index, "-", x
       "/": #(x, y)
-        if y.value == 1
+        if y.const-value() == 1
           UnaryNode @start-index, @end-index, "+", x
-        else if y.value == -1
+        else if y.const-value() == -1
           UnaryNode @start-index, @end-index, "-", x
       "+": #(x, y)
-        if y.value == 0 and x.type().is-subset-of(types.number)
+        if y.const-value() == 0 and x.type().is-subset-of(types.number)
           UnaryNode @start-index, @end-index, "+", x
-        else if typeof y.value == "number" and y.value < 0 and x.type().is-subset-of(types.number)
-          BinaryNode @start-index, @end-index, x, "-", Const(-y.value)
-        else if y.value == "" and x.type().is-subset-of(types.string)
+        else if typeof y.const-value() == "number" and y.value < 0 and x.type().is-subset-of(types.number)
+          BinaryNode @start-index, @end-index, x, "-", Const(-y.const-value())
+        else if y.const-value() == "" and x.type().is-subset-of(types.string)
           x
       "-": #(x, y)
-        if y.value == 0
+        if y.const-value() == 0
           UnaryNode @start-index, @end-index, "+", x
-        else if typeof y.value == "number" and y.value < 0 and x.type().is-subset-of(types.number)
-          BinaryNode @start-index, @end-index, x, "+", Const(-y.value)
+        else if typeof y.const-value() == "number" and y.const-value() < 0 and x.type().is-subset-of(types.number)
+          BinaryNode @start-index, @end-index, x, "+", Const(-y.const-value())
     }
     #
       let left = @left.reduce()
       let right = @right.reduce()
       let op = @op
-      if left instanceof ConstNode
-        if right instanceof ConstNode and const-ops ownskey op
-          return ConstNode @start-index, @end-index, const-ops[op](left.value, right.value)
+      if left.is-const()
+        if right.is-const() and const-ops ownskey op
+          return ConstNode @start-index, @end-index, const-ops[op](left.const-value(), right.const-value())
         if left-const-ops ownskey op
           return? left-const-ops[op]@(this, left, right)
-      if right instanceof ConstNode and right-const-ops ownskey op
+      if right.is-const() and right-const-ops ownskey op
         return? right-const-ops[op]@(this, left, right)
       if left != @left or right != @right
         BinaryNode @start-index, @end-index, left, op, right
@@ -5156,8 +5194,8 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         let const-args = []
         let mutable all-const = true
         for arg in args
-          if arg instanceof ConstNode
-            const-args.push arg.value
+          if arg.is-const()
+            const-args.push arg.const-value()
           else
             all-const := false
             break
@@ -5170,12 +5208,14 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
               catch e
                 // TODO: do something here to alert the user
                 void
-          else if func instanceof AccessNode and func.child instanceof ConstNode
+          else if func instanceof AccessNode and func.child.is-const()
             let {parent, child} = func
-            if parent instanceof ConstNode
-              if typeof parent.value[child.value] == \function
+            let c-value = child.const-value()
+            if parent.is-const()
+              let p-value = parent.const-value()
+              if typeof p-value[c-value] == \function
                 try
-                  let value = parent.value[child.value] ...const-args
+                  let value = p-value[c-value] ...const-args
                   return ConstNode @start-index, @end-index, value
                 catch e
                   // TODO: do something here to alert the user
@@ -5183,7 +5223,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
             else if parent instanceof IdentNode
               if PURE_PRIMORDIAL_SUBFUNCTIONS ownskey parent.name and PURE_PRIMORDIAL_SUBFUNCTIONS[parent.name] ownskey child.value
                 try
-                  let value = GLOBAL[parent.name][child.value] ...const-args
+                  let value = GLOBAL[parent.name][c-value] ...const-args
                   return ConstNode @start-index, @end-index, value
                 catch e
                   // TODO: do something here to alert the user
@@ -5209,6 +5249,8 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
       else
         throw Error("Unknown type for $(String value)")
   cacheable: false
+  is-const: #-> true
+  const-value: #-> @value
 }
 node-type! \continue
 node-type! \debugger
@@ -5254,8 +5296,8 @@ node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNod
     let test = @test.reduce()
     let when-true = @when-true.reduce()
     let when-false = @when-false.reduce()
-    if test instanceof ConstNode
-      if test.value
+    if test.is-const()
+      if test.const-value()
         when-true
       else
         when-false
@@ -5269,6 +5311,8 @@ node-type! \macro-access, id as Number, data as Object
 node-type! \nothing, {
   type: # -> types.undefined
   cacheable: false
+  is-const: # -> true
+  const-value: # -> void
 }
 node-type! \object, pairs as Array, {
   type: # -> types.object
@@ -5317,6 +5361,14 @@ node-type! \param, ident as Node, default-value as (Node|void), spread as Boolea
 }
 node-type! \regexp, text as Node, flags as String, {
   type: # -> types.regexp
+  _reduce: #
+    let text = @text.reduce()
+    if text.is-const()
+      ConstNode @start-index, @end-index, RegExp(String(text.const-value()), @flags)
+    else if text != @text
+      RegexpNode @start-index, @end-index, text, @flags
+    else
+      this
 }
 node-type! \return, node as Node = ConstNode(0, 0, void), existential as Boolean, {
   type: # -> @node.type()
@@ -5329,9 +5381,9 @@ node-type! \string, parts as [Node], {
     let segments = [ConstNode @start-index, @start-index, ""]
     for part in @parts
       let reduced = part.reduce()
-      if reduced instanceof ConstNode
-        if typeof reduced.value != \string
-          segments.push ConstNode reduced.start-index, reduced.end-index, String(reduced.value)
+      if reduced.is-const()
+        if typeof reduced.const-value() != \string
+          segments.push ConstNode reduced.start-index, reduced.end-index, String(reduced.const-value())
         else
           segments.push reduced
       else
@@ -5344,11 +5396,11 @@ node-type! \string, parts as [Node], {
     for i = segments.length - 1, 0, -1
       let left = segments[i - 1]
       let right = segments[i]
-      if left instanceof ConstNode and right instanceof ConstNode
-        segments.splice i - 1, 2, ConstNode left.start-index, right.end-index, left.value & right.value
-      else if right instanceof ConstNode and right.value == ""
+      if left.is-const() and right.is-const()
+        segments.splice i - 1, 2, ConstNode left.start-index, right.end-index, left.const-value() & right.const-value()
+      else if right.is-const() and right.const-value() == ""
         segments.splice i, 1
-    if segments.length > 1 and segments[0] instanceof ConstNode and segments[0].value == "" and (segments[1].type().is-subset-of(types.string) or (segments.length > 2 and segments[2].type().is-subset-of(types.string)))
+    if segments.length > 1 and segments[0].is-const() and segments[0].const-value() == "" and (segments[1].type().is-subset-of(types.string) or (segments.length > 2 and segments[2].type().is-subset-of(types.string)))
       segments.shift()
     let mutable result = segments[0]
     for i = 1, segments.length
@@ -5486,12 +5538,11 @@ node-type! \unary, op as String, node as Node, {
     #
       let node = @node.reduce()
       let op = @op
-      if node instanceof ConstNode and const-ops ownskey op
-        return ConstNode @start-index, @end-index, const-ops[op](node.value)
+      if node.is-const() and const-ops ownskey op
+        return ConstNode @start-index, @end-index, const-ops[op](node.const-value())
       
       if nonconst-ops ownskey op
-        let handler = nonconst-ops[op]
-        let result = handler@ this, node
+        let result = nonconst-ops[op]@ this, node
         if result?
           return result.reduce()
       

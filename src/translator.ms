@@ -1147,38 +1147,7 @@ let translators = {
           ast.Block [...bare-init, call-func]
           []
           [])
-
-  String: #(node, scope, location, auto-return)
-    throw Error "strings should have been reduced out"
-    let parts = node.parts
-
-    let t-parts = for p in parts
-      if typeof p == \string
-        #-> ast.Const p
-      else
-        translate p, scope, \expression
-
-    #
-      let mutable current = void
-      for t-part in t-parts
-        let part = t-part()
-
-        if not part.type().is-subset-of(types.string)
-          if part.type().is-subset-of(types.string-or-number)
-            if not current?
-              current := ast.Const ""
-          else
-            scope.add-helper \__strnum
-            part := ast.Call ast.Ident(\__strnum), [part]
-
-        current := if current?
-          ast.Binary current, "+", part
-        else
-          part
-      unless current?
-        current := ast.Const("")
-      auto-return current
-
+  
   Switch: #(node, scope, location, auto-return)
     let t-node = translate node.node, scope, \expression
     let t-cases = for case_ in node.cases
