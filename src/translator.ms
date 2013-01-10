@@ -387,7 +387,7 @@ let translators = {
   Debugger: #(node, scope, location, auto-return)
     if location == \expression
       #-> ast.Call(
-        ast.Func(null, [], [], [ast.Debugger()])
+        ast.Func(null, [], [], ast.Debugger())
         [])
     else
       #-> ast.Debugger()
@@ -845,7 +845,7 @@ let translators = {
       if inner-scope.has-stop-iteration
         scope.has-stop-iteration := true
       let as-type = if node.as-type? then translate-type(node.as-type, scope)
-      let func = ast.Func null, param-idents, inner-scope.get-variables(), body, [], { as-type }
+      let func = ast.Func null, param-idents, inner-scope.get-variables(), ast.Block(body), [], { as-type }
       auto-return func
 
   Ident: #(node, scope, location, auto-return)
@@ -1114,7 +1114,7 @@ let translators = {
 
       if scope.options.bare
         ast.Root(
-          [...bare-init, ...init, body]
+          ast.Block [...bare-init, ...init, body]
           scope.get-variables()
           ["use strict"])
       else
@@ -1137,14 +1137,14 @@ let translators = {
               null
               []
               scope.get-variables()
-              [...init, body]
+              ast.Block [...init, body]
               ["use strict"])
             \call)
           [ast.This()])
         if scope.options.return
           call-func := ast.Return(call-func)
         ast.Root(
-          [...bare-init, call-func]
+          ast.Block [...bare-init, call-func]
           []
           [])
 

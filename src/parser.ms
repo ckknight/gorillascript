@@ -5078,7 +5078,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
       else if last instanceof ast.Return
         calculate-type(last.node)
       else if last instanceof ast.Call and last.func instanceof ast.Func
-        calculate-type(last.func.body[last.func.body.length - 1])
+        calculate-type(last.func.body)
       else
         types.any
     #-> @_type ?= do

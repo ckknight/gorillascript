@@ -1071,9 +1071,9 @@ let compile-func-body(options, sb, declarations, variables, body)!
       sb variables[i]
     sb ";\n"
   
-  for line in body
+  if not body.is-noop()
     sb.indent options.indent
-    line.compile-as-statement options, true, sb
+    body.compile-as-statement options, true, sb
     sb "\n"
 
 let compile-func(options, sb, name, params, declarations, variables, body)
@@ -1086,28 +1086,19 @@ let compile-func(options, sb, name, params, declarations, variables, body)
       sb ", "
     param.compile options, Level.inside-parentheses, false, sb
   sb ") {"
-  if variables.length or declarations.length or body.length
+  if variables.length or declarations.length or not body.is-noop()
     sb "\n"
     compile-func-body inc-indent(options), sb, declarations, variables, body
     sb.indent options.indent
   sb "}"
 
 exports.Func := class Func extends Expression
-  def constructor(name as (null|Ident), params as [Ident] = [], variables as [String] = [], body as [Node] = [], declarations as [String] = [], meta)@
+  def constructor(name as (null|Ident), params as [Ident] = [], variables as [String] = [], body as Node = Noop(), declarations as [String] = [], meta)@
     validate-func-params-and-variables params, variables
     @name := name
     @params := params
     @variables := variables
-    @body := []
-    for item in body
-      let statement = item.maybe-to-statement()
-      if not statement.is-noop()
-        if statement instanceof BlockStatement
-          @body.push ...statement.body
-        else
-          @body.push statement
-        if statement.exit-type()?
-          break
+    @body := body
     @declarations := declarations
     @meta := meta
   
@@ -1131,7 +1122,7 @@ exports.Func := class Func extends Expression
   def walk(walker)
     let name = if @name then walker(@name) ? @name.walk(walker) else @name
     let params = walk-array(@params, walker)
-    let body = walk-array(@body, walker)
+    let body = @body.walk(walker)
     if name != @name or params != @params or body != @body
       Func name, params, @variables, body, @declarations, @meta
     else
@@ -1452,18 +1443,9 @@ exports.Return := class Return extends Statement
   def exit-type() -> \return
 
 exports.Root := class Root
-  def constructor(body as [Node] = [], variables as [String] = [], declarations as [String] = [])@
+  def constructor(body as Node = Noop(), variables as [String] = [], declarations as [String] = [])@
     validate-func-params-and-variables [], variables
-    @body := []
-    for item in body
-      let statement = item.maybe-to-statement()
-      if not statement.is-noop()
-        if statement instanceof BlockStatement
-          @body.push ...statement.body
-        else
-          @body.push statement
-        if statement.exit-type()?
-          break
+    @body := body
     @variables := variables
     @declarations := declarations
 
@@ -1482,7 +1464,7 @@ exports.Root := class Root
   def is-large() -> true
   
   def walk(walker)
-    let body = walk-array(@body, walker)
+    let body = @body.walk(walker)
     if body != @body
       Root body, @variables, @declarations
     else
