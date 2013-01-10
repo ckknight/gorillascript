@@ -3722,7 +3722,10 @@ define Return = short-circuit! ReturnToken, sequential! [
   ReturnToken
   [\existential, MaybeExistentialSymbolNoSpace]
   [\node, ExpressionOrNothing]
-], #(x, o, i) -> o.return i, x.node, x.existential == "?"
+], #(x, o, i)
+  if _in-generator.peek() and x.node not instanceof NothingNode
+    o.error("Cannot use a valued return statement in a generator function")
+  o.return i, x.node, x.existential == "?"
 
 define YieldToken = word \yield
 define Yield = short-circuit! YieldToken, sequential! [
