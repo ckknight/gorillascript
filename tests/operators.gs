@@ -945,6 +945,30 @@ test "negation on separate line does not look like subtraction", #
   
   eq -1, f()
 
+test "ownskey", #
+  let x = { alpha: true }
+  let y = ^x
+  y.bravo := true
+  
+  ok x ownskey \alpha
+  ok y not ownskey \alpha
+  ok y ownskey \bravo
+
+test "haskey", #
+  let x = { alpha: true }
+  let y = ^x
+  y.bravo := true
+  
+  ok x haskey \alpha
+  ok y haskey \alpha
+  ok y haskey \bravo
+
+test "ownskey with hasOwnProperty in object", #
+  let x = { hasOwnProperty: #-> false }
+  
+  ok x ownskey \hasOwnProperty
+  ok not x.hasOwnProperty(\hasOwnProperty)
+
 test "Operators as functions", #
   let n(f, x, y, expected, safe)
     eq "function", typeof f
