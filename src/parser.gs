@@ -5182,11 +5182,15 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
               helper-type-cache[name]
             else
               helper-type-cache[name] := calculate-type helpers.get name
-      /*
-      else if links.length == 2 and links[0].type == \access and not links[0].existential and links[1].type == \call and not links[1].existential and links[0].child instanceof ConstNode
-          if PRIMORDIAL_SUBFUNCTIONS ownskey name and PRIMORDIAL_SUBFUNCTIONS[name] ownskey links[0].child.value
-            return PRIMORDIAL_SUBFUNCTIONS[name][links[0].child.value]
-      */
+      else if func instanceof AccessNode
+        let {parent, child} = func
+        if child instanceof ConstNode
+          if parent instanceof IdentNode
+            if PRIMORDIAL_SUBFUNCTIONS ownskey parent.name
+              let subfuncs = PRIMORDIAL_SUBFUNCTIONS[parent.name]
+              if subfuncs ownskey child.value
+                return subfuncs[child.value]
+          // else check the type of parent, maybe figure out its methods
       types.any
   _reduce: do
     let PURE_PRIMORDIAL_FUNCTIONS = {
