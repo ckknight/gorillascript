@@ -76,7 +76,10 @@ define operator unary ? with postfix: true
 
 // let's define the unstrict operators first
 define operator binary ~^ with precedence: 9, right-to-left: true
-  AST Math.pow $left, $right
+  if @is-const(right) and @value(right) == 0.5
+    AST Math.sqrt $left
+  else
+    AST Math.pow $left, $right
 
 define operator assign ~^=
   @maybe-cache-access left, #(set-left, left)
@@ -852,6 +855,8 @@ macro for
     else
       length := index.length
       index := index.value
+      if @empty(index)
+        index := @tmp \i
       if @empty(length)
         length := @tmp \len
     
