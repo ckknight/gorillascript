@@ -667,13 +667,19 @@ define SpaceChar = character! [
   65263
 ], "space"
 define _Space = zero-or-more! SpaceChar, true
-define Newline = one-of! [
-  sequential! [
-    maybe! character!("\r"), true
-    character! "\n"
-  ], true
-  character! [8232, 8233]
-]
+define Newline = #(o)
+  let {data, mutable index} = o
+  let c = C(data, index)
+  if c in [C("\r"), C("\n"), 8232, 8233]
+    index ~+= 1
+    if c == C("\r") and C(data, index) == C("\n")
+      index ~+= 1
+    o.index := index
+    o.line ~+= 1
+    true
+  else
+    o.fail "newline"
+    false
 define Stop = one-of! [Newline, Eof]
 define CheckStop = check! Stop
 define NewlineWithCheckIndent = sequential! [
@@ -702,10 +708,16 @@ define MultiLineComment = #(o)
     while true, index ~+= 1
       if index ~>= len
         o.error "Multi-line comment never ends"
-      else if C(data, index) == C("*") and C(data, index ~+ 1) == C("/")
-        o.index := index ~+ 2
-        Space o
-        return true
+      else
+        let ch = C(data, index)
+        if ch == C("*") and C(data, index ~+ 1) == C("/")
+          o.index := index ~+ 2
+          Space o
+          return true
+        else if ch in [C("\r"), C("\n"), 8232, 8233]
+          if ch == C("\r") and C(data, index ~+ 1) == C("\n")
+            index ~+= 1
+          o.line ~+= 1
   else
     false
 
@@ -2077,7 +2089,7 @@ define TripleDoubleStringLine = zero-or-more-of! [
   
   string-parts
 
-let makeTripleString(quote, line)
+let make-triple-string(quote, line)
   short-circuit! quote, sequential! [
     quote
     [\first, line]
@@ -2133,8 +2145,8 @@ let makeTripleString(quote, line)
       string-parts[0]
     else
       o.string i, string-parts
-define TripleSingleStringLiteral = makeTripleString TripleSingleQuote, TripleSingleStringLine
-define TripleDoubleStringLiteral = makeTripleString TripleDoubleQuote, TripleDoubleStringLine
+define TripleSingleStringLiteral = make-triple-string TripleSingleQuote, TripleSingleStringLine
+define TripleDoubleStringLiteral = make-triple-string TripleDoubleQuote, TripleDoubleStringLine
 
 define LowerR = character! "r"
 define RegexSingleToken = sequential! [LowerR, SingleQuote]
@@ -3804,12 +3816,13 @@ define Root = sequential! [
 ], #(x, o, i) -> o.root i, x
 
 class ParserError extends Error
-  def constructor(message, text, index)@
+  def constructor(message, text, index, line)@
     super(message)
     
-    @message := "$message at $index"
+    @message := "$message at line #$line"
     @text := text
     @index := index
+    @line := line
 
 let map(array, func, arg)
   let result = []
@@ -3827,13 +3840,15 @@ let map(array, func, arg)
 class FailureManager
   def constructor()@
     @messages := []
-    @position := 0
+    @index := 0
+    @line := 0
   
-  def add(message, index)!
-    if index > @position
+  def add(message, index, line)!
+    if index > @index
       @messages := []
-      @position := index
-    if index >= @position
+      @index := index
+    @line max= line
+    if index >= @index
       @messages.push message
 
 class MacroHelper
@@ -4370,27 +4385,29 @@ macro node-type!
       $add-methods
 
 class State
-  def constructor(data, macros = MacroHolder(), index = 0, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null)@
+  def constructor(data, macros = MacroHolder(), index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null)@
     @data := data
     @macros := macros
     @index := index
+    @line := line
     @failures := failures
     @cache := cache
     @indent := indent
     @current-macro := current-macro
   
-  def clone() -> State @data, @macros, @index, @failures, @cache, @indent.clone(), @current-macro
+  def clone() -> State @data, @macros, @index, @line, @failures, @cache, @indent.clone(), @current-macro
   
   def update(clone)!
     @index := clone.index
+    @line := clone.line
     @indent := clone.indent.clone()
     @macros := clone.macros
   
   def fail(message)!
-    @failures.add message, @index
+    @failures.add message, @index, @line
   
   def error(message)!
-    throw ParserError message, @data, @index
+    throw ParserError message, @data, @index, @line
   
   def enter-macro(name, func)
     if @current-macro
@@ -5602,12 +5619,12 @@ let parse(text, macros, options = {})
       throw e
   
   if not result or o.index < o.data.length
-    let {position, messages} = o.failures
-    let last-token = if position < o.data.length
-      JSON.stringify o.data.substring(position, position + 20)
+    let {index, line, messages} = o.failures
+    let last-token = if index < o.data.length
+      JSON.stringify o.data.substring(index, index + 20)
     else
       "end-of-input"
-    throw ParserError build-error-message(messages, last-token), o.data, position
+    throw ParserError build-error-message(messages, last-token), o.data, index, line
   else
     {
       result: result.reduce()
