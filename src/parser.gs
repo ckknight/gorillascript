@@ -2859,7 +2859,12 @@ define FunctionDeclaration = sequential! [
     else
       FunctionBody(o)
     body and { generator, body}]
-], #(x, o, i) -> o.function i, x.params, x.generator-body.body, x.auto-return == NOTHING, x.bound != NOTHING, if x.as-type != NOTHING then x.as-type, x.generator-body.generator
+], #(x, o, i)
+  let {body, generator} = x.generator-body
+  let auto-return = x.auto-return == NOTHING
+  if not auto-return and generator
+    o.error "A function cannot be both non-returning and a generator"
+  o.function i, x.params, body, auto-return, x.bound != NOTHING, if x.as-type != NOTHING then x.as-type, generator
 
 define FunctionLiteral = short-circuit! HashSign, sequential! [
   HashSign

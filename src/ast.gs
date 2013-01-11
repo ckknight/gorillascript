@@ -412,7 +412,7 @@ exports.Binary := class Binary extends Expression
   def compile-as-statement(options, line-start, sb)!
     let left = @left
     let op = @op
-    if ASSIGNMENT_OPS ownskey op and left instanceof Ident and typeof @right.to-statement == "function"
+    if ASSIGNMENT_OPS ownskey op and left instanceof Ident and typeof @right.to-statement == "function" and false
       @right.to-statement()
         .mutate-last((#(node) -> Binary left, op, node), true)
         .compile-as-statement(options, line-start, sb)

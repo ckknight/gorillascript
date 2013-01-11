@@ -149,6 +149,154 @@ let HELPERS = new class Helpers
     else
       throw Error "No such helper: $name"
 
+class GeneratorBuilder
+  def constructor(scope as Scope, states, current-state = 1, state-ident, pending-finallies-ident, finallies = [], catches = [], current-catch = [])@
+    @scope := scope
+    @states := states ? [
+      [#-> ast.Throw ast.Ident \StopIteration]
+      []
+    ]
+    @current-state := current-state
+    @state-ident := state-ident ? scope.reserve-ident \state
+    @pending-finallies-ident := pending-finallies-ident ? scope.reserve-ident \finallies
+    @finallies := finallies
+    @catches := catches
+    @current-catch := current-catch
+  
+  def add(t-node)
+    unless t-node instanceof GeneratorBuilder
+      unless typeof t-node == \function
+        throw TypeError "Expected node to be a GeneratorBuilder or Function, got $(typeof! t-node)"
+      @states[@current-state].push t-node
+      this
+    else
+      t-node
+  
+  def yield(t-node as Function)
+    let branch = @branch()
+    @states[@current-state].push(
+      #@-> ast.Assign @state-ident, branch.state
+      #-> ast.Return t-node())
+    branch.builder
+  
+  def goto(t-state)!
+    @states[@current-state].push(
+      #@ -> ast.Assign @state-ident, t-state()
+      #-> ast.Break())
+  
+  def pending-finally(t-finally-body as Function)
+    let ident = @scope.reserve-ident \finally
+    @scope.remove-variable ident
+    @finallies.push #-> ast.Func ident, [], [], t-finally-body()
+    @states[@current-state].push #@-> ast.Call ast.Access(@pending-finallies-ident, \push), [ident]
+    this
+  
+  def run-pending-finally()
+    @states[@current-state].push #@-> ast.Call ast.Access(ast.Call(ast.Access(@pending-finallies-ident, \pop)), \call), [ast.This()]
+    this
+  
+  def noop()
+    if @states[@current-state].length
+      let branch = @branch()
+      @states[@current-state].push #@ -> ast.Assign @state-ident, branch.state
+      branch.builder
+    else
+      this
+  
+  def enter-try-catch()
+    let fresh = @noop()
+    fresh.current-catch := [
+      ...fresh.current-catch
+      [fresh.current-state]
+    ]
+    fresh
+  
+  def exit-try-catch(t-ident as Function, t-post-state as Function)
+    if @current-catch.length == 0
+      throw Error "Unable to exit-try-catch without first using enter-try-catch"
+    @goto t-post-state
+    let fresh = @noop()
+    let catch-states = fresh.current-catch.pop()
+    catch-states.splice catch-states.index-of(fresh.current-state), 1
+    fresh.catches.push {
+      try-states: catch-states
+      t-ident
+      catch-state: fresh.current-state
+    }
+    fresh
+  
+  def branch()
+    let state = @states.length
+    if @current-catch.length
+      @current-catch[@current-catch.length - 1].push state
+    @states.push []
+    {
+      state
+      builder: GeneratorBuilder(@scope, @states, state, @state-ident, @pending-finallies-ident, @finallies, @catches, @current-catch)
+    }
+  
+  def create()
+    if @current-catch.length
+      throw Error "Cannot create a generator if there are stray catches"
+    @states[@current-state].push #@-> ast.Assign @state-ident, 0
+    let body = [
+      ast.Assign @state-ident, 1
+    ]
+    let close = @scope.reserve-ident \close
+    @scope.remove-variable(close)
+    if @finallies.length == 0
+      @scope.remove-variable(@pending-finallies-ident)
+      body.push ast.Func close, [], [], ast.Block [
+        ast.Assign @state-ident, 0
+      ]
+    else
+      body.push ast.Assign @pending-finallies-ident, ast.Arr()
+      body.push ...(for f in @finallies; f())
+      let inner-scope = @scope.clone(false)
+      let f = inner-scope.reserve-ident \f
+      body.push ast.Func close, [], inner-scope.get-variables(), ast.Block [
+        ast.Assign @state-ident, 0
+        ast.Assign f, ast.Call ast.Access(@pending-finallies-ident, \pop)
+        ast.If(
+          f
+          ast.TryFinally(
+            ast.Call f
+            ast.Call close))
+      ]
+    let scope = @scope
+    let err = scope.reserve-ident \e
+    let catches = @catches
+    let state-ident = @state-ident
+    body.push ast.Return ast.Obj [
+      ast.Obj.Pair \close, close
+      ast.Obj.Pair \next, ast.Func null, [], [], ast.While(true,
+        ast.TryCatch(
+          ast.Switch state-ident, (for state, i in @states
+            ast.Switch.Case i, ast.Block [
+              ...(for item in state; item())
+              ast.Break()
+            ]), ast.Throw ast.Call ast.Ident \Error
+          err
+          do
+            let mutable current = ast.Block [
+              ast.Call close
+              ast.Throw err
+            ]
+            for i = catches.length - 1, -1, -1
+              let catch-info = catches[i]
+              let err-ident = catch-info.t-ident()
+              scope.add-variable err-ident
+              current := ast.If(
+                ast.Or ...(for state in catch-info.try-states; ast.Binary(state-ident, "===", state))
+                ast.Block [
+                  ast.Assign err-ident, err
+                  ast.Assign state-ident, catch-info.catch-state
+                ]
+                current)
+            current))
+    ]
+    ast.Block body
+
 let wrap-in-function-call(node)
   // TODO: the translator shouldn't be making parser.Nodes
   
@@ -170,6 +318,130 @@ let flatten-spread-array(elements)
     flatten-spread-array result
   else
     elements
+
+let generator-translate = do
+  let generator-translators = {
+    Block: #(node, scope, mutable builder, break-state, continue-state)
+      for subnode in node.nodes
+        builder := generator-translate subnode, scope, builder, break-state, continue-state
+      builder
+    
+    Break: #(node, scope, mutable builder, break-state)
+      if not break-state?
+        throw Error "break found outside of a loop"
+      
+      builder.goto break-state
+      builder
+    
+    Continue: #(node, scope, mutable builder, break-state, continue-state)
+      if not break-state?
+        throw Error "break found outside of a loop"
+      
+      builder.goto continue-state
+      builder
+    
+    For: #(node, scope, mutable builder)
+      if node.init?
+        builder := generator-translate node.init, scope, builder
+      let step-branch = builder.branch()
+      step-branch.builder := generator-translate node.step, scope, step-branch.builder
+      let test-branch = builder.branch()
+      let t-test = translate node.test, scope, \expression, false
+      let body-branch = builder.branch()
+      body-branch.builder := generator-translate node.body, scope, body-branch.builder, #-> post-branch.state, #-> step-branch.state
+      let post-branch = builder.branch()
+      builder.goto #-> test-branch.state
+      step-branch.builder.goto #-> test-branch.state
+      test-branch.builder.goto #-> ast.IfExpression t-test(), body-branch.state, post-branch.state
+      body-branch.builder.goto #-> step-branch.state
+      post-branch.builder
+    
+    ForIn: #(node, scope, mutable builder)
+      let t-key = translate node.key, scope, \left-expression
+      let t-object = translate node.object, scope, \expression
+      let keys = scope.reserve-ident \keys
+      let mutable key = void
+      let get-key()
+        if key?
+          key
+        else
+          key := t-key()
+          if key not instanceof ast.Ident
+            throw Error("Expected an Ident for a for-in key")
+          scope.add-variable key
+          key
+      let index = scope.reserve-ident \i
+      let length = scope.reserve-ident \len
+      builder.add #
+        ast.Block [
+          ast.Assign keys, ast.Arr()
+          ast.ForIn get-key(), t-object(), ast.Call ast.Access(keys, \push), [get-key()]
+          ast.Assign index, 0
+          ast.Assign length, ast.Access(keys, \length)
+        ]
+      let step-branch = builder.branch()
+      step-branch.builder.add #-> ast.Unary "++", index
+      let test-branch = builder.branch()
+      let body-branch = builder.branch()
+      body-branch.builder.add #
+        ast.Assign get-key(), ast.Access keys, index
+      body-branch.builder := generator-translate node.body, scope, body-branch.builder, #-> post-branch.state, #-> step-branch.state
+      let post-branch = builder.branch()
+      builder.goto #-> test-branch.state
+      step-branch.builder.goto #-> test-branch.state
+      test-branch.builder.goto #-> ast.IfExpression ast.Binary(index, "<", length), body-branch.state, post-branch.state
+      body-branch.builder.goto #-> step-branch.state
+      post-branch.builder
+    
+    If: #(node, scope, mutable builder, break-state, continue-state)
+      let t-test = translate node.test, scope, \expression
+      let when-true-branch = builder.branch()
+      let g-when-true = generator-translate node.when-true, scope, when-true-branch.builder, break-state, continue-state
+      let mutable when-false = node.when-false
+      if when-false instanceof parser.Node.Nothing
+        when-false := null
+      let when-false-branch = if when-false? then builder.branch()
+      let g-when-false = if when-false? then generator-translate node.when-false, scope, when-false-branch.builder, break-state, continue-state
+      let post-branch = builder.branch()
+      builder.goto #-> ast.IfExpression t-test(), when-true-branch.state, if when-false-branch? then when-false-branch.state else post-branch.state
+      g-when-true.goto #-> post-branch.state
+      if when-false?
+        g-when-false.goto #-> post-branch.state
+      post-branch.builder
+    
+    TmpWrapper: #(node, scope, mutable builder, break-state, continue-state)
+      builder := generator-translate node.node, scope, builder, break-state, continue-state
+      for tmp in node.tmps
+        scope.release-tmp tmp
+      builder
+    
+    TryCatch: #(node, scope, mutable builder, break-state, continue-state)
+      builder := builder.enter-try-catch()
+      builder := generator-translate node.try-body, scope, builder, break-state, continue-state
+      builder := builder.exit-try-catch (translate node.catch-ident, scope, \left-expression, false), #-> post-branch.state
+      builder := generator-translate node.catch-body, scope, builder, break-state, continue-state
+      let post-branch = builder.branch()
+      builder.goto #-> post-branch.state
+      post-branch.builder
+    
+    TryFinally: #(node, scope, mutable builder, break-state, continue-state)
+      builder := builder.pending-finally translate node.finally-body, scope, \top-statement
+      builder := generator-translate node.try-body, scope, builder, break-state, continue-state
+      builder.run-pending-finally()
+    
+    Yield: #(node, scope, builder)
+      if node.multiple
+        throw Error "Not implemented: yield*"
+      builder.yield translate node.node, scope, \expression
+  }
+  #(node, scope, builder, break-state, continue-state)
+    if generator-translators ownskey node.constructor.capped-name
+      let ret = generator-translators[node.constructor.capped-name](node, scope, builder, break-state, continue-state)
+      if ret not instanceof GeneratorBuilder
+        throw Error "Translated non-GeneratorBuilder: $(typeof! ret)"
+      ret
+    else
+      builder.add translate node, scope, \statement, false
 
 let array-translate(elements, scope, replace-with-slice)
   let translated-items = []
@@ -320,9 +592,8 @@ let translators = {
     #-> auto-return ast.Binary(t-left(), node.op, t-right())
 
   Block: #(node, scope, location, auto-return)
-    let t-nodes = translate-array(node.nodes, scope, location, auto-return)
-    #-> ast.Block for t-node in t-nodes
-      t-node()
+    let t-nodes = translate-array node.nodes, scope, location, auto-return
+    # -> ast.Block for t-node in t-nodes; t-node()
 
   Break: #-> #-> ast.Break()
   
@@ -827,25 +1098,27 @@ let translators = {
 
       if spread-counter
         inner-scope.release-ident spread-counter
-
-      let mutable body = translate(node.body, inner-scope, \top-statement, node.auto-return)()
-      body := if body instanceofsome [ast.BlockExpression, ast.BlockStatement]
-        body.body
+      
+      let body = if node.generator
+        generator-translate(node.body, inner-scope, GeneratorBuilder(inner-scope)).create()
       else
-        [body]
+        translate(node.body, inner-scope, \top-statement, node.auto-return)()
       inner-scope.release-tmps()
-      body := [...initializers, ...body]
+      body := ast.Block [...initializers, body]
       if inner-scope.used-this
         if inner-scope.bound
           scope.used-this := true
         if inner-scope.has-bound and not inner-scope.bound
           let fake-this = ast.Ident \_this
           inner-scope.add-variable fake-this
-          body.unshift ast.Assign fake-this, ast.This()
+          body := ast.Block [
+            ast.Assign fake-this, ast.This()
+            body
+          ]
       if inner-scope.has-stop-iteration
         scope.has-stop-iteration := true
       let as-type = if node.as-type? then translate-type(node.as-type, scope)
-      let func = ast.Func null, param-idents, inner-scope.get-variables(), ast.Block(body), [], { as-type }
+      let func = ast.Func null, param-idents, inner-scope.get-variables(), body, [], { as-type }
       auto-return func
 
   Ident: #(node, scope, location, auto-return)
@@ -864,7 +1137,7 @@ let translators = {
     let t-test = translate node.test, scope, \expression
     let t-when-true = translate node.when-true, scope, inner-location, auto-return
     let t-when-false = if node.when-false? then translate node.when-false, scope, inner-location, auto-return
-    #-> ast.If(t-test(), t-when-true(), if t-when-false? then t-when-false())
+    #-> ast.If t-test(), t-when-true(), if t-when-false? then t-when-false()
 
   Let: do
     class ArrayDeclarable
@@ -1061,7 +1334,9 @@ let translators = {
           ast.Ident(\RegExp)
           [text, ast.Const(flags)])
 
-  Return: #(node, scope)
+  Return: #(node, scope, location)
+    if location not in [\statement, \top-statement]
+      throw Error "Expected Return in statement position"
     let t-value = translate node.node, scope, \expression
     if node.existential
       #
@@ -1178,6 +1453,13 @@ let translators = {
     let ident = scope.get-tmp(node.id, node.name)
     # -> auto-return ident
 
+  TmpWrapper: #(node, scope, location, auto-return)
+    let t-result = translate node.node, scope, location, auto-return
+    for tmp in node.tmps
+      scope.release-tmp tmp
+
+    t-result
+
   This: #(node, scope, location, auto-return)
     #
       scope.used-this := true
@@ -1208,13 +1490,6 @@ let translators = {
   Unary: #(node, scope, location, auto-return)
     let t-subnode = translate node.node, scope, \expression
     #-> auto-return ast.Unary node.op, t-subnode()
-
-  TmpWrapper: #(node, scope, location, auto-return)
-    let t-result = translate node.node, scope, location, auto-return
-    for tmp in node.tmps
-      scope.release-tmp tmp
-
-    t-result
 }
 
 let translate(node as Object, scope as Scope, location as String, auto-return)
