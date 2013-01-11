@@ -75,16 +75,6 @@ define operator unary ? with postfix: true
   AST $node !~= null
 
 // let's define the unstrict operators first
-define operator binary ~^ with precedence: 9, right-to-left: true
-  if @is-const(right) and @value(right) == 0.5
-    AST Math.sqrt $left
-  else
-    AST Math.pow $left, $right
-
-define operator assign ~^=
-  @maybe-cache-access left, #(set-left, left)
-    AST $set-left := $left ~^ $right
-
 define operator binary ~*, ~/, ~%, ~\ with precedence: 8
   if op == "~\\"
     let div = @binary left, "/", right
@@ -130,6 +120,25 @@ define operator unary ~+, ~-
       @unary "+", node
     else
       @unary "-", node
+
+define operator binary ~^ with precedence: 9, right-to-left: true
+  if @is-const(right)
+    let value = @value(right)
+    if value == 0.5
+      return AST Math.sqrt $left
+    else if value == 1
+      return AST ~+$left
+    else if value == 2
+      return @maybe-cache left, #(set-left, left)
+        AST $set-left ~* $left
+    else if value == 3
+      return @maybe-cache left, #(set-left, left)
+        AST $set-left ~* $left ~* $left
+  AST Math.pow $left, $right
+
+define operator assign ~^=
+  @maybe-cache-access left, #(set-left, left)
+    AST $set-left := $left ~^ $right
 
 define operator assign ~+=
   if @is-const(right)
