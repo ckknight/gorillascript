@@ -1,4 +1,5 @@
 require! './types'
+let {inspect} = require 'util'
 
 enum Level
   def block // { f(); `...`; g(); }
@@ -196,8 +197,6 @@ exports.Expression := class Expression extends Node
   def constructor()@
     throw Error "Expression cannot be instantiated directly"
   
-  def to-string() -> super.to-string() & ";"
-  
   def compile-as-statement(options, line-start, sb)!
     if typeof @to-statement == "function"
       @to-statement().compile-as-statement options, line-start, sb
@@ -230,6 +229,7 @@ exports.Arguments := class Arguments extends Expression
   def compile(options, level, line-start, sb)! -> sb "arguments"
   def type() -> types.args
   def walk() -> this
+  def inspect(depth) -> "Arguments()"
 
 let walk-array(array as Array, walker as Function)
   let mutable changed = false
@@ -244,6 +244,20 @@ let walk-array(array as Array, walker as Function)
     result
   else
     array
+
+let inspect-array-helper(sb, array, depth)
+  if array.length == 0
+    sb "[]"
+  else if not depth? or depth > 0
+    sb "[ "
+    for item, i in array
+      if i > 0
+        sb ", "
+      sb inspect(item, null, if depth? then depth - 1 else null)
+    sb " ]"
+  else
+    sb "length: "
+    sb item.length
 
 exports.Arr := class Arr extends Expression
   def constructor(elements as [Expression] = [])@
@@ -295,6 +309,9 @@ exports.Arr := class Arr extends Expression
       Arr elements
     else
       this
+  
+  def inspect(depth)
+    "Arr($(inspect @elements, null, depth - 1))"
 
 exports.Assign := #(left, right)
   Binary left, "=", right
@@ -533,6 +550,9 @@ exports.Binary := class Binary extends Expression
       Binary left, @op, right
     else
       this
+  
+  def inspect(depth)
+    "Binary($(inspect @left, null, depth - 1), $(inspect @op), $(inspect @right, null, depth - 1))"
 
 exports.BlockStatement := class BlockStatement extends Statement
   def constructor(body as [Node] = [])@
@@ -580,6 +600,9 @@ exports.BlockStatement := class BlockStatement extends Statement
   
   def exit-type() -> @last().exit-type()
   def last() -> @body[@body.length - 1]
+  
+  def inspect(depth)
+    "BlockStatement($(inspect @body, null, depth - 1))"
 
 exports.BlockExpression := class BlockExpression extends Expression
   def constructor(body as [Expression] = [])@
@@ -624,6 +647,9 @@ exports.BlockExpression := class BlockExpression extends Expression
   
   def walk = BlockStatement::walk
   def last() -> @body[@body.length - 1]
+  
+  def inspect(depth)
+    "BlockExpression($(inspect @body, null, depth - 1))"
 
 let Block = exports.Block := #(body as [Node] = [])
   if body.length == 0
@@ -645,6 +671,8 @@ exports.Break := class Break extends Statement
   def walk() -> this
   
   def exit-type() -> \break
+  
+  def inspect() -> "Break()"
 
 exports.Call := class Call extends Expression
   def constructor(func as Expression, args as [Expression] = [], is-new as Boolean)@
@@ -764,6 +792,18 @@ exports.Call := class Call extends Expression
         helper
     else
       types.any
+  
+  def inspect(depth)
+    let sb = StringBuilder()
+    sb "Call("
+    sb inspect @func, null, depth - 1
+    if @args.length or @is-new
+      sb ", "
+      sb inspect @args, null, depth - 1
+    if @is-new
+      sb ", true"
+    sb ")"
+    sb.to-string()
 
 let to-const(value)
   if value instanceof Node
@@ -809,6 +849,8 @@ exports.Const := class Const extends Expression
         throw Error "Unknown value type: $type"
   
   def walk() -> this
+  
+  def inspect() -> "Const($(inspect @value))"
 
 exports.Continue := class Continue extends Statement
   def constructor()@ ->
@@ -821,6 +863,8 @@ exports.Continue := class Continue extends Statement
   def walk() -> this
   
   def exit-type() -> \continue
+  
+  def inspect() -> "Continue()"
 
 exports.Debugger := class Debugger extends Statement
   def constructor()@ ->
@@ -831,6 +875,8 @@ exports.Debugger := class Debugger extends Statement
     sb "debugger;"
   
   def walk() -> this
+  
+  def inspect() -> "Debugger()"
 
 exports.DoWhile := class DoWhile extends Statement
   def constructor(body as Node, test as Expression)@
@@ -865,6 +911,9 @@ exports.DoWhile := class DoWhile extends Statement
     else
       this
 
+  def inspect(depth)
+    "DoWhile($(inspect @body, null, depth - 1), $(inspect @test, null, depth - 1))"
+
 exports.Eval := class Eval extends Expression
   def constructor(mutable code)@
     if code not instanceof Expression
@@ -885,9 +934,14 @@ exports.Eval := class Eval extends Expression
       Eval code
     else
       this
+  
+  def inspect(depth)
+    "Eval($(inspect @code, null, depth - 1))"
 
 exports.For := class For extends Statement
-  def constructor(init as Expression = Noop(), test as Expression = Const(true), step as Expression = Noop(), body as Node)@
+  def constructor(init as Expression = Noop(), mutable test = Const(true), step as Expression = Noop(), body as Node)@
+    if test not instanceof Expression
+      test := to-const test
     if test.is-const() and not test.const-value()
       return init
     @init := init
@@ -928,6 +982,9 @@ exports.For := class For extends Statement
       For init, test, step, body
     else
       this
+  
+  def inspect(depth)
+    "For($(inspect @init, null, depth - 1), $(inspect @test, null, depth - 1), $(inspect @step, null, depth - 1), $(inspect @body, null, depth - 1))"
 
 exports.ForIn := class ForIn extends Statement
   def constructor(key as Ident, object as Expression, body as Node)@
@@ -962,6 +1019,9 @@ exports.ForIn := class ForIn extends Statement
       ForIn key, object, body
     else
       this
+  
+  def inspect(depth)
+    "ForIn($(inspect @key, null, depth - 1), $(inspect @object, null, depth - 1), $(inspect @body, null, depth - 1))"
 
 let validate-func-params-and-variables(params, variables)!
   let names = []
@@ -1045,6 +1105,9 @@ exports.Func := class Func extends Expression
       Func name, params, @variables, body, @declarations, @meta
     else
       this
+  
+  def inspect(depth)
+    "Func($(inspect @name, null, depth - 1), $(inspect @params, null, depth - 1), $(inspect @variables, null, depth - 1), $(inspect @body, null, depth - 1), $(inspect @declarations, null, depth - 1), $(inspect @meta, null, depth - 1))"
 
 exports.Ident := class Ident extends Expression
   def constructor(name as String)@
@@ -1056,6 +1119,9 @@ exports.Ident := class Ident extends Expression
     sb @name
   
   def walk() -> this
+  
+  def inspect(depth)
+    "Ident($(inspect @name, null, depth - 1))"
 
 exports.IfStatement := class IfStatement extends Statement
   def constructor(mutable test as Expression, mutable when-true as Node, mutable when-false as Node = Noop())@
@@ -1138,9 +1204,16 @@ exports.IfStatement := class IfStatement extends Statement
         null
     else
       @_exit-type
+  
+  def inspect(depth)
+    "IfStatement($(inspect @test, null, depth - 1), $(inspect @when-true, null, depth - 1), $(inspect @when-false, null, depth - 1))"
 
 exports.IfExpression := class IfExpression extends Expression
-  def constructor(mutable test as Expression, when-true as Expression, when-false as Expression = Noop())@
+  def constructor(mutable test as Expression, mutable when-true, mutable when-false = Noop())@
+    if when-true not instanceof Expression
+      when-true := to-const when-true
+    if when-false not instanceof Expression
+      when-false := to-const when-false
     if test instanceof Unary and test.op == "!" and test.node instanceof Unary and test.node.op == "!"
       test := test.node.node
     if test.is-const()
@@ -1214,12 +1287,15 @@ exports.IfExpression := class IfExpression extends Expression
   def is-small() -> false
   
   def walk = IfStatement::walk
+  
+  def inspect(depth)
+    "IfExpression($(inspect @test, null, depth - 1), $(inspect @when-true, null, depth - 1), $(inspect @when-false, null, depth - 1))"
 
 let If = exports.If := #(test, when-true, when-false)
-  if when-true instanceof Expression and (not when-false or when-false instanceof Expression)
-    IfExpression test, when-true, when-false
-  else
+  if when-true instanceof Statement or when-false instanceof Statement
     IfStatement test, when-true, when-false
+  else
+    IfExpression test, when-true, when-false
 
 exports.Noop := class Noop extends Expression
   def constructor()@ ->
@@ -1242,6 +1318,8 @@ exports.Noop := class Noop extends Expression
       func(this)
     else
       this
+  
+  def inspect() -> "Noop()"
 
 exports.Obj := class Obj extends Expression
   let validate-unique-keys(elements)!
@@ -1323,6 +1401,9 @@ exports.Obj := class Obj extends Expression
     else
       this
   
+  def inspect(depth)
+    "Obj($(inspect @elements, null, depth - 1))"
+  
   Obj.Pair := class ObjPair
     def constructor(key as String, mutable value)@
       if value not instanceof Expression
@@ -1338,6 +1419,9 @@ exports.Obj := class Obj extends Expression
         ObjPair @key, value
       else
         this
+    
+    def inspect(depth)
+      "Pair($(inspect @key, null, depth - 1), $(inspect @value, null, depth - 1))"
 
 exports.Return := class Return extends Statement
   def constructor(node as Expression = Const(void))@
@@ -1360,6 +1444,9 @@ exports.Return := class Return extends Statement
       this
   
   def exit-type() -> \return
+  
+  def inspect(depth)
+    "Return($(inspect @node, null, depth - 1))"
 
 exports.Root := class Root
   def constructor(body as Node = Noop(), variables as [String] = [], declarations as [String] = [])@
@@ -1398,6 +1485,9 @@ exports.Root := class Root
   
   def exit-type() -> @last().exit-type()
   def last() -> @body[@body.length - 1]
+  
+  def inspect(depth)
+    "Root($(inspect @body, null, depth - 1), $(inspect @variables, null, depth - 1), $(inspect @declarations, null, depth - 1))"
 
 exports.This := class This extends Expression
   def constructor()@ ->
@@ -1405,6 +1495,8 @@ exports.This := class This extends Expression
   def compile(options, level, line-start, sb)! -> sb "this"
   
   def walk() -> this
+  
+  def inspect() -> "This()"
 
 exports.Throw := class Throw extends Statement
   def constructor(node as Expression)@
@@ -1425,9 +1517,14 @@ exports.Throw := class Throw extends Statement
       this
   
   def exit-type() -> \throw
+  
+  def inspect(depth)
+    "Throw($(inspect @node, null, depth - 1))"
 
 exports.Switch := class Switch extends Statement
-  def constructor(node as Expression, cases as [SwitchCase] = [], default-case as Node = Noop())@
+  def constructor(mutable node, cases as [SwitchCase] = [], default-case as Node = Noop())@
+    if node not instanceof Expression
+      node := to-const node
     @node := node
     @cases := cases
     @default-case := default-case.maybe-to-statement()
@@ -1469,8 +1566,13 @@ exports.Switch := class Switch extends Statement
     else
       this
   
+  def inspect(depth)
+    "Switch($(inspect @node, null, depth - 1), $(inspect @cases, null, depth - 1), $(inspect @default-case, null, depth - 1))"
+  
   Switch.Case := class SwitchCase
-    def constructor(node as Expression, body as Node)@
+    def constructor(mutable node, body as Node)@
+      if node not instanceof Expression
+        node := to-const node
       @node := node
       @body := body.maybe-to-statement()
     
@@ -1484,6 +1586,9 @@ exports.Switch := class Switch extends Statement
         SwitchCase(node, body)
       else
         this
+    
+    def inspect(depth)
+      "Case($(inspect @node, null, depth - 1), $(inspect @body, null, depth - 1))"
 
 exports.TryCatch := class TryCatch extends Statement
   def constructor(try-body as Node, catch-ident as Ident, catch-body as Node)@
@@ -1522,6 +1627,9 @@ exports.TryCatch := class TryCatch extends Statement
       TryCatch try-body, catch-ident, catch-body
     else
       this
+  
+  def inspect(depth)
+    "TryCatch($(inspect @try-body, null, depth - 1), $(inspect @catch-ident, null, depth - 1), $(inspect @catch-body, null, depth - 1))"
 
 exports.TryFinally := class TryFinally extends Statement
   def constructor(try-body as Node, finally-body as Node)@
@@ -1570,6 +1678,9 @@ exports.TryFinally := class TryFinally extends Statement
       TryFinally try-body, finally-body
     else
       this
+  
+  def inspect(depth)
+    "Root($(inspect @try-body, null, depth - 1), $(inspect @finally-body, null, depth - 1))"
 
 exports.Unary := class Unary extends Expression
   def constructor(op as String, mutable node)@
@@ -1635,6 +1746,9 @@ exports.Unary := class Unary extends Expression
       Unary(@op, node)
     else
       this
+  
+  def Unary(depth)
+    "Unary($(inspect @op, null, depth - 1), $(inspect @node, null, depth - 1))"
 
 let While = exports.While := #(test, body)
   For(null, test, null, body)
