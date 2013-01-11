@@ -52,13 +52,14 @@ let cache(rule as Function, dont-cache as Boolean)
         if not result
           inner[index] := false
         else
-          inner[index] := [o.index, result]
+          inner[index] := [o.index, o.line, result]
         result
       else if not item
         false
       else
         o.index := item[0]
-        item[1]
+        o.line := item[1]
+        item[2]
 macro cache!(rule, dont-cache)
   if @is-const(dont-cache)
     if @value(dont-cache)
@@ -67,6 +68,25 @@ macro cache!(rule, dont-cache)
       AST cache $rule
   else
     AST cache $rule, $dont-cache
+
+macro with-message!(message, rule)
+  let init = []
+  message := @cache message, message, \message, true
+  rule := @cache rule, init, \rule, true
+  AST do
+    $init
+    #(o)
+      o.prevent-fail()
+      let mutable result = void
+      try
+        result := $rule o
+      finally
+        o.unprevent-fail()
+      if result
+        result
+      else
+        o.fail $message
+        false
 
 macro C(string, index)
   if @empty(index)
@@ -533,7 +553,7 @@ macro character!(chars, name)
 
 let rule-equal(rule, text, mutator)
   let failure-message = JSON.stringify(text)
-  return mutate! named(failure-message, #(o)
+  return with-message! failure-message, mutate! named(failure-message, #(o)
     let clone = o.clone()
     let result = rule clone
     if result == text
@@ -588,12 +608,12 @@ let wrap(func, name = get-func-name(func))
   named func.parser-name, #(o)
     id += 1
     let i = id
-    console.log "$(i)-$(name) starting at $(o.indent.peek()):$(o.index)"
+    console.log "$(i)-$(name) starting at line #$(o.line), index $(o.index), indent $(o.indent.peek())"
     let result = func o
     if not result
-      console.log "$(i)-$(name) failure at $(o.indent.peek()):$(o.index)"
+      console.log "$(i)-$(name) failure at line #$(o.line), index $(o.index), indent $(o.indent.peek())"
     else
-      console.log "$(i)-$(name) success at $(o.indent.peek()):$(o.index)", result
+      console.log "$(i)-$(name) success at line #$(o.line), index $(o.index), indent $(o.indent.peek())", result
     result
 
 macro define
@@ -1709,11 +1729,11 @@ define _Name = sequential! [
     process-char-codes part[1:], parts
   parts.join ""
 
-define Name = with-space! _Name
+define Name = with-message! "name", with-space! _Name
 
 define _Symbol = one-or-more! SymbolChar, #(x) -> process-char-codes(x).join ""
 
-define Symbol = with-space! _Symbol
+define Symbol = with-message! "symbol", with-space! _Symbol
 
 let _NameOrSymbol = one-or-more-of! [
   _Name
@@ -4385,7 +4405,7 @@ macro node-type!
       $add-methods
 
 class State
-  def constructor(data, macros = MacroHolder(), index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null)@
+  def constructor(data, macros = MacroHolder(), index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0)@
     @data := data
     @macros := macros
     @index := index
@@ -4394,8 +4414,9 @@ class State
     @cache := cache
     @indent := indent
     @current-macro := current-macro
+    @prevent-failures := prevent-failures
   
-  def clone() -> State @data, @macros, @index, @line, @failures, @cache, @indent.clone(), @current-macro
+  def clone() -> State @data, @macros, @index, @line, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures
   
   def update(clone)!
     @index := clone.index
@@ -4404,7 +4425,14 @@ class State
     @macros := clone.macros
   
   def fail(message)!
-    @failures.add message, @index, @line
+    if not @prevent-failures
+      @failures.add message, @index, @line
+  
+  def prevent-fail()!
+    @prevent-failures ~+= 1
+  
+  def unprevent-fail()!
+    @prevent-failures ~-= 1
   
   def error(message)!
     throw ParserError message, @data, @index, @line

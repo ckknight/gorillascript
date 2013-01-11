@@ -80,7 +80,7 @@ async err, files <- fs.readdir tests-path
 throw? err
 if process.argv.length > 2
   files := for file in files
-    if file == process.argv[2]
+    if file in process.argv[2:]
       file
 
 asyncfor next, file, i in files
