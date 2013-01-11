@@ -1211,3 +1211,29 @@ test "iterator iteration loop scope with multiple", #
   array-eq [0, "alpha", 0, "delta"], funcs[0]()
   array-eq [1, "bravo", 1, "echo"], funcs[4]()
   array-eq [2, "charlie", 2, "foxtrot"], funcs[8]()
+
+test "C-style for loop", #
+  let mutable i = 0
+  let values = []
+  for (i := 0); i < 10; i += 1
+    values.push i
+  array-eq [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], values
+
+test "C-style for every loop", #
+  let mutable i = 0
+  ok not (for every (i := 0); i < 10; i += 1
+    i < 5)
+  ok (for every (i := 0); i < 10; i += 1
+    i < 10)
+
+test "C-style for some loop", #
+  let mutable i = 0
+  ok not (for some (i := 0); i < 10; i += 1
+    i == 10)
+  ok (for some (i := 0); i < 10; i += 1
+    i == 5)
+
+test "C-style for reduce loop", #
+  let mutable i = 0
+  eq 45, (for reduce (i := 0); i < 10; i += 1, sum = 0
+    sum + i)

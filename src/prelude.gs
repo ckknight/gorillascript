@@ -671,13 +671,11 @@ macro for
   // FIXME: init should be an Expression or Assignment or Let
   syntax reducer as ("every" | "some" | "first")?, init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if @empty(init)
-      init := []
-      init := AST $init
+      init := @noop()
     if @empty(test)
       test := AST true
     if @empty(step)
-      step := []
-      step := AST $step
+      step := @noop()
     if @empty(reducer)
       reducer := null
     if not @empty(else-body)
@@ -731,6 +729,21 @@ macro for
           $loop
       else
         @for(init, test, step, body)
+  
+  syntax "reduce", init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    if @empty(init)
+      init := @noop()
+    if @empty(test)
+      test := AST true
+    if @empty(step)
+      step := @noop()
+    
+    body := @mutate-last body, #(node) -> (AST $current := $node)
+    AST do
+      let mutable $current = $current-start
+      for $init; $test; $step
+        $body
+      $current
   
   syntax reducer as ("every" | "some" | "first")?, ident as Identifier, "=", start, ",", end, step as (",", this)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if not @empty(else-body) and @expr
@@ -812,6 +825,14 @@ macro for
         else
           $else-body
   
+  syntax "reduce", ident as Identifier, "=", start, ",", end, step as (",", this)?, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    body := @mutate-last body, #(node) -> (AST $current := $node)
+    AST do
+      let mutable $current = $current-start
+      for $ident = $start, $end, $step
+        $body
+      $current
+  
   syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if not @empty(else-body) and @expr
       throw Error("Cannot use a for loop with an else as an expression")
@@ -870,6 +891,16 @@ macro for
           $body
         else
           $else-body
+  
+  syntax "reduce", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    body := @mutate-last body, #(node) -> (AST $current := $node)
+    let length = index?.length
+    index := index?.value
+    AST do
+      let mutable $current = $current-start
+      for $value, $index, $length in $array
+        $body
+      $current
   
   syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if @empty(reducer)
@@ -977,6 +1008,21 @@ macro for
       $loop
       $post
   
+  syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    body := @mutate-last body, #(node) -> (AST $current := $node)
+    let index = value?.index
+    value := value?.value
+    let loop = if type == "of"
+      AST for $key, $value, $index of $object
+        $body
+    else
+      AST for $key, $value, $index ofall $object
+        $body
+    AST do
+      let mutable $current = $current-start
+      $loop
+      $current
+  
   syntax reducer as ("every" | "some" | "first")?, value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if not @empty(else-body) and @expr
       throw Error("Cannot use a for loop with an else as an expression")
@@ -1050,6 +1096,14 @@ macro for
         for $init; true; $step
           $body
         $post
+  
+  syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    body := @mutate-last body, #(node) -> (AST $current := $node)
+    AST do
+      let mutable $current = $current-start
+      for $value, $index from $iterator
+        $body
+      $current
 
 macro while
   syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
