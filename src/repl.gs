@@ -1,11 +1,11 @@
-require! './monkey'
+require! './gorilla'
 require! readline
 require! util
 require! vm
 require! module
 
-let REPL_PROMPT = "monkey> "
-let REPL_PROMPT_CONTINUATION = "......> "
+let REPL_PROMPT = "gs> "
+let REPL_PROMPT_CONTINUATION = "..> "
 let enable-colors = process.platform != 'win32' and not process.env.NODE_DISABLE_COLORS
 
 let stdin = process.open-stdin()
@@ -46,7 +46,7 @@ let run(buffer)
   let code = backlog
   backlog := ""
   try
-    let ret = monkey.eval code, {
+    let ret = gorilla.eval code, {
       sandbox
       filename: "repl"
       modulename: "repl"
@@ -78,7 +78,7 @@ let complete-variable(text)
   let free = (text.match SIMPLEVAR)?[1]
   if free
     let vars = vm.Script.run-in-context 'Object.getOwnPropertyNames(this)', sandbox
-    let possibilities = [...vars, ...monkey.RESERVED]
+    let possibilities = [...vars, ...gorilla.RESERVED]
     let completions = get-completions free, possibilities
     [completions, free]
 

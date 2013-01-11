@@ -1187,7 +1187,7 @@ let translators = {
         ast.This()
 
   Throw: #(node, scope, location)
-    // TODO: the expression handling _should_ be handled through the operator in prelude.ms
+    // TODO: the expression handling _should_ be handled through the operator in prelude.gs
     if location == \expression
       translate wrap-in-function-call(node), scope, \expression
     else

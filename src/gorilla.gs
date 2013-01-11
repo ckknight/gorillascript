@@ -5,11 +5,11 @@ require! path
 
 // TODO: Remove register-extension when fully deprecated.
 if require.extensions
-  require.extensions[".ms"] := #(module, filename)
+  require.extensions[".gs"] := #(module, filename)
     let content = compile fs.read-file-sync(filename, "utf8"), { filename }
     module._compile content, filename
 else if require.register-extension
-  require.register-extension ".ms", #(content) -> compiler content
+  require.register-extension ".gs", #(content) -> compiler content
 
 let fetch-and-parse-prelude = do
   let mutable parsed-prelude = void
@@ -17,7 +17,7 @@ let fetch-and-parse-prelude = do
   let flush(err, value)
     while fetchers.length > 0
       fetchers.shift()(err, value)
-  let prelude-path = path.join(path.dirname(fs.realpath-sync(__filename)), '../src/prelude.ms')
+  let prelude-path = path.join(path.dirname(fs.realpath-sync(__filename)), '../src/prelude.gs')
   let f(cb)
     if parsed-prelude?
       return cb null, parsed-prelude
@@ -107,7 +107,7 @@ exports.run := #(source, options = {})
   if process.binding('natives').module
     let {Module} = require('module')
     main-module.paths := Module._node-module-paths path.dirname options.filename
-  if path.extname(main-module.filename) != ".ms" or require.extensions
+  if path.extname(main-module.filename) != ".gs" or require.extensions
     main-module._compile compile(source, options), main-module.filename
   else
     main-module._compile source, main-module.filename

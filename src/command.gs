@@ -1,5 +1,5 @@
 require! cli
-require! './monkey'
+require! './gorilla'
 require! util
 require! fs
 require! path
@@ -7,27 +7,27 @@ require! child_process
 
 cli.enable 'version'
 
-cli.set-app "monkey", "1.0"
+cli.set-app "gorilla", "1.0"
 
-cli.set-usage "monkey [OPTIONS] path/to/script.ms"
+cli.set-usage "gorilla [OPTIONS] path/to/script.gs"
 
 cli.parse {
   compile:     ["c", "Compile to JavaScript and save as .js files"]
   output:      ["o", "Set the directory for compiled JavaScript", "path"]
   interactive: ["i", "Run interactively with the REPL"]
   stdout:      ["p", "Print the compiled JavaScript to stdout"]
-  stdin:       ["s", "Listen for and compile MonkeyScript from stdin"]
+  stdin:       ["s", "Listen for and compile GorillaScript from stdin"]
   eval:        ["e", "Compile and run a string from command line", "string"]
   noprelude:   [false, "Do not include the standard prelude"]
 }
 
 cli.main #(filenames, options)
-  monkey.init()
+  gorilla.init()
   let handle-code(code)
     let result = if options.stdout
-      monkey.compile code
+      gorilla.compile code
     else
-      util.inspect monkey.eval code
+      util.inspect gorilla.eval code
     process.stdout.write "$result\n"
   if options.eval?
     handle-code String(options.eval)
@@ -49,14 +49,14 @@ cli.main #(filenames, options)
       if options.compile
         process.stdout.write "Compiling $(path.basename filename) ... "
         let start-time = Date.now()
-        let js-code = monkey.compile code
+        let js-code = gorilla.compile code
         let end-time = Date.now()
         process.stdout.write "$(((end-time - start-time) / 1000_ms).toFixed(3)) seconds\n"
         compiled[filename] := js-code
       else if options.stdout
-        process.stdout.write monkey.compile(code) & "\n"
+        process.stdout.write gorilla.compile(code) & "\n"
       else
-        monkey.run code, { filename }
+        gorilla.run code, { filename }
     
     if options.compile
       asyncfor next, filename in filenames

@@ -1,7 +1,7 @@
 require! fs
 require! path
 require! assert
-require! './monkey'
+require! './gorilla'
 
 let no-prelude = false
 let mutable passed-tests = 0
@@ -85,8 +85,8 @@ if process.argv.length > 2
 
 asyncfor next, file, i in files
   if i == 0 and not no-prelude
-    monkey.init()
-  unless r'\.ms$'i.test(file)
+    gorilla.init()
+  unless r'\.gs$'i.test(file)
     return next()
   
   let filename = current-file := path.join tests-path, file
@@ -100,7 +100,7 @@ asyncfor next, file, i in files
   let start-time = Date.now()
   let mutable end-time = void
   try
-    result := monkey.eval code.to-string(), include-globals: true, no-prelude: no-prelude
+    result := gorilla.eval code.to-string(), include-globals: true, no-prelude: no-prelude
   catch e
     failure := true
     add-failure basename, e
