@@ -100,10 +100,10 @@ define operator assign ~\=
 
 define operator binary ~+, ~- with precedence: 7
   if op == "~+"
-    if not @is-type right, "number"
+    if not @is-type right, \number
       @binary left, "-", @unary "-", right
     else
-      if not @is-type left, "number"
+      if not @is-type left, \number
         left := @unary "+", left
       @binary left, "+", right
   else
@@ -196,7 +196,7 @@ define operator unary throw
   @throw node
 
 define helper __num = #(num) as Number
-  if typeof num != "number"
+  if typeof num != \number
     throw TypeError("Expected a number, got " ~& typeof num)
   else
     num
@@ -211,7 +211,7 @@ define helper __strnum = #(strnum) as String
   let type = typeof strnum
   if type == "string"
     strnum
-  else if type == "number"
+  else if type == \number
     String(strnum)
   else
     throw TypeError("Expected a string or number, got " ~& type)
@@ -219,13 +219,13 @@ define helper __strnum = #(strnum) as String
 // strict operators, should have same precedence as their respective unstrict versions
 
 define operator unary +
-  if @is-type node, "number"
+  if @is-type node, \number
     node
   else
     AST __num($node)
 
 define operator unary -
-  if @is-const(node) and typeof @value(node) == "number"
+  if @is-const(node) and typeof @value(node) == \number
     @const(~-@value(node))
   else
     AST ~-(+$node)
@@ -342,7 +342,7 @@ define operator binary ~%% with precedence: 1, maximum: 1, invertible: true
 
 define helper __lt = #(x, y) as Boolean
   let type = typeof x
-  if type not in ["number", "string"]
+  if type not in [\number, "string"]
     throw TypeError("Cannot compare a non-number/string: " ~& type)
   else if type != typeof y
     throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof y)
@@ -351,7 +351,7 @@ define helper __lt = #(x, y) as Boolean
 
 define helper __lte = #(x, y) as Boolean
   let type = typeof x
-  if type not in ["number", "string"]
+  if type not in [\number, "string"]
     throw TypeError("Cannot compare a non-number/string: " ~& type)
   else if type != typeof y
     throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof y)
@@ -598,7 +598,7 @@ define helper __typeof = do
     else
       (o.constructor and o.constructor.name) or _to-string@(o).slice(8, -1)
 
-define helper __freeze = if typeof Object.freeze == "function"
+define helper __freeze = if typeof Object.freeze == \function
   Object.freeze
 else
   #(x) -> x
@@ -608,7 +608,7 @@ define helper __freeze-func = #(x)
     __freeze(x.prototype)
   __freeze(x)
 
-define helper __is-array = if typeof Array.is-array == "function"
+define helper __is-array = if typeof Array.is-array == \function
   Array.is-array
 else
   do
@@ -621,7 +621,7 @@ define helper __to-array = #(x) as Array
   else
     __slice(x)
 
-define helper __create = if typeof Object.create == "function"
+define helper __create = if typeof Object.create == \function
   Object.create
 else
   #(x)
@@ -648,7 +648,7 @@ macro try
     let init = []
     let mutable run-else = void
     if has-else
-      run-else := @tmp \else
+      run-else := @tmp \else, false, \boolean
       init.push AST let $run-else = true
       if catch-body
         catch-body := AST
@@ -695,7 +695,7 @@ macro for
         throw Error("Cannot use a for loop with an else as an expression")
       else if reducer
         throw Error("Cannot use a for loop with an else with $reducer")
-      let run-else = @tmp \else
+      let run-else = @tmp \else, false, \boolean
       body := AST
         $run-else := false
         $body
@@ -731,7 +731,7 @@ macro for
         else
           throw Error("Unknown reducer: $reducer")
       else if @expr
-        let arr = @tmp \arr
+        let arr = @tmp \arr, false, body.type().array()
         body := @mutate-last body, #(node) -> (AST $arr.push $node)
         init := AST
           $arr := []
@@ -771,14 +771,14 @@ macro for
     let init = []
     
     if @is-const(start)
-      if typeof @value(start) != "number"
+      if typeof @value(start) != \number
         throw Error "Cannot start with a non-number: #(@value start)"
     else
       start := AST +$start
     init.push (AST let $ident = $start)
     
     if @is-const(end)
-      if typeof @value(end) != "number"
+      if typeof @value(end) != \number
         throw Error "Cannot end with a non-number: #(@value start)"
     else if @is-complex(end)
       end := @cache (AST +$end), init, \end, has-func
@@ -786,7 +786,7 @@ macro for
       init.push AST +$end
     
     if @is-const(step)
-      if typeof @value(step) != "number"
+      if typeof @value(step) != \number
         throw Error "Cannot step with a non-number: #(@value step)"
     else if @is-complex(step)
       step := @cache (AST +$step), init, \step, has-func
@@ -808,7 +808,7 @@ macro for
       AST if $step ~> 0 then $ident ~< $end else $ident ~> $end
     
     if has-func
-      let func = @tmp \f
+      let func = @tmp \f, false, \function
       init.push (AST let $func = #($ident) -> $body)
       body := (AST $func($ident))
     
@@ -859,15 +859,15 @@ macro for
     
     let mutable length = null
     if @empty(index)
-      index := @tmp \i
-      length := @tmp \len
+      index := @tmp \i, false, \number
+      length := @tmp \len, false, \number
     else
       length := index.length
       index := index.value
       if @empty(index)
-        index := @tmp \i
+        index := @tmp \i, false, \number
       if @empty(length)
-        length := @tmp \len
+        length := @tmp \len, false, \number
     
     init.push AST let mutable $index = 0
     init.push AST let $length = +$array.length
@@ -877,7 +877,7 @@ macro for
       $body
     
     if has-func
-      let func = @tmp \f
+      let func = @tmp \f, false, \function
       init.push AST let $func = #($index) -> $body
       body := AST $func($index)
     
@@ -947,7 +947,7 @@ macro for
         $body
     
     if has-func
-      let func = @tmp \f
+      let func = @tmp \f, false, \function
       if index
         init.push (AST let $func = #($key, $index) -> $body)
         body := (AST $func($key, $index))
@@ -957,7 +957,7 @@ macro for
     
     let post = []
     if not @empty(else-body)
-      let run-else = @tmp \else
+      let run-else = @tmp \else, false, \boolean
       init.push (AST let $run-else = true)
       body := AST
         $run-else := false
@@ -1007,7 +1007,7 @@ macro for
         else
           throw Error("Unknown reducer: $reducer")
       else if @expr
-        let arr = @tmp \arr
+        let arr = @tmp \arr, false, body.type().array()
         body := @mutate-last body, #(node) -> (AST $arr.push $node)
         init := AST
           $arr := []
@@ -1064,7 +1064,7 @@ macro for
     
     let post = []
     if not @empty(else-body)
-      let run-else = @tmp \else
+      let run-else = @tmp \else, false, \boolean
       init.push (AST let $run-else = true)
       body := AST
         $run-else := false
@@ -1074,7 +1074,7 @@ macro for
           $else-body
     
     if has-func
-      let func = @tmp \f
+      let func = @tmp \f, false, \function
       if @empty(index)
         init.push AST let $func = #($value) -> $body
         body := AST
@@ -1142,7 +1142,7 @@ macro until
       else
         $else-body
 
-define helper __keys = if typeof Object.keys == "function"
+define helper __keys = if typeof Object.keys == \function
   Object.keys
 else
   #(x) as [String]
@@ -1301,7 +1301,7 @@ macro asyncfor
     if @empty(step)
       step := []
       step := AST $step
-    let done = @tmp \done, true
+    let done = @tmp \done, true, \function
     if @empty(result)
       if @empty(step)
         AST
@@ -1314,7 +1314,7 @@ macro asyncfor
             $rest
           $next()
       else
-        let first = @tmp \first, true
+        let first = @tmp \first, true, \boolean
         AST
           $init
           let $first = true
@@ -1330,7 +1330,7 @@ macro asyncfor
             $body
           $next()
     else
-      let first = @tmp \first, true
+      let first = @tmp \first, true, \boolean
       let value = @tmp \value, true
       AST
         $init
@@ -1357,14 +1357,14 @@ macro asyncfor
     let init = []
     
     if @is-const(start)
-      if typeof @value(start) != "number"
+      if typeof @value(start) != \number
         throw Error "Cannot start with a non-number: #(@value start)"
     else
       start := AST +$start
     init.push (AST let $ident = $start)
     
     if @is-const(end)
-      if typeof @value(end) != "number"
+      if typeof @value(end) != \number
         throw Error "Cannot end with a non-number: #(@value start)"
     else if @is-complex(end)
       end := @cache (AST +$end), init, \end, true
@@ -1372,7 +1372,7 @@ macro asyncfor
       init.push AST +$end
     
     if @is-const(step)
-      if typeof @value(step) != "number"
+      if typeof @value(step) != \number
         throw Error "Cannot step with a non-number: #(@value step)"
     else if @is-complex(step)
       step := @cache (AST +$step), init, \step, true
@@ -1404,13 +1404,15 @@ macro asyncfor
     
     let mutable length = null
     if @empty(index)
-      index := @tmp \i, true
-      length := @tmp \len, true
+      index := @tmp \i, true, \number
+      length := @tmp \len, true, \number
     else
       length := index.length
       index := index.value
+      if @empty(index)
+        index := @tmp \i, true, \number
       if @empty(length)
-        length := @tmp \len, true
+        length := @tmp \len, true, \number
 
     init.push AST let mutable $index = 0
     init.push AST let $length = +$array.length
@@ -1442,9 +1444,9 @@ macro asyncfor
         let $value = $object[$key]
         $body
     if not index
-      index := @tmp \i, true
+      index := @tmp \i, true, \number
     
-    let keys = @tmp \keys, true
+    let keys = @tmp \keys, true, \string-array
     let get-keys = if own
       AST for $key of $object
         $keys.push $key
@@ -1468,7 +1470,7 @@ macro asyncfor
       init.push AST let mutable $index = 0
       step.push AST $index ~+= 1
     
-    let broken = @tmp \end, true
+    let broken = @tmp \end, true, \boolean
     init.push AST let mutable $broken = false
     let capture-value = AST try
       let $value = $iterator.next()
@@ -1567,17 +1569,17 @@ macro class
     else if @is-access(name)
       assignment := name
       if @is-const(@child(name)) and typeof @value(@child(name)) == \string
-        name := @ident(@value(@child(name))) ? @tmp \class
+        name := @ident(@value(@child(name))) ? @tmp \class, false, \function
       else
-        name := @tmp \class
+        name := @tmp \class, false, \function
     else
-      name := @tmp \class
+      name := @tmp \class, false, \function
     
     let has-superclass = not @empty(superclass)
-    let sup = if @empty(superclass) then superclass else @tmp \super
+    let sup = if @empty(superclass) then superclass else @tmp \super, false, \function
     let init = []
-    let superproto = if @empty(superclass) then AST Object.prototype else @tmp \superproto
-    let prototype = @tmp \proto
+    let superproto = if @empty(superclass) then AST Object.prototype else @tmp \superproto, false, \object
+    let prototype = @tmp \proto, false, \object
     if not @empty(superclass)
       init.push AST let $superproto = $sup.prototype
       init.push AST let $prototype = $name.prototype := ^$superproto
@@ -1672,14 +1674,14 @@ macro class
         else
           node
     else if constructor-count != 0
-      let ctor = @tmp \ctor
+      let ctor = @tmp \ctor, false, \function
       let result = @tmp \ref
       init.push AST
         let mutable $ctor = void
         let $name()
           let $self = if this instanceof $name then this else ^$prototype
           
-          if typeof $ctor == "function"
+          if typeof $ctor == \function
             let $result = $ctor@ $self, ...arguments
             if Object($result) == $result
               return $result
@@ -1746,11 +1748,11 @@ macro enum
     else if @is-access(name)
       assignment := name
       if @is-const(@child(name)) and typeof @value(@child(name)) == \string
-        name := @ident(@value(@child(name))) ? @tmp \enum
+        name := @ident(@value(@child(name))) ? @tmp \enum, false, \object
       else
-        name := @tmp \enum
+        name := @tmp \enum, false, \object
     else
-      name := @tmp \enum
+      name := @tmp \enum, false, \object
     
     let mutable index = 0
     body := @walk body, #(node)@
@@ -1786,13 +1788,13 @@ macro namespace
     else if @is-access(name)
       assignment := name
       if @is-const(@child(name)) and typeof @value(@child(name)) == \string
-        name := @ident(@value(@child(name))) ? @tmp \ns
+        name := @ident(@value(@child(name))) ? @tmp \ns, false, \object
       else
-        name := @tmp \ns
+        name := @tmp \ns, false, \object
     else
-      name := @tmp \ns
+      name := @tmp \ns, false, \object
     
-    let sup = if @empty(superobject) then superobject else @tmp \super
+    let sup = if @empty(superobject) then superobject else @tmp \super, false, \object
     let init = []
     if @empty(superobject)
       init.push AST let $name = {}

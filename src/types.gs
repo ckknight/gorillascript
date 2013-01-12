@@ -537,6 +537,7 @@ module.exports := class Type
   @null := @make "null"
   @boolean := @make "Boolean"
   @string := @make "String"
+  @string-array := @string.array()
   @number := @make "Number"
   @array := any.array()
   @args := @make "Arguments"

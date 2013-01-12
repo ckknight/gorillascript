@@ -3366,7 +3366,7 @@ define BasicInvocationOrAccess = sequential! [
           let mutable set-parent = parent
           let tmp-ids = []
           if parent.cacheable
-            let tmp = o.tmp(i, get-tmp-id(), \ref)
+            let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type())
             tmp-ids.push tmp.id
             set-parent := o.assign(i, tmp, "=", parent)
             parent := tmp
@@ -3382,14 +3382,14 @@ define BasicInvocationOrAccess = sequential! [
           let tmp-ids = []
           let mutable set-head = head
           if head.cacheable
-            let tmp = o.tmp(i, get-tmp-id(), \ref)
+            let tmp = o.tmp(i, get-tmp-id(), \ref, head.type())
             tmp-ids.push tmp.id
             set-head := o.assign(i, tmp, "=", head)
             head := tmp
           let mutable child = link.child
           let mutable set-child = child
           if child.cacheable
-            let tmp = o.tmp(i, get-tmp-id(), \ref)
+            let tmp = o.tmp(i, get-tmp-id(), \ref, child.type())
             tmp-ids.push tmp.id
             set-child := o.assign(i, tmp, "=", child)
             child := tmp
@@ -3423,7 +3423,7 @@ define BasicInvocationOrAccess = sequential! [
             let tmp-ids = []
             let mutable set-head = head
             if head.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref)
+              let tmp = o.tmp(i, get-tmp-id(), \ref, head.type())
               tmp-ids.push tmp.id
               set-head := o.assign(i, tmp, "=", head)
               head := tmp
@@ -3448,21 +3448,21 @@ define BasicInvocationOrAccess = sequential! [
             let mutable set-parent = parent
             let mutable set-parent = child
             if parent.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref)
+              let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type())
               tmp-ids.push tmp.id
               set-parent := o.assign(i, tmp, "=", parent)
               parent := tmp
             if child.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref)
+              let tmp = o.tmp(i, get-tmp-id(), \ref, child.type())
               tmp-ids.push tmp.id
-              set-child := o.assign(i, tmp, "=", parent)
+              set-child := o.assign(i, tmp, "=", child)
               child := tmp
             if parent != set-parent or child != set-child
               set-head := o.access(i, set-parent, set-child)
               head := o.access(i, parent, child)
           else
             if head.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref)
+              let tmp = o.tmp(i, get-tmp-id(), \ref, head.type())
               tmp-ids.push tmp.id
               set-head := o.assign(i, tmp, "=", head)
               head := tmp
@@ -3941,10 +3941,19 @@ class MacroHelper
   def unary(op as String, node as Object) -> @state.unary(@index, op, node).reduce()
   def throw(node as Node) -> @state.throw(@index, node).reduce()
   
-  def tmp(name as String = \ref, save as Boolean)
+  def tmp(name as String = \ref, save as Boolean, mutable type)
     let id = get-tmp-id()
     (if save then @saved-tmps else @unsaved-tmps).push id
-    @state.tmp @index, id, name
+    if not type?
+      type := Type.any
+    else if typeof type == "string"
+      if Type![type] not instanceof Type
+        throw Error "$type is not a known type name"
+      type := Type![type]
+    else if type not instanceof Type
+      throw Error "Must provide a Type or a string for type, got $(typeof! type)"
+      
+    @state.tmp @index, id, name, type
   
   def get-tmps() -> {
     unsaved: @unsaved-tmps[:]
@@ -4061,7 +4070,7 @@ class MacroHelper
   
   def maybe-cache(node, func, name as String = \ref, save as Boolean)
     if @is-complex node
-      let tmp = @tmp(name, save)
+      let tmp = @tmp(name, save, node.type())
       func @state.let(@index, @state.declarable(@index, tmp, false), node), tmp, true
     else
       func node, node, false
@@ -4229,7 +4238,7 @@ class MacroHelper
         IfNode x.start-index, x.end-index, x.test, when-true, when-false
       else
         x
-    UseMacro: #(x, func)
+    TmpWrapper: #(x, func)
       let node = @mutate-last x.node, func
       if node != x.node
         TmpWrapperNode x.start-index, x.end-index, node, x.tmps
@@ -5516,8 +5525,9 @@ node-type! \this, {
 node-type! \throw, node as Node, {
   type: # -> Type.none
 }
-node-type! \tmp, id as Number, name as String, {
+node-type! \tmp, id as Number, name as String, _type as Type = Type.any, {
   cacheable: false
+  type: # -> @_type
 }
 node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node, {
   type: # -> @_type ?= @try-body.type().union(@catch-body.type())

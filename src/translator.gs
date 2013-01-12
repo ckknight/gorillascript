@@ -25,7 +25,7 @@ class Scope
     unless needs-caching item
       func item, item, false
     else
-      let ident = @reserve-ident \ref
+      let ident = @reserve-ident \ref, item.type()
       let result = func ast.Assign(ident, item), ident, true
       @release-ident(ident)
       result
@@ -44,14 +44,14 @@ class Scope
     else
       func item, item, false
 
-  def reserve-ident(name-part = \ref)
+  def reserve-ident(name-part = \ref, type as Type = Type.any)
     // TODO: would be better as for first
     for i = 1, Infinity
       let name = if i == 1 then "_$(name-part)" else "_$(name-part)$i"
       unless @used-tmps haskey name
         @used-tmps[name] := true
         let ident = ast.Ident name
-        @add-variable ident
+        @add-variable ident, type
         return ident
 
   def reserve-param()
@@ -62,13 +62,13 @@ class Scope
         @used-tmps[name] := true
         return ast.Ident name
 
-  def get-tmp(id, name)
+  def get-tmp(id, name, type as Type = Type.any)
     let tmps = @tmps
     if tmps haskey id
       let tmp = tmps[id]
       if tmp instanceof ast.Ident
         return tmp
-    tmps[id] := @reserve-ident name or \tmp
+    tmps[id] := @reserve-ident name or \tmp, type
 
   def release-tmp(id)!
     if @tmps ownskey id
@@ -103,8 +103,8 @@ class Scope
 
     helpers.sort lower-sorter
 
-  def add-variable(ident as ast.Ident)!
-    @variables[ident.name] := true
+  def add-variable(ident as ast.Ident, type as Type = Type.any)!
+    @variables[ident.name] := type
 
   def has-variable(ident as ast.Ident)
     if @variables[ident.name]
@@ -116,8 +116,7 @@ class Scope
     delete @variables[ident.name]
 
   def get-variables()
-    let variables = for k of @variables
-      k
+    let variables = for k of @variables; k
 
     variables.sort lower-sorter
 
@@ -157,8 +156,8 @@ class GeneratorBuilder
       []
     ]
     @current-state := current-state
-    @state-ident := state-ident ? scope.reserve-ident \state
-    @pending-finallies-ident := pending-finallies-ident ? scope.reserve-ident \finallies
+    @state-ident := state-ident ? scope.reserve-ident \state, Type.number
+    @pending-finallies-ident := pending-finallies-ident ? scope.reserve-ident \finallies, Type.function.array()
     @finallies := finallies
     @catches := catches
     @current-catch := current-catch
@@ -185,7 +184,7 @@ class GeneratorBuilder
       #-> ast.Break())
   
   def pending-finally(t-finally-body as Function)
-    let ident = @scope.reserve-ident \finally
+    let ident = @scope.reserve-ident \finally, Type.function
     @scope.remove-variable ident
     @finallies.push #-> ast.Func ident, [], [], t-finally-body()
     @states[@current-state].push #@-> ast.Call ast.Access(@pending-finallies-ident, \push), [ident]
@@ -242,7 +241,7 @@ class GeneratorBuilder
     let body = [
       ast.Assign @state-ident, 1
     ]
-    let close = @scope.reserve-ident \close
+    let close = @scope.reserve-ident \close, Type.function
     @scope.remove-variable(close)
     if @finallies.length == 0
       @scope.remove-variable(@pending-finallies-ident)
@@ -253,7 +252,7 @@ class GeneratorBuilder
       body.push ast.Assign @pending-finallies-ident, ast.Arr()
       body.push ...(for f in @finallies; f())
       let inner-scope = @scope.clone(false)
-      let f = inner-scope.reserve-ident \f
+      let f = inner-scope.reserve-ident \f, Type.function.union(Type.undefined)
       body.push ast.Func close, [], inner-scope.get-variables(), ast.Block [
         ast.Assign @state-ident, 0
         ast.Assign f, ast.Call ast.Access(@pending-finallies-ident, \pop)
@@ -264,7 +263,7 @@ class GeneratorBuilder
             ast.Call close))
       ]
     let scope = @scope
-    let err = scope.reserve-ident \e
+    let err = scope.reserve-ident \e, Type.any
     let catches = @catches
     let state-ident = @state-ident
     body.push ast.Return ast.Obj [
@@ -359,7 +358,7 @@ let generator-translate = do
     ForIn: #(node, scope, mutable builder)
       let t-key = translate node.key, scope, \left-expression
       let t-object = translate node.object, scope, \expression
-      let keys = scope.reserve-ident \keys
+      let keys = scope.reserve-ident \keys, Type.string.array()
       let mutable key = void
       let get-key()
         if key?
@@ -368,10 +367,10 @@ let generator-translate = do
           key := t-key()
           if key not instanceof ast.Ident
             throw Error("Expected an Ident for a for-in key")
-          scope.add-variable key
+          scope.add-variable key, Type.string
           key
-      let index = scope.reserve-ident \i
-      let length = scope.reserve-ident \len
+      let index = scope.reserve-ident \i, Type.number
+      let length = scope.reserve-ident \len, Type.number
       builder.add #
         ast.Block [
           ast.Assign keys, ast.Arr()
@@ -690,7 +689,7 @@ let translators = {
       let key = t-key()
       if key not instanceof ast.Ident
         throw Error("Expected an Ident for a for-in key")
-      scope.add-variable key
+      scope.add-variable key, Type.string
       ast.ForIn(key, t-object(), t-body())
 
   Function: do
@@ -747,12 +746,21 @@ let translators = {
                     ast.Ident(\__typeof)
                     [ident]))])))
         if not has-default-value and node.name == \Boolean
-          ast.If(
-            ast.Binary ident, "==", null
-            ast.Assign ident, ast.Const(false)
-            result)
+          {
+            check: ast.If(
+              ast.Binary ident, "==", null
+              ast.Assign ident, ast.Const(false)
+              result)
+            type: Type.boolean
+          }
         else
-          result
+          {
+            check: result
+            type: if primitive-types ownskey node.name
+              Type[primitive-types[node.name]]
+            else
+              Type.any // FIXME
+          }
       Access: #(ident, node, scope, has-default-value, array-index)
         let access = if array-index?
           ast.Access ident, array-index
@@ -760,30 +768,33 @@ let translators = {
           ident
         scope.add-helper \__typeof
         let type = translate(node, scope, \expression)()
-        ast.If(
-          ast.Unary(
-            "!"
-            ast.Binary(
-              access
-              \instanceof
-              type))
-          ast.Throw(
-            ast.Call(
-              ast.Ident(\TypeError)
-              [if array-index?
-                ast.Concat(
-                  "Expected $(ident.name)["
-                  array-index
-                  "] to be a $(type.right.value), got "
-                  ast.Call(
-                    ast.Ident(\__typeof)
-                    [access]))
-              else
-                ast.Concat(
-                  "Expected $(ident.name) to be a $(type.right.value), got "
-                  ast.Call(
-                    ast.Ident(\__typeof)
-                    [ident]))])))
+        {
+          check: ast.If(
+            ast.Unary(
+              "!"
+              ast.Binary(
+                access
+                \instanceof
+                type))
+            ast.Throw(
+              ast.Call(
+                ast.Ident(\TypeError)
+                [if array-index?
+                  ast.Concat(
+                    "Expected $(ident.name)["
+                    array-index
+                    "] to be a $(type.right.value), got "
+                    ast.Call(
+                      ast.Ident(\__typeof)
+                      [access]))
+                else
+                  ast.Concat(
+                    "Expected $(ident.name) to be a $(type.right.value), got "
+                    ast.Call(
+                      ast.Ident(\__typeof)
+                      [ident]))])))
+          type: Type.any // FIXME
+        }
       TypeUnion: #(ident, node, scope, has-default-value, array-index)
         // TODO: cache typeof ident if requested more than once.
         if array-index?
@@ -795,14 +806,17 @@ let translators = {
         let mutable has-null = false
         let names = []
         let tests = []
+        let types = []
         for type in node.types
           if type instanceof parser.Node.Const
             if type.value == null
               has-null := true
               names.push \null
+              types.push Type.null
             else if type.value == void
               has-void := true
               names.push \undefined
+              types.push Type.undefined
             else
               throw Error "Unknown const value for typechecking: $(String type.value)"
           else if type instanceof parser.Node.Ident
@@ -810,6 +824,10 @@ let translators = {
               has-boolean := true
             names.push type.name
             tests.push make-type-check-test ident, type.name, scope
+            types.push if primitive-types ownskey type.name
+              Type[primitive-types[type.name]]
+            else
+              Type.any // FIXME
           else
             throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
 
@@ -838,13 +856,18 @@ let translators = {
               ast.Binary ident, "==", null
               ast.Assign ident, ast.Const(false)
               result)
-        result
+        {
+          check: result
+          type: for reduce type in types, current = Type.none
+            current.union(type)
+        }
       TypeArray: #(ident, node, scope, has-default-value, array-index)
         if array-index
           throw Error "Not implemented: arrays within arrays as types"
         scope.add-helper \__is-array
-        let index = scope.reserve-ident \i
-        let length = scope.reserve-ident \len
+        let index = scope.reserve-ident \i, Type.number
+        let length = scope.reserve-ident \len, Type.number
+        let sub-check = translate-type-check(ident, node.subtype, scope, false, index)
         let result = ast.If(
           ast.Unary(
             "!"
@@ -866,10 +889,13 @@ let translators = {
             ]
             ast.Binary index, "<", length
             ast.Unary "++", index
-            translate-type-check(ident, node.subtype, scope, false, index)))
+            sub-check.check))
         scope.release-ident index
         scope.release-ident length
-        result
+        {
+          check: result
+          type: sub-check.type.array()
+        }
     }
     let translate-type-check(ident, node, scope, has-default-value, array-index)
       unless translate-type-checks ownskey node.constructor.capped-name
@@ -890,18 +916,20 @@ let translators = {
 
         unless ident instanceof ast.Ident
           throw Error "Expecting param to be an Ident, got $(typeof! ident)"
+        
+        let type-check = if param.as-type then translate-type-check(ident, param.as-type, scope, param.default-value?)
+        // TODO: mark the param as having a type
         if inner
-          scope.add-variable ident
+          scope.add-variable ident, type-check?.type
 
         let init = []
-        let type-check = if param.as-type then translate-type-check(ident, param.as-type, scope, param.default-value?)
         if param.default-value?
           init.push ast.If(
             ast.Binary ident, "==", null
             ast.Assign ident, translate(param.default-value, scope, \expression)()
-            type-check)
+            type-check?.check)
         else if type-check
-          init.push type-check
+          init.push type-check.check
         {
           init: [...init, ...later-init]
           ident
@@ -909,7 +937,7 @@ let translators = {
         }
 
       Array: #(array, scope, inner)
-        let array-ident = if inner then scope.reserve-ident \p else scope.reserve-param()
+        let array-ident = if inner then scope.reserve-ident \p, Type.array else scope.reserve-param()
         let init = []
         let mutable found-spread = -1
         let mutable spread-counter = void
@@ -939,7 +967,7 @@ let translators = {
                   ast.Ident(\__slice)
                   [array-ident, ...(if i == 0 then [] else [ast.Const(i)])]))
             else
-              spread-counter := scope.reserve-ident \i
+              spread-counter := scope.reserve-ident \i, Type.number
               init.push ast.Assign(
                 param.ident
                 ast.IfExpression(
@@ -970,7 +998,7 @@ let translators = {
         }
 
       Object: #(object, scope, inner)
-        let object-ident = if inner then scope.reserve-ident \p else scope.reserve-param()
+        let object-ident = if inner then scope.reserve-ident \p, Type.object else scope.reserve-param()
         let init = []
 
         for pair in object.pairs
@@ -979,7 +1007,7 @@ let translators = {
             throw Error "Unexpected non-const object key: $(typeof! key)"
 
           let value = translate-param pair.value, scope, true
-          scope.add-variable value.ident
+          scope.add-variable value.ident // TODO: is this needed? Array doesn't seem to use it.
           init.push ast.Assign(
             value.ident
             ast.Access object-ident, key), ...value.init
@@ -1046,7 +1074,7 @@ let translators = {
           if found-spread == -1
             param-idents.push param.ident
           else
-            inner-scope.add-variable param.ident
+            inner-scope.add-variable param.ident // TODO: figure out param type
             let diff = i - found-spread - 1
             initializers.push ast.Assign(
               param.ident
@@ -1058,7 +1086,7 @@ let translators = {
             throw Error "Encountered multiple spread parameters"
           found-spread := i
           inner-scope.add-helper \__slice
-          inner-scope.add-variable param.ident
+          inner-scope.add-variable param.ident, Type.array // TODO: figure out param type
           if i == len - 1
             initializers.push ast.Assign(
               param.ident
@@ -1066,7 +1094,7 @@ let translators = {
                 ast.Ident(\__slice)
                 [ast.Arguments(), ...(if i == 0 then [] else [ast.Const(i)])]))
           else
-            spread-counter := inner-scope.reserve-ident \ref
+            spread-counter := inner-scope.reserve-ident \ref, Type.number
             initializers.push ast.Assign(
               param.ident
               ast.IfExpression(
@@ -1101,7 +1129,7 @@ let translators = {
           scope.used-this := true
         if inner-scope.has-bound and not inner-scope.bound
           let fake-this = ast.Ident \_this
-          inner-scope.add-variable fake-this
+          inner-scope.add-variable fake-this // TODO: the type for this?
           body := ast.Block [
             ast.Assign fake-this, ast.This()
             body
@@ -1145,7 +1173,7 @@ let translators = {
           let t-ident = translate node.ident, scope, \left-expression
           #
             let ident = t-ident()
-            scope.add-variable ident
+            scope.add-variable ident // TODO: type
             ident
       ArrayDeclarable: #(node, scope)
         let elements = for element in node.elements
@@ -1188,7 +1216,7 @@ let translators = {
           let init = []
           let mutable array-ident = void
           if needs-caching right
-            array-ident := scope.reserve-ident \a
+            array-ident := scope.reserve-ident \a, Type.array
             init.push ast.Assign(array-ident, right)
           else
             array-ident := right
@@ -1217,7 +1245,7 @@ let translators = {
                   ast.Ident(\__slice)
                   [array-ident, ...(if i == 0 then [] else [ast.Const(i)])])
               else
-                spread-counter := scope.reserve-ident \i
+                spread-counter := scope.reserve-ident \i, Type.number
                 init.push handle-declarable scope, location, identity, node, ast.IfExpression(
                   ast.Binary(
                     i
@@ -1248,7 +1276,7 @@ let translators = {
           let init = []
           let mutable object-ident = void
           if needs-caching right
-            object-ident := scope.reserve-ident \o
+            object-ident := scope.reserve-ident \o, Type.object
             init.push ast.Assign(object-ident, right)
           else
             object-ident := right
@@ -1301,7 +1329,7 @@ let translators = {
       if post-const-pairs.length == 0
         auto-return obj
       else
-        let ident = scope.reserve-ident \o
+        let ident = scope.reserve-ident \o, Type.object
         let result = ast.BlockExpression [
           ast.Assign ident, obj
           ...for pair in post-const-pairs
@@ -1346,12 +1374,12 @@ let translators = {
       let init = []
       if scope.has-bound and scope.used-this
         let fake-this = ast.Ident(\_this)
-        scope.add-variable fake-this
+        scope.add-variable fake-this // TODO: type for this?
         init.push ast.Assign fake-this, ast.This()
       for helper in scope.get-helpers()
         if HELPERS.has(helper)
           let ident = ast.Ident(helper)
-          scope.add-variable ident
+          scope.add-variable ident // TODO: type?
           init.push ast.Assign ident, HELPERS.get(helper)
 
       let bare-init = []
@@ -1441,7 +1469,7 @@ let translators = {
     throw Error "Cannot have a stray super call"
 
   Tmp: #(node, scope, location, auto-return)
-    let ident = scope.get-tmp(node.id, node.name)
+    let ident = scope.get-tmp(node.id, node.name, node.type())
     # -> auto-return ident
 
   TmpWrapper: #(node, scope, location, auto-return)
