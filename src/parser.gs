@@ -4278,9 +4278,7 @@ class MacroHolder
     @postfix-unary-operators := []
 
   def get-by-name(name)
-    let by-name = @by-name
-    if by-name ownskey name
-      by-name[name]
+    @by-name![name]
   
   def get-or-add-by-name(name)
     let by-name = @by-name
@@ -4544,10 +4542,7 @@ class State
           let string = param.const-value()
           if typeof string != \string
             @error "Expected a constant string parameter, got $(typeof! string)"
-          if macro-syntax-const-literals ownskey string
-            macro-syntax-const-literals[string]
-          else
-            word-or-symbol string
+          macro-syntax-const-literals![string] or word-or-symbol string
         else if param instanceof SyntaxManyNode
           let {multiplier} = param
           let calced = calc-param param.inner
@@ -4567,10 +4562,7 @@ class State
             if typeof string != \string
               @error "Expected a constant string parameter, got $(typeof! string)"
           
-            if macro-syntax-const-literals ownskey string
-              sequence.push macro-syntax-const-literals[string]
-            else
-              sequence.push word-or-symbol string
+            sequence.push macro-syntax-const-literals![string] or word-or-symbol string
           else if param instanceof SyntaxParamNode
             let {ident} = param
             let key = if ident instanceof IdentNode
@@ -4858,7 +4850,7 @@ node-type! \assign, left as Node, op as String, right as Node, {
       "|=": types.number
     }
     # -> @_type ?= do
-      let type = ops ownskey @op and ops[@op]
+      let type = ops![@op]
       if not type
         types.any
       else if typeof type == "function"
@@ -4900,7 +4892,7 @@ node-type! \binary, left as Node, op as String, right as Node, {
       "||": #(left, right) -> left.intersect(types.potentially-truthy).union(right)
     }
     # -> @_type ?= do
-      let type = ops ownskey @op and ops[@op]
+      let type = ops![@op]
       if not type
         types.any
       else if typeof type == "function"
@@ -4983,10 +4975,9 @@ node-type! \binary, left as Node, op as String, right as Node, {
       if left.is-const()
         if right.is-const() and const-ops ownskey op
           return ConstNode @start-index, @end-index, const-ops[op](left.const-value(), right.const-value())
-        if left-const-ops ownskey op
-          return? left-const-ops[op]@(this, left, right)
-      if right.is-const() and right-const-ops ownskey op
-        return? right-const-ops[op]@(this, left, right)
+        return? left-const-ops![op]@(this, left, right)
+      if right.is-const()
+        return? right-const-ops![op]@(this, left, right)
       if left != @left or right != @right
         BinaryNode @start-index, @end-index, left, op, right
       else
@@ -5229,10 +5220,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         let {parent, child} = func
         if child instanceof ConstNode
           if parent instanceof IdentNode
-            if PRIMORDIAL_SUBFUNCTIONS ownskey parent.name
-              let subfuncs = PRIMORDIAL_SUBFUNCTIONS[parent.name]
-              if subfuncs ownskey child.value
-                return subfuncs[child.value]
+            return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
           // else check the type of parent, maybe figure out its methods
       types.any
   _reduce: do
@@ -5318,7 +5306,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
                   // TODO: do something here to alert the user
                   void
             else if parent instanceof IdentNode
-              if PURE_PRIMORDIAL_SUBFUNCTIONS ownskey parent.name and PURE_PRIMORDIAL_SUBFUNCTIONS[parent.name] ownskey child.value
+              if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
                 try
                   let value = GLOBAL[parent.name][c-value] ...const-args
                   return ConstNode @start-index, @end-index, value
@@ -5582,9 +5570,7 @@ node-type! \unary, op as String, node as Node, {
       typeof: types.string
       delete: types.boolean
     }
-    #
-      let type = ops ownskey @op and ops[@op]
-      type or types.any
+    # -> ops![@op] or types.any
   _reduce: do
     let const-ops = {
       "-": #(x) -> ~-x
@@ -5638,10 +5624,9 @@ node-type! \unary, op as String, node as Node, {
       if node.is-const() and const-ops ownskey op
         return ConstNode @start-index, @end-index, const-ops[op](node.const-value())
       
-      if nonconst-ops ownskey op
-        let result = nonconst-ops[op]@ this, node
-        if result?
-          return result.reduce()
+      let result = nonconst-ops![op]@ this, node
+      if result?
+        return result.reduce()
       
       if node != @node
         UnaryNode @start-index, @end-index, op, node
