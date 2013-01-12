@@ -1,4 +1,5 @@
 require! './types'
+let {inspect} = require 'util'
 
 let GLOBAL = if typeof window != \undefined then window else global
 
@@ -4394,13 +4395,18 @@ macro node-type!
       AST @start-index := start-index
       AST @end-index := end-index
     ]
+    let mutable inspect-parts = @const(capped-name ~& "Node(")
     let mutable arg-names = []
-    for arg in args
+    for arg, i in args
       params.push arg
       let ident = @param-ident arg
       let key = @const(@name(ident))
       body.push AST @[$key] := $ident
       arg-names.push key
+      if i > 0
+        inspect-parts := AST $inspect-parts ~& ", "
+      inspect-parts := AST $inspect-parts ~& inspect(@[$key], null, if depth? then depth ~- 1 else null)
+    inspect-parts := AST $inspect-parts ~& ")"
     
     let add-methods = []
     let found-walk = false
@@ -4440,7 +4446,7 @@ macro node-type!
       else
         walk-func := AST ret-this
       add-methods.push AST def walk = $walk-func
-      
+    
     let func = @func params, AST $body, false, true
     arg-names := @array arg-names
     AST Node[$capped-name] := class $type extends Node
@@ -4449,6 +4455,7 @@ macro node-type!
       @arg-names := $arg-names
       State.add-node-factory $name, this
       $add-methods
+      def inspect(depth) -> $inspect-parts
 
 class State
   def constructor(data, macros = MacroHolder(), index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0)@
