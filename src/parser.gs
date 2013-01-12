@@ -1,4 +1,4 @@
-require! './types'
+require! Type: './types'
 let {inspect} = require 'util'
 
 let GLOBAL = if typeof window != \undefined then window else global
@@ -4202,14 +4202,14 @@ class MacroHelper
     false
   
   def is-type(node, name as String)
-    let type = types[name]
-    if not type? or type not instanceof types
+    let type = Type![name]
+    if not type? or type not instanceof Type
       throw Error "$name is not a known type name"
     node.type().is-subset-of(type)
   
   def has-type(node, name as String)
-    let type = types[name]
-    if not type? or type not instanceof types
+    let type = Type![name]
+    if not type? or type not instanceof Type
       throw Error "$name is not a known type name"
     node.type().overlaps(type)
   
@@ -4364,7 +4364,7 @@ class MacroHolder
 class Node
   def constructor() -> throw Error "Node should not be instantiated directly"
   
-  def type() -> types.any
+  def type() -> Type.any
   def walk() -> this
   let reduce-node(node) -> node.reduce()
   def cacheable = true
@@ -4510,6 +4510,7 @@ class State
     Declarable
     Parameter
     ObjectLiteral
+    UnclosedObjectLiteral
     ArrayLiteral
     DedentedBody
   }
@@ -4824,42 +4825,42 @@ node-type! \access-index, parent as Node, child as Object, {
         this
 }
 node-type! \args, {
-  type: #-> types.args
+  type: #-> Type.args
   cacheable: false
 }
 node-type! \array, elements as [Node], {
-  type: #-> types.array
+  type: #-> Type.array
 }
 State::array-param := State::array
 node-type! \array-declarable, elements as [Node], {
-  type: #-> types.array
+  type: #-> Type.array
 }
 node-type! \assign, left as Node, op as String, right as Node, {
   type: do
     let ops = {
       "=": #(left, right) -> right
       "+=": #(left, right)
-        if left.is-subset-of(types.number) and right.is-subset-of(types.number)
-          types.number
-        else if left.overlaps(types.number) and right.overlaps(types.number)
-          types.string-or-number
+        if left.is-subset-of(Type.number) and right.is-subset-of(Type.number)
+          Type.number
+        else if left.overlaps(Type.number) and right.overlaps(Type.number)
+          Type.string-or-number
         else
-          types.string
-      "-=": types.number
-      "*=": types.number
-      "/=": types.number
-      "%=": types.number
-      "<<=": types.number
-      ">>=": types.number
-      ">>>=": types.number
-      "&=": types.number
-      "^=": types.number
-      "|=": types.number
+          Type.string
+      "-=": Type.number
+      "*=": Type.number
+      "/=": Type.number
+      "%=": Type.number
+      "<<=": Type.number
+      ">>=": Type.number
+      ">>>=": Type.number
+      "&=": Type.number
+      "^=": Type.number
+      "|=": Type.number
     }
     # -> @_type ?= do
       let type = ops![@op]
       if not type
-        types.any
+        Type.any
       else if typeof type == "function"
         type @left.type(), @right.type()
       else
@@ -4868,40 +4869,40 @@ node-type! \assign, left as Node, op as String, right as Node, {
 node-type! \binary, left as Node, op as String, right as Node, {
   type: do
     let ops = {
-      "*": types.number
-      "/": types.number
-      "%": types.number
+      "*": Type.number
+      "/": Type.number
+      "%": Type.number
       "+": #(left, right)
-        if left.is-subset-of(types.number) and right.is-subset-of(types.number)
-          types.number
-        else if left.overlaps(types.number) and right.overlaps(types.number)
-          types.string-or-number
+        if left.is-subset-of(Type.number) and right.is-subset-of(Type.number)
+          Type.number
+        else if left.overlaps(Type.number) and right.overlaps(Type.number)
+          Type.string-or-number
         else
-          types.string
-      "-": types.number
-      "<<": types.number
-      ">>": types.number
-      ">>>": types.number
-      "<": types.boolean
-      "<=": types.boolean
-      ">": types.boolean
-      ">=": types.boolean
-      "in": types.boolean
-      "instanceof": types.boolean
-      "==": types.boolean
-      "!=": types.boolean
-      "===": types.boolean
-      "!==": types.boolean
-      "&": types.number
-      "^": types.number
-      "|": types.number
-      "&&": #(left, right) -> left.intersect(types.potentially-falsy).union(right)
-      "||": #(left, right) -> left.intersect(types.potentially-truthy).union(right)
+          Type.string
+      "-": Type.number
+      "<<": Type.number
+      ">>": Type.number
+      ">>>": Type.number
+      "<": Type.boolean
+      "<=": Type.boolean
+      ">": Type.boolean
+      ">=": Type.boolean
+      "in": Type.boolean
+      "instanceof": Type.boolean
+      "==": Type.boolean
+      "!=": Type.boolean
+      "===": Type.boolean
+      "!==": Type.boolean
+      "&": Type.number
+      "^": Type.number
+      "|": Type.number
+      "&&": #(left, right) -> left.intersect(Type.potentially-falsy).union(right)
+      "||": #(left, right) -> left.intersect(Type.potentially-truthy).union(right)
     }
     # -> @_type ?= do
       let type = ops![@op]
       if not type
-        types.any
+        Type.any
       else if typeof type == "function"
         type @left.type(), @right.type()
       else
@@ -4943,9 +4944,9 @@ node-type! \binary, left as Node, op as String, right as Node, {
         else if x.const-value() == -1
           UnaryNode @start-index, @end-index, "-", y
       "+": #(x, y)
-        if x.const-value() == 0 and y.type().is-subset-of(types.number)
+        if x.const-value() == 0 and y.type().is-subset-of(Type.number)
           UnaryNode @start-index, @end-index, "+", y
-        else if x.const-value() == "" and y.type().is-subset-of(types.string)
+        else if x.const-value() == "" and y.type().is-subset-of(Type.string)
           y
       "-": #(x, y)
         if x.const-value() == 0
@@ -4963,16 +4964,16 @@ node-type! \binary, left as Node, op as String, right as Node, {
         else if y.const-value() == -1
           UnaryNode @start-index, @end-index, "-", x
       "+": #(x, y)
-        if y.const-value() == 0 and x.type().is-subset-of(types.number)
+        if y.const-value() == 0 and x.type().is-subset-of(Type.number)
           UnaryNode @start-index, @end-index, "+", x
-        else if typeof y.const-value() == "number" and y.value < 0 and x.type().is-subset-of(types.number)
+        else if typeof y.const-value() == "number" and y.value < 0 and x.type().is-subset-of(Type.number)
           BinaryNode @start-index, @end-index, x, "-", Const(-y.const-value())
-        else if y.const-value() == "" and x.type().is-subset-of(types.string)
+        else if y.const-value() == "" and x.type().is-subset-of(Type.string)
           x
       "-": #(x, y)
         if y.const-value() == 0
           UnaryNode @start-index, @end-index, "+", x
-        else if typeof y.const-value() == "number" and y.const-value() < 0 and x.type().is-subset-of(types.number)
+        else if typeof y.const-value() == "number" and y.const-value() < 0 and x.type().is-subset-of(Type.number)
           BinaryNode @start-index, @end-index, x, "+", Const(-y.const-value())
     }
     #
@@ -4994,7 +4995,7 @@ node-type! \block, nodes as [Node], {
   type: #
     let nodes = @nodes
     if nodes.length == 0
-      types.undefined
+      Type.undefined
     else
       nodes[nodes.length - 1].type()
   _reduce: #
@@ -5031,171 +5032,171 @@ node-type! \break
 node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as Boolean, {
   type: do
     let PRIMORDIAL_FUNCTIONS = {
-      Object: types.object
-      String: types.string
-      Number: types.number
-      Boolean: types.boolean
-      Function: types.function
-      Array: types.array
-      Date: types.string
-      RegExp: types.regexp
-      Error: types.error
-      RangeError: types.error
-      ReferenceError: types.error
-      SyntaxError: types.error
-      TypeError: types.error
-      URIError: types.error
-      escape: types.string
-      unescape: types.string
-      parseInt: types.number
-      parseFloat: types.number
-      isNaN: types.boolean
-      isFinite: types.boolean
-      decodeURI: types.string
-      decodeURIComponent: types.string
-      encodeURI: types.string
-      encodeURIComponent: types.string
+      Object: Type.object
+      String: Type.string
+      Number: Type.number
+      Boolean: Type.boolean
+      Function: Type.function
+      Array: Type.array
+      Date: Type.string
+      RegExp: Type.regexp
+      Error: Type.error
+      RangeError: Type.error
+      ReferenceError: Type.error
+      SyntaxError: Type.error
+      TypeError: Type.error
+      URIError: Type.error
+      escape: Type.string
+      unescape: Type.string
+      parseInt: Type.number
+      parseFloat: Type.number
+      isNaN: Type.boolean
+      isFinite: Type.boolean
+      decodeURI: Type.string
+      decodeURIComponent: Type.string
+      encodeURI: Type.string
+      encodeURIComponent: Type.string
     }
     let PRIMORDIAL_SUBFUNCTIONS = {
       Object: {
-        getPrototypeOf: types.object
-        getOwnPropertyDescriptor: types.object
-        getOwnPropertyNames: types.string.array()
-        create: types.object
-        defineProperty: types.object
-        defineProperties: types.object
-        seal: types.object
-        freeze: types.object
-        preventExtensions: types.object
-        isSealed: types.boolean
-        isFrozen: types.boolean
-        isExtensible: types.boolean
-        keys: types.string.array()
+        getPrototypeOf: Type.object
+        getOwnPropertyDescriptor: Type.object
+        getOwnPropertyNames: Type.string.array()
+        create: Type.object
+        defineProperty: Type.object
+        defineProperties: Type.object
+        seal: Type.object
+        freeze: Type.object
+        preventExtensions: Type.object
+        isSealed: Type.boolean
+        isFrozen: Type.boolean
+        isExtensible: Type.boolean
+        keys: Type.string.array()
       }
       String: {
-        fromCharCode: types.string
+        fromCharCode: Type.string
       }
       Number: {
-        isFinite: types.boolean
-        isNaN: types.boolean
+        isFinite: Type.boolean
+        isNaN: Type.boolean
       }
       Array: {
-        isArray: types.boolean
+        isArray: Type.boolean
       }
       Math: {
-        abs: types.number
-        acos: types.number
-        asin: types.number
-        atan: types.number
-        atan2: types.number
-        ceil: types.number
-        cos: types.number
-        exp: types.number
-        floor: types.number
-        log: types.number
-        max: types.number
-        min: types.number
-        pow: types.number
-        random: types.number
-        round: types.number
-        sin: types.number
-        sqrt: types.number
-        tan: types.number
+        abs: Type.number
+        acos: Type.number
+        asin: Type.number
+        atan: Type.number
+        atan2: Type.number
+        ceil: Type.number
+        cos: Type.number
+        exp: Type.number
+        floor: Type.number
+        log: Type.number
+        max: Type.number
+        min: Type.number
+        pow: Type.number
+        random: Type.number
+        round: Type.number
+        sin: Type.number
+        sqrt: Type.number
+        tan: Type.number
       }
       JSON: {
-        stringify: types.string.union(types.undefined)
-        parse: types.string.union(types.number).union(types.boolean).union(types.null).union(types.array).union(types.object)
+        stringify: Type.string.union(Type.undefined)
+        parse: Type.string.union(Type.number).union(Type.boolean).union(Type.null).union(Type.array).union(Type.object)
       }
       Date: {
-        UTC: types.number
-        now: types.number
+        UTC: Type.number
+        now: Type.number
       }
     }
     let PRIMORDIAL_METHODS = {
       String: {
-        toString: types.string
-        valueOf: types.string
-        charAt: types.string
-        charCodeAt: types.number
-        concat: types.string
-        indexOf: types.number
-        lastIndexOf: types.number
-        localeCompare: types.number
-        match: types.array.union(types.null)
-        replace: types.string
-        search: types.number
-        slice: types.string
-        split: types.string.array()
-        substring: types.string
-        toLowerCase: types.string
-        toLocaleLowerCase: types.string
-        toUpperCase: types.string
-        toLocaleUpperCase: types.string
-        trim: types.string
+        toString: Type.string
+        valueOf: Type.string
+        charAt: Type.string
+        charCodeAt: Type.number
+        concat: Type.string
+        indexOf: Type.number
+        lastIndexOf: Type.number
+        localeCompare: Type.number
+        match: Type.array.union(Type.null)
+        replace: Type.string
+        search: Type.number
+        slice: Type.string
+        split: Type.string.array()
+        substring: Type.string
+        toLowerCase: Type.string
+        toLocaleLowerCase: Type.string
+        toUpperCase: Type.string
+        toLocaleUpperCase: Type.string
+        trim: Type.string
       }
       Boolean: {
-        toString: types.string
-        valueOf: types.boolean
+        toString: Type.string
+        valueOf: Type.boolean
       }
       Number: {
-        toString: types.string
-        valueOf: types.number
-        toLocaleString: types.string
-        toFixed: types.string
-        toExponential: types.string
-        toPrecision: types.string
+        toString: Type.string
+        valueOf: Type.number
+        toLocaleString: Type.string
+        toFixed: Type.string
+        toExponential: Type.string
+        toPrecision: Type.string
       }
       Date: {
-        toString: types.string
-        toDateString: types.string
-        toTimeString: types.string
-        toLocaleString: types.string
-        toLocaleDateString: types.string
-        toLocaleTimeString: types.string
-        valueOf: types.number
-        getTime: types.number
-        getFullYear: types.number
-        getUTCFullYear: types.number
-        getMonth: types.number
-        getUTCMonth: types.number
-        getDate: types.number
-        getUTCDate: types.number
-        getDay: types.number
-        getUTCDay: types.number
-        getHours: types.number
-        getUTCHours: types.number
-        getMinutes: types.number
-        getUTCMinutes: types.number
-        getSeconds: types.number
-        getUTCSeconds: types.number
-        getMilliseconds: types.number
-        getUTCMilliseconds: types.number
-        getTimezoneOffset: types.number
-        setTime: types.number
-        setMilliseconds: types.number
-        setUTCMilliseconds: types.number
-        setSeconds: types.number
-        setUTCSeconds: types.number
-        setMinutes: types.number
-        setUTCMinutes: types.number
-        setHours: types.number
-        setUTCHours: types.number
-        setDate: types.number
-        setUTCDate: types.number
-        setMonth: types.number
-        setUTCMonth: types.number
-        setFullYear: types.number
-        setUTCFullYear: types.number
-        toUTCString: types.string
-        toISOString: types.string
-        toJSON: types.string
+        toString: Type.string
+        toDateString: Type.string
+        toTimeString: Type.string
+        toLocaleString: Type.string
+        toLocaleDateString: Type.string
+        toLocaleTimeString: Type.string
+        valueOf: Type.number
+        getTime: Type.number
+        getFullYear: Type.number
+        getUTCFullYear: Type.number
+        getMonth: Type.number
+        getUTCMonth: Type.number
+        getDate: Type.number
+        getUTCDate: Type.number
+        getDay: Type.number
+        getUTCDay: Type.number
+        getHours: Type.number
+        getUTCHours: Type.number
+        getMinutes: Type.number
+        getUTCMinutes: Type.number
+        getSeconds: Type.number
+        getUTCSeconds: Type.number
+        getMilliseconds: Type.number
+        getUTCMilliseconds: Type.number
+        getTimezoneOffset: Type.number
+        setTime: Type.number
+        setMilliseconds: Type.number
+        setUTCMilliseconds: Type.number
+        setSeconds: Type.number
+        setUTCSeconds: Type.number
+        setMinutes: Type.number
+        setUTCMinutes: Type.number
+        setHours: Type.number
+        setUTCHours: Type.number
+        setDate: Type.number
+        setUTCDate: Type.number
+        setMonth: Type.number
+        setUTCMonth: Type.number
+        setFullYear: Type.number
+        setUTCFullYear: Type.number
+        toUTCString: Type.string
+        toISOString: Type.string
+        toJSON: Type.string
       }
       RegExp: {
-        test: types.boolean
-        toString: types.string
+        test: Type.boolean
+        toString: Type.string
       }
       Error: {
-        toString: types.string
+        toString: Type.string
       }
     }
     let helper-type-cache = {}
@@ -5203,13 +5204,13 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
       let ast = require('./ast')
       let last = node.last()
       if last instanceof ast.Func
-        last.meta?.as-type ? types.any
+        last.meta?.as-type ? Type.any
       else if last instanceof ast.Return
         calculate-type(last.node)
       else if last instanceof ast.Call and last.func instanceof ast.Func
         calculate-type(last.func.body)
       else
-        types.any
+        Type.any
     #-> @_type ?= do
       let func = @func
       if func instanceof IdentNode
@@ -5229,7 +5230,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
           if parent instanceof IdentNode
             return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
           // else check the type of parent, maybe figure out its methods
-      types.any
+      Type.any
   _reduce: do
     let PURE_PRIMORDIAL_FUNCTIONS = {
       escape: true
@@ -5329,15 +5330,15 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
   type: #
     let value = @value
     switch typeof value
-    case \number; types.number
-    case \string; types.string
-    case \boolean; types.boolean
-    case \undefined; types.undefined
+    case \number; Type.number
+    case \string; Type.string
+    case \boolean; Type.boolean
+    case \undefined; Type.undefined
     default
       if value == null
-        types.null
+        Type.null
       else if value instanceof RegExp
-        types.regexp
+        Type.regexp
       else
         throw Error("Unknown type for $(String value)")
   cacheable: false
@@ -5369,7 +5370,7 @@ node-type! \eval, code as Node
 node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node
 node-type! \for-in, key as Node, object as Node, body as Node
 node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), generator as Boolean, {
-  type: # -> types.function
+  type: # -> Type.function
   walk: #(func)
     let params = map @params, func
     let body = func @body
@@ -5401,13 +5402,13 @@ node-type! \let, left as Node, right as Node, {
 }
 node-type! \macro-access, id as Number, data as Object
 node-type! \nothing, {
-  type: # -> types.undefined
+  type: # -> Type.undefined
   cacheable: false
   is-const: # -> true
   const-value: # -> void
 }
 node-type! \object, pairs as Array, {
-  type: # -> types.object
+  type: # -> Type.object
   walk: do
     let walk-pair(pair, func)
       let key = func pair.key
@@ -5425,7 +5426,7 @@ node-type! \object, pairs as Array, {
 }
 State::object-param := State::object
 node-type! \object-declarable, pairs as Array, {
-  type: # -> types.object
+  type: # -> Type.object
   walk: do
     let walk-pair(pair, func)
       let key = func pair.key
@@ -5452,7 +5453,7 @@ node-type! \param, ident as Node, default-value as (Node|void), spread as Boolea
       this
 }
 node-type! \regexp, text as Node, flags as String, {
-  type: # -> types.regexp
+  type: # -> Type.regexp
   _reduce: #
     let text = @text.reduce()
     if text.is-const()
@@ -5468,7 +5469,7 @@ node-type! \return, node as Node = ConstNode(0, 0, void), existential as Boolean
 node-type! \root, body as Node
 node-type! \spread, node as Node
 node-type! \string, parts as [Node], {
-  type: # -> types.string
+  type: # -> Type.string
   _reduce: #
     let segments = [ConstNode @start-index, @start-index, ""]
     for part in @parts
@@ -5479,7 +5480,7 @@ node-type! \string, parts as [Node], {
         else
           segments.push reduced
       else
-        if not reduced.type().is-subset-of(types.string-or-number)
+        if not reduced.type().is-subset-of(Type.string-or-number)
           let i = reduced.start-index
           let j = reduced.end-index
           segments.push CallNode i, j, IdentNode(i, j, \__strnum), [reduced]
@@ -5492,7 +5493,7 @@ node-type! \string, parts as [Node], {
         segments.splice i - 1, 2, ConstNode left.start-index, right.end-index, left.const-value() & right.const-value()
       else if right.is-const() and right.const-value() == ""
         segments.splice i, 1
-    if segments.length > 1 and segments[0].is-const() and segments[0].const-value() == "" and (segments[1].type().is-subset-of(types.string) or (segments.length > 2 and segments[2].type().is-subset-of(types.string)))
+    if segments.length > 1 and segments[0].is-const() and segments[0].const-value() == "" and (segments[1].type().is-subset-of(Type.string) or (segments.length > 2 and segments[2].type().is-subset-of(Type.string)))
       segments.shift()
     let mutable result = segments[0]
     for i = 1, segments.length
@@ -5541,7 +5542,7 @@ node-type! \this, {
   cacheable: false
 }
 node-type! \throw, node as Node, {
-  type: # -> types.none
+  type: # -> Type.none
 }
 node-type! \tmp, id as Number, name as String, {
   cacheable: false
@@ -5568,16 +5569,16 @@ node-type! \type-union, types as [Node]
 node-type! \unary, op as String, node as Node, {
   type: do
     let ops = {
-      "-": types.number
-      "+": types.number
-      "--": types.number
-      "++": types.number
-      "!": types.boolean
-      "~": types.number
-      typeof: types.string
-      delete: types.boolean
+      "-": Type.number
+      "+": Type.number
+      "--": Type.number
+      "++": Type.number
+      "!": Type.boolean
+      "~": Type.number
+      typeof: Type.string
+      delete: Type.boolean
     }
-    # -> ops![@op] or types.any
+    # -> ops![@op] or Type.any
   _reduce: do
     let const-ops = {
       "-": #(x) -> ~-x
@@ -5588,7 +5589,7 @@ node-type! \unary, op as String, node as Node, {
     }
     let nonconst-ops = {
       "+": #(node)
-        if node.type().is-subset-of types.number
+        if node.type().is-subset-of Type.number
           node
       "-": #(node)
         if node instanceof UnaryNode
@@ -5614,7 +5615,7 @@ node-type! \unary, op as String, node as Node, {
         }
         #(node)
           if node instanceof UnaryNode
-            if node.op == "!" and node.node.type().is-subset-of(types.boolean)
+            if node.op == "!" and node.node.type().is-subset-of(Type.boolean)
               node.node
           else if node instanceof BinaryNode
             if invertible-binary-ops ownskey node.op

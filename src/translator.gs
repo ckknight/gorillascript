@@ -1,5 +1,5 @@
 require! './ast'
-require! './types'
+require! Type: './types'
 require! './parser'
 
 let needs-caching(item)
@@ -470,7 +470,7 @@ let array-translate(elements, scope, replace-with-slice)
       else
         translated-items[i] := #
           let item = translated-item()
-          if item.type().is-subset-of types.array
+          if item.type().is-subset-of Type.array
             item
           else
             scope.add-helper \__slice // FIXME, these shouldn't be required to specify
@@ -1013,11 +1013,11 @@ let translators = {
       let translate-types = {
         Ident: do
           let primordial-types = {
-            String: types.string
-            Number: types.number
-            Boolean: types.boolean
-            Function: types.function
-            Array: types.array
+            String: Type.string
+            Number: Type.number
+            Boolean: Type.boolean
+            Function: Type.function
+            Array: Type.array
           }
           #(node, scope)
             unless primordial-types ownskey node.name
@@ -1025,14 +1025,14 @@ let translators = {
             primordial-types[node.name]
         Const: #(node, scope)
           switch node.value
-          case null; types.null
-          case void; types.undefined
+          case null; Type.null
+          case void; Type.undefined
           default
             throw Error "Unexpected const type: $(String node.value)"
         TypeArray: #(node, scope)
           translate-type(node.subtype, scope).array()
         TypeUnion: #(node, scope)
-          let mutable current = types.none
+          let mutable current = Type.none
           for type in node.types
             current := current.union(translate-type(type))
           current

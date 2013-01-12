@@ -1264,19 +1264,38 @@ macro require!
     if @is-const name
       if typeof @value(name) != "string"
         throw Error("Expected a constant string, got $(typeof @value(name))")
-    else if not @is-ident name
-      throw Error("Expected either a constant string or ident")
-
+    
     if @is-const name
       let mutable ident-name = @value(name)
-      if ident-name.index-of("/") != -1
+      if ident-name.index-of("/") != ~-1
         ident-name := ident-name.substring ident-name.last-index-of("/") ~+ 1
       let ident = @ident ident-name
       AST let $ident = require $name
-    else
-      let ident = name
+    else if @is-ident name
       let path = @name name
-      AST let $ident = require $path
+      AST let $name = require $path
+    else if @is-object name
+      let requires = []
+      let pairs = @pairs(name)
+      let mutable i = 0
+      while i ~< pairs.length, i ~+= 1
+        let {key, value} = pairs[i]
+        unless @is-const key
+          throw Error "If providing an object to require!, all keys must be constant strings"
+        let mutable ident-name = @value(key)
+        if ident-name.index-of("/") != ~-1
+          ident-name := ident-name.substring ident-name.last-index-of("/") ~+ 1
+        let ident = @ident ident-name
+        if @is-const value
+          requires.push AST let $ident = require $value
+        else if @is-ident value
+          let path = @name value
+          requires.push AST let $ident = require $path
+        else
+          throw Error "If providing an object to require!, all values must be constant strings or idents"
+      AST $requires
+    else
+      throw Error("Expected either a constant string or ident or object")
 
 macro asyncfor
   syntax result as (this as Identifier, "<-")?, next as Identifier, ",", init as (Statement|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this as Statement)), rest as DedentedBody

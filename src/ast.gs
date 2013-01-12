@@ -1,4 +1,4 @@
-require! './types'
+require! Type: './types'
 let {inspect} = require 'util'
 
 enum Level
@@ -204,7 +204,7 @@ exports.Expression := class Expression extends Node
       @compile options, Level.block, line-start, sb
       sb ";"
   
-  def type() -> types.any
+  def type() -> Type.any
   
   def is-large() -> false
   
@@ -227,7 +227,7 @@ exports.Arguments := class Arguments extends Expression
   def constructor()@ ->
   
   def compile(options, level, line-start, sb)! -> sb "arguments"
-  def type() -> types.args
+  def type() -> Type.args
   def walk() -> this
   def inspect(depth) -> "Arguments()"
 
@@ -285,7 +285,7 @@ exports.Arr := class Arr extends Expression
     f(@elements, options, level, line-start, sb)
     sb "]"
   
-  def type() -> types.array
+  def type() -> Type.array
   
   def should-compile-large()
     switch @elements.length
@@ -322,7 +322,7 @@ exports.Concat := #(...args)
     if arg not instanceof Expression
       arg := to-const arg
     if not current?
-      if arg.type().is-subset-of(types.string)
+      if arg.type().is-subset-of(Type.string)
         current := arg
       else
         current := Binary "", "+", arg
@@ -434,48 +434,48 @@ exports.Binary := class Binary extends Expression
   }
   
   let OPERATOR_TYPES = {
-    ".": types.any
-    "*": types.number
-    "/": types.number
-    "%": types.number
+    ".": Type.any
+    "*": Type.number
+    "/": Type.number
+    "%": Type.number
     "+": #(left, right)
-      if left.is-subset-of(types.number) and right.is-subset-of(types.number)
-        types.number
-      else if left.overlaps(types.number) and right.overlaps(types.number)
-        types.string-or-number
+      if left.is-subset-of(Type.number) and right.is-subset-of(Type.number)
+        Type.number
+      else if left.overlaps(Type.number) and right.overlaps(Type.number)
+        Type.string-or-number
       else
-        types.string
-    "-": types.number
-    "<<": types.number
-    ">>": types.number
-    ">>>": types.number
-    "<": types.boolean
-    "<=": types.boolean
-    ">": types.boolean
-    ">=": types.boolean
-    "in": types.boolean
-    "instanceof": types.boolean
-    "==": types.boolean
-    "!=": types.boolean
-    "===": types.boolean
-    "!==": types.boolean
-    "&": types.number
-    "^": types.number
-    "|": types.number
-    "&&": #(left, right) -> left.intersect(types.potentially-falsy).union(right)
-    "||": #(left, right) -> left.intersect(types.potentially-truthy).union(right)
+        Type.string
+    "-": Type.number
+    "<<": Type.number
+    ">>": Type.number
+    ">>>": Type.number
+    "<": Type.boolean
+    "<=": Type.boolean
+    ">": Type.boolean
+    ">=": Type.boolean
+    "in": Type.boolean
+    "instanceof": Type.boolean
+    "==": Type.boolean
+    "!=": Type.boolean
+    "===": Type.boolean
+    "!==": Type.boolean
+    "&": Type.number
+    "^": Type.number
+    "|": Type.number
+    "&&": #(left, right) -> left.intersect(Type.potentially-falsy).union(right)
+    "||": #(left, right) -> left.intersect(Type.potentially-truthy).union(right)
     "=": #(left, right) -> right
     "+=": #(left, right) -> OPERATOR_TYPES["+"](left, right)
-    "-=": types.number
-    "*=": types.number
-    "/=": types.number
-    "%=": types.number
-    "<<=": types.number
-    ">>=": types.number
-    ">>>=": types.number
-    "&=": types.number
-    "^=": types.number
-    "|=": types.number
+    "-=": Type.number
+    "*=": Type.number
+    "/=": Type.number
+    "%=": Type.number
+    "<<=": Type.number
+    ">>=": Type.number
+    ">>>=": Type.number
+    "&=": Type.number
+    "^=": Type.number
+    "|=": Type.number
   }
   
   def type() -> @_type ?= do
@@ -747,40 +747,40 @@ exports.Call := class Call extends Expression
       this
   
   let HELPER_TYPES = {
-    __num: types.number
-    __str: types.string
-    __strnum: types.string // converts to string regardless
-    __lt: types.boolean
-    __lte: types.boolean
-    __owns: types.boolean
-    __in: types.boolean
-    __slice: types.array
-    __splice: types.array // technically it just returns the 4th arg
-    __typeof: types.string
-    __cmp: types.number
+    __num: Type.number
+    __str: Type.string
+    __strnum: Type.string // converts to string regardless
+    __lt: Type.boolean
+    __lte: Type.boolean
+    __owns: Type.boolean
+    __in: Type.boolean
+    __slice: Type.array
+    __splice: Type.array // technically it just returns the 4th arg
+    __typeof: Type.string
+    __cmp: Type.number
     __freeze: #(args)
       if args.length >= 1
         args[0].type()
       else
-        types.undefined
+        Type.undefined
     __freeze-func: #(args)
       if args.length >= 1
         args[0].type()
       else
-        types.undefined
-    __is-array: types.boolean
-    __to-array: types.array
-    __create: types.object
-    __pow: types.number
-    __floor: types.number
-    __sqrt: types.number
-    __log: types.number
-    __keys: types.string.array()
-    __allkeys: types.string.array()
-    __new: types.any
-    __instanceofsome: types.boolean
+        Type.undefined
+    __is-array: Type.boolean
+    __to-array: Type.array
+    __create: Type.object
+    __pow: Type.number
+    __floor: Type.number
+    __sqrt: Type.number
+    __log: Type.number
+    __keys: Type.string.array()
+    __allkeys: Type.string.array()
+    __new: Type.any
+    __instanceofsome: Type.boolean
     __xor: #(args)
-      types.boolean.union(if args.length >= 2 then args[1].type() else types.undefined)
+      Type.boolean.union(if args.length >= 2 then args[1].type() else Type.undefined)
   }
   
   def type()
@@ -791,7 +791,7 @@ exports.Call := class Call extends Expression
       else
         helper
     else
-      types.any
+      Type.any
   
   def inspect(depth)
     let sb = StringBuilder()
@@ -836,15 +836,15 @@ exports.Const := class Const extends Expression
   def type()
     let value = @value
     switch typeof value
-    case \undefined; types.undefined
-    case \boolean; types.boolean
-    case \number; types.number
-    case \string; types.string
+    case \undefined; Type.undefined
+    case \boolean; Type.boolean
+    case \number; Type.number
+    case \string; Type.string
     default
       if value == null
-        types.null
+        Type.null
       else if value instanceof RegExp
-        types.regexp
+        Type.regexp
       else
         throw Error "Unknown value type: $type"
   
@@ -1093,7 +1093,7 @@ exports.Func := class Func extends Expression
     unless line-start and @name
       sb ";"
   
-  def type() -> types.function
+  def type() -> Type.function
   
   def is-large() -> true
   
@@ -1310,7 +1310,7 @@ exports.Noop := class Noop extends Expression
   def is-noop = @::is-const
   def const-value() -> void
 
-  def type() -> types.undefined
+  def type() -> Type.undefined
 
   def walk() -> this
   def mutate-last(func, include-noop)
@@ -1376,7 +1376,7 @@ exports.Obj := class Obj extends Expression
     if line-start
       sb ")"
   
-  def type() -> types.object
+  def type() -> Type.object
   
   def should-compile-large()
     switch @elements.length
@@ -1722,17 +1722,17 @@ exports.Unary := class Unary extends Expression
   ]
   
   let OPERATOR_TYPES = {
-    "++": types.number
-    "--": types.number
-    "++post": types.number
-    "--post": types.number
-    "!": types.boolean
-    "~": types.number
-    "+": types.number
-    "-": types.number
-    "typeof": types.string
-    "void": types.undefined
-    "delete": types.boolean
+    "++": Type.number
+    "--": Type.number
+    "++post": Type.number
+    "--post": Type.number
+    "!": Type.boolean
+    "~": Type.number
+    "+": Type.number
+    "-": Type.number
+    "typeof": Type.string
+    "void": Type.undefined
+    "delete": Type.boolean
   }
   
   def type() -> OPERATOR_TYPES[@op]
