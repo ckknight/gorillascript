@@ -174,3 +174,26 @@ test "access on null", -> do
   null.thing"""), (e) -> e.line == 2
 end
 */
+
+test "access with ownership", #
+  let x = { key: "value" }
+  eq "value", x!.key
+  let y = ^x
+  eq "value", y.key
+  eq void, y!.key
+
+test "access with ownership, with access after-the-fact", #
+  let x = { key: "value" }
+  eq "value", x!.key
+  let y = ^x
+  eq "value", y.key
+  eq void, y!.key.wont.be.checked
+
+test "access with ownership, existential", #
+  let x = { key: "value" }
+  eq "value", x?!.key
+  let y = ^x
+  eq "value", y.key
+  eq void, y?!.key
+  let z = null
+  eq void, z?!.key

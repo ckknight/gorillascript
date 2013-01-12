@@ -2370,13 +2370,12 @@ define Identifier = do
 define NotToken = word \not
 define MaybeNotToken = maybe! NotToken, true
 
-define ExistentialSymbol = symbol "?"
+define ExistentialSymbol = mutate! (character! "?"), "?"
 define MaybeExistentialSymbol = maybe! ExistentialSymbol, true
 define ExistentialSymbolNoSpace = sequential! [
   NoSpace
   [\this, ExistentialSymbol]
 ]
-define MaybeExistentialSymbolNoSpace = maybe! ExistentialSymbolNoSpace, true
 
 define CustomOperator = do
   let handle-unary-operator(operator, o, i)
@@ -3277,18 +3276,25 @@ define UnclosedArguments = one-of! [
 
 define InvocationArguments = one-of! [ClosedArguments, UnclosedArguments]
 
+define MaybeExclamationPointNoSpace = maybe! (sequential! [
+  NoSpace
+  character! "!"
+], "!"), true
+define MaybeExistentialSymbolNoSpace = maybe! ExistentialSymbolNoSpace, true
 define BasicInvocationOrAccess = sequential! [
   [\is-new, maybe! word(\new), NOTHING]
   [\head, one-of! [
     sequential! [
       [\node, ThisShorthandLiteral]
       [\existential, MaybeExistentialSymbolNoSpace]
+      [\owns, MaybeExclamationPointNoSpace]
       [\child, IdentifierNameConstOrNumberLiteral]
     ], #(x, o, i) -> {
       type: \this-access
       x.node
       x.child
       existential: x.existential == "?"
+      owns: x.owns == "!"
     }
     mutate! PrimaryExpression, #(x) -> {
       type: \normal
@@ -3298,6 +3304,7 @@ define BasicInvocationOrAccess = sequential! [
   [\tail, zero-or-more-of! [
     sequential! [
       [\existential, MaybeExistentialSymbolNoSpace]
+      [\owns, MaybeExclamationPointNoSpace]
       EmptyLines
       Space
       [\type, one-of! [Period, DoubleColon]]
@@ -3306,21 +3313,26 @@ define BasicInvocationOrAccess = sequential! [
       type: if x.type == "::" then \proto-access else \access
       x.child
       existential: x.existential == "?"
+      owns: x.owns == "!"
     }
     sequential! [
       [\existential, MaybeExistentialSymbolNoSpace]
+      [\owns, MaybeExclamationPointNoSpace]
       [\type, maybe! DoubleColon, \access-index, \proto-access-index]
       OpenSquareBracketChar
       [\child, Index]
       CloseSquareBracket
-    ], #(x)
+    ], #(x, o, i)
       if x.child.type == \single
         {
           type: if x.type == \access-index then \access else \proto-access
           child: x.child.node
           existential: x.existential == "?"
+          owns: x.owns == "!"
         }
       else
+        if x.owns == "!"
+          o.error "Cannot use ! when using a multiple or slicing index"
         {
           x.type
           x.child
@@ -3365,19 +3377,7 @@ define BasicInvocationOrAccess = sequential! [
             result
       }
       #(o, i, mutable head, link, j, links)
-        let make-access = switch link.type
-        case \access
-          #(parent) -> o.access i, parent, link.child
-        case \access-index
-          unless index-types ownskey link.child.type
-            throw Error "Unknown index type: $(link.child.type)"
-          index-types[link.child.type](o, i, link.child)
-        default
-          throw Error "Unknown link type: $(link.type)"
-
-        unless link.existential
-          convert-call-chain(o, i, make-access(head), j + 1, links)
-        else
+        if link.owns
           let tmp-ids = []
           let mutable set-head = head
           if head.cacheable
@@ -3385,13 +3385,56 @@ define BasicInvocationOrAccess = sequential! [
             tmp-ids.push tmp.id
             set-head := o.assign(i, tmp, "=", head)
             head := tmp
+          let mutable child = link.child
+          let mutable set-child = child
+          if child.cacheable
+            let tmp = o.tmp(i, get-tmp-id(), \ref)
+            tmp-ids.push tmp.id
+            set-child := o.assign(i, tmp, "=", child)
+            child := tmp
+          let mutable test = o.call(i, o.ident(i, \__owns), [set-head, set-child])
+          
+            
           let result = o.if(i
-            o.binary(i, set-head, "!=", o.const(i, null))
-            convert-call-chain(o, i, make-access(head), j + 1, links))
+            if link.existential
+              o.binary(i
+                o.binary(i, set-head, "!=", o.const(i, null))
+                "&&"
+                o.call(i, o.ident(i, \__owns), [head, set-child]))
+            else
+              o.call(i, o.ident(i, \__owns), [set-head, set-child])
+            convert-call-chain(o, i, o.access(i, head, child), j + 1, links))
           if tmp-ids.length
             o.tmp-wrapper(i, result, tmp-ids)
           else
             result
+        else
+          let make-access = switch link.type
+          case \access
+            #(parent) -> o.access i, parent, link.child
+          case \access-index
+            unless index-types ownskey link.child.type
+              throw Error "Unknown index type: $(link.child.type)"
+            index-types[link.child.type](o, i, link.child)
+          default
+            throw Error "Unknown link type: $(link.type)"
+          if link.existential
+            let tmp-ids = []
+            let mutable set-head = head
+            if head.cacheable
+              let tmp = o.tmp(i, get-tmp-id(), \ref)
+              tmp-ids.push tmp.id
+              set-head := o.assign(i, tmp, "=", head)
+              head := tmp
+            let result = o.if(i
+              o.binary(i, set-head, "!=", o.const(i, null))
+              convert-call-chain(o, i, make-access(head), j + 1, links))
+            if tmp-ids.length
+              o.tmp-wrapper(i, result, tmp-ids)
+            else
+              result
+          else
+            convert-call-chain(o, i, make-access(head), j + 1, links)
     call: do
       #(o, i, mutable head, link, j, links)
         unless link.existential
