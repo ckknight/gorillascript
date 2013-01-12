@@ -667,15 +667,6 @@ let translators = {
     // TODO: line numbers
     throw Error "Cannot have a stray def"
 
-  DefineHelper: #(node, scope, location, auto-return)
-    // TODO: should these translations be auto-called?
-    let ident = translate(node.name, scope, \left-expression)()
-    unless ident instanceof ast.Ident
-      throw Error "Expected name to be an Ident, got $(typeof! ident)"
-    let value = translate(node.value, scope, \expression)()
-    HELPERS.add(ident.name, value)
-    #-> ast.Noop()
-
   Eval: #(node, scope, location, auto-return)
     let t-code = translate node.code, scope, \expression
     #-> auto-return ast.Eval t-code()
@@ -1518,3 +1509,10 @@ module.exports := #(node, options = {})
   }
 
 module.exports.helpers := HELPERS
+module.exports.define-helper := #(name as parser.Node.Ident, value as parser.Node)
+  let scope = Scope({}, false)
+  let ident = translate(name, scope, \left-expression)()
+  unless ident instanceof ast.Ident
+    throw Error "Expected name to be an Ident, got $(typeof! ident)"
+  HELPERS.add ident.name, translate(value, scope, \expression)()
+  

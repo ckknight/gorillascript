@@ -340,6 +340,24 @@ define operator binary %% with precedence: 1, maximum: 1, invertible: true
 define operator binary ~%% with precedence: 1, maximum: 1, invertible: true
   AST $left ~% $right == 0
 
+define helper __lt = #(x, y) as Boolean
+  let type = typeof x
+  if type not in ["number", "string"]
+    throw TypeError("Cannot compare a non-number/string: " ~& type)
+  else if type != typeof y
+    throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof y)
+  else
+    x ~< y
+
+define helper __lte = #(x, y) as Boolean
+  let type = typeof x
+  if type not in ["number", "string"]
+    throw TypeError("Cannot compare a non-number/string: " ~& type)
+  else if type != typeof y
+    throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof y)
+  else
+    x ~<= y
+
 define operator binary <, <= with precedence: 1, maximum: 1
   if @is-type left, \number
     if @is-type right, \number
@@ -527,8 +545,8 @@ macro unless
     let f(i, current)@
       let mutable test = else-ifs[i]?.test
       test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
-      if i ~< 0 then current else f(i ~- 1, @if(test, else-ifs[i].body, current))
-    @if((AST not $test), body, f(else-ifs.length ~- 1, else-body))
+      if i < 0 then current else f(i - 1, @if(test, else-ifs[i].body, current))
+    @if((AST not $test), body, f(else-ifs.length - 1, else-body))
 
 macro do
   syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as (Body | (";", this as Statement))
@@ -539,11 +557,11 @@ macro do
         params.push @param locals.ident
         values.push locals.value
       let f(i)@
-        if i ~< locals.rest.length
+        if i < locals.rest.length
           if not @empty(locals.rest[i].ident)
             params.push @param locals.rest[i].ident
             values.push locals.rest[i].value
-          f i ~+ 1
+          f i + 1
       f 0
     @call(@func(params, body, true, true), values)
 
@@ -554,24 +572,6 @@ macro with
     else
       AST #!-> $body
     AST $func@($node)
-
-define helper __lt = #(x, y) as Boolean
-  let type = typeof x
-  if type not in ["number", "string"]
-    throw TypeError("Cannot compare a non-number/string: " ~& type)
-  else if type != typeof y
-    throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof y)
-  else
-    x ~< y
-
-define helper __lte = #(x, y) as Boolean
-  let type = typeof x
-  if type not in ["number", "string"]
-    throw TypeError("Cannot compare a non-number/string: " ~& type)
-  else if type != typeof y
-    throw TypeError("Cannot compare elements of different types: " ~& type ~& " vs " ~& typeof y)
-  else
-    x ~<= y
 
 define helper __slice = do
   let slice = Array.prototype.slice
@@ -694,7 +694,7 @@ macro for
       if @expr
         throw Error("Cannot use a for loop with an else as an expression")
       else if reducer
-        throw Error("Cannot use a for loop with an else with " ~& reducer)
+        throw Error("Cannot use a for loop with an else with $reducer")
       let run-else = @tmp \else
       body := AST
         $run-else := false
@@ -729,7 +729,7 @@ macro for
           AST do
             $loop
         else
-          throw Error("Unknown reducer: " ~& reducer)
+          throw Error("Unknown reducer: $reducer")
       else if @expr
         let arr = @tmp \arr
         body := @mutate-last body, #(node) -> (AST $arr.push $node)
@@ -794,7 +794,7 @@ macro for
       init.push AST +$step
     
     let test = if @is-const(step)
-      if @value(step) ~> 0
+      if @value(step) > 0
         if @is-const(end) and @value(end) == Infinity
           AST true
         else
@@ -924,7 +924,7 @@ macro for
       if @expr
         throw Error("Cannot use a for loop with an else as an expression")
       else if reducer
-        throw Error("Cannot use a for loop with an else with " ~& reducer)
+        throw Error("Cannot use a for loop with an else with $reducer")
     
     let mutable index = null
     if @empty(value)
@@ -1005,7 +1005,7 @@ macro for
             $loop
             true
         else
-          throw Error("Unknown reducer: " ~& reducer)
+          throw Error("Unknown reducer: $reducer")
       else if @expr
         let arr = @tmp \arr
         body := @mutate-last body, #(node) -> (AST $arr.push $node)
@@ -1165,7 +1165,7 @@ define helper __new = do
     if not creator
       let func = ["return new C("]
       for i = 0, length
-        if i ~> 0
+        if i > 0
           func.push ", "
         func.push "a[", i, "]"
       func.push ");"
@@ -1192,9 +1192,9 @@ define operator binary instanceofsome with precedence: 3, maximum: 1, invertible
       AST $left instanceof $element
     else
       let f(i, current, left)
-        if i ~< elements.length
+        if i < elements.length
           let element = elements[i]
-          f(i ~+ 1, AST $current or $left instanceof $element, left)
+          f(i + 1, AST $current or $left instanceof $element, left)
         else
           current
       @maybe-cache left, #(set-left, left)
@@ -1206,17 +1206,15 @@ define operator binary instanceofsome with precedence: 3, maximum: 1, invertible
 macro switch
   syntax node as Logic, cases as ("\n", "case", node-head as Logic, node-tail as (",", this as Logic)*, body as (Body | (";", this as Statement))?)*, default-case as ("\n", "default", this as (Body | (";", this as Statement))?)?
     let result-cases = []
-    let mutable i = 0
-    while i ~< cases.length, i ~+= 1
-      let case_ = cases[i]
+    for case_ in cases
       let case-nodes = [case_.node-head].concat(case_.node-tail)
       let mutable body = case_.body
       let mutable is-fallthrough = false
       if @is-block(body)
         let nodes = @nodes(body)
-        let last-node = nodes[nodes.length ~- 1]
+        let last-node = nodes[nodes.length - 1]
         if @is-ident(last-node) and @name(last-node) == \fallthrough
-          body := nodes.slice(0, ~-1)
+          body := nodes[:-1]
           body := AST $body
           is-fallthrough := true
       else if @is-ident(body) and @name(body) == \fallthrough
@@ -1224,15 +1222,14 @@ macro switch
         body := AST $body
         is-fallthrough := true
       
-      let mutable j = 0
-      while j ~< case-nodes.length ~- 1, j ~+= 1
+      for case-node in case-nodes[:-1]
         result-cases.push {
-          node: case-nodes[j]
+          node: case-node
           body: @noop()
           fallthrough: true
         }
       result-cases.push {
-        node: case-nodes[j]
+        node: case-nodes[case-nodes.length - 1]
         body
         fallthrough: is-fallthrough
       }
@@ -1267,8 +1264,8 @@ macro require!
     
     if @is-const name
       let mutable ident-name = @value(name)
-      if ident-name.index-of("/") != ~-1
-        ident-name := ident-name.substring ident-name.last-index-of("/") ~+ 1
+      if ident-name.index-of("/") != -1
+        ident-name := ident-name.substring ident-name.last-index-of("/") + 1
       let ident = @ident ident-name
       AST let $ident = require $name
     else if @is-ident name
@@ -1276,15 +1273,12 @@ macro require!
       AST let $name = require $path
     else if @is-object name
       let requires = []
-      let pairs = @pairs(name)
-      let mutable i = 0
-      while i ~< pairs.length, i ~+= 1
-        let {key, value} = pairs[i]
+      for {key, value} in @pairs(name)
         unless @is-const key
           throw Error "If providing an object to require!, all keys must be constant strings"
         let mutable ident-name = @value(key)
-        if ident-name.index-of("/") != ~-1
-          ident-name := ident-name.substring ident-name.last-index-of("/") ~+ 1
+        if ident-name.index-of("/") != -1
+          ident-name := ident-name.substring ident-name.last-index-of("/") + 1
         let ident = @ident ident-name
         if @is-const value
           requires.push AST let $ident = require $value
@@ -1386,7 +1380,7 @@ macro asyncfor
       init.push AST +$step
     
     let test = if @is-const(step)
-      if @value(step) ~> 0
+      if @value(step) > 0
         if @is-const(end) and @value(end) == Infinity
           AST true
         else
@@ -1515,8 +1509,8 @@ macro asyncif
     if @empty(else-body)
       current := AST $done()
     
-    let mutable i = else-ifs.length ~- 1
-    while i ~>= 0, i ~-= 1
+    let mutable i = else-ifs.length - 1
+    while i >= 0, i -= 1
       let else-if = else-ifs[i]
       let mutable inner-test = else-if.test
       if else-if.type == "unless"
@@ -1543,8 +1537,8 @@ macro asyncunless
     if @empty(else-body)
       current := AST $done()
     
-    let mutable i = else-ifs.length ~- 1
-    while i ~>= 0, i ~-= 1
+    let mutable i = else-ifs.length - 1
+    while i >= 0, i -= 1
       let else-if = else-ifs[i]
       let mutable inner-test = else-if.test
       if else-if.type == "unless"
@@ -1600,12 +1594,8 @@ macro class
         let mutable child = @super-child(node)
         if child?
           child := fix-supers child
-        let args = []
-        let super-args = @super-args node
-        let mutable i = 0
-        let len = super-args.length
-        while i ~< len, i ~+= 1
-          args.push fix-supers super-args[i]
+        let args = for super-arg in @super-args node
+          fix-supers super-arg
         
         @call(
           if child?
@@ -1624,7 +1614,7 @@ macro class
       if @is-def(node)
         let key = @left(node)
         if @is-const(key) and @value(key) == \constructor
-          constructor-count ~+= 1
+          constructor-count += 1
       void
     
     let mutable has-top-level-constructor = false
@@ -1770,7 +1760,7 @@ macro enum
         if not @is-const key
           throw Error "Cannot have non-const enum keys"
         if @empty value
-          index ~+= 1
+          index += 1
           value := index
         AST this[$key] := $value
       else
@@ -1814,12 +1804,8 @@ macro namespace
         let mutable child = @super-child(node)
         if child?
           child := fix-supers child
-        let args = []
-        let super-args = @super-args node
-        let mutable i = 0
-        let len = super-args.length
-        while i ~< len, i ~+= 1
-          args.push fix-supers super-args[i]
+        let args = for super-arg in @super-args node
+          fix-supers super-arg
         let parent = if @empty(superobject)
           AST Object.prototype
         else

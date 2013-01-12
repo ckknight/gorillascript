@@ -3020,7 +3020,7 @@ define DefineHelper = short-circuit! DefineHelperStart, sequential! [
   [\name, Identifier]
   DeclareEqualSymbol
   [\value, Expression]
-], #(x, o, i) -> o.define-helper i, x.name, x.value
+], #(x, o, i) -> o.define-helper x.name, x.value
 
 define DefineOperatorStart = sequential! [word(\define), word(\operator)]
 define DefineOperator = short-circuit! DefineOperatorStart, in-macro sequential! [
@@ -4500,6 +4500,11 @@ class State
       @current-macro := null
     @nothing @index
   
+  def define-helper(name as IdentNode, value as Node)
+    require! './translator'
+    translator.define-helper(name, value)
+    @nothing @index
+  
   let macro-syntax-idents = {
     Logic
     Expression
@@ -4534,6 +4539,19 @@ class State
       result
     else
       obj
+  
+  let make-macro-root(index, params, body)
+    @root index, @return index, @function(index
+      [
+        params
+        @param index, (@ident index, \__wrap), void, false, true, void
+        @param index, (@ident index, \__node), void, false, true, void
+        @param index, (@ident index, \__macro), void, false, true, void
+      ]
+      body
+      true
+      false), false
+  
   let macro-syntax-types = {
     syntax: #(index, params, body)
       let calc-param(param)@
@@ -4591,17 +4609,8 @@ class State
             key: @const index, param.ident.name
             value: @param index, param.ident, void, false, true, void
           }
-    
-      let raw-func = @root index, @return index, @function(index
-        [
-          @object-param index, func-params
-          @param index, (@ident index, \__wrap), void, false, true, void
-          @param index, (@ident index, \__node), void, false, true, void
-          @param index, (@ident index, \__macro), void, false, true, void
-        ]
-        body
-        true
-        false), false
+      
+      let raw-func = make-macro-root@ this, index, @object-param(index, func-params), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
@@ -4614,16 +4623,7 @@ class State
       }
     
     call: #(index, params, body)
-      let raw-func = @root index, @return index, @function(index
-        [
-          @array-param index, params
-          @param index, (@ident index, \__wrap), void, false, true, void
-          @param index, (@ident index, \__node), void, false, true, void
-          @param index, (@ident index, \__macro), void, false, true, void
-        ]
-        body
-        true
-        false)
+      let raw-func = make-macro-root@ this, index, @array-param(index, params), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
       let mutable handler = translated.node.to-function()()
       if typeof handler != \function
@@ -4637,20 +4637,11 @@ class State
       }
     
     binary-operator: #(index, operators, body, options)
-      let raw-func = @root index, @return index, @function(index
-        [
-          @object-param index, [
-            { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
-            { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
-            { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
-          ]
-          @param index, (@ident index, \__wrap), void, false, true, void
-          @param index, (@ident index, \__node), void, false, true, void
-          @param index, (@ident index, \__macro), void, false, true, void
-        ]
-        body
-        true
-        false)
+      let raw-func = make-macro-root@ this, index, @object-param(index, [
+        { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
+        { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
+        { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
+      ]), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
       let mutable handler = translated.node.to-function()()
       if typeof handler != \function
@@ -4672,20 +4663,11 @@ class State
       }
     
     assign-operator: #(index, operators, body, options)
-      let raw-func = @root index, @return index, @function(index
-        [
-          @object-param index, [
-            { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
-            { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
-            { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
-          ]
-          @param index, (@ident index, \__wrap), void, false, true, void
-          @param index, (@ident index, \__node), void, false, true, void
-          @param index, (@ident index, \__macro), void, false, true, void
-        ]
-        body
-        true
-        false)
+      let raw-func = make-macro-root@ this, index, @object-param(index, [
+        { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
+        { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
+        { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
+      ]), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
@@ -4698,19 +4680,10 @@ class State
       }
     
     unary-operator: #(index, operators, body, options)
-      let raw-func = @root index, @return index, @function(index
-        [
-          @object-param index, [
-            { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
-            { key: @const(index, \node), value: @param index, (@ident index, \node), void, false, true, void }
-          ]
-          @param index, (@ident index, \__wrap), void, false, true, void
-          @param index, (@ident index, \__node), void, false, true, void
-          @param index, (@ident index, \__macro), void, false, true, void
-        ]
-        body
-        true
-        false)
+      let raw-func = make-macro-root@ this, index, @object-param(index, [
+        { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
+        { key: @const(index, \node), value: @param index, (@ident index, \node), void, false, true, void }
+      ]), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
       let handler = translated.node.to-function()()
       if typeof handler != \function
@@ -5365,7 +5338,6 @@ node-type! \def, left as Node, right as (Node|void), {
     else
       this
 }
-node-type! \define-helper, name as Node, value as Node
 node-type! \eval, code as Node
 node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node
 node-type! \for-in, key as Node, object as Node, body as Node
