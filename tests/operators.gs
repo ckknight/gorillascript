@@ -253,15 +253,30 @@ test "Logical operators", #
   eq false, false and true
   eq true, true and true
   
+  eq void, void and fail()
+  eq 0, 0 and fail()
+  eq 0, "yes" and 0
+  eq "yes", 1 and "yes"
+  
   eq false, false or false
   eq true, true or false
   eq true, false or true
   eq true, true or true
   
+  eq 0, void or 0
+  eq void, 0 or void
+  eq "yes", "yes" or fail()
+  eq "yes", 0 or "yes"
+  
   eq false, false xor false
   eq true, true xor false
   eq true, false xor true
   eq false, true xor true
+  eq 0, 0 xor void
+  eq void, void xor 0
+  eq "yes", "yes" xor void
+  eq "yes", void xor "yes"
+  eq false, "yes" xor 1
   
   /*
   throws #-> Cotton.compile("""
