@@ -425,7 +425,7 @@ macro character!(chars, name)
   let codes = []
   if @is-const(chars)
     chars := @value(chars)
-    for i = 0, chars.length
+    for i in 0 til chars.length
       codes.push C(chars, i)
   else
     for part in @elements(chars)
@@ -452,12 +452,12 @@ macro character!(chars, name)
           throw Error "Expected a string or number"
         if left > right
           throw Error "left must be less than or equal to right"
-        for i = left, right + 1
+        for i in left to right
           codes.push i
       else if @is-const(part)
         let mutable value = @value(part)
         if typeof value == \string
-          for i = 0, value.length
+          for i in 0 til value.length
             codes.push C(value, i)
         else if typeof value == \number
           codes.push value
@@ -1861,9 +1861,9 @@ define RadixInteger = do
       case 16; HexDigit
       default
         let chars = []
-        for i = 0, radix max 10
+        for i in 0 til radix max 10
           chars[i + C("0")] := true
-        for i = 10, radix max 36
+        for i in 10 til radix max 36
           chars[i - 10 + C("a")] := true
           chars[i - 10 + C("A")] := true
         #(o)
@@ -2137,7 +2137,7 @@ let make-triple-string(quote, line)
     let lines = [x.first]
     if lines[0].length == 0 or (lines[0].length == 1 and lines[0][0] == "")
       lines.shift()
-    for j = 0, x.empty-lines.length
+    for j in 0 til x.empty-lines.length
       if j > 0 or lines.length > 0
         lines.push [""]
     lines.push ...x.rest
@@ -2152,7 +2152,7 @@ let make-triple-string(quote, line)
         string-parts.push "\n"
       string-parts.push ...line
     
-    for j = string-parts.length - 2, -1, -1
+    for j in string-parts.length - 2 to 0 by -1
       if typeof string-parts[j] == \string and typeof string-parts[j + 1] == \string
         string-parts.splice(j, 2, string-parts[j] ~& string-parts[j + 1])
     
@@ -3652,7 +3652,7 @@ let get-use-custom-binary-operator = do
                 return current
               else
                 let mutable current = tail[tail.length - 1].node
-                for j = tail.length - 1, 0, -1
+                for j in tail.length - 1 til 0 by -1
                   current := operator.func {
                     left: tail[j - 1].node
                     tail[j].inverted
@@ -5509,7 +5509,7 @@ node-type! \string, parts as [Node], {
           segments.push CallNode i, j, IdentNode(i, j, \__strnum), [reduced]
         else
           segments.push reduced
-    for i = segments.length - 1, 0, -1
+    for i in segments.length - 1 til 0 by -1
       let left = segments[i - 1]
       let right = segments[i]
       if left.is-const() and right.is-const()
@@ -5519,7 +5519,7 @@ node-type! \string, parts as [Node], {
     if segments.length > 1 and segments[0].is-const() and segments[0].const-value() == "" and (segments[1].type().is-subset-of(Type.string) or (segments.length > 2 and segments[2].type().is-subset-of(Type.string)))
       segments.shift()
     let mutable result = segments[0]
-    for i = 1, segments.length
+    for i in 1 til segments.length
       let segment = segments[i]
       result := BinaryNode result.start-index, segment.end-index, result, "+", segment
     result

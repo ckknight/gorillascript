@@ -34,7 +34,7 @@ let get-indent = do
   #(indent)
     if indent >= cache.length
       let mutable result = cache[cache.length - 1]
-      for i = cache.length, indent
+      for i in cache.length til indent
         result &= INDENT
         cache.push result
     cache[indent]
@@ -335,7 +335,7 @@ exports.And := #(...args)
     Const true
   else
     let mutable current = args[0]
-    for i = 1, args.length
+    for i in 1 til args.length
       current := Binary current, "&&", args[i]
     current
 
@@ -344,7 +344,7 @@ exports.Or := #(...args)
     Const false
   else
     let mutable current = args[0]
-    for i = 1, args.length
+    for i in 1 til args.length
       current := Binary current, "||", args[i]
     current
 

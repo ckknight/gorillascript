@@ -46,7 +46,7 @@ class Scope
 
   def reserve-ident(name-part = \ref, type as Type = Type.any)
     // TODO: would be better as for first
-    for i = 1, Infinity
+    for i in 1 to Infinity
       let name = if i == 1 then "_$(name-part)" else "_$(name-part)$i"
       unless @used-tmps haskey name
         @used-tmps[name] := true
@@ -56,7 +56,7 @@ class Scope
 
   def reserve-param()
     // TODO: would be better as for first
-    for i = 1, Infinity
+    for i in 1 to Infinity
       let name = if i == 1 then "_p" else "_p$i"
       unless @used-tmps haskey name
         @used-tmps[name] := true
@@ -281,7 +281,7 @@ class GeneratorBuilder
               ast.Call close
               ast.Throw err
             ]
-            for i = catches.length - 1, -1, -1
+            for i in catches.length - 1 to 0 by -1
               let catch-info = catches[i]
               let err-ident = catch-info.t-ident()
               scope.add-variable err-ident
@@ -458,7 +458,7 @@ let array-translate(elements, scope, replace-with-slice)
     #-> ast.Arr for item in translated-items[0]
       item()
   else
-    for i = translated-items.length - 1, -1, -1
+    for i in translated-items.length - 1 to 0 by -1
       let translated-item = translated-items[i]
       if i %% 2
         if translated-item.length > 0

@@ -152,7 +152,7 @@ module.exports := class Type
       if c
         c
       else
-        for i = 0, len
+        for i in 0 til len
           c := alpha[i].compare(bravo[i])
           if c
             return c
@@ -166,7 +166,7 @@ module.exports := class Type
       if len != bravo.length
         false
       else
-        for i = 0, len
+        for i in 0 til len
           unless alpha[i].equals(bravo[i])
             return false
         true
