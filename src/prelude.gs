@@ -757,94 +757,6 @@ macro for
         $body
       $current
   
-  syntax reducer as ("every" | "some" | "first")?, ident as Identifier, "=", start, ",", end, step as (",", this)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if not @empty(else-body) and @expr
-      throw Error("Cannot use a for loop with an else as an expression")
-    
-    if @empty(reducer)
-      reducer := null
-    if @empty(step)
-      step := AST 1
-    
-    let has-func = @has-func(body)
-    
-    let init = []
-    
-    if @is-const(start)
-      if typeof @value(start) != \number
-        throw Error "Cannot start with a non-number: #(@value start)"
-    else
-      start := AST +$start
-    init.push (AST let $ident = $start)
-    
-    if @is-const(end)
-      if typeof @value(end) != \number
-        throw Error "Cannot end with a non-number: #(@value start)"
-    else if @is-complex(end)
-      end := @cache (AST +$end), init, \end, has-func
-    else
-      init.push AST +$end
-    
-    if @is-const(step)
-      if typeof @value(step) != \number
-        throw Error "Cannot step with a non-number: #(@value step)"
-    else if @is-complex(step)
-      step := @cache (AST +$step), init, \step, has-func
-    else
-      init.push AST +$step
-    
-    let test = if @is-const(step)
-      if @value(step) > 0
-        if @is-const(end) and @value(end) == Infinity
-          AST true
-        else
-          AST $ident ~< $end
-      else
-        if @is-const(end) and @value(end) == -Infinity
-          AST true
-        else
-          AST $ident ~> $end
-    else
-      AST if $step ~> 0 then $ident ~< $end else $ident ~> $end
-    
-    if has-func
-      let func = @tmp \f, false, \function
-      init.push (AST let $func = #($ident) -> $body)
-      body := (AST $func($ident))
-    
-    if reducer == "every"
-      AST
-        for every $init; $test; $ident ~+= $step
-          $body
-        else
-          $else-body
-    else if reducer == "some"
-      AST
-        for some $init; $test; $ident ~+= $step
-          $body
-        else
-          $else-body
-    else if reducer == "first"
-      AST
-        for first $init; $test; $ident ~+= $step
-          $body
-        else
-          $else-body
-    else
-      AST
-        for $init; $test; $ident ~+= $step
-          $body
-        else
-          $else-body
-  
-  syntax "reduce", ident as Identifier, "=", start, ",", end, step as (",", this)?, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    body := @mutate-last body, #(node) -> (AST $current := $node)
-    AST do
-      let mutable $current = $current-start
-      for $ident = $start, $end, $step
-        $body
-      $current
-  
   syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if not @empty(else-body) and @expr
       throw Error("Cannot use a for loop with an else as an expression")
@@ -1284,7 +1196,7 @@ define helper __new = do
     let creator = new-creators[length]
     if not creator
       let func = ["return new C("]
-      for i = 0, length
+      for i in 0 til length
         if i > 0
           func.push ", "
         func.push "a[", i, "]"

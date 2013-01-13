@@ -105,7 +105,7 @@ test "yield with for-in", #
 test "yield with for-range", #
   let fun(start, finish)*
     yield start
-    for i = start + 1, finish
+    for i in start + 1 til finish
       yield i
     yield finish
   
@@ -148,7 +148,7 @@ test "yield with for-ofall with inheritance", #
 
 test "yield with for-from", #
   let range(start, finish)*
-    for i = start, finish
+    for i in start til finish
       yield i
   
   let fun()*

@@ -389,7 +389,7 @@ test "namespaced named class with inheritance", #
 
 test "class with calculated method names", #
   class Class
-    for i = 1, 4
+    for i in 1 til 4
       def ("method" & i) = #-> i
   
   let obj = new Class()
@@ -399,7 +399,7 @@ test "class with calculated method names", #
 
 test "class with interpolated method names", #
   class Class
-    for i = 1, 4
+    for i in 1 til 4
       def "method$i" = #-> i
   
   let obj = new Class()

@@ -5379,6 +5379,16 @@ node-type! \declarable, ident as Node, is-mutable as Boolean, spread as Boolean,
       DeclarableNode @start-index, @end-index, ident, @is-mutable, @spread, as-type
     else
       this
+  _reduce: #
+    let ident = @ident.reduce()
+    if ident instanceof DeclarableNode
+      ident
+    else
+      let as-type = if @as-type? then @as-type.reduce() else @as-type
+      if ident != @ident or as-type != @as-type
+        DeclarableNode(ident, @is-mutable, @spread, as-type)
+      else
+        this
 }
 node-type! \def, left as Node, right as (Node|void), {
   walk: #(func)

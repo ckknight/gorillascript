@@ -620,7 +620,7 @@ test "new operator spread", #
   array-eq ["alpha", "bravo", "charlie"], [...(make-class-with-arguments(...array).args[0])]
   
   let arr = []
-  for i = 0, 200
+  for i in 0 til 200
     arr.push i
     let obj = new Class(...arr)
     array-eq arr, obj.args
