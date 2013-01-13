@@ -303,7 +303,7 @@ test "logical assignment", #
   eq 1, or-assign(1, fail)
   eq 2, or-assign(0, run-once 2)
   eq false, xor-assign(1, run-once 1), "a"
-  eq true, xor-assign(1, run-once 0), "b"
+  eq 1, xor-assign(1, run-once 0), "b"
   eq 1, xor-assign(0, run-once 1), "c"
   eq 0, xor-assign(0, run-once 0), "d"
   
@@ -312,9 +312,9 @@ test "logical assignment", #
   eq "value", or-member-assign({}, run-once("key"), run-once "value")
   eq "alpha", or-member-assign({key:"alpha"}, run-once("key"), fail)
   eq "value", xor-member-assign({}, run-once("key"), run-once "value")
-  eq 0, xor-member-assign({}, run-once("key"), run-once 0)
+  eq void, xor-member-assign({}, run-once("key"), run-once 0)
   eq false, xor-member-assign({key:"alpha"}, run-once("key"), run-once "value")
-  eq 0, xor-member-assign({key:"alpha"}, run-once(0), run-once 0)
+  eq void, xor-member-assign({key:"alpha"}, run-once(0), run-once 0)
 
 test "not", #
   eq true, not false
@@ -1169,7 +1169,7 @@ test "Operators as functions", #
   
   ok "function", typeof (xor)
   eq false, (xor)(1, 5)
-  eq true, (xor)(1, 0)
+  eq 1, (xor)(1, 0)
   eq 5, (xor)(0, 5)
   eq 5, (xor)(false, 5)
   eq false, (xor)(true, 5)
@@ -1178,7 +1178,7 @@ test "Operators as functions", #
   eq 5, (xor)(null, 5)
   eq 5, (xor)("", 5)
   eq false, (xor)("a", 5)
-  eq true, (xor)("a", null)
+  eq "a", (xor)("a", null)
   
   ok "function", typeof (?)
   eq 1, (?)(1, 5)

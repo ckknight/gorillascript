@@ -1252,9 +1252,15 @@ macro async
 
 define helper __xor = #(x, y)
   if x
-    not y
+    if y
+      false
+    else
+      x
   else
-    y
+    if y
+      y
+    else
+      x // falsy value
 
 macro require!
   syntax name as Expression
