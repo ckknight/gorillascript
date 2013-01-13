@@ -3938,17 +3938,18 @@ class MacroHelper
     @index := index
     @expr := expr
   
+  def var(ident as (IdentNode|TmpNode), is-mutable as Boolean) -> @state.var @index, ident, is-mutable
   def noop() -> @state.nothing @index
-  def block(nodes as Array) -> @state.block(@index, nodes).reduce()
-  def if(test as Object, when-true as Object, when-false as (Object|null)) -> @state.if(@index, test, when-true, when-false).reduce()
-  def switch(node as Object, cases as Array, default-case as (Object|null)) -> @state.switch(@index, node, cases, default-case).reduce()
-  def for(init as (Object|null), test as (Object|null), step as (Object|null), body as Object) -> @state.for(@index, init, test, step, body).reduce()
-  def for-in(key as Object, object as Object, body as Object) -> @state.for-in(@index, key, object, body).reduce()
-  def try-catch(try-body as Object, catch-ident as Object, catch-body as Object) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce()
-  def try-finally(try-body as Object, finally-body as Object) -> @state.try-finally(@index, try-body, finally-body).reduce()
-  def assign(left as Object, op as String, right as Object) -> @state.assign(@index, left, op, right).reduce()
-  def binary(left as Object, op as String, right as Object) -> @state.binary(@index, left, op, right).reduce()
-  def unary(op as String, node as Object) -> @state.unary(@index, op, node).reduce()
+  def block(nodes as [Node]) -> @state.block(@index, nodes).reduce()
+  def if(test as Node, when-true as Node, when-false as (Node|null)) -> @state.if(@index, test, when-true, when-false).reduce()
+  def switch(node as Node, cases as Array, default-case as (Node|null)) -> @state.switch(@index, node, cases, default-case).reduce()
+  def for(init as (Node|null), test as (Node|null), step as (Node|null), body as Node) -> @state.for(@index, init, test, step, body).reduce()
+  def for-in(key as IdentNode, object as Node, body as Node) -> @state.for-in(@index, key, object, body).reduce()
+  def try-catch(try-body as Node, catch-ident as Node, catch-body as Node) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce()
+  def try-finally(try-body as Node, finally-body as Node) -> @state.try-finally(@index, try-body, finally-body).reduce()
+  def assign(left as Node, op as String, right as Node) -> @state.assign(@index, left, op, right).reduce()
+  def binary(left as Node, op as String, right as Node) -> @state.binary(@index, left, op, right).reduce()
+  def unary(op as String, node as Node) -> @state.unary(@index, op, node).reduce()
   def throw(node as Node) -> @state.throw(@index, node).reduce()
   
   def tmp(name as String = \ref, save as Boolean, mutable type)
@@ -4527,6 +4528,8 @@ class State
   let macro-syntax-idents = {
     Logic
     Expression
+    Assignment
+    FunctionDeclaration
     Statement
     Body
     Identifier
@@ -5686,6 +5689,7 @@ node-type! \tmp-wrapper, node as Node, tmps as Array, {
     else
       this
 }
+node-type! \var, ident as (IdentNode|TmpNode), is-mutable as Boolean
 node-type! \yield, node as Node, multiple as Boolean
 
 let without-repeats(array)

@@ -103,14 +103,23 @@ class Scope
 
     helpers.sort lower-sorter
 
-  def add-variable(ident as ast.Ident, type as Type = Type.any)!
-    @variables[ident.name] := type
+  def add-variable(ident as ast.Ident, type as Type = Type.any, is-mutable as Boolean)!
+    @variables[ident.name] := {
+      type
+      is-mutable
+    }
 
   def has-variable(ident as ast.Ident)
-    if @variables[ident.name]
+    if typeof @variables[ident.name] == \object
       @variables haskey ident.name
     else
       false
+  
+  def has-own-variable(ident as ast.Ident)
+    @variables ownskey ident.name
+  
+  def is-variable-mutable(ident as ast.Ident)
+    @variables[ident.name]?.is-mutable
 
   def remove-variable(ident as ast.Ident)!
     delete @variables[ident.name]
@@ -580,10 +589,24 @@ let translators = {
           location)
         #-> auto-return result()
       else
-        let left = translate node.left, scope, \left-expression
-        let right = translate node.right, scope, \expression
-
-        #-> auto-return ast.Binary(left(), op, right())
+        let t-left = translate node.left, scope, \left-expression
+        let t-right = translate node.right, scope, \expression
+        
+        #
+          let left = t-left()
+          let right = t-right()
+          if op == "=" and location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name? and scope.has-own-variable(left) and not scope.is-variable-mutable(left)
+            scope.remove-variable left
+            let func = ast.Func(left, right.params, right.variables, right.body, right.declarations)
+            if auto-return != identity
+              ast.Block [
+                func
+                auto-return left
+              ]
+            else
+              func
+          else
+            auto-return ast.Binary(left, op, right)
 
   Binary: #(node, scope, location, auto-return)
     let t-left = translate node.left, scope, \expression
@@ -920,7 +943,7 @@ let translators = {
         let type-check = if param.as-type then translate-type-check(ident, param.as-type, scope, param.default-value?)
         // TODO: mark the param as having a type
         if inner
-          scope.add-variable ident, type-check?.type
+          scope.add-variable ident, type-check?.type, param.is-mutable
 
         let init = []
         if param.default-value?
@@ -1074,7 +1097,7 @@ let translators = {
           if found-spread == -1
             param-idents.push param.ident
           else
-            inner-scope.add-variable param.ident // TODO: figure out param type
+            inner-scope.add-variable param.ident, Type.any, param.is-mutable // TODO: figure out param type
             let diff = i - found-spread - 1
             initializers.push ast.Assign(
               param.ident
@@ -1086,7 +1109,7 @@ let translators = {
             throw Error "Encountered multiple spread parameters"
           found-spread := i
           inner-scope.add-helper \__slice
-          inner-scope.add-variable param.ident, Type.array // TODO: figure out param type
+          inner-scope.add-variable param.ident, Type.array, param.is-mutable // TODO: figure out param type
           if i == len - 1
             initializers.push ast.Assign(
               param.ident
@@ -1173,7 +1196,7 @@ let translators = {
           let t-ident = translate node.ident, scope, \left-expression
           #
             let ident = t-ident()
-            scope.add-variable ident // TODO: type
+            scope.add-variable ident, Type.any, node.is-mutable // TODO: type
             ident
       ArrayDeclarable: #(node, scope)
         let elements = for element in node.elements
@@ -1299,7 +1322,7 @@ let translators = {
       let t-left = translate-declarable node.left, scope
       let t-right = translate node.right, scope, \expression
       # -> handle-declarable scope, location, auto-return, t-left(), t-right()
-
+  
   Nothing: #-> #-> ast.Noop()
 
   Object: #(node, scope, location, auto-return)
@@ -1509,6 +1532,13 @@ let translators = {
   Unary: #(node, scope, location, auto-return)
     let t-subnode = translate node.node, scope, \expression
     #-> auto-return ast.Unary node.op, t-subnode()
+  
+  Var: #(node, scope, location, auto-return)
+    let t-ident = translate node.ident, scope, \left-expression, auto-return
+    #
+      let ident = t-ident()
+      scope.add-variable ident, Type.any, node.is-mutable
+      ast.Noop()
 }
 
 let translate(node as Object, scope as Scope, location as String, auto-return)
