@@ -3014,13 +3014,22 @@ define Macro = in-macro short-circuit! MacroToken, sequential! [
       false
 ], #(x, o, i) -> o.nothing i
 
+define DefineSyntaxStart = sequential! [word(\define), word(\syntax)]
+define DefineSyntax = short-circuit! DefineSyntaxStart, sequential! [
+  DefineSyntaxStart
+  [\name, Identifier]
+  DeclareEqualSymbol
+  [\value, MacroSyntaxParameters]
+  [\body, maybe! FunctionBody, NOTHING]
+], #(x, o, i) -> o.define-syntax i, x.name.name, x.value, if x.body != NOTHING then x.body
+
 define DefineHelperStart = sequential! [word(\define), word(\helper)]
 define DefineHelper = short-circuit! DefineHelperStart, sequential! [
   DefineHelperStart
   [\name, Identifier]
   DeclareEqualSymbol
   [\value, Expression]
-], #(x, o, i) -> o.define-helper x.name, x.value
+], #(x, o, i) -> o.define-helper i, x.name, x.value
 
 define DefineOperatorStart = sequential! [word(\define), word(\operator)]
 define DefineOperator = short-circuit! DefineOperatorStart, in-macro sequential! [
@@ -3835,6 +3844,7 @@ define Statement = sequential! [
     Macro
     DefineHelper
     DefineOperator
+    DefineSyntax
     //Constructor
     Assignment
     ExpressionAsStatement
@@ -4509,10 +4519,10 @@ class State
       @current-macro := null
     @nothing @index
   
-  def define-helper(name as IdentNode, value as Node)
+  def define-helper(i, name as IdentNode, value as Node)
     require! './translator'
     translator.define-helper(name, value)
-    @nothing @index
+    @nothing i
   
   let macro-syntax-idents = {
     Logic
@@ -4561,57 +4571,57 @@ class State
       true
       false), false
   
+  let calc-param(param)@
+    if param instanceof IdentNode
+      unless macro-syntax-idents ownskey param.name
+        @error "Unexpected type ident: $ident"
+      macro-syntax-idents[param.name]
+    else if param instanceof SyntaxSequenceNode
+      handle-params param.params
+    else if param instanceof SyntaxChoiceNode
+      cache! one-of for choice in param.choices
+        calc-param choice
+    else if param.is-const()
+      let string = param.const-value()
+      if typeof string != \string
+        @error "Expected a constant string parameter, got $(typeof! string)"
+      macro-syntax-const-literals![string] or word-or-symbol string
+    else if param instanceof SyntaxManyNode
+      let {multiplier} = param
+      let calced = calc-param param.inner
+      switch multiplier
+      case "*"; zero-or-more! calced
+      case "+"; one-or-more! calced
+      case "?"; maybe! calced, #(x, o, i) -> o.nothing(i)
+      default
+        throw Error("Unknown syntax multiplier: $multiplier")
+    else
+      @error "Unexpected type: $(typeof! param)"
+
+  let handle-params(params)@
+    let sequence = []
+    for param in params
+      if param.is-const()
+        let string = param.const-value()
+        if typeof string != \string
+          @error "Expected a constant string parameter, got $(typeof! string)"
+
+        sequence.push macro-syntax-const-literals![string] or word-or-symbol string
+      else if param instanceof SyntaxParamNode
+        let {ident} = param
+        let key = if ident instanceof IdentNode
+          ident.name
+        else if ident instanceof ThisNode
+          \this
+        else
+          throw Error "Don't know how to handle ident type: $(typeof! ident)"
+        let type = param.as-type ? IdentNode 0, 0, \Expression
+        sequence.push [key, calc-param type]
+      else
+        @error "Unexpected parameter type: $(typeof! param)"
+    sequential sequence
   let macro-syntax-types = {
     syntax: #(index, params, body)
-      let calc-param(param)@
-        if param instanceof IdentNode
-          unless macro-syntax-idents ownskey param.name
-            @error "Unexpected type ident: $ident"
-          macro-syntax-idents[param.name]
-        else if param instanceof SyntaxSequenceNode
-          handle-params param.params, []
-        else if param instanceof SyntaxChoiceNode
-          cache! one-of for choice in param.choices
-            calc-param choice
-        else if param.is-const()
-          let string = param.const-value()
-          if typeof string != \string
-            @error "Expected a constant string parameter, got $(typeof! string)"
-          macro-syntax-const-literals![string] or word-or-symbol string
-        else if param instanceof SyntaxManyNode
-          let {multiplier} = param
-          let calced = calc-param param.inner
-          switch multiplier
-          case "*"; zero-or-more! calced
-          case "+"; one-or-more! calced
-          case "?"; maybe! calced, #(x, o, i) -> o.nothing(i)
-          default
-            throw Error("Unknown syntax multiplier: $multiplier")
-        else
-          @error "Unexpected type: $(typeof! param)"
-    
-      let handle-params(params, sequence)@
-        for param in params
-          if param.is-const()
-            let string = param.const-value()
-            if typeof string != \string
-              @error "Expected a constant string parameter, got $(typeof! string)"
-          
-            sequence.push macro-syntax-const-literals![string] or word-or-symbol string
-          else if param instanceof SyntaxParamNode
-            let {ident} = param
-            let key = if ident instanceof IdentNode
-              ident.name
-            else if ident instanceof ThisNode
-              \this
-            else
-              throw Error "Don't know how to handle ident type: $(typeof! ident)"
-            let type = param.as-type ? IdentNode 0, 0, \Expression
-            sequence.push [key, calc-param type]
-          else
-            @error "Unexpected parameter type: $(typeof! param)"
-        sequential sequence
-    
       let func-params = for param in params
         if param instanceof SyntaxParamNode
           {
@@ -4624,11 +4634,32 @@ class State
       let handler = translated.node.to-function()()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
-      handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+      {
+        handler: #(args, ...rest) -> handler@(this, reduce-object(args), ...rest).reduce()
+        rule: handle-params params
+      }
+    
+    define-syntax: #(index, params, body, options)
+      let func-params = for param in params
+        if param instanceof SyntaxParamNode
+          {
+            key: @const index, param.ident.name
+            value: @param index, param.ident, void, false, true, void
+          }
+      
+      let handler = if body?
+        do
+          let raw-func = make-macro-root@ this, index, @object-param(index, func-params), body
+          let translated = require('./translator')(raw-func.reduce(), return: true)
+          let handler = translated.node.to-function()()
+          if typeof handler != \function
+            throw Error "Error creating function for syntax: $(options.name)"
+          #(args, ...rest) -> reduce-object(handler@(this, reduce-object(args), ...rest))
+      else
+        #(args, ...rest) -> reduce-object(args)
       {
         handler
-        rule: handle-params params, []
+        rule: handle-params params
       }
     
     call: #(index, params, body)
@@ -4727,11 +4758,15 @@ class State
         let macro-helper = MacroHelper o, i, not _statement.peek()
         let mutable result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data)
           macros.get-by-id(id)(data, o, i)
-        result := result.reduce()
-        let tmps = macro-helper.get-tmps()
-        if tmps.unsaved.length
-          o.tmp-wrapper i, result, tmps.unsaved
+        if result instanceof Node
+          result := result.reduce()
+          let tmps = macro-helper.get-tmps()
+          if tmps.unsaved.length
+            o.tmp-wrapper i, result, tmps.unsaved
+          else
+            result
         else
+          // TODO: do I need to watch tmps?
           result
     let macro-id = switch @current-macro
     case BINARY_OPERATOR
@@ -4740,6 +4775,8 @@ class State
       macros.add-assign-operator(params, mutator, options)
     case UNARY_OPERATOR
       macros.add-unary-operator(params, mutator, options)
+    case DEFINE_SYNTAX
+      macro-syntax-idents[options.name] := mutate! rule, mutator
     default
       let m = macros.get-or-add-by-name @current-macro
       m.data.push sequential! [m.token, [\this, rule]], mutator
@@ -4759,6 +4796,11 @@ class State
   def define-unary-operator(index, operators, options, body)
     @enter-macro UNARY_OPERATOR, #@
       @macro-syntax index, \unary-operator, operators, body, options
+  
+  let DEFINE_SYNTAX = freeze {}
+  def define-syntax(index, name, params, body)
+    @enter-macro DEFINE_SYNTAX, #@
+      @macro-syntax index, \define-syntax, params, body, { name }
   
   @add-node-factory := #(name, type)!
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
