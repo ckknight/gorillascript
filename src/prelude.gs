@@ -1377,10 +1377,7 @@ define helper __xor = #(x, y)
     else
       x
   else
-    if y
-      y
-    else
-      x // falsy value
+    y or x
 
 macro require!
   syntax name as Expression

@@ -1,1 +1,0 @@
-0 to radix max 36
