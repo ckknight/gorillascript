@@ -1,35 +1,56 @@
 test "simple loop from 0 through 9", #
   let mutable j = 0
-  for i = 0, 10
+  for i in 0 til 10
     eq j, i
     j += 1
   eq 10, j // [0, 9], not [0, 10]
 
+test "simple loop from 0 through 10, inclusive", #
+  let mutable j = 0
+  for i in 0 to 10
+    eq j, i
+    j += 1
+  eq 11, j // [0, 10], not [0, 9]
+
 test "simple loop from 0 through 8, evens only", #
   let mutable j = 0
-  for i = 0, 10, 2
+  for i in 0 til 10 by 2
     eq j, i
     j += 2
   eq 10, j // [0, 8], not [0, 10]
 
+test "simple loop from 0 through 10, evens only, inclusive", #
+  let mutable j = 0
+  for i in 0 to 10 by 2
+    eq j, i
+    j += 2
+  eq 12, j // [0, 10], not [0, 12]
+
 test "backwards loop", #
   let mutable j = 10
-  for i = 10, 0, -1
+  for i in 10 til 0 by -1
     eq j, i
     j -= 1
   eq 0, j // [10, 1], not [10, 0]
 
+test "backwards loop, inclusive", #
+  let mutable j = 10
+  for i in 10 to 0 by -1
+    eq j, i
+    j -= 1
+  eq -1, j // [10, 0], not [10, 1]
+
 /*
 test "loop with else", #
   let mutable sum = 0
-  for i = 0, 10
+  for i in 0 til 10
     sum += i
   else
     fail()
   eq 45, sum
 
   let mutable hit-else = false
-  for i = 10, 0
+  for i in 10 til 0
     fail()
   else
     hit-else := true
@@ -40,7 +61,7 @@ test "variable loop without step", #
   let test-loop(start, finish)
     let mutable j = start
     let mutable count = 0
-    for i = start, finish
+    for i in start til finish
       eq j, i
       j += 1
       count += 1
@@ -53,7 +74,7 @@ test "variable loop with step", #
   let test-loop(start, finish, step)
     let mutable j = start
     let mutable count = 0
-    for i = start, finish, step
+    for i in start til finish by step
       eq j, i
       j += step
       count += 1
@@ -70,7 +91,7 @@ test "loop variable start is only calculated once", #
   let start = run-once 0
   
   let mutable j = 0
-  for i = start(), 10
+  for i in start() til 10
     eq j, i
     j += 1
   eq 10, j
@@ -79,7 +100,7 @@ test "loop variable finish is only calculated once", #
   let finish = run-once 10
   
   let mutable j = 0
-  for i = 0, finish()
+  for i in 0 til finish()
     eq j, i
     j += 1
   eq 10, j
@@ -88,10 +109,19 @@ test "loop variable step is only calculated once", #
   let step = run-once 1
   
   let mutable j = 0
-  for i = 0, 10, step()
+  for i in 0 til 10 by step()
     eq j, i
     j += 1
   eq 10, j
+
+test "loop variable step going backwards", #
+  let step = run-once -1
+  
+  let mutable j = 10
+  for i in 10 til 0 by step()
+    eq j, i
+    j -= 1
+  eq 0, j
 
 /*
 test "loop variable finish is not respected when changed", #
@@ -115,7 +145,7 @@ test "loop variable step is not respected when changed", #
 
 test "loop scope", #
   let funcs = []
-  for i = 0, 10
+  for i in 0 til 10
     funcs.push #-> i * i
 
   eq 0, funcs[0]()
@@ -126,17 +156,17 @@ test "loop scope", #
 
 test "multiple loops with same variables", #
   let mutable sum = 0
-  for i = 1, 10
+  for i in 1 til 10
     sum += i
   eq 45, sum
-  for i = 9, 0, -1
+  for i in 9 til 0 by -1
     sum -= i
   eq 0, sum
 
 test "loop scope with multiple variables", #
   let funcs = []
-  for i = 0, 10
-    for j = 0, 10
+  for i in 0 til 10
+    for j in 0 til 10
       funcs.push #-> i * j
 
   eq 0, funcs[0]()
@@ -145,11 +175,11 @@ test "loop scope with multiple variables", #
 
 test "loop scope with same variable used multiple times", #
   let funcs = []
-  for i = 0, 10
+  for i in 0 til 10
     funcs.push #-> i * i
   
   let mutable sum = 0
-  for i = 0, 100
+  for i in 0 til 100
     sum += i
   
   eq 4950, sum
@@ -161,30 +191,30 @@ test "loop scope with same variable used multiple times", #
 
 test "multiple loops with same variables nested", #
   let mutable sum = 0
-  for i = 1, 10
-    for j = 1, i
-      for k = 1, j
+  for i in 1 til 10
+    for j in 1 til i
+      for k in 1 til j
         sum += 1
   
   eq 84, sum
-  for k = 1, 10
-    for j = 1, k
-      for i = 1, j
+  for k in 1 til 10
+    for j in 1 til k
+      for i in 1 til j
         sum -= 1
   
   eq 0, sum
 
 test "continue", #
   let mutable count = 0
-  for i = 0, 100
-    if i % 2 == 0
+  for i in 0 til 100
+    if i %% 2
       continue
     count += 1
   eq 50, count
 
 test "break", #
   let mutable count = 0
-  for i = 0, 100
+  for i in 0 til 100
     if i == 50
       break
     else if i > 50
@@ -756,7 +786,7 @@ test "object iteration loop scope with multiple", #
 /*
 test "single-line range loop", -> do
   let mutable sum = 0
-  for i=1,10;sum+=i;end
+  for i in 1 til 10;sum+=i;end
   eq 45, sum
 end
 */
@@ -773,7 +803,7 @@ test "Array comprehension with if", #
   array-eq [4, 16], nums
 
 test "Range comprehension", #
-  let nums = for i = 1, 100
+  let nums = for i in 1 til 100
     i
   
   let mutable j = 0
@@ -792,18 +822,18 @@ test "Object comprehension", #
 
 test "For-some of range", #
   let mutable i = 0
-  ok for some x = 1, 10
+  ok for some x in 1 til 10
     i += 1
     eq i, x
     x == 4
   eq 4, i
   
-  ok not (for some x = 1, 10
+  ok not (for some x in 1 til 10
     x > 10)
   
   /*
   throws #-> Cotton.compile("""
-  for some x = 1, 10
+  for some x in 1 til 10
     true
   else
     throw Error()
@@ -812,18 +842,18 @@ test "For-some of range", #
 
 test "For-every of range", #
   let mutable i = 0
-  ok not (for every x = 1, 10
+  ok not (for every x in 1 til 10
     i += 1
     eq i, x
     x <= 4)
   eq 5, i
 
-  ok for every x = 1, 10
+  ok for every x in 1 til 10
     x <= 10
   
   /*
   throws #-> Cotton.compile("""
-  for some x = 1, 10
+  for some x in 1 til 10
     true
   else
     throw Error()"""), (e) -> e.line == 3 or true
@@ -831,11 +861,11 @@ test "For-every of range", #
 
 /*
 test "For-first of range", #
-  eq 36, for first x = 1, 10
+  eq 36, for first x in 1 til 10
     if x > 5
       x ^ 2
   
-  eq 1000000, for first x = 1, 10
+  eq 1000000, for first x in 1 til 10
     if x > 10
       x ^ 2
   else
@@ -843,11 +873,11 @@ test "For-first of range", #
 */
 /*
 test "For-reduce of range", #
-  eq 45, for reduce i = 1, 10, sum = 0
+  eq 45, for reduce i in 1 til 10, sum = 0
     sum + i
   
   throws #-> Cotton.compile("""
-  for reduce i = 1, 10, sum = 0
+  for reduce i in 1 til 10, sum = 0
     sum + i
   else
     throw Error()"""), (e) -> e.line == 3 or true
@@ -1088,8 +1118,8 @@ test "Repeat-while-reduce", #
   else
     throw Error()"""), (e) -> e.line == 4 or true
 */
-test "Variable inside loop should be reset to undefined", #
-  for i = 1, 10
+test "Variable inside loop should be reset til undefined", #
+  for i in 1 til 10
     let mutable value = undefined
     if i == 5
       value := "other"
@@ -1099,7 +1129,7 @@ test "Variable inside loop should be reset to undefined", #
 test "a simple for loop without a return does not return an array", #
   let fun()
     let x = 0
-    for i = 1, 10
+    for i in 1 til 10
       i
   eq undefined, fun()
 
@@ -1112,34 +1142,34 @@ test "for loop in string", #
     j += 1
   eq 5, j
 
-test "loop up to Infinity", #
+test "loop up til Infinity", #
   let mutable j = 0
-  for i = 0, Infinity
+  for i in 0 til Infinity
     eq j, i
     if i == 10
       break
     j += 1
   eq 10, j
 
-test "loop down to Infinity", #
-  for i = 0, Infinity, -1
+test "loop down til Infinity", #
+  for i in 0 til Infinity by -1
     fail()
 
-test "loop down to -Infinity", #
+test "loop down til -Infinity", #
   let mutable j = 0
-  for i = 0, -Infinity, -1
+  for i in 0 til -Infinity by -1
     eq j, i
     if i == -10
       break
     j -= 1
   eq -10, j
 
-test "loop down to Infinity", #
-  for i = 0, Infinity, -1
+test "loop down til Infinity", #
+  for i in 0 til Infinity by -1
     fail()
 
-test "loop up to -Infinity", #
-  for i = 0, -Infinity
+test "loop up til -Infinity", #
+  for i in 0 til -Infinity
     fail()
 
 let array-to-iterator(array)

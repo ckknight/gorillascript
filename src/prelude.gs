@@ -852,59 +852,150 @@ macro for
     if @empty(reducer)
       reducer := null
     
-    let has-func = @has-func(body)
-    
-    let init = []
-    array := @cache array, init, \arr, has-func
-    
+    let has-func = @has-func(body)  
     let mutable length = null
-    if @empty(index)
-      index := @tmp \i, false, \number
-      length := @tmp \len, false, \number
-    else
+    if not @empty(index)
       length := index.length
       index := index.value
+    
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
+      if @is-array(value) or @is-object(value)
+        throw Error "Cannot assign a number to a complex declarable"
+      value := value.ident
+      let [start, end, step, inclusive] = @call-args(array)
+      
+      let init = []
+      
+      if @is-const(start)
+        if typeof @value(start) != \number
+          throw Error "Cannot start with a non-number: #(@value start)"
+      else
+        start := AST +$start
+      init.push (AST let $value = $start)
+
+      if @is-const(end)
+        if typeof @value(end) != \number
+          throw Error "Cannot end with a non-number: #(@value start)"
+      else if @is-complex(end)
+        end := @cache (AST +$end), init, \end, has-func
+      else
+        init.push AST +$end
+
+      if @is-const(step)
+        if typeof @value(step) != \number
+          throw Error "Cannot step with a non-number: #(@value step)"
+      else if @is-complex(step)
+        step := @cache (AST +$step), init, \step, has-func
+      else
+        init.push AST +$step
+      
+      let test = if @is-const(step)
+        if @value(step) > 0
+          if @is-const(end) and @value(end) == Infinity
+            AST true
+          else
+            AST if $inclusive then $value ~<= $end else $value ~< $end
+        else
+          if @is-const(end) and @value(end) == -Infinity
+            AST true
+          else
+            AST if $inclusive then $value ~>= $end else $value ~> $end
+      else
+        AST if $step ~> 0
+          if $inclusive then $value ~<= $end else $value ~< $end
+        else
+          if $inclusive then $value ~>= $end else $value ~> $end
+      
+      let mutable increment = AST $value ~+= $step
+      if not @empty(index)
+        init.push AST let $index = 0
+        increment := AST
+          $increment
+          $index += 1
+        if has-func
+          let func = @tmp \f, false, \function
+          init.push (AST let $func = #($value, $index) -> $body)
+          body := (AST $func($value, $index))
+      else if has-func
+        let func = @tmp \f, false, \function
+        init.push (AST let $func = #($value) -> $body)
+        body := (AST $func($value))
+      
+      if not @empty(length)
+        init.push AST let $length = if $inclusive
+          ($end ~- $start ~+ $step) ~\ $step
+        else
+          ($end ~- $start) ~\ $step
+      
+      if reducer == "every"
+        AST
+          for every $init; $test; $increment
+            $body
+          else
+            $else-body
+      else if reducer == "some"
+        AST
+          for some $init; $test; $increment
+            $body
+          else
+            $else-body
+      else if reducer == "first"
+        AST
+          for first $init; $test; $increment
+            $body
+          else
+            $else-body
+      else
+        AST
+          for $init; $test; $increment
+            $body
+          else
+            $else-body
+    else
+      let init = []
+      array := @cache array, init, \arr, has-func
+    
       if @empty(index)
         index := @tmp \i, false, \number
       if @empty(length)
         length := @tmp \len, false, \number
     
-    init.push AST let mutable $index = 0
-    init.push AST let $length = +$array.length
+      init.push AST let mutable $index = 0
+      init.push AST let $length = +$array.length
     
-    body := AST
-      let $value = $array[$index]
-      $body
+      body := AST
+        let $value = $array[$index]
+        $body
     
-    if has-func
-      let func = @tmp \f, false, \function
-      init.push AST let $func = #($index) -> $body
-      body := AST $func($index)
+      if has-func
+        let func = @tmp \f, false, \function
+        init.push AST let $func = #($index) -> $body
+        body := AST $func($index)
     
-    if reducer == "every"
-      AST
-        for every $init; $index ~< $length; $index ~+= 1
-          $body
-        else
-          $else-body
-    else if reducer == "some"
-      AST
-        for some $init; $index ~< $length; $index ~+= 1
-          $body
-        else
-          $else-body
-    else if reducer == "first"
-      AST
-        for first $init; $index ~< $length; $index ~+= 1
-          $body
-        else
-          $else-body
-    else
-      AST
-        for $init; $index ~< $length; $index ~+= 1
-          $body
-        else
-          $else-body
+      if reducer == "every"
+        AST
+          for every $init; $index ~< $length; $index ~+= 1
+            $body
+          else
+            $else-body
+      else if reducer == "some"
+        AST
+          for some $init; $index ~< $length; $index ~+= 1
+            $body
+          else
+            $else-body
+      else if reducer == "first"
+        AST
+          for first $init; $index ~< $length; $index ~+= 1
+            $body
+          else
+            $else-body
+      else
+        AST
+          for $init; $index ~< $length; $index ~+= 1
+            $body
+          else
+            $else-body
   
   syntax "reduce", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     body := @mutate-last body, #(node) -> (AST $current := $node)
@@ -1118,6 +1209,35 @@ macro for
       for $value, $index from $iterator
         $body
       $current
+
+define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean)
+  let result = []
+  let mutable i = start
+  if step ~> 0
+    for ; i ~< end; i ~+= step
+      result.push i
+    if inclusive and i ~<= end
+      result.push i
+  else
+    for ; i ~> end; i ~+= step
+      result.push i
+    if inclusive and i ~>= end
+      result.push i
+  result
+
+// TODO: might want to redo these precedences
+define operator binary to with maximum: 1, precedence: 2
+  AST __range($left, $right, 1, true)
+
+define operator binary til with maximum: 1, precedence: 2
+  AST __range($left, $right, 1, false)
+
+define operator binary by with maximum: 1, precedence: 1
+  if not @is-call(left) or not @is-ident(@call-func(left)) or @name(@call-func(left)) != \__range
+    throw Error "Can only use 'by' on a range made with 'to' or 'til'"
+  
+  let [start, end, step, inclusive] = @call-args(left)
+  AST __range($start, $end, $right, $inclusive)
 
 macro while
   syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?

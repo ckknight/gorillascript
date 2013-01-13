@@ -1286,3 +1286,23 @@ test "Operators as functions", #
   t (throw?), void, false
   */
   // TODO: check num!, str!, strnum!
+
+test "til operator", #
+  array-eq [0, 1, 2, 3, 4], 0 til 5
+  array-eq [], 5 til 0
+
+test "to operator", #
+  array-eq [0, 1, 2, 3, 4, 5], 0 to 5
+  array-eq [], 5 to 0
+
+test "til with by", #
+  array-eq [0, 2, 4], 0 til 5 by 2
+  array-eq [], 5 til 0 by 2
+  array-eq [5, 4, 3, 2, 1], 5 til 0 by -1
+  array-eq [5, 3, 1], 5 til 0 by -2
+
+test "to with by", #
+  array-eq [0, 2, 4], 0 to 5 by 2
+  array-eq [], 5 to 0 by 2
+  array-eq [5, 4, 3, 2, 1, 0], 5 to 0 by -1
+  array-eq [5, 3, 1], 5 to 0 by -2
