@@ -61,7 +61,7 @@ test "asyncfor with no after-body", #
 test "asyncfor range", #
   let mutable sum = 0
   if true
-    asyncfor next, i = 0, 10
+    asyncfor next, i in 0 til 10
       let value = run-once(i)
       if true
         async err, x <- wait value
@@ -78,7 +78,7 @@ test "asyncfor range", #
 test "asyncfor range with result", #
   let mutable sum = 0
   if true
-    asyncfor result <- next, i = 0, 10
+    asyncfor result <- next, i in 0 til 10
       let value = run-once(i)
       if true
         async err, x <- wait value

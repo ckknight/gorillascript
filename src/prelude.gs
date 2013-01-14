@@ -849,11 +849,7 @@ macro for
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
       value := value.ident
-      let call-args = @call-args(array)
-      let start = call-args[0]
-      let end = call-args[1]
-      let step = call-args[2]
-      let inclusive = call-args[3]
+      let [start, end, step, inclusive] = @call-args(array)
       
       let init = []
       
@@ -880,6 +876,9 @@ macro for
       else
         init.push AST +$step
       
+      if @is-complex(inclusive)
+        inclusive := @cache (AST $inclusive), init, \incl, has-func
+      
       let test = if @is-const(step)
         if @value(step) > 0
           if @is-const(end) and @value(end) == Infinity
@@ -899,7 +898,7 @@ macro for
       
       let mutable increment = AST $value ~+= $step
       if not @empty(index)
-        init.push AST let $index = 0
+        init.push AST let mutable $index = 0
         increment := AST
           $increment
           $index += 1
@@ -1464,78 +1463,95 @@ macro asyncfor
           $body
         $next()
   
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", ident as Identifier, "=", start, ",", end, step as (",", this)?, body as (Body | (";", this as Statement)), rest as DedentedBody
-    if @empty(step)
-      step := AST 1
-    
-    let init = []
-    
-    if @is-const(start)
-      if typeof @value(start) != \number
-        throw Error "Cannot start with a non-number: #(@value start)"
-    else
-      start := AST +$start
-    init.push (AST let $ident = $start)
-    
-    if @is-const(end)
-      if typeof @value(end) != \number
-        throw Error "Cannot end with a non-number: #(@value start)"
-    else if @is-complex(end)
-      end := @cache (AST +$end), init, \end, true
-    else
-      init.push AST +$end
-    
-    if @is-const(step)
-      if typeof @value(step) != \number
-        throw Error "Cannot step with a non-number: #(@value step)"
-    else if @is-complex(step)
-      step := @cache (AST +$step), init, \step, true
-    else
-      init.push AST +$step
-    
-    let test = if @is-const(step)
-      if @value(step) > 0
-        if @is-const(end) and @value(end) == Infinity
-          AST true
-        else
-          AST $ident ~< $end
-      else
-        if @is-const(end) and @value(end) == -Infinity
-          AST true
-        else
-          AST $ident ~> $end
-    else
-      AST if $step ~> 0 then $ident ~< $end else $ident ~> $end
-    
-    AST
-      asyncfor $result <- $next, $init; $test; $ident ~+= $step
-        $body
-      $rest
-  
   syntax result as (this as Identifier, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), rest as DedentedBody
     let init = []
-    array := @cache array, init, \arr, true
     
     let mutable length = null
     if not @empty(index)
       length := index.length
       index := index.value
-    if @empty(index)
-      index := @tmp \i, true, \number
-    if @empty(length)
-      length := @tmp \len, true, \number
-
-    init.push AST let mutable $index = 0
-    init.push AST let $length = +$array.length
-
-    body := AST
-      let $value = $array[$index]
-      $body
     
-    AST
-      asyncfor $result <- $next, $init; $index ~< $length; $index ~+= 1
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
+      if @is-array(value) or @is-object(value)
+        throw Error "Cannot assign a number to a complex declarable"
+      value := value.ident
+      let [start, end, step, inclusive] = @call-args(array)
+      
+      if @is-const(start)
+        if typeof @value(start) != \number
+          throw Error "Cannot start with a non-number: #(@value start)"
+      else
+        start := AST +$start
+      init.push (AST let mutable $value = $start)
+
+      if @is-const(end)
+        if typeof @value(end) != \number
+          throw Error "Cannot end with a non-number: #(@value start)"
+      else if @is-complex(end)
+        end := @cache (AST +$end), init, \end, has-func
+      else
+        init.push AST +$end
+
+      if @is-const(step)
+        if typeof @value(step) != \number
+          throw Error "Cannot step with a non-number: #(@value step)"
+      else if @is-complex(step)
+        step := @cache (AST +$step), init, \step, has-func
+      else
+        init.push AST +$step
+
+      if @is-complex(inclusive)
+        inclusive := @cache (AST $inclusive), init, \incl, has-func
+
+      let test = if @is-const(step)
+        if @value(step) > 0
+          if @is-const(end) and @value(end) == Infinity
+            AST true
+          else
+            AST if $inclusive then $value ~<= $end else $value ~< $end
+        else
+          if @is-const(end) and @value(end) == -Infinity
+            AST true
+          else
+            AST if $inclusive then $value ~>= $end else $value ~> $end
+      else
+        AST if $step ~> 0
+          if $inclusive then $value ~<= $end else $value ~< $end
+        else
+          if $inclusive then $value ~>= $end else $value ~> $end
+
+      let mutable increment = AST $value ~+= $step
+      if not @empty(index)
+        init.push AST let mutable $index = 0
+
+      if not @empty(length)
+        init.push AST let $length = if $inclusive
+          ($end ~- $start ~+ $step) ~\ $step
+        else
+          ($end ~- $start) ~\ $step
+
+      AST
+        asyncfor $result <- $next, $init; $test; $increment
+          $body
+        $rest
+    else
+      array := @cache array, init, \arr, true
+      if @empty(index)
+        index := @tmp \i, true, \number
+      if @empty(length)
+        length := @tmp \len, true, \number
+
+      init.push AST let mutable $index = 0
+      init.push AST let $length = +$array.length
+
+      body := AST
+        let $value = $array[$index]
         $body
-      $rest
+    
+      AST
+        asyncfor $result <- $next, $init; $index ~< $length; $index ~+= 1
+          $body
+        $rest
   
   syntax result as (this as Identifier, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
     let own = type == "of"
