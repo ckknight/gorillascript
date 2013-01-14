@@ -2967,16 +2967,22 @@ define SyntaxToken = word \syntax
 
 define MacroSyntax = sequential! [
   CheckIndent
-  [\params, short-circuit! SyntaxToken, sequential! [
+  [\this, short-circuit! SyntaxToken, sequential! [
     SyntaxToken
-    [\this, MacroSyntaxParameters]
-  ]]
-  [\body, FunctionBody]
+    [\this, #(o)
+      let i = o.index
+      let params = MacroSyntaxParameters o
+      if not params
+        throw SHORT_CIRCUIT
+      o.start-macro-syntax i, params
+      let body = FunctionBody o
+      if not body
+        throw SHORT_CIRCUIT
+      o.macro-syntax i, \syntax, params, body
+      true]]]
   Space
   CheckStop
-], #(x, o, i)
-  o.macro-syntax i, \syntax, x.params, x.body
-  true
+]
 
 define MacroBody = one-of! [
   sequential! [
@@ -3562,6 +3568,23 @@ define Eval = short-circuit! EvalToken, sequential! [
   o.eval i, args[0]
 
 define InvocationOrAccess = one-of! [
+  #(o)
+    if _in-ast.peek()
+      let i = o.index
+      let clone = o.clone()
+      Space(clone)
+      if not DollarSign clone
+        return false
+      _in-ast.push false
+      try
+        let args = InvocationArguments clone
+        if not args
+          return false
+        
+        o.update(clone)
+        o.call(i, o.ident(i, \$), args)
+      finally
+        _in-ast.pop()
   BasicInvocationOrAccess
   SuperInvocation
   Eval
@@ -3674,126 +3697,6 @@ define ExpressionAsStatement = one-of! [
 ]
 define Expression = in-expression ExpressionAsStatement 
 
-define IdentifierDeclarable = sequential! [
-  [\is-mutable, MaybeMutableToken]
-  [\ident, Identifier]
-  [\as-type, MaybeAsType]
-], #(x, o, i) -> o.declarable i, x.ident, x.is-mutable == \mutable, false, if x.as-type != NOTHING then x.as-type else void
-
-define SpreadDeclarable = sequential! [
-  [\is-mutable, MaybeMutableToken]
-  SpreadToken
-  [\ident, Identifier]
-  [\as-type, MaybeAsType]
-], #(x, o, i) -> o.declarable i, x.ident, x.is-mutable == \mutable, true, if x.as-type != NOTHING then x.as-type else void
-
-define ArrayDeclarableElement = one-of! [
-  SpreadDeclarable
-  Declarable
-  Nothing
-]
-
-define ArrayDeclarable = sequential! [
-  OpenSquareBracket
-  Space
-  [\first, maybe! (sequential! [
-    [\head, ArrayDeclarableElement],
-    [\tail, zero-or-more! sequential! [
-      Comma
-      [\this, ArrayDeclarableElement]
-    ]]
-    MaybeComma
-  ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (sequential! [
-    SomeEmptyLines
-    MaybeAdvance
-    [\this, maybe! (sequential! [
-      CheckIndent
-      [\head, ArrayDeclarableElement]
-      [\tail, zero-or-more! sequential! [
-        CommaOrNewlineWithCheckIndent
-        [\this, ArrayDeclarableElement]
-      ]]
-    ], #(x) -> [x.head, ...x.tail]), #-> []]
-    EmptyLines
-    MaybeCommaOrNewline
-    PopIndent
-  ]), #-> []]
-  CloseSquareBracket
-], #(x, o, i)
-  let nodes = [...x.first, ...x.rest]
-  let mutable spread-count = 0
-  for node in nodes
-    if node instanceof DeclarableNode and node.spread
-      spread-count += 1
-      if spread-count > 1
-        o.error "Cannot have more than one spread declarable in the same array"
-  o.array-declarable i, nodes
-
-define DeclarableDualObjectKey = short-circuit! ObjectKeyColon, sequential! [
-  [\key, ObjectKeyColon]
-  [\value, Declarable]
-]
-
-define DeclarableSingularObjectKey = mutate! IdentifierDeclarable, #(value, o, i)
-  {
-    key: o.const i, value.ident.name
-    value
-  }
-
-define DeclarableKeyValuePair = one-of! [
-  DeclarableDualObjectKey
-  DeclarableSingularObjectKey
-]
-
-define ObjectDeclarable = sequential! [
-  OpenCurlyBrace
-  Space
-  [\first, maybe! (sequential! [
-    [\head, DeclarableKeyValuePair],
-    [\tail, zero-or-more! sequential! [
-      Comma
-      [\this, DeclarableKeyValuePair]
-    ]]
-    MaybeComma
-  ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (sequential! [
-    SomeEmptyLines
-    MaybeAdvance
-    [\this, maybe! (sequential! [
-      CheckIndent
-      [\head, DeclarableKeyValuePair]
-      [\tail, zero-or-more! sequential! [
-        CommaOrNewlineWithCheckIndent
-        [\this, DeclarableKeyValuePair]
-      ]]
-    ], #(x) -> [x.head, ...x.tail]), #-> []]
-    EmptyLines
-    MaybeCommaOrNewline
-    PopIndent
-  ]), #-> []]
-  CloseCurlyBrace
-], #(x, o, i) -> o.object-declarable i, [...x.first, ...x.rest]
-
-define Declarable = one-of! [
-  IdentifierDeclarable
-  ArrayDeclarable
-  ObjectDeclarable
-]
-
-define LetToken = word \let
-define Let = short-circuit! LetToken, sequential! [
-  LetToken
-  [\left, Declarable]
-  [\right, one-of! [
-    sequential! [
-      DeclareEqualSymbol
-      [\this, ExpressionOrAssignment]
-    ]
-    FunctionDeclaration
-  ]]
-], #(x, o, i) -> o.let i, x.left, x.right
-
 define DefToken = word \def
 define Def = short-circuit! DefToken, sequential! [
   DefToken
@@ -3835,7 +3738,6 @@ define Continue = word \continue, #(x, o, i) -> o.continue i
 
 define Statement = sequential! [
   [\this, in-statement one-of! [
-    Let
     Def
     Return
     Yield
@@ -3981,6 +3883,7 @@ class MacroHelper
     @state.const @index, value
   
   def is-ident(node) -> node instanceof IdentNode
+  def is-tmp(node) -> node instanceof TmpNode
   def name(node) -> if @is-ident node then node.name
   def ident(name as String)
     if require('./ast').is-acceptable-ident(name)
@@ -4082,7 +3985,10 @@ class MacroHelper
   def maybe-cache(node, func, name as String = \ref, save as Boolean)
     if @is-complex node
       let tmp = @tmp(name, save, node.type())
-      func @state.let(@index, @state.declarable(@index, tmp, false), node), tmp, true
+      func @state.block(@index, [
+        @state.var(@index, tmp, false)
+        @state.assign(@index, tmp, "=", node)
+      ]), tmp, true
     else
       func node, node, false
   
@@ -4176,14 +4082,13 @@ class MacroHelper
     else if value instanceof RegExp or value == null or typeof value in [\undefined, \string, \boolean, \number]
       ConstNode(0, 0, value)
     else
-      throw Error "Trying to wrap an unknown object: $(typeof! value)"
+      value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
   
   @node := #(type, start-index, end-index, ...args)
     Node[type](start-index, end-index, ...args).reduce()
   
   def is-def(node) -> node instanceof DefNode
   def is-assign(node) -> node instanceof AssignNode
-  def is-let(node) -> node instanceof LetNode
   def is-binary(node) -> node instanceof BinaryNode
   def is-unary(node) -> node instanceof UnaryNode
   def op(node)
@@ -4326,6 +4231,10 @@ class MacroHolder
     let by-id = @by-id
     by-id.push m
     by-id.length - 1
+  
+  def replace-macro(id, m)!
+    let by-id = @by-id
+    by-id[id] := m
   
   def has-operator(name)
     @operator-names ownskey name
@@ -4534,19 +4443,24 @@ class State
     Body
     Identifier
     SimpleAssignable
-    Declarable
     Parameter
     ObjectLiteral
     UnclosedObjectLiteral
     ArrayLiteral
     DedentedBody
+    ObjectKey
   }
   
   let macro-syntax-const-literals = {
     ",": Comma
     ";": Semicolon
+    ":": Colon
     "": Nothing
     "\n": NewlineWithCheckIndent
+    "[": OpenSquareBracket
+    "]": CloseSquareBracket
+    "{": OpenCurlyBrace
+    "}": CloseCurlyBrace
   }
   
   let reduce-object(obj)
@@ -4576,9 +4490,15 @@ class State
   
   let calc-param(param)@
     if param instanceof IdentNode
-      unless macro-syntax-idents ownskey param.name
-        @error "Unexpected type ident: $ident"
-      macro-syntax-idents[param.name]
+      let name = param.name
+      if macro-syntax-idents ownskey name
+        macro-syntax-idents[name]
+      else
+        #(o)
+          if macro-syntax-idents ownskey name
+            macro-syntax-idents[name]@(this, o)
+          else
+            @error "Unknown type ident: $name"
     else if param instanceof SyntaxSequenceNode
       handle-params param.params
     else if param instanceof SyntaxChoiceNode
@@ -4739,12 +4659,25 @@ class State
       }
   }
   
-  def macro-syntax(index, type, params, body, options = {})!
-    if not Array.is-array params
-      throw TypeError "Expected params to be an array, got $(typeof! params)"
-    else if not body or typeof body != \object or body instanceof RegExp
-      throw TypeError "Expected body to be an object, got $(typeof! body)"
+  def start-macro-syntax(index, params as Array)
+    if not @current-macro
+      this.error "Attempting to specify a macro syntax when not in a macro"
     
+    let rule = handle-params params
+    
+    let macros = @macros
+    let mutator = #(x, o, i)
+      if _in-ast.peek()
+        o.macro-access i, macro-id, x
+      else
+        throw Error "Cannot use macro until fully defined"
+    let m = macros.get-or-add-by-name @current-macro
+    m.data.push sequential! [m.token, [\this, rule]], mutator
+    let macro-id = macros.add-macro(mutator)
+    @pending-macro-id := macro-id
+    params
+  
+  def macro-syntax(index, type, params as Array, body, options = {})!
     if macro-syntax-types not ownskey type
       throw Error "Unknown macro-syntax type: $type"
     
@@ -4779,11 +4712,23 @@ class State
     case UNARY_OPERATOR
       macros.add-unary-operator(params, mutator, options)
     case DEFINE_SYNTAX
+      if macro-syntax-idents ownskey options.name
+        throw Error "Cannot override already-defined syntax: $(options.name)"
       macro-syntax-idents[options.name] := mutate! rule, mutator
+      macros.add-macro mutator
     default
       let m = macros.get-or-add-by-name @current-macro
-      m.data.push sequential! [m.token, [\this, rule]], mutator
-      macros.add-macro(mutator)
+      let full-rule = sequential! [m.token, [\this, rule]], mutator
+      if @pending-macro-id?
+        let id = @pending-macro-id
+        @pending-macro-id := null
+        m.data.pop()
+        m.data.push full-rule
+        macros.replace-macro(id, mutator)
+        id
+      else
+        m.data.push full-rule
+        macros.add-macro(mutator)
   
   let BINARY_OPERATOR = freeze {}
   def define-binary-operator(index, operators, options, body)
@@ -4859,9 +4804,6 @@ node-type! \array, elements as [Node], {
   type: #-> Type.array
 }
 State::array-param := State::array
-node-type! \array-declarable, elements as [Node], {
-  type: #-> Type.array
-}
 node-type! \assign, left as Node, op as String, right as Node, {
   type: do
     let ops = {
@@ -5374,25 +5316,6 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
 }
 node-type! \continue
 node-type! \debugger
-node-type! \declarable, ident as Node, is-mutable as Boolean, spread as Boolean, as-type as (Node|void), {
-  walk: #(func)
-    let ident = func @ident
-    let as-type = if @as-type? then func @as-type else @as-type
-    if ident != @ident or as-type != @as-type
-      DeclarableNode @start-index, @end-index, ident, @is-mutable, @spread, as-type
-    else
-      this
-  _reduce: #
-    let ident = @ident.reduce()
-    if ident instanceof DeclarableNode
-      ident
-    else
-      let as-type = if @as-type? then @as-type.reduce() else @as-type
-      if ident != @ident or as-type != @as-type
-        DeclarableNode(ident, @is-mutable, @spread, as-type)
-      else
-        this
-}
 node-type! \def, left as Node, right as (Node|void), {
   walk: #(func)
     let left = func @left
@@ -5433,9 +5356,6 @@ node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNod
     else
       IfNode @start-index, @end-index, test, when-true, when-false
 }
-node-type! \let, left as Node, right as Node, {
-  type: # -> @right.type()
-}
 node-type! \macro-access, id as Number, data as Object
 node-type! \nothing, {
   type: # -> Type.undefined
@@ -5461,23 +5381,6 @@ node-type! \object, pairs as Array, {
         this
 }
 State::object-param := State::object
-node-type! \object-declarable, pairs as Array, {
-  type: # -> Type.object
-  walk: do
-    let walk-pair(pair, func)
-      let key = func pair.key
-      let value = func pair.value
-      if key != pair.key or value != pair.value
-        { key, value }
-      else
-        pair
-    #(func)
-      let pairs = map @pairs, walk-pair, func
-      if pairs != @pairs
-        ObjectDeclarableNode @start-index, @end-index, pairs
-      else
-        this
-}
 node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void), {
   walk: #(func)
     let ident = func @ident

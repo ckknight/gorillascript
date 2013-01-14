@@ -468,7 +468,7 @@ test "constructor set to other function", #
 
 test "constructor set to mutable function, later changed.", #
   class Class
-    let mutable ctor(value)
+    let mutable ctor = #(value)
       @value := value
       return
     def constructor = ctor

@@ -1,4 +1,4 @@
-let objectToArray = #(obj) -> (for k, v of obj
+let object-to-array = #(obj) -> (for k, v of obj
   [k, v]).sort #(a, b) -> a[0] <=> b[0]
 
 test "empty namespace", #
@@ -25,7 +25,7 @@ test "namespace with a few values", #
     def delta
     def echo = null
   
-  arrayEq [["alpha", 1], ["bravo", "x"], ["charlie", true], ["delta", void], ["echo", null]], objectToArray(ns)
+  array-eq [["alpha", 1], ["bravo", "x"], ["charlie", true], ["delta", void], ["echo", null]], object-to-array(ns)
 
 test "namespace with logic", #
   let make = #(value) -> namespace
@@ -36,8 +36,8 @@ test "namespace with logic", #
       def bravo = 3
       def charlie = 4
   
-  arrayEq [["alpha", 1], ["bravo", 2]], objectToArray(make(true))
-  arrayEq [["bravo", 3], ["charlie", 4]], objectToArray(make(false))
+  array-eq [["alpha", 1], ["bravo", 2]], object-to-array(make(true))
+  array-eq [["bravo", 3], ["charlie", 4]], object-to-array(make(false))
 
 /*
 test "namespaces are frozen", #
@@ -55,7 +55,7 @@ test "setting this on a namespace works same as def", #
     def alpha = 1
     @bravo := 2
   
-  arrayEq [["alpha", 1], ["bravo", 2]], objectToArray(ns)
+  array-eq [["alpha", 1], ["bravo", 2]], object-to-array(ns)
 
 test "inner namespaces using this", #
   namespace alpha

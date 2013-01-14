@@ -34,6 +34,16 @@ define operator binary ~>, ~>= with precedence: 1, maximum: 1
   // avoiding if statement for now
   (op == "~>" and AST not ($left ~<= $right)) or AST not ($left ~< $right)
 
+define operator unary throw
+  @throw node
+
+macro let
+  syntax ident as Identifier, func as FunctionDeclaration
+    @block [
+      @var ident, false
+      @assign ident, "=", func
+    ]
+
 macro if
   // this uses eval instead of normal operators since those aren't defined yet
   // thankfully the eval uses constant strings and turns into pure code
@@ -41,18 +51,87 @@ macro if
     let dec(x) -> eval "x - 1"
     let f(i, current)@
       (i ~>= 0 and f(dec(i), @if(else-ifs[i].test, else-ifs[i].body, current))) or current
-    let len = else-ifs.length
-    @if(test, body, f(dec(len), else-body))
+    @if(test, body, f(dec(else-ifs.length), else-body))
 
   syntax test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     let dec(x) -> eval "x - 1"
     let f(i, current)@
-      let mutable test = else-ifs[i]?.test
-      let type = else-ifs[i]?.type
-      test := if type == "unless" then (AST not $test) else test
-      if i ~>= 0 then f(dec(i), @if(test, else-ifs[i].body, current)) else current
-    let len = else-ifs.length
-    @if(test, body, f(dec(len), else-body))
+      if i ~>= 0 then f(dec(i), @if((if else-ifs[i].type == "unless" then (AST not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
+    @if(test, body, f(dec(else-ifs.length), else-body))
+
+define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier
+  if @is-ident(ident) or @is-tmp(ident)
+    {
+      type: \ident
+      is-mutable: is-mutable == "mutable"
+      ident
+    }
+  else
+    ident
+
+define syntax DeclarableArray = "[", head as Declarable, tail as (",", this as Declarable)*, "]"
+  {
+    type: \array
+    elements: [head].concat(tail)
+  }
+
+define syntax DeclarableObjectSingularPair = value as DeclarableIdent
+  {
+    key: @name(value.ident)
+    value
+  }
+define syntax DeclarableObjectDualPair = this as (key as ObjectKey, ":", value as Declarable)
+define syntax DeclarableObjectPair = this as (DeclarableObjectDualPair | DeclarableObjectSingularPair)
+define syntax DeclarableObject = "{", head as DeclarableObjectPair, tail as (",", this as DeclarableObjectPair)*, "}"
+  {
+    type: \object
+    pairs: [head].concat(tail)
+  }
+
+define syntax Declarable = this as (DeclarableArray | DeclarableObject | DeclarableIdent)
+
+macro let
+  syntax declarable as Declarable, "=", value as (Assignment | Expression)
+    let inc(x) -> eval("x + 1")
+    if declarable.type == \ident
+      @block [
+        @var declarable.ident, declarable.is-mutable
+        @assign declarable.ident, "=", value
+      ]
+    else if declarable.type == \array
+      if declarable.elements.length == 1
+        let handle(element)
+          AST let $element = $value[0]
+        handle(declarable.elements[0])
+      else
+        @maybe-cache value, #(set-value, value)@
+          let handle-element(i, current-value, element, block)@
+            block.push AST let $element = $current-value[$i]
+            handle inc(i), value, block
+          let handle(i, current-value, block)@
+            if i ~< declarable.elements.length
+              handle-element i, current-value, declarable.elements[i], block
+            else
+              @block block
+          handle 0, set-value, []
+    else if declarable.type == \object
+      if declarable.pairs.length == 1
+        let handle(pair-key, pair-value)
+          AST let $pair-value = $value[$pair-key]
+        handle(declarable.pairs[0].key, declarable.pairs[0].value)
+      else
+        @maybe-cache value, #(set-value, value)@
+          let handle-pair(i, current-value, pair-key, pair-value, block)@
+            block.push AST let $pair-value = $current-value[$pair-key]
+            handle inc(i), value, block
+          let handle(i, current-value, block)@
+            if i ~< declarable.pairs.length
+              handle-pair i, current-value, declarable.pairs[i].key, declarable.pairs[i].value, block
+            else
+              @block block
+          handle 0, set-value, []
+    else
+      throw Error("Unknown declarable $(String declarable) $(String declarable?.constructor?.name)")
 
 define operator assign and=
   @maybe-cache-access left, #(set-left, left)@
@@ -77,8 +156,7 @@ define operator unary ? with postfix: true
 // let's define the unstrict operators first
 define operator binary ~*, ~/, ~%, ~\ with precedence: 8
   if op == "~\\"
-    let div = @binary left, "/", right
-    AST Math.floor $div
+    AST Math.floor $(@binary left, "/", right)
   else if op == "~*"
     @binary left, "*", right
   else if op == "~/"
@@ -148,14 +226,14 @@ define operator assign ~+=
     else if value == ~-1
       return @unary "--", left
     else if typeof value == \number
-      return @binary left, "-=", @const(~-value)
+      return @assign left, "-=", @const(~-value)
   
   if @is-type left, \number
     if not @is-type right, \number
       right := @unary "+", right
-    @binary left, "+=", right
+    @assign left, "+=", right
   else
-    @binary left, "-=", @unary "-", right
+    @assign left, "-=", @unary "-", right
 
 define operator assign ~-=
   if @is-const(right)
@@ -191,9 +269,6 @@ define operator assign ~&=
   if @has-type(right, \number)
     right := AST "" ~& right
   @assign left, "+=", right
-
-define operator unary throw
-  @throw node
 
 define helper __num = #(num) as Number
   if typeof num != \number
@@ -486,9 +561,6 @@ define operator unary ~bitnot
 define operator unary bitnot
   AST ~bitnot +$node
 
-define operator unary typeof!
-  AST __typeof($node)
-
 define operator unary delete with standalone: false
   if not @is-access(node)
     throw Error "Can only use delete on an access"
@@ -598,6 +670,9 @@ define helper __typeof = do
     else
       (o.constructor and o.constructor.name) or _to-string@(o).slice(8, -1)
 
+define operator unary typeof!
+  AST __typeof($node)
+
 define helper __freeze = if typeof Object.freeze == \function
   Object.freeze
 else
@@ -625,7 +700,7 @@ define helper __create = if typeof Object.create == \function
   Object.create
 else
   #(x)
-    let F = #->
+    let F() ->
     F.prototype := x
     new F()
 
@@ -774,7 +849,11 @@ macro for
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
       value := value.ident
-      let [start, end, step, inclusive] = @call-args(array)
+      let call-args = @call-args(array)
+      let start = call-args[0]
+      let end = call-args[1]
+      let step = call-args[2]
+      let inclusive = call-args[3]
       
       let init = []
       
@@ -1148,8 +1227,8 @@ define operator binary by with maximum: 1, precedence: 1
   if not @is-call(left) or not @is-ident(@call-func(left)) or @name(@call-func(left)) != \__range
     throw Error "Can only use 'by' on a range made with 'to' or 'til'"
   
-  let [start, end, step, inclusive] = @call-args(left)
-  AST __range($start, $end, $right, $inclusive)
+  let call-args = @call-args(left)
+  AST __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
 
 macro while
   syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
@@ -1438,16 +1517,13 @@ macro asyncfor
     array := @cache array, init, \arr, true
     
     let mutable length = null
-    if @empty(index)
-      index := @tmp \i, true, \number
-      length := @tmp \len, true, \number
-    else
+    if not @empty(index)
       length := index.length
       index := index.value
-      if @empty(index)
-        index := @tmp \i, true, \number
-      if @empty(length)
-        length := @tmp \len, true, \number
+    if @empty(index)
+      index := @tmp \i, true, \number
+    if @empty(length)
+      length := @tmp \len, true, \number
 
     init.push AST let mutable $index = 0
     init.push AST let $length = +$array.length

@@ -159,10 +159,10 @@ test "yield with for-from", #
   
   array-eq [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], iterator-to-array fun()
 
-test "yield with try-catch", #
+test "yield with try-catch", #  
+  let obj = {}
   let fun(value)*
     yield "alpha"
-    let obj = {}
     try
       yield "bravo"
       if value
