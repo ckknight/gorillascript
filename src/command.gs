@@ -39,8 +39,7 @@ cli.main #(filenames, options)
     let input = {}
     asyncfor next, filename in filenames
       async err, code <- fs.read-file filename
-      if err
-        throw err
+      throw? err
       input[filename] := code.to-string()
       next()
     let compiled = {}

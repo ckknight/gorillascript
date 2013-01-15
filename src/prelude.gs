@@ -1405,7 +1405,8 @@ macro require!
       throw Error("Expected either a constant string or ident or object")
 
 macro asyncfor
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", init as (Statement|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", init as (Statement|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this as Statement)), rest as DedentedBody
+    let {err, result} = if @empty(results) then {} else results
     if @empty(init)
       init := []
       init := AST $init
@@ -1415,15 +1416,19 @@ macro asyncfor
       step := []
       step := AST $step
     let done = @tmp \done, true, \function
+    if @empty(err)
+      err := @tmp \err, true
     if @empty(result)
       if @empty(step)
         AST
           $init
-          let $next()@
+          let $next($err)@
+            if $err?
+              return $done($err)
             unless $test
               return $done()
             $body
-          let $done()@
+          let $done($err)@
             $rest
           $next()
       else
@@ -1431,9 +1436,9 @@ macro asyncfor
         AST
           $init
           let $first = true
-          let $done()@
-            $rest
-          let $next()@
+          let $next($err)@
+            if $err?
+              return $done($err)
             if $first
               $first := false
             else
@@ -1441,6 +1446,8 @@ macro asyncfor
             unless $test
               return $done()
             $body
+          let $done($err)@
+            $rest
           $next()
     else
       let first = @tmp \first, true, \boolean
@@ -1448,22 +1455,26 @@ macro asyncfor
       AST
         $init
         let $first = true
-        let $result = []
-        let $done()@
+        let $done($err, $result)@
           $rest
-        let $next($value)@
-          if $first
-            $first := false
-          else
-            $step
-            if arguments.length
-              $result.push $value
-          unless $test
-            return $done()
-          $body
+        let $next = do
+          let $result = []
+          #($err, $value)@
+            if $err?
+              return $done($err)
+            if $first
+              $first := false
+            else
+              $step
+              if arguments.length
+                $result.push $value
+            unless $test
+              return $done(null, $result)
+            $body
         $next()
   
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), rest as DedentedBody
+    let {err, result} = if @empty(results) then {} else results
     let init = []
     
     let mutable length = null
@@ -1529,9 +1540,9 @@ macro asyncfor
           ($end ~- $start ~+ $step) ~\ $step
         else
           ($end ~- $start) ~\ $step
-
+      
       AST
-        asyncfor $result <- $next, $init; $test; $increment
+        asyncfor $err, $result <- $next, $init; $test; $increment
           $body
         $rest
     else
@@ -1547,13 +1558,14 @@ macro asyncfor
       body := AST
         let $value = $array[$index]
         $body
-    
+      
       AST
-        asyncfor $result <- $next, $init; $index ~< $length; $index ~+= 1
+        asyncfor $err, $result <- $next, $init; $index ~< $length; $index ~+= 1
           $body
         $rest
   
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
+    let {err, result} = if @empty(results) then {} else results
     let own = type == "of"
     let init = []
     object := @cache object, init, \obj, true
@@ -1584,11 +1596,12 @@ macro asyncfor
       $init
       let $keys = []
       $get-keys
-      asyncfor $result <- $next, $key, $index in $keys
+      asyncfor $err, $result <- $next, $key, $index in $keys
         $body
       $rest
   
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), rest as DedentedBody
+    let {err, result} = if @empty(results) then {} else results
     let init = []
     iterator := @cache iterator, init, \iter, true
 
@@ -1613,26 +1626,29 @@ macro asyncfor
       $body
     
     AST
-      asyncfor $result <- $next, $init; not $broken; $step
+      asyncfor $err, $result <- $next, $init; not $broken; $step
         $body
       $rest
 
 macro asyncwhile
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
+    let {err, result} = if @empty(results) then {} else results
     AST
-      asyncfor $result <- $next, ; $test; $step
+      asyncfor $err, $result <- $next, ; $test; $step
         $body
       $rest
 
 macro asyncuntil
-  syntax result as (this as Identifier, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
+    let {err, result} = if @empty(results) then {} else results
     AST
-      asyncwhile $result <- $next, not $test, $step
+      asyncwhile $err, $result <- $next, not $test, $step
         $body
       $rest
 
 macro asyncif
-  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, rest as DedentedBody
+    let {err, result} = if @empty(results) then {} else results
     
     let mutable current = else-body
     if @empty(else-body)
@@ -1648,19 +1664,27 @@ macro asyncif
     
     current := @if(test, body, current)
     
-    if @empty(result)
+    if @empty(err) and @empty(result)
       AST
         let $done()@
           $rest
         $current
-    else
+    else if @empty(result)
       AST
-        let $done($result)@
+        let $done($err)@
+          $rest
+        $current
+    else
+      if @empty(err)
+        err := @tmp \err, true
+      AST
+        let $done($err, $result)@
           $rest
         $current
 
 macro asyncunless
-  syntax result as (this as Identifier, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, rest as DedentedBody
+    let {err, result} = if @empty(results) then {} else results
     
     let mutable current = else-body
     if @empty(else-body)
@@ -1676,14 +1700,21 @@ macro asyncunless
     
     current := @if(AST not $test, body, current)
     
-    if @empty(result)
+    if @empty(err) and @empty(result)
       AST
         let $done()@
           $rest
         $current
-    else
+    else if @empty(result)
       AST
-        let $done($result)@
+        let $done($err)@
+          $rest
+        $current
+    else
+      if @empty(err)
+        err := @tmp \err, true
+      AST
+        let $done($err, $result)@
           $rest
         $current
 

@@ -109,7 +109,7 @@ asyncfor next, file, i in files
     total-time += end-time - start-time
   
   asyncif end, basename.index-of("async") != -1
-    set-timeout end, 100
+    set-timeout end, 500
   
   process.stdout.write "$(if failure then 'fail' else 'pass') $(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
   next()
