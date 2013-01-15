@@ -1837,6 +1837,16 @@ macro asyncunless
           $rest
         $current
 
+macro def
+  syntax key as ObjectKey, func as FunctionDeclaration
+    @def key, func
+  
+  syntax key as ObjectKey, "=", value as (Assignment | Expression)
+    @def key, value
+  
+  syntax key as ObjectKey
+    @def key, void
+
 macro class
   syntax name as SimpleAssignable?, superclass as ("extends", this)?, body as Body?
     let mutable declaration = void

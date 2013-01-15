@@ -3697,19 +3697,6 @@ define ExpressionAsStatement = one-of! [
 ]
 define Expression = in-expression ExpressionAsStatement 
 
-define DefToken = word \def
-define Def = short-circuit! DefToken, sequential! [
-  DefToken
-  [\left, ObjectKey]
-  [\right, maybe! (one-of! [
-    short-circuit! DeclareEqualSymbol, sequential! [
-      DeclareEqualSymbol
-      [\this, ExpressionOrAssignment]
-    ]
-    short-circuit! OpenParenthesisChar, FunctionDeclaration
-  ]), NOTHING]
-], #(x, o, i) -> o.def i, x.left, if x.right == NOTHING then void else x.right
-
 define ReturnToken = word \return
 define Return = short-circuit! ReturnToken, sequential! [
   ReturnToken
@@ -3738,7 +3725,6 @@ define Continue = word \continue, #(x, o, i) -> o.continue i
 
 define Statement = sequential! [
   [\this, in-statement one-of! [
-    Def
     Return
     Yield
     Break
@@ -3841,6 +3827,7 @@ class MacroHelper
     @expr := expr
   
   def var(ident as (IdentNode|TmpNode), is-mutable as Boolean) -> @state.var @index, ident, is-mutable
+  def def(key as Node, value as (Node|void)) -> @state.def @index, key, value
   def noop() -> @state.nothing @index
   def block(nodes as [Node]) -> @state.block(@index, nodes).reduce()
   def if(test as Node, when-true as Node, when-false as (Node|null)) -> @state.if(@index, test, when-true, when-false).reduce()
