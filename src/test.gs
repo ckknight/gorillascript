@@ -83,33 +83,42 @@ if process.argv.length > 2
     if file in process.argv[2:]
       file
 
+files.sort()
+let inputs = {}
+asyncfor(0) err <- next, file, i in files
+  unless r'\.gs$'i.test(file)
+    return next()
+  let filename = current-file := path.join tests-path, file
+  async err, code <- fs.read-file filename
+  if err?
+    return next(err)
+  inputs[file] := { code, filename }
+  next()
+throw? err
+
 asyncfor next, file, i in files
   if i == 0 and not no-prelude
     gorilla.init()
-  unless r'\.gs$'i.test(file)
+  if inputs not ownskey file
     return next()
+  let {code, filename} = inputs[file]
   
-  let filename = current-file := path.join tests-path, file
-  async err, code <- fs.read-file filename
-  throw? err
   let basename = path.basename filename
   process.stdout.write "$basename: "
   let start = Date.now()
   let mutable failure = false
   let mutable result = void
   let start-time = Date.now()
-  let mutable end-time = void
   try
     result := gorilla.eval code.to-string(), filename: filename, include-globals: true, no-prelude: no-prelude
   catch e
     failure := true
     add-failure basename, e
-  finally
-    end-time := Date.now()
-    total-time += end-time - start-time
   
   asyncif end, basename.index-of("async") != -1
     set-timeout end, 500
+  let end-time = Date.now()
+  total-time += end-time - start-time
   
   process.stdout.write "$(if failure then 'fail' else 'pass') $(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
   next()

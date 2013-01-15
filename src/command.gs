@@ -37,7 +37,7 @@ cli.main #(filenames, options)
     cli.with-stdin handle-code
   else if filenames.length
     let input = {}
-    asyncfor next, filename in filenames
+    asyncfor(0) next, filename in filenames
       async err, code <- fs.read-file filename
       throw? err
       input[filename] := code.to-string()
@@ -58,7 +58,7 @@ cli.main #(filenames, options)
         gorilla.run code, { filename }
     
     if options.compile
-      asyncfor next, filename in filenames
+      asyncfor(0) next, filename in filenames
         let js-filename = path.basename(filename, path.extname(filename)) & ".js"
         let source-dir = path.dirname filename
         let base-dir = source-dir

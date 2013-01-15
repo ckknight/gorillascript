@@ -904,11 +904,19 @@ exports.Const := class Const extends Expression
       if @value.multiline
         flags.push "m"
       { type: "Const", regexp: true, @value.source, flags }
+    else if @value == Infinity
+      { type: "Const", infinite: true, value: 1 }
+    else if @value == -Infinity
+      { type: "Const", infinite: true, value: -1 }
+    else if @value != @value
+      { type: "Const", infinite: true, value: 0 }
     else
       { type: "Const", @value }
   @from-JSON := #(obj)
     if obj.regexp
       Const RegExp(obj.source, obj.flags)
+    else if obj.infinite
+      Const obj.value / 0
     else
       Const obj.value
 

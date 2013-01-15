@@ -1404,9 +1404,159 @@ macro require!
     else
       throw Error("Expected either a constant string or ident or object")
 
+define helper __async = #(mutable limit, length, on-value, mutable on-complete)
+  if length ~<= 0
+    return on-complete(null)
+  if limit ~<= 0
+    limit := Infinity
+  
+  let mutable broken = null
+  let mutable slots-used = 0
+  let mutable sync = false
+  let on-value-callback(err)
+    slots-used ~-= 1
+    if err? and not broken?
+      broken := err
+    if not sync
+      next()
+  let mutable index = 0
+  let next()
+    while not broken? and slots-used ~< limit and index ~< length
+      slots-used ~+= 1
+      let i = index
+      index ~+= 1
+      sync := true
+      on-value i, on-value-callback
+      sync := false
+    if broken? or slots-used == 0
+      let f = on-complete
+      on-complete := void
+      if f
+        f(broken)
+  next()
+
+define helper __async-result = #(mutable limit, length, on-value, mutable on-complete)
+  if length ~<= 0
+    return on-complete(null, [])
+  if limit ~<= 0
+    limit := Infinity
+
+  let mutable broken = null
+  let mutable slots-used = 0
+  let mutable sync = false
+  let result = []
+  let on-value-callback(err, value)
+    slots-used ~-= 1
+    if err? and not broken?
+      broken := err
+    if not broken? and arguments.length ~> 1
+      result.push value
+    if not sync
+      next()
+  let mutable index = 0
+  let next()
+    while not broken? and slots-used ~< limit and index ~< length
+      slots-used ~+= 1
+      let i = index
+      index += 1
+      sync := true
+      on-value i, on-value-callback
+      sync := false
+    if broken? or slots-used == 0
+      let f = on-complete
+      on-complete := void
+      if f
+        if broken?
+          f(broken)
+        else
+          f(null, result)
+  next()
+
+define helper __async-iter = #(mutable limit, iterator, on-value, on-complete)
+  if limit == 0
+    limit := Infinity
+  let mutable broken = null
+  let mutable slots-used = 0
+  let mutable sync = false
+  let on-value-callback(err)
+    slots-used ~-= 1
+    if err? and not broken?
+      broken := err
+    if not sync
+      next()
+  let mutable index = 0
+  let mutable done = false
+  let next()
+    while not broken? and slots-used ~< limit and not done
+      try
+        let value = iterator.next()
+      catch e
+        if e == StopIteration
+          done := true
+        else
+          broken := e
+        break
+      slots-used ~+= 1
+      let i = index
+      index ~+= 1
+      sync := true
+      on-value value, i, on-value-callback
+      sync := false
+    if broken? or slots-used == 0
+      let f = on-complete
+      on-complete := void
+      if f
+        f(broken)
+  next()
+
+define helper __async-iter-result = #(mutable limit, iterator, on-value, on-complete)
+  if limit == 0
+    limit := Infinity
+  let mutable broken = null
+  let mutable slots-used = 0
+  let mutable sync = false
+  let result = []
+  let on-value-callback(err, value)
+    slots-used ~-= 1
+    if err? and not broken?
+      broken := err
+    if not broken? and arguments.length ~> 1
+      result.push value
+    if not sync
+      next()
+  let mutable index = 0
+  let mutable done = false
+  let next()
+    while not broken? and slots-used ~< limit and not done
+      try
+        let value = iterator.next()
+      catch e
+        if e == StopIteration
+          done := true
+        else
+          broken := e
+        break
+      slots-used ~+= 1
+      let i = index
+      index ~+= 1
+      sync := true
+      on-value value, i, on-value-callback
+      sync := false
+    if broken? or slots-used == 0
+      let f = on-complete
+      on-complete := void
+      if f
+        if broken?
+          f(broken)
+        else
+          f(null, result)
+  next()
+
 macro asyncfor
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", init as (Statement|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this as Statement)), rest as DedentedBody
-    let {err, result} = if @empty(results) then {} else results
+    let {mutable err, result} = if @empty(results) then {} else results
+    if @empty(err)
+      err := @tmp \err, true
     if @empty(init)
       init := []
       init := AST $init
@@ -1416,8 +1566,6 @@ macro asyncfor
       step := []
       step := AST $step
     let done = @tmp \done, true, \function
-    if @empty(err)
-      err := @tmp \err, true
     if @empty(result)
       if @empty(step)
         AST
@@ -1426,7 +1574,7 @@ macro asyncfor
             if $err?
               return $done($err)
             unless $test
-              return $done()
+              return $done(null)
             $body
           let $done($err)@
             $rest
@@ -1444,7 +1592,7 @@ macro asyncfor
             else
               $step
             unless $test
-              return $done()
+              return $done(null)
             $body
           let $done($err)@
             $rest
@@ -1455,8 +1603,6 @@ macro asyncfor
       AST
         $init
         let $first = true
-        let $done($err, $result)@
-          $rest
         let $next = do
           let $result = []
           #($err, $value)@
@@ -1466,15 +1612,19 @@ macro asyncfor
               $first := false
             else
               $step
-              if arguments.length
+              if arguments.length ~> 1
                 $result.push $value
             unless $test
               return $done(null, $result)
             $body
+        let $done($err, $result)@
+          $rest
         $next()
   
-  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), rest as DedentedBody
-    let {err, result} = if @empty(results) then {} else results
+  syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), rest as DedentedBody
+    let {mutable err, result} = if @empty(results) then {} else results
+    if @empty(err)
+      err := @tmp \err, true
     let init = []
     
     let mutable length = null
@@ -1482,6 +1632,11 @@ macro asyncfor
       length := index.length
       index := index.value
     
+    if @empty(parallelism)
+      parallelism := AST 1
+    
+    let run = @tmp \run, true, \function
+    let done = @tmp \done, true, \function
     if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
@@ -1530,41 +1685,56 @@ macro asyncfor
           if $inclusive then $value ~<= $end else $value ~< $end
         else
           if $inclusive then $value ~>= $end else $value ~> $end
-
-      let mutable increment = AST $value ~+= $step
-      if not @empty(index)
-        init.push AST let mutable $index = 0
-
-      if not @empty(length)
-        init.push AST let $length = if $inclusive
-          ($end ~- $start ~+ $step) ~\ $step
-        else
-          ($end ~- $start) ~\ $step
       
-      AST
-        asyncfor $err, $result <- $next, $init; $test; $increment
-          $body
-        $rest
+      if @empty(index)
+        index := @tmp \i, true, \number
+      
+      body := AST
+        let $value = $index * $step + $start
+        $body
+
+      let length-calc = AST if $inclusive
+        ($end ~- $start ~+ $step) ~\ $step
+      else
+        ($end ~- $start) ~\ $step
+      if @empty(length)
+        length := length-calc
+      else
+        init.push AST let $length = $length-calc
+      
+      if @empty(result)
+        AST
+          $init
+          __async(+$parallelism, $length, #($index, $next) -> $body, #($err) -> $rest)
+      else
+        AST
+          $init
+          __async-result(+$parallelism, $length, #($index, $next) -> $body, #($err, $result) -> $rest)
+      
     else
       array := @cache array, init, \arr, true
       if @empty(index)
         index := @tmp \i, true, \number
-      if @empty(length)
-        length := @tmp \len, true, \number
-
-      init.push AST let mutable $index = 0
-      init.push AST let $length = +$array.length
 
       body := AST
         let $value = $array[$index]
         $body
       
-      AST
-        asyncfor $err, $result <- $next, $init; $index ~< $length; $index ~+= 1
-          $body
-        $rest
+      if @empty(length)
+        length := AST +$array.length
+      else
+        init.push AST let $length = +$array.length
+      
+      if @empty(result)
+        AST
+          $init
+          __async(+$parallelism, $length, #($index, $next) -> $body, #($err) -> $rest)
+      else
+        AST
+          $init
+          __async-result(+$parallelism, $length, #($index, $next) -> $body, #($err, $result) -> $rest)
   
-  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
     let {err, result} = if @empty(results) then {} else results
     let own = type == "of"
     let init = []
@@ -1582,8 +1752,6 @@ macro asyncfor
       body := AST
         let $value = $object[$key]
         $body
-    if not index
-      index := @tmp \i, true, \number
     
     let keys = @tmp \keys, true, \string-array
     let get-keys = if own
@@ -1596,39 +1764,26 @@ macro asyncfor
       $init
       let $keys = []
       $get-keys
-      asyncfor $err, $result <- $next, $key, $index in $keys
+      asyncfor($parallelism) $err, $result <- $next, $key, $index in $keys
         $body
       $rest
   
-  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), rest as DedentedBody
     let {err, result} = if @empty(results) then {} else results
-    let init = []
-    iterator := @cache iterator, init, \iter, true
-
-    let step = []
-    if not @empty(index)
-      init.push AST let mutable $index = 0
-      step.push AST $index ~+= 1
     
-    let broken = @tmp \end, true, \boolean
-    init.push AST let mutable $broken = false
-    let capture-value = AST try
-      let $value = $iterator.next()
-    catch e
-      if e == StopIteration
-        $broken := true
-        return $next()
-      else
-        throw e
+    if @empty(index)
+      index := @tmp \i, true
+    if @empty(err)
+      err := @tmp \err, true
+    if @empty(parallelism)
+      parallelism := AST 1
     
-    body := AST
-      $capture-value
-      $body
-    
-    AST
-      asyncfor $err, $result <- $next, $init; not $broken; $step
-        $body
-      $rest
+    if @empty(result)
+      AST
+        __async-iter(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err) -> $rest)
+    else
+      AST
+        __async-iter-result(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err, $result) -> $rest)
 
 macro asyncwhile
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody

@@ -4505,6 +4505,8 @@ class State
     ":": Colon
     "": Nothing
     "\n": NewlineWithCheckIndent
+    "(": OpenParenthesis
+    ")": CloseParenthesis
     "[": OpenSquareBracket
     "]": CloseSquareBracket
     "{": OpenCurlyBrace
