@@ -16,7 +16,10 @@ let done(err)
     throw err
   else
     console.log "Finished building after $(((Date.now() - start-time) / 1000).to-fixed 3) seconds\n"
+if files.length == 0
+  return done(null)
 
+gorilla.init()
 let inputs = {}
 asyncfor(0) err <- next, file in files
   let filename = path.join "./src", file

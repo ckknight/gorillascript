@@ -1635,8 +1635,8 @@ macro asyncfor
     if @empty(parallelism)
       parallelism := AST 1
     
-    let run = @tmp \run, true, \function
-    let done = @tmp \done, true, \function
+    if @empty(index)
+      index := @tmp \i, true, \number
     if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
@@ -1648,7 +1648,6 @@ macro asyncfor
           throw Error "Cannot start with a non-number: #(@value start)"
       else
         start := AST +$start
-      init.push (AST let mutable $value = $start)
 
       if @is-const(end)
         if typeof @value(end) != \number
@@ -1665,32 +1664,9 @@ macro asyncfor
         step := @cache (AST +$step), init, \step, has-func
       else
         init.push AST +$step
-
-      if @is-complex(inclusive)
-        inclusive := @cache (AST $inclusive), init, \incl, has-func
-
-      let test = if @is-const(step)
-        if @value(step) > 0
-          if @is-const(end) and @value(end) == Infinity
-            AST true
-          else
-            AST if $inclusive then $value ~<= $end else $value ~< $end
-        else
-          if @is-const(end) and @value(end) == -Infinity
-            AST true
-          else
-            AST if $inclusive then $value ~>= $end else $value ~> $end
-      else
-        AST if $step ~> 0
-          if $inclusive then $value ~<= $end else $value ~< $end
-        else
-          if $inclusive then $value ~>= $end else $value ~> $end
-      
-      if @empty(index)
-        index := @tmp \i, true, \number
       
       body := AST
-        let $value = $index * $step + $start
+        let $value = $index ~* $step ~+ $start
         $body
 
       let length-calc = AST if $inclusive
@@ -1701,20 +1677,8 @@ macro asyncfor
         length := length-calc
       else
         init.push AST let $length = $length-calc
-      
-      if @empty(result)
-        AST
-          $init
-          __async(+$parallelism, $length, #($index, $next) -> $body, #($err) -> $rest)
-      else
-        AST
-          $init
-          __async-result(+$parallelism, $length, #($index, $next) -> $body, #($err, $result) -> $rest)
-      
     else
       array := @cache array, init, \arr, true
-      if @empty(index)
-        index := @tmp \i, true, \number
 
       body := AST
         let $value = $array[$index]
@@ -1724,15 +1688,15 @@ macro asyncfor
         length := AST +$array.length
       else
         init.push AST let $length = +$array.length
-      
-      if @empty(result)
-        AST
-          $init
-          __async(+$parallelism, $length, #($index, $next) -> $body, #($err) -> $rest)
-      else
-        AST
-          $init
-          __async-result(+$parallelism, $length, #($index, $next) -> $body, #($err, $result) -> $rest)
+    
+    if @empty(result)
+      AST
+        $init
+        __async(+$parallelism, $length, #($index, $next) -> $body, #($err) -> $rest)
+    else
+      AST
+        $init
+        __async-result(+$parallelism, $length, #($index, $next) -> $body, #($err, $result) -> $rest)
   
   syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
     let {err, result} = if @empty(results) then {} else results
