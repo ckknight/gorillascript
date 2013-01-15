@@ -1,5 +1,6 @@
 require! './parser'
 require! './translator'
+require! os
 require! fs
 require! path
 
@@ -17,27 +18,66 @@ let fetch-and-parse-prelude = do
   let flush(err, value)
     while fetchers.length > 0
       fetchers.shift()(err, value)
-  let prelude-path = path.join(path.dirname(fs.realpath-sync(__filename)), '../src/prelude.gs')
+  let prelude-src-path = path.join(path.dirname(fs.realpath-sync(__filename)), '../src/prelude.gs')
+  let prelude-cache-path = path.join(os.tmp-dir(), 'gs-prelude.cache')
   let f(cb)
     if parsed-prelude?
       return cb null, parsed-prelude
     fetchers.push cb
     if fetchers.length > 1
       return
-    async err, prelude <- fs.read-file prelude-path, "utf8"
+    async err, prelude-src-stat <- fs.stat prelude-src-path
+    if err
+      return flush(err, null)
+    async err, prelude-cache-stat <- fs.stat prelude-cache-path
+    if err and err.code != "ENOENT"
+      return flush(err, null)
+    asyncif next, err?.code != "ENOENT" and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time() and false
+      async err, cache-prelude <- fs.read-file prelude-cache-path, "utf8"
+      if err
+        return flush(err, null)
+      try
+        parsed-prelude := parser.deserialize-prelude(cache-prelude)
+      catch e
+        if e instanceof ReferenceError
+          throw e
+        else
+          console.error "Error deserializing prelude, reloading. $(String e)"
+        return next()
+      flush(null, parsed-prelude)
+    async err, prelude <- fs.read-file prelude-src-path, "utf8"
     if err
       return flush(err, null)
     if not parsed-prelude?
-      parsed-prelude := parser prelude
-      translator parsed-prelude.result
+      parsed-prelude := parser prelude, null, { serialize-macros: true }
+      fs.write-file prelude-cache-path, parsed-prelude.macros.serialize(), "utf8", #(err)
+        throw? err
     flush(null, parsed-prelude)
+      
   f.sync := #
     if parsed-prelude?
       parsed-prelude
     else
-      let prelude = fs.read-file-sync prelude-path, "utf8"
-      parsed-prelude := parser prelude
-      translator parsed-prelude.result
+      let prelude-src-stat = fs.stat-sync prelude-src-path
+      let prelude-cache-stat = try
+        fs.stat-sync prelude-cache-path
+      catch e
+        if e.code != "ENOENT"
+          throw e
+      if prelude-cache-stat and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time()
+        let cache-prelude = fs.read-file-sync prelude-cache-path, "utf8"
+        try
+          parsed-prelude := parser.deserialize-prelude(cache-prelude)
+        catch e
+          if e instanceof ReferenceError
+            throw e
+          else
+            console.error "Error deserializing prelude, reloading. $(String e)"
+      if not parsed-prelude?
+        let prelude = fs.read-file-sync prelude-src-path, "utf8"
+        parsed-prelude := parser prelude, null, { serialize-macros: true }
+        fs.write-file prelude-cache-path, parsed-prelude.macros.serialize(), "utf8", #(err)
+          throw? err
       parsed-prelude
   f
 set-timeout (#

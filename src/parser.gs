@@ -4202,6 +4202,23 @@ class MacroHolder
     @assign-operators := []
     @prefix-unary-operators := []
     @postfix-unary-operators := []
+    @serialization := {}
+    @syntaxes := {
+      Logic
+      Expression
+      Assignment
+      FunctionDeclaration
+      Statement
+      Body
+      Identifier
+      SimpleAssignable
+      Parameter
+      ObjectLiteral
+      UnclosedObjectLiteral
+      ArrayLiteral
+      DedentedBody
+      ObjectKey
+    }
 
   def get-by-name(name)
     @by-name![name]
@@ -4227,10 +4244,16 @@ class MacroHolder
     if id >= 0 and id < by-id.length
       by-id[id]
   
-  def add-macro(m)
+  def add-macro(m, macro-id)
     let by-id = @by-id
-    by-id.push m
-    by-id.length - 1
+    if macro-id?
+      if by-id ownskey macro-id
+        throw Error "Cannot add macro #$(macro-id), as it already exists"
+      by-id[macro-id] := m
+      macro-id
+    else
+      by-id.push m
+      by-id.length - 1
   
   def replace-macro(id, m)!
     let by-id = @by-id
@@ -4239,7 +4262,7 @@ class MacroHolder
   def has-operator(name)
     @operator-names ownskey name
   
-  def add-binary-operator(operators, m, options)
+  def add-binary-operator(operators, m, options, macro-id)
     for op in operators
       @operator-names[op] := true
     let precedence = Number(options.precedence) or 0
@@ -4253,9 +4276,9 @@ class MacroHolder
       minimum: options.minimum or 0
       invertible: not not options.invertible
     }
-    @add-macro m
+    @add-macro m, macro-id
   
-  def add-assign-operator(operators, m, options)
+  def add-assign-operator(operators, m, options, macro-id)
     for op in operators
       @operator-names[op] := true
     @assign-operators.push {
@@ -4263,9 +4286,9 @@ class MacroHolder
         word-or-symbol op
       func: m
     }
-    @add-macro m
+    @add-macro m, macro-id
   
-  def add-unary-operator(operators, m, options)
+  def add-unary-operator(operators, m, options, macro-id)
     for op in operators
       @operator-names[op] := true
     let data = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
@@ -4288,7 +4311,44 @@ class MacroHolder
       func: m
       standalone: not options ownskey \standalone or not not options.standalone
     }
-    @add-macro m
+    @add-macro m, macro-id
+  
+  def add-serialized-helper(name as String, value)!
+    let helpers = (@serialization.helpers ?= {})
+    helpers[name] := value
+  
+  def add-macro-serialization(serialization as Object)!
+    if typeof serialization.type != \string
+      throw Error "Expected a string type"
+    let obj = copy(serialization)
+    delete obj.type
+    let by-type = (@serialization[serialization.type] ?= [])
+    by-type.push obj
+  
+  def add-syntax(name as String, value as Function)!
+    if @syntaxes ownskey name
+      throw Error "Cannot override already-defined syntax: $(name)"
+    @syntaxes[name] := value
+  
+  def has-syntax(name as String)
+    @syntaxes ownskey name
+  
+  def get-syntax(name as String)
+    if @syntaxes ownskey name
+      @syntaxes[name]
+    else
+      throw Error "Unknown syntax: $(name)"
+  
+  def serialize()
+    JSON.stringify(@serialization)
+  
+  def deserialize(data)!
+    require! './translator'
+    require! './ast'
+    for name, value of (data!.helpers ? {})
+      translator.define-helper(name, ast.fromJSON(value))
+    
+    State("", this).deserialize-macros(data)
 
 class Node
   def constructor() -> throw Error "Node should not be instantiated directly"
@@ -4387,9 +4447,10 @@ macro node-type!
       def inspect(depth) -> $inspect-parts
 
 class State
-  def constructor(data, macros = MacroHolder(), index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0)@
+  def constructor(data, macros = MacroHolder(), options = {}, index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0)@
     @data := data
     @macros := macros
+    @options := options
     @index := index
     @line := line
     @failures := failures
@@ -4398,7 +4459,7 @@ class State
     @current-macro := current-macro
     @prevent-failures := prevent-failures
   
-  def clone() -> State @data, @macros, @index, @line, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures
+  def clone() -> State @data, @macros, @options, @index, @line, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures
   
   def update(clone)!
     @index := clone.index
@@ -4431,25 +4492,10 @@ class State
   
   def define-helper(i, name as IdentNode, value as Node)
     require! './translator'
-    translator.define-helper(name, value)
+    let helper = translator.define-helper(name, value)
+    if @options.serialize-macros
+      @macros.add-serialized-helper(name.name, helper)
     @nothing i
-  
-  let macro-syntax-idents = {
-    Logic
-    Expression
-    Assignment
-    FunctionDeclaration
-    Statement
-    Body
-    Identifier
-    SimpleAssignable
-    Parameter
-    ObjectLiteral
-    UnclosedObjectLiteral
-    ArrayLiteral
-    DedentedBody
-    ObjectKey
-  }
   
   let macro-syntax-const-literals = {
     ",": Comma
@@ -4488,22 +4534,78 @@ class State
       true
       false), false
   
-  let calc-param(param)@
+  let serialize-param-type(as-type)
+    if as-type instanceof IdentNode
+      { type: \ident, as-type.name }
+    else if as-type instanceof SyntaxSequenceNode
+      { type: \sequence, items: serialize-params(as-type.params) }
+    else if as-type instanceof SyntaxChoiceNode
+      { type: \choice, choices: for choice in as-type.choices; serialize-param-type(choice) }
+    else if as-type.is-const()
+      { type: \const, value: as-type.const-value() }
+    else if as-type instanceof SyntaxManyNode
+      { type: \many, as-type.multiplier, inner: serialize-param-type(as-type.inner) }
+    else
+      throw Error()
+  let serialize-params(params)
+    return for param in params
+      if param.is-const()
+        { type: \const, value: param.const-value() }
+      else if param instanceof SyntaxParamNode
+        let {ident} = param
+        let value = if ident instanceof IdentNode
+          { type: \ident, ident.name }
+        else if ident instanceof ThisNode
+          { type: \this }
+        else
+          throw Error()
+        if param.as-type
+          value.as-type := serialize-param-type(param.as-type)
+        value
+      else
+        throw Error()
+  let deserialize-param-type(as-type)
+    if not as-type?
+      return void
+    switch as-type.type
+    case \ident
+      IdentNode 0, 0, as-type.name
+    case \sequence
+      SyntaxSequenceNode 0, 0, deserialize-params(as-type.items)
+    case \choice
+      SyntaxChoiceNode 0, 0, for choice in as-type.choices; deserialize-param-type(choice)
+    case \const
+      ConstNode 0, 0, as-type.value
+    case \many
+      SyntaxManyNode 0, 0, deserialize-param-type(as-type.inner), as-type.multiplier
+    default
+      throw Error "Unknown as-type: $(String as-type.type)"
+  let deserialize-params(params)
+    return for param in params
+      if param.type == \const
+        ConstNode(0, 0, param.value)
+      else
+        let node = if param.type == \ident
+          IdentNode(0, 0, param.name)
+        else if param.type == \this
+          ThisNode(0, 0)
+        else
+          throw Error "Unknown param: $(String param.type)"
+        SyntaxParamNode(0, 0, node, deserialize-param-type(param.as-type))
+  
+  let calc-param(param)
     if param instanceof IdentNode
       let name = param.name
-      if macro-syntax-idents ownskey name
-        macro-syntax-idents[name]
+      let macros = @macros
+      if macros.has-syntax(name)
+        macros.get-syntax(name)
       else
-        #(o)
-          if macro-syntax-idents ownskey name
-            macro-syntax-idents[name]@(this, o)
-          else
-            @error "Unknown type ident: $name"
+        named(name, #(o) -> macros.get-syntax(name)@(this, o))
     else if param instanceof SyntaxSequenceNode
-      handle-params param.params
+      handle-params@ this, param.params
     else if param instanceof SyntaxChoiceNode
       cache! one-of for choice in param.choices
-        calc-param choice
+        calc-param@ this, choice
     else if param.is-const()
       let string = param.const-value()
       if typeof string != \string
@@ -4511,7 +4613,7 @@ class State
       macro-syntax-const-literals![string] or word-or-symbol string
     else if param instanceof SyntaxManyNode
       let {multiplier} = param
-      let calced = calc-param param.inner
+      let calced = calc-param@ this, param.inner
       switch multiplier
       case "*"; zero-or-more! calced
       case "+"; one-or-more! calced
@@ -4520,8 +4622,8 @@ class State
         throw Error("Unknown syntax multiplier: $multiplier")
     else
       @error "Unexpected type: $(typeof! param)"
-
-  let handle-params(params)@
+  
+  let handle-params(params)
     let sequence = []
     for param in params
       if param.is-const()
@@ -4539,12 +4641,12 @@ class State
         else
           throw Error "Don't know how to handle ident type: $(typeof! ident)"
         let type = param.as-type ? IdentNode 0, 0, \Expression
-        sequence.push [key, calc-param type]
+        sequence.push [key, calc-param@ this, type]
       else
         @error "Unexpected parameter type: $(typeof! param)"
     sequential sequence
   let macro-syntax-types = {
-    syntax: #(index, params, body)
+    syntax: #(index, params, body, options, state-options)
       let func-params = for param in params
         if param instanceof SyntaxParamNode
           {
@@ -4554,15 +4656,25 @@ class State
       
       let raw-func = make-macro-root@ this, index, @object-param(index, func-params), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
-      let handler = translated.node.to-function()()
+      let compilation = translated.node.to-string()
+      let serialization = if state-options.serialize-macros then compilation
+      let handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
       {
         handler: #(args, ...rest) -> handler@(this, reduce-object(args), ...rest).reduce()
-        rule: handle-params params
+        rule: handle-params@ this, params
+        serialization: if serialization?
+          {
+            type: \syntax
+            code: serialization
+            options
+            params: serialize-params params
+            name: @current-macro
+          }
       }
     
-    define-syntax: #(index, params, body, options)
+    define-syntax: #(index, params, body, options, state-options)
       let func-params = for param in params
         if param instanceof SyntaxParamNode
           {
@@ -4570,11 +4682,15 @@ class State
             value: @param index, param.ident, void, false, true, void
           }
       
+      let mutable serialization = void
       let handler = if body?
         do
           let raw-func = make-macro-root@ this, index, @object-param(index, func-params), body
           let translated = require('./translator')(raw-func.reduce(), return: true)
-          let handler = translated.node.to-function()()
+          let compilation = translated.node.to-string()
+          if state-options.serialize-macros
+            serialization := compilation
+          let handler = Function(compilation)()
           if typeof handler != \function
             throw Error "Error creating function for syntax: $(options.name)"
           #(args, ...rest) -> reduce-object(handler@(this, reduce-object(args), ...rest))
@@ -4582,13 +4698,22 @@ class State
         #(args, ...rest) -> reduce-object(args)
       {
         handler
-        rule: handle-params params
+        rule: handle-params@ this, params
+        serialization: if state-options.serialize-macros
+          {
+            type: \define-syntax
+            code: serialization
+            options
+            params: serialize-params params
+          }
       }
     
-    call: #(index, params, body)
+    call: #(index, params, body, options, state-options)
       let raw-func = make-macro-root@ this, index, @array-param(index, params), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
-      let mutable handler = translated.node.to-function()()
+      let compilation = translated.node.to-string()
+      let serialization = if state-options.serialize-macros then compilation
+      let mutable handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
       handler := do inner = handler
@@ -4597,16 +4722,24 @@ class State
       {
         handler
         rule: InvocationArguments
+        serialization: if serialization?
+          {
+            type: \call
+            code: serialization
+            options
+          }
       }
     
-    binary-operator: #(index, operators, body, options)
+    binary-operator: #(index, operators, body, options, state-options)
       let raw-func = make-macro-root@ this, index, @object-param(index, [
         { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
-      let mutable handler = translated.node.to-function()()
+      let compilation = translated.node.to-string()
+      let serialization = if state-options.serialize-macros then compilation
+      let mutable handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for binary operator $(operators.join ', ')"
       if options.invertible
@@ -4623,16 +4756,25 @@ class State
       {
         handler
         rule: void
+        serialization: if serialization?
+          {
+            type: \binary-operator
+            code: serialization
+            operators
+            options
+          }
       }
     
-    assign-operator: #(index, operators, body, options)
+    assign-operator: #(index, operators, body, options, state-options)
       let raw-func = make-macro-root@ this, index, @object-param(index, [
         { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
-      let handler = translated.node.to-function()()
+      let compilation = translated.node.to-string()
+      let serialization = if state-options.serialize-macros then compilation
+      let mutable handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for assign operator $(operators.join ', ')"
       handler := do inner = handler
@@ -4640,15 +4782,24 @@ class State
       {
         handler
         rule: void
+        serialization: if serialization?
+          {
+            type: \assign-operator
+            code: serialization
+            operators
+            options
+          }
       }
     
-    unary-operator: #(index, operators, body, options)
+    unary-operator: #(index, operators, body, options, state-options)
       let raw-func = make-macro-root@ this, index, @object-param(index, [
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \node), value: @param index, (@ident index, \node), void, false, true, void }
       ]), body
       let translated = require('./translator')(raw-func.reduce(), return: true)
-      let handler = translated.node.to-function()()
+      let compilation = translated.node.to-string()
+      let serialization = if state-options.serialize-macros then compilation
+      let mutable handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for unary operator $(operators.join ', ')"
       handler := do inner = handler
@@ -4656,14 +4807,86 @@ class State
       {
         handler
         rule: void
+        serialization: if serialization?
+          {
+            type: \unary-operator
+            code: serialization
+            operators
+            options
+          }
       }
+  }
+  
+  let macro-deserializers = {
+    syntax: #({code, params, name, id})
+      let mutable handler = Function(code)()
+      if typeof handler != \function
+        throw Error "Error deserializing function for macro $(name)"
+      handler := do inner = handler
+        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+      @enter-macro name, #@
+        handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params)), null, null, id
+    
+    call: #-> throw Error "Not implemented"
+    define-syntax: #({code, params, options, id})
+      if @macros.has-syntax(options.name)
+        throw Error "Cannot override already-defined syntax: $(options.name)"
+      
+      let mutable handler = void
+      if code?
+        handler := Function(code)()
+        if typeof handler != \function
+          throw Error "Error deserializing function for macro syntax $(options.name)"
+        handler := do inner = handler
+          #(args, ...rest) -> reduce-object(inner@(this, reduce-object(args), ...rest))
+      else
+        handler := #(args) -> reduce-object(args)
+      
+      @enter-macro DEFINE_SYNTAX, #@
+        handle-macro-syntax@ this, 0, \define-syntax, handler, handle-params@(this, deserialize-params(params)), null, options, id
+    
+    binary-operator: #({code, operators, options, id})
+      let handler = Function(code)()
+      if typeof handler != \function
+        throw Error "Error deserializing function for binary operator $(operators.join ', ')"
+      if options.invertible
+        handler := do inner = handler
+          #(args, ...rest)
+            let result = inner@ this, reduce-object(args), ...rest
+            if args.inverted
+              UnaryNode(result.start-index, result.end-index, "!", result).reduce()
+            else
+              result.reduce()
+      else
+        handler := do inner = handler
+          #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+      @enter-macro BINARY_OPERATOR, #@
+        handle-macro-syntax@ this, 0, \binary-operator, handler, void, operators, options, id
+      
+    assign-operator: #({code, operators, options, id})
+      let handler = Function(code)()
+      if typeof handler != \function
+        throw Error "Error deserializing function for assign operator $(operators.join ', ')"
+      handler := do inner = handler
+        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+      @enter-macro ASSIGN_OPERATOR, #@
+        handle-macro-syntax@ this, 0, \assign-operator, handler, void, operators, options, id
+    
+    unary-operator: #({code, operators, options, id})!
+      let mutable handler = Function(code)()
+      if typeof handler != \function
+        throw Error "Error deserializing function for unary operator $(operators.join ', ')"
+      handler := do inner = handler
+        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+      @enter-macro UNARY_OPERATOR, #@
+        handle-macro-syntax@ this, 0, \unary-operator, handler, void, operators, options, id
   }
   
   def start-macro-syntax(index, params as Array)
     if not @current-macro
       this.error "Attempting to specify a macro syntax when not in a macro"
     
-    let rule = handle-params params
+    let rule = handle-params@ this, params
     
     let macros = @macros
     let mutator = #(x, o, i)
@@ -4677,16 +4900,9 @@ class State
     @pending-macro-id := macro-id
     params
   
-  def macro-syntax(index, type, params as Array, body, options = {})!
-    if macro-syntax-types not ownskey type
-      throw Error "Unknown macro-syntax type: $type"
-    
-    if not @current-macro
-      this.error "Attempting to specify a macro syntax when not in a macro"
-    
-    let {handler, rule} = macro-syntax-types[type]@(this, index, params, body, options)
-    
+  let handle-macro-syntax(index, type, handler as Function, rule, params, options, mutable macro-id)
     let macros = @macros
+    
     let mutator = #(x, o, i)
       if _in-ast.peek()
         o.macro-access i, macro-id, x
@@ -4704,22 +4920,24 @@ class State
         else
           // TODO: do I need to watch tmps?
           result
-    let macro-id = switch @current-macro
+    macro-id := switch @current-macro
     case BINARY_OPERATOR
-      macros.add-binary-operator(params, mutator, options)
+      macros.add-binary-operator(params, mutator, options, macro-id)
     case ASSIGN_OPERATOR
-      macros.add-assign-operator(params, mutator, options)
+      macros.add-assign-operator(params, mutator, options, macro-id)
     case UNARY_OPERATOR
-      macros.add-unary-operator(params, mutator, options)
+      macros.add-unary-operator(params, mutator, options, macro-id)
     case DEFINE_SYNTAX
-      if macro-syntax-idents ownskey options.name
-        throw Error "Cannot override already-defined syntax: $(options.name)"
-      macro-syntax-idents[options.name] := mutate! rule, mutator
-      macros.add-macro mutator
+      assert(rule)
+      @macros.add-syntax options.name, mutate! rule, mutator
+      macros.add-macro mutator, macro-id
     default
       let m = macros.get-or-add-by-name @current-macro
+      assert(rule)
       let full-rule = sequential! [m.token, [\this, rule]], mutator
       if @pending-macro-id?
+        if macro-id?
+          throw Error "Cannot provide the macro id if there is a pending macro id"
         let id = @pending-macro-id
         @pending-macro-id := null
         m.data.pop()
@@ -4728,7 +4946,21 @@ class State
         id
       else
         m.data.push full-rule
-        macros.add-macro(mutator)
+        macros.add-macro(mutator, macro-id)
+  
+  def macro-syntax(index, type, params as Array, body, options = {})!
+    if macro-syntax-types not ownskey type
+      throw Error "Unknown macro-syntax type: $type"
+    
+    if not @current-macro
+      this.error "Attempting to specify a macro syntax when not in a macro"
+    
+    let {handler, rule, serialization} = macro-syntax-types[type]@(this, index, params, body, options, @options)
+    
+    let macro-id = handle-macro-syntax@ this, index, type, handler, rule, params, options
+    if serialization?
+      serialization.id := macro-id
+      @macros.add-macro-serialization serialization
   
   let BINARY_OPERATOR = freeze {}
   def define-binary-operator(index, operators, options, body)
@@ -4749,6 +4981,11 @@ class State
   def define-syntax(index, name, params, body)
     @enter-macro DEFINE_SYNTAX, #@
       @macro-syntax index, \define-syntax, params, body, { name }
+  
+  def deserialize-macros(data)
+    for type, deserializer of macro-deserializers
+      for item in (data![type] ? [])
+        deserializer@(this, item)
   
   @add-node-factory := #(name, type)!
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
@@ -5624,7 +5861,7 @@ let parse(text, macros, options = {})
   if typeof text != \string
     throw TypeError "Expected text to be a string, got $(typeof! text)"
   
-  let o = State text, macros
+  let o = State text, macros, options
   
   let result = try
     Root(o)
@@ -5647,3 +5884,11 @@ let parse(text, macros, options = {})
 module.exports := parse
 module.exports.ParserError := ParserError
 module.exports.Node := Node
+module.exports.deserialize-prelude := #(data as String)
+  let parsed = JSON.parse(data)
+  let macros = MacroHolder()
+  macros.deserialize(parsed)
+  {
+    result: NothingNode(0, 0)
+    macros
+  }

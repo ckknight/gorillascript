@@ -1425,10 +1425,22 @@ module.exports := #(node, options = {})
   }
 
 module.exports.helpers := HELPERS
-module.exports.define-helper := #(name as parser.Node.Ident, value as parser.Node)
+module.exports.define-helper := #(name, value)
   let scope = Scope({}, false)
-  let ident = translate(name, scope, \left-expression)()
+  let ident = if typeof name == \string
+    ast.Ident(name)
+  else if name instanceof parser.Node.Ident
+    translate(name, scope, \left-expression)()
+  else
+    throw TypeError "Expecting name to be a String or Ident, got $(typeof! name)"
   unless ident instanceof ast.Ident
     throw Error "Expected name to be an Ident, got $(typeof! ident)"
-  HELPERS.add ident.name, translate(value, scope, \expression)()
+  let helper = if value instanceof ast.Node
+    value
+  else if value instanceof parser.Node
+    translate(value, scope, \expression)()
+  else
+    throw TypeError "Expected value to be a parser or ast Node, got $(typeof! value)"
+  HELPERS.add ident.name, helper
+  helper
   

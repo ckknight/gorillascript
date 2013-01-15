@@ -34,7 +34,7 @@ let get-indent = do
   #(indent)
     if indent >= cache.length
       let mutable result = cache[cache.length - 1]
-      for i in cache.length til indent
+      for i in cache.length to indent
         result &= INDENT
         cache.push result
     cache[indent]
@@ -230,6 +230,8 @@ exports.Arguments := class Arguments extends Expression
   def type() -> Type.args
   def walk() -> this
   def inspect(depth) -> "Arguments()"
+  def to-JSON() -> { type: "Arguments" }
+  @from-JSON := #-> Arguments()
 
 let walk-array(array as Array, walker as Function)
   let mutable changed = false
@@ -258,6 +260,23 @@ let inspect-array-helper(sb, array, depth)
   else
     sb "length: "
     sb item.length
+
+let dec-depth(depth)
+  if depth?
+    depth - 1
+  else
+    null
+
+let simplify(obj)
+  if Array.isArray(obj)
+    if obj.length == 0
+      void
+    else
+      obj
+  else if obj instanceof Noop
+    void
+  else
+    obj
 
 exports.Arr := class Arr extends Expression
   def constructor(elements as [Expression] = [])@
@@ -311,7 +330,11 @@ exports.Arr := class Arr extends Expression
       this
   
   def inspect(depth)
-    "Arr($(inspect @elements, null, depth - 1))"
+    let d = dec-depth depth
+    "Arr($(inspect @elements, null, d))"
+  
+  def to-JSON() -> { type: "Arr", elements: simplify(@elements) }
+  @from-JSON := #({elements}) -> Arr array-from-JSON(elements)
 
 exports.Assign := #(left, right)
   Binary left, "=", right
@@ -349,7 +372,7 @@ exports.Or := #(...args)
     current
 
 exports.Binary := class Binary extends Expression
-  def constructor(mutable left, op as String, mutable right)@
+  def constructor(mutable left = Noop(), op as String, mutable right = Noop())@
     if OPERATOR_PRECEDENCE not ownskey op
       throw Error "Unknown binary operator: $(JSON.stringify op)"
     
@@ -552,7 +575,11 @@ exports.Binary := class Binary extends Expression
       this
   
   def inspect(depth)
-    "Binary($(inspect @left, null, depth - 1), $(inspect @op), $(inspect @right, null, depth - 1))"
+    let d = dec-depth depth
+    "Binary($(inspect @left, null, d), $(inspect @op), $(inspect @right, null, d))"
+  
+  def to-JSON() -> { type: "Binary", left: simplify(@left), @op, right: simplify(@right) }
+  @from-JSON := #({left, op, right}) -> Binary from-JSON(left), op, from-JSON(right)
 
 exports.BlockStatement := class BlockStatement extends Statement
   def constructor(body as [Node] = [])@
@@ -602,7 +629,11 @@ exports.BlockStatement := class BlockStatement extends Statement
   def last() -> @body[@body.length - 1]
   
   def inspect(depth)
-    "BlockStatement($(inspect @body, null, depth - 1))"
+    let d = dec-depth depth
+    "BlockStatement($(inspect @body, null, d))"
+  
+  def to-JSON() -> { type: "BlockStatement", @body }
+  @from-JSON := #({body}) -> BlockStatement array-from-JSON(body)
 
 exports.BlockExpression := class BlockExpression extends Expression
   def constructor(body as [Expression] = [])@
@@ -649,7 +680,11 @@ exports.BlockExpression := class BlockExpression extends Expression
   def last() -> @body[@body.length - 1]
   
   def inspect(depth)
-    "BlockExpression($(inspect @body, null, depth - 1))"
+    let d = dec-depth depth
+    "BlockExpression($(inspect @body, null, d))"
+  
+  def to-JSON() -> { type: "BlockExpression", @body }
+  @from-JSON := #({body}) -> BlockExpression array-from-JSON(body)
 
 let Block = exports.Block := #(body as [Node] = [])
   if body.length == 0
@@ -673,9 +708,12 @@ exports.Break := class Break extends Statement
   def exit-type() -> \break
   
   def inspect() -> "Break()"
+  
+  def to-JSON() -> { type: "Break" }
+  @from-JSON := #-> Break()
 
 exports.Call := class Call extends Expression
-  def constructor(func as Expression, args as [Expression] = [], is-new as Boolean)@
+  def constructor(func as Expression = Noop(), args as [Expression] = [], is-new as Boolean)@
     @func := func
     @args := args
     @is-new := is-new
@@ -794,16 +832,20 @@ exports.Call := class Call extends Expression
       Type.any
   
   def inspect(depth)
+    let d = dec-depth depth
     let sb = StringBuilder()
     sb "Call("
-    sb inspect @func, null, depth - 1
+    sb inspect @func, null, d
     if @args.length or @is-new
       sb ", "
-      sb inspect @args, null, depth - 1
+      sb inspect @args, null, d
     if @is-new
       sb ", true"
     sb ")"
     sb.to-string()
+  
+  def to-JSON() -> { type: "Call", func: simplify(@func), args: simplify(@args), is-new: @is-new or void }
+  @from-JSON := #({func, args, is-new}) -> Call from-JSON(func), array-from-JSON(args), is-new
 
 let to-const(value)
   if value instanceof Node
@@ -851,6 +893,24 @@ exports.Const := class Const extends Expression
   def walk() -> this
   
   def inspect() -> "Const($(inspect @value))"
+  
+  def to-JSON()
+    if @value instanceof RegExp
+      let flags = []
+      if @value.global
+        flags.push "g"
+      if @value.ignore-case
+        flags.push "i"
+      if @value.multiline
+        flags.push "m"
+      { type: "Const", regexp: true, @value.source, flags }
+    else
+      { type: "Const", @value }
+  @from-JSON := #(obj)
+    if obj.regexp
+      Const RegExp(obj.source, obj.flags)
+    else
+      Const obj.value
 
 exports.Continue := class Continue extends Statement
   def constructor()@ ->
@@ -865,6 +925,9 @@ exports.Continue := class Continue extends Statement
   def exit-type() -> \continue
   
   def inspect() -> "Continue()"
+  
+  def to-JSON() -> { type: "Continue" }
+  @from-JSON := # -> Continue()
 
 exports.Debugger := class Debugger extends Statement
   def constructor()@ ->
@@ -877,9 +940,12 @@ exports.Debugger := class Debugger extends Statement
   def walk() -> this
   
   def inspect() -> "Debugger()"
+  
+  def to-JSON() -> { type: "Debugger" }
+  @from-JSON := # -> Debugger()
 
 exports.DoWhile := class DoWhile extends Statement
-  def constructor(body as Node, test as Expression)@
+  def constructor(body as Node = Noop(), test as Expression = Noop())@
     @body := body.maybe-to-statement()
     @test := test
     if test.is-const() and not test.const-value()
@@ -912,10 +978,14 @@ exports.DoWhile := class DoWhile extends Statement
       this
 
   def inspect(depth)
-    "DoWhile($(inspect @body, null, depth - 1), $(inspect @test, null, depth - 1))"
+    let d = dec-depth depth
+    "DoWhile($(inspect @body, null, d), $(inspect @test, null, d))"
+  
+  def to-JSON() -> { type: "DoWhile", body: simplify(@body), test: simplify(@test) }
+  @from-JSON := #({body, test}) -> DoWhile from-JSON(body), from-JSON(test)
 
 exports.Eval := class Eval extends Expression
-  def constructor(mutable code)@
+  def constructor(mutable code = Noop())@
     if code not instanceof Expression
       code := to-const code
     @code := code
@@ -936,7 +1006,11 @@ exports.Eval := class Eval extends Expression
       this
   
   def inspect(depth)
-    "Eval($(inspect @code, null, depth - 1))"
+    let d = dec-depth depth
+    "Eval($(inspect @code, null, d))"
+  
+  def to-JSON() -> { type: "Eval", code: simplify(@code) }
+  @from-JSON := #({code}) -> Eval from-JSON(code)
 
 exports.For := class For extends Statement
   def constructor(init as Expression = Noop(), mutable test = Const(true), step as Expression = Noop(), body as Node)@
@@ -984,10 +1058,14 @@ exports.For := class For extends Statement
       this
   
   def inspect(depth)
-    "For($(inspect @init, null, depth - 1), $(inspect @test, null, depth - 1), $(inspect @step, null, depth - 1), $(inspect @body, null, depth - 1))"
+    let d = dec-depth depth
+    "For($(inspect @init, null, d), $(inspect @test, null, d), $(inspect @step, null, d), $(inspect @body, null, d))"
+  
+  def to-JSON() -> { type: "For", init: simplify(@init), test: simplify(@test), step: simplify(@step), body: simplify(@body) }
+  @from-JSON := #({init, test, step, body}) -> For from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body)
 
 exports.ForIn := class ForIn extends Statement
-  def constructor(key as Ident, object as Expression, body as Node)@
+  def constructor(key as Ident, object as Expression = Noop(), body as Node = Noop())@
     @key := key
     @object := object
     @body := body.maybe-to-statement()
@@ -1021,7 +1099,11 @@ exports.ForIn := class ForIn extends Statement
       this
   
   def inspect(depth)
-    "ForIn($(inspect @key, null, depth - 1), $(inspect @object, null, depth - 1), $(inspect @body, null, depth - 1))"
+    let d = dec-depth depth
+    "ForIn($(inspect @key, null, d), $(inspect @object, null, d), $(inspect @body, null, d))"
+  
+  def to-JSON() -> { type: "ForIn", @key, object: simplify(@object), body: simplify(@body) }
+  @from-JSON := #({key, object, body}) -> ForIn from-JSON(key), from-JSON(object), from-JSON(body)
 
 let validate-func-params-and-variables(params, variables)!
   let names = []
@@ -1107,7 +1189,35 @@ exports.Func := class Func extends Expression
       this
   
   def inspect(depth)
-    "Func($(inspect @name, null, depth - 1), $(inspect @params, null, depth - 1), $(inspect @variables, null, depth - 1), $(inspect @body, null, depth - 1), $(inspect @declarations, null, depth - 1), $(inspect @meta, null, depth - 1))"
+    let d = dec-depth depth
+    "Func($(inspect @name, null, d), $(inspect @params, null, d), $(inspect @variables, null, d), $(inspect @body, null, d), $(inspect @declarations, null, d), $(inspect @meta, null, d))"
+  
+  let find-type-name = do
+    let types = []
+    let names = []
+    #(type)
+      if type not instanceof Type
+        void
+      else
+        let index = types.index-of(type)
+        if index != -1
+          names[index]
+        else
+          for name, t of Type
+            if t == type
+              names.push name
+              types.push type
+              return name
+          names.push void
+          types.push type
+          void
+  
+  def to-JSON() -> { type: "Func", name: @name or void, params: simplify(@params), variables: simplify(@variables), body: simplify(@body), declarations: simplify(@declarations), meta-type: find-type-name(@meta?.as-type) }
+  @from-JSON := #({name, params, variables, body, declarations, meta-type})
+    let meta = if meta-type? then {
+      as-type: Type[meta-type]
+    }
+    Func (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations, meta
 
 exports.Ident := class Ident extends Expression
   def constructor(name as String)@
@@ -1121,10 +1231,14 @@ exports.Ident := class Ident extends Expression
   def walk() -> this
   
   def inspect(depth)
-    "Ident($(inspect @name, null, depth - 1))"
+    let d = dec-depth depth
+    "Ident($(inspect @name, null, d))"
+  
+  def to-JSON() -> { type: "Ident", @name }
+  @from-JSON := #({name}) -> Ident name
 
 exports.IfStatement := class IfStatement extends Statement
-  def constructor(mutable test as Expression, mutable when-true as Node, mutable when-false as Node = Noop())@
+  def constructor(mutable test as Expression = Noop(), mutable when-true as Node = Noop(), mutable when-false as Node = Noop())@
     if test instanceof Unary and test.op == "!" and test.node instanceof Unary and test.node.op == "!"
       test := test.node.node
     if test.is-const()
@@ -1206,10 +1320,14 @@ exports.IfStatement := class IfStatement extends Statement
       @_exit-type
   
   def inspect(depth)
-    "IfStatement($(inspect @test, null, depth - 1), $(inspect @when-true, null, depth - 1), $(inspect @when-false, null, depth - 1))"
+    let d = dec-depth depth
+    "IfStatement($(inspect @test, null, d), $(inspect @when-true, null, d), $(inspect @when-false, null, d))"
+  
+  def to-JSON() -> { type: "IfStatement", test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false) }
+  @from-JSON := #({test, when-true, when-false}) -> IfStatement from-JSON(test), from-JSON(when-true), from-JSON(when-false)
 
 exports.IfExpression := class IfExpression extends Expression
-  def constructor(mutable test as Expression, mutable when-true, mutable when-false = Noop())@
+  def constructor(mutable test as Expression = Noop(), mutable when-true = Noop(), mutable when-false = Noop())@
     if when-true not instanceof Expression
       when-true := to-const when-true
     if when-false not instanceof Expression
@@ -1289,7 +1407,11 @@ exports.IfExpression := class IfExpression extends Expression
   def walk = IfStatement::walk
   
   def inspect(depth)
-    "IfExpression($(inspect @test, null, depth - 1), $(inspect @when-true, null, depth - 1), $(inspect @when-false, null, depth - 1))"
+    let d = dec-depth depth
+    "IfExpression($(inspect @test, null, d), $(inspect @when-true, null, d), $(inspect @when-false, null, d))"
+  
+  def to-JSON() -> { type: "IfExpression", test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false) }
+  @from-JSON := #({test, when-true, when-false}) -> IfExpression from-JSON(test), from-JSON(when-true), from-JSON(when-false)
 
 let If = exports.If := #(test, when-true, when-false)
   if when-true instanceof Statement or when-false instanceof Statement
@@ -1320,6 +1442,9 @@ exports.Noop := class Noop extends Expression
       this
   
   def inspect() -> "Noop()"
+  
+  def to-JSON() -> { type: "Noop" }
+  @from-JSON := #() -> Noop()
 
 exports.Obj := class Obj extends Expression
   let validate-unique-keys(elements)!
@@ -1402,10 +1527,25 @@ exports.Obj := class Obj extends Expression
       this
   
   def inspect(depth)
-    "Obj($(inspect @elements, null, depth - 1))"
+    let d = dec-depth depth
+    "Obj($(inspect @elements, null, d))"
+  
+  def to-JSON()
+    {
+      type: "Obj"
+      pairs: simplify(for pair in @pairs
+        { pair.key, value: simplify(pair.value) })
+    }
+  @from-JSON := #({pairs})
+    let result-pairs = []
+    for pair in (pairs or [])
+      if not pair or typeof pair != \object
+        throw Error "Expecting an object with a key and value"
+      result-pairs.push ObjPair pair.key, from-JSON(pair.value)
+    Obj result-pairs
   
   Obj.Pair := class ObjPair
-    def constructor(key as String, mutable value)@
+    def constructor(key as String, mutable value = Noop())@
       if value not instanceof Expression
         value := to-const value
       @key := key
@@ -1421,10 +1561,11 @@ exports.Obj := class Obj extends Expression
         this
     
     def inspect(depth)
-      "Pair($(inspect @key, null, depth - 1), $(inspect @value, null, depth - 1))"
+      let d = dec-depth depth
+      "Pair($(inspect @key, null, d), $(inspect @value, null, d))"
 
 exports.Return := class Return extends Statement
-  def constructor(node as Expression = Const(void))@
+  def constructor(node as Expression = Noop())@
     if typeof node.to-statement == "function"
       return node.to-statement().mutate-last Return
     @node := node
@@ -1446,7 +1587,11 @@ exports.Return := class Return extends Statement
   def exit-type() -> \return
   
   def inspect(depth)
-    "Return($(inspect @node, null, depth - 1))"
+    let d = dec-depth depth
+    "Return($(inspect @node, null, d))"
+  
+  def to-JSON() -> { type: "Return", node: simplify(@node) }
+  @from-JSON := #({node}) -> Return from-JSON(node)
 
 exports.Root := class Root
   def constructor(body as Node = Noop(), variables as [String] = [], declarations as [String] = [])@
@@ -1487,7 +1632,11 @@ exports.Root := class Root
   def last() -> @body[@body.length - 1]
   
   def inspect(depth)
-    "Root($(inspect @body, null, depth - 1), $(inspect @variables, null, depth - 1), $(inspect @declarations, null, depth - 1))"
+    let d = dec-depth depth
+    "Root($(inspect @body, null, d), $(inspect @variables, null, d), $(inspect @declarations, null, d))"
+  
+  def to-JSON() -> { type: "Root", body: simplify(@body), variables: simplify(@variables), declarations: simplify(@declarations) }
+  @from-JSON := #({body, variables, declarations}) -> Root from-JSON(body), variables, declarations
 
 exports.This := class This extends Expression
   def constructor()@ ->
@@ -1497,9 +1646,12 @@ exports.This := class This extends Expression
   def walk() -> this
   
   def inspect() -> "This()"
+  
+  def to-JSON() -> { type: "This" }
+  @from-JSON := # -> This()
 
 exports.Throw := class Throw extends Statement
-  def constructor(node as Expression)@
+  def constructor(node as Expression = Noop())@
     if typeof node.to-statement == "function"
       return node.to-statement().mutate-last Throw, true
     @node := node
@@ -1519,10 +1671,14 @@ exports.Throw := class Throw extends Statement
   def exit-type() -> \throw
   
   def inspect(depth)
-    "Throw($(inspect @node, null, depth - 1))"
+    let d = dec-depth depth
+    "Throw($(inspect @node, null, d))"
+  
+  def to-JSON() -> { type: "Throw", node: simplify(@node) }
+  @from-JSON := #({node}) -> Throw from-JSON(node)
 
 exports.Switch := class Switch extends Statement
-  def constructor(mutable node, cases as [SwitchCase] = [], default-case as Node = Noop())@
+  def constructor(mutable node = Noop(), cases as [SwitchCase] = [], default-case as Node = Noop())@
     if node not instanceof Expression
       node := to-const node
     @node := node
@@ -1567,10 +1723,27 @@ exports.Switch := class Switch extends Statement
       this
   
   def inspect(depth)
-    "Switch($(inspect @node, null, depth - 1), $(inspect @cases, null, depth - 1), $(inspect @default-case, null, depth - 1))"
+    let d = dec-depth depth
+    "Switch($(inspect @node, null, d), $(inspect @cases, null, d), $(inspect @default-case, null, d))"
+  
+  def to-JSON()
+    {
+      type: "Switch"
+      node: simplify(node)
+      cases: simplify(for case_ in @cases
+        { node: simplify(case_.node), body: simplify(case_.body) })
+      default-case: simplify(@default-case)
+    }
+  @from-JSON := #({node, cases, default-case})
+    let result-cases = []
+    for case_ in (cases or [])
+      if not case_ or typeof case_ != \object
+        throw Error "Expected an object with a node and body"
+      result-cases.push SwitchCase from-JSON(case_.node), from-JSON(case_.body)
+    Switch from-JSON(node), result-cases, from-JSON(default-case)
   
   Switch.Case := class SwitchCase
-    def constructor(mutable node, body as Node)@
+    def constructor(mutable node = Noop(), body as Node = Noop())@
       if node not instanceof Expression
         node := to-const node
       @node := node
@@ -1588,10 +1761,11 @@ exports.Switch := class Switch extends Statement
         this
     
     def inspect(depth)
-      "Case($(inspect @node, null, depth - 1), $(inspect @body, null, depth - 1))"
+      let d = dec-depth depth
+      "Case($(inspect @node, null, d), $(inspect @body, null, d))"
 
 exports.TryCatch := class TryCatch extends Statement
-  def constructor(try-body as Node, catch-ident as Ident, catch-body as Node)@
+  def constructor(try-body as Node = Noop(), catch-ident as Ident, catch-body as Node = Noop())@
     @try-body := try-body.maybe-to-statement()
     if @try-body.is-noop()
       return @try-body
@@ -1629,10 +1803,14 @@ exports.TryCatch := class TryCatch extends Statement
       this
   
   def inspect(depth)
-    "TryCatch($(inspect @try-body, null, depth - 1), $(inspect @catch-ident, null, depth - 1), $(inspect @catch-body, null, depth - 1))"
+    let d = dec-depth depth
+    "TryCatch($(inspect @try-body, null, d), $(inspect @catch-ident, null, d), $(inspect @catch-body, null, d))"
+  
+  def to-JSON() -> { type: "TryCatch", try-body: simplify(@try-body), @catch-ident, catch-body: simplify(@catch-body) }
+  @from-JSON := #({try-body, catch-ident, catch-body}) -> TryCatch from-JSON(try-body), from-JSON(catch-ident), from-JSON(catch-body)
 
 exports.TryFinally := class TryFinally extends Statement
-  def constructor(try-body as Node, finally-body as Node)@
+  def constructor(try-body as Node = Noop(), finally-body as Node = Noop())@
     @try-body := try-body.maybe-to-statement()
     @finally-body := finally-body.maybe-to-statement()
     if @try-body.is-noop()
@@ -1680,10 +1858,14 @@ exports.TryFinally := class TryFinally extends Statement
       this
   
   def inspect(depth)
-    "Root($(inspect @try-body, null, depth - 1), $(inspect @finally-body, null, depth - 1))"
+    let d = dec-depth depth
+    "Root($(inspect @try-body, null, d), $(inspect @finally-body, null, d))"
+  
+  def to-JSON() -> { type: "TryFinally", try-body: simplify(@try-body), finally-body: simplify(@finally-body) }
+  @from-JSON := #({try-body, finally-body}) -> TryFinally from-JSON(try-body), from-JSON(finally-body)
 
 exports.Unary := class Unary extends Expression
-  def constructor(op as String, mutable node)@
+  def constructor(op as String, mutable node = Noop())@
     if op not in KNOWN_OPERATORS
       throw Error "Unknown unary operator: $op"
     
@@ -1747,8 +1929,38 @@ exports.Unary := class Unary extends Expression
     else
       this
   
-  def Unary(depth)
-    "Unary($(inspect @op, null, depth - 1), $(inspect @node, null, depth - 1))"
+  def inspect(depth)
+    let d = dec-depth depth
+    "Unary($(inspect @op, null, d), $(inspect @node, null, d))"
+  
+  def to-JSON() -> { type: "Unary", @op, node: simplify(@node) }
+  @from-JSON := #({op, node}) -> Unary op, from-JSON(node)
 
 let While = exports.While := #(test, body)
   For(null, test, null, body)
+
+let from-JSON = exports.from-JSON := #(obj)
+  if not obj?
+    return Noop()
+  
+  if typeof obj != \object
+    throw TypeError "Must provide an object to deserialize"
+  
+  if Array.isArray(obj)
+    throw TypeError "Not expecting an array"
+  
+  if typeof obj.type != \string
+    throw Error "Expected an object with a string 'type' key"
+  
+  if exports not ownskey obj.type
+    throw Error "Unknown node type: $(obj.type)"
+  
+  exports[obj.type].from-JSON(obj)
+
+let array-from-JSON(array)
+  if not array?
+    []
+  else if Array.isArray(array)
+    return for item in array; from-JSON(item)
+  else
+    throw Error "Expected an array, got $(typeof! array)"

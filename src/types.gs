@@ -1,3 +1,5 @@
+let {inspect} = require 'util'
+
 module.exports := class Type
   def constructor()@
     throw TypeError "Type should not be instantiated"
@@ -248,6 +250,8 @@ module.exports := class Type
         other.overlaps this
     
     def complement() -> ComplementType [this]
+    
+    def inspect() -> "SimpleType($(inspect @name))"
   @make := #(name) -> SimpleType(name)
   
   class ArrayType extends Type
@@ -318,6 +322,7 @@ module.exports := class Type
         other.overlaps this
 
     def complement() -> ComplementType [this]
+    def inspect(depth) -> "$(inspect @subtype, null, depth).array()"
   
   class UnionType extends Type
     def constructor(types as [Type])@
@@ -392,6 +397,7 @@ module.exports := class Type
         other.overlaps this
     
     def complement() -> ComplementType @types
+    def inspect(depth) -> "UnionType($(inspect @types, null, if depth? then depth - 1 else null))"
   
   class ComplementType extends Type
     def constructor(untypes as [Type])@
@@ -490,6 +496,8 @@ module.exports := class Type
         untypes[0]
       else
         make-union-type untypes
+    
+    def inspect(depth) -> "ComplementType($(inspect @types, null, if depth? then depth - 1 else null))"
   
   let any = @any := new class AnyType extends Type
     def constructor()@
@@ -511,6 +519,7 @@ module.exports := class Type
     def is-subset-of(other) -> this == other
     def overlaps(other) -> true
     def complement() -> none
+    def inspect() -> "AnyType()"
   
   let none = @none := new class NoneType extends Type
     def constructor()@
@@ -532,6 +541,7 @@ module.exports := class Type
     def is-subset-of(other) -> true
     def overlaps(other) -> false
     def complement() -> any
+    def inspect() -> "NoneType()"
   
   @undefined := @make "undefined"
   @null := @make "null"
@@ -539,6 +549,7 @@ module.exports := class Type
   @string := @make "String"
   @string-array := @string.array()
   @number := @make "Number"
+  @number-array := @number.array()
   @array := any.array()
   @args := @make "Arguments"
   @object := @make "Object"
