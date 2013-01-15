@@ -4481,6 +4481,8 @@ class State
     throw ParserError message, @data, @index, @line
   
   def enter-macro(name, func)
+    if not name
+      throw Error "Must provide a macro name"
     if @current-macro
       @error "Attempting to define a macro $name inside a macro $(@current-macro)"
     try
@@ -4727,6 +4729,7 @@ class State
             type: \call
             code: serialization
             options
+            name: @current-macro
           }
       }
     
@@ -4827,7 +4830,15 @@ class State
       @enter-macro name, #@
         handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params)), null, null, id
     
-    call: #-> throw Error "Not implemented"
+    call: #({code, name, id})
+      let mutable handler = Function(code)()
+      if typeof handler != \function
+        throw Error "Error deserializing function for macro $(name)"
+      handler := do inner = handler
+        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+      @enter-macro name, #@
+        handle-macro-syntax@ this, 0, \call, handler, InvocationArguments, null, null, id
+    
     define-syntax: #({code, params, options, id})
       if @macros.has-syntax(options.name)
         throw Error "Cannot override already-defined syntax: $(options.name)"
