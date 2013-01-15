@@ -100,7 +100,7 @@ asyncfor next, file, i in files
   let start-time = Date.now()
   let mutable end-time = void
   try
-    result := gorilla.eval code.to-string(), include-globals: true, no-prelude: no-prelude
+    result := gorilla.eval code.to-string(), filename: filename, include-globals: true, no-prelude: no-prelude
   catch e
     failure := true
     add-failure basename, e
