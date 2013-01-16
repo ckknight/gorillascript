@@ -93,6 +93,12 @@ let parse = exports.parse := #(source, options = {})
     let prelude = fetch-and-parse-prelude.sync()
     parser(source, prelude.macros, options)
 
+exports.get-reserved-words := #(options = {})
+  if options.no-prelude
+    parser.get-reserved-words()
+  else
+    parser.get-reserved-words(fetch-and-parse-prelude.sync().macros)
+
 let translate = exports.ast := #(source, options = {})
   let parsed = parse source, options
   translator(parsed.result, options).node

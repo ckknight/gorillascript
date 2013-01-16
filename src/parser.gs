@@ -2279,94 +2279,72 @@ define IdentifierNameConst = #(o)
 
 define IdentifierNameConstOrNumberLiteral = one-of! [IdentifierNameConst, NumberLiteral]
 
-define Identifier = do
-  let RESERVED = [
-    //\and
-    \as
-    \AST
-    \arguments
-    //\bitand
-    //\bitlshift
-    //\bitnot
-    //\bitor
-    //\bitrshift
-    //\biturshift
-    //\bitxor
-    \break
-    \case
-    \catch
-    \class
-    \const
-    \continue
-    \debugger
-    \default
-    \def
-    \delete
-    \do
-    \else
-    \enum
-    \eval
-    \export
-    \extends
-    \false
-    \finally
-    \for
-    \function
-    //\haskey
-    \if
-    \import
-    \Infinity
-    //\instanceofsome
-    \instanceof
-    \in
-    \let
-    //\log
-    \macro
-    //\max
-    //\min
-    \mutable
-    //\namespace
-    \NaN
-    \new
-    \not
-    \null
-    //\or
-    //\ownskey
-    \package
-    \private
-    \protected
-    \public
-    //\repeat
-    \return
-    \static
-    \super
-    \switch
-    \then
-    \this
-    \throw
-    \true
-    \try
-    \typeof
-    \undefined
-    //\unless
-    //\until
-    \var
-    \void
-    \while
-    \with
-    //\xor
-    \yield
-  ]
-  #(o)
-    let {index} = o
-    let clone = o.clone()
-    let result = Name clone
-    if not result or result in RESERVED or o.macros.has-operator result
-      o.fail "identifier"
-      false
-    else
-      o.update clone
-      o.ident index, result
+let RESERVED_IDENTS = [
+  \as
+  \AST
+  \arguments
+  \break
+  \case
+  \catch
+  \class
+  \const
+  \continue
+  \debugger
+  \default
+  \delete
+  \do
+  \else
+  \enum
+  \eval
+  \export
+  \extends
+  \false
+  \finally
+  \for
+  \function
+  \if
+  \import
+  \Infinity
+  \instanceof
+  \in
+  \let
+  \macro
+  \mutable
+  \NaN
+  \new
+  \not
+  \null
+  \package
+  \private
+  \protected
+  \public
+  \return
+  \static
+  \super
+  \switch
+  \then
+  \this
+  \throw
+  \true
+  \try
+  \typeof
+  \undefined
+  \var
+  \void
+  \while
+  \with
+  \yield
+]
+define Identifier = #(o)
+  let {index} = o
+  let clone = o.clone()
+  let result = Name clone
+  if not result or result in RESERVED_IDENTS or o.macros.has-macro-or-operator result
+    o.fail "identifier"
+    false
+  else
+    o.update clone
+    o.ident index, result
 
 define NotToken = word \not
 define MaybeNotToken = maybe! NotToken, true
@@ -2912,6 +2890,14 @@ define MacroName = with-space! sequential! [
   NotColon
 ]
 
+define MacroNames = sequential! [
+  [\head, MacroName]
+  [\tail, zero-or-more! sequential! [
+    Comma
+    [\this, MacroName]
+  ]]
+], #(x, o, i) -> [x.head, ...x.tail]
+
 define UseMacro = #(o)
   let clone = o.clone()
   let {macros} = clone
@@ -3033,9 +3019,9 @@ define MacroToken = word \macro
 define Macro = in-macro short-circuit! MacroToken, sequential! [
   MacroToken
   named "(identifier MacroBody)", #(o)
-    let name = MacroName o
-    if name
-      o.enter-macro name, #
+    let names = MacroNames o
+    if names
+      o.enter-macro names, #
         MacroBody o
     else
       false
@@ -3473,10 +3459,10 @@ define BasicInvocationOrAccess = sequential! [
         else
           let tmp-ids = []
           let mutable set-head = head
-          if head instanceof AccessNode and head.op == "." and not link.is-apply and not link.is-new
+          if head instanceof AccessNode and not link.is-apply and not link.is-new
             let {mutable parent, mutable child} = head
             let mutable set-parent = parent
-            let mutable set-parent = child
+            let mutable set-child = child
             if parent.cacheable
               let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type())
               tmp-ids.push tmp.id
@@ -4247,8 +4233,16 @@ class MacroHolder
     let by-id = @by-id
     by-id[id] := m
   
-  def has-operator(name)
-    @operator-names ownskey name
+  def has-macro-or-operator(name)
+    @by-name ownskey name or @operator-names ownskey name
+  
+  def get-macro-and-operator-names()
+    let names = []
+    for name of @by-name
+      names.push name
+    for name of @operator-names
+      names.push name
+    names
   
   def add-binary-operator(operators, m, options, macro-id)
     for op in operators
@@ -4474,13 +4468,13 @@ class State
   def error(message)!
     throw ParserError message, @data, @index, @line
   
-  def enter-macro(name, func)
-    if not name
+  def enter-macro(names, func)
+    if not names
       throw Error "Must provide a macro name"
     if @current-macro
-      @error "Attempting to define a macro $name inside a macro $(@current-macro)"
+      @error "Attempting to define a macro $(names.join ', ') inside a macro $(@current-macro)"
     try
-      @current-macro := name
+      @current-macro := names
       func()
     finally
       @current-macro := null
@@ -5951,3 +5945,11 @@ module.exports.deserialize-prelude := #(data as String)
     result: NothingNode(0, 0)
     macros
   }
+let unique(array)
+  let result = []
+  for item in array
+    if result.index-of(item) == -1
+      result.push item
+  result
+module.exports.get-reserved-words := #(macros)
+  unique [...RESERVED_IDENTS, ...macros?.get-macro-and-operator-names?()]

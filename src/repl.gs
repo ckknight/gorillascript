@@ -28,10 +28,126 @@ let non-context-globals = [
 for g in non-context-globals
   sandbox[g] := this[g]
 
-sandbox.global := (sandbox.root := (sandbox.GLOBAL := sandbox))
+sandbox.global := sandbox.root := sandbox.GLOBAL := sandbox
 sandbox._ := void
 
-let run(buffer)
+let unique(array)
+  let result = []
+  for item in array
+    if result.index-of(item) == -1
+      result.push item
+  result
+
+let get-all-property-names(obj)
+  let result = []
+  let mutable current = obj
+  while current?
+    result.push ...Object.get-own-property-names(current)
+    current := Object.get-prototype-of(current)
+  unique result
+
+let memoize(func)
+  let cache = {}
+  #(name)
+    if cache ownskey name
+      cache[name]
+    else
+      cache[name] := func(name)
+
+let to-js-ident = memoize #(name as String)
+  let parts = name.split "-"
+  for i in 1 til parts.length
+    let part = parts[i]
+    parts[i] := part.char-at(0).to-upper-case() & part.substring(1)
+  parts.join ""
+
+let to-gs-ident = memoize #(name as String)
+  if name.match(r'^[A-Z]') or not name.match(r'[A-Z]')
+    name
+  else if name == "isNaN"
+    "is-NaN"
+  else
+    let parts = name.split r'([A-Z]+)'
+    if parts.length == 1
+      parts[0]
+    else
+      let result = []
+      result.push parts[0]
+      for i in 1 til parts.length by 2
+        let upper = parts[i]
+        let lower = parts[i + 1]
+        if lower.length > 0
+          if upper.length > 1
+            result.push upper.substring(0, upper.length - 1)
+          result.push upper.char-at(upper.length - 1).to-lower-case() & lower
+        else if upper.length > 0
+          result.push upper
+      result.join "-"
+
+let array-to-gs-idents(names as Array)
+  return for name in names; to-gs-ident name
+
+let auto-complete(text) -> complete-attribute(text) or complete-variable(text) or [[], text]
+
+let complete-segment(prefix, possibilities)
+  let completions = unique(get-completions prefix, array-to-gs-idents(possibilities)).sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
+  [completions, prefix]
+
+let complete-attribute(text)
+  let match = text.match r'\s*([\w\-\.]+)(?:\.([\w\-]*))$'
+  if match
+    let [all, obj, prefix] = match
+    let val = try
+      vm.Script.run-in-context to-js-ident(obj), sandbox
+    catch err
+      return
+    complete-segment prefix, get-all-property-names(val)
+
+let complete-variable(text)
+  let free = (text.match r'\s*([\w\-]*)$')?[1]
+  if free
+    let global-this = try
+      vm.Script.run-in-context 'this', sandbox
+    catch err
+      void
+    complete-segment free, [...get-all-property-names(global-this), ...get-all-property-names(sandbox), ...gorilla.get-reserved-words()]
+
+let starts-with(source, check)
+  let check-length = check.length
+  if source.length < check-length
+    false
+  else if check-length == 0
+    true
+  else
+    source.last-index-of(check, 0) == 0
+
+let get-completions(prefix, candidates)
+  return for e in candidates
+    if starts-with(e, prefix)
+      e
+
+process.on \uncaught-exception, error
+
+let repl = if readline.create-interface.length < 3
+  stdin.on \data, #(buffer) -> repl.write buffer
+  readline.create-interface stdin, auto-complete
+else
+  readline.create-interface stdin, stdout, auto-complete
+
+repl.on \attempt-close, #
+  if backlog
+    backlog := ''
+    process.stdout.write '\n'
+    repl.set-prompt REPL_PROMPT
+    repl.prompt()
+  else
+    repl.close()
+
+repl.on \close, #
+  process.stdout.write '\n'
+  stdin.destroy()
+
+repl.on \line, #(buffer)
   if not buffer.to-string().trim() and not backlog
     repl.prompt()
     return
@@ -42,7 +158,7 @@ let run(buffer)
     repl.prompt()
     return
   repl.set-prompt REPL_PROMPT
-  
+
   let code = backlog
   backlog := ""
   try
@@ -57,71 +173,6 @@ let run(buffer)
   catch err
     error err
   repl.prompt()
-
-let ACCESSOR  = r'\s*([\w\.]+)(?:\.(\w*))$'
-let SIMPLEVAR = r'\s*(\w*)$'
-
-let autocomplete(text) -> complete-attribute(text) or complete-variable(text) or [[], text]
-
-let complete-attribute(text)
-  let match = text.match ACCESSOR
-  if match
-    let [all, obj, prefix] = match
-    let val = try
-      vm.Script.run-in-context obj, sandbox
-    catch err
-      return
-    let completions = get-completions prefix, Object.get-own-property-names(val)
-    [completions, prefix]
-
-let complete-variable(text)
-  let free = (text.match SIMPLEVAR)?[1]
-  if free
-    let vars = vm.Script.run-in-context 'Object.getOwnPropertyNames(this)', sandbox
-    let possibilities = [...vars, ...gorilla.RESERVED]
-    let completions = get-completions free, possibilities
-    [completions, free]
-
-let starts-with(source, check)
-  let check-length = check.length
-  if source.length < check-length
-    false
-  else if check-length == 0
-    true
-  else if source.char-code-at(0) != check.char-code-at(0)
-    false
-  else if source.char-code-at(check-length - 1) != check.char-code-at(check-length - 1)
-    false
-  else
-    source.substring(0, check-length) == check
-
-let get-completions(prefix, candidates)
-  return for e in candidates
-    if starts-with(e, prefix)
-      e
-
-process.on 'uncaughtException', error
-
-let repl = if readline.create-interface.length < 3
-  stdin.on 'data', #(buffer) -> repl.write buffer
-  readline.create-interface stdin, autocomplete
-else
-  readline.create-interface stdin, stdout, autocomplete
-
-repl.on 'attemptClose', #
-  if backlog
-    backlog := ''
-    process.stdout.write '\n'
-    repl.set-prompt REPL_PROMPT
-    repl.prompt()
-  else
-    repl.close()
-
-repl.on 'close', #
-  process.stdout.write '\n'
-  stdin.destroy()
-
-repl.on 'line', run
 
 repl.set-prompt REPL_PROMPT
 repl.prompt()

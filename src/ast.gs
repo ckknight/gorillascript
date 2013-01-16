@@ -99,7 +99,7 @@ let to-JS-source-types = {
       JSON.stringify value
 }
 let to-JS-source(value)
-  let f = to-JS-source-types[typeof value]
+  let f = to-JS-source-types![typeof value]
   unless f
     throw TypeError "Cannot compile const $(typeof! value)"
   f value
