@@ -283,7 +283,7 @@ class GeneratorBuilder
             ast.Switch.Case i, ast.Block [
               ...(for item in state; item())
               ast.Break()
-            ]), ast.Throw ast.Call ast.Ident \Error
+            ]), ast.Throw ast.Call ast.Ident(\Error), [ast.Concat("Unknown state: ", state-ident)]
           err
           do
             let mutable current = ast.Block [
@@ -304,13 +304,6 @@ class GeneratorBuilder
             current))
     ]
     ast.Block body
-
-let wrap-in-function-call(node)
-  // TODO: the translator shouldn't be making parser.Nodes
-  
-  parser.Node.Call(node.start-index, node.end-index
-    parser.Node.Function node.start-index, node.end-index, [], node, true, true
-    [])
 
 let flatten-spread-array(elements)
   let result = []
@@ -1369,12 +1362,8 @@ let translators = {
         ast.This()
 
   Throw: #(node, scope, location)
-    // TODO: the expression handling _should_ be handled through the operator in prelude.gs
-    if location == \expression
-      translate wrap-in-function-call(node), scope, \expression
-    else
-      let t-node = translate node.node, scope, \expression
-      #-> ast.Throw t-node()
+    let t-node = translate node.node, scope, \expression
+    #-> ast.Throw t-node()
 
   TryCatch: #(node, scope, location, auto-return)
     let t-try-body = translate node.try-body, scope, \statement, auto-return

@@ -664,9 +664,9 @@ let make-alter-stack(stack, value)
         stack.pop()
       result
 
-let _statement = Stack true
-let in-statement = make-alter-stack _statement, true
-let in-expression = make-alter-stack _statement, false
+let _position = Stack \statement
+let in-statement = make-alter-stack _position, \statement
+let in-expression = make-alter-stack _position, \expression
 
 let _in-macro = Stack false
 let in-macro = make-alter-stack _in-macro, true
@@ -2871,8 +2871,25 @@ define FunctionLiteral = short-circuit! HashSign, sequential! [
   [\this, FunctionDeclaration]
 ]
 
+define ExpressionOrAssignment = oneOf! [
+  in-expression #(o) -> Assignment(o)
+  Expression
+]
+
 define AstToken = word \AST
-define Ast = short-circuit! AstToken, sequential! [
+define AstExpressionToken = word \ASTE
+define AstExpression = short-circuit! AstExpressionToken, sequential! [
+  #(o)
+    if not _in-macro.peek()
+      o.error "Can only use AST inside a macro"
+    else if _in-ast.peek()
+      o.error "Cannot use AST inside an AST"
+    else
+      true
+  AstExpressionToken
+  [\this, in-ast ExpressionOrAssignment]
+]
+define AstStatement = short-circuit! AstToken, sequential! [
   #(o)
     if not _in-macro.peek()
       o.error "Can only use AST inside a macro"
@@ -2882,6 +2899,10 @@ define Ast = short-circuit! AstToken, sequential! [
       true
   AstToken
   [\this, in-ast BodyOrStatementOrNothing]
+]
+define Ast = oneOf! [
+  AstExpression
+  AstStatement
 ], #(x, o, i) -> MacroHelper.constify-object x, i, o.index
 
 define Debugger = word \debugger, #(x, o, i) -> o.debugger i
@@ -3185,16 +3206,11 @@ define ColonEqual = sequential! [
   character! "="
 ], ":="
 
-define ExpressionOrAssignment = oneOf! [
-  Assignment
-  Expression
-]
-
 define DirectAssignment = sequential! [
   [\left, ComplexAssignable]
   ColonEqual
   [\right, ExpressionOrAssignment]
-], #(x, o, i) -> o.assign i, x.left, "=", x.right
+], #(x, o, i) -> o.assign i, x.left, "=", x.right.do-wrap()
 
 define CustomAssignment = #(o)
   let start-index = o.index
@@ -3705,7 +3721,7 @@ define Return = short-circuit! ReturnToken, sequential! [
 ], #(x, o, i)
   if _in-generator.peek() and x.node not instanceof NothingNode
     o.error("Cannot use a valued return statement in a generator function")
-  o.return i, x.node, x.existential == "?"
+  o.return i, x.node.do-wrap(), x.existential == "?"
 
 define YieldToken = word \yield
 define Yield = short-circuit! YieldToken, sequential! [
@@ -3717,7 +3733,7 @@ define Yield = short-circuit! YieldToken, sequential! [
       true
   [\multiple, maybe! Asterix, NOTHING]
   [\node, Expression]
-], #(x, o, i) -> o.yield i, x.node, x.multiple != NOTHING
+], #(x, o, i) -> o.yield i, x.node.do-wrap(), x.multiple != NOTHING
 
 define Break = word \break, #(x, o, i) -> o.break i
 
@@ -3819,27 +3835,33 @@ class FailureManager
       @messages.push message
 
 class MacroHelper
-  def constructor(state as State, index, expr)@
+  def constructor(state as State, index, position)@
     @unsaved-tmps := []
     @saved-tmps := []
     @state := state
     @index := index
-    @expr := expr
+    @position := position
+  
+  let do-wrap(node)
+    if node instanceof Node
+      node.do-wrap()
+    else
+      node
   
   def var(ident as (IdentNode|TmpNode), is-mutable as Boolean) -> @state.var @index, ident, is-mutable
-  def def(key as Node, value as (Node|void)) -> @state.def @index, key, value
+  def def(key as Node, value as (Node|void)) -> @state.def @index, key, do-wrap(value)
   def noop() -> @state.nothing @index
   def block(nodes as [Node]) -> @state.block(@index, nodes).reduce()
-  def if(test as Node, when-true as Node, when-false as (Node|null)) -> @state.if(@index, test, when-true, when-false).reduce()
-  def switch(node as Node, cases as Array, default-case as (Node|null)) -> @state.switch(@index, node, cases, default-case).reduce()
-  def for(init as (Node|null), test as (Node|null), step as (Node|null), body as Node) -> @state.for(@index, init, test, step, body).reduce()
-  def for-in(key as IdentNode, object as Node, body as Node) -> @state.for-in(@index, key, object, body).reduce()
+  def if(test as Node, when-true as Node, when-false as (Node|null)) -> @state.if(@index, do-wrap(test), when-true, when-false).reduce()
+  def switch(node as Node, cases as Array, default-case as (Node|null)) -> @state.switch(@index, do-wrap(node), (for case_ in cases; {node: do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce()
+  def for(init as (Node|null), test as (Node|null), step as (Node|null), body as Node) -> @state.for(@index, do-wrap(init), do-wrap(test), do-wrap(step), body).reduce()
+  def for-in(key as IdentNode, object as Node, body as Node) -> @state.for-in(@index, key, do-wrap(object), body).reduce()
   def try-catch(try-body as Node, catch-ident as Node, catch-body as Node) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce()
   def try-finally(try-body as Node, finally-body as Node) -> @state.try-finally(@index, try-body, finally-body).reduce()
-  def assign(left as Node, op as String, right as Node) -> @state.assign(@index, left, op, right).reduce()
-  def binary(left as Node, op as String, right as Node) -> @state.binary(@index, left, op, right).reduce()
-  def unary(op as String, node as Node) -> @state.unary(@index, op, node).reduce()
-  def throw(node as Node) -> @state.throw(@index, node).reduce()
+  def assign(left as Node, op as String, right as Node) -> @state.assign(@index, left, op, do-wrap(right)).reduce()
+  def binary(left as Node, op as String, right as Node) -> @state.binary(@index, do-wrap(left), op, do-wrap(right)).reduce()
+  def unary(op as String, node as Node) -> @state.unary(@index, op, do-wrap(node)).reduce()
+  def throw(node as Node) -> @state.throw(@index, do-wrap(node)).reduce()
   
   def tmp(name as String = \ref, save as Boolean, mutable type)
     let id = get-tmp-id()
@@ -3908,11 +3930,11 @@ class MacroHelper
     else
       false
   
-  def call(func as Node, args as [Node], is-new as Boolean = false, is-apply as Boolean = false)
+  def call(func as Node, args as [Node] = [], is-new as Boolean = false, is-apply as Boolean = false)
     if is-new and is-apply
       throw Error "Cannot specify both is-new and is-apply"
     
-    @state.call(func.start-index, func, args, is-new, is-apply).reduce()
+    @state.call(func.start-index, do-wrap(func), (for arg in args; do-wrap(arg)), is-new, is-apply).reduce()
   
   def func(params, body, auto-return = true, bound = false)
     @state.function(0, params, body, auto-return, bound).reduce()
@@ -3942,8 +3964,8 @@ class MacroHelper
   def is-block(node) -> node instanceof BlockNode
   def nodes(node) -> if @is-block node then node.nodes
   
-  def array(elements)
-    @state.array(0, elements).reduce()
+  def array(elements as [Node])
+    @state.array(0, (for element in elements; do-wrap(element))).reduce()
   def object(pairs as Array)
     for pair, i in pairs
       if not pair or typeof pair != \object
@@ -3952,7 +3974,7 @@ class MacroHelper
         throw Error "Expected an object with Node 'key' at index #$i, got $(typeof! pair.key)"
       else if pair.value not instanceof Node
         throw Error "Expected an object with Node 'value' at index #$i, got $(typeof! pair.value)"
-    @state.object(0, pairs).reduce()
+    @state.object(0, (for {key, value} in pairs; {key: do-wrap(key), value: do-wrap(value)})).reduce()
   
   def is-complex(node)
     node? and node not instanceofsome [ConstNode, IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
@@ -4029,6 +4051,7 @@ class MacroHelper
         [
           ConstNode obj.start-index, obj.end-index, obj.id
           constify-object obj.data, obj.start-index, obj.end-index
+          ConstNode obj.start-index, obj.end-index, obj.position
         ])
     else if obj instanceof Node
       if obj.constructor == Node
@@ -4113,6 +4136,8 @@ class MacroHelper
       return true
     false
   
+  def is-statement(node) -> node instanceof Node and node.is-statement()
+  
   def is-type(node, name as String)
     let type = Type![name]
     if not type? or type not instanceof Type
@@ -4194,6 +4219,7 @@ class MacroHolder
       Logic
       Expression
       Assignment
+      ExpressionOrAssignment
       FunctionDeclaration
       Statement
       Body
@@ -4357,6 +4383,12 @@ class Node
         @_reduced := reduced._reduced ?= reduced
   def is-const() -> false
   def const-value() -> throw Error("Not a const: $(typeof! node)")
+  def is-statement() -> false
+  def do-wrap()
+    if @is-statement()
+      CallNode(@start-index, @end-index, FunctionNode(@start-index, @end-index, [], this, true, true), [])
+    else
+      this
 
 macro node-type!
   syntax name as Expression, args as (",", this as Parameter)*, methods as (",", this as ObjectLiteral)?
@@ -4891,7 +4923,7 @@ class State
     let macros = @macros
     let mutator = #(x, o, i)
       if _in-ast.peek()
-        o.macro-access i, macro-id, x
+        o.macro-access i, macro-id, x, _position.peek()
       else
         throw Error "Cannot use macro until fully defined"
     let m = macros.get-or-add-by-name @current-macro
@@ -4905,11 +4937,15 @@ class State
     
     let mutator = #(x, o, i)
       if _in-ast.peek()
-        o.macro-access i, macro-id, x
+        o.macro-access i, macro-id, x, _position.peek()
       else
-        let macro-helper = MacroHelper o, i, not _statement.peek()
-        let mutable result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data)
-          macros.get-by-id(id)(data, o, i)
+        let macro-helper = MacroHelper o, i, _position.peek()
+        let mutable result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data, position)
+          _position.push position
+          try
+            macros.get-by-id(id)(data, o, i)
+          finally
+            _position.pop()
         if result instanceof Node
           result := result.reduce()
           let tmps = macro-helper.get-tmps()
@@ -5233,8 +5269,11 @@ node-type! \block, nodes as [Node], {
         BlockNode @start-index, @end-index, body
       else
         this
+  is-statement: # -> for some node in @nodes; node.is-statement()
 }
-node-type! \break
+node-type! \break, {
+  is-statement: # -> true
+}
 node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as Boolean, {
   type: do
     let PRIMORDIAL_FUNCTIONS = {
@@ -5551,8 +5590,12 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
   is-const: #-> true
   const-value: #-> @value
 }
-node-type! \continue
-node-type! \debugger
+node-type! \continue, {
+  is-statement: #-> true
+}
+node-type! \debugger, {
+  is-statement: #-> true
+}
 node-type! \def, left as Node, right as (Node|void), {
   walk: #(func)
     let left = func @left
@@ -5563,8 +5606,12 @@ node-type! \def, left as Node, right as (Node|void), {
       this
 }
 node-type! \eval, code as Node
-node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node
-node-type! \for-in, key as Node, object as Node, body as Node
+node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node, {
+  is-statement: #-> true
+}
+node-type! \for-in, key as Node, object as Node, body as Node, {
+  is-statement: #-> true
+}
 node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), generator as Boolean, {
   type: # -> Type.function
   walk: #(func)
@@ -5592,8 +5639,16 @@ node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNod
         when-false
     else
       IfNode @start-index, @end-index, test, when-true, when-false
+  is-statement: #-> @_is-statement ?= @when-true.is-statement() or @when-false.is-statement()
+  do-wrap: #
+    let when-true = @when-true.do-wrap()
+    let when-false = @when-false.do-wrap()
+    if when-true != @when-true or when-false != @when-false
+      IfNode @start-index, @end-index, @test, when-true, when-false
+    else
+      this
 }
-node-type! \macro-access, id as Number, data as Object
+node-type! \macro-access, id as Number, data as Object, position as String
 node-type! \nothing, {
   type: # -> Type.undefined
   cacheable: false
@@ -5641,8 +5696,11 @@ node-type! \regexp, text as Node, flags as String, {
 }
 node-type! \return, node as Node = ConstNode(0, 0, void), existential as Boolean, {
   type: # -> @node.type()
+  is-statement: #-> true
 }
-node-type! \root, body as Node
+node-type! \root, body as Node, {
+  is-statement: #-> true
+}
 node-type! \spread, node as Node
 node-type! \string, parts as [Node], {
   type: # -> Type.string
@@ -5701,6 +5759,7 @@ node-type! \switch, node as Node, cases as Array, default-case as (Node|void), {
       SwitchNode @start-index, @end-index, node, cases, default-case
     else
       this
+  is-statement: #-> true
 }
 node-type! \syntax-choice, choices as [Node]
 node-type! \syntax-many, inner as Node, multiplier as String
@@ -5719,6 +5778,7 @@ node-type! \this, {
 }
 node-type! \throw, node as Node, {
   type: # -> Type.none
+  is-statement: #-> true
 }
 node-type! \tmp, id as Number, name as String, _type as Type = Type.any, {
   cacheable: false
@@ -5726,6 +5786,7 @@ node-type! \tmp, id as Number, name as String, _type as Type = Type.any, {
 }
 node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node, {
   type: # -> @_type ?= @try-body.type().union(@catch-body.type())
+  is-statement: #-> true
 }
 node-type! \try-finally, try-body as Node, finally-body as Node, {
   type: # -> @try-body.type()
@@ -5740,6 +5801,7 @@ node-type! \try-finally, try-body as Node, finally-body as Node, {
       TryFinallyNode @start-index, @end-index, try-body, finally-body
     else
       this
+  is-statement: #-> true
 }
 node-type! \type-array, subtype as Node
 node-type! \type-union, types as [Node]
@@ -5828,9 +5890,12 @@ node-type! \tmp-wrapper, node as Node, tmps as Array, {
       TmpWrapperNode @start-index, @end-index, node, @tmps
     else
       this
+  is-statement: #-> @node.is-statement()
 }
 node-type! \var, ident as (IdentNode|TmpNode), is-mutable as Boolean
-node-type! \yield, node as Node, multiple as Boolean
+node-type! \yield, node as Node, multiple as Boolean, {
+  is-statement: #-> true
+}
 
 let without-repeats(array)
   let result = []

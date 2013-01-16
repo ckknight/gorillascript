@@ -1,8 +1,10 @@
 test "debugger as statement", #
-  let x = false
-  if x
-    debugger
+  let f(x)
+    if x
+      debugger
+  f(false)
 
 test "debugger as expression", #
-  let x = false
-  x and debugger
+  let f(x)
+    x and debugger
+  f(false)

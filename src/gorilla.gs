@@ -80,11 +80,12 @@ let fetch-and-parse-prelude = do
           throw? err
       parsed-prelude
   f
+/*
 set-timeout (#
   async err <- fetch-and-parse-prelude()
   if err
     throw err), 1
-
+*/
 let parse = exports.parse := #(source, options = {})
   if options.no-prelude
     parser(source, null, options)

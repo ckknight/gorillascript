@@ -12,22 +12,26 @@ cli.set-app "gorilla", "1.0"
 cli.set-usage "gorilla [OPTIONS] path/to/script.gs"
 
 cli.parse {
-  compile:     ["c", "Compile to JavaScript and save as .js files"]
-  output:      ["o", "Set the directory for compiled JavaScript", "path"]
-  interactive: ["i", "Run interactively with the REPL"]
-  stdout:      ["p", "Print the compiled JavaScript to stdout"]
-  stdin:       ["s", "Listen for and compile GorillaScript from stdin"]
-  eval:        ["e", "Compile and run a string from command line", "string"]
-  noprelude:   [false, "Do not include the standard prelude"]
+  compile:      ["c", "Compile to JavaScript and save as .js files"]
+  output:       ["o", "Set the directory for compiled JavaScript", "path"]
+  interactive:  ["i", "Run interactively with the REPL"]
+  stdout:       ["p", "Print the compiled JavaScript to stdout"]
+  stdin:        ["s", "Listen for and compile GorillaScript from stdin"]
+  eval:         ["e", "Compile and run a string from command line", "string"]
+  "no-prelude": [false, "Do not include the standard prelude"]
 }
 
 cli.main #(filenames, options)
-  gorilla.init()
+  let opts = {}
+  if options["no-prelude"]
+    opts.no-prelude := true
+  else
+    gorilla.init()
   let handle-code(code)
     let result = if options.stdout
-      gorilla.compile code
+      gorilla.compile code, opts
     else
-      util.inspect gorilla.eval code
+      util.inspect gorilla.eval code, opts
     process.stdout.write "$result\n"
   if options.eval?
     handle-code String(options.eval)
@@ -48,14 +52,16 @@ cli.main #(filenames, options)
       if options.compile
         process.stdout.write "Compiling $(path.basename filename) ... "
         let start-time = Date.now()
-        let js-code = gorilla.compile code
+        let js-code = gorilla.compile code, opts
         let end-time = Date.now()
         process.stdout.write "$(((end-time - start-time) / 1000_ms).toFixed(3)) seconds\n"
         compiled[filename] := js-code
       else if options.stdout
-        process.stdout.write gorilla.compile(code) & "\n"
+        process.stdout.write gorilla.compile(code, opts) & "\n"
       else
-        gorilla.run code, { filename }
+        opts.filename := filename
+        gorilla.run code, opts
+        opts.filename := null
     
     if options.compile
       asyncfor(0) next, filename in filenames

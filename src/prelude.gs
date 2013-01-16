@@ -1,6 +1,6 @@
 macro do
   syntax body as (Body | (";", this as Statement))
-    AST (#@ -> $body)()
+    ASTE (#@ -> $body)()
 
 define operator binary and with precedence: 0
   @binary left, "&&", right
@@ -18,13 +18,13 @@ define operator binary == with precedence: 1, maximum: 1
   @binary left, "===", right
 
 define operator binary != with precedence: 1, maximum: 1
-  AST not ($left == $right)
+  ASTE not ($left == $right)
 
 define operator binary ~= with precedence: 1, maximum: 1
   @binary left, "==", right
 
 define operator binary !~= with precedence: 1, maximum: 1
-  AST not ($left ~= $right)
+  ASTE not ($left ~= $right)
 
 define operator binary ~<, ~<= with precedence: 1, maximum: 1
   // avoiding if statement for now
@@ -32,7 +32,7 @@ define operator binary ~<, ~<= with precedence: 1, maximum: 1
 
 define operator binary ~>, ~>= with precedence: 1, maximum: 1
   // avoiding if statement for now
-  (op == "~>" and AST not ($left ~<= $right)) or AST not ($left ~< $right)
+  (op == "~>" and ASTE not ($left ~<= $right)) or ASTE not ($left ~< $right)
 
 define operator unary throw
   @throw node
@@ -56,7 +56,7 @@ macro if
   syntax test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     let dec(x) -> eval "x - 1"
     let f(i, current)@
-      if i ~>= 0 then f(dec(i), @if((if else-ifs[i].type == "unless" then (AST not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
+      if i ~>= 0 then f(dec(i), @if((if else-ifs[i].type == "unless" then (ASTE not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
     @if(test, body, f(dec(else-ifs.length), else-body))
 
 define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier
@@ -91,7 +91,7 @@ define syntax DeclarableObject = "{", head as DeclarableObjectPair, tail as (","
 define syntax Declarable = this as (DeclarableArray | DeclarableObject | DeclarableIdent)
 
 macro let
-  syntax declarable as Declarable, "=", value as (Assignment | Expression)
+  syntax declarable as Declarable, "=", value as ExpressionOrAssignment
     let inc(x) -> eval("x + 1")
     if declarable.type == \ident
       @block [
@@ -135,28 +135,32 @@ macro let
 
 define operator assign and=
   @maybe-cache-access left, #(set-left, left)@
-    if @expr or true // FIXME
-      AST $set-left and ($left := $right)
+    if @position == \expression
+      ASTE $set-left and ($left := $right)
     else
       AST if $set-left
         $left := $right
+      else
+        $left
 
 define operator assign or=
   @maybe-cache-access left, #(set-left, left)@
-    if @expr or true // FIXME
-      AST $set-left or ($left := $right)
+    if @position == \expression
+      ASTE $set-left or ($left := $right)
     else
       AST if not $set-left
         $left := $right
+      else
+        $left
 
 define operator unary ? with postfix: true
   // TODO: support when node is not in-scope and thus should be typeof node != "undefined" and node != null
-  AST $node !~= null
+  ASTE $node !~= null
 
 // let's define the unstrict operators first
 define operator binary ~*, ~/, ~%, ~\ with precedence: 8
   if op == "~\\"
-    AST Math.floor $(@binary left, "/", right)
+    ASTE Math.floor $(@binary left, "/", right)
   else if op == "~*"
     @binary left, "*", right
   else if op == "~/"
@@ -174,7 +178,7 @@ define operator assign ~*=, ~/=, ~%=
 
 define operator assign ~\=
   @maybe-cache-access left, #(set-left, left)
-    AST $set-left := $left ~\ $right
+    ASTE $set-left := $left ~\ $right
 
 define operator binary ~+, ~- with precedence: 7
   if op == "~+"
@@ -203,20 +207,20 @@ define operator binary ~^ with precedence: 9, right-to-left: true
   if @is-const(right)
     let value = @value(right)
     if value == 0.5
-      return AST Math.sqrt $left
+      return ASTE Math.sqrt $left
     else if value == 1
-      return AST ~+$left
+      return ASTE ~+$left
     else if value == 2
       return @maybe-cache left, #(set-left, left)
-        AST $set-left ~* $left
+        ASTE $set-left ~* $left
     else if value == 3
       return @maybe-cache left, #(set-left, left)
-        AST $set-left ~* $left ~* $left
-  AST Math.pow $left, $right
+        ASTE $set-left ~* $left ~* $left
+  ASTE Math.pow $left, $right
 
 define operator assign ~^=
   @maybe-cache-access left, #(set-left, left)
-    AST $set-left := $left ~^ $right
+    ASTE $set-left := $left ~^ $right
 
 define operator assign ~+=
   if @is-const(right)
@@ -267,7 +271,7 @@ define operator binary ~& with precedence: 4
 
 define operator assign ~&=
   if @has-type(right, \number)
-    right := AST "" ~& right
+    right := ASTE "" ~& right
   @assign left, "+=", right
 
 define helper __num = #(num) as Number
@@ -297,60 +301,60 @@ define operator unary +
   if @is-type node, \number
     node
   else
-    AST __num($node)
+    ASTE __num($node)
 
 define operator unary -
   if @is-const(node) and typeof @value(node) == \number
     @const(~-@value(node))
   else
-    AST ~-(+$node)
+    ASTE ~-(+$node)
 
 define operator binary ^ with precedence: 9, right-to-left: true
-  AST +$left ~^ +$right
+  ASTE +$left ~^ +$right
 
 define operator assign ^=
   @maybe-cache-access left, #(set-left, left)@
-    AST $set-left := $left ^ $right
+    ASTE $set-left := $left ^ $right
 
 define operator binary *, /, %, \ with precedence: 8
   if op == "*"
-    AST +$left ~* +$right
+    ASTE +$left ~* +$right
   else if op == "/"
-    AST +$left ~/ +$right
+    ASTE +$left ~/ +$right
   else if op == "%"
-    AST +$left ~% +$right
+    ASTE +$left ~% +$right
   else
-    AST +$left ~\ +$right
+    ASTE +$left ~\ +$right
 
 define operator binary +, - with precedence: 7
   if op == "+"
-    AST +$left ~+ +$right
+    ASTE +$left ~+ +$right
   else
-    AST +$left ~- +$right
+    ASTE +$left ~- +$right
 
 define operator binary bitlshift, bitrshift, biturshift with precedence: 6, maximum: 1
   if op == "bitlshift"
-    AST +$left ~bitlshift +$right
+    ASTE +$left ~bitlshift +$right
   else if op == "bitrshift"
-    AST +$left ~bitrshift +$right
+    ASTE +$left ~bitrshift +$right
   else
-    AST +$left ~biturshift +$right
+    ASTE +$left ~biturshift +$right
 
 define operator assign \=
   @maybe-cache-access left, #(set-left, left)@
-    AST $set-left := $left \ $right
+    ASTE $set-left := $left \ $right
 
 define operator binary & with precedence: 4
   if not @is-type left, \string
-    left := AST __strnum $left
+    left := ASTE __strnum $left
   if not @is-type right, \string
-    right := AST __strnum $right
-  AST $left ~& $right
+    right := ASTE __strnum $right
+  ASTE $left ~& $right
 
 define operator assign &=
   // TODO: if left is proven to be a string, use raw operators instead
   @maybe-cache-access left, #(set-left, left)@
-    AST $set-left := $left & $right
+    ASTE $set-left := $left & $right
 
 define helper __in = do
   let index-of = Array.prototype.index-of
@@ -365,19 +369,19 @@ define operator binary in with precedence: 3, maximum: 1, invertible: true
           $left
           false
       else
-        AST false
+        ASTE false
     else if elements.length == 1
-      AST $left == $(elements[0])
+      ASTE $left == $(elements[0])
     else
       let f(i, current, left)
         if i ~< elements.length
-          f(i ~+ 1, AST $current or $left == $(elements[i]), left)
+          f(i ~+ 1, ASTE $current or $left == $(elements[i]), left)
         else
           current
       @maybe-cache left, #(set-left, left)
-        f(1, AST $set-left == $(elements[0]), left)
+        f(1, ASTE $set-left == $(elements[0]), left)
   else
-    AST __in($left, $right)
+    ASTE __in($left, $right)
 
 define operator binary haskey with precedence: 3, maximum: 1, invertible: true
   @binary right, \in, left
@@ -387,7 +391,7 @@ define helper __owns = do
   #(parent, child) as Boolean -> has@(parent, child)
 
 define operator binary ownskey with precedence: 3, maximum: 1, invertible: true
-  AST __owns($left, $right)
+  ASTE __owns($left, $right)
 
 define operator binary instanceof with precedence: 3, maximum: 1, invertible: true
   @binary left, \instanceof, right
@@ -407,13 +411,13 @@ define helper __cmp = #(left, right) as Number
       1
 
 define operator binary <=> with precedence: 2, maximum: 1
-  AST __cmp($left, $right)
+  ASTE __cmp($left, $right)
 
 define operator binary %% with precedence: 1, maximum: 1, invertible: true
-  AST $left % $right == 0
+  ASTE $left % $right == 0
 
 define operator binary ~%% with precedence: 1, maximum: 1, invertible: true
-  AST $left ~% $right == 0
+  ASTE $left ~% $right == 0
 
 define helper __lt = #(x, y) as Boolean
   let type = typeof x
@@ -437,97 +441,99 @@ define operator binary <, <= with precedence: 1, maximum: 1
   if @is-type left, \number
     if @is-type right, \number
       if op == "<"
-        AST $left ~< $right
+        ASTE $left ~< $right
       else
-        AST $left ~<= $right
+        ASTE $left ~<= $right
     else
       if op == "<"
-        AST $left ~< __num($right)
+        ASTE $left ~< __num($right)
       else
-        AST $left ~<= __num($right)
+        ASTE $left ~<= __num($right)
   else if @is-type left, \string
     if @is-type right, \string
       if op == "<"
-        AST $left ~< $right
+        ASTE $left ~< $right
       else
-        AST $left ~<= $right
+        ASTE $left ~<= $right
     else
       if op == "<"
-        AST $left ~< __str($right)
+        ASTE $left ~< __str($right)
       else
-        AST $left ~<= __str($right)
+        ASTE $left ~<= __str($right)
   else if @is-type right, \number
     if op == "<"
-      AST __num($left) ~< $right
+      ASTE __num($left) ~< $right
     else
-      AST __num($left) ~<= $right
+      ASTE __num($left) ~<= $right
   else if @is-type right, \string
     if op == "<"
-      AST __str($left) ~< $right
+      ASTE __str($left) ~< $right
     else
-      AST __str($left) ~<= $right
+      ASTE __str($left) ~<= $right
   else if op == "<"
-    AST __lt($left, $right)
+    ASTE __lt($left, $right)
   else
-    AST __lte($left, $right)
+    ASTE __lte($left, $right)
 
 define operator binary >, >= with precedence: 1, maximum: 1
   if op == ">"
-    AST not ($left <= $right)
+    ASTE not ($left <= $right)
   else
-    AST not ($left < $right)
+    ASTE not ($left < $right)
 
 define operator binary ~min with precedence: 5
   @maybe-cache left, #(set-left, left)@
     @maybe-cache right, #(set-right, right)@
-      AST if $set-left ~< $set-right then $left else $right
+      ASTE if $set-left ~< $set-right then $left else $right
 
 define operator binary ~max with precedence: 5
   @maybe-cache left, #(set-left, left)@
     @maybe-cache right, #(set-right, right)@
-      AST if $set-left ~> $set-right then $left else $right
+      ASTE if $set-left ~> $set-right then $left else $right
 
 define operator binary min with precedence: 5
   @maybe-cache left, #(set-left, left)@
     @maybe-cache right, #(set-right, right)@
-      AST if $set-left < $set-right then $left else $right
+      ASTE if $set-left < $set-right then $left else $right
 
 define operator binary max with precedence: 5
   @maybe-cache left, #(set-left, left)@
     @maybe-cache right, #(set-right, right)@
-      AST if $set-left > $set-right then $left else $right
+      ASTE if $set-left > $set-right then $left else $right
 
 define operator binary xor with precedence: 0
-  AST __xor($left, $right)
+  ASTE __xor($left, $right)
 
 define operator binary ? with precedence: 0
   @maybe-cache left, #(set-left, left)@
-    AST if $set-left? then $left else $right
+    ASTE if $set-left? then $left else $right
 
 define operator assign ~min=, ~max=, min=, max=, xor=
   @maybe-cache-access left, #(set-left, left)@
     let action = if op == "~min="
-      AST $left ~min $right
+      ASTE $left ~min $right
     else if op == "~max="
-      AST $left ~max $right
+      ASTE $left ~max $right
     else if op == "min="
-      AST $left min $right
+      ASTE $left min $right
     else if op == "max="
-      AST $left max $right
+      ASTE $left max $right
     else if op == "xor="
-      AST $left xor $right
+      ASTE $left xor $right
     else
       throw Error()
-    AST $set-left := $action
+    ASTE $set-left := $action
 
 define operator assign ?=
   @maybe-cache-access left, #(set-left, left)@
     @maybe-cache set-left, #(set-left, left-value)@
-      if @expr or true // FIXME
-        AST if $set-left? then $left-value else ($left := $right)
+      if @position == \expression
+        ASTE if $set-left? then $left-value else ($left := $right)
       else
-        AST if not $set-left?
+        ASTE if not $set-left?
           $left := $right
+        else
+          $left-value
 
 define operator binary ~bitand with precedence: 0
   @binary left, "&", right
@@ -547,24 +553,24 @@ define operator assign ~bitand=, ~bitor=, ~bitxor=
     @assign left, "^=", right
 
 define operator binary bitand with precedence: 0
-  AST +$left ~bitand +$right
+  ASTE +$left ~bitand +$right
 
 define operator binary bitor with precedence: 0
-  AST +$left ~bitor +$right
+  ASTE +$left ~bitor +$right
 
 define operator binary bitxor with precedence: 0
-  AST +$left ~bitxor +$right
+  ASTE +$left ~bitxor +$right
 
 define operator unary ~bitnot
   @unary "~", node
 
 define operator unary bitnot
-  AST ~bitnot +$node
+  ASTE ~bitnot +$node
 
 define operator unary delete with standalone: false
   if not @is-access(node)
     throw Error "Can only use delete on an access"
-  if @expr
+  if @position == \expression
     @maybe-cache-access node, #(set-node, node)@
       let tmp = @tmp \ref
       let del = @unary "delete", node
@@ -577,48 +583,47 @@ define operator unary delete with standalone: false
 
 define operator unary throw?
   @maybe-cache node, #(set-node, node)
-    AST if $set-node?
-      throw $node
+    ASTE if $set-node? then throw $node
 
 define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, bitand=, bitor=, bitxor=
   // TODO: if left is proven to be a number, use raw operators instead
   @maybe-cache-access left, #(set-left, left)@
     let action = if op == "*="
-      AST $left * $right
+      ASTE $left * $right
     else if op == "/="
-      AST $left / $right
+      ASTE $left / $right
     else if op == "%="
-      AST $left % $right
+      ASTE $left % $right
     else if op == "+="
-      AST $left + $right
+      ASTE $left + $right
     else if op == "-="
-      AST $left - $right
+      ASTE $left - $right
     else if op == "bitlshift="
-      AST $left bitlshift $right
+      ASTE $left bitlshift $right
     else if op == "bitrshift="
-      AST $left bitrshift $right
+      ASTE $left bitrshift $right
     else if op == "biturshift="
-      AST $left biturshift $right
+      ASTE $left biturshift $right
     else if op == "bitand="
-      AST $left bitand $right
+      ASTE $left bitand $right
     else if op == "bitor="
-      AST $left bitor $right
+      ASTE $left bitor $right
     else if op == "bitxor="
-      AST $left bitxor $right
+      ASTE $left bitxor $right
     else
       throw Error()
-    AST $set-left := $action
+    ASTE $set-left := $action
 
 macro unless
   syntax test as Logic, "then", body, else-body as ("else", this)?
-    AST if not $test then $body else $else-body
+    ASTE if not $test then $body else $else-body
 
   syntax test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     let f(i, current)@
       let mutable test = else-ifs[i]?.test
-      test := if else-ifs[i]?.type == "unless" then (AST not $test) else test
+      test := if else-ifs[i]?.type == "unless" then (ASTE not $test) else test
       if i < 0 then current else f(i - 1, @if(test, else-ifs[i].body, current))
-    @if((AST not $test), body, f(else-ifs.length - 1, else-body))
+    @if((ASTE not $test), body, f(else-ifs.length - 1, else-body))
 
 macro do
   syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as (Body | (";", this as Statement))
@@ -639,11 +644,8 @@ macro do
 
 macro with
   syntax node as Expression, body as (Body | (";", this as Statement))
-    let func = if @expr
-      AST #-> $body
-    else
-      AST #!-> $body
-    AST $func@($node)
+    let func = ASTE #-> $body
+    ASTE $func@($node)
 
 define helper __slice = do
   let slice = Array.prototype.slice
@@ -671,7 +673,7 @@ define helper __typeof = do
       (o.constructor and o.constructor.name) or _to-string@(o).slice(8, -1)
 
 define operator unary typeof!
-  AST __typeof($node)
+  ASTE __typeof($node)
 
 define helper __freeze = if typeof Object.freeze == \function
   Object.freeze
@@ -705,7 +707,7 @@ else
     new F()
 
 define operator unary ^
-  AST __create($node)
+  ASTE __create($node)
 
 define helper __pow = Math.pow
 define helper __floor = Math.floor
@@ -745,14 +747,9 @@ macro try
     if not @empty(finally-body)
       current := @try-finally(current, finally-body)
     
-    if @expr
-      AST do
-        $init
-        $current
-    else
-      AST
-        $init
-        $current
+    AST
+      $init
+      $current
 
 macro for
   // FIXME: init should be an Expression or Assignment or Let
@@ -760,13 +757,13 @@ macro for
     if @empty(init)
       init := @noop()
     if @empty(test)
-      test := AST true
+      test := ASTE true
     if @empty(step)
       step := @noop()
     if @empty(reducer)
       reducer := null
     if not @empty(else-body)
-      if @expr
+      if @position == \expression or @expr
         throw Error("Cannot use a for loop with an else as an expression")
       else if reducer
         throw Error("Cannot use a for loop with an else with $reducer")
@@ -787,33 +784,34 @@ macro for
         if reducer == "first"
           body := @mutate-last body, #(node) -> (AST return $node)
           let loop = @for(init, test, step, body)
-          AST do
+          ASTE do
             $loop
         else if reducer == "some"
           body := @mutate-last body, #(node) -> AST
             if $node
               return true
           let loop = [@for(init, test, step, body), (AST return false)]
-          AST do
+          ASTE do
             $loop
         else if reducer == "every"
           body := @mutate-last body, #(node) -> AST
             if not $node
               return false
           let loop = [@for(init, test, step, body), (AST return true)]
-          AST do
+          ASTE do
             $loop
         else
           throw Error("Unknown reducer: $reducer")
-      else if @expr
+      else if @position == \expression or @expr
         let arr = @tmp \arr, false, body.type().array()
-        body := @mutate-last body, #(node) -> (AST $arr.push $node)
+        body := @mutate-last body, #(node) -> (ASTE $arr.push $node)
         init := AST
           $arr := []
           $init
-        let loop = [@for(init, test, step, body), (AST return $arr)]
+        let loop = @for(init, test, step, body)
         AST do
           $loop
+          return $arr
       else
         @for(init, test, step, body)
   
@@ -821,11 +819,11 @@ macro for
     if @empty(init)
       init := @noop()
     if @empty(test)
-      test := AST true
+      test := ASTE true
     if @empty(step)
       step := @noop()
     
-    body := @mutate-last body, #(node) -> (AST $current := $node)
+    body := @mutate-last body, #(node) -> (ASTE $current := $node)
     AST do
       let mutable $current = $current-start
       for $init; $test; $step
@@ -833,7 +831,7 @@ macro for
       $current
   
   syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if not @empty(else-body) and @expr
+    if not @empty(else-body) and (@position == \expression or @expr)
       throw Error("Cannot use a for loop with an else as an expression")
     
     if @empty(reducer)
@@ -857,46 +855,46 @@ macro for
         if typeof @value(start) != \number
           throw Error "Cannot start with a non-number: #(@value start)"
       else
-        start := AST +$start
+        start := ASTE +$start
       init.push (AST let $value = $start)
 
       if @is-const(end)
         if typeof @value(end) != \number
           throw Error "Cannot end with a non-number: #(@value start)"
       else if @is-complex(end)
-        end := @cache (AST +$end), init, \end, has-func
+        end := @cache (ASTE +$end), init, \end, has-func
       else
-        init.push AST +$end
+        init.push ASTE +$end
 
       if @is-const(step)
         if typeof @value(step) != \number
           throw Error "Cannot step with a non-number: #(@value step)"
       else if @is-complex(step)
-        step := @cache (AST +$step), init, \step, has-func
+        step := @cache (ASTE +$step), init, \step, has-func
       else
-        init.push AST +$step
+        init.push ASTE +$step
       
       if @is-complex(inclusive)
-        inclusive := @cache (AST $inclusive), init, \incl, has-func
+        inclusive := @cache (ASTE $inclusive), init, \incl, has-func
       
       let test = if @is-const(step)
         if @value(step) > 0
           if @is-const(end) and @value(end) == Infinity
-            AST true
+            ASTE true
           else
-            AST if $inclusive then $value ~<= $end else $value ~< $end
+            ASTE if $inclusive then $value ~<= $end else $value ~< $end
         else
           if @is-const(end) and @value(end) == -Infinity
-            AST true
+            ASTE true
           else
-            AST if $inclusive then $value ~>= $end else $value ~> $end
+            ASTE if $inclusive then $value ~>= $end else $value ~> $end
       else
-        AST if $step ~> 0
+        ASTE if $step ~> 0
           if $inclusive then $value ~<= $end else $value ~< $end
         else
           if $inclusive then $value ~>= $end else $value ~> $end
       
-      let mutable increment = AST $value ~+= $step
+      let mutable increment = ASTE $value ~+= $step
       if not @empty(index)
         init.push AST let mutable $index = 0
         increment := AST
@@ -905,11 +903,11 @@ macro for
         if has-func
           let func = @tmp \f, false, \function
           init.push (AST let $func = #($value, $index) -> $body)
-          body := (AST $func($value, $index))
+          body := (ASTE $func@(this, $value, $index))
       else if has-func
         let func = @tmp \f, false, \function
         init.push (AST let $func = #($value) -> $body)
-        body := (AST $func($value))
+        body := (ASTE $func@(this, $value))
       
       if not @empty(length)
         init.push AST let $length = if $inclusive
@@ -918,23 +916,25 @@ macro for
           ($end ~- $start) ~\ $step
       
       if reducer == "every"
-        AST
-          for every $init; $test; $increment
-            $body
-          else
-            $else-body
+        ASTE for every $init; $test; $increment
+          $body
+        else
+          $else-body
       else if reducer == "some"
-        AST
-          for some $init; $test; $increment
-            $body
-          else
-            $else-body
+        ASTE for some $init; $test; $increment
+          $body
+        else
+          $else-body
       else if reducer == "first"
-        AST
-          for first $init; $test; $increment
-            $body
-          else
-            $else-body
+        ASTE for first $init; $test; $increment
+          $body
+        else
+          $else-body
+      else if @position == "expression"
+        ASTE for $init; $test; $increment
+          $body
+        else
+          $else-body
       else
         AST
           for $init; $test; $increment
@@ -960,26 +960,28 @@ macro for
       if has-func
         let func = @tmp \f, false, \function
         init.push AST let $func = #($index) -> $body
-        body := AST $func($index)
+        body := ASTE $func@(this, $index)
     
       if reducer == "every"
-        AST
-          for every $init; $index ~< $length; $index ~+= 1
-            $body
-          else
-            $else-body
+        ASTE for every $init; $index ~< $length; $index ~+= 1
+          $body
+        else
+          $else-body
       else if reducer == "some"
-        AST
-          for some $init; $index ~< $length; $index ~+= 1
-            $body
-          else
-            $else-body
+        ASTE for some $init; $index ~< $length; $index ~+= 1
+          $body
+        else
+          $else-body
       else if reducer == "first"
-        AST
-          for first $init; $index ~< $length; $index ~+= 1
-            $body
-          else
-            $else-body
+        ASTE for first $init; $index ~< $length; $index ~+= 1
+          $body
+        else
+          $else-body
+      else if @position == \expression
+        ASTE for $init; $index ~< $length; $index ~+= 1
+          $body
+        else
+          $else-body
       else
         AST
           for $init; $index ~< $length; $index ~+= 1
@@ -988,7 +990,7 @@ macro for
             $else-body
   
   syntax "reduce", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    body := @mutate-last body, #(node) -> (AST $current := $node)
+    body := @mutate-last body, #(node) -> (ASTE $current := $node)
     let length = index?.length
     index := index?.value
     AST do
@@ -1002,7 +1004,7 @@ macro for
       reducer := null
   
     if not @empty(else-body)
-      if @expr
+      if @position == \expression or @expr
         throw Error("Cannot use a for loop with an else as an expression")
       else if reducer
         throw Error("Cannot use a for loop with an else with $reducer")
@@ -1031,10 +1033,10 @@ macro for
       let func = @tmp \f, false, \function
       if index
         init.push (AST let $func = #($key, $index) -> $body)
-        body := (AST $func($key, $index))
+        body := (ASTE $func@(this, $key, $index))
       else
         init.push (AST let $func = #($key) -> $body)
-        body := (AST $func($key))
+        body := (ASTE $func@(this, $key))
     
     let post = []
     if not @empty(else-body)
@@ -1087,16 +1089,17 @@ macro for
             true
         else
           throw Error("Unknown reducer: $reducer")
-      else if @expr
+      else if @position == \expression or @expr
         let arr = @tmp \arr, false, body.type().array()
-        body := @mutate-last body, #(node) -> (AST $arr.push $node)
+        body := @mutate-last body, #(node) -> (ASTE $arr.push $node)
         init := AST
           $arr := []
           $init
-        let loop = [init, @for-in(key, object, body), (AST return $arr)]
+        let loop = @for-in(key, object, body)
         return AST do
+          $init
           $loop
-    
+          return $arr
     let loop = @for-in(key, object, body)
     AST
       $init
@@ -1104,7 +1107,7 @@ macro for
       $post
   
   syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    body := @mutate-last body, #(node) -> (AST $current := $node)
+    body := @mutate-last body, #(node) -> (ASTE $current := $node)
     let index = value?.index
     value := value?.value
     let loop = if type == "of"
@@ -1119,7 +1122,7 @@ macro for
       $current
   
   syntax reducer as ("every" | "some" | "first")?, value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if not @empty(else-body) and @expr
+    if not @empty(else-body) and (@position == \expression or @expr)
       throw Error("Cannot use a for loop with an else as an expression")
 
     if @empty(reducer)
@@ -1133,7 +1136,7 @@ macro for
     let step = []
     if not @empty(index)
       init.push AST let mutable $index = 0
-      step.push AST $index ~+= 1
+      step.push ASTE $index ~+= 1
     
     let capture-value = AST try
       let $value = $iterator.next()
@@ -1160,32 +1163,29 @@ macro for
         init.push AST let $func = #($value) -> $body
         body := AST
           $capture-value
-          $func($value)
+          $func@(this, $value)
       else
         init.push AST let $func = #($value, $index) -> $body
         body := AST
           $capture-value
-          $func($value, $index)
+          $func@(this, $value, $index)
     else
       body := AST
         $capture-value
         $body
 
     if reducer == "every"
-      AST
-        for every $init; true; $step
-          $body
-        $post
+      ASTE for every $init; true; $step
+        $body
     else if reducer == "some"
-      AST
-        for some $init; true; $step
-          $body
-        $post
+      ASTE for some $init; true; $step
+        $body
     else if reducer == "first"
-      AST
-        for first $init; true; $step
-          $body
-        $post
+      ASTE for first $init; true; $step
+        $body
+    else if @position == \expression
+      ASTE for $init; true; $step
+        $body
     else
       AST
         for $init; true; $step
@@ -1193,7 +1193,7 @@ macro for
         $post
   
   syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    body := @mutate-last body, #(node) -> (AST $current := $node)
+    body := @mutate-last body, #(node) -> (ASTE $current := $node)
     AST do
       let mutable $current = $current-start
       for $value, $index from $iterator
@@ -1217,28 +1217,31 @@ define helper __range = #(start as Number, end as Number, step as Number, inclus
 
 // TODO: might want to redo these precedences
 define operator binary to with maximum: 1, precedence: 2
-  AST __range($left, $right, 1, true)
+  ASTE __range($left, $right, 1, true)
 
 define operator binary til with maximum: 1, precedence: 2
-  AST __range($left, $right, 1, false)
+  ASTE __range($left, $right, 1, false)
 
 define operator binary by with maximum: 1, precedence: 1
   if not @is-call(left) or not @is-ident(@call-func(left)) or @name(@call-func(left)) != \__range
     throw Error "Can only use 'by' on a range made with 'to' or 'til'"
   
   let call-args = @call-args(left)
-  AST __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
+  ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
 
 macro while
   syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if not @empty(else-body)
-      if @expr
+      if @position == \expression or @expr
         throw Error("Cannot use a while loop with an else as an expression")
       AST
         for ; $test; $step
           $body
         else
           $else-body
+    else if @position == \expression
+      ASTE for ; $test; $step
+        $body
     else
       AST
         for ; $test; $step
@@ -1246,11 +1249,17 @@ macro while
 
 macro until
   syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    AST
-      while not $test, $step
+    if @position == \expression
+      ASTE while not $test, $step
         $body
       else
         $else-body
+    else
+      AST
+        while not $test, $step
+          $body
+        else
+          $else-body
 
 define helper __keys = if typeof Object.keys == \function
   Object.keys
@@ -1296,22 +1305,22 @@ define operator binary instanceofsome with precedence: 3, maximum: 1, invertible
           $left
           false
       else
-        AST false
+        ASTE false
     else if elements.length == 1
       let element = elements[0]
-      AST $left instanceof $element
+      ASTE $left instanceof $element
     else
       let f(i, current, left)
         if i < elements.length
           let element = elements[i]
-          f(i + 1, AST $current or $left instanceof $element, left)
+          f(i + 1, ASTE $current or $left instanceof $element, left)
         else
           current
       @maybe-cache left, #(set-left, left)
         let element = elements[0]
-        f(1, AST $set-left instanceof $element, left)
+        f(1, ASTE $set-left instanceof $element, left)
   else
-    AST __instanceofsome($left, $right)
+    ASTE __instanceofsome($left, $right)
 
 macro switch
   syntax node as Logic, cases as ("\n", "case", node-head as Logic, node-tail as (",", this as Logic)*, body as (Body | (";", this as Statement))?)*, default-case as ("\n", "default", this as (Body | (";", this as Statement))?)?
@@ -1324,12 +1333,10 @@ macro switch
         let nodes = @nodes(body)
         let last-node = nodes[nodes.length - 1]
         if @is-ident(last-node) and @name(last-node) == \fallthrough
-          body := nodes[:-1]
-          body := AST $body
+          body := @block(nodes[:-1])
           is-fallthrough := true
       else if @is-ident(body) and @name(body) == \fallthrough
-        body := []
-        body := AST $body
+        body := @noop()
         is-fallthrough := true
       
       for case-node in case-nodes[:-1]
@@ -1344,12 +1351,7 @@ macro switch
         fallthrough: is-fallthrough
       }
     
-    let result = @switch(node, result-cases, default-case)
-    if @expr
-      AST do
-        $result
-    else
-      result
+    @switch(node, result-cases, default-case)
 
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
@@ -1400,7 +1402,7 @@ macro require!
           requires.push AST let $ident = require $path
         else
           throw Error "If providing an object to require!, all values must be constant strings or idents"
-      AST $requires
+      @block(requires)
     else
       throw Error("Expected either a constant string or ident or object")
 
@@ -1558,13 +1560,11 @@ macro asyncfor
     if @empty(err)
       err := @tmp \err, true
     if @empty(init)
-      init := []
-      init := AST $init
+      init := @noop()
     if @empty(test)
-      test := AST true
+      test := ASTE true
     if @empty(step)
-      step := []
-      step := AST $step
+      step := @noop(step)
     let done = @tmp \done, true, \function
     if @empty(result)
       if @empty(step)
@@ -1633,7 +1633,7 @@ macro asyncfor
       index := index.value
     
     if @empty(parallelism)
-      parallelism := AST 1
+      parallelism := ASTE 1
     
     if @empty(index)
       index := @tmp \i, true, \number
@@ -1647,29 +1647,29 @@ macro asyncfor
         if typeof @value(start) != \number
           throw Error "Cannot start with a non-number: #(@value start)"
       else
-        start := AST +$start
+        start := ASTE +$start
 
       if @is-const(end)
         if typeof @value(end) != \number
           throw Error "Cannot end with a non-number: #(@value start)"
       else if @is-complex(end)
-        end := @cache (AST +$end), init, \end, has-func
+        end := @cache (ASTE +$end), init, \end, has-func
       else
-        init.push AST +$end
+        init.push ASTE +$end
 
       if @is-const(step)
         if typeof @value(step) != \number
           throw Error "Cannot step with a non-number: #(@value step)"
       else if @is-complex(step)
-        step := @cache (AST +$step), init, \step, has-func
+        step := @cache (ASTE +$step), init, \step, has-func
       else
-        init.push AST +$step
+        init.push ASTE +$step
       
       body := AST
         let $value = $index ~* $step ~+ $start
         $body
 
-      let length-calc = AST if $inclusive
+      let length-calc = ASTE if $inclusive
         ($end ~- $start ~+ $step) ~\ $step
       else
         ($end ~- $start) ~\ $step
@@ -1685,7 +1685,7 @@ macro asyncfor
         $body
       
       if @empty(length)
-        length := AST +$array.length
+        length := ASTE +$array.length
       else
         init.push AST let $length = +$array.length
     
@@ -1740,14 +1740,12 @@ macro asyncfor
     if @empty(err)
       err := @tmp \err, true
     if @empty(parallelism)
-      parallelism := AST 1
+      parallelism := ASTE 1
     
     if @empty(result)
-      AST
-        __async-iter(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err) -> $rest)
+      ASTE __async-iter(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err) -> $rest)
     else
-      AST
-        __async-iter-result(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err, $result) -> $rest)
+      ASTE __async-iter-result(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err, $result) -> $rest)
 
 macro asyncwhile
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
@@ -1771,14 +1769,14 @@ macro asyncif
     
     let mutable current = else-body
     if @empty(else-body)
-      current := AST $done()
+      current := ASTE $done()
     
     let mutable i = else-ifs.length - 1
     while i >= 0, i -= 1
       let else-if = else-ifs[i]
       let mutable inner-test = else-if.test
       if else-if.type == "unless"
-        inner-test := AST not $inner-test
+        inner-test := ASTE not $inner-test
       current := @if(inner-test, else-if.body, current)
     
     current := @if(test, body, current)
@@ -1807,17 +1805,17 @@ macro asyncunless
     
     let mutable current = else-body
     if @empty(else-body)
-      current := AST $done()
+      current := ASTE $done()
     
     let mutable i = else-ifs.length - 1
     while i >= 0, i -= 1
       let else-if = else-ifs[i]
       let mutable inner-test = else-if.test
       if else-if.type == "unless"
-        inner-test := AST not $inner-test
+        inner-test := ASTE not $inner-test
       current := @if(inner-test, else-if.body, current)
     
-    current := @if(AST not $test, body, current)
+    current := @if(ASTE not $test, body, current)
     
     if @empty(err) and @empty(result)
       AST
@@ -1841,7 +1839,7 @@ macro def
   syntax key as ObjectKey, func as FunctionDeclaration
     @def key, func
   
-  syntax key as ObjectKey, "=", value as (Assignment | Expression)
+  syntax key as ObjectKey, "=", value as ExpressionOrAssignment
     @def key, value
   
   syntax key as ObjectKey
@@ -1865,18 +1863,18 @@ macro class
     let has-superclass = not @empty(superclass)
     let sup = if @empty(superclass) then superclass else @tmp \super, false, \function
     let init = []
-    let superproto = if @empty(superclass) then AST Object.prototype else @tmp \superproto, false, \object
+    let superproto = if @empty(superclass) then ASTE Object.prototype else @tmp \superproto, false, \object
     let prototype = @tmp \proto, false, \object
     if not @empty(superclass)
       init.push AST let $superproto = $sup.prototype
       init.push AST let $prototype = $name.prototype := ^$superproto
-      init.push AST $prototype.constructor := $name
+      init.push ASTE $prototype.constructor := $name
     else
       init.push AST let $prototype = $name.prototype
     
     let display-name = if @is-ident(name) then @const(@name(name))
     if display-name?
-      init.push AST $name.display-name := $display-name
+      init.push ASTE $name.display-name := $display-name
     
     let fix-supers(node)@ -> @walk node, #(node)@
       if @is-super(node)
@@ -1888,12 +1886,12 @@ macro class
         
         @call(
           if child?
-            AST $superproto[$child]
+            ASTE $superproto[$child]
           else if @empty(superclass)
-            AST Object
+            ASTE Object
           else
-            AST $sup
-          [AST this].concat(args)
+            ASTE $sup
+          [ASTE this].concat(args)
           false
           true)
     body := fix-supers body
@@ -1925,39 +1923,36 @@ macro class
           if @is-const(key) and @value(key) == \constructor
             let value = @right(node)
             let constructor = if @func-is-bound(value)
-              let func-body = [
-                AST let $self = if this instanceof $name then this else ^$prototype
-                @walk @func-body(value), #(node)@
-                  if @is-func(node)
-                    unless @func-is-bound(node)
-                      node
-                  else if @is-this(node)
-                    self
-                AST return $self
-              ]
               @func(
                 @func-params value
-                AST $func-body
+                @block [
+                  AST let $self = if this instanceof $name then this else ^$prototype
+                  @walk @func-body(value), #(node)@
+                    if @is-func(node)
+                      unless @func-is-bound(node)
+                        node
+                    else if @is-this(node)
+                      self
+                  AST return $self
+                ]
                 false
                 false)
             else
               let error-message = if display-name?
-                AST "$($display-name) must be called with new"
+                ASTE "$($display-name) must be called with new"
               else
-                AST "Must be called with new"
-              let func-body = [
-                AST if this not instanceof $name
-                  throw TypeError $error-message
-                @func-body(value)
-              ]
+                ASTE "Must be called with new"
               @func(
                 @func-params value
-                AST $func-body
+                @block [
+                  AST if this not instanceof $name
+                    throw TypeError $error-message
+                  @func-body value
+                ]
                 false
                 false)
             init.unshift AST let $name = $constructor
-            let noop = []
-            AST $noop
+            @noop()
         else
           node
     else if constructor-count != 0
@@ -1982,7 +1977,7 @@ macro class
           let key = @left(node)
           if @is-const(key) and @value(key) == \constructor
             let value = @right(node)
-            AST $ctor := $value
+            ASTE $ctor := $value
     else
       if @empty(superclass)
         init.push AST
@@ -2003,8 +1998,8 @@ macro class
         let key = @left(node)
         let mutable value = @right(node)
         if @empty(value)
-          value := AST #-> throw Error "Not implemented: $(@constructor.name).$($key)()"
-        change-defs AST $prototype[$key] := $value
+          value := ASTE #-> throw Error "Not implemented: $(@constructor.name).$($key)()"
+        change-defs ASTE $prototype[$key] := $value
     body := change-defs body
     
     body := @walk body, #(node)@
@@ -2022,7 +2017,7 @@ macro class
     if declaration?
       AST let $declaration = $result
     else if assignment?
-      AST $assignment := $result
+      ASTE $assignment := $result
     else
       result
 
@@ -2051,18 +2046,18 @@ macro enum
         if @empty value
           index += 1
           value := index
-        AST this[$key] := $value
+        ASTE this[$key] := $value
       else
         node
     
-    let result = AST with {}
+    let result = ASTE with {}
       $body
       return this
     
     if declaration?
       AST let $declaration = $result
     else if assignment?
-      AST $assignment := $result
+      ASTE $assignment := $result
     else
       result
 
@@ -2096,15 +2091,15 @@ macro namespace
         let args = for super-arg in @super-args node
           fix-supers super-arg
         let parent = if @empty(superobject)
-          AST Object.prototype
+          ASTE Object.prototype
         else
-          AST $sup
+          ASTE $sup
         @call(
           if child?
-            AST $parent[$child]
+            ASTE $parent[$child]
           else
-            AST $parent
-          [AST this].concat(args)
+            ASTE $parent
+          [ASTE this].concat(args)
           false
           true)
     body := fix-supers body
@@ -2113,7 +2108,7 @@ macro namespace
       if @is-def(node)
         let key = @left(node)
         let value = @right(node)
-        change-defs AST $name[$key] := $value
+        change-defs ASTE $name[$key] := $value
     body := change-defs body
     
     body := @walk body, #(node)@
@@ -2131,6 +2126,6 @@ macro namespace
     if declaration?
       AST let $declaration = $result
     else if assignment?
-      AST $assignment := $result
+      ASTE $assignment := $result
     else
       result

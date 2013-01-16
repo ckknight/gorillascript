@@ -154,6 +154,19 @@ test "loop scope", #
   eq 9, funcs[3]()
   eq 81, funcs[9]()
 
+test "loop scope using this", #
+  let get-funcs()
+    let funcs = []
+    for i in 0 til 10
+      funcs.push #@-> [this, i * i]
+    funcs
+  
+  let obj = {}
+  let funcs = get-funcs.call(obj)
+  
+  array-eq [obj, 0], funcs[0]()
+  array-eq [obj, 81], funcs[9]()
+
 test "multiple loops with same variables", #
   let mutable sum = 0
   for i in 1 til 10

@@ -565,6 +565,9 @@ exports.Binary := class Binary extends Expression
   def is-small()
     @_is-small ?= @left.is-small() and @right.is-small()
   
+  def is-noop()
+    @_is-noop ?= ASSIGNMENT_OPS not ownskey @op and @left.is-noop() and @right.is-noop()
+  
   def walk(walker)
     let mutable changed = false
     let left = walker(@left) ? @left.walk(walker)
@@ -586,13 +589,12 @@ exports.BlockStatement := class BlockStatement extends Statement
     let result = []
     for item in body
       let statement = item.maybe-to-statement()
-      if not statement.is-noop()
-        if statement instanceof BlockStatement
-          result.push ...statement.body
-        else
-          result.push statement
-        if statement.exit-type()?
-          break
+      if statement instanceof BlockStatement
+        result.push ...statement.body
+      else if statement not instanceof Noop
+        result.push statement
+      if statement.exit-type()?
+        break
     switch result.length
     case 0; return Noop()
     case 1; return result[0]
@@ -602,7 +604,11 @@ exports.BlockStatement := class BlockStatement extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    for item, i in @body
+    let nodes = for node in @body
+      if not node.is-noop()
+        node
+    
+    for item, i in nodes
       if i > 0
         sb "\n"
         sb.indent options.indent
@@ -628,6 +634,8 @@ exports.BlockStatement := class BlockStatement extends Statement
   def exit-type() -> @last().exit-type()
   def last() -> @body[@body.length - 1]
   
+  def is-noop() -> @_is-noop ?= for every node in @body; node.is-noop()
+  
   def inspect(depth)
     let d = dec-depth depth
     "BlockStatement($(inspect @body, null, d))"
@@ -638,12 +646,11 @@ exports.BlockStatement := class BlockStatement extends Statement
 exports.BlockExpression := class BlockExpression extends Expression
   def constructor(body as [Expression] = [])@
     let result = []
-    result := []
     for item, i, len in body
-      if i == len - 1 or not item.is-noop()
+      if i == len - 1 or not item not instanceof Noop
         if item instanceof BlockExpression
           result.push ...item.body
-          if i < len - 1 and result[result.length - 1].is-noop()
+          if i < len - 1 and result[result.length - 1] instanceof Noop
             result.pop()
         else if item not instanceof Noop
           result.push item
@@ -658,10 +665,14 @@ exports.BlockExpression := class BlockExpression extends Expression
     if level == Level.block
       @to-statement().compile options, level, line-start, sb
     else
-      let wrap = level > Level.inside-parentheses
+      let nodes = for node, i, len in @body
+        if not node.is-noop() or i == len - 1
+          node
+      
+      let wrap = level > Level.inside-parentheses and nodes.length > 1
       if wrap
         sb "("
-      for item, i in @body
+      for item, i in nodes
         if i > 0
           sb ", "
         item.compile options, Level.sequence, false, sb
@@ -675,6 +686,7 @@ exports.BlockExpression := class BlockExpression extends Expression
       part.is-large()
   
   def is-small() -> false
+  def is-noop() -> @_is-noop ?= for every node in @body; node.is-noop()
   
   def walk = BlockStatement::walk
   def last() -> @body[@body.length - 1]
@@ -1242,6 +1254,8 @@ exports.Ident := class Ident extends Expression
     let d = dec-depth depth
     "Ident($(inspect @name, null, d))"
   
+  def is-noop() -> true
+  
   def to-JSON() -> { type: "Ident", @name }
   @from-JSON := #({name}) -> Ident name
 
@@ -1257,13 +1271,13 @@ exports.IfStatement := class IfStatement extends Statement
     else
       when-true := when-true.maybe-to-statement()
       when-false := when-false.maybe-to-statement()
-      if when-true.is-noop()
-        if when-false.is-noop()
+      if when-true instanceof Noop
+        if when-false instanceof Noop
           return test.maybe-to-statement()
         else
           // TODO: the test inversion doesn't change the inner operators, just wraps it all
           return IfStatement@ this, Unary("!", test), when-false, when-true
-      else if when-false.is-noop() and when-true instanceof IfStatement and when-true.when-false.is-noop()
+      else if when-false instanceof Noop and when-true instanceof IfStatement and when-true.when-false instanceof Noop
         @test := Binary test, "&&", when-true.test
         @when-true := when-true.when-true
         @when-false := when-false
@@ -1343,11 +1357,8 @@ exports.IfExpression := class IfExpression extends Expression
     if test instanceof Unary and test.op == "!" and test.node instanceof Unary and test.node.op == "!"
       test := test.node.node
     if test.is-const()
-      return if test.const-value()
-        when-true
-      else
-        when-false
-    else if when-false.is-noop() and when-true instanceof IfExpression and when-true.when-false.is-noop()
+      return if test.const-value() then when-true else when-false
+    else if when-false instanceof Noop and when-true instanceof IfExpression and when-true.when-false instanceof Noop
       @test := Binary test, "&&", when-true.test
       @when-true := when-true.when-true
       @when-false := when-false
@@ -1925,10 +1936,21 @@ exports.Unary := class Unary extends Expression
     "delete": Type.boolean
   }
   
+  let ASSIGNMENT_OPERATORS = {
+    "++": true
+    "--": true
+    "++post": true
+    "--post": true
+    "delete": true
+  }
+  
   def type() -> OPERATOR_TYPES[@op]
   
   def is-large() -> @node.is-large()
   def is-small() -> @node.is-small()
+  
+  def is-noop()
+    @_is-noop ?= ASSIGNMENT_OPERATORS not ownskey @op and @node.is-noop()
   
   def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
