@@ -134,12 +134,20 @@ let repl = if readline.create-interface.length < 3
 else
   readline.create-interface stdin, stdout, auto-complete
 
-repl.on \attempt-close, #
+let mutable recent-sigint = false
+repl.on \SIGINT, #
   if backlog
     backlog := ''
     process.stdout.write '\n'
     repl.set-prompt REPL_PROMPT
     repl.prompt()
+    repl.write(null, {ctrl: true, name: 'u'})
+  else if not recent-sigint
+    process.stdout.write "\n(^C again to quit)\n"
+    repl.set-prompt REPL_PROMPT
+    repl.prompt()
+    repl.write(null, {ctrl: true, name: 'u'})
+    recent-sigint := true
   else
     repl.close()
 
@@ -148,6 +156,7 @@ repl.on \close, #
   stdin.destroy()
 
 repl.on \line, #(buffer)
+  recent-sigint := false
   if not buffer.to-string().trim() and not backlog
     repl.prompt()
     return

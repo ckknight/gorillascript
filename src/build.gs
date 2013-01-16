@@ -43,7 +43,7 @@ asyncfor(0) err <- next, file in files
   let compiled = results[file]
   let output-file = path.join "./lib", file.replace r"\.gs\$", ".js"
   async err <- fs.rename output-file, "$(output-file).bak"
-  if err?
+  if err? and err.code != \ENOENT
     return next(err)
   async err <- fs.write-file output-file, compiled, "utf8"
   if err?
