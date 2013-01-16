@@ -37,6 +37,18 @@ define operator binary ~>, ~>= with precedence: 1, maximum: 1
 define operator unary throw
   @throw node
 
+macro debugger
+  syntax ""
+    @debugger()
+
+macro continue
+  syntax ""
+    @continue()
+
+macro break
+  syntax ""
+    @break()
+
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
     @block [

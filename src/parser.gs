@@ -2904,8 +2904,6 @@ define Ast = oneOf! [
   AstStatement
 ], #(x, o, i) -> MacroHelper.constify-object x, i, o.index
 
-define Debugger = word \debugger, #(x, o, i) -> o.debugger i
-
 define MacroName = with-space! sequential! [
   [\this, one-or-more-of! [
     _Symbol
@@ -3249,7 +3247,6 @@ define PrimaryExpression = one-of! [
   ObjectLiteral
   FunctionLiteral
   Ast
-  Debugger
   UseMacro
   Identifier
 ]
@@ -3715,14 +3712,8 @@ define ExpressionAsStatement = one-of! [
 ]
 define Expression = in-expression ExpressionAsStatement 
 
-define Break = word \break, #(x, o, i) -> o.break i
-
-define Continue = word \continue, #(x, o, i) -> o.continue i
-
 define Statement = sequential! [
   [\this, in-statement one-of! [
-    Break
-    Continue
     Macro
     DefineHelper
     DefineOperator
@@ -3843,6 +3834,9 @@ class MacroHelper
   def throw(node as Node) -> @state.throw(@index, do-wrap(node)).reduce()
   def return(node as (Node|void)) -> @state.return(@index, do-wrap(node)).reduce()
   def yield(node as Node) -> @state.yield(@index, do-wrap(node)).reduce()
+  def debugger() -> @state.debugger(@index)
+  def break() -> @state.break(@index)
+  def continue() -> @state.continue(@index)
   
   def tmp(name as String = \ref, save as Boolean, mutable type)
     let id = get-tmp-id()
