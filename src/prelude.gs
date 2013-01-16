@@ -530,7 +530,7 @@ define operator assign ?=
       if @position == \expression
         ASTE if $set-left? then $left-value else ($left := $right)
       else
-        ASTE if not $set-left?
+        AST if not $set-left?
           $left := $right
         else
           $left-value
@@ -752,8 +752,7 @@ macro try
       $current
 
 macro for
-  // FIXME: init should be an Expression or Assignment or Let
-  syntax reducer as ("every" | "some" | "first")?, init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as ("every" | "some" | "first")?, init as (ExpressionOrAssignment|""), ";", test as (Logic|""), ";", step as (ExpressionOrAssignment|""), body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if @empty(init)
       init := @noop()
     if @empty(test)
@@ -1230,7 +1229,7 @@ define operator binary by with maximum: 1, precedence: 1
   ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
 
 macro while
-  syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if not @empty(else-body)
       if @position == \expression or @expr
         throw Error("Cannot use a while loop with an else as an expression")
@@ -1248,7 +1247,7 @@ macro while
           $body
 
 macro until
-  syntax test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if @position == \expression
       ASTE while not $test, $step
         $body

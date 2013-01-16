@@ -3399,7 +3399,7 @@ define BasicInvocationOrAccess = sequential! [
           if parent.cacheable
             let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type())
             tmp-ids.push tmp.id
-            set-parent := o.assign(i, tmp, "=", parent)
+            set-parent := o.assign(i, tmp, "=", parent.do-wrap())
             parent := tmp
           let result = o.array(i, for element, j in child.elements
             o.access(i, if j == 0 then set-parent else parent, element))
@@ -3415,14 +3415,14 @@ define BasicInvocationOrAccess = sequential! [
           if head.cacheable
             let tmp = o.tmp(i, get-tmp-id(), \ref, head.type())
             tmp-ids.push tmp.id
-            set-head := o.assign(i, tmp, "=", head)
+            set-head := o.assign(i, tmp, "=", head.do-wrap())
             head := tmp
           let mutable child = link.child
           let mutable set-child = child
           if child.cacheable
             let tmp = o.tmp(i, get-tmp-id(), \ref, child.type())
             tmp-ids.push tmp.id
-            set-child := o.assign(i, tmp, "=", child)
+            set-child := o.assign(i, tmp, "=", child.do-wrap())
             child := tmp
           let mutable test = o.call(i, o.ident(i, \__owns), [set-head, set-child])
           
@@ -3456,7 +3456,7 @@ define BasicInvocationOrAccess = sequential! [
             if head.cacheable
               let tmp = o.tmp(i, get-tmp-id(), \ref, head.type())
               tmp-ids.push tmp.id
-              set-head := o.assign(i, tmp, "=", head)
+              set-head := o.assign(i, tmp, "=", head.do-wrap())
               head := tmp
             let result = o.if(i
               o.binary(i, set-head, "!=", o.const(i, null))
@@ -3481,12 +3481,12 @@ define BasicInvocationOrAccess = sequential! [
             if parent.cacheable
               let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type())
               tmp-ids.push tmp.id
-              set-parent := o.assign(i, tmp, "=", parent)
+              set-parent := o.assign(i, tmp, "=", parent.do-wrap())
               parent := tmp
             if child.cacheable
               let tmp = o.tmp(i, get-tmp-id(), \ref, child.type())
               tmp-ids.push tmp.id
-              set-child := o.assign(i, tmp, "=", child)
+              set-child := o.assign(i, tmp, "=", child.do-wrap())
               child := tmp
             if parent != set-parent or child != set-child
               set-head := o.access(i, set-parent, set-child)
@@ -3495,7 +3495,7 @@ define BasicInvocationOrAccess = sequential! [
             if head.cacheable
               let tmp = o.tmp(i, get-tmp-id(), \ref, head.type())
               tmp-ids.push tmp.id
-              set-head := o.assign(i, tmp, "=", head)
+              set-head := o.assign(i, tmp, "=", head.do-wrap())
               head := tmp
           let result = o.if(i
             o.binary(i
@@ -3996,7 +3996,7 @@ class MacroHelper
       let tmp = @tmp(name, save, node.type())
       func @state.block(@index, [
         @state.var(@index, tmp, false)
-        @state.assign(@index, tmp, "=", node)
+        @state.assign(@index, tmp, "=", node.do-wrap())
       ]), tmp, true
     else
       func node, node, false
@@ -5107,6 +5107,13 @@ node-type! \assign, left as Node, op as String, right as Node, {
         type @left.type(), @right.type()
       else
         type
+  _reduce: #
+    let left = @left.reduce()
+    let right = @right.reduce().do-wrap()
+    if left != @left or right != @right
+      AssignNode @start-index, @end-index, left, @op, right
+    else
+      this
 }
 node-type! \binary, left as Node, op as String, right as Node, {
   type: do
@@ -5697,6 +5704,12 @@ node-type! \regexp, text as Node, flags as String, {
 node-type! \return, node as Node = ConstNode(0, 0, void), existential as Boolean, {
   type: # -> @node.type()
   is-statement: #-> true
+  _reduce: #
+    let node = @node.reduce().do-wrap()
+    if node != @node
+      ReturnNode @start-index, @end-index, node, @existential
+    else
+      this
 }
 node-type! \root, body as Node, {
   is-statement: #-> true
@@ -5895,6 +5908,12 @@ node-type! \tmp-wrapper, node as Node, tmps as Array, {
 node-type! \var, ident as (IdentNode|TmpNode), is-mutable as Boolean
 node-type! \yield, node as Node, multiple as Boolean, {
   is-statement: #-> true
+  _reduce: #
+    let node = @node.reduce().do-wrap()
+    if node != @node
+      YieldNode @start-index, @end-index, node, @multiple
+    else
+      this
 }
 
 let without-repeats(array)

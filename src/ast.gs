@@ -782,11 +782,10 @@ exports.Call := class Call extends Expression
     @_is-small ?= if not @func.is-small()
       false
     else
-      do // FIXME
-        switch @args.length
-        case 0; true
-        case 1; @args[0].is-small()
-        default; false
+      switch @args.length
+      case 0; true
+      case 1; @args[0].is-small()
+      default; false
   
   def walk(walker)
     let func = walker(@func) ? @func.walk(walker)

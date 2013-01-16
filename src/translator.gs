@@ -72,10 +72,7 @@ class Scope
 
   def release-tmp(id)!
     if @tmps ownskey id
-      // FIXME: change when delete can be used in an expression
-      let ident = @tmps[id]
-      delete @tmps[id]
-      @release-ident(ident)
+      @release-ident(delete @tmps[id])
 
   def release-tmps()!
     for id of @tmps
