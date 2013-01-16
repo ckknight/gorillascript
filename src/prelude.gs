@@ -135,10 +135,14 @@ macro let
 
 macro return
   syntax node as Expression?
+    if @in-generator
+      throw Error "Cannot use return in a generator function"
     @return node
 
 macro return?
   syntax node as Expression?
+    if @in-generator
+      throw Error "Cannot use return in a generator function"
     @maybe-cache node, #(set-node, node)@
       AST
         if $set-node !~= null
@@ -2139,3 +2143,18 @@ macro namespace
       ASTE $assignment := $result
     else
       result
+
+macro yield
+  syntax node as Expression
+    if not @in-generator
+      throw Error "Can only use yield in a generator function"
+    @yield node
+
+macro yield*
+  syntax node as Expression
+    if not @in-generator
+      throw Error "Can only use yield* in a generator function"
+    let item = @tmp \item
+    AST
+      for $item from $node
+        yield $item

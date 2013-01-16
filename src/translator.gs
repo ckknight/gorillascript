@@ -428,8 +428,6 @@ let generator-translate = do
       builder.run-pending-finally()
     
     Yield: #(node, scope, builder)
-      if node.multiple
-        throw Error "Not implemented: yield*"
       builder.yield translate node.node, scope, \expression
   }
   #(node, scope, builder, break-state, continue-state)

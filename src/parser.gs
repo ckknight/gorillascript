@@ -2853,7 +2853,6 @@ define FunctionDeclaration = sequential! [
   [\bound, maybe! AtSign, NOTHING]
   [\generator-body, #(o)
     let generator = not not Asterix(o)
-    _in-generator.push(generator)
     let body = if generator
       GeneratorFunctionBody(o)
     else
@@ -3716,25 +3715,12 @@ define ExpressionAsStatement = one-of! [
 ]
 define Expression = in-expression ExpressionAsStatement 
 
-define YieldToken = word \yield
-define Yield = short-circuit! YieldToken, sequential! [
-  YieldToken
-  #(o)
-    if not _in-generator.peek()
-      o.error("Can only use the yield statement in a generator function")
-    else
-      true
-  [\multiple, maybe! Asterix, NOTHING]
-  [\node, Expression]
-], #(x, o, i) -> o.yield i, x.node.do-wrap(), x.multiple != NOTHING
-
 define Break = word \break, #(x, o, i) -> o.break i
 
 define Continue = word \continue, #(x, o, i) -> o.continue i
 
 define Statement = sequential! [
   [\this, in-statement one-of! [
-    Yield
     Break
     Continue
     Macro
@@ -3827,12 +3813,13 @@ class FailureManager
       @messages.push message
 
 class MacroHelper
-  def constructor(state as State, index, position)@
+  def constructor(state as State, index, position, in-generator)@
     @unsaved-tmps := []
     @saved-tmps := []
     @state := state
     @index := index
     @position := position
+    @in-generator := in-generator
   
   let do-wrap(node)
     if node instanceof Node
@@ -4933,7 +4920,7 @@ class State
       if _in-ast.peek()
         o.macro-access i, macro-id, x, _position.peek()
       else
-        let macro-helper = MacroHelper o, i, _position.peek()
+        let macro-helper = MacroHelper o, i, _position.peek(), _in-generator.peek()
         let mutable result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data, position)
           _position.push position
           try
@@ -5900,12 +5887,12 @@ node-type! \tmp-wrapper, node as Node, tmps as Array, {
   is-statement: #-> @node.is-statement()
 }
 node-type! \var, ident as (IdentNode|TmpNode), is-mutable as Boolean
-node-type! \yield, node as Node, multiple as Boolean, {
+node-type! \yield, node as Node, {
   is-statement: #-> true
   _reduce: #
     let node = @node.reduce().do-wrap()
     if node != @node
-      YieldNode @start-index, @end-index, node, @multiple
+      YieldNode @start-index, @end-index, node
     else
       this
 }
