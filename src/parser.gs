@@ -2907,10 +2907,13 @@ define Ast = oneOf! [
 
 define Debugger = word \debugger, #(x, o, i) -> o.debugger i
 
-define MacroName = with-space! one-or-more-of! [
-  _Symbol
-  _Name
-], #(x) -> x.join ""
+define MacroName = with-space! sequential! [
+  [\this, one-or-more-of! [
+    _Symbol
+    _Name
+  ], #(x) -> x.join ""]
+  NotColon
+]
 
 define UseMacro = #(o)
   let clone = o.clone()
@@ -3713,16 +3716,6 @@ define ExpressionAsStatement = one-of! [
 ]
 define Expression = in-expression ExpressionAsStatement 
 
-define ReturnToken = word \return
-define Return = short-circuit! ReturnToken, sequential! [
-  ReturnToken
-  [\existential, MaybeExistentialSymbolNoSpace]
-  [\node, ExpressionOrNothing]
-], #(x, o, i)
-  if _in-generator.peek() and x.node not instanceof NothingNode
-    o.error("Cannot use a valued return statement in a generator function")
-  o.return i, x.node.do-wrap(), x.existential == "?"
-
 define YieldToken = word \yield
 define Yield = short-circuit! YieldToken, sequential! [
   YieldToken
@@ -3741,7 +3734,6 @@ define Continue = word \continue, #(x, o, i) -> o.continue i
 
 define Statement = sequential! [
   [\this, in-statement one-of! [
-    Return
     Yield
     Break
     Continue
@@ -3862,6 +3854,8 @@ class MacroHelper
   def binary(left as Node, op as String, right as Node) -> @state.binary(@index, do-wrap(left), op, do-wrap(right)).reduce()
   def unary(op as String, node as Node) -> @state.unary(@index, op, do-wrap(node)).reduce()
   def throw(node as Node) -> @state.throw(@index, do-wrap(node)).reduce()
+  def return(node as (Node|void)) -> @state.return(@index, do-wrap(node)).reduce()
+  def yield(node as Node) -> @state.yield(@index, do-wrap(node)).reduce()
   
   def tmp(name as String = \ref, save as Boolean, mutable type)
     let id = get-tmp-id()
@@ -5701,13 +5695,13 @@ node-type! \regexp, text as Node, flags as String, {
     else
       this
 }
-node-type! \return, node as Node = ConstNode(0, 0, void), existential as Boolean, {
+node-type! \return, node as Node = ConstNode(0, 0, void), {
   type: # -> @node.type()
   is-statement: #-> true
   _reduce: #
     let node = @node.reduce().do-wrap()
     if node != @node
-      ReturnNode @start-index, @end-index, node, @existential
+      ReturnNode @start-index, @end-index, node
     else
       this
 }

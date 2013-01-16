@@ -133,6 +133,17 @@ macro let
     else
       throw Error("Unknown declarable $(String declarable) $(String declarable?.constructor?.name)")
 
+macro return
+  syntax node as Expression?
+    @return node
+
+macro return?
+  syntax node as Expression?
+    @maybe-cache node, #(set-node, node)@
+      AST
+        if $set-node !~= null
+          return $node
+
 define operator assign and=
   @maybe-cache-access left, #(set-left, left)@
     if @position == \expression

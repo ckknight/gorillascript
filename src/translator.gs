@@ -1228,14 +1228,7 @@ let translators = {
     if location not in [\statement, \top-statement]
       throw Error "Expected Return in statement position"
     let t-value = translate node.node, scope, \expression
-    if node.existential
-      #
-        async set-value, value <- scope.maybe-cache t-value()
-        ast.IfStatement(
-          ast.Binary set-value, "!=", null
-          ast.Return value)
-    else
-      #-> ast.Return t-value()
+    #-> ast.Return t-value()
 
   Root: #(node, scope)
     let t-body = translate node.body, scope, \top-statement, scope.options.return or scope.options.eval
