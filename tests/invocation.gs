@@ -51,4 +51,35 @@ test "Apply invocation", #
   arrayEq [obj, [1, 2, 3]], f@ obj, ...arr
   arr.unshift obj
   arrayEq [obj, [1, 2, 3]], f@ ...arr
-  
+
+test "New on the result of a call", #
+  let f() -> Date
+  let now = new Date().get-time()
+  let weird-date = new (f()) now
+  eq now, weird-date.get-time()
+
+test "New on the result of a method call", #
+  let g = {
+    f: #-> Date
+  }
+  let now = new Date().get-time()
+  let weird-date = new (g.f()) now
+  eq now, weird-date.get-time()
+
+test "New on the result of call with access", #
+  let f = #-> {
+    g: Date
+  }
+  let now = new Date().get-time()
+  let weird-date = new (f().g) now
+  eq now, weird-date.get-time()
+
+test "New on an array index", #
+  let now = new Date().get-time()
+  let weird-date = new [Date][0] now
+  eq now, weird-date.get-time()
+
+test "New on a sliced array index", #
+  let now = new Date().get-time()
+  let weird-date = new [Date][0:1][0] now
+  eq now, weird-date.get-time()

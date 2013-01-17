@@ -19,8 +19,8 @@ enum Level
   def multiplication // f() * `...` or f() / `...` or f() % `...`
   def unary // +`...` or !`...`
   def increment // ++`...` or `...`++ or --`...` or `...`--
-  def call // `...`()
-  def access // `...`[0] or `...`.item
+  def call-or-access // `...`() or `...`[0] `...`.item
+  def new-call // new `...`()
 
 let INDENT = "  "
 
@@ -387,6 +387,10 @@ exports.Binary := class Binary extends Expression
   
   let compile-access(op, left, right, options, level, line-start, sb)!
     let dot-access = right instanceof Const and typeof right.value == "string" and is-acceptable-ident(right.value)
+    let wrap = level > Level.call-or-access
+    
+    if wrap
+      sb "("
     
     if left instanceof Const and typeof left.value == "number"
       let string-left = to-JS-source left.value
@@ -403,7 +407,7 @@ exports.Binary := class Binary extends Expression
       sb to-JS-source(void)
       sb ")"
     else
-      left.compile options, Level.access, line-start, sb
+      left.compile options, Level.call-or-access, line-start, sb
     
     if dot-access
       sb "."
@@ -412,6 +416,9 @@ exports.Binary := class Binary extends Expression
       sb "["
       right.compile options, Level.inside-parentheses, false, sb
       sb "]"
+    
+    if wrap
+      sb ")"
   
   let compile-other(op, left, right, options, level, line-start, sb)!
     let op-level = OPERATOR_PRECEDENCE[op]
@@ -509,7 +516,7 @@ exports.Binary := class Binary extends Expression
       handler
   
   let OPERATOR_PRECEDENCE = {
-    ".": Level.access
+    ".": Level.call-or-access
     "*": Level.multiplication
     "/": Level.multiplication
     "%": Level.multiplication
@@ -750,13 +757,12 @@ exports.Call := class Call extends Expression
       arg.compile options, Level.sequence, false, sb
     sb ")"
   def compile(options, level, line-start, sb)!
-    if @is-new
-      sb "new "
-    
-    let wrap = not @is-new and (@func instanceof Func or (@func instanceof Binary and @func.op == "." and @func.left instanceof Func))
+    let wrap = level > Level.call-or-access or (not @is-new and (@func instanceof Func or (@func instanceof Binary and @func.op == "." and @func.left instanceof Func)))
     if wrap
       sb "("
-    @func.compile options, Level.call, line-start and not wrap and not @is-new, sb
+    if @is-new
+      sb "new "
+    @func.compile options, if @is-new then Level.new-call else Level.call-or-access, line-start and not wrap and not @is-new, sb
     let f = if @should-compile-large() then compile-large else compile-small
     f(@args, options, level, line-start, sb)
     if wrap
