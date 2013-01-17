@@ -12,9 +12,11 @@ cli.set-app "gorilla", "1.0"
 cli.set-usage "gorilla [OPTIONS] path/to/script.gs"
 
 cli.parse {
+  ast:          ["a", "Display JavaScript AST nodes instead of compilation"]
   compile:      ["c", "Compile to JavaScript and save as .js files"]
   output:       ["o", "Set the directory for compiled JavaScript", "path"]
   interactive:  ["i", "Run interactively with the REPL"]
+  nodes:        ["n", "Display GorillaScript parser nodes instead of compilation"]
   stdout:       ["p", "Print the compiled JavaScript to stdout"]
   stdin:        ["s", "Listen for and compile GorillaScript from stdin"]
   eval:         ["e", "Compile and run a string from command line", "string"]
@@ -28,12 +30,22 @@ cli.main #(filenames, options)
   else
     gorilla.init()
   let handle-code(code)
-    let result = if options.stdout
+    let result = if options.ast
+      util.inspect (gorilla.ast code, opts), false, null
+    else if options.nodes
+      util.inspect gorilla.parse(code, opts).result, false, null
+    else if options.stdout
       gorilla.compile code, opts
     else
       util.inspect gorilla.eval code, opts
     process.stdout.write "$result\n"
-  if options.eval?
+  if options.ast and options.compile
+    console.error "Cannot specify both --ast and --compile"
+  else if options.ast and options.nodes
+    console.error "Cannot specify both --ast and --nodes"
+  else if options.nodes and options.compile
+    console.error "Cannot specify both --nodes and --compile"
+  else if options.eval?
     handle-code String(options.eval)
   else if options.interactive
     require './repl'
@@ -57,7 +69,7 @@ cli.main #(filenames, options)
         process.stdout.write "$(((end-time - start-time) / 1000_ms).toFixed(3)) seconds\n"
         compiled[filename] := js-code
       else if options.stdout
-        process.stdout.write gorilla.compile(code, opts) & "\n"
+        handle-code(code)
       else
         opts.filename := filename
         gorilla.run code, opts
