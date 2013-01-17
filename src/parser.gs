@@ -2375,8 +2375,7 @@ define CustomOperator = do
     for operators in o.macros.binary-operators
       if operators
         for operator in operators
-          let {rule} = operator
-          let op = rule o
+          let op = operator.rule o
           if op
             let left = o.ident i, \x
             let right = o.ident i, \y
@@ -2399,13 +2398,68 @@ define CustomOperator = do
       return? handle-unary-operator operator, o, i
     false
 
+define CustomBinaryOperator = #(o)
+  let i = o.index
+  for operators in o.macros.binary-operators
+    if operators
+      for operator in operators
+        let op = operator.rule o
+        if op
+          return {
+            op
+            operator
+            inverted: false
+          }
+  false
+
 define Parenthetical = sequential! [
   OpenParenthesis
   [\this, one-of! [
-    ExpressionOrAssignment
-    CustomOperator
+    sequential! [
+      [\this, AssignmentAsExpression]
+      CloseParenthesis
+    ]
+    sequential! [
+      [\left, Expression]
+      [\operator, CustomBinaryOperator]
+      CloseParenthesis
+    ], #({left, operator: {op, operator, inverted}}, o, i)
+      let right = o.tmp i, get-tmp-id(), \x
+      return o.function(i
+        [o.param i, right]
+        operator.func {
+          left
+          inverted
+          op
+          right
+        }, o, i
+        true
+        false)
+    sequential! [
+      [\this, Expression]
+      CloseParenthesis
+    ]
+    sequential! [
+      [\operator, CustomBinaryOperator]
+      [\right, Expression]
+      CloseParenthesis
+    ], #({right, operator: {op, operator, inverted}}, o, i)
+      let left = o.tmp i, get-tmp-id(), \x
+      return o.function(i
+        [o.param i, left]
+        operator.func {
+          left
+          inverted
+          op
+          right
+        }, o, i
+        true
+        false)
+    sequential! [
+      [\this, CustomOperator]
+      CloseParenthesis
+    ]
   ]]
-  CloseParenthesis
 ], #(node, o, i) -> node
 
 define SpreadToken = sequential! [Space, Period, Period, Period], "..."
@@ -2847,8 +2901,10 @@ define FunctionLiteral = short-circuit! HashSign, sequential! [
   [\this, FunctionDeclaration]
 ]
 
+define AssignmentAsExpression = in-expression #(o) -> Assignment(o)
+
 define ExpressionOrAssignment = oneOf! [
-  in-expression #(o) -> Assignment(o)
+  AssignmentAsExpression
   Expression
 ]
 

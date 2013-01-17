@@ -1287,6 +1287,19 @@ test "Operators as functions", #
   */
   // TODO: check num!, str!, strnum!
 
+test "Partial operator functions", #
+  let double = (* 2)
+  eq \function, typeof double
+  eq 6, double 3
+  
+  let square = (^ 2)
+  eq \function, typeof square
+  eq 9, square 3
+  
+  let two-exp = (2 ^)
+  eq \function, typeof two-exp
+  eq 1024, two-exp 10
+
 test "til operator", #
   array-eq [0, 1, 2, 3, 4], 0 til 5
   array-eq [], 5 til 0
