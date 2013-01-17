@@ -2402,8 +2402,7 @@ define CustomOperator = do
 define Parenthetical = sequential! [
   OpenParenthesis
   [\this, one-of! [
-    Assignment
-    Expression
+    ExpressionOrAssignment
     CustomOperator
   ]]
   CloseParenthesis
