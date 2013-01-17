@@ -4213,6 +4213,10 @@ class MacroHolder
       m.data := []
       by-name[name] := m
   
+  def get-or-add-by-names(names as Array)
+    return for name in names
+      @get-or-add-by-name name
+  
   def get-by-id(id)
     let by-id = @by-id
     if id >= 0 and id < by-id.length
@@ -4472,7 +4476,7 @@ class State
     if not names
       throw Error "Must provide a macro name"
     if @current-macro
-      @error "Attempting to define a macro $(names.join ', ') inside a macro $(@current-macro)"
+      @error "Attempting to define a macro $(String names) inside a macro $(String @current-macro)"
     try
       @current-macro := names
       func()
@@ -4639,20 +4643,23 @@ class State
     sequential sequence
   let macro-syntax-types = {
     syntax: #(index, params, body, options, state-options)
-      let func-params = for param in params
-        if param instanceof SyntaxParamNode
-          {
-            key: @const index, param.ident.name
-            value: @param index, param.ident, void, false, true, void
-          }
+      let func-params = @object-param index, [
+        { key: @const(index, \macro-name), value: @param index, (@ident index, \macro-name), void, false, true, void }
+        { key: @const(index, \macro-data), value: @object-param index, (for param in params
+          if param instanceof SyntaxParamNode
+            {
+              key: @const index, param.ident.name
+              value: @param index, param.ident, void, false, true, void
+            }) }
+      ]
       
-      let raw-func = make-macro-root@ this, index, @object-param(index, func-params), body
+      let raw-func = make-macro-root@ this, index, func-params, body
       let translated = require('./translator')(raw-func.reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
       if typeof handler != \function
-        throw Error "Error creating function for macro: $(@current-macro)"
+        throw Error "Error creating function for macro: $(String @current-macro)"
       {
         handler: #(args, ...rest) -> handler@(this, reduce-object(args), ...rest).reduce()
         rule: handle-params@ this, params
@@ -4662,7 +4669,7 @@ class State
             code: serialization
             options
             params: serialize-params params
-            name: @current-macro
+            names: @current-macro
           }
       }
     
@@ -4701,7 +4708,11 @@ class State
       }
     
     call: #(index, params, body, options, state-options)
-      let raw-func = make-macro-root@ this, index, @array-param(index, params), body
+      let func-params = @object-param index, [
+        { key: @const(index, \macro-name), value: @param index, (@ident index, \macro-name), void, false, true, void }
+        { key: @const(index, \macro-data), value: @array-param(index, params) }
+      ]
+      let raw-func = make-macro-root@ this, index, func-params, body
       let translated = require('./translator')(raw-func.reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
@@ -4719,7 +4730,7 @@ class State
             type: \call
             code: serialization
             options
-            name: @current-macro
+            names: @current-macro
           }
       }
     
@@ -4811,16 +4822,16 @@ class State
   }
   
   let macro-deserializers = {
-    syntax: #({code, params, name, id})
+    syntax: #({code, params, names, id})
       let mutable handler = Function(code)()
       if typeof handler != \function
         throw Error "Error deserializing function for macro $(name)"
       handler := do inner = handler
         #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
-      @enter-macro name, #@
+      @enter-macro names, #@
         handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params)), null, null, id
     
-    call: #({code, name, id})
+    call: #({code, names, id})
       let mutable handler = Function(code)()
       if typeof handler != \function
         throw Error "Error deserializing function for macro $(name)"
@@ -4895,8 +4906,8 @@ class State
         o.macro-access i, macro-id, x, _position.peek()
       else
         throw Error "Cannot use macro until fully defined"
-    let m = macros.get-or-add-by-name @current-macro
-    m.data.push sequential! [m.token, [\this, rule]], mutator
+    for m in macros.get-or-add-by-names @current-macro
+      m.data.push sequential! [[\macro-name, m.token], [\macro-data, rule]], mutator
     let macro-id = macros.add-macro(mutator)
     @pending-macro-id := macro-id
     params
@@ -4937,20 +4948,20 @@ class State
       @macros.add-syntax options.name, mutate! rule, mutator
       macros.add-macro mutator, macro-id
     default
-      let m = macros.get-or-add-by-name @current-macro
       assert(rule)
-      let full-rule = sequential! [m.token, [\this, rule]], mutator
+      for m in macros.get-or-add-by-names @current-macro
+        if @pending-macro-id?
+          m.data.pop()
+        m.data.push sequential! [[\macro-name, m.token], [\macro-data, rule]], mutator
+      
       if @pending-macro-id?
         if macro-id?
           throw Error "Cannot provide the macro id if there is a pending macro id"
         let id = @pending-macro-id
         @pending-macro-id := null
-        m.data.pop()
-        m.data.push full-rule
         macros.replace-macro(id, mutator)
         id
-      else
-        m.data.push full-rule
+      else  
         macros.add-macro(mutator, macro-id)
   
   def macro-syntax(index, type, params as Array, body, options = {})!

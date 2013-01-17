@@ -56,20 +56,20 @@ macro let
       @assign ident, "=", func
     ]
 
-macro if
+macro if, unless
   // this uses eval instead of normal operators since those aren't defined yet
   // thankfully the eval uses constant strings and turns into pure code
   syntax test as Logic, "then", body, else-ifs as ("else", "if", test as Logic, "then", body)*, else-body as ("else", this)?
     let dec(x) -> eval "x - 1"
     let f(i, current)@
       (i ~>= 0 and f(dec(i), @if(else-ifs[i].test, else-ifs[i].body, current))) or current
-    @if(test, body, f(dec(else-ifs.length), else-body))
+    @if((macro-name == \unless and ASTE not $test) or test, body, f(dec(else-ifs.length), else-body))
 
   syntax test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     let dec(x) -> eval "x - 1"
     let f(i, current)@
       if i ~>= 0 then f(dec(i), @if((if else-ifs[i].type == "unless" then (ASTE not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
-    @if(test, body, f(dec(else-ifs.length), else-body))
+    @if(if macro-name == \unless then ASTE not $test else test, body, f(dec(else-ifs.length), else-body))
 
 define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier
   if @is-ident(ident) or @is-tmp(ident)
@@ -640,17 +640,6 @@ define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, 
     else
       throw Error()
     ASTE $set-left := $action
-
-macro unless
-  syntax test as Logic, "then", body, else-body as ("else", this)?
-    ASTE if not $test then $body else $else-body
-
-  syntax test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    let f(i, current)@
-      let mutable test = else-ifs[i]?.test
-      test := if else-ifs[i]?.type == "unless" then (ASTE not $test) else test
-      if i < 0 then current else f(i - 1, @if(test, else-ifs[i].body, current))
-    @if((ASTE not $test), body, f(else-ifs.length - 1, else-body))
 
 macro do
   syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as (Body | (";", this as Statement))
@@ -1255,8 +1244,10 @@ define operator binary by with maximum: 1, precedence: 1
   let call-args = @call-args(left)
   ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
 
-macro while
+macro while, until
   syntax test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+    if macro-name == \until
+      test := ASTE not $test
     if not @empty(else-body)
       if @position == \expression or @expr
         throw Error("Cannot use a while loop with an else as an expression")
@@ -1272,20 +1263,6 @@ macro while
       AST
         for ; $test; $step
           $body
-
-macro until
-  syntax test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if @position == \expression
-      ASTE while not $test, $step
-        $body
-      else
-        $else-body
-    else
-      AST
-        while not $test, $step
-          $body
-        else
-          $else-body
 
 define helper __keys = if typeof Object.keys == \function
   Object.keys
@@ -1773,24 +1750,20 @@ macro asyncfor
     else
       ASTE __async-iter-result(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err, $result) -> $rest)
 
-macro asyncwhile
+macro asyncwhile, asyncuntil
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
+    if macro-name == \asyncuntil
+      test := ASTE not $test
     let {err, result} = if @empty(results) then {} else results
     AST
       asyncfor $err, $result <- $next, ; $test; $step
         $body
       $rest
 
-macro asyncuntil
-  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
-    let {err, result} = if @empty(results) then {} else results
-    AST
-      asyncwhile $err, $result <- $next, not $test, $step
-        $body
-      $rest
-
-macro asyncif
+macro asyncif, asyncunless
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, rest as DedentedBody
+    if macro-name == \asyncunless
+      test := ASTE not $test
     let {err, result} = if @empty(results) then {} else results
     
     let mutable current = else-body
@@ -1806,42 +1779,6 @@ macro asyncif
       current := @if(inner-test, else-if.body, current)
     
     current := @if(test, body, current)
-    
-    if @empty(err) and @empty(result)
-      AST
-        let $done()@
-          $rest
-        $current
-    else if @empty(result)
-      AST
-        let $done($err)@
-          $rest
-        $current
-    else
-      if @empty(err)
-        err := @tmp \err, true
-      AST
-        let $done($err, $result)@
-          $rest
-        $current
-
-macro asyncunless
-  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, rest as DedentedBody
-    let {err, result} = if @empty(results) then {} else results
-    
-    let mutable current = else-body
-    if @empty(else-body)
-      current := ASTE $done()
-    
-    let mutable i = else-ifs.length - 1
-    while i >= 0, i -= 1
-      let else-if = else-ifs[i]
-      let mutable inner-test = else-if.test
-      if else-if.type == "unless"
-        inner-test := ASTE not $inner-test
-      current := @if(inner-test, else-if.body, current)
-    
-    current := @if(ASTE not $test, body, current)
     
     if @empty(err) and @empty(result)
       AST
