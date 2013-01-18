@@ -56,6 +56,18 @@ test "single-line, numeric keys", #
   eq "b", obj[2]
   eq "c", obj[3]
 
+test "single-line, numeric keys that aren't their string equivalents", #
+  let obj = { "01234": "a", 1234: "b", 1e3: "c" }
+  eq "a", obj["01234"]
+  eq "b", obj["1234"]
+  eq "b", obj[1234]
+  eq "b", obj.1234
+  eq "c", obj[1e3]
+  eq "c", obj[1000]
+  eq "c", obj["1000"]
+  eq void, obj["1e3"]
+  eq "c", obj.1000
+
 test "multi-line", #
   let obj = {
     a: 1,
