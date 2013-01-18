@@ -904,7 +904,6 @@ test "min/max operators", #
   eq "alpha", "alpha" min "bravo" min "charlie" min "delta"
   eq "delta", "alpha" max "bravo" max "charlie" max "delta"
 
-/*
 test "min/max assignment", #
   let min-assign(mutable x, y)
     x min= y()
@@ -932,27 +931,7 @@ test "min/max assignment", #
   eq "alpha", min-member-assign({key: "bravo"}, run-once("key"), run-once "alpha")
   eq "bravo", max-member-assign({key: "alpha"}, run-once("key"), run-once "bravo")
   eq "bravo", max-member-assign({key: "bravo"}, run-once("key"), run-once "alpha")
-*/
-/*
-test "logarithm", #
-  let round(value)
-    Math.round(value * 10^8) / 10^8
-  eq 0, log 1
-  for i = 1, 10
-    eq i, round log Math.E ^ i
-    eq i, round log 10 ^ i, 10
-    eq i, round log 2 ^ i, 2
-  end
-  
-  let log1 = (x) -> log x()
-  eq Math.log(10), log1 run-once(10)
-  throws #-> log1(run-once("10")), TypeError
-  let log2 = (x, y) -> log x(), y()
-  eq Math.log(10) / Math.log(2), log2 run-once(10), run-once(2)
-  throws #-> log2(run-once("10"), run-once("2")), TypeError
-  throws #-> log2(run-once("10"), run-once(2)), TypeError
-  throws #-> log2(run-once(10), run-once("2")), TypeError
-*/
+
 test "negation on separate line does not look like subtraction", #
   let f()
     let x = 5
@@ -1047,15 +1026,29 @@ test "Operators as functions", #
   ok (in)("c", ["a", "b", "c", "d"])
   ok not (in)("e", ["a", "b", "c", "d"])
   
+  eq "function", typeof (not in)
+  ok not (not in)("c", ["a", "b", "c", "d"])
+  ok (not in)("e", ["a", "b", "c", "d"])
+  
   eq "function", typeof (haskey)
   ok (haskey)({hello: "there"}, "hello")
   ok (haskey)({ extends {hello: "there"} }, "hello")
   ok not (haskey)({ extends {} }, "hello")
   
+  eq "function", typeof (not haskey)
+  ok not (not haskey)({hello: "there"}, "hello")
+  ok not (not haskey)({ extends {hello: "there"} }, "hello")
+  ok (not haskey)({ extends {} }, "hello")
+  
   eq "function", typeof (ownskey)
   ok (ownskey)({hello: "there"}, "hello")
   ok not (ownskey)({ extends {hello: "there"} }, "hello")
   ok not (ownskey)({ extends {} }, "hello")
+  
+  eq "function", typeof (not ownskey)
+  ok not (not ownskey)({hello: "there"}, "hello")
+  ok (not ownskey)({ extends {hello: "there"} }, "hello")
+  ok (not ownskey)({ extends {} }, "hello")
   
   eq "function", typeof (instanceof)
   ok (instanceof)(#->, Function)
@@ -1064,10 +1057,22 @@ test "Operators as functions", #
   ok not (instanceof)(#->, Array)
   ok not (instanceof)([], Number)
   
+  eq "function", typeof (not instanceof)
+  ok not (not instanceof)(#->, Function)
+  ok not (not instanceof)({}, Object)
+  ok not (not instanceof)([], Array)
+  ok (not instanceof)(#->, Array)
+  ok (not instanceof)([], Number)
+  
   eq "function", typeof (instanceofsome)
   ok (instanceofsome)(#->, [Number, Function])
   ok (instanceofsome)(#->, [Function, Number])
   ok not (instanceofsome)(#->, [String, Number])
+  
+  eq "function", typeof (not instanceofsome)
+  ok not (not instanceofsome)(#->, [Number, Function])
+  ok not (not instanceofsome)(#->, [Function, Number])
+  ok (not instanceofsome)(#->, [String, Number])
   
   eq "function", typeof (<=>)
   eq 0, (<=>)("hello", "hello")
@@ -1105,12 +1110,11 @@ test "Operators as functions", #
   n (~%%), 10, 5, true, false
   n (%%), 10, 6, false, true
   n (~%%), 10, 6, false, false
-  /*
+  
   n (not %%), 10, 5, false, true
   n (not ~%%), 10, 5, false, false
   n (not %%), 10, 6, true, true
   n (not ~%%), 10, 6, true, false
-  */
   
   n (<), 1, 5, true, true
   n (~<), 1, 5, true, false

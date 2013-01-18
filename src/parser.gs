@@ -2377,6 +2377,11 @@ define CustomOperatorCloseParenthesis = do
       if operators
         for operator in operators
           let clone = o.clone()
+          let mutable inverted = false
+          if operator.invertible
+            inverted := MaybeNotToken clone
+            if not inverted
+              continue
           let op = operator.rule clone
           if op and CloseParenthesis(clone)
             o.update clone
@@ -2389,7 +2394,7 @@ define CustomOperatorCloseParenthesis = do
               ]
               operator.func {
                 left
-                inverted: false
+                inverted: inverted == "not"
                 op
                 right
               }, o, i
