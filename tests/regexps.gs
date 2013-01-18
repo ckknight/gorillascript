@@ -69,8 +69,6 @@ test "and empty regex will compile to an empty, non-capturing group", #
   ok match
   eq "", match[0]
 
-/*
 test "Bad regex will throw a proper exception", #
-  throws -> Cotton.compile("""let x = 0
-  let y = r'+'"""), (e) -> e.line == 2
-*/
+  throws #-> gorilla.compile("""let x = 0
+  let y = r'+'"""), #(e) -> e.line == 2
