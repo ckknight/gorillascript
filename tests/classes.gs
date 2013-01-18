@@ -390,7 +390,7 @@ test "namespaced named class with inheritance", #
 test "class with calculated method names", #
   class Class
     for i in 1 til 4
-      def ("method" & i) = #-> i
+      def ["method" & i] = #-> i
   
   let obj = new Class()
   eq 1, obj.method1()

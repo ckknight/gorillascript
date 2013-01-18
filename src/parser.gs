@@ -764,8 +764,8 @@ define EmptyLines = zero-or-more! EmptyLine, true
 define SomeEmptyLines = one-or-more! EmptyLine, true
 
 let INDENTS = {
-  (C "\t"): 4
-  (C " "): 1
+  [C "\t"]: 4
+  [C " "]: 1
 }
 define CountIndent = zero-or-more! SpaceChar, #(x)
   let mutable count = 1
@@ -1971,20 +1971,20 @@ define UnicodeEscapeSequence = short-circuit! LowerU, sequential! [
 
 define SingleEscapeCharacter = do
   let ESCAPED_CHARACTERS = {
-    (C "b"): C "\b"
-    (C "f"): C "\f"
-    (C "r"): C "\r"
-    (C "n"): C "\n"
-    (C "t"): C "\t"
-    (C "v"): C "\v"
-    (C "0"): -1 // to be non-falsy
-    (C "1"): 1
-    (C "2"): 2
-    (C "3"): 3
-    (C "4"): 4
-    (C "5"): 5
-    (C "6"): 6
-    (C "7"): 7
+    [C "b"]: C "\b"
+    [C "f"]: C "\f"
+    [C "r"]: C "\r"
+    [C "n"]: C "\n"
+    [C "t"]: C "\t"
+    [C "v"]: C "\v"
+    [C "0"]: -1 // to be non-falsy
+    [C "1"]: 1
+    [C "2"]: 2
+    [C "3"]: 3
+    [C "4"]: 4
+    [C "5"]: 5
+    [C "6"]: 6
+    [C "7"]: 7
   }
   
   mutate! AnyChar, #(c)
@@ -2509,7 +2509,11 @@ define ArrayLiteral = sequential! [
   o.array i, [...x.first, ...x.rest]
 
 define ObjectKey = one-of! [
-  Parenthetical
+  sequential! [
+    OpenSquareBracket
+    [\this, ExpressionOrAssignment]
+    CloseSquareBracket
+  ]
   StringLiteral
   mutate! NumberLiteral, #(x, o, i) -> o.const i, String(x.value)
   IdentifierNameConst
@@ -4511,7 +4515,7 @@ macro node-type!
     unless @empty(methods)
       for pair in @pairs(methods)
         let {key, value} = pair
-        add-methods.push AST def ($key) = $value
+        add-methods.push AST def [$key] = $value
         if @is-const(key) and @value(key) == \walk
           found-walk := true
     

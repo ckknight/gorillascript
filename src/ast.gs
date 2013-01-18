@@ -555,15 +555,15 @@ exports.Binary := class Binary extends Expression
   }
   
   let LEVEL_TO_ASSOCIATIVITY = {
-    (Level.equality): "paren"
-    (Level.relational): "paren"
-    (Level.addition): "left"
-    (Level.multiplication): "left"
-    (Level.bitwise-and): "none"
-    (Level.bitwise-or): "none"
-    (Level.bitwise-xor): "none"
-    (Level.bitwise-shift): "left"
-    (Level.assignment): "right"
+    [Level.equality]: "paren"
+    [Level.relational]: "paren"
+    [Level.addition]: "left"
+    [Level.multiplication]: "left"
+    [Level.bitwise-and]: "none"
+    [Level.bitwise-or]: "none"
+    [Level.bitwise-xor]: "none"
+    [Level.bitwise-shift]: "left"
+    [Level.assignment]: "right"
   }
   
   def is-large()

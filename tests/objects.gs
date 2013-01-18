@@ -28,7 +28,7 @@ test "single-line, quoted keys, trailing comma", #
 
 test "single-line, parenthesized keys", #
   let key = "hello"
-  let obj = {a: 1, b: 2, c: 3, key: 4, (key): 5}
+  let obj = {a: 1, b: 2, c: 3, key: 4, [key]: 5}
   eq 1, obj.a
   eq 2, obj.b
   eq 3, obj.c
@@ -37,7 +37,7 @@ test "single-line, parenthesized keys", #
 
 test "single-line, parenthesized keys get overwritten", #
   let key = "hello"
-  let obj = {a: 1, b: 2, c: 3, (key): 5, hello: 4 }
+  let obj = {a: 1, b: 2, c: 3, [key]: 5, hello: 4 }
   eq 1, obj.a
   eq 2, obj.b
   eq 3, obj.c
