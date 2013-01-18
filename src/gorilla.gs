@@ -49,7 +49,7 @@ let fetch-and-parse-prelude = do
     if err
       return flush(err, null)
     if not parsed-prelude?
-      parsed-prelude := parser prelude, null, { serialize-macros: true }
+      parsed-prelude := parser prelude, null, { +serialize-macros }
       fs.write-file prelude-cache-path, parsed-prelude.macros.serialize(), "utf8", #(err)
         throw? err
     flush(null, parsed-prelude)
@@ -75,7 +75,7 @@ let fetch-and-parse-prelude = do
             console.error "Error deserializing prelude, reloading. $(String e)"
       if not parsed-prelude?
         let prelude = fs.read-file-sync prelude-src-path, "utf8"
-        parsed-prelude := parser prelude, null, { serialize-macros: true }
+        parsed-prelude := parser prelude, null, { +serialize-macros }
         fs.write-file prelude-cache-path, parsed-prelude.macros.serialize(), "utf8", #(err)
           throw? err
       parsed-prelude

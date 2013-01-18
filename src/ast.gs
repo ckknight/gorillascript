@@ -174,7 +174,7 @@ exports.Node := class Node
   
   def to-string()
     let sb = StringBuilder()
-    @compile-as-statement { indent: 0, bare: true }, true, sb
+    @compile-as-statement { indent: 0, +bare }, true, sb
     sb.to-string()
   
   def to-function()
@@ -457,17 +457,17 @@ exports.Binary := class Binary extends Expression
       super.compile-as-statement(options, line-start, sb)
   
   let ASSIGNMENT_OPS = {
-    "=": true
-    "-=": true
-    "*=": true
-    "/=": true
-    "%=": true
-    "<<=": true
-    ">>=": true
-    ">>>=": true
-    "&=": true
-    "^=": true
-    "|=": true
+    +"="
+    +"-="
+    +"*="
+    +"/="
+    +"%="
+    +"<<="
+    +">>="
+    +">>>="
+    +"&="
+    +"^="
+    +"|="
   }
   
   let OPERATOR_TYPES = {
@@ -927,13 +927,13 @@ exports.Const := class Const extends Expression
         flags.push "i"
       if @value.multiline
         flags.push "m"
-      { type: "Const", regexp: true, @value.source, flags }
+      { type: "Const", +regexp, @value.source, flags }
     else if @value == Infinity
-      { type: "Const", infinite: true, value: 1 }
+      { type: "Const", +infinite, value: 1 }
     else if @value == -Infinity
-      { type: "Const", infinite: true, value: -1 }
+      { type: "Const", +infinite, value: -1 }
     else if @value != @value
-      { type: "Const", infinite: true, value: 0 }
+      { type: "Const", +infinite, value: 0 }
     else
       { type: "Const", @value }
   @from-JSON := #(obj)
@@ -1953,11 +1953,11 @@ exports.Unary := class Unary extends Expression
   }
   
   let ASSIGNMENT_OPERATORS = {
-    "++": true
-    "--": true
-    "++post": true
-    "--post": true
-    "delete": true
+    +"++"
+    +"--"
+    +"++post"
+    +"--post"
+    +"delete"
   }
   
   def type() -> OPERATOR_TYPES[@op]

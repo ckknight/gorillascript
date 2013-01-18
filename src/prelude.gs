@@ -1363,7 +1363,7 @@ macro switch
         result-cases.push {
           node: case-node
           body: @noop()
-          fallthrough: true
+          +fallthrough
         }
       result-cases.push {
         node: case-nodes[case-nodes.length - 1]

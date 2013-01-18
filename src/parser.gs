@@ -2443,12 +2443,19 @@ define CustomBinaryOperator = #(o)
   for operators in o.macros.binary-operators
     if operators
       for operator in operators
-        let op = operator.rule o
+        let clone = o.clone()
+        let mutable inverted = false
+        if operator.invertible
+          inverted := MaybeNotToken clone
+          if not inverted
+            continue
+        let op = operator.rule clone
         if op
+          o.update clone
           return {
             op
             operator
-            inverted: false
+            inverted: inverted == "not"
           }
   false
 
@@ -3505,7 +3512,7 @@ define BasicInvocationOrAccess = sequential! [
       type: \call
       x.args
       existential: x.existential == "?"
-      is-new: false
+      -is-new
       is-apply: x.is-apply != NOTHING
     }
   ]]
@@ -3677,7 +3684,7 @@ define BasicInvocationOrAccess = sequential! [
         o.error "Unknown link type: $(part.type)"
   
     if is-new
-      links.push { type: \call, args: [], existential: false, is-new: true, is-apply: false }
+      links.push { type: \call, args: [], -existential, +is-new, -is-apply }
     
     convert-call-chain o, i, head.node, 0, links
 
@@ -5222,7 +5229,7 @@ node-type! \access-index, parent as Node, child as Object, {
 }
 node-type! \args, {
   type: #-> Type.args
-  cacheable: false
+  -cacheable
 }
 node-type! \array, elements as [Node], {
   type: #-> Type.array
@@ -5636,51 +5643,51 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
       Type.any
   _reduce: do
     let PURE_PRIMORDIAL_FUNCTIONS = {
-      escape: true
-      unescape: true
-      parseInt: true
-      parseFloat: true
-      isNaN: true
-      isFinite: true
-      decodeURI: true
-      decodeURIComponent: true
-      encodeURI: true
-      encodeURIComponent: true
-      String: true
-      Boolean: true
-      Number: true
-      RegExp: true
+      +escape
+      +unescape
+      +parseInt
+      +parseFloat
+      +isNaN
+      +isFinite
+      +decodeURI
+      +decodeURIComponent
+      +encodeURI
+      +encodeURIComponent
+      +String
+      +Boolean
+      +Number
+      +RegExp
     }
     let PURE_PRIMORDIAL_SUBFUNCTIONS = {
       String: {
-        fromCharCode: true
+        +fromCharCode
       }
       Number: {
-        isFinite: true
-        isNaN: true
+        +isFinite
+        +isNaN
       }
       Math: {
-        abs: true
-        acos: true
-        asin: true
-        atan: true
-        atan2: true
-        ceil: true
-        cos: true
-        exp: true
-        floor: true
-        log: true
-        max: true
-        min: true
-        pow: true
-        round: true
-        sin: true
-        sqrt: true
-        tan: true
+        +abs
+        +acos
+        +asin
+        +atan
+        +atan2
+        +ceil
+        +cos
+        +exp
+        +floor
+        +log
+        +"max"
+        +"min"
+        +pow
+        +round
+        +sin
+        +sqrt
+        +tan
       }
       JSON: {
-        parse: true
-        stringify: true
+        +parse
+        +stringify
       }
     }
     #
@@ -5744,7 +5751,7 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
         Type.regexp
       else
         throw Error("Unknown type for $(String value)")
-  cacheable: false
+  -cacheable
   is-const: #-> true
   const-value: #-> @value
 }
@@ -5782,7 +5789,7 @@ node-type! \function, params as [Node], body as Node, auto-return as Boolean = t
       this
 }
 node-type! \ident, name as String, {
-  cacheable: false
+  -cacheable
 }
 node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0), {
   type: # -> @_type ?= @when-true.type().union(@when-false.type())
@@ -5809,7 +5816,7 @@ node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNod
 node-type! \macro-access, id as Number, data as Object, position as String
 node-type! \nothing, {
   type: # -> Type.undefined
-  cacheable: false
+  -cacheable
   is-const: # -> true
   const-value: # -> void
 }
@@ -5963,14 +5970,14 @@ node-type! \syntax-param, ident as Node, as-type as (Node|void), {
 }
 node-type! \syntax-sequence, params as [Node]
 node-type! \this, {
-  cacheable: false
+  -cacheable
 }
 node-type! \throw, node as Node, {
   type: # -> Type.none
   is-statement: #-> true
 }
 node-type! \tmp, id as Number, name as String, _type as Type = Type.any, {
-  cacheable: false
+  -cacheable
   type: # -> @_type
 }
 node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node, {

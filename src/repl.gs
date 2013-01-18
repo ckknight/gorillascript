@@ -141,12 +141,12 @@ repl.on \SIGINT, #
     process.stdout.write '\n'
     repl.set-prompt REPL_PROMPT
     repl.prompt()
-    repl.write(null, {ctrl: true, name: 'u'})
+    repl.write(null, {+ctrl, name: 'u'})
   else if not recent-sigint
     process.stdout.write "\n(^C again to quit)\n"
     repl.set-prompt REPL_PROMPT
     repl.prompt()
-    repl.write(null, {ctrl: true, name: 'u'})
+    repl.write(null, {+ctrl, name: 'u'})
     recent-sigint := true
   else
     repl.close()

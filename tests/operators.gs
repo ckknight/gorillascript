@@ -1300,6 +1300,15 @@ test "Partial operator functions", #
   let two-exp = (2 ^)
   eq \function, typeof two-exp
   eq 1024, two-exp 10
+  
+  let F()! ->
+  let is-F = (instanceof F)
+  let is-not-F = (not instanceof F)
+  
+  ok is-F(new F)
+  ok not is-not-F(new F)
+  ok not is-F({})
+  ok is-not-F({})
 
 test "til operator", #
   array-eq [0, 1, 2, 3, 4], 0 til 5

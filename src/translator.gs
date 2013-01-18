@@ -1005,7 +1005,7 @@ let translators = {
         {
           init
           ident: array-ident
-          spread: false
+          -spread
         }
 
       Object: #(object, scope, inner)
@@ -1029,7 +1029,7 @@ let translators = {
         {
           init
           ident: object-ident
-          spread: false
+          -spread
         }
     }
 
