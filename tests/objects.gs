@@ -301,3 +301,13 @@ test "object inheriting from literal object", #
   eq "delta", obj.charlie
   ok obj ownskey \charlie
   ok not (obj ownskey \alpha)
+
+test "object with boolean value syntax", #
+  let x = 5
+  let obj = { +alpha, -bravo, +"charlie", -"delta$x", +[x] }
+  
+  eq true, obj.alpha
+  eq false, obj.bravo
+  eq true, obj.charlie
+  eq false, obj.delta5
+  eq true, obj[5]

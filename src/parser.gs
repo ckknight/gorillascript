@@ -2541,12 +2541,14 @@ define ArrayLiteral = sequential! [
 ], #(x, o, i)
   o.array i, [...x.first, ...x.rest]
 
+define BracketedObjectKey = sequential! [
+  OpenSquareBracket
+  [\this, ExpressionOrAssignment]
+  CloseSquareBracket
+]
+
 define ObjectKey = one-of! [
-  sequential! [
-    OpenSquareBracket
-    [\this, ExpressionOrAssignment]
-    CloseSquareBracket
-  ]
+  BracketedObjectKey
   StringLiteral
   mutate! NumberLiteral, #(x, o, i) -> o.const i, String(x.value)
   IdentifierNameConst
@@ -2664,14 +2666,22 @@ define SingularObjectKey = one-of! [
       value: node
     }
   sequential! [
-    [\this, Parenthetical]
+    [\this, BracketedObjectKey]
     NotColon
   ], #(node) -> { key: node, value: node }
 ]
 
 define KeyValuePair = one-of! [
   DualObjectKey
-  SingularObjectKey
+  sequential! [
+    Space
+    [\bool, maybe! PlusOrMinus, NOTHING]
+    [\pair, SingularObjectKey]
+  ], #(x, o, i)
+    if x.bool != NOTHING
+      { x.pair.key, value: o.const(i, x.bool == C("+")) }
+    else
+      x.pair
 ]
 
 define ExtendsToken = word \extends
