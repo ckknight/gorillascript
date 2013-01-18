@@ -1320,3 +1320,35 @@ test "to with by", #
   array-eq [], 5 to 0 by 2
   array-eq [5, 4, 3, 2, 1, 0], 5 to 0 by -1
   array-eq [5, 3, 1], 5 to 0 by -2
+
+test "is/isnt operator", #
+  ok 1 is 1
+  ok 0 is 0
+  ok -0 is -0
+  ok NaN is NaN
+  ok Infinity is Infinity
+  ok -Infinity is -Infinity
+  ok "hello" is "hello"
+  ok 1 isnt -1
+  ok 0 isnt -0
+  ok -0 isnt 0
+  ok Infinity isnt -Infinity
+  ok -Infinity isnt Infinity
+  ok NaN isnt 0
+  ok NaN isnt Infinity
+  ok NaN isnt -Infinity
+  ok not (NaN isnt NaN)
+  
+  let positive-zero = 0
+  let negative-zero = -0
+  let nan = NaN
+  
+  ok positive-zero is 0
+  ok 0 is positive-zero
+  ok positive-zero is positive-zero
+  ok negative-zero is -0
+  ok -0 is negative-zero
+  ok negative-zero is negative-zero
+  ok nan is NaN
+  ok NaN is nan
+  ok nan is nan

@@ -2130,3 +2130,50 @@ macro returning
     AST
       $rest
       return $node
+
+define helper __is = if typeof Object.is == \function
+  Object.is
+else
+  #(x, y)
+    if x == y
+      x != 0 or (1 ~/ x == 1 ~/ y)
+    else
+      x != x and y != y
+
+define operator binary is with precedence: 1, maximum: 1
+  if @has-type(left, "number") and @has-type(right, "number")
+    if @is-const(left)
+      if @is-const(right)
+        let result = __is(@value(left), @value(right))
+        ASTE $result
+      else
+        if typeof @value(left) == \number and isNaN @value(left)
+          @maybe-cache right, #(set-right, right)@
+            ASTE $set-right != $right
+        else if @value(left) == 0
+          @maybe-cache right, #(set-right, right)@
+            if 1 / @value(left) < 0
+              ASTE $set-right == 0 and 1 ~/ $right < 0
+            else
+              ASTE $set-right == 0 and 1 ~/ $right > 0
+        else
+          ASTE $left == $right
+    else if @is-const(right)
+      if typeof @value(right) == \number and isNaN @value(right)
+        @maybe-cache left, #(set-left, left)@
+          ASTE $set-left != $left
+      else if @value(right) == 0
+        @maybe-cache left, #(set-left, left)@
+          if 1 / @value(right) < 0
+            ASTE $set-left == 0 and 1 ~/ $left < 0
+          else
+            ASTE $set-left == 0 and 1 ~/ $left > 0
+      else
+        ASTE $left == $right
+    else
+      ASTE __is $left, $right
+  else
+    ASTE $left == $right
+
+define operator binary isnt with precedence: 1, maximum: 1
+  ASTE not ($left is $right)
