@@ -2124,3 +2124,9 @@ macro yield*
     AST
       for $item from $node
         yield $item
+
+macro returning
+  syntax node as Expression, rest as DedentedBody
+    AST
+      $rest
+      return $node
