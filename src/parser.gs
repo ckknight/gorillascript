@@ -2356,11 +2356,12 @@ define ExistentialSymbolNoSpace = sequential! [
   [\this, ExistentialSymbol]
 ]
 
-define CustomOperator = do
+define CustomOperatorCloseParenthesis = do
   let handle-unary-operator(operator, o, i)
-    let {rule} = operator
-    let op = rule o
-    if op
+    let clone = o.clone()
+    let op = operator.rule clone
+    if op and CloseParenthesis(clone)
+      o.update clone
       let node = o.ident i, \x
       o.function(i
         [o.param i, node]
@@ -2375,8 +2376,10 @@ define CustomOperator = do
     for operators in o.macros.binary-operators
       if operators
         for operator in operators
-          let op = operator.rule o
-          if op
+          let clone = o.clone()
+          let op = operator.rule clone
+          if op and CloseParenthesis(clone)
+            o.update clone
             let left = o.ident i, \x
             let right = o.ident i, \y
             return o.function(i
@@ -2455,10 +2458,7 @@ define Parenthetical = sequential! [
         }, o, i
         true
         false)
-    sequential! [
-      [\this, CustomOperator]
-      CloseParenthesis
-    ]
+    CustomOperatorCloseParenthesis
   ]]
 ], #(node, o, i) -> node
 

@@ -1252,7 +1252,6 @@ test "Operators as functions", #
   eq "boolean", (typeof)(true)
   eq "boolean", (typeof)(false)
   
-  /*
   eq "function", typeof (typeof!)
   eq "Number", (typeof!)(0)
   eq "Number", (typeof!)(1)
@@ -1265,7 +1264,7 @@ test "Operators as functions", #
   eq "Function", (typeof!)(#->)
   eq "Boolean", (typeof!)(true)
   eq "Boolean", (typeof!)(false)
-  */
+  
   let t(f, obj, should-catch)
     eq "function", typeof f
     let mutable caught = false
@@ -1279,13 +1278,11 @@ test "Operators as functions", #
   t (throw), false, true
   t (throw), null, true
   t (throw), void, true
-  /*
+  
   t (throw?), {}, true
   t (throw?), false, true
   t (throw?), null, false
   t (throw?), void, false
-  */
-  // TODO: check num!, str!, strnum!
 
 test "Partial operator functions", #
   let double = (* 2)
