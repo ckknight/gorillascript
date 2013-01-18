@@ -1483,16 +1483,23 @@ exports.Obj := class Obj extends Expression
     validate-unique-keys elements
     @elements := elements
   
+  let to-safe-key(key)
+    if is-acceptable-ident(key)
+      key
+    else
+      let num = Number(key)
+      if not isNaN(num) and String(num) == key
+        key
+      else
+        to-JS-source key
+  
   let compile-large(elements, options, sb)!
     let child-options = inc-indent options
     for element, i, len in elements
       sb "\n"
       sb.indent child-options.indent
       let {key} = element
-      sb if is-acceptable-ident key
-        key
-      else
-        to-JS-source key
+      sb to-safe-key key
       sb ": "
       element.value.compile child-options, Level.sequence, false, sb
       if i < len - 1
@@ -1507,10 +1514,7 @@ exports.Obj := class Obj extends Expression
         if i > 0
           sb ", "
         let {key} = element
-        sb if is-acceptable-ident key
-          key
-        else
-          to-JS-source key
+        sb to-safe-key key
         sb ": "
         element.value.compile options, Level.sequence, false, sb
       sb " "

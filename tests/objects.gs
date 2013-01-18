@@ -50,6 +50,12 @@ test "single-line, interpolated keys", #
   eq 2, obj.key2
   eq 3, obj.key3
 
+test "single-line, numeric keys", #
+  let obj = {1: "a", 2: "b", 3: "c"}
+  eq "a", obj[1]
+  eq "b", obj[2]
+  eq "c", obj[3]
+
 test "multi-line", #
   let obj = {
     a: 1,
