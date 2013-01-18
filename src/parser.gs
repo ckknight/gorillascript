@@ -3764,6 +3764,7 @@ let get-use-custom-binary-operator = do
   let precedence-cache = []
   #(precedence) -> precedence-cache[precedence] ?= cache #(o)
     let start-index = o.index
+    let line = o.line
     let {binary-operators} = o.macros
     if binary-operators.length < precedence
       CustomPrefixUnary o
@@ -3804,7 +3805,7 @@ let get-use-custom-binary-operator = do
                     part.inverted
                     part.op
                     right: part.node
-                  }, o, start-index
+                  }, o, start-index, line
                 return current
               else
                 let mutable current = tail[tail.length - 1].node
@@ -3814,13 +3815,13 @@ let get-use-custom-binary-operator = do
                     tail[j].inverted
                     tail[j].op
                     right: current
-                  }, o, start-index
+                  }, o, start-index, line
                 return operator.func {
                   left: head
                   tail[0].inverted
                   tail[0].op
                   right: current
-                }, o, start-index
+                }, o, start-index, line
         head
 
 let Logic = named("Logic", get-use-custom-binary-operator(0))
