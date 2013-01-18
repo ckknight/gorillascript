@@ -25,7 +25,7 @@ enum Level
 let INDENT = "  "
 
 let inc-indent(options)
-  let clone = ^options
+  let clone = { extends options }
   clone.indent += 1
   clone
 

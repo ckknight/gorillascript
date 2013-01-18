@@ -5,8 +5,8 @@ let GLOBAL = if typeof window != \undefined then window else global
 
 let freeze = if typeof Object.freeze == \function then Object.freeze else #(o) -> o
 
-let SHORT_CIRCUIT = freeze ^{ to-string: #-> "short-circuit" }
-let NOTHING = freeze ^{ to-string: #-> "" }
+let SHORT_CIRCUIT = freeze { to-string: #-> "short-circuit" }
+let NOTHING = freeze { to-string: #-> "" }
 
 let generate-cache-key = do
   let mutable id = -1
@@ -2633,9 +2633,20 @@ define KeyValuePair = one-of! [
   SingularObjectKey
 ]
 
+define ExtendsToken = word \extends
 define ObjectLiteral = sequential! [
   OpenCurlyBrace
   Space
+  [\prototype, maybe! (sequential! [
+    ExtendsToken
+    [\this, InvocationOrAccess]
+    Space
+    one-of! [
+      Comma
+      check! Newline
+      check! CloseCurlyBrace
+    ]
+  ]), NOTHING]
   [\first, maybe! (sequential! [
     [\head, KeyValuePair],
     [\tail, zero-or-more! sequential! [
@@ -2661,7 +2672,7 @@ define ObjectLiteral = sequential! [
   ]), #-> []]
   CloseCurlyBrace
 ], #(x, o, i)
-  o.object i, [...x.first, ...x.rest]
+  o.object i, [...x.first, ...x.rest], if x.prototype != NOTHING then x.prototype
 
 define IndentedObjectLiteral = sequential! [
   Space
@@ -4248,6 +4259,19 @@ class MacroHolder
       DedentedBody
       ObjectKey
     }
+  
+  def clone()
+    let clone = MacroHolder()
+    clone.by-name := copy(@by-name)
+    clone.by-id := @by-id[:]
+    clone.operator-names := copy(@operator-names)
+    clone.binary-operators := @binary-operators[:]
+    clone.assign-operators := @assign-operators[:]
+    clone.prefix-unary-operators := @prefix-unary-operators[:]
+    clone.postfix-unary-operators := @postfix-unary-operators[:]
+    clone.serialization := copy(@serialization)
+    clone.syntaxes := copy(@syntaxes)
+    clone
 
   def get-by-name(name)
     @by-name![name]
@@ -5697,7 +5721,7 @@ node-type! \nothing, {
   is-const: # -> true
   const-value: # -> void
 }
-node-type! \object, pairs as Array, {
+node-type! \object, pairs as Array, prototype as (Node|void), {
   type: # -> Type.object
   walk: do
     let walk-pair(pair, func)
@@ -5709,8 +5733,24 @@ node-type! \object, pairs as Array, {
         pair
     #(func)
       let pairs = map @pairs, walk-pair, func
-      if pairs != @pairs
-        ObjectNode @start-index, @end-index, pairs
+      let prototype = if @prototype? then func @prototype else @prototype
+      if pairs != @pairs or prototype != @prototype
+        ObjectNode @start-index, @end-index, pairs, prototype
+      else
+        this
+  _reduce: do
+    let reduce-pair(pair)
+      let key = pair.key.reduce()
+      let value = pair.value.reduce()
+      if key != pair.key or value != pair.value
+        { key, value }
+      else
+        pair
+    #
+      let pairs = map @pairs, reduce-pair
+      let prototype = if @prototype? then @prototype.reduce() else @prototype
+      if pairs != @pairs or prototype != @prototype
+        ObjectNode @start-index, @end-index, pairs, prototype
       else
         this
 }
@@ -5980,7 +6020,7 @@ let parse(text, macros, options = {})
   if typeof text != \string
     throw TypeError "Expected text to be a string, got $(typeof! text)"
   
-  let o = State text, macros, options
+  let o = State text, macros?.clone(), options
   
   let result = try
     Root(o)

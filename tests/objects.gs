@@ -244,13 +244,42 @@ test "dashed-keys", #
   eq "there", obj.normalKey
   eq "there", obj.normal-key
 
-/*
 test "object with prototype", #
   let parent = { alpha: "bravo" }
   
-  let child = { extends parent; charlie: "delta" }
+  let child = { extends parent, charlie: "delta" }
   
   eq "bravo", parent.alpha
   eq "bravo", child.alpha
+  eq void, parent.charlie
   eq "delta", child.charlie
-*/
+
+test "object with protoype, multi-line", #
+  let parent = { alpha: "bravo" }
+  
+  let child = { extends parent
+    charlie: "delta"
+  }
+  
+  eq "bravo", parent.alpha
+  eq "bravo", child.alpha
+  eq void, parent.charlie
+  eq "delta", child.charlie
+
+test "object with prototype, no members", #
+  let parent = { alpha: "bravo" }
+  let child = { extends parent }
+  
+  eq "bravo", parent.alpha
+  eq "bravo", child.alpha
+  child.charlie := "delta"
+  eq void, parent.charlie
+  eq "delta", child.charlie
+
+test "object inheriting from literal object", #
+  let obj = { extends { alpha: "bravo" }, charlie: "delta" }
+  
+  eq "bravo", obj.alpha
+  eq "delta", obj.charlie
+  ok obj ownskey \charlie
+  ok not (obj ownskey \alpha)

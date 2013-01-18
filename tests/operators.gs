@@ -962,7 +962,7 @@ test "negation on separate line does not look like subtraction", #
 
 test "ownskey", #
   let x = { alpha: true }
-  let y = ^x
+  let y = { extends x }
   y.bravo := true
   
   ok x ownskey \alpha
@@ -971,7 +971,7 @@ test "ownskey", #
 
 test "haskey", #
   let x = { alpha: true }
-  let y = ^x
+  let y = { extends x }
   y.bravo := true
   
   ok x haskey \alpha
@@ -1049,13 +1049,13 @@ test "Operators as functions", #
   
   eq "function", typeof (haskey)
   ok (haskey)({hello: "there"}, "hello")
-  ok (haskey)(^{hello: "there"}, "hello")
-  ok not (haskey)(^{}, "hello")
+  ok (haskey)({ extends {hello: "there"} }, "hello")
+  ok not (haskey)({ extends {} }, "hello")
   
   eq "function", typeof (ownskey)
   ok (ownskey)({hello: "there"}, "hello")
-  ok not (ownskey)(^{hello: "there"}, "hello")
-  ok not (ownskey)(^{}, "hello")
+  ok not (ownskey)({ extends {hello: "there"} }, "hello")
+  ok not (ownskey)({ extends {} }, "hello")
   
   eq "function", typeof (instanceof)
   ok (instanceof)(#->, Function)

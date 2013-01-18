@@ -14,7 +14,7 @@ class Scope
     @bound := bound
     @used-tmps := used-tmps
     @helpers := helpers
-    @variables := if variables then ^variables else {}
+    @variables := if variables then { extends variables } else {}
     @tmps := tmps
     @has-bound := false
     @used-this := false
@@ -129,7 +129,7 @@ class Scope
   def clone(bound)
     if bound
       @has-bound := true
-    Scope(@options, bound, ^@used-tmps, @helpers, @variables, ^@tmps)
+    Scope(@options, bound, { extends @used-tmps }, @helpers, @variables, { extends @tmps })
 
 let wrap-return(x)
   x.mutate-last ast.Return
@@ -1177,11 +1177,13 @@ let translators = {
     for pair in node.pairs
       t-keys.push translate pair.key, scope, \expression
       t-values.push translate pair.value, scope, \expression
+    let t-prototype = if node.prototype? then translate node.prototype, scope, \expression
 
     #
       let const-pairs = []
       let post-const-pairs = []
-      let mutable current-pairs = const-pairs
+      let prototype = t-prototype?()
+      let mutable current-pairs = if prototype? then post-const-pairs else const-pairs
       for t-key, i in t-keys
         let t-value = t-values[i]
         let key = t-key()
@@ -1191,9 +1193,13 @@ let translators = {
           current-pairs := post-const-pairs
 
         current-pairs.push { key, value }
-
-      let obj = ast.Obj for pair in const-pairs
-        ast.Obj.Pair String(pair.key.value), pair.value
+      
+      let obj = if prototype?
+        scope.add-helper \__create
+        ast.Call(ast.Ident(\__create), [prototype])
+      else
+        ast.Obj for pair in const-pairs
+          ast.Obj.Pair String(pair.key.value), pair.value
 
       if post-const-pairs.length == 0
         auto-return obj

@@ -722,9 +722,6 @@ else
     F.prototype := x
     new F()
 
-define operator unary ^
-  ASTE __create($node)
-
 define helper __pow = Math.pow
 define helper __floor = Math.floor
 define helper __sqrt = Math.sqrt
@@ -1830,7 +1827,7 @@ macro class
     let prototype = @tmp \proto, false, \object
     if not @empty(superclass)
       init.push AST let $superproto = $sup.prototype
-      init.push AST let $prototype = $name.prototype := ^$superproto
+      init.push AST let $prototype = $name.prototype := { extends $superproto }
       init.push ASTE $prototype.constructor := $name
     else
       init.push AST let $prototype = $name.prototype
@@ -1889,7 +1886,7 @@ macro class
               @func(
                 @func-params value
                 @block [
-                  AST let $self = if this instanceof $name then this else ^$prototype
+                  AST let $self = if this instanceof $name then this else { extends $prototype }
                   @walk @func-body(value), #(node)@
                     if @is-func(node)
                       unless @func-is-bound(node)
@@ -1924,7 +1921,7 @@ macro class
       init.push AST
         let mutable $ctor = void
         let $name()
-          let $self = if this instanceof $name then this else ^$prototype
+          let $self = if this instanceof $name then this else { extends $prototype }
           
           if typeof $ctor == \function
             let $result = $ctor@ $self, ...arguments
@@ -1944,12 +1941,12 @@ macro class
     else
       if @empty(superclass)
         init.push AST
-          let $name() -> if this instanceof $name then this else ^$prototype
+          let $name() -> if this instanceof $name then this else { extends $prototype }
       else
         let result = @tmp \ref
         init.push AST
           let $name()
-            let $self = if this instanceof $name then this else ^$prototype
+            let $self = if this instanceof $name then this else { extends $prototype }
             let $result = $sup@ $self, ...arguments
             if Object($result) == $result
               $result
@@ -2044,7 +2041,7 @@ macro namespace
     if @empty(superobject)
       init.push AST let $name = {}
     else
-      init.push AST let $name = ^$sup
+      init.push AST let $name = { extends $sup }
     
     let fix-supers(node)@ -> @walk node, #(node)@
       if @is-super(node)
