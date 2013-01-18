@@ -55,6 +55,11 @@ test "Triple-double-quoted", #
   Bravo
   Charlie"""
   
+  eq "Alpha\nBravo\nCharlie", """Alpha
+  Bravo
+  Charlie
+  """
+  
   eq 0, """""".length
   eq "", """"""
 
@@ -103,6 +108,11 @@ test "Triple-single-quoted", #
   Alpha
   Bravo
   Charlie'''
+  
+  eq 'Alpha\nBravo\nCharlie', '''Alpha
+  Bravo
+  Charlie
+  '''
   
   eq 0, ''''''.length
   eq '', ''''''

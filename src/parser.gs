@@ -2137,9 +2137,8 @@ let make-triple-string(quote, line)
     let lines = [x.first]
     if lines[0].length == 0 or (lines[0].length == 1 and lines[0][0] == "")
       lines.shift()
-    for j in 0 til x.empty-lines.length
-      if j > 0 or lines.length > 0
-        lines.push [""]
+    for j in 1 til x.empty-lines.length
+      lines.push [""]
     lines.push ...x.rest
     let mutable len = lines.length
     if len > 0 and (lines[len - 1].length == 0 or (lines[len - 1].length == 1 and lines[len - 1][0] == ""))
