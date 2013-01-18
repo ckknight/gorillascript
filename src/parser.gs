@@ -101,13 +101,13 @@ macro mutate!(rule, mutator)
     mutator := @cache mutator, init, \mutator, true
     let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
     let result = AST named($rule?.parser-name or $unknown-name, #(o)
-      let {index} = o
+      let {index, line} = o
       let result = $rule o
       if not result
         false
       else
         if typeof $mutator == \function
-          $mutator result, o, index
+          $mutator result, o, index, line
         else if $mutator != void
           $mutator
         else
@@ -285,19 +285,19 @@ macro maybe!(rule, missing-value, found-value)
   let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
   
   let result = AST named(($rule?.parser-name or $unknown-name) & "?", #(o)
-    let {index} = o
+    let {index, line} = o
     let clone = o.clone()
     let result = $rule clone
     if not result
       if typeof $missing-value == \function
-        $missing-value void, o, index
+        $missing-value void, o, index, line
       else
         $missing-value
     else
       o.update clone
       if $found-value != void
         if typeof $found-value == \function
-          $found-value result, o, index
+          $found-value result, o, index, line
         else
           $found-value
       else
@@ -2522,7 +2522,7 @@ define Colon = sequential! [
 ]
 define NotColon = except! Colon
 
-define ObjectKeyColon = sequential! [
+define ObjectKeyColon = with-message! 'key ":"', sequential! [
   [\this, ObjectKey]
   Colon
 ]
@@ -2826,8 +2826,7 @@ define ArrayParameter = sequential! [
 ], #(x, o, i) -> o.array-param i, validate-spread-parameters(x, o)
 
 define ParamDualObjectKey = sequential! [
-  [\key, ObjectKey]
-  Colon
+  [\key, ObjectKeyColon]
   [\value, Parameter]
 ]
 
@@ -2978,7 +2977,7 @@ define Ast = oneOf! [
   AstStatement
 ], #(x, o, i) -> MacroHelper.constify-object x, i, o.index
 
-define MacroName = with-space! sequential! [
+define MacroName = with-message! 'macro-name', with-space! sequential! [
   [\this, one-or-more-of! [
     _Symbol
     _Name
@@ -3851,12 +3850,21 @@ define Root = sequential! [
 
 class ParserError extends Error
   def constructor(message, text, index, line)@
-    super(message)
-    
     @message := "$message at line #$line"
     @text := text
     @index := index
     @line := line
+  def name = \ParserError
+
+class MacroError extends Error
+  def constructor(inner, text, index, line)@
+    @inner := inner
+    let inner-type = typeof! inner
+    @message := "$(if inner-type == \Error then '' else inner-type & ': ')$(String inner?.message) at line #$line"
+    @text := text
+    @index := index
+    @line := line
+  def name = \MacroError
 
 let map(array, func, arg)
   let result = []
@@ -5024,17 +5032,23 @@ class State
   let handle-macro-syntax(index, type, handler as Function, rule, params, options, mutable macro-id)
     let macros = @macros
     
-    let mutator = #(x, o, i)
+    let mutator = #(x, o, i, line)
       if _in-ast.peek()
         o.macro-access i, macro-id, x, _position.peek()
       else
         let macro-helper = MacroHelper o, i, _position.peek(), _in-generator.peek()
-        let mutable result = handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data, position)
-          _position.push position
-          try
-            macros.get-by-id(id)(data, o, i)
-          finally
-            _position.pop()
+        let mutable result = try
+          handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data, position)
+            _position.push position
+            try
+              macros.get-by-id(id)(data, o, i)
+            finally
+              _position.pop()
+        catch e
+          if e instanceof MacroError
+            throw e
+          else
+            throw MacroError(e, o.data, i, line)
         if result instanceof Node
           result := result.reduce()
           let tmps = macro-helper.get-tmps()
@@ -6027,8 +6041,7 @@ let without-repeats(array)
   for item in array
     if item != last-item
       result.push item
-    else
-      last-item := item
+    last-item := item
   result
 
 let build-expected(errors)
@@ -6072,6 +6085,7 @@ let parse(text, macros, options = {})
     }
 module.exports := parse
 module.exports.ParserError := ParserError
+module.exports.MacroError := MacroError
 module.exports.Node := Node
 module.exports.deserialize-prelude := #(data as String)
   let parsed = JSON.parse(data)

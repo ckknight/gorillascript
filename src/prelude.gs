@@ -765,7 +765,7 @@ macro try
       $current
 
 macro for
-  syntax reducer as ("every" | "some" | "first")?, init as (ExpressionOrAssignment|""), ";", test as (Logic|""), ";", step as (ExpressionOrAssignment|""), body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, init as (ExpressionOrAssignment|""), ";", test as (Logic|""), ";", step as (ExpressionOrAssignment|""), body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if @empty(init)
       init := @noop()
     if @empty(test)
@@ -774,11 +774,35 @@ macro for
       step := @noop()
     if @empty(reducer)
       reducer := null
-    if not @empty(else-body)
-      if @position == \expression or @expr
+    if reducer
+      if reducer == \first
+        body := @mutate-last body, #(node) -> (AST return $node)
+        let loop = @for(init, test, step, body)
+        ASTE do
+          $loop
+          $else-body
+      else
+        if not @empty(else-body)
+          throw Error "Cannot use a for loop with an else with $reducer"
+        if reducer == \some
+          body := @mutate-last body, #(node) -> AST
+            if $node
+              return true
+          let loop = [@for(init, test, step, body), (AST return false)]
+          ASTE do
+            $loop
+        else if reducer == \every
+          body := @mutate-last body, #(node) -> AST
+            if not $node
+              return false
+          let loop = [@for(init, test, step, body), (AST return true)]
+          ASTE do
+            $loop
+        else
+          throw Error("Unknown reducer: $reducer")
+    else if not @empty(else-body)
+      if @position == \expression
         throw Error("Cannot use a for loop with an else as an expression")
-      else if reducer
-        throw Error("Cannot use a for loop with an else with $reducer")
       let run-else = @tmp \else, false, \boolean
       body := AST
         $run-else := false
@@ -791,41 +815,18 @@ macro for
         $loop
         if $run-else
           $else-body
+    else if @position == \expression
+      let arr = @tmp \arr, false, body.type().array()
+      body := @mutate-last body, #(node) -> (ASTE $arr.push $node)
+      init := AST
+        $arr := []
+        $init
+      let loop = @for(init, test, step, body)
+      AST do
+        $loop
+        return $arr
     else
-      if reducer
-        if reducer == "first"
-          body := @mutate-last body, #(node) -> (AST return $node)
-          let loop = @for(init, test, step, body)
-          ASTE do
-            $loop
-        else if reducer == "some"
-          body := @mutate-last body, #(node) -> AST
-            if $node
-              return true
-          let loop = [@for(init, test, step, body), (AST return false)]
-          ASTE do
-            $loop
-        else if reducer == "every"
-          body := @mutate-last body, #(node) -> AST
-            if not $node
-              return false
-          let loop = [@for(init, test, step, body), (AST return true)]
-          ASTE do
-            $loop
-        else
-          throw Error("Unknown reducer: $reducer")
-      else if @position == \expression or @expr
-        let arr = @tmp \arr, false, body.type().array()
-        body := @mutate-last body, #(node) -> (ASTE $arr.push $node)
-        init := AST
-          $arr := []
-          $init
-        let loop = @for(init, test, step, body)
-        AST do
-          $loop
-          return $arr
-      else
-        @for(init, test, step, body)
+      @for(init, test, step, body)
   
   syntax "reduce", init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     if @empty(init)
@@ -842,10 +843,7 @@ macro for
         $body
       $current
   
-  syntax reducer as ("every" | "some" | "first")?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if not @empty(else-body) and (@position == \expression or @expr)
-      throw Error("Cannot use a for loop with an else as an expression")
-    
+  syntax reducer as (\every | \some | \first)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if @empty(reducer)
       reducer := null
     
@@ -927,17 +925,17 @@ macro for
         else
           ($end ~- $start) ~\ $step
       
-      if reducer == "every"
+      if reducer == \every
         ASTE for every $init; $test; $increment
           $body
         else
           $else-body
-      else if reducer == "some"
+      else if reducer == \some
         ASTE for some $init; $test; $increment
           $body
         else
           $else-body
-      else if reducer == "first"
+      else if reducer == \first
         ASTE for first $init; $test; $increment
           $body
         else
@@ -974,17 +972,17 @@ macro for
         init.push AST let $func = #($index) -> $body
         body := ASTE $func@(this, $index)
     
-      if reducer == "every"
+      if reducer == \every
         ASTE for every $init; $index ~< $length; $index ~+= 1
           $body
         else
           $else-body
-      else if reducer == "some"
+      else if reducer == \some
         ASTE for some $init; $index ~< $length; $index ~+= 1
           $body
         else
           $else-body
-      else if reducer == "first"
+      else if reducer == \first
         ASTE for first $init; $index ~< $length; $index ~+= 1
           $body
         else
@@ -1011,15 +1009,9 @@ macro for
         $body
       $current
   
-  syntax reducer as ("every" | "some" | "first")?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if @empty(reducer)
       reducer := null
-  
-    if not @empty(else-body)
-      if @position == \expression or @expr
-        throw Error("Cannot use a for loop with an else as an expression")
-      else if reducer
-        throw Error("Cannot use a for loop with an else with $reducer")
     
     let mutable index = null
     if @empty(value)
@@ -1072,51 +1064,56 @@ macro for
         if $object ownskey $key
           $body
     
-    if @empty(else-body)
-      if reducer
-        if reducer == "first"
-          body := @mutate-last body, #(node) -> (AST return $node)
-          let loop = @for-in(key, object, body)
-          return AST do
-            $init
-            $loop
-            false
-        else if reducer == "some"
+    if reducer
+      if reducer == \first
+        body := @mutate-last body, #(node) -> (AST return $node)
+        let loop = @for-in(key, object, body)
+        AST do
+          $init
+          $loop
+          $else-body
+      else
+        if not @empty(else-body)
+          throw Error("Cannot use a for loop with an else with $reducer")
+        if reducer == \some
           body := @mutate-last body, #(node) -> AST
             if $node
               return true
           let loop = @for-in(key, object, body)
-          return AST do
+          AST do
             $init
             $loop
             false
-        else if reducer == "every"
+        else if reducer == \every
           body := @mutate-last body, #(node) -> AST
             if not $node
               return false
           let loop = @for-in(key, object, body)
-          return AST do
+          AST do
             $init
             $loop
             true
         else
           throw Error("Unknown reducer: $reducer")
-      else if @position == \expression or @expr
-        let arr = @tmp \arr, false, body.type().array()
-        body := @mutate-last body, #(node) -> (ASTE $arr.push $node)
-        init := AST
-          $arr := []
-          $init
-        let loop = @for-in(key, object, body)
-        return AST do
-          $init
-          $loop
-          return $arr
-    let loop = @for-in(key, object, body)
-    AST
-      $init
-      $loop
-      $post
+    else if @position == \expression
+      if not @empty(else-body)
+        throw Error("Cannot use a for loop with an else as an expression")
+      let arr = @tmp \arr, false, body.type().array()
+      body := @mutate-last body, #(node) -> (ASTE $arr.push $node)
+      init := AST
+        $arr := []
+        $init
+      let loop = @for-in(key, object, body)
+      AST do
+        $init
+        $loop
+        return $arr
+    else
+      let loop = @for-in(key, object, body)
+      AST
+        $init
+        $loop
+        $post
   
   syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     body := @mutate-last body, #(node) -> (ASTE $current := $node)
@@ -1133,8 +1130,8 @@ macro for
       $loop
       $current
   
-  syntax reducer as ("every" | "some" | "first")?, value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if not @empty(else-body) and (@position == \expression or @expr)
+  syntax reducer as (\every | \some | \first)?, value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+    if not @empty(else-body) and @position == \expression
       throw Error("Cannot use a for loop with an else as an expression")
 
     if @empty(reducer)
@@ -1186,13 +1183,13 @@ macro for
         $capture-value
         $body
 
-    if reducer == "every"
+    if reducer == \every
       ASTE for every $init; true; $step
         $body
-    else if reducer == "some"
+    else if reducer == \some
       ASTE for some $init; true; $step
         $body
-    else if reducer == "first"
+    else if reducer == \first
       ASTE for first $init; true; $step
         $body
     else if @position == \expression
@@ -1242,24 +1239,47 @@ define operator binary by with maximum: 1, precedence: 1
   ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
 
 macro while, until
-  syntax test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if macro-name == \until
       test := ASTE not $test
-    if not @empty(else-body)
-      if @position == \expression or @expr
-        throw Error("Cannot use a while loop with an else as an expression")
+    
+    if @empty(reducer)
+      reducer := null
+    
+    if reducer == \every
+      ASTE for every ; $test; $step
+        $body
+      else
+        $else-body
+    else if reducer == \some
+      ASTE for some ; $test; $step
+        $body
+      else
+        $else-body
+    else if reducer == \first
+      ASTE for first ; $test; $step
+        $body
+      else
+        $else-body
+    else if @position == \expression
+      ASTE for ; $test; $step
+        $body
+      else
+        $else-body
+    else
       AST
         for ; $test; $step
           $body
         else
           $else-body
-    else if @position == \expression
-      ASTE for ; $test; $step
+  
+  syntax "reduce", test as Logic, step as (",", this as ExpressionOrAssignment)?, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    if macro-name == \until
+      test := ASTE not $test
+    
+    AST
+      for reduce ; $test; $step, $current = $current-start
         $body
-    else
-      AST
-        for ; $test; $step
-          $body
 
 define helper __keys = if typeof Object.keys == \function
   Object.keys

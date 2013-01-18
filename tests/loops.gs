@@ -837,13 +837,11 @@ test "For-some of range", #
   ok not (for some x in 1 til 10
     x > 10)
   
-  /*
-  throws #-> gorilla.compile("""
+  throws #-> gorilla.compile("""let y = 0
   for some x in 1 til 10
     true
   else
-    throw Error()"""), #(e) -> e.line == 1
-  */
+    throw Error()"""), #(e) -> e.line == 2
 
 test "For-every of range", #
   let mutable i = 0
@@ -856,15 +854,12 @@ test "For-every of range", #
   ok for every x in 1 til 10
     x <= 10
   
-  /*
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""let y = 0
   for some x in 1 til 10
     true
   else
-    throw Error()"""), (e) -> e.line == 3 or true
-  */
+    throw Error()"""), #(e) -> e.line == 2
 
-/*
 test "For-first of range", #
   eq 36, for first x in 1 til 10
     if x > 5
@@ -875,18 +870,17 @@ test "For-first of range", #
       x ^ 2
   else
     1000000
-*/
-/*
+
 test "For-reduce of range", #
   eq 45, for reduce i in 1 til 10, sum = 0
     sum + i
   
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""let y = 0
   for reduce i in 1 til 10, sum = 0
     sum + i
   else
-    throw Error()"""), (e) -> e.line == 3 or true
-*/
+    throw Error()"""), #(e) -> e.line == 4
+
 test "For-some in array", #
   ok for some x in [#-> 1, #-> 2, fail]
     x() == 2
@@ -894,13 +888,11 @@ test "For-some in array", #
   ok not (for some x in [#-> 1, #-> 2, #-> 3]
     x() == 4)
   
-  /*
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""let y = 0
   for some x in [1, 2]
     true
   else
-    throw Error()"""), (e) -> e.line == 3 or true
-  */
+    throw Error()"""), #(e) -> e.line == 2
 
 test "For-every in array", #
   ok not (for every x in [#-> 1, #-> 2, fail]
@@ -909,15 +901,12 @@ test "For-every in array", #
   ok for every x in [#-> 1, #-> 2, #-> 3]
     x() < 4
   
-  /*
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""let y = 0
   for every x in [1, 2]
     true
   else
-    throw Error()"""), (e) -> e.line == 3 or true
-  */
+    throw Error()"""), #(e) -> e.line == 2
 
-/*
 test "For-first in array", #
   eq 4, for first x in [#-> 1, #-> 2, fail]
     let value = x()
@@ -930,18 +919,17 @@ test "For-first in array", #
       value ^ 2
   else
     1000000
-*/
-/*
+
 test "For-reduce in array", #
   eq 10, for reduce i in [1, 2, 3, 4], sum = 0
     sum + i
   
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""let y = 0
   for reduce i in [1, 2, 3, 4], sum = 0
     sum + i
   else
-    throw Error()"""), (e) -> e.line == 3 or true
-*/
+    throw Error()"""), #(e) -> e.line == 4
+
 test "For-some of object", #
   ok for some k, v of {a:1, b:2, c:3}
     v == 2
@@ -949,13 +937,11 @@ test "For-some of object", #
   ok not (for some k, v of {a:1, b:2, c:3}
     v == 4)
   
-  /*
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""let y = 0
   for some k, v of {a:1, b:2, c:3}
     true
   else
-    throw Error()"""), (e) -> e.line == 3 or true
-  */
+    throw Error()"""), #(e) -> e.line == 2
 
 test "For-every of object", #
   ok not (for every k, v of {a:1, b:2, c:3}
@@ -964,15 +950,12 @@ test "For-every of object", #
   ok for every k, v of {a:1, b:2, c:3}
     v < 4
   
-  /*
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""let y = 0
   for every k, v of {a:1, b:2, c:3}
     true
   else
-    throw Error()"""), (e) -> e.line == 3 or true
-  */
+    throw Error()"""), #(e) -> e.line == 2
 
-/*
 test "For-first of object", #
   eq 9, for first k, v of {a:1, b:2, c:3}
     if v > 2
@@ -983,21 +966,17 @@ test "For-first of object", #
       v ^ 2
   else
     1000000
-*/
 
-/*
 test "For-reduce of object", #
   eq 6, for reduce k, v of {a:1, b:2, c:3}, sum = 0
     sum + v
   
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""let y = 0
   for reduce k, v of {a:1, b:2, c:3}, sum = 0
     sum + v
   else
-    throw Error()"""), (e) -> e.line == 3 or true
-*/
+    throw Error()"""), #(e) -> e.line == 4
 
-/*
 test "While-some", #
   let mutable i = 0
   ok while some i < 10, i += 1
@@ -1008,15 +987,13 @@ test "While-some", #
   ok not (while some i < 10, i += 1
     i > 10)
   
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""
   let mutable i = 0
   while some i < 10, i += 1
     true
   else
-    throw Error()"""), (e) -> e.line == 4 or true
-*/
+    throw Error()"""), #(e) -> e.line == 2
 
-/*
 test "While-every", #
   let mutable i = 0
   ok not (while every i < 10, i += 1
@@ -1027,15 +1004,13 @@ test "While-every", #
   ok while every i < 10, i += 1
     i <= 10
 
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""
   let mutable i = 0
   while every i < 10, i += 1
     true
   else
-    throw Error()"""), (e) -> e.line == 4 or true
-*/
+    throw Error()"""), #(e) -> e.line == 2
 
-/*
 test "While-first", #
   let mutable i = 0
   eq 36, while first i < 10, i += 1
@@ -1048,20 +1023,18 @@ test "While-first", #
       i ^ 2
   else
     1000000
-*/
-/*
+
 test "While-reduce", #
   let mutable i = 0
   eq 45, while reduce i < 10, i += 1, sum = 0
     sum + i
   
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""
   let mutable i = 0
   while reduce i < 10, i += 1, sum = 0
     sum + i
   else
-    throw Error()"""), (e) -> e.line == 4 or true
-*/
+    throw Error()"""), #(e) -> e.line == 4
 
 /*
 test "Repeat-while-some", #
