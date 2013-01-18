@@ -66,10 +66,17 @@ let escape-unicode-helper(m)
 let escape-unicode(text)
   text.replace r'[\u0000-\u001f\u0080-\uffff]'g, escape-unicode-helper
 
+let is-negative(value) -> value < 0 or 1 / value < 0
+
 let to-JS-source-types = {
   undefined: #-> "void 0"
   number: #(value)
-    if is-finite value
+    if value == 0
+      if is-negative value
+        "-0"
+      else
+        "0"
+    else if is-finite value
       JSON.stringify value
     else if isNaN value
       "0/0"
@@ -394,7 +401,7 @@ exports.Binary := class Binary extends Expression
     
     if left instanceof Const and typeof left.value == "number"
       let string-left = to-JS-source left.value
-      if left.value < 0 or not is-finite(left.value)
+      if is-negative(left.value) or not is-finite(left.value)
         sb "("
         sb string-left
         sb ")"
@@ -1913,7 +1920,7 @@ exports.Unary := class Unary extends Expression
       sb op.substring(0, 2)
     else
       sb op
-      if op in ["typeof", "void", "delete"] or (op in ["+", "-", "++", "--"] and ((@node instanceof Unary and op in ["+", "-", "++", "--"]) or (@node instanceof Const and typeof this.node.value == "number" and this.node.value < 0)))
+      if op in ["typeof", "void", "delete"] or (op in ["+", "-", "++", "--"] and ((@node instanceof Unary and op in ["+", "-", "++", "--"]) or (@node instanceof Const and typeof @node.value == "number" and is-negative(@node.value))))
         sb " "
       @node.compile options, Level.unary, false, sb
   

@@ -89,6 +89,16 @@ test "Numbers should be indexable", #
   eq Number::to-string, (-Infinity)["toString"]
   eq Number::to-string, NaN["toString"]
 
+test "Negative zero stays negative", #
+  ok 1 / -0 == -Infinity
+  let x = -0
+  ok 1 / x == -Infinity
+
+test "Positive zero stays negative", #
+  ok 1 / 0 == Infinity
+  let x = 0
+  ok 1 / x == Infinity
+
 test "Passing a spread to a method of a literal number", #
   let arr = [16]
   
