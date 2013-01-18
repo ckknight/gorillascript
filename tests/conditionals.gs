@@ -98,15 +98,18 @@ test "single-line with semicolons", #
   else;obj
   eq obj, y
 
-/*
 test "If statement doesn't use ternary", #
-  ok not Cotton.compile("""
-  if Math then String else Object end""", bare: true).match(RegExp("\\?"))
+  ok not gorilla.compile("""
+  if Math then String else Object end""", bare: true).match(r"\?")
 
-test "Return-If statement doesn't use ternary", -> do
-  ok not Cotton.compile("""
-  return if Math then String else Object end""", bare: true).match(RegExp("\\?"))
-end
+test "Return-If statement doesn't use ternary", #
+  ok not gorilla.compile("""
+  return if Math then String else Object end""", bare: true).match(r"\?")
+
+/*
+test "Let-If statement doesn't use ternary", #
+  ok not gorilla.compile("""
+  let x = if Math then String else Object end""", bare: true).match(r"\?")
 */
 test "inline expression with lots of conditionals", #
   let fun(a, b, c, d, e, f, g, h, i)

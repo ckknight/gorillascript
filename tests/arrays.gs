@@ -12,12 +12,10 @@ test "simple, single-line", #
   eq "charlie", arr[2]
 
 /*
-test "single-line, missing commas", -> do
-  throws -> Cotton.compile("""let x = 0
-  ["alpha" "bravo" "charlie"]"""), (e) -> e.line == 2
-end
+test "single-line, missing commas", #
+  throws #-> gorilla.compile("""let x = 0
+  ["alpha" "bravo" "charlie"]"""), #(e) -> e.line == 2
 */
-
 test "trailing comma", #
   let arr = ["alpha", "bravo", "charlie",]
   eq 3, arr.length

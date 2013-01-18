@@ -25,6 +25,8 @@ global.run-once := #(value)
   f.ran := false
   f
 
+global.gorilla := gorilla
+
 let mutable current-file = null
 let mutable num-failures = 0
 let add-failure(filename, error)!

@@ -2879,7 +2879,33 @@ define ParameterSequence = sequential! [
   EmptyLines
   MaybeCommaOrNewline
   CloseParenthesis
-]
+], do
+  let check(names, param, o, i)!
+    if param instanceof ParamNode
+      let name = if param.ident instanceof IdentNode
+        param.ident.name
+      else if param.ident instanceof AccessNode
+        if param.ident.child not instanceof ConstNode or typeof param.ident.child.value != \string
+          throw Error "Expected constant access: $(typeof! param.ident.child)"
+        param.ident.child.value
+      else
+        throw Error "Unknown param ident: $(typeof! param.ident)"
+      if name in names
+        o.error "Duplicate parameter name: $(name)"
+      names.push name
+    else if param instanceof ArrayNode
+      for element in param.elements
+        check(names, element, o, i)
+    else if param instanceof ObjectNode
+      for pair in param.pairs
+        check(names, pair.value, o, i)
+    else
+      throw Error "Unknown param node: $(typeof! param)"
+  #(x, o, i)
+    let names = []
+    for param in x
+      check(names, param, o, i)
+    x
 
 define _FunctionBody = one-of! [
   sequential! [
@@ -6062,4 +6088,4 @@ let unique(array)
       result.push item
   result
 module.exports.get-reserved-words := #(macros)
-  unique [...RESERVED_IDENTS, ...macros?.get-macro-and-operator-names?()]
+  unique [...RESERVED_IDENTS, ...(macros?.get-macro-and-operator-names?() or [])]

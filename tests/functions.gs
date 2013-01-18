@@ -209,10 +209,10 @@ test "spread arguments is mutable within function", #
   let charlie = {}
   array-eq [bravo, charlie, alpha], fun(bravo, charlie)
 
-/*
 test "multiple spread arguments is an Error", #
-  throws -> Cotton.compile("let x = (...a, ...b) ->"), (e) -> e.line == 1 and e.column == 16
-*/
+  throws #-> gorilla.compile("""let x = 0
+  let f(...a, ...b) ->"""), #(e) -> e.line == 2
+
 test "special `arguments` variable is still available", #
   let fun() -> arguments
   
@@ -459,116 +459,6 @@ test "mutable functions", ->
   fun.name = "fun"
 */
 
-/*
-test "backcall", ->
-  let other = {}
-  let fun = (i, callback) -> callback.call(other, i)
-  let mutable called = false
-  fun "alpha", (a) ->
-    eq other, this
-    eq "alpha", a
-    fun "bravo", (b) <-
-    eq other, this
-    eq "alpha", a
-    eq "bravo", b
-    called := true
-    
-test "multiple backcall", ->
-  let other = {}
-  let fun = (i, callback) -> callback.call(other, i)
-
-  let mutable called = false
-  fun "alpha", (a) ->
-    eq other, this
-    eq "alpha", a
-    fun "bravo", (b) <-
-    eq other, this
-    eq "alpha", a
-    eq "bravo", b
-    fun "charlie", (c) <-
-    eq other, this
-    eq "alpha", a
-    eq "bravo", b
-    eq "charlie", c
-    called := true
-  ok called
-
-test "backcall with trailing param", ->
-  let other = {}
-  let fun = (i, callback, j) -> callback.call(other, i, j)
-  let mutable called = false
-  let obj = {}
-  let run = ->
-    fun "alpha", ((a, b) <-
-    eq other, this
-    eq "alpha", a
-    eq "bravo", b
-    called := true), "bravo"
-    // out of the backcall now
-    eq obj, this
-  run.call(obj)
-
-test "bound backcall", ->
-  let other = {}
-  let fun = (i, callback) -> callback.call(other, i)
-
-  let obj = {}
-  let mutable called = false
-  
-  let run = ->
-    eq obj, this
-    fun "alpha", (a) <~
-    eq obj, this
-    eq "alpha", a
-    called := true
-  run.call(obj)
-  ok called
-
-test "multiple bound backcall", ->
-  let other = {}
-  let fun = (i, callback) -> callback.call(other, i)
-
-  let obj = {}
-  let mutable called = false
-  
-  let run = ->
-    eq obj, this
-    fun "alpha", (a) <~
-    eq obj, this
-    eq "alpha", a
-    fun "bravo", (b) <~
-    eq obj, this
-    eq "alpha", a
-    eq "bravo", b
-    called := true
-  run.call(obj)
-  ok called
-*/
-/*
-test "named functions", -> do
-  function f -> "alpha"
-  
-  eq "function", typeof f
-  eq 0, f.length
-  eq "f", f.display-name
-  eq "alpha", f()
-  
-  function g(x) -> "bravo: #{x}"
-  
-  eq "function", typeof g
-  eq "g", g.display-name
-  eq 1, g.length
-  eq "bravo: charlie", g("charlie")
-end
-
-test "named function non-statement", -> do
-  let g = function f -> "alpha"
-  
-  eq "undefined", typeof f
-  eq "function", typeof g
-  eq "f", g.display-name
-end
-*/
 test "fancy whitespace", #
   let fun = #(
     a,
@@ -621,14 +511,11 @@ test "setting values on @ by their parameters with defaults", #
   eq "charlie", obj.alpha
   eq "delta", obj.bravo
 
-/*
-test "reserved word as parameter", -> do
-  for name in require('../lib/ast').RESERVED
-    throws -> Cotton.compile("""let z = 5
-    let fun = (x, #{name}) ->"""), (e) -> e.line == 2, name
-  end
-end
-*/
+test "reserved word as parameter", #
+  for name in require('../lib/parser').get-reserved-words()
+    throws #-> gorilla.compile("""let z = 5
+    let fun(x, $name) ->"""), #(e) -> e.line == 2, name
+
 test "eval is still usable, in case someone wants to use it", #
   eq 5, eval("5")
   let f() -> "hello"
@@ -718,12 +605,21 @@ test "whitespace checks", #
     echo foxtrot: "golf"
   )
 
-/*
 test "duplicate parameter name", #
-  throws -> Cotton.compile("""let x = 0
-  let fun = (a, a) ->
-  """), (e) -> e.line == 2
-*/
+  throws #-> gorilla.compile("""let x = 0
+  let fun(a, a) ->"""), #(e) -> e.line == 2
+
+test "duplicate parameter name", #
+  throws #-> gorilla.compile("""let x = 0
+  let fun(a, [a]) ->"""), #(e) -> e.line == 2
+
+test "duplicate parameter name", #
+  throws #-> gorilla.compile("""let x = 0
+  let fun([a], [a]) ->"""), #(e) -> e.line == 2
+
+test "duplicate parameter name", #
+  throws #-> gorilla.compile("""let x = 0
+  let fun([a], {a}) ->"""), #(e) -> e.line == 2
 
 test "typed parameters, Boolean", #
   let fun(value as Boolean) -> value
