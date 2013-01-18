@@ -96,18 +96,18 @@ test "Passing a spread to a method of a literal number", #
   arr[0] := 10
   eq "4660", 4660.to-string ...arr
 
-  /*
+
 test "Numbers too large", #
-  throws -> Cotton.compile("""let x = 0
-  let y = 1e1000"""), (e) -> e.line == 2
-  throws -> Cotton.compile("""let x = 0
-  let y = #{Number.MAX_VALUE.to-string(9)}"""), (e) -> e.line == 2
-  throws -> Cotton.compile("""let x = 0
-  let y = 0b#{Number.MAX_VALUE.to-string(2)}0"""), (e) -> e.line == 2
-  throws -> Cotton.compile("""let x = 0
-  let y = 0o#{Number.MAX_VALUE.to-string(8)}0"""), (e) -> e.line == 2
-  throws -> Cotton.compile("""let x = 0
-  let y = 0x#{Number.MAX_VALUE.to-string(16)}0"""), (e) -> e.line == 2
-  throws -> Cotton.compile("""let x = 0
-  let y = 36r#{Number.MAX_VALUE.to-string(36)}0"""), (e) -> e.line == 2
-  */
+  throws #-> gorilla.compile("""let x = 0
+  let y = 1e1000"""), #(e) -> e.line == 2
+  throws #-> gorilla.compile("""let x = 0
+  let y = #{Number.MAX_VALUE.to-string(9)}"""), #(e) -> e.line == 2
+  throws #-> gorilla.compile("""let x = 0
+  let y = 0b#{Number.MAX_VALUE.to-string(2)}0"""), #(e) -> e.line == 2
+  throws #-> gorilla.compile("""let x = 0
+  let y = 0o#{Number.MAX_VALUE.to-string(8)}0"""), #(e) -> e.line == 2
+  throws #-> gorilla.compile("""let x = 0
+  let y = 0x#{Number.MAX_VALUE.to-string(16)}0"""), #(e) -> e.line == 2
+  throws #-> gorilla.compile("""let x = 0
+  let y = 36r#{Number.MAX_VALUE.to-string(36)}0"""), #(e) -> e.line == 2
+
