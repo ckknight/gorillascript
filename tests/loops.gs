@@ -40,7 +40,6 @@ test "backwards loop, inclusive", #
     j -= 1
   eq -1, j // [10, 0], not [10, 1]
 
-/*
 test "loop with else", #
   let mutable sum = 0
   for i in 0 til 10
@@ -56,7 +55,7 @@ test "loop with else", #
     hit-else := true
     success()
   ok hit-else
-*/
+
 test "variable loop without step", #
   let test-loop(start, finish)
     let mutable j = start
@@ -128,7 +127,7 @@ test "loop variable finish is not respected when changed", #
   let mutable finish = 10
   
   let mutable sum = 0
-  for i = 0, finish
+  for i in 0 til finish
     finish := 20
     sum += i
   eq 45, sum
@@ -137,7 +136,7 @@ test "loop variable step is not respected when changed", #
   let mutable step = 1
   
   let mutable sum = 0
-  for i = 0, 10, step
+  for i in 0 til 10 by step
     step += 1
     sum += i
   eq 45, sum
@@ -264,7 +263,6 @@ test "while loop with continue", #
     sum += i
   eq 25, sum
 
-/*
 test "while loop with else", #
   let mutable sum = 0
   let mutable i = 0
@@ -282,7 +280,7 @@ test "while loop with else", #
     hit-else := true
     success()
   ok hit-else
-*/
+
 test "until loop", #
   let mutable sum = 0
   let mutable i = 0
@@ -290,7 +288,7 @@ test "until loop", #
     sum += i
     i += 1
   eq 55, sum
-/*
+
 test "until loop with else", #
   let mutable sum = 0
   let mutable i = 0
@@ -308,7 +306,7 @@ test "until loop with else", #
     hit-else := true
     success()
   ok hit-else
-*/
+
 test "while loop with step", #
   let mutable sum = 0
   let mutable i = 0
@@ -316,7 +314,6 @@ test "while loop with step", #
     sum += i
   eq 45, sum
 
-/*
 test "while loop with step and else", #
   let mutable sum = 0
   let mutable i = 0
@@ -333,7 +330,7 @@ test "while loop with step and else", #
     hit-else := true
     success()
   ok hit-else
-*/
+
 test "until loop with step", #
   let mutable sum = 0
   let mutable i = 0
@@ -341,7 +338,6 @@ test "until loop with step", #
     sum += i
   eq 55, sum
 
-/*
 test "until loop with step and else", #
   let mutable sum = 0
   let mutable i = 0
@@ -358,7 +354,7 @@ test "until loop with step and else", #
     hit-else := true
     success()
   ok hit-else
-*/
+
 /*
 test "repeat-while loop", #
   let mutable sum = 0
@@ -414,6 +410,15 @@ test "object iteration loop does not respect mutable identifier if changed", #
     obj := {}
   keys.sort()
   array-eq ["a", "b", "c", "d"], keys
+
+test "object iteration loop does not respect mutable identifier if changed with value", #
+  let items = []
+  let mutable obj = { a: 1, b: 4, c: 9, d: 16 }
+  for k, v of obj
+    items.push [k, v]
+    obj := {}
+  items.sort #(a, b) -> a[0] <=> b[0]
+  array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], items
 */
 
 test "object iteration loop with value", #
@@ -425,7 +430,6 @@ test "object iteration loop with value", #
   
   array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 
-/*
 test "object iteration loop with value and index", #
   let data = []
   let obj = { a: 1, b: 4, c: 9, d: 16 }
@@ -438,8 +442,7 @@ test "object iteration loop with value and index", #
   data.sort #(a, b) -> a[0] <=> b[0]
   
   array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
-*/
-/*
+
 test "object iteration loop with else", #
   let keys = []
   let obj = { a: 1, b: 4, c: 9, d: 16 }
@@ -458,7 +461,7 @@ test "object iteration loop with else", #
     hit-else := true
     success()
   ok hit-else
-*/
+
 test "object iteration loop with literal object", #
   let keys = []
   for k of { a: 1, b: 4, c: 9, d: 16 }
@@ -474,7 +477,6 @@ test "object iteration loop with value and literal object", #
   
   array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 
-/*
 test "object iteration loop with value and index and literal object", #
   let data = []
   let mutable j = 0
@@ -486,8 +488,7 @@ test "object iteration loop with value and index and literal object", #
   data.sort #(a, b) -> a[0] <=> b[0]
   
   array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
-*/
-/*
+
 test "object iteration loop with literal object", #
   let keys = []
   for k of { a: 1, b: 4, c: 9, d: 16 }
@@ -504,7 +505,7 @@ test "object iteration loop with literal object", #
     hit-else := true
     success()
   ok hit-else
-*/
+
 test "object iteration loop only accesses object once", #
   let keys = []
   let obj = run-once { a: 1, b: 4, c: 9, d: 16 }
@@ -522,7 +523,6 @@ test "object iteration loop with value only accesses object once", #
   
   array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 
-/*
 test "object iteration loop with value and index only accesses object once", #
   let data = []
   let obj = run-once { a: 1, b: 4, c: 9, d: 16 }
@@ -535,7 +535,7 @@ test "object iteration loop with value and index only accesses object once", #
   data.sort #(a, b) -> a[0] <=> b[0]
   
   array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
-*/
+
 test "object iteration loop with inheritance", #
   let Parent()!
     this.a := 1
@@ -563,7 +563,6 @@ test "object iteration loop with inheritance and value", #
 
   array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
 
-/*
 test "object iteration loop with inheritance and value and index", #
   let Parent()!
     this.a := 1
@@ -581,7 +580,7 @@ test "object iteration loop with inheritance and value and index", #
   data.sort #(a, b) -> a[0] <=> b[0]
 
   array-eq [["a", 1], ["b", 4], ["c", 9], ["d", 16]], data
-*/
+
 test "object iteration loop without inheritance", #
   let Parent()!
     this.a := 1
@@ -609,7 +608,6 @@ test "object iteration loop without inheritance and value", #
 
   array-eq [["a", 1], ["b", 4]], data
 
-/*
 test "object iteration loop without inheritance and value and index", #
   let Parent()!
     this.a := 1
@@ -626,7 +624,7 @@ test "object iteration loop without inheritance and value and index", #
   eq 2, j
   data.sort #(a, b) -> a[0] <=> b[0]
   array-eq [["a", 1], ["b", 4]], data
-*/
+
 test "iteration loop", #
   let mutable sum = 0
   let arr = [1, 4, 9, 16]
@@ -644,7 +642,6 @@ test "iteration loop does not respect identifier if reference is mutable", #
   eq 30, sum
 */
 
-/*
 test "iteration loop with else", #
   let mutable sum = 0
   let arr = [1, 4, 9, 16]
@@ -662,14 +659,13 @@ test "iteration loop with else", #
     hit-else := true
     success()
   ok hit-else
-*/
+
 test "iteration loop with literal array", #
   let mutable sum = 0
   for value in [1, 4, 9, 16]
     sum += value
   eq 30, sum
 
-/*
 test "iteration loop with literal array and else", #
   let mutable sum = 0
   for value in [1, 4, 9, 16]
@@ -685,7 +681,7 @@ test "iteration loop with literal array and else", #
     hit-else := true
     success()
   ok hit-else
-*/
+
 test "iteration loop only calculates array once", #
   let arr = run-once [1, 4, 9, 16]
   let mutable sum = 0
@@ -796,13 +792,10 @@ test "object iteration loop scope with multiple", #
   array-eq ["bravo", "echo", "two", "five"], items[4]
   array-eq ["charlie", "foxtrot", "three", "six"], items[8]
 
-/*
-test "single-line range loop", -> do
+test "single-line range loop", #
   let mutable sum = 0
-  for i in 1 til 10;sum+=i;end
+  for i in 1 til 10;sum+=i
   eq 45, sum
-end
-*/
 
 test "Simple array comprehension", #
   let nums = for n in [1, 2, 3, 4, 5]
@@ -845,12 +838,11 @@ test "For-some of range", #
     x > 10)
   
   /*
-  throws #-> Cotton.compile("""
+  throws #-> gorilla.compile("""
   for some x in 1 til 10
     true
   else
-    throw Error()
-  end"""), (e) -> e.line == 3 or true
+    throw Error()"""), #(e) -> e.line == 1
   */
 
 test "For-every of range", #
