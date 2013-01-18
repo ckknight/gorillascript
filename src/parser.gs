@@ -4512,7 +4512,7 @@ macro node-type!
       for pair in @pairs(methods)
         let {key, value} = pair
         add-methods.push AST def ($key) = $value
-        if @is-const(key) and @value(key) == "walk"
+        if @is-const(key) and @value(key) == \walk
           found-walk := true
     
     if not found-walk
@@ -5798,6 +5798,15 @@ node-type! \object, pairs as Array, prototype as (Node|void), {
       else
         this
 }
+State::object := #(i, pairs, prototype)
+  let known-keys = []
+  for {key} in pairs
+    if key instanceof ConstNode
+      let key-value = String key.value
+      if key-value in known-keys
+        @error "Duplicate key in object: $(key-value)"
+      known-keys.push key-value
+  ObjectNode(i, @index, pairs, prototype)
 State::object-param := State::object
 node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void), {
   walk: #(func)

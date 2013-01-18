@@ -169,15 +169,15 @@ test "object key ownership", #
   ok not (obj ownskey "echo")
   ok obj not ownskey "echo"
 
-/*
+
 test "object with the same key twice", #
-  throws (-> Cotton.compile("""
+  throws #-> gorilla.compile("""
   let x = {
     alpha: 'bravo'
     alpha: 'charlie'
   }
-  """)), (e) -> e.line == 3
-*/
+  """), #(e) -> e.line == 4
+
 test "multiple access", #
   let obj = { alpha: "bravo", charlie: "delta", echo: "foxtrot" }
 
