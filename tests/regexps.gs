@@ -46,7 +46,6 @@ test "slashes are allowed in regexes", #
 test "regexes will escape backspaces", #
   eq "\\\\", r"\\".source
 
-/*
 test "a triple-quoted regex will ignore whitespace and allow comments", #
   eq r"Ihavenowhitespace".source, r"""
   I
@@ -58,10 +57,10 @@ test "a triple-quoted regex can have interpolation", #
   let value = "bravo"
   eq r"alphabravocharlie".source, r"""
   alpha
-  #{value} # previously, that was a value.
+  $value # previously, that was a value.
   charlie
   """.source
-*/
+
 test "and empty regex will compile to an empty, non-capturing group", #
   let regex = r""
   

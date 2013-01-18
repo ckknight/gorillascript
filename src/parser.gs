@@ -2169,10 +2169,43 @@ define TripleSingleStringLiteral = make-triple-string TripleSingleQuote, TripleS
 define TripleDoubleStringLiteral = make-triple-string TripleDoubleQuote, TripleDoubleStringLine
 
 define LowerR = character! "r"
+define RegexTripleSingleToken = sequential! [LowerR, TripleSingleQuote]
+define RegexTripleDoubleToken = sequential! [LowerR, TripleDoubleQuote]
 define RegexSingleToken = sequential! [LowerR, SingleQuote]
 define RegexDoubleToken = sequential! [LowerR, DoubleQuote]
 define RegexFlags = maybe! NamePart, #-> []
+define RegexComment = sequential! [
+  HashSign
+  zero-or-more! any-except! Newline
+], NOTHING
 define RegexLiteral = one-of! [
+  short-circuit! RegexTripleDoubleToken, sequential! [
+    RegexTripleDoubleToken
+    [\text, zero-or-more-of! [
+      sequential! [
+        Backslash
+        DollarSign
+      ], C('$')
+      mutate! SpaceChar, NOTHING
+      mutate! Newline, NOTHING
+      RegexComment
+      StringInterpolation
+      any-except! TripleDoubleQuote
+    ]]
+    TripleDoubleQuote
+    [\flags, RegexFlags]
+  ]
+  short-circuit! RegexTripleDoubleToken, sequential! [
+    RegexTripleSingleToken
+    [\text, zero-or-more-of! [
+      mutate! SpaceChar, NOTHING
+      mutate! Newline, NOTHING
+      RegexComment
+      any-except! TripleSingleQuote
+    ]]
+    TripleSingleQuote
+    [\flags, RegexFlags]
+  ]
   short-circuit! RegexDoubleToken, sequential! [
     RegexDoubleToken
     [\text, zero-or-more-of! [
@@ -2215,7 +2248,7 @@ define RegexLiteral = one-of! [
   for part in x.text
     if typeof part == \number
       current-literal.push part
-    else if part not instanceof NothingNode
+    else if part != NOTHING and part not instanceof NothingNode
       if current-literal.length > 0
         string-parts.push o.const i, process-char-codes(current-literal).join ""
         current-literal := []
