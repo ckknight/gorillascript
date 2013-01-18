@@ -78,7 +78,7 @@ let to-JS-source-types = {
         "0"
     else if is-finite value
       JSON.stringify value
-    else if isNaN value
+    else if value is NaN
       "0/0"
     else if value > 0
       "1/0"
@@ -1495,7 +1495,7 @@ exports.Obj := class Obj extends Expression
       key
     else
       let num = Number(key)
-      if not isNaN(num) and String(num) == key
+      if num isnt NaN and String(num) == key
         key
       else
         to-JS-source key

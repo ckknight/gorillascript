@@ -1918,7 +1918,7 @@ define RadixInteger = do
         clone.update sub-clone
         while true
           let decimal-num = parse-int decimal, radix-num
-          if isNaN(decimal-num)
+          if decimal-num is NaN
             o.error "Unable to parse number: $(radix-num)r$integer.$decimal"
           else if is-finite(decimal-num)
             value += decimal-num / radix-num ^ decimal.length
