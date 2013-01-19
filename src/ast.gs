@@ -236,6 +236,7 @@ exports.Arguments := class Arguments extends Expression
   def compile(options, level, line-start, sb)! -> sb "arguments"
   def type() -> Type.args
   def walk() -> this
+  def is-noop() -> true
   def inspect(depth) -> "Arguments()"
   def to-JSON() -> { type: "Arguments" }
   @from-JSON := #-> Arguments()
@@ -310,6 +311,8 @@ exports.Arr := class Arr extends Expression
     let f = if @should-compile-large() then compile-large else compile-small
     f(@elements, options, level, line-start, sb)
     sb "]"
+  def compile-as-statement(options, line-start, sb)!
+    BlockStatement(@elements).compile(options, line-start, sb)
   
   def type() -> Type.array
   
@@ -329,6 +332,8 @@ exports.Arr := class Arr extends Expression
     @_is-large ?= @elements.length > 4 or for some element in @elements
       not element.is-small()
   
+  def is-noop() -> @_is-noop ?= for every element in @elements; element.is-noop()
+  
   def walk(walker)
     let elements = walk-array @elements, walker
     if @elements != elements
@@ -346,19 +351,9 @@ exports.Arr := class Arr extends Expression
 exports.Assign := #(left, right)
   Binary left, "=", right
 
-exports.Concat := #(...args)
-  let mutable current = void
-  for arg in args
-    if arg not instanceof Expression
-      arg := to-const arg
-    if not current?
-      if arg.type().is-subset-of(Type.string)
-        current := arg
-      else
-        current := Binary "", "+", arg
-    else
-      current := Binary current, "+", arg
-  current
+exports.BinaryChain := #(op, left, ...args)
+  for reduce arg in args, current = left
+    Binary current, op, arg
 
 exports.And := #(...args)
   if args.length == 0
@@ -449,12 +444,15 @@ exports.Binary := class Binary extends Expression
   def compile-as-statement(options, line-start, sb)!
     let left = @left
     let op = @op
-    if ASSIGNMENT_OPS ownskey op and left instanceof Ident and typeof @right.to-statement == "function" and false
-      @right.to-statement()
-        .mutate-last((#(node) -> Binary left, op, node), true)
-        .compile-as-statement(options, line-start, sb)
+    if ASSIGNMENT_OPS ownskey op
+      if left instanceof Ident and typeof @right.to-statement == "function" and false
+        @right.to-statement()
+          .mutate-last((#(node) -> Binary left, op, node), true)
+          .compile-as-statement(options, line-start, sb)
+      else
+        super.compile-as-statement(options, line-start, sb)
     else
-      super.compile-as-statement(options, line-start, sb)
+      BlockStatement([@left, @right]).compile-as-statement(options, line-start, sb)
   
   let ASSIGNMENT_OPS = {
     +"="
@@ -1210,6 +1208,7 @@ exports.Func := class Func extends Expression
   def type() -> Type.function
   
   def is-large() -> true
+  def is-noop() -> not @name?
   
   def walk(walker)
     let name = if @name then walker(@name) ? @name.walk(walker) else @name
@@ -1302,27 +1301,33 @@ exports.IfStatement := class IfStatement extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    sb "if ("
-    @test.compile options, Level.inside-parentheses, false, sb
-    sb ") {\n"
-    let child-options = inc-indent options
-    sb.indent child-options.indent
-    @when-true.compile-as-statement child-options, true, sb
-    sb "\n"
-    sb.indent options.indent
-    sb "}"
-    let when-false = @when-false
-    if not when-false.is-noop()
-      sb " else "
-      if when-false instanceof IfStatement
-        when-false.compile options, level, false, sb
+    if @when-true.is-noop()
+      if @when-false.is-noop()
+        @test.compile-as-statement options, true, sb
       else
-        sb "{\n"
-        sb.indent child-options.indent
-        when-false.compile-as-statement child-options, true, sb
-        sb "\n"
-        sb.indent options.indent
-        sb "}"
+        IfStatement(Unary("!", @test), @when-false, @when-true).compile(options, level, line-start, sb)
+    else
+      sb "if ("
+      @test.compile options, Level.inside-parentheses, false, sb
+      sb ") {\n"
+      let child-options = inc-indent options
+      sb.indent child-options.indent
+      @when-true.compile-as-statement child-options, true, sb
+      sb "\n"
+      sb.indent options.indent
+      sb "}"
+      let when-false = @when-false
+      if not when-false.is-noop()
+        sb " else "
+        if when-false instanceof IfStatement
+          when-false.compile options, level, false, sb
+        else
+          sb "{\n"
+          sb.indent child-options.indent
+          when-false.compile-as-statement child-options, true, sb
+          sb "\n"
+          sb.indent options.indent
+          sb "}"
         
   def walk(walker)
     let test = walker(@test) ? @test.walk walker
@@ -1352,6 +1357,8 @@ exports.IfStatement := class IfStatement extends Statement
         null
     else
       @_exit-type
+  
+  def is-noop() -> @_is-noop ?= @test.is-noop() and @when-true.is-noop() and @when-false.is-noop()
   
   def inspect(depth)
     let d = dec-depth depth
@@ -1434,6 +1441,8 @@ exports.IfExpression := class IfExpression extends Expression
       not part.is-small()
   
   def is-small() -> false
+  
+  def is-noop() -> @_is-noop ?= @test.is-noop() and @when-true.is-noop() and @when-false.is-noop()
   
   def walk = IfStatement::walk
   
@@ -1536,6 +1545,9 @@ exports.Obj := class Obj extends Expression
     if line-start
       sb ")"
   
+  def compile-as-statement(options, line-start, sb)!
+    BlockStatement(for element in @elements; element.value).compile(options, line-start, sb)
+  
   def type() -> Type.object
   
   def should-compile-large()
@@ -1553,6 +1565,9 @@ exports.Obj := class Obj extends Expression
   def is-large()
     @_is-large ?= @elements.length > 4 or for some element in @elements
       not element.is-small()
+  
+  def is-noop()
+    @_is-noop ?= for every element in @elements; element.is-noop()
   
   def walk(walker)
     let elements = walk-array(@elements, walker)
@@ -1588,6 +1603,7 @@ exports.Obj := class Obj extends Expression
     
     def is-small() -> @value.is-small()
     def is-large() -> @value.is-large()
+    def is-noop() -> @value.is-noop()
     def walk(walker)
       let value = walker(@value) ? @value.walk(walker)
       if value != @value
@@ -1677,6 +1693,8 @@ exports.This := class This extends Expression
   def constructor()@ ->
   
   def compile(options, level, line-start, sb)! -> sb "this"
+  
+  def is-noop() -> true
   
   def walk() -> this
   
@@ -1923,6 +1941,13 @@ exports.Unary := class Unary extends Expression
       if op in ["typeof", "void", "delete"] or (op in ["+", "-", "++", "--"] and ((@node instanceof Unary and op in ["+", "-", "++", "--"]) or (@node instanceof Const and typeof @node.value == "number" and is-negative(@node.value))))
         sb " "
       @node.compile options, Level.unary, false, sb
+  
+  def compile-as-statement(options, line-start, sb)!
+    let op = @op
+    if ASSIGNMENT_OPERATORS ownskey op
+      super.compile-as-statement(options, line-start, sb)
+    else
+      @node.compile-as-statement(options, line-start, sb)
   
   let KNOWN_OPERATORS = [
     "++" // prefix

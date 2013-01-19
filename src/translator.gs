@@ -280,7 +280,7 @@ class GeneratorBuilder
             ast.Switch.Case i, ast.Block [
               ...(for item in state; item())
               ast.Break()
-            ]), ast.Throw ast.Call ast.Ident(\Error), [ast.Concat("Unknown state: ", state-ident)]
+            ]), ast.Throw ast.Call ast.Ident(\Error), [ast.Binary("Unknown state: ", "+", state-ident)]
           err
           do
             let mutable current = ast.Block [
@@ -743,7 +743,7 @@ let translators = {
             ast.Call(
               ast.Ident(\TypeError)
               [if array-index?
-                ast.Concat(
+                ast.BinaryChain("+"
                   "Expected $(ident.name)["
                   array-index
                   "] to be a $(node.name), got "
@@ -751,7 +751,7 @@ let translators = {
                     ast.Ident(\__typeof)
                     [access]))
               else
-                ast.Concat(
+                ast.BinaryChain("+"
                   "Expected $(ident.name) to be a $(node.name), got "
                   ast.Call(
                     ast.Ident(\__typeof)
@@ -791,7 +791,7 @@ let translators = {
               ast.Call(
                 ast.Ident(\TypeError)
                 [if array-index?
-                  ast.Concat(
+                  ast.BinaryChain("+"
                     "Expected $(ident.name)["
                     array-index
                     "] to be a $(type.right.value), got "
@@ -799,7 +799,7 @@ let translators = {
                       ast.Ident(\__typeof)
                       [access]))
                 else
-                  ast.Concat(
+                  ast.BinaryChain("+"
                     "Expected $(ident.name) to be a $(type.right.value), got "
                     ast.Call(
                       ast.Ident(\__typeof)
@@ -849,7 +849,7 @@ let translators = {
           ast.Throw(
             ast.Call(
               ast.Ident(\TypeError)
-              [ast.Concat(
+              [ast.BinaryChain("+"
                 "Expected $(ident.name) to be a $(names.join ' or '), got "
                 ast.Call(
                   ast.Ident(\__typeof)
@@ -888,7 +888,7 @@ let translators = {
           ast.Throw(
             ast.Call(
               ast.Ident(\TypeError)
-              [ast.Concat(
+              [ast.BinaryChain("+"
                 "Expected $(ident.name) to be an Array, got "
                 ast.Call(
                   ast.Ident(\__typeof)
