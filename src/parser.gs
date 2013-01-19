@@ -5195,25 +5195,29 @@ class State
   
   def macro-expand(node)
     let walker = #(node)@
-      let walked = node.walk(walker)
-      if node instanceof MacroAccessNode
-        _position.push walked.position
-        _in-generator.push walked.in-generator
-        try
-          let result = @macros.get-by-id(walked.id)(walked.data, this, walked.start-index, walked.line)
-          if result instanceof Node
-            walker result
-          else
-            result
-        catch e
-          if e instanceof MacroError
-            e.line := walked.line
-          throw e
-        finally
-          _position.pop()
-          _in-generator.pop()
+      if node._macro-expanded
+        node
       else
-        walked
+        let walked = node.walk(walker)
+        if node instanceof MacroAccessNode
+          _position.push walked.position
+          _in-generator.push walked.in-generator
+          try
+            let mutable result = @macros.get-by-id(walked.id)(walked.data, this, walked.start-index, walked.line)
+            if result instanceof Node
+              walker result
+            else
+              result
+          catch e
+            if e instanceof MacroError
+              e.line := walked.line
+            throw e
+          finally
+            _position.pop()
+            _in-generator.pop()
+        else
+          walked._macro-expanded := true
+          walked
     
     if @expanding-macros
       throw Error "Called macro-expand inside macro-expand"
