@@ -301,15 +301,28 @@ define operator assign ~&=
     right := ASTE "" ~& right
   @assign left, "+=", right
 
+define helper __typeof = do
+  let _to-string = Object.prototype.to-string
+  #(o) as String
+    if o == undefined
+      "Undefined"
+    else if o == null
+      "Null"
+    else
+      (o.constructor and o.constructor.name) or _to-string@(o).slice(8, ~-1)
+
+define operator unary typeof!
+  ASTE __typeof($node)
+
 define helper __num = #(num) as Number
   if typeof num != \number
-    throw TypeError("Expected a number, got " ~& typeof num)
+    throw TypeError("Expected a number, got " ~& typeof! num)
   else
     num
 
 define helper __str = #(str) as String
   if typeof str != "string"
-    throw TypeError("Expected a string, got " ~& typeof str)
+    throw TypeError("Expected a string, got " ~& typeof! str)
   else
     str
 
@@ -320,7 +333,7 @@ define helper __strnum = #(strnum) as String
   else if type == \number
     String(strnum)
   else
-    throw TypeError("Expected a string or number, got " ~& type ~& " (" ~& String(strnum) ~& ")")
+    throw TypeError("Expected a string or number, got " ~& typeof! strnum)
 
 // strict operators, should have same precedence as their respective unstrict versions
 
@@ -677,19 +690,6 @@ define helper __splice = do
       end ~+= len
     splice@ array, start, end ~- start, ...right
     right
-
-define helper __typeof = do
-  let _to-string = Object.prototype.to-string
-  #(o) as String
-    if o == undefined
-      "Undefined"
-    else if o == null
-      "Null"
-    else
-      (o.constructor and o.constructor.name) or _to-string@(o).slice(8, -1)
-
-define operator unary typeof!
-  ASTE __typeof($node)
 
 define helper __freeze = if typeof Object.freeze == \function
   Object.freeze
