@@ -4556,6 +4556,8 @@ macro node-type!
     let body = [
       AST @start-index := start-index
       AST @end-index := end-index
+      AST @_reduced := void
+      AST @_macro-expanded := false
     ]
     let mutable inspect-parts = @const(capped-name ~& "Node(")
     let mutable arg-names = []
