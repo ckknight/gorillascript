@@ -21,29 +21,15 @@ class Scope
     @has-stop-iteration := false
     @id := get-id()
 
-  def maybe-cache(item as ast.Expression, func as Function)
+  def maybe-cache(item as ast.Expression, type as Type = Type.any, func as Function)
     unless needs-caching item
       func item, item, false
     else
-      let ident = @reserve-ident \ref, item.type()
+      let ident = @reserve-ident \ref, type
       let result = func ast.Assign(ident, item), ident, true
       @release-ident(ident)
       result
-
-  def maybe-cache-access(item as ast.Expression, func as Function)
-    if item instanceof ast.Binary and item.op == "."
-      async set-left, left, left-cached <- @maybe-cache item.left
-      async set-right, right, right-cached <- @maybe-cache item.right
-      if left-cached or right-cached
-        func(
-          ast.Access set-left, set-right
-          ast.Access left, right
-          true)
-      else
-        func item, item, false
-    else
-      func item, item, false
-
+  
   def reserve-ident(name-part = \ref, type as Type = Type.any)
     // TODO: would be better as for first
     for i in 1 to Infinity
@@ -445,7 +431,10 @@ let array-translate(elements, scope, replace-with-slice)
   translated-items.push(current)
   for element in flatten-spread-array elements
     if element instanceof parser.Node.Spread
-      translated-items.push translate element.node, scope, \expression
+      translated-items.push {
+        t-node: translate element.node, scope, \expression
+        type: element.node.type()
+      }
       current := []
       translated-items.push current
     else
@@ -465,16 +454,16 @@ let array-translate(elements, scope, replace-with-slice)
           translated-items.splice i, 1
       else
         translated-items[i] := #
-          let item = translated-item()
-          if item.type().is-subset-of Type.array
-            item
+          let node = translated-item.t-node()
+          if translated-item.type.is-subset-of Type.array
+            node
           else
             scope.add-helper \__slice // FIXME, these shouldn't be required to specify
             scope.add-helper \__is-array
             scope.add-helper \__to-array
             ast.Call(
               ast.Ident \__to-array
-              [item])
+              [node])
 
     if translated-items.length == 1
       #
@@ -533,7 +522,7 @@ let translators = {
       "^="
     }
     let indexes = {
-      slice: #(t-parent, child, value, scope)
+      slice: #(t-parent, parent-type, child, t-value, value-type, scope)
         let left = child.left
         let right = child.right
         let t-left = if left and left not instanceof parser.Node.Nothing then translate(left, scope, \expression) else #-> ast.Const(0)
@@ -546,13 +535,13 @@ let translators = {
               t-parent()
               t-left()
               t-right()
-              value()
+              t-value()
             ])
-      multi: #(t-parent, child, t-value, scope, location)
+      multi: #(t-parent, parent-type, child, t-value, value-type, scope, location)
         let t-elements = translate-array child.elements, scope, \expression
         #
-          async set-parent, parent <- scope.maybe-cache t-parent()
-          async set-value, value <- scope.maybe-cache t-value()
+          async set-parent, parent <- scope.maybe-cache t-parent(), parent-type
+          async set-value, value <- scope.maybe-cache t-value(), value-type
           let lines = for t-element, i in t-elements
             ast.Assign(
               ast.Access if i == 0 then set-parent else parent, t-element()
@@ -571,8 +560,10 @@ let translators = {
 
         let result = indexes[type](
           translate node.left.parent, scope, \expression
+          node.left.parent.type()
           node.left.child
           translate node.right, scope, \expression
+          node.right.type()
           scope
           location)
         #-> auto-return result()
@@ -633,7 +624,7 @@ let translators = {
         let func = t-func()
         let arg-array = t-arg-array()
         if is-apply
-          async set-array, array <- scope.maybe-cache arg-array
+          async set-array, array <- scope.maybe-cache arg-array, Type.array
           scope.add-helper \__slice
           auto-return ast.Call(
             ast.Access func, \apply
@@ -652,7 +643,7 @@ let translators = {
           scope.add-helper \__new
           auto-return ast.Call ast.Ident(\__new), [func, arg-array]
         else if func instanceof ast.Binary and func.op == "."
-          async set-parent, parent <- scope.maybe-cache func.left
+          async set-parent, parent <- scope.maybe-cache func.left, Type.function
           auto-return ast.Call(
             ast.Access ast.Access(set-parent, func.right), \apply
             [parent, arg-array])

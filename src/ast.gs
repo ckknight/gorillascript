@@ -1,4 +1,3 @@
-require! Type: './types'
 let {inspect} = require 'util'
 
 enum Level
@@ -211,8 +210,6 @@ exports.Expression := class Expression extends Node
       @compile options, Level.block, line-start, sb
       sb ";"
   
-  def type() -> Type.any
-  
   def is-large() -> false
   
   def mutate-last(func) -> func(this)
@@ -234,7 +231,6 @@ exports.Arguments := class Arguments extends Expression
   def constructor()@ ->
   
   def compile(options, level, line-start, sb)! -> sb "arguments"
-  def type() -> Type.args
   def walk() -> this
   def is-noop() -> true
   def inspect(depth) -> "Arguments()"
@@ -313,8 +309,6 @@ exports.Arr := class Arr extends Expression
     sb "]"
   def compile-as-statement(options, line-start, sb)!
     BlockStatement(@elements).compile(options, line-start, sb)
-  
-  def type() -> Type.array
   
   def should-compile-large()
     switch @elements.length
@@ -467,58 +461,6 @@ exports.Binary := class Binary extends Expression
     +"^="
     +"|="
   }
-  
-  let OPERATOR_TYPES = {
-    ".": Type.any
-    "*": Type.number
-    "/": Type.number
-    "%": Type.number
-    "+": #(left, right)
-      if left.is-subset-of(Type.number) and right.is-subset-of(Type.number)
-        Type.number
-      else if left.overlaps(Type.number) and right.overlaps(Type.number)
-        Type.string-or-number
-      else
-        Type.string
-    "-": Type.number
-    "<<": Type.number
-    ">>": Type.number
-    ">>>": Type.number
-    "<": Type.boolean
-    "<=": Type.boolean
-    ">": Type.boolean
-    ">=": Type.boolean
-    "in": Type.boolean
-    "instanceof": Type.boolean
-    "==": Type.boolean
-    "!=": Type.boolean
-    "===": Type.boolean
-    "!==": Type.boolean
-    "&": Type.number
-    "^": Type.number
-    "|": Type.number
-    "&&": #(left, right) -> left.intersect(Type.potentially-falsy).union(right)
-    "||": #(left, right) -> left.intersect(Type.potentially-truthy).union(right)
-    "=": #(left, right) -> right
-    "+=": #(left, right) -> OPERATOR_TYPES["+"](left, right)
-    "-=": Type.number
-    "*=": Type.number
-    "/=": Type.number
-    "%=": Type.number
-    "<<=": Type.number
-    ">>=": Type.number
-    ">>>=": Type.number
-    "&=": Type.number
-    "^=": Type.number
-    "|=": Type.number
-  }
-  
-  def type() -> @_type ?= do
-    let handler = OPERATOR_TYPES[@op]
-    if typeof handler == "function"
-      handler @left.type(), @right.type()
-    else
-      handler
   
   let OPERATOR_PRECEDENCE = {
     ".": Level.call-or-access
@@ -691,8 +633,6 @@ exports.BlockExpression := class BlockExpression extends Expression
       if wrap
         sb ")"
   
-  def type() -> @last().type()
-  
   def is-large()
     @_is-large ?= @body.length > 4 or for some part in @body
       part.is-large()
@@ -806,53 +746,6 @@ exports.Call := class Call extends Expression
     else
       this
   
-  let HELPER_TYPES = {
-    __num: Type.number
-    __str: Type.string
-    __strnum: Type.string // converts to string regardless
-    __lt: Type.boolean
-    __lte: Type.boolean
-    __owns: Type.boolean
-    __in: Type.boolean
-    __slice: Type.array
-    __splice: Type.array // technically it just returns the 4th arg
-    __typeof: Type.string
-    __cmp: Type.number
-    __freeze: #(args)
-      if args.length >= 1
-        args[0].type()
-      else
-        Type.undefined
-    __freeze-func: #(args)
-      if args.length >= 1
-        args[0].type()
-      else
-        Type.undefined
-    __is-array: Type.boolean
-    __to-array: Type.array
-    __create: Type.object
-    __pow: Type.number
-    __floor: Type.number
-    __sqrt: Type.number
-    __log: Type.number
-    __keys: Type.string.array()
-    __allkeys: Type.string.array()
-    __new: Type.any
-    __instanceofsome: Type.boolean
-    __xor: #(args)
-      Type.boolean.union(if args.length >= 2 then args[1].type() else Type.undefined)
-  }
-  
-  def type()
-    @_type ?= if @func instanceof Ident and HELPER_TYPES ownskey @func.name
-      let helper = HELPER_TYPES[@func.name]
-      if typeof helper == "function"
-        helper(@args)
-      else
-        helper
-    else
-      Type.any
-  
   def inspect(depth)
     let d = dec-depth depth
     let sb = StringBuilder()
@@ -896,21 +789,6 @@ exports.Const := class Const extends Expression
   def is-const() -> true
   def is-noop = @::is-const
   def const-value() -> @value
-  
-  def type()
-    let value = @value
-    switch typeof value
-    case \undefined; Type.undefined
-    case \boolean; Type.boolean
-    case \number; Type.number
-    case \string; Type.string
-    default
-      if value == null
-        Type.null
-      else if value instanceof RegExp
-        Type.regexp
-      else
-        throw Error "Unknown value type: $type"
   
   def walk() -> this
   
@@ -1205,8 +1083,6 @@ exports.Func := class Func extends Expression
     unless line-start and @name
       sb ";"
   
-  def type() -> Type.function
-  
   def is-large() -> true
   def is-noop() -> not @name?
   
@@ -1223,6 +1099,7 @@ exports.Func := class Func extends Expression
     let d = dec-depth depth
     "Func($(inspect @name, null, d), $(inspect @params, null, d), $(inspect @variables, null, d), $(inspect @body, null, d), $(inspect @declarations, null, d), $(inspect @meta, null, d))"
   
+  require! Type: './types'
   let find-type-name = do
     let types = []
     let names = []
@@ -1434,8 +1311,6 @@ exports.IfExpression := class IfExpression extends Expression
       if wrap
         sb ")"
   
-  def type() -> @_type ?= @when-true.type().union(@when-false.type())
-  
   def is-large()
     @_is-large ?= for some part in [@test, @when-true, @when-false]
       not part.is-small()
@@ -1471,8 +1346,6 @@ exports.Noop := class Noop extends Expression
   def is-const() -> true
   def is-noop = @::is-const
   def const-value() -> void
-
-  def type() -> Type.undefined
 
   def walk() -> this
   def mutate-last(func, include-noop)
@@ -1547,8 +1420,6 @@ exports.Obj := class Obj extends Expression
   
   def compile-as-statement(options, line-start, sb)!
     BlockStatement(for element in @elements; element.value).compile(options, line-start, sb)
-  
-  def type() -> Type.object
   
   def should-compile-large()
     switch @elements.length
@@ -1963,20 +1834,6 @@ exports.Unary := class Unary extends Expression
     "delete"
   ]
   
-  let OPERATOR_TYPES = {
-    "++": Type.number
-    "--": Type.number
-    "++post": Type.number
-    "--post": Type.number
-    "!": Type.boolean
-    "~": Type.number
-    "+": Type.number
-    "-": Type.number
-    "typeof": Type.string
-    "void": Type.undefined
-    "delete": Type.boolean
-  }
-  
   let ASSIGNMENT_OPERATORS = {
     +"++"
     +"--"
@@ -1984,8 +1841,6 @@ exports.Unary := class Unary extends Expression
     +"--post"
     +"delete"
   }
-  
-  def type() -> OPERATOR_TYPES[@op]
   
   def is-large() -> @node.is-large()
   def is-small() -> @node.is-small()
