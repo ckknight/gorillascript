@@ -320,7 +320,7 @@ define helper __strnum = #(strnum) as String
   else if type == \number
     String(strnum)
   else
-    throw TypeError("Expected a string or number, got " ~& type)
+    throw TypeError("Expected a string or number, got " ~& type ~& " (" ~& String(strnum) ~& ")")
 
 // strict operators, should have same precedence as their respective unstrict versions
 
@@ -783,7 +783,7 @@ macro for
           $else-body
       else
         if not @empty(else-body)
-          throw Error "Cannot use a for loop with an else with $reducer"
+          throw Error "Cannot use a for loop with an else with $(reducer)"
         if reducer == \some
           body := @mutate-last body, #(node) -> AST
             if $node
@@ -2121,9 +2121,10 @@ macro yield*
     if not @in-generator
       throw Error "Can only use yield* in a generator function"
     let item = @tmp \item
+    let yield-item = @yield item
     AST
       for $item from $node
-        yield $item
+        $yield-item
 
 macro returning
   syntax node as Expression, rest as DedentedBody

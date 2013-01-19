@@ -2389,7 +2389,7 @@ define ExistentialSymbolNoSpace = sequential! [
 ]
 
 define CustomOperatorCloseParenthesis = do
-  let handle-unary-operator(operator, o, i)
+  let handle-unary-operator(operator, o, i, line)
     let clone = o.clone()
     let op = operator.rule clone
     if op and CloseParenthesis(clone)
@@ -2400,11 +2400,12 @@ define CustomOperatorCloseParenthesis = do
         operator.func {
           op
           node
-        }, o, i
+        }, o, i, line
         true
         false)
   #(o)
     let i = o.index
+    let line = o.line
     for operators in o.macros.binary-operators
       if operators
         for operator in operators
@@ -2429,13 +2430,13 @@ define CustomOperatorCloseParenthesis = do
                 inverted: inverted == "not"
                 op
                 right
-              }, o, i
+              }, o, i, line
               true
               false)
     for operator in o.macros.prefix-unary-operators
-      return? handle-unary-operator operator, o, i
+      return? handle-unary-operator operator, o, i, line
     for operator in o.macros.postfix-unary-operators
-      return? handle-unary-operator operator, o, i
+      return? handle-unary-operator operator, o, i, line
     false
 
 define CustomBinaryOperator = #(o)
@@ -2470,7 +2471,7 @@ define Parenthetical = sequential! [
       [\left, Expression]
       [\operator, CustomBinaryOperator]
       CloseParenthesis
-    ], #({left, operator: {op, operator, inverted}}, o, i)
+    ], #({left, operator: {op, operator, inverted}}, o, i, line)
       let right = o.tmp i, get-tmp-id(), \x
       return o.function(i
         [o.param i, right]
@@ -2479,7 +2480,7 @@ define Parenthetical = sequential! [
           inverted
           op
           right
-        }, o, i
+        }, o, i, line
         true
         false)
     sequential! [
@@ -2490,7 +2491,7 @@ define Parenthetical = sequential! [
       [\operator, CustomBinaryOperator]
       [\right, Expression]
       CloseParenthesis
-    ], #({right, operator: {op, operator, inverted}}, o, i)
+    ], #({right, operator: {op, operator, inverted}}, o, i, line)
       let left = o.tmp i, get-tmp-id(), \x
       return o.function(i
         [o.param i, left]
@@ -2499,7 +2500,7 @@ define Parenthetical = sequential! [
           inverted
           op
           right
-        }, o, i
+        }, o, i, line
         true
         false)
     CustomOperatorCloseParenthesis
@@ -3349,6 +3350,7 @@ define DirectAssignment = sequential! [
 
 define CustomAssignment = #(o)
   let start-index = o.index
+  let line = o.line
   let clone = o.clone()
   let left = SimpleAssignable clone
   if left
@@ -3366,7 +3368,7 @@ define CustomAssignment = #(o)
         left
         op
         right
-      }, o, start-index
+      }, o, start-index, line
   false
 
 define Assignment = one-of! [
@@ -3742,6 +3744,7 @@ define InvocationOrAccess = one-of! [
 
 define CustomPostfixUnary = #(o)
   let start-index = o.index
+  let line = o.line
   let node = InvocationOrAccess o
   if not node
     false
@@ -3756,11 +3759,12 @@ define CustomPostfixUnary = #(o)
       return operator.func {
         op
         node
-      }, o, start-index
+      }, o, start-index, line
     node
 
 define CustomPrefixUnary = #(o)
   let start-index = o.index
+  let line = o.line
   for operator in o.macros.prefix-unary-operators
     let clone = o.clone()
     let {rule} = operator
@@ -3774,7 +3778,7 @@ define CustomPrefixUnary = #(o)
     return operator.func {
       op
       node
-    }, o, start-index
+    }, o, start-index, line
   CustomPostfixUnary o
 
 let get-use-custom-binary-operator = do
@@ -4170,8 +4174,10 @@ class MacroHelper
         IdentNode obj.start-index, obj.end-index, \__macro
         [
           ConstNode obj.start-index, obj.end-index, obj.id
+          ConstNode obj.start-index, obj.end-index, obj.line
           constify-object obj.data, obj.start-index, obj.end-index
           ConstNode obj.start-index, obj.end-index, obj.position
+          ConstNode obj.start-index, obj.end-index, obj.in-generator
         ])
     else if obj instanceof Node
       if obj.constructor == Node
@@ -4246,10 +4252,13 @@ class MacroHelper
   
   def has-func(node)
     let FOUND = {}
+    let walker(x)
+      if x instanceof FunctionNode
+        throw FOUND
+      else
+        x.walk(walker)
     try
-      walk node, #(x)
-        if x instanceof FunctionNode
-          throw FOUND
+      walk node, walker
     catch e
       if e != FOUND
         throw e
@@ -4622,6 +4631,7 @@ class State
     @indent := indent
     @current-macro := current-macro
     @prevent-failures := prevent-failures
+    @expanding-macros := false
   
   def clone() -> State @data, @macros, @options, @index, @line, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures
   
@@ -4658,7 +4668,7 @@ class State
   
   def define-helper(i, name as IdentNode, value as Node)
     require! './translator'
-    let helper = translator.define-helper(name, value)
+    let helper = translator.define-helper(name, @macro-expand(value))
     if @options.serialize-macros
       @macros.add-serialized-helper(name.name, helper)
     @nothing i
@@ -4826,7 +4836,7 @@ class State
       ]
       
       let raw-func = make-macro-root@ this, index, func-params, body
-      let translated = require('./translator')(raw-func.reduce(), return: true)
+      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
@@ -4857,7 +4867,7 @@ class State
       let handler = if body?
         do
           let raw-func = make-macro-root@ this, index, @object-param(index, func-params), body
-          let translated = require('./translator')(raw-func.reduce(), return: true)
+          let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
           let compilation = translated.node.to-string()
           if state-options.serialize-macros
             serialization := compilation
@@ -4885,7 +4895,7 @@ class State
         { key: @const(index, \macro-data), value: @array-param(index, params) }
       ]
       let raw-func = make-macro-root@ this, index, func-params, body
-      let translated = require('./translator')(raw-func.reduce(), return: true)
+      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -4912,7 +4922,7 @@ class State
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
-      let translated = require('./translator')(raw-func.reduce(), return: true)
+      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -4947,7 +4957,7 @@ class State
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
-      let translated = require('./translator')(raw-func.reduce(), return: true)
+      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -4972,7 +4982,7 @@ class State
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \node), value: @param index, (@ident index, \node), void, false, true, void }
       ]), body
-      let translated = require('./translator')(raw-func.reduce(), return: true)
+      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -5073,9 +5083,9 @@ class State
     let rule = handle-params@ this, params
     
     let macros = @macros
-    let mutator = #(x, o, i)
-      if _in-ast.peek()
-        o.macro-access i, macro-id, x, _position.peek()
+    let mutator = #(x, o, i, line)
+      if _in-ast.peek() or not o.expanding-macros
+        o.macro-access i, macro-id, line, x, _position.peek(), _in-generator.peek()
       else
         throw Error "Cannot use macro until fully defined"
     for m in macros.get-or-add-by-names @current-macro
@@ -5087,18 +5097,20 @@ class State
   let handle-macro-syntax(index, type, handler as Function, rule, params, options, mutable macro-id)
     let macros = @macros
     
-    let mutator = #(x, o, i, line)
-      if _in-ast.peek()
-        o.macro-access i, macro-id, x, _position.peek()
+    let mutator = #(x, o, i, line)@
+      if _in-ast.peek() or not o.expanding-macros
+        o.macro-access i, macro-id, line, x, _position.peek(), _in-generator.peek()
       else
         let macro-helper = MacroHelper o, i, _position.peek(), _in-generator.peek()
         let mutable result = try
-          handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, data, position)
+          handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, line, data, position, in-generator)
             _position.push position
+            _in-generator.push in-generator
             try
-              macros.get-by-id(id)(data, o, i)
+              macros.get-by-id(id)(data, o, i, line)
             finally
               _position.pop()
+              _in-generator.pop()
         catch e
           if e instanceof MacroError
             throw e
@@ -5180,6 +5192,36 @@ class State
     for type, deserializer of macro-deserializers
       for item in (data![type] ? [])
         deserializer@(this, item)
+  
+  def macro-expand(node)
+    let walker = #(node)@
+      let walked = node.walk(walker)
+      if node instanceof MacroAccessNode
+        _position.push walked.position
+        _in-generator.push walked.in-generator
+        try
+          let result = @macros.get-by-id(walked.id)(walked.data, this, walked.start-index, walked.line)
+          if result instanceof Node
+            walker result
+          else
+            result
+        catch e
+          if e instanceof MacroError
+            e.line := walked.line
+          throw e
+        finally
+          _position.pop()
+          _in-generator.pop()
+      else
+        walked
+    
+    if @expanding-macros
+      throw Error "Called macro-expand inside macro-expand"
+    @expanding-macros := true
+    try
+      walker node
+    finally
+      @expanding-macros := false
   
   @add-node-factory := #(name, type)!
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
@@ -5813,7 +5855,48 @@ node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNod
     else
       this
 }
-node-type! \macro-access, id as Number, data as Object, position as String
+node-type! \macro-access, id as Number, line as Number, data as Object, position as String, in-generator as Boolean, {
+  walk: do
+    let walk-array(array, func)
+      let result = []
+      let mutable changed = false
+      for item in array
+        let new-item = walk-item item, func
+        if new-item != item
+          changed := true
+        result.push new-item
+      if changed
+        result
+      else
+        array
+    let walk-object(obj, func)
+      let result = {}
+      let mutable changed = false
+      for k, v of obj
+        let new-v = walk-item v, func
+        if new-v != v
+          changed := true
+        result[k] := new-v
+      if changed
+        result
+      else
+        obj
+    let walk-item(item, func)
+      if item instanceof Node
+        func item
+      else if Array.is-array item
+        walk-array item, func
+      else if item and typeof item == \object
+        walk-object item, func
+      else
+        item
+    #(func)
+      let data = walk-item(@data, func)
+      if data != @data
+        MacroAccessNode @start-index, @end-index, @id, @line, data, @position, @in-generator
+      else
+        this
+}
 node-type! \nothing, {
   type: # -> Type.undefined
   -cacheable
@@ -6135,6 +6218,8 @@ let parse(text, macros, options = {})
     if e != SHORT_CIRCUIT
       throw e
   
+  o.done-parsing := true
+  
   if not result or o.index < o.data.length
     let {index, line, messages} = o.failures
     let last-token = if index < o.data.length
@@ -6144,7 +6229,7 @@ let parse(text, macros, options = {})
     throw ParserError build-error-message(messages, last-token), o.data, index, line
   else
     {
-      result: result.reduce()
+      result: o.macro-expand(result).reduce()
       o.macros
     }
 module.exports := parse
