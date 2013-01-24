@@ -5527,6 +5527,8 @@ node-type! \binary, left as Node, op as String, right as Node, {
           UnaryNode @start-index, @end-index, "+", y
         else if x.const-value() == "" and y.type(o).is-subset-of(Type.string)
           y
+        else if typeof x.const-value() == \string and y instanceof BinaryNode and y.op == "+" and y.left.is-const() and typeof y.left.const-value() == \string
+          BinaryNode @start-index, @end-index, ConstNode(x.start-index, y.left.end-index, x.const-value() & y.left.const-value()), "+", y.right
       "-": #(x, y)
         if x.const-value() == 0
           UnaryNode @start-index, @end-index, "-", y
@@ -5546,14 +5548,16 @@ node-type! \binary, left as Node, op as String, right as Node, {
         if y.const-value() == 0 and x.type(o).is-subset-of(Type.number)
           UnaryNode @start-index, @end-index, "+", x
         else if typeof y.const-value() == "number" and y.value < 0 and x.type(o).is-subset-of(Type.number)
-          BinaryNode @start-index, @end-index, x, "-", Const(-y.const-value())
+          BinaryNode @start-index, @end-index, x, "-", ConstNode(y.start-index, y.end-index, -y.const-value())
         else if y.const-value() == "" and x.type(o).is-subset-of(Type.string)
           x
+        else if typeof y.const-value() == \string and x instanceof BinaryNode and x.op == "+" and x.right.is-const() and typeof x.right.const-value() == \string
+          BinaryNode @start-index, @end-index, x.left, "+", ConstNode(x.right.start-index, y.end-index, x.right.const-value() & y.const-value())
       "-": #(x, y, o)
         if y.const-value() == 0
           UnaryNode @start-index, @end-index, "+", x
         else if typeof y.const-value() == "number" and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
-          BinaryNode @start-index, @end-index, x, "+", Const(-y.const-value())
+          BinaryNode @start-index, @end-index, x, "+", ConstNode(y.start-index, y.end-index, -y.const-value())
     }
     #(o)
       let left = @left.reduce(o).do-wrap()
@@ -5565,6 +5569,7 @@ node-type! \binary, left as Node, op as String, right as Node, {
         return? left-const-ops![op]@(this, left, right, o)
       if right.is-const()
         return? right-const-ops![op]@(this, left, right, o)
+      
       if left != @left or right != @right
         BinaryNode @start-index, @end-index, left, op, right
       else
