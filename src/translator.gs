@@ -1206,19 +1206,7 @@ let translators = {
         ]
         scope.release-ident ident
         auto-return result
-
-  Regexp: #(node, scope, location, auto-return)
-    let t-text = translate node.text, scope, \expression
-    let flags = node.flags
-    #
-      let text = t-text()
-      if text instanceof ast.Const and typeof text.value == \string
-        auto-return ast.Const(RegExp(text.value, flags))
-      else
-        auto-return ast.Call(
-          ast.Ident(\RegExp)
-          [text, ast.Const(flags)])
-
+  
   Return: #(node, scope, location)
     if location not in [\statement, \top-statement]
       throw Error "Expected Return in statement position"

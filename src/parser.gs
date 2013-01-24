@@ -3125,6 +3125,19 @@ define MacroSyntaxChoiceParameters = sequential! [
 
 define SyntaxToken = word \syntax
 
+define MacroOptions = maybe! (sequential! [
+  word \with
+  [\this, UnclosedObjectLiteral]
+], #(x)
+  let options = {}
+  for {key, value} in x.pairs
+    unless key.is-const()
+      o.error "Cannot have non-const keys in the options"
+    unless value.is-const()
+      o.error "Cannot have non-const value in the options"
+    options[key.const-value()] := value.const-value()
+  options), #-> {}
+
 define MacroSyntax = sequential! [
   CheckIndent
   [\this, short-circuit! SyntaxToken, sequential! [
@@ -3134,11 +3147,12 @@ define MacroSyntax = sequential! [
       let params = MacroSyntaxParameters o
       if not params
         throw SHORT_CIRCUIT
-      o.start-macro-syntax i, params
+      let options = MacroOptions o
+      o.start-macro-syntax i, params, options
       let body = FunctionBody o
       if not body
         throw SHORT_CIRCUIT
-      o.macro-syntax i, \syntax, params, body
+      o.macro-syntax i, \syntax, params, options, body
       true]]]
   Space
   CheckStop
@@ -3162,9 +3176,10 @@ define MacroBody = one-of! [
   ], #(x) -> true
   sequential! [
     [\params, ParameterSequence]
+    [\options, MacroOptions]
     [\body, FunctionBody]
   ], #(x, o, i)
-    o.macro-syntax i, \call, x.params, x.body
+    o.macro-syntax i, \call, x.params, x.options, x.body
     true
 ]
 
@@ -3210,26 +3225,14 @@ define DefineOperator = short-circuit! DefineOperatorStart, in-macro sequential!
     Comma
     [\this, NameOrSymbol]
   ]]
-  [\options, maybe! (sequential! [
-    word \with
-    [\this, UnclosedObjectLiteral]
-  ]), NOTHING]
+  [\options, MacroOptions]
   [\body, FunctionBody]
 ], #(x, o, i)
-  let options = {}
-  if x.options != NOTHING
-    for pair in x.options.pairs
-      unless pair.key.is-const()
-        o.error "Cannot have non-const keys in the options"
-      unless pair.value.is-const()
-        o.error "Cannot have non-const value in the options"
-      options[pair.key.const-value()] := pair.value.const-value()
-  
   let ops = [x.head, ...x.tail]
   switch x.type
-  case \binary; o.define-binary-operator i, ops, options, x.body
-  case \assign; o.define-assign-operator i, ops, options, x.body
-  case \unary; o.define-unary-operator i, ops, options, x.body
+  case \binary; o.define-binary-operator i, ops, x.options, x.body
+  case \assign; o.define-assign-operator i, ops, x.options, x.body
+  case \unary; o.define-unary-operator i, ops, x.options, x.body
   default; throw Error()
 
 define Nothing = #(o) -> o.nothing o.index
@@ -3536,7 +3539,7 @@ define BasicInvocationOrAccess = sequential! [
           let mutable set-parent = parent
           let tmp-ids = []
           if parent.cacheable
-            let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type())
+            let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type(o))
             tmp-ids.push tmp.id
             set-parent := o.assign(i, tmp, "=", parent.do-wrap())
             parent := tmp
@@ -3552,14 +3555,14 @@ define BasicInvocationOrAccess = sequential! [
           let tmp-ids = []
           let mutable set-head = head
           if head.cacheable
-            let tmp = o.tmp(i, get-tmp-id(), \ref, head.type())
+            let tmp = o.tmp(i, get-tmp-id(), \ref, head.type(o))
             tmp-ids.push tmp.id
             set-head := o.assign(i, tmp, "=", head.do-wrap())
             head := tmp
           let mutable child = link.child
           let mutable set-child = child
           if child.cacheable
-            let tmp = o.tmp(i, get-tmp-id(), \ref, child.type())
+            let tmp = o.tmp(i, get-tmp-id(), \ref, child.type(o))
             tmp-ids.push tmp.id
             set-child := o.assign(i, tmp, "=", child.do-wrap())
             child := tmp
@@ -3593,7 +3596,7 @@ define BasicInvocationOrAccess = sequential! [
             let tmp-ids = []
             let mutable set-head = head
             if head.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref, head.type())
+              let tmp = o.tmp(i, get-tmp-id(), \ref, head.type(o))
               tmp-ids.push tmp.id
               set-head := o.assign(i, tmp, "=", head.do-wrap())
               head := tmp
@@ -3618,12 +3621,12 @@ define BasicInvocationOrAccess = sequential! [
             let mutable set-parent = parent
             let mutable set-child = child
             if parent.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type())
+              let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type(o))
               tmp-ids.push tmp.id
               set-parent := o.assign(i, tmp, "=", parent.do-wrap())
               parent := tmp
             if child.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref, child.type())
+              let tmp = o.tmp(i, get-tmp-id(), \ref, child.type(o))
               tmp-ids.push tmp.id
               set-child := o.assign(i, tmp, "=", child.do-wrap())
               child := tmp
@@ -3632,7 +3635,7 @@ define BasicInvocationOrAccess = sequential! [
               head := o.access(i, parent, child)
           else
             if head.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref, head.type())
+              let tmp = o.tmp(i, get-tmp-id(), \ref, head.type(o))
               tmp-ids.push tmp.id
               set-head := o.assign(i, tmp, "=", head.do-wrap())
               head := tmp
@@ -3973,19 +3976,19 @@ class MacroHelper
   def var(ident as (IdentNode|TmpNode), is-mutable as Boolean) -> @state.var @index, ident, is-mutable
   def def(key as Node, value as (Node|void)) -> @state.def @index, key, do-wrap(value)
   def noop() -> @state.nothing @index
-  def block(nodes as [Node]) -> @state.block(@index, nodes).reduce()
-  def if(test as Node, when-true as Node, when-false as (Node|null)) -> @state.if(@index, do-wrap(test), when-true, when-false).reduce()
-  def switch(node as Node, cases as Array, default-case as (Node|null)) -> @state.switch(@index, do-wrap(node), (for case_ in cases; {node: do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce()
-  def for(init as (Node|null), test as (Node|null), step as (Node|null), body as Node) -> @state.for(@index, do-wrap(init), do-wrap(test), do-wrap(step), body).reduce()
-  def for-in(key as IdentNode, object as Node, body as Node) -> @state.for-in(@index, key, do-wrap(object), body).reduce()
-  def try-catch(try-body as Node, catch-ident as Node, catch-body as Node) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce()
-  def try-finally(try-body as Node, finally-body as Node) -> @state.try-finally(@index, try-body, finally-body).reduce()
-  def assign(left as Node, op as String, right as Node) -> @state.assign(@index, left, op, do-wrap(right)).reduce()
-  def binary(left as Node, op as String, right as Node) -> @state.binary(@index, do-wrap(left), op, do-wrap(right)).reduce()
-  def unary(op as String, node as Node) -> @state.unary(@index, op, do-wrap(node)).reduce()
-  def throw(node as Node) -> @state.throw(@index, do-wrap(node)).reduce()
-  def return(node as (Node|void)) -> @state.return(@index, do-wrap(node)).reduce()
-  def yield(node as Node) -> @state.yield(@index, do-wrap(node)).reduce()
+  def block(nodes as [Node]) -> @state.block(@index, nodes).reduce(@state)
+  def if(test as Node, when-true as Node, when-false as (Node|null)) -> @state.if(@index, do-wrap(test), when-true, when-false).reduce(@state)
+  def switch(node as Node, cases as Array, default-case as (Node|null)) -> @state.switch(@index, do-wrap(node), (for case_ in cases; {node: do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce(@state)
+  def for(init as (Node|null), test as (Node|null), step as (Node|null), body as Node) -> @state.for(@index, do-wrap(init), do-wrap(test), do-wrap(step), body).reduce(@state)
+  def for-in(key as IdentNode, object as Node, body as Node) -> @state.for-in(@index, key, do-wrap(object), body).reduce(@state)
+  def try-catch(try-body as Node, catch-ident as Node, catch-body as Node) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce(@state)
+  def try-finally(try-body as Node, finally-body as Node) -> @state.try-finally(@index, try-body, finally-body).reduce(@state)
+  def assign(left as Node, op as String, right as Node) -> @state.assign(@index, left, op, do-wrap(right)).reduce(@state)
+  def binary(left as Node, op as String, right as Node) -> @state.binary(@index, do-wrap(left), op, do-wrap(right)).reduce(@state)
+  def unary(op as String, node as Node) -> @state.unary(@index, op, do-wrap(node)).reduce(@state)
+  def throw(node as Node) -> @state.throw(@index, do-wrap(node)).reduce(@state)
+  def return(node as (Node|void)) -> @state.return(@index, do-wrap(node)).reduce(@state)
+  def yield(node as Node) -> @state.yield(@index, do-wrap(node)).reduce(@state)
   def debugger() -> @state.debugger(@index)
   def break() -> @state.break(@index)
   def continue() -> @state.continue(@index)
@@ -3994,7 +3997,7 @@ class MacroHelper
     if node instanceof Node
       let expanded = @state.macro-expand-1(node)
       if expanded instanceof Node
-        expanded.reduce()
+        expanded.reduce(@state)
       else
         expanded
     else
@@ -4004,7 +4007,7 @@ class MacroHelper
     if node instanceof Node
       let expanded = @state.macro-expand-all(node)
       if expanded instanceof Node
-        expanded.reduce()
+        expanded.reduce(@state)
       else
         expanded
     else
@@ -4091,10 +4094,10 @@ class MacroHelper
     if is-new and is-apply
       throw Error "Cannot specify both is-new and is-apply"
     
-    @state.call(func.start-index, do-wrap(func), (for arg in args; do-wrap(arg)), is-new, is-apply).reduce()
+    @state.call(func.start-index, do-wrap(func), (for arg in args; do-wrap(arg)), is-new, is-apply).reduce(@state)
   
   def func(params, body, auto-return = true, bound = false)
-    @state.function(0, params, body, auto-return, bound).reduce()
+    @state.function(0, params, body, auto-return, bound).reduce(@state)
   
   def is-func(node) -> @macro-expand-1(node) instanceof FunctionNode
   def func-body(mutable node)
@@ -4111,7 +4114,7 @@ class MacroHelper
     if @is-func node then not not node.bound
   
   def param(ident, default-value, spread, is-mutable, as-type)
-    @state.param(0, ident, default-value, spread, is-mutable, as-type).reduce()
+    @state.param(0, ident, default-value, spread, is-mutable, as-type).reduce(@state)
   
   def is-param(node) -> @macro-expand-1(node) instanceof ParamNode
   def param-ident(mutable node)
@@ -4146,7 +4149,7 @@ class MacroHelper
     if @is-block node then node.nodes
   
   def array(elements as [Node])
-    @state.array(0, (for element in elements; do-wrap(element))).reduce()
+    @state.array(0, (for element in elements; do-wrap(element))).reduce(@state)
   def object(pairs as Array)
     for pair, i in pairs
       if not pair or typeof pair != \object
@@ -4155,7 +4158,7 @@ class MacroHelper
         throw Error "Expected an object with Node 'key' at index #$i, got $(typeof! pair.key)"
       else if pair.value not instanceof Node
         throw Error "Expected an object with Node 'value' at index #$i, got $(typeof! pair.value)"
-    @state.object(0, (for {key, value} in pairs; {key: do-wrap(key), value: do-wrap(value)})).reduce()
+    @state.object(0, (for {key, value} in pairs; {key: do-wrap(key), value: do-wrap(value)})).reduce(@state)
   
   def is-complex(mutable node)
     node := @macro-expand-1 node
@@ -4211,7 +4214,7 @@ class MacroHelper
   def maybe-cache(mutable node as Node, func, name as String = \ref, save as Boolean)
     node := @macro-expand-1(node)
     if @is-complex node
-      let tmp = @tmp(name, save, node.type())
+      let tmp = @tmp(name, save, node.type(@state))
       func @state.block(@index, [
         @state.var(@index, tmp, false)
         @state.assign(@index, tmp, "=", node.do-wrap())
@@ -4305,9 +4308,9 @@ class MacroHelper
       return? func(node)
     node.walk(#(x) -> walk x, func)
   
-  @wrap := #(value = [])
+  def wrap(value = [])
     if Array.is-array(value)
-      BlockNode(0, 0, value).reduce()
+      BlockNode(0, 0, value).reduce(@state)
     else if value instanceof Node
       value
     else if value instanceof RegExp or value == null or typeof value in [\undefined, \string, \boolean, \number]
@@ -4315,8 +4318,8 @@ class MacroHelper
     else
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
   
-  @node := #(type, start-index, end-index, ...args)
-    Node[type](start-index, end-index, ...args).reduce()
+  def node(type, start-index, end-index, ...args)
+    Node[type](start-index, end-index, ...args).reduce(@state)
   
   def walk(node as Node, func as Function) -> walk node, func
   
@@ -4343,13 +4346,13 @@ class MacroHelper
     let type = Type![name]
     if not type? or type not instanceof Type
       throw Error "$name is not a known type name"
-    @macro-expand-1(node).type().is-subset-of(type) // TODO: should this be macro-expand-all?
+    node.type(@state).is-subset-of(type)
   
   def has-type(node, name as String)
     let type = Type![name]
     if not type? or type not instanceof Type
       throw Error "$name is not a known type name"
-    @macro-expand-1(node).type().overlaps(type) // TODO: should this be macro-expand-all?
+    node.type(@state).overlaps(type) // TODO: should this be macro-expand-all?
   
   let mutators = {
     Block: #(x, func)
@@ -4412,6 +4415,7 @@ class MacroHolder
   def constructor()@
     @by-name := {}
     @by-id := []
+    @type-by-id := []
     @operator-names := {}
     @binary-operators := []
     @binary-operators-by-name := {}
@@ -4441,6 +4445,7 @@ class MacroHolder
     let clone = MacroHolder()
     clone.by-name := copy(@by-name)
     clone.by-id := @by-id[:]
+    clone.type-by-id := @type-by-id[:]
     clone.operator-names := copy(@operator-names)
     clone.binary-operators := @binary-operators[:]
     clone.binary-operators-by-name := copy(@binary-operators-by-name)
@@ -4474,25 +4479,35 @@ class MacroHolder
     return for name in names
       @get-or-add-by-name name
   
+  def set-type-by-id(id as Number, type as Type)!
+    @type-by-id[id] := type
+  
+  def get-type-by-id(id)
+    @type-by-id[id]
+  
   def get-by-id(id)
     let by-id = @by-id
     if id >= 0 and id < by-id.length
       by-id[id]
   
-  def add-macro(m, macro-id)
+  def add-macro(m, mutable macro-id as (Number|void), type as (Type|void))
     let by-id = @by-id
     if macro-id?
       if by-id ownskey macro-id
         throw Error "Cannot add macro #$(macro-id), as it already exists"
       by-id[macro-id] := m
-      macro-id
     else
       by-id.push m
-      by-id.length - 1
+      macro-id := by-id.length - 1
+    if type?
+      @type-by-id[macro-id] := type
+    macro-id
   
-  def replace-macro(id, m)!
+  def replace-macro(id, m, type as (Type|void))!
     let by-id = @by-id
     by-id[id] := m
+    if type?
+      @type-by-id[id] := type
   
   def has-macro-or-operator(name)
     @by-name ownskey name or @operator-names ownskey name
@@ -4522,7 +4537,7 @@ class MacroHolder
     binary-operators.push data
     for op in operators
       @binary-operators-by-name[op] := data
-    @add-macro m, macro-id
+    @add-macro m, macro-id, if options.type? then Type![options.type]
   
   def get-binary-operator-by-name(op)
     @binary-operators-by-name![op]
@@ -4535,7 +4550,7 @@ class MacroHolder
         word-or-symbol op
       func: m
     }
-    @add-macro m, macro-id
+    @add-macro m, macro-id, if options.type? then Type![options.type]
   
   def add-unary-operator(operators, m, options, macro-id)
     for op in operators
@@ -4560,7 +4575,7 @@ class MacroHolder
       func: m
       standalone: not options ownskey \standalone or not not options.standalone
     }
-    @add-macro m, macro-id
+    @add-macro m, macro-id, if options.type? then Type![options.type]
   
   def add-serialized-helper(name as String, value)!
     let helpers = (@serialization.helpers ?= {})
@@ -4604,15 +4619,14 @@ class Node
   
   def type() -> Type.any
   def walk() -> this
-  let reduce-node(node) -> node.reduce()
   def cacheable = true
-  def _reduce()
-    @walk reduce-node
-  def reduce()
+  def _reduce(o)
+    @walk #(node) -> node.reduce(o)
+  def reduce(o as State)
     if @_reduced?
       @_reduced
     else
-      let reduced = @_reduce()
+      let reduced = @_reduce(o)
       if reduced == this
         @_reduced := this
       else
@@ -4753,7 +4767,7 @@ class State
   
   def define-helper(i, name as IdentNode, value as Node)
     require! './translator'
-    let helper = translator.define-helper(name, @macro-expand-all(value).reduce())
+    let helper = translator.define-helper(name, @macro-expand-all(value).reduce(this))
     if @options.serialize-macros
       @macros.add-serialized-helper(name.name, helper)
     @nothing i
@@ -4772,15 +4786,15 @@ class State
     "}": CloseCurlyBrace
   }
   
-  let reduce-object(obj)
+  let reduce-object(o, obj)
     if Array.is-array(obj)
-      return for item in obj; reduce-object item
+      return for item in obj; reduce-object o, item
     else if obj instanceof Node
-      obj.reduce()
+      obj.reduce(o)
     else if typeof obj == \object and obj != null
       let result = {}
       for k, v of obj
-        result[k] := reduce-object v
+        result[k] := reduce-object o, v
       result
     else
       obj
@@ -4921,14 +4935,15 @@ class State
       ]
       
       let raw-func = make-macro-root@ this, index, func-params, body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(String @current-macro)"
+      let state = this
       {
-        handler: #(args, ...rest) -> handler@(this, reduce-object(args), ...rest).reduce()
+        handler: #(args, ...rest) -> handler@(this, reduce-object(state, args), ...rest).reduce(state)
         rule: handle-params@ this, params
         serialization: if serialization?
           {
@@ -4949,19 +4964,20 @@ class State
           }
       
       let mutable serialization = void
+      let state = this
       let handler = if body?
         do
           let raw-func = make-macro-root@ this, index, @object-param(index, func-params), body
-          let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
+          let translated = require('./translator')(@macro-expand-all(raw-func).reduce(state), return: true)
           let compilation = translated.node.to-string()
           if state-options.serialize-macros
             serialization := compilation
           let handler = Function(compilation)()
           if typeof handler != \function
             throw Error "Error creating function for syntax: $(options.name)"
-          #(args, ...rest) -> reduce-object(handler@(this, reduce-object(args), ...rest))
+          #(args, ...rest) -> reduce-object(state, handler@(this, reduce-object(state, args), ...rest))
       else
-        #(args, ...rest) -> reduce-object(args)
+        #(args, ...rest) -> reduce-object(state, args)
       {
         handler
         rule: handle-params@ this, params
@@ -4980,15 +4996,16 @@ class State
         { key: @const(index, \macro-data), value: @array-param(index, params) }
       ]
       let raw-func = make-macro-root@ this, index, func-params, body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for macro: $(@current-macro)"
+      let state = this
       handler := do inner = handler
         #(args, ...rest)
-          inner@(this, reduce-object(args), ...rest).reduce()
+          inner@(this, reduce-object(state, args), ...rest).reduce(state)
       {
         handler
         rule: InvocationArguments
@@ -5007,23 +5024,24 @@ class State
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for binary operator $(operators.join ', ')"
+      let state = this
       if options.invertible
         handler := do inner = handler
           #(args, ...rest)
-            let result = inner@ this, reduce-object(args), ...rest
+            let result = inner@ this, reduce-object(state, args), ...rest
             if args.inverted
-              UnaryNode(result.start-index, result.end-index, "!", result).reduce()
+              UnaryNode(result.start-index, result.end-index, "!", result).reduce(state)
             else
-              result.reduce()
+              result.reduce(state)
       else
         handler := do inner = handler
-          #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+          #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       {
         handler
         rule: void
@@ -5042,14 +5060,15 @@ class State
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for assign operator $(operators.join ', ')"
+      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       {
         handler
         rule: void
@@ -5067,14 +5086,15 @@ class State
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \node), value: @param index, (@ident index, \node), void, false, true, void }
       ]), body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if typeof handler != \function
         throw Error "Error creating function for unary operator $(operators.join ', ')"
+      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       {
         handler
         rule: void
@@ -5089,37 +5109,40 @@ class State
   }
   
   let macro-deserializers = {
-    syntax: #({code, params, names, id})
+    syntax: #({code, params, names, options, id})
       let mutable handler = Function(code)()
       if typeof handler != \function
         throw Error "Error deserializing function for macro $(name)"
+      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       @enter-macro names, #@
-        handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params)), null, null, id
+        handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params)), null, options, id
     
-    call: #({code, names, id})
+    call: #({code, names, options, id})
       let mutable handler = Function(code)()
       if typeof handler != \function
         throw Error "Error deserializing function for macro $(name)"
+      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       @enter-macro name, #@
-        handle-macro-syntax@ this, 0, \call, handler, InvocationArguments, null, null, id
+        handle-macro-syntax@ this, 0, \call, handler, InvocationArguments, null, options, id
     
     define-syntax: #({code, params, options, id})
       if @macros.has-syntax(options.name)
         throw Error "Cannot override already-defined syntax: $(options.name)"
       
       let mutable handler = void
+      let state = this
       if code?
         handler := Function(code)()
         if typeof handler != \function
           throw Error "Error deserializing function for macro syntax $(options.name)"
         handler := do inner = handler
-          #(args, ...rest) -> reduce-object(inner@(this, reduce-object(args), ...rest))
+          #(args, ...rest) -> reduce-object(state, inner@(this, reduce-object(state, args), ...rest))
       else
-        handler := #(args) -> reduce-object(args)
+        handler := #(args) -> reduce-object(state, args)
       
       @enter-macro DEFINE_SYNTAX, #@
         handle-macro-syntax@ this, 0, \define-syntax, handler, handle-params@(this, deserialize-params(params)), null, options, id
@@ -5128,17 +5151,18 @@ class State
       let handler = Function(code)()
       if typeof handler != \function
         throw Error "Error deserializing function for binary operator $(operators.join ', ')"
+      let state = this
       if options.invertible
         handler := do inner = handler
           #(args, ...rest)
-            let result = inner@ this, reduce-object(args), ...rest
+            let result = inner@ this, reduce-object(state, args), ...rest
             if args.inverted
-              UnaryNode(result.start-index, result.end-index, "!", result).reduce()
+              UnaryNode(result.start-index, result.end-index, "!", result).reduce(state)
             else
-              result.reduce()
+              result.reduce(state)
       else
         handler := do inner = handler
-          #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+          #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       @enter-macro BINARY_OPERATOR, #@
         handle-macro-syntax@ this, 0, \binary-operator, handler, void, operators, options, id
       
@@ -5146,8 +5170,9 @@ class State
       let handler = Function(code)()
       if typeof handler != \function
         throw Error "Error deserializing function for assign operator $(operators.join ', ')"
+      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       @enter-macro ASSIGN_OPERATOR, #@
         handle-macro-syntax@ this, 0, \assign-operator, handler, void, operators, options, id
     
@@ -5155,13 +5180,14 @@ class State
       let mutable handler = Function(code)()
       if typeof handler != \function
         throw Error "Error deserializing function for unary operator $(operators.join ', ')"
+      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(args), ...rest).reduce()
+        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       @enter-macro UNARY_OPERATOR, #@
         handle-macro-syntax@ this, 0, \unary-operator, handler, void, operators, options, id
   }
   
-  def start-macro-syntax(index, params as Array)
+  def start-macro-syntax(index, params as Array, options)
     if not @current-macro
       this.error "Attempting to specify a macro syntax when not in a macro"
     
@@ -5175,7 +5201,7 @@ class State
         throw Error "Cannot use macro until fully defined"
     for m in macros.get-or-add-by-names @current-macro
       m.data.push sequential! [[\macro-name, m.token], [\macro-data, rule]], mutator
-    let macro-id = macros.add-macro(mutator)
+    let macro-id = macros.add-macro mutator, void, if options.type? then Type![options.type]
     @pending-macro-id := macro-id
     params
   
@@ -5188,7 +5214,7 @@ class State
       else
         let macro-helper = MacroHelper o, i, _position.peek(), _in-generator.peek()
         let mutable result = try
-          handler@ macro-helper, x, MacroHelper.wrap, MacroHelper.node, #(id, line, data, position, in-generator)
+          handler@ macro-helper, x, macro-helper.wrap.bind(macro-helper), macro-helper.node.bind(macro-helper), #(id, line, data, position, in-generator)
             _position.push position
             _in-generator.push in-generator
             try
@@ -5202,7 +5228,7 @@ class State
           else
             throw MacroError(e, o.data, i, line)
         if result instanceof Node
-          result := result.reduce()
+          result := result.reduce(this)
           let tmps = macro-helper.get-tmps()
           if tmps.unsaved.length
             o.tmp-wrapper i, result, tmps.unsaved
@@ -5220,8 +5246,8 @@ class State
       macros.add-unary-operator(params, mutator, options, macro-id)
     case DEFINE_SYNTAX
       assert(rule)
-      @macros.add-syntax options.name, mutate! rule, mutator
-      macros.add-macro mutator, macro-id
+      macros.add-syntax options.name, mutate! rule, mutator
+      macros.add-macro mutator, macro-id, if options.type? then Type![options.type]
     default
       assert(rule)
       for m in macros.get-or-add-by-names @current-macro
@@ -5234,12 +5260,12 @@ class State
           throw Error "Cannot provide the macro id if there is a pending macro id"
         let id = @pending-macro-id
         @pending-macro-id := null
-        macros.replace-macro(id, mutator)
+        macros.replace-macro id, mutator, if options.type? then Type![options.type]
         id
       else  
-        macros.add-macro(mutator, macro-id)
+        macros.add-macro mutator, macro-id, if options.type? then Type![options.type]
   
-  def macro-syntax(index, type, params as Array, body, options = {})!
+  def macro-syntax(index, type, params as Array, options, body)!
     if macro-syntax-types not ownskey type
       throw Error "Unknown macro-syntax type: $type"
     
@@ -5256,22 +5282,22 @@ class State
   let BINARY_OPERATOR = freeze {}
   def define-binary-operator(index, operators, options, body)
     @enter-macro BINARY_OPERATOR, #@
-      @macro-syntax index, \binary-operator, operators, body, options
+      @macro-syntax index, \binary-operator, operators, options, body
   
   let ASSIGN_OPERATOR = freeze {}
   def define-assign-operator(index, operators, options, body)
     @enter-macro ASSIGN_OPERATOR, #@
-      @macro-syntax index, \assign-operator, operators, body, options
+      @macro-syntax index, \assign-operator, operators, options, body
   
   let UNARY_OPERATOR = freeze {}
   def define-unary-operator(index, operators, options, body)
     @enter-macro UNARY_OPERATOR, #@
-      @macro-syntax index, \unary-operator, operators, body, options
+      @macro-syntax index, \unary-operator, operators, options, body
   
   let DEFINE_SYNTAX = freeze {}
   def define-syntax(index, name, params, body)
     @enter-macro DEFINE_SYNTAX, #@
-      @macro-syntax index, \define-syntax, params, body, { name }
+      @macro-syntax index, \define-syntax, params, { name }, body
   
   def deserialize-macros(data)
     for type, deserializer of macro-deserializers
@@ -5325,9 +5351,9 @@ class State
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
 
 node-type! \access, parent as Node, child as Node, {
-  _reduce: #
-    let parent = @parent.reduce().do-wrap()
-    let child = @child.reduce().do-wrap()
+  _reduce: #(o)
+    let parent = @parent.reduce(o).do-wrap()
+    let child = @child.reduce(o).do-wrap()
     if parent.is-const() and child.is-const()
       let p-value = parent.const-value()
       let c-value = child.const-value()
@@ -5373,8 +5399,8 @@ node-type! \args, {
 }
 node-type! \array, elements as [Node], {
   type: #-> Type.array
-  _reduce: #
-    let elements = map @elements, #(x) -> x.reduce().do-wrap()
+  _reduce: #(o)
+    let elements = map @elements, #(x) -> x.reduce(o).do-wrap()
     if elements != @elements
       ArrayNode @start-index, @end-index, elements
     else
@@ -5403,17 +5429,17 @@ node-type! \assign, left as Node, op as String, right as Node, {
       "^=": Type.number
       "|=": Type.number
     }
-    # -> @_type ?= do
+    #(o) -> @_type ?= do
       let type = ops![@op]
       if not type
         Type.any
       else if typeof type == "function"
-        type @left.type(), @right.type()
+        type @left.type(o), @right.type(o)
       else
         type
-  _reduce: #
-    let left = @left.reduce()
-    let right = @right.reduce().do-wrap()
+  _reduce: #(o)
+    let left = @left.reduce(o)
+    let right = @right.reduce(o).do-wrap()
     if left != @left or right != @right
       AssignNode @start-index, @end-index, left, @op, right
     else
@@ -5452,12 +5478,12 @@ node-type! \binary, left as Node, op as String, right as Node, {
       "&&": #(left, right) -> left.intersect(Type.potentially-falsy).union(right)
       "||": #(left, right) -> left.intersect(Type.potentially-truthy).union(right)
     }
-    # -> @_type ?= do
+    #(o) -> @_type ?= do
       let type = ops![@op]
       if not type
         Type.any
       else if typeof type == "function"
-        type @left.type(), @right.type()
+        type @left.type(o), @right.type(o)
       else
         type
   _reduce: do
@@ -5496,10 +5522,10 @@ node-type! \binary, left as Node, op as String, right as Node, {
           UnaryNode @start-index, @end-index, "+", y
         else if x.const-value() == -1
           UnaryNode @start-index, @end-index, "-", y
-      "+": #(x, y)
-        if x.const-value() == 0 and y.type().is-subset-of(Type.number)
+      "+": #(x, y, o)
+        if x.const-value() == 0 and y.type(o).is-subset-of(Type.number)
           UnaryNode @start-index, @end-index, "+", y
-        else if x.const-value() == "" and y.type().is-subset-of(Type.string)
+        else if x.const-value() == "" and y.type(o).is-subset-of(Type.string)
           y
       "-": #(x, y)
         if x.const-value() == 0
@@ -5516,46 +5542,46 @@ node-type! \binary, left as Node, op as String, right as Node, {
           UnaryNode @start-index, @end-index, "+", x
         else if y.const-value() == -1
           UnaryNode @start-index, @end-index, "-", x
-      "+": #(x, y)
-        if y.const-value() == 0 and x.type().is-subset-of(Type.number)
+      "+": #(x, y, o)
+        if y.const-value() == 0 and x.type(o).is-subset-of(Type.number)
           UnaryNode @start-index, @end-index, "+", x
-        else if typeof y.const-value() == "number" and y.value < 0 and x.type().is-subset-of(Type.number)
+        else if typeof y.const-value() == "number" and y.value < 0 and x.type(o).is-subset-of(Type.number)
           BinaryNode @start-index, @end-index, x, "-", Const(-y.const-value())
-        else if y.const-value() == "" and x.type().is-subset-of(Type.string)
+        else if y.const-value() == "" and x.type(o).is-subset-of(Type.string)
           x
-      "-": #(x, y)
+      "-": #(x, y, o)
         if y.const-value() == 0
           UnaryNode @start-index, @end-index, "+", x
-        else if typeof y.const-value() == "number" and y.const-value() < 0 and x.type().is-subset-of(Type.number)
+        else if typeof y.const-value() == "number" and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
           BinaryNode @start-index, @end-index, x, "+", Const(-y.const-value())
     }
-    #
-      let left = @left.reduce().do-wrap()
-      let right = @right.reduce().do-wrap()
+    #(o)
+      let left = @left.reduce(o).do-wrap()
+      let right = @right.reduce(o).do-wrap()
       let op = @op
       if left.is-const()
         if right.is-const() and const-ops ownskey op
           return ConstNode @start-index, @end-index, const-ops[op](left.const-value(), right.const-value())
-        return? left-const-ops![op]@(this, left, right)
+        return? left-const-ops![op]@(this, left, right, o)
       if right.is-const()
-        return? right-const-ops![op]@(this, left, right)
+        return? right-const-ops![op]@(this, left, right, o)
       if left != @left or right != @right
         BinaryNode @start-index, @end-index, left, op, right
       else
         this
 }
 node-type! \block, nodes as [Node], {
-  type: #
+  type: #(o)
     let nodes = @nodes
     if nodes.length == 0
       Type.undefined
     else
-      nodes[nodes.length - 1].type()
-  _reduce: #
+      nodes[nodes.length - 1].type(o)
+  _reduce: #(o)
     let changed = false
     let body = []
     for node, i, len in @nodes
-      let reduced = node.reduce()
+      let reduced = node.reduce(o)
       if reduced instanceof BlockNode
         body.push ...reduced.nodes
         changed := true
@@ -5767,7 +5793,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         calculate-type(last.func.body)
       else
         Type.any
-    #-> @_type ?= do
+    #(o) -> @_type ?= do
       let func = @func
       if func instanceof IdentNode
         let {name} = func
@@ -5780,11 +5806,15 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
               helper-type-cache[name]
             else
               helper-type-cache[name] := calculate-type helpers.get name
+      else if func instanceof FunctionNode
+        func.return-type(o)
       else if func instanceof AccessNode
         let {parent, child} = func
         if child instanceof ConstNode
           if parent instanceof IdentNode
             return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
+          else if child.value in ["call", "apply"] and parent instanceof FunctionNode
+            parent.return-type(o)
           // else check the type of parent, maybe figure out its methods
       Type.any
   _reduce: do
@@ -5836,9 +5866,9 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         +stringify
       }
     }
-    #
-      let func = @func.reduce().do-wrap()
-      let args = map @args, #(node) -> node.reduce().do-wrap()
+    #(o)
+      let func = @func.reduce(o).do-wrap()
+      let args = map @args, #(node) -> node.reduce(o).do-wrap()
       if not @is-new and not @is-apply
         let const-args = []
         let mutable all-const = true
@@ -5925,6 +5955,7 @@ node-type! \for-in, key as Node, object as Node, body as Node, {
 }
 node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), generator as Boolean, {
   type: # -> Type.function
+  return-type: #(o) -> @body.type(o)
   walk: #(func)
     let params = map @params, func
     let body = func @body
@@ -5938,11 +5969,11 @@ node-type! \ident, name as String, {
   -cacheable
 }
 node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0), {
-  type: # -> @_type ?= @when-true.type().union(@when-false.type())
-  _reduce: #
-    let test = @test.reduce()
-    let when-true = @when-true.reduce()
-    let when-false = @when-false.reduce()
+  type: #(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
+  _reduce: #(o)
+    let test = @test.reduce(o)
+    let when-true = @when-true.reduce(o)
+    let when-false = @when-false.reduce(o)
     if test.is-const()
       if test.const-value()
         when-true
@@ -5960,6 +5991,12 @@ node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNod
       this
 }
 node-type! \macro-access, id as Number, line as Number, data as Object, position as String, in-generator as Boolean, {
+  type: #(o as State) -> @_type ?= do
+    let type = o.macros.get-type-by-id(@id)
+    if type?
+      type
+    else
+      o.macro-expand-1(this).type(o)
   walk: do
     let walk-array(array, func)
       let result = []
@@ -6025,16 +6062,16 @@ node-type! \object, pairs as Array, prototype as (Node|void), {
       else
         this
   _reduce: do
-    let reduce-pair(pair)
-      let key = pair.key.reduce()
-      let value = pair.value.reduce().do-wrap()
+    let reduce-pair(pair, o)
+      let key = pair.key.reduce(o)
+      let value = pair.value.reduce(o).do-wrap()
       if key != pair.key or value != pair.value
         { key, value }
       else
         pair
-    #
-      let pairs = map @pairs, reduce-pair
-      let prototype = if @prototype? then @prototype.reduce() else @prototype
+    #(o)
+      let pairs = map @pairs, reduce-pair, o
+      let prototype = if @prototype? then @prototype.reduce(o) else @prototype
       if pairs != @pairs or prototype != @prototype
         ObjectNode @start-index, @end-index, pairs, prototype
       else
@@ -6062,20 +6099,21 @@ node-type! \param, ident as Node, default-value as (Node|void), spread as Boolea
 }
 node-type! \regexp, text as Node, flags as String, {
   type: # -> Type.regexp
-  _reduce: #
-    let text = @text.reduce().do-wrap()
+  _reduce: #(o)
+    let text = @text.reduce(o).do-wrap()
     if text.is-const()
       ConstNode @start-index, @end-index, RegExp(String(text.const-value()), @flags)
-    else if text != @text
-      RegexpNode @start-index, @end-index, text, @flags
     else
-      this
+      CallNode @start-index, @end-index, IdentNode(@start-index, @end-index, "RegExp"), [
+        text
+        ConstNode @start-index, @end-index, @flags
+      ]
 }
 node-type! \return, node as Node = ConstNode(0, 0, void), {
-  type: # -> @node.type()
+  type: #(o) -> @node.type(o)
   is-statement: #-> true
-  _reduce: #
-    let node = @node.reduce().do-wrap()
+  _reduce: #(o)
+    let node = @node.reduce(o).do-wrap()
     if node != @node
       ReturnNode @start-index, @end-index, node
     else
@@ -6085,14 +6123,14 @@ node-type! \root, body as Node, {
   is-statement: #-> true
 }
 node-type! \spread, node as Node, {
-  _reduce: #
-    let node = @node.reduce().do-wrap()
+  _reduce: #(o)
+    let node = @node.reduce(o).do-wrap()
     if node != @node
       SpreadNode @start-index, @end-index, node
     else
       this
 }
-State::string := #(index, parts as [Node])
+State::string := #(index, mutable parts as [Node])
   let concat-op = @macros.get-binary-operator-by-name("&")
   if not concat-op
     throw Error "Cannot use string interpolation until binary operator '&' has been defined"
@@ -6120,9 +6158,9 @@ node-type! \super, child as (Node|void), args as [Node], {
       SuperNode @start-index, @end-index, child, args
     else
       this
-  _reduce: #
-    let child = if @child? then @child.reduce().do-wrap() else @child
-    let args = map @args, #(node) -> node.reduce().do-wrap()
+  _reduce: #(o)
+    let child = if @child? then @child.reduce(o).do-wrap() else @child
+    let args = map @args, #(node, o) -> node.reduce(o).do-wrap(), o
     if child != @child or args != @args
       SuperNode @start-index, @end-index, child, args
     else
@@ -6163,8 +6201,8 @@ node-type! \this, {
 node-type! \throw, node as Node, {
   type: # -> Type.none
   is-statement: #-> true
-  _reduce: #
-    let node = @node.reduce().do-wrap()
+  _reduce: #(o)
+    let node = @node.reduce(o).do-wrap()
     if node != @node
       ThrowNode @start-index, @end-index, node
     else
@@ -6175,14 +6213,14 @@ node-type! \tmp, id as Number, name as String, _type as Type = Type.any, {
   type: # -> @_type
 }
 node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node, {
-  type: # -> @_type ?= @try-body.type().union(@catch-body.type())
+  type: #(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
   is-statement: #-> true
 }
 node-type! \try-finally, try-body as Node, finally-body as Node, {
-  type: # -> @try-body.type()
-  _reduce: #
-    let try-body = @try-body.reduce()
-    let finally-body = @finally-body.reduce()
+  type: #(o) -> @try-body.type(o)
+  _reduce: #(o)
+    let try-body = @try-body.reduce(o)
+    let finally-body = @finally-body.reduce(o)
     if finally-body instanceof NothingNode
       try-body
     else if try-body instanceof NothingNode
@@ -6217,8 +6255,8 @@ node-type! \unary, op as String, node as Node, {
       typeof: #(x) -> typeof x
     }
     let nonconst-ops = {
-      "+": #(node)
-        if node.type().is-subset-of Type.number
+      "+": #(node, o)
+        if node.type(o).is-subset-of Type.number
           node
       "-": #(node)
         if node instanceof UnaryNode
@@ -6242,9 +6280,9 @@ node-type! \unary, op as String, node as Node, {
           "&&": #(x, y) -> BinaryNode @start-index, @end-index, UnaryNode(x.start-index, x.end-index, "!", x), "||", UnaryNode(y.start-index, y.end-index, "!", y)
           "||": #(x, y) -> BinaryNode @start-index, @end-index, UnaryNode(x.start-index, x.end-index, "!", x), "&&", UnaryNode(y.start-index, y.end-index, "!", y)
         }
-        #(node)
+        #(node, o)
           if node instanceof UnaryNode
-            if node.op == "!" and node.node.type().is-subset-of(Type.boolean)
+            if node.op == "!" and node.node.type(o).is-subset-of(Type.boolean)
               node.node
           else if node instanceof BinaryNode
             if invertible-binary-ops ownskey node.op
@@ -6255,15 +6293,15 @@ node-type! \unary, op as String, node as Node, {
                 BinaryNode @start-index, @end-index, node.left, invert, node.right
     }
     
-    #
-      let node = @node.reduce().do-wrap()
+    #(o)
+      let node = @node.reduce(o).do-wrap()
       let op = @op
       if node.is-const() and const-ops ownskey op
         return ConstNode @start-index, @end-index, const-ops[op](node.const-value())
       
-      let result = nonconst-ops![op]@ this, node
+      let result = nonconst-ops![op]@ this, node, o
       if result?
-        return result.reduce()
+        return result.reduce(o)
       
       if node != @node
         UnaryNode @start-index, @end-index, op, node
@@ -6271,9 +6309,9 @@ node-type! \unary, op as String, node as Node, {
         this
 }
 node-type! \tmp-wrapper, node as Node, tmps as Array, {
-  type: # -> @node.type()
-  _reduce: #
-    let node = @node.reduce()
+  type: #(o) -> @node.type(o)
+  _reduce: #(o)
+    let node = @node.reduce(o)
     if @tmps.length == 0
       node
     else if @node != node
@@ -6285,8 +6323,8 @@ node-type! \tmp-wrapper, node as Node, tmps as Array, {
 node-type! \var, ident as (IdentNode|TmpNode), is-mutable as Boolean
 node-type! \yield, node as Node, {
   is-statement: #-> true
-  _reduce: #
-    let node = @node.reduce().do-wrap()
+  _reduce: #(o)
+    let node = @node.reduce(o).do-wrap()
     if node != @node
       YieldNode @start-index, @end-index, node
     else
@@ -6340,7 +6378,7 @@ let parse(text, macros, options = {})
     throw ParserError build-error-message(messages, last-token), o.data, index, line
   else
     {
-      result: o.macro-expand-all(result).reduce()
+      result: o.macro-expand-all(result).reduce(o)
       o.macros
     }
 module.exports := parse
