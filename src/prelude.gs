@@ -88,6 +88,7 @@ define syntax DeclarableArray = "[", head as Declarable, tail as (",", this as D
   }
 
 define syntax DeclarableObjectSingularPair = value as DeclarableIdent
+  value := @macro-expand-1(value)
   {
     key: @name(value.ident)
     value
@@ -105,6 +106,7 @@ define syntax Declarable = this as (DeclarableArray | DeclarableObject | Declara
 macro let
   syntax declarable as Declarable, "=", value as ExpressionOrAssignment
     let inc(x) -> eval("x + 1")
+    declarable := @macro-expand-1(declarable)
     if declarable.type == \ident
       @block [
         @var declarable.ident, declarable.is-mutable
@@ -128,17 +130,21 @@ macro let
           handle 0, set-value, []
     else if declarable.type == \object
       if declarable.pairs.length == 1
-        let handle(pair-key, pair-value)
+        let handle-pair(pair-key, pair-value)
           AST let $pair-value = $value[$pair-key]
-        handle(declarable.pairs[0].key, declarable.pairs[0].value)
+        let handle(pair)
+          handle-pair(pair.key, pair.value)
+        handle(@macro-expand-1(declarable.pairs[0]))
       else
         @maybe-cache value, #(set-value, value)@
           let handle-pair(i, current-value, pair-key, pair-value, block)@
             block.push AST let $pair-value = $current-value[$pair-key]
             handle inc(i), value, block
+          let handle-1(i, current-value, pair, block)@
+            handle-pair i, current-value, pair.key, pair.value, block
           let handle(i, current-value, block)@
             if i ~< declarable.pairs.length
-              handle-pair i, current-value, declarable.pairs[i].key, declarable.pairs[i].value, block
+              handle-1 i, current-value, @macro-expand-1(declarable.pairs[i]), block
             else
               @block block
           handle 0, set-value, []
@@ -386,9 +392,15 @@ define operator assign \=
 
 define operator binary & with precedence: 4
   if not @is-type left, \string
-    left := ASTE __strnum $left
+    left := if not @has-type left, \number
+      ASTE __str $left
+    else
+      ASTE __strnum $left
   if not @is-type right, \string
-    right := ASTE __strnum $right
+    right := if not @has-type right, \number
+      ASTE __str $right
+    else
+      ASTE __strnum $right
   ASTE $left ~& $right
 
 define operator assign &=
@@ -822,9 +834,9 @@ macro for
         $arr := []
         $init
       let loop = @for(init, test, step, body)
-      AST do
+      AST
         $loop
-        return $arr
+        $arr
     else
       @for(init, test, step, body)
   
@@ -837,13 +849,14 @@ macro for
       step := @noop()
     
     body := @mutate-last body, #(node) -> (ASTE $current := $node)
-    AST do
+    AST
       let mutable $current = $current-start
       for $init; $test; $step
         $body
       $current
   
   syntax reducer as (\every | \some | \first)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+    value := @macro-expand-1(value)
     if @empty(reducer)
       reducer := null
     
@@ -1000,10 +1013,11 @@ macro for
             $else-body
   
   syntax "reduce", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    value := @macro-expand-1(value)
     body := @mutate-last body, #(node) -> (ASTE $current := $node)
     let length = index?.length
     index := index?.value
-    AST do
+    AST
       let mutable $current = $current-start
       for $value, $index, $length in $array
         $body
@@ -1018,7 +1032,7 @@ macro for
       value := null
     else
       index := value.index
-      value := value.value
+      value := @macro-expand-1(value.value)
       if @empty(index)
         index := null
     
@@ -1104,10 +1118,10 @@ macro for
         $arr := []
         $init
       let loop = @for-in(key, object, body)
-      AST do
+      AST
         $init
         $loop
-        return $arr
+        $arr
     else
       let loop = @for-in(key, object, body)
       AST
@@ -1125,7 +1139,7 @@ macro for
     else
       AST for $key, $value, $index ofall $object
         $body
-    AST do
+    AST
       let mutable $current = $current-start
       $loop
       $current
@@ -1203,7 +1217,7 @@ macro for
   
   syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     body := @mutate-last body, #(node) -> (ASTE $current := $node)
-    AST do
+    AST
       let mutable $current = $current-start
       for $value, $index from $iterator
         $body
@@ -1408,7 +1422,8 @@ macro require!
       AST let $name = require $path
     else if @is-object name
       let requires = []
-      for {key, value} in @pairs(name)
+      for obj in @pairs(name)
+        let {key, value} = obj
         unless @is-const key
           throw Error "If providing an object to require!, all keys must be constant strings"
         let mutable ident-name = @value(key)
@@ -1647,6 +1662,7 @@ macro asyncfor
       err := @tmp \err, true
     let init = []
     
+    value := @macro-expand-1(value)
     let mutable length = null
     if not @empty(index)
       length := index.length
@@ -1729,7 +1745,7 @@ macro asyncfor
       value := null
     else
       index := value.index
-      value := value.value
+      value := @macro-expand-1(value.value)
       if @empty(index)
         index := null
     if value
@@ -1874,7 +1890,7 @@ macro class
           [ASTE this].concat(args)
           false
           true)
-    body := fix-supers body
+    body := fix-supers @macro-expand-all(body)
     
     let mutable constructor-count = 0
     @walk body, #(node)@
@@ -2017,7 +2033,7 @@ macro enum
       name := @tmp \enum, false, \object
     
     let mutable index = 0
-    body := @walk body, #(node)@
+    body := @walk @macro-expand-all(body), #(node)@
       if @is-def node
         let key = @left node
         let mutable value = @right node
@@ -2082,7 +2098,7 @@ macro namespace
           [ASTE this].concat(args)
           false
           true)
-    body := fix-supers body
+    body := fix-supers @macro-expand-all(body)
     
     let change-defs(node)@ -> @walk node, #(node)@
       if @is-def(node)

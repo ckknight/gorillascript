@@ -275,12 +275,12 @@ macro sequential!(array, mutator)
     result
 
 macro maybe!(rule, missing-value, found-value)
-  if @is-const(missing-value) and not @value(missing-value)
+  if (@is-const(missing-value) and not @value(missing-value)) or not missing-value
     throw Error "Expected a truthy missing-value, got $(String @value(missing-value))"
   let init = []
   rule := @cache rule, init, \rule, true
   missing-value := @cache missing-value, init, \missing, true
-  found-value := @cache found-value, init, \found, true
+  found-value := if found-value then @cache found-value, init, \found, true
   
   let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
   
@@ -743,6 +743,7 @@ define MultiLineComment = #(o)
     false
 
 define Comment = one-of! [SingleLineComment, MultiLineComment]
+
 define MaybeComment = maybe! Comment, true
 
 define Space = sequential! [
@@ -1705,6 +1706,8 @@ define NamePart = sequential! [
   [\tail, zero-or-more! NameChar]
 ], #(x) -> [x.head, ...x.tail]
 
+define NamePartWithNumbers = one-or-more! NameChar
+
 let from-char-code = do
   let f = String.from-char-code
   #(x)
@@ -1721,7 +1724,7 @@ define _Name = sequential! [
   [\head, NamePart]
   [\tail, zero-or-more! sequential! [
     Minus
-    [\this, NamePart]
+    [\this, NamePartWithNumbers]
   ]]
 ], #(x)
   let parts = process-char-codes x.head
@@ -2515,7 +2518,7 @@ define SpreadOrExpression = sequential! [
   [\node, Expression]
 ], #(x, o, i)
   if x.spread == "..."
-    o.spread i, x.node
+    o.spread i, x.node.do-wrap()
   else
     x.node
 
@@ -3987,6 +3990,26 @@ class MacroHelper
   def break() -> @state.break(@index)
   def continue() -> @state.continue(@index)
   
+  def macro-expand-1(node)
+    if node instanceof Node
+      let expanded = @state.macro-expand-1(node)
+      if expanded instanceof Node
+        expanded.reduce()
+      else
+        expanded
+    else
+      node
+  
+  def macro-expand-all(node)
+    if node instanceof Node
+      let expanded = @state.macro-expand-all(node)
+      if expanded instanceof Node
+        expanded.reduce()
+      else
+        expanded
+    else
+      node
+  
   def tmp(name as String = \ref, save as Boolean, mutable type)
     let id = get-tmp-id()
     (if save then @saved-tmps else @unsaved-tmps).push id
@@ -4015,40 +4038,50 @@ class MacroHelper
   def const(value)
     @state.const @index, value
   
-  def is-ident(node) -> node instanceof IdentNode
-  def is-tmp(node) -> node instanceof TmpNode
-  def name(node) -> if @is-ident node then node.name
+  def is-node(node) -> node instanceof Node
+  def is-ident(node) -> @macro-expand-1(node) instanceof IdentNode
+  def is-tmp(node) -> @macro-expand-1(node) instanceof TmpNode
+  def name(mutable node)
+    node := @macro-expand-1(node)
+    if @is-ident node
+      node.name
   def ident(name as String)
     if require('./ast').is-acceptable-ident(name)
       @state.ident @index, name
   
-  def is-call(node) -> node instanceof CallNode
+  def is-call(node) -> @macro-expand-1(node) instanceof CallNode
   
-  def call-func(node)
+  def call-func(mutable node)
+    node := @macro-expand-1(node)
     if node instanceof CallNode
       node.func
   
-  def call-args(node)
+  def call-args(mutable node)
+    node := @macro-expand-1(node)
     if node instanceof CallNode
       node.args
   
-  def is-super(node) -> node instanceof SuperNode
+  def is-super(node) -> @macro-expand-1(node) instanceof SuperNode
   
-  def super-child(node)
+  def super-child(mutable node)
+    node := @macro-expand-1(node)
     if @is-super(node)
       node.child
   
-  def super-args(node)
+  def super-args(mutable node)
+    node := @macro-expand-1(node)
     if @is-super(node)
       node.args
   
-  def call-is-new(node)
+  def call-is-new(mutable node)
+    node := @macro-expand-1(node)
     if node instanceof CallNode
       not not node.is-new
     else
       false
   
-  def call-is-apply(node)
+  def call-is-apply(mutable node)
+    node := @macro-expand-1(node)
     if node instanceof CallNode
       not not node.is-apply
     else
@@ -4063,30 +4096,54 @@ class MacroHelper
   def func(params, body, auto-return = true, bound = false)
     @state.function(0, params, body, auto-return, bound).reduce()
   
-  def is-func(node) -> node instanceof FunctionNode
-  def func-body(node) -> if @is-func node then node.body
-  def func-params(node) -> if @is-func node then node.params
-  def func-is-auto-return(node) -> if @is-func node then not not node.auto-return
-  def func-is-bound(node) -> if @is-func node then not not node.bound
+  def is-func(node) -> @macro-expand-1(node) instanceof FunctionNode
+  def func-body(mutable node)
+    node := @macro-expand-1 node
+    if @is-func node then node.body
+  def func-params(mutable node)
+    node := @macro-expand-1 node
+    if @is-func node then node.params
+  def func-is-auto-return(mutable node)
+    node := @macro-expand-1 node
+    if @is-func node then not not node.auto-return
+  def func-is-bound(mutable node)
+    node := @macro-expand-1 node
+    if @is-func node then not not node.bound
   
   def param(ident, default-value, spread, is-mutable, as-type)
     @state.param(0, ident, default-value, spread, is-mutable, as-type).reduce()
   
-  def is-param(node) -> node instanceof ParamNode
-  def param-ident(node) -> if @is-param node then node.ident
-  def param-default-value(node) -> if @is-param node then node.default-value
-  def param-is-spread(node) -> if @is-param node then not not node.spread
-  def param-is-mutable(node) -> if @is-param node then not not node.is-mutable
-  def param-type(node) -> if @is-param node then node.as-type
+  def is-param(node) -> @macro-expand-1(node) instanceof ParamNode
+  def param-ident(mutable node)
+    node := @macro-expand-1 node
+    if @is-param node then node.ident
+  def param-default-value(mutable node)
+    node := @macro-expand-1 node
+    if @is-param node then node.default-value
+  def param-is-spread(mutable node)
+    node := @macro-expand-1 node
+    if @is-param node then not not node.spread
+  def param-is-mutable(mutable node)
+    node := @macro-expand-1 node
+    if @is-param node then not not node.is-mutable
+  def param-type(mutable node)
+    node := @macro-expand-1 node
+    if @is-param node then node.as-type
   
-  def is-array(node) -> node instanceof ArrayNode
-  def elements(node) -> if @is-array node then node.elements
+  def is-array(node) -> @macro-expand-1(node) instanceof ArrayNode
+  def elements(mutable node)
+    node := @macro-expand-1 node
+    if @is-array node then node.elements
   
-  def is-object(node) -> node instanceof ObjectNode
-  def pairs(node) -> if @is-object node then node.pairs
+  def is-object(node) -> @macro-expand-1(node) instanceof ObjectNode
+  def pairs(mutable node)
+    node := @macro-expand-1 node
+    if @is-object node then node.pairs
   
-  def is-block(node) -> node instanceof BlockNode
-  def nodes(node) -> if @is-block node then node.nodes
+  def is-block(node) -> @macro-expand-1(node) instanceof BlockNode
+  def nodes(mutable node)
+    node := @macro-expand-1 node
+    if @is-block node then node.nodes
   
   def array(elements as [Node])
     @state.array(0, (for element in elements; do-wrap(element))).reduce()
@@ -4100,22 +4157,59 @@ class MacroHelper
         throw Error "Expected an object with Node 'value' at index #$i, got $(typeof! pair.value)"
     @state.object(0, (for {key, value} in pairs; {key: do-wrap(key), value: do-wrap(value)})).reduce()
   
-  def is-complex(node)
+  def is-complex(mutable node)
+    node := @macro-expand-1 node
     node? and node not instanceofsome [ConstNode, IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
   
-  def is-type-array(node) -> node instanceof TypeArrayNode
-  def subtype(node) -> @is-type-array(node) and node.subtype
+  def is-type-array(node) -> @macro-expand-1(node) instanceof TypeArrayNode
+  def subtype(mutable node)
+    node := @macro-expand-1 node
+    @is-type-array(node) and node.subtype
   
-  def is-this(node) -> node instanceof ThisNode
-  def is-arguments(node) -> node instanceof ArgsNode
+  def is-this(node) -> @macro-expand-1(node) instanceof ThisNode
+  def is-arguments(mutable node)
+    node := @macro-expand-1 node
+    node instanceof ArgsNode
   
-  def cache(node, init, name as String = \ref, save as Boolean)
+  def is-def(node) -> @macro-expand-1(node) instanceof DefNode
+  def is-assign(node) -> @macro-expand-1(node) instanceof AssignNode
+  def is-binary(node) -> @macro-expand-1(node) instanceof BinaryNode
+  def is-unary(node) -> @macro-expand-1(node) instanceof UnaryNode
+  def op(mutable node)
+    node := @macro-expand-1 node
+    if @is-assign(node) or @is-binary(node) or @is-unary(node)
+      node.op
+  def left(mutable node)
+    node := @macro-expand-1 node
+    if @is-def(node) or @is-let(node) or @is-binary(node)
+      node.left
+  def right(mutable node)
+    node := @macro-expand-1 node
+    if @is-def(node) or @is-let(node) or @is-binary(node)
+      node.right
+  def unary-node(mutable node)
+    node := @macro-expand-1 node
+    if @is-unary(node)
+      node.node
+
+  def is-access(node) -> @macro-expand-1(node) instanceof AccessNode
+  def parent(mutable node)
+    node := @macro-expand-1 node
+    if node instanceof AccessNode
+      node.parent
+  def child(mutable node)
+    node := @macro-expand-1 node
+    if node instanceof AccessNode
+      node.child
+  
+  def cache(node as Node, init, name as String = \ref, save as Boolean)
     @maybe-cache node, (#(set-node, node, cached)
       if cached
         init.push set-node
       node), name, save
   
-  def maybe-cache(node, func, name as String = \ref, save as Boolean)
+  def maybe-cache(mutable node as Node, func, name as String = \ref, save as Boolean)
+    node := @macro-expand-1(node)
     if @is-complex node
       let tmp = @tmp(name, save, node.type())
       func @state.block(@index, [
@@ -4125,7 +4219,8 @@ class MacroHelper
     else
       func node, node, false
   
-  def maybe-cache-access(node, func, parent-name as String = \ref, child-name as String = \ref, save as Boolean)
+  def maybe-cache-access(mutable node as Node, func, parent-name as String = \ref, child-name as String = \ref, save as Boolean)
+    node := @macro-expand-1 node
     if @is-access(node)
       @maybe-cache @parent(node), (#(set-parent, parent, parent-cached)@
         @maybe-cache @child(node), (#(set-child, child, child-cached)@
@@ -4223,31 +4318,6 @@ class MacroHelper
   @node := #(type, start-index, end-index, ...args)
     Node[type](start-index, end-index, ...args).reduce()
   
-  def is-def(node) -> node instanceof DefNode
-  def is-assign(node) -> node instanceof AssignNode
-  def is-binary(node) -> node instanceof BinaryNode
-  def is-unary(node) -> node instanceof UnaryNode
-  def op(node)
-    if @is-assign(node) or @is-binary(node) or @is-unary(node)
-      node.op
-  def left(node)
-    if @is-def(node) or @is-let(node) or @is-binary(node)
-      node.left
-  def right(node)
-    if @is-def(node) or @is-let(node) or @is-binary(node)
-      node.right
-  def unary-node(node)
-    if @is-unary(node)
-      node.node
-  
-  def is-access(node) -> node instanceof AccessNode
-  def parent(node)
-    if node instanceof AccessNode
-      node.parent
-  def child(node)
-    if node instanceof AccessNode
-      node.child
-  
   def walk(node as Node, func as Function) -> walk node, func
   
   def has-func(node)
@@ -4258,26 +4328,28 @@ class MacroHelper
       else
         x.walk(walker)
     try
-      walk node, walker
+      walk @macro-expand-all(node), walker
     catch e
       if e != FOUND
         throw e
       return true
     false
   
-  def is-statement(node) -> node instanceof Node and node.is-statement()
+  def is-statement(mutable node)
+    node := @macro-expand-1 node // TODO: should this be macro-expand-all?
+    node instanceof Node and node.is-statement()
   
   def is-type(node, name as String)
     let type = Type![name]
     if not type? or type not instanceof Type
       throw Error "$name is not a known type name"
-    node.type().is-subset-of(type)
+    @macro-expand-1(node).type().is-subset-of(type) // TODO: should this be macro-expand-all?
   
   def has-type(node, name as String)
     let type = Type![name]
     if not type? or type not instanceof Type
       throw Error "$name is not a known type name"
-    node.type().overlaps(type)
+    @macro-expand-1(node).type().overlaps(type) // TODO: should this be macro-expand-all?
   
   let mutators = {
     Block: #(x, func)
@@ -4301,6 +4373,8 @@ class MacroHelper
         TmpWrapperNode x.start-index, x.end-index, node, x.tmps
       else
         x
+    MacroAccess: #(x, func)
+      @mutate-last @macro-expand-1(x), func
     Break: identity
     Continue: identity
     Nothing: identity
@@ -4308,7 +4382,7 @@ class MacroHelper
     Debugger: identity
     Throw: identity
   }
-  def mutate-last(node, func)
+  def mutate-last(mutable node, func)
     if not node or typeof node != \object or node instanceof RegExp
       return node
     
@@ -4340,6 +4414,7 @@ class MacroHolder
     @by-id := []
     @operator-names := {}
     @binary-operators := []
+    @binary-operators-by-name := {}
     @assign-operators := []
     @prefix-unary-operators := []
     @postfix-unary-operators := []
@@ -4368,6 +4443,7 @@ class MacroHolder
     clone.by-id := @by-id[:]
     clone.operator-names := copy(@operator-names)
     clone.binary-operators := @binary-operators[:]
+    clone.binary-operators-by-name := copy(@binary-operators-by-name)
     clone.assign-operators := @assign-operators[:]
     clone.prefix-unary-operators := @prefix-unary-operators[:]
     clone.postfix-unary-operators := @postfix-unary-operators[:]
@@ -4434,7 +4510,7 @@ class MacroHolder
       @operator-names[op] := true
     let precedence = Number(options.precedence) or 0
     let binary-operators = @binary-operators[precedence] ?= []
-    binary-operators.push {
+    let data = {
       rule: one-of for op in operators
         word-or-symbol op
       func: m
@@ -4443,7 +4519,13 @@ class MacroHolder
       minimum: options.minimum or 0
       invertible: not not options.invertible
     }
+    binary-operators.push data
+    for op in operators
+      @binary-operators-by-name[op] := data
     @add-macro m, macro-id
+  
+  def get-binary-operator-by-name(op)
+    @binary-operators-by-name![op]
   
   def add-assign-operator(operators, m, options, macro-id)
     for op in operators
@@ -4557,7 +4639,8 @@ macro node-type!
       AST @start-index := start-index
       AST @end-index := end-index
       AST @_reduced := void
-      AST @_macro-expanded := false
+      AST @_macro-expanded := void
+      AST @_macro-expand-alled := void
     ]
     let mutable inspect-parts = @const(capped-name ~& "Node(")
     let mutable arg-names = []
@@ -4635,7 +4718,7 @@ class State
     @prevent-failures := prevent-failures
     @expanding-macros := false
   
-  def clone() -> State @data, @macros, @options, @index, @line, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures
+  def clone(new-scope as Boolean) -> State @data, @macros, @options, @index, @line, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures
   
   def update(clone)!
     @index := clone.index
@@ -4670,7 +4753,7 @@ class State
   
   def define-helper(i, name as IdentNode, value as Node)
     require! './translator'
-    let helper = translator.define-helper(name, @macro-expand(value))
+    let helper = translator.define-helper(name, @macro-expand-all(value).reduce())
     if @options.serialize-macros
       @macros.add-serialized-helper(name.name, helper)
     @nothing i
@@ -4838,7 +4921,7 @@ class State
       ]
       
       let raw-func = make-macro-root@ this, index, func-params, body
-      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
@@ -4869,7 +4952,7 @@ class State
       let handler = if body?
         do
           let raw-func = make-macro-root@ this, index, @object-param(index, func-params), body
-          let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
+          let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
           let compilation = translated.node.to-string()
           if state-options.serialize-macros
             serialization := compilation
@@ -4897,7 +4980,7 @@ class State
         { key: @const(index, \macro-data), value: @array-param(index, params) }
       ]
       let raw-func = make-macro-root@ this, index, func-params, body
-      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -4924,7 +5007,7 @@ class State
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
-      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -4959,7 +5042,7 @@ class State
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
-      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -4984,7 +5067,7 @@ class State
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \node), value: @param index, (@ident index, \node), void, false, true, void }
       ]), body
-      let translated = require('./translator')(@macro-expand(raw-func).reduce(), return: true)
+      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -5195,47 +5278,56 @@ class State
       for item in (data![type] ? [])
         deserializer@(this, item)
   
-  def macro-expand(node)
-    let walker = #(node)@
-      if node._macro-expanded
-        node
+  def macro-expand-1(node)
+    if node._macro-expanded?
+      return node._macro-expanded
+    else if node instanceof MacroAccessNode
+      _position.push node.position
+      _in-generator.push node.in-generator
+      let old-expanding-macros = @expanding-macros
+      @expanding-macros := true
+      let result = try
+        @macros.get-by-id(node.id)(node.data, this, node.start-index, node.line)
+      catch e
+        if e instanceof MacroError
+          e.line := node.line
+        throw e
+      finally
+        _position.pop()
+        _in-generator.pop()
+        @expanding-macros := old-expanding-macros
+      node._macro-expanded := if result instanceof MacroAccessNode
+        // I know this somewhat violates the expanding only once assumption, but it makes
+        // using this so much easier to know that macro-expand-1 will never return a MacroAccessNode
+        @macro-expand-1(result)
       else
-        let walked = node.walk(walker)
-        if node instanceof MacroAccessNode
-          _position.push walked.position
-          _in-generator.push walked.in-generator
-          try
-            let mutable result = @macros.get-by-id(walked.id)(walked.data, this, walked.start-index, walked.line)
-            if result instanceof Node
-              walker result
-            else
-              result
-          catch e
-            if e instanceof MacroError
-              e.line := walked.line
-            throw e
-          finally
-            _position.pop()
-            _in-generator.pop()
-        else
-          walked._macro-expanded := true
-          walked
+        result
+    else
+      node._macro-expanded := node
+  
+  def macro-expand-all(node)
+    let walker = #(node)@
+      if node._macro-expand-alled?
+        node._macro-expand-alled
+      else if node not instanceof MacroAccessNode
+        let walked = node.walk walker
+        walked._macro-expanded := walked
+      else
+        let expanded = @macro-expand-1(node)
+        if expanded not instanceof Node
+          return (node._macro-expand-alled := expanded)
+        let walked = walker expanded
+        expanded._macro-expand-alled := walked._macro-expanded := walked
     
-    if @expanding-macros
-      throw Error "Called macro-expand inside macro-expand"
-    @expanding-macros := true
-    try
-      walker node
-    finally
-      @expanding-macros := false
+    walker node
   
   @add-node-factory := #(name, type)!
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
 
 node-type! \access, parent as Node, child as Node, {
   _reduce: #
-    let parent = @parent.reduce()
-    let child = @child.reduce()
+    let parent = @parent.reduce().do-wrap()
+    let child = @child.reduce().do-wrap()
     if parent.is-const() and child.is-const()
       let p-value = parent.const-value()
       let c-value = child.const-value()
@@ -5281,6 +5373,12 @@ node-type! \args, {
 }
 node-type! \array, elements as [Node], {
   type: #-> Type.array
+  _reduce: #
+    let elements = map @elements, #(x) -> x.reduce().do-wrap()
+    if elements != @elements
+      ArrayNode @start-index, @end-index, elements
+    else
+      this
 }
 State::array-param := State::array
 node-type! \assign, left as Node, op as String, right as Node, {
@@ -5432,8 +5530,8 @@ node-type! \binary, left as Node, op as String, right as Node, {
           BinaryNode @start-index, @end-index, x, "+", Const(-y.const-value())
     }
     #
-      let left = @left.reduce()
-      let right = @right.reduce()
+      let left = @left.reduce().do-wrap()
+      let right = @right.reduce().do-wrap()
       let op = @op
       if left.is-const()
         if right.is-const() and const-ops ownskey op
@@ -5739,8 +5837,8 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
       }
     }
     #
-      let func = @func.reduce()
-      let args = map @args, #(node) -> node.reduce()
+      let func = @func.reduce().do-wrap()
+      let args = map @args, #(node) -> node.reduce().do-wrap()
       if not @is-new and not @is-apply
         let const-args = []
         let mutable all-const = true
@@ -5929,7 +6027,7 @@ node-type! \object, pairs as Array, prototype as (Node|void), {
   _reduce: do
     let reduce-pair(pair)
       let key = pair.key.reduce()
-      let value = pair.value.reduce()
+      let value = pair.value.reduce().do-wrap()
       if key != pair.key or value != pair.value
         { key, value }
       else
@@ -5965,7 +6063,7 @@ node-type! \param, ident as Node, default-value as (Node|void), spread as Boolea
 node-type! \regexp, text as Node, flags as String, {
   type: # -> Type.regexp
   _reduce: #
-    let text = @text.reduce()
+    let text = @text.reduce().do-wrap()
     if text.is-const()
       ConstNode @start-index, @end-index, RegExp(String(text.const-value()), @flags)
     else if text != @text
@@ -5986,44 +6084,45 @@ node-type! \return, node as Node = ConstNode(0, 0, void), {
 node-type! \root, body as Node, {
   is-statement: #-> true
 }
-node-type! \spread, node as Node
-node-type! \string, parts as [Node], {
-  type: # -> Type.string
+node-type! \spread, node as Node, {
   _reduce: #
-    let segments = [ConstNode @start-index, @start-index, ""]
-    for part in @parts
-      let reduced = part.reduce()
-      if reduced.is-const()
-        if typeof reduced.const-value() != \string
-          segments.push ConstNode reduced.start-index, reduced.end-index, String(reduced.const-value())
-        else
-          segments.push reduced
-      else
-        if not reduced.type().is-subset-of(Type.string-or-number)
-          let i = reduced.start-index
-          let j = reduced.end-index
-          segments.push CallNode i, j, IdentNode(i, j, \__strnum), [reduced]
-        else
-          segments.push reduced
-    for i in segments.length - 1 til 0 by -1
-      let left = segments[i - 1]
-      let right = segments[i]
-      if left.is-const() and right.is-const()
-        segments.splice i - 1, 2, ConstNode left.start-index, right.end-index, left.const-value() & right.const-value()
-      else if right.is-const() and right.const-value() == ""
-        segments.splice i, 1
-    if segments.length > 1 and segments[0].is-const() and segments[0].const-value() == "" and (segments[1].type().is-subset-of(Type.string) or (segments.length > 2 and segments[2].type().is-subset-of(Type.string)))
-      segments.shift()
-    let mutable result = segments[0]
-    for i in 1 til segments.length
-      let segment = segments[i]
-      result := BinaryNode result.start-index, segment.end-index, result, "+", segment
-    result
+    let node = @node.reduce().do-wrap()
+    if node != @node
+      SpreadNode @start-index, @end-index, node
+    else
+      this
 }
+State::string := #(index, parts as [Node])
+  let concat-op = @macros.get-binary-operator-by-name("&")
+  if not concat-op
+    throw Error "Cannot use string interpolation until binary operator '&' has been defined"
+  if parts.length == 0
+    ConstNode index, index, ""
+  else if parts.length == 1
+    concat-op.func {
+      left: ConstNode index, index, ""
+      op: "&"
+      right: parts[0]
+    }, this, index, @line
+  else
+    for reduce part in parts[1:], current = parts[0]
+      concat-op.func {
+        left: current
+        op: "&"
+        right: part
+      }, this, index, @line
+
 node-type! \super, child as (Node|void), args as [Node], {
   walk: #(func)
     let child = if @child? then func @child else @child
     let args = map @args, func
+    if child != @child or args != @args
+      SuperNode @start-index, @end-index, child, args
+    else
+      this
+  _reduce: #
+    let child = if @child? then @child.reduce().do-wrap() else @child
+    let args = map @args, #(node) -> node.reduce().do-wrap()
     if child != @child or args != @args
       SuperNode @start-index, @end-index, child, args
     else
@@ -6064,6 +6163,12 @@ node-type! \this, {
 node-type! \throw, node as Node, {
   type: # -> Type.none
   is-statement: #-> true
+  _reduce: #
+    let node = @node.reduce().do-wrap()
+    if node != @node
+      ThrowNode @start-index, @end-index, node
+    else
+      this
 }
 node-type! \tmp, id as Number, name as String, _type as Type = Type.any, {
   -cacheable
@@ -6151,7 +6256,7 @@ node-type! \unary, op as String, node as Node, {
     }
     
     #
-      let node = @node.reduce()
+      let node = @node.reduce().do-wrap()
       let op = @op
       if node.is-const() and const-ops ownskey op
         return ConstNode @start-index, @end-index, const-ops[op](node.const-value())
@@ -6235,7 +6340,7 @@ let parse(text, macros, options = {})
     throw ParserError build-error-message(messages, last-token), o.data, index, line
   else
     {
-      result: o.macro-expand(result).reduce()
+      result: o.macro-expand-all(result).reduce()
       o.macros
     }
 module.exports := parse

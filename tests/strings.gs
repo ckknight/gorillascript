@@ -256,3 +256,4 @@ test "Backslash strings", #
   eq "true", \true
   eq "false", \false
   eq "nullOrUndefined", \null-or-undefined
+  eq "trailingNum1", \trailing-num-1
