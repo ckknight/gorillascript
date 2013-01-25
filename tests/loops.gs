@@ -1245,3 +1245,13 @@ test "C-style for reduce loop", #
   let mutable i = 0
   eq 45, (for reduce (i := 0); i < 10; i += 1, sum = 0
     sum + i)
+
+test "For-in loop over a string", #
+  let result = []
+  for c in "hello"
+    result.push c
+  array-eq ["h", "e", "l", "l", "o"], result
+
+test "For-in loop over a string as expression", #
+  let result = for c in "hello"; c
+  array-eq ["h", "e", "l", "l", "o"], result

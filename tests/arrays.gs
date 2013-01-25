@@ -1,6 +1,6 @@
 test "empty", #
   let arr = []
-  ok Array.is-array(arr)
+  ok is-array! arr
   eq 0, arr.length
 
 test "simple, single-line", #

@@ -170,7 +170,7 @@ let sequential(array as Array, mutator, dont-cache as Boolean)
   for item, i in array
     let mutable key = void
     let mutable rule = void
-    if Array.is-array item
+    if is-array! item
       if item.length != 2
         throw Error "Found an array with #(item.length) length at index #$i"
       if typeof item[0] != \string
@@ -4383,7 +4383,7 @@ class MacroHelper
   let constify-object(obj, start-index, end-index)
     if not obj or typeof obj != \object or obj instanceof RegExp
       ConstNode start-index, end-index, obj
-    else if Array.is-array obj
+    else if is-array! obj
       constify-array obj, start-index, end-index
     else if obj instanceof IdentNode and obj.name.length > 1 and C(obj.name, 0) == C('$')
       CallNode(obj.start-index, obj.end-index
@@ -4437,7 +4437,7 @@ class MacroHelper
     node.walk(#(x) -> walk x, func)
   
   def wrap(value)
-    if Array.is-array(value)
+    if is-array! value
       BlockNode(0, 0, value).reduce(@state)
     else if value instanceof Node
       value
@@ -4921,7 +4921,7 @@ class State
   }
   
   let reduce-object(o, obj)
-    if Array.is-array(obj)
+    if is-array! obj
       return for item in obj; reduce-object o, item
     else if obj instanceof Node
       obj.reduce(o)
@@ -6212,7 +6212,7 @@ node-type! \macro-access, id as Number, line as Number, data as Object, position
     let walk-item(item, func)
       if item instanceof Node
         func item
-      else if Array.is-array item
+      else if is-array! item
         walk-array item, func
       else if item and typeof item == \object
         walk-object item, func

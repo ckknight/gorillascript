@@ -57,8 +57,8 @@ global.test := #(description, fn)!
 let array-equal = #(a, b)
   if a == b
     return a != 0 or (1 / a == 1 / b)
-  else if Array.is-array a
-    unless Array.is-array(b) and a.length == b.length
+  else if is-array! a
+    unless is-array! b and a.length == b.length
       false
     else
       for every item, i in a

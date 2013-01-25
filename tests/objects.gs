@@ -236,7 +236,7 @@ test "implicit values", #
   ok strange ownskey "1"
   eq undefined, strange.undefined
   eq obj, strange.this
-  ok not Array.is-array(strange.arguments)
+  ok not is-array! strange.arguments
   array-eq ["alpha", "bravo", "charlie"], strange.arguments[:]
   eq true, strange.true
   eq false, strange.false

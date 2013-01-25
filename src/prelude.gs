@@ -720,10 +720,12 @@ define operator unary is-array! with type: \boolean
   ASTE __is-array($node)
 
 define helper __to-array = #(x) as Array
-  if __is-array(x)
+  if is-array! x
     x
+  else if typeof x == \string
+    x.split ""
   else
-    __slice(x)
+    __slice x
 
 define helper __create = if typeof Object.create == \function
   Object.create

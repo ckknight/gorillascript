@@ -765,7 +765,7 @@ exports.Call := class Call extends Expression
 let to-const(value)
   if value instanceof Node
     throw Error "Cannot convert $(typeof! value) to a Const"
-  else if Array.is-array(value)
+  else if is-array! value
     Arr (for item in value
       to-const item)
   else if value and typeof value == "object" and value not instanceof RegExp

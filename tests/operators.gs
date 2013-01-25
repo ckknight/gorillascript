@@ -614,7 +614,7 @@ test "new operator spread", #
   let obj = {}
   array-eq [obj], make-class-with-this.call(obj).args
   array-eq [obj, "alpha", "bravo", "charlie"], make-class-with-this.apply(obj, array).args
-  ok not Array.is-array(make-class-with-arguments().args[0])
+  ok not is-array! make-class-with-arguments().args[0]
   eq 0, make-class-with-arguments().args[0].length
   eq 3, make-class-with-arguments(...array).args[0].length
   array-eq ["alpha", "bravo", "charlie"], [...(make-class-with-arguments(...array).args[0])]

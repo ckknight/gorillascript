@@ -161,7 +161,7 @@ test "simple spread arguments", #
   
   let obj = {}
   eq 0, fun.length
-  ok Array.is-array(fun()) // not an Arguments type
+  ok is-array! fun() // not an Arguments type
   eq 0, fun().length
   eq 1, fun(obj).length
   eq obj, fun(obj)[0]
@@ -172,8 +172,8 @@ test "spread arguments with leading arguments", #
   let fun(first, ...rest) -> [first, rest]
   
   eq 1, fun.length
-  ok Array.is-array(fun()[1])
-  ok Array.is-array(fun({})[1])
+  ok is-array! fun()[1]
+  ok is-array! fun({})[1]
   array-eq [void, []], fun()
   let alpha = {}
   array-eq [alpha, []], fun(alpha)
@@ -186,8 +186,8 @@ test "spread arguments with trailing arguments", #
   let fun(...start, last) -> [start, last]
   
   eq 0, fun.length
-  ok Array.is-array(fun()[0])
-  ok Array.is-array(fun({})[0])
+  ok is-array! fun()[0]
+  ok is-array! fun({})[0]
   array-eq [[], void], fun()
   let alpha = {}
   array-eq [[], alpha], fun(alpha)
