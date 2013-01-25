@@ -215,3 +215,60 @@ test "splicing", #
   
   array[:-1] := ["u", "v"]
   array-eq ["u", "v", "p"], array
+
+test "unclosed array syntax, multi-line", #
+  let arr =
+    * 1
+    * 2
+    * 3
+    * 4
+  
+  array-eq [1, 2, 3, 4], arr
+
+test "unclosed array syntax, single item", #
+  let arr =
+    * 1
+  
+  array-eq [1], arr
+
+test "unclosed array syntax in invocation, multi-line", #
+  let f(a) -> a
+  let arr = f
+    * 1
+    * 2
+    * 3
+    * 4
+  
+  array-eq [1, 2, 3, 4], arr
+
+test "unclosed array syntax in invocation with leading args, multi-line", #
+  let f(a, b, o) -> [a, b, o]
+  let arr = f 1, 2,
+    * 3
+    * 4
+  
+  array-eq [1, 2, [3, 4]], arr
+
+test "unclosed array syntax as function return", #
+  let f()
+    * 1
+    * 2
+    * 3
+    * 4
+  let arr = f()
+  array-eq [1, 2, 3, 4], arr
+
+test "multi-level unclosed array syntax", #
+  let x =
+    * 1
+    * 2
+    *
+      * 3
+      * 4
+    * * 5
+      * * 6
+        * 7
+      * 8
+    * 9
+  
+  array-eq [1, 2, [3, 4], [5, [6, 7], 8], 9], x

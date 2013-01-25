@@ -808,6 +808,12 @@ let PushIndent = named \PushIndent, mutate! CountIndent, (#(indent, o)
   o.indent.push indent
   true), true
 
+let PushFakeIndent = do
+  let cache = []
+  #(n) -> cache[n] ?= named "PushFakeIndent($n)", #(o)
+    o.indent.push o.indent.peek() + n
+    true
+
 let PopIndent = named \PopIndent, #(o)
   if o.indent.can-pop()
     o.indent.pop()
@@ -2575,7 +2581,7 @@ define SpreadOrExpression = sequential! [
   else
     x.node
 
-define ArrayLiteral = sequential! [
+define ArrayLiteral = prevent-unclosed-object-literal sequential! [
   OpenSquareBracket
   Space
   [\first, maybe! (sequential! [
@@ -2750,7 +2756,7 @@ define KeyValuePair = one-of! [
 ]
 
 define ExtendsToken = word \extends
-define ObjectLiteral = sequential! [
+define ObjectLiteral = prevent-unclosed-object-literal sequential! [
   OpenCurlyBrace
   Space
   [\prototype, maybe! (sequential! [
@@ -3007,6 +3013,7 @@ define _FunctionBody = one-of! [
     [\this, maybe! Statement, #(x, o, i) -> o.nothing i]
   ]
   IndentedUnclosedObjectLiteral
+  IndentedUnclosedArrayLiteral
   Body
 ]
 
@@ -3431,6 +3438,7 @@ define PrimaryExpression = one-of! [
   UseMacro
   Identifier
   IndentedUnclosedObjectLiteral
+  IndentedUnclosedArrayLiteral
 ]
 
 define UnclosedObjectLiteral = sequential! [
@@ -3442,6 +3450,14 @@ define UnclosedObjectLiteral = sequential! [
   ]]
 ], #(x, o, i) -> o.object i, [x.head, ...x.tail]
 
+define IndentedUnclosedObjectLiteralInner = sequential! [
+  [\head, DualObjectKey]
+  [\tail, zero-or-more! sequential! [
+    CommaOrNewlineWithCheckIndent
+    [\this, DualObjectKey]
+  ]]
+], #(x, o, i) -> o.object i, [x.head, ...x.tail]
+
 define IndentedUnclosedObjectLiteral = sequential! [
   #(o) -> not _prevent-unclosed-object-literal.peek()
   Space
@@ -3449,13 +3465,44 @@ define IndentedUnclosedObjectLiteral = sequential! [
   EmptyLines
   Advance
   CheckIndent
-  [\head, DualObjectKey]
-  [\tail, zero-or-more! sequential! [
-    CommaOrNewlineWithCheckIndent
-    [\this, DualObjectKey]
-  ]]
+  [\this, IndentedUnclosedObjectLiteralInner]
   PopIndent
-], #(x, o, i) -> o.object i, [x.head, ...x.tail]
+]
+
+define UnclosedArrayLiteralElement = sequential! [
+  Asterix
+  Space
+  [\this, one-of! [
+    sequential! [
+      PushFakeIndent(2)
+      [\this, one-of! [
+        IndentedUnclosedObjectLiteralInner
+        IndentedUnclosedArrayLiteralInner
+        SpreadOrExpression
+      ]]
+      PopIndent
+    ]
+    SpreadOrExpression
+  ]]
+]
+define IndentedUnclosedArrayLiteralInner = sequential! [
+  [\head, UnclosedArrayLiteralElement]
+  [\tail, zero-or-more! sequential! [
+    MaybeComma
+    SomeEmptyLinesWithCheckIndent
+    [\this, UnclosedArrayLiteralElement]
+  ]]
+], #(x, o, i) -> o.array i, [x.head, ...x.tail]
+define IndentedUnclosedArrayLiteral = sequential! [
+  #(o) -> not _prevent-unclosed-object-literal.peek()
+  Space
+  Newline
+  EmptyLines
+  Advance
+  CheckIndent
+  [\this, IndentedUnclosedArrayLiteralInner]
+  PopIndent
+]
 
 define ClosedArguments = sequential! [
   OpenParenthesisChar

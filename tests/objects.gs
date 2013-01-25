@@ -372,7 +372,7 @@ test "unclosed object syntax, multi-line with some pairs on same line", #
 
 test "unclosed object syntax in invocation, multi-line", #
   let f(o) -> o
-  let obj = f 
+  let obj = f
     alpha: true
     bravo: false
     charlie: "delta"
@@ -420,3 +420,23 @@ test "multi-level unclosed object syntax", #
   eq \echo, x.charlie.delta
   eq \india, x.charlie.foxtrot.golf.hotel
   eq \kilo, x.charlie.juliet
+
+test "multi-level unclosed array and object syntax", #
+  let x =
+    * alpha: \bravo
+      charlie: \delta
+    *
+      echo: \foxtrot
+      golf: \hotel
+    * juliet:
+        * kilo: \lima
+          mike: \november
+        * oscar: \papa
+  
+  eq \bravo, x[0].alpha
+  eq \delta, x[0].charlie
+  eq \foxtrot, x[1].echo
+  eq \hotel, x[1].golf
+  eq \lima, x[2].juliet[0].kilo
+  eq \november, x[2].juliet[0].mike
+  eq \papa, x[2].juliet[1].oscar
