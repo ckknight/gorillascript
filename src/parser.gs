@@ -3462,6 +3462,7 @@ define BasicInvocationOrAccess = sequential! [
       [\node, ThisShorthandLiteral]
       [\existential, MaybeExistentialSymbolNoSpace]
       [\owns, MaybeExclamationPointNoSpace]
+      [\bind, maybe! AtSign, NOTHING]
       [\child, IdentifierNameConstOrNumberLiteral]
     ], #(x, o, i) -> {
       type: \this-access
@@ -3469,6 +3470,7 @@ define BasicInvocationOrAccess = sequential! [
       x.child
       existential: x.existential == "?"
       owns: x.owns == "!"
+      bind: x.bind != NOTHING
     }
     mutate! PrimaryExpression, #(x) -> {
       type: \normal
@@ -3479,6 +3481,7 @@ define BasicInvocationOrAccess = sequential! [
     sequential! [
       [\existential, MaybeExistentialSymbolNoSpace]
       [\owns, MaybeExclamationPointNoSpace]
+      [\bind, maybe! AtSign, NOTHING]
       EmptyLines
       Space
       [\type, one-of! [Period, DoubleColon]]
@@ -3488,10 +3491,12 @@ define BasicInvocationOrAccess = sequential! [
       x.child
       existential: x.existential == "?"
       owns: x.owns == "!"
+      bind: x.bind != NOTHING
     }
     sequential! [
       [\existential, MaybeExistentialSymbolNoSpace]
       [\owns, MaybeExclamationPointNoSpace]
+      [\bind, maybe! AtSign, NOTHING]
       [\type, maybe! DoubleColon, \access-index, \proto-access-index]
       OpenSquareBracketChar
       [\child, Index]
@@ -3503,10 +3508,13 @@ define BasicInvocationOrAccess = sequential! [
           child: x.child.node
           existential: x.existential == "?"
           owns: x.owns == "!"
+          bind: x.bind != NOTHING
         }
       else
         if x.owns == "!"
           o.error "Cannot use ! when using a multiple or slicing index"
+        if x.bind != NOTHING
+          o.error "Cannot use @ when using a multiple or slicing index"
         {
           x.type
           x.child
@@ -3551,6 +3559,10 @@ define BasicInvocationOrAccess = sequential! [
             result
       }
       #(o, i, mutable head, link, j, links)
+        let bind-access = if link.bind
+          #(parent, child) -> o.call i, o.ident(i, \__bind), [parent, child]
+        else
+          #(parent, child) -> o.access i, parent, child
         if link.owns
           let tmp-ids = []
           let mutable set-head = head
@@ -3568,7 +3580,6 @@ define BasicInvocationOrAccess = sequential! [
             child := tmp
           let mutable test = o.call(i, o.ident(i, \__owns), [set-head, set-child])
           
-            
           let result = o.if(i
             if link.existential
               o.binary(i
@@ -3577,7 +3588,7 @@ define BasicInvocationOrAccess = sequential! [
                 o.call(i, o.ident(i, \__owns), [head, set-child]))
             else
               o.call(i, o.ident(i, \__owns), [set-head, set-child])
-            convert-call-chain(o, i, o.access(i, head, child), j + 1, links))
+            convert-call-chain(o, i, bind-access(head, child), j + 1, links))
           if tmp-ids.length
             o.tmp-wrapper(i, result, tmp-ids)
           else
@@ -3585,7 +3596,7 @@ define BasicInvocationOrAccess = sequential! [
         else
           let make-access = switch link.type
           case \access
-            #(parent) -> o.access i, parent, link.child
+            #(parent) -> bind-access parent, link.child
           case \access-index
             unless index-types ownskey link.child.type
               throw Error "Unknown index type: $(link.child.type)"
@@ -5214,7 +5225,7 @@ class State
       else
         let macro-helper = MacroHelper o, i, _position.peek(), _in-generator.peek()
         let mutable result = try
-          handler@ macro-helper, x, macro-helper.wrap.bind(macro-helper), macro-helper.node.bind(macro-helper), #(id, line, data, position, in-generator)
+          handler@ macro-helper, x, macro-helper@.wrap, macro-helper@.node, #(id, line, data, position, in-generator)
             _position.push position
             _in-generator.push in-generator
             try

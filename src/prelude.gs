@@ -2203,3 +2203,11 @@ define operator binary is with precedence: 1, maximum: 1, type: \boolean
 
 define operator binary isnt with precedence: 1, maximum: 1, type: \boolean
   ASTE not ($left is $right)
+
+define helper __bind = #(parent, child) as Function
+  if not parent?
+    throw TypeError "Expected parent to be an object, got $(typeof! parent)"
+  let func = parent[child]
+  if typeof func != \function
+    throw Error "Trying to bind child '$(String child)' which is not a function"
+  # -> func@ parent, ...arguments
