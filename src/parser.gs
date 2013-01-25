@@ -5387,6 +5387,35 @@ class State
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
 
 node-type! \access, parent as Node, child as Node, {
+  type: #(o) -> @_type ?= do
+    let parent-type = @parent.type(o)
+    let is-string = parent-type.is-subset-of(Type.string)
+    if is-string or parent-type.is-subset-of(Type.array-like)
+      let child = o.macro-expand-1(@child).reduce(o)
+      if child.is-const()
+        let child-value = child.const-value()
+        if child-value == \length
+          return Type.number
+        else if typeof child-value == \number
+          return if child-value >= 0 and child-value %% 1
+            if is-string
+              Type.string.union(Type.undefined)
+            else if parent-type.subtype
+              parent-type.subtype.union(Type.undefined)
+            else
+              Type.any
+          else
+            Type.undefined
+      else
+        let child-type = child.type(o)
+        if child-type.is-subset-of(Type.number)
+          return if is-string
+            Type.string.union(Type.undefined)
+          else if parent-type.subtype
+            parent-type.subtype.union(Type.undefined)
+          else
+            Type.any
+    Type.any
   _reduce: #(o)
     let parent = @parent.reduce(o).do-wrap()
     let child = @child.reduce(o).do-wrap()
@@ -5815,6 +5844,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         toJSON: Type.string
       }
       RegExp: {
+        exec: Type.array.union(Type.null)
         test: Type.boolean
         toString: Type.string
       }
