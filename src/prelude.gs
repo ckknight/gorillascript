@@ -720,7 +720,9 @@ define operator unary is-array! with type: \boolean
   ASTE __is-array($node)
 
 define helper __to-array = #(x) as Array
-  if is-array! x
+  if not x?
+    throw TypeError "Expected an object, got " ~& typeof! x
+  else if is-array! x
     x
   else if typeof x == \string
     x.split ""
@@ -957,7 +959,10 @@ macro for
             $else-body
     else
       let init = []
-      array := @cache array, init, \arr, has-func
+      let is-string = @is-type array, \string
+      if not is-string and not @is-type array, \array-like
+        array := ASTE __to-array $array
+      array := @cache array, init, if is-string then \str else \arr, has-func
     
       index ?= @tmp \i, false, \number
       length ?= @tmp \len, false, \number
@@ -966,7 +971,7 @@ macro for
       init.push AST let $length = +$array.length
     
       body := AST
-        let $value = $array[$index]
+        let $value = if $is-string then $array.char-at($index) else $array[$index]
         $body
     
       if has-func

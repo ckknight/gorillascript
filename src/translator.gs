@@ -76,6 +76,9 @@ class Scope
     @remove-variable(ident)
 
   def add-helper(name)!
+    if name == \__to-array
+      @add-helper(\__is-array)
+      @add-helper(\__slice)
     @helpers[name] := true
 
   let lower-sorter(a, b) -> a.to-lower-case() <=> b.to-lower-case()
@@ -458,8 +461,6 @@ let array-translate(elements, scope, replace-with-slice)
           if translated-item.type.is-subset-of Type.array
             node
           else
-            scope.add-helper \__slice // FIXME, these shouldn't be required to specify
-            scope.add-helper \__is-array
             scope.add-helper \__to-array
             ast.Call(
               ast.Ident \__to-array
