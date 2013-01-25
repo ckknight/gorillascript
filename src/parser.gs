@@ -3533,24 +3533,35 @@ define ClosedArguments = sequential! [
   CloseParenthesis
 ], #(x, o, i) -> [...x.first, ...x.rest]
 
-define UnclosedArguments = one-of! [
-  sequential! [
-    one-of! [
-      SomeSpace
-      CheckStop
-    ]
-    [\this, sequential! [
-      [\head, SpreadOrExpression],
+define UnclosedArguments = sequential! [
+  one-of! [
+    SomeSpace
+    CheckStop
+  ]
+  [\first, sequential! [
+    [\head, SpreadOrExpression],
+    [\tail, zero-or-more! sequential! [
+      Comma
+      [\this, SpreadOrExpression]
+    ]]
+  ], #(x) -> [x.head, ...x.tail]]
+  [\rest, one-of! [
+    sequential! [
+      Comma
+      SomeEmptyLines
+      Advance
+      CheckIndent
+      [\head, SpreadOrExpression]
       [\tail, zero-or-more! sequential! [
-        Comma
+        CommaOrNewlineWithCheckIndent
         [\this, SpreadOrExpression]
       ]]
       MaybeComma
-    ], #(x) -> [x.head, ...x.tail]]
-  ]
-//  mutate! IndentedArrayLiteral, #(x) -> [x]
-//  mutate! IndentedObjectLiteral, #(x) -> [x]
-]
+      PopIndent
+    ], #(x) -> [x.head, ...x.tail]
+    mutate! MaybeComma, #-> []
+  ]]
+], #(x, o, i) -> [...x.first, ...x.rest]
 
 define InvocationArguments = one-of! [ClosedArguments, UnclosedArguments]
 

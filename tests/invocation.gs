@@ -33,24 +33,47 @@ test "Normal invocation", #
 test "Spread invocation", #
   let f() -> [].slice.call(arguments)
   
-  arrayEq [], f()
-  arrayEq [1, 2, 3], f 1, 2, 3
-  arrayEq [1, 2, 3], f(1, 2, 3)
+  array-eq [], f()
+  array-eq [1, 2, 3], f 1, 2, 3
+  array-eq [1, 2, 3], f(1, 2, 3)
   let arr = [1, 2, 3]
-  arrayEq arr, f(...arr)
-  arrayEq arr, f ...arr
+  array-eq arr, f(...arr)
+  array-eq arr, f ...arr
 
 test "Apply invocation", #
   let obj = {}
   let f() -> [this, [].slice.call(arguments)]
   
-  arrayEq [obj, []], f@ obj
+  array-eq [obj, []], f@ obj
   let arr = []
-  arrayEq [obj, []], f@ obj, ...arr
+  array-eq [obj, []], f@ obj, ...arr
   arr.push 1, 2, 3
-  arrayEq [obj, [1, 2, 3]], f@ obj, ...arr
+  array-eq [obj, [1, 2, 3]], f@ obj, ...arr
   arr.unshift obj
-  arrayEq [obj, [1, 2, 3]], f@ ...arr
+  array-eq [obj, [1, 2, 3]], f@ ...arr
+
+test "invocation with multi-line arguments", #
+  let f(...args) -> args
+  
+  array-eq [1, 2, 3, 4], f(
+    1
+    2
+    3
+    4)
+  
+  array-eq [1, 2, 3, 4], f(1
+    2
+    3
+    4)
+  
+  array-eq [1, 2, 3, 4], f(1, 2
+    3, 4)
+
+test "invocation with multi-line arguments, unclosed", #
+  let f(...args) -> args
+  
+  array-eq [1, 2, 3, 4], f 1, 2, 3,
+    4
 
 test "New on the result of a call", #
   let f() -> Date
