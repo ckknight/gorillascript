@@ -673,6 +673,9 @@ let in-macro = make-alter-stack _in-macro, true
 let _in-ast = Stack false
 let in-ast = make-alter-stack _in-ast, true
 
+let _prevent-unclosed-object-literal = Stack false
+let prevent-unclosed-object-literal = make-alter-stack _prevent-unclosed-object-literal, true
+
 define Eof = #(o) -> o.index >= o.data.length
 
 define SpaceChar = character! [
@@ -2574,6 +2577,7 @@ define NotColon = except! Colon
 define ObjectKeyColon = with-message! 'key ":"', sequential! [
   [\this, ObjectKey]
   Colon
+  except! character! "="
 ]
 
 define DualObjectKey = short-circuit! ObjectKeyColon, sequential! [
@@ -2700,7 +2704,7 @@ define ObjectLiteral = sequential! [
   Space
   [\prototype, maybe! (sequential! [
     ExtendsToken
-    [\this, InvocationOrAccess]
+    [\this, prevent-unclosed-object-literal #(o) -> Logic o]
     Space
     one-of! [
       Comma
@@ -2734,23 +2738,6 @@ define ObjectLiteral = sequential! [
   CloseCurlyBrace
 ], #(x, o, i)
   o.object i, [...x.first, ...x.rest], if x.prototype != NOTHING then x.prototype
-
-define IndentedObjectLiteral = sequential! [
-  Space
-  Newline
-  EmptyLines
-  Advance
-  CheckIndent
-  [\head, DualObjectKey]
-  Space
-  [\tail, zero-or-more! sequential! [
-    CommaOrNewline
-    CheckIndent
-    [\this, DualObjectKey]
-    Space
-  ]]
-  PopIndent
-], #(x, o, i) -> o.object i, [x.head, ...x.tail]
 
 define InBlock = sequential! [
   Advance
@@ -2968,6 +2955,7 @@ define _FunctionBody = one-of! [
     symbol "->"
     [\this, maybe! Statement, #(x, o, i) -> o.nothing i]
   ]
+  IndentedUnclosedObjectLiteral
   Body
 ]
 
@@ -3384,13 +3372,14 @@ define Assignment = one-of! [
 define PrimaryExpression = one-of! [
   UnclosedObjectLiteral
   Literal
-  Parenthetical
   ArrayLiteral
   ObjectLiteral
-  FunctionLiteral
   Ast
+  Parenthetical
+  FunctionLiteral
   UseMacro
   Identifier
+  IndentedUnclosedObjectLiteral
 ]
 
 define UnclosedObjectLiteral = sequential! [
@@ -3400,6 +3389,21 @@ define UnclosedObjectLiteral = sequential! [
     Comma
     [\this, DualObjectKey]
   ]]
+], #(x, o, i) -> o.object i, [x.head, ...x.tail]
+
+define IndentedUnclosedObjectLiteral = sequential! [
+  #(o) -> not _prevent-unclosed-object-literal.peek()
+  Space
+  Newline
+  EmptyLines
+  Advance
+  CheckIndent
+  [\head, DualObjectKey]
+  [\tail, zero-or-more! sequential! [
+    CommaOrNewlineWithCheckIndent
+    [\this, DualObjectKey]
+  ]]
+  PopIndent
 ], #(x, o, i) -> o.object i, [x.head, ...x.tail]
 
 define ClosedArguments = sequential! [
@@ -3433,7 +3437,10 @@ define ClosedArguments = sequential! [
 
 define UnclosedArguments = one-of! [
   sequential! [
-    SomeSpace, // FIXME: do I need this?
+    one-of! [
+      SomeSpace
+      CheckStop
+    ]
     [\this, sequential! [
       [\head, SpreadOrExpression],
       [\tail, zero-or-more! sequential! [

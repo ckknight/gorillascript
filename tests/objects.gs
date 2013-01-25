@@ -311,3 +311,112 @@ test "object with boolean value syntax", #
   eq true, obj.charlie
   eq false, obj.delta5
   eq true, obj[5]
+
+test "unclosed object syntax, single-line", #
+  let obj = alpha: true, bravo: false, charlie: "delta"
+  
+  eq \object, typeof obj
+  eq true, obj.alpha
+  eq false, obj.bravo
+  eq "delta", obj.charlie
+
+test "unclosed object syntax in invocation", #
+  let f(o) -> o
+  let obj = f alpha: true, bravo: false, charlie: "delta"
+  
+  eq \object, typeof obj
+  eq true, obj.alpha
+  eq false, obj.bravo
+  eq "delta", obj.charlie
+
+test "unclosed object syntax in invocation with leading args", #
+  let f(a, b, o) -> [a, b, o]
+  let arr = f 1, 2, alpha: true, bravo: false, charlie: "delta"
+  
+  eq 1, arr[0]
+  eq 2, arr[1]
+  eq true, arr[2].alpha
+  eq false, arr[2].bravo
+  eq "delta", arr[2].charlie
+
+test "unclosed object syntax as function return", #
+  let f() -> alpha: true, bravo: false, charlie: "delta"
+  let obj = f()
+  eq \object, typeof obj
+  eq true, obj.alpha
+  eq false, obj.bravo
+  eq "delta", obj.charlie
+
+test "unclosed object syntax, multi-line", #
+  let obj =
+    alpha: true
+    bravo: false
+    charlie: "delta"
+  
+  eq \object, typeof obj
+  eq true, obj.alpha
+  eq false, obj.bravo
+  eq "delta", obj.charlie
+
+test "unclosed object syntax, multi-line with some pairs on same line", #
+  let obj =
+    alpha: true
+    bravo: false, charlie: "delta"
+    echo: "foxtrot"
+  
+  eq \object, typeof obj
+  eq true, obj.alpha
+  eq false, obj.bravo
+  eq "delta", obj.charlie
+  eq "foxtrot", obj.echo
+
+test "unclosed object syntax in invocation, multi-line", #
+  let f(o) -> o
+  let obj = f 
+    alpha: true
+    bravo: false
+    charlie: "delta"
+  
+  eq \object, typeof obj
+  eq true, obj.alpha
+  eq false, obj.bravo
+  eq "delta", obj.charlie
+
+test "unclosed object syntax in invocation with leading args, multi-line", #
+  let f(a, b, o) -> [a, b, o]
+  let arr = f 1, 2,
+    alpha: true
+    bravo: false
+    charlie: "delta"
+  
+  eq 1, arr[0]
+  eq 2, arr[1]
+  eq true, arr[2].alpha
+  eq false, arr[2].bravo
+  eq "delta", arr[2].charlie
+
+test "unclosed object syntax as function return", #
+  let f()
+    alpha: true
+    bravo: false
+    charlie: "delta"
+  let obj = f()
+  eq \object, typeof obj
+  eq true, obj.alpha
+  eq false, obj.bravo
+  eq "delta", obj.charlie
+
+test "multi-level unclosed object syntax", #
+  let x =
+    alpha: \bravo
+    charlie:
+      delta: \echo
+      foxtrot:
+        golf:
+          hotel: \india
+      juliet: \kilo
+  
+  eq \bravo, x.alpha
+  eq \echo, x.charlie.delta
+  eq \india, x.charlie.foxtrot.golf.hotel
+  eq \kilo, x.charlie.juliet
