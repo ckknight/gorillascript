@@ -408,10 +408,6 @@ define operator assign &= with type: \string
   @maybe-cache-access left, #(set-left, left)@
     ASTE $set-left := $left & $right
 
-define helper __in = do
-  let index-of = Array.prototype.index-of
-  #(child, parent) as Boolean -> index-of@(parent, child) != -1
-
 define operator binary in with precedence: 3, maximum: 1, invertible: true, type: \boolean
   if @is-array(right)
     let elements = @elements(right)
@@ -1294,6 +1290,19 @@ macro while, until
     AST
       for reduce ; $test; $step, $current = $current-start
         $body
+
+define helper __in = if typeof Array.prototype.index-of == \function
+  do
+    let index-of = Array.prototype.index-of
+    #(child, parent) as Boolean -> index-of@(parent, child) != -1
+else
+  #(child, parent) as Boolean
+    let len = parent.length
+    let mutable i = -1
+    while (i ~+= 1) < len
+      if child == parent[i] and parent haskey i
+        return true
+    false
 
 define helper __keys = if typeof Object.keys == \function
   Object.keys
