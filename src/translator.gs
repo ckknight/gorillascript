@@ -76,10 +76,24 @@ class Scope
     @remove-variable(ident)
 
   def add-helper(name)!
-    if name == \__to-array
-      @add-helper(\__is-array)
-      @add-helper(\__slice)
     @helpers[name] := true
+  
+  def fill-helper-dependencies()!
+    let mutable helpers = @helpers
+    let mutable to-add = {}
+    while true
+      for helper of helpers
+        if HELPERS.has helper
+          for dep in HELPERS.dependencies helper
+            if helpers not ownskey dep
+              to-add[dep] := true
+      
+      for helper of to-add
+        @add-helper helper
+      else
+        break
+      helpers := to-add
+      to-add := {}
 
   let lower-sorter(a, b) -> a.to-lower-case() <=> b.to-lower-case()
 
@@ -130,9 +144,11 @@ let make-auto-return(x) -> if x then wrap-return else identity
 let HELPERS = new class Helpers
   def constructor()@
     @data := {}
+    @deps := {}
 
-  def add(name as String, value as ast.Expression)
+  def add(name as String, value as ast.Expression, dependencies as [String])
     @data[name] := value
+    @deps[name] := dependencies
 
   def has(name as String)
     @data ownskey name
@@ -140,6 +156,12 @@ let HELPERS = new class Helpers
   def get(name as String)
     if @data ownskey name
       @data[name]
+    else
+      throw Error "No such helper: $name"
+  
+  def dependencies(name as String)
+    if @deps ownskey name
+      @deps[name]
     else
       throw Error "No such helper: $name"
 
@@ -1224,6 +1246,7 @@ let translators = {
         let fake-this = ast.Ident(\_this)
         scope.add-variable fake-this // TODO: type for this?
         init.push ast.Assign fake-this, ast.This()
+      scope.fill-helper-dependencies()
       for helper in scope.get-helpers()
         if HELPERS.has(helper)
           let ident = ast.Ident(helper)
@@ -1388,7 +1411,7 @@ module.exports := #(node, options = {})
   }
 
 module.exports.helpers := HELPERS
-module.exports.define-helper := #(name, value)
+module.exports.define-helper := #(name, value, mutable dependencies)
   let scope = Scope({}, false)
   let ident = if typeof name == \string
     ast.Ident(name)
@@ -1404,6 +1427,10 @@ module.exports.define-helper := #(name, value)
     translate(value, scope, \expression)()
   else
     throw TypeError "Expected value to be a parser or ast Node, got $(typeof! value)"
-  HELPERS.add ident.name, helper
-  helper
+  dependencies ?= scope.get-helpers()
+  HELPERS.add ident.name, helper, dependencies
+  {
+    helper
+    dependencies
+  }
   

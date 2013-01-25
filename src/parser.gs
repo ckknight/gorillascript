@@ -4711,9 +4711,9 @@ class MacroHolder
     }
     @add-macro m, macro-id, if options.type? then Type![options.type]
   
-  def add-serialized-helper(name as String, value)!
+  def add-serialized-helper(name as String, helper, dependencies)!
     let helpers = (@serialization.helpers ?= {})
-    helpers[name] := value
+    helpers[name] := { helper, dependencies }
   
   def add-macro-serialization(serialization as Object)!
     if typeof serialization.type != \string
@@ -4743,8 +4743,8 @@ class MacroHolder
   def deserialize(data)!
     require! './translator'
     require! './ast'
-    for name, value of (data!.helpers ? {})
-      translator.define-helper(name, ast.fromJSON(value))
+    for name, {helper, dependencies} of (data!.helpers ? {})
+      translator.define-helper(name, ast.fromJSON(helper), dependencies)
     
     State("", this).deserialize-macros(data)
 
@@ -4901,9 +4901,9 @@ class State
   
   def define-helper(i, name as IdentNode, value as Node)
     require! './translator'
-    let helper = translator.define-helper(name, @macro-expand-all(value).reduce(this))
+    let {helper, dependencies} = translator.define-helper(name, @macro-expand-all(value).reduce(this))
     if @options.serialize-macros
-      @macros.add-serialized-helper(name.name, helper)
+      @macros.add-serialized-helper(name.name, helper, dependencies)
     @nothing i
   
   let macro-syntax-const-literals = {
