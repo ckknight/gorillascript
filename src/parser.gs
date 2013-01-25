@@ -1261,6 +1261,7 @@ define Underscore = character! "_"
 define DollarSign = character! '$'
 define AtSign = character! "@"
 define HashSign = with-space! character! "#"
+define PercentSign = character! "%"
 define NameStart = one-of! [Letter, Underscore, DollarSign]
 define NameChar = one-of! [NameStart, NumberChar]
 define SymbolChar = character! [
@@ -2033,18 +2034,16 @@ define SingleStringLiteral = short-circuit! SingleQuote, sequential! [
   SingleQuote
 ], #(x, o, i) -> o.const i, process-char-codes(x).join ""
 
-define DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
-  DoubleQuote
-  [\this, zero-or-more-of! [
-    mutate! BackslashEscapeSequence
-    StringInterpolation
-    any-except! [
-      DoubleQuote
-      Newline
-    ]
-  ]]
-  DoubleQuote
-], #(x, o, i)
+define DoubleStringLiteralInner = zero-or-more-of! [
+  mutate! BackslashEscapeSequence
+  StringInterpolation
+  any-except! [
+    DoubleQuote
+    Newline
+  ]
+]
+
+let double-string-literal-handler = #(x, o, i)
   let string-parts = []
   let mutable current-literal = []
   for part in x
@@ -2057,6 +2056,14 @@ define DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
       string-parts.push part
   if current-literal.length > 0
     string-parts.push o.const i, process-char-codes(current-literal).join ""
+  string-parts
+
+define DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
+  DoubleQuote
+  [\this, DoubleStringLiteralInner]
+  DoubleQuote
+], #(x, o, i)
+  let string-parts = double-string-literal-handler x, o, i
   
   if string-parts.length == 0
     o.const i, ""
@@ -2064,6 +2071,16 @@ define DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
     string-parts[0]
   else
     o.string i, string-parts
+
+define PercentSignDoubleQuote = sequential! [PercentSign, DoubleQuote]
+define DoubleStringArrayLiteral = short-circuit! PercentSignDoubleQuote, sequential! [
+  PercentSignDoubleQuote
+  [\this, DoubleStringLiteralInner]
+  DoubleQuote
+], #(x, o, i)
+  let string-parts = double-string-literal-handler x, o, i
+  
+  o.array i, string-parts
 
 define StringIndent = #(o)
   let clone = o.clone()
@@ -2115,6 +2132,34 @@ define TripleDoubleStringLine = zero-or-more-of! [
   
   string-parts
 
+let triple-string-handler(x, o, i)
+  let lines = [x.first]
+  if lines[0].length == 0 or (lines[0].length == 1 and lines[0][0] == "")
+    lines.shift()
+  for j in 1 til x.empty-lines.length
+    lines.push [""]
+  lines.push ...x.rest
+  let mutable len = lines.length
+  if len > 0 and (lines[len - 1].length == 0 or (lines[len - 1].length == 1 and lines[len - 1][0] == ""))
+    lines.pop()
+    len -= 1
+  
+  let string-parts = []
+  for line, j in lines
+    if j > 0
+      string-parts.push "\n"
+    string-parts.push ...line
+  
+  for j in string-parts.length - 2 to 0 by -1
+    if typeof string-parts[j] == \string and typeof string-parts[j + 1] == \string
+      string-parts.splice(j, 2, string-parts[j] ~& string-parts[j + 1])
+  
+  for part, j in string-parts
+    if typeof part == \string
+      string-parts[j] := o.const i, part
+  
+  string-parts
+
 let make-triple-string(quote, line)
   short-circuit! quote, sequential! [
     quote
@@ -2139,30 +2184,7 @@ let make-triple-string(quote, line)
     ]), #-> []]
     quote
   ], #(x, o, i)
-    let lines = [x.first]
-    if lines[0].length == 0 or (lines[0].length == 1 and lines[0][0] == "")
-      lines.shift()
-    for j in 1 til x.empty-lines.length
-      lines.push [""]
-    lines.push ...x.rest
-    let mutable len = lines.length
-    if len > 0 and (lines[len - 1].length == 0 or (lines[len - 1].length == 1 and lines[len - 1][0] == ""))
-      lines.pop()
-      len -= 1
-    
-    let string-parts = []
-    for line, j in lines
-      if j > 0
-        string-parts.push "\n"
-      string-parts.push ...line
-    
-    for j in string-parts.length - 2 to 0 by -1
-      if typeof string-parts[j] == \string and typeof string-parts[j + 1] == \string
-        string-parts.splice(j, 2, string-parts[j] ~& string-parts[j + 1])
-    
-    for part, j in string-parts
-      if typeof part == \string
-        string-parts[j] := o.const i, part
+    let string-parts = triple-string-handler x, o, i
     
     if string-parts.length == 0
       o.const i, ""
@@ -2172,6 +2194,33 @@ let make-triple-string(quote, line)
       o.string i, string-parts
 define TripleSingleStringLiteral = make-triple-string TripleSingleQuote, TripleSingleStringLine
 define TripleDoubleStringLiteral = make-triple-string TripleDoubleQuote, TripleDoubleStringLine
+define PercentSignTripleDoubleQuote = sequential! [PercentSign, TripleDoubleQuote]
+define TripleDoubleStringArrayLiteral = short-circuit! PercentSignTripleDoubleQuote, sequential! [
+  PercentSignTripleDoubleQuote
+  [\first, TripleDoubleStringLine]
+  [\empty-lines, zero-or-more! sequential! [
+    _Space
+    [\this, Newline]
+  ]]
+  [\rest, maybe! (sequential! [
+    MaybeAdvance
+    [\this, maybe! (sequential! [
+      StringIndent
+      [\head, TripleDoubleStringLine]
+      [\tail, zero-or-more! sequential! [
+        Newline
+        StringIndent
+        [\this, TripleDoubleStringLine]
+      ]]
+    ], #(x) -> [x.head, ...x.tail]), #-> []]
+    maybe! Newline, true
+    PopIndent
+  ]), #-> []]
+  TripleDoubleQuote
+], #(x, o, i)
+  let string-parts = triple-string-handler x, o, i
+  
+  o.array i, string-parts
 
 define LowerR = character! "r"
 define RegexTripleSingleToken = sequential! [LowerR, TripleSingleQuote]
@@ -2281,8 +2330,10 @@ define StringLiteral = with-space! one-of! [
   BackslashStringLiteral
   TripleSingleStringLiteral
   TripleDoubleStringLiteral
+  TripleDoubleStringArrayLiteral
   SingleStringLiteral
   DoubleStringLiteral
+  DoubleStringArrayLiteral
   RegexLiteral
   /*
   RawTripleSingleStringLiteral

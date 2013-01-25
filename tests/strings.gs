@@ -205,6 +205,26 @@ test "Escape codes", #
   eq "\6", String.from-char-code(6)
   eq "\7", String.from-char-code(7)
 
+test "Array strings", #
+  array-eq [], %""
+  array-eq ["hello"], %"hello"
+  let x = 5
+  array-eq ["hello", x], %"hello$x"
+  let obj = {}
+  array-eq [obj], %"$obj"
+  array-eq ["alpha ", obj, " bravo"], %"alpha $obj bravo"
+  let other = {}
+  array-eq ["alpha ", obj, " bravo ", other, " charlie"], %"alpha $obj bravo $other charlie"
+  
+  array-eq [], %""""""
+  array-eq ["Alpha\n  ", obj, "\n    Charlie\n  ", other, "\nEcho"], %"""
+  Alpha
+    $obj
+      Charlie
+    $other
+  Echo
+  """
+
 /*
 test "Raw strings", #
   eq "", @""
