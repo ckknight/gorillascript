@@ -666,13 +666,13 @@ macro do
   syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as (Body | (";", this as Statement))
     let params = []
     let values = []
-    if not @empty(locals)
-      if not @empty(locals.ident)
+    if locals
+      if locals.ident
         params.push @param locals.ident
         values.push locals.value
       let f(i)@
         if i < locals.rest.length
-          if not @empty(locals.rest[i].ident)
+          if locals.rest[i].ident
             params.push @param locals.rest[i].ident
             values.push locals.rest[i].value
           f i + 1
@@ -716,6 +716,9 @@ else
     let _to-string = Object.prototype.to-string
     #(x) as Boolean -> _to-string@(x) == "[object Array]"
 
+define operator unary is-array! with type: \boolean
+  ASTE __is-array($node)
+
 define helper __to-array = #(x) as Array
   if __is-array(x)
     x
@@ -737,12 +740,12 @@ define helper __log = Math.log
 
 macro try
   syntax try-body as (Body | (";", this as Statement)), catch-part as ("\n", "catch", ident as Identifier, body as (Body | (";", this as Statement)))?, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (Body | (";", this as Statement)))?
-    let has-else = not @empty(else-body)
-    if @empty(catch-part) and has-else and @empty(finally-body)
+    let has-else = not not else-body
+    if not catch-part and has-else and not finally-body
       throw Error("Must provide at least a catch, else, or finally to a try block")
     
-    let mutable catch-ident = if not @empty(catch-part) then catch-part.ident
-    let mutable catch-body = if not @empty(catch-part) then catch-part.body
+    let mutable catch-ident = catch-part?.ident
+    let mutable catch-body = catch-part?.body
     let init = []
     let mutable run-else = void
     if has-else
@@ -765,7 +768,7 @@ macro try
       current := @try-finally current, AST
         if $run-else
           $else-body
-    if not @empty(finally-body)
+    if finally-body
       current := @try-finally(current, finally-body)
     
     AST
@@ -774,14 +777,9 @@ macro try
 
 macro for
   syntax reducer as (\every | \some | \first)?, init as (ExpressionOrAssignment|""), ";", test as (Logic|""), ";", step as (ExpressionOrAssignment|""), body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if @empty(init)
-      init := @noop()
-    if @empty(test)
-      test := ASTE true
-    if @empty(step)
-      step := @noop()
-    if @empty(reducer)
-      reducer := null
+    init ?= @noop()
+    test ?= ASTE true
+    step ?= @noop()
     if reducer
       if reducer == \first
         body := @mutate-last body, #(node) -> (AST return $node)
@@ -790,7 +788,7 @@ macro for
           $loop
           $else-body
       else
-        if not @empty(else-body)
+        if else-body
           throw Error "Cannot use a for loop with an else with $(reducer)"
         if reducer == \some
           body := @mutate-last body, #(node) -> AST
@@ -808,7 +806,7 @@ macro for
             $loop
         else
           throw Error("Unknown reducer: $reducer")
-    else if not @empty(else-body)
+    else if else-body
       if @position == \expression
         throw Error("Cannot use a for loop with an else as an expression")
       let run-else = @tmp \else, false, \boolean
@@ -837,12 +835,9 @@ macro for
       @for(init, test, step, body)
   
   syntax "reduce", init as (Expression|""), ";", test as (Logic|""), ";", step as (Statement|""), ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    if @empty(init)
-      init := @noop()
-    if @empty(test)
-      test := ASTE true
-    if @empty(step)
-      step := @noop()
+    init ?= @noop()
+    test ?= ASTE true
+    step ?= @noop()
     
     body := @mutate-last body, #(node) -> (ASTE $current := $node)
     AST
@@ -853,12 +848,10 @@ macro for
   
   syntax reducer as (\every | \some | \first)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     value := @macro-expand-1(value)
-    if @empty(reducer)
-      reducer := null
     
     let has-func = @has-func(body)  
     let mutable length = null
-    if not @empty(index)
+    if index
       length := index.length
       index := index.value
     
@@ -914,7 +907,7 @@ macro for
           if $inclusive then $value ~>= $end else $value ~> $end
       
       let mutable increment = ASTE $value ~+= $step
-      if not @empty(index)
+      if index
         init.push AST let mutable $index = 0
         increment := AST
           $increment
@@ -928,7 +921,7 @@ macro for
         init.push (AST let $func = #($value) -> $body)
         body := (ASTE $func@(this, $value))
       
-      if not @empty(length)
+      if length
         init.push AST let $length = if $inclusive
           ($end ~- $start ~+ $step) ~\ $step
         else
@@ -964,10 +957,8 @@ macro for
       let init = []
       array := @cache array, init, \arr, has-func
     
-      if @empty(index)
-        index := @tmp \i, false, \number
-      if @empty(length)
-        length := @tmp \len, false, \number
+      index ?= @tmp \i, false, \number
+      length ?= @tmp \len, false, \number
     
       init.push AST let mutable $index = 0
       init.push AST let $length = +$array.length
@@ -1020,17 +1011,10 @@ macro for
       $current
   
   syntax reducer as (\every | \some | \first)?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if @empty(reducer)
-      reducer := null
-    
     let mutable index = null
-    if @empty(value)
-      value := null
-    else
+    if value
       index := value.index
       value := @macro-expand-1(value.value)
-      if @empty(index)
-        index := null
     
     let has-func = @has-func(body)
     let own = type == "of"
@@ -1053,7 +1037,7 @@ macro for
         body := (ASTE $func@(this, $key))
     
     let post = []
-    if not @empty(else-body)
+    if else-body
       let run-else = @tmp \else, false, \boolean
       init.push (AST let $run-else = true)
       body := AST
@@ -1083,7 +1067,7 @@ macro for
           $loop
           $else-body
       else
-        if not @empty(else-body)
+        if else-body
           throw Error("Cannot use a for loop with an else with $reducer")
         if reducer == \some
           body := @mutate-last body, #(node) -> AST
@@ -1106,7 +1090,7 @@ macro for
         else
           throw Error("Unknown reducer: $reducer")
     else if @position == \expression
-      if not @empty(else-body)
+      if else-body
         throw Error("Cannot use a for loop with an else as an expression")
       let arr = @tmp \arr, false, \array//body.type().array()
       body := @mutate-last body, #(node) -> (ASTE $arr.push $node)
@@ -1141,19 +1125,16 @@ macro for
       $current
   
   syntax reducer as (\every | \some | \first)?, value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if not @empty(else-body) and @position == \expression
+    if else-body and @position == \expression
       throw Error("Cannot use a for loop with an else as an expression")
-
-    if @empty(reducer)
-      reducer := null
-
+    
     let has-func = @has-func(body)
 
     let init = []
     iterator := @cache iterator, init, \iter, has-func
     
     let step = []
-    if not @empty(index)
+    if index
       init.push AST let mutable $index = 0
       step.push ASTE $index ~+= 1
     
@@ -1166,7 +1147,7 @@ macro for
         throw e
     
     let post = []
-    if not @empty(else-body)
+    if else-body
       let run-else = @tmp \else, false, \boolean
       init.push (AST let $run-else = true)
       body := AST
@@ -1178,7 +1159,7 @@ macro for
     
     if has-func
       let func = @tmp \f, false, \function
-      if @empty(index)
+      if not index
         init.push AST let $func = #($value) -> $body
         body := AST
           $capture-value
@@ -1252,9 +1233,6 @@ macro while, until
   syntax reducer as (\every | \some | \first)?, test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if macro-name == \until
       test := ASTE not $test
-    
-    if @empty(reducer)
-      reducer := null
     
     if reducer == \every
       ASTE for every ; $test; $step
@@ -1401,7 +1379,7 @@ macro async
     if not @is-call(call)
       throw Error("async call expression must be a call")
     
-    params := if not @empty(params) then [params.head].concat(params.tail) else []
+    params := if params then [params.head].concat(params.tail) else []
     let func = @func(params, body, true, true)
     @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call)
 
@@ -1600,18 +1578,14 @@ define helper __async-iter-result = #(mutable limit, iterator, on-value, on-comp
 
 macro asyncfor
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", init as (Statement|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this as Statement)), rest as DedentedBody
-    let {mutable err, result} = if @empty(results) then {} else results
-    if @empty(err)
-      err := @tmp \err, true
-    if @empty(init)
-      init := @noop()
-    if @empty(test)
-      test := ASTE true
-    if @empty(step)
-      step := @noop(step)
+    let {mutable err, result} = results ? {}
+    err ?= @tmp \err, true
+    init ?= @noop()
+    test ?= ASTE true
+    step ?= @noop(step)
     let done = @tmp \done, true, \function
-    if @empty(result)
-      if @empty(step)
+    if not result
+      if not step
         AST
           $init
           let $next($err)@
@@ -1666,22 +1640,19 @@ macro asyncfor
         $next()
   
   syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), rest as DedentedBody
-    let {mutable err, result} = if @empty(results) then {} else results
-    if @empty(err)
-      err := @tmp \err, true
+    let {mutable err, result} = results ? {}
+    err ?= @tmp \err, true
     let init = []
     
     value := @macro-expand-1(value)
     let mutable length = null
-    if not @empty(index)
+    if index
       length := index.length
       index := index.value
     
-    if @empty(parallelism)
-      parallelism := ASTE 1
+    parallelism ?= ASTE 1
     
-    if @empty(index)
-      index := @tmp \i, true, \number
+    index ?= @tmp \i, true, \number
     if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
@@ -1718,7 +1689,7 @@ macro asyncfor
         ($end ~- $start ~+ $step) ~\ $step
       else
         ($end ~- $start) ~\ $step
-      if @empty(length)
+      if not length
         length := length-calc
       else
         init.push AST let $length = $length-calc
@@ -1729,12 +1700,12 @@ macro asyncfor
         let $value = $array[$index]
         $body
       
-      if @empty(length)
+      if not length
         length := ASTE +$array.length
       else
         init.push AST let $length = +$array.length
     
-    if @empty(result)
+    if not result
       AST
         $init
         __async(+$parallelism, $length, #($index, $next) -> $body, #($err) -> $rest)
@@ -1744,19 +1715,15 @@ macro asyncfor
         __async-result(+$parallelism, $length, #($index, $next) -> $body, #($err, $result) -> $rest)
   
   syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
-    let {err, result} = if @empty(results) then {} else results
+    let {err, result} = results ? {}
     let own = type == "of"
     let init = []
     object := @cache object, init, \obj, true
     
     let mutable index = null
-    if @empty(value)
-      value := null
-    else
+    if value
       index := value.index
       value := @macro-expand-1(value.value)
-      if @empty(index)
-        index := null
     if value
       body := AST
         let $value = $object[$key]
@@ -1778,16 +1745,13 @@ macro asyncfor
       $rest
   
   syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), rest as DedentedBody
-    let {err, result} = if @empty(results) then {} else results
+    let {err, result} = results ? {}
     
-    if @empty(index)
-      index := @tmp \i, true
-    if @empty(err)
-      err := @tmp \err, true
-    if @empty(parallelism)
-      parallelism := ASTE 1
+    index ?= @tmp \i, true
+    err ?= @tmp \err, true
+    parallelism ?= ASTE 1
     
-    if @empty(result)
+    if not result
       ASTE __async-iter(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err) -> $rest)
     else
       ASTE __async-iter-result(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err, $result) -> $rest)
@@ -1796,7 +1760,7 @@ macro asyncwhile, asyncuntil
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
     if macro-name == \asyncuntil
       test := ASTE not $test
-    let {err, result} = if @empty(results) then {} else results
+    let {err, result} = results ? {}
     AST
       asyncfor $err, $result <- $next, ; $test; $step
         $body
@@ -1806,11 +1770,9 @@ macro asyncif, asyncunless
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, rest as DedentedBody
     if macro-name == \asyncunless
       test := ASTE not $test
-    let {err, result} = if @empty(results) then {} else results
+    let {err, result} = results ? {}
     
-    let mutable current = else-body
-    if @empty(else-body)
-      current := ASTE $done()
+    let mutable current = else-body or ASTE $done()
     
     let mutable i = else-ifs.length - 1
     while i >= 0, i -= 1
@@ -1822,19 +1784,18 @@ macro asyncif, asyncunless
     
     current := @if(test, body, current)
     
-    if @empty(err) and @empty(result)
+    if not err and not result
       AST
         let $done()@
           $rest
         $current
-    else if @empty(result)
+    else if not result
       AST
         let $done($err)@
           $rest
         $current
     else
-      if @empty(err)
-        err := @tmp \err, true
+      err ?= @tmp \err, true
       AST
         let $done($err, $result)@
           $rest
@@ -1865,12 +1826,12 @@ macro class
     else
       name := @tmp \class, false, \function
     
-    let has-superclass = not @empty(superclass)
-    let sup = if @empty(superclass) then superclass else @tmp \super, false, \function
+    let has-superclass = not not superclass
+    let sup = superclass and @tmp \super, false, \function
     let init = []
-    let superproto = if @empty(superclass) then ASTE Object.prototype else @tmp \superproto, false, \object
+    let superproto = if not superclass then ASTE Object.prototype else @tmp \superproto, false, \object
     let prototype = @tmp \proto, false, \object
-    if not @empty(superclass)
+    if superclass
       init.push AST let $superproto = $sup.prototype
       init.push AST let $prototype = $name.prototype := { extends $superproto }
       init.push ASTE $prototype.constructor := $name
@@ -1892,7 +1853,7 @@ macro class
         @call(
           if child?
             ASTE $superproto[$child]
-          else if @empty(superclass)
+          else if not superclass
             ASTE Object
           else
             ASTE $sup
@@ -1984,7 +1945,7 @@ macro class
             let value = @right(node)
             ASTE $ctor := $value
     else
-      if @empty(superclass)
+      if not superclass
         init.push AST
           let $name() -> if this instanceof $name then this else { extends $prototype }
       else
@@ -2001,9 +1962,7 @@ macro class
     let change-defs(node)@ -> @walk node, #(node)@
       if @is-def(node)
         let key = @left(node)
-        let mutable value = @right(node)
-        if @empty(value)
-          value := ASTE #-> throw Error "Not implemented: $(@constructor.name).$($key)()"
+        let value = @right(node) ? ASTE #-> throw Error "Not implemented: $(@constructor.name).$($key)()"
         change-defs ASTE $prototype[$key] := $value
     body := change-defs body
     
@@ -2048,7 +2007,7 @@ macro enum
         let mutable value = @right node
         if not @is-const key
           throw Error "Cannot have non-const enum keys"
-        if @empty value
+        if not value
           index += 1
           value := index
         ASTE this[$key] := $value
@@ -2081,9 +2040,9 @@ macro namespace
     else
       name := @tmp \ns, false, \object
     
-    let sup = if @empty(superobject) then superobject else @tmp \super, false, \object
+    let sup = superobject and @tmp \super, false, \object
     let init = []
-    if @empty(superobject)
+    if not superobject
       init.push AST let $name = {}
     else
       init.push AST let $name = { extends $sup }
@@ -2095,7 +2054,7 @@ macro namespace
           child := fix-supers child
         let args = for super-arg in @super-args node
           fix-supers super-arg
-        let parent = if @empty(superobject)
+        let parent = if not superobject
           ASTE Object.prototype
         else
           ASTE $sup

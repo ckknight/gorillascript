@@ -90,8 +90,7 @@ macro with-message!(message, rule)
         false
 
 macro C(string, index)
-  if @empty(index)
-    index := AST 0
+  index ?= AST 0
   AST $string.char-code-at($index)
 
 macro mutate!(rule, mutator)
@@ -514,7 +513,7 @@ macro character!(chars, name)
     current := AST if c ~< 128 then $current else $uncommon-current
   if chunks.length == 1 and chunks[0].start == chunks[0].end
     let code = chunks[0].start
-    if @empty(name)
+    if not name
       let ch = String.from-char-code chunks[0].start
       name := if ch == '"' then "'\"'" else (JSON.stringify ch)
     AST
@@ -526,7 +525,7 @@ macro character!(chars, name)
           o.fail $name
           false
   else
-    if @empty(name)
+    if not name
       name := ["["]
       for chunk in chunks
         let start = String.from-char-code chunk.start
@@ -3927,6 +3926,7 @@ define Root = sequential! [
 class ParserError extends Error
   def constructor(message, text, index, line)@
     @message := "$message at line #$line"
+    super(@message)
     @text := text
     @index := index
     @line := line
@@ -3937,6 +3937,7 @@ class MacroError extends Error
     @inner := inner
     let inner-type = typeof! inner
     @message := "$(if inner-type == \Error then '' else inner-type & ': ')$(String inner?.message) at line #$line"
+    super(@message)
     @text := text
     @index := index
     @line := line
@@ -3985,21 +3986,21 @@ class MacroHelper
       node
   
   def var(ident as (IdentNode|TmpNode), is-mutable as Boolean) -> @state.var @index, ident, is-mutable
-  def def(key as Node, value as (Node|void)) -> @state.def @index, key, do-wrap(value)
+  def def(key as Node = NothingNode(0, 0), value as (Node|void)) -> @state.def @index, key, do-wrap(value)
   def noop() -> @state.nothing @index
   def block(nodes as [Node]) -> @state.block(@index, nodes).reduce(@state)
-  def if(test as Node, when-true as Node, when-false as (Node|null)) -> @state.if(@index, do-wrap(test), when-true, when-false).reduce(@state)
-  def switch(node as Node, cases as Array, default-case as (Node|null)) -> @state.switch(@index, do-wrap(node), (for case_ in cases; {node: do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce(@state)
-  def for(init as (Node|null), test as (Node|null), step as (Node|null), body as Node) -> @state.for(@index, do-wrap(init), do-wrap(test), do-wrap(step), body).reduce(@state)
-  def for-in(key as IdentNode, object as Node, body as Node) -> @state.for-in(@index, key, do-wrap(object), body).reduce(@state)
-  def try-catch(try-body as Node, catch-ident as Node, catch-body as Node) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce(@state)
-  def try-finally(try-body as Node, finally-body as Node) -> @state.try-finally(@index, try-body, finally-body).reduce(@state)
-  def assign(left as Node, op as String, right as Node) -> @state.assign(@index, left, op, do-wrap(right)).reduce(@state)
-  def binary(left as Node, op as String, right as Node) -> @state.binary(@index, do-wrap(left), op, do-wrap(right)).reduce(@state)
-  def unary(op as String, node as Node) -> @state.unary(@index, op, do-wrap(node)).reduce(@state)
-  def throw(node as Node) -> @state.throw(@index, do-wrap(node)).reduce(@state)
+  def if(test as Node = NothingNode(0, 0), when-true as Node = NothingNode(0, 0), when-false as (Node|null)) -> @state.if(@index, do-wrap(test), when-true, when-false).reduce(@state)
+  def switch(node as Node = NothingNode(0, 0), cases as Array, default-case as (Node|null)) -> @state.switch(@index, do-wrap(node), (for case_ in cases; {node: do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce(@state)
+  def for(init as (Node|null), test as (Node|null), step as (Node|null), body as Node = NothingNode(0, 0)) -> @state.for(@index, do-wrap(init), do-wrap(test), do-wrap(step), body).reduce(@state)
+  def for-in(key as IdentNode, object as Node = NothingNode(0, 0), body as Node = NothingNode(0, 0)) -> @state.for-in(@index, key, do-wrap(object), body).reduce(@state)
+  def try-catch(try-body as Node = NothingNode(0, 0), catch-ident as Node = NothingNode(0, 0), catch-body as Node = NothingNode(0, 0)) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce(@state)
+  def try-finally(try-body as Node = NothingNode(0, 0), finally-body as Node = NothingNode(0, 0)) -> @state.try-finally(@index, try-body, finally-body).reduce(@state)
+  def assign(left as Node = NothingNode(0, 0), op as String, right as Node = NothingNode(0, 0)) -> @state.assign(@index, left, op, do-wrap(right)).reduce(@state)
+  def binary(left as Node = NothingNode(0, 0), op as String, right as Node = NothingNode(0, 0)) -> @state.binary(@index, do-wrap(left), op, do-wrap(right)).reduce(@state)
+  def unary(op as String, node as Node = NothingNode(0, 0)) -> @state.unary(@index, op, do-wrap(node)).reduce(@state)
+  def throw(node as Node = NothingNode(0, 0)) -> @state.throw(@index, do-wrap(node)).reduce(@state)
   def return(node as (Node|void)) -> @state.return(@index, do-wrap(node)).reduce(@state)
-  def yield(node as Node) -> @state.yield(@index, do-wrap(node)).reduce(@state)
+  def yield(node as Node = NothingNode(0, 0)) -> @state.yield(@index, do-wrap(node)).reduce(@state)
   def debugger() -> @state.debugger(@index)
   def break() -> @state.break(@index)
   def continue() -> @state.continue(@index)
@@ -4319,12 +4320,14 @@ class MacroHelper
       return? func(node)
     node.walk(#(x) -> walk x, func)
   
-  def wrap(value = [])
+  def wrap(value)
     if Array.is-array(value)
       BlockNode(0, 0, value).reduce(@state)
     else if value instanceof Node
       value
-    else if value instanceof RegExp or value == null or typeof value in [\undefined, \string, \boolean, \number]
+    else if not value?
+      NothingNode(0, 0)
+    else if value instanceof RegExp or typeof value in [\string, \boolean, \number]
       ConstNode(0, 0, value)
     else
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
@@ -4332,7 +4335,11 @@ class MacroHelper
   def node(type, start-index, end-index, ...args)
     Node[type](start-index, end-index, ...args).reduce(@state)
   
-  def walk(node as Node, func as Function) -> walk node, func
+  def walk(node as (Node|void|null), func as Function)
+    if node?
+      walk node, func
+    else
+      node
   
   def has-func(node)
     let FOUND = {}
@@ -4682,7 +4689,7 @@ macro node-type!
     
     let add-methods = []
     let found-walk = false
-    unless @empty(methods)
+    if methods
       for pair in @pairs(methods)
         let {key, value} = pair
         add-methods.push AST def [$key] = $value
@@ -5198,6 +5205,24 @@ class State
         handle-macro-syntax@ this, 0, \unary-operator, handler, void, operators, options, id
   }
   
+  let remove-noops(obj)
+    if Array.isArray(obj)
+      return for item in obj
+        if item instanceof NothingNode
+          void
+        else
+          remove-noops(item)
+    else if obj instanceof Node
+      obj
+    else if obj and typeof obj == \object and obj not instanceof RegExp
+      let result = {}
+      for k, v of obj
+        if v not instanceof NothingNode
+          result[k] := remove-noops(v)
+      result
+    else
+      obj
+  
   def start-macro-syntax(index, params as Array, options)
     if not @current-macro
       this.error "Attempting to specify a macro syntax when not in a macro"
@@ -5207,7 +5232,7 @@ class State
     let macros = @macros
     let mutator = #(x, o, i, line)
       if _in-ast.peek() or not o.expanding-macros
-        o.macro-access i, macro-id, line, x, _position.peek(), _in-generator.peek()
+        o.macro-access i, macro-id, line, remove-noops(x), _position.peek(), _in-generator.peek()
       else
         throw Error "Cannot use macro until fully defined"
     for m in macros.get-or-add-by-names @current-macro
@@ -5221,11 +5246,11 @@ class State
     
     let mutator = #(x, o, i, line)@
       if _in-ast.peek() or not o.expanding-macros
-        o.macro-access i, macro-id, line, x, _position.peek(), _in-generator.peek()
+        o.macro-access i, macro-id, line, remove-noops(x), _position.peek(), _in-generator.peek()
       else
         let macro-helper = MacroHelper o, i, _position.peek(), _in-generator.peek()
         let mutable result = try
-          handler@ macro-helper, x, macro-helper@.wrap, macro-helper@.node, #(id, line, data, position, in-generator)
+          handler@ macro-helper, remove-noops(x), macro-helper@.wrap, macro-helper@.node, #(id, line, data, position, in-generator)
             _position.push position
             _in-generator.push in-generator
             try
@@ -6192,7 +6217,7 @@ node-type! \switch, node as Node, cases as Array, default-case as (Node|void), {
         { node: case-node, body: case-body, case_.fallthrough }
       else
         case_
-    let default-case = func @default-case
+    let default-case = if @default-case then func @default-case else @default-case
     if node != @node or cases != @cases or default-case != @default-case
       SwitchNode @start-index, @end-index, node, cases, default-case
     else
