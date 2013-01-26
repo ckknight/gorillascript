@@ -5982,7 +5982,10 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         Type.any
     #(o) -> @_type ?= do
       let func = @func
-      if func instanceof IdentNode
+      let func-type = func.type(o)
+      if func-type.is-subset-of(Type.function)
+        func-type.return-type
+      else if func instanceof IdentNode
         let {name} = func
         if PRIMORDIAL_FUNCTIONS ownskey name
           return PRIMORDIAL_FUNCTIONS[name]
@@ -5993,15 +5996,15 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
               helper-type-cache[name]
             else
               helper-type-cache[name] := calculate-type helpers.get name
-      else if func instanceof FunctionNode
-        func.return-type(o)
       else if func instanceof AccessNode
         let {parent, child} = func
         if child instanceof ConstNode
-          if parent instanceof IdentNode
+          if child.value in [\call, \apply]
+            let parent-type = parent.type(o)
+            if parent-type.is-subset-of(Type.function)
+              return parent-type.return-type
+          else if parent instanceof IdentNode
             return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
-          else if child.value in ["call", "apply"] and parent instanceof FunctionNode
-            parent.return-type(o)
           // else check the type of parent, maybe figure out its methods
       Type.any
   _reduce: do
@@ -6141,8 +6144,7 @@ node-type! \for-in, key as Node, object as Node, body as Node, {
   is-statement: #-> true
 }
 node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), generator as Boolean, {
-  type: # -> Type.function
-  return-type: #(o) -> @body.type(o)
+  type: #(o) -> @body.type(o).function()
   walk: #(func)
     let params = map @params, func
     let body = func @body

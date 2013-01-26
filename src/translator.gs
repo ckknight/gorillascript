@@ -174,7 +174,7 @@ class GeneratorBuilder
     ]
     @current-state := current-state
     @state-ident := state-ident ? scope.reserve-ident \state, Type.number
-    @pending-finallies-ident := pending-finallies-ident ? scope.reserve-ident \finallies, Type.function.array()
+    @pending-finallies-ident := pending-finallies-ident ? scope.reserve-ident \finallies, Type.undefined.function().array()
     @finallies := finallies
     @catches := catches
     @current-catch := current-catch
@@ -201,7 +201,7 @@ class GeneratorBuilder
       #-> ast.Break())
   
   def pending-finally(t-finally-body as Function)
-    let ident = @scope.reserve-ident \finally, Type.function
+    let ident = @scope.reserve-ident \finally, Type.undefined.function()
     @scope.remove-variable ident
     @finallies.push #-> ast.Func ident, [], [], t-finally-body()
     @states[@current-state].push #@-> ast.Call ast.Access(@pending-finallies-ident, \push), [ident]
@@ -258,7 +258,7 @@ class GeneratorBuilder
     let body = [
       ast.Assign @state-ident, 1
     ]
-    let close = @scope.reserve-ident \close, Type.function
+    let close = @scope.reserve-ident \close, Type.undefined.function()
     @scope.remove-variable(close)
     if @finallies.length == 0
       @scope.remove-variable(@pending-finallies-ident)
@@ -269,7 +269,7 @@ class GeneratorBuilder
       body.push ast.Assign @pending-finallies-ident, ast.Arr()
       body.push ...(for f in @finallies; f())
       let inner-scope = @scope.clone(false)
-      let f = inner-scope.reserve-ident \f, Type.function.union(Type.undefined)
+      let f = inner-scope.reserve-ident \f, Type.undefined.function().union(Type.undefined)
       body.push ast.Func close, [], inner-scope.get-variables(), ast.Block [
         ast.Assign @state-ident, 0
         ast.Assign f, ast.Call ast.Access(@pending-finallies-ident, \pop)
