@@ -13,6 +13,7 @@ module.exports := class Type
   def intersect
   def complement
   def array() -> @_array ?= ArrayType(this)
+  def function() -> @_function ?= FunctionType(this)
   
   let contains(alpha, bravo)
     for item in alpha
@@ -306,10 +307,10 @@ module.exports := class Type
         @subtype.is-subset-of(other.subtype)
       else if other instanceof UnionType
         for some type in other.types
-          @equals(type)
+          @is-subset-of(type)
       else if other instanceof ComplementType
         for every type in other.untypes
-          not @equals(type)
+          not @is-subset-of(type)
       else
         other == any
 
@@ -317,6 +318,76 @@ module.exports := class Type
       if other instanceof ArrayType
         @subtype.overlaps(other.subtype)
       else if other instanceof SimpleType
+        false
+      else
+        other.overlaps this
+
+    def complement() -> ComplementType [this]
+    def inspect(depth) -> "$(inspect @subtype, null, depth).array()"
+  
+  class FunctionType extends Type
+    def constructor(return-type as Type)@
+      @return-type := return-type
+
+    def to-string() -> @_name ?= "-> $(String @return-type)"
+
+    def equals(other)
+      other == this or (other instanceof FunctionType and @return-type.equals(other.return-type))
+
+    def compare(other)
+      if this == other
+        0
+      else if other instanceof FunctionType
+        @return-type.compare(other.return-type)
+      else
+        "FunctionType" <=> other.constructor.name
+
+    def union(other as Type)
+      if other instanceof FunctionType
+        if @equals(other)
+          this
+        else if @return-type.is-subset-of(other.return-type)
+          other
+        else if other.return-type.is-subset-of(@return-type)
+          this
+        else
+          make-union-type [this, other], true
+      else if other instanceofsome [SimpleType, ArrayType]
+        make-union-type [this, other], true
+      else
+        other.union this
+
+    def intersect(other as Type)
+      if other instanceof FunctionType
+        if @equals(other)
+          this
+        else if @return-type.is-subset-of(other.return-type)
+          this
+        else if other.return-type.is-subset-of(@return-type)
+          other
+        else
+          none.function()
+      else if other instanceofsome [SimpleType, ArrayType]
+        none
+      else
+        other.intersect this
+
+    def is-subset-of(other as Type)
+      if other instanceof FunctionType
+        @return-type.is-subset-of(other.return-type)
+      else if other instanceof UnionType
+        for some type in other.types
+          @is-subset-of(type)
+      else if other instanceof ComplementType
+        for every type in other.untypes
+          not @is-subset-of(type)
+      else
+        other == any
+
+    def overlaps(other as Type)
+      if other instanceof FunctionType
+        @return-type.overlaps(other.return-type)
+      else if other instanceofsome [SimpleType, ArrayType]
         false
       else
         other.overlaps this
@@ -349,7 +420,7 @@ module.exports := class Type
         "UnionType" <=> other.constructor.name
     
     def union(other as Type)
-      if other instanceofsome [SimpleType, ArrayType]
+      if other instanceofsome [SimpleType, ArrayType, FunctionType]
         let types = union @types, [other]
         if types == @types
           this
@@ -367,7 +438,7 @@ module.exports := class Type
         other.union this
     
     def intersect(other as Type)
-      if other instanceofsome [SimpleType, ArrayType]
+      if other instanceofsome [SimpleType, ArrayType, FunctionType]
         make-union-type intersect @types, [other]
       else if other instanceof UnionType
         let types = intersect @types, other.types
@@ -389,8 +460,11 @@ module.exports := class Type
         other == any
     
     def overlaps(other as Type)
-      if other instanceofsome [SimpleType, ArrayType]
+      if other instanceof SimpleType
         contains @types, other
+      else if other instanceofsome [ArrayType, FunctionType]
+        for some type in @types
+          other.overlaps type
       else if other instanceof UnionType
         overlaps @types, other.types
       else
@@ -428,7 +502,7 @@ module.exports := class Type
         "ComplementType" <=> other.constructor.name
     
     def union(other as Type)
-      if other instanceofsome [SimpleType, ArrayType]
+      if other instanceofsome [SimpleType, ArrayType, FunctionType]
         let untypes = relative-complement @untypes, [other]
         if untypes == @untypes
           this
@@ -452,7 +526,7 @@ module.exports := class Type
         other.union this
     
     def intersect(other as Type)
-      if other instanceofsome [SimpleType, ArrayType]
+      if other instanceofsome [SimpleType, ArrayType, FunctionType]
         if contains @untypes, other
           none
         else
@@ -481,8 +555,11 @@ module.exports := class Type
         other == any
     
     def overlaps(other as Type)
-      if other instanceofsome [SimpleType, ArrayType]
+      if other instanceof SimpleType
         not contains @untypes, other
+      else if other instanceofsome [ArrayType, FunctionType]
+        for every untype in @untypes
+          not other.overlaps untype
       else if other instanceof UnionType
         relative-complement(other.types, @untypes).length > 0
       else if other instanceof ComplementType
@@ -553,7 +630,7 @@ module.exports := class Type
   @array := any.array()
   @args := @make "Arguments"
   @object := @make "Object"
-  @function := @make "Function"
+  @function := any.function()
   @regexp := @make "RegExp"
   @date := @make "Date"
   @error := @make "Error"
