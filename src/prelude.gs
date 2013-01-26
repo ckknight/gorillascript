@@ -364,6 +364,9 @@ define operator binary *, /, %, \ with precedence: 8, type: \number
   else
     ASTE +$left ~\ +$right
 
+define operator unary % with postfix: true, type: \number
+  ASTE $node / 100
+
 define operator binary +, - with precedence: 7, type: \number
   if op == "+"
     ASTE +$left ~+ +$right

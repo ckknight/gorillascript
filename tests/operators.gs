@@ -1361,3 +1361,11 @@ test "is/isnt operator", #
   ok nan is NaN
   ok NaN is nan
   ok nan is nan
+
+test "percent operator", #
+  ok 100% == 1
+  ok 1.234% == 0.01234
+  ok -100% == -1
+  
+  let x = 100
+  ok x% == 1
