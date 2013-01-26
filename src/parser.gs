@@ -4454,10 +4454,8 @@ class MacroHelper
         ])
     else
       ObjectNode start-index, end-index, for k, v of obj
-        {
-          key: ConstNode start-index, end-index, k
-          value: constify-object v, start-index, end-index
-        }
+        key: ConstNode start-index, end-index, k
+        value: constify-object v, start-index, end-index
   @constify-object := constify-object
   
   let walk(node, func)
@@ -4578,6 +4576,17 @@ let one-of(rules as [Function])
         return result
     false
 
+define AnyObjectLiteral = one-of! [
+  UnclosedObjectLiteral
+  ObjectLiteral
+  IndentedUnclosedObjectLiteral
+]
+
+define AnyArrayLiteral = one-of! [
+  ArrayLiteral
+  IndentedUnclosedArrayLiteral
+]
+
 class MacroHolder
   def constructor()@
     @by-name := {}
@@ -4601,9 +4610,8 @@ class MacroHolder
       Identifier
       SimpleAssignable
       Parameter
-      ObjectLiteral
-      UnclosedObjectLiteral
-      ArrayLiteral
+      ObjectLiteral: AnyObjectLiteral
+      ArrayLiteral: AnyArrayLiteral
       DedentedBody
       ObjectKey
       Type: TypeReference
@@ -4712,18 +4720,17 @@ class MacroHolder
   def add-assign-operator(operators, m, options, macro-id)
     for op in operators
       @operator-names[op] := true
-    @assign-operators.push {
+    @assign-operators.push
       rule: one-of for op in operators
         word-or-symbol op
       func: m
-    }
     @add-macro m, macro-id, if options.type? then Type![options.type]
   
   def add-unary-operator(operators, m, options, macro-id)
     for op in operators
       @operator-names[op] := true
     let data = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
-    data.push {
+    data.push
       rule: one-of for op in operators
         let rule = word-or-symbol op
         if not r"[a-zA-Z]".test(op)
@@ -4741,7 +4748,6 @@ class MacroHolder
           rule
       func: m
       standalone: not options ownskey \standalone or not not options.standalone
-    }
     @add-macro m, macro-id, if options.type? then Type![options.type]
   
   def add-serialized-helper(name as String, helper, dependencies)!
@@ -4939,7 +4945,7 @@ class State
       @macros.add-serialized-helper(name.name, helper, dependencies)
     @nothing i
   
-  let macro-syntax-const-literals = {
+  let macro-syntax-const-literals =
     ",": Comma
     ";": Semicolon
     ":": Colon
@@ -4951,7 +4957,6 @@ class State
     "]": CloseSquareBracket
     "{": OpenCurlyBrace
     "}": CloseCurlyBrace
-  }
   
   let reduce-object(o, obj)
     if is-array! obj
@@ -5089,17 +5094,16 @@ class State
       else
         @error "Unexpected parameter type: $(typeof! param)"
     sequential sequence
-  let macro-syntax-types = {
+  let macro-syntax-types =
     syntax: #(index, params, body, options, state-options)
-      let func-params = @object-param index, [
-        { key: @const(index, \macro-name), value: @param index, (@ident index, \macro-name), void, false, true, void }
-        { key: @const(index, \macro-data), value: @object-param index, (for param in params
-          if param instanceof SyntaxParamNode
-            {
+      let func-params = @object-param index,
+        * key: @const(index, \macro-name)
+          value: @param index, (@ident index, \macro-name), void, false, true, void
+        * key: @const(index, \macro-data)
+          value: @object-param index, for param in params
+            if param instanceof SyntaxParamNode
               key: @const index, param.ident.name
               value: @param index, param.ident, void, false, true, void
-            }) }
-      ]
       
       let raw-func = make-macro-root@ this, index, func-params, body
       let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
@@ -5113,22 +5117,18 @@ class State
         handler: #(args, ...rest) -> handler@(this, reduce-object(state, args), ...rest).reduce(state)
         rule: handle-params@ this, params
         serialization: if serialization?
-          {
-            type: \syntax
-            code: serialization
-            options
-            params: serialize-params params
-            names: @current-macro
-          }
+          type: \syntax
+          code: serialization
+          options: options
+          params: serialize-params params
+          names: @current-macro
       }
     
     define-syntax: #(index, params, body, options, state-options)
       let func-params = for param in params
         if param instanceof SyntaxParamNode
-          {
-            key: @const index, param.ident.name
-            value: @param index, param.ident, void, false, true, void
-          }
+          key: @const index, param.ident.name
+          value: @param index, param.ident, void, false, true, void
       
       let mutable serialization = void
       let state = this
@@ -5149,12 +5149,10 @@ class State
         handler
         rule: handle-params@ this, params
         serialization: if state-options.serialize-macros
-          {
-            type: \define-syntax
-            code: serialization
-            options
-            params: serialize-params params
-          }
+          type: \define-syntax
+          code: serialization
+          options: options
+          params: serialize-params params
       }
     
     call: #(index, params, body, options, state-options)
@@ -5177,12 +5175,10 @@ class State
         handler
         rule: InvocationArguments
         serialization: if serialization?
-          {
-            type: \call
-            code: serialization
-            options
-            names: @current-macro
-          }
+          type: \call
+          code: serialization
+          options: options
+          names: @current-macro
       }
     
     binary-operator: #(index, operators, body, options, state-options)
@@ -5213,12 +5209,10 @@ class State
         handler
         rule: void
         serialization: if serialization?
-          {
-            type: \binary-operator
-            code: serialization
-            operators
-            options
-          }
+          type: \binary-operator
+          code: serialization
+          operators: operators
+          options: options
       }
     
     assign-operator: #(index, operators, body, options, state-options)
@@ -5240,12 +5234,10 @@ class State
         handler
         rule: void
         serialization: if serialization?
-          {
-            type: \assign-operator
-            code: serialization
-            operators
-            options
-          }
+          type: \assign-operator
+          code: serialization
+          operators: operators
+          options: options
       }
     
     unary-operator: #(index, operators, body, options, state-options)
@@ -5266,16 +5258,13 @@ class State
         handler
         rule: void
         serialization: if serialization?
-          {
-            type: \unary-operator
-            code: serialization
-            operators
-            options
-          }
+          type: \unary-operator
+          code: serialization
+          operators: operators
+          options: options
       }
-  }
   
-  let macro-deserializers = {
+  let macro-deserializers =
     syntax: #({code, params, names, options, id})
       let mutable handler = Function(code)()
       if typeof handler != \function
@@ -5352,7 +5341,6 @@ class State
         #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       @enter-macro UNARY_OPERATOR, #@
         handle-macro-syntax@ this, 0, \unary-operator, handler, void, operators, options, id
-  }
   
   let remove-noops(obj)
     if Array.isArray(obj)
@@ -5535,7 +5523,7 @@ class State
   @add-node-factory := #(name, type)!
     State::[name] := #(index) -> type(index, @index, ...arguments[1:])
 
-node-type! \access, parent as Node, child as Node, {
+node-type! \access, parent as Node, child as Node,
   type: #(o) -> @_type ?= do
     let parent-type = @parent.type(o)
     let is-string = parent-type.is-subset-of(Type.string)
@@ -5579,10 +5567,9 @@ node-type! \access, parent as Node, child as Node, {
       AccessNode @start-index, @end-index, parent, child
     else
       this
-}
-node-type! \access-index, parent as Node, child as Object, {
+node-type! \access-index, parent as Node, child as Object,
   walk: do
-    let index-types = {
+    let index-types =
       multi: #(x, f)
         let elements = map x.elements, f
         if elements != x.elements
@@ -5596,7 +5583,6 @@ node-type! \access-index, parent as Node, child as Object, {
           { type: \slice, left, right }
         else
           x
-    }
     #(f)
       unless index-types ownskey @child.type
         throw Error "Unknown index type: $(@child.type)"
@@ -5606,12 +5592,10 @@ node-type! \access-index, parent as Node, child as Object, {
         AccessIndexNode @start-index, @end-index, parent, child
       else
         this
-}
-node-type! \args, {
+node-type! \args,
   type: #-> Type.args
-  -cacheable
-}
-node-type! \array, elements as [Node], {
+  cacheable: false
+node-type! \array, elements as [Node],
   type: #-> Type.array
   _reduce: #(o)
     let elements = map @elements, #(x) -> x.reduce(o).do-wrap()
@@ -5619,11 +5603,10 @@ node-type! \array, elements as [Node], {
       ArrayNode @start-index, @end-index, elements
     else
       this
-}
 State::array-param := State::array
-node-type! \assign, left as Node, op as String, right as Node, {
+node-type! \assign, left as Node, op as String, right as Node,
   type: do
-    let ops = {
+    let ops =
       "=": #(left, right) -> right
       "+=": #(left, right)
         if left.is-subset-of(Type.number) and right.is-subset-of(Type.number)
@@ -5642,7 +5625,6 @@ node-type! \assign, left as Node, op as String, right as Node, {
       "&=": Type.number
       "^=": Type.number
       "|=": Type.number
-    }
     #(o) -> @_type ?= do
       let type = ops![@op]
       if not type
@@ -5658,17 +5640,16 @@ node-type! \assign, left as Node, op as String, right as Node, {
       AssignNode @start-index, @end-index, left, @op, right
     else
       this
-}
-node-type! \binary, left as Node, op as String, right as Node, {
+node-type! \binary, left as Node, op as String, right as Node,
   type: do
-    let ops = {
+    let ops =
       "*": Type.number
       "/": Type.number
       "%": Type.number
       "+": #(left, right)
-        if left.is-subset-of(Type.number) and right.is-subset-of(Type.number)
+        if left.is-subset-of(Type.numeric) and right.is-subset-of(Type.numeric)
           Type.number
-        else if left.overlaps(Type.number) and right.overlaps(Type.number)
+        else if left.overlaps(Type.numeric) and right.overlaps(Type.numeric)
           Type.string-or-number
         else
           Type.string
@@ -5691,7 +5672,6 @@ node-type! \binary, left as Node, op as String, right as Node, {
       "|": Type.number
       "&&": #(left, right) -> left.intersect(Type.potentially-falsy).union(right)
       "||": #(left, right) -> left.intersect(Type.potentially-truthy).union(right)
-    }
     #(o) -> @_type ?= do
       let type = ops![@op]
       if not type
@@ -5701,7 +5681,7 @@ node-type! \binary, left as Node, op as String, right as Node, {
       else
         type
   _reduce: do
-    let const-ops = {
+    let const-ops =
       "*": (~*)
       "/": (~/)
       "%": (~%)
@@ -5730,8 +5710,7 @@ node-type! \binary, left as Node, op as String, right as Node, {
       "|": (~bitor)
       "&&": (and)
       "||": (or)
-    }
-    let left-const-ops = {
+    let left-const-ops =
       "&&": #(x, y) -> if x.const-value() then y else x
       "||": #(x, y) -> if x.const-value() then x else y
       "*": #(x, y)
@@ -5749,8 +5728,7 @@ node-type! \binary, left as Node, op as String, right as Node, {
       "-": #(x, y)
         if x.const-value() == 0
           UnaryNode @start-index, @end-index, "-", y
-    }
-    let right-const-ops = {
+    let right-const-ops =
       "*": #(x, y)
         if y.const-value() == 1
           UnaryNode @start-index, @end-index, "+", x
@@ -5775,7 +5753,6 @@ node-type! \binary, left as Node, op as String, right as Node, {
           UnaryNode @start-index, @end-index, "+", x
         else if typeof y.const-value() == "number" and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
           BinaryNode @start-index, @end-index, x, "+", ConstNode(y.start-index, y.end-index, -y.const-value())
-    }
     #(o)
       let left = @left.reduce(o).do-wrap()
       let right = @right.reduce(o).do-wrap()
@@ -5791,8 +5768,7 @@ node-type! \binary, left as Node, op as String, right as Node, {
         BinaryNode @start-index, @end-index, left, op, right
       else
         this
-}
-node-type! \block, nodes as [Node], {
+node-type! \block, nodes as [Node],
   type: #(o)
     let nodes = @nodes
     if nodes.length == 0
@@ -5829,13 +5805,11 @@ node-type! \block, nodes as [Node], {
       else
         this
   is-statement: # -> for some node in @nodes; node.is-statement()
-}
-node-type! \break, {
+node-type! \break,
   is-statement: # -> true
-}
-node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as Boolean, {
+node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as Boolean,
   type: do
-    let PRIMORDIAL_FUNCTIONS = {
+    let PRIMORDIAL_FUNCTIONS =
       Object: Type.object
       String: Type.string
       Number: Type.number
@@ -5860,9 +5834,8 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
       decodeURIComponent: Type.string
       encodeURI: Type.string
       encodeURIComponent: Type.string
-    }
-    let PRIMORDIAL_SUBFUNCTIONS = {
-      Object: {
+    let PRIMORDIAL_SUBFUNCTIONS =
+      Object:
         getPrototypeOf: Type.object
         getOwnPropertyDescriptor: Type.object
         getOwnPropertyNames: Type.string.array()
@@ -5876,18 +5849,14 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         isFrozen: Type.boolean
         isExtensible: Type.boolean
         keys: Type.string.array()
-      }
-      String: {
+      String:
         fromCharCode: Type.string
-      }
-      Number: {
+      Number:
         isFinite: Type.boolean
         isNaN: Type.boolean
-      }
-      Array: {
+      Array:
         isArray: Type.boolean
-      }
-      Math: {
+      Math:
         abs: Type.number
         acos: Type.number
         asin: Type.number
@@ -5906,18 +5875,14 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         sin: Type.number
         sqrt: Type.number
         tan: Type.number
-      }
-      JSON: {
+      JSON:
         stringify: Type.string.union(Type.undefined)
         parse: Type.string.union(Type.number).union(Type.boolean).union(Type.null).union(Type.array).union(Type.object)
-      }
-      Date: {
+      Date:
         UTC: Type.number
         now: Type.number
-      }
-    }
-    let PRIMORDIAL_METHODS = {
-      String: {
+    let PRIMORDIAL_METHODS =
+      String:
         toString: Type.string
         valueOf: Type.string
         charAt: Type.string
@@ -5937,20 +5902,17 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         toUpperCase: Type.string
         toLocaleUpperCase: Type.string
         trim: Type.string
-      }
-      Boolean: {
+      Boolean:
         toString: Type.string
         valueOf: Type.boolean
-      }
-      Number: {
+      Number:
         toString: Type.string
         valueOf: Type.number
         toLocaleString: Type.string
         toFixed: Type.string
         toExponential: Type.string
         toPrecision: Type.string
-      }
-      Date: {
+      Date:
         toString: Type.string
         toDateString: Type.string
         toTimeString: Type.string
@@ -5994,16 +5956,12 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         toUTCString: Type.string
         toISOString: Type.string
         toJSON: Type.string
-      }
-      RegExp: {
+      RegExp:
         exec: Type.array.union(Type.null)
         test: Type.boolean
         toString: Type.string
-      }
-      Error: {
+      Error:
         toString: Type.string
-      }
-    }
     let helper-type-cache = {}
     let calculate-type(node)  
       let ast = require('./ast')
@@ -6060,7 +6018,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
       +Number
       +RegExp
     }
-    let PURE_PRIMORDIAL_SUBFUNCTIONS = {
+    let PURE_PRIMORDIAL_SUBFUNCTIONS =
       String: {
         +fromCharCode
       }
@@ -6091,7 +6049,6 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         +parse
         +stringify
       }
-    }
     #(o)
       let func = @func.reduce(o).do-wrap()
       let args = map @args, #(node) -> node.reduce(o).do-wrap()
@@ -6137,8 +6094,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         CallNode @start-index, @end-index, func, args, @is-new, @is-apply
       else
         this
-}
-node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
+node-type! \const, value as (Number|String|Boolean|RegExp|void|null),
   type: #
     let value = @value
     switch typeof value
@@ -6153,17 +6109,14 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null), {
         Type.regexp
       else
         throw Error("Unknown type for $(String value)")
-  -cacheable
+  cacheable: false
   is-const: #-> true
   const-value: #-> @value
-}
-node-type! \continue, {
+node-type! \continue,
   is-statement: #-> true
-}
-node-type! \debugger, {
+node-type! \debugger,
   is-statement: #-> true
-}
-node-type! \def, left as Node, right as (Node|void), {
+node-type! \def, left as Node, right as (Node|void),
   walk: #(func)
     let left = func @left
     let right = if @right? then func @right else @right
@@ -6171,15 +6124,12 @@ node-type! \def, left as Node, right as (Node|void), {
       DefNode @start-index, @end-index, left, right
     else
       this
-}
 node-type! \eval, code as Node
-node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node, {
+node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node,
   is-statement: #-> true
-}
-node-type! \for-in, key as Node, object as Node, body as Node, {
+node-type! \for-in, key as Node, object as Node, body as Node,
   is-statement: #-> true
-}
-node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), generator as Boolean, {
+node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), generator as Boolean,
   type: #(o) -> @body.type(o).function()
   walk: #(func)
     let params = map @params, func
@@ -6189,11 +6139,9 @@ node-type! \function, params as [Node], body as Node, auto-return as Boolean = t
       FunctionNode @start-index, @end-index, params, body, @auto-return, @bound, @as-type, @generator
     else
       this
-}
-node-type! \ident, name as String, {
-  -cacheable
-}
-node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0), {
+node-type! \ident, name as String,
+  cacheable: false
+node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0),
   type: #(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
   _reduce: #(o)
     let test = @test.reduce(o)
@@ -6214,8 +6162,7 @@ node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNod
       IfNode @start-index, @end-index, @test, when-true, when-false
     else
       this
-}
-node-type! \macro-access, id as Number, line as Number, data as Object, position as String, in-generator as Boolean, {
+node-type! \macro-access, id as Number, line as Number, data as Object, position as String, in-generator as Boolean,
   type: #(o as State) -> @_type ?= do
     let type = o.macros.get-type-by-id(@id)
     if type?
@@ -6262,14 +6209,12 @@ node-type! \macro-access, id as Number, line as Number, data as Object, position
         MacroAccessNode @start-index, @end-index, @id, @line, data, @position, @in-generator
       else
         this
-}
-node-type! \nothing, {
+node-type! \nothing,
   type: # -> Type.undefined
-  -cacheable
+  cacheable: false
   is-const: # -> true
   const-value: # -> void
-}
-node-type! \object, pairs as Array, prototype as (Node|void), {
+node-type! \object, pairs as Array, prototype as (Node|void),
   type: # -> Type.object
   walk: do
     let walk-pair(pair, func)
@@ -6301,7 +6246,6 @@ node-type! \object, pairs as Array, prototype as (Node|void), {
         ObjectNode @start-index, @end-index, pairs, prototype
       else
         this
-}
 State::object := #(i, pairs, prototype)
   let known-keys = []
   for {key} in pairs
@@ -6312,7 +6256,7 @@ State::object := #(i, pairs, prototype)
       known-keys.push key-value
   ObjectNode(i, @index, pairs, prototype)
 State::object-param := State::object
-node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void), {
+node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void),
   walk: #(func)
     let ident = func @ident
     let default-value = if @default-value? then func @default-value else @default-value
@@ -6321,8 +6265,7 @@ node-type! \param, ident as Node, default-value as (Node|void), spread as Boolea
       ParamNode @start-index, @end-index, ident, default-value, @spread, @is-mutable, as-type
     else
       this
-}
-node-type! \regexp, text as Node, flags as String, {
+node-type! \regexp, text as Node, flags as String,
   type: # -> Type.regexp
   _reduce: #(o)
     let text = @text.reduce(o).do-wrap()
@@ -6333,8 +6276,7 @@ node-type! \regexp, text as Node, flags as String, {
         text
         ConstNode @start-index, @end-index, @flags
       ]
-}
-node-type! \return, node as Node = ConstNode(0, 0, void), {
+node-type! \return, node as Node = ConstNode(0, 0, void),
   type: #(o) -> @node.type(o)
   is-statement: #-> true
   _reduce: #(o)
@@ -6343,18 +6285,15 @@ node-type! \return, node as Node = ConstNode(0, 0, void), {
       ReturnNode @start-index, @end-index, node
     else
       this
-}
-node-type! \root, body as Node, {
+node-type! \root, body as Node,
   is-statement: #-> true
-}
-node-type! \spread, node as Node, {
+node-type! \spread, node as Node,
   _reduce: #(o)
     let node = @node.reduce(o).do-wrap()
     if node != @node
       SpreadNode @start-index, @end-index, node
     else
       this
-}
 State::string := #(index, mutable parts as [Node])
   let concat-op = @macros.get-binary-operator-by-name("&")
   if not concat-op
@@ -6375,7 +6314,7 @@ State::string := #(index, mutable parts as [Node])
         right: part
       }, this, index, @line
 
-node-type! \super, child as (Node|void), args as [Node], {
+node-type! \super, child as (Node|void), args as [Node],
   walk: #(func)
     let child = if @child? then func @child else @child
     let args = map @args, func
@@ -6390,8 +6329,7 @@ node-type! \super, child as (Node|void), args as [Node], {
       SuperNode @start-index, @end-index, child, args
     else
       this
-}
-node-type! \switch, node as Node, cases as Array, default-case as (Node|void), {
+node-type! \switch, node as Node, cases as Array, default-case as (Node|void),
   walk: #(func)
     let node = func @node
     let cases = map @cases, #(case_)
@@ -6407,10 +6345,9 @@ node-type! \switch, node as Node, cases as Array, default-case as (Node|void), {
     else
       this
   is-statement: #-> true
-}
 node-type! \syntax-choice, choices as [Node]
 node-type! \syntax-many, inner as Node, multiplier as String
-node-type! \syntax-param, ident as Node, as-type as (Node|void), {
+node-type! \syntax-param, ident as Node, as-type as (Node|void),
   walk: #(func)
     let ident = func @ident
     let as-type = if @as-type? then func @as-type else @as-type
@@ -6418,12 +6355,10 @@ node-type! \syntax-param, ident as Node, as-type as (Node|void), {
       SyntaxParamNode @start-index, @end-index, ident, as-type
     else
       this
-}
 node-type! \syntax-sequence, params as [Node]
-node-type! \this, {
-  -cacheable
-}
-node-type! \throw, node as Node, {
+node-type! \this,
+  cacheable: false
+node-type! \throw, node as Node,
   type: # -> Type.none
   is-statement: #-> true
   _reduce: #(o)
@@ -6432,16 +6367,13 @@ node-type! \throw, node as Node, {
       ThrowNode @start-index, @end-index, node
     else
       this
-}
-node-type! \tmp, id as Number, name as String, _type as Type = Type.any, {
-  -cacheable
+node-type! \tmp, id as Number, name as String, _type as Type = Type.any,
+  cacheable: false
   type: # -> @_type
-}
-node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node, {
+node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node,
   type: #(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
   is-statement: #-> true
-}
-node-type! \try-finally, try-body as Node, finally-body as Node, {
+node-type! \try-finally, try-body as Node, finally-body as Node,
   type: #(o) -> @try-body.type(o)
   _reduce: #(o)
     let try-body = @try-body.reduce(o)
@@ -6455,13 +6387,12 @@ node-type! \try-finally, try-body as Node, finally-body as Node, {
     else
       this
   is-statement: #-> true
-}
 node-type! \type-array, subtype as Node
 node-type! \type-function, return-type as Node
 node-type! \type-union, types as [Node]
-node-type! \unary, op as String, node as Node, {
+node-type! \unary, op as String, node as Node,
   type: do
-    let ops = {
+    let ops =
       "-": Type.number
       "+": Type.number
       "--": Type.number
@@ -6470,17 +6401,15 @@ node-type! \unary, op as String, node as Node, {
       "~": Type.number
       typeof: Type.string
       delete: Type.boolean
-    }
     # -> ops![@op] or Type.any
   _reduce: do
-    let const-ops = {
+    let const-ops =
       "-": #(x) -> ~-x
       "+": #(x) -> ~+x
-      "!": #(x) -> not x
-      "~": #(x) -> ~bitnot x
-      typeof: #(x) -> typeof x
-    }
-    let nonconst-ops = {
+      "!": (not)
+      "~": (~bitnot)
+      typeof: (typeof)
+    let nonconst-ops =
       "+": #(node, o)
         if node.type(o).is-subset-of Type.number
           node
@@ -6494,7 +6423,7 @@ node-type! \unary, op as String, node as Node, {
           else if node.op in ["*", "/"]
             BinaryNode @start-index, @end-index, Unary("-", node.left), node.op, node.right
       "!": do
-        let invertible-binary-ops = {
+        let invertible-binary-ops =
           "<": ">="
           "<=": ">"
           ">": "<="
@@ -6505,7 +6434,6 @@ node-type! \unary, op as String, node as Node, {
           "!==": "==="
           "&&": #(x, y) -> BinaryNode @start-index, @end-index, UnaryNode(x.start-index, x.end-index, "!", x), "||", UnaryNode(y.start-index, y.end-index, "!", y)
           "||": #(x, y) -> BinaryNode @start-index, @end-index, UnaryNode(x.start-index, x.end-index, "!", x), "&&", UnaryNode(y.start-index, y.end-index, "!", y)
-        }
         #(node, o)
           if node instanceof UnaryNode
             if node.op == "!" and node.node.type(o).is-subset-of(Type.boolean)
@@ -6517,7 +6445,6 @@ node-type! \unary, op as String, node as Node, {
                 invert@ this, node.left, node.right
               else
                 BinaryNode @start-index, @end-index, node.left, invert, node.right
-    }
     
     #(o)
       let node = @node.reduce(o).do-wrap()
@@ -6533,8 +6460,7 @@ node-type! \unary, op as String, node as Node, {
         UnaryNode @start-index, @end-index, op, node
       else
         this
-}
-node-type! \tmp-wrapper, node as Node, tmps as Array, {
+node-type! \tmp-wrapper, node as Node, tmps as Array,
   type: #(o) -> @node.type(o)
   _reduce: #(o)
     let node = @node.reduce(o)
@@ -6545,9 +6471,8 @@ node-type! \tmp-wrapper, node as Node, tmps as Array, {
     else
       this
   is-statement: #-> @node.is-statement()
-}
 node-type! \var, ident as (IdentNode|TmpNode), is-mutable as Boolean
-node-type! \yield, node as Node, {
+node-type! \yield, node as Node,
   is-statement: #-> true
   _reduce: #(o)
     let node = @node.reduce(o).do-wrap()
@@ -6555,7 +6480,6 @@ node-type! \yield, node as Node, {
       YieldNode @start-index, @end-index, node
     else
       this
-}
 
 let without-repeats(array)
   let result = []

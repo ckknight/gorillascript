@@ -67,48 +67,48 @@ let escape-unicode(text)
 
 let is-negative(value) -> value < 0 or 1 / value < 0
 
-let to-JS-source-types = {
-  undefined: #-> "void 0"
-  number: #(value)
-    if value == 0
-      if is-negative value
-        "-0"
+let to-JS-source = do
+  let to-JS-source-types =
+    undefined: #-> "void 0"
+    number: #(value)
+      if value == 0
+        if is-negative value
+          "-0"
+        else
+          "0"
+      else if is-finite value
+        JSON.stringify value
+      else if value is NaN
+        "0/0"
+      else if value > 0
+        "1/0"
       else
-        "0"
-    else if is-finite value
-      JSON.stringify value
-    else if value is NaN
-      "0/0"
-    else if value > 0
-      "1/0"
-    else
-      "-1/0"
-  string: #(value)
-    let json-string = escape-unicode JSON.stringify(value)
-    if value.index-of('"') == -1 or value.index-of("'") != -1
-      json-string
-    else
-      "'" & json-string.substring(1, json-string.length - 1).replace(r'\\"'g, '"') & "'"
-  boolean: #(value) -> if value then "true" else "false"
-  object: #(value)
-    if value instanceof RegExp
-      let source = value.source.replace(r"(\\\\)*\\?/"g, "\$1\\/") or "(?:)"
-      let flags = []
-      if value.global
-        flags.push "g"
-      if value.ignore-case
-        flags.push "i"
-      if value.multiline
-        flags.push "m"
-      "/$(source)/$(flags.join '')"
-    else
-      JSON.stringify value
-}
-let to-JS-source(value)
-  let f = to-JS-source-types![typeof value]
-  unless f
-    throw TypeError "Cannot compile const $(typeof! value)"
-  f value
+        "-1/0"
+    string: #(value)
+      let json-string = escape-unicode JSON.stringify(value)
+      if value.index-of('"') == -1 or value.index-of("'") != -1
+        json-string
+      else
+        "'" & json-string.substring(1, json-string.length - 1).replace(r'\\"'g, '"') & "'"
+    boolean: #(value) -> if value then "true" else "false"
+    object: #(value)
+      if value instanceof RegExp
+        let source = value.source.replace(r"(\\\\)*\\?/"g, "\$1\\/") or "(?:)"
+        let flags = []
+        if value.global
+          flags.push "g"
+        if value.ignore-case
+          flags.push "i"
+        if value.multiline
+          flags.push "m"
+        "/$(source)/$(flags.join '')"
+      else
+        JSON.stringify value
+  #(value)
+    let f = to-JS-source-types![typeof value]
+    unless f
+      throw TypeError "Cannot compile const $(typeof! value)"
+    f value
 
 let is-acceptable-ident = exports.is-acceptable-ident := do
   let IDENTIFIER_REGEX = r'^[a-zA-Z_\$][a-zA-Z_\$0-9]*$'
@@ -462,7 +462,7 @@ exports.Binary := class Binary extends Expression
     +"|="
   }
   
-  let OPERATOR_PRECEDENCE = {
+  let OPERATOR_PRECEDENCE =
     ".": Level.call-or-access
     "*": Level.multiplication
     "/": Level.multiplication
@@ -499,9 +499,8 @@ exports.Binary := class Binary extends Expression
     "&=": Level.assignment
     "^=": Level.assignment
     "|=": Level.assignment
-  }
   
-  let LEVEL_TO_ASSOCIATIVITY = {
+  let LEVEL_TO_ASSOCIATIVITY =
     [Level.equality]: "paren"
     [Level.relational]: "paren"
     [Level.addition]: "left"
@@ -511,7 +510,6 @@ exports.Binary := class Binary extends Expression
     [Level.bitwise-xor]: "none"
     [Level.bitwise-shift]: "left"
     [Level.assignment]: "right"
-  }
   
   def is-large()
     @_is-large ?= not @left.is-small() or not @right.is-small()
@@ -1452,11 +1450,9 @@ exports.Obj := class Obj extends Expression
     "Obj($(inspect @elements, null, d))"
   
   def to-JSON()
-    {
-      type: "Obj"
-      pairs: simplify(for pair in @pairs
-        { pair.key, value: simplify(pair.value) })
-    }
+    type: "Obj"
+    pairs: simplify(for pair in @pairs
+      { pair.key, value: simplify(pair.value) })
   @from-JSON := #({pairs})
     let result-pairs = []
     for pair in (pairs or [])
@@ -1651,13 +1647,11 @@ exports.Switch := class Switch extends Statement
     "Switch($(inspect @node, null, d), $(inspect @cases, null, d), $(inspect @default-case, null, d))"
   
   def to-JSON()
-    {
-      type: "Switch"
-      node: simplify(node)
-      cases: simplify(for case_ in @cases
-        { node: simplify(case_.node), body: simplify(case_.body) })
-      default-case: simplify(@default-case)
-    }
+    type: "Switch"
+    node: simplify(node)
+    cases: simplify(for case_ in @cases
+      { node: simplify(case_.node), body: simplify(case_.body) })
+    default-case: simplify(@default-case)
   @from-JSON := #({node, cases, default-case})
     let result-cases = []
     for case_ in (cases or [])

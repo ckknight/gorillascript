@@ -634,6 +634,7 @@ module.exports := class Type
   @regexp := @make "RegExp"
   @date := @make "Date"
   @error := @make "Error"
+  @numeric := @number.union(@undefined).union(@null).union(@boolean)
   @string-or-number := @string.union(@number)
   @array-like := @array.union(@args)
   @undefined-or-null := @undefined.union(@null)

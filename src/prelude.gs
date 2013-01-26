@@ -78,19 +78,15 @@ define operator binary ~& with precedence: 4, type: \string
 
 define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier
   if @is-ident(ident) or @is-tmp(ident)
-    {
-      type: \ident
-      is-mutable: is-mutable == "mutable"
-      ident
-    }
+    type: \ident
+    is-mutable: is-mutable == "mutable"
+    ident: ident
   else
     ident
 
 define syntax DeclarableArray = "[", head as Declarable, tail as (",", this as Declarable)*, "]"
-  {
-    type: \array
-    elements: [head].concat(tail)
-  }
+  type: \array
+  elements: [head].concat(tail)
 
 define syntax DeclarableObjectSingularPair = value as DeclarableIdent
   value := @macro-expand-1(value)
@@ -101,10 +97,8 @@ define syntax DeclarableObjectSingularPair = value as DeclarableIdent
 define syntax DeclarableObjectDualPair = this as (key as ObjectKey, ":", value as Declarable)
 define syntax DeclarableObjectPair = this as (DeclarableObjectDualPair | DeclarableObjectSingularPair)
 define syntax DeclarableObject = "{", head as DeclarableObjectPair, tail as (",", this as DeclarableObjectPair)*, "}"
-  {
-    type: \object
-    pairs: [head].concat(tail)
-  }
+  type: \object
+  pairs: [head].concat(tail)
 
 define syntax Declarable = this as (DeclarableArray | DeclarableObject | DeclarableIdent)
 
@@ -1368,16 +1362,14 @@ macro switch
         is-fallthrough := true
       
       for case-node in case-nodes[:-1]
-        result-cases.push {
+        result-cases.push
           node: case-node
           body: @noop()
-          +fallthrough
-        }
-      result-cases.push {
+          fallthrough: true
+      result-cases.push
         node: case-nodes[case-nodes.length - 1]
-        body
+        body: body
         fallthrough: is-fallthrough
-      }
     
     @switch(node, result-cases, default-case)
 

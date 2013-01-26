@@ -11,7 +11,7 @@ cli.set-app "gorilla", "1.0"
 
 cli.set-usage "gorilla [OPTIONS] path/to/script.gs"
 
-cli.parse {
+cli.parse
   ast:          ["a", "Display JavaScript AST nodes instead of compilation"]
   compile:      ["c", "Compile to JavaScript and save as .js files"]
   output:       ["o", "Set the directory for compiled JavaScript", "path"]
@@ -21,7 +21,6 @@ cli.parse {
   stdin:        ["s", "Listen for and compile GorillaScript from stdin"]
   eval:         ["e", "Compile and run a string from command line", "string"]
   "no-prelude": [false, "Do not include the standard prelude"]
-}
 
 cli.main #(filenames, options)
   let opts = {}

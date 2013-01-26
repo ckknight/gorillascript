@@ -330,7 +330,7 @@ let flatten-spread-array(elements)
     elements
 
 let generator-translate = do
-  let generator-translators = {
+  let generator-translators =
     Block: #(node, scope, mutable builder, break-state, continue-state)
       for subnode in node.nodes
         builder := generator-translate subnode, scope, builder, break-state, continue-state
@@ -441,7 +441,6 @@ let generator-translate = do
     
     Yield: #(node, scope, builder)
       builder.yield translate node.node, scope, \expression
-  }
   #(node, scope, builder, break-state, continue-state)
     if generator-translators ownskey node.constructor.capped-name
       let ret = generator-translators[node.constructor.capped-name](node, scope, builder, break-state, continue-state)
@@ -457,10 +456,9 @@ let array-translate(elements, scope, replace-with-slice)
   translated-items.push(current)
   for element in flatten-spread-array elements
     if element instanceof ParserNode.Spread
-      translated-items.push {
+      translated-items.push
         t-node: translate element.node, scope, \expression
         type: element.node.type()
-      }
       current := []
       translated-items.push current
     else
@@ -505,7 +503,7 @@ let array-translate(elements, scope, replace-with-slice)
           ast.Access head, \concat
           rest)
 
-let translators = {
+let translators =
   Access: #(node, scope, location, auto-return)
     let t-parent = translate node.parent, scope, \expression
     let t-child = translate node.child, scope, \expression
@@ -1388,7 +1386,6 @@ let translators = {
       let ident = t-ident()
       scope.add-variable ident, Type.any, node.is-mutable
       ast.Noop()
-}
 
 let translate(node as Object, scope as Scope, location as String, auto-return)
   if typeof auto-return != \function
