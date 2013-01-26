@@ -441,6 +441,20 @@ test "multi-level unclosed array and object syntax", #
   eq \november, x[2].juliet[0].mike
   eq \papa, x[2].juliet[1].oscar
 
+test "multi-level closed array and unclosed object syntax", #
+  let x = [
+    alpha:
+      bravo: \charlie
+      delta: \echo
+    foxtrot:
+      * \golf
+      * \hotel
+  ]
+  
+  eq \charlie, x[0].alpha.bravo
+  eq \echo, x[0].alpha.delta
+  array-eq [\golf, \hotel], x[0].foxtrot
+
 test "unclosed object syntax in if statement", #
   let f(x)
     if x
@@ -456,3 +470,31 @@ test "unclosed object syntax in if statement", #
   let b = f(false)
   eq \foxtrot, b.echo
   eq \hotel, b.golf
+
+test "unclosed object syntax inside closed object", #
+  let x = {
+    alpha: \bravo
+    charlie:
+      delta: \echo
+      foxtrot: \golf
+    hotel: \india
+  }
+  
+  eq \bravo, x.alpha
+  eq \echo, x.charlie.delta
+  eq \golf, x.charlie.foxtrot
+  eq \india, x.hotel
+
+test "unclosed array syntax inside closed object", #
+  let x = {
+    alpha: \bravo
+    charlie:
+      * \delta
+      * \echo
+    foxtrot: \golf
+  }
+
+  eq \bravo, x.alpha
+  eq \delta, x.charlie[0]
+  eq \echo, x.charlie[1]
+  eq \golf, x.foxtrot

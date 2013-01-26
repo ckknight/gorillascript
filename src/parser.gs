@@ -2756,7 +2756,7 @@ define KeyValuePair = one-of! [
 ]
 
 define ExtendsToken = word \extends
-define ObjectLiteral = prevent-unclosed-object-literal sequential! [
+define ObjectLiteral = sequential! [
   OpenCurlyBrace
   Space
   [\prototype, maybe! (sequential! [
