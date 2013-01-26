@@ -1419,7 +1419,7 @@ exports.Obj := class Obj extends Expression
       sb ")"
   
   def compile-as-statement(options, line-start, sb)!
-    BlockStatement(for element in @elements; element.value).compile(options, line-start, sb)
+    BlockStatement(for element in @elements; element.value).compile-as-statement(options, line-start, sb)
   
   def should-compile-large()
     switch @elements.length
