@@ -440,3 +440,19 @@ test "multi-level unclosed array and object syntax", #
   eq \lima, x[2].juliet[0].kilo
   eq \november, x[2].juliet[0].mike
   eq \papa, x[2].juliet[1].oscar
+
+test "unclosed object syntax in if statement", #
+  let f(x)
+    if x
+      alpha: \bravo
+      charlie: \delta
+    else
+      echo: \foxtrot
+      golf: \hotel
+  
+  let a = f(true)
+  eq \bravo, a.alpha
+  eq \delta, a.charlie
+  let b = f(false)
+  eq \foxtrot, b.echo
+  eq \hotel, b.golf

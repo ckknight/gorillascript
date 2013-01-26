@@ -3049,8 +3049,6 @@ define _FunctionBody = one-of! [
     symbol "->"
     [\this, maybe! Statement, #(x, o, i) -> o.nothing i]
   ]
-  IndentedUnclosedObjectLiteral
-  IndentedUnclosedArrayLiteral
   Body
 ]
 
@@ -4040,24 +4038,34 @@ define Line = sequential! [
   [\this, Statement]
 ]
 
-define Block = sequential! [
-  [\head, Line]
-  [\tail, zero-or-more! sequential! [
-    Newline
-    EmptyLines
-    [\this, Line]
-  ]]
-], #(x, o, i)
-  let nodes = []
-  for item in [x.head, ...x.tail]
-    if item instanceof BlockNode
-      nodes.push ...item.nodes
-    else if item not instanceof NothingNode
-      nodes.push item
-  switch nodes.length
-  case 0; o.nothing i
-  case 1; nodes[0]
-  default; o.block i, nodes
+define Block = one-of! [
+  sequential! [
+    CheckIndent
+    [\this, IndentedUnclosedObjectLiteralInner]
+  ]
+  sequential! [
+    CheckIndent
+    [\this, IndentedUnclosedArrayLiteralInner]
+  ]
+  sequential! [
+    [\head, Line]
+    [\tail, zero-or-more! sequential! [
+      Newline
+      EmptyLines
+      [\this, Line]
+    ]]
+  ], #(x, o, i)
+    let nodes = []
+    for item in [x.head, ...x.tail]
+      if item instanceof BlockNode
+        nodes.push ...item.nodes
+      else if item not instanceof NothingNode
+        nodes.push item
+    switch nodes.length
+    case 0; o.nothing i
+    case 1; nodes[0]
+    default; o.block i, nodes
+]
 
 define Shebang = sequential! [
   character! "#"
@@ -4600,7 +4608,7 @@ class MacroHolder
     @postfix-unary-operators := []
     @serialization := {}
     @syntaxes := {
-      Logic
+      Logic: prevent-unclosed-object-literal Logic
       Expression
       Assignment
       ExpressionOrAssignment
@@ -4615,6 +4623,7 @@ class MacroHolder
       ArrayLiteral
       DedentedBody
       ObjectKey
+      Type: TypeReference
     }
   
   def clone()
@@ -5714,11 +5723,14 @@ node-type! \binary, left as Node, op as String, right as Node, {
       "*": (~*)
       "/": (~/)
       "%": (~%)
-      "+": #(left, right)
-        if typeof left == \number and typeof right == \number
-          left ~+ right
-        else
-          left ~& right
+      "+": do
+        let is-JS-numeric(x)
+          x == null or typeof x in [\number, \boolean, \undefined]
+        #(left, right)
+          if is-JS-numeric(left) and is-JS-numeric(right)
+            left ~+ right
+          else
+            left ~& right
       "-": (~-)
       "<<": (~bitlshift)
       ">>": (~bitrshift)
