@@ -2837,32 +2837,69 @@ define SimpleType = one-of! [
   NullLiteral
 ]
 
-define SimpleOrArrayType = one-of! [
-  SimpleType
-  ArrayType
-]
-
-define UnionType = sequential! [
-  OpenParenthesis
-  [\head, SimpleOrArrayType]
-  [\tail, zero-or-more! sequential! [
-    Pipe
-    [\this, SimpleOrArrayType]
-  ]]
-  CloseParenthesis
-], #(x, o, i) -> o.type-union i, [x.head, ...x.tail]
-
 define ArrayType = sequential! [
   OpenSquareBracket
   [\this, TypeReference]
   CloseSquareBracket
 ], #(x, o, i) -> o.type-array i, x
 
-define TypeReference = one-of! [
-  IdentifierOrSimpleAccess
-  UnionType
+let _in-function-type-params = Stack false
+let in-function-type-params = make-alter-stack _in-function-type-params, true
+define FunctionType = sequential! [
+  #(o) -> not _in-function-type-params.peek()
+  one-of! [
+    sequential! [
+      OpenParenthesis
+      TypeReference
+      zero-or-more! sequential! [
+        CommaOrNewline
+        TypeReference
+      ]
+      CloseParenthesis
+    ]
+    in-function-type-params #(o) -> TypeReference o
+    Nothing
+  ]
+  symbol "->"
+  [\this, maybe! TypeReference, NOTHING]
+], #(x, o, i)
+  if x == NOTHING
+    o.ident i, \Function
+  else
+    o.type-function i, x
+
+define NonUnionType = one-of! [
+  FunctionType
+  sequential! [
+    OpenParenthesis
+    [\this, TypeReference]
+    CloseParenthesis
+  ]
   ArrayType
+  IdentifierOrSimpleAccess
+  VoidLiteral
+  NullLiteral
 ]
+
+define TypeReference = sequential! [
+  [\head, NonUnionType]
+  [\tail, zero-or-more! sequential! [
+    Pipe
+    [\this, NonUnionType]
+  ]]
+], #(x, o, i)
+  let types = [x.head, ...x.tail]
+  if types.length == 1
+    types[0]
+  else
+    for j in types.length - 1 to 0
+      let type = types[j]
+      if type instanceof TypeUnionNode
+        types[j:j + 1] := type.types
+    if types.length == 1
+      types[0]
+    else
+      o.type-union i, types
 
 define AsToken = word \as
 define AsType = short-circuit! AsToken, sequential! [
@@ -4297,6 +4334,11 @@ class MacroHelper
     node := @macro-expand-1 node
     @is-type-array(node) and node.subtype
   
+  def is-type-function(node) -> @macro-expand-1(node) instanceof TypeFunctionNode
+  def return-type(mutable node)
+    node := @macro-expand-1 node
+    @is-type-function(node) and node.return-type
+  
   def is-this(node) -> @macro-expand-1(node) instanceof ThisNode
   def is-arguments(mutable node)
     node := @macro-expand-1 node
@@ -4451,7 +4493,7 @@ class MacroHelper
   def node(type, start-index, end-index, ...args)
     Node[type](start-index, end-index, ...args).reduce(@state)
   
-  def walk(node as (Node|void|null), func as Function)
+  def walk(node as (Node|void|null), func as Node -> Node)
     if node?
       walk node, func
     else
@@ -6421,6 +6463,7 @@ node-type! \try-finally, try-body as Node, finally-body as Node, {
   is-statement: #-> true
 }
 node-type! \type-array, subtype as Node
+node-type! \type-function, return-type as Node
 node-type! \type-union, types as [Node]
 node-type! \unary, op as String, node as Node, {
   type: do

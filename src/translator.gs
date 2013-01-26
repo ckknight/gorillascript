@@ -1,6 +1,7 @@
 require! './ast'
+let AstNode = ast.Node
 require! Type: './types'
-require! './parser'
+let {Node: ParserNode} = require('./parser')
 
 let needs-caching(item)
   return item not instanceofsome [ast.Ident, ast.Const, ast.This, ast.Arguments]
@@ -21,7 +22,7 @@ class Scope
     @has-stop-iteration := false
     @id := get-id()
 
-  def maybe-cache(item as ast.Expression, type as Type = Type.any, func as Function)
+  def maybe-cache(item as ast.Expression, type as Type = Type.any, func as (AstNode, AstNode, Boolean) -> AstNode)
     unless needs-caching item
       func item, item, false
     else
@@ -188,7 +189,7 @@ class GeneratorBuilder
     else
       t-node
   
-  def yield(t-node as Function)
+  def yield(t-node)
     let branch = @branch()
     @states[@current-state].push(
       #@-> ast.Assign @state-ident, branch.state
@@ -200,7 +201,7 @@ class GeneratorBuilder
       #@ -> ast.Assign @state-ident, t-state()
       #-> ast.Break())
   
-  def pending-finally(t-finally-body as Function)
+  def pending-finally(t-finally-body)
     let ident = @scope.reserve-ident \finally, Type.undefined.function()
     @scope.remove-variable ident
     @finallies.push #-> ast.Func ident, [], [], t-finally-body()
@@ -227,7 +228,7 @@ class GeneratorBuilder
     ]
     fresh
   
-  def exit-try-catch(t-ident as Function, t-post-state as Function)
+  def exit-try-catch(t-ident, t-post-state)
     if @current-catch.length == 0
       throw Error "Unable to exit-try-catch without first using enter-try-catch"
     @goto t-post-state
@@ -317,7 +318,7 @@ let flatten-spread-array(elements)
   let result = []
   let mutable changed = false
   for element in elements
-    if element instanceof parser.Node.Spread and element.node instanceof parser.Node.Array
+    if element instanceof ParserNode.Spread and element.node instanceof ParserNode.Array
       result.push ...element.node.elements
       changed := true
     else
@@ -407,7 +408,7 @@ let generator-translate = do
       let when-true-branch = builder.branch()
       let g-when-true = generator-translate node.when-true, scope, when-true-branch.builder, break-state, continue-state
       let mutable when-false = node.when-false
-      if when-false instanceof parser.Node.Nothing
+      if when-false instanceof ParserNode.Nothing
         when-false := null
       let when-false-branch = if when-false? then builder.branch()
       let g-when-false = if when-false? then generator-translate node.when-false, scope, when-false-branch.builder, break-state, continue-state
@@ -455,7 +456,7 @@ let array-translate(elements, scope, replace-with-slice)
   let mutable current = []
   translated-items.push(current)
   for element in flatten-spread-array elements
-    if element instanceof parser.Node.Spread
+    if element instanceof ParserNode.Spread
       translated-items.push {
         t-node: translate element.node, scope, \expression
         type: element.node.type()
@@ -548,8 +549,8 @@ let translators = {
       slice: #(t-parent, parent-type, child, t-value, value-type, scope)
         let left = child.left
         let right = child.right
-        let t-left = if left and left not instanceof parser.Node.Nothing then translate(left, scope, \expression) else #-> ast.Const(0)
-        let t-right = if right and right not instanceof parser.Node.Nothing then translate(right, scope, \expression) else #-> ast.Const(Infinity)
+        let t-left = if left and left not instanceof ParserNode.Nothing then translate(left, scope, \expression) else #-> ast.Const(0)
+        let t-right = if right and right not instanceof ParserNode.Nothing then translate(right, scope, \expression) else #-> ast.Const(Infinity)
         #
           scope.add-helper \__splice
           ast.Call(
@@ -576,7 +577,7 @@ let translators = {
     #(node, scope, location, auto-return)
       let op = node.op
       // TODO: this is ugly
-      if op in "=" and node.left instanceof parser.Node.AccessIndex
+      if op in "=" and node.left instanceof ParserNode.AccessIndex
         let type = node.left.child.type
         unless indexes ownskey type
           throw Error "Unexpected index type for assignment: $(JSON.stringify type)"
@@ -626,7 +627,7 @@ let translators = {
     let is-apply = node.is-apply
     let is-new = node.is-new
     let args = node.args
-    if is-apply and (args.length == 0 or args[0] not instanceof parser.Node.Spread)
+    if is-apply and (args.length == 0 or args[0] not instanceof ParserNode.Spread)
       let t-start = if args.length == 0 then #-> ast.Const(void) else translate(args[0], scope, \expression)
       let t-arg-array = array-translate(args[1:], scope, false)
       #
@@ -833,7 +834,7 @@ let translators = {
         let tests = []
         let types = []
         for type in node.types
-          if type instanceof parser.Node.Const
+          if type instanceof ParserNode.Const
             if type.value == null
               has-null := true
               names.push \null
@@ -844,7 +845,7 @@ let translators = {
               types.push Type.undefined
             else
               throw Error "Unknown const value for typechecking: $(String type.value)"
-          else if type instanceof parser.Node.Ident
+          else if type instanceof ParserNode.Ident
             if type.name == \Boolean
               has-boolean := true
             names.push type.name
@@ -886,6 +887,8 @@ let translators = {
           type: for reduce type in types, current = Type.none
             current.union(type)
         }
+      TypeFunction: #(ident, node, scope, has-default-value, array-index)
+        translate-type-checks.Ident(ident, { name: \Function }, scope, has-default-value, array-index)
       TypeArray: #(ident, node, scope, has-default-value, array-index)
         if array-index
           throw Error "Not implemented: arrays within arrays as types"
@@ -930,7 +933,7 @@ let translators = {
     let translate-param-types = {
       Param: #(param, scope, inner)
         let mutable ident = translate(param.ident, scope, \param)()
-        if param.ident instanceof parser.Node.Tmp
+        if param.ident instanceof ParserNode.Tmp
           scope.mark-as-param ident
 
         let later-init = []
@@ -1075,6 +1078,8 @@ let translators = {
             throw Error "Unexpected const type: $(String node.value)"
         TypeArray: #(node, scope)
           translate-type(node.subtype, scope).array()
+        TypeFunction: #(node, scope)
+          translate-type(node.return-type, scope).function()
         TypeUnion: #(node, scope)
           let mutable current = Type.none
           for type in node.types
@@ -1415,15 +1420,15 @@ module.exports.define-helper := #(name, value, mutable dependencies)
   let scope = Scope({}, false)
   let ident = if typeof name == \string
     ast.Ident(name)
-  else if name instanceof parser.Node.Ident
+  else if name instanceof ParserNode.Ident
     translate(name, scope, \left-expression)()
   else
     throw TypeError "Expecting name to be a String or Ident, got $(typeof! name)"
   unless ident instanceof ast.Ident
     throw Error "Expected name to be an Ident, got $(typeof! ident)"
-  let helper = if value instanceof ast.Node
+  let helper = if value instanceof AstNode
     value
-  else if value instanceof parser.Node
+  else if value instanceof ParserNode
     translate(value, scope, \expression)()
   else
     throw TypeError "Expected value to be a parser or ast Node, got $(typeof! value)"

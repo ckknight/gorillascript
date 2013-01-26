@@ -677,6 +677,21 @@ test "typed parameters, Number", #
   throws #-> fun(new Number(NaN)), TypeError
   throws #-> fun(new Number(Infinity)), TypeError
 
+test "typed parameters, Function", #
+  let fun(f as Function) -> f()
+  
+  eq 0, fun(#-> 0)
+  eq "hello", fun(#-> "hello")
+  throws #-> fun(), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
 test "typed parameters, Array", #
   let fun(value as Array) -> value
   
@@ -732,7 +747,7 @@ test "typed parameters, arbitrary ident", #
   throws #-> fun([]), TypeError
 
 test "typed parameters, Number or String", #
-  let fun(value as (Number|String)) -> value
+  let fun(value as Number|String) -> value
   
   eq 0, fun(0)
   eq 1, fun(1)
@@ -753,7 +768,7 @@ test "typed parameters, Number or String", #
   throws #-> fun(new String("")), TypeError
 
 test "typed parameters, Number or Boolean", #
-  let fun(value as (Number|Boolean)) -> value
+  let fun(value as Number|Boolean) -> value
   
   eq 0, fun(0)
   eq 1, fun(1)
@@ -773,7 +788,7 @@ test "typed parameters, Number or Boolean", #
   throws #-> fun(new Boolean(false)), TypeError
 
 test "typed parameters, Number or null", #
-  let fun(value as (Number|null)) -> value
+  let fun(value as Number|null) -> value
   
   eq 0, fun(0)
   eq 1, fun(1)
@@ -792,7 +807,7 @@ test "typed parameters, Number or null", #
   throws #-> fun(new Number(0)), TypeError
 
 test "typed parameters, Number or void", #
-  let fun(value as (Number|void)) -> value
+  let fun(value as Number|void) -> value
   
   eq 0, fun(0)
   eq 1, fun(1)
@@ -811,7 +826,7 @@ test "typed parameters, Number or void", #
   throws #-> fun(new Number(0)), TypeError
 
 test "typed parameters, Boolean or null", #
-  let fun(value as (Boolean|null)) -> value
+  let fun(value as Boolean|null) -> value
   
   eq null, fun()
   eq true, fun(true)
@@ -825,7 +840,7 @@ test "typed parameters, Boolean or null", #
   throws #-> fun(new Boolean(false)), TypeError
 
 test "typed parameters, Boolean or void", #
-  let fun(value as (Boolean|void)) -> value
+  let fun(value as Boolean|void) -> value
   
   eq void, fun()
   eq true, fun(true)
@@ -839,7 +854,7 @@ test "typed parameters, Boolean or void", #
   throws #-> fun(new Boolean(false)), TypeError
 
 test "typed parameters, Boolean or null or void", #
-  let fun(value as (Boolean|null|void)) -> value
+  let fun(value as Boolean|null|void) -> value
   
   eq void, fun()
   eq true, fun(true)
@@ -855,7 +870,7 @@ test "typed parameters, Boolean or null or void", #
 test "typed parameters, special type or null", #
   let Thing()! ->
   
-  let fun(value as (Thing|null)) -> value
+  let fun(value as Thing|null) -> value
   
   let x = new Thing()
   eq x, fun(x)
@@ -872,7 +887,7 @@ test "typed parameters, special type or null", #
 test "typed parameters, special type or String", #
   let Thing()! ->
   
-  let fun(value as (Thing|String)) -> value
+  let fun(value as Thing|String) -> value
   
   let x = new Thing()
   eq x, fun(x)
@@ -890,7 +905,7 @@ test "typed parameters, special type or String", #
 test "typed parameters, special type or String or null", #
   let Thing()! ->
   
-  let fun(value as (Thing|String|null)) -> value
+  let fun(value as Thing|String|null) -> value
   
   let x = new Thing()
   eq x, fun(x)
@@ -927,9 +942,95 @@ test "typed array parameter", #
   throws #-> fun([{}]), TypeError
   throws #-> fun([new String("hello")]), TypeError
 
+test "typed function parameter", #
+  let fun(f as -> String) -> f()
+  
+  eq "hello", fun #-> "hello"
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed function parameter with argument", #
+  let fun(f as Number -> String) -> f(0)
+  
+  eq "hello0", fun #(x) -> "hello$x"
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed function parameter with arguments", #
+  let fun(f as (Number, Number) -> String) -> f(0, 1)
+  
+  eq "hello 0 1", fun #(x, y) -> "hello $x $y"
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed function which returns a typed function", #
+  let fun(f as Number -> Number -> String) -> f(0)(1)
+  
+  eq "hello 0 1", fun #(x) -> #(y) -> "hello $x $y"
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed function which returns any", #
+  let fun(f as ->) -> f()
+  
+  eq "hello", fun #-> "hello"
+  eq 10, fun #-> 10
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed function which returns any but has a parameter", #
+  let fun(f as Number ->) -> f(10)
+  
+  eq "hello 10", fun #(x) -> "hello $x"
+  eq 100, fun #(x) -> x * 10
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
 /*
 test "typed array parameter or null", #
-  let fun(value as ([String]|null)) -> value
+  let fun(value as [String]|null) -> value
   
   throws #-> fun(0), TypeError
   eq null, fun()
