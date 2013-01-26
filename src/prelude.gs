@@ -850,7 +850,7 @@ macro for
         $body
       $current
   
-  syntax reducer as (\every | \some | \first)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     value := @macro-expand-1(value)
     
     let has-func = @has-func(body)  
@@ -1006,7 +1006,7 @@ macro for
           else
             $else-body
   
-  syntax "reduce", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+  syntax "reduce", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     value := @macro-expand-1(value)
     body := @mutate-last body, #(node) -> (ASTE $current := $node)
     let length = index?.length
@@ -1017,7 +1017,7 @@ macro for
         $body
       $current
   
-  syntax reducer as (\every | \some | \first)?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     let mutable index = null
     if value
       index := value.index
@@ -1116,7 +1116,7 @@ macro for
         $loop
         $post
   
-  syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+  syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     body := @mutate-last body, #(node) -> (ASTE $current := $node)
     let index = value?.index
     value := value?.value
@@ -1131,7 +1131,7 @@ macro for
       $loop
       $current
   
-  syntax reducer as (\every | \some | \first)?, value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if else-body and @position == \expression
       throw Error("Cannot use a for loop with an else as an expression")
     
@@ -1199,7 +1199,7 @@ macro for
           $body
         $post
   
-  syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+  syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     body := @mutate-last body, #(node) -> (ASTE $current := $node)
     AST
       let mutable $current = $current-start

@@ -1028,6 +1028,16 @@ test "typed function which returns any but has a parameter", #
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
 
+test "function with return type", #
+  let fun() as String -> "hello"
+  
+  eq "hello", fun()
+
+test "function with return type as a function", #
+  let fun() as (Number -> String) -> #(i) -> String i
+  
+  eq "10", fun()(10)
+
 /*
 test "typed array parameter or null", #
   let fun(value as [String]|null) -> value

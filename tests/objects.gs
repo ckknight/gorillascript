@@ -455,22 +455,6 @@ test "multi-level closed array and unclosed object syntax", #
   eq \echo, x[0].alpha.delta
   array-eq [\golf, \hotel], x[0].foxtrot
 
-test "unclosed object syntax in if statement", #
-  let f(x)
-    if x
-      alpha: \bravo
-      charlie: \delta
-    else
-      echo: \foxtrot
-      golf: \hotel
-  
-  let a = f(true)
-  eq \bravo, a.alpha
-  eq \delta, a.charlie
-  let b = f(false)
-  eq \foxtrot, b.echo
-  eq \hotel, b.golf
-
 test "unclosed object syntax inside closed object", #
   let x = {
     alpha: \bravo
@@ -498,3 +482,33 @@ test "unclosed array syntax inside closed object", #
   eq \delta, x.charlie[0]
   eq \echo, x.charlie[1]
   eq \golf, x.foxtrot
+
+test "unclosed object syntax in if statement", #
+  let f(x)
+    if x
+      alpha: \bravo
+      charlie: \delta
+    else
+      echo: \foxtrot
+      golf: \hotel
+
+  let a = f(true)
+  eq \bravo, a.alpha
+  eq \delta, a.charlie
+  let b = f(false)
+  eq \foxtrot, b.echo
+  eq \hotel, b.golf
+
+test "unclosed object syntax in for statement", #
+  let arr = [\alpha, \bravo, \charlie]
+  let result = for x, i in arr
+    index: i
+    value: x
+  
+  eq 3, result.length
+  eq 0, result[0].index
+  eq \alpha, result[0].value
+  eq 1, result[1].index
+  eq \bravo, result[1].value
+  eq 2, result[2].index
+  eq \charlie, result[2].value

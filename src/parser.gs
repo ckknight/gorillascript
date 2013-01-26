@@ -475,23 +475,20 @@ macro character!(chars, name)
     else if code == current-end + 1
       if code == 128
         // separate the codes < 127 (common) vs >= 128 (uncommon)
-        chunks.push {
+        chunks.push
           start: current-start
           end: current-end
-        }
         current-start := code
       current-end := code
     else
-      chunks.push {
+      chunks.push
         start: current-start
         end: current-end
-      }
       current-start := code
       current-end := code
-  chunks.push {
+  chunks.push
     start: current-start
     end: current-end
-  }
   
   let mutable current = AST false
   let mutable uncommon-current = AST false
@@ -766,10 +763,9 @@ define EmptyLine = SpaceNewline
 define EmptyLines = zero-or-more! EmptyLine, true
 define SomeEmptyLines = one-or-more! EmptyLine, true
 
-let INDENTS = {
+let INDENTS =
   [C "\t"]: 4
   [C " "]: 1
-}
 define CountIndent = zero-or-more! SpaceChar, #(x)
   let mutable count = 1
   for c in x
@@ -1982,7 +1978,7 @@ define UnicodeEscapeSequence = short-circuit! LowerU, sequential! [
 ], #(x) -> parse-int(process-char-codes(x).join(""), 16) or -1
 
 define SingleEscapeCharacter = do
-  let ESCAPED_CHARACTERS = {
+  let ESCAPED_CHARACTERS =
     [C "b"]: C "\b"
     [C "f"]: C "\f"
     [C "r"]: C "\r"
@@ -1997,7 +1993,6 @@ define SingleEscapeCharacter = do
     [C "5"]: 5
     [C "6"]: 6
     [C "7"]: 7
-  }
   
   mutate! AnyChar, #(c)
     if ESCAPED_CHARACTERS ownskey c
@@ -2724,18 +2719,14 @@ define SingularObjectKey = one-of! [
     [\this, ThisLiteral]
     NotColon
   ], #(node, o, i)
-    {
-      key: o.const i, \this
-      value: node
-    }
+    key: o.const i, \this
+    value: node
   sequential! [
     [\this, ArgumentsLiteral]
     NotColon
   ], #(node, o, i)
-    {
-      key: o.const i, \arguments
-      value: node
-    }
+    key: o.const i, \arguments
+    value: node
   sequential! [
     [\this, BracketedObjectKey]
     NotColon
@@ -2845,6 +2836,7 @@ define ArrayType = sequential! [
 
 let _in-function-type-params = Stack false
 let in-function-type-params = make-alter-stack _in-function-type-params, true
+let not-in-function-type-params = make-alter-stack _in-function-type-params, false
 define FunctionType = sequential! [
   #(o) -> not _in-function-type-params.peek()
   one-of! [
@@ -2872,7 +2864,7 @@ define NonUnionType = one-of! [
   FunctionType
   sequential! [
     OpenParenthesis
-    [\this, TypeReference]
+    [\this, not-in-function-type-params #(o) -> TypeReference o]
     CloseParenthesis
   ]
   ArrayType
@@ -3057,7 +3049,7 @@ define FunctionBody = make-alter-stack(_in-generator, false)(_FunctionBody)
 define GeneratorFunctionBody = make-alter-stack(_in-generator, true)(_FunctionBody)
 define FunctionDeclaration = sequential! [
   [\params, maybe! ParameterSequence, #-> []]
-  [\as-type, MaybeAsType]
+  [\as-type, in-function-type-params MaybeAsType]
   [\auto-return, maybe! character!("!"), NOTHING]
   [\bound, maybe! AtSign, NOTHING]
   [\generator-body, #(o)
@@ -3328,11 +3320,10 @@ define IndexSlice = inIndexSlice sequential! [
   [\left, ExpressionOrNothing]
   Colon
   [\right, ExpressionOrNothing]
-], #(x) -> {
+], #(x)
   type: \slice
   left: if x instanceof NothingNode then null else x.left
   right: if x instanceof NothingNode then null else x.right
-}
 
 define IndexMultiple = sequential! [
   [\head, Expression]
@@ -3342,15 +3333,11 @@ define IndexMultiple = sequential! [
   ]]
 ], #(x)
   if x.tail.length > 0
-    {
-      type: \multi
-      elements: [x.head, ...x.tail]
-    }
+    type: \multi
+    elements: [x.head, ...x.tail]
   else
-    {
-      type: \single
-      node: x.head
-    }
+    type: \single
+    node: x.head
 
 define Index = one-of! [IndexSlice, IndexMultiple]
 
@@ -3683,9 +3670,9 @@ define BasicInvocationOrAccess = sequential! [
     }
   ]]
 ], do
-  let link-types = {
+  let link-types =
     access: do
-      let index-types = {
+      let index-types =
         slice: #(o, i, child) -> #(parent)
           let args = [parent]
           if child.left or child.right
@@ -3707,7 +3694,6 @@ define BasicInvocationOrAccess = sequential! [
             o.tmp-wrapper(i, result, tmp-ids)
           else
             result
-      }
       #(o, i, mutable head, link, j, links)
         let bind-access = if link.bind
           #(parent, child) -> o.call i, o.ident(i, \__bind), [parent, child]
@@ -3810,7 +3796,6 @@ define BasicInvocationOrAccess = sequential! [
             o.tmp-wrapper(i, result, tmp-ids)
           else
             result
-  }
   link-types.access-index := link-types.access
   
   let convert-call-chain(o, i, head, j, links)
@@ -4200,10 +4185,9 @@ class MacroHelper
       
     @state.tmp @index, id, name, type
   
-  def get-tmps() -> {
+  def get-tmps()
     unsaved: @unsaved-tmps[:]
     saved: @saved-tmps[:]
-  }
   
   def is-const(node) -> node == void or (node instanceof Node and node.is-const())
   def value(node)
@@ -4538,7 +4522,7 @@ class MacroHelper
       throw Error "$name is not a known type name"
     node.type(@state).overlaps(type) // TODO: should this be macro-expand-all?
   
-  let mutators = {
+  let mutators =
     Block: #(x, func)
       let {nodes} = x
       let len = nodes.length
@@ -4568,7 +4552,6 @@ class MacroHelper
     Return: identity
     Debugger: identity
     Throw: identity
-  }
   def mutate-last(mutable node, func)
     if not node or typeof node != \object or node instanceof RegExp
       return node
@@ -4710,7 +4693,7 @@ class MacroHolder
       @operator-names[op] := true
     let precedence = Number(options.precedence) or 0
     let binary-operators = @binary-operators[precedence] ?= []
-    let data = {
+    let data =
       rule: one-of for op in operators
         word-or-symbol op
       func: m
@@ -4718,7 +4701,6 @@ class MacroHolder
       maximum: options.maximum or 0
       minimum: options.minimum or 0
       invertible: not not options.invertible
-    }
     binary-operators.push data
     for op in operators
       @binary-operators-by-name[op] := data
