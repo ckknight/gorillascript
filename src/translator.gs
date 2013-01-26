@@ -222,10 +222,9 @@ class GeneratorBuilder
   
   def enter-try-catch()
     let fresh = @noop()
-    fresh.current-catch := [
-      ...fresh.current-catch
-      [fresh.current-state]
-    ]
+    fresh.current-catch :=
+      * ...fresh.current-catch
+      * * fresh.current-state
     fresh
   
   def exit-try-catch(t-ident, t-post-state)
@@ -256,62 +255,56 @@ class GeneratorBuilder
     if @current-catch.length
       throw Error "Cannot create a generator if there are stray catches"
     @states[@current-state].push #@-> ast.Assign @state-ident, 0
-    let body = [
-      ast.Assign @state-ident, 1
-    ]
+    let body =
+      * ast.Assign @state-ident, 1
     let close = @scope.reserve-ident \close, Type.undefined.function()
     @scope.remove-variable(close)
     if @finallies.length == 0
       @scope.remove-variable(@pending-finallies-ident)
-      body.push ast.Func close, [], [], ast.Block [
-        ast.Assign @state-ident, 0
-      ]
+      body.push ast.Func close, [], [], ast.Block
+        * ast.Assign @state-ident, 0
     else
       body.push ast.Assign @pending-finallies-ident, ast.Arr()
       body.push ...(for f in @finallies; f())
       let inner-scope = @scope.clone(false)
       let f = inner-scope.reserve-ident \f, Type.undefined.function().union(Type.undefined)
-      body.push ast.Func close, [], inner-scope.get-variables(), ast.Block [
-        ast.Assign @state-ident, 0
-        ast.Assign f, ast.Call ast.Access(@pending-finallies-ident, \pop)
-        ast.If(
-          f
-          ast.TryFinally(
-            ast.Call f
-            ast.Call close))
-      ]
+      body.push ast.Func close, [], inner-scope.get-variables(), ast.Block
+        * ast.Assign @state-ident, 0
+        * ast.Assign f, ast.Call ast.Access(@pending-finallies-ident, \pop)
+        * ast.If(
+            f
+            ast.TryFinally(
+              ast.Call f
+              ast.Call close))
     let scope = @scope
     let err = scope.reserve-ident \e, Type.any
     let catches = @catches
     let state-ident = @state-ident
-    body.push ast.Return ast.Obj [
-      ast.Obj.Pair \close, close
-      ast.Obj.Pair \next, ast.Func null, [], [], ast.While(true,
-        ast.TryCatch(
-          ast.Switch state-ident, (for state, i in @states
-            ast.Switch.Case i, ast.Block [
-              ...(for item in state; item())
-              ast.Break()
-            ]), ast.Throw ast.Call ast.Ident(\Error), [ast.Binary("Unknown state: ", "+", state-ident)]
-          err
-          do
-            let mutable current = ast.Block [
-              ast.Call close
-              ast.Throw err
-            ]
-            for i in catches.length - 1 to 0 by -1
-              let catch-info = catches[i]
-              let err-ident = catch-info.t-ident()
-              scope.add-variable err-ident
-              current := ast.If(
-                ast.Or ...(for state in catch-info.try-states; ast.Binary(state-ident, "===", state))
-                ast.Block [
-                  ast.Assign err-ident, err
-                  ast.Assign state-ident, catch-info.catch-state
-                ]
-                current)
-            current))
-    ]
+    body.push ast.Return ast.Obj
+      * ast.Obj.Pair \close, close
+      * ast.Obj.Pair \next, ast.Func null, [], [], ast.While(true,
+          ast.TryCatch(
+            ast.Switch state-ident, (for state, i in @states
+              ast.Switch.Case i, ast.Block [
+                ...for item in state; item()
+                ast.Break()
+              ]), ast.Throw ast.Call ast.Ident(\Error), [ast.Binary("Unknown state: ", "+", state-ident)]
+            err
+            do
+              let mutable current = ast.Block
+                * ast.Call close
+                * ast.Throw err
+              for i in catches.length - 1 to 0 by -1
+                let catch-info = catches[i]
+                let err-ident = catch-info.t-ident()
+                scope.add-variable err-ident
+                current := ast.If(
+                  ast.Or ...(for state in catch-info.try-states; ast.Binary(state-ident, "===", state))
+                  ast.Block
+                    * ast.Assign err-ident, err
+                    * ast.Assign state-ident, catch-info.catch-state
+                  current)
+              current))
     ast.Block body
 
 let flatten-spread-array(elements)
@@ -383,12 +376,11 @@ let generator-translate = do
       let index = scope.reserve-ident \i, Type.number
       let length = scope.reserve-ident \len, Type.number
       builder.add #
-        ast.Block [
-          ast.Assign keys, ast.Arr()
-          ast.ForIn get-key(), t-object(), ast.Call ast.Access(keys, \push), [get-key()]
-          ast.Assign index, 0
-          ast.Assign length, ast.Access(keys, \length)
-        ]
+        ast.Block
+          * ast.Assign keys, ast.Arr()
+          * ast.ForIn get-key(), t-object(), ast.Call ast.Access(keys, \push), [get-key()]
+          * ast.Assign index, 0
+          * ast.Assign length, ast.Access(keys, \length)
       let step-branch = builder.branch()
       step-branch.builder.add #-> ast.Unary "++", index
       let test-branch = builder.branch()
@@ -600,10 +592,9 @@ let translators =
             scope.remove-variable left
             let func = ast.Func(left, right.params, right.variables, right.body, right.declarations)
             if auto-return != identity
-              ast.Block [
-                func
-                auto-return left
-              ]
+              ast.Block
+                * func
+                * auto-return left
             else
               func
           else
@@ -909,10 +900,9 @@ let translators =
                   ast.Ident(\__typeof)
                   [ident]))]))
           ast.For(
-            ast.Block [
-              ast.Assign index, ast.Const 0
-              ast.Assign length, ast.Access ident, \length
-            ]
+            ast.Block
+              * ast.Assign index, ast.Const 0
+              * ast.Assign length, ast.Access ident, \length
             ast.Binary index, "<", length
             ast.Unary "++", index
             sub-check.check))
@@ -1009,9 +999,9 @@ let translators =
                   ast.Call(
                     ast.Ident \__slice
                     [array-ident, ast.Const(i), spread-counter])
-                  ast.BlockExpression [
-                    ast.Assign spread-counter, ast.Const(i)
-                    ast.Arr()]))
+                  ast.BlockExpression
+                    * ast.Assign spread-counter, ast.Const(i)
+                    * ast.Arr()))
           init.push ...param.init
         if spread-counter?
           scope.release-ident spread-counter
@@ -1138,9 +1128,9 @@ let translators =
                 ast.Call(
                   ast.Ident \__slice
                   [ast.Arguments(), ast.Const(i), spread-counter])
-                ast.BlockExpression [
-                  ast.Assign spread-counter, ast.Const(i)
-                  ast.Arr()]))
+                ast.BlockExpression
+                  * ast.Assign spread-counter, ast.Const(i)
+                  * ast.Arr()))
         initializers.push ...param.init
 
       if spread-counter
@@ -1158,10 +1148,9 @@ let translators =
         if inner-scope.has-bound and not inner-scope.bound
           let fake-this = ast.Ident \_this
           inner-scope.add-variable fake-this // TODO: the type for this?
-          body := ast.Block [
-            ast.Assign fake-this, ast.This()
-            body
-          ]
+          body := ast.Block
+            * ast.Assign fake-this, ast.This()
+            * body
       if inner-scope.has-stop-iteration
         scope.has-stop-iteration := true
       let as-type = if node.as-type? then translate-type(node.as-type, scope)
@@ -1222,14 +1211,13 @@ let translators =
         auto-return obj
       else
         let ident = scope.reserve-ident \o, Type.object
-        let result = ast.BlockExpression [
-          ast.Assign ident, obj
-          ...for pair in post-const-pairs
-            ast.Assign(
-              ast.Access(ident, pair.key)
-              pair.value)
-          ident
-        ]
+        let result = ast.BlockExpression
+          * ast.Assign ident, obj
+          * ...for pair in post-const-pairs
+              ast.Assign(
+                ast.Access(ident, pair.key)
+                pair.value)
+          * ident
         scope.release-ident ident
         auto-return result
   
@@ -1290,10 +1278,9 @@ let translators =
           let walker = #(node)
             if node instanceof ast.Func
               if node.name?
-                ast.Block [
-                  node
-                  ast.Assign ast.Access(ast.Ident("GLOBAL"), node.name.name), node.name
-                ]
+                ast.Block
+                  * node
+                  * ast.Assign ast.Access(ast.Ident("GLOBAL"), node.name.name), node.name
               else
                 node
             else if node instanceof ast.Binary and node.op == "=" and node.left instanceof ast.Ident

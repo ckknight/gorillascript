@@ -51,10 +51,9 @@ macro break
 
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
-    @block [
-      @var ident, false
-      @assign ident, "=", func
-    ]
+    @block
+      * @var ident, false
+      * @assign ident, "=", func
 
 macro if, unless
   // this uses eval instead of normal operators since those aren't defined yet
@@ -107,10 +106,9 @@ macro let
     let inc(x) -> eval("x + 1")
     declarable := @macro-expand-1(declarable)
     if declarable.type == \ident
-      @block [
-        @var declarable.ident, declarable.is-mutable
-        @assign declarable.ident, "=", value
-      ]
+      @block
+        * @var declarable.ident, declarable.is-mutable
+        * @assign declarable.ident, "=", value
     else if declarable.type == \array
       if declarable.elements.length == 1
         let handle(element)
@@ -1890,16 +1888,15 @@ macro class
             let constructor = if @func-is-bound(value)
               @func(
                 @func-params value
-                @block [
-                  AST let $self = if this instanceof $name then this else { extends $prototype }
-                  @walk @func-body(value), #(node)@
-                    if @is-func(node)
-                      unless @func-is-bound(node)
-                        node
-                    else if @is-this(node)
-                      self
-                  AST return $self
-                ]
+                @block
+                  * AST let $self = if this instanceof $name then this else { extends $prototype }
+                  * @walk @func-body(value), #(node)@
+                      if @is-func(node)
+                        unless @func-is-bound(node)
+                          node
+                      else if @is-this(node)
+                        self
+                  * AST return $self
                 false
                 false)
             else
@@ -1909,11 +1906,10 @@ macro class
                 ASTE "Must be called with new"
               @func(
                 @func-params value
-                @block [
-                  AST if this not instanceof $name
-                    throw TypeError $error-message
-                  @func-body value
-                ]
+                @block
+                  * AST if this not instanceof $name
+                      throw TypeError $error-message
+                  * @func-body value
                 false
                 false)
             init.unshift AST let $name = $constructor
