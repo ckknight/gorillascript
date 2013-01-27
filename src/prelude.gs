@@ -187,7 +187,10 @@ define operator assign or=
         $left
 
 define operator unary ? with postfix: true, type: \boolean
-  ASTE $node !~= null
+  if (@is-ident(node) or @is-tmp(node)) and not @has-variable(node)
+    ASTE typeof $node != \undefined and $node != null
+  else
+    ASTE $node !~= null
 
 // let's define the unstrict operators first
 define operator binary ~*, ~/, ~%, ~\ with precedence: 8, type: \number

@@ -273,3 +273,7 @@ test "existential or assign", #
   eq "value", exist-member-assign {key:void}, run-once("key"), run-once "value"
   eq "alpha", exist-member-assign {key:"alpha"}, run-once("key"), fail
 
+test "existential check on global", #
+  ok Math?
+  ok Number?
+  ok not NonexistentGlobal?

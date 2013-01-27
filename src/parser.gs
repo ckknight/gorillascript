@@ -2447,17 +2447,18 @@ define ExistentialSymbolNoSpace = sequential! [
 
 define CustomOperatorCloseParenthesis = do
   let handle-unary-operator(operator, o, i, line)
-    let clone = o.clone()
+    let clone = o.clone(o.clone-scope())
     let op = operator.rule clone
     if op and CloseParenthesis(clone)
       o.update clone
-      let node = o.ident i, \x
+      let node = clone.ident i, \x
+      clone.scope.add node, false
       o.function(i
-        [o.param i, node]
+        [clone.param i, node]
         operator.func {
           op
           node
-        }, o, i, line
+        }, clone, i, line
         true
         false)
   #(o)
@@ -2466,7 +2467,7 @@ define CustomOperatorCloseParenthesis = do
     for operators in o.macros.binary-operators
       if operators
         for operator in operators
-          let clone = o.clone()
+          let clone = o.clone(o.clone-scope())
           let mutable inverted = false
           if operator.invertible
             inverted := MaybeNotToken clone
@@ -2474,22 +2475,25 @@ define CustomOperatorCloseParenthesis = do
               continue
           let op = operator.rule clone
           if op and CloseParenthesis(clone)
-            o.update clone
             let left = o.ident i, \x
             let right = o.ident i, \y
-            return o.function(i
+            clone.scope.add left, false
+            clone.scope.add right, false
+            let result = o.function(i
               [
-                o.param i, left
-                o.param i, right
+                clone.param i, left
+                clone.param i, right
               ]
               operator.func {
                 left
                 inverted: inverted == "not"
                 op
                 right
-              }, o, i, line
+              }, clone, i, line
               true
               false)
+            o.update clone
+            return result
     for operator in o.macros.prefix-unary-operators
       return? handle-unary-operator operator, o, i, line
     for operator in o.macros.postfix-unary-operators
@@ -2529,15 +2533,17 @@ define Parenthetical = sequential! [
       [\operator, CustomBinaryOperator]
       CloseParenthesis
     ], #({left, operator: {op, operator, inverted}}, o, i, line)
+      let clone = o.clone(o.clone-scope())
       let right = o.tmp i, get-tmp-id(), \x
+      clone.scope.add right, false
       return o.function(i
-        [o.param i, right]
+        [clone.param i, right]
         operator.func {
-          left
+          left: left.rescope(clone.scope.id, clone)
           inverted
           op
           right
-        }, o, i, line
+        }, clone, i, line
         true
         false)
     sequential! [
@@ -2549,15 +2555,17 @@ define Parenthetical = sequential! [
       [\right, Expression]
       CloseParenthesis
     ], #({right, operator: {op, operator, inverted}}, o, i, line)
+      let clone = o.clone(o.clone-scope())
       let left = o.tmp i, get-tmp-id(), \x
+      clone.scope.add left, false
       return o.function(i
-        [o.param i, left]
+        [clone.param i, left]
         operator.func {
           left
           inverted
           op
-          right
-        }, o, i, line
+          right: right.rescope(clone.scope.id, clone)
+        }, clone, i, line
         true
         false)
     CustomOperatorCloseParenthesis
@@ -3036,42 +3044,66 @@ define ParameterSequence = sequential! [
       check(names, param, o, i)
     x
 
-define _FunctionBody = do
-  let inner = one-of! [
-    sequential! [
-      symbol "->"
-      [\this, maybe! Statement, #(x, o, i) -> o.nothing i]
-    ]
-    Body
+define _FunctionBody = one-of! [
+  sequential! [
+    symbol "->"
+    [\this, maybe! Statement, #(x, o, i) -> o.nothing i]
   ]
-  #(o)
-    let clone = o.clone(o.clone-scope())
-    let result = inner(clone)
-    if result
-      o.update(clone)
-    result
+  Body
+]
+
+let add-param-to-scope(o, param)!
+  if param instanceof ParamNode
+    if param.ident instanceofsome [IdentNode, TmpNode]
+      o.scope.add param.ident, param.is-mutable, param.as-type or (if param.spread then o.ident(param.start-index, \Array))
+    else if param.ident instanceof AccessNode
+      if param.ident.child not instanceof ConstNode or typeof param.ident.child.value != \string
+        throw Error "Expected constant access: $(typeof! param.ident.child)"
+      o.scope.add o.ident(param.start-index, param.ident.child.value), param.is-mutable, param.as-type or (if param.spread then o.ident(param.start-index, \Array))
+    else
+      throw Error "Unknown param ident: $(typeof! param.ident)"
+  else if param instanceof ArrayNode
+    for element in param.elements
+      add-param-to-scope o, element
+  else if param instanceof ObjectNode
+    for pair in param.pairs
+      add-param-to-scope o, pair.value
+  else
+    throw Error "Unknown param node type: $(typeof! param)"
 
 let _in-generator = Stack false
 define FunctionBody = make-alter-stack(_in-generator, false)(_FunctionBody)
 define GeneratorFunctionBody = make-alter-stack(_in-generator, true)(_FunctionBody)
-define FunctionDeclaration = sequential! [
-  [\params, maybe! ParameterSequence, #-> []]
-  [\as-type, in-function-type-params MaybeAsType]
-  [\auto-return, maybe! character!("!"), NOTHING]
-  [\bound, maybe! AtSign, NOTHING]
-  [\generator-body, #(o)
-    let generator = not not Asterix(o)
-    let body = if generator
-      GeneratorFunctionBody(o)
-    else
-      FunctionBody(o)
-    body and { generator, body}]
-], #(x, o, i)
-  let {body, generator} = x.generator-body
-  let auto-return = x.auto-return == NOTHING
-  if not auto-return and generator
-    o.error "A function cannot be both non-returning and a generator"
-  o.function i, x.params, body, auto-return, x.bound != NOTHING, if x.as-type != NOTHING then x.as-type, generator
+define FunctionDeclaration = do
+  let params-rule = maybe! ParameterSequence, #-> []
+  let rest-rule = sequential! [
+    [\as-type, in-function-type-params MaybeAsType]
+    [\auto-return, maybe! character!("!"), NOTHING]
+    [\bound, maybe! AtSign, NOTHING]
+    [\generator-body, #(o)
+      let generator = not not Asterix(o)
+      let body = if generator
+        GeneratorFunctionBody(o)
+      else
+        FunctionBody(o)
+      body and { generator, body}]
+  ]
+  #(o)
+    let index = o.index
+    let clone = o.clone(o.clone-scope())
+    let params = params-rule clone
+    if not params
+      return false
+    for param in params
+      add-param-to-scope clone, param
+    let rest = rest-rule clone
+    if not rest
+      return false
+    let {as-type, auto-return, bound, generator-body: {generator, body}} = rest
+    if auto-return != NOTHING and generator
+      o.error "A function cannot be both non-returning and a generator"
+    o.update clone
+    o.function index, params, body, auto-return == NOTHING, bound != NOTHING, if as-type != NOTHING then as-type, generator
 
 define FunctionLiteral = short-circuit! HashSign, sequential! [
   HashSign
@@ -4094,7 +4126,9 @@ class MacroError extends Error
     let inner-type = typeof! inner
     let err = super("$(if inner-type == \Error then '' else inner-type & ': ')$(String inner?.message) at line #$line")
     @message := err.message
-    if typeof Error.capture-stack-trace == \function
+    if inner haskey \stack and typeof inner.stack == \string
+      @stack := "MacroError: " & inner.stack
+    else if typeof Error.capture-stack-trace == \function
       Error.capture-stack-trace this, MacroError
     else if err haskey \stack
       @stack := err.stack
@@ -4274,8 +4308,13 @@ class MacroHelper
     
     @state.call(func.start-index, @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new, is-apply).reduce(@state)
   
-  def func(params, body, auto-return = true, bound = false)
-    @state.function(0, params, body, auto-return, bound).reduce(@state)
+  def func(mutable params, body, auto-return = true, bound = false)
+    let clone = @state.clone(@state.clone-scope())
+    params := for param in params
+      let p = param.rescope(clone.scope.id, clone)
+      add-param-to-scope clone, p
+      p
+    @state.function(0, params, body.rescope(clone.scope.id, clone), auto-return, bound).reduce(@state)
   
   def is-func(node) -> @macro-expand-1(node) instanceof FunctionNode
   def func-body(mutable node)
@@ -4463,7 +4502,6 @@ class MacroHelper
           ConstNode obj.start-index, obj.end-index, obj.scope-id, obj.constructor.capped-name
           ConstNode obj.start-index, obj.end-index, obj.scope-id, obj.start-index
           ConstNode obj.start-index, obj.end-index, obj.scope-id, obj.end-index
-          IdentNode obj.start-index, obj.end-index, obj.scope-id, \__scope-id
           ...(for k in obj.constructor.arg-names
             constify-object obj[k], obj.start-index, obj.end-index, obj.scope-id)
         ]
@@ -4483,20 +4521,20 @@ class MacroHelper
       return? func(node)
     node.walk(#(x) -> walk x, func)
   
-  def wrap(value, scope-id)
+  def wrap(value)
     if is-array! value
-      BlockNode(0, 0, scope-id, value).reduce(@state)
+      BlockNode(0, 0, @state.scope.id, value).reduce(@state)
     else if value instanceof Node
       value
     else if not value?
-      NothingNode(0, 0, scope-id)
+      NothingNode(0, 0, @state.scope.id)
     else if value instanceof RegExp or typeof value in [\string, \boolean, \number]
-      ConstNode(0, 0, scope-id, value)
+      ConstNode(0, 0, @state.scope.id, value)
     else
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
   
-  def node(type, start-index, end-index, scope-id, ...args)
-    Node[type](start-index, end-index, scope-id, ...args).reduce(@state)
+  def node(type, start-index, end-index, ...args)
+    Node[type](start-index, end-index, @state.scope.id, ...args).reduce(@state)
   
   def walk(node as Node|void|null, func as Node -> Node)
     if node?
@@ -4832,10 +4870,14 @@ class Node
       @walk #(node)
         if node.scope-id == old-scope-id
           node.rescope new-scope-id, o
-        else
+        else if node.scope-id != new-scope-id
           let node-scope = node.scope(o)
-          if node-scope.parent?.id == old-scope-id
-            node-scope.reparent(o.get-scope(new-scope-id))
+          if node-scope.parent?
+            let parent-id = node-scope.parent.id
+            if parent-id == old-scope-id
+              node-scope.reparent(o.get-scope(new-scope-id))
+          node
+        else
           node
   def do-wrap(o)
     if @is-statement()
@@ -4953,6 +4995,8 @@ class Scope
   def clone(id) -> Scope(id, this)
   
   def reparent(parent as Scope)!
+    if parent == this
+      throw Error("Trying to reparent to own scope")
     @parent := parent
   
   def add(ident as IdentNode|TmpNode, is-mutable as Boolean)!
@@ -4968,7 +5012,12 @@ class Scope
       @variables ownskey ident.name
   
   def has(ident as IdentNode|TmpNode)
-    @owns(ident) or (@parent? and @parent.has(ident))
+    if @owns(ident)
+      true
+    else if @parent?
+      @parent.has(ident)
+    else
+      false
 
 class State
   def constructor(data, macros = MacroHolder(), options = {}, index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0, known-scopes = [], scope)@
@@ -5070,7 +5119,6 @@ class State
         params
         @param index, (@ident index, \__wrap), void, false, true, void
         @param index, (@ident index, \__node), void, false, true, void
-        @param index, (@ident index, \__scope-id), void, false, true, void
       ]
       body
       true
@@ -5474,19 +5522,21 @@ class State
   let handle-macro-syntax(index, type, handler as Function, rule, params, options, mutable macro-id)
     let macros = @macros
     
-    let mutator = #(x, o, i, line)@
+    let mutator = #(x, o, i, line, scope-id)@
       if _in-ast.peek() or not o.expanding-macros
         o.macro-access i, macro-id, line, remove-noops(x), _position.peek(), _in-generator.peek()
       else
-        let macro-helper = MacroHelper o, i, _position.peek(), _in-generator.peek()
+        let clone = o.clone(o.get-scope(scope-id))
+        let macro-helper = MacroHelper clone, i, _position.peek(), _in-generator.peek()
         let mutable result = try
-          handler@ macro-helper, remove-noops(x), macro-helper@.wrap, macro-helper@.node, o.scope.id
+          handler@ macro-helper, remove-noops(x), macro-helper@.wrap, macro-helper@.node
         catch e
           if e instanceof MacroError
             e.line := line
             throw e
           else
             throw MacroError(e, o.data, i, line)
+        o.update clone
         if result instanceof Node
           let walker(node)
             if node instanceof MacroAccessNode
@@ -5577,7 +5627,7 @@ class State
       let old-expanding-macros = @expanding-macros
       @expanding-macros := true
       let result = try
-        @macros.get-by-id(node.id)(node.data, this, node.start-index, node.line)
+        @macros.get-by-id(node.id)(node.data, this, node.start-index, node.line, node.scope-id)
       catch e
         if e instanceof MacroError
           e.line := node.line
