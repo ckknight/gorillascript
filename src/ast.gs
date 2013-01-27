@@ -53,18 +53,6 @@ let StringBuilder()
       text
   sb
 
-let escape-unicode-helper(m)
-  let num = m.char-code-at(0).to-string(16)
-  switch num.length
-  case 1; "\\u000$num"
-  case 2; "\\u00$num"
-  case 3; "\\u0$num"
-  case 4; "\\u$num"
-  default; throw Error()
-
-let escape-unicode(text)
-  text.replace r'[\u0000-\u001f\u0080-\uffff]'g, escape-unicode-helper
-
 let is-negative(value) -> value < 0 or 1 / value < 0
 
 let to-JS-source = do
@@ -77,19 +65,40 @@ let to-JS-source = do
         else
           "0"
       else if is-finite value
-        JSON.stringify value
+        String value
       else if value is NaN
         "0/0"
       else if value > 0
         "1/0"
       else
         "-1/0"
-    string: #(value)
-      let json-string = escape-unicode JSON.stringify(value)
-      if value.index-of('"') == -1 or value.index-of("'") != -1
-        json-string
-      else
-        "'" & json-string.substring(1, json-string.length - 1).replace(r'\\"'g, '"') & "'"
+    string: do
+      let escape-helper(m)
+        switch m
+        case "\b"; "\\b"
+        case "\t"; "\\t"
+        case "\n"; "\\n"
+        case "\f"; "\\f"
+        case "\r"; "\\r"
+        case "\n"; "\\n"
+        case '"'; '\\"'
+        case "'"; "\\'"
+        case "\\"; "\\\\"
+        default
+          let num = m.char-code-at(0).to-string(16)
+          return switch num.length
+          case 1; "\\u000$num"
+          case 2; "\\u00$num"
+          case 3; "\\u0$num"
+          case 4; "\\u$num"
+          default; throw Error()
+      let DOUBLE_QUOTE_REGEX = r'[\u0000-\u001f"\\\u0080-\uffff]'g
+      let SINGLE_QUOTE_REGEX = r"[\u0000-\u001f'\\\u0080-\uffff]"g
+      #(value)
+        if value.index-of('"') == -1 or value.index-of("'") != -1
+          '"' & value.replace(DOUBLE_QUOTE_REGEX, escape-helper) & '"'
+        else
+          "'" & value.replace(SINGLE_QUOTE_REGEX, escape-helper) & "'"
     boolean: #(value) -> if value then "true" else "false"
     object: #(value)
       if value instanceof RegExp
@@ -102,9 +111,11 @@ let to-JS-source = do
         if value.multiline
           flags.push "m"
         "/$(source)/$(flags.join '')"
+      else if value == null
+        "null"
       else
-        JSON.stringify value
-  #(value)
+        throw Error()
+  #(value) as String
     let f = to-JS-source-types![typeof value]
     unless f
       throw TypeError "Cannot compile const $(typeof! value)"
@@ -381,7 +392,7 @@ exports.Or := #(...args)
 exports.Binary := class Binary extends Expression
   def constructor(mutable left = Noop(), op as String, mutable right = Noop())@
     if OPERATOR_PRECEDENCE not ownskey op
-      throw Error "Unknown binary operator: $(JSON.stringify op)"
+      throw Error "Unknown binary operator: $(to-JS-source op)"
     
     if left not instanceof Expression
       left := to-const left

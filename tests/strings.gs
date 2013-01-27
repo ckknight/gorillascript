@@ -198,6 +198,7 @@ test "Escape codes", #
   eq "\\", String.from-char-code(92)
   eq "\x0f", String.from-char-code(15)
   eq "\xff", String.from-char-code(255)
+  eq "\u0000", String.from-char-code(0)
   eq "\u000f", String.from-char-code(15)
   eq "\u00ff", String.from-char-code(255)
   eq "\u0fff", String.from-char-code(4095)
