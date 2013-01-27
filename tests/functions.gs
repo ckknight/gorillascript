@@ -714,6 +714,28 @@ test "typed parameters, Array", #
   throws #-> fun(getArgs("hello")), TypeError
   throws #-> fun(new FakeArray()), TypeError
 
+test "typed parameters, Array as []", #
+  let fun(value as []) -> value
+  
+  let getArgs() -> arguments
+  
+  let FakeArray()! ->
+  FakeArray.prototype := []
+  
+  array-eq [], fun([])
+  array-eq ["hello"], fun(["hello"])
+  array-eq ["hello", 1, true], fun(["hello", 1, true])
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun(getArgs("hello")), TypeError
+  throws #-> fun(new FakeArray()), TypeError
+
 test "typed parameters, Object", #
   let fun(value as Object) -> value
   

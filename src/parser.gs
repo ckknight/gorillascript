@@ -159,7 +159,7 @@ macro one-of!(array, mutator)
     else
       ret
 
-let sequential(array as Array, mutator, dont-cache as Boolean)
+let sequential(array as [], mutator, dont-cache as Boolean)
   if array.length == 0
     throw Error "Cannot provide an empty array"
   
@@ -2838,9 +2838,13 @@ define SimpleType = one-of! [
 
 define ArrayType = sequential! [
   OpenSquareBracket
-  [\this, TypeReference]
+  [\this, maybe! TypeReference, NOTHING]
   CloseSquareBracket
-], #(x, o, i) -> o.type-array i, x
+], #(x, o, i)
+  if x == NOTHING
+    o.ident i, \Array
+  else
+    o.type-array i, x
 
 let _in-function-type-params = Stack false
 let in-function-type-params = make-alter-stack _in-function-type-params, true
@@ -4242,7 +4246,7 @@ class MacroHelper
   def noop() -> @state.nothing @index
   def block(nodes as [Node]) -> @state.block(@index, nodes).reduce(@state)
   def if(test as Node = NothingNode(0, 0, @state.scope.id), when-true as Node = NothingNode(0, 0, @state.scope.id), when-false as Node|null) -> @state.if(@index, @do-wrap(test), when-true, when-false).reduce(@state)
-  def switch(node as Node = NothingNode(0, 0, @state.scope.id), cases as Array, default-case as Node|null) -> @state.switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce(@state)
+  def switch(node as Node = NothingNode(0, 0, @state.scope.id), cases as [], default-case as Node|null) -> @state.switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce(@state)
   def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, 0, @state.scope.id)) -> @state.for(@index, @do-wrap(init), @do-wrap(test), @do-wrap(step), body).reduce(@state)
   def for-in(key as IdentNode, object as Node = NothingNode(0, 0), body as Node = NothingNode(0, 0, @state.scope.id)) -> @state.for-in(@index, key, @do-wrap(object), body).reduce(@state)
   def try-catch(try-body as Node = NothingNode(0, 0, @state.scope.id), catch-ident as Node = NothingNode(0, 0, @state.scope.id), catch-body as Node = NothingNode(0, 0, @state.scope.id)) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce(@state)
@@ -4420,7 +4424,7 @@ class MacroHelper
   
   def array(elements as [Node])
     @state.array(0, (for element in elements; @do-wrap(element))).reduce(@state)
-  def object(pairs as Array)
+  def object(pairs as [])
     for pair, i in pairs
       if not pair or typeof pair != \object
         throw Error "Expected an object at index #$i, got $(typeof! pair)"
@@ -4769,7 +4773,7 @@ class MacroHolder
       m.data := []
       by-name[name] := m
   
-  def get-or-add-by-names(names as Array)
+  def get-or-add-by-names(names as [String])
     return for name in names
       @get-or-add-by-name name
   
@@ -5601,7 +5605,7 @@ class State
     else
       obj
   
-  def start-macro-syntax(index, params as Array, options)
+  def start-macro-syntax(index, params as [], options)
     if not @current-macro
       this.error "Attempting to specify a macro syntax when not in a macro"
     
@@ -5679,7 +5683,7 @@ class State
       else  
         macros.add-macro mutator, macro-id, if options.type? then Type![options.type]
   
-  def macro-syntax(index, type, params as Array, options, body)!
+  def macro-syntax(index, type, params as [], options, body)!
     if macro-syntax-types not ownskey type
       throw Error "Unknown macro-syntax type: $type"
     
@@ -6456,7 +6460,7 @@ node-class NothingNode
   def cacheable = false
   def is-const() -> true
   def const-value() -> void
-node-class ObjectNode(pairs as Array, prototype as Node|void)
+node-class ObjectNode(pairs as [], prototype as Node|void)
   def type() -> Type.object
   def walk = do
     let walk-pair(pair, func)
@@ -6571,7 +6575,7 @@ node-class SuperNode(child as Node|void, args as [Node])
       SuperNode @start-index, @end-index, @scope-id, child, args
     else
       this
-node-class SwitchNode(node as Node, cases as Array, default-case as Node|void)
+node-class SwitchNode(node as Node, cases as [], default-case as Node|void)
   def walk(func)
     let node = func @node
     let cases = map @cases, #(case_)
@@ -6612,7 +6616,7 @@ node-class ThrowNode(node as Node)
 node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def cacheable = false
   def type() -> @_type
-node-class TmpWrapperNode(node as Node, tmps as Array)
+node-class TmpWrapperNode(node as Node, tmps as [])
   def type(o) -> @node.type(o)
   def _reduce(o)
     let node = @node.reduce(o)

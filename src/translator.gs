@@ -1385,7 +1385,7 @@ let translate(node as Object, scope as Scope, location as String, auto-return)
     throw Error "Translated non-function: $(typeof! ret)"
   ret
 
-let translate-array(nodes as Array, scope as Scope, location as String, auto-return)
+let translate-array(nodes as [], scope as Scope, location as String, auto-return)
   return for node, i, len in nodes
     translate nodes[i], scope, location, i == len - 1 and auto-return
 

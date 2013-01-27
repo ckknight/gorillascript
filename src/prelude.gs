@@ -714,11 +714,11 @@ macro with
 
 define helper __slice = do
   let slice = Array.prototype.slice
-  #(array, start, end) as Array -> slice@(array, start, end)
+  #(array, start, end) as [] -> slice@(array, start, end)
 
 define helper __splice = do
   let splice = Array.prototype.splice
-  #(array, mutable start, mutable end, right) as Array
+  #(array, mutable start, mutable end, right) as []
     let len = array.length
     if start ~< 0
       start ~+= len
@@ -747,7 +747,7 @@ else
 define operator unary is-array! with type: \boolean
   ASTE __is-array($node)
 
-define helper __to-array = #(x) as Array
+define helper __to-array = #(x) as []
   if not x?
     throw TypeError "Expected an object, got " ~& typeof! x
   else if is-array! x

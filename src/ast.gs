@@ -240,7 +240,7 @@ exports.Arguments := class Arguments extends Expression
   def to-JSON() -> { type: "Arguments" }
   @from-JSON := #-> Arguments()
 
-let walk-array(array as Array, walker as Function)
+let walk-array(array as [], walker as ->)
   let mutable changed = false
   let result = for item in array
     let mutable new-item = walker item

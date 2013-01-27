@@ -84,7 +84,7 @@ let to-gs-ident = memoize #(name as String)
           result.push upper
       result.join "-"
 
-let array-to-gs-idents(names as Array)
+let array-to-gs-idents(names as [String])
   return for name in names; to-gs-ident name
 
 let auto-complete(text) -> complete-attribute(text) or complete-variable(text) or [[], text]
