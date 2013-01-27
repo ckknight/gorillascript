@@ -43,8 +43,13 @@ let fetch-and-parse-prelude = do
           throw e
         else
           console.error "Error deserializing prelude, reloading. $(String e)"
-        return next()
-      flush(null, parsed-prelude)
+          async err <- fs.unlink prelude-cache-path
+          if err
+            flush(err, null)
+          else
+            next()
+      else
+        flush(null, parsed-prelude)
     async err, prelude <- fs.read-file prelude-src-path, "utf8"
     if err
       return flush(err, null)
@@ -73,6 +78,7 @@ let fetch-and-parse-prelude = do
             throw e
           else
             console.error "Error deserializing prelude, reloading. $(String e)"
+            fs.unlink-sync prelude-cache-path
       if not parsed-prelude?
         let prelude = fs.read-file-sync prelude-src-path, "utf8"
         parsed-prelude := parser prelude, null, { +serialize-macros }
