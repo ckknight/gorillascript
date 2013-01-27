@@ -450,6 +450,7 @@ exports.Binary := class Binary extends Expression
   
   let ASSIGNMENT_OPS = {
     +"="
+    +"+="
     +"-="
     +"*="
     +"/="
