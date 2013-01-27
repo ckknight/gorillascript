@@ -4450,6 +4450,7 @@ class MacroHelper
     node := @macro-expand-1(node)
     if @is-complex node
       let tmp = @tmp(name, save, node.type(@state))
+      @state.scope.add(tmp, false)
       func @state.block(@index, [
         @state.var(@index, tmp, false)
         @state.assign(@index, tmp, "=", @do-wrap(node))
