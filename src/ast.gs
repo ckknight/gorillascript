@@ -101,7 +101,9 @@ let to-JS-source = do
           "'" & value.replace(SINGLE_QUOTE_REGEX, escape-helper) & "'"
     boolean: #(value) -> if value then "true" else "false"
     object: #(value)
-      if value instanceof RegExp
+      if value == null
+        "null"
+      else if value instanceof RegExp
         let source = value.source.replace(r"(\\\\)*\\?/"g, "\$1\\/") or "(?:)"
         let flags = []
         if value.global
@@ -111,8 +113,6 @@ let to-JS-source = do
         if value.multiline
           flags.push "m"
         "/$(source)/$(flags.join '')"
-      else if value == null
-        "null"
       else
         throw Error()
   #(value) as String

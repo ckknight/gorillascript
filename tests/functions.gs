@@ -994,6 +994,53 @@ test "typed array parameter", #
   throws #-> fun([{}]), TypeError
   throws #-> fun([new String("hello")]), TypeError
 
+test "typed array parameter of typed array parameter", #
+  let fun(value as [[String]]) -> value
+
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  array-eq [], fun([])
+  array-eq [[]], fun([[]])
+  array-eq [[], ["alpha"]], fun([[], ["alpha"]])
+  array-eq [[], ["alpha"], ["bravo", "charlie"]], fun([[], ["alpha"], ["bravo", "charlie"]])
+  throws #-> fun([1]), TypeError
+  throws #-> fun([[1]]), TypeError
+  throws #-> fun([["alpha"], [1]]), TypeError
+  throws #-> fun(["alpha"]), TypeError
+  throws #-> fun([null]), TypeError
+  throws #-> fun([void]), TypeError
+  throws #-> fun([false]), TypeError
+  throws #-> fun([{}]), TypeError
+  throws #-> fun([new String("hello")]), TypeError
+
+test "typed array parameter of specific objects", #
+  let fun(value as [{x: String}]) -> return for {x} in value; x
+
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  array-eq [], fun([])
+  throws #-> fun(["alpha"]), TypeError
+  throws #-> fun([{}]), TypeError
+  array-eq ["alpha"], fun([{x: "alpha"}])
+  array-eq ["alpha", "bravo"], fun([{x: "alpha"}, {x: "bravo"}])
+  throws #-> fun([1]), TypeError
+  throws #-> fun([null]), TypeError
+  throws #-> fun([void]), TypeError
+  throws #-> fun([false]), TypeError
+  throws #-> fun([new String("hello")]), TypeError
+
 test "typed function parameter", #
   let fun(f as -> String) -> f()
   

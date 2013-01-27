@@ -68,7 +68,7 @@ let array-equal = #(a, b)
 
 global.array-eq := #(a, b, msg)
   if not array-equal a, b
-    fail "$(JSON.stringify a) != $(JSON.stringify b)$(if msg then ': ' & msg else '')"
+    fail "$(JSON.stringify(a) or 'undefined') != $(JSON.stringify(b) or 'undefined')$(if msg then ': ' & msg else '')"
   else
     success()
 
