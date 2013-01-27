@@ -1104,4 +1104,3 @@ test "typed parameter as access", #
   throws #-> fun(0), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
-  

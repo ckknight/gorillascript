@@ -252,7 +252,12 @@ module.exports := class Type
     
     def complement() -> ComplementType [this]
     
-    def inspect() -> "SimpleType($(inspect @name))"
+    def inspect()
+      for first k, v of Type
+        if v == this
+          "Type.$k"
+      else
+        "Type.make($(inspect @name))"
   @make := #(name) -> SimpleType(name)
   
   class ArrayType extends Type
@@ -323,7 +328,11 @@ module.exports := class Type
         other.overlaps this
 
     def complement() -> ComplementType [this]
-    def inspect(depth) -> "$(inspect @subtype, null, depth).array()"
+    def inspect(depth)
+      if @subtype == any
+        "Type.array"
+      else
+        "$(inspect @subtype, null, depth).array()"
   
   class ObjectType extends Type
     def constructor(data)@
@@ -481,10 +490,13 @@ module.exports := class Type
       Type.any
     
     def inspect(depth)
-      let obj = {}
-      for [k, v] in @pairs
-        obj[k] := v
-      "ObjectType($(inspect obj, null, if depth? then depth - 1 else null))"
+      if this == Type.object
+        "Type.object"
+      else
+        let obj = {}
+        for [k, v] in @pairs
+          obj[k] := v
+        "Type.makeObject($(inspect obj, null, if depth? then depth - 1 else null))"
   @make-object := #(data) -> ObjectType(data)
   
   class FunctionType extends Type
@@ -555,7 +567,11 @@ module.exports := class Type
         other.overlaps this
 
     def complement() -> ComplementType [this]
-    def inspect(depth) -> "$(inspect @subtype, null, depth).function()"
+    def inspect(depth)
+      if @return-type == any
+        "Type.function"
+      else
+        "$(inspect @return-type, null, depth).function()"
   
   class UnionType extends Type
     def constructor(types as [Type])@
@@ -654,7 +670,8 @@ module.exports := class Type
         other.overlaps this
     
     def complement() -> ComplementType @types
-    def inspect(depth) -> "UnionType($(inspect @types, null, if depth? then depth - 1 else null))"
+    def inspect(depth)
+      "(" & (for type in @types; inspect type, null, if depth? then depth - 1 else null).join(").union(") & ")"
   
   class ComplementType extends Type
     def constructor(untypes as [Type])@
@@ -763,7 +780,8 @@ module.exports := class Type
       else
         make-union-type untypes
     
-    def inspect(depth) -> "ComplementType($(inspect @types, null, if depth? then depth - 1 else null))"
+    def inspect(depth)
+      UnionType(@untypes).inspect(depth) & ".complement()"
   
   let any = @any := new class AnyType extends Type
     def constructor()@
@@ -785,7 +803,7 @@ module.exports := class Type
     def is-subset-of(other) -> this == other
     def overlaps(other) -> true
     def complement() -> none
-    def inspect() -> "AnyType()"
+    def inspect() -> "Type.any"
   
   let none = @none := new class NoneType extends Type
     def constructor()@
@@ -807,7 +825,7 @@ module.exports := class Type
     def is-subset-of(other) -> true
     def overlaps(other) -> false
     def complement() -> any
-    def inspect() -> "NoneType()"
+    def inspect() -> "Type.none"
   
   @undefined := @make "undefined"
   @null := @make "null"

@@ -5813,6 +5813,7 @@ node-class AccessNode(parent as Node, child as Node)
     else
       this
 node-class AccessIndexNode(parent as Node, child as Object)
+  def type() -> Type.array
   def walk = do
     let index-types =
       multi: #(x, f)
@@ -5854,9 +5855,9 @@ node-class AssignNode(left as Node, op as String, right as Node)
     let ops =
       "=": #(left, right) -> right
       "+=": #(left, right)
-        if left.is-subset-of(Type.number) and right.is-subset-of(Type.number)
+        if left.is-subset-of(Type.numeric) and right.is-subset-of(Type.numeric)
           Type.number
-        else if left.overlaps(Type.number) and right.overlaps(Type.number)
+        else if left.overlaps(Type.numeric) and right.overlaps(Type.numeric)
           Type.string-or-number
         else
           Type.string
@@ -6051,6 +6052,7 @@ node-class BlockNode(nodes as [Node])
         this
   def is-statement() -> for some node in @nodes; node.is-statement()
 node-class BreakNode
+  def type() -> Type.undefined
   def is-statement() -> true
 node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as Boolean)
   def type = do
@@ -6223,7 +6225,7 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
       let func = @func
       let func-type = func.type(o)
       if func-type.is-subset-of(Type.function)
-        func-type.return-type
+        return func-type.return-type
       else if func instanceof IdentNode
         let {name} = func
         if PRIMORDIAL_FUNCTIONS ownskey name
@@ -6358,10 +6360,13 @@ node-class ConstNode(value as Number|String|Boolean|RegExp|void|null)
   def is-const() -> true
   def const-value() -> @value
 node-class ContinueNode
+  def type() -> Type.undefined
   def is-statement() -> true
 node-class DebuggerNode
+  def type() -> Type.undefined
   def is-statement() -> true
 node-class DefNode(left as Node, right as Node|void)
+  def type(o) -> if @right? then @right.type(o) else Type.any
   def walk(func)
     let left = func @left
     let right = if @right? then func @right else @right
@@ -6371,11 +6376,38 @@ node-class DefNode(left as Node, right as Node|void)
       this
 node-class EvalNode(code as Node)
 node-class ForNode(init as Node = NothingNode(0, 0, scope-id), test as Node = ConstNode(0, 0, scope-id, true), step as Node = NothingNode(0, 0, scope-id), body as Node)
+  def type() -> Type.undefined
   def is-statement() -> true
 node-class ForInNode(key as Node, object as Node, body as Node)
+  def type() -> Type.undefined
   def is-statement() -> true
 node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as Node|void, generator as Boolean)
-  def type(o) -> @body.type(o).function()
+  def type(o) -> @_type ?= do
+    // TODO: handle generator types
+    if @as-type?
+      node-to-type(@as-type).function()
+    else
+      let mutable return-type = if @auto-return
+        @body.type(o)
+      else
+        Type.undefined
+      let walker(node)
+        if node instanceof ReturnNode
+          return-type := return-type.union node.type(o)
+          node
+        else if node instanceof FunctionNode
+          node
+        else if node instanceof MacroAccessNode
+          if node.data.macro-name in [\return, "return?"] // so ungodly hackish
+            if node.data.macro-data.node
+              return-type := return-type.union node.data.macro-data.node.type(o)
+            else
+              return-type := return-type.union Type.undefined
+          node.walk walker
+        else
+          node.walk walker
+      walker @body
+      return-type.function()
   def walk(func)
     let params = map @params, func
     let body = func @body
@@ -6576,6 +6608,12 @@ node-class SuperNode(child as Node|void, args as [Node])
     else
       this
 node-class SwitchNode(node as Node, cases as [], default-case as Node|void)
+  def type(o) -> @_type ?= do
+    for reduce case_ in @cases, type = if @default-case? then @default-case.type(o) else Type.undefined
+      if case_.fallthrough
+        type
+      else
+        type.union case_.body.type(o)
   def walk(func)
     let node = func @node
     let cases = map @cases, #(case_)
@@ -6718,6 +6756,7 @@ node-class UnaryNode(op as String, node as Node)
       else
         this
 node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
+  def type() -> Type.undefined
   def _reduce(o)
     let ident = @ident.reduce(o)
     if ident != @ident
@@ -6725,6 +6764,7 @@ node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
     else
       this
 node-class YieldNode(node as Node)
+  def type() -> Type.undefined
   def is-statement() -> true
   def _reduce(o)
     let node = @node.reduce(o).do-wrap(o)
