@@ -815,3 +815,24 @@ test "Making types", #
 
   ok T.make("Alpha") not equals alpha // could be from different scopes
   ok T.make("Alpha").compare(alpha) != 0 // since not equal, should not compare to 0
+
+test "Serialization", #
+  let handle(x) -> T.from-JSON(JSON.parse(JSON.stringify(x)))
+  eq T.undefined, handle(T.undefined)
+  eq T.null, handle(T.null)
+  eq T.string, handle(T.string)
+  eq T.number, handle(T.number)
+  eq T.boolean, handle(T.boolean)
+  eq T.function, handle(T.function)
+  eq T.object, handle(T.object)
+  eq T.array, handle(T.array)
+  eq T.args, handle(T.args)
+  eq T.any, handle(T.any)
+  eq T.none, handle(T.none)
+  eq T.regexp, handle(T.regexp)
+  ok T.string-or-number equals handle(T.string-or-number)
+  eq T.number.array(), handle(T.number.array())
+  eq T.number.function(), handle(T.number.function())
+  ok ~T.string-or-number equals handle(~T.string-or-number)
+  ok ~T.number equals handle(~T.number)
+  ok T.make-object(x: T.number) equals handle(T.make-object(x: T.number))

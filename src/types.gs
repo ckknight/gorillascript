@@ -191,6 +191,18 @@ module.exports := class Type
     else
       ComplementType(types)
   
+  let from-JSON-types = {}
+  @from-JSON := #(x)
+    if not x or typeof x != \object
+      throw TypeError "Expected an Object, got $(typeof x)"
+    let type = x.type
+    if typeof type != \string
+      throw TypeError "Unspecified type"
+    else if from-JSON-types not ownskey type
+      throw TypeError "Unknown serialization type: $type"
+    else
+      from-JSON-types[type] x
+  
   class SimpleType extends Type
     let get-id = do
       let mutable id = -1
@@ -258,6 +270,14 @@ module.exports := class Type
           "Type.$k"
       else
         "Type.make($(inspect @name))"
+    
+    def to-JSON()
+      for first k, v of Type
+        if v == this
+          { type: \simple, name: k }
+      else
+        throw Error "Cannot serialize custom type: $(String this)"
+    from-JSON-types.simple := #({name}) -> Type![name] or throw Error "Unknown type: $(String name)"
   @make := #(name) -> SimpleType(name)
   
   class ArrayType extends Type
@@ -333,6 +353,9 @@ module.exports := class Type
         "Type.array"
       else
         "$(inspect @subtype, null, depth).array()"
+    
+    def to-JSON() -> { type: \array, @subtype }
+    from-JSON-types.array := #({subtype}) -> Type.from-JSON(subtype).array()
   
   class ObjectType extends Type
     def constructor(data)@
@@ -497,6 +520,16 @@ module.exports := class Type
         for [k, v] in @pairs
           obj[k] := v
         "Type.makeObject($(inspect obj, null, if depth? then depth - 1 else null))"
+    def to-JSON()
+      let pairs = {}
+      for [k, v] in @pairs
+        pairs[k] := v
+      { type: \object, pairs }
+    from-JSON-types.object := #({pairs})
+      let deserialized-pairs = {}
+      for k, v of pairs
+        deserialized-pairs[k] := Type.from-JSON(v)
+      ObjectType deserialized-pairs
   @make-object := #(data) -> ObjectType(data)
   
   class FunctionType extends Type
@@ -572,6 +605,9 @@ module.exports := class Type
         "Type.function"
       else
         "$(inspect @return-type, null, depth).function()"
+    
+    def to-JSON() -> { type: \function, @return-type }
+    from-JSON-types.function := #({return-type}) -> Type.from-JSON(return-type).function()
   
   class UnionType extends Type
     def constructor(types as [Type])@
@@ -672,7 +708,12 @@ module.exports := class Type
     def complement() -> ComplementType @types
     def inspect(depth)
       "(" & (for type in @types; inspect type, null, if depth? then depth - 1 else null).join(").union(") & ")"
-  
+    
+    def to-JSON() -> { type: \union, @types }
+    from-JSON-types.union := #({types})
+      for reduce type in types[1:], current = Type.from-JSON(types[0])
+        current.union(Type.from-JSON(type))
+
   class ComplementType extends Type
     def constructor(untypes as [Type])@
       if untypes.length == 0
@@ -782,6 +823,9 @@ module.exports := class Type
     
     def inspect(depth)
       UnionType(@untypes).inspect(depth) & ".complement()"
+    
+    def to-JSON() -> { type: \complement, untype: @complement() }
+    from-JSON-types.complement := #({untype}) -> Type.from-JSON(untype).complement()
   
   let any = @any := new class AnyType extends Type
     def constructor()@
@@ -804,6 +848,9 @@ module.exports := class Type
     def overlaps(other) -> true
     def complement() -> none
     def inspect() -> "Type.any"
+    
+    def to-JSON() -> { type: \any }
+    from-JSON-types.any := #-> any
   
   let none = @none := new class NoneType extends Type
     def constructor()@
@@ -826,6 +873,9 @@ module.exports := class Type
     def overlaps(other) -> false
     def complement() -> any
     def inspect() -> "Type.none"
+    
+    def to-JSON() -> { type: \none }
+    from-JSON-types.none := #-> none
   
   @undefined := @make "undefined"
   @null := @make "null"
