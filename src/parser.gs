@@ -23,7 +23,7 @@ let assert(value)
     throw Error "Assertion failed: $(String value)"
   value
 
-let named(name as (null|String), func as Function)
+let named(name as null|String, func as Function)
   if name
     func.parser-name := name
   func
@@ -4070,24 +4070,32 @@ define Root = sequential! [
 ], #(x, o, i) -> o.root i, x
 
 class ParserError extends Error
-  def constructor(message, text, index, line)@
-    @message := "$message at line #$line"
-    super(@message)
+  def constructor(message as String, text as String, index as Number, line as Number)@
+    let err = super("$message at line #$line")
+    @message := err.message
+    if typeof Error.capture-stack-trace == \function
+      Error.capture-stack-trace this, ParserError
+    else if err haskey \stack
+      @stack := err.stack
     @text := text
     @index := index
     @line := line
-  def name = \ParserError
+  def name = @name
 
 class MacroError extends Error
-  def constructor(inner, text, index, line)@
-    @inner := inner
+  def constructor(inner as Error, text as String, index as Number, line as Number)@
     let inner-type = typeof! inner
-    @message := "$(if inner-type == \Error then '' else inner-type & ': ')$(String inner?.message) at line #$line"
-    super(@message)
+    let err = super("$(if inner-type == \Error then '' else inner-type & ': ')$(String inner?.message) at line #$line")
+    @message := err.message
+    if typeof Error.capture-stack-trace == \function
+      Error.capture-stack-trace this, MacroError
+    else if err haskey \stack
+      @stack := err.stack
+    @inner := inner
     @text := text
     @index := index
     @line := line
-  def name = \MacroError
+  def name = @name
 
 let map(array, func, arg)
   let result = []
@@ -4131,13 +4139,13 @@ class MacroHelper
     else
       node
   
-  def var(ident as (IdentNode|TmpNode), is-mutable as Boolean) -> @state.var @index, ident, is-mutable
-  def def(key as Node = NothingNode(0, 0), value as (Node|void)) -> @state.def @index, key, do-wrap(value)
+  def var(ident as IdentNode|TmpNode, is-mutable as Boolean, as-type as Node|void) -> @state.var @index, ident, is-mutable
+  def def(key as Node = NothingNode(0, 0), value as Node|void) -> @state.def @index, key, do-wrap(value)
   def noop() -> @state.nothing @index
   def block(nodes as [Node]) -> @state.block(@index, nodes).reduce(@state)
-  def if(test as Node = NothingNode(0, 0), when-true as Node = NothingNode(0, 0), when-false as (Node|null)) -> @state.if(@index, do-wrap(test), when-true, when-false).reduce(@state)
-  def switch(node as Node = NothingNode(0, 0), cases as Array, default-case as (Node|null)) -> @state.switch(@index, do-wrap(node), (for case_ in cases; {node: do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce(@state)
-  def for(init as (Node|null), test as (Node|null), step as (Node|null), body as Node = NothingNode(0, 0)) -> @state.for(@index, do-wrap(init), do-wrap(test), do-wrap(step), body).reduce(@state)
+  def if(test as Node = NothingNode(0, 0), when-true as Node = NothingNode(0, 0), when-false as Node|null) -> @state.if(@index, do-wrap(test), when-true, when-false).reduce(@state)
+  def switch(node as Node = NothingNode(0, 0), cases as Array, default-case as Node|null) -> @state.switch(@index, do-wrap(node), (for case_ in cases; {node: do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce(@state)
+  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, 0)) -> @state.for(@index, do-wrap(init), do-wrap(test), do-wrap(step), body).reduce(@state)
   def for-in(key as IdentNode, object as Node = NothingNode(0, 0), body as Node = NothingNode(0, 0)) -> @state.for-in(@index, key, do-wrap(object), body).reduce(@state)
   def try-catch(try-body as Node = NothingNode(0, 0), catch-ident as Node = NothingNode(0, 0), catch-body as Node = NothingNode(0, 0)) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce(@state)
   def try-finally(try-body as Node = NothingNode(0, 0), finally-body as Node = NothingNode(0, 0)) -> @state.try-finally(@index, try-body, finally-body).reduce(@state)
@@ -4145,7 +4153,7 @@ class MacroHelper
   def binary(left as Node = NothingNode(0, 0), op as String, right as Node = NothingNode(0, 0)) -> @state.binary(@index, do-wrap(left), op, do-wrap(right)).reduce(@state)
   def unary(op as String, node as Node = NothingNode(0, 0)) -> @state.unary(@index, op, do-wrap(node)).reduce(@state)
   def throw(node as Node = NothingNode(0, 0)) -> @state.throw(@index, do-wrap(node)).reduce(@state)
-  def return(node as (Node|void)) -> @state.return(@index, do-wrap(node)).reduce(@state)
+  def return(node as Node|void) -> @state.return(@index, do-wrap(node)).reduce(@state)
   def yield(node as Node = NothingNode(0, 0)) -> @state.yield(@index, do-wrap(node)).reduce(@state)
   def debugger() -> @state.debugger(@index)
   def break() -> @state.break(@index)
@@ -4429,16 +4437,6 @@ class MacroHelper
       CallNode(obj.start-index, obj.end-index
         IdentNode obj.start-index, obj.end-index, \__wrap
         obj.args)
-    else if obj instanceof MacroAccessNode
-      CallNode(obj.start-index, obj.end-index
-        IdentNode obj.start-index, obj.end-index, \__macro
-        [
-          ConstNode obj.start-index, obj.end-index, obj.id
-          ConstNode obj.start-index, obj.end-index, obj.line
-          constify-object obj.data, obj.start-index, obj.end-index
-          ConstNode obj.start-index, obj.end-index, obj.position
-          ConstNode obj.start-index, obj.end-index, obj.in-generator
-        ])
     else if obj instanceof Node
       if obj.constructor == Node
         throw Error "Cannot constify a raw node"
@@ -4483,7 +4481,7 @@ class MacroHelper
   def node(type, start-index, end-index, ...args)
     Node[type](start-index, end-index, ...args).reduce(@state)
   
-  def walk(node as (Node|void|null), func as Node -> Node)
+  def walk(node as Node|void|null, func as Node -> Node)
     if node?
       walk node, func
     else
@@ -4666,7 +4664,7 @@ class MacroHolder
     if id >= 0 and id < by-id.length
       by-id[id]
   
-  def add-macro(m, mutable macro-id as (Number|void), type as (Type|void))
+  def add-macro(m, mutable macro-id as Number|void, type as Type|void)
     let by-id = @by-id
     if macro-id?
       if by-id ownskey macro-id
@@ -4679,7 +4677,7 @@ class MacroHolder
       @type-by-id[macro-id] := type
     macro-id
   
-  def replace-macro(id, m, type as (Type|void))!
+  def replace-macro(id, m, type as Type|void)!
     let by-id = @by-id
     by-id[id] := m
     if type?
@@ -4813,44 +4811,59 @@ class Node
     else
       this
 
-macro node-type!
-  syntax name as Expression, args as (",", this as Parameter)*, methods as (",", this as ObjectLiteral)?
-    if not @is-const(name) or typeof @value(name) != \string
-      throw Error "Expected a constant string name"
+macro node-class
+  syntax ident as Identifier, args as ("(", head as Parameter, tail as (",", this as Parameter)*, ")")?, body as Body?
     
     let params = [@param(AST start-index), @param(AST end-index)]
-    let name-str = @value(name)
-    let mutable capped-name = name-str.char-at(0).to-upper-case() & name-str.substring(1)
-    let type = @ident(capped-name & "Node")
-    let body = [
-      AST @start-index := start-index
-      AST @end-index := end-index
-      AST @_reduced := void
-      AST @_macro-expanded := void
-      AST @_macro-expand-alled := void
-    ]
-    let mutable inspect-parts = @const(capped-name ~& "Node(")
+    let full-name = @name(ident)
+    if full-name.substring(full-name.length - 4) != "Node"
+      throw Error "node-class's name must end in 'Node', got $(full-name)"
+    let capped-name = full-name.substring(0, full-name.length - 4)
+    let lower-name = full-name.char-at(0).to-lower-case() & full-name.substring(1, full-name.length - 4)
+    let type = @ident(full-name)
+    let ctor-body = AST
+      @start-index := start-index
+      @end-index := end-index
+      @_reduced := void
+      @_macro-expanded := void
+      @_macro-expand-alled := void
+    let mutable inspect-parts = @const(full-name & "(")
     let mutable arg-names = []
+    if args
+      args := [args.head, ...args.tail]
+    else
+      args := []
     for arg, i in args
       params.push arg
       let ident = @param-ident arg
       let key = @const(@name(ident))
-      body.push AST @[$key] := $ident
+      ctor-body := AST
+        $ctor-body
+        @[$key] := $ident
       arg-names.push key
       if i > 0
         inspect-parts := AST $inspect-parts ~& ", "
       inspect-parts := AST $inspect-parts ~& inspect(@[$key], null, if depth? then depth ~- 1 else null)
     inspect-parts := AST $inspect-parts ~& ")"
     
-    let add-methods = []
-    let found-walk = false
-    if methods
-      for pair in @pairs(methods)
-        let {key, value} = pair
-        add-methods.push AST def [$key] = $value
-        if @is-const(key) and @value(key) == \walk
+    let mutable found-walk = false
+    if body
+      let FOUND = {}
+      let find-walk(node)@
+        @walk node, #(node)@
+          if @is-def(node)
+            let key = @left(node)
+            if @is-const(key) and @value(key) == \walk
+              throw FOUND
+      try
+        find-walk(body)
+      catch e
+        if e == FOUND
           found-walk := true
+        else
+          throw e
     
+    let add-methods = []
     if not found-walk
       let mutable walk-func = void
       if args.length
@@ -4881,18 +4894,26 @@ macro node-type!
         walk-func := AST ret-this
       add-methods.push AST def walk = $walk-func
     
-    let func = @func params, AST $body, false, true
+    let func = @func params, AST $ctor-body, false, true
     arg-names := @array arg-names
     AST Node[$capped-name] := class $type extends Node
       def constructor = $func
       @capped-name := $capped-name
       @arg-names := $arg-names
-      State.add-node-factory $name, this
+      State.add-node-factory $lower-name, this
+      $body
       $add-methods
       def inspect(depth) -> $inspect-parts
 
+
+class Scope
+  def constructor()@ ->
+
+  def clone()
+    Scope()
+
 class State
-  def constructor(data, macros = MacroHolder(), options = {}, index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0)@
+  def constructor(data, macros = MacroHolder(), options = {}, index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0, scope = Scope())@
     @data := data
     @macros := macros
     @options := options
@@ -4903,9 +4924,10 @@ class State
     @indent := indent
     @current-macro := current-macro
     @prevent-failures := prevent-failures
+    @scope := scope
     @expanding-macros := false
   
-  def clone(new-scope as Boolean) -> State @data, @macros, @options, @index, @line, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures
+  def clone(scope as Scope|void) -> State @data, @macros, @options, @index, @line, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures, scope or @scope
   
   def update(clone)!
     @index := clone.index
@@ -4977,7 +4999,6 @@ class State
         params
         @param index, (@ident index, \__wrap), void, false, true, void
         @param index, (@ident index, \__node), void, false, true, void
-        @param index, (@ident index, \__macro), void, false, true, void
       ]
       body
       true
@@ -5387,21 +5408,19 @@ class State
       else
         let macro-helper = MacroHelper o, i, _position.peek(), _in-generator.peek()
         let mutable result = try
-          handler@ macro-helper, remove-noops(x), macro-helper@.wrap, macro-helper@.node, #(id, line, data, position, in-generator)
-            _position.push position
-            _in-generator.push in-generator
-            try
-              macros.get-by-id(id)(data, o, i, line)
-            finally
-              _position.pop()
-              _in-generator.pop()
+          handler@ macro-helper, remove-noops(x), macro-helper@.wrap, macro-helper@.node
         catch e
           if e instanceof MacroError
+            e.line := line
             throw e
           else
             throw MacroError(e, o.data, i, line)
         if result instanceof Node
-          result := result.reduce(this)
+          let walker(node)
+            if node instanceof MacroAccessNode
+              node.line := line
+            node.walk walker
+          result := walker result.reduce(this)
           let tmps = macro-helper.get-tmps()
           if tmps.unsaved.length
             o.tmp-wrapper i, result, tmps.unsaved
@@ -5521,10 +5540,10 @@ class State
     walker node
   
   @add-node-factory := #(name, type)!
-    State::[name] := #(index) -> type(index, @index, ...arguments[1:])
+    State::[name] := #(index, ...args) -> type(index, @index, ...args)
 
-node-type! \access, parent as Node, child as Node,
-  type: #(o) -> @_type ?= do
+node-class AccessNode(parent as Node, child as Node)
+  def type(o) -> @_type ?= do
     let parent-type = @parent.type(o)
     let is-string = parent-type.is-subset-of(Type.string)
     if is-string or parent-type.is-subset-of(Type.array-like)
@@ -5553,7 +5572,7 @@ node-type! \access, parent as Node, child as Node,
           else
             Type.any
     Type.any
-  _reduce: #(o)
+  def _reduce(o)
     let parent = @parent.reduce(o).do-wrap()
     let child = @child.reduce(o).do-wrap()
     if parent.is-const() and child.is-const()
@@ -5567,8 +5586,8 @@ node-type! \access, parent as Node, child as Node,
       AccessNode @start-index, @end-index, parent, child
     else
       this
-node-type! \access-index, parent as Node, child as Object,
-  walk: do
+node-class AccessIndexNode(parent as Node, child as Object)
+  def walk = do
     let index-types =
       multi: #(x, f)
         let elements = map x.elements, f
@@ -5592,20 +5611,20 @@ node-type! \access-index, parent as Node, child as Object,
         AccessIndexNode @start-index, @end-index, parent, child
       else
         this
-node-type! \args,
-  type: #-> Type.args
-  cacheable: false
-node-type! \array, elements as [Node],
-  type: #-> Type.array
-  _reduce: #(o)
+node-class ArgsNode
+  def type() -> Type.args
+  def cacheable = false
+node-class ArrayNode(elements as [Node])
+  def type() -> Type.array
+  def _reduce(o)
     let elements = map @elements, #(x) -> x.reduce(o).do-wrap()
     if elements != @elements
       ArrayNode @start-index, @end-index, elements
     else
       this
 State::array-param := State::array
-node-type! \assign, left as Node, op as String, right as Node,
-  type: do
+node-class AssignNode(left as Node, op as String, right as Node)
+  def type = do
     let ops =
       "=": #(left, right) -> right
       "+=": #(left, right)
@@ -5633,15 +5652,15 @@ node-type! \assign, left as Node, op as String, right as Node,
         type @left.type(o), @right.type(o)
       else
         type
-  _reduce: #(o)
+  def _reduce(o)
     let left = @left.reduce(o)
     let right = @right.reduce(o).do-wrap()
     if left != @left or right != @right
       AssignNode @start-index, @end-index, left, @op, right
     else
       this
-node-type! \binary, left as Node, op as String, right as Node,
-  type: do
+node-class BinaryNode(left as Node, op as String, right as Node)
+  def type = do
     let ops =
       "*": Type.number
       "/": Type.number
@@ -5680,7 +5699,7 @@ node-type! \binary, left as Node, op as String, right as Node,
         type @left.type(o), @right.type(o)
       else
         type
-  _reduce: do
+  def _reduce = do
     let const-ops =
       "*": (~*)
       "/": (~/)
@@ -5768,14 +5787,14 @@ node-type! \binary, left as Node, op as String, right as Node,
         BinaryNode @start-index, @end-index, left, op, right
       else
         this
-node-type! \block, nodes as [Node],
-  type: #(o)
+node-class BlockNode(nodes as [Node])
+  def type(o)
     let nodes = @nodes
     if nodes.length == 0
       Type.undefined
     else
       nodes[nodes.length - 1].type(o)
-  _reduce: #(o)
+  def _reduce(o)
     let changed = false
     let body = []
     for node, i, len in @nodes
@@ -5804,11 +5823,11 @@ node-type! \block, nodes as [Node],
         BlockNode @start-index, @end-index, body
       else
         this
-  is-statement: # -> for some node in @nodes; node.is-statement()
-node-type! \break,
-  is-statement: # -> true
-node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as Boolean,
-  type: do
+  def is-statement() -> for some node in @nodes; node.is-statement()
+node-class BreakNode
+  def is-statement() -> true
+node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as Boolean)
+  def type = do
     let PRIMORDIAL_FUNCTIONS =
       Object: Type.object
       String: Type.string
@@ -6001,7 +6020,7 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
             return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
           // else check the type of parent, maybe figure out its methods
       Type.any
-  _reduce: do
+  def _reduce = do
     let PURE_PRIMORDIAL_FUNCTIONS = {
       +escape
       +unescape
@@ -6094,8 +6113,8 @@ node-type! \call, func as Node, args as [Node], is-new as Boolean, is-apply as B
         CallNode @start-index, @end-index, func, args, @is-new, @is-apply
       else
         this
-node-type! \const, value as (Number|String|Boolean|RegExp|void|null),
-  type: #
+node-class ConstNode(value as Number|String|Boolean|RegExp|void|null)
+  def type()
     let value = @value
     switch typeof value
     case \number; Type.number
@@ -6109,29 +6128,29 @@ node-type! \const, value as (Number|String|Boolean|RegExp|void|null),
         Type.regexp
       else
         throw Error("Unknown type for $(String value)")
-  cacheable: false
-  is-const: #-> true
-  const-value: #-> @value
-node-type! \continue,
-  is-statement: #-> true
-node-type! \debugger,
-  is-statement: #-> true
-node-type! \def, left as Node, right as (Node|void),
-  walk: #(func)
+  def cacheable = false
+  def is-const() -> true
+  def const-value() -> @value
+node-class ContinueNode
+  def is-statement() -> true
+node-class DebuggerNode
+  def is-statement() -> true
+node-class DefNode(left as Node, right as Node|void)
+  def walk(func)
     let left = func @left
     let right = if @right? then func @right else @right
     if left != @left or right != @right
       DefNode @start-index, @end-index, left, right
     else
       this
-node-type! \eval, code as Node
-node-type! \for, init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node,
-  is-statement: #-> true
-node-type! \for-in, key as Node, object as Node, body as Node,
-  is-statement: #-> true
-node-type! \function, params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as (Node|void), generator as Boolean,
-  type: #(o) -> @body.type(o).function()
-  walk: #(func)
+node-class EvalNode(code as Node)
+node-class ForNode(init as Node = NothingNode(0, 0), test as Node = ConstNode(0, 0, true), step as Node = NothingNode(0, 0), body as Node)
+  def is-statement() -> true
+node-class ForInNode(key as Node, object as Node, body as Node)
+  def is-statement() -> true
+node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as Node|void, generator as Boolean)
+  def type(o) -> @body.type(o).function()
+  def walk(func)
     let params = map @params, func
     let body = func @body
     let as-type = if @as-type? then func @as-type else @as-type
@@ -6139,11 +6158,11 @@ node-type! \function, params as [Node], body as Node, auto-return as Boolean = t
       FunctionNode @start-index, @end-index, params, body, @auto-return, @bound, @as-type, @generator
     else
       this
-node-type! \ident, name as String,
-  cacheable: false
-node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNode(0, 0),
-  type: #(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
-  _reduce: #(o)
+node-class IdentNode(name as String)
+  def cacheable = false
+node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, 0))
+  def type(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
+  def _reduce(o)
     let test = @test.reduce(o)
     let when-true = @when-true.reduce(o)
     let when-false = @when-false.reduce(o)
@@ -6154,22 +6173,22 @@ node-type! \if, test as Node, when-true as Node, when-false as Node = NothingNod
         when-false
     else
       IfNode @start-index, @end-index, test, when-true, when-false
-  is-statement: #-> @_is-statement ?= @when-true.is-statement() or @when-false.is-statement()
-  do-wrap: #
+  def is-statement() -> @_is-statement ?= @when-true.is-statement() or @when-false.is-statement()
+  def do-wrap()
     let when-true = @when-true.do-wrap()
     let when-false = @when-false.do-wrap()
     if when-true != @when-true or when-false != @when-false
       IfNode @start-index, @end-index, @test, when-true, when-false
     else
       this
-node-type! \macro-access, id as Number, line as Number, data as Object, position as String, in-generator as Boolean,
-  type: #(o as State) -> @_type ?= do
+node-class MacroAccessNode(id as Number, line as Number, data as Object, position as String, in-generator as Boolean)
+  def type(o as State) -> @_type ?= do
     let type = o.macros.get-type-by-id(@id)
     if type?
       type
     else
       o.macro-expand-1(this).type(o)
-  walk: do
+  def walk = do
     let walk-array(array, func)
       let result = []
       let mutable changed = false
@@ -6209,14 +6228,14 @@ node-type! \macro-access, id as Number, line as Number, data as Object, position
         MacroAccessNode @start-index, @end-index, @id, @line, data, @position, @in-generator
       else
         this
-node-type! \nothing,
-  type: # -> Type.undefined
-  cacheable: false
-  is-const: # -> true
-  const-value: # -> void
-node-type! \object, pairs as Array, prototype as (Node|void),
-  type: # -> Type.object
-  walk: do
+node-class NothingNode
+  def type() -> Type.undefined
+  def cacheable = false
+  def is-const() -> true
+  def const-value() -> void
+node-class ObjectNode(pairs as Array, prototype as Node|void)
+  def type() -> Type.object
+  def walk = do
     let walk-pair(pair, func)
       let key = func pair.key
       let value = func pair.value
@@ -6231,7 +6250,7 @@ node-type! \object, pairs as Array, prototype as (Node|void),
         ObjectNode @start-index, @end-index, pairs, prototype
       else
         this
-  _reduce: do
+  def _reduce = do
     let reduce-pair(pair, o)
       let key = pair.key.reduce(o)
       let value = pair.value.reduce(o).do-wrap()
@@ -6256,8 +6275,8 @@ State::object := #(i, pairs, prototype)
       known-keys.push key-value
   ObjectNode(i, @index, pairs, prototype)
 State::object-param := State::object
-node-type! \param, ident as Node, default-value as (Node|void), spread as Boolean, is-mutable as Boolean, as-type as (Node|void),
-  walk: #(func)
+node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
+  def walk(func)
     let ident = func @ident
     let default-value = if @default-value? then func @default-value else @default-value
     let as-type = if @as-type? then func @as-type else @as-type
@@ -6265,9 +6284,9 @@ node-type! \param, ident as Node, default-value as (Node|void), spread as Boolea
       ParamNode @start-index, @end-index, ident, default-value, @spread, @is-mutable, as-type
     else
       this
-node-type! \regexp, text as Node, flags as String,
-  type: # -> Type.regexp
-  _reduce: #(o)
+node-class RegexpNode(text as Node, flags as String)
+  def type() -> Type.regexp
+  def _reduce(o)
     let text = @text.reduce(o).do-wrap()
     if text.is-const()
       ConstNode @start-index, @end-index, RegExp(String(text.const-value()), @flags)
@@ -6276,19 +6295,19 @@ node-type! \regexp, text as Node, flags as String,
         text
         ConstNode @start-index, @end-index, @flags
       ]
-node-type! \return, node as Node = ConstNode(0, 0, void),
-  type: #(o) -> @node.type(o)
-  is-statement: #-> true
-  _reduce: #(o)
+node-class ReturnNode(node as Node = ConstNode(0, 0, void))
+  def type(o) -> @node.type(o)
+  def is-statement() -> true
+  def _reduce(o)
     let node = @node.reduce(o).do-wrap()
     if node != @node
       ReturnNode @start-index, @end-index, node
     else
       this
-node-type! \root, body as Node,
-  is-statement: #-> true
-node-type! \spread, node as Node,
-  _reduce: #(o)
+node-class RootNode(body as Node)
+  def is-statement() -> true
+node-class SpreadNode(node as Node)
+  def _reduce(o)
     let node = @node.reduce(o).do-wrap()
     if node != @node
       SpreadNode @start-index, @end-index, node
@@ -6314,23 +6333,23 @@ State::string := #(index, mutable parts as [Node])
         right: part
       }, this, index, @line
 
-node-type! \super, child as (Node|void), args as [Node],
-  walk: #(func)
+node-class SuperNode(child as Node|void, args as [Node])
+  def walk(func)
     let child = if @child? then func @child else @child
     let args = map @args, func
     if child != @child or args != @args
       SuperNode @start-index, @end-index, child, args
     else
       this
-  _reduce: #(o)
+  def _reduce(o)
     let child = if @child? then @child.reduce(o).do-wrap() else @child
     let args = map @args, #(node, o) -> node.reduce(o).do-wrap(), o
     if child != @child or args != @args
       SuperNode @start-index, @end-index, child, args
     else
       this
-node-type! \switch, node as Node, cases as Array, default-case as (Node|void),
-  walk: #(func)
+node-class SwitchNode(node as Node, cases as Array, default-case as Node|void)
+  def walk(func)
     let node = func @node
     let cases = map @cases, #(case_)
       let case-node = func case_.node
@@ -6344,38 +6363,49 @@ node-type! \switch, node as Node, cases as Array, default-case as (Node|void),
       SwitchNode @start-index, @end-index, node, cases, default-case
     else
       this
-  is-statement: #-> true
-node-type! \syntax-choice, choices as [Node]
-node-type! \syntax-many, inner as Node, multiplier as String
-node-type! \syntax-param, ident as Node, as-type as (Node|void),
-  walk: #(func)
+  def is-statement() -> true
+node-class SyntaxChoiceNode(choices as [Node])
+node-class SyntaxManyNode(inner as Node, multiplier as String)
+node-class SyntaxParamNode(ident as Node, as-type as Node|void)
+  def walk(func)
     let ident = func @ident
     let as-type = if @as-type? then func @as-type else @as-type
     if ident != @ident or as-type != @as-type
       SyntaxParamNode @start-index, @end-index, ident, as-type
     else
       this
-node-type! \syntax-sequence, params as [Node]
-node-type! \this,
-  cacheable: false
-node-type! \throw, node as Node,
-  type: # -> Type.none
-  is-statement: #-> true
-  _reduce: #(o)
+node-class SyntaxSequenceNode(params as [Node])
+node-class ThisNode
+  def cacheable = false
+node-class ThrowNode(node as Node)
+  def type() -> Type.none
+  def is-statement() -> true
+  def _reduce(o)
     let node = @node.reduce(o).do-wrap()
     if node != @node
       ThrowNode @start-index, @end-index, node
     else
       this
-node-type! \tmp, id as Number, name as String, _type as Type = Type.any,
-  cacheable: false
-  type: # -> @_type
-node-type! \try-catch, try-body as Node, catch-ident as Node, catch-body as Node,
-  type: #(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
-  is-statement: #-> true
-node-type! \try-finally, try-body as Node, finally-body as Node,
-  type: #(o) -> @try-body.type(o)
-  _reduce: #(o)
+node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
+  def cacheable = false
+  def type() -> @_type
+node-class TmpWrapperNode(node as Node, tmps as Array)
+  def type(o) -> @node.type(o)
+  def _reduce(o)
+    let node = @node.reduce(o)
+    if @tmps.length == 0
+      node
+    else if @node != node
+      TmpWrapperNode @start-index, @end-index, node, @tmps
+    else
+      this
+  def is-statement() -> @node.is-statement()
+node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Node)
+  def type(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
+  def is-statement() -> true
+node-class TryFinallyNode(try-body as Node, finally-body as Node)
+  def type(o) -> @try-body.type(o)
+  def _reduce(o)
     let try-body = @try-body.reduce(o)
     let finally-body = @finally-body.reduce(o)
     if finally-body instanceof NothingNode
@@ -6386,12 +6416,12 @@ node-type! \try-finally, try-body as Node, finally-body as Node,
       TryFinallyNode @start-index, @end-index, try-body, finally-body
     else
       this
-  is-statement: #-> true
-node-type! \type-array, subtype as Node
-node-type! \type-function, return-type as Node
-node-type! \type-union, types as [Node]
-node-type! \unary, op as String, node as Node,
-  type: do
+  def is-statement() -> true
+node-class TypeArrayNode(subtype as Node)
+node-class TypeFunctionNode(return-type as Node)
+node-class TypeUnionNode(types as [Node])
+node-class UnaryNode(op as String, node as Node)
+  def type = do
     let ops =
       "-": Type.number
       "+": Type.number
@@ -6402,7 +6432,7 @@ node-type! \unary, op as String, node as Node,
       typeof: Type.string
       delete: Type.boolean
     # -> ops![@op] or Type.any
-  _reduce: do
+  def _reduce = do
     let const-ops =
       "-": #(x) -> ~-x
       "+": #(x) -> ~+x
@@ -6460,21 +6490,17 @@ node-type! \unary, op as String, node as Node,
         UnaryNode @start-index, @end-index, op, node
       else
         this
-node-type! \tmp-wrapper, node as Node, tmps as Array,
-  type: #(o) -> @node.type(o)
-  _reduce: #(o)
-    let node = @node.reduce(o)
-    if @tmps.length == 0
-      node
-    else if @node != node
-      TmpWrapperNode @start-index, @end-index, node, @tmps
+node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean, as-type as Node|void)
+  def _reduce(o)
+    let ident = @ident.reduce(o)
+    let as-type = if @as-type then @as-type.reduce(o) else @as-type
+    if ident != @ident or as-type != @as-type
+      VarNode @start-index, @end-index, ident, @is-mutable, as-type
     else
       this
-  is-statement: #-> @node.is-statement()
-node-type! \var, ident as (IdentNode|TmpNode), is-mutable as Boolean
-node-type! \yield, node as Node,
-  is-statement: #-> true
-  _reduce: #(o)
+node-class YieldNode(node as Node)
+  def is-statement() -> true
+  def _reduce(o)
     let node = @node.reduce(o).do-wrap()
     if node != @node
       YieldNode @start-index, @end-index, node

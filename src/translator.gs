@@ -502,10 +502,9 @@ let translators =
     #-> auto-return ast.Access(t-parent(), t-child())
 
   AccessIndex: do
-    let indexes = {
+    let indexes =
       multi: #-> throw Error "Not implemented: index multi"
       slice: #-> throw Error "Not implemented: index slice"
-    }
     #(node, scope, location, auto-return)
       let type = node.child.type
       unless indexes ownskey type

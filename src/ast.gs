@@ -772,7 +772,7 @@ let to-const(value)
     Const value
 
 exports.Const := class Const extends Expression
-  def constructor(value as (void|null|Boolean|Number|String|RegExp))@
+  def constructor(value as void|null|Boolean|Number|String|RegExp)@
     @value := value
   
   def compile(options, level, line-start, sb)!
@@ -1059,7 +1059,7 @@ let compile-func(options, sb, name, params, declarations, variables, body)
   sb "}"
 
 exports.Func := class Func extends Expression
-  def constructor(name as (null|Ident), params as [Ident] = [], variables as [String] = [], body as Node = Noop(), declarations as [String] = [], meta)@
+  def constructor(name as null|Ident, params as [Ident] = [], variables as [String] = [], body as Node = Noop(), declarations as [String] = [], meta)@
     validate-func-params-and-variables params, variables
     @name := name
     @params := params

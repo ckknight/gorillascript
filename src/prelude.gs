@@ -75,11 +75,12 @@ define operator binary ~& with precedence: 4, type: \string
     left := @binary @const(""), "+", left
   @binary left, "+", right
 
-define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier
+define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier, as-type as ("as", this as Type)?
   if @is-ident(ident) or @is-tmp(ident)
     type: \ident
     is-mutable: is-mutable == "mutable"
     ident: ident
+    as-type: as-type
   else
     ident
 
@@ -107,7 +108,7 @@ macro let
     declarable := @macro-expand-1(declarable)
     if declarable.type == \ident
       @block
-        * @var declarable.ident, declarable.is-mutable
+        * @var declarable.ident, declarable.is-mutable, declarable.as-type
         * @assign declarable.ident, "=", value
     else if declarable.type == \array
       if declarable.elements.length == 1
