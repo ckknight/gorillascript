@@ -762,7 +762,7 @@ let translators =
         if not has-default-value and node.name == \Boolean
           {
             check: ast.If(
-              ast.Binary ident, "==", null
+              ast.Binary ident, "==", ast.Const null
               ast.Assign ident, ast.Const(false)
               result)
             type: Type.boolean
@@ -862,12 +862,12 @@ let translators =
           if has-null or has-void
             if has-null xor has-void
               result := ast.If(
-                ast.Binary ident, "==", null
+                ast.Binary ident, "==", ast.Const null
                 ast.Assign ident, ast.Const(if has-null then null else void)
                 result)
           else if has-boolean
             result := ast.If(
-              ast.Binary ident, "==", null
+              ast.Binary ident, "==", ast.Const null
               ast.Assign ident, ast.Const(false)
               result)
         {
@@ -940,7 +940,7 @@ let translators =
         let init = []
         if param.default-value?
           init.push ast.If(
-            ast.Binary ident, "==", null
+            ast.Binary ident, "==", ast.Const null
             ast.Assign ident, translate(param.default-value, scope, \expression)()
             type-check?.check)
         else if type-check

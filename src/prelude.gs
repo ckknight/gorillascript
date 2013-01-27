@@ -28,7 +28,7 @@ define operator binary !~= with precedence: 1, maximum: 1, type: \boolean
 
 define operator binary ~<, ~<= with precedence: 1, maximum: 1, type: \boolean
   // avoiding if statement for now
-  (op == "~<" and @binary left, "<", right) or @binary left, "<=", right
+  @binary left, (op == "~<" and "<") or "<=", right
 
 define operator binary ~>, ~>= with precedence: 1, maximum: 1, type: \boolean
   // avoiding if statement for now
@@ -51,6 +51,7 @@ macro break
 
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
+    @let ident, false
     @block
       * @var ident, false
       * @assign ident, "=", func
@@ -107,6 +108,7 @@ macro let
     let inc(x) -> eval("x + 1")
     declarable := @macro-expand-1(declarable)
     if declarable.type == \ident
+      @let declarable.ident, declarable.is-mutable
       @block
         * @var declarable.ident, declarable.is-mutable, declarable.as-type
         * @assign declarable.ident, "=", value
@@ -185,7 +187,6 @@ define operator assign or=
         $left
 
 define operator unary ? with postfix: true, type: \boolean
-  // TODO: support when node is not in-scope and thus should be typeof node != "undefined" and node != null
   ASTE $node !~= null
 
 // let's define the unstrict operators first
@@ -1828,10 +1829,13 @@ macro class
       name := @tmp \class, false, \function
     
     let has-superclass = not not superclass
-    let sup = superclass and @tmp \super, false, \function
+    let sup = superclass and if @is-ident(superclass) then superclass else @tmp \super, false, \function
     let init = []
-    let superproto = if not superclass then ASTE Object.prototype else @tmp \superproto, false, \object
-    let prototype = @tmp \proto, false, \object
+    let superproto = if not superclass
+      ASTE Object.prototype
+    else
+      @tmp (if @is-ident(sup) then @name(sup) & \_prototype else \superproto), false, \object
+    let prototype = @tmp (if @is-ident(name) then @name(name) & \_prototype else \proto), false, \object
     if superclass
       init.push AST let $superproto = $sup.prototype
       init.push AST let $prototype = $name.prototype := { extends $superproto }
@@ -2039,7 +2043,7 @@ macro namespace
     else
       name := @tmp \ns, false, \object
     
-    let sup = superobject and @tmp \super, false, \object
+    let sup = superobject and if @is-ident(superobject) then superobject else @tmp \super, false, \object
     let init = []
     if not superobject
       init.push AST let $name = {}
