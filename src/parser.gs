@@ -3757,8 +3757,15 @@ define BasicInvocationOrAccess = sequential! [
           
           let result = o.if(i
             if link.existential
+              let existential-op = o.macros.get-by-label(\existential)
+              if not existential-op
+                throw Error "Cannot use existential access until the existential operator has been defined"
+              
               o.binary(i
-                o.binary(i, set-head, "!=", o.const(i, null))
+                existential-op.func {
+                  op: ""
+                  node: set-head
+                }, o, i, o.line
                 "&&"
                 o.call(i, o.ident(i, \__owns), [head, set-child]))
             else
@@ -3786,8 +3793,14 @@ define BasicInvocationOrAccess = sequential! [
               tmp-ids.push tmp.id
               set-head := o.assign(i, tmp, "=", head.do-wrap(o))
               head := tmp
+            let existential-op = o.macros.get-by-label(\existential)
+            if not existential-op
+              throw Error "Cannot use existential access until the existential operator has been defined"
             let result = o.if(i
-              o.binary(i, set-head, "!=", o.const(i, null))
+              existential-op.func {
+                op: ""
+                node: set-head
+              }, o, i, o.line
               convert-call-chain(o, i, make-access(head), j + 1, links))
             if tmp-ids.length
               o.tmp-wrapper(i, result, tmp-ids)
@@ -4644,10 +4657,10 @@ class MacroHolder
   def constructor()@
     @by-name := {}
     @by-id := []
+    @by-label := {}
     @type-by-id := []
     @operator-names := {}
     @binary-operators := []
-    @binary-operators-by-name := {}
     @assign-operators := []
     @prefix-unary-operators := []
     @postfix-unary-operators := []
@@ -4674,10 +4687,10 @@ class MacroHolder
     let clone = MacroHolder()
     clone.by-name := copy(@by-name)
     clone.by-id := @by-id[:]
+    clone.by-label := copy(@by-label)
     clone.type-by-id := @type-by-id[:]
     clone.operator-names := copy(@operator-names)
     clone.binary-operators := @binary-operators[:]
-    clone.binary-operators-by-name := copy(@binary-operators-by-name)
     clone.assign-operators := @assign-operators[:]
     clone.prefix-unary-operators := @prefix-unary-operators[:]
     clone.postfix-unary-operators := @postfix-unary-operators[:]
@@ -4763,27 +4776,33 @@ class MacroHolder
       minimum: options.minimum or 0
       invertible: not not options.invertible
     binary-operators.push data
-    for op in operators
-      @binary-operators-by-name[op] := data
+    if options.label
+      @add-by-label options.label, data
     @add-macro m, macro-id, if options.type? then Type![options.type]
   
-  def get-binary-operator-by-name(op)
-    @binary-operators-by-name![op]
+  def get-by-label(label)
+    @by-label![label]
+  
+  def add-by-label(label as String, data)
+    @by-label[label] := data
   
   def add-assign-operator(operators, m, options, macro-id)
     for op in operators
       @operator-names[op] := true
-    @assign-operators.push
+    let data = 
       rule: one-of for op in operators
         word-or-symbol op
       func: m
+    @assign-operators.push data
+    if options.label
+      @add-by-label options.label, data
     @add-macro m, macro-id, if options.type? then Type![options.type]
   
   def add-unary-operator(operators, m, options, macro-id)
     for op in operators
       @operator-names[op] := true
-    let data = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
-    data.push
+    let store = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
+    let data =
       rule: one-of for op in operators
         let rule = word-or-symbol op
         if not r"[a-zA-Z]".test(op)
@@ -4801,6 +4820,9 @@ class MacroHolder
           rule
       func: m
       standalone: not options ownskey \standalone or not not options.standalone
+    store.push data
+    if options.label
+      @add-by-label options.label, data
     @add-macro m, macro-id, if options.type? then Type![options.type]
   
   def add-serialized-helper(name as String, helper, dependencies)!
@@ -6436,22 +6458,22 @@ node-class SpreadNode(node as Node)
     else
       this
 State::string := #(index, mutable parts as [Node])
-  let concat-op = @macros.get-binary-operator-by-name("&")
+  let concat-op = @macros.get-by-label(\string-concat)
   if not concat-op
-    throw Error "Cannot use string interpolation until binary operator '&' has been defined"
+    throw Error "Cannot use string interpolation until the string-concat operator has been defined"
   if parts.length == 0
     ConstNode index, index, @scope.id, ""
   else if parts.length == 1
     concat-op.func {
       left: ConstNode index, index, @scope.id, ""
-      op: "&"
+      op: ""
       right: parts[0]
     }, this, index, @line
   else
     for reduce part in parts[1:], current = parts[0]
       concat-op.func {
         left: current
-        op: "&"
+        op: ""
         right: part
       }, this, index, @line
 

@@ -277,3 +277,7 @@ test "existential check on global", #
   ok Math?
   ok Number?
   ok not NonexistentGlobal?
+
+test "existential access on global", #
+  eq Math.floor, Math?.floor
+  eq void, NonexistentGlobal?.doesntExist()

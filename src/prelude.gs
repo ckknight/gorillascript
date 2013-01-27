@@ -76,6 +76,12 @@ define operator binary ~& with precedence: 4, type: \string
     left := @binary @const(""), "+", left
   @binary left, "+", right
 
+define operator unary ? with postfix: true, type: \boolean, label: \existential
+  if (@is-ident(node) or @is-tmp(node)) and not @has-variable(node)
+    ASTE typeof $node != \undefined and $node != null
+  else
+    ASTE $node !~= null
+
 define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier, as-type as ("as", this as Type)?
   if @is-ident(ident) or @is-tmp(ident)
     type: \ident
@@ -185,12 +191,6 @@ define operator assign or=
         $left := $right
       else
         $left
-
-define operator unary ? with postfix: true, type: \boolean
-  if (@is-ident(node) or @is-tmp(node)) and not @has-variable(node)
-    ASTE typeof $node != \undefined and $node != null
-  else
-    ASTE $node !~= null
 
 // let's define the unstrict operators first
 define operator binary ~*, ~/, ~%, ~\ with precedence: 8, type: \number
@@ -390,7 +390,7 @@ define operator assign \= with type: \number
   @maybe-cache-access left, #(set-left, left)@
     ASTE $set-left := $left \ $right
 
-define operator binary & with precedence: 4, type: \string
+define operator binary & with precedence: 4, type: \string, label: \string-concat
   if not @is-type left, \string
     left := if not @has-type left, \number
       ASTE __str $left
