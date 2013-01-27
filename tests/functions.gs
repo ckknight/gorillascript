@@ -750,6 +750,36 @@ test "typed parameters, Object", #
   throws #-> fun(true), TypeError
   throws #-> fun(false), TypeError
 
+test "typed parameters, Object as {}", #
+  let fun(value as {}) -> value
+  
+  array-eq [], fun([]) // technically valid
+  let obj = {}
+  eq obj, fun(obj)
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+
+test "typed parameters, specific object", #
+  let fun(value as {x: Number}) -> value.x
+  
+  let obj = {}
+  throws #-> fun({}), TypeError
+  eq 1, fun({x: 1})
+  eq 1, fun({x: 1, y: 2})
+  throws #-> fun([]), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+
 test "typed parameters, arbitrary ident", #
   let Thing()! ->
   let fun(value as Thing) -> value

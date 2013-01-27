@@ -747,6 +747,11 @@ else
 define operator unary is-array! with type: \boolean
   ASTE __is-array($node)
 
+define helper __is-object = #(x) as Boolean -> typeof x == \object and x != null
+
+define operator unary is-object! with type: \boolean
+  ASTE __is-object($node)
+
 define helper __to-array = #(x) as []
   if not x?
     throw TypeError "Expected an object, got " ~& typeof! x

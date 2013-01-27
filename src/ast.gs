@@ -350,8 +350,14 @@ exports.Arr := class Arr extends Expression
 exports.Assign := #(left, right)
   Binary left, "=", right
 
-exports.BinaryChain := #(op, left, ...args)
-  for reduce arg in args, current = left
+exports.BinaryChain := #(op, ...args)
+  if op == "+"
+    for i in args.length - 2 to 0 by -1
+      let left = args[i]
+      let right = args[i + 1]
+      if (typeof left == \string or (left instanceof Const and typeof left.value == \string)) and (typeof right == \string or (right instanceof Const and typeof right.value == \string))
+        args.splice i, 2, (if typeof left == \string then left else left.value) & (if typeof right == \string then right else right.value)
+  for reduce arg in args[1:], current = args[0]
     Binary current, op, arg
 
 exports.And := #(...args)

@@ -2620,11 +2620,15 @@ define BracketedObjectKey = sequential! [
   CloseSquareBracket
 ]
 
-define ObjectKey = one-of! [
-  BracketedObjectKey
+define ConstObjectKey = one-of! [
   StringLiteral
   mutate! NumberLiteral, #(x, o, i) -> o.const i, String(x.value)
   IdentifierNameConst
+]
+
+define ObjectKey = one-of! [
+  BracketedObjectKey
+  ConstObjectKey
 ]
 
 define Colon = sequential! [
@@ -2846,6 +2850,37 @@ define ArrayType = sequential! [
   else
     o.type-array i, x
 
+define ObjectTypePair = sequential! [
+  [\key, ConstObjectKey]
+  Colon
+  [\value, TypeReference]
+]
+define ObjectType = sequential! [
+  OpenCurlyBrace
+  [\this, maybe! (sequential! [
+    [\head, ObjectTypePair]
+    [\tail, zero-or-more! sequential! [
+      CommaOrNewline
+      ObjectTypePair
+    ]]
+    MaybeComma
+  ], #(x) -> [x.head, ...x.tail]), #-> []]
+  CloseCurlyBrace
+], #(x, o, i)
+  if x.length == 0
+    o.ident i, \Object
+  else
+    let keys = []
+    for {key} in x
+      if key not instanceof ConstNode
+        throw Error "Expected a constant key"
+      else if typeof key.value != \string
+        throw Error "Expected a string constant key"
+      if key.value in keys
+        o.error "Duplicate object key: $(key.value)"
+      keys.push key.value
+    o.type-object i, x
+
 let _in-function-type-params = Stack false
 let in-function-type-params = make-alter-stack _in-function-type-params, true
 let not-in-function-type-params = make-alter-stack _in-function-type-params, false
@@ -2880,6 +2915,7 @@ define NonUnionType = one-of! [
     CloseParenthesis
   ]
   ArrayType
+  ObjectType
   IdentifierOrSimpleAccess
   VoidLiteral
   NullLiteral
@@ -4217,6 +4253,12 @@ let node-to-type = do
     else if node instanceof TypeUnionNode
       for reduce type in node.types[1:], current = node-to-type(node.types[0])
         current.union(node-to-type(type))
+    else if node instanceof TypeObjectNode
+      let data = {}
+      for {key, value} in node.pairs
+        if key instanceof ConstNode
+          data[key.value] := node-to-type(value)
+      Type.make-object data
     else
       // shouldn't really occur
       Type.any
@@ -4415,7 +4457,7 @@ class MacroHelper
   def is-object(node) -> @macro-expand-1(node) instanceof ObjectNode
   def pairs(mutable node)
     node := @macro-expand-1 node
-    if @is-object node then node.pairs
+    if @is-object(node) or @is-type-object(node) then node.pairs
   
   def is-block(node) -> @macro-expand-1(node) instanceof BlockNode
   def nodes(mutable node)
@@ -4452,6 +4494,8 @@ class MacroHelper
   def subtype(mutable node)
     node := @macro-expand-1 node
     @is-type-array(node) and node.subtype
+  
+  def is-type-object(node) -> @macro-expand-1(node) instanceof TypeObjectNode
   
   def is-type-function(node) -> @macro-expand-1(node) instanceof TypeFunctionNode
   def return-type(mutable node)
@@ -6673,6 +6717,20 @@ node-class TryFinallyNode(try-body as Node, finally-body as Node)
   def is-statement() -> true
 node-class TypeArrayNode(subtype as Node)
 node-class TypeFunctionNode(return-type as Node)
+node-class TypeObjectNode(pairs as [])
+  let reduce-pair(pair, o)
+    let key = pair.key.reduce(o)
+    let value = pair.value.reduce(o)
+    if key != pair.key or value != pair.value
+      { key, value }
+    else
+      pair
+  def _reduce(o)
+    let pairs = map @pairs, reduce-pair, o
+    if pairs != @pairs
+      TypeObjectNode @start-index, @end-index, @scope-id, pairs
+    else
+      this
 node-class TypeUnionNode(types as [Node])
 node-class UnaryNode(op as String, node as Node)
   def type = do

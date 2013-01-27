@@ -734,6 +734,13 @@ let translators =
           ast.Call(
             ast.Ident(\__is-array)
             [ident]))
+      else if type == \Object
+        scope.add-helper \__is-object
+        ast.Unary(
+          "!"
+          ast.Call(
+            ast.Ident(\__is-object)
+            [ident]))
       else
         ast.Unary(
           "!"
@@ -748,32 +755,40 @@ let translators =
         "a"
     let with-article(word)
       "$(article word) $word"
-    let translate-type-checks = {
-      Ident: #(ident, node, scope, has-default-value, array-index)
-        let access = if array-index?
-          ast.Access ident, array-index
-        else
-          ident
+    let build-access-string-node(accesses)
+      if accesses.length == 0
+        []
+      else if accesses[0] instanceof ast.Const
+        [
+          if typeof accesses[0].value == \string and ast.is-acceptable-ident(accesses[0].value)
+            ast.Const ".$(accesses[0].value)"
+          else
+            ast.Const "[$(JSON.stringify accesses[0].value)]"
+          ...build-access-string-node(accesses[1:])
+        ]
+      else
+        [
+          "["
+          accesses[0]
+          "]"
+          ...build-access-string-node(accesses[1:])
+        ]
+    let translate-type-checks =
+      Ident: #(ident, node, scope, has-default-value, accesses)
+        let access = ast.Access ident, ...accesses
         scope.add-helper \__typeof
         let result = ast.If(
           make-type-check-test access, node.name, scope
           ast.Throw(
             ast.Call(
               ast.Ident(\TypeError)
-              [if array-index?
-                ast.BinaryChain("+"
-                  "Expected $(ident.name)["
-                  array-index
-                  "] to be $(with-article node.name), got "
-                  ast.Call(
-                    ast.Ident(\__typeof)
-                    [access]))
-              else
-                ast.BinaryChain("+"
-                  "Expected $(ident.name) to be $(with-article node.name), got "
-                  ast.Call(
-                    ast.Ident(\__typeof)
-                    [ident]))])))
+              [ast.BinaryChain("+"
+                "Expected $(ident.name)"
+                ...build-access-string-node(accesses)
+                " to be $(with-article node.name), got "
+                ast.Call(
+                  ast.Ident(\__typeof)
+                  [access]))])))
         if not has-default-value and node.name == \Boolean
           {
             check: ast.If(
@@ -790,11 +805,8 @@ let translators =
             else
               Type.any // FIXME
           }
-      Access: #(ident, node, scope, has-default-value, array-index)
-        let access = if array-index?
-          ast.Access ident, array-index
-        else
-          ident
+      Access: #(ident, node, scope, has-default-value, accesses)
+        let access = ast.Access ident, ...accesses
         scope.add-helper \__typeof
         let type = translate(node, scope, \expression)()
         {
@@ -808,26 +820,18 @@ let translators =
             ast.Throw(
               ast.Call(
                 ast.Ident(\TypeError)
-                [if array-index?
-                  ast.BinaryChain("+"
-                    "Expected $(ident.name)["
-                    array-index
-                    "] to be $(with-article type.right.value), got "
-                    ast.Call(
-                      ast.Ident(\__typeof)
-                      [access]))
-                else
-                  ast.BinaryChain("+"
-                    "Expected $(ident.name) to be $(with-article type.right.value), got "
-                    ast.Call(
-                      ast.Ident(\__typeof)
-                      [ident]))])))
+                [ast.BinaryChain("+"
+                  "Expected $(ident.name)"
+                  ...build-access-string-node(accesses)
+                  " to be $(with-article type.right.value), got "
+                  ast.Call(
+                    ast.Ident(\__typeof)
+                    [access]))])))
           type: Type.any // FIXME
         }
-      TypeUnion: #(ident, node, scope, has-default-value, array-index)
+      TypeUnion: #(ident, node, scope, has-default-value, accesses)
         // TODO: cache typeof ident if requested more than once.
-        if array-index?
-          throw Error "Not implemented: type-union in type-array"
+        let access = ast.Access ident, ...accesses
         scope.add-helper \__typeof
         let mutable check = void
         let mutable has-boolean = false
@@ -852,7 +856,7 @@ let translators =
             if type.name == \Boolean
               has-boolean := true
             names.push type.name
-            tests.push make-type-check-test ident, type.name, scope
+            tests.push make-type-check-test access, type.name, scope
             types.push if primitive-types ownskey type.name
               Type[primitive-types[type.name]]
             else
@@ -861,62 +865,65 @@ let translators =
             throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
 
         if has-null and has-void and not has-default-value
-          tests.unshift ast.Binary ident, "!=", null
+          tests.unshift ast.Binary access, "!=", null
         let mutable result = ast.If(
           ast.And ...tests
           ast.Throw(
             ast.Call(
               ast.Ident(\TypeError)
               [ast.BinaryChain("+"
-                "Expected $(ident.name) to be $(with-article names.join ' or '), got "
+                "Expected $(ident.name)"
+                ...build-access-string-node(accesses)
+                " to be $(with-article names.join ' or '), got "
                 ast.Call(
                   ast.Ident(\__typeof)
-                  [ident]))])))
+                  [access]))])))
 
         if not has-default-value
           if has-null or has-void
             if has-null xor has-void
               result := ast.If(
-                ast.Binary ident, "==", ast.Const null
-                ast.Assign ident, ast.Const(if has-null then null else void)
+                ast.Binary access, "==", ast.Const null
+                ast.Assign access, ast.Const(if has-null then null else void)
                 result)
           else if has-boolean
             result := ast.If(
-              ast.Binary ident, "==", ast.Const null
-              ast.Assign ident, ast.Const(false)
+              ast.Binary access, "==", ast.Const null
+              ast.Assign access, ast.Const(false)
               result)
         {
           check: result
           type: for reduce type in types, current = Type.none
             current.union(type)
         }
-      TypeFunction: #(ident, node, scope, has-default-value, array-index)
-        translate-type-checks.Ident(ident, { name: \Function }, scope, has-default-value, array-index)
-      TypeArray: #(ident, node, scope, has-default-value, array-index)
-        if array-index
-          throw Error "Not implemented: arrays within arrays as types"
+      TypeFunction: #(ident, node, scope, has-default-value, accesses)
+        translate-type-checks.Ident(ident, { name: \Function }, scope, has-default-value, accesses)
+      TypeArray: #(ident, node, scope, has-default-value, accesses)
+        let access = ast.Access ident, ...accesses
         scope.add-helper \__is-array
         let index = scope.reserve-ident \i, Type.number
         let length = scope.reserve-ident \len, Type.number
-        let sub-check = translate-type-check(ident, node.subtype, scope, false, index)
+        let sub-check = translate-type-check(ident, node.subtype, scope, false, [...accesses, index])
         let result = ast.If(
           ast.Unary(
             "!"
             ast.Call(
-              ast.Ident(\__is-array)
-              [ident]))
+              ast.Ident \__is-array
+              [access]))
           ast.Throw(
             ast.Call(
               ast.Ident(\TypeError)
               [ast.BinaryChain("+"
-                "Expected $(ident.name) to be an Array, got "
+                "Expected $(ident.name)"
+                ...build-access-string-node(accesses)
+                " to be an Array, got "
                 ast.Call(
-                  ast.Ident(\__typeof)
-                  [ident]))]))
+                  ast.Ident \__typeof
+                  [access]))]))
           ast.For(
             ast.Block
               * ast.Assign index, ast.Const 0
-              * ast.Assign length, ast.Access ident, \length
+              * ast.Assign length, ast.Access access, \length
             ast.Binary index, "<", length
             ast.Unary "++", index
             sub-check.check))
@@ -926,12 +933,44 @@ let translators =
           check: result
           type: sub-check.type.array()
         }
-    }
-    let translate-type-check(ident, node, scope, has-default-value, array-index)
+      TypeObject: #(ident, node, scope, has-default-value, accesses)
+        let access = ast.Access ident, ...accesses
+        scope.add-helper \__is-object
+        let type-data = {}
+        
+        let result = ast.If(
+          ast.Unary(
+            "!"
+            ast.Call(
+              ast.Ident \__is-object
+              [access]))
+          ast.Throw(
+            ast.Call(
+              ast.Ident(\TypeError)
+              [ast.BinaryChain("+"
+                "Expected $(ident.name)"
+                ...build-access-string-node(accesses)
+                " to be an Object, got "
+                ast.Call(
+                  ast.Ident \__typeof
+                  [access]))]))
+          for reduce {key, value} in node.pairs, current = ast.Noop()
+            if key instanceof ParserNode.Const
+              let {check, type} = translate-type-check(ident, value, scope, false, [...accesses, ast.Const key.value])
+              type-data[key.value] := type
+              ast.Block
+                * current
+                * check)
+        
+        {
+          check: result
+          type: Type.make-object type-data
+        }
+    let translate-type-check(ident, node, scope, has-default-value, accesses)
       unless translate-type-checks ownskey node.constructor.capped-name
         throw Error "Unknown type: $(String node.constructor.capped-name)"
 
-      translate-type-checks[node.constructor.capped-name] ident, node, scope, has-default-value, array-index
+      translate-type-checks[node.constructor.capped-name] ident, node, scope, has-default-value, accesses
     let translate-param-types = {
       Param: #(param, scope, inner)
         let mutable ident = translate(param.ident, scope, \param)()
@@ -947,7 +986,7 @@ let translators =
         unless ident instanceof ast.Ident
           throw Error "Expecting param to be an Ident, got $(typeof! ident)"
         
-        let type-check = if param.as-type then translate-type-check(ident, param.as-type, scope, param.default-value?)
+        let type-check = if param.as-type then translate-type-check(ident, param.as-type, scope, param.default-value?, [])
         // TODO: mark the param as having a type
         if inner
           scope.add-variable ident, type-check?.type, param.is-mutable
