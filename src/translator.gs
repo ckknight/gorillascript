@@ -733,6 +733,13 @@ let translators =
             ident
             \instanceof
             ast.Ident(type)))
+    let article(word)
+      if r"^[aeiou]"i.test(word)
+        "an"
+      else
+        "a"
+    let with-article(word)
+      "$(article word) $word"
     let translate-type-checks = {
       Ident: #(ident, node, scope, has-default-value, array-index)
         let access = if array-index?
@@ -749,13 +756,13 @@ let translators =
                 ast.BinaryChain("+"
                   "Expected $(ident.name)["
                   array-index
-                  "] to be a $(node.name), got "
+                  "] to be $(with-article node.name), got "
                   ast.Call(
                     ast.Ident(\__typeof)
                     [access]))
               else
                 ast.BinaryChain("+"
-                  "Expected $(ident.name) to be a $(node.name), got "
+                  "Expected $(ident.name) to be $(with-article node.name), got "
                   ast.Call(
                     ast.Ident(\__typeof)
                     [ident]))])))
@@ -797,13 +804,13 @@ let translators =
                   ast.BinaryChain("+"
                     "Expected $(ident.name)["
                     array-index
-                    "] to be a $(type.right.value), got "
+                    "] to be $(with-article type.right.value), got "
                     ast.Call(
                       ast.Ident(\__typeof)
                       [access]))
                 else
                   ast.BinaryChain("+"
-                    "Expected $(ident.name) to be a $(type.right.value), got "
+                    "Expected $(ident.name) to be $(with-article type.right.value), got "
                     ast.Call(
                       ast.Ident(\__typeof)
                       [ident]))])))
@@ -853,7 +860,7 @@ let translators =
             ast.Call(
               ast.Ident(\TypeError)
               [ast.BinaryChain("+"
-                "Expected $(ident.name) to be a $(names.join ' or '), got "
+                "Expected $(ident.name) to be $(with-article names.join ' or '), got "
                 ast.Call(
                   ast.Ident(\__typeof)
                   [ident]))])))
