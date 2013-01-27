@@ -172,7 +172,7 @@ let sequential(array as Array, mutator, dont-cache as Boolean)
     let mutable rule = void
     if is-array! item
       if item.length != 2
-        throw Error "Found an array with #(item.length) length at index #$i"
+        throw Error "Found an array with $(item.length) length at index #$i"
       if typeof item[0] != \string
         throw TypeError "Array in index #$i has an improper key: $(typeof! item[0])"
       if typeof item[1] != \function
