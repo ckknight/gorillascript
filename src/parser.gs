@@ -3295,15 +3295,17 @@ define MacroSyntax = sequential! [
     SyntaxToken
     [\this, #(o)
       let i = o.index
-      let params = MacroSyntaxParameters o
+      let clone = o.clone(o.clone-scope())
+      let params = MacroSyntaxParameters clone
       if not params
         throw SHORT_CIRCUIT
-      let options = MacroOptions o
-      o.start-macro-syntax i, params, options
-      let body = FunctionBody o
+      let options = MacroOptions clone
+      clone.start-macro-syntax i, params, options
+      let body = FunctionBody clone
       if not body
         throw SHORT_CIRCUIT
-      o.macro-syntax i, \syntax, params, options, body
+      clone.macro-syntax i, \syntax, params, options, body
+      o.update clone
       true]]]
   Space
   CheckStop
@@ -3325,12 +3327,20 @@ define MacroBody = one-of! [
       PopIndent
     ]]
   ], #(x) -> true
-  sequential! [
-    [\params, ParameterSequence]
-    [\options, MacroOptions]
-    [\body, FunctionBody]
-  ], #(x, o, i)
-    o.macro-syntax i, \call, x.params, x.options, x.body
+  #(o)
+    let i = o.index
+    let clone = o.clone(o.clone-scope())
+    let params = ParameterSequence clone
+    if not params
+      return false
+    for param in params
+      add-param-to-scope clone, param
+    let options = MacroOptions clone
+    let body = FunctionBody clone
+    if not body
+      return false
+    clone.macro-syntax i, \call, params, options, body
+    o.update clone
     true
 ]
 
@@ -3364,27 +3374,47 @@ define DefineHelper = short-circuit! DefineHelperStart, sequential! [
 ], #(x, o, i) -> o.define-helper i, x.name, x.value
 
 define DefineOperatorStart = sequential! [word(\define), word(\operator)]
-define DefineOperator = short-circuit! DefineOperatorStart, in-macro sequential! [
-  DefineOperatorStart
-  [\type, one-of! [
-    \binary
-    \assign
-    \unary
-  ]]
-  [\head, NameOrSymbol]
-  [\tail, zero-or-more! sequential! [
-    Comma
-    [\this, NameOrSymbol]
-  ]]
-  [\options, MacroOptions]
-  [\body, FunctionBody]
-], #(x, o, i)
-  let ops = [x.head, ...x.tail]
-  switch x.type
-  case \binary; o.define-binary-operator i, ops, x.options, x.body
-  case \assign; o.define-assign-operator i, ops, x.options, x.body
-  case \unary; o.define-unary-operator i, ops, x.options, x.body
-  default; throw Error()
+define DefineOperator = short-circuit! DefineOperatorStart, in-macro do
+  let main-rule = sequential! [
+    DefineOperatorStart
+    [\type, one-of! [
+      \binary
+      \assign
+      \unary
+    ]]
+    [\head, NameOrSymbol]
+    [\tail, zero-or-more! sequential! [
+      Comma
+      [\this, NameOrSymbol]
+    ]]
+    [\options, MacroOptions]
+  ]
+  let node-type = Type.object.union(Type.undefined)
+  #(o)
+    let i = o.index
+    let x = main-rule o
+    if not x
+      throw SHORT_CIRCUIT
+    let clone = o.clone(o.clone-scope())
+    switch x.type
+    case \binary, \assign
+      clone.scope.add clone.ident(i, \left), true, node-type
+      clone.scope.add clone.ident(i, \op), true, Type.string
+      clone.scope.add clone.ident(i, \right), true, node-type
+    case \unary
+      clone.scope.add clone.ident(i, \op), true, Type.string
+      clone.scope.add clone.ident(i, \node), true, node-type
+    let body = FunctionBody clone
+    if not body
+      throw SHORT_CIRCUIT
+    let ops = [x.head, ...x.tail]
+    let ret = switch x.type
+    case \binary; clone.define-binary-operator i, ops, x.options, body
+    case \assign; clone.define-assign-operator i, ops, x.options, body
+    case \unary; clone.define-unary-operator i, ops, x.options, body
+    default; throw Error()
+    o.update clone
+    ret
 
 define Nothing = #(o) -> o.nothing o.index
 define ExpressionOrNothing = one-of! [
@@ -4277,7 +4307,9 @@ class MacroHelper
     else
       node
   
-  def let(ident as TmpNode|IdentNode, is-mutable as Boolean, type as Type = Type.any)
+  def let(ident as TmpNode|IdentNode, is-mutable as Boolean, mutable type as Type = Type.any)
+    if ident instanceof IdentNode and is-mutable and type.is-subset-of(Type.undefined-or-null)
+      type := Type.any
     @state.scope.add(ident, is-mutable, type)
   
   def has-variable(ident as TmpNode|IdentNode)
@@ -4656,19 +4688,22 @@ class MacroHelper
       node
   
   def has-func(node)
-    let FOUND = {}
-    let walker(x)
-      if x instanceof FunctionNode
-        throw FOUND
-      else
-        x.walk(walker)
-    try
-      walk @macro-expand-all(node), walker
-    catch e
-      if e != FOUND
-        throw e
-      return true
-    false
+    if @_has-func?
+      @_has-func
+    else
+      let FOUND = {}
+      let walker(x)
+        if x instanceof FunctionNode
+          throw FOUND
+        else
+          x.walk(walker)
+      try
+        walk @macro-expand-all(node), walker
+      catch e
+        if e != FOUND
+          throw e
+        return (@_has-func := true)
+      @_has-func := false
   
   def is-statement(mutable node)
     node := @macro-expand-1 node // TODO: should this be macro-expand-all?
@@ -4982,6 +5017,8 @@ class Node
         @_reduced := reduced._reduced ?= reduced
   def is-const() -> false
   def const-value() -> throw Error("Not a const: $(typeof! node)")
+  def is-noop(o) -> @reduce(o)._is-noop(o)
+  def _is-noop(o) -> false
   def is-statement() -> false
   def rescope(new-scope-id, o)
     let old-scope-id = @scope-id
@@ -5112,7 +5149,7 @@ class Scope
     @id := id
     @parent := parent
     @variables := {}
-    @tmps := {}
+    @tmps := []
 
   def clone(id) -> Scope(id, this)
   
@@ -5123,7 +5160,7 @@ class Scope
   
   def add(ident as IdentNode|TmpNode, is-mutable as Boolean, type as Type)!
     if ident instanceof TmpNode
-      @tmps[ident.id] := { ident, is-mutable, type }
+      @tmps[ident.id] := { is-mutable, type }
     else
       @variables[ident.name] := { is-mutable, type }
   
@@ -5744,17 +5781,17 @@ class State
       @macros.add-macro-serialization serialization
   
   let BINARY_OPERATOR = freeze {}
-  def define-binary-operator(index, operators, options, body)
+  def define-binary-operator(index as Number, operators as [String], options as Object, body as Node)
     @enter-macro BINARY_OPERATOR, #@
       @macro-syntax index, \binary-operator, operators, options, body
   
   let ASSIGN_OPERATOR = freeze {}
-  def define-assign-operator(index, operators, options, body)
+  def define-assign-operator(index as Number, operators as [String], options as Object, body as Node)
     @enter-macro ASSIGN_OPERATOR, #@
       @macro-syntax index, \assign-operator, operators, options, body
   
   let UNARY_OPERATOR = freeze {}
-  def define-unary-operator(index, operators, options, body)
+  def define-unary-operator(index as Number, operators as [String], options as Object, body as Node)
     @enter-macro UNARY_OPERATOR, #@
       @macro-syntax index, \unary-operator, operators, options, body
   
@@ -5862,6 +5899,7 @@ node-class AccessNode(parent as Node, child as Node)
       AccessNode @start-index, @end-index, @scope-id, parent, child
     else
       this
+  def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
 node-class AccessIndexNode(parent as Node, child as Object)
   def type() -> Type.array
   def walk = do
@@ -5891,6 +5929,7 @@ node-class AccessIndexNode(parent as Node, child as Object)
 node-class ArgsNode
   def type() -> Type.args
   def cacheable = false
+  def _is-noop() -> true
 node-class ArrayNode(elements as [Node])
   def type() -> Type.array
   def _reduce(o)
@@ -5899,6 +5938,7 @@ node-class ArrayNode(elements as [Node])
       ArrayNode @start-index, @end-index, @scope-id, elements
     else
       this
+  def _is-noop(o) -> @__is-noop ?= for every element in @elements; element.is-noop(o)
 State::array-param := State::array
 node-class AssignNode(left as Node, op as String, right as Node)
   def type = do
@@ -6101,6 +6141,7 @@ node-class BlockNode(nodes as [Node])
       else
         this
   def is-statement() -> for some node in @nodes; node.is-statement()
+  def _is-noop(o) -> @__is-noop ?= for every node in @nodes; node.is-noop(o)
 node-class BreakNode
   def type() -> Type.undefined
   def is-statement() -> true
@@ -6396,6 +6437,7 @@ node-class ConstNode(value as Number|String|Boolean|RegExp|void|null)
   def cacheable = false
   def is-const() -> true
   def const-value() -> @value
+  def _is-noop() -> true
 node-class ContinueNode
   def type() -> Type.undefined
   def is-statement() -> true
@@ -6453,9 +6495,11 @@ node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean =
       FunctionNode @start-index, @end-index, @scope-id, params, body, @auto-return, @bound, @as-type, @generator
     else
       this
+  def _is-noop(o) -> true
 node-class IdentNode(name as String)
   def cacheable = false
   def type(o) -> if o then o.scope.type(this) else Type.any
+  def _is-noop(o) -> true
 node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, 0, scope-id))
   def type(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
   def _reduce(o)
@@ -6477,6 +6521,7 @@ node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingN
       IfNode @start-index, @end-index, @scope-id, @test, when-true, when-false
     else
       this
+  def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
 node-class MacroAccessNode(id as Number, line as Number, data as Object, position as String, in-generator as Boolean)
   def type(o as State) -> @_type ?= do
     let type = o.macros.get-type-by-id(@id)
@@ -6524,11 +6569,13 @@ node-class MacroAccessNode(id as Number, line as Number, data as Object, positio
         MacroAccessNode @start-index, @end-index, @scope-id, @id, @line, data, @position, @in-generator
       else
         this
+  def _is-noop(o) -> o.macro-expand-1(this).is-noop(o)
 node-class NothingNode
   def type() -> Type.undefined
   def cacheable = false
   def is-const() -> true
   def const-value() -> void
+  def _is-noop() -> true
 node-class ObjectNode(pairs as [{key: Node, value: Node}], prototype as Node|void)
   def type(o) -> @_type ?= do
     let data = {}
@@ -6566,6 +6613,7 @@ node-class ObjectNode(pairs as [{key: Node, value: Node}], prototype as Node|voi
         ObjectNode @start-index, @end-index, @scope-id, pairs, prototype
       else
         this
+  def _is-noop(o) -> @__is-noop ?= for every {key, value} in @pairs; key.is-noop(o) and value.is-noop(o)
 State::object := #(i, pairs, prototype)
   let known-keys = []
   for {key} in pairs
@@ -6684,6 +6732,7 @@ node-class SyntaxParamNode(ident as Node, as-type as Node|void)
 node-class SyntaxSequenceNode(params as [Node])
 node-class ThisNode
   def cacheable = false
+  def _is-noop() -> true
 node-class ThrowNode(node as Node)
   def type() -> Type.none
   def is-statement() -> true
@@ -6696,6 +6745,7 @@ node-class ThrowNode(node as Node)
 node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def cacheable = false
   def type() -> @_type
+  def _is-noop() -> true
 node-class TmpWrapperNode(node as Node, tmps as [])
   def type(o) -> @node.type(o)
   def _reduce(o)
@@ -6707,9 +6757,11 @@ node-class TmpWrapperNode(node as Node, tmps as [])
     else
       this
   def is-statement() -> @node.is-statement()
+  def _is-noop(o) -> @node.is-noop(o)
 node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Node)
   def type(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
   def is-statement() -> true
+  def _is-noop(o) -> @try-body.is-noop(o)
 node-class TryFinallyNode(try-body as Node, finally-body as Node)
   def type(o) -> @try-body.type(o)
   def _reduce(o)
@@ -6724,6 +6776,7 @@ node-class TryFinallyNode(try-body as Node, finally-body as Node)
     else
       this
   def is-statement() -> true
+  def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
 node-class TypeArrayNode(subtype as Node)
 node-class TypeFunctionNode(return-type as Node)
 node-class TypeObjectNode(pairs as [])
@@ -6796,7 +6849,23 @@ node-class UnaryNode(op as String, node as Node)
                 invert@ this, node.left, node.right
               else
                 BinaryNode @start-index, @end-index, @scope-id, node.left, invert, node.right
-    
+      typeof: do
+        let object-type = Type.null.union(Type.object).union(Type.array-like).union(Type.regexp).union(Type.date).union(Type.error)
+        #(node, o)
+          if node.is-noop(o)
+            let type = node.type(o)
+            if type.is-subset-of(Type.number)
+              ConstNode @start-index, @end-index, @scope-id, \number
+            else if type.is-subset-of(Type.string)
+              ConstNode @start-index, @end-index, @scope-id, \string
+            else if type.is-subset-of(Type.boolean)
+              ConstNode @start-index, @end-index, @scope-id, \boolean
+            else if type.is-subset-of(Type.undefined)
+              ConstNode @start-index, @end-index, @scope-id, \undefined
+            else if type.is-subset-of(Type.function)
+              ConstNode @start-index, @end-index, @scope-id, \function
+            else if type.is-subset-of(object-type)
+              ConstNode @start-index, @end-index, @scope-id, \object
     #(o)
       let node = @node.reduce(o).do-wrap(o)
       let op = @op
@@ -6811,6 +6880,7 @@ node-class UnaryNode(op as String, node as Node)
         UnaryNode @start-index, @end-index, @scope-id, op, node
       else
         this
+  def _is-noop(o) -> @__is-noop ?= @op not in ["++", "--", "delete"] and @node.is-noop(o)
 node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
   def type() -> Type.undefined
   def _reduce(o)

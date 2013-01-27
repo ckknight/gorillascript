@@ -113,6 +113,8 @@ macro let
   syntax declarable as Declarable, "=", value as ExpressionOrAssignment
     let inc(x) -> eval("x + 1")
     declarable := @macro-expand-1(declarable)
+    if not declarable
+      throw Error("Unknown declarable: " ~& String declarable)
     if declarable.type == \ident
       @let declarable.ident, declarable.is-mutable, if declarable.as-type then @to-type(declarable.as-type) else @type(value)
       @block
@@ -886,7 +888,6 @@ macro for
   syntax reducer as (\every | \some | \first)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     value := @macro-expand-1(value)
     
-    let has-func = @has-func(body)  
     let mutable length = null
     if index
       length := index.length
@@ -905,13 +906,13 @@ macro for
           throw Error "Cannot start with a non-number: #(@value start)"
       else
         start := ASTE +$start
-      init.push (AST let $value = $start)
+      init.push @macro-expand-all AST let mutable $value = $start
 
       if @is-const(end)
         if typeof @value(end) != \number
           throw Error "Cannot end with a non-number: #(@value start)"
       else if @is-complex(end)
-        end := @cache (ASTE +$end), init, \end, has-func
+        end := @cache (ASTE +$end), init, \end, false
       else
         init.push ASTE +$end
 
@@ -919,12 +920,12 @@ macro for
         if typeof @value(step) != \number
           throw Error "Cannot step with a non-number: #(@value step)"
       else if @is-complex(step)
-        step := @cache (ASTE +$step), init, \step, has-func
+        step := @cache (ASTE +$step), init, \step, false
       else
         init.push ASTE +$step
       
       if @is-complex(inclusive)
-        inclusive := @cache (ASTE $inclusive), init, \incl, has-func
+        inclusive := @cache (ASTE $inclusive), init, \incl, false
       
       let test = if @is-const(step)
         if @value(step) > 0
@@ -944,25 +945,26 @@ macro for
           if $inclusive then $value ~>= $end else $value ~> $end
       
       let mutable increment = ASTE $value ~+= $step
-      if index
-        init.push AST let mutable $index = 0
-        increment := AST
-          $increment
-          $index += 1
-        if has-func
-          let func = @tmp \f, false, \function
-          init.push (AST let $func = #($value, $index) -> $body)
-          body := (ASTE $func@(this, $value, $index))
-      else if has-func
-        let func = @tmp \f, false, \function
-        init.push (AST let $func = #($value) -> $body)
-        body := (ASTE $func@(this, $value))
       
       if length
-        init.push AST let $length = if $inclusive
+        init.push @macro-expand-all AST let $length = if $inclusive
           ($end ~- $start ~+ $step) ~\ $step
         else
           ($end ~- $start) ~\ $step
+      
+      if index
+        init.push @macro-expand-all AST let mutable $index = 0
+        increment := AST
+          $increment
+          $index += 1
+        if @has-func(body)
+          let func = @tmp \f, false, \function
+          init.push (AST let $func = #($value, $index) -> $body)
+          body := (ASTE $func@(this, $value, $index))
+      else if @has-func(body)
+        let func = @tmp \f, false, \function
+        init.push (AST let $func = #($value) -> $body)
+        body := (ASTE $func@(this, $value))
       
       if reducer == \every
         ASTE for every $init; $test; $increment
@@ -995,22 +997,34 @@ macro for
       let is-string = @is-type array, \string
       if not is-string and not @is-type array, \array-like
         array := ASTE __to-array $array
-      array := @cache array, init, if is-string then \str else \arr, has-func
+      array := @cache array, init, if is-string then \str else \arr, false
     
+      let has-index = not not index
       index ?= @tmp \i, false, \number
       length ?= @tmp \len, false, \number
     
-      init.push AST let mutable $index = 0
-      init.push AST let $length = +$array.length
+      init.push @macro-expand-all AST let mutable $index = 0
+      init.push @macro-expand-all AST let $length = +$array.length
     
-      body := AST
-        let $value = if $is-string then $array.char-at($index) else $array[$index]
-        $body
-    
-      if has-func
+      let value-expr = ASTE if $is-string then $array.char-at($index) else $array[$index]
+      
+      if @has-func(body)
         let func = @tmp \f, false, \function
-        init.push AST let $func = #($index) -> $body
-        body := ASTE $func@(this, $index)
+        let value-ident = if value and value.type == \ident and not value.is-mutable then value.ident else @tmp \v, false
+        if value and value-ident != value.ident
+          body := AST
+            let $value = $value-ident
+            $body
+        if has-index
+          init.push AST let $func = #($value-ident, $index) -> $body
+          body := ASTE $func@(this, $value-expr, $index)
+        else
+          init.push AST let $func = #($value-ident) -> $body
+          body := ASTE $func@(this, $value-expr)
+      else
+        body := AST
+          let $value = $value-expr
+          $body
     
       if reducer == \every
         ASTE for every $init; $index ~< $length; $index ~+= 1
@@ -1056,26 +1070,35 @@ macro for
       index := value.index
       value := @macro-expand-1(value.value)
     
-    let has-func = @has-func(body)
     let own = type == "of"
     let init = []
     if own or value
-      object := @cache object, init, \obj, has-func
+      object := @cache object, init, \obj, false
     
-    if value
-      body := AST
-        let $value = $object[$key]
-        $body
-    
-    if has-func
+    @let key, false, @type(\string)
+    let let-value = value and @macro-expand-all AST let $value = $object[$key]
+    let let-index = index and @macro-expand-all AST let mutable $index = -1
+    if @has-func(body)
       let func = @tmp \f, false, \function
+      let value-ident = if value then (if value.type == \ident then value.ident else @tmp \v, false)
+      if value and value-ident != value.ident
+        body := AST
+          let $value = $value-ident
+          $body
       if index
-        init.push (AST let $func = #($key, $index) -> $body)
-        body := (ASTE $func@(this, $key, $index))
+        init.push (AST let $func = #($key, $value-ident, $index) -> $body)
+        body := (ASTE $func@(this, $key, $object[$key], $index))
+      else if value
+        init.push (AST let $func = #($key, $value-ident) -> $body)
+        body := (ASTE $func@(this, $key, $object[$key]))
       else
         init.push (AST let $func = #($key) -> $body)
         body := (ASTE $func@(this, $key))
-    
+    else if value
+      body := AST
+        $let-value
+        $body
+
     let post = []
     if else-body
       let run-else = @tmp \else, false, \boolean
@@ -1088,7 +1111,7 @@ macro for
           $else-body
     
     if index
-      init.push (AST let mutable $index = -1)
+      init.push let-index
       body := AST
         $index ~+= 1
         $body
@@ -1168,10 +1191,8 @@ macro for
     if else-body and @position == \expression
       throw Error("Cannot use a for loop with an else as an expression")
     
-    let has-func = @has-func(body)
-
     let init = []
-    iterator := @cache iterator, init, \iter, has-func
+    iterator := @cache iterator, init, \iter, false
     
     let step = []
     if index
@@ -1197,7 +1218,7 @@ macro for
         if $run-else
           $else-body
     
-    if has-func
+    if @has-func(body)
       let func = @tmp \f, false, \function
       if not index
         init.push AST let $func = #($value) -> $body
@@ -1707,7 +1728,7 @@ macro asyncfor
         if typeof @value(end) != \number
           throw Error "Cannot end with a non-number: #(@value start)"
       else if @is-complex(end)
-        end := @cache (ASTE +$end), init, \end, has-func
+        end := @cache (ASTE +$end), init, \end, false
       else
         init.push ASTE +$end
 
@@ -1715,7 +1736,7 @@ macro asyncfor
         if typeof @value(step) != \number
           throw Error "Cannot step with a non-number: #(@value step)"
       else if @is-complex(step)
-        step := @cache (ASTE +$step), init, \step, has-func
+        step := @cache (ASTE +$step), init, \step, false
       else
         init.push ASTE +$step
       
