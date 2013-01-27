@@ -72,6 +72,11 @@ test "invocation with multi-line arguments", #
 test "invocation with multi-line arguments, unclosed", #
   let f(...args) -> args
   
+  array-eq [1, 2, 3, 4], f 1,
+    2
+    3
+    4
+  
   array-eq [1, 2, 3, 4], f 1, 2, 3,
     4
 
