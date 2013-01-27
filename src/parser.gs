@@ -2861,7 +2861,7 @@ define ObjectType = sequential! [
     [\head, ObjectTypePair]
     [\tail, zero-or-more! sequential! [
       CommaOrNewline
-      ObjectTypePair
+      [\this, ObjectTypePair]
     ]]
     MaybeComma
   ], #(x) -> [x.head, ...x.tail]), #-> []]
@@ -2873,12 +2873,12 @@ define ObjectType = sequential! [
     let keys = []
     for {key} in x
       if key not instanceof ConstNode
-        throw Error "Expected a constant key"
-      else if typeof key.value != \string
-        throw Error "Expected a string constant key"
-      if key.value in keys
-        o.error "Duplicate object key: $(key.value)"
-      keys.push key.value
+        o.error "Expected a constant key, got $(typeof! key)"
+      else
+        let key-value = String key.value
+        if key-value in keys
+          o.error "Duplicate object key: $key-value"
+        keys.push key-value
     o.type-object i, x
 
 let _in-function-type-params = Stack false
@@ -5843,6 +5843,10 @@ node-class AccessNode(parent as Node, child as Node)
             parent-type.subtype.union(Type.undefined)
           else
             Type.any
+    else if parent-type.is-subset-of(Type.object) and typeof parent-type.value == \function
+      let child = o.macro-expand-1(@child).reduce(o)
+      if child.is-const()
+        return parent-type.value(String child.const-value())
     Type.any
   def _reduce(o)
     let parent = @parent.reduce(o).do-wrap(o)
@@ -6525,8 +6529,13 @@ node-class NothingNode
   def cacheable = false
   def is-const() -> true
   def const-value() -> void
-node-class ObjectNode(pairs as [], prototype as Node|void)
-  def type() -> Type.object
+node-class ObjectNode(pairs as [{key: Node, value: Node}], prototype as Node|void)
+  def type(o) -> @_type ?= do
+    let data = {}
+    for {key, value} in @pairs
+      if key.is-const()
+        data[key.const-value()] := value.type(o)
+    Type.make-object data
   def walk = do
     let walk-pair(pair, func)
       let key = func pair.key

@@ -1041,6 +1041,28 @@ test "typed array parameter of specific objects", #
   throws #-> fun([false]), TypeError
   throws #-> fun([new String("hello")]), TypeError
 
+test "typed array parameter of specific objects with more than one key", #
+  let fun(value as [{x: Number, y: Number}]) -> return for {x, y} in value; x * y
+
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  array-eq [], fun([])
+  throws #-> fun(["alpha"]), TypeError
+  throws #-> fun([{}]), TypeError
+  array-eq [6], fun([{x: 2, y: 3}])
+  array-eq [10, 1000], fun([{x: 5, y: 2, z: "blah!"}, {x: 100, y: 10, q: "ignored"}])
+  throws #-> fun([1]), TypeError
+  throws #-> fun([null]), TypeError
+  throws #-> fun([void]), TypeError
+  throws #-> fun([false]), TypeError
+  throws #-> fun([new String("hello")]), TypeError
+
 test "typed function parameter", #
   let fun(f as -> String) -> f()
   
