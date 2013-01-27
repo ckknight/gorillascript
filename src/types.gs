@@ -259,7 +259,7 @@ module.exports := class Type
     def constructor(subtype as Type)@
       @subtype := subtype
     
-    def to-string() -> @_name ?= "[$(String @subtype)]"
+    def to-string() -> @_name ?= if @subtype == any then "[]" else "[$(String @subtype)]"
     
     def equals(other)
       other == this or (other instanceof ArrayType and @subtype.equals(other.subtype))
@@ -325,11 +325,173 @@ module.exports := class Type
     def complement() -> ComplementType [this]
     def inspect(depth) -> "$(inspect @subtype, null, depth).array()"
   
+  class ObjectType extends Type
+    def constructor(data)@
+      if typeof data != \object or data instanceof RegExp
+        throw TypeError "Expected an object, got $(typeof! pairs)"
+      let pairs = []
+      for k, v of data
+        if v not instanceof Type
+          throw TypeError "Expected data[$(JSON.stringify k)] to be a Type, got $(typeof! v)"
+        if v != any
+          pairs.push [k, v]
+      pairs.sort #(a, b) -> a[0] <=> b[0]
+      if pairs.length == 0 and Type.object?
+        return Type.object
+      @pairs := pairs
+    
+    def to-string() -> @_name ?= "{$((for [k, v] in @pairs; "$k: $(String v)").join ', ')}"
+    
+    def equals(other)
+      if other == this
+        true
+      else if other instanceof ObjectType
+        let pairs = @pairs
+        let other-pairs = other.pairs
+        if pairs == other-pairs
+          true
+        else if pairs.length != other-pairs.length
+          false
+        else
+          let equal = for every pair, i in pairs
+            let other-pair = other-pairs[i]
+            pair[0] == other-pair[0] and pair[1].equals(other-pair[1])
+          if equal
+            other.pairs := pairs
+          equal
+      else
+        false
+    
+    def compare(other)
+      if this == other
+        0
+      else if other instanceof ObjectType
+        let pairs = @pairs
+        let other-pairs = other.pairs
+        if pairs == other-pairs
+          true
+        else
+          let mutable cmp = pairs.length <=> other-pairs.length
+          if cmp
+            cmp
+          else
+            for pair, i in pairs
+              let other-pair = other-pairs[i]
+              cmp := pair[0] <=> other-pair[0] or pair[1].compare(other-pair[1])
+              if cmp
+                return cmp
+            other.pairs := pairs
+            0
+      else
+        "ObjectType" <=> other.constructor.name
+
+    def union(other as Type)
+      if other instanceof ObjectType
+        if @equals(other)
+          this
+        else if @is-subset-of(other)
+          other
+        else if other.is-subset-of(this)
+          this
+        else
+          make-union-type [this, other], true
+      else if other instanceofsome [SimpleType, ArrayType]
+        make-union-type [this, other], true
+      else
+        other.union this
+
+    def intersect(other as Type)
+      if other instanceof ObjectType
+        if @equals(other)
+          this
+        else if @is-subset-of(other)
+          this
+        else if other.is-subset-of(this)
+          other
+        else
+          let merged = {}
+          for [k, v] in @pairs
+            merged[k] := v
+          for [k, v] in other.pairs
+            if merged ownskey k
+              merged[k] := merged[k].intersect(v)
+            else
+              merged[k] := v
+          ObjectType merged
+      else if other instanceofsome [SimpleType, ArrayType]
+        none
+      else
+        other.intersect this
+
+    def is-subset-of(other as Type)
+      if other instanceof ObjectType
+        if this == other or other == Type.object
+          true
+        else
+          let pairs = @pairs
+          let other-pairs = other.pairs
+          if pairs == other.pairs
+            true
+          else
+            let mutable i = 0
+            let len = pairs.length
+            for [other-k, other-v] in other-pairs
+              while i <= len, i += 1
+                if i == len
+                  return false
+                let pair = pairs[i]
+                if pair[0] == other-k
+                  if pair[1].is-subset-of(other-v)
+                    i += 1
+                    break
+                  else
+                    return false
+                else if pair[0] > other-k
+                  return false
+            if i == len
+              other.pairs := pairs
+            true
+      else if other instanceof UnionType
+        for some type in other.types
+          @is-subset-of(type)
+      else if other instanceof ComplementType
+        for every type in other.untypes
+          not @is-subset-of(type)
+      else
+        other == any
+
+    def overlaps(other as Type)
+      if other instanceof ObjectType
+        // seeing as any unspecified key can overlap with another unspecified key, there's an overlap
+        true
+      else if other instanceofsome [SimpleType, ArrayType]
+        false
+      else
+        other.overlaps this
+
+    def complement() -> ComplementType [this]
+    
+    def value(key as String)
+      for pair in @pairs
+        let pair-key = pair[0]
+        if pair-key == key
+          return pair[1]
+        else if pair-key > key
+          return Type.any
+      Type.any
+    
+    def inspect(depth)
+      let obj = {}
+      for [k, v] in @pairs
+        obj[k] := v
+      "ObjectType($(inspect obj, null, if depth? then depth - 1 else null))"
+  @make-object := #(data) -> ObjectType(data)
+  
   class FunctionType extends Type
     def constructor(return-type as Type)@
       @return-type := return-type
 
-    def to-string() -> @_name ?= "-> $(String @return-type)"
+    def to-string() -> @_name ?= if @return-type == any then "->" else "-> $(String @return-type)"
 
     def equals(other)
       other == this or (other instanceof FunctionType and @return-type.equals(other.return-type))
@@ -352,7 +514,7 @@ module.exports := class Type
           this
         else
           make-union-type [this, other], true
-      else if other instanceofsome [SimpleType, ArrayType]
+      else if other instanceofsome [SimpleType, ArrayType, ObjectType]
         make-union-type [this, other], true
       else
         other.union this
@@ -367,7 +529,7 @@ module.exports := class Type
           other
         else
           none.function()
-      else if other instanceofsome [SimpleType, ArrayType]
+      else if other instanceofsome [SimpleType, ArrayType, ObjectType]
         none
       else
         other.intersect this
@@ -387,13 +549,13 @@ module.exports := class Type
     def overlaps(other as Type)
       if other instanceof FunctionType
         @return-type.overlaps(other.return-type)
-      else if other instanceofsome [SimpleType, ArrayType]
+      else if other instanceofsome [SimpleType, ArrayType, ObjectType]
         false
       else
         other.overlaps this
 
     def complement() -> ComplementType [this]
-    def inspect(depth) -> "$(inspect @subtype, null, depth).array()"
+    def inspect(depth) -> "$(inspect @subtype, null, depth).function()"
   
   class UnionType extends Type
     def constructor(types as [Type])@
@@ -426,6 +588,27 @@ module.exports := class Type
           this
         else
           make-union-type types
+      else if other instanceof ObjectType
+        if other == Type.object
+          let new-types = [other]
+          for type in @types
+            if type instanceof ObjectType
+              if type == Type.object
+                return this
+            else
+              new-types.push type
+          make-union-type new-types
+        else
+          let new-types = [other]
+          for type in @types
+            if type instanceof ObjectType
+              if other.is-subset-of type
+                return this
+              else if not type.is-subset-of other
+                new-types.push type
+            else
+              new-types.push type
+          make-union-type new-types
       else if other instanceof UnionType
         let types = union @types, other.types
         if types == @types
@@ -438,7 +621,7 @@ module.exports := class Type
         other.union this
     
     def intersect(other as Type)
-      if other instanceofsome [SimpleType, ArrayType, FunctionType]
+      if other instanceofsome [SimpleType, ArrayType, ObjectType, FunctionType]
         make-union-type intersect @types, [other]
       else if other instanceof UnionType
         let types = intersect @types, other.types
@@ -462,7 +645,7 @@ module.exports := class Type
     def overlaps(other as Type)
       if other instanceof SimpleType
         contains @types, other
-      else if other instanceofsome [ArrayType, FunctionType]
+      else if other instanceofsome [ArrayType, ObjectType, FunctionType]
         for some type in @types
           other.overlaps type
       else if other instanceof UnionType
@@ -502,7 +685,7 @@ module.exports := class Type
         "ComplementType" <=> other.constructor.name
     
     def union(other as Type)
-      if other instanceofsome [SimpleType, ArrayType, FunctionType]
+      if other instanceofsome [SimpleType, ArrayType, ObjectType, FunctionType]
         let untypes = relative-complement @untypes, [other]
         if untypes == @untypes
           this
@@ -526,7 +709,7 @@ module.exports := class Type
         other.union this
     
     def intersect(other as Type)
-      if other instanceofsome [SimpleType, ArrayType, FunctionType]
+      if other instanceofsome [SimpleType, ArrayType, ObjectType, FunctionType]
         if contains @untypes, other
           none
         else
@@ -560,6 +743,12 @@ module.exports := class Type
       else if other instanceofsome [ArrayType, FunctionType]
         for every untype in @untypes
           not other.overlaps untype
+      else if other instanceof ObjectType
+        for every untype in @untypes
+          if untype instanceof ObjectType
+            not other.is-subset-of untype
+          else
+            true
       else if other instanceof UnionType
         relative-complement(other.types, @untypes).length > 0
       else if other instanceof ComplementType
@@ -629,7 +818,7 @@ module.exports := class Type
   @number-array := @number.array()
   @array := any.array()
   @args := @make "Arguments"
-  @object := @make "Object"
+  @object := @make-object({})
   @function := any.function()
   @regexp := @make "RegExp"
   @date := @make "Date"
