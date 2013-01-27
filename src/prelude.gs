@@ -391,12 +391,15 @@ define operator assign \= with type: \number
     ASTE $set-left := $left \ $right
 
 define operator binary & with precedence: 4, type: \string, label: \string-concat
-  if not @is-type left, \string
+  if @is-type left, \number
+    if @has-type right, \number
+      left := ASTE "" ~& $left
+  else if not @is-type left, \string
     left := if not @has-type left, \number
       ASTE __str $left
     else
       ASTE __strnum $left
-  if not @is-type right, \string
+  if not @is-type right, \string-or-number
     right := if not @has-type right, \number
       ASTE __str $right
     else

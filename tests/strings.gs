@@ -179,6 +179,12 @@ test "Interpolation", #
   eq "5 * 5 = 25", "$value * $value = $(value ^ 2)"
   eq "value:\n5", "value:\n$(value)"
   eq "value:\n5", "value:\n$value"
+  let a = 1
+  let b = 2
+  eq "12", "$(a)$(b)"
+  eq "12c", "$(a)$(b)c"
+  eq "c12", "c$(a)$(b)"
+  eq "c12c", "c$(a)$(b)c"
 
 test "Escape codes", #
   eq 'Hello, "friend"', "Hello, \"friend\""
