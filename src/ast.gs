@@ -1075,14 +1075,13 @@ let compile-func(options, sb, name, params, declarations, variables, body)
   sb "}"
 
 exports.Func := class Func extends Expression
-  def constructor(name as null|Ident, params as [Ident] = [], variables as [String] = [], body as Node = Noop(), declarations as [String] = [], meta)@
+  def constructor(name as null|Ident, params as [Ident] = [], variables as [String] = [], body as Node = Noop(), declarations as [String] = [])@
     validate-func-params-and-variables params, variables
     @name := name
     @params := params
     @variables := variables
     @body := body
     @declarations := declarations
-    @meta := meta
   
   def compile(options, level, line-start, sb)!
     let wrap = line-start and not @name
@@ -1113,33 +1112,9 @@ exports.Func := class Func extends Expression
     let d = dec-depth depth
     "Func($(inspect @name, null, d), $(inspect @params, null, d), $(inspect @variables, null, d), $(inspect @body, null, d), $(inspect @declarations, null, d), $(inspect @meta, null, d))"
   
-  require! Type: './types'
-  let find-type-name = do
-    let types = []
-    let names = []
-    #(type)
-      if type not instanceof Type
-        void
-      else
-        let index = types.index-of(type)
-        if index != -1
-          names[index]
-        else
-          for name, t of Type
-            if t == type
-              names.push name
-              types.push type
-              return name
-          names.push void
-          types.push type
-          void
-  
-  def to-JSON() -> { type: "Func", name: @name or void, params: simplify(@params), variables: simplify(@variables), body: simplify(@body), declarations: simplify(@declarations), meta-type: find-type-name(@meta?.as-type) }
-  @from-JSON := #({name, params, variables, body, declarations, meta-type})
-    let meta = if meta-type? then {
-      as-type: Type[meta-type]
-    }
-    Func (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations, meta
+  def to-JSON() -> { type: "Func", name: @name or void, params: simplify(@params), variables: simplify(@variables), body: simplify(@body), declarations: simplify(@declarations) }
+  @from-JSON := #({name, params, variables, body, declarations})
+    Func (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations
 
 exports.Ident := class Ident extends Expression
   def constructor(name as String)@

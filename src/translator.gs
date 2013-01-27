@@ -145,10 +145,12 @@ let make-auto-return(x) -> if x then wrap-return else identity
 let HELPERS = new class Helpers
   def constructor()@
     @data := {}
+    @types := {}
     @deps := {}
 
-  def add(name as String, value as ast.Expression, dependencies as [String])
+  def add(name as String, value as ast.Expression, type as Type, dependencies as [String])
     @data[name] := value
+    @types[name] := type
     @deps[name] := dependencies
 
   def has(name as String)
@@ -157,6 +159,12 @@ let HELPERS = new class Helpers
   def get(name as String)
     if @data ownskey name
       @data[name]
+    else
+      throw Error "No such helper: $name"
+  
+  def type(name as String)
+    if @types ownskey name
+      @types[name]
     else
       throw Error "No such helper: $name"
   
@@ -1159,8 +1167,7 @@ let translators =
             * body
       if inner-scope.has-stop-iteration
         scope.has-stop-iteration := true
-      let as-type = if node.as-type? then translate-type(node.as-type, scope)
-      let func = ast.Func null, param-idents, inner-scope.get-variables(), body, [], { as-type }
+      let func = ast.Func null, param-idents, inner-scope.get-variables(), body, []
       auto-return func
 
   Ident: #(node, scope, location, auto-return)
@@ -1406,7 +1413,7 @@ module.exports := #(node, options = {})
   }
 
 module.exports.helpers := HELPERS
-module.exports.define-helper := #(name, value, mutable dependencies)
+module.exports.define-helper := #(name, value, type as Type, mutable dependencies)
   let scope = Scope({}, false)
   let ident = if typeof name == \string
     ast.Ident(name)
@@ -1423,7 +1430,7 @@ module.exports.define-helper := #(name, value, mutable dependencies)
   else
     throw TypeError "Expected value to be a parser or ast Node, got $(typeof! value)"
   dependencies ?= scope.get-helpers()
-  HELPERS.add ident.name, helper, dependencies
+  HELPERS.add ident.name, helper, type, dependencies
   {
     helper
     dependencies

@@ -4881,9 +4881,9 @@ class MacroHolder
       @add-by-label options.label, data
     @add-macro m, macro-id, if options.type? then Type![options.type]
   
-  def add-serialized-helper(name as String, helper, dependencies)!
+  def add-serialized-helper(name as String, helper, type, dependencies)!
     let helpers = (@serialization.helpers ?= {})
-    helpers[name] := { helper, dependencies }
+    helpers[name] := { helper, type, dependencies }
   
   def add-macro-serialization(serialization as Object)!
     if typeof serialization.type != \string
@@ -4913,8 +4913,8 @@ class MacroHolder
   def deserialize(data)!
     require! './translator'
     require! './ast'
-    for name, {helper, dependencies} of (data!.helpers ? {})
-      translator.define-helper(name, ast.fromJSON(helper), dependencies)
+    for name, {helper, type, dependencies} of (data!.helpers ? {})
+      translator.define-helper(name, ast.fromJSON(helper), Type.fromJSON(type), dependencies)
     
     State("", this).deserialize-macros(data)
 
@@ -5186,9 +5186,11 @@ class State
   
   def define-helper(i, name as IdentNode, value as Node)
     require! './translator'
-    let {helper, dependencies} = translator.define-helper(name, @macro-expand-all(value).reduce(this))
+    let node = @macro-expand-all(value).reduce(this)
+    let type = node.type(this)
+    let {helper, dependencies} = translator.define-helper(name, node, type)
     if @options.serialize-macros
-      @macros.add-serialized-helper(name.name, helper, dependencies)
+      @macros.add-serialized-helper(name.name, helper, type, dependencies)
     @nothing i
   
   let macro-syntax-const-literals =
@@ -6209,21 +6211,9 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
         toString: Type.string
       Error:
         toString: Type.string
-    let helper-type-cache = {}
-    let calculate-type(node)  
-      let ast = require('./ast')
-      let last = node.last()
-      if last instanceof ast.Func
-        last.meta?.as-type ? Type.any
-      else if last instanceof ast.Return
-        calculate-type(last.node)
-      else if last instanceof ast.Call and last.func instanceof ast.Func
-        calculate-type(last.func.body)
-      else
-        Type.any
     #(o) -> @_type ?= do
       let func = @func
-      let func-type = func.type(o)
+      let mutable func-type = func.type(o)
       if func-type.is-subset-of(Type.function)
         return func-type.return-type
       else if func instanceof IdentNode
@@ -6233,10 +6223,9 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
         else if name.length > 2 and C(name, 0) == C("_") and C(name, 1) == C("_")
           let {helpers} = require('./translator')
           if helpers.has name
-            return if helper-type-cache ownskey name
-              helper-type-cache[name]
-            else
-              helper-type-cache[name] := calculate-type helpers.get name
+            func-type := helpers.type name
+            if func-type.is-subset-of(Type.function)
+              return func-type.return-type
       else if func instanceof AccessNode
         let {parent, child} = func
         if child instanceof ConstNode
