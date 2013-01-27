@@ -51,7 +51,7 @@ macro break
 
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
-    @let ident, false
+    @let ident, false, @type(func)
     @block
       * @var ident, false
       * @assign ident, "=", func
@@ -114,9 +114,9 @@ macro let
     let inc(x) -> eval("x + 1")
     declarable := @macro-expand-1(declarable)
     if declarable.type == \ident
-      @let declarable.ident, declarable.is-mutable
+      @let declarable.ident, declarable.is-mutable, if declarable.as-type then @to-type(declarable.as-type) else @type(value)
       @block
-        * @var declarable.ident, declarable.is-mutable, declarable.as-type
+        * @var declarable.ident, declarable.is-mutable
         * @assign declarable.ident, "=", value
     else if declarable.type == \array
       if declarable.elements.length == 1
@@ -634,33 +634,58 @@ define operator unary throw? with type: \undefined
     ASTE if $set-node? then throw $node
 
 define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, bitand=, bitor=, bitxor= with type: \number
-  // TODO: if left is proven to be a number, use raw operators instead
-  @maybe-cache-access left, #(set-left, left)@
-    let action = if op == "*="
-      ASTE $left * $right
+  if @is-type left, \number
+    if op == "*="
+      ASTE $left ~*= +$right
     else if op == "/="
-      ASTE $left / $right
+      ASTE $left ~/= +$right
     else if op == "%="
-      ASTE $left % $right
+      ASTE $left ~%= +$right
     else if op == "+="
-      ASTE $left + $right
+      ASTE $left ~+= +$right
     else if op == "-="
-      ASTE $left - $right
+      ASTE $left ~-= +$right
     else if op == "bitlshift="
-      ASTE $left bitlshift $right
+      ASTE $left ~bitlshift= +$right
     else if op == "bitrshift="
-      ASTE $left bitrshift $right
+      ASTE $left ~bitrshift= +$right
     else if op == "biturshift="
-      ASTE $left biturshift $right
+      ASTE $left ~biturshift= +$right
     else if op == "bitand="
-      ASTE $left bitand $right
+      ASTE $left ~bitand= +$right
     else if op == "bitor="
-      ASTE $left bitor $right
+      ASTE $left ~bitor= +$right
     else if op == "bitxor="
-      ASTE $left bitxor $right
+      ASTE $left ~bitxor= +$right
     else
       throw Error()
-    ASTE $set-left := $action
+  else
+    @maybe-cache-access left, #(set-left, left)@
+      let action = if op == "*="
+        ASTE $left * $right
+      else if op == "/="
+        ASTE $left / $right
+      else if op == "%="
+        ASTE $left % $right
+      else if op == "+="
+        ASTE $left + $right
+      else if op == "-="
+        ASTE $left - $right
+      else if op == "bitlshift="
+        ASTE $left bitlshift $right
+      else if op == "bitrshift="
+        ASTE $left bitrshift $right
+      else if op == "biturshift="
+        ASTE $left biturshift $right
+      else if op == "bitand="
+        ASTE $left bitand $right
+      else if op == "bitor="
+        ASTE $left bitor $right
+      else if op == "bitxor="
+        ASTE $left bitxor $right
+      else
+        throw Error()
+      ASTE $set-left := $action
 
 macro do
   syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as (Body | (";", this as Statement))

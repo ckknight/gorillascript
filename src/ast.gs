@@ -203,6 +203,8 @@ exports.Expression := class Expression extends Node
   def constructor()@
     throw Error "Expression cannot be instantiated directly"
   
+  def compile-as-block(options, level, line-start, sb)! -> @compile options, level, line-start, sb
+  
   def compile-as-statement(options, line-start, sb)!
     if typeof @to-statement == "function"
       @to-statement().compile-as-statement options, line-start, sb
@@ -231,6 +233,7 @@ exports.Arguments := class Arguments extends Expression
   def constructor()@ ->
   
   def compile(options, level, line-start, sb)! -> sb "arguments"
+  def compile-as-block(options, level, line-start, sb)! -> Noop().compile-as-block(options, level, line-start, sb)
   def walk() -> this
   def is-noop() -> true
   def inspect(depth) -> "Arguments()"
@@ -307,6 +310,8 @@ exports.Arr := class Arr extends Expression
     let f = if @should-compile-large() then compile-large else compile-small
     f(@elements, options, level, line-start, sb)
     sb "]"
+  def compile-as-block(options, level, line-start, sb)
+    BlockExpression(@elements).compile-as-block(options, level, line-start, sb)
   def compile-as-statement(options, line-start, sb)!
     BlockStatement(@elements).compile(options, line-start, sb)
   
@@ -435,6 +440,11 @@ exports.Binary := class Binary extends Expression
     let f = if @op == "." then compile-access else compile-other
     f(@op, @left, @right, options, level, line-start, sb)
   
+  def compile-as-block(options, level, line-start, sb)!
+    if ASSIGNMENT_OPS ownskey @op
+      super.compile-as-block(options, level, line-start, sb)
+    else
+      BlockExpression([@left, @right]).compile-as-block(options, level, line-start, sb)
   def compile-as-statement(options, line-start, sb)!
     let left = @left
     let op = @op
@@ -632,6 +642,9 @@ exports.BlockExpression := class BlockExpression extends Expression
       if wrap
         sb ")"
   
+  def compile-as-block(options, level, line-start, sb)
+    BlockExpression(for item in @body; if not item.is-noop() then item).compile(options, level, line-start, sb)
+  
   def is-large()
     @_is-large ?= @body.length > 4 or for some part in @body
       part.is-large()
@@ -784,6 +797,8 @@ exports.Const := class Const extends Expression
     sb to-JS-source(value)
     if wrap
       sb ")"
+  def compile-as-block(options, level, line-start, sb)!
+    Noop().compile-as-block(options, level, line-start, sb)
   
   def is-const() -> true
   def is-noop = @::is-const
@@ -936,13 +951,13 @@ exports.For := class For extends Statement
     
     sb "for ("
     if not @init.is-noop()
-      @init.compile options, Level.inside-parentheses, false, sb
+      @init.compile-as-block options, Level.inside-parentheses, false, sb
     sb "; "
     if not @test.is-const() or not @test.const-value()
       @test.compile options, Level.inside-parentheses, false, sb
     sb "; "
     if not @step.is-noop()
-      @step.compile options, Level.inside-parentheses, false, sb
+      @step.compile-as-block options, Level.inside-parentheses, false, sb
     sb ")"
     if @body.is-noop()
       sb ";"
@@ -1135,6 +1150,9 @@ exports.Ident := class Ident extends Expression
   def compile(options, level, line-start, sb)!
     sb @name
   
+  def compile-as-block(options, level, line-start, sb)!
+    Noop().compile-as-block(options, level, line-start, sb)
+  
   def walk() -> this
   
   def inspect(depth)
@@ -1309,6 +1327,18 @@ exports.IfExpression := class IfExpression extends Expression
       f @test, @when-true, @when-false, options, not wrap and line-start, sb
       if wrap
         sb ")"
+  def compile-as-block(options, level, line-start, sb)!
+    if @test.is-noop()
+      @when-false.compile-as-block(options, level, line-start, sb)
+    else if @when-true.is-noop()
+      if @when-false.is-noop()
+        @test.compile-as-block(options, level, line-start, sb)
+      else
+        Binary(@test, "||", @when-false).compile-as-block(options, level, line-start, sb)
+    else if @when-false.is-noop()
+      Binary(@test, "&&", @when-false).compile-as-block(options, level, line-start, sb)
+    else
+      @compile(options, level, line-start, sb)
   
   def is-large()
     @_is-large ?= for some part in [@test, @when-true, @when-false]
@@ -1417,6 +1447,8 @@ exports.Obj := class Obj extends Expression
     if line-start
       sb ")"
   
+  def compile-as-block(options, level, line-start, sb)!
+    BlockExpression(for element in @elements; element.value).compile-as-block(options, level, line-start, sb)
   def compile-as-statement(options, line-start, sb)!
     BlockStatement(for element in @elements; element.value).compile-as-statement(options, line-start, sb)
   
@@ -1561,6 +1593,8 @@ exports.This := class This extends Expression
   def constructor()@ ->
   
   def compile(options, level, line-start, sb)! -> sb "this"
+  def compile-as-block(options, level, line-start, sb)!
+    Noop().compile-as-block(options, level, line-start, sb)
   
   def is-noop() -> true
   
@@ -1807,6 +1841,13 @@ exports.Unary := class Unary extends Expression
       if op in ["typeof", "void", "delete"] or (op in ["+", "-", "++", "--"] and ((@node instanceof Unary and op in ["+", "-", "++", "--"]) or (@node instanceof Const and typeof @node.value == "number" and is-negative(@node.value))))
         sb " "
       @node.compile options, Level.unary, false, sb
+  
+  def compile-as-block(options, level, line-start, sb)!
+    let op = @op
+    if ASSIGNMENT_OPERATORS ownskey op
+      @compile(options, level, line-start, sb)
+    else
+      @node.compile-as-block(options, level, line-start, sb)
   
   def compile-as-statement(options, line-start, sb)!
     let op = @op

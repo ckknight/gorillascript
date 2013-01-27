@@ -2452,7 +2452,7 @@ define CustomOperatorCloseParenthesis = do
     if op and CloseParenthesis(clone)
       o.update clone
       let node = clone.ident i, \x
-      clone.scope.add node, false
+      clone.scope.add node, false, Type.any
       o.function(i
         [clone.param i, node]
         operator.func {
@@ -2477,8 +2477,8 @@ define CustomOperatorCloseParenthesis = do
           if op and CloseParenthesis(clone)
             let left = o.ident i, \x
             let right = o.ident i, \y
-            clone.scope.add left, false
-            clone.scope.add right, false
+            clone.scope.add left, false, Type.any
+            clone.scope.add right, false, Type.any
             let result = o.function(i
               [
                 clone.param i, left
@@ -2535,7 +2535,7 @@ define Parenthetical = sequential! [
     ], #({left, operator: {op, operator, inverted}}, o, i, line)
       let clone = o.clone(o.clone-scope())
       let right = o.tmp i, get-tmp-id(), \x
-      clone.scope.add right, false
+      clone.scope.add right, false, Type.any
       return o.function(i
         [clone.param i, right]
         operator.func {
@@ -2557,7 +2557,7 @@ define Parenthetical = sequential! [
     ], #({right, operator: {op, operator, inverted}}, o, i, line)
       let clone = o.clone(o.clone-scope())
       let left = o.tmp i, get-tmp-id(), \x
-      clone.scope.add left, false
+      clone.scope.add left, false, Type.any
       return o.function(i
         [clone.param i, left]
         operator.func {
@@ -3055,11 +3055,11 @@ define _FunctionBody = one-of! [
 let add-param-to-scope(o, param)!
   if param instanceof ParamNode
     if param.ident instanceofsome [IdentNode, TmpNode]
-      o.scope.add param.ident, param.is-mutable, param.as-type or (if param.spread then o.ident(param.start-index, \Array))
+      o.scope.add param.ident, param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else if param.ident instanceof AccessNode
       if param.ident.child not instanceof ConstNode or typeof param.ident.child.value != \string
         throw Error "Expected constant access: $(typeof! param.ident.child)"
-      o.scope.add o.ident(param.start-index, param.ident.child.value), param.is-mutable, param.as-type or (if param.spread then o.ident(param.start-index, \Array))
+      o.scope.add o.ident(param.start-index, param.ident.child.value), param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else
       throw Error "Unknown param ident: $(typeof! param.ident)"
   else if param instanceof ArrayNode
@@ -4178,6 +4178,44 @@ class FailureManager
     if index >= @index
       @messages.push message
 
+let node-to-type = do
+  let ident-to-type = {
+    Boolean: Type.boolean
+    String: Type.string
+    Number: Type.number
+    Array: Type.array
+    Object: Type.object
+    Function: Type.function
+    RegExp: Type.regexp
+    Date: Type.date
+    Error: Type.error
+    RangeError: Type.error
+    ReferenceError: Type.error
+    SyntaxError: Type.error
+    TypeError: Type.error
+    URIError: Type.error
+  }
+  #(node as Node)
+    if node instanceof IdentNode
+      ident-to-type![node.name] or Type.any // TODO: possibly store types on scope
+    else if node instanceof ConstNode
+      if node.value == null
+        Type.null
+      else if node.value == void
+        Type.undefined
+      else
+        // shouldn't really occur
+        Type.any
+    else if node instanceof TypeArrayNode
+      node-to-type(node.subtype).array()
+    else if node instanceof TypeFunctionNode
+      node-to-type(node.return-type).function()
+    else if node instanceof TypeUnionNode
+      for reduce type in node.types[1:], current = node-to-type(node.types[0])
+        current.union(node-to-type(type))
+    else
+      // shouldn't really occur
+      Type.any
 class MacroHelper
   def constructor(state as State, index, position, in-generator)@
     @unsaved-tmps := []
@@ -4193,13 +4231,13 @@ class MacroHelper
     else
       node
   
-  def let(ident as TmpNode|IdentNode, is-mutable as Boolean)
-    @state.scope.add(ident, is-mutable)
+  def let(ident as TmpNode|IdentNode, is-mutable as Boolean, type as Type = Type.any)
+    @state.scope.add(ident, is-mutable, type)
   
   def has-variable(ident as TmpNode|IdentNode)
     @state.scope.has(ident)
   
-  def var(ident as IdentNode|TmpNode, is-mutable as Boolean, as-type as Node|void) -> @state.var @index, ident, is-mutable
+  def var(ident as IdentNode|TmpNode, is-mutable as Boolean) -> @state.var @index, ident, is-mutable
   def def(key as Node = NothingNode(0, 0, @state.scope.id), value as Node|void) -> @state.def @index, key, @do-wrap(value)
   def noop() -> @state.nothing @index
   def block(nodes as [Node]) -> @state.block(@index, nodes).reduce(@state)
@@ -4257,12 +4295,14 @@ class MacroHelper
     unsaved: @unsaved-tmps[:]
     saved: @saved-tmps[:]
   
-  def is-const(node) -> node == void or (node instanceof Node and node.is-const())
+  def is-const(node) -> node == void or (node instanceof Node and @macro-expand-1(node).is-const())
   def value(node)
     if node == void
       void
-    else if node instanceof Node and node.is-const()
-      node.const-value()
+    else if node instanceof Node
+      let expanded = @macro-expand-1(node)
+      if expanded.is-const()
+        expanded.const-value()
   def const(value)
     @state.const @index, value
   
@@ -4390,6 +4430,16 @@ class MacroHelper
         throw Error "Expected an object with Node 'value' at index #$i, got $(typeof! pair.value)"
     @state.object(0, (for {key, value} in pairs; {key: @do-wrap(key), value: @do-wrap(value)})).reduce(@state)
   
+  def type(node)
+    if typeof node == \string
+      Type![node] or throw Error "Unknown type $(node)"
+    else if node instanceof Node
+      node.type(@state)
+    else
+      throw Error "Can only retrieve type from a String or Node, got $(typeof! node)"
+  
+  def to-type = node-to-type
+  
   def is-complex(mutable node)
     node := @macro-expand-1 node
     node? and node not instanceofsome [ConstNode, IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
@@ -4449,11 +4499,12 @@ class MacroHelper
   def maybe-cache(mutable node as Node, func, name as String = \ref, save as Boolean)
     node := @macro-expand-1(node)
     if @is-complex node
-      let tmp = @tmp(name, save, node.type(@state))
-      @state.scope.add(tmp, false)
+      let type = node.type(@state)
+      let tmp = @tmp(name, save, type)
+      @state.scope.add tmp, false, type
       func @state.block(@index, [
-        @state.var(@index, tmp, false)
-        @state.assign(@index, tmp, "=", @do-wrap(node))
+        @state.var @index, tmp, false
+        @state.assign @index, tmp, "=", @do-wrap(node)
       ]), tmp, true
     else
       func node, node, false
@@ -5022,11 +5073,11 @@ class Scope
       throw Error("Trying to reparent to own scope")
     @parent := parent
   
-  def add(ident as IdentNode|TmpNode, is-mutable as Boolean)!
+  def add(ident as IdentNode|TmpNode, is-mutable as Boolean, type as Type)!
     if ident instanceof TmpNode
-      @tmps[ident.id] := { ident, is-mutable }
+      @tmps[ident.id] := { ident, is-mutable, type }
     else
-      @variables[ident.name] := is-mutable
+      @variables[ident.name] := { is-mutable, type }
   
   def owns(ident as IdentNode|TmpNode)
     if ident instanceof TmpNode
@@ -5041,6 +5092,32 @@ class Scope
       @parent.has(ident)
     else
       false
+  
+  let get(ident)
+    if ident instanceof TmpNode
+      if @tmps ownskey ident.id
+        @tmps[ident.id]
+      else if @parent?
+        get@ @parent, ident
+    else
+      if @variables ownskey ident.name
+        @variables[ident.name]
+      else if @parent?
+        get@ @parent, ident
+  
+  def is-mutable(ident as IdentNode|TmpNode)
+    let data = get@(this, ident)
+    if data
+      data.is-mutable
+    else
+      false
+  
+  def type(ident as IdentNode|TmpNode)
+    let data = get@(this, ident)
+    if data
+      data.type
+    else
+      Type.any
 
 class State
   def constructor(data, macros = MacroHolder(), options = {}, index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0, known-scopes = [], scope)@
@@ -6305,6 +6382,7 @@ node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean =
       this
 node-class IdentNode(name as String)
   def cacheable = false
+  def type(o) -> if o then o.scope.type(this) else Type.any
 node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, 0, scope-id))
   def type(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
   def _reduce(o)
@@ -6635,12 +6713,11 @@ node-class UnaryNode(op as String, node as Node)
         UnaryNode @start-index, @end-index, @scope-id, op, node
       else
         this
-node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean, as-type as Node|void)
+node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
   def _reduce(o)
     let ident = @ident.reduce(o)
-    let as-type = if @as-type then @as-type.reduce(o) else @as-type
-    if ident != @ident or as-type != @as-type
-      VarNode @start-index, @end-index, @scope-id, ident, @is-mutable, as-type
+    if ident != @ident
+      VarNode @start-index, @end-index, @scope-id, ident, @is-mutable
     else
       this
 node-class YieldNode(node as Node)
