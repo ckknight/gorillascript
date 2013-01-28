@@ -119,7 +119,7 @@ macro let
       @let declarable.ident, declarable.is-mutable, if declarable.as-type then @to-type(declarable.as-type) else @type(value)
       @block
         * @var declarable.ident, declarable.is-mutable
-        * @assign declarable.ident, "=", value
+        * @mutate-last value, #(n)@ -> @assign declarable.ident, "=", n
     else if declarable.type == \array
       if declarable.elements.length == 1
         let handle(element)
