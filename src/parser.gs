@@ -4387,6 +4387,7 @@ class MacroHelper
   def is-node(node) -> node instanceof Node
   def is-ident(node) -> @macro-expand-1(node) instanceof IdentNode
   def is-tmp(node) -> @macro-expand-1(node) instanceof TmpNode
+  def is-ident-or-tmp(node) -> @macro-expand-1(node) instanceofsome [IdentNode, TmpNode]
   def name(mutable node)
     node := @macro-expand-1(node)
     if @is-ident node
@@ -4766,17 +4767,20 @@ class MacroHelper
     Return: identity
     Debugger: identity
     Throw: identity
-  def mutate-last(mutable node, func)
+  def mutate-last(mutable node, func, include-noop)
     if not node or typeof node != \object or node instanceof RegExp
       return node
     
     if node not instanceof Node
       throw Error "Unexpected type to mutate-last through: $(typeof! node)"
     
-    if mutators not ownskey node.constructor.capped-name
+    if mutators not ownskey node.constructor.capped-name or (include-noop and node instanceof NothingNode)
       func(node) ? node
     else
       mutators[node.constructor.capped-name]@(this, node, func)
+  
+  def can-mutate-last(node)
+    node instanceof Node and mutators ownskey node.constructor.capped-name
 
 let one-of(rules as [Function])
   let name = ["("]

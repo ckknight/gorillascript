@@ -360,7 +360,7 @@ module.exports := class Type
   class ObjectType extends Type
     def constructor(data)@
       if typeof data != \object or data instanceof RegExp
-        throw TypeError "Expected an object, got $(typeof! pairs)"
+        throw TypeError "Expected an object, got $(typeof! data)"
       let pairs = []
       for k, v of data
         if v not instanceof Type

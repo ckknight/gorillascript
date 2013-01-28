@@ -9,10 +9,10 @@ define operator binary or with precedence: 0
   @binary left, "||", right
 
 define operator unary not with type: \boolean
-  @unary "!", node
+  @mutate-last node or @noop(), (#(n)@ -> @unary "!", n), true
 
 define operator unary typeof with type: \string
-  @unary "typeof", node
+  @mutate-last node or @noop(), (#(n)@ -> @unary "typeof", n), true
 
 define operator binary == with precedence: 1, maximum: 1, type: \boolean
   @binary left, "===", right
@@ -35,7 +35,7 @@ define operator binary ~>, ~>= with precedence: 1, maximum: 1, type: \boolean
   (op == "~>" and ASTE not ($left ~<= $right)) or ASTE not ($left ~< $right)
 
 define operator unary throw with type: "none"
-  @mutate-last node, #(n)@ -> @throw n
+  @mutate-last node or @noop(), (#(n)@ -> @throw n), true
 
 macro debugger
   syntax ""
@@ -72,12 +72,12 @@ macro if, unless
     @if(if macro-name == \unless then ASTE not $test else test, body, f(dec(else-ifs.length), else-body))
 
 define operator binary ~& with precedence: 4, type: \string
-  if @has-type(left, \number) and @has-type(right, \number)
+  if @has-type(left, \numeric) and @has-type(right, \numeric)
     left := @binary @const(""), "+", left
   @binary left, "+", right
 
 define operator unary ? with postfix: true, type: \boolean, label: \existential
-  if (@is-ident(node) or @is-tmp(node)) and not @has-variable(node)
+  if @is-ident-or-tmp(node) and not @has-variable(node)
     ASTE typeof $node != \undefined and $node != null
   else
     ASTE $node !~= null
@@ -119,7 +119,7 @@ macro let
       @let declarable.ident, declarable.is-mutable, if declarable.as-type then @to-type(declarable.as-type) else @type(value)
       @block
         * @var declarable.ident, declarable.is-mutable
-        * @mutate-last value, #(n)@ -> @assign declarable.ident, "=", n
+        * @mutate-last value or @noop(), (#(n)@ -> @assign declarable.ident, "=", n), true
     else if declarable.type == \array
       if declarable.elements.length == 1
         let handle(element)
@@ -164,7 +164,7 @@ macro return
     if @in-generator
       throw Error "Cannot use return in a generator function"
     if node
-      @mutate-last node, #(n)@ -> @return n
+      @mutate-last node or @noop(), (#(n)@ -> @return n), true
     else
       @return()
 
@@ -209,39 +209,46 @@ define operator binary ~*, ~/, ~%, ~\ with precedence: 8, type: \number
     @binary left, "%", right
 
 define operator assign ~*=, ~/=, ~%= with type: \number
-  if op == "~*="
-    @assign left, "*=", right
-  else if op == "~/="
-    @assign left, "/=", right
+  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+    @mutate-last right or @noop(), (#(n)@
+      if op == "~*="
+        @assign left, "*=", n
+      else if op == "~/="
+        @assign left, "/=", n
+      else
+        @assign left, "%=", n), true
   else
-    @assign left, "%=", right
+    if op == "~*="
+      @assign left, "*=", right
+    else if op == "~/="
+      @assign left, "/=", right
+    else
+      @assign left, "%=", right
 
 define operator assign ~\= with type: \number
   @maybe-cache-access left, #(set-left, left)
     ASTE $set-left := $left ~\ $right
 
-define operator binary ~+, ~- with precedence: 7, type: \number
-  if op == "~+"
-    if not @is-type right, \number
-      @binary left, "-", @unary "-", right
-    else
-      if not @is-type left, \number
-        left := @unary "+", left
-      @binary left, "+", right
-  else
-    @binary left, "-", right
-
 define operator unary ~+, ~- with type: \number
   if @is-const(node)
     let mutable value = Number(@value(node))
     if op == "~-"
-      value := 0 ~- value
+      let negate(x) -> eval("-x")
+      value := negate value
     @const value
   else
-    if op == "~+"
-      @unary "+", node
+    @mutate-last node or @noop(), (#(n)@ -> @unary if op == "~+" then "+" else "-", n), true
+
+define operator binary ~+, ~- with precedence: 7, type: \number
+  if op == "~+"
+    if not @is-type right, \numeric
+      @binary left, "-", ASTE ~-($right)
     else
-      @unary "-", node
+      if not @is-type left, \numeric
+        left := ASTE ~+($left)
+      @binary left, "+", right
+  else
+    @binary left, "-", right
 
 define operator binary ~^ with precedence: 9, right-to-left: true, type: \number
   if @is-const(right)
@@ -269,15 +276,24 @@ define operator assign ~+= with type: \number
       return @unary "++", left
     else if value == ~-1
       return @unary "--", left
-    else if typeof value == \number
+    else if typeof value == \number and not @is-type left, \numeric
       return @assign left, "-=", @const(~-value)
   
-  if @is-type left, \number
-    if not @is-type right, \number
-      right := @unary "+", right
-    @assign left, "+=", right
+  if @is-type left, \numeric
+    if @can-mutate-last(right) and @is-ident-or-tmp(left)
+      @mutate-last right or @noop(), (#(mutable n)@
+        if not @is-type n, \numeric
+          n := ASTE ~+$n
+        @assign left, "+=", n), true
+    else
+      if not @is-type right, \numeric
+        right := ASTE ~+$right
+      @assign left, "+=", right
   else
-    @assign left, "-=", @unary "-", right
+    if @can-mutate-last(right) and @is-ident-or-tmp(left)
+      @mutate-last right or @noop(), (#(n)@ -> @assign left, "-=", ASTE ~-$n), true
+    else
+      @assign left, "-=", ASTE ~-$right
 
 define operator assign ~-= with type: \number
   if @is-const(right)
@@ -286,7 +302,10 @@ define operator assign ~-= with type: \number
       return @unary "--", left
     else if value == ~-1
       return @unary "++", left
-  @assign left, "-=", right
+  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+    @mutate-last right or @noop(), (#(n)@ -> @assign left, "-=", n), true
+  else
+    @assign left, "-=", right
 
 define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 6, maximum: 1, type: \number
   if op == "~bitlshift"
@@ -297,17 +316,32 @@ define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 6, m
     @binary left, ">>>", right
 
 define operator assign ~bitlshift=, ~bitrshift=, ~biturshift= with type: \number
-  if op == "~bitlshift="
-    @assign left, "<<=", right
-  else if op == "~bitrshift="
-    @assign left, ">>=", right
+  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+    @mutate-last right or @noop(), (#(n)@
+      if op == "~bitlshift="
+        @assign left, "<<=", n
+      else if op == "~bitrshift="
+        @assign left, ">>=", n
+      else
+        @assign left, ">>>=", n), true
   else
-    @assign left, ">>>=", right
+    if op == "~bitlshift="
+      @assign left, "<<=", right
+    else if op == "~bitrshift="
+      @assign left, ">>=", right
+    else
+      @assign left, ">>>=", right
 
 define operator assign ~&= with type: \string
-  if @has-type(right, \number)
-    right := ASTE "" ~& right
-  @assign left, "+=", right
+  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+    @mutate-last right or @noop(), (#(mutable n)@
+      if @has-type(left, \numeric) and @has-type(n, \numeric)
+        n := ASTE "" ~& n
+      @assign left, "+=", n), true
+  else
+    if @has-type(left, \numeric) and @has-type(right, \numeric)
+      right := ASTE "" ~& right
+    @assign left, "+=", right
 
 define helper __typeof = do
   let _to-string = Object.prototype.to-string
@@ -320,7 +354,10 @@ define helper __typeof = do
       (o.constructor and o.constructor.name) or _to-string@(o).slice(8, ~-1)
 
 define operator unary typeof! with type: \string
-  ASTE __typeof($node)
+  if @is-ident-or-tmp(node) and not @has-variable(node)
+    ASTE if typeof $node == \undefined then "Undefined" else __typeof($node)
+  else
+    @mutate-last node or @noop(), (#(n)@ -> ASTE __typeof($n)), true
 
 define helper __num = #(num) as Number
   if typeof num != \number
@@ -346,10 +383,11 @@ define helper __strnum = #(strnum) as String
 // strict operators, should have same precedence as their respective unstrict versions
 
 define operator unary + with type: \number
-  if @is-type node, \number
-    node
-  else
-    ASTE __num($node)
+  @mutate-last node or @noop(), (#(n)@
+    if @is-type n, \number
+      n
+    else
+      ASTE __num($n)), true
 
 define operator unary - with type: \number
   if @is-const(node) and typeof @value(node) == \number
@@ -601,12 +639,21 @@ define operator binary ~bitxor with precedence: 0, type: \number
   @binary left, "^", right
 
 define operator assign ~bitand=, ~bitor=, ~bitxor= with type: \number
-  if op == "~bitand="
-    @assign left, "&=", right
-  else if op == "~bitor="
-    @assign left, "|=", right
+  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+    @mutate-last right or @noop(), (#(n)@
+      if op == "~bitand="
+        @assign left, "&=", n
+      else if op == "~bitor="
+        @assign left, "|=", n
+      else
+        @assign left, "^=", n), true
   else
-    @assign left, "^=", right
+    if op == "~bitand="
+      @assign left, "&=", right
+    else if op == "~bitor="
+      @assign left, "|=", right
+    else
+      @assign left, "^=", right
 
 define operator binary bitand with precedence: 0, type: \number
   ASTE +$left ~bitand +$right
@@ -618,7 +665,7 @@ define operator binary bitxor with precedence: 0, type: \number
   ASTE +$left ~bitxor +$right
 
 define operator unary ~bitnot with type: \number
-  @unary "~", node
+  @mutate-last node or @noop(), (#(n)@ -> @unary "~", n), true
 
 define operator unary bitnot with type: \number
   ASTE ~bitnot +$node
@@ -750,12 +797,12 @@ else
     #(x) as Boolean -> _to-string@(x) == "[object Array]"
 
 define operator unary is-array! with type: \boolean
-  ASTE __is-array($node)
+  @mutate-last node or @noop(), (#(n)@ -> ASTE __is-array($n)), true
 
 define helper __is-object = #(x) as Boolean -> typeof x == \object and x != null
 
 define operator unary is-object! with type: \boolean
-  ASTE __is-object($node)
+  @mutate-last node or @noop(), (#(n)@ -> ASTE __is-object($n)), true
 
 define helper __to-array = #(x) as []
   if not x?
@@ -824,7 +871,7 @@ macro for
     step ?= @noop()
     if reducer
       if reducer == \first
-        body := @mutate-last body, #(node) -> (AST return $node)
+        body := @mutate-last body or @noop(), #(node) -> (AST return $node)
         let loop = @for(init, test, step, body)
         ASTE do
           $loop
@@ -833,14 +880,14 @@ macro for
         if else-body
           throw Error "Cannot use a for loop with an else with $(reducer)"
         if reducer == \some
-          body := @mutate-last body, #(node) -> AST
+          body := @mutate-last body or @noop(), #(node) -> AST
             if $node
               return true
           let loop = [@for(init, test, step, body), (AST return false)]
           ASTE do
             $loop
         else if reducer == \every
-          body := @mutate-last body, #(node) -> AST
+          body := @mutate-last body or @noop(), #(node) -> AST
             if not $node
               return false
           let loop = [@for(init, test, step, body), (AST return true)]
@@ -865,7 +912,7 @@ macro for
           $else-body
     else if @position == \expression
       let arr = @tmp \arr, false, \array//body.type().array()
-      body := @mutate-last body, #(node) -> (ASTE $arr.push $node)
+      body := @mutate-last body or @noop(), #(node) -> (ASTE $arr.push $node)
       init := AST
         $arr := []
         $init
@@ -881,7 +928,7 @@ macro for
     test ?= ASTE true
     step ?= @noop()
     
-    body := @mutate-last body, #(node) -> (ASTE $current := $node)
+    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
     AST
       let mutable $current = $current-start
       for $init; $test; $step
@@ -1058,7 +1105,7 @@ macro for
   
   syntax "reduce", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     value := @macro-expand-1(value)
-    body := @mutate-last body, #(node) -> (ASTE $current := $node)
+    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
     let length = index?.length
     index := index?.value
     AST
@@ -1126,7 +1173,7 @@ macro for
     
     if reducer
       if reducer == \first
-        body := @mutate-last body, #(node) -> (AST return $node)
+        body := @mutate-last body or @noop(), #(node) -> (AST return $node)
         let loop = @for-in(key, object, body)
         AST do
           $init
@@ -1136,7 +1183,7 @@ macro for
         if else-body
           throw Error("Cannot use a for loop with an else with $reducer")
         if reducer == \some
-          body := @mutate-last body, #(node) -> AST
+          body := @mutate-last body or @noop(), #(node) -> AST
             if $node
               return true
           let loop = @for-in(key, object, body)
@@ -1145,7 +1192,7 @@ macro for
             $loop
             false
         else if reducer == \every
-          body := @mutate-last body, #(node) -> AST
+          body := @mutate-last body or @noop(), #(node) -> AST
             if not $node
               return false
           let loop = @for-in(key, object, body)
@@ -1159,7 +1206,7 @@ macro for
       if else-body
         throw Error("Cannot use a for loop with an else as an expression")
       let arr = @tmp \arr, false, \array//body.type().array()
-      body := @mutate-last body, #(node) -> (ASTE $arr.push $node)
+      body := @mutate-last body or @noop(), #(node) -> (ASTE $arr.push $node)
       init := AST
         $arr := []
         $init
@@ -1176,7 +1223,7 @@ macro for
         $post
   
   syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    body := @mutate-last body, #(node) -> (ASTE $current := $node)
+    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
     let index = value?.index
     value := value?.value
     let loop = if type == "of"
@@ -1257,7 +1304,7 @@ macro for
         $post
   
   syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    body := @mutate-last body, #(node) -> (ASTE $current := $node)
+    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
     AST
       let mutable $current = $current-start
       for $value, $index from $iterator
@@ -2161,7 +2208,7 @@ macro yield
   syntax node as Expression
     if not @in-generator
       throw Error "Can only use yield in a generator function"
-    @mutate-last node, #(n)@ -> @yield n
+    @mutate-last node or @noop(), (#(n)@ -> @yield n), true
 
 macro yield*
   syntax node as Expression
