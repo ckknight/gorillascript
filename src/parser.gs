@@ -4728,13 +4728,28 @@ class MacroHelper
       if len != 0
         let last-node = @mutate-last(nodes[len - 1], func)
         if last-node != nodes[len - 1]
-          return BlockNode  x.start-index, x.end-index, x.scope-id, [...nodes[:len - 1], last-node]
+          return BlockNode x.start-index, x.end-index, x.scope-id, [...nodes[:len - 1], last-node]
       x
     If: #(x, func)
       let when-true = @mutate-last x.when-true, func
       let when-false = @mutate-last x.when-false, func
       if when-true != x.when-true or when-false != x.when-false
         IfNode x.start-index, x.end-index, x.scope-id, x.test, when-true, when-false
+      else
+        x
+    Switch: #(x, func)
+      let cases = map x.cases, #(case_)@
+        if case_.fallthrough
+          case_
+        else
+          let body = @mutate-last case_.body, func
+          if body != case_.body
+            { case_.node, body, case_.fallthrough }
+          else
+            case_
+      let default-case = @mutate-last (x.default-case or @noop()), func
+      if cases != x.cases or default-case != x.default-case
+        SwitchNode x.start-index, x.end-index, x.scope-id, x.node, cases, default-case
       else
         x
     TmpWrapper: #(x, func)

@@ -35,7 +35,7 @@ define operator binary ~>, ~>= with precedence: 1, maximum: 1, type: \boolean
   (op == "~>" and ASTE not ($left ~<= $right)) or ASTE not ($left ~< $right)
 
 define operator unary throw with type: "none"
-  @throw node
+  @mutate-last node, #(n)@ -> @throw n
 
 macro debugger
   syntax ""
@@ -163,7 +163,10 @@ macro return
   syntax node as Expression?
     if @in-generator
       throw Error "Cannot use return in a generator function"
-    @return node
+    if node
+      @mutate-last node, #(n)@ -> @return n
+    else
+      @return()
 
 macro return?
   syntax node as Expression?
@@ -2158,7 +2161,7 @@ macro yield
   syntax node as Expression
     if not @in-generator
       throw Error "Can only use yield in a generator function"
-    @yield node
+    @mutate-last node, #(n)@ -> @yield n
 
 macro yield*
   syntax node as Expression
