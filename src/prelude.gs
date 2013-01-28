@@ -513,6 +513,20 @@ define operator binary %% with precedence: 1, maximum: 1, invertible: true, type
 define operator binary ~%% with precedence: 1, maximum: 1, invertible: true, type: \boolean
   ASTE $left ~% $right == 0
 
+define helper __int = #(num) as Number
+  if typeof num != \number
+    throw TypeError("Expected a number, got " ~& typeof! num)
+  else if num not ~%% 1
+    throw TypeError("Expected an integer, got " ~& num)
+  else
+    num
+
+define helper __nonzero = #(num)
+  if num == 0
+    throw RangeError("Expected non-zero, got " ~& num)
+  else
+    num
+
 define helper __lt = #(x, y) as Boolean
   let type = typeof x
   if type not in [\number, \string]
@@ -911,7 +925,7 @@ macro for
         if $run-else
           $else-body
     else if @position == \expression
-      let arr = @tmp \arr, false, \array//body.type().array()
+      let arr = @tmp \arr, false, @type(body).array()
       body := @mutate-last body or @noop(), #(node) -> (ASTE $arr.push $node)
       init := AST
         $arr := []
@@ -1045,19 +1059,71 @@ macro for
     else
       let init = []
       let is-string = @is-type array, \string
+    
+      let has-index = index?
+      index ?= @tmp \i, false, \number
+      let has-length = length?
+      length ?= @tmp \len, false, \number
+      
+      @macro-expand-all AST let $length = 0
+      
+      let mutable step = ASTE 1
+      if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__step
+        step := @call-args(array)[1]
+        array := @call-args(array)[0]
+      
       if not is-string and not @is-type array, \array-like
         array := ASTE __to-array $array
       array := @cache array, init, if is-string then \str else \arr, false
-    
-      let has-index = not not index
-      index ?= @tmp \i, false, \number
-      length ?= @tmp \len, false, \number
-    
-      init.push @macro-expand-all AST let mutable $index = 0
-      init.push @macro-expand-all AST let $length = +$array.length
-    
+      
       let value-expr = ASTE if $is-string then $array.char-at($index) else $array[$index]
+      let let-index = @macro-expand-all AST let mutable $index = 0
       let let-value = @macro-expand-all AST let $value = $value-expr
+      let let-length = @macro-expand-all AST let $length = +$array.length
+      
+      let mutable increment = void
+      let test = if @is-const(step)
+        if @value(step) == 1
+          init.push let-index
+          init.push let-length
+          increment := ASTE $index ~+= $step
+          ASTE $index ~< $length
+        else if @value(step) == -1  
+          if has-length
+            init.push let-length
+            init.push AST let mutable $index = $length
+          else
+            init.push AST let mutable $index = +$array.length
+          ASTE ($index ~-= 1) ~>= 0
+        else
+          if typeof @value(step) != \number
+            throw Error "Step must be a number"
+          else if @value(step) == 0
+            throw Error "Cannot have a step of zero"
+          else if @value(step) not %% 1
+            throw Error "Step must be an integer, got $(@value(step))"
+          else if @value(step) < 0
+            if has-length
+              init.push let-length
+              init.push AST let mutable $index = $length ~- 1
+            else
+              init.push AST let mutable $index = +$array.length ~- 1
+            increment := ASTE $index ~+= $step
+            ASTE $index ~>= 0
+          else
+            init.push let-index
+            init.push let-length
+            increment := ASTE $index ~+= $step
+            ASTE $index ~< $length
+      else
+        if @is-complex(step)
+          step := @cache (ASTE __int(__nonzero($step))), init, \step, false
+        else
+          init.unshift ASTE __int(__nonzero($step))
+        init.push let-length
+        init.push @macro-expand-all AST let mutable $index = if $step ~> 0 then 0 else $length ~- 1
+        increment := ASTE $index ~+= $step
+        ASTE if $step ~> 0 then $index ~< $length else $index ~>= 0
       
       if @has-func(body)
         let func = @tmp \f, false, \function
@@ -1078,28 +1144,28 @@ macro for
           $body
     
       if reducer == \every
-        ASTE for every $init; $index ~< $length; $index ~+= 1
+        ASTE for every $init; $test; $increment
           $body
         else
           $else-body
       else if reducer == \some
-        ASTE for some $init; $index ~< $length; $index ~+= 1
+        ASTE for some $init; $test; $increment
           $body
         else
           $else-body
       else if reducer == \first
-        ASTE for first $init; $index ~< $length; $index ~+= 1
+        ASTE for first $init; $test; $increment
           $body
         else
           $else-body
       else if @position == \expression
-        ASTE for $init; $index ~< $length; $index ~+= 1
+        ASTE for $init; $test; $increment
           $body
         else
           $else-body
       else
         AST
-          for $init; $index ~< $length; $index ~+= 1
+          for $init; $test; $increment
             $body
           else
             $else-body
@@ -1206,7 +1272,7 @@ macro for
     else if @position == \expression
       if else-body
         throw Error("Cannot use a for loop with an else as an expression")
-      let arr = @tmp \arr, false, \array//body.type().array()
+      let arr = @tmp \arr, false, @type(body).array()
       body := @mutate-last body or @noop(), #(node) -> (ASTE $arr.push $node)
       init := AST
         $arr := []
@@ -1312,35 +1378,6 @@ macro for
         $body
       $current
 
-define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean)
-  let result = []
-  let mutable i = start
-  if step ~> 0
-    for ; i ~< end; i ~+= step
-      result.push i
-    if inclusive and i ~<= end
-      result.push i
-  else
-    for ; i ~> end; i ~+= step
-      result.push i
-    if inclusive and i ~>= end
-      result.push i
-  result
-
-// TODO: might want to redo these precedences
-define operator binary to with maximum: 1, precedence: 2, type: \array
-  ASTE __range($left, $right, 1, true)
-
-define operator binary til with maximum: 1, precedence: 2, type: \array
-  ASTE __range($left, $right, 1, false)
-
-define operator binary by with maximum: 1, precedence: 1, type: \array
-  if not @is-call(left) or not @is-ident(@call-func(left)) or @name(@call-func(left)) != \__range
-    throw Error "Can only use 'by' on a range made with 'to' or 'til'"
-  
-  let call-args = @call-args(left)
-  ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
-
 macro while, until
   syntax reducer as (\every | \some | \first)?, test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if macro-name == \until
@@ -1380,6 +1417,61 @@ macro while, until
     AST
       for reduce ; $test; $step, $current = $current-start
         $body
+
+define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean) as [Number]
+  let result = []
+  let mutable i = start
+  if step ~> 0
+    for ; i ~< end; i ~+= step
+      result.push i
+    if inclusive and i ~<= end
+      result.push i
+  else
+    for ; i ~> end; i ~+= step
+      result.push i
+    if inclusive and i ~>= end
+      result.push i
+  result
+
+// TODO: might want to redo these precedences
+define operator binary to with maximum: 1, precedence: 2, type: \array
+  ASTE __range($left, $right, 1, true)
+
+define operator binary til with maximum: 1, precedence: 2, type: \array
+  ASTE __range($left, $right, 1, false)
+
+define helper __step = #(array, step as Number) as []
+  if step == 0
+    throw RangeError "step cannot be zero"
+  else if step == 1
+    __to-array(array)
+  else if step == -1
+    __slice(array).reverse()
+  else if step not %% 1
+    throw RangeError "step must be an integer, got $(String step)"
+  else
+    let result = []
+    if step > 0
+      let mutable i = 0
+      let len = +array.length
+      while i < len, i += step
+        result.push array[i]
+    else
+      let mutable i = array.length - 1
+      while i >= 0, i += step
+        result.push array[i]
+    result
+
+define operator binary by with maximum: 1, precedence: 1, type: \array
+  if not @has-type(right, \number)
+    throw Error "Must provide a number to the 'by' operator"
+  if @is-const(right) and @value(right) == 0
+    throw Error "'by' step must be non-zero"
+  if @is-call(left) and @is-ident(@call-func(left)) and @name(@call-func(left)) == \__range
+    let call-args = @call-args(left)
+    ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
+  else
+    ASTE __step($left, $right)
 
 define helper __in = if typeof Array.prototype.index-of == \function
   do

@@ -1255,3 +1255,77 @@ test "For-in loop over a string", #
 test "For-in loop over a string as expression", #
   let result = for c in "hello"; c
   array-eq ["h", "e", "l", "l", "o"], result
+
+test "For-in literal array with step = 1", #
+  let result = []
+  for v, i in [1, 4, 9, 16] by 1
+    result.push [v, i]
+  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], result
+
+test "For-in literal array with step = -1", #
+  let result = []
+  for v, i in [1, 4, 9, 16] by -1
+    result.push [v, i]
+  array-eq [[16, 3], [9, 2], [4, 1], [1, 0]], result
+
+test "For-in literal array with step = 2", #
+  let result = []
+  for v, i in [1, 4, 9, 16] by 2
+    result.push [v, i]
+  array-eq [[1, 0], [9, 2]], result
+
+test "For-in literal array with step = -2", #
+  let result = []
+  for v, i in [1, 4, 9, 16] by -2
+    result.push [v, i]
+  array-eq [[16, 3], [4, 1]], result
+
+test "For-in literal array with dynamic step", #
+  let run(get-step)    
+    let result = []
+    for v, i in [1, 4, 9, 16] by get-step()
+      result.push [v, i]
+    result
+  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], run(run-once 1)
+  array-eq [[16, 3], [9, 2], [4, 1], [1, 0]], run(run-once -1)
+  array-eq [[1, 0], [9, 2]], run(run-once 2)
+  array-eq [[16, 3], [4, 1]], run(run-once -2)
+
+test "For-in array with step = 1", #
+  let result = []
+  let arr = run-once [1, 4, 9, 16]
+  for v, i in arr() by 1
+    result.push [v, i]
+  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], result
+
+test "For-in array with step = -1", #
+  let result = []
+  let arr = run-once [1, 4, 9, 16]
+  for v, i in arr() by -1
+    result.push [v, i]
+  array-eq [[16, 3], [9, 2], [4, 1], [1, 0]], result
+
+test "For-in array with step = 2", #
+  let result = []
+  let arr = run-once [1, 4, 9, 16]
+  for v, i in arr() by 2
+    result.push [v, i]
+  array-eq [[1, 0], [9, 2]], result
+
+test "For-in array with step = -2", #
+  let result = []
+  let arr = run-once [1, 4, 9, 16]
+  for v, i in arr() by -2
+    result.push [v, i]
+  array-eq [[16, 3], [4, 1]], result
+
+test "For-in array with dynamic step", #
+  let run(get-arr, get-step)    
+    let result = []
+    for v, i in get-arr() by get-step()
+      result.push [v, i]
+    result
+  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], run(run-once([1, 4, 9, 16]), run-once 1)
+  array-eq [[16, 3], [9, 2], [4, 1], [1, 0]], run(run-once([1, 4, 9, 16]), run-once -1)
+  array-eq [[1, 0], [9, 2]], run(run-once([1, 4, 9, 16]), run-once 2)
+  array-eq [[16, 3], [4, 1]], run(run-once([1, 4, 9, 16]), run-once -2)

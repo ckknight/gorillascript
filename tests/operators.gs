@@ -1330,6 +1330,12 @@ test "to with by", #
   array-eq [5, 4, 3, 2, 1, 0], 5 to 0 by -1
   array-eq [5, 3, 1], 5 to 0 by -2
 
+test "by on normal array", #
+  array-eq [1, 2, 3, 4], [1, 2, 3, 4] by 1
+  array-eq [1, 3], [1, 2, 3, 4] by 2
+  array-eq [4, 3, 2, 1], [1, 2, 3, 4] by -1
+  array-eq [4, 2], [1, 2, 3, 4] by -2
+
 test "is/isnt operator", #
   ok 1 is 1
   ok 0 is 0
