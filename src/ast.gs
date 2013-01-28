@@ -966,15 +966,24 @@ exports.For := class For extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    sb "for ("
-    if not @init.is-noop()
-      @init.compile-as-block options, Level.inside-parentheses, false, sb
-    sb "; "
-    if not @test.is-const() or not @test.const-value()
-      @test.compile options, Level.inside-parentheses, false, sb
-    sb "; "
-    if not @step.is-noop()
-      @step.compile-as-block options, Level.inside-parentheses, false, sb
+    let test = if @test.is-const() and typeof @test.const-value() != \boolean
+      Const(not not @test.const-value())
+    else
+      @test
+    
+    if @init.is-noop() and @step.is-noop()
+      sb "while ("
+      test.compile options, Level.inside-parentheses, false, sb
+    else
+      sb "for ("
+      if not @init.is-noop()
+        @init.compile-as-block options, Level.inside-parentheses, false, sb
+      sb "; "
+      if not test.is-const() or not test.const-value()
+        test.compile options, Level.inside-parentheses, false, sb
+      sb "; "
+      if not @step.is-noop()
+        @step.compile-as-block options, Level.inside-parentheses, false, sb
     sb ")"
     if @body.is-noop()
       sb ";"
