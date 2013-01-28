@@ -302,8 +302,7 @@ class GeneratorBuilder
               let mutable current = ast.Block
                 * ast.Call close
                 * ast.Throw err
-              for i in catches.length - 1 to 0 by -1
-                let catch-info = catches[i]
+              for catch-info in catches by -1
                 let err-ident = catch-info.t-ident()
                 scope.add-variable err-ident
                 current := ast.If(
@@ -468,8 +467,7 @@ let array-translate(elements, scope, replace-with-slice)
     #-> ast.Arr for item in translated-items[0]
       item()
   else
-    for i in translated-items.length - 1 to 0 by -1
-      let translated-item = translated-items[i]
+    for translated-item, i in translated-items by -1
       if i %% 2
         if translated-item.length > 0
           translated-items[i] := #-> ast.Arr for item in translated-item
