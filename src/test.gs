@@ -54,6 +54,33 @@ global.test := #(description, fn)!
     e.source := fn.to-string()
     add-failure current-file, e
 
+let waiters = [[], []]
+let handle-waiters()
+  let mutable found = true
+  while found
+    found := false
+    for type in waiters
+      if type.length
+        found := true
+        type.splice((Math.random() * type.length) \ 1, 1)[0]()
+        break
+global.async-test := #(description, fn)!
+  fn.wait := #(get-value as ->, cb as ->)!
+    waiters[0].push #-> fn.dont-wait(get-value, cb)
+  fn.after := #(get-value as ->, cb as (null|Function))!
+    waiters[1].push #-> fn.dont-wait(get-value, cb or #->)
+  fn.dont-wait := #(get-value as ->, cb as ->)!
+    let mutable result = void
+    try
+      result := get-value()
+    catch e
+      e.description := description
+      e.source := fn.to-string()
+      add-failure current-file, e
+    else
+      cb(null, result)
+  test description, fn
+
 let array-equal = #(a, b)
   if a == b
     return a != 0 or (1 / a == 1 / b)
@@ -117,8 +144,8 @@ asyncfor next, file, i in files
     failure := true
     add-failure basename, e
   
-  asyncif end, basename.index-of("async") != -1
-    set-timeout end, 500
+  handle-waiters()
+  
   let end-time = Date.now()
   total-time += end-time - start-time
   
