@@ -1767,11 +1767,11 @@ macro asyncfor
     if not result
       AST
         $init
-        __async(+$parallelism, $length, #($index, $next) -> $body, #($err) -> $rest)
+        __async(+$parallelism, $length, #($index, $next)@ -> $body, #($err)@ -> $rest)
     else
       AST
         $init
-        __async-result(+$parallelism, $length, #($index, $next) -> $body, #($err, $result) -> $rest)
+        __async-result(+$parallelism, $length, #($index, $next)@ -> $body, #($err, $result)@ -> $rest)
   
   syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
     let {err, result} = results ? {}
@@ -1811,9 +1811,9 @@ macro asyncfor
     parallelism ?= ASTE 1
     
     if not result
-      ASTE __async-iter(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err) -> $rest)
+      ASTE __async-iter(+$parallelism, $iterator, #($value, $index, $next)@ -> $body, #($err)@ -> $rest)
     else
-      ASTE __async-iter-result(+$parallelism, $iterator, #($value, $index, $next) -> $body, #($err, $result) -> $rest)
+      ASTE __async-iter-result(+$parallelism, $iterator, #($value, $index, $next)@ -> $body, #($err, $result)@ -> $rest)
 
 macro asyncwhile, asyncuntil
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody

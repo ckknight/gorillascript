@@ -11,39 +11,57 @@ let dont-wait(value, cb)
   cb(null, result)
 
 test "async", #
-  let value = run-once("hello")
-  let mutable body-ran = false
-  if true
-    async err, x <- wait value
-    eq null, err
-    eq "hello", x
-    ok value.ran
-    body-ran := true
-  ok not value.ran
-  set-timeout((#-> ok value.ran), 50)
-
-test "asyncfor", #
-  let mutable sum = 0
-  let mutable i = 0
-  if true
-    asyncfor next, ; i < 10; i += 1
-      let value = run-once(i)
+  let f()
+    let self = this
+    let value = run-once("hello")
+    let mutable body-ran = false
+    if true
       async err, x <- wait value
       eq null, err
+      eq "hello", x
+      eq self, this
       ok value.ran
-      sum += x
-      next()
-    eq 45, sum
-  eq 0, sum
+      body-ran := true
+    ok not value.ran
+    set-timeout((#-> ok value.ran), 50)
+  
+  f@ {}
+
+test "asyncfor", #
+  let f()
+    let self = this
+    let mutable sum = 0
+    let mutable i = 0
+    if true
+      asyncfor next, ; i < 10; i += 1
+        let value = run-once(i)
+        async err, x <- wait value
+        eq null, err
+        ok value.ran
+        eq self, this
+        sum += x
+        next()
+      eq 45, sum
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
 
 test "asyncfor with result", #
-  let mutable i = 0
-  asyncfor e, result <- next, ; i < 10; i += 1
-    async err, x <- wait run-once(i ^ 2)
-    eq null, err
-    next(null, x)
-  eq null, e
-  array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
+  let f()
+    let self = this
+    let mutable i = 0
+    asyncfor e, result <- next, ; i < 10; i += 1
+      eq self, this
+      async err, x <- wait run-once(i ^ 2)
+      eq null, err
+      eq self, this
+      next(null, x)
+    eq null, e
+    array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
+    eq self, this
+  
+  f@ {}
 
 test "asyncfor with result, error in the middle", #
   let mutable i = 0
@@ -73,183 +91,262 @@ test "asyncfor with no after-body", #
   eq 45, sum
 
 test "asyncfor range", #
-  let mutable sum = 0
-  if true
-    asyncfor next, i in 0 til 10
-      let value = run-once(i)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq i, x
-        ok value.ran
-        sum += x
-        next()
-      ok not value.ran
-      set-timeout((#-> ok value.ran), 50)
-    eq 45, sum
-  eq 0, sum
+  let f()
+    let self = this
+    let mutable sum = 0
+    if true
+      asyncfor next, i in 0 til 10
+        eq self, this
+        let value = run-once(i)
+        if true
+          async err, x <- wait value
+          eq null, err
+          eq i, x
+          ok value.ran
+          eq self, this
+          sum += x
+          next()
+        ok not value.ran
+        set-timeout((#-> ok value.ran), 50)
+      eq 45, sum
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
 
 test "asyncfor range with result", #
-  let mutable sum = 0
-  if true
-    asyncfor e, result <- next, i in 0 til 10
-      let value = run-once(i)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq i, x
-        ok value.ran
-        sum += x
-        next(null, sum)
-      ok not value.ran
-      set-timeout((#-> ok value.ran), 50)
-    eq null, e
-    array-eq [0, 1, 3, 6, 10, 15, 21, 28, 36, 45], result
-  eq 0, sum
+  let f()
+    let self = this
+    let mutable sum = 0
+    if true
+      asyncfor e, result <- next, i in 0 til 10
+        eq self, this
+        let value = run-once(i)
+        if true
+          async err, x <- wait value
+          eq null, err
+          eq i, x
+          ok value.ran
+          eq self, this
+          sum += x
+          next(null, sum)
+        ok not value.ran
+        set-timeout((#-> ok value.ran), 50)
+      eq null, e
+      array-eq [0, 1, 3, 6, 10, 15, 21, 28, 36, 45], result
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
 
 test "asyncfor in array", #
-  let mutable sum = 0
-  if true
-    asyncfor next, v in [1, 2, 4, 8]
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        sum += x
-        next()
-      ok not value.ran
-      set-timeout((#-> ok value.ran), 50)
-    eq 15, sum
-  eq 0, sum
+  let f()
+    let self = this
+    let mutable sum = 0
+    if true
+      asyncfor next, v in [1, 2, 4, 8]
+        eq self, this
+        let value = run-once(v)
+        if true
+          async err, x <- wait value
+          eq null, err
+          eq v, x
+          ok value.ran
+          eq self, this
+          sum += x
+          next()
+        ok not value.ran
+        set-timeout((#-> ok value.ran), 50)
+      eq 15, sum
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
 
 test "asyncfor in array with result", #
-  let mutable sum = 0
-  if true
-    asyncfor e, result <- next, v in [1, 2, 4, 8]
+  let f()
+    let self = this
+    let mutable sum = 0
+    if true
+      asyncfor e, result <- next, v in [1, 2, 4, 8]
+        eq self, this
+        let value = run-once(v)
+        if true
+          async err, x <- wait value
+          eq null, err
+          eq v, x
+          ok value.ran
+          eq self, this
+          sum += x
+          next(null, sum)
+        ok not value.ran
+        set-timeout((#-> ok value.ran), 50)
+      eq null, e
+      array-eq [1, 3, 7, 15], result
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
+
+test "asyncfor of object", #
+  let f()
+    let self = this
+    let mutable sum = 0
+    if true
+      asyncfor next, k, v of { a: 1, b: 2, c: 4, d: 8 }
+        eq self, this
+        let value = run-once(v)
+        if true
+          async err, x <- wait value
+          eq null, err
+          eq v, x
+          ok value.ran
+          eq self, this
+          sum += x
+          next()
+        ok not value.ran
+        set-timeout((#-> ok value.ran), 50)
+      eq 15, sum
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
+
+test "asyncfor of object with result", #
+  let f()
+    let self = this
+    asyncfor e, result <- next, k, v of { a: 1, b: 2, c: 4, d: 8 }
+      eq self, this
       let value = run-once(v)
       if true
         async err, x <- wait value
         eq null, err
         eq v, x
         ok value.ran
-        sum += x
-        next(null, sum)
+        eq self, this
+        next(null, x)
       ok not value.ran
       set-timeout((#-> ok value.ran), 50)
     eq null, e
-    array-eq [1, 3, 7, 15], result
-  eq 0, sum
-
-test "asyncfor of object", #
-  let mutable sum = 0
-  if true
-    asyncfor next, k, v of { a: 1, b: 2, c: 4, d: 8 }
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        sum += x
-        next()
-      ok not value.ran
-      set-timeout((#-> ok value.ran), 50)
-    eq 15, sum
-  eq 0, sum
-
-test "asyncfor of object with result", #
-  asyncfor e, result <- next, k, v of { a: 1, b: 2, c: 4, d: 8 }
-    let value = run-once(v)
-    if true
-      async err, x <- wait value
-      eq null, err
-      eq v, x
-      ok value.ran
-      next(null, x)
-    ok not value.ran
-    set-timeout((#-> ok value.ran), 50)
-  eq null, e
-  array-eq [1, 2, 4, 8], result.sort()
+    array-eq [1, 2, 4, 8], result.sort()
+    eq self, this
+  
+  f@ {}
 
 test "asyncwhile", #
-  let mutable sum = 0
-  let mutable i = 0
-  if true
-    asyncwhile next, i < 10, i += 1
-      let value = run-once(i)
-      async err, x <- wait value
-      eq null, err
-      ok value.ran
-      sum += x
-      next()
-    eq 45, sum
-  eq 0, sum
+  let f()
+    let self = this
+    let mutable sum = 0
+    let mutable i = 0
+    if true
+      asyncwhile next, i < 10, i += 1
+        eq self, this
+        let value = run-once(i)
+        async err, x <- wait value
+        eq null, err
+        ok value.ran
+        eq self, this
+        sum += x
+        next()
+      eq 45, sum
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
 
 test "asyncwhile with result", #
-  let mutable i = 0
-  asyncwhile e, result <- next, i < 10, i += 1
-    async err, x <- wait run-once(i ^ 2)
-    eq null, err
-    next(null, x)
-  eq null, e
-  array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
+  let f()
+    let self = this
+    let mutable i = 0
+    asyncwhile e, result <- next, i < 10, i += 1
+      eq self, this
+      async err, x <- wait run-once(i ^ 2)
+      eq null, err
+      eq self, this
+      next(null, x)
+    eq null, e
+    array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
+    eq self, this
+  
+  f@ {}
 
 test "asyncuntil", #
-  let mutable sum = 0
-  let mutable i = 0
-  if true
-    asyncuntil next, i >= 10, i += 1
-      let value = run-once(i)
-      async err, x <- wait value
-      eq null, err
-      ok value.ran
-      sum += x
-      next()
-    eq 45, sum
-  eq 0, sum
+  let f()
+    let self = this
+    let mutable sum = 0
+    let mutable i = 0
+    if true
+      asyncuntil next, i >= 10, i += 1
+        eq self, this
+        let value = run-once(i)
+        async err, x <- wait value
+        eq null, err
+        ok value.ran
+        eq self, this
+        sum += x
+        next()
+      eq 45, sum
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
 
 test "asyncuntil with result", #
-  let mutable i = 0
-  asyncuntil e, result <- next, i >= 10, i += 1
-    async err, x <- wait run-once(i ^ 2)
-    eq null, err
-    next(null, x)
-  eq null, e
-  array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
+  let f()
+    let self = this
+    let mutable i = 0
+    asyncuntil e, result <- next, i >= 10, i += 1
+      eq self, this
+      async err, x <- wait run-once(i ^ 2)
+      eq null, err
+      eq self, this
+      next(null, x)
+    eq null, e
+    array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
+    eq self, this
+  
+  f@ {}
 
 test "asyncif", #
   let run(check)
+    let self = this
     let value = run-once("hello")
     let mutable after = false
     if true
       asyncif next, check
+        eq self, this
         async err, x <- wait value
         eq "hello", x
         ok value.ran
+        eq self, this
         next()
+      eq self, this
       after := true
     ok not value.ran
     ok check xor after
     set-timeout((#
       ok not (check xor value.ran)
       ok after), 50)
-  run true
-  run false
+  run@ {}, true
+  run@ {}, false
 
 test "asyncif with else", #
   let run(check)
+    let self = this
     let value = run-once("hello")
     let mutable after = false
     if true
       asyncif next, check
+        eq self, this
         async err, x <- wait value
         eq "hello", x
         ok value.ran
+        eq self, this
         next()
-      else
+      else  
+        eq self, this
         next()
+      eq self, this
       ok not (check xor value.ran)
       after := true
     ok not value.ran
@@ -257,19 +354,23 @@ test "asyncif with else", #
     set-timeout((#
       ok not (check xor value.ran)
       ok after), 50)
-  run true
-  run false
+  run@ {}, true
+  run@ {}, false
 
 test "asyncunless", #
   let run(check)
+    let self = this
     let value = run-once("hello")
     let mutable after = false
     if true
       asyncunless next, check
+        eq self, this
         async err, x <- wait value
         eq "hello", x
         ok value.ran
+        eq self, this
         next()
+      eq self, this
       ok check xor value.ran
       after := true
     ok not value.ran
@@ -277,21 +378,26 @@ test "asyncunless", #
     set-timeout((#
       ok check xor value.ran
       ok after), 50)
-  run true
-  run false
+  run@ {}, true
+  run@ {}, false
 
 test "asyncunless with else", #
   let run(check)
+    let self = this
     let value = run-once("hello")
     let mutable after = false
     if true
       asyncunless next, check
+        eq self, this
         async err, x <- wait value
         eq "hello", x
         ok value.ran
+        eq self, this
         next()
       else
+        eq self, this
         next()
+      eq self, this
       ok check xor value.ran
       after := true
     ok not value.ran
@@ -315,36 +421,50 @@ let array-to-iterator(array)
   }
 
 test "asyncfor from iterator", #
-  let mutable sum = 0
-  if true
-    asyncfor next, v from array-to-iterator [1, 2, 4, 8]
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        sum += x
-        next()
-      ok not value.ran
-      set-timeout((#-> ok value.ran), 50)
-    eq 15, sum
-  eq 0, sum
+  let f()
+    let self = this
+    let mutable sum = 0
+    if true
+      asyncfor next, v from array-to-iterator [1, 2, 4, 8]
+        eq self, this
+        let value = run-once(v)
+        if true
+          async err, x <- wait value
+          eq null, err
+          eq v, x
+          ok value.ran
+          eq self, this
+          sum += x
+          next()
+        ok not value.ran
+        set-timeout((#-> ok value.ran), 50)
+      eq 15, sum
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
 
 test "asyncfor from iterator with result", #
-  let mutable sum = 0
-  if true
-    asyncfor e, result <- next, v from array-to-iterator [1, 2, 4, 8]
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        sum += x
-        next(null, sum)
-      ok not value.ran
-      set-timeout((#-> ok value.ran), 50)
-    eq null, e
-    array-eq [1, 3, 7, 15], result
-  eq 0, sum
+  let f()
+    let self = this
+    let mutable sum = 0
+    if true
+      asyncfor e, result <- next, v from array-to-iterator [1, 2, 4, 8]
+        eq self, this
+        let value = run-once(v)
+        if true
+          async err, x <- wait value
+          eq null, err
+          eq v, x
+          ok value.ran
+          eq self, this
+          sum += x
+          next(null, sum)
+        ok not value.ran
+        set-timeout((#-> ok value.ran), 50)
+      eq null, e
+      array-eq [1, 3, 7, 15], result
+      eq self, this
+    eq 0, sum
+  
+  f@ {}
