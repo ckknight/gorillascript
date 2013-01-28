@@ -1057,6 +1057,7 @@ macro for
       init.push @macro-expand-all AST let $length = +$array.length
     
       let value-expr = ASTE if $is-string then $array.char-at($index) else $array[$index]
+      let let-value = @macro-expand-all AST let $value = $value-expr
       
       if @has-func(body)
         let func = @tmp \f, false, \function
@@ -1073,7 +1074,7 @@ macro for
           body := ASTE $func@(this, $value-expr)
       else
         body := AST
-          let $value = $value-expr
+          $let-value
           $body
     
       if reducer == \every
