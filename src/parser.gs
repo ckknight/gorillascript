@@ -6913,6 +6913,8 @@ node-class UnaryNode(op as String, node as Node)
       "+": Type.number
       "--": Type.number
       "++": Type.number
+      "--post": Type.number
+      "++post": Type.number
       "!": Type.boolean
       "~": Type.number
       typeof: Type.string
@@ -6992,7 +6994,7 @@ node-class UnaryNode(op as String, node as Node)
         UnaryNode @start-index, @end-index, @scope-id, op, node
       else
         this
-  def _is-noop(o) -> @__is-noop ?= @op not in ["++", "--", "delete"] and @node.is-noop(o)
+  def _is-noop(o) -> @__is-noop ?= @op not in ["++", "--", "++post", "--post", "delete"] and @node.is-noop(o)
 node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
   def type() -> Type.undefined
   def _reduce(o)

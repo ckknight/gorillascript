@@ -37,6 +37,12 @@ define operator binary ~>, ~>= with precedence: 1, maximum: 1, type: \boolean
 define operator unary throw with type: "none"
   @mutate-last node or @noop(), (#(n)@ -> @throw n), true
 
+define operator unary post-inc! with type: \number
+  @unary "++post", node
+
+define operator unary post-dec! with type: \number
+  @unary "--post", node
+
 macro debugger
   syntax ""
     @debugger()

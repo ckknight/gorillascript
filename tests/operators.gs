@@ -18,6 +18,14 @@ test "Simple operator assignment", #
   eq 8, x
   x %= 3
   eq 2, x
+  x += 1
+  eq 3, x
+  x -= 1
+  eq 2, x
+  eq 2, post-inc! x
+  eq 3, x
+  eq 3, post-dec! x
+  eq 2, x
 
 test "Addition",#
   eq 5, 2 + 3
