@@ -1566,13 +1566,13 @@ macro switch
         let nodes = @nodes(body)
         let last-node = nodes[nodes.length - 1]
         if @is-ident(last-node) and @name(last-node) == \fallthrough
-          body := @block(nodes[:-1])
+          body := @block(nodes[0 til -1])
           is-fallthrough := true
       else if @is-ident(body) and @name(body) == \fallthrough
         body := @noop()
         is-fallthrough := true
       
-      for case-node in case-nodes[:-1]
+      for case-node in case-nodes[0 til -1]
         result-cases.push
           node: case-node
           body: @noop()

@@ -172,16 +172,77 @@ test "multiple assignment", #
 test "slicing", #
   let array = ["a", "b", "c", "d", "e"]
   
-  array-eq array, array[:]
-  ok array != array[:]
+  array-eq array, array[0 to -1]
+  ok array != array[0 to -1]
   
-  array-eq ["b", "c", "d", "e"], array[1:]
-  array-eq ["e"], array[-1:]
-  array-eq ["c", "d", "e"], array[2:]
-  array-eq ["a", "b", "c"], array[:3]
-  array-eq ["a", "b", "c", "d"], array[:-1]
-  array-eq ["b", "c", "d"], array[1:4]
+  array-eq ["b", "c", "d", "e"], array[1 to -1]
+  array-eq ["e"], array[-1 to -1]
+  array-eq ["c", "d", "e"], array[2 to -1]
+  array-eq ["a", "b", "c"], array[0 to 2]
+  array-eq ["a", "b", "c"], array[0 til 3]
+  array-eq ["a", "b", "c", "d"], array[0 til -1]
+  array-eq ["b", "c", "d"], array[1 to 3]
+  array-eq ["b", "c", "d"], array[1 til 4]
+  
+  let slice(get-array, get-left, get-right, inclusive)
+    if inclusive
+      get-array()[get-left() to get-right()]
+    else
+      get-array()[get-left() til get-right()]
+  
+  array-eq array, slice run-once(array), run-once(0), run-once(-1), true
+  ok array != slice run-once(array), run-once(0), run-once(-1), true
+  array-eq ["b", "c", "d", "e"], slice run-once(array), run-once(1), run-once(-1), true
+  array-eq ["e"], slice run-once(array), run-once(-1), run-once(-1), true
+  array-eq ["c", "d", "e"], slice run-once(array), run-once(2), run-once(-1), true
+  array-eq ["a", "b", "c"], slice run-once(array), run-once(0), run-once(2), true
+  array-eq ["a", "b", "c"], slice run-once(array), run-once(0), run-once(3), false
+  array-eq ["a", "b", "c", "d"], slice run-once(array), run-once(0), run-once(-1), false
+  array-eq ["b", "c", "d"], slice run-once(array), run-once(1), run-once(3), true
+  array-eq ["b", "c", "d"], slice run-once(array), run-once(1), run-once(4), false
 
+test "slicing with step", #
+  let array = ["a", "b", "c", "d", "e"]
+  
+  array-eq array, array[0 to -1 by 1]
+  ok array != array[0 to -1 by 1]
+  
+  array-eq ["e", "d", "c", "b", "a"], array[0 to -1 by -1]
+  array-eq ["a", "c", "e"], array[0 to -1 by 2]
+  array-eq ["b", "c", "d", "e"], array[1 to -1 by 1]
+  array-eq ["e", "d", "c", "b"], array[1 to -1 by -1]
+  array-eq ["e", "c"], array[1 to -1 by -2]
+  array-eq ["e"], array[-1 to -1 by 100]
+  array-eq ["c", "e"], array[2 to -1 by 2]
+  array-eq ["e", "c"], array[2 to -1 by -2]
+  array-eq ["a", "c"], array[0 to 2 by 2]
+  array-eq ["c", "a"], array[0 til 3 by -2]
+  array-eq ["a", "d"], array[0 til -1 by 3]
+  array-eq ["b", "d"], array[1 to 3 by 2]
+  array-eq ["d", "b"], array[1 til 4 by -2]
+  
+  let slice(get-array, get-left, get-right, get-step, inclusive)
+    if inclusive
+      get-array()[get-left() to get-right() by get-step()]
+    else
+      get-array()[get-left() til get-right() by get-step()]
+  
+  array-eq array, slice run-once(array), run-once(0), run-once(-1), run-once(1), true
+  ok array != slice run-once(array), run-once(0), run-once(-1), run-once(1), true
+  array-eq ["e", "d", "c", "b", "a"], slice run-once(array), run-once(0), run-once(-1), run-once(-1), true
+  array-eq ["a", "c", "e"], slice run-once(array), run-once(0), run-once(-1), run-once(2), true
+  array-eq ["b", "c", "d", "e"], slice run-once(array), run-once(1), run-once(-1), run-once(1), true
+  array-eq ["e", "d", "c", "b"], slice run-once(array), run-once(1), run-once(-1), run-once(-1), true
+  array-eq ["e", "c"], slice run-once(array), run-once(1), run-once(-1), run-once(-2), true
+  array-eq ["e"], slice run-once(array), run-once(-1), run-once(-1), run-once(100), true
+  array-eq ["c", "e"], slice run-once(array), run-once(2), run-once(-1), run-once(2), true
+  array-eq ["e", "c"], slice run-once(array), run-once(2), run-once(-1), run-once(-2), true
+  array-eq ["a", "c"], slice run-once(array), run-once(0), run-once(2), run-once(2), true
+  array-eq ["c", "a"], slice run-once(array), run-once(0), run-once(3), run-once(-2), false
+  array-eq ["a", "d"], slice run-once(array), run-once(0), run-once(-1), run-once(3), false
+  array-eq ["b", "d"], slice run-once(array), run-once(1), run-once(3), run-once(2), true
+  array-eq ["d", "b"], slice run-once(array), run-once(1), run-once(4), run-once(-2), false
+/*
 test "splicing", #
   let array = []
   
@@ -215,7 +276,7 @@ test "splicing", #
   
   array[:-1] := ["u", "v"]
   array-eq ["u", "v", "p"], array
-
+*/
 test "unclosed array syntax, multi-line", #
   let arr =
     * 1

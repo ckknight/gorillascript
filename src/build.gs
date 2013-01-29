@@ -7,7 +7,7 @@ async err, files <- fs.readdir './src'
 throw? err
 
 files := for file in files.sort()
-  if (process.argv.length < 3 or file in process.argv[2:]) and file.match(r"\.gs\$"i) and file != "prelude.gs"
+  if (process.argv.length < 3 or file in process.argv[2 to -1]) and file.match(r"\.gs\$"i) and file != "prelude.gs"
     file
 
 let done(err)

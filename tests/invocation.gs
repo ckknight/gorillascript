@@ -109,7 +109,7 @@ test "New on an array index", #
 
 test "New on a sliced array index", #
   let now = new Date().get-time()
-  let weird-date = new [Date][0:1][0] now
+  let weird-date = new [Date][0 til 1][0] now
   eq now, weird-date.get-time()
 
 test "Binding access", #

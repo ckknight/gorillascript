@@ -495,7 +495,7 @@ let array-translate(elements, scope, replace-with-slice)
     else
       #
         let head = translated-items[0]()
-        let rest = for item in translated-items[1:]
+        let rest = for item in translated-items[1 to -1]
           item()
         ast.Call(
           ast.Access head, \concat
@@ -505,7 +505,43 @@ let translators =
   Access: #(node, scope, location, auto-return)
     let t-parent = translate node.parent, scope, \expression
     let t-child = translate node.child, scope, \expression
-    #-> auto-return ast.Access(t-parent(), t-child())
+    #
+      let parent = t-parent()
+      let child = t-child()
+      if child instanceof ast.Call and child.func instanceof ast.Ident and child.func.name == \__range
+        let [start, end, step, mutable inclusive] = child.args
+        if not inclusive
+          inclusive := false
+        else if not inclusive.is-const()
+          throw Error "Expected inclusive argument to be constant"
+        else
+          inclusive := not not inclusive.const-value()
+        scope.add-helper \__slice
+        let slice = ast.Call ast.Ident(\__slice), [
+          parent
+          start
+          ...(if end.is-const() and end.const-value() == Infinity
+            []
+          else if inclusive
+            if end.is-const() and typeof end.const-value() == \number
+              if end.const-value() == -1
+                []
+              else
+                [ast.Const end.const-value() + 1]
+            else
+              [ast.Binary(
+                ast.Binary end, "+", 1
+                "||"
+                Infinity)]
+          else
+            [end])]
+        auto-return if not step.is-const() or step.const-value() != 1
+          scope.add-helper \__step
+          ast.Call ast.Ident(\__step), [slice, step]
+        else
+          slice
+      else
+        auto-return ast.Access(parent, child)
 
   AccessIndex: do
     let indexes =
@@ -623,7 +659,7 @@ let translators =
     let args = node.args
     if is-apply and (args.length == 0 or args[0] not instanceof ParserNode.Spread)
       let t-start = if args.length == 0 then #-> ast.Const(void) else translate(args[0], scope, \expression)
-      let t-arg-array = array-translate(args[1:], scope, false)
+      let t-arg-array = array-translate(args[1 to -1], scope, false)
       #
         let func = t-func()
         let start = t-start()
@@ -762,14 +798,14 @@ let translators =
             ast.Const ".$(accesses[0].value)"
           else
             ast.Const "[$(JSON.stringify accesses[0].value)]"
-          ...build-access-string-node(accesses[1:])
+          ...build-access-string-node(accesses[1 to -1])
         ]
       else
         [
           "["
           accesses[0]
           "]"
-          ...build-access-string-node(accesses[1:])
+          ...build-access-string-node(accesses[1 to -1])
         ]
     let translate-type-checks =
       Ident: #(ident, node, scope, has-default-value, accesses)

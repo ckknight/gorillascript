@@ -641,7 +641,7 @@ class Stack
     else
       data[len - 1]
   
-  def clone() -> Stack @initial, @data[:]
+  def clone() -> Stack @initial, @data.slice()
 
 let make-alter-stack(stack, value)
   if stack not instanceof Stack
@@ -1735,7 +1735,7 @@ define _Name = sequential! [
   let parts = process-char-codes x.head
   for part in x.tail
     parts.push from-char-code(part[0]).to-upper-case()
-    process-char-codes part[1:], parts
+    process-char-codes part[1 to -1], parts
   parts.join ""
 
 define Name = with-message! "name", with-space! _Name
@@ -2937,7 +2937,7 @@ define TypeReference = sequential! [
     for j in types.length - 1 to 0
       let type = types[j]
       if type instanceof TypeUnionNode
-        types[j:j + 1] := type.types
+        types.splice j, 1, ...type.types
     if types.length == 1
       types[0]
     else
@@ -3424,18 +3424,6 @@ define ExpressionOrNothing = one-of! [
   Nothing
 ]
 
-let _indexSlice = Stack false
-let inIndexSlice = make-alter-stack _indexSlice, true
-
-define IndexSlice = inIndexSlice sequential! [
-  [\left, ExpressionOrNothing]
-  Colon
-  [\right, ExpressionOrNothing]
-], #(x)
-  type: \slice
-  left: if x instanceof NothingNode then null else x.left
-  right: if x instanceof NothingNode then null else x.right
-
 define IndexMultiple = sequential! [
   [\head, Expression]
   [\tail, zero-or-more! sequential! [
@@ -3450,7 +3438,7 @@ define IndexMultiple = sequential! [
     type: \single
     node: x.head
 
-define Index = one-of! [IndexSlice, IndexMultiple]
+define Index = IndexMultiple
 
 define IdentifierOrAccessStart = one-of! [
   Identifier
@@ -3575,7 +3563,6 @@ define PrimaryExpression = one-of! [
 ]
 
 define UnclosedObjectLiteral = sequential! [
-  #(o) -> not _indexSlice.peek()
   [\head, DualObjectKey]
   [\tail, zero-or-more! sequential! [
     Comma
@@ -4283,7 +4270,7 @@ let node-to-type = do
     else if node instanceof TypeFunctionNode
       node-to-type(node.return-type).function()
     else if node instanceof TypeUnionNode
-      for reduce type in node.types[1:], current = node-to-type(node.types[0])
+      for reduce type in node.types[1 to -1], current = node-to-type(node.types[0])
         current.union(node-to-type(type))
     else if node instanceof TypeObjectNode
       let data = {}
@@ -4372,8 +4359,8 @@ class MacroHelper
     @state.tmp @index, id, name, type
   
   def get-tmps()
-    unsaved: @unsaved-tmps[:]
-    saved: @saved-tmps[:]
+    unsaved: @unsaved-tmps.slice()
+    saved: @saved-tmps.slice()
   
   def is-const(node) -> node == void or (node instanceof Node and @macro-expand-1(node).is-const())
   def value(node)
@@ -4731,7 +4718,7 @@ class MacroHelper
       if len != 0
         let last-node = @mutate-last(nodes[len - 1], func)
         if last-node != nodes[len - 1]
-          return BlockNode x.start-index, x.end-index, x.scope-id, [...nodes[:len - 1], last-node]
+          return BlockNode x.start-index, x.end-index, x.scope-id, [...nodes[0 til -1], last-node]
       x
     If: #(x, func)
       let when-true = @mutate-last x.when-true, func
@@ -4842,14 +4829,14 @@ class MacroHolder
   def clone()
     let clone = MacroHolder()
     clone.by-name := copy(@by-name)
-    clone.by-id := @by-id[:]
+    clone.by-id := @by-id.slice()
     clone.by-label := copy(@by-label)
-    clone.type-by-id := @type-by-id[:]
+    clone.type-by-id := @type-by-id.slice()
     clone.operator-names := copy(@operator-names)
-    clone.binary-operators := @binary-operators[:]
-    clone.assign-operators := @assign-operators[:]
-    clone.prefix-unary-operators := @prefix-unary-operators[:]
-    clone.postfix-unary-operators := @postfix-unary-operators[:]
+    clone.binary-operators := @binary-operators.slice()
+    clone.assign-operators := @assign-operators.slice()
+    clone.prefix-unary-operators := @prefix-unary-operators.slice()
+    clone.postfix-unary-operators := @postfix-unary-operators.slice()
     clone.serialization := copy(@serialization)
     clone.syntaxes := copy(@syntaxes)
     clone
@@ -6731,7 +6718,7 @@ State::string := #(index, mutable parts as [Node])
       right: parts[0]
     }, this, index, @line
   else
-    for reduce part in parts[1:], current = parts[0]
+    for reduce part in parts[1 to -1], current = parts[0]
       concat-op.func {
         left: current
         op: ""
@@ -6965,7 +6952,7 @@ let without-repeats(array)
   result
 
 let build-expected(errors)
-  let errs = without-repeats errors[:].sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
+  let errs = without-repeats errors.slice().sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
   switch errs.length
   case 0
     "End of input"
@@ -6974,7 +6961,7 @@ let build-expected(errors)
   case 2
     "$(errs[0]) or $(errs[1])"
   default
-    "$(errs[:-1].join ', '), or $(errs[errs.length - 1])"
+    "$(errs[0 til -1].join ', '), or $(errs[errs.length - 1])"
 
 let build-error-message(errors, last-token)
   "Expected $(build-expected errors), but $(last-token) found"

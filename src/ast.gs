@@ -368,7 +368,7 @@ exports.BinaryChain := #(op, ...args)
       let right = args[i + 1]
       if (typeof left == \string or (left instanceof Const and typeof left.value == \string)) and (typeof right == \string or (right instanceof Const and typeof right.value == \string))
         args.splice i, 2, (if typeof left == \string then left else left.value) & (if typeof right == \string then right else right.value)
-  for reduce arg in args[1:], current = args[0]
+  for reduce arg in args[1 to -1], current = args[0]
     Binary current, op, arg
 
 exports.And := #(...args)
@@ -605,7 +605,7 @@ exports.BlockStatement := class BlockStatement extends Statement
     let last = @last()
     let new-last = last.mutate-last(func, include-noop)
     if last != new-last
-      let body = @body[:-1]
+      let body = @body[0 til -1]
       body.push new-last
       Block body
     else
@@ -746,7 +746,7 @@ exports.Call := class Call extends Expression
     if @args.length > 4
       true
     else
-      for some arg in @args[:-1]
+      for some arg in @args[0 til -1]
         not arg.is-small()
   
   def has-large-args()

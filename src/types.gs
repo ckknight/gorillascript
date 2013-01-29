@@ -711,7 +711,7 @@ module.exports := class Type
     
     def to-JSON() -> { type: \union, @types }
     from-JSON-types.union := #({types})
-      for reduce type in types[1:], current = Type.from-JSON(types[0])
+      for reduce type in types[1 to -1], current = Type.from-JSON(types[0])
         current.union(Type.from-JSON(type))
 
   class ComplementType extends Type
