@@ -106,11 +106,10 @@ test "Return-If statement doesn't use ternary", #
   ok not gorilla.compile("""
   return if Math then String else Object end""", bare: true).match(r"\?")
 
-/*
 test "Let-If statement doesn't use ternary", #
   ok not gorilla.compile("""
   let x = if Math then String else Object end""", bare: true).match(r"\?")
-*/
+
 test "inline expression with lots of conditionals", #
   let fun(a, b, c, d, e, f, g, h, i)
     ok(if (if a() then b() else c())
