@@ -1419,6 +1419,12 @@ macro while, until
         $body
 
 define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean) as [Number]
+  if step == 0
+    throw RangeError "step cannot be zero"
+  else if not is-finite start
+    throw RangeError "start must be finite"
+  else if not is-finite end
+    throw RangeError "end must be finite"
   let result = []
   let mutable i = start
   if step ~> 0
