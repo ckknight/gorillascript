@@ -1068,7 +1068,10 @@ macro for
     if index
       length := index.length
       index := index.value
-  
+    
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__to-array
+      array := @call-args(array)[0]
+    
     if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
@@ -1178,12 +1181,14 @@ macro for
       length ?= @tmp \len, false, \number
     
       @macro-expand-all AST let $length = 0
-    
+      
+      array := @macro-expand-all(array)
+      
       let mutable step = ASTE 1
       if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__step
         step := @call-args(array)[1]
         array := @call-args(array)[0]
-    
+      
       if not is-string and not @is-type array, \array-like
         array := ASTE __to-array $array
       array := @cache array, init, if is-string then \str else \arr, false
