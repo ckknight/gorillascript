@@ -1206,7 +1206,7 @@ macro for
             init.push AST let mutable $index = $length
           else
             init.push AST let mutable $index = +$array.length
-          ASTE ($index ~-= 1) ~>= 0
+          ASTE post-dec! $index
         else
           if typeof @value(step) != \number
             throw Error "Step must be a number"
