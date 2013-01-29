@@ -1471,6 +1471,8 @@ define operator binary by with maximum: 1, precedence: 1, type: \array
     let call-args = @call-args(left)
     ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
   else
+    if @is-const(right) and @value(right) not %% 1
+      throw Error "'by' step must be an integer"
     ASTE __step($left, $right)
 
 define helper __in = if typeof Array.prototype.index-of == \function

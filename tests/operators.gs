@@ -1313,22 +1313,26 @@ test "Partial operator functions", #
 test "til operator", #
   array-eq [0, 1, 2, 3, 4], 0 til 5
   array-eq [], 5 til 0
+  array-eq [0.5, 1.5, 2.5, 3.5, 4.5], 0.5 til 5
 
 test "to operator", #
   array-eq [0, 1, 2, 3, 4, 5], 0 to 5
   array-eq [], 5 to 0
+  array-eq [0.5, 1.5, 2.5, 3.5, 4.5], 0.5 to 5
 
 test "til with by", #
   array-eq [0, 2, 4], 0 til 5 by 2
   array-eq [], 5 til 0 by 2
   array-eq [5, 4, 3, 2, 1], 5 til 0 by -1
   array-eq [5, 3, 1], 5 til 0 by -2
+  array-eq [0, 0.5, 1, 1.5, 2, 2.5], 0 til 3 by 0.5
 
 test "to with by", #
   array-eq [0, 2, 4], 0 to 5 by 2
   array-eq [], 5 to 0 by 2
   array-eq [5, 4, 3, 2, 1, 0], 5 to 0 by -1
   array-eq [5, 3, 1], 5 to 0 by -2
+  array-eq [0, 0.5, 1, 1.5, 2, 2.5, 3], 0 to 3 by 0.5
 
 test "by on normal array", #
   array-eq [1, 2, 3, 4], [1, 2, 3, 4] by 1
