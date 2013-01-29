@@ -702,6 +702,8 @@ exports.Break := class Break extends Statement
   
   def inspect() -> "Break()"
   
+  def is-large() -> false
+  
   def to-JSON() -> { type: "Break" }
   @from-JSON := #-> Break()
 
@@ -863,6 +865,8 @@ exports.Continue := class Continue extends Statement
   
   def exit-type() -> \continue
   
+  def is-large() -> false
+  
   def inspect() -> "Continue()"
   
   def to-JSON() -> { type: "Continue" }
@@ -877,6 +881,8 @@ exports.Debugger := class Debugger extends Statement
     sb "debugger;"
   
   def walk() -> this
+
+  def is-large() -> false
   
   def inspect() -> "Debugger()"
   
@@ -1538,6 +1544,9 @@ exports.Return := class Return extends Statement
   
   def exit-type() -> \return
   
+  def is-small() -> @node.is-small()
+  def is-large() -> @node.is-large()
+  
   def inspect(depth)
     let d = dec-depth depth
     "Return($(inspect @node, null, d))"
@@ -1626,6 +1635,9 @@ exports.Throw := class Throw extends Statement
   
   def exit-type() -> \throw
   
+  def is-small() -> @node.is-small()
+  def is-large() -> @node.is-large()
+  
   def inspect(depth)
     let d = dec-depth depth
     "Throw($(inspect @node, null, d))"
@@ -1656,15 +1668,24 @@ exports.Switch := class Switch extends Statement
       case_.node.compile options, Level.inside-parentheses, false, sb
       sb ":"
       if not case_.body.is-noop()
-        sb "\n"
-        sb.indent child-options.indent
-        case_.body.compile-as-statement child-options, true, sb
+        if case_.node.is-small() and case_.body.is-small()
+          sb " "
+          case_.body.compile-as-statement options, true, sb
+        else
+          sb "\n"
+          sb.indent child-options.indent
+          case_.body.compile-as-statement child-options, true, sb
     if not @default-case.is-noop()
       sb "\n"
       sb.indent options.indent
-      sb "default:\n"
-      sb.indent child-options.indent
-      @default-case.compile-as-statement child-options, true, sb
+      sb "default:"
+      if @default-case.is-small()
+        sb " "
+        @default-case.compile-as-statement options, true, sb
+      else
+        sb "\n"
+        sb.indent child-options.indent
+        @default-case.compile-as-statement child-options, true, sb
     sb "\n"
     sb.indent options.indent
     sb "}"
@@ -1684,7 +1705,7 @@ exports.Switch := class Switch extends Statement
   
   def to-JSON()
     type: "Switch"
-    node: simplify(node)
+    node: simplify(@node)
     cases: simplify(for case_ in @cases
       { node: simplify(case_.node), body: simplify(case_.body) })
     default-case: simplify(@default-case)

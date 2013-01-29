@@ -782,17 +782,6 @@ define helper __slice = do
   let slice = Array.prototype.slice
   #(array, start, end) as [] -> slice@(array, start, end)
 
-define helper __splice = do
-  let splice = Array.prototype.splice
-  #(array, mutable start, mutable end, right) as []
-    let len = array.length
-    if start ~< 0
-      start ~+= len
-    if end ~< 0
-      end ~+= len
-    splice@ array, start, end ~- start, ...right
-    right
-
 define helper __freeze = if typeof Object.freeze == \function
   Object.freeze
 else
@@ -948,435 +937,6 @@ macro for
       for $init; $test; $step
         $body
       $current
-  
-  syntax reducer as (\every | \some | \first)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    value := @macro-expand-1(value)
-    
-    let mutable length = null
-    if index
-      length := index.length
-      index := index.value
-    
-    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
-      if @is-array(value) or @is-object(value)
-        throw Error "Cannot assign a number to a complex declarable"
-      value := value.ident
-      let [start, end, step, inclusive] = @call-args(array)
-      
-      let init = []
-      
-      if @is-const(start)
-        if typeof @value(start) != \number
-          throw Error "Cannot start with a non-number: #(@value start)"
-      else
-        start := ASTE +$start
-      init.push @macro-expand-all AST let mutable $value = $start
-
-      if @is-const(end)
-        if typeof @value(end) != \number
-          throw Error "Cannot end with a non-number: #(@value start)"
-      else if @is-complex(end)
-        end := @cache (ASTE +$end), init, \end, false
-      else
-        init.push ASTE +$end
-
-      if @is-const(step)
-        if typeof @value(step) != \number
-          throw Error "Cannot step with a non-number: #(@value step)"
-      else if @is-complex(step)
-        step := @cache (ASTE +$step), init, \step, false
-      else
-        init.push ASTE +$step
-      
-      if @is-complex(inclusive)
-        inclusive := @cache (ASTE $inclusive), init, \incl, false
-      
-      let test = if @is-const(step)
-        if @value(step) > 0
-          if @is-const(end) and @value(end) == Infinity
-            ASTE true
-          else
-            ASTE if $inclusive then $value ~<= $end else $value ~< $end
-        else
-          if @is-const(end) and @value(end) == -Infinity
-            ASTE true
-          else
-            ASTE if $inclusive then $value ~>= $end else $value ~> $end
-      else
-        ASTE if $step ~> 0
-          if $inclusive then $value ~<= $end else $value ~< $end
-        else
-          if $inclusive then $value ~>= $end else $value ~> $end
-      
-      let mutable increment = ASTE $value ~+= $step
-      
-      if length
-        init.push @macro-expand-all AST let $length = if $inclusive
-          ($end ~- $start ~+ $step) ~\ $step
-        else
-          ($end ~- $start) ~\ $step
-      
-      if index
-        init.push @macro-expand-all AST let mutable $index = 0
-        increment := AST
-          $increment
-          $index += 1
-        if @has-func(body)
-          let func = @tmp \f, false, \function
-          init.push (AST let $func = #($value, $index) -> $body)
-          body := (ASTE $func@(this, $value, $index))
-      else if @has-func(body)
-        let func = @tmp \f, false, \function
-        init.push (AST let $func = #($value) -> $body)
-        body := (ASTE $func@(this, $value))
-      
-      if reducer == \every
-        ASTE for every $init; $test; $increment
-          $body
-        else
-          $else-body
-      else if reducer == \some
-        ASTE for some $init; $test; $increment
-          $body
-        else
-          $else-body
-      else if reducer == \first
-        ASTE for first $init; $test; $increment
-          $body
-        else
-          $else-body
-      else if @position == "expression"
-        ASTE for $init; $test; $increment
-          $body
-        else
-          $else-body
-      else
-        AST
-          for $init; $test; $increment
-            $body
-          else
-            $else-body
-    else
-      let init = []
-      let is-string = @is-type array, \string
-    
-      let has-index = index?
-      index ?= @tmp \i, false, \number
-      let has-length = length?
-      length ?= @tmp \len, false, \number
-      
-      @macro-expand-all AST let $length = 0
-      
-      let mutable step = ASTE 1
-      if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__step
-        step := @call-args(array)[1]
-        array := @call-args(array)[0]
-      
-      if not is-string and not @is-type array, \array-like
-        array := ASTE __to-array $array
-      array := @cache array, init, if is-string then \str else \arr, false
-      
-      let value-expr = ASTE if $is-string then $array.char-at($index) else $array[$index]
-      let let-index = @macro-expand-all AST let mutable $index = 0
-      let let-value = @macro-expand-all AST let $value = $value-expr
-      let let-length = @macro-expand-all AST let $length = +$array.length
-      
-      let mutable increment = void
-      let test = if @is-const(step)
-        if @value(step) == 1
-          init.push let-index
-          init.push let-length
-          increment := ASTE $index ~+= $step
-          ASTE $index ~< $length
-        else if @value(step) == -1  
-          if has-length
-            init.push let-length
-            init.push AST let mutable $index = $length
-          else
-            init.push AST let mutable $index = +$array.length
-          ASTE ($index ~-= 1) ~>= 0
-        else
-          if typeof @value(step) != \number
-            throw Error "Step must be a number"
-          else if @value(step) == 0
-            throw Error "Cannot have a step of zero"
-          else if @value(step) not %% 1
-            throw Error "Step must be an integer, got $(@value(step))"
-          else if @value(step) < 0
-            if has-length
-              init.push let-length
-              init.push AST let mutable $index = $length ~- 1
-            else
-              init.push AST let mutable $index = +$array.length ~- 1
-            increment := ASTE $index ~+= $step
-            ASTE $index ~>= 0
-          else
-            init.push let-index
-            init.push let-length
-            increment := ASTE $index ~+= $step
-            ASTE $index ~< $length
-      else
-        if @is-complex(step)
-          step := @cache (ASTE __int(__nonzero($step))), init, \step, false
-        else
-          init.unshift ASTE __int(__nonzero($step))
-        init.push let-length
-        init.push @macro-expand-all AST let mutable $index = if $step ~> 0 then 0 else $length ~- 1
-        increment := ASTE $index ~+= $step
-        ASTE if $step ~> 0 then $index ~< $length else $index ~>= 0
-      
-      if @has-func(body)
-        let func = @tmp \f, false, \function
-        let value-ident = if value and value.type == \ident and not value.is-mutable then value.ident else @tmp \v, false
-        if value and value-ident != value.ident
-          body := AST
-            let $value = $value-ident
-            $body
-        if has-index
-          init.push AST let $func = #($value-ident, $index) -> $body
-          body := ASTE $func@(this, $value-expr, $index)
-        else
-          init.push AST let $func = #($value-ident) -> $body
-          body := ASTE $func@(this, $value-expr)
-      else
-        body := AST
-          $let-value
-          $body
-    
-      if reducer == \every
-        ASTE for every $init; $test; $increment
-          $body
-        else
-          $else-body
-      else if reducer == \some
-        ASTE for some $init; $test; $increment
-          $body
-        else
-          $else-body
-      else if reducer == \first
-        ASTE for first $init; $test; $increment
-          $body
-        else
-          $else-body
-      else if @position == \expression
-        ASTE for $init; $test; $increment
-          $body
-        else
-          $else-body
-      else
-        AST
-          for $init; $test; $increment
-            $body
-          else
-            $else-body
-  
-  syntax "reduce", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    value := @macro-expand-1(value)
-    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
-    let length = index?.length
-    index := index?.value
-    AST
-      let mutable $current = $current-start
-      for $value, $index, $length in $array
-        $body
-      $current
-  
-  syntax reducer as (\every | \some | \first)?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    let mutable index = null
-    if value
-      index := value.index
-      value := @macro-expand-1(value.value)
-    
-    let own = type == "of"
-    let init = []
-    if own or value
-      object := @cache object, init, \obj, false
-    
-    @let key, false, @type(\string)
-    let let-value = value and @macro-expand-all AST let $value = $object[$key]
-    let let-index = index and @macro-expand-all AST let mutable $index = -1
-    if @has-func(body)
-      let func = @tmp \f, false, \function
-      let value-ident = if value then (if value.type == \ident then value.ident else @tmp \v, false)
-      if value and value-ident != value.ident
-        body := AST
-          let $value = $value-ident
-          $body
-      if index
-        init.push (AST let $func = #($key, $value-ident, $index) -> $body)
-        body := (ASTE $func@(this, $key, $object[$key], $index))
-      else if value
-        init.push (AST let $func = #($key, $value-ident) -> $body)
-        body := (ASTE $func@(this, $key, $object[$key]))
-      else
-        init.push (AST let $func = #($key) -> $body)
-        body := (ASTE $func@(this, $key))
-    else if value
-      body := AST
-        $let-value
-        $body
-
-    let post = []
-    if else-body
-      let run-else = @tmp \else, false, \boolean
-      init.push (AST let $run-else = true)
-      body := AST
-        $run-else := false
-        $body
-      post.push AST
-        if $run-else
-          $else-body
-    
-    if index
-      init.push let-index
-      body := AST
-        $index ~+= 1
-        $body
-    
-    if own
-      body := AST
-        if $object ownskey $key
-          $body
-    
-    if reducer
-      if reducer == \first
-        body := @mutate-last body or @noop(), #(node) -> (AST return $node)
-        let loop = @for-in(key, object, body)
-        AST do
-          $init
-          $loop
-          $else-body
-      else
-        if else-body
-          throw Error("Cannot use a for loop with an else with $reducer")
-        if reducer == \some
-          body := @mutate-last body or @noop(), #(node) -> AST
-            if $node
-              return true
-          let loop = @for-in(key, object, body)
-          AST do
-            $init
-            $loop
-            false
-        else if reducer == \every
-          body := @mutate-last body or @noop(), #(node) -> AST
-            if not $node
-              return false
-          let loop = @for-in(key, object, body)
-          AST do
-            $init
-            $loop
-            true
-        else
-          throw Error("Unknown reducer: $reducer")
-    else if @position == \expression
-      if else-body
-        throw Error("Cannot use a for loop with an else as an expression")
-      let arr = @tmp \arr, false, @type(body).array()
-      body := @mutate-last body or @noop(), #(node) -> (ASTE $arr.push $node)
-      init := AST
-        $arr := []
-        $init
-      let loop = @for-in(key, object, body)
-      AST
-        $init
-        $loop
-        $arr
-    else
-      let loop = @for-in(key, object, body)
-      AST
-        $init
-        $loop
-        $post
-  
-  syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
-    let index = value?.index
-    value := value?.value
-    let loop = if type == "of"
-      AST for $key, $value, $index of $object
-        $body
-    else
-      AST for $key, $value, $index ofall $object
-        $body
-    AST
-      let mutable $current = $current-start
-      $loop
-      $current
-  
-  syntax reducer as (\every | \some | \first)?, value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if else-body and @position == \expression
-      throw Error("Cannot use a for loop with an else as an expression")
-    
-    let init = []
-    iterator := @cache iterator, init, \iter, false
-    
-    let step = []
-    if index
-      init.push AST let mutable $index = 0
-      step.push ASTE $index ~+= 1
-    
-    let capture-value = AST try
-      let $value = $iterator.next()
-    catch e
-      if e == StopIteration
-        break
-      else
-        throw e
-    
-    let post = []
-    if else-body
-      let run-else = @tmp \else, false, \boolean
-      init.push (AST let $run-else = true)
-      body := AST
-        $run-else := false
-        $body
-      post.push AST
-        if $run-else
-          $else-body
-    
-    if @has-func(body)
-      let func = @tmp \f, false, \function
-      if not index
-        init.push AST let $func = #($value) -> $body
-        body := AST
-          $capture-value
-          $func@(this, $value)
-      else
-        init.push AST let $func = #($value, $index) -> $body
-        body := AST
-          $capture-value
-          $func@(this, $value, $index)
-    else
-      body := AST
-        $capture-value
-        $body
-
-    if reducer == \every
-      ASTE for every $init; true; $step
-        $body
-    else if reducer == \some
-      ASTE for some $init; true; $step
-        $body
-    else if reducer == \first
-      ASTE for first $init; true; $step
-        $body
-    else if @position == \expression
-      ASTE for $init; true; $step
-        $body
-    else
-      AST
-        for $init; true; $step
-          $body
-        $post
-  
-  syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
-    AST
-      let mutable $current = $current-start
-      for $value, $index from $iterator
-        $body
-      $current
 
 macro while, until
   syntax reducer as (\every | \some | \first)?, test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
@@ -1428,12 +988,12 @@ define helper __range = #(start as Number, end as Number, step as Number, inclus
   let result = []
   let mutable i = start
   if step ~> 0
-    for ; i ~< end; i ~+= step
+    while i ~< end, i ~+= step
       result.push i
     if inclusive and i ~<= end
       result.push i
   else
-    for ; i ~> end; i ~+= step
+    while i ~> end, i ~+= step
       result.push i
     if inclusive and i ~>= end
       result.push i
@@ -1487,12 +1047,471 @@ define helper __in = if typeof Array.prototype.index-of == \function
     #(child, parent) as Boolean -> index-of@(parent, child) != -1
 else
   #(child, parent) as Boolean
-    let len = parent.length
+    let len = ~+parent.length
     let mutable i = -1
     while (i ~+= 1) < len
       if child == parent[i] and parent haskey i
         return true
     false
+
+macro for
+  syntax reducer as (\every | \some | \first)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+    value := @macro-expand-1(value)
+  
+    let mutable length = null
+    if index
+      length := index.length
+      index := index.value
+  
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
+      if @is-array(value) or @is-object(value)
+        throw Error "Cannot assign a number to a complex declarable"
+      value := value.ident
+      let [start, end, step, inclusive] = @call-args(array)
+    
+      let init = []
+    
+      if @is-const(start)
+        if typeof @value(start) != \number
+          throw Error "Cannot start with a non-number: #(@value start)"
+      else
+        start := ASTE +$start
+      init.push @macro-expand-all AST let mutable $value = $start
+
+      if @is-const(end)
+        if typeof @value(end) != \number
+          throw Error "Cannot end with a non-number: #(@value start)"
+      else if @is-complex(end)
+        end := @cache (ASTE +$end), init, \end, false
+      else
+        init.push ASTE +$end
+
+      if @is-const(step)
+        if typeof @value(step) != \number
+          throw Error "Cannot step with a non-number: #(@value step)"
+      else if @is-complex(step)
+        step := @cache (ASTE +$step), init, \step, false
+      else
+        init.push ASTE +$step
+    
+      if @is-complex(inclusive)
+        inclusive := @cache (ASTE $inclusive), init, \incl, false
+    
+      let test = if @is-const(step)
+        if @value(step) > 0
+          if @is-const(end) and @value(end) == Infinity
+            ASTE true
+          else
+            ASTE if $inclusive then $value ~<= $end else $value ~< $end
+        else
+          if @is-const(end) and @value(end) == -Infinity
+            ASTE true
+          else
+            ASTE if $inclusive then $value ~>= $end else $value ~> $end
+      else
+        ASTE if $step ~> 0
+          if $inclusive then $value ~<= $end else $value ~< $end
+        else
+          if $inclusive then $value ~>= $end else $value ~> $end
+    
+      let mutable increment = ASTE $value ~+= $step
+    
+      if length
+        init.push @macro-expand-all AST let $length = if $inclusive
+          ($end ~- $start ~+ $step) ~\ $step
+        else
+          ($end ~- $start) ~\ $step
+    
+      if index
+        init.push @macro-expand-all AST let mutable $index = 0
+        increment := AST
+          $increment
+          $index += 1
+        if @has-func(body)
+          let func = @tmp \f, false, \function
+          init.push (AST let $func = #($value, $index) -> $body)
+          body := (ASTE $func@(this, $value, $index))
+      else if @has-func(body)
+        let func = @tmp \f, false, \function
+        init.push (AST let $func = #($value) -> $body)
+        body := (ASTE $func@(this, $value))
+    
+      if reducer == \every
+        ASTE for every $init; $test; $increment
+          $body
+        else
+          $else-body
+      else if reducer == \some
+        ASTE for some $init; $test; $increment
+          $body
+        else
+          $else-body
+      else if reducer == \first
+        ASTE for first $init; $test; $increment
+          $body
+        else
+          $else-body
+      else if @position == "expression"
+        ASTE for $init; $test; $increment
+          $body
+        else
+          $else-body
+      else
+        AST
+          for $init; $test; $increment
+            $body
+          else
+            $else-body
+    else
+      let init = []
+      let is-string = @is-type array, \string
+  
+      let has-index = index?
+      index ?= @tmp \i, false, \number
+      let has-length = length?
+      length ?= @tmp \len, false, \number
+    
+      @macro-expand-all AST let $length = 0
+    
+      let mutable step = ASTE 1
+      if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__step
+        step := @call-args(array)[1]
+        array := @call-args(array)[0]
+    
+      if not is-string and not @is-type array, \array-like
+        array := ASTE __to-array $array
+      array := @cache array, init, if is-string then \str else \arr, false
+    
+      let value-expr = ASTE if $is-string then $array.char-at($index) else $array[$index]
+      let let-index = @macro-expand-all AST let mutable $index = 0
+      let let-value = @macro-expand-all AST let $value = $value-expr
+      let let-length = @macro-expand-all AST let $length = +$array.length
+    
+      let mutable increment = void
+      let test = if @is-const(step)
+        if @value(step) == 1
+          init.push let-index
+          init.push let-length
+          increment := ASTE $index ~+= $step
+          ASTE $index ~< $length
+        else if @value(step) == -1  
+          if has-length
+            init.push let-length
+            init.push AST let mutable $index = $length
+          else
+            init.push AST let mutable $index = +$array.length
+          ASTE ($index ~-= 1) ~>= 0
+        else
+          if typeof @value(step) != \number
+            throw Error "Step must be a number"
+          else if @value(step) == 0
+            throw Error "Cannot have a step of zero"
+          else if @value(step) not %% 1
+            throw Error "Step must be an integer, got $(@value(step))"
+          else if @value(step) < 0
+            if has-length
+              init.push let-length
+              init.push AST let mutable $index = $length ~- 1
+            else
+              init.push AST let mutable $index = +$array.length ~- 1
+            increment := ASTE $index ~+= $step
+            ASTE $index ~>= 0
+          else
+            init.push let-index
+            init.push let-length
+            increment := ASTE $index ~+= $step
+            ASTE $index ~< $length
+      else
+        if @is-complex(step)
+          step := @cache (ASTE __int(__nonzero($step))), init, \step, false
+        else
+          init.unshift ASTE __int(__nonzero($step))
+        init.push let-length
+        init.push @macro-expand-all AST let mutable $index = if $step ~> 0 then 0 else $length ~- 1
+        increment := ASTE $index ~+= $step
+        ASTE if $step ~> 0 then $index ~< $length else $index ~>= 0
+    
+      if @has-func(body)
+        let func = @tmp \f, false, \function
+        let value-ident = if value and value.type == \ident and not value.is-mutable then value.ident else @tmp \v, false
+        if value and value-ident != value.ident
+          body := AST
+            let $value = $value-ident
+            $body
+        if has-index
+          init.push AST let $func = #($value-ident, $index) -> $body
+          body := ASTE $func@(this, $value-expr, $index)
+        else
+          init.push AST let $func = #($value-ident) -> $body
+          body := ASTE $func@(this, $value-expr)
+      else
+        body := AST
+          $let-value
+          $body
+  
+      if reducer == \every
+        ASTE for every $init; $test; $increment
+          $body
+        else
+          $else-body
+      else if reducer == \some
+        ASTE for some $init; $test; $increment
+          $body
+        else
+          $else-body
+      else if reducer == \first
+        ASTE for first $init; $test; $increment
+          $body
+        else
+          $else-body
+      else if @position == \expression
+        ASTE for $init; $test; $increment
+          $body
+        else
+          $else-body
+      else
+        AST
+          for $init; $test; $increment
+            $body
+          else
+            $else-body
+
+  syntax "reduce", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    value := @macro-expand-1(value)
+    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
+    let length = index?.length
+    index := index?.value
+    AST
+      let mutable $current = $current-start
+      for $value, $index, $length in $array
+        $body
+      $current
+
+  syntax reducer as (\every | \some | \first)?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+    let mutable index = null
+    if value
+      index := value.index
+      value := @macro-expand-1(value.value)
+  
+    let own = type == "of"
+    let init = []
+    if own or value
+      object := @cache object, init, \obj, false
+  
+    @let key, false, @type(\string)
+    let let-value = value and @macro-expand-all AST let $value = $object[$key]
+    let let-index = index and @macro-expand-all AST let mutable $index = -1
+    if @has-func(body)
+      let func = @tmp \f, false, \function
+      let value-ident = if value then (if value.type == \ident then value.ident else @tmp \v, false)
+      if value and value-ident != value.ident
+        body := AST
+          let $value = $value-ident
+          $body
+      if index
+        init.push (AST let $func = #($key, $value-ident, $index) -> $body)
+        body := (ASTE $func@(this, $key, $object[$key], $index))
+      else if value
+        init.push (AST let $func = #($key, $value-ident) -> $body)
+        body := (ASTE $func@(this, $key, $object[$key]))
+      else
+        init.push (AST let $func = #($key) -> $body)
+        body := (ASTE $func@(this, $key))
+    else if value
+      body := AST
+        $let-value
+        $body
+
+    let post = []
+    if else-body
+      let run-else = @tmp \else, false, \boolean
+      init.push (AST let $run-else = true)
+      body := AST
+        $run-else := false
+        $body
+      post.push AST
+        if $run-else
+          $else-body
+  
+    if index
+      init.push let-index
+      body := AST
+        $index ~+= 1
+        $body
+  
+    if own
+      body := AST
+        if $object ownskey $key
+          $body
+  
+    if reducer
+      if reducer == \first
+        body := @mutate-last body or @noop(), #(node) -> (AST return $node)
+        let loop = @for-in(key, object, body)
+        AST do
+          $init
+          $loop
+          $else-body
+      else
+        if else-body
+          throw Error("Cannot use a for loop with an else with $reducer")
+        if reducer == \some
+          body := @mutate-last body or @noop(), #(node) -> AST
+            if $node
+              return true
+          let loop = @for-in(key, object, body)
+          AST do
+            $init
+            $loop
+            false
+        else if reducer == \every
+          body := @mutate-last body or @noop(), #(node) -> AST
+            if not $node
+              return false
+          let loop = @for-in(key, object, body)
+          AST do
+            $init
+            $loop
+            true
+        else
+          throw Error("Unknown reducer: $reducer")
+    else if @position == \expression
+      if else-body
+        throw Error("Cannot use a for loop with an else as an expression")
+      let arr = @tmp \arr, false, @type(body).array()
+      body := @mutate-last body or @noop(), #(node) -> (ASTE $arr.push $node)
+      init := AST
+        $arr := []
+        $init
+      let loop = @for-in(key, object, body)
+      AST
+        $init
+        $loop
+        $arr
+    else
+      let loop = @for-in(key, object, body)
+      AST
+        $init
+        $loop
+        $post
+
+  syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
+    let index = value?.index
+    value := value?.value
+    let loop = if type == "of"
+      AST for $key, $value, $index of $object
+        $body
+    else
+      AST for $key, $value, $index ofall $object
+        $body
+    AST
+      let mutable $current = $current-start
+      $loop
+      $current
+
+  syntax reducer as (\every | \some | \first)?, value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+    if else-body and @position == \expression
+      throw Error("Cannot use a for loop with an else as an expression")
+  
+    let init = []
+    iterator := @cache iterator, init, \iter, false
+  
+    let step = []
+    if index
+      init.push AST let mutable $index = 0
+      step.push ASTE $index ~+= 1
+  
+    let capture-value = AST try
+      let $value = $iterator.next()
+    catch e
+      if e == StopIteration
+        break
+      else
+        throw e
+  
+    let post = []
+    if else-body
+      let run-else = @tmp \else, false, \boolean
+      init.push (AST let $run-else = true)
+      body := AST
+        $run-else := false
+        $body
+      post.push AST
+        if $run-else
+          $else-body
+  
+    if @has-func(body)
+      let func = @tmp \f, false, \function
+      if not index
+        init.push AST let $func = #($value) -> $body
+        body := AST
+          $capture-value
+          $func@(this, $value)
+      else
+        init.push AST let $func = #($value, $index) -> $body
+        body := AST
+          $capture-value
+          $func@(this, $value, $index)
+    else
+      body := AST
+        $capture-value
+        $body
+
+    if reducer == \every
+      ASTE for every $init; true; $step
+        $body
+    else if reducer == \some
+      ASTE for some $init; true; $step
+        $body
+    else if reducer == \first
+      ASTE for first $init; true; $step
+        $body
+    else if @position == \expression
+      ASTE for $init; true; $step
+        $body
+    else
+      AST
+        for $init; true; $step
+          $body
+        $post
+
+  syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
+    AST
+      let mutable $current = $current-start
+      for $value, $index from $iterator
+        $body
+      $current
+
+macro switch
+  syntax node as Logic, cases as ("\n", "case", node-head as Logic, node-tail as (",", this as Logic)*, body as (Body | (";", this as Statement))?)*, default-case as ("\n", "default", this as (Body | (";", this as Statement))?)?
+    let result-cases = []
+    for case_ in cases
+      let case-nodes = [case_.node-head].concat(case_.node-tail)
+      let mutable body = case_.body
+      let mutable is-fallthrough = false
+      if @is-block(body)
+        let nodes = @nodes(body)
+        let last-node = nodes[nodes.length - 1]
+        if @is-ident(last-node) and @name(last-node) == \fallthrough
+          body := @block(nodes.slice(0, -1))
+          is-fallthrough := true
+      else if @is-ident(body) and @name(body) == \fallthrough
+        body := @noop()
+        is-fallthrough := true
+
+      for case-node in case-nodes.slice(0, -1)
+        result-cases.push
+          node: case-node
+          body: @noop()
+          fallthrough: true
+      result-cases.push
+        node: case-nodes[case-nodes.length - 1]
+        body: body
+        fallthrough: is-fallthrough
+
+    @switch(node, result-cases, default-case)
 
 define helper __keys = if typeof Object.keys == \function
   Object.keys
@@ -1554,35 +1573,6 @@ define operator binary instanceofsome with precedence: 3, maximum: 1, invertible
         f(1, ASTE $set-left instanceof $element, left)
   else
     ASTE __instanceofsome($left, $right)
-
-macro switch
-  syntax node as Logic, cases as ("\n", "case", node-head as Logic, node-tail as (",", this as Logic)*, body as (Body | (";", this as Statement))?)*, default-case as ("\n", "default", this as (Body | (";", this as Statement))?)?
-    let result-cases = []
-    for case_ in cases
-      let case-nodes = [case_.node-head].concat(case_.node-tail)
-      let mutable body = case_.body
-      let mutable is-fallthrough = false
-      if @is-block(body)
-        let nodes = @nodes(body)
-        let last-node = nodes[nodes.length - 1]
-        if @is-ident(last-node) and @name(last-node) == \fallthrough
-          body := @block(nodes[0 til -1])
-          is-fallthrough := true
-      else if @is-ident(body) and @name(body) == \fallthrough
-        body := @noop()
-        is-fallthrough := true
-      
-      for case-node in case-nodes[0 til -1]
-        result-cases.push
-          node: case-node
-          body: @noop()
-          fallthrough: true
-      result-cases.push
-        node: case-nodes[case-nodes.length - 1]
-        body: body
-        fallthrough: is-fallthrough
-    
-    @switch(node, result-cases, default-case)
 
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody

@@ -6180,6 +6180,19 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "&": right-const-nan
       "|": right-const-nan
       "^": right-const-nan
+    let non-const-ops =
+      "&&": #(x, y, o)
+        let x-type = x.type(o)
+        if x-type.is-subset-of(Type.always-truthy)
+          BlockNode @start-index, @end-index, @scope-id, [x, y]
+        else if x-type.is-subset-of(Type.always-falsy)
+          x
+      "||": #(x, y, o)
+        let x-type = x.type(o)
+        if x-type.is-subset-of(Type.always-truthy)
+          x
+        else if x-type.is-subset-of(Type.always-falsy)
+          BlockNode @start-index, @end-index, @scope-id, [x, y]
     #(o)
       let left = @left.reduce(o).do-wrap(o)
       let right = @right.reduce(o).do-wrap(o)
@@ -6190,6 +6203,8 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         return? left-const-ops![op]@(this, left, right, o)
       if right.is-const()
         return? right-const-ops![op]@(this, left, right, o)
+      
+      return? non-const-ops![op]@(this, left, right, o)
       
       if left != @left or right != @right
         BinaryNode @start-index, @end-index, @scope-id, left, op, right
@@ -6603,7 +6618,13 @@ node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingN
       else
         when-false
     else
-      IfNode @start-index, @end-index, @scope-id, test, when-true, when-false
+      let test-type = test.type(o)
+      if test-type.is-subset-of(Type.always-truthy)
+        BlockNode @start-index, @end-index, @scope-id, [test, when-true]
+      else if test-type.is-subset-of(Type.always-falsy)
+        BlockNode @start-index, @end-index, @scope-id, [test, when-false]
+      else
+        IfNode @start-index, @end-index, @scope-id, test, when-true, when-false
   def is-statement() -> @_is-statement ?= @when-true.is-statement() or @when-false.is-statement()
   def do-wrap(o)
     let when-true = @when-true.do-wrap(o)
