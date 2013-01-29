@@ -5903,7 +5903,52 @@ node-class AccessNode(parent as Node, child as Node)
         let value = p-value[c-value]
         if value == null or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
           return ConstNode @start-index, @end-index, @scope-id, value
-    if parent != @parent or child != @child
+    if child instanceof CallNode and child.func instanceof IdentNode and child.func.name == \__range
+      let [start, end, step, inclusive] = child.args
+      let call = CallNode @start-index, @end-index, @scope-id,
+        IdentNode @start-index, @end-index, @scope-id, \__slice
+        [
+          parent
+          start
+          ...(if end.is-const() and end.const-value() == Infinity
+            []
+          else if inclusive.is-const()
+            if inclusive.const-value()
+              if end.is-const() and typeof end.const-value() == \number and end.const-value() == -1
+                []
+              else
+                [BinaryNode @start-index, @end-index, @scope-id,
+                  BinaryNode @start-index, @end-index, @scope-id,
+                    end
+                    "+"
+                    ConstNode @start-index, @end-index, @scope-id, 1
+                  "||"
+                  ConstNode @start-index, @end-index, @scope-id, Infinity]
+            else
+              [end]
+          else
+            [IfNode @start-index, @end-index, @scope-id,
+              inclusive
+              BinaryNode @start-index, @end-index, @scope-id,
+                BinaryNode @start-index, @end-index, @scope-id,
+                  end
+                  "+"
+                  ConstNode @start-index, @end-index, @scope-id, 1
+                "||"
+                ConstNode @start-index, @end-index, @scope-id, Infinity
+              end])
+        ]
+        false
+        false
+      if step.is-const() and step.const-value() == 1
+        call
+      else
+        CallNode @start-index, @end-index, @scope-id,
+          IdentNode @start-index, @end-index, @scope-id, \__step
+          [call, step]
+          false
+          false
+    else if parent != @parent or child != @child
       AccessNode @start-index, @end-index, @scope-id, parent, child
     else
       this

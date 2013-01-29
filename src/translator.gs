@@ -505,43 +505,7 @@ let translators =
   Access: #(node, scope, location, auto-return)
     let t-parent = translate node.parent, scope, \expression
     let t-child = translate node.child, scope, \expression
-    #
-      let parent = t-parent()
-      let child = t-child()
-      if child instanceof ast.Call and child.func instanceof ast.Ident and child.func.name == \__range
-        let [start, end, step, mutable inclusive] = child.args
-        if not inclusive
-          inclusive := false
-        else if not inclusive.is-const()
-          throw Error "Expected inclusive argument to be constant"
-        else
-          inclusive := not not inclusive.const-value()
-        scope.add-helper \__slice
-        let slice = ast.Call ast.Ident(\__slice), [
-          parent
-          start
-          ...(if end.is-const() and end.const-value() == Infinity
-            []
-          else if inclusive
-            if end.is-const() and typeof end.const-value() == \number
-              if end.const-value() == -1
-                []
-              else
-                [ast.Const end.const-value() + 1]
-            else
-              [ast.Binary(
-                ast.Binary end, "+", 1
-                "||"
-                Infinity)]
-          else
-            [end])]
-        auto-return if not step.is-const() or step.const-value() != 1
-          scope.add-helper \__step
-          ast.Call ast.Ident(\__step), [slice, step]
-        else
-          slice
-      else
-        auto-return ast.Access(parent, child)
+    #-> auto-return ast.Access(t-parent(), t-child())
 
   AccessIndex: do
     let indexes =
