@@ -3465,8 +3465,10 @@ define IdentifierOrAccessStart = one-of! [
       parent := o.access i, parent, o.const i, \prototype
     if x.child.type == \single
       o.access i, parent, x.child.node
+    else if x.child.type == \multi
+      o.access-multi i, parent, x.child.elements
     else
-      o.access-index i, parent, x.child
+      throw Error()
 ]
 
 define IdentifierOrAccessPart = one-of! [
@@ -3487,8 +3489,10 @@ define IdentifierOrAccessPart = one-of! [
       parent := o.access i, parent, o.const i, \prototype
     if x.child.type == \single
       o.access i, parent, x.child.node
+    else if x.child.type == \multi
+      o.access-multi i, parent, x.child.elements
     else
-      o.access-index i, parent, x.child
+      throw Error()
 ]
 
 define IdentifierOrAccess = sequential! [
@@ -3771,13 +3775,6 @@ define BasicInvocationOrAccess = sequential! [
   let link-types =
     access: do
       let index-types =
-        slice: #(o, i, child) -> #(parent)
-          let args = [parent]
-          if child.left or child.right
-            args.push child.left or o.const(i, 0)
-          if child.right
-            args.push child.right
-          o.call(i, o.ident(i, \__slice), args)
         multi: #(o, i, child) -> #(parent)
           let mutable set-parent = parent
           let tmp-ids = []
@@ -5953,7 +5950,7 @@ node-class AccessNode(parent as Node, child as Node)
     else
       this
   def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
-node-class AccessIndexNode(parent as Node, child as Object)
+node-class AccessMultiNode(parent as Node, elements as [Node])
   def type() -> Type.array
   def walk = do
     let index-types =
@@ -5963,22 +5960,28 @@ node-class AccessIndexNode(parent as Node, child as Object)
           { type: \multi, elements }
         else
           x
-      slice: #(x, f)
-        let left = if x.left? then f x.left else x.left
-        let right = if x.right? then f x.right else x.right
-        if left != x.left or right != x.right
-          { type: \slice, left, right }
-        else
-          x
     #(f)
-      unless index-types ownskey @child.type
-        throw Error "Unknown index type: $(@child.type)"
       let parent = f @parent
-      let child = index-types[@child.type](@child, f)
-      if parent != @parent or child != @child
-        AccessIndexNode @start-index, @end-index, @scope-id, parent, child
+      let elements = map @elements, f
+      if parent != @parent or elements != @elements
+        AccessMultiNode @start-index, @end-index, @scope-id, parent, elements
       else
         this
+  def _reduce(o)
+    let mutable parent = @parent.reduce(o)
+    let mutable set-parent = parent
+    let tmp-ids = []
+    if parent.cacheable
+      let tmp = o.tmp(@start-index, get-tmp-id(), \ref, parent.type(o))
+      tmp-ids.push tmp.id
+      set-parent := o.assign(i, tmp, "=", parent.do-wrap(o))
+      parent := tmp
+    let result = o.array(@start-index, for element, j in @elements
+      o.access(@start-index, if j == 0 then set-parent else parent, element.reduce(o)))
+    if tmp-ids.length
+      o.tmp-wrapper(@start-index, result, tmp-ids)
+    else
+      result
 node-class ArgsNode
   def type() -> Type.args
   def cacheable = false

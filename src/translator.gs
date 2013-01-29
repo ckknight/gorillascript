@@ -507,17 +507,6 @@ let translators =
     let t-child = translate node.child, scope, \expression
     #-> auto-return ast.Access(t-parent(), t-child())
 
-  AccessIndex: do
-    let indexes =
-      multi: #-> throw Error "Not implemented: index multi"
-      slice: #-> throw Error "Not implemented: index slice"
-    #(node, scope, location, auto-return)
-      let type = node.child.type
-      unless indexes ownskey type
-        throw Error "Unknown index type: $type"
-
-      indexes[type](node, scope, location, auto-return)
-
   Args: #(node, scope, location, auto-return)
     #-> auto-return ast.Arguments()
 
@@ -540,70 +529,25 @@ let translators =
       "|="
       "^="
     }
-    let indexes = {
-      slice: #(t-parent, parent-type, child, t-value, value-type, scope)
-        let left = child.left
-        let right = child.right
-        let t-left = if left and left not instanceof ParserNode.Nothing then translate(left, scope, \expression) else #-> ast.Const(0)
-        let t-right = if right and right not instanceof ParserNode.Nothing then translate(right, scope, \expression) else #-> ast.Const(Infinity)
-        #
-          scope.add-helper \__splice
-          ast.Call(
-            ast.Ident \__splice
-            [
-              t-parent()
-              t-left()
-              t-right()
-              t-value()
-            ])
-      multi: #(t-parent, parent-type, child, t-value, value-type, scope, location)
-        let t-elements = translate-array child.elements, scope, \expression
-        #
-          async set-parent, parent <- scope.maybe-cache t-parent(), parent-type
-          async set-value, value <- scope.maybe-cache t-value(), value-type
-          let lines = for t-element, i in t-elements
-            ast.Assign(
-              ast.Access if i == 0 then set-parent else parent, t-element()
-              ast.Access if i == 0 then set-value else value, i)
-          if location == \expression
-            lines.push value
-          ast.Block lines
-    }
     #(node, scope, location, auto-return)
       let op = node.op
-      // TODO: this is ugly
-      if op in "=" and node.left instanceof ParserNode.AccessIndex
-        let type = node.left.child.type
-        unless indexes ownskey type
-          throw Error "Unexpected index type for assignment: $(JSON.stringify type)"
-
-        let result = indexes[type](
-          translate node.left.parent, scope, \expression
-          node.left.parent.type()
-          node.left.child
-          translate node.right, scope, \expression
-          node.right.type()
-          scope
-          location)
-        #-> auto-return result()
-      else
-        let t-left = translate node.left, scope, \left-expression
-        let t-right = translate node.right, scope, \expression
-        
-        #
-          let left = t-left()
-          let right = t-right()
-          if op == "=" and location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name? and scope.has-own-variable(left) and not scope.is-variable-mutable(left)
-            scope.remove-variable left
-            let func = ast.Func(left, right.params, right.variables, right.body, right.declarations)
-            if auto-return != identity
-              ast.Block
-                * func
-                * auto-return left
-            else
-              func
+      let t-left = translate node.left, scope, \left-expression
+      let t-right = translate node.right, scope, \expression
+      
+      #
+        let left = t-left()
+        let right = t-right()
+        if op == "=" and location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name? and scope.has-own-variable(left) and not scope.is-variable-mutable(left)
+          scope.remove-variable left
+          let func = ast.Func(left, right.params, right.variables, right.body, right.declarations)
+          if auto-return != identity
+            ast.Block
+              * func
+              * auto-return left
           else
-            auto-return ast.Binary(left, op, right)
+            func
+        else
+          auto-return ast.Binary(left, op, right)
 
   Binary: #(node, scope, location, auto-return)
     let t-left = translate node.left, scope, \expression

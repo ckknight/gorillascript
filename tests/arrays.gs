@@ -159,6 +159,7 @@ test "multiple access only accesses object once", #
   
   array-eq ["alpha", "charlie", "echo"], array()[0, 2, 4]
 
+/*
 test "multiple assignment", #
   let array = ["alpha", "bravo", "charlie", "delta", "echo"]
   
@@ -168,6 +169,7 @@ test "multiple assignment", #
   let x = array[1, 3] := ["india", "juliet"]
   array-eq ["foxtrot", "india", "golf", "juliet", "hotel"], array
   array-eq ["india", "juliet"], x
+*/
 
 test "slicing", #
   let array = ["a", "b", "c", "d", "e"]
