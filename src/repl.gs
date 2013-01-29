@@ -25,7 +25,7 @@ let non-context-globals = [
   "setTimeout"
   "clearTimeout"
 ]
-for g in non-context-globals
+for g in non-context-globals by -1
   sandbox[g] := this[g]
 
 sandbox.global := sandbox.root := sandbox.GLOBAL := sandbox
@@ -34,7 +34,7 @@ sandbox._ := void
 let unique(array)
   let result = []
   for item in array
-    if result.index-of(item) == -1
+    if item not in result
       result.push item
   result
 
@@ -71,8 +71,7 @@ let to-gs-ident = memoize #(name as String)
     if parts.length == 1
       parts[0]
     else
-      let result = []
-      result.push parts[0]
+      let result = [parts[0]]
       for i in 1 til parts.length by 2
         let upper = parts[i]
         let lower = parts[i + 1]

@@ -16,7 +16,7 @@ module.exports := class Type
   def function() -> @_function ?= FunctionType(this)
   
   let contains(alpha, bravo)
-    for item in alpha
+    for item in alpha by -1
       if item.equals(bravo)
         return true
     false
@@ -248,10 +248,10 @@ module.exports := class Type
       if other instanceof SimpleType
         this == other
       else if other instanceof UnionType
-        for some type in other.types
+        for some type in other.types by -1
           this == type
       else if other instanceof ComplementType
-        for every type in other.untypes
+        for every type in other.untypes by -1
           this != type
       else
         other == any
@@ -331,10 +331,10 @@ module.exports := class Type
       if other instanceof ArrayType
         @subtype.is-subset-of(other.subtype)
       else if other instanceof UnionType
-        for some type in other.types
+        for some type in other.types by -1
           @is-subset-of(type)
       else if other instanceof ComplementType
-        for every type in other.untypes
+        for every type in other.untypes by -1
           not @is-subset-of(type)
       else
         other == any
@@ -459,6 +459,8 @@ module.exports := class Type
       if other instanceof ObjectType
         if this == other or other == Type.object
           true
+        else if this == Type.object
+          false
         else
           let pairs = @pairs
           let other-pairs = other.pairs
@@ -484,10 +486,10 @@ module.exports := class Type
               other.pairs := pairs
             true
       else if other instanceof UnionType
-        for some type in other.types
+        for some type in other.types by -1
           @is-subset-of(type)
       else if other instanceof ComplementType
-        for every type in other.untypes
+        for every type in other.untypes by -1
           not @is-subset-of(type)
       else
         other == any
@@ -504,11 +506,11 @@ module.exports := class Type
     def complement() -> ComplementType [this]
     
     def value(key as String)
-      for pair in @pairs
+      for pair in @pairs by -1
         let pair-key = pair[0]
         if pair-key == key
           return pair[1]
-        else if pair-key > key
+        else if pair-key ~< key
           return Type.any
       Type.any
     
@@ -583,10 +585,10 @@ module.exports := class Type
       if other instanceof FunctionType
         @return-type.is-subset-of(other.return-type)
       else if other instanceof UnionType
-        for some type in other.types
+        for some type in other.types by -1
           @is-subset-of(type)
       else if other instanceof ComplementType
-        for every type in other.untypes
+        for every type in other.untypes by -1
           not @is-subset-of(type)
       else
         other == any
@@ -698,7 +700,7 @@ module.exports := class Type
       if other instanceof SimpleType
         contains @types, other
       else if other instanceofsome [ArrayType, ObjectType, FunctionType]
-        for some type in @types
+        for some type in @types by -1
           other.overlaps type
       else if other instanceof UnionType
         overlaps @types, other.types
@@ -711,7 +713,7 @@ module.exports := class Type
     
     def to-JSON() -> { type: \union, @types }
     from-JSON-types.union := #({types})
-      for reduce type in types[1 to -1], current = Type.from-JSON(types[0])
+      for reduce type in types by -1, current = Type.none
         current.union(Type.from-JSON(type))
 
   class ComplementType extends Type
@@ -799,10 +801,10 @@ module.exports := class Type
       if other instanceof SimpleType
         not contains @untypes, other
       else if other instanceofsome [ArrayType, FunctionType]
-        for every untype in @untypes
+        for every untype in @untypes by -1
           not other.overlaps untype
       else if other instanceof ObjectType
-        for every untype in @untypes
+        for every untype in @untypes by -1
           if untype instanceof ObjectType
             not other.is-subset-of untype
           else

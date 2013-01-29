@@ -134,7 +134,7 @@ exports.eval := #(source, options = {})
       let _module = sandbox.module := new Module(options.modulename or "eval")
       let _require = sandbox.require := #(path) -> Module._load path, _module
       _module.filename := sandbox.__filename
-      for r in Object.get-own-property-names require
+      for r in Object.get-own-property-names(require) by -1
         try
           _require[r] := require[r]
         catch e

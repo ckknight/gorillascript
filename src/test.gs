@@ -52,7 +52,7 @@ global.test := #(description, fn)!
   catch e
     e.description := description
     e.source := fn.to-string()
-    add-failure current-file, e
+    add-failure fn.test.filename, e
 
 let waiters = [[], []]
 let handle-waiters()
@@ -76,7 +76,7 @@ global.async-test := #(description, fn)!
     catch e
       e.description := description
       e.source := fn.to-string()
-      add-failure current-file, e
+      add-failure fn.test.current-file, e
     else
       cb(null, result)
   test description, fn
@@ -117,7 +117,7 @@ let inputs = {}
 asyncfor(0) err <- next, file, i in files
   unless r'\.gs$'i.test(file)
     return next()
-  let filename = current-file := path.join tests-path, file
+  let filename = path.join tests-path, file
   async err, code <- fs.read-file filename
   if err?
     return next(err)
@@ -138,6 +138,7 @@ asyncfor next, file, i in files
   let mutable failure = false
   let mutable result = void
   let start-time = Date.now()
+  current-file := filename
   try
     result := gorilla.eval code.to-string(), filename: filename, include-globals: true, no-prelude: no-prelude
   catch e

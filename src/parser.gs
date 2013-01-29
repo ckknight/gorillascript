@@ -245,9 +245,8 @@ macro sequential!(array, mutator)
     else
       let rule = @cache item, init, \rule, true
       AST $rule clone
-  let mutable code = AST true
-  for check in checks
-    code := AST $code and $check
+  let code = for reduce check in checks, current = AST true
+    AST $current and $check
   
   let result = if has-result
     AST mutate! (#(o)
@@ -427,7 +426,7 @@ macro character!(chars, name)
     for i in 0 til chars.length
       codes.push C(chars, i)
   else
-    for part in @elements(chars)
+    for part in @elements(chars) by -1
       if @is-array(part)
         if @elements(part).length != 2
           throw Error "Sub-arrays must be length 2"
@@ -768,7 +767,7 @@ let INDENTS =
   [C " "]: 1
 define CountIndent = zero-or-more! SpaceChar, #(x)
   let mutable count = 1
-  for c in x
+  for c in x by -1
     let i = INDENTS[c]
     if not i
       throw Error "Unexpected indent char: $(JSON.stringify c)"
@@ -1871,9 +1870,9 @@ define RadixInteger = do
         let chars = []
         for i in 0 til radix max 10
           chars[i + C("0")] := true
-        for i in 10 til radix max 36
-          chars[i - 10 + C("a")] := true
-          chars[i - 10 + C("A")] := true
+        for i in 0 til (radix max 36) - 10
+          chars[i + C("a")] := true
+          chars[i + C("A")] := true
         #(o)
           let c = C(o.data, o.index)
           if chars[c]
@@ -2468,7 +2467,7 @@ define CustomOperatorCloseParenthesis = do
     let line = o.line
     for operators in o.macros.binary-operators
       if operators
-        for operator in operators
+        for operator in operators by -1
           let clone = o.clone(o.clone-scope())
           let mutable inverted = false
           if operator.invertible
@@ -2496,9 +2495,9 @@ define CustomOperatorCloseParenthesis = do
               false)
             o.update clone
             return result
-    for operator in o.macros.prefix-unary-operators
+    for operator in o.macros.prefix-unary-operators by -1
       return? handle-unary-operator operator, o, i, line
-    for operator in o.macros.postfix-unary-operators
+    for operator in o.macros.postfix-unary-operators by -1
       return? handle-unary-operator operator, o, i, line
     false
 
@@ -2506,7 +2505,7 @@ define CustomBinaryOperator = #(o)
   let i = o.index
   for operators in o.macros.binary-operators
     if operators
-      for operator in operators
+      for operator in operators by -1
         let clone = o.clone()
         let mutable inverted = false
         if operator.invertible
@@ -2703,10 +2702,8 @@ define IdentifierOrSimpleAccess = sequential! [
   [\head, IdentifierOrSimpleAccessStart]
   [\tail, zero-or-more! IdentifierOrSimpleAccessPart]
 ], #(x, o, i)
-  let mutable current = x.head
-  for creator in x.tail
-    current := creator current
-  current
+  for reduce creator in x.tail, current = x.head
+    creator current
 
 define SingularObjectKey = one-of! [
   sequential! [
@@ -2934,8 +2931,7 @@ define TypeReference = sequential! [
   if types.length == 1
     types[0]
   else
-    for j in types.length - 1 to 0
-      let type = types[j]
+    for type, j in types by -1
       if type instanceof TypeUnionNode
         types.splice j, 1, ...type.types
     if types.length == 1
@@ -2983,7 +2979,7 @@ define Parameter = one-of! [
 
 let validate-spread-parameters(params, o)
   let mutable spread-count = 0
-  for param in params
+  for param in params by -1
     if param instanceof ParamNode and param.spread
       spread-count += 1
       if spread-count > 1
@@ -3059,7 +3055,7 @@ define ParameterSequence = sequential! [
   MaybeCommaOrNewline
   CloseParenthesis
 ], do
-  let check(names, param, o, i)!
+  let check(names, duplicates, param)!
     if param instanceof ParamNode
       let name = if param.ident instanceof IdentNode
         param.ident.name
@@ -3070,20 +3066,25 @@ define ParameterSequence = sequential! [
       else
         throw Error "Unknown param ident: $(typeof! param.ident)"
       if name in names
-        o.error "Duplicate parameter name: $(name)"
-      names.push name
+        if name not in duplicates
+          duplicates.push name
+      else
+        names.push name
     else if param instanceof ArrayNode
-      for element in param.elements
-        check(names, element, o, i)
+      for element in param.elements by -1
+        check(names, duplicates, element)
     else if param instanceof ObjectNode
-      for pair in param.pairs
-        check(names, pair.value, o, i)
+      for pair in param.pairs by -1
+        check(names, duplicates, pair.value)
     else
       throw Error "Unknown param node: $(typeof! param)"
   #(x, o, i)
     let names = []
-    for param in x
-      check(names, param, o, i)
+    let duplicates = []
+    for param in x by -1
+      check(names, duplicates, param)
+    if duplicates.length
+      o.error "Duplicate parameter name: $(duplicates.sort().join ', ')"
     x
 
 define _FunctionBody = one-of! [
@@ -3105,10 +3106,10 @@ let add-param-to-scope(o, param)!
     else
       throw Error "Unknown param ident: $(typeof! param.ident)"
   else if param instanceof ArrayNode
-    for element in param.elements
+    for element in param.elements by -1
       add-param-to-scope o, element
   else if param instanceof ObjectNode
-    for pair in param.pairs
+    for pair in param.pairs by -1
       add-param-to-scope o, pair.value
   else
     throw Error "Unknown param node type: $(typeof! param)"
@@ -3136,7 +3137,7 @@ define FunctionDeclaration = do
     let params = params-rule clone
     if not params
       return false
-    for param in params
+    for param in params by -1
       add-param-to-scope clone, param
     let rest = rest-rule clone
     if not rest
@@ -3335,7 +3336,7 @@ define MacroBody = one-of! [
     let params = ParameterSequence clone
     if not params
       return false
-    for param in params
+    for param in params by -1
       add-param-to-scope clone, param
     let options = MacroOptions clone
     let body = FunctionBody clone
@@ -3499,10 +3500,8 @@ define IdentifierOrAccess = sequential! [
   [\head, IdentifierOrAccessStart]
   [\tail, zero-or-more! IdentifierOrAccessPart]
 ], #(x, o, i)
-  let mutable current = x.head
-  for part in x.tail
-    current := part(current)
-  current
+  for reduce part in x.tail, current = x.head
+    part(current)
 
 let SimpleAssignable = IdentifierOrAccess
 
@@ -3530,7 +3529,7 @@ define CustomAssignment = #(o)
   let clone = o.clone()
   let left = SimpleAssignable clone
   if left
-    for operator in o.macros.assign-operators
+    for operator in o.macros.assign-operators by -1
       let sub-clone = clone.clone()
       let {rule} = operator
       let op = rule sub-clone
@@ -4009,7 +4008,7 @@ define CustomPostfixUnary = #(o)
   if not node
     false
   else
-    for operator in o.macros.postfix-unary-operators
+    for operator in o.macros.postfix-unary-operators by -1
       let clone = o.clone()
       let {rule} = operator
       let op = rule clone
@@ -4025,7 +4024,7 @@ define CustomPostfixUnary = #(o)
 define CustomPrefixUnary = #(o)
   let start-index = o.index
   let line = o.line
-  for operator in o.macros.prefix-unary-operators
+  for operator in o.macros.prefix-unary-operators by -1
     let clone = o.clone()
     let {rule} = operator
     let op = rule clone
@@ -4057,7 +4056,7 @@ let get-use-custom-binary-operator = do
       else
         let operators = binary-operators[precedence]
         if operators
-          for operator in operators
+          for operator in operators by -1
             let {rule} = operator
             let tail = []
             while true
@@ -4078,31 +4077,22 @@ let get-use-custom-binary-operator = do
               if operator.maximum and tail.length >= operator.maximum
                 break
             if tail.length
-              if not operator.right-to-left
-                let mutable current = head
-                for part in tail
-                  current := operator.func {
-                    left: current
+              return if not operator.right-to-left
+                for reduce part in tail, left = head
+                  operator.func {
+                    left
                     part.inverted
                     part.op
                     right: part.node
                   }, o, start-index, line
-                return current
               else
-                let mutable current = tail[tail.length - 1].node
-                for j in tail.length - 1 til 0 by -1
-                  current := operator.func {
-                    left: tail[j - 1].node
-                    tail[j].inverted
-                    tail[j].op
-                    right: current
+                for reduce part, j in tail by -1, right = tail[tail.length - 1].node
+                  operator.func {
+                    left: if j == 0 then head else tail[j - 1].node
+                    part.inverted
+                    part.op
+                    right
                   }, o, start-index, line
-                return operator.func {
-                  left: head
-                  tail[0].inverted
-                  tail[0].op
-                  right: current
-                }, o, start-index, line
         head
 
 let Logic = named("Logic", get-use-custom-binary-operator(0))
@@ -4267,7 +4257,7 @@ let node-to-type = do
     else if node instanceof TypeFunctionNode
       node-to-type(node.return-type).function()
     else if node instanceof TypeUnionNode
-      for reduce type in node.types[1 to -1], current = node-to-type(node.types[0])
+      for reduce type in node.types by -1, current = Type.none
         current.union(node-to-type(type))
     else if node instanceof TypeObjectNode
       let data = {}
@@ -4597,8 +4587,7 @@ class MacroHelper
     else if node not instanceof Node
       false
     else if node instanceof BlockNode
-      return for every item in node.nodes
-        @empty(item)
+      for every item in node.nodes by -1; @empty(item)
     else
       node instanceof NothingNode
   
@@ -4903,7 +4892,7 @@ class MacroHolder
     names
   
   def add-binary-operator(operators, m, options, macro-id)
-    for op in operators
+    for op in operators by -1
       @operator-names[op] := true
     let precedence = Number(options.precedence) or 0
     let binary-operators = @binary-operators[precedence] ?= []
@@ -4927,7 +4916,7 @@ class MacroHolder
     @by-label[label] := data
   
   def add-assign-operator(operators, m, options, macro-id)
-    for op in operators
+    for op in operators by -1
       @operator-names[op] := true
     let data = 
       rule: one-of for op in operators
@@ -4939,7 +4928,7 @@ class MacroHolder
     @add-macro m, macro-id, if options.type? then Type![options.type]
   
   def add-unary-operator(operators, m, options, macro-id)
-    for op in operators
+    for op in operators by -1
       @operator-names[op] := true
     let store = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
     let data =
@@ -6246,8 +6235,8 @@ node-class BlockNode(nodes as [Node])
         BlockNode @start-index, @end-index, @scope-id, body
       else
         this
-  def is-statement() -> for some node in @nodes; node.is-statement()
-  def _is-noop(o) -> @__is-noop ?= for every node in @nodes; node.is-noop(o)
+  def is-statement() -> for some node in @nodes by -1; node.is-statement()
+  def _is-noop(o) -> @__is-noop ?= for every node in @nodes by -1; node.is-noop(o)
 node-class BreakNode
   def type() -> Type.undefined
   def is-statement() -> true
@@ -7078,7 +7067,7 @@ module.exports.deserialize-prelude := #(data as String)
 let unique(array)
   let result = []
   for item in array
-    if result.index-of(item) == -1
+    if item not in result
       result.push item
   result
 module.exports.get-reserved-words := #(macros)

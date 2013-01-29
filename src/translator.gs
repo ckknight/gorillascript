@@ -32,22 +32,20 @@ class Scope
       result
   
   def reserve-ident(name-part = \ref, type as Type = Type.any)
-    // TODO: would be better as for first
-    for i in 1 to Infinity
+    for first i in 1 to Infinity
       let name = if i == 1 then "_$(name-part)" else "_$(name-part)$i"
       unless @used-tmps haskey name
         @used-tmps[name] := true
         let ident = ast.Ident name
         @add-variable ident, type
-        return ident
+        ident
 
   def reserve-param()
-    // TODO: would be better as for first
-    for i in 1 to Infinity
+    for first i in 1 to Infinity
       let name = if i == 1 then "_p" else "_p$i"
       unless @used-tmps haskey name
         @used-tmps[name] := true
-        return ast.Ident name
+        ast.Ident name
 
   def get-tmp(id, name, type as Type = Type.any)
     let tmps = @tmps
@@ -85,7 +83,7 @@ class Scope
     while true
       for helper of helpers
         if HELPERS.has helper
-          for dep in HELPERS.dependencies helper
+          for dep in HELPERS.dependencies(helper) by -1
             if helpers not ownskey dep
               to-add[dep] := true
       
@@ -298,20 +296,15 @@ class GeneratorBuilder
                 ast.Break()
               ]), ast.Throw ast.Call ast.Ident(\Error), [ast.Binary("Unknown state: ", "+", state-ident)]
             err
-            do
-              let mutable current = ast.Block
-                * ast.Call close
-                * ast.Throw err
-              for catch-info in catches by -1
-                let err-ident = catch-info.t-ident()
-                scope.add-variable err-ident
-                current := ast.If(
-                  ast.Or ...(for state in catch-info.try-states; ast.Binary(state-ident, "===", state))
-                  ast.Block
-                    * ast.Assign err-ident, err
-                    * ast.Assign state-ident, catch-info.catch-state
-                  current)
-              current))
+            for reduce catch-info in catches by -1, current = ast.Block [ast.Call(close), ast.Throw err]
+              let err-ident = catch-info.t-ident()
+              scope.add-variable err-ident
+              ast.If(
+                ast.Or ...(for state in catch-info.try-states; ast.Binary(state-ident, "===", state))
+                ast.Block
+                  * ast.Assign err-ident, err
+                  * ast.Assign state-ident, catch-info.catch-state
+                current)))
     ast.Block body
 
 let flatten-spread-array(elements)
@@ -332,9 +325,8 @@ let flatten-spread-array(elements)
 let generator-translate = do
   let generator-translators =
     Block: #(node, scope, mutable builder, break-state, continue-state)
-      for subnode in node.nodes
-        builder := generator-translate subnode, scope, builder, break-state, continue-state
-      builder
+      for reduce subnode in node.nodes, b = builder
+        generator-translate subnode, scope, b, break-state, continue-state
     
     Break: #(node, scope, mutable builder, break-state)
       if not break-state?
@@ -420,7 +412,7 @@ let generator-translate = do
     
     TmpWrapper: #(node, scope, mutable builder, break-state, continue-state)
       builder := generator-translate node.node, scope, builder, break-state, continue-state
-      for tmp in node.tmps
+      for tmp in node.tmps by -1
         scope.release-tmp tmp
       builder
     
@@ -835,7 +827,7 @@ let translators =
               result)
         {
           check: result
-          type: for reduce type in types, current = Type.none
+          type: for reduce type in types by -1, current = Type.none
             current.union(type)
         }
       TypeFunction: #(ident, node, scope, has-default-value, accesses)
@@ -1064,10 +1056,8 @@ let translators =
         TypeFunction: #(node, scope)
           translate-type(node.return-type, scope).function()
         TypeUnion: #(node, scope)
-          let mutable current = Type.none
-          for type in node.types
-            current := current.union(translate-type(type))
-          current
+          for reduce type in node.types, current = Type.none
+            current.union(translate-type(type))
       }
       #(node, scope)
         unless translate-types ownskey node.constructor.capped-name
@@ -1198,8 +1188,8 @@ let translators =
         scope.add-helper \__create
         ast.Call(ast.Ident(\__create), [prototype])
       else
-        ast.Obj for pair in const-pairs
-          ast.Obj.Pair String(pair.key.value), pair.value
+        ast.Obj for {key, value} in const-pairs
+          ast.Obj.Pair String(key.value), value
 
       if post-const-pairs.length == 0
         auto-return obj
@@ -1207,10 +1197,10 @@ let translators =
         let ident = scope.reserve-ident \o, Type.object
         let result = ast.BlockExpression
           * ast.Assign ident, obj
-          * ...for pair in post-const-pairs
+          * ...for {key, value} in post-const-pairs
               ast.Assign(
-                ast.Access(ident, pair.key)
-                pair.value)
+                ast.Access(ident, key)
+                value)
           * ident
         scope.release-ident ident
         auto-return result
@@ -1329,7 +1319,7 @@ let translators =
 
   TmpWrapper: #(node, scope, location, auto-return)
     let t-result = translate node.node, scope, location, auto-return
-    for tmp in node.tmps
+    for tmp in node.tmps by -1
       scope.release-tmp tmp
 
     t-result

@@ -1551,7 +1551,7 @@ define helper __new = do
     creator(Ctor, args)
 
 define helper __instanceofsome = #(value, array) as Boolean
-  for some item in array
+  for some item in array by -1
     value instanceof item
 
 define operator binary instanceofsome with precedence: 3, maximum: 1, invertible: true, type: \boolean

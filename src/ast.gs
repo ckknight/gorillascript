@@ -235,10 +235,8 @@ exports.Statement := class Statement extends Node
     @compile options, Level.block, line-start, sb
 
 exports.Access := #(parent, ...children)
-  let mutable current = parent
-  for child in children
-    current := Binary current, ".", child
-  current
+  for reduce child in children, current = parent
+    Binary current, ".", child
 
 exports.Arguments := class Arguments extends Expression
   def constructor()@ ->
@@ -339,10 +337,10 @@ exports.Arr := class Arr extends Expression
     default; false
   
   def is-large()
-    @_is-large ?= @elements.length > 4 or for some element in @elements
+    @_is-large ?= @elements.length > 4 or for some element in @elements by -1
       not element.is-small()
   
-  def is-noop() -> @_is-noop ?= for every element in @elements; element.is-noop()
+  def is-noop() -> @_is-noop ?= for every element in @elements by -1; element.is-noop()
   
   def walk(walker)
     let elements = walk-array @elements, walker
@@ -375,19 +373,15 @@ exports.And := #(...args)
   if args.length == 0
     Const true
   else
-    let mutable current = args[0]
-    for i in 1 til args.length
-      current := Binary current, "&&", args[i]
-    current
+    for reduce i in 1 til args.length, current = args[0]
+      Binary current, "&&", args[i]
 
 exports.Or := #(...args)
   if args.length == 0
     Const false
   else
-    let mutable current = args[0]
-    for i in 1 til args.length
-      current := Binary current, "||", args[i]
-    current
+    for reduce i in 1 til args.length, current = args[0]
+      Binary current, "||", args[i]
 
 exports.Binary := class Binary extends Expression
   def constructor(mutable left = Noop(), op as String, mutable right = Noop())@
@@ -614,7 +608,7 @@ exports.BlockStatement := class BlockStatement extends Statement
   def exit-type() -> @last().exit-type()
   def last() -> @body[@body.length - 1]
   
-  def is-noop() -> @_is-noop ?= for every node in @body; node.is-noop()
+  def is-noop() -> @_is-noop ?= for every node in @body by -1; node.is-noop()
   
   def inspect(depth)
     let d = dec-depth depth
@@ -663,11 +657,10 @@ exports.BlockExpression := class BlockExpression extends Expression
     BlockExpression(for item in @body; if not item.is-noop() then item).compile(options, level, line-start, sb)
   
   def is-large()
-    @_is-large ?= @body.length > 4 or for some part in @body
-      part.is-large()
+    @_is-large ?= @body.length > 4 or for some part in @body by -1; part.is-large()
   
   def is-small() -> false
-  def is-noop() -> @_is-noop ?= for every node in @body; node.is-noop()
+  def is-noop() -> @_is-noop ?= for every node in @body by -1; node.is-noop()
   
   def walk = BlockStatement::walk
   def last() -> @body[@body.length - 1]
@@ -683,7 +676,7 @@ let Block = exports.Block := #(body as [Node] = [])
   if body.length == 0
     Noop()
   else
-    if (for every item in body; item instanceof Expression)
+    if (for every item in body by -1; item instanceof Expression)
       BlockExpression body
     else
       BlockStatement body
@@ -748,15 +741,13 @@ exports.Call := class Call extends Expression
     if @args.length > 4
       true
     else
-      for some arg in @args[0 til -1]
-        not arg.is-small()
+      for some arg in @args[0 til -1 by -1]; not arg.is-small()
   
   def has-large-args()
     @_has-large-args ?= if @args.length > 4
       true
     else
-      for some arg in @args
-        not arg.is-small()
+      for some arg in @args by -1; not arg.is-small()
   
   def is-large() -> @func.is-large() or @has-large-args()
   
@@ -797,8 +788,7 @@ let to-const(value)
   if value instanceof Node
     throw Error "Cannot convert $(typeof! value) to a Const"
   else if is-array! value
-    Arr (for item in value
-      to-const item)
+    Arr (for item in value; to-const item)
   else if value and typeof value == "object" and value not instanceof RegExp
     Obj (for k, v of value; Obj.Pair k, to-const v)
   else
@@ -1061,11 +1051,11 @@ exports.ForIn := class ForIn extends Statement
 
 let validate-func-params-and-variables(params, variables)!
   let names = []
-  for param in params
+  for param in params by -1
     if param.name in names
       throw Error "Duplicate parameter: $(param.name)"
     names.push param.name
-  for variable in variables
+  for variable in variables by -1
     if variable in names
       throw Error "Duplicate variable: $variable"
     names.push variable
@@ -1347,9 +1337,7 @@ exports.IfExpression := class IfExpression extends Expression
     else
       @compile(options, level, line-start, sb)
   
-  def is-large()
-    @_is-large ?= for some part in [@test, @when-true, @when-false]
-      not part.is-small()
+  def is-large() -> @_is-large ?= not (@test.is-small() and @when-true.is-small() and @when-false.is-small())
   
   def is-small() -> false
   
@@ -1398,7 +1386,7 @@ exports.Noop := class Noop extends Expression
 exports.Obj := class Obj extends Expression
   let validate-unique-keys(elements)!
     let keys = []
-    for pair in elements
+    for pair in elements by -1
       let {key} = pair
       if key in keys
         throw Error "Found duplicate key: $(to-JS-source key)"
@@ -1472,11 +1460,11 @@ exports.Obj := class Obj extends Expression
     default; false
   
   def is-large()
-    @_is-large ?= @elements.length > 4 or for some element in @elements
+    @_is-large ?= @elements.length > 4 or for some element in @elements by -1
       not element.is-small()
   
   def is-noop()
-    @_is-noop ?= for every element in @elements; element.is-noop()
+    @_is-noop ?= for every element in @elements by -1; element.is-noop()
   
   def walk(walker)
     let elements = walk-array(@elements, walker)
