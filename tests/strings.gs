@@ -218,10 +218,12 @@ test "Array strings", #
   let x = 5
   array-eq ["hello", x], %"hello$x"
   let obj = {}
-  array-eq [obj], %"$obj"
+  array-eq ["", obj], %"$obj"
   array-eq ["alpha ", obj, " bravo"], %"alpha $obj bravo"
   let other = {}
   array-eq ["alpha ", obj, " bravo ", other, " charlie"], %"alpha $obj bravo $other charlie"
+  array-eq ["", obj, " inner ", other], %"$obj inner $other"
+  array-eq ["", obj, "", other], %"$(obj)$(other)"
   
   array-eq [], %""""""
   array-eq ["Alpha\n  ", obj, "\n    Charlie\n  ", other, "\nEcho"], %"""
@@ -231,6 +233,12 @@ test "Array strings", #
     $other
   Echo
   """
+  array-eq ["", obj, "\n  inner\n", other], %"""
+  $obj
+    inner
+  $other
+  """
+  array-eq ["", obj, "", other], %"""$(obj)$(other)"""
 
 /*
 test "Raw strings", #

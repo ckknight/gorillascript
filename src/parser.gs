@@ -2051,9 +2051,8 @@ let double-string-literal-handler = #(x, o, i)
     if typeof part == \number
       current-literal.push part
     else if part not instanceof NothingNode
-      if current-literal.length > 0
-        string-parts.push o.const i, process-char-codes(current-literal).join ""
-        current-literal := []
+      string-parts.push o.const i, process-char-codes(current-literal).join ""
+      current-literal := []
       string-parts.push part
   if current-literal.length > 0
     string-parts.push o.const i, process-char-codes(current-literal).join ""
@@ -2064,7 +2063,9 @@ define DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
   [\this, DoubleStringLiteralInner]
   DoubleQuote
 ], #(x, o, i)
-  let string-parts = double-string-literal-handler x, o, i
+  let string-parts = for part in double-string-literal-handler x, o, i
+    if not part.is-const() or part.const-value() != ""
+      part
   
   if string-parts.length == 0
     o.const i, ""
@@ -2124,9 +2125,8 @@ define TripleDoubleStringLine = zero-or-more-of! [
     if typeof part == \number
       current-literal.push part
     else if part not instanceof NothingNode
-      if current-literal.length > 0
-        string-parts.push process-char-codes(current-literal).join ""
-        current-literal := []
+      string-parts.push process-char-codes(current-literal).join ""
+      current-literal := []
       string-parts.push part
   if current-literal.length > 0
     string-parts.push process-char-codes(current-literal).join("").replace(r"[\t ]+\$", "")
@@ -2185,7 +2185,9 @@ let make-triple-string(quote, line)
     ]), #-> []]
     quote
   ], #(x, o, i)
-    let string-parts = triple-string-handler x, o, i
+    let string-parts = for part in triple-string-handler x, o, i
+      if not part.is-const() or part.const-value() != ""
+        part
     
     if string-parts.length == 0
       o.const i, ""
