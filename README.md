@@ -820,3 +820,96 @@ One could then easily then use the fib iterator:
       console.log value
       if value > 4000000
         break
+
+## Async
+
+GorillaScript provides a whole slew of asynchronous-capable syntax to make dealing with "callback hell" just a little easier. Since JavaScript fundamentals and frameworks (node.js, for example) tend to be very async-friendly, this is especially helpful.
+
+### Calling an async function
+
+    async err, text <- fs.read-file "somefile.txt", "utf8"
+    throw? err
+    console.log text
+
+No indentation necessary, every line following the async call will be part of the implicitly-constructed callback. The resultant code looks like:
+
+    fs.read-file "somefile.txt", "utf8", #(err, text)@
+      throw? err
+      console.log text
+
+Although that may not seem too useful with only one block of indentation, when dealing with complex database access or multiple sources of input, it is very easy to become overwhelmed.
+
+### Async loops
+
+Often, one may use a library to manage asynchronous handling of loops and iteration over arrays, but that is all built right into GorillaScript. Every loop construct you've seen works seamlessly by prepending `async` and specifying the `next` callback.
+
+The `next` callback expects 0 to 2 arguments, if it receives a non-`null`-or-`undefined` value as its first argument, it will halt the loop immediately, as an error or other break has occurred. If it receives a second argument, it will append that value to an array, which may be optionally requested by the developer.
+
+`asyncfor` loops can specify their level of parallelism manually (defaulting to `1`, which runs serially). If parallelism is set to `0`, it runs completely parallel.
+
+    // read two files at a time
+    asyncfor(2) err, array <- next, filename in ["a.txt", "b.txt", "c.txt", "d.txt"]
+      async err, text <- fs.read-file filename, "utf8"
+      if err?
+        // if an error occurs, it propagates up and no more files will be read, and post-async execution
+        // will occur immediately.
+        return next err
+      next null, { filename, text }
+    throw? err
+    console.log array // array will now be filled with objects like { filename: "a.txt", text: "lots of text here" }
+
+Which turns into a device which looks something like:
+
+    let _array = ["a.txt", "b.txt", "c.txt", "d.txt"]
+    __async-result 2, array.length,
+      #(i, next)@
+        let filename = array[i]
+        fs.read-file filename, "utf8", #(err, text)@
+          if err?
+            return next err
+          next null, { filename, text }
+      #(err, array)@
+        throw? err
+        console.log array
+
+There is also `asyncwhile` and `asyncuntil`, which work similarly to their normal constructs but require the `next` argument to inform the code that its execution has completed one way or another.
+
+### Async conditionals
+
+If you wish to use conditionals which may or may not have asynchronous code inside their bodies, `asyncif` or `asyncunless` is necessary.
+
+    asyncif text <- next, some-boolean()
+      async err, text <- fs.read-file filename, "utf8"
+      throw? err
+      next(text)
+    // else is optional, will automatically call next() if not provided
+    console.log text
+
+Which turns into something like:
+
+    let next(text)
+      console.log text
+    if some-boolean()
+      fs.read-file filename, "utf8", #(err, text)@
+        throw? err
+        next(text)
+    else
+      next()
+
+### `returning`
+
+Occasionally, one needs to return a value such as `false` in an event handler, while using an asynchronous command. This is where the `returning` statement comes in. It works just like `return`, only it runs at the end of its block rather than where it is placed.
+
+    register-event #(filename)
+      returning false
+      async err, text <- fs.read-file filename, "utf8"
+      throw? err
+      console.log text
+
+Which turns into:
+
+    register-event #(filename)
+      fs.read-file filename, "utf8", #(err, text)
+        throw? err
+        console.log
+      return false
