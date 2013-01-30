@@ -10,7 +10,7 @@ class Scope
   let get-id = do
     let mutable id = -1
     # -> id += 1
-  def constructor(options = {}, bound = false, used-tmps = {}, helpers = {}, variables, tmps = {})@
+  def constructor(options = {}, bound = false, used-tmps = {}, helpers = {}, variables, tmps = {})
     @options := options
     @bound := bound
     @used-tmps := used-tmps
@@ -141,7 +141,7 @@ let identity(x) -> x
 let make-auto-return(x) -> if x then wrap-return else identity
 
 let HELPERS = new class Helpers
-  def constructor()@
+  def constructor()
     @data := {}
     @types := {}
     @deps := {}
@@ -173,7 +173,7 @@ let HELPERS = new class Helpers
       throw Error "No such helper: $name"
 
 class GeneratorBuilder
-  def constructor(scope as Scope, states, current-state = 1, state-ident, pending-finallies-ident, finallies = [], catches = [], current-catch = [])@
+  def constructor(scope as Scope, states, current-state = 1, state-ident, pending-finallies-ident, finallies = [], catches = [], current-catch = [])
     @scope := scope
     @states := states ? [
       [#-> ast.Throw ast.Ident \StopIteration]
@@ -1065,7 +1065,7 @@ let translators =
         translate-types[node.constructor.capped-name](node, scope)
 
     #(node, scope, location, auto-return) -> #
-      let inner-scope = scope.clone(node.bound)
+      let inner-scope = scope.clone(not not node.bound)
       let param-idents = []
       let initializers = []
       let mutable found-spread = -1
@@ -1127,15 +1127,23 @@ let translators =
         translate(node.body, inner-scope, \top-statement, node.auto-return)()
       inner-scope.release-tmps()
       body := ast.Block [...initializers, body]
-      if inner-scope.used-this
-        if inner-scope.bound
-          scope.used-this := true
-        if inner-scope.has-bound and not inner-scope.bound
+      if inner-scope.used-this or node.bound instanceof ParserNode
+        if node.bound instanceof ParserNode
           let fake-this = ast.Ident \_this
           inner-scope.add-variable fake-this // TODO: the type for this?
           body := ast.Block
-            * ast.Assign fake-this, ast.This()
+            * ast.Assign fake-this, translate(node.bound, scope, \top-statement)()
             * body
+            * ast.Return fake-this
+        else
+          if inner-scope.bound
+            scope.used-this := true
+          if inner-scope.has-bound and not inner-scope.bound
+            let fake-this = ast.Ident \_this
+            inner-scope.add-variable fake-this // TODO: the type for this?
+            body := ast.Block
+              * ast.Assign fake-this, ast.This()
+              * body
       if inner-scope.has-stop-iteration
         scope.has-stop-iteration := true
       let func = ast.Func null, param-idents, inner-scope.get-variables(), body, []

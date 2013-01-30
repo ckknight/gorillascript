@@ -4,6 +4,7 @@ test "empty class", #
   eq "function", typeof Class
   eq 0, Class.length
   ok new Class() instanceof Class
+  ok Class() instanceof Class
 
 test "empty class, two-level inheritance", #
   let Base = class
@@ -12,7 +13,9 @@ test "empty class, two-level inheritance", #
   eq "function", typeof Child
   eq 0, Child.length
   ok new Child() instanceof Child
+  ok Child() instanceof Child
   ok new Child() instanceof Base
+  ok Child() instanceof Base
 
 test "simple class, empty constructor", #
   let Class = class
@@ -32,7 +35,7 @@ test "simple class, simple constructor", #
   ok new Class() instanceof Class
   ok hit-constructor
 
-test "empty class, two-level inheritance", #
+test "empty class, two-level inheritance, base constructor is hit", #
   let mutable hit-constructor = false
   let Base = class
     def constructor()
@@ -416,16 +419,18 @@ test "calling class without new returns correct class", #
   
   ok anon() instanceof anon
 
-test "calling class without new throws an error", #
+test "calling class without new doesn't throw an error with constructor", #
   class Class
     def constructor() ->
   
-  throws #-> Class(), #(e) -> e.message == "Class must be called with new"
+  ok Class() instanceof Class
+  ok new Class() instanceof Class
   
   let anon = class
     def constructor() ->
   
-  throws #-> anon(), #(e) -> e.message == "Must be called with new"
+  ok anon() instanceof anon
+  ok new anon() instanceof anon
 
 test "multiple constructors", #
   let makeClass(value) -> class Class
@@ -448,7 +453,7 @@ test "multiple constructors", #
 
 test "bound constructors", #
   class Class
-    def constructor(value)@
+    def constructor(value)
       @value := value
   
   ok Class("alpha") instanceof Class
@@ -526,18 +531,17 @@ test "constructor with this setters", #
   eq "charlie", new Class("charlie", "delta").alpha
   eq "delta", new Class("charlie", "delta").bravo
 
-/*
 let global = window ? this ? GLOBAL
 test "bound constructor with this setters", #
   class Class
-    def constructor(@alpha, @bravo)@ ->
+    def constructor(@alpha, @bravo) ->
   
   delete global.alpha
   ok Class("charlie", "delta") instanceof Class
   ok global not ownskey "alpha"
   eq "charlie", Class("charlie", "delta").alpha
   eq "delta", Class("charlie", "delta").bravo
-*/
+
 test "using super without having a superclass should direct to Object", #
   class Class
     def constructor(@value) ->

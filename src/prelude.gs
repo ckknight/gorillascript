@@ -2169,8 +2169,8 @@ macro class
     let superproto = if not superclass
       ASTE Object.prototype
     else
-      @tmp (if @is-ident(sup) then @name(sup) & \_prototype else \superproto), false, \object
-    let prototype = @tmp (if @is-ident(name) then @name(name) & \_prototype else \proto), false, \object
+      @tmp (if @is-ident(sup) then @name(sup) & \_prototype else \super_prototype), false, \object
+    let prototype = @tmp (if @is-ident(name) then @name(name) & \_prototype else \prototype), false, \object
     if superclass
       init.push AST let $superproto = $sup.prototype
       init.push AST let $prototype = $name.prototype := { extends $superproto }
@@ -2228,33 +2228,11 @@ macro class
           let key = @left(node)
           if @is-const(key) and @value(key) == \constructor
             let value = @right(node)
-            let constructor = if @func-is-bound(value)
-              @func(
-                @func-params value
-                @block
-                  * AST let $self = if this instanceof $name then this else { extends $prototype }
-                  * @walk @func-body(value), #(node)@
-                      if @is-func(node)
-                        unless @func-is-bound(node)
-                          node
-                      else if @is-this(node)
-                        self
-                  * AST return $self
-                false
-                false)
-            else
-              let error-message = if display-name?
-                ASTE "$($display-name) must be called with new"
-              else
-                ASTE "Must be called with new"
-              @func(
-                @func-params value
-                @block
-                  * AST if this not instanceof $name
-                      throw TypeError $error-message
-                  * @func-body value
-                false
-                false)
+            let constructor = @func(
+              @func-params value
+              @func-body value
+              false
+              AST if eval("this") instanceof $name then eval("this") else { extends $prototype })
             init.unshift AST let $name = $constructor
             @noop()
         else

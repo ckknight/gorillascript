@@ -618,7 +618,7 @@ macro define
     AST let $name = cache named $name-str, $value
 
 class Stack
-  def constructor(initial, data = [])@
+  def constructor(initial, data = [])
     @initial := initial
     @data := data
   
@@ -4168,7 +4168,7 @@ define Root = sequential! [
 ], #(x, o, i) -> o.root i, x
 
 class ParserError extends Error
-  def constructor(message as String, text as String, index as Number, line as Number)@
+  def constructor(message as String, text as String, index as Number, line as Number)
     let err = super("$message at line #$line")
     @message := err.message
     if typeof Error.capture-stack-trace == \function
@@ -4181,7 +4181,7 @@ class ParserError extends Error
   def name = @name
 
 class MacroError extends Error
-  def constructor(inner as Error, text as String, index as Number, line as Number)@
+  def constructor(inner as Error, text as String, index as Number, line as Number)
     let inner-type = typeof! inner
     let err = super("$(if inner-type == \Error then '' else inner-type & ': ')$(String inner?.message) at line #$line")
     @message := err.message
@@ -4211,7 +4211,7 @@ let map(array, func, arg)
     array
 
 class FailureManager
-  def constructor()@
+  def constructor()
     @messages := []
     @index := 0
     @line := 0
@@ -4269,7 +4269,7 @@ let node-to-type = do
       // shouldn't really occur
       Type.any
 class MacroHelper
-  def constructor(state as State, index, position, in-generator)@
+  def constructor(state as State, index, position, in-generator)
     @unsaved-tmps := []
     @saved-tmps := []
     @state := state
@@ -4416,7 +4416,7 @@ class MacroHelper
     
     @state.call(func.start-index, @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new, is-apply).reduce(@state)
   
-  def func(mutable params, body, auto-return = true, bound = false)
+  def func(mutable params, body, auto-return = true, bound as (Node|Boolean) = false)
     let clone = @state.clone(@state.clone-scope())
     params := for param in params
       let p = param.rescope(clone.scope.id, clone)
@@ -4436,7 +4436,7 @@ class MacroHelper
     if @is-func node then not not node.auto-return
   def func-is-bound(mutable node)
     node := @macro-expand-1 node
-    if @is-func node then not not node.bound
+    if @is-func node then not not node.bound and node.bound not instanceof Node
   
   def param(ident, default-value, spread, is-mutable, as-type)
     @state.param(0, ident, default-value, spread, is-mutable, as-type).reduce(@state)
@@ -4783,7 +4783,7 @@ define AnyArrayLiteral = one-of! [
 ]
 
 class MacroHolder
-  def constructor()@
+  def constructor()
     @by-name := {}
     @by-id := []
     @by-label := {}
@@ -5139,7 +5139,7 @@ macro node-class
 
 
 class Scope
-  def constructor(id, parent as Scope|null)@
+  def constructor(id, parent as Scope|null)
     @id := id
     @parent := parent
     @variables := {}
@@ -5199,7 +5199,7 @@ class Scope
       Type.any
 
 class State
-  def constructor(data, macros = MacroHolder(), options = {}, index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0, known-scopes = [], scope)@
+  def constructor(data, macros = MacroHolder(), options = {}, index = 0, line = 1, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0, known-scopes = [], scope)
     @data := data
     @macros := macros
     @options := options
@@ -6552,7 +6552,7 @@ node-class ForNode(init as Node = NothingNode(0, 0, scope-id), test as Node = Co
 node-class ForInNode(key as Node, object as Node, body as Node)
   def type() -> Type.undefined
   def is-statement() -> true
-node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Boolean = false, as-type as Node|void, generator as Boolean)
+node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, as-type as Node|void, generator as Boolean)
   def type(o) -> @_type ?= do
     // TODO: handle generator types
     if @as-type?
@@ -6569,7 +6569,7 @@ node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean =
         else if node instanceof FunctionNode
           node
         else if node instanceof MacroAccessNode
-          if node.data.macro-name in [\return, "return?"] // so ungodly hackish
+          if node.data.macro-name in [\return, "return?"] // FIXME: so ungodly hackish
             if node.data.macro-data.node
               return-type := return-type.union node.data.macro-data.node.type(o)
             else
@@ -6582,9 +6582,10 @@ node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean =
   def walk(func)
     let params = map @params, func
     let body = func @body
+    let bound = if @bound instanceof Node then func @bound else @bound
     let as-type = if @as-type? then func @as-type else @as-type
-    if params != @params or body != @body or as-type != @as-type
-      FunctionNode @start-index, @end-index, @scope-id, params, body, @auto-return, @bound, @as-type, @generator
+    if params != @params or body != @body or bound != @bound or as-type != @as-type
+      FunctionNode @start-index, @end-index, @scope-id, params, body, @auto-return, bound, @as-type, @generator
     else
       this
   def _is-noop(o) -> true

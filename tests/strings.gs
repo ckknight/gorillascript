@@ -242,7 +242,7 @@ test "Array strings", #
 
 test "Array strings escaping", #
   class SafeHTML
-    def constructor(text as String)@
+    def constructor(text as String)
       @text := text
     def to-string() -> @text
   let to-HTML = do

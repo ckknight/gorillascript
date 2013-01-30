@@ -1,7 +1,7 @@
 let {inspect} = require 'util'
 
 module.exports := class Type
-  def constructor()@
+  def constructor()
     throw TypeError "Type should not be instantiated"
   
   def is-subset-of
@@ -210,7 +210,7 @@ module.exports := class Type
         id += 1
         id
     
-    def constructor(name as String)@
+    def constructor(name as String)
       @name := name
       @id := get-id()
     
@@ -281,7 +281,7 @@ module.exports := class Type
   @make := #(name) -> SimpleType(name)
   
   class ArrayType extends Type
-    def constructor(subtype as Type)@
+    def constructor(subtype as Type)
       @subtype := subtype
     
     def to-string() -> @_name ?= if @subtype == any then "[]" else "[$(String @subtype)]"
@@ -358,7 +358,7 @@ module.exports := class Type
     from-JSON-types.array := #({subtype}) -> Type.from-JSON(subtype).array()
   
   class ObjectType extends Type
-    def constructor(data)@
+    def constructor(data)
       if typeof data != \object or data instanceof RegExp
         throw TypeError "Expected an object, got $(typeof! data)"
       let pairs = []
@@ -535,7 +535,7 @@ module.exports := class Type
   @make-object := #(data) -> ObjectType(data)
   
   class FunctionType extends Type
-    def constructor(return-type as Type)@
+    def constructor(return-type as Type)
       @return-type := return-type
 
     def to-string() -> @_name ?= if @return-type == any then "->" else "-> $(String @return-type)"
@@ -612,7 +612,7 @@ module.exports := class Type
     from-JSON-types.function := #({return-type}) -> Type.from-JSON(return-type).function()
   
   class UnionType extends Type
-    def constructor(types as [Type])@
+    def constructor(types as [Type])
       if types.length <= 1
         throw Error "Must provide at least 2 types to UnionType"
       @types := types
@@ -717,7 +717,7 @@ module.exports := class Type
         current.union(Type.from-JSON(type))
 
   class ComplementType extends Type
-    def constructor(untypes as [Type])@
+    def constructor(untypes as [Type])
       if untypes.length == 0
         throw Error "Must provide at least 1 untype to ComplementType"
       @untypes := untypes
@@ -830,7 +830,7 @@ module.exports := class Type
     from-JSON-types.complement := #({untype}) -> Type.from-JSON(untype).complement()
   
   let any = @any := new class AnyType extends Type
-    def constructor()@
+    def constructor()
       if any
         throw Error "Cannot instantiate more than once"
     
@@ -855,7 +855,7 @@ module.exports := class Type
     from-JSON-types.any := #-> any
   
   let none = @none := new class NoneType extends Type
-    def constructor()@
+    def constructor()
       if none
         throw Error "Cannot instantiate more than once"
     
