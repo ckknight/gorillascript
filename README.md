@@ -75,6 +75,10 @@ As can be seen, the operators which don't fit the proper types exactly fail imme
 
 Don't be worried about losing the bitwise and operator, that is now called `bitand`.
 
+## Strict mode by default
+
+All GorillaScript code is wrapped in an immediately-invoked function expression (IIFE) which has the declaration of `"use strict"`. This ensures that on the engines that support it, strict semantics will be followed, meaning less bugs in the long run.
+
 ## Type safety of operators
 
 All operators check the types of their operands to assure that there will be no improper inputs and that any errors that do occur are caught as early as possible.
