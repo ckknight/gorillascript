@@ -718,3 +718,35 @@ Unlike JavaScript, Regular Expressions borrow the string syntax simply prefixed 
       And all the space is ignored # and this is ignored, too!
       """gim
 
+## Custom interpolation strings
+
+If one doesn't wish to use simple string concatenation with string interpolation, `%` can be prefixed to any double-quoted string to return an array instead which can then be interpolated in a custom manner. All even-numbered strings are guaranteed to be source literals and all odd-numbered values (might not be strings) are interpolated input.
+
+The following is an example of automatic HTML escaping, but the same concept could be applied to SQL strings or practically any string with unsafe input.
+
+    class SafeHTML
+      def constructor(@text as String) ->
+      def to-string() -> @text
+    let to-HTML = do
+      let escapes = {
+        "&": "&amp;"
+        "<": "&lt;"
+        ">": "&gt;"
+        '"': "&quot;"
+        "'": "&#39;"
+      }
+      let replacer(x) -> escapes[x]
+      let regex = r"[&<>""']"g
+      let escape(text) -> text.replace(regex, replacer)
+      #(arr)
+        (for x, i in arr
+          if i %% 2 or x instanceof SafeHTML
+            x
+          else
+            escape String(x)).join ""
+
+    eq "<h1>normal</h1>", to-HTML %"<h1>normal</h1>"
+    let evil-name = "<\"bob\" the 'great' & powerful>"
+    eq "&lt;&quot;bob&quot; the &#39;great&#39; &amp; powerful&gt;", to-HTML %"$evil-name"
+    eq "<span>&lt;&quot;bob&quot; the &#39;great&#39; &amp; powerful&gt;</span>", to-HTML %"<span>$evil-name</span>"
+    eq "<span><\"bob\" the 'great' & powerful></span>", to-HTML %"<span>$(SafeHTML evil-name)</span>"
