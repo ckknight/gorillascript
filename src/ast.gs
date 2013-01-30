@@ -295,8 +295,7 @@ let simplify(obj)
     obj
 
 exports.Arr := class Arr extends Expression
-  def constructor(elements as [Expression] = [])
-    @elements := elements
+  def constructor(@elements as [Expression] = []) ->
   
   let compile-large(elements, options, level, line-start, sb)!
     let child-options = inc-indent options
@@ -384,7 +383,7 @@ exports.Or := #(...args)
       Binary current, "||", args[i]
 
 exports.Binary := class Binary extends Expression
-  def constructor(mutable left = Noop(), op as String, mutable right = Noop())
+  def constructor(mutable left = Noop(), @op as String, mutable right = Noop())
     if OPERATOR_PRECEDENCE not ownskey op
       throw Error "Unknown binary operator: $(to-JS-source op)"
     
@@ -394,7 +393,6 @@ exports.Binary := class Binary extends Expression
       right := to-const right
     
     @left := left
-    @op := op
     @right := right
   
   let compile-access(op, left, right, options, level, line-start, sb)!
@@ -716,10 +714,7 @@ exports.Break := class Break extends Statement
   @from-JSON := #-> Break()
 
 exports.Call := class Call extends Expression
-  def constructor(func as Expression = Noop(), args as [Expression] = [], is-new as Boolean)
-    @func := func
-    @args := args
-    @is-new := is-new
+  def constructor(@func as Expression = Noop(), @args as [Expression] = [], @is-new as Boolean) ->
   
   let compile-large(args, options, level, line-start, sb)!
     sb "("
@@ -810,8 +805,7 @@ let to-const(value)
     Const value
 
 exports.Const := class Const extends Expression
-  def constructor(value as void|null|Boolean|Number|String|RegExp)
-    @value := value
+  def constructor(@value as void|null|Boolean|Number|String|RegExp) ->
   
   def compile(options, level, line-start, sb)!
     let value = @value
@@ -895,9 +889,8 @@ exports.Debugger := class Debugger extends Statement
   @from-JSON := # -> Debugger()
 
 exports.DoWhile := class DoWhile extends Statement
-  def constructor(body as Node = Noop(), test as Expression = Noop())
+  def constructor(body as Node = Noop(), @test as Expression = Noop())
     @body := body.maybe-to-statement()
-    @test := test
     if test.is-const() and not test.const-value()
       return @body
   
@@ -963,14 +956,12 @@ exports.Eval := class Eval extends Expression
   @from-JSON := #({code}) -> Eval from-JSON(code)
 
 exports.For := class For extends Statement
-  def constructor(init as Expression = Noop(), mutable test = Const(true), step as Expression = Noop(), body as Node)
+  def constructor(@init as Expression = Noop(), mutable test = Const(true), @step as Expression = Noop(), body as Node)
     if test not instanceof Expression
       test := to-const test
     if test.is-const() and not test.const-value()
       return init
-    @init := init
     @test := test
-    @step := step
     @body := body.maybe-to-statement()
   
   def compile(options, level, line-start, sb)!
@@ -1024,9 +1015,7 @@ exports.For := class For extends Statement
   @from-JSON := #({init, test, step, body}) -> For from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body)
 
 exports.ForIn := class ForIn extends Statement
-  def constructor(key as Ident, object as Expression = Noop(), body as Node = Noop())
-    @key := key
-    @object := object
+  def constructor(@key as Ident, @object as Expression = Noop(), body as Node = Noop())
     @body := body.maybe-to-statement()
   
   def compile(options, level, line-start, sb)!
@@ -1112,13 +1101,8 @@ let compile-func(options, sb, name, params, declarations, variables, body)
   sb "}"
 
 exports.Func := class Func extends Expression
-  def constructor(name as null|Ident, params as [Ident] = [], variables as [String] = [], body as Node = Noop(), declarations as [String] = [])
+  def constructor(@name as null|Ident, @params as [Ident] = [], @variables as [String] = [], @body as Node = Noop(), @declarations as [String] = [])
     validate-func-params-and-variables params, variables
-    @name := name
-    @params := params
-    @variables := variables
-    @body := body
-    @declarations := declarations
   
   def compile(options, level, line-start, sb)!
     let wrap = line-start and not @name
@@ -1154,10 +1138,9 @@ exports.Func := class Func extends Expression
     Func (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations
 
 exports.Ident := class Ident extends Expression
-  def constructor(name as String)
+  def constructor(@name as String)
     unless is-acceptable-ident name
       throw Error "Not an acceptable identifier name: $name"
-    @name := name
   
   def compile(options, level, line-start, sb)!
     sb @name
@@ -1405,9 +1388,8 @@ exports.Obj := class Obj extends Expression
         throw Error "Found duplicate key: $(to-JS-source key)"
       keys.push key
   
-  def constructor(elements as [ObjPair] = [])
+  def constructor(@elements as [ObjPair] = [])
     validate-unique-keys elements
-    @elements := elements
   
   let to-safe-key(key)
     if is-acceptable-ident(key)
@@ -1503,10 +1485,9 @@ exports.Obj := class Obj extends Expression
     Obj result-pairs
   
   Obj.Pair := class ObjPair
-    def constructor(key as String, mutable value = Noop())
+    def constructor(@key as String, mutable value = Noop())
       if value not instanceof Expression
         value := to-const value
-      @key := key
       @value := value
     
     def is-small() -> @value.is-small()
@@ -1524,10 +1505,9 @@ exports.Obj := class Obj extends Expression
       "Pair($(inspect @key, null, d), $(inspect @value, null, d))"
 
 exports.Return := class Return extends Statement
-  def constructor(node as Expression = Noop())
+  def constructor(@node as Expression = Noop())
     if typeof node.to-statement == "function"
       return node.to-statement().mutate-last Return
-    @node := node
   
   def compile(options, level, line-start, sb)!
     sb "return"
@@ -1556,11 +1536,8 @@ exports.Return := class Return extends Statement
   @from-JSON := #({node}) -> Return from-JSON(node)
 
 exports.Root := class Root
-  def constructor(body as Node = Noop(), variables as [String] = [], declarations as [String] = [])
+  def constructor(@body as Node = Noop(), @variables as [String] = [], @declarations as [String] = [])
     validate-func-params-and-variables [], variables
-    @body := body
-    @variables := variables
-    @declarations := declarations
 
   def compile(options = {})
     if not options.indent
@@ -1617,10 +1594,9 @@ exports.This := class This extends Expression
   @from-JSON := # -> This()
 
 exports.Throw := class Throw extends Statement
-  def constructor(node as Expression = Noop())
+  def constructor(@node as Expression = Noop())
     if typeof node.to-statement == "function"
       return node.to-statement().mutate-last Throw, true
-    @node := node
   
   def compile(options, level, line-start, sb)
     sb "throw "
@@ -1647,11 +1623,10 @@ exports.Throw := class Throw extends Statement
   @from-JSON := #({node}) -> Throw from-JSON(node)
 
 exports.Switch := class Switch extends Statement
-  def constructor(mutable node = Noop(), cases as [SwitchCase] = [], default-case as Node = Noop())
+  def constructor(mutable node = Noop(), @cases as [SwitchCase] = [], default-case as Node = Noop())
     if node not instanceof Expression
       node := to-const node
     @node := node
-    @cases := cases
     @default-case := default-case.maybe-to-statement()
   
   def compile(options, level, line-start, sb)!
@@ -1741,11 +1716,10 @@ exports.Switch := class Switch extends Statement
       "Case($(inspect @node, null, d), $(inspect @body, null, d))"
 
 exports.TryCatch := class TryCatch extends Statement
-  def constructor(try-body as Node = Noop(), catch-ident as Ident, catch-body as Node = Noop())
+  def constructor(try-body as Node = Noop(), @catch-ident as Ident, catch-body as Node = Noop())
     @try-body := try-body.maybe-to-statement()
     if @try-body.is-noop()
       return @try-body
-    @catch-ident := catch-ident
     @catch-body := catch-body.maybe-to-statement()
   
   def compile(options, level, line-start, sb)!
@@ -1841,7 +1815,7 @@ exports.TryFinally := class TryFinally extends Statement
   @from-JSON := #({try-body, finally-body}) -> TryFinally from-JSON(try-body), from-JSON(finally-body)
 
 exports.Unary := class Unary extends Expression
-  def constructor(op as String, mutable node = Noop())
+  def constructor(@op as String, mutable node = Noop())
     if op not in KNOWN_OPERATORS
       throw Error "Unknown unary operator: $op"
     
@@ -1851,7 +1825,6 @@ exports.Unary := class Unary extends Expression
     if op == "delete" and (node not instanceof Binary or node.op != ".")
       throw Error "Cannot use delete operator on a non-access"
     
-    @op := op
     @node := node
   
   def compile(options, level, line-start, sb)!

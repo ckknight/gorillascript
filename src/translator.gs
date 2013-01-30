@@ -10,13 +10,8 @@ class Scope
   let get-id = do
     let mutable id = -1
     # -> id += 1
-  def constructor(options = {}, bound = false, used-tmps = {}, helpers = {}, variables, tmps = {})
-    @options := options
-    @bound := bound
-    @used-tmps := used-tmps
-    @helpers := helpers
+  def constructor(@options = {}, @bound = false, @used-tmps = {}, @helpers = {}, variables, @tmps = {})
     @variables := if variables then { extends variables } else {}
-    @tmps := tmps
     @has-bound := false
     @used-this := false
     @has-stop-iteration := false
@@ -173,18 +168,13 @@ let HELPERS = new class Helpers
       throw Error "No such helper: $name"
 
 class GeneratorBuilder
-  def constructor(scope as Scope, states, current-state = 1, state-ident, pending-finallies-ident, finallies = [], catches = [], current-catch = [])
-    @scope := scope
+  def constructor(@scope as Scope, states, @current-state = 1, state-ident, pending-finallies-ident, @finallies = [], @catches = [], @current-catch = [])
     @states := states ? [
       [#-> ast.Throw ast.Ident \StopIteration]
       []
     ]
-    @current-state := current-state
     @state-ident := state-ident ? scope.reserve-ident \state, Type.number
     @pending-finallies-ident := pending-finallies-ident ? scope.reserve-ident \finallies, Type.undefined.function().array()
-    @finallies := finallies
-    @catches := catches
-    @current-catch := current-catch
   
   def add(t-node)
     unless t-node instanceof GeneratorBuilder

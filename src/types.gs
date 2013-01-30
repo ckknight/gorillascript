@@ -210,8 +210,7 @@ module.exports := class Type
         id += 1
         id
     
-    def constructor(name as String)
-      @name := name
+    def constructor(@name as String)
       @id := get-id()
     
     def to-string() -> @name
@@ -281,8 +280,7 @@ module.exports := class Type
   @make := #(name) -> SimpleType(name)
   
   class ArrayType extends Type
-    def constructor(subtype as Type)
-      @subtype := subtype
+    def constructor(@subtype as Type) ->
     
     def to-string() -> @_name ?= if @subtype == any then "[]" else "[$(String @subtype)]"
     
@@ -535,8 +533,7 @@ module.exports := class Type
   @make-object := #(data) -> ObjectType(data)
   
   class FunctionType extends Type
-    def constructor(return-type as Type)
-      @return-type := return-type
+    def constructor(@return-type as Type) ->
 
     def to-string() -> @_name ?= if @return-type == any then "->" else "-> $(String @return-type)"
 
@@ -612,10 +609,9 @@ module.exports := class Type
     from-JSON-types.function := #({return-type}) -> Type.from-JSON(return-type).function()
   
   class UnionType extends Type
-    def constructor(types as [Type])
+    def constructor(@types as [Type])
       if types.length <= 1
         throw Error "Must provide at least 2 types to UnionType"
-      @types := types
     
     def to-string() -> @_name ?= "($(@types.join '|'))"
     
@@ -717,10 +713,9 @@ module.exports := class Type
         current.union(Type.from-JSON(type))
 
   class ComplementType extends Type
-    def constructor(untypes as [Type])
+    def constructor(@untypes as [Type])
       if untypes.length == 0
         throw Error "Must provide at least 1 untype to ComplementType"
-      @untypes := untypes
     
     def to-string()
       @_name ?= if @untypes.length == 1
