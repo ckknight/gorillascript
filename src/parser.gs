@@ -5890,50 +5890,47 @@ node-class AccessNode(parent as Node, child as Node)
         if value == null or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
           return ConstNode @start-index, @end-index, @scope-id, value
     if child instanceof CallNode and child.func instanceof IdentNode and child.func.name == \__range
-      let [start, end, step, inclusive] = child.args
-      let call = CallNode @start-index, @end-index, @scope-id,
-        IdentNode @start-index, @end-index, @scope-id, \__slice
-        [
-          parent
-          start
-          ...(if end.is-const() and end.const-value() == Infinity
-            []
-          else if inclusive.is-const()
-            if inclusive.const-value()
-              if end.is-const() and typeof end.const-value() == \number and end.const-value() == -1
-                []
-              else
-                [BinaryNode @start-index, @end-index, @scope-id,
-                  BinaryNode @start-index, @end-index, @scope-id,
-                    end
-                    "+"
-                    ConstNode @start-index, @end-index, @scope-id, 1
-                  "||"
-                  ConstNode @start-index, @end-index, @scope-id, Infinity]
+      let [start, mutable end, step, inclusive] = child.args
+      let has-step = not step.is-const() or step.const-value() != 1
+      if not has-step
+        if inclusive.is-const()
+          if inclusive.const-value()
+            end := if end.is-const() and typeof end.const-value() == \number
+              ConstNode end.start-index, end.end-index, end.scope-id, end.const-value() + 1 or Infinity
             else
-              [end]
-          else
-            [IfNode @start-index, @end-index, @scope-id,
-              inclusive
-              BinaryNode @start-index, @end-index, @scope-id,
-                BinaryNode @start-index, @end-index, @scope-id,
+              BinaryNode end.start-index, end.end-index, end.scope-id,
+                BinaryNode end.start-index, end.end-index, end.scope-id,
                   end
                   "+"
-                  ConstNode @start-index, @end-index, @scope-id, 1
+                  ConstNode inclusive.start-index, inclusive.end-index, inclusive.scope-id, 1
                 "||"
-                ConstNode @start-index, @end-index, @scope-id, Infinity
-              end])
-        ]
+                ConstNode end.start-index, end.end-index, end.scope-id, Infinity
+        else
+          end := IfNode end.start-index, end.end-index, end.scope-id,
+            inclusive
+            BinaryNode end.start-index, end.end-index, end.scope-id,
+              BinaryNode end.start-index, end.end-index, end.scope-id,
+                end
+                "+"
+                ConstNode inclusive.start-index, inclusive.end-index, inclusive.scope-id, 1
+              "||"
+              ConstNode end.start-index, end.end-index, end.scope-id, Infinity
+            end
+      let args = [parent]
+      let has-end = not end.is-const() or end.const-value() not in [void, Infinity]
+      if not start.is-const() or start.const-value() != 0 or has-end or has-step
+        args.push start
+      if has-end or has-step
+        args.push end
+      if has-step
+        args.push step
+        if not inclusive.is-const() or inclusive.const-value()
+          args.push inclusive
+      (CallNode @start-index, @end-index, @scope-id,
+        IdentNode @start-index, @end-index, @scope-id, if has-step then \__slice-step else \__slice
+        args
         false
-        false
-      if step.is-const() and step.const-value() == 1
-        call
-      else
-        CallNode @start-index, @end-index, @scope-id,
-          IdentNode @start-index, @end-index, @scope-id, \__step
-          [call, step]
-          false
-          false
+        false).reduce(o)
     else if parent != @parent or child != @child
       AccessNode @start-index, @end-index, @scope-id, parent, child
     else

@@ -741,7 +741,7 @@ exports.Call := class Call extends Expression
     if @args.length > 4
       true
     else
-      for some arg in @args[0 til -1 by -1]; not arg.is-small()
+      for some arg in @args[-2 to 0 by -1]; not arg.is-small()
   
   def has-large-args()
     @_has-large-args ?= if @args.length > 4

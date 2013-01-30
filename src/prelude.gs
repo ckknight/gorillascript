@@ -1034,6 +1034,18 @@ define helper __step = #(array, step as Number) as []
         result.push array[i]
     result
 
+define helper __slice-step = #(array, start, end, mutable step, inclusive) as []
+  let arr = if step ~< 0
+    __slice(array, if inclusive then end else end ~+ 1, start ~+ 1 or Infinity)
+  else
+    __slice(array, start, if inclusive then end ~+ 1 or Infinity else end)
+  if step == 1
+    arr
+  else if step == -1
+    arr.reverse()
+  else
+    __step(arr, step)
+
 define operator binary by with maximum: 1, precedence: 1, type: \array
   if not @has-type(right, \number)
     throw Error "Must provide a number to the 'by' operator"
