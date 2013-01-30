@@ -1852,6 +1852,9 @@ define helper __async-iter = #(mutable limit, iterator, on-value, on-complete)
       next()
   let mutable index = 0
   let mutable done = false
+  let mutable close = #
+    close := null
+    iterator?.close?()
   let next()
     while not broken? and slots-used ~< limit and not done
       try
@@ -1866,11 +1869,18 @@ define helper __async-iter = #(mutable limit, iterator, on-value, on-complete)
       let i = index
       index ~+= 1
       sync := true
-      on-value value, i, on-value-callback
+      try
+        on-value value, i, on-value-callback
+      catch e
+        if close
+          close()
+        throw e
       sync := false
     if broken? or slots-used == 0
       let f = on-complete
       on-complete := void
+      if close
+        close()
       if f
         f(broken)
   next()
@@ -1892,6 +1902,9 @@ define helper __async-iter-result = #(mutable limit, iterator, on-value, on-comp
       next()
   let mutable index = 0
   let mutable done = false
+  let mutable close = #
+    close := null
+    iterator?.close?()
   let next()
     while not broken? and slots-used ~< limit and not done
       try
@@ -1906,11 +1919,18 @@ define helper __async-iter-result = #(mutable limit, iterator, on-value, on-comp
       let i = index
       index ~+= 1
       sync := true
-      on-value value, i, on-value-callback
+      try
+        on-value value, i, on-value-callback
+      catch e
+        if close
+          close()
+        throw e
       sync := false
     if broken? or slots-used == 0
       let f = on-complete
       on-complete := void
+      if close
+        close()
       if f
         if broken?
           f(broken)
