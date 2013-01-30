@@ -38,6 +38,12 @@ let get-indent = do
         cache.push result
     cache[indent]
 
+let StringWriter(callback)
+  let sw = #(item)! -> callback item
+  sw.indent := #(count)!
+    callback get-indent(count)
+  sw
+
 let StringBuilder()
   let data = []
   let sb = #(item)! -> data.push item
@@ -1543,9 +1549,11 @@ exports.Root := class Root
     if not options.indent
       options.indent := 0
     
-    let sb = StringBuilder()
+    let writer = if typeof options.writer == \function then options.writer
+    let sb = if writer then StringWriter(writer) else StringBuilder()
     compile-func-body(options, sb, @declarations, @variables, @body)
-    sb.to-string()
+    if not writer?
+      sb.to-string()
   
   def to-string() -> @compile()
   

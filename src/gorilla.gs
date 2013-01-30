@@ -112,7 +112,7 @@ let compile = exports.compile := #(source, options = {}, callback)
     async! callback, node <- translate source, options
     callback null, node.compile options
   else
-    let node = translate source, options, callback
+    let node = translate source, options
     node.compile options
 
 let evaluate(root, options)

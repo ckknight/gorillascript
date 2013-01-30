@@ -31,6 +31,8 @@ cli.main #(filenames, options)
     async err <- gorilla.init()
     throw? err
     next()
+  if options.stdout
+    opts.writer := #(text) -> process.stdout.write text
   let handle-code(code, callback = #->)
     asyncif err, result <- next, options.ast
       async! next, ast <- gorilla.ast code, opts
@@ -39,14 +41,16 @@ cli.main #(filenames, options)
       async! next, nodes <- gorilla.parse code, opts
       next null, util.inspect ast, false, null
     else if options.stdout
-      gorilla.compile code, opts, next
+      async! next <- gorilla.compile code, opts
+      next null, ""
     else
       async! next, result <- gorilla.eval code, opts
       next null, util.inspect result
     if err?
       callback(err)
     else
-      process.stdout.write "$result\n"
+      if result != ""
+        process.stdout.write "$result\n"
       callback()
   if options.ast and options.compile
     console.error "Cannot specify both --ast and --compile"
