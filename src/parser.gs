@@ -4126,6 +4126,63 @@ define Line = sequential! [
   [\this, Statement]
 ]
 
+let _Block = do
+  let mutator = #(lines, o, i)
+    let nodes = []
+    for item in lines
+      if item instanceof BlockNode
+        nodes.push ...item.nodes
+      else if item not instanceof NothingNode
+        nodes.push item
+    switch nodes.length
+    case 0; o.nothing i
+    case 1; nodes[0]
+    default; o.block i, nodes
+  
+  let run-sync = sequential! [
+    [\head, Line]
+    [\tail, zero-or-more! sequential! [
+      Newline
+      EmptyLines
+      [\this, Line]
+    ]]
+  ], #(x, o, i) -> mutator([x.head, ...x.tail], o, i)
+  
+  let run-async = #(o, callback)
+    let i = o.index
+    let mutable head = void
+    try
+      head := Line(o)
+    catch e
+      return callback e
+    if not head
+      return callback null, head
+    let lines = [head]
+    let next()
+      try
+        let start-time = new Date().get-time()
+        while true
+          if new Date().get-time() - start-time > 17_ms
+            return next-tick next
+          let clone = o.clone()
+          if not Newline(clone) or not EmptyLines(clone)
+            break
+          let line = Line(clone)
+          if not line
+            break
+          o.update clone
+          lines.push line
+      catch e
+        return callback e
+      callback null, mutator(lines, o, i)
+    next()
+  
+  #(o, callback)
+    if callback?
+      run-async(o, callback)
+    else
+      run-sync(o)
+
 define Block = one-of! [
   sequential! [
     CheckIndent
@@ -4135,42 +4192,32 @@ define Block = one-of! [
     CheckIndent
     [\this, IndentedUnclosedArrayLiteralInner]
   ]
-  sequential! [
-    [\head, Line]
-    [\tail, zero-or-more! sequential! [
-      Newline
-      EmptyLines
-      [\this, Line]
-    ]]
-  ], #(x, o, i)
-    let nodes = []
-    for item in [x.head, ...x.tail]
-      if item instanceof BlockNode
-        nodes.push ...item.nodes
-      else if item not instanceof NothingNode
-        nodes.push item
-    switch nodes.length
-    case 0; o.nothing i
-    case 1; nodes[0]
-    default; o.block i, nodes
+  _Block
 ]
 
-define Shebang = sequential! [
+let Shebang = sequential! [
   character! "#"
   character! "!"
   zero-or-more! any-except! Newline
 ], true
 
-define Root = sequential! [
-  maybe! Shebang, true
-  EmptyLines
-  [\this, one-of! [
-    Block
-    Nothing
-  ]]
-  EmptyLines
-  Space
-], #(x, o, i) -> o.root i, x
+let Root = #(o, callback)
+  let i = o.index
+  Shebang(o)
+  EmptyLines(o)
+  asyncif block <- next, callback?
+    async! callback, block <- _Block o
+    next block
+  else
+    next _Block o
+  let x = block or o.nothing(i)
+  EmptyLines(o)
+  Space(o)
+  let result = o.root i, x
+  if callback?
+    callback null, result
+  else
+    result
 
 class ParserError extends Error
   def constructor(message as String, text as String, index as Number, line as Number)
@@ -7129,16 +7176,19 @@ let build-error-message(errors, last-token)
 let parse(text as String, macros as MacroHolder|null, options as {} = {}, callback as Function|null)
   let o = State text, macros?.clone(), options
   
-  let result = try
-    Root(o)
-  catch e
-    if e != SHORT_CIRCUIT
-      if callback?
-        return callback(e)
-      else
+  asyncif result <- next, callback?
+    async err, root <- Root o
+    if err? and err != SHORT_CIRCUIT
+      return callback err
+    next root
+  else
+    try
+      next Root o
+    catch e
+      if e != SHORT_CIRCUIT
         throw e
-  
-  o.done-parsing := true
+      else
+        next()
   
   if not result or o.index < o.data.length
     let {index, line, messages} = o.failures
