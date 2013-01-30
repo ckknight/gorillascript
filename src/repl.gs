@@ -169,17 +169,12 @@ repl.on \line, #(buffer)
 
   let code = backlog
   backlog := ""
-  try
-    let ret = gorilla.eval code, {
-      sandbox
-      filename: "repl"
-      modulename: "repl"
-    }
-    if ret != void
-      sandbox._ := ret
-      process.stdout.write util.inspect(ret, false, 2, enable-colors) & "\n"
-  catch err
+  async err, ret <- gorilla.eval code, { sandbox, filename: \repl, modulename: \repl }
+  if err
     error err
+  else if ret != void
+    sandbox._ := ret
+    process.stdout.write util.inspect(ret, false, 2, enable-colors) & "\n"
   repl.prompt()
 
 repl.set-prompt REPL_PROMPT

@@ -165,7 +165,9 @@ exports.eval := #(source, options = {}, callback)
   else
     evaluate(translate(source, options), options)
 
-exports.run := #(source, options = {})
+exports.run := #(source, options = {}, callback)!
+  if typeof options == \function
+    return exports.run source, null, callback
   let main-module = require.main
   main-module.filename := (process.argv[1] := if options.filename
     fs.realpath-sync(options.filename)
@@ -176,9 +178,16 @@ exports.run := #(source, options = {})
     let {Module} = require('module')
     main-module.paths := Module._node-module-paths path.dirname options.filename
   if path.extname(main-module.filename) != ".gs" or require.extensions
-    main-module._compile compile(source, options), main-module.filename
+    asyncif compilation <- next, callback?
+      async! callback, ret <- compile(source, options)
+      next ret
+    else
+      next compile(source, options)
+    main-module._compile compilation, main-module.filename
+    callback?()
   else
     main-module._compile source, main-module.filename
+    callback?()
 
 exports.init := #(callback)!
   if callback?

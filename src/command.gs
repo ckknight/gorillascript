@@ -31,16 +31,23 @@ cli.main #(filenames, options)
     async err <- gorilla.init()
     throw? err
     next()
-  let handle-code(code)
-    let result = if options.ast
-      util.inspect (gorilla.ast code, opts), false, null
+  let handle-code(code, callback = #->)
+    asyncif err, result <- next, options.ast
+      async! next, ast <- gorilla.ast code, opts
+      next null, util.inspect ast, false, null
     else if options.nodes
-      util.inspect gorilla.parse(code, opts).result, false, null
+      async! next, nodes <- gorilla.parse code, opts
+      next null, util.inspect ast, false, null
     else if options.stdout
-      gorilla.compile code, opts
+      gorilla.compile code, opts, next
     else
-      util.inspect gorilla.eval code, opts
-    process.stdout.write "$result\n"
+      async! next, result <- gorilla.eval code, opts
+      next null, util.inspect result
+    if err?
+      callback(err)
+    else
+      process.stdout.write "$result\n"
+      callback()
   if options.ast and options.compile
     console.error "Cannot specify both --ast and --compile"
   else if options.ast and options.nodes
@@ -61,21 +68,20 @@ cli.main #(filenames, options)
       next()
     throw? err
     let compiled = {}
-    for filename in filenames
+    asyncfor err <- next, filename in filenames
       let code = input[filename]
       if options.compile
         process.stdout.write "Compiling $(path.basename filename) ... "
         let start-time = Date.now()
-        let js-code = gorilla.compile code, opts
+        async! next, js-code <- gorilla.compile code, opts
         let end-time = Date.now()
         process.stdout.write "$(((end-time - start-time) / 1000_ms).toFixed(3)) seconds\n"
         compiled[filename] := js-code
+        next()
       else if options.stdout
-        handle-code(code)
+        handle-code code, next
       else
-        opts.filename := filename
-        gorilla.run code, opts
-        opts.filename := null
+        gorilla.run code, { extends opts, filename }, next
     
     if options.compile
       asyncfor(0) next, filename in filenames
