@@ -856,43 +856,6 @@ define helper __floor = Math.floor
 define helper __sqrt = Math.sqrt
 define helper __log = Math.log
 
-macro try
-  syntax try-body as (Body | (";", this as Statement)), catch-part as ("\n", "catch", ident as Identifier, body as (Body | (";", this as Statement)))?, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (Body | (";", this as Statement)))?
-    let has-else = not not else-body
-    if not catch-part and has-else and not finally-body
-      throw Error("Must provide at least a catch, else, or finally to a try block")
-    
-    let mutable catch-ident = catch-part?.ident
-    let mutable catch-body = catch-part?.body
-    let init = []
-    let mutable run-else = void
-    if has-else
-      run-else := @tmp \else, false, \boolean
-      init.push AST let $run-else = true
-      if catch-body
-        catch-body := AST
-          $run-else := false
-          $catch-body
-      else
-        catch-ident := @tmp \err
-        catch-body := AST
-          $run-else := false
-          throw $catch-ident
-    
-    let mutable current = try-body
-    if catch-body
-      current := @try-catch(current, catch-ident, catch-body)
-    if has-else
-      current := @try-finally current, AST
-        if $run-else
-          $else-body
-    if finally-body
-      current := @try-finally(current, finally-body)
-    
-    AST
-      $init
-      $current
-
 macro for
   syntax reducer as (\every | \some | \first)?, init as (ExpressionOrAssignment|""), ";", test as (Logic|""), ";", step as (ExpressionOrAssignment|""), body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     init ?= @noop()
@@ -1532,6 +1495,94 @@ macro for
         $loop
         $post
 
+define operator binary instanceofsome with precedence: 3, maximum: 1, invertible: true, type: \boolean
+  if @is-array(right)
+    let elements = @elements(right)
+    if elements.length == 0
+      if @is-complex(left)
+        AST
+          $left
+          false
+      else
+        ASTE false
+    else if elements.length == 1
+      let element = elements[0]
+      ASTE $left instanceof $element
+    else
+      let f(i, current, left)
+        if i < elements.length
+          let element = elements[i]
+          f(i + 1, ASTE $current or $left instanceof $element, left)
+        else
+          current
+      @maybe-cache left, #(set-left, left)
+        let element = elements[0]
+        f(1, ASTE $set-left instanceof $element, left)
+  else
+    ASTE __instanceofsome($left, $right)
+
+macro try
+  syntax try-body as (Body | (";", this as Statement)), typed-catches as ("\n", "catch", ident as Identifier, "as", type as Type, body as (Body | (";", this as Statement)))*, catch-part as ("\n", "catch", ident as Identifier, body as (Body | (";", this as Statement)))?, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (Body | (";", this as Statement)))?
+    let has-else = not not else-body
+    if not catch-part and has-else and not finally-body
+      throw Error("Must provide at least a catch, else, or finally to a try block")
+
+    let mutable catch-ident = catch-part?.ident
+    let mutable catch-body = catch-part?.body
+    if typed-catches.length != 0
+      if not catch-ident
+        catch-ident := typed-catches[0].ident
+      catch-body := for reduce type-catch in typed-catches by -1, current = catch-body or AST throw $catch-ident
+        let type-ident = type-catch.ident
+        let let-err = if @name(type-ident) != @name(catch-ident)
+          AST let $type-ident = $catch-ident
+        else
+          @noop()
+        let types = @array for type in (if @is-type-union(type-catch.type) then @types(type-catch.type) else [type-catch.type])
+          if @is-type-array(type)
+            throw Error "Expected a normal type, cannot use an array type"
+          else if @is-type-function(type)
+            throw Error "Expected a normal type, cannot use a function type"
+          else if @is-type-object(type)
+            throw Error "Expected a normal type, cannot use an object type"
+          type
+        AST
+          if $catch-ident instanceofsome $types
+            $let-err
+            $(type-catch.body)
+          else
+            $current
+    let init = []
+    let mutable run-else = void
+    if has-else
+      run-else := @tmp \else, false, \boolean
+      init.push AST let $run-else = true
+      if catch-body
+        catch-body := AST
+          $run-else := false
+          $catch-body
+      else
+        catch-ident := @tmp \err
+        catch-body := AST
+          $run-else := false
+          throw $catch-ident
+
+    let mutable current = try-body
+    if catch-body
+      current := @try-catch(current, catch-ident, catch-body)
+    if has-else
+      current := @try-finally current, AST
+        if $run-else
+          $else-body
+    if finally-body
+      current := @try-finally(current, finally-body)
+
+    AST
+      $init
+      $current
+
+
+macro for
   syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
     let index = value?.index
@@ -1689,32 +1740,6 @@ define helper __new = do
 define helper __instanceofsome = #(value, array) as Boolean
   for some item in array by -1
     value instanceof item
-
-define operator binary instanceofsome with precedence: 3, maximum: 1, invertible: true, type: \boolean
-  if @is-array(right)
-    let elements = @elements(right)
-    if elements.length == 0
-      if @is-complex(left)
-        AST
-          $left
-          false
-      else
-        ASTE false
-    else if elements.length == 1
-      let element = elements[0]
-      ASTE $left instanceof $element
-    else
-      let f(i, current, left)
-        if i < elements.length
-          let element = elements[i]
-          f(i + 1, ASTE $current or $left instanceof $element, left)
-        else
-          current
-      @maybe-cache left, #(set-left, left)
-        let element = elements[0]
-        f(1, ASTE $set-left instanceof $element, left)
-  else
-    ASTE __instanceofsome($left, $right)
 
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody

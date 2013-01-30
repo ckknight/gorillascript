@@ -695,10 +695,12 @@ Like JavaScript, GorillaScript provides `switch`. The only major exception is th
 
 ## Try-catch-else-finally
 
-Try-catch also works similarly to JavaScript, with the notable exception of the `else` statement, for when no error was caught, but occurs before the `finally` statement.
+Try-catch also works similarly to JavaScript, except that catches can have type-checks and the notable exception of the `else` statement, for when no error was caught, but occurs before the `finally` statement.
 
     try
       something-dangerous()
+    catch e as SpecificError
+      handle-error(e)
     catch e
       uh-oh()
     else

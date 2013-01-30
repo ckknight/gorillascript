@@ -135,140 +135,149 @@ test "try-catch-else-finally", #
   ok hit-else
   ok hit-finally
 
-/*
-test "try-catch-as-type", -> do
-  class MyError end
+test "try-catch-as-type", #
+  class MyError
   
-  try
-    throw new MyError()
-  catch e as MyError
-    success()
-  catch e
-    fail()
-  end
-end
-
-test "try-catch-as-type-without-base", -> do
-  class MyError end
-  
-  let fun = (err) -> do
+  let f(err)
     try
       throw err
     catch e as MyError
-      return "MyError"
-    end
-  end
-  eq "MyError", fun(new MyError)
-  let obj = {}
-  throws -> fun(obj), (e) -> e == obj
-end
-
-test "try-multiple-catch-as-type", -> do
-  class AlphaError end
-  class BravoError end
+      ["MyError", e]
+    catch e
+      ["other", e]
   
-  let fun = (err) -> do
+  let my-error = MyError()
+  array-eq ["MyError", my-error], f my-error
+  let other-error = Error()
+  array-eq ["other", other-error], f other-error
+
+test "try-catch-as-type, differing idents", #
+  class MyError
+  
+  let f(err)
+    try
+      throw err
+    catch e as MyError
+      ["MyError", e]
+    catch err
+      ["other", err]
+  
+  let my-error = MyError()
+  array-eq ["MyError", my-error], f my-error
+  let other-error = Error()
+  array-eq ["other", other-error], f other-error
+
+test "try-catch-as-type-without-base", #
+  class MyError
+  
+  let f(err)
+    try
+      throw err
+    catch e as MyError
+      "MyError"
+  eq "MyError", f MyError()
+  let obj = {}
+  throws #-> f(obj), #(e) -> e == obj
+
+test "try-multiple-catch-as-type", #
+  class AlphaError
+  class BravoError
+  
+  let f(err)
     try
       throw err
     catch e as AlphaError
-      return "alpha"
+      "alpha"
     catch e as BravoError
-      return "bravo"
+      "bravo"
     catch e
-      return "other"
-    end
-  end
+      "other"
   
-  eq "alpha", fun(new AlphaError)
-  eq "bravo", fun(new BravoError)
-  eq "other", fun(new Error)
-end
+  eq "alpha", f AlphaError()
+  eq "bravo", f BravoError()
+  eq "other", f Error()
 
-test "try-multiple-catch-as-type, differing error identifiers", -> do
+test "try-multiple-catch-as-type using union syntax", #
   class AlphaError
-    new = (@value) ->
-  end
   class BravoError
-    new = (@value) ->
-  end
   
-  let fun = (err) -> do
+  let f(err)
+    try
+      throw err
+    catch e as AlphaError|BravoError
+      "alpha or bravo"
+    catch e
+      "other"
+  
+  eq "alpha or bravo", f AlphaError()
+  eq "alpha or bravo", f BravoError()
+  eq "other", f Error()
+
+test "try-multiple-catch-as-type, differing error identifiers", #
+  class AlphaError
+    def constructor(@value) ->
+  class BravoError
+    def constructor(@value) ->
+  
+  let f(err)
     try
       throw err
     catch e1 as AlphaError
-      return "alpha: #{e1.value}"
+      "alpha: $(e1.value)"
     catch e2 as BravoError
-      return "bravo: #{e2.value}"
+      "bravo: $(e2.value)"
     catch e3
-      return e3
-    end
-  end
+      e3
   
-  eq "alpha: 1", fun(new AlphaError(1))
-  eq "bravo: 2", fun(new BravoError(2))
-  eq "other", fun("other")
-end
+  eq "alpha: 1", f AlphaError(1)
+  eq "bravo: 2", f BravoError(2)
+  eq "other", f "other"
 
-test "try-catch-as-type-else", -> do
+test "try-catch-as-type-else", #
   class AlphaError
-    new = (@value) ->
-  end
+    def constructor(@value) ->
   class BravoError
-    new = (@value) ->
-  end
+    def constructor(@value) ->
 
-  let fun = (err) -> do
+  let f(err)
     try
-      if err?
-        throw err
-      end
+      throw? err
     catch e1 as AlphaError
-      return "alpha: #{e1.value}"
+      "alpha: $(e1.value)"
     catch e2 as BravoError
-      return "bravo: #{e2.value}"
+      "bravo: $(e2.value)"
     catch e3
-      return e3
+      e3
     else
       return "no error"
-    end
-  end
 
-  eq "alpha: 1", fun(new AlphaError(1))
-  eq "bravo: 2", fun(new BravoError(2))
-  eq "other", fun("other")
-  eq "no error", fun()
-end
+  eq "alpha: 1", f AlphaError(1)
+  eq "bravo: 2", f BravoError(2)
+  eq "other", f "other"
+  eq "no error", f()
 
-test "try-catch-as-type-else-finally", -> do
+test "try-catch-as-type-else-finally", #
   class AlphaError
-    new = (@value) ->
-  end
+    def constructor(@value) ->
   class BravoError
-    new = (@value) ->
-  end
-
-  let fun = (err) -> do
+    def constructor(@value) ->
+  
+  let f(err)
     let mutable result = null
     try
-      if err?
-        throw err
-      end
+      throw? err
     catch e1 as AlphaError
-      result := "alpha: #{e1.value}"
+      result := "alpha: $(e1.value)"
     catch e2 as BravoError
-      result := "bravo: #{e2.value}"
+      result := "bravo: $(e2.value)"
     catch e3
       result := e3
     else
       result := "no error"
     finally
-      return ":#{result}"
-    end
-  end
+      return ":$result"
 
-  eq ":alpha: 1", fun(new AlphaError(1))
-  eq ":bravo: 2", fun(new BravoError(2))
-  eq ":other", fun("other")
-  eq ":no error", fun()
-end
-*/
+  eq ":alpha: 1", f AlphaError(1)
+  eq ":bravo: 2", f BravoError(2)
+  eq ":other", f "other"
+  eq ":no error", f()

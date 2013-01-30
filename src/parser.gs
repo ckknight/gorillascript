@@ -4511,6 +4511,11 @@ class MacroHelper
     node := @macro-expand-1 node
     @is-type-function(node) and node.return-type
   
+  def is-type-union(node) -> @macro-expand-1(node) instanceof TypeUnionNode
+  def types(mutable node)
+    node := @macro-expand-1 node
+    @is-type-union(node) and node.types
+  
   def is-this(node) -> @macro-expand-1(node) instanceof ThisNode
   def is-arguments(mutable node)
     node := @macro-expand-1 node
@@ -5711,12 +5716,11 @@ class State
         let macro-helper = MacroHelper clone, i, _position.peek(), _in-generator.peek()
         let mutable result = try
           handler@ macro-helper, remove-noops(x), macro-helper@.wrap, macro-helper@.node
+        catch e as MacroError
+          e.line := line
+          throw e
         catch e
-          if e instanceof MacroError
-            e.line := line
-            throw e
-          else
-            throw MacroError(e, o.data, i, line)
+          throw MacroError(e, o.data, i, line)
         o.update clone
         if result instanceof Node
           let walker(node)
