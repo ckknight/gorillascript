@@ -278,6 +278,7 @@ class GeneratorBuilder
     let state-ident = @state-ident
     body.push ast.Return ast.Obj
       * ast.Obj.Pair \close, close
+      * ast.Obj.Pair \iterator, ast.Func null, [], [], ast.Return(ast.This())
       * ast.Obj.Pair \next, ast.Func null, [], [], ast.While(true,
           ast.TryCatch(
             ast.Switch state-ident, (for state, i in @states

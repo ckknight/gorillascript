@@ -426,6 +426,7 @@ async-test "asyncunless with else", #
 
 let array-to-iterator(array)
   {
+    iterator: #-> this
     next: #
       if @index >= @array.length
         throw StopIteration

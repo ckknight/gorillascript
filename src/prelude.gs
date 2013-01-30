@@ -1547,13 +1547,13 @@ macro for
       $loop
       $current
 
-  syntax reducer as (\every | \some | \first)?, value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     if else-body and @position == \expression
       throw Error("Cannot use a for loop with an else as an expression")
   
     let init = []
-    iterator := @cache iterator, init, \iter, false
-  
+    let iterator = @cache AST $iterable.iterator(), init, \iter, false
+    
     let step = []
     if index
       init.push AST let mutable $index = 0
@@ -1595,7 +1595,7 @@ macro for
         $capture-value
         $body
 
-    if reducer == \every
+    let main = if reducer == \every
       ASTE for every $init; true; $step
         $body
     else if reducer == \some
@@ -1612,6 +1612,11 @@ macro for
         for $init; true; $step
           $body
         $post
+    
+    AST try
+      $main
+    finally
+      $iterator?.close?()
 
   syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)

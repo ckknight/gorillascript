@@ -1152,6 +1152,7 @@ test "loop up til -Infinity", #
 
 let array-to-iterator(array)
   {
+    iterator: #-> this
     next: #
       if @index >= @array.length
         throw StopIteration
