@@ -52,11 +52,11 @@ cli.main #(filenames, options)
     cli.with-stdin handle-code
   else if filenames.length
     let input = {}
-    asyncfor(0) next, filename in filenames
-      async err, code <- fs.read-file filename
-      throw? err
+    asyncfor(0) err <- next, filename in filenames
+      async! next, code <- fs.read-file filename
       input[filename] := code.to-string()
       next()
+    throw? err
     let compiled = {}
     for filename in filenames
       let code = input[filename]

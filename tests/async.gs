@@ -16,6 +16,26 @@ async-test "async", #
   @after #-> ok value.ran
   @after #-> ok body-ran
 
+async-test "async!", #
+  let wait = @wait
+  let f(get-value, callback)
+    let self = this
+    async! callback, x <- wait get-value
+    eq self, this
+    callback(null, x)
+  
+  let mutable runs = 0
+  f@ {}, run-once("hello"), #(err, value)
+    eq null, err
+    eq "hello", value
+    runs += 1
+  let error = {}
+  f@ {}, #-> throw error, #(e, value)
+    eq error, e
+    eq void, value
+    runs += 1
+  @after #-> eq 2, runs
+
 async-test "asyncfor", #
   let wait = @wait
   let mutable sum = 0

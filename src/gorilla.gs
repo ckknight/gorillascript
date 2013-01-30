@@ -26,32 +26,23 @@ let fetch-and-parse-prelude = do
     fetchers.push cb
     if fetchers.length > 1
       return
-    async err, prelude-src-stat <- fs.stat prelude-src-path
-    if err
-      return flush(err, null)
+    async! flush, prelude-src-stat <- fs.stat prelude-src-path
     async err, prelude-cache-stat <- fs.stat prelude-cache-path
-    if err and err.code != "ENOENT"
+    if err? and err.code != "ENOENT"
       return flush(err, null)
     asyncif next, err?.code != "ENOENT" and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time() and false
-      async err, cache-prelude <- fs.read-file prelude-cache-path, "utf8"
-      if err
-        return flush(err, null)
+      async! flush, cache-prelude <- fs.read-file prelude-cache-path, "utf8"
       try
         parsed-prelude := parser.deserialize-prelude(cache-prelude)
       catch e as ReferenceError
         throw e
       catch e
         console.error "Error deserializing prelude, reloading. $(String e)"
-        async err <- fs.unlink prelude-cache-path
-        if err
-          flush(err, null)
-        else
-          next()
+        async! flush <- fs.unlink prelude-cache-path
+        next()
       else
         flush(null, parsed-prelude)
-    async err, prelude <- fs.read-file prelude-src-path, "utf8"
-    if err
-      return flush(err, null)
+    async! flush, prelude <- fs.read-file prelude-src-path, "utf8"
     if not parsed-prelude?
       parsed-prelude := parser prelude, null, { +serialize-macros }
       fs.write-file prelude-cache-path, parsed-prelude.macros.serialize(), "utf8", #(err)
@@ -84,12 +75,7 @@ let fetch-and-parse-prelude = do
           throw? err
       parsed-prelude
   f
-/*
-set-timeout (#
-  async err <- fetch-and-parse-prelude()
-  if err
-    throw err), 1
-*/
+
 let parse = exports.parse := #(source, options = {})
   if options.no-prelude
     parser(source, null, options)

@@ -74,11 +74,14 @@ global.async-test := #(description, fn)!
     try
       result := get-value()
     catch e
-      e.description := description
-      e.source := fn.to-string()
-      add-failure fn.test.current-file, e
+      cb(e)
     else
-      cb(null, result)
+      try
+        cb(null, result)
+      catch e
+        e.description := description
+        e.source := fn.to-string()
+        add-failure fn.test.current-file, e
   test description, fn
 
 let array-equal = #(a, b)
@@ -118,9 +121,7 @@ asyncfor(0) err <- next, file, i in files
   unless r'\.gs$'i.test(file)
     return next()
   let filename = path.join tests-path, file
-  async err, code <- fs.read-file filename
-  if err?
-    return next(err)
+  async! next, code <- fs.read-file filename
   inputs[file] := { code, filename }
   next()
 throw? err

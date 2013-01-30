@@ -1750,6 +1750,22 @@ macro async
     let func = @func(params, body, true, true)
     @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call)
 
+macro async!
+  syntax callback as Expression, params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
+    if not @is-call(call)
+      throw Error("async! call expression must be a call")
+    
+    let error = @tmp \e, false
+    params := [@param(error)].concat(params)
+    let func = @func params,
+      AST
+        if $error?
+          return $callback $error
+        $body
+      true
+      true
+    @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call)
+
 define helper __xor = #(x, y)
   if x
     if y

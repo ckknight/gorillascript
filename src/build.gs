@@ -23,9 +23,7 @@ gorilla.init()
 let inputs = {}
 asyncfor(0) err <- next, file in files
   let filename = path.join "./src", file
-  async err, code <- fs.read-file filename, "utf8"
-  if err?
-    return next(err)
+  async! next, code <- fs.read-file filename, "utf8"
   inputs[file] := { filename, code }
   next()
 if err?
@@ -45,8 +43,6 @@ asyncfor(0) err <- next, file in files
   async err <- fs.rename output-file, "$(output-file).bak"
   if err? and err.code != \ENOENT
     return next(err)
-  async err <- fs.write-file output-file, compiled, "utf8"
-  if err?
-    return next(err)
+  async! next <- fs.write-file output-file, compiled, "utf8"
   next()
 done(err)

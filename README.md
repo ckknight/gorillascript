@@ -841,6 +841,24 @@ No indentation necessary, every line following the async call will be part of th
 
 Although that may not seem too useful with only one block of indentation, when dealing with complex database access or multiple sources of input, it is very easy to become overwhelmed.
 
+### Async function with automatic error handling
+
+In the case where you don't want to throw the error, but instead need to pass it to a callback (which takes the error as the first argument), you have one of two options:
+
+    let run(callback)
+      async err, text <- fs.read-file "somefile.txt", "utf8"
+      if err?
+        return callback err
+      callback null, do-something(text)
+
+Or you can use
+
+    let run(callback)
+      async! callback, text <- fs.read-file "somefile.txt", "utf8"
+      callback null, do-something(text)
+
+Which is functionally equivalent.
+
 ### Async loops
 
 Often, one may use a library to manage asynchronous handling of loops and iteration over arrays, but that is all built right into GorillaScript. Every loop construct you've seen works seamlessly by prepending `async` and specifying the `next` callback.
