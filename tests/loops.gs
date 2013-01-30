@@ -1281,15 +1281,16 @@ test "For-in literal array with step = -2", #
   array-eq [[16, 3], [4, 1]], result
 
 test "For-in literal array with dynamic step", #
-  let run(get-step)    
+  let run(step)
+    let get-step = run-once step
     let result = []
     for v, i in [1, 4, 9, 16] by get-step()
       result.push [v, i]
     result
-  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], run(run-once 1)
-  array-eq [[16, 3], [9, 2], [4, 1], [1, 0]], run(run-once -1)
-  array-eq [[1, 0], [9, 2]], run(run-once 2)
-  array-eq [[16, 3], [4, 1]], run(run-once -2)
+  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], run 1
+  array-eq [[16, 3], [9, 2], [4, 1], [1, 0]], run -1
+  array-eq [[1, 0], [9, 2]], run 2
+  array-eq [[16, 3], [4, 1]], run -2
 
 test "For-in array with step = 1", #
   let result = []
@@ -1320,12 +1321,101 @@ test "For-in array with step = -2", #
   array-eq [[16, 3], [4, 1]], result
 
 test "For-in array with dynamic step", #
-  let run(get-arr, get-step)    
+  let run(arr, step)
+    let get-arr = run-once arr
+    let get-step = run-once step
     let result = []
     for v, i in get-arr() by get-step()
       result.push [v, i]
     result
-  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], run(run-once([1, 4, 9, 16]), run-once 1)
-  array-eq [[16, 3], [9, 2], [4, 1], [1, 0]], run(run-once([1, 4, 9, 16]), run-once -1)
-  array-eq [[1, 0], [9, 2]], run(run-once([1, 4, 9, 16]), run-once 2)
-  array-eq [[16, 3], [4, 1]], run(run-once([1, 4, 9, 16]), run-once -2)
+  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], run([1, 4, 9, 16], 1)
+  array-eq [[16, 3], [9, 2], [4, 1], [1, 0]], run([1, 4, 9, 16], -1)
+  array-eq [[1, 0], [9, 2]], run([1, 4, 9, 16], 2)
+  array-eq [[16, 3], [4, 1]], run([1, 4, 9, 16], -2)
+
+test "For-in array with slice", #
+  let mutable result = []
+  let array = [1, 4, 9, 16]
+  let mutable arr = run-once array
+  for v, i in arr()[1 to 2]
+    result.push [v, i]
+  array-eq [[4, 1], [9, 2]], result
+  
+  result := []
+  arr := run-once array
+  for v, i in arr()[1 til -1]
+    result.push [v, i]
+  array-eq [[4, 1], [9, 2]], result
+  
+  result := []
+  arr := run-once array
+  for v, i in arr()[-3 til -1]
+    result.push [v, i]
+  array-eq [[4, 1], [9, 2]], result
+  
+  result := []
+  arr := run-once array
+  for v, i in arr()[-3 to -1]
+    result.push [v, i]
+  array-eq [[4, 1], [9, 2], [16, 3]], result
+  
+  result := []
+  arr := run-once array
+  for v, i in arr()[3 til 6]
+    result.push [v, i]
+  array-eq [[16, 3]], result
+
+test "For-in array with slice and step = -1", #
+  let mutable result = []
+  let array = [1, 4, 9, 16]
+  let mutable arr = run-once array
+  for v, i in arr()[2 to 1 by -1]
+    result.push [v, i]
+  array-eq [[9, 2], [4, 1]], result
+  
+  result := []
+  arr := run-once array
+  for v, i in arr()[-2 til 0 by -1]
+    result.push [v, i]
+  array-eq [[9, 2], [4, 1]], result
+  
+  result := []
+  arr := run-once array
+  for v, i in arr()[-2 to 1 by -1]
+    result.push [v, i]
+  array-eq [[9, 2], [4, 1]], result
+  
+  result := []
+  arr := run-once array
+  for v, i in arr()[-1 to -3 by -1]
+    result.push [v, i]
+  array-eq [[16, 3], [9, 2], [4, 1]], result
+  
+  result := []
+  arr := run-once array
+  for v, i in arr()[6 to -2 by -1]
+    result.push [v, i]
+  array-eq [[16, 3], [9, 2]], result
+
+test "For-in array with dynamic slice and step", #
+  let run(array, start, end, step)
+    let get-array = run-once array
+    let get-start = run-once start
+    let get-end = run-once end
+    let get-step = run-once step
+    
+    let result = []
+    for v, i in get-array()[get-start() to get-end() by get-step()]
+      result.push [v, i]
+    result
+  
+  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], run([1, 4, 9, 16], 0, -1, 1)
+  array-eq [[1, 0], [4, 1], [9, 2]], run([1, 4, 9, 16], 0, -2, 1)
+  array-eq [[1, 0], [4, 1], [9, 2], [16, 3]], run([1, 4, 9, 16], 0, 10, 1)
+  array-eq [[16, 3]], run([1, 4, 9, 16], -1, 10, 1)
+  array-eq [], run([1, 4, 9, 16], -1, 2, 1)
+  array-eq [[16, 3], [9, 2], [4, 1], [1, 0]], run([1, 4, 9, 16], -1, 0, -1)
+  array-eq [[1, 0], [9, 2]], run([1, 4, 9, 16], 0, -1, 2)
+  array-eq [[16, 3], [4, 1]], run([1, 4, 9, 16], -1, 0, -2)
+  array-eq [[9, 2], [1, 0]], run([1, 4, 9, 16], -2, 0, -2)
+  array-eq [], run([1, 4, 9, 16], -2, 3, -2)

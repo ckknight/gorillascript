@@ -452,7 +452,7 @@ exports.Binary := class Binary extends Expression
     f(@op, @left, @right, options, level, line-start, sb)
   
   def compile-as-block(options, level, line-start, sb)!
-    if ASSIGNMENT_OPS ownskey @op
+    if ASSIGNMENT_OPS ownskey @op or @op in ["&&", "||"]
       super.compile-as-block(options, level, line-start, sb)
     else
       BlockExpression([@left, @right]).compile-as-block(options, level, line-start, sb)
@@ -649,12 +649,27 @@ exports.BlockExpression := class BlockExpression extends Expression
       for item, i in nodes
         if i > 0
           sb ", "
-        item.compile options, Level.sequence, false, sb
+        item.compile options, if wrap then Level.sequence else level, false, sb
       if wrap
         sb ")"
   
-  def compile-as-block(options, level, line-start, sb)
-    BlockExpression(for item in @body; if not item.is-noop() then item).compile(options, level, line-start, sb)
+  def compile-as-block(options, level, line-start, sb)!
+    if level == Level.block
+      @compile options, level, line-start, sb
+    else
+      let nodes = for node, i, len in @body
+        if not node.is-noop()
+          node
+      
+      let wrap = level > Level.inside-parentheses and nodes.length > 1
+      if wrap
+        sb "("
+      for item, i in nodes
+        if i > 0
+          sb ", "
+        item.compile-as-block options, if wrap then Level.sequence else level, false, sb
+      if wrap
+        sb ")"
   
   def is-large()
     @_is-large ?= @body.length > 4 or for some part in @body by -1; part.is-large()
@@ -1325,15 +1340,13 @@ exports.IfExpression := class IfExpression extends Expression
       if wrap
         sb ")"
   def compile-as-block(options, level, line-start, sb)!
-    if @test.is-noop()
-      @when-false.compile-as-block(options, level, line-start, sb)
-    else if @when-true.is-noop()
+    if @when-true.is-noop()
       if @when-false.is-noop()
         @test.compile-as-block(options, level, line-start, sb)
       else
         Binary(@test, "||", @when-false).compile-as-block(options, level, line-start, sb)
     else if @when-false.is-noop()
-      Binary(@test, "&&", @when-false).compile-as-block(options, level, line-start, sb)
+      Binary(@test, "&&", @when-true).compile-as-block(options, level, line-start, sb)
     else
       @compile(options, level, line-start, sb)
   

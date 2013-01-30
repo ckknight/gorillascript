@@ -622,21 +622,41 @@ define operator binary ? with precedence: 0
   @maybe-cache left, #(set-left, left)@
     ASTE if $set-left? then $left else $right
 
-define operator assign ~min=, ~max=, min=, max=, xor=
+define operator assign ~min=
   @maybe-cache-access left, #(set-left, left)@
-    let action = if op == "~min="
-      ASTE $left ~min $right
-    else if op == "~max="
-      ASTE $left ~max $right
-    else if op == "min="
-      ASTE $left min $right
-    else if op == "max="
-      ASTE $left max $right
-    else if op == "xor="
-      ASTE $left xor $right
-    else
-      throw Error()
-    ASTE $set-left := $action
+    @maybe-cache right, #(set-right, right)@
+      ASTE if $set-left ~> $set-right
+        $left := $right
+      else
+        $left
+
+define operator assign ~max=
+  @maybe-cache-access left, #(set-left, left)@
+    @maybe-cache right, #(set-right, right)@
+      ASTE if $set-left ~< $set-right
+        $left := $right
+      else
+        $left
+
+define operator assign min=
+  @maybe-cache-access left, #(set-left, left)@
+    @maybe-cache right, #(set-right, right)@
+      ASTE if $set-left > $set-right
+        $left := $right
+      else
+        $left
+
+define operator assign max=
+  @maybe-cache-access left, #(set-left, left)@
+    @maybe-cache right, #(set-right, right)@
+      ASTE if $set-left < $set-right
+        $left := $right
+      else
+        $left
+
+define operator assign xor=
+  @maybe-cache-access left, #(set-left, left)@
+    ASTE $set-left := $left xor $right
 
 define operator assign ?=
   @maybe-cache-access left, #(set-left, left)@
@@ -1189,7 +1209,7 @@ macro for
   
       let has-index = index?
       index ?= @tmp \i, false, \number
-      let has-length = length?
+      let mutable has-length = length?
       length ?= @tmp \len, false, \number
     
       @macro-expand-all AST let $length = 0
@@ -1197,62 +1217,156 @@ macro for
       array := @macro-expand-all(array)
       
       let mutable step = ASTE 1
-      if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__step
-        step := @call-args(array)[1]
-        array := @call-args(array)[0]
+      let mutable start = ASTE 0
+      let mutable end = ASTE Infinity
+      let mutable inclusive = ASTE false
+      if @is-call(array) and @is-ident(@call-func(array))
+        if @name(@call-func(array)) == \__step
+          let args = @call-args(array)
+          array := args[0]
+          step := args[1]
+          if @is-const(step)
+            if @value(step) >= 0
+              start := ASTE 0
+              end := ASTE Infinity
+            else
+              start := ASTE Infinity
+              end := ASTE 0
+          else
+            start := void
+            end := void
+          inclusive := ASTE true
+        else if @name(@call-func(array)) == \__slice
+          let args = @call-args(array)
+          array := args[0]
+          start := args[1]
+          end := args[2]
+          if @is-const(end) and @value(end) == void
+            end := ASTE Infinity
+        else if @name(@call-func(array)) == \__slice-step
+          let args = @call-args(array)
+          array := args[0]
+          start := args[1]
+          end := args[2]
+          step := args[3]
+          inclusive := args[4]
+      if @is-const(step)
+        if typeof @value(step) != \number or @value(step) not %% 1
+          throw Error "Expected step to be an integer, got $(typeof @value(step)) ($(String @value(step)))"
+        else if @value(step) == 0
+          throw Error "Step must be non-zero"
+      if start and @is-const(start) and @value(start) != Infinity and (typeof @value(start) != \number or @value(start) not %% 1)
+        throw Error "Expected start to be an integer, got $(typeof @value(start)) ($(String @value(start)))"
+      if end and @is-const(end) and @value(end) != Infinity and (typeof @value(end) != \number or @value(end) not %% 1)
+        throw Error "Expected end to be an integer or Infinity, got $(typeof @value(end)) ($(String @value(end)))"
       
       if not is-string and not @is-type array, \array-like
         array := ASTE __to-array $array
       array := @cache array, init, if is-string then \str else \arr, false
-    
+      
       let value-expr = ASTE if $is-string then $array.char-at($index) else $array[$index]
       let let-index = @macro-expand-all AST let mutable $index = 0
       let let-value = @macro-expand-all AST let $value = $value-expr
       let let-length = @macro-expand-all AST let $length = +$array.length
-    
-      let mutable increment = void
-      let test = if @is-const(step)
-        if @value(step) == 1
-          init.push let-index
-          init.push let-length
-          increment := ASTE $index ~+= $step
-          ASTE $index ~< $length
-        else if @value(step) == -1  
+      
+      let [test, increment] = if @is-const(step)
+        if @value(step) > 0
+          if @is-const(start)
+            if @value(start) >= 0
+              init.push AST let mutable $index = $start
+              init.push let-length
+            else
+              init.push let-length
+              init.push AST let mutable $index = $length + $start
+          else
+            init.push let-length
+            init.push AST let mutable $index = __int($start)
+            init.push ASTE if $index ~< 0 then ($index += $length)
+          if @is-const(end) and (@value(end) == Infinity or (@is-const(inclusive) and @value(inclusive) and @value(end) == -1))
+            [ASTE $index ~< $length, ASTE ($index ~+= $step)]
+          else
+            let tmp = @tmp \end, false, \number
+            init.push AST let mutable $tmp = +$end
+            if not @is-const(end)
+              init.push ASTE if $tmp ~< 0 then ($tmp ~+= $length)
+            else if @value(end) < 0
+              init.push ASTE $tmp ~+= $length
+            init.push ASTE if $inclusive then ($tmp := $tmp + 1 or Infinity)
+            init.push ASTE $tmp ~min= $length
+            [ASTE $index ~< $tmp, ASTE $index ~+= $step]
+        else if @value(step) == -1 and (not start or (@is-const(start) and @value(start) in [-1, Infinity] and @is-const(end) and @value(end) == 0 and @is-const(inclusive) and @value(inclusive)))
           if has-length
             init.push let-length
             init.push AST let mutable $index = $length
           else
             init.push AST let mutable $index = +$array.length
-          ASTE post-dec! $index
+          [ASTE post-dec! $index, @noop()]
         else
-          if typeof @value(step) != \number
-            throw Error "Step must be a number"
-          else if @value(step) == 0
-            throw Error "Cannot have a step of zero"
-          else if @value(step) not %% 1
-            throw Error "Step must be an integer, got $(@value(step))"
-          else if @value(step) < 0
-            if has-length
-              init.push let-length
-              init.push AST let mutable $index = $length ~- 1
+          if not @is-const(end) or @value(end) < 0
+            has-length := true
+          if @is-const(start)
+            if @value(start) in [-1, Infinity]
+              if has-length
+                init.push let-length
+                init.push AST let mutable $index = $length ~- 1
+              else
+                init.push AST let mutable $index = +$array.length ~- 1
             else
-              init.push AST let mutable $index = +$array.length ~- 1
-            increment := ASTE $index ~+= $step
-            ASTE $index ~>= 0
+              init.push let-length
+              if @value(start) >= 0
+                init.push AST let mutable $index = if $start ~< $length then $start else $length ~- 1
+              else
+                init.push AST let mutable $index = $length ~+ +$start
           else
-            init.push let-index
             init.push let-length
-            increment := ASTE $index ~+= $step
-            ASTE $index ~< $length
+            init.push AST let mutable $index = +$start
+            init.push AST if $index ~< 0 then ($index ~+= $length) else ($index ~min= $length)
+            init.push AST $index ~-= 1
+          if @is-const(end)
+            if @value(end) >= 0
+              [ASTE if $inclusive then $index ~>= $end else $index ~> $end, ASTE $index ~+= $step]
+            else
+              [ASTE if $inclusive then $index ~>= $end + $length else $index ~> $end + $length, ASTE $index ~+= $step]
+          else
+            let tmp = @tmp \end, false, \number
+            init.push AST let mutable $tmp = +$end
+            init.push AST if $tmp ~< 0 then ($tmp ~+= $length)
+            [ASTE if $inclusive then $index ~>= $tmp else $index ~> $tmp, ASTE $index ~+= $step]
       else
         if @is-complex(step)
           step := @cache (ASTE __int(__nonzero($step))), init, \step, false
         else
           init.unshift ASTE __int(__nonzero($step))
         init.push let-length
-        init.push @macro-expand-all AST let mutable $index = if $step ~> 0 then 0 else $length ~- 1
-        increment := ASTE $index ~+= $step
-        ASTE if $step ~> 0 then $index ~< $length else $index ~>= 0
+        if not start
+          init.push AST let mutable $index = if $step ~> 0 then 0 else $length ~- 1
+          [
+            ASTE if $step ~> 0 then $index ~< $length else $index ~>= 0
+            ASTE $index ~+= $step
+          ]
+        else
+          if @is-const(start)
+            if @value(start) == Infinity
+              init.push AST let mutable $index = $length ~- 1
+            else
+              init.push AST let mutable $index = if $start ~>= 0 then $start else $start + $length
+          else
+            init.push AST let mutable $index = $start
+            init.push AST if $index ~< 0 then ($index += $length) else if $step ~< 0 then ($index ~min= $length)
+          let tmp = @tmp \end, false, \number
+          if @is-const(end)
+            init.push AST let mutable $tmp = if $end ~< 0 then $end ~+ $length else $end max (if $inclusive then $length ~- 1 else $length)
+          else
+            init.push AST let mutable $tmp = +$end
+            init.push AST if $tmp ~< 0 then ($tmp += $length) else if $step ~> 0 then ($tmp ~min= if $inclusive then $length ~- 1 else $length) else ($tmp ~max= (if $inclusive then 0 else -1))
+          end := tmp
+          [
+            ASTE if $step ~> 0
+              if $inclusive then $index ~<= $end else $index ~< $end
+            else
+              if $inclusive then $index ~>= $end else $index ~< $end
+            ASTE $index ~+= $step
+          ]
     
       if @has-func(body)
         let func = @tmp \f, false, \function
