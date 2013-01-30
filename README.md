@@ -915,3 +915,34 @@ Which turns into:
         throw? err
         console.log
       return false
+
+## Optional typing
+
+On parameters, one can put types in the format `param as Type`. These will be checked at runtime and the type inference engine will be aware of them.
+
+The types `String`, `Number`, `Boolean`, and `Function` will check against `typeof`, not with `instanceof`.
+
+`null`, `void`, and `undefined` (alias for `void`) are also seen as valid types.
+
+Arrays can be made using the syntax of `[]` for an array of any type or `[Type]` for a specific array. The contents will be checked at runtime.
+
+Objects can be made using the standard object syntax with all values being types, e.g. `{x: Number, y: String}`
+
+Functions with specific parameters or return value can be defined with `->` for any parameter, any return. `-> Type` for a specific return value, `Type -> Type` for a single-argument with a specific return value, or `(Type, Type) -> Type` for two arguments with a specific return value.
+
+Type unions can be made with `|`, e.g. `Number|String`. Order is irrelevant.
+
+One can also place a return type on functions, which is not checked at runtime, but is used by the type inference engine.
+
+Some examples:
+
+    let increment(x as Number) -> x + 1
+    let greet(x as String|Number) -> "Hello, $x"
+    let run(x as -> Number) -> x()
+    let get-number() as Number -> num
+    let join(x as [String]) -> x.join ", "
+    let use-object(o as {x: Number, y: Number}) -> o.x + o.y
+
+Types can also be placed on let statements, to help with the type inference engine.
+
+    let x as Number = f()
