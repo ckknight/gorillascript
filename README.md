@@ -750,3 +750,73 @@ The following is an example of automatic HTML escaping, but the same concept cou
     eq "&lt;&quot;bob&quot; the &#39;great&#39; &amp; powerful&gt;", to-HTML %"$evil-name"
     eq "<span>&lt;&quot;bob&quot; the &#39;great&#39; &amp; powerful&gt;</span>", to-HTML %"<span>$evil-name</span>"
     eq "<span><\"bob\" the 'great' & powerful></span>", to-HTML %"<span>$(SafeHTML evil-name)</span>"
+
+## Iterators
+
+Iterators are an ECMAScript 6 feature that have been in Mozilla's JavaScript since 1.7. GorillaScript can both produce and consume such iterators.
+
+    for value, index from some-iterable
+      console.log value
+
+Turns into the following code:
+
+    let _iter = some-iterable.iterator()
+    try
+      let mutable index = -1
+      while true
+        index += 1
+        let value = try
+          _iter.next()
+        catch e
+          if e == StopIteration
+            break
+          else
+            throw e
+        console.log value
+    finally
+      _iter?.close?()
+
+Which means that any object that implements the `iterator` method acts as an iterable. That return value merely needs to implement the `next` method, and optionally a `close` method.
+
+If `Array.prototype` were to implement `iterator`, which the ECMAScript 6 draft is recommending, one could iterate over `Array`s, `Set`s, `Map`s, but one can iterate over any custom type now or by simply adding an `Array.prototype.iterator` method.
+
+Production of iterators is easy as well in GorillaScript. You need merely append the `*` and use the `yield` statement.
+
+    let fib()*
+      let mutable a = 0
+      let mutable b = 1
+      while true
+        yield b
+        let tmp = a
+        a := b
+        b += tmp
+
+Produces an iterable which returns the infinite sequence of fibonacci numbers. The resultant code looks something along the lines of:
+
+    let fib()
+      let mutable a = 0
+      let mutable b = 1
+      let mutable _state = 0
+      {
+        iterator: #-> this
+        next: #
+          while true
+            switch _state
+            case 0
+              _state := 1
+              return b
+            case 1
+              let tmp = a
+              a := b
+              b += tmp
+              _state := 0
+      }
+
+The state machine is made for you and any GorillaScript construct can be used inside a generator function (except for `return`).
+
+One could then easily then use the fib iterator:
+
+    for value from fib()
+      console.log value
+      if value > 4000000
+        break
