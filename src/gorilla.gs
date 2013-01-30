@@ -30,7 +30,7 @@ let fetch-and-parse-prelude = do
     async err, prelude-cache-stat <- fs.stat prelude-cache-path
     if err? and err.code != "ENOENT"
       return flush(err, null)
-    asyncif next, err?.code != "ENOENT" and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time() and false
+    asyncif next, prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time()
       async! flush, cache-prelude <- fs.read-file prelude-cache-path, "utf8"
       try
         parsed-prelude := parser.deserialize-prelude(cache-prelude)
@@ -76,12 +76,18 @@ let fetch-and-parse-prelude = do
       parsed-prelude
   f
 
-let parse = exports.parse := #(source, options = {})
+let parse = exports.parse := #(source, options = {}, callback)
+  if typeof options == \function
+    return parse source, null, options
   if options.no-prelude
-    parser(source, null, options)
+    parser(source, null, options, callback)
   else
-    let prelude = fetch-and-parse-prelude.sync()
-    parser(source, prelude.macros, options)
+    if callback?
+      async! callback, prelude <- fetch-and-parse-prelude()
+      parser(source, prelude.macros, options, callback)
+    else
+      let prelude = fetch-and-parse-prelude.sync()
+      parser(source, prelude.macros, options, callback)
 
 exports.get-reserved-words := #(options = {})
   if options.no-prelude
@@ -89,18 +95,27 @@ exports.get-reserved-words := #(options = {})
   else
     parser.get-reserved-words(fetch-and-parse-prelude.sync().macros)
 
-let translate = exports.ast := #(source, options = {})
-  let parsed = parse source, options
-  translator(parsed.result, options).node
+let translate = exports.ast := #(source, options = {}, callback)
+  if typeof options == \function
+    return translate source, null, callback
+  if callback?
+    async! callback, parsed <- parse source, options
+    callback null, translator(parsed.result, options).node
+  else
+    let parsed = parse source, options, callback
+    translator(parsed.result, options).node
 
-let compile = exports.compile := #(source, options = {})
-  let node = translate source, options
-  node.compile options
+let compile = exports.compile := #(source, options = {}, callback)
+  if typeof options == \function
+    return compile source, null, callback
+  if callback?
+    async! callback, node <- translate source, options
+    callback null, node.compile options
+  else
+    let node = translate source, options, callback
+    node.compile options
 
-exports.eval := #(source, options = {})
-  options.eval := true
-  options.return := false
-  let root = translate source, options
+let evaluate(root, options)
   let {Script} = require('vm')
   if Script
     let mutable sandbox = Script.create-context()
@@ -134,6 +149,22 @@ exports.eval := #(source, options = {})
     let fun = Function(code)
     fun()
 
+exports.eval := #(source, options = {}, callback)
+  if typeof options == \function
+    return exports.eval source, null, callback
+  options.eval := true
+  options.return := false
+  if callback?
+    async! callback, root <- translate source, options
+    let mutable result = null
+    try
+      result := evaluate root, options
+    catch e
+      return callback e
+    callback null, result
+  else
+    evaluate(translate(source, options), options)
+
 exports.run := #(source, options = {})
   let main-module = require.main
   main-module.filename := (process.argv[1] := if options.filename
@@ -149,5 +180,8 @@ exports.run := #(source, options = {})
   else
     main-module._compile source, main-module.filename
 
-exports.init := #!
-  fetch-and-parse-prelude.sync()
+exports.init := #(callback)!
+  if callback?
+    fetch-and-parse-prelude(callback)
+  else
+    fetch-and-parse-prelude.sync()

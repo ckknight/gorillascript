@@ -24,10 +24,13 @@ cli.parse
 
 cli.main #(filenames, options)
   let opts = {}
-  if options["no-prelude"]
+  asyncif next, options["no-prelude"]
     opts.no-prelude := true
+    next()
   else
-    gorilla.init()
+    async err <- gorilla.init()
+    throw? err
+    next()
   let handle-code(code)
     let result = if options.ast
       util.inspect (gorilla.ast code, opts), false, null

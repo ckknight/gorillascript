@@ -19,7 +19,8 @@ let done(err)
 if files.length == 0
   return done(null)
 
-gorilla.init()
+async! done, err <- gorilla.init()
+
 let inputs = {}
 asyncfor(0) err <- next, file in files
   let filename = path.join "./src", file
@@ -30,12 +31,16 @@ if err?
   return done(err)
 
 let results = {}
-for file in files
+asyncfor err <- next, file in files
   let {filename, code} = inputs[file]
   process.stdout.write "$filename: "
   let start-file-time = Date.now()
-  results[file] := gorilla.compile code, filename: filename
+  async! next, compiled <- gorilla.compile code, filename: filename
+  results[file] := compiled
   process.stdout.write "$(((Date.now() - start-file-time) / 1000).to-fixed 3) seconds\n"
+  next()
+if err?
+  return done(err)
 
 asyncfor(0) err <- next, file in files
   let compiled = results[file]

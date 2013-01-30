@@ -5,6 +5,11 @@ let GLOBAL = if typeof window != \undefined then window else global
 
 let freeze = if typeof Object.freeze == \function then Object.freeze else #(o) -> o
 
+let next-tick = if typeof process != \undefined and typeof process.next-tick == \function
+  process.next-tick
+else
+  #(f) -> set-timeout(f, 0)
+
 let SHORT_CIRCUIT = freeze { to-string: #-> "short-circuit" }
 let NOTHING = freeze { to-string: #-> "" }
 
@@ -4210,6 +4215,21 @@ let map(array, func, arg)
   else
     array
 
+let map-async(array, func, ...args, callback)
+  let mutable changed = false
+  asyncfor err, result <- next, item in array
+    async! next, new-item <- func item, ...args
+    if item != new-item
+      changed := true
+    next null, new-item
+  if err?
+    callback err
+  else
+    callback null, if changed
+      result
+    else
+      array
+
 class FailureManager
   def constructor()
     @messages := []
@@ -5000,7 +5020,8 @@ class Node
   def constructor() -> throw Error "Node should not be instantiated directly"
   
   def type() -> Type.any
-  def walk() -> this
+  def walk(f) -> this
+  def walk-async(f, callback) -> callback(null, this)
   def cacheable = true
   def scope(o) -> o.get-scope(@scope-id)
   def _reduce(o)
@@ -5083,53 +5104,101 @@ macro node-class
       inspect-parts := AST $inspect-parts ~& inspect(@[$key], null, if depth? then depth ~- 1 else null)
     inspect-parts := AST $inspect-parts ~& ")"
     
-    let mutable found-walk = false
-    if body
-      let FOUND = {}
-      let find-walk(node)@
-        @walk node, #(node)@
-          if @is-def(node)
-            let key = @left(node)
-            if @is-const(key) and @value(key) == \walk
-              throw FOUND
-      try
-        find-walk(body)
-      catch e
-        if e == FOUND
-          found-walk := true
-        else
-          throw e
+    let find-def(name)@
+      if body
+        let FOUND = {}
+        let find-walk(node)@
+          @walk node, #(node)@
+            if @is-def(node)
+              let key = @left(node)
+              if @is-const(key) and @value(key) == name
+                throw FOUND
+        try
+          find-walk(body)
+        catch e
+          if e == FOUND
+            return true
+          else
+            throw e
+      false
+    
+    let is-node-type(arg)@
+      @is-ident(@param-type(arg)) and @name(@param-type(arg)) == \Node
+    let has-node-type(arg)@
+      @is-type-union(@param-type(arg)) and for some type in @types(@param-type(arg)); @is-ident(type) and @name(type) == \Node
+    let is-node-array-type(arg)@
+      @is-type-array(@param-type(arg)) and @is-ident(@subtype(@param-type(arg))) and @name(@subtype(@param-type(arg))) == \Node
     
     let add-methods = []
-    if not found-walk
-      let mutable walk-func = void
-      if args.length
-        let walk-init = []
-        let walk-check = AST false
-        let mutable walk-args = []
-        for arg in args
-          let ident = @param-ident arg
-          let key = @name(ident)
-          if @is-ident(@param-type(arg)) and @name(@param-type(arg)) == \Node
-            walk-init.push AST let $ident = f this[$key]
-            walk-check := AST $walk-check or $ident != this[$key]
-            walk-args.push ident
-          else if @is-type-array(@param-type(arg)) and @is-ident(@subtype(@param-type(arg))) and @name(@subtype(@param-type(arg))) == \Node
-            walk-init.push AST let $ident = map this[$key], f
-            walk-check := AST $walk-check or $ident != this[$key]
-            walk-args.push ident
-          else
-            walk-args.push AST this[$key]
-        walk-args := @array walk-args
-        walk-func := @func([@param(AST f)], AST
-          $walk-init
-          if $walk-check
+    if args.length and not find-def \walk
+      let walk-init = []
+      let mutable walk-check = AST false
+      let mutable walk-args = []
+      for arg in args
+        let ident = @param-ident arg
+        let key = @name(ident)
+        if is-node-type(arg)
+          walk-init.push AST let $ident = f this[$key]
+          walk-check := AST $walk-check or $ident != this[$key]
+          walk-args.push ident
+        else if has-node-type(arg)
+          walk-init.push AST let $ident = if this[$key] instanceof Node then f this[$key] else this[$key]
+          walk-check := AST $walk-check or $ident != this[$key]
+          walk-args.push ident
+        else if is-node-array-type(arg)
+          walk-init.push AST let $ident = map this[$key], f
+          walk-check := AST $walk-check or $ident != this[$key]
+          walk-args.push ident
+        else
+          walk-args.push AST this[$key]
+      walk-args := @array walk-args
+      let walk-func = @func [@param(AST f)], AST
+        $walk-init
+        if $walk-check
+          $type @start-index, @end-index, @scope-id, ...$walk-args
+        else
+          this
+      add-methods.push AST def walk = $walk-func
+    if args.length and not find-def \walk-async
+      let mutable walk-check = AST false
+      let mutable walk-args = []
+      for arg in args
+        let ident = @param-ident arg
+        let key = @name(ident)
+        if is-node-type(arg) or has-node-type(arg) or is-node-array-type(arg)
+          walk-check := AST $walk-check or $ident != this[$key]
+          walk-args.push ident
+        else
+          walk-args.push AST this[$key]
+          
+      walk-args := @array walk-args
+      let walk-async-body = for reduce arg in args by -1, current = (AST
+          callback null, if $walk-check
             $type @start-index, @end-index, @scope-id, ...$walk-args
           else
             this)
-      else
-        walk-func := AST ret-this
-      add-methods.push AST def walk = $walk-func
+        let ident = @param-ident arg
+        let key = @name(ident)
+        if is-node-type(arg)
+          AST
+            async! callback, $ident <- f this[$key]
+            $current
+        else if has-node-type(arg)
+          AST
+            asyncif $ident <- next, this[$key] instanceof Node
+              async! callback, $ident <- f this[$key]
+              next($ident)
+            else
+              next(this[$key])
+            $current
+        else if is-node-array-type(arg)
+          AST
+            async! callback, $ident <- map-async this[$key], f
+            $current
+        else
+          current
+      let walk-async-func = @func [@param(AST f), @param(AST callback)], walk-async-body
+      add-methods.push AST def walk-async = $walk-async-func
     
     let func = @func params, AST $ctor-body, false, true
     arg-names := @array arg-names
@@ -5141,7 +5210,6 @@ macro node-class
       $body
       $add-methods
       def inspect(depth) -> $inspect-parts
-
 
 class Scope
   def constructor(id, parent as Scope|null)
@@ -5830,7 +5898,33 @@ class State
     else
       node._macro-expanded := node
   
-  def macro-expand-all(node)
+  def macro-expand-all-async(node, callback)
+    let mutable start-time = new Date().get-time()
+    let walker = #(node, callback)@
+      if (new Date().get-time() - start-time) > 17_ms
+        return next-tick #
+          start-time := new Date().get-time()
+          walker node, callback
+      if node._macro-expand-alled?
+        callback null, node._macro-expand-alled
+      else if node not instanceof MacroAccessNode
+        async! callback, walked <- node.walk-async walker
+        walked._macro-expanded := walked
+        callback null, walked
+      else
+        let mutable expanded = void
+        try
+          expanded := @macro-expand-1 node
+        catch e
+          return callback e
+        if expanded not instanceof Node
+          return callback null, (node._macro-expand-alled := expanded)
+        async! callback, walked <- walker expanded
+        callback null, (expanded._macro-expand-alled := walked._macro-expanded := walked)
+
+    walker node, callback
+  
+  def macro-expand-all(node, callback)
     let walker = #(node)@
       if node._macro-expand-alled?
         node._macro-expand-alled
@@ -5838,7 +5932,7 @@ class State
         let walked = node.walk walker
         walked._macro-expanded := walked
       else
-        let expanded = @macro-expand-1(node)
+        let expanded = @macro-expand-1 node
         if expanded not instanceof Node
           return (node._macro-expand-alled := expanded)
         let walked = walker expanded
@@ -5942,21 +6036,6 @@ node-class AccessNode(parent as Node, child as Node)
   def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
 node-class AccessMultiNode(parent as Node, elements as [Node])
   def type() -> Type.array
-  def walk = do
-    let index-types =
-      multi: #(x, f)
-        let elements = map x.elements, f
-        if elements != x.elements
-          { type: \multi, elements }
-        else
-          x
-    #(f)
-      let parent = f @parent
-      let elements = map @elements, f
-      if parent != @parent or elements != @elements
-        AccessMultiNode @start-index, @end-index, @scope-id, parent, elements
-      else
-        this
   def _reduce(o)
     let mutable parent = @parent.reduce(o)
     let mutable set-parent = parent
@@ -6542,13 +6621,6 @@ node-class DebuggerNode
   def is-statement() -> true
 node-class DefNode(left as Node, right as Node|void)
   def type(o) -> if @right? then @right.type(o) else Type.any
-  def walk(func)
-    let left = func @left
-    let right = if @right? then func @right else @right
-    if left != @left or right != @right
-      DefNode @start-index, @end-index, @scope-id, left, right
-    else
-      this
 node-class EvalNode(code as Node)
 node-class ForNode(init as Node = NothingNode(0, 0, scope-id), test as Node = ConstNode(0, 0, scope-id, true), step as Node = NothingNode(0, 0, scope-id), body as Node)
   def type() -> Type.undefined
@@ -6583,15 +6655,6 @@ node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean =
           node.walk walker
       walker @body
       return-type.function()
-  def walk(func)
-    let params = map @params, func
-    let body = func @body
-    let bound = if @bound instanceof Node then func @bound else @bound
-    let as-type = if @as-type? then func @as-type else @as-type
-    if params != @params or body != @body or bound != @bound or as-type != @as-type
-      FunctionNode @start-index, @end-index, @scope-id, params, body, @auto-return, bound, @as-type, @generator
-    else
-      this
   def _is-noop(o) -> true
 node-class IdentNode(name as String)
   def cacheable = false
@@ -6633,18 +6696,6 @@ node-class MacroAccessNode(id as Number, line as Number, data as Object, positio
     else
       o.macro-expand-1(this).type(o)
   def walk = do
-    let walk-array(array, func)
-      let result = []
-      let mutable changed = false
-      for item in array
-        let new-item = walk-item item, func
-        if new-item != item
-          changed := true
-        result.push new-item
-      if changed
-        result
-      else
-        array
     let walk-object(obj, func)
       let result = {}
       let mutable changed = false
@@ -6661,7 +6712,7 @@ node-class MacroAccessNode(id as Number, line as Number, data as Object, positio
       if item instanceof Node
         func item
       else if is-array! item
-        walk-array item, func
+        map item, #(x) -> walk-item x, func
       else if item and typeof item == \object
         walk-object item, func
       else
@@ -6669,6 +6720,38 @@ node-class MacroAccessNode(id as Number, line as Number, data as Object, positio
     #(func)
       let data = walk-item(@data, func)
       if data != @data
+        MacroAccessNode @start-index, @end-index, @scope-id, @id, @line, data, @position, @in-generator
+      else
+        this
+  def walk-async = do
+    let walk-object(obj, func, callback)
+      let mutable changed = false
+      let result = {}
+      asyncfor err <- next, k, v of obj
+        async! next, new-item <- walk-item item, func
+        if item != new-item
+          changed := true
+        result[k] := new-item
+        next null
+      if err?
+        callback err
+      else
+        callback null, if changed
+          result
+        else
+          obj
+    let walk-item(item, func, callback)
+      if item instanceof Node
+        func item, callback
+      else if is-array! item
+        map-async item, (#(x, cb) -> walk-item x, func, cb), callback
+      else if item and typeof item == \object
+        walk-object item, func, callback
+      else
+        callback null, item
+    #(func, callback)
+      async! callback, data <- walk-item @data, func
+      callback null, if data != @data
         MacroAccessNode @start-index, @end-index, @scope-id, @id, @line, data, @position, @in-generator
       else
         this
@@ -6701,6 +6784,25 @@ node-class ObjectNode(pairs as [{key: Node, value: Node}], prototype as Node|voi
         ObjectNode @start-index, @end-index, @scope-id, pairs, prototype
       else
         this
+  def walk-async = do
+    let walk-pair(pair, func, callback)
+      async! callback, key <- func pair.key
+      async! callback, value <- func pair.value
+      callback null, if key != pair.key or value != pair.value
+        { key, value }
+      else
+        pair
+    #(func, callback)
+      async! callback, pairs <- map-async @pairs, walk-pair, func
+      asyncif prototype <- next, @prototype?
+        async! callback, p <- func @prototype
+        next(p)
+      else
+        next(@prototype)
+      callback null, if pairs != @pairs or prototype != @prototype
+        ObjectNode @start-index, @end-index, @scope-id, pairs, prototype
+      else
+        this
   def _reduce = do
     let reduce-pair(pair, o)
       let key = pair.key.reduce(o)
@@ -6728,14 +6830,6 @@ State::object := #(i, pairs, prototype)
   ObjectNode(i, @index, @scope.id, pairs, prototype)
 State::object-param := State::object
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
-  def walk(func)
-    let ident = func @ident
-    let default-value = if @default-value? then func @default-value else @default-value
-    let as-type = if @as-type? then func @as-type else @as-type
-    if ident != @ident or default-value != @default-value or as-type != @as-type
-      ParamNode @start-index, @end-index, @scope-id, ident, default-value, @spread, @is-mutable, as-type
-    else
-      this
 node-class RegexpNode(text as Node, flags as String)
   def type() -> Type.regexp
   def _reduce(o)
@@ -6786,13 +6880,6 @@ State::string := #(index, mutable parts as [Node])
       }, this, index, @line
 
 node-class SuperNode(child as Node|void, args as [Node])
-  def walk(func)
-    let child = if @child? then func @child else @child
-    let args = map @args, func
-    if child != @child or args != @args
-      SuperNode @start-index, @end-index, @scope-id, child, args
-    else
-      this
   def _reduce(o)
     let child = if @child? then @child.reduce(o).do-wrap(o) else @child
     let args = map @args, #(node, o) -> node.reduce(o).do-wrap(o), o
@@ -6807,17 +6894,35 @@ node-class SwitchNode(node as Node, cases as [], default-case as Node|void)
         type
       else
         type.union case_.body.type(o)
-  def walk(func)
-    let node = func @node
+  def walk(f)
+    let node = f @node
     let cases = map @cases, #(case_)
-      let case-node = func case_.node
-      let case-body = func case_.body
+      let case-node = f case_.node
+      let case-body = f case_.body
       if case-node != case_.node or case-body != case_.body
         { node: case-node, body: case-body, case_.fallthrough }
       else
         case_
-    let default-case = if @default-case then func @default-case else @default-case
+    let default-case = if @default-case then f @default-case else @default-case
     if node != @node or cases != @cases or default-case != @default-case
+      SwitchNode @start-index, @end-index, @scope-id, node, cases, default-case
+    else
+      this
+  def walk-async(f, callback)
+    async! callback, node <- f @node
+    async! callback, cases <- map-async @cases, #(case_, cb)
+      async! cb, case-node <- f case_.node
+      async! cb, case-body <- f case_.body
+      cb null, if case-node != case_.node or case-body != case_.body
+        { node: case-node, body: case-body, case_.fallthrough }
+      else
+        case_
+    asyncif default-case <- next, @default-case?
+      async! callback, x <- f @default-case
+      next(x)
+    else
+      next(@default-case)
+    callback null, if node != @node or cases != @cases or default-case != @default-case
       SwitchNode @start-index, @end-index, @scope-id, node, cases, default-case
     else
       this
@@ -6825,13 +6930,6 @@ node-class SwitchNode(node as Node, cases as [], default-case as Node|void)
 node-class SyntaxChoiceNode(choices as [Node])
 node-class SyntaxManyNode(inner as Node, multiplier as String)
 node-class SyntaxParamNode(ident as Node, as-type as Node|void)
-  def walk(func)
-    let ident = func @ident
-    let as-type = if @as-type? then func @as-type else @as-type
-    if ident != @ident or as-type != @as-type
-      SyntaxParamNode @start-index, @end-index, @scope-id, ident, as-type
-    else
-      this
 node-class SyntaxSequenceNode(params as [Node])
 node-class ThisNode
   def cacheable = false
@@ -7028,17 +7126,17 @@ let build-expected(errors)
 let build-error-message(errors, last-token)
   "Expected $(build-expected errors), but $(last-token) found"
 
-let parse(text, macros, options = {})
-  if typeof text != \string
-    throw TypeError "Expected text to be a string, got $(typeof! text)"
-  
+let parse(text as String, macros as MacroHolder|null, options as {} = {}, callback as Function|null)
   let o = State text, macros?.clone(), options
   
   let result = try
     Root(o)
   catch e
     if e != SHORT_CIRCUIT
-      throw e
+      if callback?
+        return callback(e)
+      else
+        throw e
   
   o.done-parsing := true
   
@@ -7048,7 +7146,17 @@ let parse(text, macros, options = {})
       JSON.stringify o.data.substring(index, index + 20)
     else
       "end-of-input"
-    throw ParserError build-error-message(messages, last-token), o.data, index, line
+    let err = ParserError build-error-message(messages, last-token), o.data, index, line
+    if callback?
+      return callback(err)
+    else
+      throw err
+  else if callback?
+    async! callback, result <- o.macro-expand-all-async result
+    callback null, {
+      result: result.reduce(o)
+      o.macros
+    }
   else
     {
       result: o.macro-expand-all(result).reduce(o)

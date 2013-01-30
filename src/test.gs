@@ -85,16 +85,14 @@ global.async-test := #(description, fn)!
   test description, fn
 
 let array-equal = #(a, b)
-  if a == b
-    return a != 0 or (1 / a == 1 / b)
-  else if is-array! a
+  if is-array! a
     unless is-array! b and a.length == b.length
       false
     else
       for every item, i in a
         array-equal item, b[i]
   else
-    a != a and b != b
+    a is b
 
 global.array-eq := #(a, b, msg)
   if not array-equal a, b
@@ -126,9 +124,10 @@ asyncfor(0) err <- next, file, i in files
   next()
 throw? err
 
-asyncfor next, file, i in files
-  if i == 0 and not no-prelude
-    gorilla.init()
+asyncfor err <- next, file, i in files
+  asyncif done-init, i == 0 and not no-prelude
+    async! next <- gorilla.init()
+    done-init()
   if inputs not ownskey file
     return next()
   let {code, filename} = inputs[file]
@@ -137,14 +136,12 @@ asyncfor next, file, i in files
   process.stdout.write "$basename: "
   let start = Date.now()
   let mutable failure = false
-  let mutable result = void
   let start-time = Date.now()
   current-file := filename
-  try
-    result := gorilla.eval code.to-string(), filename: filename, include-globals: true, no-prelude: no-prelude
-  catch e
+  async err, result <- gorilla.eval code.to-string(), filename: filename, include-globals: true, no-prelude: no-prelude
+  if err?
     failure := true
-    add-failure basename, e
+    add-failure basename, err
   
   handle-waiters()
   
@@ -153,6 +150,7 @@ asyncfor next, file, i in files
   
   process.stdout.write "$(if failure then 'fail' else 'pass') $(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
   next()
+throw? err
 
 let message = "passed $passed-tests tests in $((total-time / 1000_ms).to-fixed(3)) seconds"
 if num-failures == 0
