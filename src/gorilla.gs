@@ -30,7 +30,7 @@ let fetch-and-parse-prelude = do
     async err, prelude-cache-stat <- fs.stat prelude-cache-path
     if err? and err.code != "ENOENT"
       return flush(err, null)
-    asyncif next, prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time()
+    asyncif next, prelude-cache-stat and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time()
       async! flush, cache-prelude <- fs.read-file prelude-cache-path, "utf8"
       try
         parsed-prelude := parser.deserialize-prelude(cache-prelude)
