@@ -1163,9 +1163,11 @@ let translators =
   Object: #(node, scope, location, auto-return)
     let t-keys = []
     let t-values = []
+    let properties = []
     for pair in node.pairs
       t-keys.push translate pair.key, scope, \expression
       t-values.push translate pair.value, scope, \expression
+      properties.push pair.property
     let t-prototype = if node.prototype? then translate node.prototype, scope, \expression
 
     #
@@ -1173,15 +1175,27 @@ let translators =
       let post-const-pairs = []
       let prototype = t-prototype?()
       let mutable current-pairs = if prototype? then post-const-pairs else const-pairs
+      let mutable last-property = null
       for t-key, i in t-keys
         let t-value = t-values[i]
         let key = t-key()
         let value = t-value()
-
-        if key not instanceof ast.Const
+        let property = properties[i]
+        
+        if key not instanceof ast.Const or property
           current-pairs := post-const-pairs
-
-        current-pairs.push { key, value }
+        
+        let current-pair = current-pairs[current-pairs.length - 1]
+        if property in [\get, \set] and last-property and property != last-property and key instanceof ast.Const and current-pair.key instanceof ast.Const and key.value == current-pair.key.value
+          current-pair[last-property] := current-pair.value
+          current-pair.property := last-property & property
+          delete current-pair.value
+          current-pair[property] := value
+          last-property := null
+        else
+          current-pairs.push { key, value, property }
+          if property in [\get, \set]
+            last-property := property
       
       let obj = if prototype?
         scope.add-helper \__create
@@ -1189,17 +1203,53 @@ let translators =
       else
         ast.Obj for {key, value} in const-pairs
           ast.Obj.Pair String(key.value), value
-
+      
       if post-const-pairs.length == 0
         auto-return obj
       else
         let ident = scope.reserve-ident \o, Type.object
         let result = ast.BlockExpression
           * ast.Assign ident, obj
-          * ...for {key, value} in post-const-pairs
-              ast.Assign(
-                ast.Access(ident, key)
-                value)
+          * ...for pair in post-const-pairs
+              let {key, property} = pair
+              if property
+                scope.add-helper \__def-prop
+                ast.Call ast.Ident(\__def-prop), [
+                  ident
+                  key
+                  if property == \property
+                    pair.value
+                  else if property == \getset
+                    ast.Obj [
+                      ast.Obj.Pair \get, pair.get
+                      ast.Obj.Pair \set, pair.set
+                      ast.Obj.Pair \configurable, ast.Const(true)
+                      ast.Obj.Pair \enumerable, ast.Const(true)
+                    ]
+                  else if property == \setget
+                    ast.Obj [
+                      ast.Obj.Pair \set, pair.set
+                      ast.Obj.Pair \get, pair.get
+                      ast.Obj.Pair \configurable, ast.Const(true)
+                      ast.Obj.Pair \enumerable, ast.Const(true)
+                    ]
+                  else if property == \get
+                    ast.Obj [
+                      ast.Obj.Pair \get, pair.value
+                      ast.Obj.Pair \configurable, ast.Const(true)
+                      ast.Obj.Pair \enumerable, ast.Const(true)
+                    ]
+                  else if property == \set
+                    ast.Obj [
+                      ast.Obj.Pair \set, pair.value
+                      ast.Obj.Pair \configurable, ast.Const(true)
+                      ast.Obj.Pair \enumerable, ast.Const(true)
+                    ]
+                  else
+                    throw Error("Unknown property type: $(String property)")
+                ]
+              else
+                ast.Assign ast.Access(ident, key), pair.value
           * ident
         scope.release-ident ident
         auto-return result

@@ -989,3 +989,25 @@ In functional programming, it is often handy to use one of the built-in operator
     10 == [1, 2, 3, 4].reduce (+)
 
 Any binary operator can be used this way, and any unary operator can be used as long as it does not share the same token as a binary operator.
+
+## Getters and setters
+
+Getter and setter support is up to the engine to support, and is therefore not recommended to be used in the general case. Even Internet Explorer 8 only provides support if the object is a DOM Element, so I cannot recommend using them on a broad scale unless you control the JavaScript engine (such as in node.js).
+
+There are two ways to define getters and setters:
+
+    let obj =
+      _x: 0
+      get x: # -> @_x
+      set x: #(value) -> @_x
+      
+      _y: 0
+      property y:
+        get: #-> @_y
+        set: #-> @_y
+        accessable: true
+        enumerable: true
+
+When using the `get` and `set` pair, they must be defined next to each other (order is irrelevant). One can also supply only `get` or only `set`.
+
+When using the `property` syntax, the value is the same as one calling `Object.defineProperty`, in fact, that is all that is happening behind the scenes.

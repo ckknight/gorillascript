@@ -2653,6 +2653,25 @@ define ObjectKeyColon = with-message! 'key ":"', sequential! [
 define DualObjectKey = short-circuit! ObjectKeyColon, sequential! [
   [\key, ObjectKeyColon]
   [\value, Expression]
+], #(x) -> { x.key, x.value }
+
+define PropertyObjectKeyColon = sequential! [
+  [\property, one-of! [
+    word \property
+    word \get
+    word \set
+  ]]
+  Space
+  [\key, ObjectKeyColon]
+]
+define PropertyDualObjectKey = short-circuit! PropertyObjectKeyColon, sequential! [
+  [\property-key, PropertyObjectKeyColon]
+  [\value, Expression]
+], #(x) -> { x.property-key.key, x.value, property: x.property-key.property }
+
+define PropertyOrDualObjectKey = one-of! [
+  PropertyDualObjectKey
+  DualObjectKey
 ]
 
 define IdentifierOrSimpleAccessStart = one-of! [
@@ -2750,14 +2769,14 @@ define SingularObjectKey = one-of! [
 ]
 
 define KeyValuePair = one-of! [
-  DualObjectKey
+  PropertyOrDualObjectKey
   sequential! [
     Space
     [\bool, maybe! PlusOrMinus, NOTHING]
     [\pair, SingularObjectKey]
   ], #(x, o, i)
     if x.bool != NOTHING
-      { x.pair.key, value: o.const(i, x.bool == C("+")) }
+      { x.pair.key, value: o.const(i, x.bool == C("+")), x.pair.property }
     else
       x.pair
 ]
@@ -3571,18 +3590,18 @@ define PrimaryExpression = one-of! [
 ]
 
 define UnclosedObjectLiteral = sequential! [
-  [\head, DualObjectKey]
+  [\head, PropertyOrDualObjectKey]
   [\tail, zero-or-more! sequential! [
     Comma
-    [\this, DualObjectKey]
+    [\this, PropertyOrDualObjectKey]
   ]]
 ], #(x, o, i) -> o.object i, [x.head, ...x.tail]
 
 define IndentedUnclosedObjectLiteralInner = sequential! [
-  [\head, DualObjectKey]
+  [\head, PropertyOrDualObjectKey]
   [\tail, zero-or-more! sequential! [
     CommaOrNewlineWithCheckIndent
-    [\this, DualObjectKey]
+    [\this, PropertyOrDualObjectKey]
   ]]
 ], #(x, o, i) -> o.object i, [x.head, ...x.tail]
 
@@ -4545,15 +4564,8 @@ class MacroHelper
   
   def array(elements as [Node])
     @state.array(0, (for element in elements; @do-wrap(element))).reduce(@state)
-  def object(pairs as [])
-    for pair, i in pairs
-      if not pair or typeof pair != \object
-        throw Error "Expected an object at index #$i, got $(typeof! pair)"
-      else if pair.key not instanceof Node
-        throw Error "Expected an object with Node 'key' at index #$i, got $(typeof! pair.key)"
-      else if pair.value not instanceof Node
-        throw Error "Expected an object with Node 'value' at index #$i, got $(typeof! pair.value)"
-    @state.object(0, (for {key, value} in pairs; {key: @do-wrap(key), value: @do-wrap(value)})).reduce(@state)
+  def object(pairs as [{ key: Node, value: Node }])
+    @state.object(0, (for {key, value, property} in pairs; {key: @do-wrap(key), value: @do-wrap(value) property})).reduce(@state)
   
   def type(node)
     if typeof node == \string
@@ -6812,7 +6824,7 @@ node-class NothingNode
   def is-const() -> true
   def const-value() -> void
   def _is-noop() -> true
-node-class ObjectNode(pairs as [{key: Node, value: Node}], prototype as Node|void)
+node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void }], prototype as Node|void)
   def type(o) -> @_type ?= do
     let data = {}
     for {key, value} in @pairs
@@ -6824,7 +6836,7 @@ node-class ObjectNode(pairs as [{key: Node, value: Node}], prototype as Node|voi
       let key = func pair.key
       let value = func pair.value
       if key != pair.key or value != pair.value
-        { key, value }
+        { key, value, property: pair.property }
       else
         pair
     #(func)
@@ -6839,7 +6851,7 @@ node-class ObjectNode(pairs as [{key: Node, value: Node}], prototype as Node|voi
       async! callback, key <- func pair.key
       async! callback, value <- func pair.value
       callback null, if key != pair.key or value != pair.value
-        { key, value }
+        { key, value, pair.property }
       else
         pair
     #(func, callback)
@@ -6858,7 +6870,7 @@ node-class ObjectNode(pairs as [{key: Node, value: Node}], prototype as Node|voi
       let key = pair.key.reduce(o)
       let value = pair.value.reduce(o).do-wrap(o)
       if key != pair.key or value != pair.value
-        { key, value }
+        { key, value, pair.property }
       else
         pair
     #(o)
@@ -6871,12 +6883,22 @@ node-class ObjectNode(pairs as [{key: Node, value: Node}], prototype as Node|voi
   def _is-noop(o) -> @__is-noop ?= for every {key, value} in @pairs; key.is-noop(o) and value.is-noop(o)
 State::object := #(i, pairs, prototype)
   let known-keys = []
-  for {key} in pairs
+  let mutable last-property-pair = null
+  for {key, property} in pairs
     if key instanceof ConstNode
       let key-value = String key.value
-      if key-value in known-keys
+      if property in [\get, \set] and last-property-pair and last-property-pair.property != property and last-property-pair.key == key-value
+        last-property-pair := null
+        continue
+      else if key-value in known-keys
         @error "Duplicate key in object: $(key-value)"
       known-keys.push key-value
+      if property in [\get, \set]
+        last-property-pair := {key: key-value, property}
+      else
+        last-property-pair := null
+    else
+      last-property-pair := null
   ObjectNode(i, @index, @scope.id, pairs, prototype)
 State::object-param := State::object
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)

@@ -512,3 +512,319 @@ test "unclosed object syntax in for statement", #
   eq \bravo, result[1].value
   eq 2, result[2].index
   eq \charlie, result[2].value
+
+test "Can have a key of property, get, and set", #
+  let obj = {
+    property: 5
+    get: 6
+    set: 7
+  }
+  
+  eq 5, obj.property
+  eq 6, obj.get
+  eq 7, obj.set
+
+test "Property syntax with value", #
+  if typeof Object.define-property != \function
+    return
+  
+  let make-key() -> Math.random().to-fixed(15)
+  do random-key = make-key()
+    let obj = {
+      property x:
+        value: 5
+      property [random-key]:
+        value: 6
+    }
+  
+    eq 5, obj.x
+    eq 6, obj[random-key]
+  eq 5, { property x: { value: 5 } }.x
+  
+  let enumerable-works = do random-key = make-key()
+    let o = {}
+    Object.define-property o, random-key, {value: true, enumerable: false}
+    for every k ofall o
+      k != random-key
+  
+  if enumerable-works
+    do random-key = make-key()
+      for k ofall { property [random-key]: { value: true, enumerable: false } }
+        if k == random-key
+          fail()
+  
+  do random-key = make-key()
+    ok for some k ofall { property [random-key]: { value: true, enumerable: true } }
+      k == random-key
+  
+  let configurable-works = do random-key = make-key()
+    let o = {}
+    Object.define-property o, random-key, { value: true, configurable: false }
+    ok o ownskey random-key
+    try
+      delete o[random-key]
+    catch e
+      void
+    o[random-key]
+  
+  if configurable-works
+    do random-key = make-key()
+      let o = { property [random-key]: { value: true, configurable: false } }
+      try
+        delete o[random-key]
+      catch e
+        void
+      ok o ownskey random-key
+      ok o[random-key]
+  
+  do random-key = make-key()
+    let o = { property [random-key]: { value: true, configurable: true } }
+    ok o ownskey random-key
+    delete o[random-key]
+    ok o not ownskey random-key
+  
+  let writable-works = do random-key = make-key()
+    let o = {}
+    Object.define-property o, random-key, { value: true, writable: false }
+    try
+      o[random-key] := false
+    catch e
+      void
+    o[random-key]
+  
+  if writable-works
+    do random-key = make-key()
+      let o = { property [random-key]: { value: true, writable: false } }
+      try
+        o[random-key] := false
+      catch e
+        void
+      ok o[random-key]
+  
+  do random-key = make-key()
+    let o = { property [random-key]: { value: true, writable: true } }
+    eq true, o[random-key]
+    o[random-key] := false
+    eq false, o[random-key]
+
+let accessor-support = do
+  if typeof Object.define-property != \function
+    return false
+  
+  let read(x) -> x
+  
+  let obj = {}
+  let mutable gets = 0
+  let mutable sets = 0
+  try
+    Object.define-property obj, "x", { get: #-> gets += 1, set: #-> sets += 1 }
+  catch e
+    return false
+  eq 0, gets
+  eq 0, sets
+  
+  if obj.x != 1 or gets != 1 or sets != 0
+    return false
+  
+  obj.x := true
+  gets == 1 and sets == 1
+  
+test "Property syntax with get/set", #
+  if not accessor-support
+    return
+  
+  let mutable gets = 0
+  let mutable sets = 0
+  let obj = {}
+  let mutable last-value = obj
+  let o =
+    get-x: #
+      eq o, this
+      gets += 1
+    set-x: #(value)!
+      eq o, this
+      sets += 1
+      last-value := value
+    property x: {
+      get: #-> @get-x()
+      set: #(value) -> @set-x(value)
+    }
+  
+  eq obj, last-value
+  eq 0, gets
+  eq 0, sets
+  eq 1, o.x
+  eq 1, gets
+  eq 0, sets
+  eq obj, last-value
+  
+  o.x := "hello"
+  eq 1, gets
+  eq 1, sets
+  eq "hello", last-value
+
+test "get syntax", #
+  if not accessor-support
+    return
+  
+  let mutable gets = 0
+  let o =
+    get-x: #
+      eq o, this
+      gets += 1
+    get x: #-> @get-x()
+  
+  eq 0, gets
+  eq 1, o.x
+  eq 1, gets
+
+test "set syntax", #
+  if not accessor-support
+    return
+  
+  let mutable last-value = {}
+  let mutable sets = 0
+  let o =
+    set-x: #(value)!
+      eq o, this
+      last-value := value
+      sets += 1
+    set x: #(value) -> @set-x(value)
+  
+  eq \object, typeof last-value
+  eq 0, sets
+  o.x := "hello"
+  eq 1, sets
+  eq "hello", last-value
+  
+test "get/set syntax", #
+  if not accessor-support
+    return
+  
+  let mutable gets = 0
+  let mutable sets = 0
+  let obj = {}
+  let mutable last-value = obj
+  let o =
+    get-x: #
+      eq o, this
+      gets += 1
+    set-x: #(value)!
+      eq o, this
+      sets += 1
+      last-value := value
+    get x: #-> @get-x()
+    set x: #(value) -> @set-x(value)
+  
+  eq obj, last-value
+  eq 0, gets
+  eq 0, sets
+  eq 1, o.x
+  eq 1, gets
+  eq 0, sets
+  eq obj, last-value
+  
+  o.x := "hello"
+  eq 1, gets
+  eq 1, sets
+  eq "hello", last-value
+
+test "get/set executes in the right order", #
+  if not accessor-support or typeof Object.get-own-property-descriptor != \function
+    return
+  
+  let get-ided-func = do
+    let mutable id = 0
+    #(f)
+      f.id := id += 1
+      f
+  
+  let o =
+    value: void
+    get x: get-ided-func #
+      eq o, this
+      @value
+    set x: get-ided-func #(value)
+      eq o, this
+      @value := value
+  
+  eq 1, Object.get-own-property-descriptor(o, \x).get.id
+  eq 2, Object.get-own-property-descriptor(o, \x).set.id
+  eq void, o.x
+  o.x := "hello"
+  eq "hello", o.x
+  
+  let p =
+    value: void
+    set x: get-ided-func #(value)
+      eq p, this
+      @value := value
+    get x: get-ided-func #
+      eq p, this
+      @value
+  
+  eq 4, Object.get-own-property-descriptor(p, \x).get.id
+  eq 3, Object.get-own-property-descriptor(p, \x).set.id
+  eq void, p.x
+  p.x := "hello"
+  eq "hello", p.x
+
+test "get and set not next to each other", #
+  throws #-> gorilla.compile("""
+  let x = {
+    get alpha: 'bravo'
+    bravo: 'charlie'
+    set alpha: 'delta'
+  }
+  """), #(e) -> e.line == 5
+  throws #-> gorilla.compile("""
+  let x = {
+    set alpha: 'bravo'
+    bravo: 'charlie'
+    get alpha: 'delta'
+  }
+  """), #(e) -> e.line == 5
+
+test "Multiple gets of the same key", #
+  throws #-> gorilla.compile("""
+  let x = {
+    get alpha: 'bravo'
+    get alpha: 'delta'
+  }
+  """), #(e) -> e.line == 4
+  throws #-> gorilla.compile("""
+  let x = {
+    get alpha: 'bravo'
+    set bravo: 'charlie'
+    get alpha: 'delta'
+  }
+  """), #(e) -> e.line == 5
+  throws #-> gorilla.compile("""
+  let x = {
+    get alpha: 'bravo'
+    set alpha: 'charlie'
+    get alpha: 'delta'
+  }
+  """), #(e) -> e.line == 5
+
+test "Multiple sets of the same key", #
+  throws #-> gorilla.compile("""
+  let x = {
+    set alpha: 'bravo'
+    set alpha: 'delta'
+  }
+  """), #(e) -> e.line == 4
+  throws #-> gorilla.compile("""
+  let x = {
+    get alpha: 'bravo'
+    set alpha: 'charlie'
+    set alpha: 'delta'
+  }
+  """), #(e) -> e.line == 5
+  throws #-> gorilla.compile("""
+  let x = {
+    set alpha: 'bravo'
+    get alpha: 'charlie'
+    set alpha: 'delta'
+  }
+  """), #(e) -> e.line == 5

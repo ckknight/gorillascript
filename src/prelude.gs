@@ -2552,3 +2552,5 @@ define helper __bind = #(parent, child) as Function
   if typeof func != \function
     throw Error "Trying to bind child '$(String child)' which is not a function"
   # -> func@ parent, ...arguments
+
+define helper __def-prop = Object.define-property
