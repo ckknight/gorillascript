@@ -697,6 +697,16 @@ Like JavaScript, GorillaScript provides `switch`. The only major exception is th
     default
       "unknown"
 
+Unlike JavaScript, GorillaScript provides a topicless `switch`, which works by checking if each case is truthy rather than comparing against a value. `fallthrough` works the same way as a normal switch statement. This does not generate a JavaScript `switch` statement, as it is extremely inefficient to use `switch` in JavaScript without constant `case` checks.
+
+    switch
+    case is-good()
+      "good"
+    case is-bad()
+      "bad"
+    default
+      "neutral"
+
 ## Try-catch-else-finally
 
 Try-catch also works similarly to JavaScript, except that catches can have type-checks and the notable exception of the `else` statement, for when no error was caught, but occurs before the `finally` statement.

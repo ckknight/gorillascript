@@ -31,6 +31,28 @@ test "switch expression with fallthrough", #
   eq "eh", run "a"
   eq void, run "other"
 
+test "switch expression with fallthrough and body", #
+  let run(num)
+    let mutable found-two = false
+    switch num
+    case 1; "one"
+    case 2
+      found-two := true
+      fallthrough
+    case 3
+      if found-two
+        "two"
+      else
+        "three"
+    case "a"
+      "eh"
+  
+  eq "one", run 1
+  eq "two", run 2
+  eq "three", run 3
+  eq "eh", run "a"
+  eq void, run "other"
+
 test "simple switch expression with default", #
   let run(num)
     switch num
@@ -178,3 +200,74 @@ test "break inside of a loop inside of a switch should break the loop", #
       i
 
   eq 10, fun(1)
+
+test "topicless switch expression", #
+  let run(num)
+    switch
+    // comment
+    case num == 1; "one"
+    case num == 2
+      "two"
+    // another comment, why not?
+    case num == "a"
+      "eh"
+
+  eq "one", run 1
+  eq "two", run 2
+  eq "eh", run "a"
+  eq void, run "other"
+
+test "topicless switch expression with fallthrough", #
+  let run(num)
+    switch
+    case num == 1; "one"
+    case num == 2
+      fallthrough
+    case num == 3
+      "two or three"
+    case num == "a"
+      "eh"
+
+  eq "one", run 1
+  eq "two or three", run 2
+  eq "two or three", run 3
+  eq "eh", run "a"
+  eq void, run "other"
+
+test "topicless switch expression with fallthrough and body", #
+  let run(num)
+    let mutable found-two = false
+    switch
+    case num == 1; "one"
+    case num == 2
+      found-two := true
+      fallthrough
+    case num == 3
+      if found-two
+        "two"
+      else
+        "three"
+    case num == "a"
+      "eh"
+
+  eq "one", run 1
+  eq "two", run 2
+  eq "three", run 3
+  eq "eh", run "a"
+  eq void, run "other"
+
+test "topicless switch expression with default", #
+  let run(num)
+    switch
+    case num == 1; "one"
+    case num == 2
+      "two"
+    case num == "a"
+      "eh"
+    default
+      "unknown"
+
+  eq "one", run 1
+  eq "two", run 2
+  eq "eh", run "a"
+  eq "unknown", run "other"

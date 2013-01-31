@@ -1705,6 +1705,49 @@ macro switch
         fallthrough: is-fallthrough
 
     @switch(node, result-cases, default-case)
+  
+  syntax cases as ("\n", "case", test as Logic, body as (Body | (";", this as Statement))?)*, default-case as ("\n", "default", this as (Body | (";", this as Statement))?)?
+    for reduce case_ in cases by -1, current = default-case
+      let test = case_.test
+      let mutable body = case_.body
+      let mutable is-fallthrough = false
+      let mutable result = void
+      if @is-block(body)
+        let nodes = @nodes(body)
+        let last-node = nodes[nodes.length - 1]
+        if @is-ident(last-node) and @name(last-node) == \fallthrough
+          body := @block(nodes.slice(0, -1))
+          result := if @is-if(current)
+            let fall = @tmp \fall, false, \boolean
+            AST
+              let mutable $fall = false
+              if $test
+                $fall := true
+                $body
+              if $fall or $(@test(current))
+                $(@when-true(current))
+              else
+                $(@when-false(current))
+          else
+            AST
+              if $test
+                $body
+              $current
+      else if @is-ident(body) and @name(body) == \fallthrough
+        if @is-if(current)
+          result := AST if $test or $(@test(current))
+            $(@when-true(current))
+          else
+            $(@when-false(current))
+        else
+          result := AST
+            $test
+            $current
+            
+      result or AST if $(case_.test)
+        $body
+      else
+        $current
 
 define helper __keys = if typeof Object.keys == \function
   Object.keys

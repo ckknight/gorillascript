@@ -4634,6 +4634,20 @@ class MacroHelper
     if node instanceof AccessNode
       node.child
   
+  def is-if(node) -> @macro-expand-1(node) instanceof IfNode
+  def test(mutable node)
+    node := @macro-expand-1(node)
+    if node instanceof IfNode
+      node.test
+  def when-true(mutable node)
+    node := @macro-expand-1(node)
+    if node instanceof IfNode
+      node.when-true
+  def when-false(mutable node)
+    node := @macro-expand-1(node)
+    if node instanceof IfNode
+      node.when-false
+  
   def cache(node as Node, init, name as String = \ref, save as Boolean)
     @maybe-cache node, (#(set-node, node, cached)
       if cached
