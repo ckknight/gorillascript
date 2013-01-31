@@ -584,11 +584,11 @@ exports.Binary := class Binary extends Expression
   @from-JSON := #({left, op, right}) -> Binary from-JSON(left), op, from-JSON(right)
 
 exports.BlockStatement := class BlockStatement extends Statement
-  def constructor(body as [Node] = [])
+  def constructor(body as [Node] = [], @label as Ident|null)
     let result = []
     for item in body
       let statement = item.maybe-to-statement()
-      if statement instanceof BlockStatement
+      if statement instanceof BlockStatement and not statement.label
         result.push ...statement.body
       else if statement not instanceof Noop
         result.push statement
@@ -607,16 +607,29 @@ exports.BlockStatement := class BlockStatement extends Statement
       if not node.is-noop()
         node
     
+    let child-options = if @label? then inc-indent(options) else options
+    
+    if @label?
+      @label.compile options, level, line-start, sb
+      sb ": {\n"
+      sb.indent child-options.indent
+    
     for item, i in nodes
       if i > 0
         sb "\n"
-        sb.indent options.indent
+        sb.indent child-options.indent
       item.compile-as-statement options, true, sb
+    
+    if @label?
+      sb "\n"
+      sb.indent options.indent
+      sb "}"
   
   def walk(walker)
     let body = walk-array(@body, walker)
-    if @body != body
-      Block body
+    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    if @body != body or @label != label
+      Block body, label
     else
       this
   
@@ -635,10 +648,10 @@ exports.BlockStatement := class BlockStatement extends Statement
   
   def is-noop() -> @_is-noop ?= for every node in @body by -1; node.is-noop()
   
-  def inspect(depth) -> inspect-helper depth, "BlockStatement", @body
+  def inspect(depth) -> inspect-helper depth, "BlockStatement", @body, @label
   
-  def to-JSON() -> { type: "BlockStatement", @body }
-  @from-JSON := #({body}) -> BlockStatement array-from-JSON(body)
+  def to-JSON() -> { type: "BlockStatement", @body, label: @label ? void }
+  @from-JSON := #({body, label}) -> BlockStatement array-from-JSON(body), if label? then from-JSON(label) else null
 
 exports.BlockExpression := class BlockExpression extends Expression
   def constructor(body as [Expression] = [])
@@ -708,33 +721,44 @@ exports.BlockExpression := class BlockExpression extends Expression
   def to-JSON() -> { type: "BlockExpression", @body }
   @from-JSON := #({body}) -> BlockExpression array-from-JSON(body)
 
-let Block = exports.Block := #(body as [Node] = [])
+let Block = exports.Block := #(body as [Node] = [], label as Ident|null)
   if body.length == 0
     Noop()
   else
-    if (for every item in body by -1; item instanceof Expression)
+    if not label and (for every item in body by -1; item instanceof Expression)
       BlockExpression body
     else
-      BlockStatement body
+      BlockStatement body, label
 
 exports.Break := class Break extends Statement
-  def constructor() ->
+  def constructor(@label as Ident|null) ->
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
-    sb "break;"
+    sb "break"
+    if @label?
+      sb " "
+      @label.compile options, Level.inside-parentheses, false, sb
+    sb ";"
   
   def walk() -> this
   
   def exit-type() -> \break
   
-  def inspect() -> "Break()"
+  def walk(walker)
+    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    if label != @label
+      Break label
+    else
+      this
+  
+  def inspect(depth) -> inspect-helper depth, "Break", @label
   
   def is-large() -> false
   
-  def to-JSON() -> { type: "Break" }
-  @from-JSON := #-> Break()
+  def to-JSON() -> { type: "Break", label: @label ? void }
+  @from-JSON := #({label}) -> Break if label then from-JSON(label) else null
 
 exports.Call := class Call extends Expression
   def constructor(@func as Expression = Noop(), @args as [Expression] = [], @is-new as Boolean) ->
@@ -852,7 +876,7 @@ exports.Const := class Const extends Expression
       { type: "Const", +infinite, value: 1 }
     else if @value == -Infinity
       { type: "Const", +infinite, value: -1 }
-    else if @value != @value
+    else if @value is NaN
       { type: "Const", +infinite, value: 0 }
     else
       { type: "Const", @value }
@@ -865,12 +889,16 @@ exports.Const := class Const extends Expression
       Const obj.value
 
 exports.Continue := class Continue extends Statement
-  def constructor() ->
+  def constructor(@label as Ident|null) ->
   
   def compile(options, level, line-start, sb)
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
-    sb "continue;"
+    sb "continue"
+    if @label?
+      sb " "
+      @label.compile options, Level.inside-parentheses, false, sb
+    sb ";"
   
   def walk() -> this
   
@@ -878,10 +906,17 @@ exports.Continue := class Continue extends Statement
   
   def is-large() -> false
   
-  def inspect() -> "Continue()"
+  def walk(walker)
+    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    if label != @label
+      Continue label
+    else
+      this
   
-  def to-JSON() -> { type: "Continue" }
-  @from-JSON := # -> Continue()
+  def inspect(depth) -> inspect-helper depth, "Continue", @label
+  
+  def to-JSON() -> { type: "Continue", label: @label ? void }
+  @from-JSON := #({label}) -> Continue if label then from-JSON(label) else null
 
 exports.Debugger := class Debugger extends Statement
   def constructor() ->
@@ -901,15 +936,18 @@ exports.Debugger := class Debugger extends Statement
   @from-JSON := # -> Debugger()
 
 exports.DoWhile := class DoWhile extends Statement
-  def constructor(body as Node = Noop(), @test as Expression = Noop())
+  def constructor(body as Node = Noop(), @test as Expression = Noop(), @label as Ident|null)
     @body := body.maybe-to-statement()
     if test.is-const() and not test.const-value()
-      return @body
+      return Block([@body], label)
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
+    if @label?
+      @label.compile options, level, line-start, sb
+      sb ": "
     sb "do"
     if @body.is-noop()
       sb ";"
@@ -927,15 +965,16 @@ exports.DoWhile := class DoWhile extends Statement
   def walk(walker)
     let body = walker(@body) ? @body.walk(walker)
     let test = walker(@test) ? @test.walk(walker)
-    if body != @body or test != @test
-      DoWhile body, test
+    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    if body != @body or test != @test or label != @label
+      DoWhile body, test, label
     else
       this
 
-  def inspect(depth) -> inspect-helper depth, "DoWhile", @body, @test
+  def inspect(depth) -> inspect-helper depth, "DoWhile", @body, @test, @label
   
-  def to-JSON() -> { type: "DoWhile", body: simplify(@body), test: simplify(@test) }
-  @from-JSON := #({body, test}) -> DoWhile from-JSON(body), from-JSON(test)
+  def to-JSON() -> { type: "DoWhile", body: simplify(@body), test: simplify(@test), label: @label ? void }
+  @from-JSON := #({body, test, label}) -> DoWhile from-JSON(body), from-JSON(test), if label? then from-JSON(label) else null
 
 exports.Eval := class Eval extends Expression
   def constructor(mutable code = Noop())
@@ -964,7 +1003,7 @@ exports.Eval := class Eval extends Expression
   @from-JSON := #({code}) -> Eval from-JSON(code)
 
 exports.For := class For extends Statement
-  def constructor(@init as Expression = Noop(), mutable test = Const(true), @step as Expression = Noop(), body as Node)
+  def constructor(@init as Expression = Noop(), mutable test = Const(true), @step as Expression = Noop(), body as Node, @label as Ident|null)
     if test not instanceof Expression
       test := to-const test
     if test.is-const() and not test.const-value()
@@ -980,6 +1019,10 @@ exports.For := class For extends Statement
       Const(not not @test.const-value())
     else
       @test
+    
+    if @label?
+      @label.compile options, level, line-start, sb
+      sb ": "
     
     if @init.is-noop() and @step.is-noop()
       sb "while ("
@@ -1010,23 +1053,34 @@ exports.For := class For extends Statement
     let test = walker(@test) ? @test.walk(walker)
     let step = walker(@step) ? @step.walk(walker)
     let body = walker(@body) ? @body.walk(walker)
-    if init != @init or test != @test or step != @step or body != @body
-      For init, test, step, body
+    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    if init != @init or test != @test or step != @step or body != @body or label != @label
+      For init, test, step, body, label
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "For", @init, @test, @step, @body
+  def inspect(depth) -> inspect-helper depth, "For", @init, @test, @step, @body, @label
   
-  def to-JSON() -> { type: "For", init: simplify(@init), test: simplify(@test), step: simplify(@step), body: simplify(@body) }
-  @from-JSON := #({init, test, step, body}) -> For from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body)
+  def to-JSON()
+    type: "For"
+    init: simplify(@init)
+    test: simplify(@test)
+    step: simplify(@step)
+    body: simplify(@body)
+    label: @label ? void
+  @from-JSON := #({init, test, step, body, label}) -> For from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body), if label? then from-JSON(label) else null
 
 exports.ForIn := class ForIn extends Statement
-  def constructor(@key as Ident, @object as Expression = Noop(), body as Node = Noop())
+  def constructor(@key as Ident, @object as Expression = Noop(), body as Node = Noop(), @label as Ident|null)
     @body := body.maybe-to-statement()
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
+    
+    if @label?
+      @label.compile options, level, line-start, sb
+      sb ": "
     
     sb "for ("
     @key.compile options, Level.inside-parentheses, false, sb
@@ -1047,15 +1101,21 @@ exports.ForIn := class ForIn extends Statement
     let key = walker(@key) ? @key.walk(walker)
     let object = walker(@object) ? @object.walk(walker)
     let body = walker(@body) ? @body.walk(walker)
-    if key != @key or object != @object or body != @body
+    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    if key != @key or object != @object or body != @body or label != @label
       ForIn key, object, body
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "ForIn", @key, @object, @body
+  def inspect(depth) -> inspect-helper depth, "ForIn", @key, @object, @body, @label
   
-  def to-JSON() -> { type: "ForIn", @key, object: simplify(@object), body: simplify(@body) }
-  @from-JSON := #({key, object, body}) -> ForIn from-JSON(key), from-JSON(object), from-JSON(body)
+  def to-JSON()
+    type: "ForIn"
+    key: @key
+    object: simplify(@object)
+    body: simplify(@body)
+    label: @label ? void
+  @from-JSON := #({key, object, body, label}) -> ForIn from-JSON(key), from-JSON(object), from-JSON(body), if label? then from-JSON(label) else null
 
 let validate-func-params-and-variables(params, variables)!
   let names = []
@@ -1160,14 +1220,14 @@ exports.Ident := class Ident extends Expression
   @from-JSON := #({name}) -> Ident name
 
 exports.IfStatement := class IfStatement extends Statement
-  def constructor(mutable test as Expression = Noop(), mutable when-true as Node = Noop(), mutable when-false as Node = Noop())
+  def constructor(mutable test as Expression = Noop(), mutable when-true as Node = Noop(), mutable when-false as Node = Noop(), @label as Ident|null)
     if test instanceof Unary and test.op == "!" and test.node instanceof Unary and test.node.op == "!"
       test := test.node.node
     if test.is-const()
       return if test.const-value()
-        when-true
+        Block [when-true], label
       else
-        when-false
+        Block [when-false], label
     else
       when-true := when-true.maybe-to-statement()
       when-false := when-false.maybe-to-statement()
@@ -1176,8 +1236,8 @@ exports.IfStatement := class IfStatement extends Statement
           return test.maybe-to-statement()
         else
           // TODO: the test inversion doesn't change the inner operators, just wraps it all
-          return IfStatement@ this, Unary("!", test), when-false, when-true
-      else if when-false instanceof Noop and when-true instanceof IfStatement and when-true.when-false instanceof Noop
+          return IfStatement@ this, Unary("!", test), when-false, when-true, label
+      else if when-false instanceof Noop and when-true instanceof IfStatement and when-true.when-false instanceof Noop and not when-true.label?
         @test := Binary test, "&&", when-true.test
         @when-true := when-true.when-true
         @when-false := when-false
@@ -1194,8 +1254,11 @@ exports.IfStatement := class IfStatement extends Statement
       if @when-false.is-noop()
         @test.compile-as-statement options, true, sb
       else
-        IfStatement(Unary("!", @test), @when-false, @when-true).compile(options, level, line-start, sb)
+        IfStatement(Unary("!", @test), @when-false, @when-true, @label).compile(options, level, line-start, sb)
     else
+      if @label?
+        @label.compile options, level, line-start, sb
+        sb ": "
       sb "if ("
       @test.compile options, Level.inside-parentheses, false, sb
       sb ") {\n"
@@ -1208,7 +1271,7 @@ exports.IfStatement := class IfStatement extends Statement
       let when-false = @when-false
       if not when-false.is-noop()
         sb " else "
-        if when-false instanceof IfStatement
+        if when-false instanceof IfStatement and not when-false.label?
           when-false.compile options, level, false, sb
         else
           sb "{\n"
@@ -1222,9 +1285,10 @@ exports.IfStatement := class IfStatement extends Statement
     let test = walker(@test) ? @test.walk walker
     let when-true = walker(@when-true) ? @when-true.walk walker
     let when-false = walker(@when-false) ? @when-false.walk walker
+    let label = if @label? then walker(@label) ? @label.walk walker else @label
     
-    if test != @test or when-true != @when-true or when-false != @when-false
-      If test, when-true, when-false
+    if test != @test or when-true != @when-true or when-false != @when-false or label != @label
+      If test, when-true, when-false, label
     else
       this
   
@@ -1232,7 +1296,7 @@ exports.IfStatement := class IfStatement extends Statement
     let when-true = @when-true.mutate-last(func, include-noop)
     let when-false = @when-false.mutate-last(func, include-noop)
     if when-true != @when-true or when-false != @when-false
-      If @test, when-true, when-false
+      If @test, when-true, when-false, @label
     else
       this
   
@@ -1251,8 +1315,8 @@ exports.IfStatement := class IfStatement extends Statement
   
   def inspect(depth) -> inspect-helper depth, "IfStatement", @test, @when-true, @when-false
   
-  def to-JSON() -> { type: "IfStatement", test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false) }
-  @from-JSON := #({test, when-true, when-false}) -> IfStatement from-JSON(test), from-JSON(when-true), from-JSON(when-false)
+  def to-JSON() -> { type: "IfStatement", test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false), label: @label ? void }
+  @from-JSON := #({test, when-true, when-false, label}) -> IfStatement from-JSON(test), from-JSON(when-true), from-JSON(when-false), if label? then from-JSON(label) else null
 
 exports.IfExpression := class IfExpression extends Expression
   def constructor(mutable test as Expression = Noop(), mutable when-true = Noop(), mutable when-false = Noop())
@@ -1344,9 +1408,9 @@ exports.IfExpression := class IfExpression extends Expression
   def to-JSON() -> { type: "IfExpression", test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false) }
   @from-JSON := #({test, when-true, when-false}) -> IfExpression from-JSON(test), from-JSON(when-true), from-JSON(when-false)
 
-let If = exports.If := #(test, when-true, when-false)
-  if when-true instanceof Statement or when-false instanceof Statement
-    IfStatement test, when-true, when-false
+let If = exports.If := #(test, when-true, when-false, label)
+  if when-true instanceof Statement or when-false instanceof Statement or label?
+    IfStatement test, when-true, when-false, label
   else
     IfExpression test, when-true, when-false
 
@@ -1611,7 +1675,7 @@ exports.Throw := class Throw extends Statement
   @from-JSON := #({node}) -> Throw from-JSON(node)
 
 exports.Switch := class Switch extends Statement
-  def constructor(mutable node = Noop(), @cases as [SwitchCase] = [], default-case as Node = Noop())
+  def constructor(mutable node = Noop(), @cases as [SwitchCase] = [], default-case as Node = Noop(), @label as Ident|null)
     if node not instanceof Expression
       node := to-const node
     @node := node
@@ -1621,6 +1685,9 @@ exports.Switch := class Switch extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
+    if @label?
+      @label.compile options, level, line-start, sb
+      sb ": "
     sb "switch ("
     @node.compile options, Level.inside-parentheses, false, sb
     sb ") {"
@@ -1658,12 +1725,13 @@ exports.Switch := class Switch extends Statement
     let node = walker(@node) ? @node.walk(walker)
     let cases = walk-array(@cases, walker)
     let default-case = walker(@default-case) ? @default-case.walk(walker)
-    if node != @node or cases != @cases or default-case != @default-case
-      Switch node, cases, default-case
+    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    if node != @node or cases != @cases or default-case != @default-case or label != @label
+      Switch node, cases, default-case, label
     else
       this
   
-  def inspect(depth) -> @inspect-helper depth, "Switch", @node, @cases, @default-case
+  def inspect(depth) -> @inspect-helper depth, "Switch", @node, @cases, @default-case, @label
   
   def to-JSON()
     type: "Switch"
@@ -1671,13 +1739,14 @@ exports.Switch := class Switch extends Statement
     cases: simplify(for case_ in @cases
       { node: simplify(case_.node), body: simplify(case_.body) })
     default-case: simplify(@default-case)
-  @from-JSON := #({node, cases, default-case})
+    label: @label ? void
+  @from-JSON := #({node, cases, default-case, label})
     let result-cases = []
     for case_ in (cases or [])
       if not case_ or typeof case_ != \object
         throw Error "Expected an object with a node and body"
       result-cases.push SwitchCase from-JSON(case_.node), from-JSON(case_.body)
-    Switch from-JSON(node), result-cases, from-JSON(default-case)
+    Switch from-JSON(node), result-cases, from-JSON(default-case), if label? then from-JSON(label) else null
   
   Switch.Case := class SwitchCase
     def constructor(mutable node = Noop(), body as Node = Noop())
@@ -1700,7 +1769,7 @@ exports.Switch := class Switch extends Statement
     def inspect(depth) -> inspect-helper depth, "Case", @node, @body
 
 exports.TryCatch := class TryCatch extends Statement
-  def constructor(try-body as Node = Noop(), @catch-ident as Ident, catch-body as Node = Noop())
+  def constructor(try-body as Node = Noop(), @catch-ident as Ident, catch-body as Node = Noop(), @label as Ident|null)
     @try-body := try-body.maybe-to-statement()
     if @try-body.is-noop()
       return @try-body
@@ -1710,6 +1779,9 @@ exports.TryCatch := class TryCatch extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
+    if @label?
+      @label.compile options, level, line-start, sb
+      sb ": "
     sb "try {\n"
     let child-options = inc-indent options
     sb.indent child-options.indent
@@ -1731,33 +1803,43 @@ exports.TryCatch := class TryCatch extends Statement
     let try-body = walker(@try-body) ? @try-body.walk(walker)
     let catch-ident = walker(@catch-ident) ? @catch-ident.walk(walker)
     let catch-body = walker(@catch-body) ? @catch-body.walk(walker)
-    if try-body != @try-body or catch-ident != @catch-ident or catch-body != @catch-body
-      TryCatch try-body, catch-ident, catch-body
+    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    if try-body != @try-body or catch-ident != @catch-ident or catch-body != @catch-body or label != @label
+      TryCatch try-body, catch-ident, catch-body, label
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "TryCatch", @try-body, @catch-ident, @catch-body
+  def inspect(depth) -> inspect-helper depth, "TryCatch", @try-body, @catch-ident, @catch-body, @label
   
-  def to-JSON() -> { type: "TryCatch", try-body: simplify(@try-body), @catch-ident, catch-body: simplify(@catch-body) }
-  @from-JSON := #({try-body, catch-ident, catch-body}) -> TryCatch from-JSON(try-body), from-JSON(catch-ident), from-JSON(catch-body)
+  def to-JSON()
+    type: "TryCatch"
+    try-body: simplify(@try-body)
+    catch-ident: @catch-ident
+    catch-body: simplify(@catch-body)
+    label: @label ? void
+  @from-JSON := #({try-body, catch-ident, catch-body, label}) -> TryCatch from-JSON(try-body), from-JSON(catch-ident), from-JSON(catch-body), if label? then from-JSON(label) else null
 
 exports.TryFinally := class TryFinally extends Statement
-  def constructor(try-body as Node = Noop(), finally-body as Node = Noop())
+  def constructor(try-body as Node = Noop(), finally-body as Node = Noop(), @label as Ident|null)
     @try-body := try-body.maybe-to-statement()
     @finally-body := finally-body.maybe-to-statement()
-    if @try-body.is-noop()
-      return @finally-body
-    else if @finally-body.is-noop()
-      return @try-body
+    if not label?
+      if @try-body.is-noop()
+        return @finally-body
+      else if @finally-body.is-noop()
+        return @try-body
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
+    if @label?
+      @label.compile options, level, line-start, sb
+      sb ": "
     sb "try {\n"
     let child-options = inc-indent(options)
     sb.indent child-options.indent
-    if @try-body instanceof TryCatch
+    if @try-body instanceof TryCatch and not @try-body.label?
       @try-body.try-body.compile-as-statement child-options, true, sb
       sb "\n"
       sb.indent options.indent
@@ -1784,15 +1866,20 @@ exports.TryFinally := class TryFinally extends Statement
   def walk(walker)
     let try-body = walker(@try-body) ? @try-body.walk(walker)
     let finally-body = walker(@finally-body) ? @finally-body.walk(walker)
-    if try-body != @try-body or finally-body != @finally-body
-      TryFinally try-body, finally-body
+    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    if try-body != @try-body or finally-body != @finally-body or label != @label
+      TryFinally try-body, finally-body, label
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Root", @try-body, @finally-body
+  def inspect(depth) -> inspect-helper depth, "TryFinally", @try-body, @finally-body, @label
   
-  def to-JSON() -> { type: "TryFinally", try-body: simplify(@try-body), finally-body: simplify(@finally-body) }
-  @from-JSON := #({try-body, finally-body}) -> TryFinally from-JSON(try-body), from-JSON(finally-body)
+  def to-JSON()
+    type: "TryFinally"
+    try-body: simplify(@try-body)
+    finally-body: simplify(@finally-body)
+    label: @label ? void
+  @from-JSON := #({try-body, finally-body, label}) -> TryFinally from-JSON(try-body), from-JSON(finally-body), if label? then from-JSON(label) else null
 
 exports.Unary := class Unary extends Expression
   def constructor(@op as String, mutable node = Noop())
@@ -1872,8 +1959,8 @@ exports.Unary := class Unary extends Expression
   def to-JSON() -> { type: "Unary", @op, node: simplify(@node) }
   @from-JSON := #({op, node}) -> Unary op, from-JSON(node)
 
-let While = exports.While := #(test, body)
-  For(null, test, null, body)
+let While = exports.While := #(test, body, label)
+  For(null, test, null, body, label)
 
 let from-JSON = exports.from-JSON := #(obj)
   if not obj?

@@ -4383,13 +4383,13 @@ class MacroHelper
   def var(ident as IdentNode|TmpNode, is-mutable as Boolean) -> @state.var @index, ident, is-mutable
   def def(key as Node = NothingNode(0, 0, @state.scope.id), value as Node|void) -> @state.def @index, key, @do-wrap(value)
   def noop() -> @state.nothing @index
-  def block(nodes as [Node]) -> @state.block(@index, nodes).reduce(@state)
-  def if(test as Node = NothingNode(0, 0, @state.scope.id), when-true as Node = NothingNode(0, 0, @state.scope.id), when-false as Node|null) -> @state.if(@index, @do-wrap(test), when-true, when-false).reduce(@state)
-  def switch(node as Node = NothingNode(0, 0, @state.scope.id), cases as [], default-case as Node|null) -> @state.switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case).reduce(@state)
-  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, 0, @state.scope.id)) -> @state.for(@index, @do-wrap(init), @do-wrap(test), @do-wrap(step), body).reduce(@state)
-  def for-in(key as IdentNode, object as Node = NothingNode(0, 0), body as Node = NothingNode(0, 0, @state.scope.id)) -> @state.for-in(@index, key, @do-wrap(object), body).reduce(@state)
-  def try-catch(try-body as Node = NothingNode(0, 0, @state.scope.id), catch-ident as Node = NothingNode(0, 0, @state.scope.id), catch-body as Node = NothingNode(0, 0, @state.scope.id)) -> @state.try-catch(@index, try-body, catch-ident, catch-body).reduce(@state)
-  def try-finally(try-body as Node = NothingNode(0, 0, @state.scope.id), finally-body as Node = NothingNode(0, 0, @state.scope.id)) -> @state.try-finally(@index, try-body, finally-body).reduce(@state)
+  def block(nodes as [Node], label as IdentNode|TmpNode|null) -> @state.block(@index, nodes, label).reduce(@state)
+  def if(test as Node = NothingNode(0, 0, @state.scope.id), when-true as Node = NothingNode(0, 0, @state.scope.id), when-false as Node|null, label as IdentNode|TmpNode|null) -> @state.if(@index, @do-wrap(test), when-true, when-false, label).reduce(@state)
+  def switch(node as Node = NothingNode(0, 0, @state.scope.id), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null) -> @state.switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case, label).reduce(@state)
+  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, 0, @state.scope.id), label as IdentNode|TmpNode|null) -> @state.for(@index, @do-wrap(init), @do-wrap(test), @do-wrap(step), body, label).reduce(@state)
+  def for-in(key as IdentNode, object as Node = NothingNode(0, 0), body as Node = NothingNode(0, 0, @state.scope.id), label as IdentNode|TmpNode|null) -> @state.for-in(@index, key, @do-wrap(object), body, label).reduce(@state)
+  def try-catch(try-body as Node = NothingNode(0, 0, @state.scope.id), catch-ident as Node = NothingNode(0, 0, @state.scope.id), catch-body as Node = NothingNode(0, 0, @state.scope.id), label as IdentNode|TmpNode|null) -> @state.try-catch(@index, try-body, catch-ident, catch-body, label).reduce(@state)
+  def try-finally(try-body as Node = NothingNode(0, 0, @state.scope.id), finally-body as Node = NothingNode(0, 0, @state.scope.id), label as IdentNode|TmpNode|null) -> @state.try-finally(@index, try-body, finally-body, label).reduce(@state)
   def assign(left as Node = NothingNode(0, 0, @state.scope.id), op as String, right as Node = NothingNode(0, 0, @state.scope.id)) -> @state.assign(@index, left, op, @do-wrap(right)).reduce(@state)
   def binary(left as Node = NothingNode(0, 0, @state.scope.id), op as String, right as Node = NothingNode(0, 0, @state.scope.id)) -> @state.binary(@index, @do-wrap(left), op, @do-wrap(right)).reduce(@state)
   def unary(op as String, node as Node = NothingNode(0, 0, @state.scope.id)) -> @state.unary(@index, op, @do-wrap(node)).reduce(@state)
@@ -4397,8 +4397,29 @@ class MacroHelper
   def return(node as Node|void) -> @state.return(@index, @do-wrap(node)).reduce(@state)
   def yield(node as Node = NothingNode(0, 0, @state.scope.id)) -> @state.yield(@index, @do-wrap(node)).reduce(@state)
   def debugger() -> @state.debugger(@index)
-  def break() -> @state.break(@index)
-  def continue() -> @state.continue(@index)
+  def break(label as IdentNode|TmpNode|null) -> @state.break(@index, label)
+  def continue(label as IdentNode|TmpNode|null) -> @state.continue(@index, label)
+  
+  def is-labelled-block(mutable node)
+    node := @macro-expand-1(node)
+    if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryCatchFinallyNode]
+      node.label?
+    else
+      false
+  
+  def is-break(node) -> @macro-expand-1(node) instanceof BreakNode
+  def is-continue(node) -> @macro-expand-1(node) instanceof ContinueNode
+  def label(mutable node)
+    node := @macro-expand-1(node)
+    if node instanceofsome [BreakNode, ContinueNode, BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryCatchFinallyNode]
+      node.label
+    else
+      null
+  def with-label(mutable node, label as IdentNode|TmpNode|null)
+    node := @macro-expand-1(node)
+    if typeof node.with-label != \function
+      throw TypeError "Cannot add a label to $(typeof! node)"
+    node.with-label label
   
   def macro-expand-1(node)
     if node instanceof Node
@@ -4911,6 +4932,7 @@ class MacroHolder
       DedentedBody
       ObjectKey
       Type: TypeReference
+      NoSpace
     }
   
   def clone()
@@ -5199,7 +5221,11 @@ macro node-class
       false
     
     let is-node-type(arg)@
-      @is-ident(@param-type(arg)) and @name(@param-type(arg)) == \Node
+      if @is-ident(@param-type(arg)) and @name(@param-type(arg)).slice(-4) == \Node
+        true
+      else if @is-type-union(@param-type(arg))
+        for every type in @types(@param-type(arg))
+          is-node-type(type)
     let has-node-type(arg)@
       @is-type-union(@param-type(arg)) and for some type in @types(@param-type(arg)); @is-ident(type) and @name(type) == \Node
     let is-node-array-type(arg)@
@@ -6355,13 +6381,15 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         BinaryNode @start-index, @end-index, @scope-id, left, op, right
       else
         this
-node-class BlockNode(nodes as [Node])
+node-class BlockNode(nodes as [Node], label as IdentNode|TmpNode|null)
   def type(o)
     let nodes = @nodes
     if nodes.length == 0
       Type.undefined
     else
       nodes[nodes.length - 1].type(o)
+  def with-label(label as IdentNode|TmpNode|null)
+    BlockNode @start-index, @end-index, @scope-id, @nodes, label
   def _reduce(o)
     let changed = false
     let body = []
@@ -6381,21 +6409,23 @@ node-class BlockNode(nodes as [Node])
         body.push reduced
         if reduced != node
           changed := true
-    switch body.length
-    case 0
+    let label = if @label? then @label.reduce(o) else @label
+    if body.length == 0
       NothingNode @start-index, @end-index, @scope-id
-    case 1
+    else if not label? and body.length == 1
       body[0]
-    default
-      if changed
-        BlockNode @start-index, @end-index, @scope-id, body
+    else
+      if changed or label != @label
+        BlockNode @start-index, @end-index, @scope-id, body, label
       else
         this
   def is-statement() -> for some node in @nodes by -1; node.is-statement()
   def _is-noop(o) -> @__is-noop ?= for every node in @nodes by -1; node.is-noop(o)
-node-class BreakNode
+node-class BreakNode(label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
+  def with-label(label as IdentNode|TmpNode|null)
+    BreakNode @start-index, @end-index, @scope-id, label
 node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as Boolean)
   def type = do
     let PRIMORDIAL_FUNCTIONS =
@@ -6689,21 +6719,27 @@ node-class ConstNode(value as Number|String|Boolean|RegExp|void|null)
   def is-const() -> true
   def const-value() -> @value
   def _is-noop() -> true
-node-class ContinueNode
+node-class ContinueNode(label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
+  def with-label(label as IdentNode|TmpNode|null)
+    ContinueNode @start-index, @end-index, @scope-id, label
 node-class DebuggerNode
   def type() -> Type.undefined
   def is-statement() -> true
 node-class DefNode(left as Node, right as Node|void)
   def type(o) -> if @right? then @right.type(o) else Type.any
 node-class EvalNode(code as Node)
-node-class ForNode(init as Node = NothingNode(0, 0, scope-id), test as Node = ConstNode(0, 0, scope-id, true), step as Node = NothingNode(0, 0, scope-id), body as Node)
+node-class ForNode(init as Node = NothingNode(0, 0, scope-id), test as Node = ConstNode(0, 0, scope-id, true), step as Node = NothingNode(0, 0, scope-id), body as Node, label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
-node-class ForInNode(key as Node, object as Node, body as Node)
+  def with-label(label as IdentNode|TmpNode|null)
+    ForNode @start-index, @end-index, @scope-id, @init, @test, @step, @body, label
+node-class ForInNode(key as Node, object as Node, body as Node, label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
+  def with-label(label as IdentNode|TmpNode|null)
+    ForInNode @start-index, @end-index, @scope-id, @init, @key, @object, @body, label
 node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, as-type as Node|void, generator as Boolean)
   def type(o) -> @_type ?= do
     // TODO: handle generator types
@@ -6736,31 +6772,38 @@ node-class IdentNode(name as String)
   def cacheable = false
   def type(o) -> if o then o.scope.type(this) else Type.any
   def _is-noop(o) -> true
-node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, 0, scope-id))
+node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, 0, scope-id), label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
+  def with-label(label as IdentNode|TmpNode|null)
+    IfNode @start-index, @end-index, @scope-id, @test, @when-true, @when-false, label
   def _reduce(o)
     let test = @test.reduce(o)
     let when-true = @when-true.reduce(o)
     let when-false = @when-false.reduce(o)
+    let label = if @label? then @label.reduce(o) else @label
     if test.is-const()
-      if test.const-value()
-        when-true
-      else
-        when-false
+      BlockNode(@start-index, @end-index, @scope-id,
+        [if test.const-value()
+          when-true
+        else
+          when-false]
+        label).reduce(o)
     else
       let test-type = test.type(o)
       if test-type.is-subset-of(Type.always-truthy)
-        BlockNode @start-index, @end-index, @scope-id, [test, when-true]
+        BlockNode(@start-index, @end-index, @scope-id, [test, when-true], label).reduce(o)
       else if test-type.is-subset-of(Type.always-falsy)
-        BlockNode @start-index, @end-index, @scope-id, [test, when-false]
+        BlockNode(@start-index, @end-index, @scope-id, [test, when-false], label).reduce(o)
+      else if test != @test or when-true != @when-true or when-false != @when-false or label != @label
+        IfNode(@start-index, @end-index, @scope-id, test, when-true, when-false, label)
       else
-        IfNode @start-index, @end-index, @scope-id, test, when-true, when-false
+        this
   def is-statement() -> @_is-statement ?= @when-true.is-statement() or @when-false.is-statement()
   def do-wrap(o)
     let when-true = @when-true.do-wrap(o)
     let when-false = @when-false.do-wrap(o)
     if when-true != @when-true or when-false != @when-false
-      IfNode @start-index, @end-index, @scope-id, @test, when-true, when-false
+      IfNode @start-index, @end-index, @scope-id, @test, when-true, when-false, @label
     else
       this
   def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
@@ -6973,13 +7016,15 @@ node-class SuperNode(child as Node|void, args as [Node])
       SuperNode @start-index, @end-index, @scope-id, child, args
     else
       this
-node-class SwitchNode(node as Node, cases as [], default-case as Node|void)
+node-class SwitchNode(node as Node, cases as [], default-case as Node|void, label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?= do
     for reduce case_ in @cases, type = if @default-case? then @default-case.type(o) else Type.undefined
       if case_.fallthrough
         type
       else
         type.union case_.body.type(o)
+  def with-label(label as IdentNode|TmpNode|null)
+    SwitchNode @start-index, @end-index, @scope-id, @node, @cases, @default-case, label
   def walk(f)
     let node = f @node
     let cases = map @cases, #(case_)
@@ -6990,8 +7035,9 @@ node-class SwitchNode(node as Node, cases as [], default-case as Node|void)
       else
         case_
     let default-case = if @default-case then f @default-case else @default-case
-    if node != @node or cases != @cases or default-case != @default-case
-      SwitchNode @start-index, @end-index, @scope-id, node, cases, default-case
+    let label = if @label? then f @label else @label
+    if node != @node or cases != @cases or default-case != @default-case or label != @label
+      SwitchNode @start-index, @end-index, @scope-id, node, cases, default-case, label
     else
       this
   def walk-async(f, callback)
@@ -7008,8 +7054,13 @@ node-class SwitchNode(node as Node, cases as [], default-case as Node|void)
       next(x)
     else
       next(@default-case)
-    callback null, if node != @node or cases != @cases or default-case != @default-case
-      SwitchNode @start-index, @end-index, @scope-id, node, cases, default-case
+    asyncif label <- next, @label?
+      async! callback, x <- f @label
+      next(x)
+    else
+      next(@label)
+    callback null, if node != @node or cases != @cases or default-case != @default-case or label != @label
+      SwitchNode @start-index, @end-index, @scope-id, node, cases, default-case, label
     else
       this
   def is-statement() -> true
@@ -7045,25 +7096,30 @@ node-class TmpWrapperNode(node as Node, tmps as [])
       this
   def is-statement() -> @node.is-statement()
   def _is-noop(o) -> @node.is-noop(o)
-node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Node)
+node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Node, label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
   def is-statement() -> true
   def _is-noop(o) -> @try-body.is-noop(o)
-node-class TryFinallyNode(try-body as Node, finally-body as Node)
+  def with-label(label as IdentNode|TmpNode|null)
+    TryCatchNode @start-index, @end-index, @scope-id, @try-body, @catch-ident, @catch-body, label
+node-class TryFinallyNode(try-body as Node, finally-body as Node, label as IdentNode|TmpNode|null)
   def type(o) -> @try-body.type(o)
   def _reduce(o)
     let try-body = @try-body.reduce(o)
     let finally-body = @finally-body.reduce(o)
+    let label = if @label? then @label.reduce(o) else @label
     if finally-body instanceof NothingNode
-      try-body
+      BlockNode(@start-index, @end-index, @scope-if [try-body], label).reduce(o)
     else if try-body instanceof NothingNode
-      finally-body
-    else if try-body != @try-body or finally-body != @finally-body
-      TryFinallyNode @start-index, @end-index, @scope-id, try-body, finally-body
+      BlockNode(@start-index, @end-index, @scope-if [finally-body], label).reduce(o)
+    else if try-body != @try-body or finally-body != @finally-body or label != @label
+      TryFinallyNode @start-index, @end-index, @scope-id, try-body, finally-body, label
     else
       this
   def is-statement() -> true
   def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
+  def with-label(label as IdentNode|TmpNode|null)
+    TryFinallyNode @start-index, @end-index, @scope-id, @try-body, @finally-body, label
 node-class TypeArrayNode(subtype as Node)
 node-class TypeFunctionNode(return-type as Node)
 node-class TypeObjectNode(pairs as [])

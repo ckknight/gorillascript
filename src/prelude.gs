@@ -48,12 +48,19 @@ macro debugger
     @debugger()
 
 macro continue
-  syntax ""
-    @continue()
+  syntax label as (Identifier|"")
+    @continue label
 
 macro break
-  syntax ""
-    @break()
+  syntax label as (Identifier|"")
+    @break label
+
+macro label!
+  syntax label as Identifier, node
+    @with-label node, label
+
+  syntax label as Identifier, body as Body
+    @block [body], label
 
 macro let
   syntax ident as Identifier, func as FunctionDeclaration

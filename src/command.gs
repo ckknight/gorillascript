@@ -39,7 +39,7 @@ cli.main #(filenames, options)
       next null, util.inspect ast.node, false, null
     else if options.nodes
       async! next, nodes <- gorilla.parse code, opts
-      next null, util.inspect nodes, false, null
+      next null, util.inspect nodes.result, false, null
     else if options.stdout
       async! next <- gorilla.compile code, opts
       next null, ""
