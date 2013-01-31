@@ -1011,3 +1011,5 @@ There are two ways to define getters and setters:
 When using the `get` and `set` pair, they must be defined next to each other (order is irrelevant). One can also supply only `get` or only `set`.
 
 When using the `property` syntax, the value is the same as one calling `Object.defineProperty`, in fact, that is all that is happening behind the scenes.
+
+**Note: this will throw an `Exception` if `Object.defineProperty` is not defined**
