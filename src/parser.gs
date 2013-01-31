@@ -4195,14 +4195,17 @@ define Block = one-of! [
   _Block
 ]
 
-let Shebang = sequential! [
+let BOM = maybe! (character! "\uFEFF"), true
+
+let Shebang = maybe! (sequential! [
   character! "#"
   character! "!"
   zero-or-more! any-except! Newline
-], true
+], true), true
 
 let Root = #(o, callback)
   let i = o.index
+  BOM(o)
   Shebang(o)
   EmptyLines(o)
   asyncif block <- next, callback?
