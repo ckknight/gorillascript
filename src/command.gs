@@ -86,6 +86,7 @@ cli.main #(filenames, options)
         handle-code code, next
       else
         gorilla.run code, { extends opts, filename }, next
+    throw? err
     
     if options.compile
       asyncfor(0) next, filename in filenames
