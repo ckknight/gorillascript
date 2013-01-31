@@ -100,15 +100,15 @@ test "single-line with semicolons", #
 
 test "If statement doesn't use ternary", #
   ok not gorilla.compile("""
-  if Math then String else Object end""", bare: true).match(r"\?")
+  if Math then String else Object end""", bare: true).code.match(r"\?")
 
 test "Return-If statement doesn't use ternary", #
   ok not gorilla.compile("""
-  return if Math then String else Object end""", bare: true).match(r"\?")
+  return if Math then String else Object end""", bare: true).code.match(r"\?")
 
 test "Let-If statement doesn't use ternary", #
   ok not gorilla.compile("""
-  let x = if Math then String else Object end""", bare: true).match(r"\?")
+  let x = if Math then String else Object end""", bare: true).code.match(r"\?")
 
 test "inline expression with lots of conditionals", #
   let fun(a, b, c, d, e, f, g, h, i)

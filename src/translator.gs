@@ -1373,14 +1373,30 @@ let translate-array(nodes as [], scope as Scope, location as String, auto-return
   return for node, i, len in nodes
     translate nodes[i], scope, location, i == len - 1 and auto-return
 
-module.exports := #(node, options = {})
-  let scope = Scope(options, false)
-  let result = translate(node, scope, \statement, false)()
-  scope.release-tmps()
-  return {
+module.exports := #(node, options = {}, callback)
+  if typeof options == \function
+    return module.exports(node, null, options)
+  let mutable result = void
+  let start-time = new Date().get-time()
+  try
+    let scope = Scope(options, false)
+    result := translate(node, scope, \statement, false)()
+    scope.release-tmps()
+  catch e
+    if callback?
+      callback e
+    else
+      throw e
+  let end-time = new Date().get-time()
+  options.progress?(\translate, end-time - start-time)
+  let ret = {
     node: result
-    macro-helpers: []
+    time: end-time - start-time
   }
+  if callback?
+    callback null, ret
+  else
+    ret
 
 module.exports.helpers := HELPERS
 module.exports.define-helper := #(name, value, type as Type, mutable dependencies)

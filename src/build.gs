@@ -10,12 +10,13 @@ files := for file in files.sort()
   if (process.argv.length < 3 or file in process.argv[2 to -1]) and file.match(r"\.gs\$"i) and file != "prelude.gs"
     file
 
+let write(text)
+  process.stdout.write text
+
 let done(err)
   if err?
-    console.log "Failure building after $(((Date.now() - start-time) / 1000).to-fixed 3) seconds\n"
+    console.log "Failure building after $(((Date.now() - start-time) / 1000_ms).to-fixed 3) seconds\n"
     throw err
-  else
-    console.log "Finished building after $(((Date.now() - start-time) / 1000).to-fixed 3) seconds\n"
 if files.length == 0
   return done(null)
 
@@ -30,17 +31,52 @@ asyncfor(0) err <- next, file in files
 if err?
   return done(err)
 
+let longest-name-len = for reduce file in files, current = 0
+  file.length max current
+
+let string-repeat(text, count)
+  if count < 1
+    ""
+  else if count == 1
+    text
+  else if count bitand 1
+    text & string-repeat text, count - 1
+  else
+    string-repeat text & text, count / 2
+let pad-left(mutable text, len, padding)
+  string-repeat(padding, len - text.length) & text
+let pad-right(mutable text, len, padding)
+  text & string-repeat(padding, len - text.length)
+
+write string-repeat(" ", longest-name-len)
+write "     parse     macro     reduce    translate compile    total\n"
+let totals = {}
 let results = {}
 asyncfor err <- next, file in files
   let {filename, code} = inputs[file]
-  process.stdout.write "$filename: "
+  write "$(pad-right file & ':', longest-name-len + 1, ' ') "
   let start-file-time = Date.now()
-  async! next, compiled <- gorilla.compile code, filename: filename
-  results[file] := compiled
-  process.stdout.write "$(((Date.now() - start-file-time) / 1000).to-fixed 3) seconds\n"
+  let progress = #(name, time)!
+    totals[name] := (totals[name] or 0) + time
+    write "  $(pad-left ((time / 1000_ms).to-fixed 3), 6, ' ') s"
+  async err, compiled <- gorilla.compile code, filename: filename, progress: progress
+  if err?
+    write "\n"
+    return next(err)
+  results[file] := compiled.code
+  write " | $(pad-left (((Date.now() - start-file-time) / 1000_ms).to-fixed 3), 6, ' ') s\n"
   next()
 if err?
   return done(err)
+if files.length > 1
+  write string-repeat "-", longest-name-len + 53
+  write "+"
+  write string-repeat "-", 9
+  write "\n"
+  write pad-right "total: ", longest-name-len + 2, ' '
+  for part in [\parse, \macro-expand, \reduce, \translate, \compile]
+    write "  $(pad-left ((totals[part] / 1000_ms).to-fixed 3), 6, ' ') s"
+  write " | $(pad-left (((Date.now() - start-time) / 1000_ms).to-fixed 3), 6, ' ') s\n"
 
 asyncfor(0) err <- next, file in files
   let compiled = results[file]

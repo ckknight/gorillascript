@@ -36,10 +36,10 @@ cli.main #(filenames, options)
   let handle-code(code, callback = #->)
     asyncif err, result <- next, options.ast
       async! next, ast <- gorilla.ast code, opts
-      next null, util.inspect ast, false, null
+      next null, util.inspect ast.node, false, null
     else if options.nodes
       async! next, nodes <- gorilla.parse code, opts
-      next null, util.inspect ast, false, null
+      next null, util.inspect nodes, false, null
     else if options.stdout
       async! next <- gorilla.compile code, opts
       next null, ""
@@ -77,10 +77,10 @@ cli.main #(filenames, options)
       if options.compile
         process.stdout.write "Compiling $(path.basename filename) ... "
         let start-time = Date.now()
-        async! next, js-code <- gorilla.compile code, opts
+        async! next, compilation <- gorilla.compile code, opts
         let end-time = Date.now()
-        process.stdout.write "$(((end-time - start-time) / 1000_ms).toFixed(3)) seconds\n"
-        compiled[filename] := js-code
+        process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
+        compiled[filename] := compilation.code
         next()
       else if options.stdout
         handle-code code, next

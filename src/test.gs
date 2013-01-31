@@ -3,6 +3,9 @@ require! path
 require! assert
 require! './gorilla'
 
+let write = #(text)
+  process.stdout.write text
+
 let no-prelude = false
 let mutable passed-tests = 0
 let add-global(name, func)!
@@ -124,6 +127,27 @@ asyncfor(0) err <- next, file, i in files
   next()
 throw? err
 
+let longest-name-len = for reduce file in files, current = 0
+  path.basename(file).length max current
+
+let string-repeat(text, count)
+  if count < 1
+    ""
+  else if count == 1
+    text
+  else if count bitand 1
+    text & string-repeat text, count - 1
+  else
+    string-repeat text & text, count / 2
+let pad-left(mutable text, len, padding)
+  string-repeat(padding, len - text.length) & text
+let pad-right(mutable text, len, padding)
+  text & string-repeat(padding, len - text.length)
+
+write string-repeat(" ", longest-name-len)
+write "     parse     macro     reduce    translate compile   eval            total\n"
+
+let totals = {}
 asyncfor err <- next, file, i in files
   asyncif done-init, i == 0 and not no-prelude
     async! next <- gorilla.init()
@@ -133,13 +157,17 @@ asyncfor err <- next, file, i in files
   let {code, filename} = inputs[file]
   
   let basename = path.basename filename
-  process.stdout.write "$basename: "
+  write "$(pad-right basename & ':', longest-name-len + 1, ' ') "
   let start = Date.now()
   let mutable failure = false
   let start-time = Date.now()
   current-file := filename
-  async err, result <- gorilla.eval code.to-string(), filename: filename, include-globals: true, no-prelude: no-prelude
+  let progress = #(name, time)
+    totals[name] := (totals[name] or 0) + time
+    write "  $(pad-left ((time / 1000_ms).to-fixed 3), 6, ' ') s"
+  async err, result <- gorilla.eval code.to-string(), { filename, include-globals: true, no-prelude, progress }
   if err?
+    write "\n"
     failure := true
     add-failure basename, err
   
@@ -148,13 +176,24 @@ asyncfor err <- next, file, i in files
   let end-time = Date.now()
   total-time += end-time - start-time
   
-  process.stdout.write "$(if failure then 'fail' else 'pass') $(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
+  write " | $(if failure then 'fail' else 'pass') $(pad-left ((end-time - start-time) / 1000_ms).to-fixed(3), 6, ' ') s\n"
   next()
 throw? err
+if files.length > 1
+  write string-repeat "-", longest-name-len + 63
+  write "+"
+  write string-repeat "-", 14
+  write "\n"
+  write pad-right "total: ", longest-name-len + 2, ' '
+  for part in [\parse, \macro-expand, \reduce, \translate, \compile, \eval]
+    write "  $(pad-left ((totals[part] / 1000_ms).to-fixed 3), 6, ' ') s"
+  write " | "
+  write if num-failures == 0 then "pass" else "fail"
+  write " $(pad-left ((total-time / 1000_ms).to-fixed 3), 6, ' ') s\n"
 
-let message = "passed $passed-tests tests in $((total-time / 1000_ms).to-fixed(3)) seconds"
+let message = "passed $passed-tests tests"
 if num-failures == 0
   console.log message
 else
-  console.log "failed $num-failures and $message"
+  console.log "failed $num-failures"
   set-timeout (# -> process.exit(1)), 100

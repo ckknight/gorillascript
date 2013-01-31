@@ -7,8 +7,8 @@ require! path
 // TODO: Remove register-extension when fully deprecated.
 if require.extensions
   require.extensions[".gs"] := #(module, filename)
-    let content = compile fs.read-file-sync(filename, "utf8"), { filename }
-    module._compile content, filename
+    let compiled = compile fs.read-file-sync(filename, "utf8"), { filename }
+    module._compile compiled.code, filename
 else if require.register-extension
   require.register-extension ".gs", #(content) -> compiler content
 
@@ -98,25 +98,57 @@ exports.get-reserved-words := #(options = {})
 let translate = exports.ast := #(source, options = {}, callback)
   if typeof options == \function
     return translate source, null, callback
-  if callback?
+  let start-time = new Date().get-time()
+  asyncif parsed, translated <- next, callback?
     async! callback, parsed <- parse source, options
-    callback null, translator(parsed.result, options).node
+    async! callback, translated <- translator parsed.result, options
+    next parsed, translated
   else
-    let parsed = parse source, options, callback
-    translator(parsed.result, options).node
+    let parsed = parse source, options
+    next parsed, translator(parsed.result, options)
+  
+  let result = {
+    translated.node
+    parsed.parse-time
+    parsed.macro-expand-time
+    parsed.reduce-time
+    translate-time: translated.time
+    time: new Date().get-time() - start-time
+  }
+  if callback?
+    callback null, result
+  else
+    result
 
 let compile = exports.compile := #(source, options = {}, callback)
   if typeof options == \function
     return compile source, null, callback
-  if callback?
-    async! callback, node <- translate source, options
-    callback null, node.compile options
+  let start-time = new Date().get-time()
+  asyncif translated <- next, callback?
+    async! callback, translated <- translate source, options
+    next translated
   else
-    let node = translate source, options
-    node.compile options
+    next translate source, options
+  let start-compile-time = new Date().get-time()
+  let code = translated.node.compile options
+  let end-time = new Date().get-time()
+  options.progress?(\compile, end-time - start-compile-time)
+  let result = {
+    translated.parse-time
+    translated.macro-expand-time
+    translated.reduce-time
+    translated.translate-time
+    compile-time: end-time - start-compile-time
+    time: end-time - start-time
+    code
+  }
+  if callback?
+    callback null, result
+  else
+    result
 
-let evaluate(root, options)
-  let {Script} = require('vm')
+let evaluate(code, options)
+  let Script = require?('vm')?.Script
   if Script
     let mutable sandbox = Script.create-context()
     sandbox.global := (sandbox.root := (sandbox.GLOBAL := sandbox))
@@ -142,10 +174,8 @@ let evaluate(root, options)
       for k of global
         if sandbox not haskey k
           sandbox[k] := global[k]
-    let code = root.compile(options)
     Script.run-in-context code, sandbox
   else
-    let code = root.compile(options)
     let fun = Function(code)
     fun()
 
@@ -154,16 +184,27 @@ exports.eval := #(source, options = {}, callback)
     return exports.eval source, null, callback
   options.eval := true
   options.return := false
-  if callback?
-    async! callback, root <- translate source, options
-    let mutable result = null
-    try
-      result := evaluate root, options
-    catch e
+  asyncif compiled <- next, callback?
+    async! callback, compiled <- compile source, options
+    next compiled
+  else
+    next compile source, options
+  
+  let start-time = new Date().get-time()
+  let mutable result = null
+  try
+    result := evaluate compiled.code, options
+  catch e
+    if callback?
       return callback e
+    else
+      throw e
+  options.progress?(\eval, new Date().get-time() - start-time)
+  
+  if callback?
     callback null, result
   else
-    evaluate(translate(source, options), options)
+    result
 
 exports.run := #(source, options = {}, callback)!
   if typeof options == \function
@@ -178,12 +219,12 @@ exports.run := #(source, options = {}, callback)!
     let {Module} = require('module')
     main-module.paths := Module._node-module-paths path.dirname options.filename
   if path.extname(main-module.filename) != ".gs" or require.extensions
-    asyncif compilation <- next, callback?
+    asyncif compiled <- next, callback?
       async! callback, ret <- compile(source, options)
       next ret
     else
       next compile(source, options)
-    main-module._compile compilation, main-module.filename
+    main-module._compile compiled.code, main-module.filename
     callback?()
   else
     main-module._compile source, main-module.filename

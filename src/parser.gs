@@ -7179,6 +7179,7 @@ let build-error-message(errors, last-token)
 let parse(text as String, macros as MacroHolder|null, options as {} = {}, callback as Function|null)
   let o = State text, macros?.clone(), options
   
+  let start-time = new Date().get-time()
   asyncif result <- next, callback?
     async err, root <- Root o
     if err? and err != SHORT_CIRCUIT
@@ -7192,6 +7193,8 @@ let parse(text as String, macros as MacroHolder|null, options as {} = {}, callba
         throw e
       else
         next()
+  let end-parse-time = new Date().get-time()
+  options.progress?(\parse, end-parse-time - start-time)
   
   if not result or o.index < o.data.length
     let {index, line, messages} = o.failures
@@ -7204,17 +7207,29 @@ let parse(text as String, macros as MacroHolder|null, options as {} = {}, callba
       return callback(err)
     else
       throw err
-  else if callback?
-    async! callback, result <- o.macro-expand-all-async result
-    callback null, {
-      result: result.reduce(o)
-      o.macros
-    }
   else
-    {
-      result: o.macro-expand-all(result).reduce(o)
+    asyncif expanded <- next, callback?
+      async! callback, expanded <- o.macro-expand-all-async result
+      next expanded
+    else
+      next o.macro-expand-all(result)
+    let end-expand-time = new Date().get-time()
+    options.progress?(\macro-expand, end-expand-time - end-parse-time)
+    let reduced = expanded.reduce(o)
+    let end-reduce-time = new Date().get-time()
+    options.progress?(\reduce, end-reduce-time - end-expand-time)
+    let ret = {
+      result: reduced
       o.macros
+      parse-time: end-parse-time - start-time
+      macro-expand-time: end-expand-time - end-parse-time
+      reduce-time: end-reduce-time - end-expand-time
+      time: end-reduce-time - start-time
     }
+    if callback?
+      callback null, ret
+    else
+      ret
 module.exports := parse
 module.exports.ParserError := ParserError
 module.exports.MacroError := MacroError
