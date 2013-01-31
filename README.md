@@ -968,3 +968,24 @@ Some examples:
 Types can also be placed on let statements, to help with the type inference engine.
 
     let x as Number = f()
+
+## Operators as functions
+
+In functional programming, it is often handy to use one of the built-in operators as a function, and GorillaScript provides this capability.
+
+    let add = (+)
+    add(5, 6) == 11
+    
+    let square = (^ 2)
+    square(10) == 100
+    
+    let double = (2 *)
+    double(5) == 10
+    
+    let invert = (not)
+    invert(true) == false
+    invert(false) == true
+    
+    10 == [1, 2, 3, 4].reduce (+)
+
+Any binary operator can be used this way, and any unary operator can be used as long as it does not share the same token as a binary operator.
