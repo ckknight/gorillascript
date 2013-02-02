@@ -316,10 +316,14 @@ let flatten-spread-array(elements)
 let generator-translate = do
   let generator-translators =
     Block: #(node, scope, mutable builder, break-state, continue-state)
+      if node.label?
+        throw Error "Not implemented: block with label in generator"
       for reduce subnode in node.nodes, b = builder
         generator-translate subnode, scope, b, break-state, continue-state
     
     Break: #(node, scope, mutable builder, break-state)
+      if node.label?
+        throw Error "Not implemented: break with label in a generator"
       if not break-state?
         throw Error "break found outside of a loop"
       
@@ -327,6 +331,8 @@ let generator-translate = do
       builder
     
     Continue: #(node, scope, mutable builder, break-state, continue-state)
+      if node.label?
+        throw Error "Not implemented: continue with label in a generator"
       if not break-state?
         throw Error "break found outside of a loop"
       
@@ -334,6 +340,8 @@ let generator-translate = do
       builder
     
     For: #(node, scope, mutable builder)
+      if node.label?
+        throw Error "Not implemented: for with label in generator"
       if node.init?
         builder := generator-translate node.init, scope, builder
       let step-branch = builder.branch()
@@ -350,6 +358,8 @@ let generator-translate = do
       post-branch.builder
     
     ForIn: #(node, scope, mutable builder)
+      if node.label?
+        throw Error "Not implemented: for-in with label in generator"
       let t-key = translate node.key, scope, \left-expression
       let t-object = translate node.object, scope, \expression
       let keys = scope.reserve-ident \keys, Type.string.array()
@@ -386,6 +396,8 @@ let generator-translate = do
       post-branch.builder
     
     If: #(node, scope, mutable builder, break-state, continue-state)
+      if node.label?
+        throw Error "Not implemented: if with label in generator"
       let t-test = translate node.test, scope, \expression
       let when-true-branch = builder.branch()
       let g-when-true = generator-translate node.when-true, scope, when-true-branch.builder, break-state, continue-state
@@ -408,6 +420,8 @@ let generator-translate = do
       builder
     
     TryCatch: #(node, scope, mutable builder, break-state, continue-state)
+      if node.label?
+        throw Error "Not implemented: try-catch with label in generator"
       builder := builder.enter-try-catch()
       builder := generator-translate node.try-body, scope, builder, break-state, continue-state
       builder := builder.exit-try-catch (translate node.catch-ident, scope, \left-expression, false), #-> post-branch.state
@@ -417,6 +431,8 @@ let generator-translate = do
       post-branch.builder
     
     TryFinally: #(node, scope, mutable builder, break-state, continue-state)
+      if node.label?
+        throw Error "Not implemented: try-finally with label in generator"
       builder := builder.pending-finally translate node.finally-body, scope, \top-statement
       builder := generator-translate node.try-body, scope, builder, break-state, continue-state
       builder.run-pending-finally()
@@ -538,10 +554,13 @@ let translators =
     #-> auto-return ast.Binary(t-left(), node.op, t-right())
 
   Block: #(node, scope, location, auto-return)
+    let t-label = node.label and translate node.label, scope, \label
     let t-nodes = translate-array node.nodes, scope, location, auto-return
-    # -> ast.Block for t-node in t-nodes; t-node()
+    # -> ast.Block (for t-node in t-nodes; t-node()), t-label?()
 
-  Break: #-> #-> ast.Break()
+  Break: #(node, scope)
+    let t-label = node.label and translate node.label, scope, \label
+    #-> ast.Break(t-label?())
   
   Call: #(node, scope, location, auto-return)
     let t-func = translate node.func, scope, \expression
@@ -599,7 +618,9 @@ let translators =
   
   Const: #(node, scope, location, auto-return) -> #-> auto-return ast.Const(node.value)
 
-  Continue: #-> #-> ast.Continue()
+  Continue: #(node, scope)
+    let t-label = node.label and translate node.label, scope, \label
+    #-> ast.Continue(t-label?())
 
   Debugger: #(node, scope, location, auto-return)
     if location == \expression
@@ -618,17 +639,20 @@ let translators =
     #-> auto-return ast.Eval t-code()
 
   For: #(node, scope, location, auto-return)
+    let t-label = node.label and translate node.label, scope, \label
     let t-init = if node.init? then translate node.init, scope, \expression
     let t-test = if node.test? then translate node.test, scope, \expression
     let t-step = if node.step? then translate node.step, scope, \expression
     let t-body = translate node.body, scope, \statement
     # -> ast.For(
-      if t-init? then t-init()
-      if t-test? then t-test()
-      if t-step? then t-step()
-      t-body())
+      t-init?()
+      t-test?()
+      t-step?()
+      t-body()
+      t-label?())
 
   ForIn: #(node, scope, location, auto-return)
+    let t-label = node.label and translate node.label, scope, \label
     let t-key = translate node.key, scope, \left-expression
     let t-object = translate node.object, scope, \expression
     let t-body = translate node.body, scope, \statement
@@ -637,7 +661,7 @@ let translators =
       if key not instanceof ast.Ident
         throw Error("Expected an Ident for a for-in key")
       scope.add-variable key, Type.string
-      ast.ForIn(key, t-object(), t-body())
+      ast.ForIn(key, t-object(), t-body(), t-label?())
 
   Function: do
     let primitive-types = {
@@ -1153,10 +1177,11 @@ let translators =
       \statement
     else
       location
+    let t-label = node.label and translate node.label, scope, \label
     let t-test = translate node.test, scope, \expression
     let t-when-true = translate node.when-true, scope, inner-location, auto-return
     let t-when-false = if node.when-false? then translate node.when-false, scope, inner-location, auto-return
-    #-> ast.If t-test(), t-when-true(), if t-when-false? then t-when-false()
+    #-> ast.If t-test(), t-when-true(), t-when-false?(), t-label?()
   
   Nothing: #-> #-> ast.Noop()
 
@@ -1337,6 +1362,7 @@ let translators =
           [])
   
   Switch: #(node, scope, location, auto-return)
+    let t-label = node.label and translate node.label, scope, \label
     let t-node = translate node.node, scope, \expression
     let t-cases = for case_ in node.cases
       {
@@ -1356,7 +1382,8 @@ let translators =
           if not case_.fallthrough or (i == len - 1 and default-case.is-noop())
             case-body := ast.Block [auto-return(case-body), ast.Break()]
           ast.Switch.Case(case-node, case-body)
-        default-case)
+        default-case
+        t-label?())
 
   Super: #(node, scope, location, auto-return)
     // TODO: line numbers
@@ -1386,15 +1413,17 @@ let translators =
     #-> ast.Throw t-node()
 
   TryCatch: #(node, scope, location, auto-return)
+    let t-label = node.label and translate node.label, scope, \label
     let t-try-body = translate node.try-body, scope, \statement, auto-return
     let t-catch-ident = translate node.catch-ident, scope, \left-expression
     let t-catch-body = translate node.catch-body, scope, \statement, auto-return
-    #-> ast.TryCatch t-try-body(), t-catch-ident(), t-catch-body()
+    #-> ast.TryCatch t-try-body(), t-catch-ident(), t-catch-body(), t-label?()
 
-  TryFinally: #(node, scope, location, auto-return)
+  TryFinally: #(node, scope, location, auto-return)  
+    let t-label = node.label and translate node.label, scope, \label
     let t-try-body = translate node.try-body, scope, \statement, auto-return
     let t-finally-body = translate node.finally-body, scope, \statement
-    #-> ast.TryFinally t-try-body(), t-finally-body()
+    #-> ast.TryFinally t-try-body(), t-finally-body(), t-label?()
 
   Unary: #(node, scope, location, auto-return)
     let t-subnode = translate node.node, scope, \expression
@@ -1434,7 +1463,7 @@ module.exports := #(node, options = {}, callback)
     scope.release-tmps()
   catch e
     if callback?
-      callback e
+      return callback e
     else
       throw e
   let end-time = new Date().get-time()

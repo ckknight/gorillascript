@@ -618,7 +618,7 @@ exports.BlockStatement := class BlockStatement extends Statement
       if i > 0
         sb "\n"
         sb.indent child-options.indent
-      item.compile-as-statement options, true, sb
+      item.compile-as-statement child-options, true, sb
     
     if @label?
       sb "\n"

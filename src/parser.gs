@@ -4149,7 +4149,7 @@ let _Block = do
   let mutator = #(lines, o, i)
     let nodes = []
     for item in lines
-      if item instanceof BlockNode
+      if item instanceof BlockNode and not item.label?
         nodes.push ...item.nodes
       else if item not instanceof NothingNode
         nodes.push item
@@ -4400,7 +4400,7 @@ class MacroHelper
   def break(label as IdentNode|TmpNode|null) -> @state.break(@index, label)
   def continue(label as IdentNode|TmpNode|null) -> @state.continue(@index, label)
   
-  def is-labelled-block(mutable node)
+  def is-labeled-block(mutable node)
     node := @macro-expand-1(node)
     if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryCatchFinallyNode]
       node.label?
@@ -4415,11 +4415,8 @@ class MacroHelper
       node.label
     else
       null
-  def with-label(mutable node, label as IdentNode|TmpNode|null)
-    node := @macro-expand-1(node)
-    if typeof node.with-label != \function
-      throw TypeError "Cannot add a label to $(typeof! node)"
-    node.with-label label
+  def with-label(node, label as IdentNode|TmpNode|null)
+    node.with-label label, @state
   
   def macro-expand-1(node)
     if node instanceof Node
@@ -4826,13 +4823,13 @@ class MacroHelper
       if len != 0
         let last-node = @mutate-last(nodes[len - 1], func)
         if last-node != nodes[len - 1]
-          return BlockNode x.start-index, x.end-index, x.scope-id, [...nodes[0 til -1], last-node]
+          return BlockNode x.start-index, x.end-index, x.scope-id, [...nodes[0 til -1], last-node], x.label
       x
     If: #(x, func)
       let when-true = @mutate-last x.when-true, func
       let when-false = @mutate-last x.when-false, func
       if when-true != x.when-true or when-false != x.when-false
-        IfNode x.start-index, x.end-index, x.scope-id, x.test, when-true, when-false
+        IfNode x.start-index, x.end-index, x.scope-id, x.test, when-true, when-false, x.label
       else
         x
     Switch: #(x, func)
@@ -4847,7 +4844,7 @@ class MacroHelper
             case_
       let default-case = @mutate-last (x.default-case or @noop()), func
       if cases != x.cases or default-case != x.default-case
-        SwitchNode x.start-index, x.end-index, x.scope-id, x.node, cases, default-case
+        SwitchNode x.start-index, x.end-index, x.scope-id, x.node, cases, default-case, x.label
       else
         x
     TmpWrapper: #(x, func)
@@ -5122,6 +5119,8 @@ class Node
   def walk-async(f, callback) -> callback(null, this)
   def cacheable = true
   def scope(o) -> o.get-scope(@scope-id)
+  def with-label(label as IdentNode|TmpNode|null)
+    BlockNode @start-index, @end-index, @scope-id, [this], label
   def _reduce(o)
     @walk #(node) -> node.reduce(o)
   def reduce(o as State)
@@ -5221,13 +5220,14 @@ macro node-class
       false
     
     let is-node-type(arg)@
-      if @is-ident(@param-type(arg)) and @name(@param-type(arg)).slice(-4) == \Node
+      let param-type = @param-type(arg) or arg
+      if @is-ident(param-type) and @name(param-type).slice(-4) == \Node
         true
-      else if @is-type-union(@param-type(arg))
-        for every type in @types(@param-type(arg))
+      else if @is-type-union(param-type)
+        for every type in @types(param-type)
           is-node-type(type)
     let has-node-type(arg)@
-      @is-type-union(@param-type(arg)) and for some type in @types(@param-type(arg)); @is-ident(type) and @name(type) == \Node
+      @is-type-union(@param-type(arg)) and for some type in @types(@param-type(arg)); is-node-type(type)
     let is-node-array-type(arg)@
       @is-type-array(@param-type(arg)) and @is-ident(@subtype(@param-type(arg))) and @name(@subtype(@param-type(arg))) == \Node
     
@@ -6388,19 +6388,25 @@ node-class BlockNode(nodes as [Node], label as IdentNode|TmpNode|null)
       Type.undefined
     else
       nodes[nodes.length - 1].type(o)
-  def with-label(label as IdentNode|TmpNode|null)
+  def with-label(label as IdentNode|TmpNode|null, o)
+    if not @label?
+      if @nodes.length == 1
+        return @nodes[0].with-label label, o
+      else if @nodes.length > 1 and @nodes[@nodes.length - 1] instanceof ForInNode
+        if for every node in @nodes[0 til -1]; node instanceofsome [AssignNode, VarNode]
+          return BlockNode @start-index, @end-index, @scope-id, @nodes[0 til -1].concat([@nodes[@nodes.length - 1].with-label(label, o)])
     BlockNode @start-index, @end-index, @scope-id, @nodes, label
   def _reduce(o)
     let changed = false
     let body = []
     for node, i, len in @nodes
       let reduced = node.reduce(o)
-      if reduced instanceof BlockNode
+      if reduced instanceof BlockNode and not reduced.label?
         body.push ...reduced.nodes
         changed := true
       else if reduced instanceof NothingNode
         changed := true
-      else if reduced instanceofsome [BreakNode, ContinueNode, ThrowNode, ReturnNode] and not reduced.existential
+      else if reduced instanceofsome [BreakNode, ContinueNode, ThrowNode, ReturnNode]
         body.push reduced
         if reduced != node or i < len - 1
           changed := true
@@ -6739,7 +6745,7 @@ node-class ForInNode(key as Node, object as Node, body as Node, label as IdentNo
   def type() -> Type.undefined
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
-    ForInNode @start-index, @end-index, @scope-id, @init, @key, @object, @body, label
+    ForInNode @start-index, @end-index, @scope-id, @key, @object, @body, label
 node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, as-type as Node|void, generator as Boolean)
   def type(o) -> @_type ?= do
     // TODO: handle generator types
@@ -6814,6 +6820,8 @@ node-class MacroAccessNode(id as Number, line as Number, data as Object, positio
       type
     else
       o.macro-expand-1(this).type(o)
+  def with-label(label as IdentNode|TmpNode|null, o)
+    o.macro-expand-1(this).with-label label, o
   def walk = do
     let walk-object(obj, func)
       let result = {}
@@ -7086,6 +7094,8 @@ node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def _is-noop() -> true
 node-class TmpWrapperNode(node as Node, tmps as [])
   def type(o) -> @node.type(o)
+  def with-label(label as IdentNode|TmpNode|null, o)
+    TmpWrapperNode @start-index, @end-index, @scope-id, @node.with-label(label, o), @tmps
   def _reduce(o)
     let node = @node.reduce(o)
     if @tmps.length == 0

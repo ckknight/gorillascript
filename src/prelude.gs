@@ -55,13 +55,6 @@ macro break
   syntax label as (Identifier|"")
     @break label
 
-macro label!
-  syntax label as Identifier, node
-    @with-label node, label
-
-  syntax label as Identifier, body as Body
-    @block [body], label
-
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
     @let ident, false, @type(func)
@@ -2604,3 +2597,7 @@ define helper __bind = #(parent, child) as Function
   # -> func@ parent, ...arguments
 
 define helper __def-prop = Object.define-property
+
+macro label!
+  syntax label as Identifier, node as (Statement|Body)
+    @with-label node, label

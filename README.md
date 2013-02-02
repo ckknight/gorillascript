@@ -1023,3 +1023,18 @@ When using the `get` and `set` pair, they must be defined next to each other (or
 When using the `property` syntax, the value is the same as one calling `Object.defineProperty`, in fact, that is all that is happening behind the scenes.
 
 **Note: this will throw an `Exception` if `Object.defineProperty` is not defined**
+
+## Labels and `break`/`continue`
+
+JavaScript provides a way to add a label to a block and then be able to `break` or `continue` (if it is a loop) on that block.
+
+Although it is not recommended practice, as one is probably better served by rethinking the algorithm, GorillaScript does provide the capability.
+
+    let mutable sum = 0
+    label! outer for i in 0 to 10
+      for j in 0 to 10
+        if i == j
+          continue outer
+        sum += i
+
+As you can see, the outer loop has the label `outer` on it and the `continue` also references that same label, meaning it will continue on the outer loop rather than the inner.
