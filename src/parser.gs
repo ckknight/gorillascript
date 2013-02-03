@@ -5142,6 +5142,25 @@ class Node
     else
       this
 
+let inspect-helper(depth, name, ...args)
+  let d = if depth? then depth - 1 else null
+  let mutable found = false
+  for arg in args by -1
+    if not arg or arg instanceof NothingNode or (is-array! arg and arg.length == 0)
+      args.pop()
+    else
+      break
+
+  let mutable parts = for arg in args; inspect(arg, null, d)
+  let has-large = for some part in parts
+    parts.length > 50 or part.index-of("\n") != -1
+  if has-large
+    parts := for part in parts
+      "  " & part.split("\n").join("\n  ")
+    "$name(\n$(parts.join ',\n'))"
+  else
+    "$name($(parts.join ', '))"
+
 macro node-class
   syntax ident as Identifier, args as ("(", head as Parameter, tail as (",", this as Parameter)*, ")")?, body as Body?
     
@@ -5162,7 +5181,7 @@ macro node-class
       @_reduced := void
       @_macro-expanded := void
       @_macro-expand-alled := void
-    let mutable inspect-parts = @const(full-name & "(")
+    let inspect-parts = []
     let mutable arg-names = []
     if args
       args := [args.head, ...args.tail]
@@ -5176,10 +5195,7 @@ macro node-class
         $ctor-body
         @[$key] := $ident
       arg-names.push key
-      if i > 0
-        inspect-parts := AST $inspect-parts ~& ", "
-      inspect-parts := AST $inspect-parts ~& inspect(@[$key], null, if depth? then depth ~- 1 else null)
-    inspect-parts := AST $inspect-parts ~& ")"
+      inspect-parts.push ASTE @[$key]
     
     let find-def(name)@
       if body
@@ -5212,6 +5228,9 @@ macro node-class
       @is-type-array(@param-type(arg)) and @is-ident(@subtype(@param-type(arg))) and @name(@subtype(@param-type(arg))) == \Node
     
     let add-methods = []
+    if not find-def \inspect
+      inspect-parts := @array(inspect-parts)
+      add-methods.push AST def inspect(depth) -> inspect-helper depth, $full-name, ...$inspect-parts
     if args.length and not find-def \walk
       let walk-init = []
       let mutable walk-check = AST false
@@ -5291,7 +5310,6 @@ macro node-class
       State.add-node-factory $lower-name, this
       $body
       $add-methods
-      def inspect(depth) -> $inspect-parts
 
 class Scope
   def constructor(id, parent as Scope|null)
@@ -6705,6 +6723,7 @@ node-class ConstNode(value as Number|String|Boolean|RegExp|void|null)
   def is-const() -> true
   def const-value() -> @value
   def _is-noop() -> true
+  def inspect(depth) -> "ConstNode($(inspect @value, null, if depth? then depth - 1 else null))"
 node-class ContinueNode(label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true

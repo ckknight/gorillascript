@@ -284,34 +284,14 @@ let inspect-helper(depth, name, ...args)
     else
       break
   
-  let is-large(item)
-    if item instanceof Node
-      not item.is-small()
-    else if is-array! item
-      if item.length > 4
-        true
-      else
-        for some x in item
-          is-large(x)
-    else if is-object! item
-      let mutable len = 0
-      for some k, v of item
-        len += 1
-        len > 4 or is-large(v)
-    else if typeof item == \string
-      item.length > 50
-    else if item instanceof RegExp
-      item.source.length > 50
-    else if item == null or typeof item in [\undefined, \boolean, \number]
-      false
-  let has-large = for some arg in args; is-large(arg)
+  let mutable parts = for arg in args; inspect(arg, null, d)
+  let has-large = for some part in parts
+    parts.length > 50 or part.index-of("\n") != -1
   if has-large
-    let parts = for arg in args
-      "  " & inspect(arg, null, d).split('\n').join("\n  ")
+    parts := for part in parts
+      "  " & part.split("\n").join("\n  ")
     "$name(\n$(parts.join ',\n'))"
   else
-    let parts = for arg in args
-      inspect(arg, null, d)
     "$name($(parts.join ', '))"
 
 let simplify(obj)
