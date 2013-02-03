@@ -487,12 +487,10 @@ define operator binary in with precedence: 3, maximum: 1, invertible: true, type
 define operator binary haskey with precedence: 3, maximum: 1, invertible: true, type: \boolean
   @binary right, \in, left
 
-define helper __owns = do
-  let has = Object.prototype.has-own-property
-  #(parent, child) as Boolean -> has@(parent, child)
+define helper __owns = Object.prototype.has-own-property
 
-define operator binary ownskey with precedence: 3, maximum: 1, invertible: true, type: \boolean
-  ASTE __owns($left, $right)
+define operator binary ownskey with precedence: 3, maximum: 1, invertible: true, type: \boolean, label: \ownership
+  ASTE __owns@($left, $right)
 
 define operator binary instanceof with precedence: 3, maximum: 1, invertible: true, type: \boolean
   @binary left, \instanceof, right

@@ -3790,23 +3790,34 @@ let convert-invocation-or-access = do
             tmp-ids.push tmp.id
             set-child := o.assign(i, tmp, "=", child.do-wrap(o))
             child := tmp
-          let mutable test = o.call(i, o.ident(i, \__owns), [set-head, set-child])
           
           let result = o.if(i
-            if link.existential
-              let existential-op = o.macros.get-by-label(\existential)
-              if not existential-op
-                throw Error "Cannot use existential access until the existential operator has been defined"
+            do
+              let ownership-op = o.macros.get-by-label(\ownership)
+              if not ownership-op
+                throw Error "Cannot use ownership access until the ownership operator has been defined"
+              if link.existential
+                let existential-op = o.macros.get-by-label(\existential)
+                if not existential-op
+                  throw Error "Cannot use existential access until the existential operator has been defined"
               
-              o.binary(i
-                existential-op.func {
+                o.binary(i
+                  existential-op.func {
+                    op: ""
+                    node: set-head
+                  }, o, i, o.line
+                  "&&"
+                  ownership-op.func {
+                    left: head
+                    op: ""
+                    right: set-child
+                  }, o, i, o.line)
+              else
+                ownership-op.func {
+                  left: set-head
                   op: ""
-                  node: set-head
+                  right: set-child
                 }, o, i, o.line
-                "&&"
-                o.call(i, o.ident(i, \__owns), [head, set-child]))
-            else
-              o.call(i, o.ident(i, \__owns), [set-head, set-child])
             convert-call-chain(o, i, bind-access(head, child), j + 1, links))
           if tmp-ids.length
             o.tmp-wrapper(i, result, tmp-ids)
