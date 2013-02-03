@@ -45,7 +45,7 @@ let cache(rule as Function, dont-cache as Boolean)
     rule
   else
     let cache-key = generate-cache-key()
-    named rule?.parser-name, #(o)
+    named rule.parser-name, #(o)
       let {cache, index} = o
       let indent = o.indent.peek()
       let indent-cache = (cache[indent] ?= [])
@@ -622,6 +622,11 @@ macro define
     let name-str = @name(name)
     AST let $name = cache named $name-str, $value
 
+macro namedlet
+  syntax name as Identifier, "=", value
+    let name-str = @name(name)
+    AST let $name = named $name-str, $value
+
 class Stack
   def constructor(initial, data = [])
     @initial := initial
@@ -677,8 +682,6 @@ let in-ast = make-alter-stack _in-ast, true
 let _prevent-unclosed-object-literal = Stack false
 let prevent-unclosed-object-literal = make-alter-stack _prevent-unclosed-object-literal, true
 
-define Eof = #(o) -> o.index >= o.data.length
-
 define SpaceChar = character! [
   " \t\v\f"
   160
@@ -690,7 +693,7 @@ define SpaceChar = character! [
   12288
   65263
 ], "space"
-define _Space = zero-or-more! SpaceChar, true
+namedlet _Space = zero-or-more! SpaceChar, true
 define Newline = #(o)
   let {data, mutable index} = o
   let c = C(data, index)
@@ -704,66 +707,65 @@ define Newline = #(o)
   else
     o.fail "newline"
     false
-define Stop = one-of! [Newline, Eof]
-define CheckStop = check! Stop
+
+namedlet CheckStop = do
+  namedlet Eof = #(o) -> o.index >= o.data.length
+  namedlet Stop = one-of! [Newline, Eof]
+  check! Stop
 define NewlineWithCheckIndent = sequential! [
   Newline
   EmptyLines
   CheckIndent
 ]
 
-define SingleLineComment = #(o)
-  let {data, index} = o
-  if C(data, index) == C("/") and C(data, index ~+ 1) == C("/")
-    let len = data.length
-    index += 2
-    while true, index ~+= 1
-      if index ~>= len or C(data, index) in [C("\r"), C("\n")]
-        o.index := index
-        return true
-  else
-    false
-
-define MultiLineComment = #(o)
-  let {data, index} = o
-  if C(data, index) == C("/") and C(data, index ~+ 1) == C("*")
-    let len = data.length
-    index += 2
-    while true, index ~+= 1
-      if index ~>= len
-        o.error "Multi-line comment never ends"
-      else
-        let ch = C(data, index)
-        if ch == C("*") and C(data, index ~+ 1) == C("/")
-          o.index := index ~+ 2
-          Space o
+define MaybeComment = do
+  namedlet SingleLineComment = #(o)
+    let {data, index} = o
+    if C(data, index) == C("/") and C(data, index ~+ 1) == C("/")
+      let len = data.length
+      index += 2
+      while true, index ~+= 1
+        if index ~>= len or C(data, index) in [C("\r"), C("\n")]
+          o.index := index
           return true
-        else if ch in [C("\r"), C("\n"), 8232, 8233]
-          if ch == C("\r") and C(data, index ~+ 1) == C("\n")
-            index ~+= 1
-          o.line ~+= 1
-  else
-    false
+    else
+      false
 
-define Comment = one-of! [SingleLineComment, MultiLineComment]
+  namedlet MultiLineComment = #(o)
+    let {data, index} = o
+    if C(data, index) == C("/") and C(data, index ~+ 1) == C("*")
+      let len = data.length
+      index += 2
+      while true, index ~+= 1
+        if index ~>= len
+          o.error "Multi-line comment never ends"
+        else
+          let ch = C(data, index)
+          if ch == C("*") and C(data, index ~+ 1) == C("/")
+            o.index := index ~+ 2
+            Space o
+            return true
+          else if ch in [C("\r"), C("\n"), 8232, 8233]
+            if ch == C("\r") and C(data, index ~+ 1) == C("\n")
+              index ~+= 1
+            o.line ~+= 1
+    else
+      false
 
-define MaybeComment = maybe! Comment, true
+  namedlet Comment = one-of! [SingleLineComment, MultiLineComment]
+  
+  maybe! Comment, true
 
 define Space = sequential! [
   _Space
   MaybeComment
 ], true
-define SomeSpace = sequential! [
-  one-or-more! SpaceChar, true
-  MaybeComment
-], true
 define NoSpace = except! SpaceChar
 
-define SpaceNewline = sequential! [
+define EmptyLine = sequential! [
   Space
   Newline
 ], true
-define EmptyLine = SpaceNewline
 define EmptyLines = zero-or-more! EmptyLine, true
 define SomeEmptyLines = one-or-more! EmptyLine, true
 
@@ -831,19 +833,12 @@ define Zero = character! "0"
 define DecimalDigit = character! [["0", "9"]]
 define Period = character! "."
 define ColonChar = character! ":"
-define PipeChar = character! "|"
-define Pipe = with-space! PipeChar
+define Pipe = with-space! character! "|"
 define DoubleColon = sequential! [ColonChar, ColonChar], "::"
-define eE = character! "eE"
-define Minus = character! "-"
-define Plus = character! "+"
-define PlusOrMinus = one-of! [Minus, Plus]
-define LowerU = character! "u"
-define LowerX = character! "x"
-define HexDigit = character! [["0", "9"], ["a", "f"], ["A", "F"]]
-define OctalDigit = character! [["0", "7"]]
-define BinaryDigit = character! "01"
-define Letter = character! [
+namedlet Minus = character! "-"
+namedlet Plus = character! "+"
+namedlet PlusOrMinus = character! "+-"
+namedlet Letter = character! [
   ["a", "z"]
   ["A", "Z"]
   170
@@ -1199,7 +1194,7 @@ define Letter = character! [
   [65490, 65495]
   [65498, 65500]
 ], "letter"
-define NumberChar = character! [
+namedlet NumberChar = character! [
   ["0", "9"]
   [178, 179]
   185
@@ -1268,8 +1263,6 @@ define DollarSign = character! '$'
 define AtSign = character! "@"
 define HashSign = with-space! character! "#"
 define PercentSign = character! "%"
-define NameStart = one-of! [Letter, Underscore, DollarSign]
-define NameChar = one-of! [NameStart, NumberChar]
 define SymbolChar = character! [
   "!#%&*+-/<=>?\\^`|~"
   "\u007f"
@@ -1676,11 +1669,9 @@ define DoubleQuote = character! '"'
 define SingleQuote = character! "'"
 define TripleDoubleQuote = multiple! 3, 3, DoubleQuote, '"""'
 define TripleSingleQuote = multiple! 3, 3, SingleQuote, "'''"
-define SemicolonChar = character! ";"
-define Semicolon = with-space! SemicolonChar
-define Asterix = character! "*"
-define OpenParenthesisChar = character! "("
-define OpenParenthesis = with-space! OpenParenthesisChar
+define Semicolon = with-space! character! ";"
+namedlet Asterix = character! "*"
+define OpenParenthesis = with-space! character! "("
 define CloseParenthesis = with-space! character! ")"
 define OpenSquareBracketChar = character! "["
 define OpenSquareBracket = with-space! OpenSquareBracketChar
@@ -1697,25 +1688,18 @@ define CommaOrNewline = one-of! [
   ]
   SomeEmptyLines
 ]
-define SomeEmptyLinesWithCheckIndent = sequential! [
+namedlet SomeEmptyLinesWithCheckIndent = sequential! [
   SomeEmptyLines
   CheckIndent
 ]
-define CommaOrNewlineWithCheckIndent = one-of! [
+namedlet CommaOrNewlineWithCheckIndent = one-of! [
   sequential! [
     [\this, Comma]
     maybe! SomeEmptyLinesWithCheckIndent, true
   ]
   SomeEmptyLinesWithCheckIndent
 ]
-define MaybeCommaOrNewline = maybe! CommaOrNewline, true
-
-define NamePart = sequential! [
-  [\head, NameStart]
-  [\tail, zero-or-more! NameChar]
-], #(x) -> [x.head, ...x.tail]
-
-define NamePartWithNumbers = one-or-more! NameChar
+namedlet MaybeCommaOrNewline = maybe! CommaOrNewline, true
 
 let from-char-code = do
   let f = String.from-char-code
@@ -1729,18 +1713,26 @@ let process-char-codes(codes, array = [])
     array.push from-char-code(v)
   array
 
-define _Name = sequential! [
-  [\head, NamePart]
-  [\tail, zero-or-more! sequential! [
-    Minus
-    [\this, NamePartWithNumbers]
-  ]]
-], #(x)
-  let parts = process-char-codes x.head
-  for part in x.tail
-    parts.push from-char-code(part[0]).to-upper-case()
-    process-char-codes part[1 to -1], parts
-  parts.join ""
+namedlet NameStart = one-of! [Letter, Underscore, DollarSign]
+namedlet NameChar = one-of! [NameStart, NumberChar]
+namedlet NamePart = one-or-more! NameChar
+define _Name = do
+  sequential! [
+    [\head, sequential! [
+      [\head, NameStart]
+      [\tail, zero-or-more! NameChar]
+    ]]
+    [\tail, zero-or-more! sequential! [
+      Minus
+      [\this, NamePart]
+    ]]
+  ], #(x)
+    let parts = [from-char-code x.head.head]
+    process-char-codes x.head.tail, parts
+    for part in x.tail
+      parts.push from-char-code(part[0]).to-upper-case()
+      process-char-codes part[1 to -1], parts
+    parts.join ""
 
 define Name = with-message! "name", with-space! _Name
 
@@ -1754,7 +1746,7 @@ let _NameOrSymbol = one-or-more-of! [
 ], #(x) -> x.join ""
 let NameOrSymbol = with-space! _NameOrSymbol
 
-define AnyChar = #(o)
+namedlet AnyChar = #(o)
   let {data, index} = o
   if index >= data.length
     o.fail "any"
@@ -1768,7 +1760,7 @@ define ThisLiteral = word \this, #(x, o, i) -> o.this i
 define ThisShorthandLiteral = sequential! [Space, AtSign], #(x, o, i) -> o.this i
 
 define ThisOrShorthandLiteral = one-of! [ThisLiteral, ThisShorthandLiteral]
-define ThisOrShorthandLiteralPeriod = one-of! [
+namedlet ThisOrShorthandLiteralPeriod = one-of! [
   sequential! [
     [\this, ThisLiteral]
     Period
@@ -1779,48 +1771,49 @@ define ThisOrShorthandLiteralPeriod = one-of! [
   ]
 ]
 
-define RawDecimalDigits = one-or-more! DecimalDigit
+define DecimalNumber = do
+  namedlet RawDecimalDigits = one-or-more! DecimalDigit
+  
+  namedlet DecimalDigits = sequential! [
+    [\head, RawDecimalDigits]
+    [\tail, zero-or-more! sequential! [
+      one-or-more! Underscore
+      [\this, RawDecimalDigits]
+    ]]
+  ], #(x)
+    let parts = process-char-codes x.head
+    for part in x.tail
+      process-char-codes part, parts
+    parts.join ""
+  
+  sequential! [
+    [\integer, DecimalDigits]
+    [\decimal, maybe! (sequential! [
+      Period
+      [\this, DecimalDigits]
+    ], #(x) -> "." & x), NOTHING]
+    [\scientific, maybe! (sequential! [
+      [\e, character! "eE"]
+      [\op, maybe! PlusOrMinus, NOTHING]
+      [\digits, DecimalDigits]
+    ], #(x) -> from-char-code(x.e) & (if x.op != NOTHING then from-char-code(x.op) else "") & x.digits), NOTHING]
+    maybe! (sequential! [
+      Underscore
+      NamePart
+    ]), true
+  ], #(x, o, i)
+    let {mutable decimal, mutable scientific} = x
+    if decimal == NOTHING
+      decimal := ""
+    if scientific == NOTHING
+      scientific := ""
+    let text = x.integer & decimal & scientific
+    let value = Number(text)
+    if not is-finite value
+      o.error "Unable to parse number: $text"
+    o.const i, value
 
-define DecimalDigits = sequential! [
-  [\head, RawDecimalDigits]
-  [\tail, zero-or-more! sequential! [
-    one-or-more! Underscore
-    [\this, RawDecimalDigits]
-  ]]
-], #(x)
-  let parts = process-char-codes x.head
-  for part in x.tail
-    process-char-codes part, parts
-  parts.join ""
-
-define DecimalNumber = sequential! [
-  [\integer, DecimalDigits]
-  [\decimal, maybe! (sequential! [
-    Period
-    [\this, DecimalDigits]
-  ], #(x) -> "." & x), NOTHING]
-  [\scientific, maybe! (sequential! [
-    [\e, eE]
-    [\op, maybe! PlusOrMinus, NOTHING]
-    [\digits, DecimalDigits]
-  ], #(x) -> from-char-code(x.e) & (if x.op != NOTHING then from-char-code(x.op) else "") & x.digits), NOTHING]
-  maybe! (sequential! [
-    Underscore
-    NamePart
-  ]), true
-], #(x, o, i)
-  let {mutable decimal, mutable scientific} = x
-  if decimal == NOTHING
-    decimal := ""
-  if scientific == NOTHING
-    scientific := ""
-  let text = x.integer & decimal & scientific
-  let value = Number(text)
-  if not is-finite value
-    o.error "Unable to parse number: $text"
-  o.const i, value
-
-let make-radix-integer(radix, separator, digit)
+let make-radix-number(radix, separator, digit)
   let digits = sequential! [
     [\head, one-or-more! digit]
     [\tail, zero-or-more! sequential! [
@@ -1858,11 +1851,14 @@ let make-radix-integer(radix, separator, digit)
           decimal := decimal.slice(0, -1)
     o.const i, value
 
-define HexInteger = make-radix-integer 16, character!("xX"), HexDigit
-define OctalInteger = make-radix-integer 8, character!("oO"), OctalDigit
-define BinaryInteger = make-radix-integer 2, character!("bB"), BinaryDigit
+namedlet HexDigit = character! [["0", "9"], ["a", "f"], ["A", "F"]]
+namedlet HexNumber = make-radix-number 16, character!("xX"), HexDigit
+namedlet OctalDigit = character! [["0", "7"]]
+namedlet OctalNumber = make-radix-number 8, character!("oO"), OctalDigit
+namedlet BinaryDigit = character! "01"
+namedlet BinaryNumber = make-radix-number 2, character!("bB"), BinaryDigit
 
-define RadixInteger = do
+namedlet RadixNumber = do
   let GetDigits = do
     let digit-cache = []
     #(radix) -> digit-cache[radix] ?= do
@@ -1941,10 +1937,10 @@ define RadixInteger = do
     o.const start-index, value
 
 define NumberLiteral = with-space! one-of! [
-  HexInteger
-  OctalInteger
-  BinaryInteger
-  RadixInteger
+  HexNumber
+  OctalNumber
+  BinaryNumber
+  RadixNumber
   DecimalNumber
 ]
 
@@ -1957,12 +1953,12 @@ define VoidLiteral = one-of! [
   make-const-literal \undefined, void
   make-const-literal \void, void
 ]
-define InfinityLiteral = make-const-literal \Infinity, Infinity
-define NaNLiteral = make-const-literal "NaN", NaN
-define TrueLiteral = make-const-literal \true, true
-define FalseLiteral = make-const-literal \false, false
+namedlet InfinityLiteral = make-const-literal \Infinity, Infinity
+namedlet NaNLiteral = make-const-literal "NaN", NaN
+namedlet TrueLiteral = make-const-literal \true, true
+namedlet FalseLiteral = make-const-literal \false, false
 
-define SimpleConstantLiteral = one-of! [
+namedlet SimpleConstantLiteral = one-of! [
   NullLiteral
   VoidLiteral
   InfinityLiteral
@@ -1971,17 +1967,19 @@ define SimpleConstantLiteral = one-of! [
   FalseLiteral
 ]
 
-define HexEscapeSequence = short-circuit! LowerX, sequential! [
+define LowerX = character! "x"
+namedlet HexEscapeSequence = short-circuit! LowerX, sequential! [
   LowerX
   [\this, multiple! 2, 2, HexDigit]
 ], #(x) -> parse-int(process-char-codes(x).join(""), 16) or -1
 
-define UnicodeEscapeSequence = short-circuit! LowerU, sequential! [
+define LowerU = character! "u"
+namedlet UnicodeEscapeSequence = short-circuit! LowerU, sequential! [
   LowerU
   [\this, multiple! 4, 4, HexDigit]
 ], #(x) -> parse-int(process-char-codes(x).join(""), 16) or -1
 
-define SingleEscapeCharacter = do
+namedlet SingleEscapeCharacter = do
   let ESCAPED_CHARACTERS =
     [C "b"]: C "\b"
     [C "f"]: C "\f"
@@ -2004,30 +2002,34 @@ define SingleEscapeCharacter = do
     else
       c
 
-define EscapeSequence = one-of! [
-  HexEscapeSequence
-  UnicodeEscapeSequence
-  SingleEscapeCharacter
-]
-
-define BackslashEscapeSequence = sequential! [
+namedlet BackslashEscapeSequence = sequential! [
   Backslash
-  [\this, EscapeSequence]
+  [\this, one-of! [
+    HexEscapeSequence
+    UnicodeEscapeSequence
+    SingleEscapeCharacter
+  ]]
 ]
 
-define StringInterpolation = short-circuit! DollarSign, sequential! [
+namedlet Nothing = #(o) -> o.nothing o.index
+
+namedlet StringInterpolation = short-circuit! DollarSign, sequential! [
   DollarSign
+  NoSpace
   [\this, one-of! [
     Identifier
     sequential! [
-      OpenParenthesisChar
-      [\this, ExpressionOrNothing]
+      OpenParenthesis
+      [\this, one-of! [
+        Expression
+        Nothing
+      ]]
       CloseParenthesis
     ]
   ]]
 ]
 
-define SingleStringLiteral = short-circuit! SingleQuote, sequential! [
+namedlet SingleStringLiteral = short-circuit! SingleQuote, sequential! [
   SingleQuote
   [\this, zero-or-more-of! [
     BackslashEscapeSequence
@@ -2039,7 +2041,7 @@ define SingleStringLiteral = short-circuit! SingleQuote, sequential! [
   SingleQuote
 ], #(x, o, i) -> o.const i, process-char-codes(x).join ""
 
-define DoubleStringLiteralInner = zero-or-more-of! [
+namedlet DoubleStringLiteralInner = zero-or-more-of! [
   mutate! BackslashEscapeSequence
   StringInterpolation
   any-except! [
@@ -2062,7 +2064,7 @@ let double-string-literal-handler = #(x, o, i)
     string-parts.push o.const i, process-char-codes(current-literal).join ""
   string-parts
 
-define DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
+namedlet DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
   DoubleQuote
   [\this, DoubleStringLiteralInner]
   DoubleQuote
@@ -2079,7 +2081,7 @@ define DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
     o.string i, string-parts
 
 define PercentSignDoubleQuote = sequential! [PercentSign, DoubleQuote]
-define DoubleStringArrayLiteral = short-circuit! PercentSignDoubleQuote, sequential! [
+namedlet DoubleStringArrayLiteral = short-circuit! PercentSignDoubleQuote, sequential! [
   PercentSignDoubleQuote
   [\this, DoubleStringLiteralInner]
   DoubleQuote
@@ -2088,7 +2090,7 @@ define DoubleStringArrayLiteral = short-circuit! PercentSignDoubleQuote, sequent
   
   o.array i, string-parts
 
-define StringIndent = #(o)
+namedlet StringIndent = #(o)
   let clone = o.clone()
   let mutable count = 1
   let current-indent = clone.indent.peek()
@@ -2108,14 +2110,14 @@ define StringIndent = #(o)
     o.update clone
     count
 
-define TripleSingleStringLine = zero-or-more-of! [
+namedlet TripleSingleStringLine = zero-or-more-of! [
   BackslashEscapeSequence
   any-except! [
     TripleSingleQuote
     Newline
   ]
 ], #(x) -> [process-char-codes(x).join("").replace(r"[\t ]+\$", "")]
-define TripleDoubleStringLine = zero-or-more-of! [
+namedlet TripleDoubleStringLine = zero-or-more-of! [
   mutate! BackslashEscapeSequence
   StringInterpolation
   any-except! [
@@ -2199,10 +2201,10 @@ let make-triple-string(quote, line)
       string-parts[0]
     else
       o.string i, string-parts
-define TripleSingleStringLiteral = make-triple-string TripleSingleQuote, TripleSingleStringLine
-define TripleDoubleStringLiteral = make-triple-string TripleDoubleQuote, TripleDoubleStringLine
+namedlet TripleSingleStringLiteral = make-triple-string TripleSingleQuote, TripleSingleStringLine
+namedlet TripleDoubleStringLiteral = make-triple-string TripleDoubleQuote, TripleDoubleStringLine
 define PercentSignTripleDoubleQuote = sequential! [PercentSign, TripleDoubleQuote]
-define TripleDoubleStringArrayLiteral = short-circuit! PercentSignTripleDoubleQuote, sequential! [
+namedlet TripleDoubleStringArrayLiteral = short-circuit! PercentSignTripleDoubleQuote, sequential! [
   PercentSignTripleDoubleQuote
   [\first, TripleDoubleStringLine]
   [\empty-lines, zero-or-more! sequential! [
@@ -2234,12 +2236,12 @@ define RegexTripleSingleToken = sequential! [LowerR, TripleSingleQuote]
 define RegexTripleDoubleToken = sequential! [LowerR, TripleDoubleQuote]
 define RegexSingleToken = sequential! [LowerR, SingleQuote]
 define RegexDoubleToken = sequential! [LowerR, DoubleQuote]
-define RegexFlags = maybe! NamePart, #-> []
-define RegexComment = sequential! [
+namedlet RegexFlags = maybe! NamePart, #-> []
+namedlet RegexComment = sequential! [
   HashSign
   zero-or-more! any-except! Newline
 ], NOTHING
-define RegexLiteral = one-of! [
+namedlet RegexLiteral = with-space! one-of! [
   short-circuit! RegexTripleDoubleToken, sequential! [
     RegexTripleDoubleToken
     [\text, zero-or-more-of! [
@@ -2256,7 +2258,7 @@ define RegexLiteral = one-of! [
     TripleDoubleQuote
     [\flags, RegexFlags]
   ]
-  short-circuit! RegexTripleDoubleToken, sequential! [
+  short-circuit! RegexTripleSingleToken, sequential! [
     RegexTripleSingleToken
     [\text, zero-or-more-of! [
       mutate! SpaceChar, NOTHING
@@ -2327,7 +2329,7 @@ define RegexLiteral = one-of! [
     o.string i, string-parts
   o.regexp i, text, flags
 
-define BackslashStringLiteral = sequential! [
+namedlet BackslashStringLiteral = sequential! [
   Backslash
   NoSpace
   [\this, IdentifierNameConst]
@@ -2341,7 +2343,6 @@ define StringLiteral = with-space! one-of! [
   SingleStringLiteral
   DoubleStringLiteral
   DoubleStringArrayLiteral
-  RegexLiteral
   /*
   RawTripleSingleStringLiteral
   RawTripleDoubleStringLiteral
@@ -2354,17 +2355,18 @@ define ConstantLiteral = one-of! [
   SimpleConstantLiteral
   NumberLiteral
   StringLiteral
+  RegexLiteral
 ]
 
 define ArgumentsLiteral = word \arguments, #(x, o, i) -> o.args i
 
-define Literal = one-of! [
+namedlet Literal = one-of! [
   ThisOrShorthandLiteral
   ArgumentsLiteral
   ConstantLiteral
 ]
 
-define IdentifierNameConst = #(o)
+namedlet IdentifierNameConst = #(o)
   let {index} = o
   let result = Name o
   if result
@@ -2441,17 +2443,14 @@ define Identifier = #(o)
     o.update clone
     o.ident index, result
 
-define NotToken = word \not
-define MaybeNotToken = maybe! NotToken, true
+define MaybeNotToken = maybe! word(\not), true
 
-define ExistentialSymbol = mutate! (character! "?"), "?"
-define MaybeExistentialSymbol = maybe! ExistentialSymbol, true
-define ExistentialSymbolNoSpace = sequential! [
+define MaybeExistentialSymbolNoSpace = maybe! (sequential! [
   NoSpace
-  [\this, ExistentialSymbol]
-]
+  character! "?"
+], "?"), true
 
-define CustomOperatorCloseParenthesis = do
+namedlet CustomOperatorCloseParenthesis = do
   let handle-unary-operator(operator, o, i, line)
     let clone = o.clone(o.clone-scope())
     let op = operator.rule clone
@@ -2506,7 +2505,7 @@ define CustomOperatorCloseParenthesis = do
       return? handle-unary-operator operator, o, i, line
     false
 
-define CustomBinaryOperator = #(o)
+namedlet CustomBinaryOperator = #(o)
   let i = o.index
   for operators in o.macros.binary-operators
     if operators
@@ -2527,7 +2526,7 @@ define CustomBinaryOperator = #(o)
           }
   false
 
-define Parenthetical = sequential! [
+namedlet Parenthetical = sequential! [
   OpenParenthesis
   [\this, one-of! [
     sequential! [
@@ -2578,10 +2577,9 @@ define Parenthetical = sequential! [
   ]]
 ], #(node, o, i) -> node
 
-define SpreadToken = sequential! [Space, Period, Period, Period], "..."
-define MaybeSpreadToken = maybe! SpreadToken, true
+namedlet MaybeSpreadToken = maybe! (sequential! [Space, Period, Period, Period], "..."), true
 
-define SpreadOrExpression = sequential! [
+namedlet SpreadOrExpression = sequential! [
   [\spread, MaybeSpreadToken]
   [\node, Expression]
 ], #(x, o, i)
@@ -2590,7 +2588,7 @@ define SpreadOrExpression = sequential! [
   else
     x.node
 
-define ArrayLiteral = prevent-unclosed-object-literal sequential! [
+namedlet ArrayLiteral = prevent-unclosed-object-literal sequential! [
   OpenSquareBracket
   Space
   [\first, maybe! (sequential! [
@@ -2620,13 +2618,13 @@ define ArrayLiteral = prevent-unclosed-object-literal sequential! [
 ], #(x, o, i)
   o.array i, [...x.first, ...x.rest]
 
-define BracketedObjectKey = sequential! [
+namedlet BracketedObjectKey = sequential! [
   OpenSquareBracket
   [\this, ExpressionOrAssignment]
   CloseSquareBracket
 ]
 
-define ConstObjectKey = one-of! [
+namedlet ConstObjectKey = one-of! [
   StringLiteral
   mutate! NumberLiteral, #(x, o, i) -> o.const i, String(x.value)
   IdentifierNameConst
@@ -2650,7 +2648,7 @@ define ObjectKeyColon = with-message! 'key ":"', sequential! [
   except! character! "="
 ]
 
-define DualObjectKey = short-circuit! ObjectKeyColon, sequential! [
+namedlet DualObjectKey = short-circuit! ObjectKeyColon, sequential! [
   [\key, ObjectKeyColon]
   [\value, Expression]
 ], #(x) -> { x.key, x.value }
@@ -2664,17 +2662,17 @@ define PropertyObjectKeyColon = sequential! [
   Space
   [\key, ObjectKeyColon]
 ]
-define PropertyDualObjectKey = short-circuit! PropertyObjectKeyColon, sequential! [
+namedlet PropertyDualObjectKey = short-circuit! PropertyObjectKeyColon, sequential! [
   [\property-key, PropertyObjectKeyColon]
   [\value, Expression]
 ], #(x) -> { x.property-key.key, x.value, property: x.property-key.property }
 
-define PropertyOrDualObjectKey = one-of! [
+namedlet PropertyOrDualObjectKey = one-of! [
   PropertyDualObjectKey
   DualObjectKey
 ]
 
-define IdentifierOrSimpleAccessStart = one-of! [
+namedlet IdentifierOrSimpleAccessStart = one-of! [
   Identifier
   sequential! [
     [\parent, ThisOrShorthandLiteralPeriod]
@@ -2699,7 +2697,7 @@ define IdentifierOrSimpleAccessStart = one-of! [
     o.access i, parent, x.child
 ]
 
-define IdentifierOrSimpleAccessPart = one-of! [
+namedlet IdentifierOrSimpleAccessPart = one-of! [
   sequential! [
     [\type, one-of! [Period, DoubleColon]]
     [\child, IdentifierNameConstOrNumberLiteral]
@@ -2729,7 +2727,7 @@ define IdentifierOrSimpleAccess = sequential! [
   for reduce creator in x.tail, current = x.head
     creator current
 
-define SingularObjectKey = one-of! [
+namedlet SingularObjectKey = one-of! [
   sequential! [
     [\this, IdentifierOrSimpleAccess]
     NotColon
@@ -2781,12 +2779,11 @@ define KeyValuePair = one-of! [
       x.pair
 ]
 
-define ExtendsToken = word \extends
-define ObjectLiteral = sequential! [
+namedlet ObjectLiteral = sequential! [
   OpenCurlyBrace
   Space
   [\prototype, maybe! (sequential! [
-    ExtendsToken
+    word \extends
     [\this, prevent-unclosed-object-literal #(o) -> Logic o]
     Space
     one-of! [
@@ -2822,25 +2819,16 @@ define ObjectLiteral = sequential! [
 ], #(x, o, i)
   o.object i, [...x.first, ...x.rest], if x.prototype != NOTHING then x.prototype
 
-define InBlock = sequential! [
+namedlet Body = sequential! [
+  Space
+  Newline
+  EmptyLines
   Advance
   [\this, Block]
   PopIndent
 ]
 
-define Body = sequential! [
-  Space
-  Newline
-  EmptyLines
-  [\this, InBlock]
-]
-define BodyOrStatementOrNothing = one-of! [
-  Body
-  Statement
-  Nothing
-]
-
-define DedentedBody = sequential! [
+namedlet DedentedBody = sequential! [
   Space
   [\this, oneOf! [
     sequential! [
@@ -2852,16 +2840,7 @@ define DedentedBody = sequential! [
   ]]
 ]
 
-define DeclareEqualSymbol = with-space! character! "="
-
-define MutableToken = word \mutable
-define MaybeMutableToken = maybe! MutableToken, true
-
-define SimpleType = one-of! [
-  IdentifierOrSimpleAccess
-  VoidLiteral
-  NullLiteral
-]
+namedlet DeclareEqualSymbol = with-space! character! "="
 
 define ArrayType = sequential! [
   OpenSquareBracket
@@ -2873,7 +2852,7 @@ define ArrayType = sequential! [
   else
     o.type-array i, x
 
-define ObjectTypePair = sequential! [
+namedlet ObjectTypePair = sequential! [
   [\key, ConstObjectKey]
   Colon
   [\value, TypeReference]
@@ -2964,15 +2943,13 @@ define TypeReference = sequential! [
       o.type-union i, types
 
 define AsToken = word \as
-define AsType = short-circuit! AsToken, sequential! [
+namedlet MaybeAsType = maybe! (short-circuit! AsToken, sequential! [
   AsToken
   [\this, TypeReference]
-]
+]), NOTHING
 
-define MaybeAsType = maybe! AsType, NOTHING
-
-define IdentifierParameter = sequential! [
-  [\is-mutable, MaybeMutableToken]
+namedlet IdentifierParameter = sequential! [
+  [\is-mutable, maybe! word(\mutable), true]
   [\spread, MaybeSpreadToken]
   [\parent, maybe! ThisOrShorthandLiteralPeriod, NOTHING]
   [\ident, Identifier]
@@ -2995,7 +2972,7 @@ define IdentifierParameter = sequential! [
     x.is-mutable == \mutable
     if x.as-type != NOTHING then x.as-type else void)
 
-define Parameter = one-of! [
+namedlet Parameter = one-of! [
   IdentifierParameter
   ArrayParameter
   ObjectParameter
@@ -3010,7 +2987,7 @@ let validate-spread-parameters(params, o)
         o.error "Cannot have more than one spread parameter"
   params
 
-define ArrayParameter = sequential! [
+namedlet ArrayParameter = sequential! [
   OpenSquareBracket
   EmptyLines
   [\this, maybe! (sequential! [
@@ -3025,12 +3002,12 @@ define ArrayParameter = sequential! [
   CloseSquareBracket
 ], #(x, o, i) -> o.array-param i, validate-spread-parameters(x, o)
 
-define ParamDualObjectKey = sequential! [
+namedlet ParamDualObjectKey = sequential! [
   [\key, ObjectKeyColon]
   [\value, Parameter]
 ]
 
-define ParamSingularObjectKey = sequential! [
+namedlet ParamSingularObjectKey = sequential! [
   [\this, IdentifierParameter]
   NotColon
 ], #(param, o, i)
@@ -3043,12 +3020,12 @@ define ParamSingularObjectKey = sequential! [
     throw Error "Unknown object key type: $(typeof! ident)"
   { key, value: param }
 
-define KvpParameter = one-of! [
+namedlet KvpParameter = one-of! [
   ParamDualObjectKey
   ParamSingularObjectKey
 ]
 
-define ObjectParameter = sequential! [
+namedlet ObjectParameter = sequential! [
   OpenCurlyBrace
   EmptyLines
   [\this, maybe! (sequential! [
@@ -3063,7 +3040,7 @@ define ObjectParameter = sequential! [
   CloseCurlyBrace
 ], #(x, o, i) -> o.object-param i, x
 
-define Parameters = sequential! [
+namedlet Parameters = sequential! [
   [\head, Parameter]
   [\tail, zero-or-more! sequential! [
     CommaOrNewline
@@ -3071,7 +3048,7 @@ define Parameters = sequential! [
   ]]
 ], #(x, o, i) -> validate-spread-parameters [x.head, ...x.tail], o
 
-define ParameterSequence = sequential! [
+namedlet ParameterSequence = sequential! [
   OpenParenthesis
   EmptyLines
   [\this, maybe! Parameters, #-> []]
@@ -3111,14 +3088,6 @@ define ParameterSequence = sequential! [
       o.error "Duplicate parameter name: $(duplicates.sort().join ', ')"
     x
 
-define _FunctionBody = one-of! [
-  sequential! [
-    symbol "->"
-    [\this, maybe! Statement, #(x, o, i) -> o.nothing i]
-  ]
-  Body
-]
-
 let add-param-to-scope(o, param)!
   if param instanceof ParamNode
     if param.ident instanceofsome [IdentNode, TmpNode]
@@ -3139,9 +3108,16 @@ let add-param-to-scope(o, param)!
     throw Error "Unknown param node type: $(typeof! param)"
 
 let _in-generator = Stack false
-define FunctionBody = make-alter-stack(_in-generator, false)(_FunctionBody)
-define GeneratorFunctionBody = make-alter-stack(_in-generator, true)(_FunctionBody)
-define FunctionDeclaration = do
+namedlet _FunctionBody = one-of! [
+  sequential! [
+    symbol "->"
+    [\this, maybe! Statement, #(x, o, i) -> o.nothing i]
+  ]
+  Body
+]
+namedlet FunctionBody = make-alter-stack(_in-generator, false)(_FunctionBody)
+namedlet GeneratorFunctionBody = make-alter-stack(_in-generator, true)(_FunctionBody)
+namedlet FunctionDeclaration = do
   let params-rule = maybe! ParameterSequence, #-> []
   let rest-rule = sequential! [
     [\as-type, in-function-type-params MaybeAsType]
@@ -3172,21 +3148,20 @@ define FunctionDeclaration = do
     o.update clone
     o.function index, params, body, auto-return == NOTHING, bound != NOTHING, if as-type != NOTHING then as-type, generator
 
-define FunctionLiteral = short-circuit! HashSign, sequential! [
+namedlet FunctionLiteral = short-circuit! HashSign, sequential! [
   HashSign
   [\this, FunctionDeclaration]
 ]
 
 define AssignmentAsExpression = in-expression #(o) -> Assignment(o)
 
-define ExpressionOrAssignment = oneOf! [
+namedlet ExpressionOrAssignment = oneOf! [
   AssignmentAsExpression
   Expression
 ]
 
-define AstToken = word \AST
 define AstExpressionToken = word \ASTE
-define AstExpression = short-circuit! AstExpressionToken, sequential! [
+namedlet AstExpression = short-circuit! AstExpressionToken, sequential! [
   #(o)
     if not _in-macro.peek()
       o.error "Can only use AST inside a macro"
@@ -3197,7 +3172,8 @@ define AstExpression = short-circuit! AstExpressionToken, sequential! [
   AstExpressionToken
   [\this, in-ast ExpressionOrAssignment]
 ]
-define AstStatement = short-circuit! AstToken, sequential! [
+define AstToken = word \AST
+namedlet AstStatement = short-circuit! AstToken, sequential! [
   #(o)
     if not _in-macro.peek()
       o.error "Can only use AST inside a macro"
@@ -3206,9 +3182,13 @@ define AstStatement = short-circuit! AstToken, sequential! [
     else
       true
   AstToken
-  [\this, in-ast BodyOrStatementOrNothing]
+  [\this, in-ast one-of! [
+    Body
+    Statement
+    Nothing
+  ]]
 ]
-define Ast = oneOf! [
+namedlet Ast = oneOf! [
   AstExpression
   AstStatement
 ], #(x, o, i) -> MacroHelper.constify-object x, i, o.index, o.scope.id
@@ -3221,7 +3201,7 @@ define MacroName = with-message! 'macro-name', with-space! sequential! [
   NotColon
 ]
 
-define MacroNames = sequential! [
+namedlet MacroNames = sequential! [
   [\head, MacroName]
   [\tail, zero-or-more! sequential! [
     Comma
@@ -3229,7 +3209,7 @@ define MacroNames = sequential! [
   ]]
 ], #(x, o, i) -> [x.head, ...x.tail]
 
-define UseMacro = #(o)
+namedlet UseMacro = #(o)
   let clone = o.clone()
   let {macros} = clone
   let name = MacroName clone
@@ -3239,8 +3219,7 @@ define UseMacro = #(o)
       return m o
   false
 
-define AsToken = word \as
-define MacroSyntaxParameterType = sequential! [
+namedlet MacroSyntaxParameterType = sequential! [
   [\type, one-of! [
     Identifier
     StringLiteral
@@ -3271,7 +3250,7 @@ define MacroSyntaxParameterType = sequential! [
   else
     o.syntax-many i, x.type, x.multiplier
 
-define MacroSyntaxParameter = one-of! [
+namedlet MacroSyntaxParameter = one-of! [
   StringLiteral
   sequential! [
     [\ident, one-of! [
@@ -3285,7 +3264,7 @@ define MacroSyntaxParameter = one-of! [
   ], #(x, o, i) -> o.syntax-param i, x.ident, if x.type != NOTHING then x.type else void
 ]
 
-define MacroSyntaxParameters = sequential! [
+namedlet MacroSyntaxParameters = sequential! [
   [\head, MacroSyntaxParameter]
   [\tail, zero-or-more! sequential! [
     Comma
@@ -3293,7 +3272,7 @@ define MacroSyntaxParameters = sequential! [
   ]]
 ], #(x) -> [x.head, ...x.tail]
 
-define MacroSyntaxChoiceParameters = sequential! [
+namedlet MacroSyntaxChoiceParameters = sequential! [
   [\head, MacroSyntaxParameterType]
   [\tail, zero-or-more! sequential! [
     Pipe
@@ -3301,9 +3280,7 @@ define MacroSyntaxChoiceParameters = sequential! [
   ]]
 ], #(x) -> [x.head, ...x.tail]
 
-define SyntaxToken = word \syntax
-
-define MacroOptions = maybe! (sequential! [
+namedlet MacroOptions = maybe! (sequential! [
   word \with
   [\this, UnclosedObjectLiteral]
 ], #(x)
@@ -3316,7 +3293,8 @@ define MacroOptions = maybe! (sequential! [
     options[key.const-value()] := value.const-value()
   options), #-> {}
 
-define MacroSyntax = sequential! [
+define SyntaxToken = word \syntax
+namedlet MacroSyntax = sequential! [
   CheckIndent
   [\this, short-circuit! SyntaxToken, sequential! [
     SyntaxToken
@@ -3338,7 +3316,7 @@ define MacroSyntax = sequential! [
   CheckStop
 ]
 
-define MacroBody = one-of! [
+namedlet MacroBody = one-of! [
   sequential! [
     Space
     Newline
@@ -3372,7 +3350,7 @@ define MacroBody = one-of! [
 ]
 
 define MacroToken = word \macro
-define Macro = in-macro short-circuit! MacroToken, sequential! [
+namedlet DefineMacro = in-macro short-circuit! MacroToken, sequential! [
   MacroToken
   named "(identifier MacroBody)", #(o)
     let names = MacroNames o
@@ -3384,7 +3362,7 @@ define Macro = in-macro short-circuit! MacroToken, sequential! [
 ], #(x, o, i) -> o.nothing i
 
 define DefineSyntaxStart = sequential! [word(\define), word(\syntax)]
-define DefineSyntax = short-circuit! DefineSyntaxStart, sequential! [
+namedlet DefineSyntax = short-circuit! DefineSyntaxStart, sequential! [
   DefineSyntaxStart
   [\name, Identifier]
   DeclareEqualSymbol
@@ -3393,7 +3371,7 @@ define DefineSyntax = short-circuit! DefineSyntaxStart, sequential! [
 ], #(x, o, i) -> o.define-syntax i, x.name.name, x.value, if x.body != NOTHING then x.body
 
 define DefineHelperStart = sequential! [word(\define), word(\helper)]
-define DefineHelper = short-circuit! DefineHelperStart, sequential! [
+namedlet DefineHelper = short-circuit! DefineHelperStart, sequential! [
   DefineHelperStart
   [\name, Identifier]
   DeclareEqualSymbol
@@ -3401,7 +3379,7 @@ define DefineHelper = short-circuit! DefineHelperStart, sequential! [
 ], #(x, o, i) -> o.define-helper i, x.name, x.value
 
 define DefineOperatorStart = sequential! [word(\define), word(\operator)]
-define DefineOperator = short-circuit! DefineOperatorStart, in-macro do
+namedlet DefineOperator = short-circuit! DefineOperatorStart, in-macro do
   let main-rule = sequential! [
     DefineOperatorStart
     [\type, one-of! [
@@ -3443,13 +3421,7 @@ define DefineOperator = short-circuit! DefineOperatorStart, in-macro do
     o.update clone
     ret
 
-define Nothing = #(o) -> o.nothing o.index
-define ExpressionOrNothing = one-of! [
-  Expression
-  Nothing
-]
-
-define IndexMultiple = sequential! [
+define Index = sequential! [
   [\head, Expression]
   [\tail, zero-or-more! sequential! [
     CommaOrNewline
@@ -3463,9 +3435,7 @@ define IndexMultiple = sequential! [
     type: \single
     node: x.head
 
-define Index = IndexMultiple
-
-define IdentifierOrAccessStart = one-of! [
+namedlet IdentifierOrAccessStart = one-of! [
   Identifier
   sequential! [
     [\parent, ThisOrShorthandLiteralPeriod]
@@ -3496,7 +3466,7 @@ define IdentifierOrAccessStart = one-of! [
       throw Error()
 ]
 
-define IdentifierOrAccessPart = one-of! [
+namedlet IdentifierOrAccessPart = one-of! [
   sequential! [
     [\type, one-of! [Period, DoubleColon]]
     [\child, IdentifierNameConstOrNumberLiteral]
@@ -3527,27 +3497,23 @@ define IdentifierOrAccess = sequential! [
   for reduce part in x.tail, current = x.head
     part(current)
 
-let SimpleAssignable = IdentifierOrAccess
+namedlet SimpleAssignable = IdentifierOrAccess
 
-define ComplexAssignable = one-of! [
+namedlet ComplexAssignable = one-of! [
   SimpleAssignable
   //ArrayAssignable
   //ObjectAssignable
 ]
 
-define ColonEqual = sequential! [
+namedlet DirectAssignment = sequential! [
+  [\left, ComplexAssignable]
   Space
   ColonChar
   character! "="
-], ":="
-
-define DirectAssignment = sequential! [
-  [\left, ComplexAssignable]
-  ColonEqual
   [\right, ExpressionOrAssignment]
 ], #(x, o, i) -> o.assign i, x.left, "=", x.right.do-wrap(o)
 
-define CustomAssignment = #(o)
+namedlet CustomAssignment = #(o)
   let start-index = o.index
   let line = o.line
   let clone = o.clone()
@@ -3575,21 +3541,7 @@ define Assignment = one-of! [
   CustomAssignment
 ]
 
-define PrimaryExpression = one-of! [
-  UnclosedObjectLiteral
-  Literal
-  ArrayLiteral
-  ObjectLiteral
-  Ast
-  Parenthetical
-  FunctionLiteral
-  UseMacro
-  Identifier
-  IndentedUnclosedObjectLiteral
-  IndentedUnclosedArrayLiteral
-]
-
-define UnclosedObjectLiteral = sequential! [
+namedlet UnclosedObjectLiteral = sequential! [
   [\head, PropertyOrDualObjectKey]
   [\tail, zero-or-more! sequential! [
     Comma
@@ -3597,7 +3549,7 @@ define UnclosedObjectLiteral = sequential! [
   ]]
 ], #(x, o, i) -> o.object i, [x.head, ...x.tail]
 
-define IndentedUnclosedObjectLiteralInner = sequential! [
+namedlet IndentedUnclosedObjectLiteralInner = sequential! [
   [\head, PropertyOrDualObjectKey]
   [\tail, zero-or-more! sequential! [
     CommaOrNewlineWithCheckIndent
@@ -3605,7 +3557,7 @@ define IndentedUnclosedObjectLiteralInner = sequential! [
   ]]
 ], #(x, o, i) -> o.object i, [x.head, ...x.tail]
 
-define IndentedUnclosedObjectLiteral = sequential! [
+namedlet IndentedUnclosedObjectLiteral = sequential! [
   #(o) -> not _prevent-unclosed-object-literal.peek()
   Space
   Newline
@@ -3616,7 +3568,7 @@ define IndentedUnclosedObjectLiteral = sequential! [
   PopIndent
 ]
 
-define UnclosedArrayLiteralElement = sequential! [
+namedlet UnclosedArrayLiteralElement = sequential! [
   Asterix
   Space
   [\this, one-of! [
@@ -3632,7 +3584,7 @@ define UnclosedArrayLiteralElement = sequential! [
     SpreadOrExpression
   ]]
 ]
-define IndentedUnclosedArrayLiteralInner = sequential! [
+namedlet IndentedUnclosedArrayLiteralInner = sequential! [
   [\head, UnclosedArrayLiteralElement]
   [\tail, zero-or-more! sequential! [
     MaybeComma
@@ -3640,7 +3592,7 @@ define IndentedUnclosedArrayLiteralInner = sequential! [
     [\this, UnclosedArrayLiteralElement]
   ]]
 ], #(x, o, i) -> o.array i, [x.head, ...x.tail]
-define IndentedUnclosedArrayLiteral = sequential! [
+namedlet IndentedUnclosedArrayLiteral = sequential! [
   #(o) -> not _prevent-unclosed-object-literal.peek()
   Space
   Newline
@@ -3651,8 +3603,23 @@ define IndentedUnclosedArrayLiteral = sequential! [
   PopIndent
 ]
 
-define ClosedArguments = sequential! [
-  OpenParenthesisChar
+define PrimaryExpression = one-of! [
+  UnclosedObjectLiteral
+  Literal
+  ArrayLiteral
+  ObjectLiteral
+  Ast
+  Parenthetical
+  FunctionLiteral
+  UseMacro
+  Identifier
+  IndentedUnclosedObjectLiteral
+  IndentedUnclosedArrayLiteral
+]
+
+namedlet ClosedArguments = sequential! [
+  NoSpace
+  OpenParenthesis
   Space
   [\first, maybe! (sequential! [
     [\head, SpreadOrExpression],
@@ -3680,9 +3647,12 @@ define ClosedArguments = sequential! [
   CloseParenthesis
 ], #(x, o, i) -> [...x.first, ...x.rest]
 
-define UnclosedArguments = sequential! [
+namedlet UnclosedArguments = sequential! [
   one-of! [
-    SomeSpace
+    sequential! [
+      one-or-more! SpaceChar, true
+      MaybeComment
+    ], true
     CheckStop
   ]
   [\first, sequential! [
@@ -3716,8 +3686,7 @@ define MaybeExclamationPointNoSpace = maybe! (sequential! [
   NoSpace
   character! "!"
 ], "!"), true
-define MaybeExistentialSymbolNoSpace = maybe! ExistentialSymbolNoSpace, true
-define BasicInvocationOrAccess = sequential! [
+namedlet BasicInvocationOrAccess = sequential! [
   [\is-new, maybe! word(\new), NOTHING]
   [\head, one-of! [
     sequential! [
@@ -3974,7 +3943,7 @@ define BasicInvocationOrAccess = sequential! [
     convert-call-chain o, i, head.node, 0, links
 
 define SuperToken = word "super"
-define SuperInvocation = short-circuit! SuperToken, sequential! [
+namedlet SuperInvocation = short-circuit! SuperToken, sequential! [
   SuperToken
   ["child", maybe! (oneOf! [
     sequential! [
@@ -3994,7 +3963,7 @@ define SuperInvocation = short-circuit! SuperToken, sequential! [
   o.super i, if x.child != NOTHING then x.child else void, x.args
 
 define EvalToken = word \eval
-define Eval = short-circuit! EvalToken, sequential! [
+namedlet Eval = short-circuit! EvalToken, sequential! [
   EvalToken
   [\this, InvocationArguments]
 ], #(args, o, i)
@@ -4002,7 +3971,7 @@ define Eval = short-circuit! EvalToken, sequential! [
     o.error("Expected only one argument to eval")
   o.eval i, args[0]
 
-define InvocationOrAccess = one-of! [
+namedlet InvocationOrAccess = one-of! [
   #(o)
     if _in-ast.peek()
       let i = o.index
@@ -4025,7 +3994,7 @@ define InvocationOrAccess = one-of! [
   Eval
 ]
 
-define CustomPostfixUnary = #(o)
+namedlet CustomPostfixUnary = #(o)
   let start-index = o.index
   let line = o.line
   let node = InvocationOrAccess o
@@ -4045,7 +4014,7 @@ define CustomPostfixUnary = #(o)
       }, o, start-index, line
     node
 
-define CustomPrefixUnary = #(o)
+namedlet CustomPrefixUnary = #(o)
   let start-index = o.index
   let line = o.line
   for operator in o.macros.prefix-unary-operators by -1
@@ -4120,19 +4089,18 @@ let get-use-custom-binary-operator = do
         head
 
 let Logic = named("Logic", get-use-custom-binary-operator(0))
-define ExpressionAsStatement = one-of! [
+namedlet ExpressionAsStatement = one-of! [
   UseMacro
   Logic
 ]
 define Expression = in-expression ExpressionAsStatement 
 
-define Statement = sequential! [
+namedlet Statement = sequential! [
   [\this, in-statement one-of! [
-    Macro
+    DefineMacro
     DefineHelper
     DefineOperator
     DefineSyntax
-    //Constructor
     Assignment
     ExpressionAsStatement
   ]]
@@ -4140,7 +4108,7 @@ define Statement = sequential! [
   // TODO: have statement decorators?
 ]
 
-define Line = sequential! [
+namedlet Line = sequential! [
   CheckIndent
   [\this, Statement]
 ]
@@ -4202,7 +4170,7 @@ let _Block = do
     else
       run-sync(o)
 
-define Block = one-of! [
+namedlet Block = one-of! [
   sequential! [
     CheckIndent
     [\this, IndentedUnclosedObjectLiteralInner]
@@ -4890,13 +4858,13 @@ let one-of(rules as [Function])
         return result
     false
 
-define AnyObjectLiteral = one-of! [
+namedlet AnyObjectLiteral = one-of! [
   UnclosedObjectLiteral
   ObjectLiteral
   IndentedUnclosedObjectLiteral
 ]
 
-define AnyArrayLiteral = one-of! [
+namedlet AnyArrayLiteral = one-of! [
   ArrayLiteral
   IndentedUnclosedArrayLiteral
 ]

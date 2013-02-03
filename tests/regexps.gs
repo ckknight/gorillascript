@@ -52,6 +52,12 @@ test "a triple-quoted regex will ignore whitespace and allow comments", #
     have # and this is a comment
       no # and another comment
         whitespace""".source
+  
+  eq r'Ihavenowhitespace'.source, r'''
+  I
+    have # and this is a comment
+      no # and another comment
+        whitespace'''.source
 
 test "a triple-quoted regex can have interpolation", #
   let value = "bravo"
@@ -60,6 +66,13 @@ test "a triple-quoted regex can have interpolation", #
   $value # previously, that was a value.
   charlie
   """.source
+test "a single-triple-quoted regex doesn't have interpolation", #
+  let value = "bravo"
+  eq r'alpha$valuecharlie'.source, r'''
+  alpha
+  $value # won't be converted
+  charlie
+  '''.source
 
 test "and empty regex will compile to an empty, non-capturing group", #
   let regex = r""
