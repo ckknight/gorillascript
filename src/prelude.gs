@@ -175,13 +175,14 @@ macro return
       @return()
 
 macro return?
-  syntax node as Expression?
+  syntax node as Expression
     if @in-generator
       throw Error "Cannot use return in a generator function"
-    @maybe-cache node, #(set-node, node)@
-      AST
-        if $set-node !~= null
-          return $node
+    @mutate-last node or @noop(), (#(n)@
+      @maybe-cache n, #(set-n, n)@
+        AST
+          if $set-n?
+            return $n), true
 
 define operator assign and=
   @maybe-cache-access left, #(set-left, left)@

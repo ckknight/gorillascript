@@ -2586,7 +2586,7 @@ namedlet Parenthetical = sequential! [
         true
         false)
   ]]
-], #(node, o, i) -> node
+]
 
 namedlet MaybeSpreadToken = maybe! (sequential! [Space, Period, Period, Period], "..."), true
 
@@ -2662,7 +2662,7 @@ define ObjectKeyColon = with-message! 'key ":"', sequential! [
 namedlet DualObjectKey = short-circuit! ObjectKeyColon, sequential! [
   [\key, ObjectKeyColon]
   [\value, Expression]
-], #(x) -> { x.key, x.value }
+]
 
 define PropertyObjectKeyColon = sequential! [
   [\property, one-of! [
