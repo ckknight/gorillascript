@@ -144,16 +144,22 @@ let pad-left(mutable text, len, padding)
 let pad-right(mutable text, len, padding)
   text & string-repeat(padding, len - text.length)
 
+if files.length == 0
+  console.log "No files to test"
+  return
+
+asyncif next, not no-prelude
+  async err <- gorilla.init()
+  throw? err
+  next()
+
 write string-repeat(" ", longest-name-len)
 write "     parse     macro     reduce    translate compile   eval            total\n"
 
 let totals = {}
-asyncfor err <- next, file, i in files
-  asyncif done-init, i == 0 and not no-prelude
-    async! next <- gorilla.init()
-    done-init()
+asyncfor err <- next, file in files
   if inputs not ownskey file
-    return next()
+    return next(new Error("Missing file input for $file"))
   let {code, filename} = inputs[file]
   
   let basename = path.basename filename
