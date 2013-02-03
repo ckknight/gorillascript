@@ -1858,7 +1858,7 @@ macro require!
 define helper __async = #(mutable limit, length, on-value, mutable on-complete)
   if length ~<= 0
     return on-complete(null)
-  if limit ~<= 0
+  if limit ~< 1 or limit != limit
     limit := Infinity
   
   let mutable broken = null
@@ -1889,7 +1889,7 @@ define helper __async = #(mutable limit, length, on-value, mutable on-complete)
 define helper __async-result = #(mutable limit, length, on-value, mutable on-complete)
   if length ~<= 0
     return on-complete(null, [])
-  if limit ~<= 0
+  if limit ~< 1 or limit != limit
     limit := Infinity
 
   let mutable broken = null
@@ -1924,7 +1924,7 @@ define helper __async-result = #(mutable limit, length, on-value, mutable on-com
   next()
 
 define helper __async-iter = #(mutable limit, iterator, on-value, on-complete)
-  if limit == 0
+  if limit ~< 1 or limit != limit
     limit := Infinity
   let mutable broken = null
   let mutable slots-used = 0
@@ -1971,7 +1971,7 @@ define helper __async-iter = #(mutable limit, iterator, on-value, on-complete)
   next()
 
 define helper __async-iter-result = #(mutable limit, iterator, on-value, on-complete)
-  if limit == 0
+  if limit ~< 1 or limit != limit
     limit := Infinity
   let mutable broken = null
   let mutable slots-used = 0
