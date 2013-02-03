@@ -620,7 +620,21 @@ let translators =
             ast.Access func, \apply
             [ast.Const(void), arg-array])
   
-  Const: #(node, scope, location, auto-return) -> #-> auto-return ast.Const(node.value)
+  Const: #(node, scope, location, auto-return) -> #
+    let value = node.value
+    if value instanceof RegExp
+      let flags = []
+      if value.global
+        flags.push "g"
+      if value.ignore-case
+        flags.push "i"
+      if value.multiline
+        flags.push "m"
+      if value.sticky
+        flags.push "y"
+      auto-return ast.Regex(value.source, flags.join "")
+    else
+      auto-return ast.Const(value)
 
   Continue: #(node, scope)
     let t-label = node.label and translate node.label, scope, \label

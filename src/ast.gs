@@ -109,16 +109,6 @@ let to-JS-source = do
     object: #(value)
       if value == null
         "null"
-      else if value instanceof RegExp
-        let source = value.source.replace(r"(\\\\)*\\?/"g, "\$1\\/") or "(?:)"
-        let flags = []
-        if value.global
-          flags.push "g"
-        if value.ignore-case
-          flags.push "i"
-        if value.multiline
-          flags.push "m"
-        "/$(source)/$(flags.join '')"
       else
         throw Error()
   #(value) as String
@@ -815,13 +805,15 @@ let to-const(value)
     throw Error "Cannot convert $(typeof! value) to a Const"
   else if is-array! value
     Arr (for item in value; to-const item)
-  else if value and typeof value == "object" and value not instanceof RegExp
+  else if value instanceof RegExp
+    Regex value.source, value.flags
+  else if is-object! value
     Obj (for k, v of value; Obj.Pair k, to-const v)
   else
     Const value
 
 exports.Const := class Const extends Expression
-  def constructor(@value as void|null|Boolean|Number|String|RegExp) ->
+  def constructor(@value as void|null|Boolean|Number|String) ->
   
   def compile(options, level, line-start, sb)!
     let value = @value
@@ -843,28 +835,24 @@ exports.Const := class Const extends Expression
   def inspect(depth) -> "Const($(inspect @value, null, dec-depth depth))"
   
   def to-JSON()
-    if @value instanceof RegExp
-      let flags = []
-      if @value.global
-        flags.push "g"
-      if @value.ignore-case
-        flags.push "i"
-      if @value.multiline
-        flags.push "m"
-      { type: "Const", +regexp, @value.source, flags }
-    else if @value == Infinity
+    if @value == Infinity
       { type: "Const", +infinite, value: 1 }
     else if @value == -Infinity
       { type: "Const", +infinite, value: -1 }
     else if @value is NaN
       { type: "Const", +infinite, value: 0 }
+    else if @value == 0
+      { type: "Const", @value, sign: if is-negative(@value) then -1 else 1 }
     else
       { type: "Const", @value }
   @from-JSON := #(obj)
-    if obj.regexp
-      Const RegExp(obj.source, obj.flags)
-    else if obj.infinite
+    if obj.infinite
       Const obj.value / 0
+    else if obj.value == 0
+      if obj.sign and obj.sign < 0
+        Const -0
+      else
+        Const 0
     else
       Const obj.value
 
@@ -1539,6 +1527,28 @@ exports.Obj := class Obj extends Expression
         this
     
     def inspect(depth) -> inspect-helper depth, "Pair", @key, @value
+
+exports.Regex := class Regex extends Expression
+  def constructor(@source as String, @flags as String = "") ->
+
+  def compile(options, level, line-start, sb)!
+    sb "/"
+    sb @source.replace(r"(\\\\)*\\?/"g, "\$1\\/") or "(?:)"
+    sb "/"
+    sb @flags
+  def compile-as-block(options, level, line-start, sb)!
+    Noop().compile-as-block(options, level, line-start, sb)
+
+  def is-const() -> false
+  def is-noop() -> true
+  
+  def walk() -> this
+
+  def inspect(depth) -> inspect-helper depth, "Regex", @source, @flags
+
+  def to-JSON()
+    { type: "Regex", @source, @flags }
+  @from-JSON := #({source, flags}) -> Regex(source, flags)
 
 exports.Return := class Return extends Statement
   def constructor(@node as Expression = Noop())

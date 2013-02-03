@@ -36,6 +36,19 @@ test "regular expressions should be indexable", #
   ok r"asdf"gim.ignore-case
   ok r"asdf"gim.multiline
 
+test "regular expressions have expected flags", #
+  let check(regex, ...flags)
+    for flag in [\global, \ignore-case, \multiline]
+      if flag in flags
+        ok regex[flag]
+      else
+        ok not regex[flag]
+  
+  check(r"asdf"g, \global)
+  check(r"asdf"i, \ignore-case)
+  check(r"asdf"m, \multiline)
+  check(r"asdf"gim, \global, \ignore-case, \multiline)
+
 test "slashes are allowed in regexes", #
   ok r'^a/b$'.test "a/b"
   ok r"^a/b\$".test "a/b"
