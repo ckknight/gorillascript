@@ -488,7 +488,7 @@ let array-translate(elements, scope, replace-with-slice, allow-array-like)
       #
         let array = translated-items[0]()
         if replace-with-slice and array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array
-          ast.Call(ast.Ident(\__slice), array.args)
+          ast.Call(ast.Access(ast.Ident(\__slice), \call), array.args)
         else if allow-array-like and array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array and array.args[0] instanceof ast.Arguments
           array.args[0]
         else
@@ -597,7 +597,9 @@ let translators =
             [
               ast.Access set-array, 0
               ast.Call(
-                ast.Ident \__slice
+                ast.Access(
+                  ast.Ident \__slice
+                  \call)
                 [array, ast.Const 1])
             ])
         else if arg-array instanceof ast.Arr
@@ -984,7 +986,9 @@ let translators =
               init.push ast.Assign(
                 param.ident
                 ast.Call(
-                  ast.Ident(\__slice)
+                  ast.Access(
+                    ast.Ident(\__slice)
+                    \call)
                   [array-ident, ...(if i == 0 then [] else [ast.Const(i)])]))
             else
               spread-counter := scope.reserve-ident \i, Type.number
@@ -1001,7 +1005,9 @@ let translators =
                         "-"
                         len - i - 1)))
                   ast.Call(
-                    ast.Ident \__slice
+                    ast.Access(
+                      ast.Ident \__slice
+                      \call)
                     [array-ident, ast.Const(i), spread-counter])
                   ast.BlockExpression
                     * ast.Assign spread-counter, ast.Const(i)
@@ -1111,7 +1117,9 @@ let translators =
             initializers.push ast.Assign(
               param.ident
               ast.Call(
-                ast.Ident(\__slice)
+                ast.Access(
+                  ast.Ident(\__slice)
+                  \call)
                 [ast.Arguments(), ...(if i == 0 then [] else [ast.Const(i)])]))
           else
             spread-counter := inner-scope.reserve-ident \ref, Type.number
@@ -1128,7 +1136,9 @@ let translators =
                       "-"
                       len - i - 1)))
                 ast.Call(
-                  ast.Ident \__slice
+                  ast.Access(
+                    ast.Ident \__slice
+                    \call)
                   [ast.Arguments(), ast.Const(i), spread-counter])
                 ast.BlockExpression
                   * ast.Assign spread-counter, ast.Const(i)

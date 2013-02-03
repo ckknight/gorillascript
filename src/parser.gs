@@ -6139,7 +6139,7 @@ node-class AccessNode(parent as Node, child as Node)
         IdentNode @start-index, @end-index, @scope-id, if has-step then \__slice-step else \__slice
         args
         false
-        false).reduce(o)
+        not has-step).reduce(o)
     else if parent != @parent or child != @child
       AccessNode @start-index, @end-index, @scope-id, parent, child
     else

@@ -803,9 +803,7 @@ macro with
     let func = ASTE #-> $body
     ASTE $func@($node)
 
-define helper __slice = do
-  let slice = Array.prototype.slice
-  #(array, start, end) as [] -> slice@(array, start, end)
+define helper __slice = Array.prototype.slice
 
 define helper __freeze = if typeof Object.freeze == \function
   Object.freeze
@@ -840,7 +838,7 @@ define helper __to-array = #(x) as []
   else if typeof x == \string
     x.split ""
   else
-    __slice x
+    __slice@ x
 
 define helper __create = if typeof Object.create == \function
   Object.create
@@ -1000,7 +998,7 @@ define helper __step = #(array, step as Number) as []
   else if step == 1
     __to-array(array)
   else if step == -1
-    __slice(array).reverse()
+    __slice@(array).reverse()
   else if step not %% 1
     throw RangeError "step must be an integer, got $(String step)"
   else
@@ -1018,9 +1016,9 @@ define helper __step = #(array, step as Number) as []
 
 define helper __slice-step = #(array, start, end, mutable step, inclusive) as []
   let arr = if step ~< 0
-    __slice(array, if inclusive then end else end ~+ 1, start ~+ 1 or Infinity)
+    __slice@(array, if inclusive then end else end ~+ 1, start ~+ 1 or Infinity)
   else
-    __slice(array, start, if inclusive then end ~+ 1 or Infinity else end)
+    __slice@(array, start, if inclusive then end ~+ 1 or Infinity else end)
   if step == 1
     arr
   else if step == -1
@@ -1033,7 +1031,7 @@ define operator binary by with maximum: 1, precedence: 1, type: \array
     throw Error "Must provide a number to the 'by' operator"
   if @is-const(right) and @value(right) == 0
     throw Error "'by' step must be non-zero"
-  if @is-call(left) and @is-ident(@call-func(left)) and @name(@call-func(left)) == \__range
+  if @is-call(left) and @is-ident(@call-func(left)) and @name(@call-func(left)) == \__range and not @call-is-apply(left)
     let call-args = @call-args(left)
     ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
   else
@@ -1063,10 +1061,10 @@ macro for
       length := index.length
       index := index.value
     
-    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__to-array
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__to-array and not @call-is-apply(array)
       array := @call-args(array)[0]
     
-    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range and not @call-is-apply(array)
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
       value := value.ident
@@ -1191,7 +1189,7 @@ macro for
       let mutable end = ASTE Infinity
       let mutable inclusive = ASTE false
       if @is-call(array) and @is-ident(@call-func(array))
-        if @name(@call-func(array)) == \__step
+        if @name(@call-func(array)) == \__step and not @call-is-apply(array)
           let args = @call-args(array)
           array := args[0]
           step := args[1]
@@ -1206,14 +1204,14 @@ macro for
             start := void
             end := void
           inclusive := ASTE true
-        else if @name(@call-func(array)) == \__slice
+        else if @name(@call-func(array)) == \__slice and @call-is-apply(array)
           let args = @call-args(array)
           array := args[0]
           start := args[1]
           end := args[2]
           if @is-const(end) and @value(end) == void
             end := ASTE Infinity
-        else if @name(@call-func(array)) == \__slice-step
+        else if @name(@call-func(array)) == \__slice-step and not @call-is-apply(array)
           let args = @call-args(array)
           array := args[0]
           start := args[1]
@@ -1825,7 +1823,7 @@ macro async
     
     params := if params then [params.head].concat(params.tail) else []
     let func = @func(params, body, true, true)
-    @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call)
+    @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call), @call-is-apply(call)
 
 macro async!
   syntax callback as Expression, params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
@@ -1841,7 +1839,7 @@ macro async!
         $body
       true
       true
-    @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call)
+    @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call), @call-is-apply(call)
 
 define helper __xor = #(x, y)
   if x
@@ -2143,7 +2141,7 @@ macro asyncfor
     parallelism ?= ASTE 1
     
     index ?= @tmp \i, true, \number
-    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range and not @call-is-apply(array)
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
       value := value.ident
