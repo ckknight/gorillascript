@@ -448,7 +448,7 @@ let generator-translate = do
     else
       builder.add translate node, scope, \statement, false
 
-let array-translate(elements, scope, replace-with-slice)
+let array-translate(elements, scope, replace-with-slice, allow-array-like)
   let translated-items = []
   let mutable current = []
   translated-items.push(current)
@@ -489,6 +489,8 @@ let array-translate(elements, scope, replace-with-slice)
         let array = translated-items[0]()
         if replace-with-slice and array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array
           ast.Call(ast.Ident(\__slice), array.args)
+        else if allow-array-like and array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array and array.args[0] instanceof ast.Arguments
+          array.args[0]
         else
           array
     else
@@ -510,7 +512,7 @@ let translators =
     #-> auto-return ast.Arguments()
 
   Array: #(node, scope, location, auto-return)
-    let t-arr = array-translate node.elements, scope, true
+    let t-arr = array-translate node.elements, scope, true, false
     #-> auto-return t-arr()
 
   Assign: do
@@ -569,7 +571,7 @@ let translators =
     let args = node.args
     if is-apply and (args.length == 0 or args[0] not instanceof ParserNode.Spread)
       let t-start = if args.length == 0 then #-> ast.Const(void) else translate(args[0], scope, \expression)
-      let t-arg-array = array-translate(args[1 to -1], scope, false)
+      let t-arg-array = array-translate(args[1 to -1], scope, false, true)
       #
         let func = t-func()
         let start = t-start()
@@ -583,7 +585,7 @@ let translators =
             ast.Access func, \apply
             [start, arg-array])
     else
-      let t-arg-array = array-translate(args, scope, false)
+      let t-arg-array = array-translate(args, scope, false, true)
       #
         let func = t-func()
         let arg-array = t-arg-array()
