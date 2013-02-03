@@ -1888,6 +1888,16 @@ macro require!
     else
       throw Error("Expected either a constant string or ident or object")
 
+define helper __once = #(mutable func)
+  if typeof func != \function
+    throw Error "Expected func to be a Function, got $(typeof! func)"
+  # -> if func
+    let f = func
+    func := null
+    f@ this, ...arguments
+  else
+    throw Error "Attempted to call function more than once"
+
 define helper __async = #(mutable limit, length, on-value, mutable on-complete)
   if length ~<= 0
     return on-complete(null)
@@ -1910,7 +1920,7 @@ define helper __async = #(mutable limit, length, on-value, mutable on-complete)
       let i = index
       index ~+= 1
       sync := true
-      on-value i, on-value-callback
+      on-value i, __once(on-value-callback)
       sync := false
     if broken? or slots-used == 0
       let f = on-complete
@@ -1944,7 +1954,7 @@ define helper __async-result = #(mutable limit, length, on-value, mutable on-com
       let i = index
       index += 1
       sync := true
-      on-value i, on-value-callback
+      on-value i, __once(on-value-callback)
       sync := false
     if broken? or slots-used == 0
       let f = on-complete
@@ -1988,7 +1998,7 @@ define helper __async-iter = #(mutable limit, iterator, on-value, on-complete)
       index ~+= 1
       sync := true
       try
-        on-value value, i, on-value-callback
+        on-value value, i, __once(on-value-callback)
       catch e
         if close
           close()
@@ -2038,7 +2048,7 @@ define helper __async-iter-result = #(mutable limit, iterator, on-value, on-comp
       index ~+= 1
       sync := true
       try
-        on-value value, i, on-value-callback
+        on-value value, i, __once(on-value-callback)
       catch e
         if close
           close()
