@@ -2535,26 +2535,26 @@ namedlet Parenthetical = sequential! [
     ]
     sequential! [
       [\left, Expression]
-      [\operator, CustomBinaryOperator]
+      [\operator, maybe! CustomBinaryOperator, NOTHING]
       CloseParenthesis
-    ], #({left, operator: {op, operator, inverted}}, o, i, line)
-      let clone = o.clone(o.clone-scope())
-      let right = o.tmp i, get-tmp-id(), \x
-      clone.scope.add right, false, Type.any
-      return o.function(i
-        [clone.param i, right]
-        operator.func {
-          left: left.rescope(clone.scope.id, clone)
-          inverted
-          op
-          right
-        }, clone, i, line
-        true
-        false)
-    sequential! [
-      [\this, Expression]
-      CloseParenthesis
-    ]
+    ], #({left, operator}, o, i, line)
+      if operator == NOTHING
+        left
+      else
+        let clone = o.clone(o.clone-scope())
+        let right = o.tmp i, get-tmp-id(), \x
+        clone.scope.add right, false, Type.any
+        return o.function(i
+          [clone.param i, right]
+          operator.operator.func {
+            left: left.rescope(clone.scope.id, clone)
+            operator.inverted
+            operator.op
+            right
+          }, clone, i, line
+          true
+          false)
+    CustomOperatorCloseParenthesis
     sequential! [
       [\operator, CustomBinaryOperator]
       [\right, Expression]
@@ -2573,7 +2573,6 @@ namedlet Parenthetical = sequential! [
         }, clone, i, line
         true
         false)
-    CustomOperatorCloseParenthesis
   ]]
 ], #(node, o, i) -> node
 
