@@ -979,26 +979,34 @@ Types can also be placed on let statements, to help with the type inference engi
 
     let x as Number = f()
 
-## Operators as functions
+## Operators, accesses, and method calls as functions
 
 In functional programming, it is often handy to use one of the built-in operators as a function, and GorillaScript provides this capability.
 
-    let add = (+)
+    let add = (+) // same as #(x, y) -> x + y
     add(5, 6) == 11
     
-    let square = (^ 2)
+    let square = (^ 2) // same as #(x) -> x ^ 2
     square(10) == 100
     
-    let double = (2 *)
+    let double = (2 *) // same as #(x) -> 2 * x
     double(5) == 10
     
-    let invert = (not)
+    let invert = (not) // same as #(x) -> not x
     invert(true) == false
     invert(false) == true
     
     10 == [1, 2, 3, 4].reduce (+)
 
 Any binary operator can be used this way, and any unary operator can be used as long as it does not share the same token as a binary operator.
+
+One can also use the same syntax for accesses and method calls
+
+    let get-length = (.length) // same as #(x) -> x.length
+    get-length("hello") == 5
+    
+    let to-hex = (.to-string(16)) // same as #(x) -> x.to-string(16)
+    to-hex(255) == "ff"
 
 ## Getters and setters
 

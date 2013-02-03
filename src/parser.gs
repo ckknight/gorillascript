@@ -2544,7 +2544,7 @@ namedlet Parenthetical = sequential! [
         let clone = o.clone(o.clone-scope())
         let right = o.tmp i, get-tmp-id(), \x
         clone.scope.add right, false, Type.any
-        return o.function(i
+        o.function(i
           [clone.param i, right]
           operator.operator.func {
             left: left.rescope(clone.scope.id, clone)
@@ -2563,7 +2563,7 @@ namedlet Parenthetical = sequential! [
       let clone = o.clone(o.clone-scope())
       let left = o.tmp i, get-tmp-id(), \x
       clone.scope.add left, false, Type.any
-      return o.function(i
+      o.function(i
         [clone.param i, left]
         operator.func {
           left
@@ -2571,6 +2571,18 @@ namedlet Parenthetical = sequential! [
           op
           right: right.rescope(clone.scope.id, clone)
         }, clone, i, line
+        true
+        false)
+    sequential! [
+      [\this, one-or-more! InvocationOrAccessPart]
+      CloseParenthesis
+    ], #(x, o, i)
+      let clone = o.clone(o.clone-scope())
+      let left = o.tmp i, get-tmp-id(), \x
+      clone.scope.add left, false, Type.any
+      o.function(i
+        [clone.param i, left]
+        convert-invocation-or-access(false, { type: \normal, -existential, node: left }, x, o, i).rescope(clone.scope.id, clone)
         true
         false)
   ]]
@@ -3685,84 +3697,62 @@ define MaybeExclamationPointNoSpace = maybe! (sequential! [
   NoSpace
   character! "!"
 ], "!"), true
-namedlet BasicInvocationOrAccess = sequential! [
-  [\is-new, maybe! word(\new), NOTHING]
-  [\head, one-of! [
-    sequential! [
-      [\node, ThisShorthandLiteral]
-      [\existential, MaybeExistentialSymbolNoSpace]
-      [\owns, MaybeExclamationPointNoSpace]
-      [\bind, maybe! AtSign, NOTHING]
-      [\child, IdentifierNameConstOrNumberLiteral]
-    ], #(x, o, i) -> {
-      type: \this-access
-      x.node
-      x.child
-      existential: x.existential == "?"
-      owns: x.owns == "!"
-      bind: x.bind != NOTHING
-    }
-    mutate! PrimaryExpression, #(x) -> {
-      type: \normal
-      node: x
-    }
-  ]]
-  [\tail, zero-or-more-of! [
-    sequential! [
-      [\existential, MaybeExistentialSymbolNoSpace]
-      [\owns, MaybeExclamationPointNoSpace]
-      [\bind, maybe! AtSign, NOTHING]
-      EmptyLines
-      Space
-      [\type, one-of! [Period, DoubleColon]]
-      [\child, IdentifierNameConstOrNumberLiteral]
-    ], #(x) -> {
-      type: if x.type == "::" then \proto-access else \access
-      x.child
-      existential: x.existential == "?"
-      owns: x.owns == "!"
-      bind: x.bind != NOTHING
-    }
-    sequential! [
-      [\existential, MaybeExistentialSymbolNoSpace]
-      [\owns, MaybeExclamationPointNoSpace]
-      [\bind, maybe! AtSign, NOTHING]
-      [\type, maybe! DoubleColon, \access-index, \proto-access-index]
-      OpenSquareBracketChar
-      [\child, Index]
-      CloseSquareBracket
-    ], #(x, o, i)
-      if x.child.type == \single
-        {
-          type: if x.type == \access-index then \access else \proto-access
-          child: x.child.node
-          existential: x.existential == "?"
-          owns: x.owns == "!"
-          bind: x.bind != NOTHING
-        }
-      else
-        if x.owns == "!"
-          o.error "Cannot use ! when using a multiple or slicing index"
-        if x.bind != NOTHING
-          o.error "Cannot use @ when using a multiple or slicing index"
-        {
-          x.type
-          x.child
-          existential: x.existential == "?"
-        }
-    sequential! [
-      [\existential, MaybeExistentialSymbolNoSpace]
-      [\is-apply, maybe! AtSign, NOTHING]
-      [\args, InvocationArguments]
-    ], #(x) -> {
-      type: \call
-      x.args
-      existential: x.existential == "?"
-      -is-new
-      is-apply: x.is-apply != NOTHING
-    }
-  ]]
-], do
+namedlet InvocationOrAccessPart = one-of! [
+  sequential! [
+    [\existential, MaybeExistentialSymbolNoSpace]
+    [\owns, MaybeExclamationPointNoSpace]
+    [\bind, maybe! AtSign, NOTHING]
+    EmptyLines
+    Space
+    [\type, one-of! [Period, DoubleColon]]
+    [\child, IdentifierNameConstOrNumberLiteral]
+  ], #(x) -> {
+    type: if x.type == "::" then \proto-access else \access
+    x.child
+    existential: x.existential == "?"
+    owns: x.owns == "!"
+    bind: x.bind != NOTHING
+  }
+  sequential! [
+    [\existential, MaybeExistentialSymbolNoSpace]
+    [\owns, MaybeExclamationPointNoSpace]
+    [\bind, maybe! AtSign, NOTHING]
+    [\type, maybe! DoubleColon, \access-index, \proto-access-index]
+    OpenSquareBracketChar
+    [\child, Index]
+    CloseSquareBracket
+  ], #(x, o, i)
+    if x.child.type == \single
+      {
+        type: if x.type == \access-index then \access else \proto-access
+        child: x.child.node
+        existential: x.existential == "?"
+        owns: x.owns == "!"
+        bind: x.bind != NOTHING
+      }
+    else
+      if x.owns == "!"
+        o.error "Cannot use ! when using a multiple or slicing index"
+      if x.bind != NOTHING
+        o.error "Cannot use @ when using a multiple or slicing index"
+      {
+        x.type
+        x.child
+        existential: x.existential == "?"
+      }
+  sequential! [
+    [\existential, MaybeExistentialSymbolNoSpace]
+    [\is-apply, maybe! AtSign, NOTHING]
+    [\args, InvocationArguments]
+  ], #(x) -> {
+    type: \call
+    x.args
+    existential: x.existential == "?"
+    -is-new
+    is-apply: x.is-apply != NOTHING
+  }
+]
+let convert-invocation-or-access = do
   let link-types =
     access: do
       let index-types =
@@ -3906,13 +3896,10 @@ namedlet BasicInvocationOrAccess = sequential! [
         throw Error "Unknown call-chain link: $(link.type)"
       
       link-types[link.type](o, i, head, link, j, links)
-  #(x, o, i)
-    let mutable is-new = x.is-new != NOTHING
-    let {head, tail} = x
-  
+  #(mutable is-new, head, tail, o, i)
     if tail.length == 0 and not is-new and head.type == \normal
       return head.node
-  
+    
     let links = []
     if head.type == \this-access
       links.push { type: \access, head.child, head.existential }
@@ -3940,6 +3927,32 @@ namedlet BasicInvocationOrAccess = sequential! [
       links.push { type: \call, args: [], -existential, +is-new, -is-apply }
     
     convert-call-chain o, i, head.node, 0, links
+
+namedlet BasicInvocationOrAccess = sequential! [
+  [\is-new, maybe! word(\new), NOTHING]
+  [\head, one-of! [
+    sequential! [
+      [\node, ThisShorthandLiteral]
+      [\existential, MaybeExistentialSymbolNoSpace]
+      [\owns, MaybeExclamationPointNoSpace]
+      [\bind, maybe! AtSign, NOTHING]
+      [\child, IdentifierNameConstOrNumberLiteral]
+    ], #(x, o, i) -> {
+      type: \this-access
+      x.node
+      x.child
+      existential: x.existential == "?"
+      owns: x.owns == "!"
+      bind: x.bind != NOTHING
+    }
+    mutate! PrimaryExpression, #(x) -> {
+      type: \normal
+      node: x
+    }
+  ]]
+  [\tail, zero-or-more! InvocationOrAccessPart]
+], #({is-new, head, tail}, o, i)
+  convert-invocation-or-access(is-new != NOTHING, head, tail, o, i)
 
 define SuperToken = word "super"
 namedlet SuperInvocation = short-circuit! SuperToken, sequential! [

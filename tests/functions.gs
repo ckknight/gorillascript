@@ -1203,3 +1203,15 @@ test "typed parameter as access", #
   throws #-> fun(0), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
+
+test "Parenthetical access as function", #
+  let map(array, func)
+    return for x in array; func(x)
+  
+  array-eq [5, 5, 7, 5, 4], map ["alpha", "bravo", "charlie", "delta", "echo"], (.length)
+
+test "Parenthetical method call as function", #
+  let map(array, func)
+    return for x in array; func(x)
+
+  array-eq ["pha", "avo", "arlie", "lta", "ho"], map ["alpha", "bravo", "charlie", "delta", "echo"], (.substring(2))
