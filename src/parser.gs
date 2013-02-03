@@ -4852,7 +4852,7 @@ class MacroHelper
     Return: identity
     Debugger: identity
     Throw: identity
-  def mutate-last(mutable node, func, include-noop)
+  def mutate-last(mutable node, func as Node -> Node, include-noop)
     if not node or typeof node != \object or node instanceof RegExp
       return node
     
