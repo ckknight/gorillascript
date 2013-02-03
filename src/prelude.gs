@@ -1055,7 +1055,7 @@ else
     false
 
 macro for
-  syntax reducer as (\every | \some | \first)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first | \filter)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     value := @macro-expand-1(value)
   
     let mutable length = null
@@ -1154,6 +1154,14 @@ macro for
           $body
         else
           $else-body
+      else if reducer == \filter
+        body := @mutate-last body, #(node)
+          AST if $node
+            $value
+        ASTE for $init; $test; $increment
+          $body
+        else
+          $else-body
       else if @position == "expression"
         ASTE for $init; $test; $increment
           $body
@@ -1228,6 +1236,7 @@ macro for
       
       let value-expr = ASTE if $is-string then $array.char-at($index) else $array[$index]
       let let-index = @macro-expand-all AST let mutable $index = 0
+      let value-ident = if value and value.type == \ident and not value.is-mutable then value.ident else @tmp \v, false
       let let-value = @macro-expand-all AST let $value = $value-expr
       let let-length = @macro-expand-all AST let $length = +$array.length
       
@@ -1332,7 +1341,6 @@ macro for
     
       if @has-func(body)
         let func = @tmp \f, false, \function
-        let value-ident = if value and value.type == \ident and not value.is-mutable then value.ident else @tmp \v, false
         if value and value-ident != value.ident
           body := AST
             let $value = $value-ident
@@ -1343,9 +1351,14 @@ macro for
         else
           init.push AST let $func = #($value-ident) -> $body
           body := ASTE $func@(this, $value-expr)
+      else if value-ident == value.ident or reducer != \filter
+        body := AST
+          let $value = $value-expr
+          $body
       else
         body := AST
-          $let-value
+          let $value-ident = $value-expr
+          let $value = $value-ident
           $body
   
       if reducer == \every
@@ -1360,6 +1373,14 @@ macro for
           $else-body
       else if reducer == \first
         ASTE for first $init; $test; $increment
+          $body
+        else
+          $else-body
+      else if reducer == \filter
+        body := @mutate-last body, #(node)
+          AST if $node
+            $value-ident
+        ASTE for $init; $test; $increment
           $body
         else
           $else-body
@@ -1493,6 +1514,22 @@ macro for
         $init
         $loop
         $post
+  
+  syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
+    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
+    let index = value?.index
+    value := value?.value
+    let loop = if type == "of"
+      AST for $key, $value, $index of $object
+        $body
+    else
+      AST for $key, $value, $index ofall $object
+        $body
+    AST
+      let mutable $current = $current-start
+      $loop
+      $current
+
 
 define operator binary instanceofsome with precedence: 3, maximum: 1, invertible: true, type: \boolean
   if @is-array(right)
@@ -1582,25 +1619,7 @@ macro try
 
 
 macro for
-  syntax "reduce", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
-    body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
-    let index = value?.index
-    value := value?.value
-    let loop = if type == "of"
-      AST for $key, $value, $index of $object
-        $body
-    else
-      AST for $key, $value, $index ofall $object
-        $body
-    AST
-      let mutable $current = $current-start
-      $loop
-      $current
-
-  syntax reducer as (\every | \some | \first)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
-    if else-body and @position == \expression
-      throw Error("Cannot use a for loop with an else as an expression")
-  
+  syntax reducer as (\every | \some | \first | \filter)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     let init = []
     let iterator = @cache AST $iterable.iterator(), init, \iter, false
     
@@ -1618,7 +1637,7 @@ macro for
         throw e
   
     let post = []
-    if else-body
+    if else-body and not reducer and @position != \expression
       let run-else = @tmp \else, false, \boolean
       init.push (AST let $run-else = true)
       body := AST
@@ -1627,7 +1646,7 @@ macro for
       post.push AST
         if $run-else
           $else-body
-  
+
     if @has-func(body)
       let func = @tmp \f, false, \function
       if not index
@@ -1648,15 +1667,31 @@ macro for
     let main = if reducer == \every
       ASTE for every $init; true; $step
         $body
+      else
+        $else-body
     else if reducer == \some
       ASTE for some $init; true; $step
         $body
+      else
+        $else-body
     else if reducer == \first
       ASTE for first $init; true; $step
         $body
+      else
+        $else-body
+    else if reducer == \filter
+      body := @mutate-last body, #(node)
+        AST if $node
+          $value
+      ASTE for $init; true; $step
+        $body
+      else
+        $else-body
     else if @position == \expression
       ASTE for $init; true; $step
         $body
+      else
+        $else-body
     else
       AST
         for $init; true; $step

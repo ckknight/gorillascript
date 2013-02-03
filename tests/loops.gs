@@ -826,7 +826,7 @@ test "Object comprehension", #
   
   array-eq ["alpha", "bravo", "charlie"], keys
 
-test "For-some of range", #
+test "For-some in range", #
   let mutable i = 0
   ok for some x in 1 til 10
     i += 1
@@ -843,7 +843,7 @@ test "For-some of range", #
   else
     throw Error()"""), #(e) -> e.line == 2
 
-test "For-every of range", #
+test "For-every in range", #
   let mutable i = 0
   ok not (for every x in 1 til 10
     i += 1
@@ -860,7 +860,7 @@ test "For-every of range", #
   else
     throw Error()"""), #(e) -> e.line == 2
 
-test "For-first of range", #
+test "For-first in range", #
   eq 36, for first x in 1 til 10
     if x > 5
       x ^ 2
@@ -871,7 +871,17 @@ test "For-first of range", #
   else
     1000000
 
-test "For-reduce of range", #
+test "For-filter in range", #
+  array-eq [1, 3, 5, 7, 9], for filter i in 1 til 10
+    i not %% 2
+
+  throws #-> gorilla.compile("""let y = 0
+  for filter i in 1 til 10
+    true
+  else
+    throw Error()"""), #(e) -> e.line == 2
+
+test "For-reduce in range", #
   eq 45, for reduce i in 1 til 10, sum = 0
     sum + i
   
@@ -919,6 +929,16 @@ test "For-first in array", #
       value ^ 2
   else
     1000000
+
+test "For-filter in array", #
+  array-eq [4, 16, 36], for filter x in [1, 4, 9, 16, 25, 36]
+    x %% 2
+  
+  throws #-> gorilla.compile("""let y = 0
+  for filter x in [1, 4, 9, 16, 25, 36]
+    true
+  else
+    throw Error()"""), #(e) -> e.line == 2
 
 test "For-reduce in array", #
   eq 10, for reduce i in [1, 2, 3, 4], sum = 0
@@ -1220,6 +1240,65 @@ test "iterator iteration loop scope with multiple", #
   array-eq [0, "alpha", 0, "delta"], funcs[0]()
   array-eq [1, "bravo", 1, "echo"], funcs[4]()
   array-eq [2, "charlie", 2, "foxtrot"], funcs[8]()
+
+test "For-some in iteration loop", #
+  ok for some x from array-to-iterator [#-> 1, #-> 2, fail]
+    x() == 2
+
+  ok not (for some x from array-to-iterator [#-> 1, #-> 2, #-> 3]
+    x() == 4)
+
+  throws #-> gorilla.compile("""let y = 0
+  for some x from array-to-iterator [1, 2]
+    true
+  else
+    throw Error()"""), #(e) -> e.line == 2
+
+test "For-every in iteration loop", #
+  ok not (for every x from array-to-iterator [#-> 1, #-> 2, fail]
+    x() < 2)
+
+  ok for every x from array-to-iterator [#-> 1, #-> 2, #-> 3]
+    x() < 4
+
+  throws #-> gorilla.compile("""let y = 0
+  for every x from array-to-iterator [1, 2]
+    true
+  else
+    throw Error()"""), #(e) -> e.line == 2
+
+test "For-first in iteration loop", #
+  eq 4, for first x from array-to-iterator [#-> 1, #-> 2, fail]
+    let value = x()
+    if value > 1
+      value ^ 2
+
+  eq 1000000, for first x from array-to-iterator [#-> 1, #-> 2, #-> 3]
+    let value = x()
+    if value > 3
+      value ^ 2
+  else
+    1000000
+
+test "For-filter in iteration loop", #
+  array-eq [4, 16, 36], for filter x from array-to-iterator [1, 4, 9, 16, 25, 36]
+    x %% 2
+
+  throws #-> gorilla.compile("""let y = 0
+  for filter x from array-to-iterator [1, 4, 9, 16, 25, 36]
+    true
+  else
+    throw Error()"""), #(e) -> e.line == 2
+
+test "For-reduce in iteration loop", #
+  eq 10, for reduce i from array-to-iterator([1, 2, 3, 4]), sum = 0
+    sum + i
+
+  throws #-> gorilla.compile("""let y = 0
+  for reduce i from array-to-iterator([1, 2, 3, 4]), sum = 0
+    sum + i
+  else
+    throw Error()"""), #(e) -> e.line == 4
 
 test "C-style for loop", #
   let mutable i = 0
