@@ -480,13 +480,14 @@ Single-line loops can be specified as so:
 
     let squares = for value in 0 to 10; value ^ 2
 
-There are also reducing loops which work by placing one of the reducers (`first`, `every`, `some`, `reduce`) on the `for` or `while` loop.
+There are also reducing loops which work by placing one of the reducers (`first`, `every`, `some`, `filter`, `reduce`) on the `for` or `while` loop.
 
     let all-good = for every item in array; item.is-good()
     let has-bad = for some item in array; item.is-bad()
     let best-value = for first item in array
       if item.is-best()
         item.value
+    let only-good = for filter item in array; item.is-good()
     let sum = for reduce value in [0, 1, 2, 3, 4], current = 0
       current + value
 
