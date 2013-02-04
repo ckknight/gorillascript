@@ -448,19 +448,19 @@ let generator-translate = do
     else
       builder.add translate node, scope, \statement, false
 
-let array-translate(elements, scope, replace-with-slice, allow-array-like)
+let array-translate(elements, scope, replace-with-slice, allow-array-like, unassigned)
   let translated-items = []
   let mutable current = []
   translated-items.push(current)
   for element in flatten-spread-array elements
     if element instanceof ParserNode.Spread
       translated-items.push
-        t-node: translate element.node, scope, \expression
+        t-node: translate element.node, scope, \expression, null, unassigned
         type: element.node.type()
       current := []
       translated-items.push current
     else
-      current.push translate element, scope, \expression
+      current.push translate element, scope, \expression, null, unassigned
 
   if translated-items.length == 1
     #-> ast.Arr for item in translated-items[0]
@@ -503,16 +503,16 @@ let array-translate(elements, scope, replace-with-slice, allow-array-like)
           rest)
 
 let translators =
-  Access: #(node, scope, location, auto-return)
-    let t-parent = translate node.parent, scope, \expression
-    let t-child = translate node.child, scope, \expression
+  Access: #(node, scope, location, auto-return, unassigned)
+    let t-parent = translate node.parent, scope, \expression, null, unassigned
+    let t-child = translate node.child, scope, \expression, null, unassigned
     #-> auto-return ast.Access(t-parent(), t-child())
 
   Args: #(node, scope, location, auto-return)
     #-> auto-return ast.Arguments()
 
-  Array: #(node, scope, location, auto-return)
-    let t-arr = array-translate node.elements, scope, true, false
+  Array: #(node, scope, location, auto-return, unassigned)
+    let t-arr = array-translate node.elements, scope, true, false, unassigned
     #-> auto-return t-arr()
 
   Assign: do
@@ -530,10 +530,14 @@ let translators =
       "|="
       "^="
     }
-    #(node, scope, location, auto-return)
+    #(node, scope, location, auto-return, unassigned)
       let op = node.op
       let t-left = translate node.left, scope, \left-expression
-      let t-right = translate node.right, scope, \expression
+      let t-right = translate node.right, scope, \expression, null, unassigned
+      if unassigned and node.left instanceof ParserNode.Ident
+        if op == "=" and unassigned[node.left.name] and node.right.is-const() and node.right.const-value() == void
+          return #-> ast.Noop()
+        unassigned[node.left.name] := false
       
       #
         let left = t-left()
@@ -550,28 +554,28 @@ let translators =
         else
           auto-return ast.Binary(left, op, right)
 
-  Binary: #(node, scope, location, auto-return)
-    let t-left = translate node.left, scope, \expression
-    let t-right = translate node.right, scope, \expression
+  Binary: #(node, scope, location, auto-return, unassigned)
+    let t-left = translate node.left, scope, \expression, null, unassigned
+    let t-right = translate node.right, scope, \expression, null, unassigned
     #-> auto-return ast.Binary(t-left(), node.op, t-right())
 
-  Block: #(node, scope, location, auto-return)
+  Block: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
-    let t-nodes = translate-array node.nodes, scope, location, auto-return
+    let t-nodes = translate-array node.nodes, scope, location, auto-return, unassigned
     # -> ast.Block (for t-node in t-nodes; t-node()), t-label?()
 
   Break: #(node, scope)
     let t-label = node.label and translate node.label, scope, \label
     #-> ast.Break(t-label?())
   
-  Call: #(node, scope, location, auto-return)
-    let t-func = translate node.func, scope, \expression
+  Call: #(node, scope, location, auto-return, unassigned)
+    let t-func = translate node.func, scope, \expression, null, unassigned
     let is-apply = node.is-apply
     let is-new = node.is-new
     let args = node.args
     if is-apply and (args.length == 0 or args[0] not instanceof ParserNode.Spread)
-      let t-start = if args.length == 0 then #-> ast.Const(void) else translate(args[0], scope, \expression)
-      let t-arg-array = array-translate(args[1 to -1], scope, false, true)
+      let t-start = if args.length == 0 then #-> ast.Const(void) else translate(args[0], scope, \expression, null, unassigned)
+      let t-arg-array = array-translate(args[1 to -1], scope, false, true, unassigned)
       #
         let func = t-func()
         let start = t-start()
@@ -585,7 +589,7 @@ let translators =
             ast.Access func, \apply
             [start, arg-array])
     else
-      let t-arg-array = array-translate(args, scope, false, true)
+      let t-arg-array = array-translate(args, scope, false, true, unassigned)
       #
         let func = t-func()
         let arg-array = t-arg-array()
@@ -638,13 +642,14 @@ let translators =
     // TODO: line numbers
     throw Error "Cannot have a stray def"
 
-  Eval: #(node, scope, location, auto-return)
-    let t-code = translate node.code, scope, \expression
+  Eval: #(node, scope, location, auto-return, unassigned)
+    let t-code = translate node.code, scope, \expression, null, unassigned
     #-> auto-return ast.Eval t-code()
 
-  For: #(node, scope, location, auto-return)
+  For: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
-    let t-init = if node.init? then translate node.init, scope, \expression
+    let t-init = if node.init? then translate node.init, scope, \expression, null, unassigned
+    // don't send along the normal unassigned array, since the loop could be repeated thus requiring reset to void.
     let t-test = if node.test? then translate node.test, scope, \expression
     let t-step = if node.step? then translate node.step, scope, \expression
     let t-body = translate node.body, scope, \statement
@@ -655,10 +660,10 @@ let translators =
       t-body()
       t-label?())
 
-  ForIn: #(node, scope, location, auto-return)
+  ForIn: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-key = translate node.key, scope, \left-expression
-    let t-object = translate node.object, scope, \expression
+    let t-object = translate node.object, scope, \expression, null, unassigned
     let t-body = translate node.body, scope, \statement
     #
       let key = t-key()
@@ -1148,10 +1153,11 @@ let translators =
       if spread-counter
         inner-scope.release-ident spread-counter
       
+      let unassigned = {}
       let body = if node.generator
         generator-translate(node.body, inner-scope, GeneratorBuilder(inner-scope)).create()
       else
-        translate(node.body, inner-scope, \top-statement, node.auto-return)()
+        translate(node.body, inner-scope, \top-statement, node.auto-return, unassigned)()
       inner-scope.release-tmps()
       body := ast.Block [...initializers, body]
       if inner-scope.used-this or node.bound instanceof ParserNode
@@ -1159,7 +1165,7 @@ let translators =
           let fake-this = ast.Ident \_this
           inner-scope.add-variable fake-this // TODO: the type for this?
           body := ast.Block
-            * ast.Assign fake-this, translate(node.bound, scope, \top-statement)()
+            * ast.Assign fake-this, translate(node.bound, scope, \expression, null, unassigned)()
             * body
             * ast.Return fake-this
         else
@@ -1184,28 +1190,28 @@ let translators =
       scope.has-stop-iteration := true
     #-> auto-return ast.Ident(name)
 
-  If: #(node, scope, location, auto-return)
+  If: #(node, scope, location, auto-return, unassigned)
     let inner-location = if location in [\statement, \top-statement]
       \statement
     else
       location
     let t-label = node.label and translate node.label, scope, \label
-    let t-test = translate node.test, scope, \expression
-    let t-when-true = translate node.when-true, scope, inner-location, auto-return
-    let t-when-false = if node.when-false? then translate node.when-false, scope, inner-location, auto-return
+    let t-test = translate node.test, scope, \expression, null, unassigned
+    let t-when-true = translate node.when-true, scope, inner-location, auto-return, unassigned
+    let t-when-false = if node.when-false? then translate node.when-false, scope, inner-location, auto-return, unassigned
     #-> ast.If t-test(), t-when-true(), t-when-false?(), t-label?()
   
   Nothing: #-> #-> ast.Noop()
 
-  Object: #(node, scope, location, auto-return)
+  Object: #(node, scope, location, auto-return, unassigned)
     let t-keys = []
     let t-values = []
     let properties = []
     for pair in node.pairs
-      t-keys.push translate pair.key, scope, \expression
-      t-values.push translate pair.value, scope, \expression
+      t-keys.push translate pair.key, scope, \expression, null, unassigned
+      t-values.push translate pair.value, scope, \expression, null, unassigned
       properties.push pair.property
-    let t-prototype = if node.prototype? then translate node.prototype, scope, \expression
+    let t-prototype = if node.prototype? then translate node.prototype, scope, \expression, null, unassigned
 
     #
       let const-pairs = []
@@ -1291,8 +1297,8 @@ let translators =
         scope.release-ident ident
         auto-return result
   
-  Regexp: #(node, scope, location, auto-return)
-    let t-source = translate(node.source, scope, \expression)
+  Regexp: #(node, scope, location, auto-return, unassigned)
+    let t-source = translate(node.source, scope, \expression, null, unassigned)
     #
       let source = t-source()
       let flags = node.flags
@@ -1306,14 +1312,14 @@ let translators =
             ast.Const flags
           ])
   
-  Return: #(node, scope, location)
+  Return: #(node, scope, location, auto-return, unassigned)
     if location not in [\statement, \top-statement]
       throw Error "Expected Return in statement position"
-    let t-value = translate node.node, scope, \expression
+    let t-value = translate node.node, scope, \expression, null, unassigned
     #-> ast.Return t-value()
 
-  Root: #(node, scope)
-    let t-body = translate node.body, scope, \top-statement, scope.options.return or scope.options.eval
+  Root: #(node, scope, location, auto-return, unassigned)
+    let t-body = translate node.body, scope, \top-statement, scope.options.return or scope.options.eval, unassigned
 
     #
       let mutable body = t-body()
@@ -1388,16 +1394,16 @@ let translators =
           []
           [])
   
-  Switch: #(node, scope, location, auto-return)
+  Switch: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
-    let t-node = translate node.node, scope, \expression
+    let t-node = translate node.node, scope, \expression, null, unassigned
     let t-cases = for case_ in node.cases
       {
-        t-node: translate case_.node, scope, \expression
-        t-body: translate case_.body, scope, \statement
+        t-node: translate case_.node, scope, \expression, null, unassigned
+        t-body: translate case_.body, scope, \statement, null, unassigned
         case_.fallthrough
       }
-    let t-default-case = if node.default-case? then translate node.default-case, scope, \statement
+    let t-default-case = if node.default-case? then translate node.default-case, scope, \statement, null, unassigned
     #
       let node = t-node()
       let default-case = if t-default-case? then auto-return t-default-case() else ast.Noop()
@@ -1420,8 +1426,8 @@ let translators =
     let ident = scope.get-tmp(node.id, node.name, node.type())
     # -> auto-return ident
 
-  TmpWrapper: #(node, scope, location, auto-return)
-    let t-result = translate node.node, scope, location, auto-return
+  TmpWrapper: #(node, scope, location, auto-return, unassigned)
+    let t-result = translate node.node, scope, location, auto-return, unassigned
     for tmp in node.tmps by -1
       scope.release-tmp tmp
 
@@ -1435,49 +1441,53 @@ let translators =
       else
         ast.This()
 
-  Throw: #(node, scope, location)
-    let t-node = translate node.node, scope, \expression
+  Throw: #(node, scope, location, auto-return, unassigned)
+    let t-node = translate node.node, scope, \expression, null, unassigned
     #-> ast.Throw t-node()
 
-  TryCatch: #(node, scope, location, auto-return)
+  TryCatch: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
-    let t-try-body = translate node.try-body, scope, \statement, auto-return
+    let t-try-body = translate node.try-body, scope, \statement, auto-return, unassigned
     let t-catch-ident = translate node.catch-ident, scope, \left-expression
-    let t-catch-body = translate node.catch-body, scope, \statement, auto-return
+    let t-catch-body = translate node.catch-body, scope, \statement, auto-return, unassigned
     #-> ast.TryCatch t-try-body(), t-catch-ident(), t-catch-body(), t-label?()
 
-  TryFinally: #(node, scope, location, auto-return)  
+  TryFinally: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
-    let t-try-body = translate node.try-body, scope, \statement, auto-return
-    let t-finally-body = translate node.finally-body, scope, \statement
+    let t-try-body = translate node.try-body, scope, \statement, auto-return, unassigned
+    let t-finally-body = translate node.finally-body, scope, \statement, null, unassigned
     #-> ast.TryFinally t-try-body(), t-finally-body(), t-label?()
 
-  Unary: #(node, scope, location, auto-return)
-    let t-subnode = translate node.node, scope, \expression
+  Unary: #(node, scope, location, auto-return, unassigned)
+    if unassigned and node.op in ["++", "--", "++post", "--post"] and node.node instanceof ParserNode.Ident
+      unassigned[node.node.name] := false
+    let t-subnode = translate node.node, scope, \expression, null, unassigned
     #-> auto-return ast.Unary node.op, t-subnode()
   
-  Var: #(node, scope, location, auto-return)
+  Var: #(node, scope, location, auto-return, unassigned)
+    if unassigned and node.ident instanceof ParserNode.Ident and unassigned not ownskey node.ident.name
+      unassigned[node.ident.name] := true
     let t-ident = translate node.ident, scope, \left-expression, auto-return
     #
       let ident = t-ident()
       scope.add-variable ident, Type.any, node.is-mutable
       ast.Noop()
 
-let translate(node as Object, scope as Scope, location as String, auto-return)
+let translate(node as Object, scope as Scope, location as String, auto-return, unassigned)
   if typeof auto-return != \function
     auto-return := make-auto-return auto-return
 
   unless translators ownskey node.constructor.capped-name
     throw Error "Unable to translate unknown node type: $(String node.constructor.capped-name)"
 
-  let ret = translators[node.constructor.capped-name](node, scope, location, auto-return)
+  let ret = translators[node.constructor.capped-name](node, scope, location, auto-return, unassigned)
   if typeof ret != "function"
     throw Error "Translated non-function: $(typeof! ret)"
   ret
 
-let translate-array(nodes as [], scope as Scope, location as String, auto-return)
+let translate-array(nodes as [], scope as Scope, location as String, auto-return, unassigned)
   return for node, i, len in nodes
-    translate nodes[i], scope, location, i == len - 1 and auto-return
+    translate nodes[i], scope, location, i == len - 1 and auto-return, unassigned
 
 module.exports := #(node, options = {}, callback)
   if typeof options == \function
@@ -1486,7 +1496,7 @@ module.exports := #(node, options = {}, callback)
   let start-time = new Date().get-time()
   try
     let scope = Scope(options, false)
-    result := translate(node, scope, \statement, false)()
+    result := translate(node, scope, \statement, false, {})()
     scope.release-tmps()
   catch e
     if callback?
