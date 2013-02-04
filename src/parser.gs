@@ -408,17 +408,43 @@ macro multiple!(min-count, max-count, rule, mutator, name)
     let init = []
     rule := @cache rule, init, \rule, true
     let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
-    let result = AST mutate! named(calculate-multiple-name!($rule?.parser-name or $name or $unknown-name, $min-count, $max-count), #(o)
-      let clone = o.clone()
-      let result = []
-      let mutable item = void
-      while (not $max-count or result.length < $max-count) and (item := $rule clone)
-        result.push item
-      if $min-count and result.length < $min-count
-        false
-      else
-        o.update clone
-        result), $mutator
+    let calculated-name = ASTE calculate-multiple-name!($rule?.parser-name or $name or $unknown-name, $min-count, $max-count)
+    let result = if @is-const(mutator) and @value(mutator) and @is-const(min-count) and @value(min-count) == 0 and @is-const(max-count) and @value(max-count) == 0
+      AST named($calculated-name, #(o)
+        while $rule o
+          void
+        $mutator)
+    else if @is-const(mutator) and @value(mutator) and @is-const(min-count) and @value(min-count) == 1 and @is-const(max-count) and @value(max-count) == 0
+      AST named($calculated-name, #(o)
+        if not $rule o
+          false
+        else
+          while $rule o
+            void
+          $mutator)
+    else if @is-const(mutator) and @value(mutator)
+      AST named($calculated-name, #(o)
+        let clone = o.clone()
+        let result-length = 0
+        while (not $max-count or result-length < $max-count) and $rule clone
+          result-length += 1
+        if $min-count and result-length < $min-count
+          false
+        else
+          o.update clone
+          $mutator)
+    else
+      AST mutate! named($calculated-name, #(o)
+        let clone = o.clone()
+        let result = []
+        let mutable item = void
+        while (not $max-count or result.length < $max-count) and (item := $rule clone)
+          result.push item
+        if $min-count and result.length < $min-count
+          false
+        else
+          o.update clone
+          result), $mutator
     if init.length
       AST do
         $init
