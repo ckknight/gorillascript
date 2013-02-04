@@ -183,6 +183,7 @@ asyncfor err <- next, file in files
   total-time += end-time - start-time
   
   write " | $(if failure then 'fail' else 'pass') $(pad-left ((end-time - start-time) / 1000_ms).to-fixed(3), 6, ' ') s\n"
+  gc?()
   next()
 throw? err
 if files.length > 1

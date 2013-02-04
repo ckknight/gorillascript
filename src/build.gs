@@ -51,6 +51,7 @@ let pad-right(mutable text, len, padding)
 write string-repeat(" ", longest-name-len)
 write "     parse     macro     reduce    translate compile    total\n"
 let totals = {}
+let mutable total-time = 0
 let results = {}
 asyncfor err <- next, file in files
   let {filename, code} = inputs[file]
@@ -64,7 +65,11 @@ asyncfor err <- next, file in files
     write "\n"
     return next(err)
   results[file] := compiled.code
-  write " | $(pad-left (((Date.now() - start-file-time) / 1000_ms).to-fixed 3), 6, ' ') s\n"
+  let end-file-time = Date.now()
+  let file-time = end-file-time - start-file-time
+  write " | $(pad-left ((file-time / 1000_ms).to-fixed 3), 6, ' ') s\n"
+  total-time += file-time
+  gc?()
   next()
 if err?
   return done(err)
@@ -76,7 +81,7 @@ if files.length > 1
   write pad-right "total: ", longest-name-len + 2, ' '
   for part in [\parse, \macro-expand, \reduce, \translate, \compile]
     write "  $(pad-left ((totals[part] / 1000_ms).to-fixed 3), 6, ' ') s"
-  write " | $(pad-left (((Date.now() - start-time) / 1000_ms).to-fixed 3), 6, ' ') s\n"
+  write " | $(pad-left ((total-time / 1000_ms).to-fixed 3), 6, ' ') s\n"
 
 asyncfor(0) err <- next, file in files
   let compiled = results[file]
