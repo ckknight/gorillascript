@@ -313,6 +313,8 @@ macro maybe!(rule, missing-value, found-value)
     result
 
 macro except!(rule)
+  if @is-array(rule)
+    rule := AST one-of! $rule
   let init = []
   rule := @cache rule, init, \rule, true
   
@@ -329,10 +331,21 @@ macro except!(rule)
 macro any-except!(rule, mutator)
   if @is-array(rule)
     rule := AST one-of! $rule
-  AST sequential! [
-    except! $rule
-    [\this, AnyChar]
-  ], $mutator
+  let init = []
+  rule := @cache rule, init, \rule, true
+
+  let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
+  let result = AST named "!" & ($rule?.parser-name or $unknown-name), #(o)
+    not $rule(o.clone()) and AnyChar(o)
+  
+  let mutated = AST mutate! $result, $mutator
+  
+  if init.length
+    AST do
+      $init
+      $mutated
+  else
+    mutated
 
 macro short-circuit!(expected, backend)
   let init = []
@@ -377,7 +390,7 @@ macro calculate-multiple-name!(name, min-count, max-count)
     "{$(@value min-count),$(@value max-count)}"
   AST "$($name)$($ending)"
 
-macro multiple!(min-count, max-count, rule, mutator)
+macro multiple!(min-count, max-count, rule, mutator, name)
   if not @is-const(min-count) or typeof @value(min-count) != \number
     throw Error "Expected min-count to be a const number"
   if not @is-const(max-count) or typeof @value(max-count) != \number
@@ -391,21 +404,19 @@ macro multiple!(min-count, max-count, rule, mutator)
     let init = []
     rule := @cache rule, init, \rule, true
     let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
-    let result = AST mutate! named(calculate-multiple-name!($rule?.parser-name or $unknown-name, $min-count, $max-count), #(o)
+    let result = AST mutate! named(calculate-multiple-name!($rule?.parser-name or $name or $unknown-name, $min-count, $max-count), #(o)
       let clone = o.clone()
       let result = []
-      while true
+      while not $max-count or result.length < $max-count
         let item = $rule clone
         if not item
-          break
+          if $min-count and result.length < $min-count
+            return false
+          else
+            break
         result.push item
-        if $max-count and result.length >= $max-count
-          break
-      if not $min-count or result.length >= $min-count
-        o.update clone
-        result
-      else
-        false), $mutator
+      o.update clone
+      result), $mutator
     if init.length
       AST do
         $init
