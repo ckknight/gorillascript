@@ -49,8 +49,8 @@ let cache(rule as ->, dont-cache as Boolean) as (->)
       let {cache, index} = o
       let indent = o.indent.peek()
       let indent-cache = (cache[indent ~- 1] ?= [])
-      // 65521 is chosen as the largest prime less than 64K
-      let inner = (indent-cache[index ~% 65521] ?= [])
+      // 16 was the best cache number I could find after running performance benchmarks
+      let inner = (indent-cache[index ~% 16] ?= [])
       let item = inner[cache-key]
       if item and item[0] == index
         o.index := item[1]
@@ -4256,12 +4256,16 @@ let Shebang = maybe! (sequential! [
 ], true), true
 
 let Root = #(o, callback)
+  o.clear-cache()
   let i = o.index
   BOM(o)
   Shebang(o)
   EmptyLines(o)
   asyncif block <- next, callback?
-    async! callback, block <- _Block o
+    async err, block <- _Block o
+    if err?
+      o.clear-cache()
+      return callback(err)
     next block
   else
     next _Block o
@@ -4269,6 +4273,7 @@ let Root = #(o, callback)
   EmptyLines(o)
   Space(o)
   let result = o.root i, x
+  o.clear-cache()
   if callback?
     callback null, result
   else
@@ -5445,6 +5450,8 @@ class State
     @expanding-macros := false
   
   def clone(scope as Scope|void) -> State @data, @macros, @options, @index, @line, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures, @known-scopes, scope or @scope
+  
+  def clear-cache()! -> @cache.length := 0
   
   def clone-scope(outer-scope)
     let scope = (outer-scope or @scope).clone(@known-scopes.length)
