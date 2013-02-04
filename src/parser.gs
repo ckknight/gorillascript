@@ -257,23 +257,29 @@ macro sequential!(array, mutator)
   let code = for reduce check in checks, current = AST true
     AST $current and $check
   
+  let has-mutator = mutator and not (@is-const(mutator) and @value(mutator) == void)
+  
   let result = if has-result
+    let inner = AST
+      o.update clone
+      result
     AST mutate! (#(o)
       let clone = o.clone()
       let mutable result = if $has-this then void else {}
-      if $code
-        o.update clone
-        result
-      else
-        false), $mutator
+      $code and $inner), $mutator
   else
+    let has-const-mutator = has-mutator and @is-const(mutator)
+    let inner = AST
+      o.update clone
+      if $has-const-mutator
+        $mutator
+      else
+        true
+    if has-const-mutator
+      mutator := void
     AST mutate! (#(o)
       let clone = o.clone()
-      if $code
-        o.update clone
-        true
-      else
-        false), $mutator
+      $code and $inner), $mutator
   if init.length
     AST do
       $init
@@ -293,12 +299,16 @@ macro maybe!(rule, missing-value, found-value)
   let calculated-name = ASTE ($rule?.parser-name or $unknown-name) & "?"
   
   let result = if not found-value or (@is-const(found-value) and @value(found-value) == void)
-    AST named $calculated-name, #(o)
-      let {index, line} = o
-      $rule(o) or if typeof $missing-value == \function
-        $missing-value void, o, index, line
-      else
-        $missing-value
+    if @is-const(missing-value)
+      AST named $calculated-name, #(o)
+        $rule(o) or $missing-value
+    else
+      AST named $calculated-name, #(o)
+        let {index, line} = o
+        $rule(o) or if typeof $missing-value == \function
+          $missing-value void, o, index, line
+        else
+          $missing-value
   else
     AST named $calculated-name, #(o)
       let {index, line} = o
@@ -564,7 +574,7 @@ macro character!(chars, name)
       let ch = String.from-char-code chunks[0].start
       name := if ch == '"' then "'\"'" else (JSON.stringify ch)
     AST
-      named $name, #(o)
+      #(o)
         if C(o.data, o.index) == $code
           o.index += 1
           $code
@@ -589,7 +599,7 @@ macro character!(chars, name)
       name.push "]"
       name := name.join ""
     AST
-      named $name, #(o)
+      #(o)
         let c = C(o.data, o.index)
         if $current
           o.index += 1
@@ -797,12 +807,16 @@ define Space = sequential! [
   _Space
   MaybeComment
 ], true
+
+macro with-space!(rule)
+  AST sequential! [
+    Space
+    [\this, $rule]
+  ]
+
 define NoSpace = except! SpaceChar
 
-define EmptyLine = sequential! [
-  Space
-  Newline
-], true
+define EmptyLine = with-space! Newline
 define EmptyLines = zero-or-more! EmptyLine, true
 define SomeEmptyLines = one-or-more! EmptyLine, true
 
@@ -812,10 +826,9 @@ let INDENTS =
 define CountIndent = zero-or-more! SpaceChar, #(x)
   let mutable count = 1
   for c in x by -1
-    let i = INDENTS[c]
-    if not i
+    if INDENTS not ownskey c
       throw Error "Unexpected indent char: $(JSON.stringify c)"
-    count += i
+    count += INDENTS[c]
   count
 
 define CheckIndent = #(o)
@@ -860,12 +873,6 @@ let PopIndent = named \PopIndent, #(o)
   else
     o.error "Unexpected dedent"
 
-macro with-space!(rule)
-  AST sequential! [
-    Space
-    [\this, $rule]
-  ]
-  
 define Zero = character! "0"
 define DecimalDigit = character! [["0", "9"]]
 define Period = character! "."
@@ -1704,8 +1711,8 @@ define SymbolChar = character! [
 ], "symbolic"
 define DoubleQuote = character! '"'
 define SingleQuote = character! "'"
-define TripleDoubleQuote = multiple! 3, 3, DoubleQuote, '"""'
-define TripleSingleQuote = multiple! 3, 3, SingleQuote, "'''"
+define TripleDoubleQuote = sequential! [DoubleQuote, DoubleQuote, DoubleQuote], '"""'
+define TripleSingleQuote = sequential! [SingleQuote, SingleQuote, SingleQuote], "'''"
 define Semicolon = with-space! character! ";"
 namedlet Asterix = character! "*"
 define OpenParenthesis = with-space! character! "("
@@ -1731,7 +1738,7 @@ namedlet SomeEmptyLinesWithCheckIndent = sequential! [
 ]
 namedlet CommaOrNewlineWithCheckIndent = one-of! [
   sequential! [
-    [\this, Comma]
+    Comma
     maybe! SomeEmptyLinesWithCheckIndent, true
   ]
   SomeEmptyLinesWithCheckIndent
@@ -2135,10 +2142,9 @@ namedlet StringIndent = #(o)
     let c = SpaceChar(clone)
     if not c
       break
-    let i = INDENTS[c]
-    if not i
+    if INDENTS not ownskey c
       throw Error "Unexpected indent char: $(JSON.stringify c)"
-    count += i
+    count += INDENTS[c]
   if count > current-indent
     o.error "Mixed tabs and spaces in string literal"
   else if count < current-indent and not Newline(clone.clone())
