@@ -82,13 +82,12 @@ macro with-message!(message, rule)
   AST do
     $init
     #(o)
-      o.prevent-fail()
-      let mutable result = void
-      try
-        result := $rule o
-      finally
-        o.unprevent-fail()
+      let clone = o.clone()
+      clone.prevent-fail()
+      let result = $rule clone
+      clone.unprevent-fail()
       if result
+        o.update clone
         result
       else
         o.fail $message
