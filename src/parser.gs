@@ -48,32 +48,24 @@ let cache(rule as ->, dont-cache as Boolean) as (->)
     named rule.parser-name, #(o)
       let {cache, index} = o
       let indent = o.indent.peek()
-      let indent-cache = (cache[indent] ?= [])
-      let inner = (indent-cache[cache-key] ?= [])
-      let item = inner[index]
-      if item == void
-        let result = rule o
-        if o.indent.peek() != indent
-          throw Error "Changed indent during cache process: from $indent to $(o.indent.peek())"
-        if not result
-          inner[index] := false
-        else
-          inner[index] := [o.index, o.line, result]
-        result
-      else if not item
-        false
-      else
+      let indent-cache = (cache[indent ~- 1] ?= [])
+      let inner = (indent-cache[index] ?= [])
+      let item = inner[cache-key]
+      if item
         o.index := item[0]
         o.line := item[1]
         item[2]
-macro cache!(rule, dont-cache)
-  if @is-const(dont-cache)
-    if @value(dont-cache)
-      rule
-    else
-      AST cache $rule
-  else
-    AST cache $rule, $dont-cache
+      else if item == void
+        let result = rule o
+        if o.indent.peek() != indent
+          throw Error "Changed indent during cache process: from $indent to $(o.indent.peek())"
+        inner[cache-key] := if not result
+          false
+        else
+          [o.index, o.line, result]
+        result
+      else
+        false
 
 macro with-message!(message, rule)
   let init = []
@@ -5613,7 +5605,7 @@ class State
     else if param instanceof SyntaxSequenceNode
       handle-params@ this, param.params
     else if param instanceof SyntaxChoiceNode
-      cache! one-of for choice in param.choices
+      cache one-of for choice in param.choices
         calc-param@ this, choice
     else if param.is-const()
       let string = param.const-value()
