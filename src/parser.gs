@@ -290,25 +290,32 @@ macro maybe!(rule, missing-value, found-value)
   found-value := if found-value then @cache found-value, init, \found, true
   
   let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
+  let calculated-name = ASTE ($rule?.parser-name or $unknown-name) & "?"
   
-  let result = AST named(($rule?.parser-name or $unknown-name) & "?", #(o)
-    let {index, line} = o
-    let clone = o.clone()
-    let result = $rule clone
-    if not result
-      if typeof $missing-value == \function
+  let result = if not found-value or (@is-const(found-value) and @value(found-value) == void)
+    AST named $calculated-name, #(o)
+      let {index, line} = o
+      $rule(o) or if typeof $missing-value == \function
         $missing-value void, o, index, line
       else
         $missing-value
-    else
-      o.update clone
-      if $found-value != void
-        if typeof $found-value == \function
-          $found-value result, o, index, line
+  else
+    AST named $calculated-name, #(o)
+      let {index, line} = o
+      let result = $rule o
+      if not result
+        if typeof $missing-value == \function
+          $missing-value void, o, index, line
         else
-          $found-value
+          $missing-value
       else
-        result)
+        if $found-value != void
+          if typeof $found-value == \function
+            $found-value result, o, index, line
+          else
+            $found-value
+        else
+          result
   if init.length
     AST do
       $init
@@ -779,10 +786,8 @@ define MaybeComment = do
             o.line ~+= 1
     else
       false
-
-  namedlet Comment = one-of! [SingleLineComment, MultiLineComment]
   
-  maybe! Comment, true
+  maybe! (one-of! [SingleLineComment, MultiLineComment]), true
 
 define Space = sequential! [
   _Space
