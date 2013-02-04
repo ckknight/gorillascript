@@ -17,7 +17,7 @@ let generate-cache-key = do
   let mutable id = -1
   #-> id += 1
 
-let copy(o as Object)
+let copy(o as {}) as {}
   let result = {}
   for k, v of o
     result[k] := v
@@ -28,7 +28,7 @@ let assert(value)
     throw Error "Assertion failed: $(String value)"
   value
 
-let named(name as null|String, func as Function)
+let named(name as null|String, func as ->) as (->)
   if name
     func.parser-name := name
   func
@@ -40,7 +40,7 @@ let get-tmp-id = do
   let id = -1
   #-> id += 1
 
-let cache(rule as Function, dont-cache as Boolean)
+let cache(rule as ->, dont-cache as Boolean) as (->)
   if dont-cache
     rule
   else
@@ -104,18 +104,22 @@ macro mutate!(rule, mutator)
     rule := @cache rule, init, \rule, true
     mutator := @cache mutator, init, \mutator, true
     let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
+    let mutator-is-true = @is-const(mutator) and @value(mutator) == true
     let result = AST named($rule?.parser-name or $unknown-name, #(o)
-      let {index, line} = o
-      let result = $rule o
-      if not result
-        false
+      if $mutator-is-true
+        not not $rule o
       else
-        if typeof $mutator == \function
-          $mutator result, o, index, line
-        else if $mutator != void
-          $mutator
+        let {index, line} = o
+        let result = $rule o
+        if not result
+          false
         else
-          result)
+          if typeof $mutator == \function
+            $mutator result, o, index, line
+          else if $mutator != void
+            $mutator
+          else
+            result)
     if init.length
       AST do
         $init
@@ -164,7 +168,7 @@ macro one-of!(array, mutator)
     else
       ret
 
-let sequential(array as [], mutator, dont-cache as Boolean)
+let sequential(array as [], mutator, dont-cache as Boolean) as (->)
   if array.length == 0
     throw Error "Cannot provide an empty array"
   
@@ -407,16 +411,14 @@ macro multiple!(min-count, max-count, rule, mutator, name)
     let result = AST mutate! named(calculate-multiple-name!($rule?.parser-name or $name or $unknown-name, $min-count, $max-count), #(o)
       let clone = o.clone()
       let result = []
-      while not $max-count or result.length < $max-count
-        let item = $rule clone
-        if not item
-          if $min-count and result.length < $min-count
-            return false
-          else
-            break
+      let mutable item = void
+      while (not $max-count or result.length < $max-count) and (item := $rule clone)
         result.push item
-      o.update clone
-      result), $mutator
+      if $min-count and result.length < $min-count
+        false
+      else
+        o.update clone
+        result), $mutator
     if init.length
       AST do
         $init
@@ -563,7 +565,7 @@ macro character!(chars, name)
           o.fail $name
           false
 
-let rule-equal(rule, text, mutator)
+let rule-equal(rule, text, mutator) as (->)
   let failure-message = JSON.stringify(text)
   return with-message! failure-message, mutate! named(failure-message, #(o)
     let clone = o.clone()
@@ -575,13 +577,13 @@ let rule-equal(rule, text, mutator)
       o.fail failure-message
       false), mutator
 
-let word(text, mutator)
+let word(text, mutator) as (->)
   rule-equal Name, text, mutator
 
-let symbol(text, mutator)
+let symbol(text, mutator) as (->)
   rule-equal Symbol, text, mutator
 
-let word-or-symbol(text, mutator)
+let word-or-symbol(text, mutator) as (->)
   let parts = [Space]
   parts.push ...(for part, i in text.split r"([a-z]+)"ig
     if part
@@ -592,7 +594,7 @@ let word-or-symbol(text, mutator)
   
   sequential parts, mutator or text
 
-let macro-name(text, mutator)
+let macro-name(text, mutator) as (->)
   let failure-message = JSON.stringify(text)
   mutate! named(failure-message, #(o)
     let clone = o.clone()
@@ -604,9 +606,7 @@ let macro-name(text, mutator)
       o.fail failure-message
       false), mutator
 
-let get-func-name(func)
-  if typeof func != \function
-    throw TypeError "Expected a function, got $(typeof! func)"
+let get-func-name(func as ->) as String
   if func.display-name
     func.display-name
   else if func.name
@@ -615,7 +615,7 @@ let get-func-name(func)
     let match = RegExp("^function\\s*(.*?)").exec func.to-string()
     (match and match[1]) or func.parser-name or "(anonymous)"
 
-let wrap(func, name = get-func-name(func))
+let wrap(func as ->, name = get-func-name(func)) as (->)
   let mutable id = -1
   named func.parser-name, #(o)
     id += 1
@@ -663,22 +663,13 @@ class Stack
   
   def clone() -> Stack @initial, @data.slice()
 
-let make-alter-stack(stack, value)
-  if stack not instanceof Stack
-    throw TypeError "Expected stack to be a Stack, got $(typeof! stack)"
-  
-  #(func)
-    if typeof func != \function
-      throw TypeError "Expected a function, got $(typeof! func)"
-    
-    named func.parser-name, #(o)
-      stack.push value
-      let mutable result = void
-      try
-        result := func(o)
-      finally
-        stack.pop()
-      result
+let make-alter-stack(stack as Stack, value) as (->)
+  #(func as ->) -> named func.parser-name, #(o)
+    stack.push value
+    try
+      return func(o)
+    finally
+      stack.pop()
 
 let _position = Stack \statement
 let in-statement = make-alter-stack _position, \statement
