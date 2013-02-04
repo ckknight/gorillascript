@@ -664,11 +664,15 @@ let wrap(func as ->, name = get-func-name(func)) as (->)
 macro define
   syntax name as Identifier, "=", value
     let name-str = @name(name)
+    if @is-call(value) and @is-ident(@call-func(value)) and @name(@call-func(value)) == \named
+      value := @call-args(value)[1]
     AST let $name = cache named $name-str, $value
 
 macro namedlet
   syntax name as Identifier, "=", value
     let name-str = @name(name)
+    if @is-call(value) and @is-ident(@call-func(value)) and @name(@call-func(value)) == \named
+      value := @call-args(value)[1]
     AST let $name = named $name-str, $value
 
 class Stack
