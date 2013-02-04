@@ -49,23 +49,19 @@ let cache(rule as ->, dont-cache as Boolean) as (->)
       let {cache, index} = o
       let indent = o.indent.peek()
       let indent-cache = (cache[indent ~- 1] ?= [])
-      let inner = (indent-cache[index] ?= [])
+      // 65521 is chosen as the largest prime less than 64K
+      let inner = (indent-cache[index ~% 65521] ?= [])
       let item = inner[cache-key]
-      if item
-        o.index := item[0]
-        o.line := item[1]
-        item[2]
-      else if item == void
+      if item and item[0] == index
+        o.index := item[1]
+        o.line := item[2]
+        item[3]
+      else
         let result = rule o
         if o.indent.peek() != indent
           throw Error "Changed indent during cache process: from $indent to $(o.indent.peek())"
-        inner[cache-key] := if not result
-          false
-        else
-          [o.index, o.line, result]
+        inner[cache-key] := [index, o.index, o.line, result]
         result
-      else
-        false
 
 macro with-message!(message, rule)
   let init = []
