@@ -5145,7 +5145,7 @@ class Node
       if reduced == this
         @_reduced := this
       else
-        @_reduced := reduced._reduced ?= reduced
+        @_reduced := reduced.reduce(o)
   def is-const() -> false
   def const-value() -> throw Error("Not a const: $(typeof! node)")
   def is-noop(o) -> @reduce(o)._is-noop(o)
@@ -6390,12 +6390,52 @@ node-class BinaryNode(left as Node, op as String, right as Node)
           BlockNode @start-index, @end-index, @scope-id, [x, y]
         else if x-type.is-subset-of(Type.always-falsy)
           x
+        else if x instanceof BinaryNode and x.op == "&&"
+          let truthy = if x.right.is-const()
+            not not x.right.const-value()
+          else
+            let x-right-type = x.right.type(o)
+            if x-right-type.is-subset-of(Type.always-truthy)
+              true
+            else if x-right-type.is-subset-of(Type.always-falsy)
+              false
+            else
+              null
+          if truthy == true
+            BinaryNode @start-index, @end-index, @scope-id, x.left, "&&", BlockNode @start-index, @end-index, @scope-id, [x.right, y]
+          else if truthy == false
+            x
       "||": #(x, y, o)
         let x-type = x.type(o)
         if x-type.is-subset-of(Type.always-truthy)
           x
         else if x-type.is-subset-of(Type.always-falsy)
           BlockNode @start-index, @end-index, @scope-id, [x, y]
+        else if x instanceof BinaryNode and x.op == "||"
+          let truthy = if x.right.is-const()
+            not not x.right.const-value()
+          else
+            let x-right-type = x.right.type(o)
+            if x-right-type.is-subset-of(Type.always-truthy)
+              true
+            else if x-right-type.is-subset-of(Type.always-falsy)
+              false
+            else
+              null
+          if truthy == true
+            x
+          else if truthy == false
+            BinaryNode @start-index, @end-index, @scope-id, x.left, "||", BlockNode @start-index, @end-index, @scope-id, [x.right, y]
+        else if x instanceof IfNode and x.when-false.is-const() and not x.when-false.const-value()
+          let mutable test = x.test
+          let mutable when-true = x.when-true
+          while when-true instanceof IfNode and when-true.when-false.is-const() and not when-true.when-false.const-value()
+            test := BinaryNode x.start-index, x.end-index, x.scope-id, test, "&&", when-true.test
+            when-true := when-true.when-true
+          BinaryNode(@start-index, @end-index, @scope-id
+            BinaryNode x.start-index, x.end-index, x.scope-id, test, "&&", when-true
+            "||"
+            y)
     #(o)
       let left = @left.reduce(o).do-wrap(o)
       let right = @right.reduce(o).do-wrap(o)
