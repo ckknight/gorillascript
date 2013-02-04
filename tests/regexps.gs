@@ -97,3 +97,12 @@ test "and empty regex will compile to an empty, non-capturing group", #
 test "Bad regex will throw a proper exception", #
   throws #-> gorilla.compile("""let x = 0
   let y = r'+'"""), #(e) -> e.line == 2
+  
+  throws #-> gorilla.compile("""let x = 0
+  let y = r'x'gg"""), #(e) -> e.line == 2
+  
+  throws #-> gorilla.compile("""let x = 0
+  let y = r'x'q"""), #(e) -> e.line == 2
+
+test "Sticky flag will compile", #
+  gorilla.compile("let y = r'x'y")

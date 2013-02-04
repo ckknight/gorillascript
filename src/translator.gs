@@ -620,22 +620,8 @@ let translators =
             ast.Access func, \apply
             [ast.Const(void), arg-array])
   
-  Const: #(node, scope, location, auto-return) -> #
-    let value = node.value
-    if value instanceof RegExp
-      let flags = []
-      if value.global
-        flags.push "g"
-      if value.ignore-case
-        flags.push "i"
-      if value.multiline
-        flags.push "m"
-      if value.sticky
-        flags.push "y"
-      auto-return ast.Regex(value.source, flags.join "")
-    else
-      auto-return ast.Const(value)
-
+  Const: #(node, scope, location, auto-return) -> #-> auto-return ast.Const(node.value)
+  
   Continue: #(node, scope)
     let t-label = node.label and translate node.label, scope, \label
     #-> ast.Continue(t-label?())
@@ -1304,6 +1290,21 @@ let translators =
           * ident
         scope.release-ident ident
         auto-return result
+  
+  Regexp: #(node, scope, location, auto-return)
+    let t-source = translate(node.source, scope, \expression)
+    #
+      let source = t-source()
+      let flags = node.flags
+      if source.is-const()
+        auto-return ast.Regex(String(source.const-value()), flags)
+      else
+        auto-return ast.Call(
+          ast.Ident \RegExp
+          [
+            source
+            ast.Const flags
+          ])
   
   Return: #(node, scope, location)
     if location not in [\statement, \top-statement]

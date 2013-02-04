@@ -2327,6 +2327,18 @@ namedlet RegexLiteral = with-space! one-of! [
     string-parts[0]
   else
     o.string i, string-parts
+  if text.is-const()
+    try
+      RegExp(String(text.const-value()))
+    catch e
+      o.error e.message
+  let seen-flags = []
+  for flag in flags
+    if flag in seen-flags
+      o.error "Specified flag '$(flag)' in regular expression more than once"
+    else if flag not in [\g, \i, \m, \y]
+      o.error "Unknown regular expression flag '$(flag)'"
+    seen-flags.push flag
   o.regexp i, text, flags
 
 namedlet BackslashStringLiteral = sequential! [
@@ -6715,7 +6727,7 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
         CallNode @start-index, @end-index, @scope-id, func, args, @is-new, @is-apply
       else
         this
-node-class ConstNode(value as Number|String|Boolean|RegExp|void|null)
+node-class ConstNode(value as Number|String|Boolean|void|null)
   def type()
     let value = @value
     switch typeof value
@@ -6726,8 +6738,6 @@ node-class ConstNode(value as Number|String|Boolean|RegExp|void|null)
     default
       if value == null
         Type.null
-      else if value instanceof RegExp
-        Type.regexp
       else
         throw Error("Unknown type for $(String value)")
   def cacheable = false
@@ -6977,17 +6987,20 @@ State::object := #(i, pairs, prototype)
   ObjectNode(i, @index, @scope.id, pairs, prototype)
 State::object-param := State::object
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
-node-class RegexpNode(text as Node, flags as String)
+node-class RegexpNode(source as Node, flags as String)
   def type() -> Type.regexp
+  def _is-noop(o) -> @text.is-noop(o)
   def _reduce(o)
-    let text = @text.reduce(o).do-wrap(o)
-    if text.is-const()
-      ConstNode @start-index, @end-index, @scope-id, RegExp(String(text.const-value()), @flags)
-    else
+    let source = @source.reduce(o).do-wrap(o)
+    if not source.is-const()
       CallNode @start-index, @end-index, @scope-id, IdentNode(@start-index, @end-index, @scope-id, "RegExp"), [
-        text
+        source
         ConstNode @start-index, @end-index, @scope-id, @flags
       ]
+    else if source != @source
+      RegexpNode @start-index, @end-index, @scope-id, source, @flags
+    else
+      this
 node-class ReturnNode(node as Node = ConstNode(end-index, end-index, scope-id, void))
   def type(o) -> @node.type(o)
   def is-statement() -> true
