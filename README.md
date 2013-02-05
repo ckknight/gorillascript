@@ -518,6 +518,19 @@ As mentioned briefly earlier, one can use the `to`, `til`, and `by` syntaxes to 
     array[0 to -1] // [\a, \b, \c, \d, \e]
     array[0 to Infinity] // [\a, \b, \c, \d, \e]
 
+The negative values work just as they do in `.slice`, unlike normal accessing
+
+## Array negative indexing
+
+GorillaScript can't wrap every single access in a check to see if the child is a negative value (as Python or some other languages do), due to efficiency, but it does provide a nice syntax to make it easier.
+
+    let array = [\a, \b, \c, \d, \e]
+    array[* - 1] == \e
+    array[* - 2] == \d
+    array[* \ 2] == \c // halfway point in the array
+
+When a standalone `*` is encountered in an index, it is converted to the current array's `.length`.
+
 ## Everything is an expression (mostly)
 
 Unlike JavaScript, `for` loops, `while` loops, `try` blocks, and `if` constructs can be used as expressions.

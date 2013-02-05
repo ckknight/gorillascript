@@ -718,6 +718,9 @@ let in-ast = make-alter-stack _in-ast, true
 let _prevent-unclosed-object-literal = Stack false
 let prevent-unclosed-object-literal = make-alter-stack _prevent-unclosed-object-literal, true
 
+let _asterix-as-array-length = Stack false
+let asterix-as-array-length = make-alter-stack _asterix-as-array-length, true
+
 define SpaceChar = character! [
   " \t\v\f"
   160
@@ -3474,19 +3477,21 @@ namedlet DefineOperator = short-circuit! DefineOperatorStart, in-macro do
     o.update clone
     ret
 
-define Index = sequential! [
-  [\head, Expression]
-  [\tail, zero-or-more! sequential! [
-    CommaOrNewline
-    [\this, Expression]
-  ]]
-], #(x)
-  if x.tail.length > 0
-    type: \multi
-    elements: [x.head, ...x.tail]
-  else
-    type: \single
-    node: x.head
+define Index = do
+  namedlet ExpressionWithAsterixAsArrayLength = asterix-as-array-length #(o) -> Expression(o)
+  sequential! [
+    [\head, ExpressionWithAsterixAsArrayLength]
+    [\tail, zero-or-more! sequential! [
+      CommaOrNewline
+      [\this, ExpressionWithAsterixAsArrayLength]
+    ]]
+  ], #(x)
+    if x.tail.length > 0
+      type: \multi
+      elements: [x.head, ...x.tail]
+    else
+      type: \single
+      node: x.head
 
 namedlet IdentifierOrAccessStart = one-of! [
   Identifier
@@ -3656,6 +3661,8 @@ namedlet IndentedUnclosedArrayLiteral = sequential! [
   PopIndent
 ]
 
+let CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
+
 define PrimaryExpression = one-of! [
   UnclosedObjectLiteral
   Literal
@@ -3666,6 +3673,11 @@ define PrimaryExpression = one-of! [
   FunctionLiteral
   UseMacro
   Identifier
+  #(o)
+    if _asterix-as-array-length.peek()
+      let i = o.index
+      if Asterix(o)
+        o.ident i, CURRENT_ARRAY_LENGTH_NAME
   IndentedUnclosedObjectLiteral
   IndentedUnclosedArrayLiteral
 ]
@@ -6138,8 +6150,29 @@ node-class AccessNode(parent as Node, child as Node)
         return parent-type.value(String child.const-value())
     Type.any
   def _reduce(o)
-    let parent = @parent.reduce(o).do-wrap(o)
-    let child = @child.reduce(o).do-wrap(o)
+    let mutable parent = @parent.reduce(o).do-wrap(o)
+    let mutable cached-parent = null
+    let replace-length-ident(node)
+      if node instanceof IdentNode and node.name == CURRENT_ARRAY_LENGTH_NAME
+        if parent.cacheable and not cached-parent?
+          cached-parent := TmpNode node.start-index, node.end-index, node.scope-id, get-tmp-id(), \ref, parent.type(o)
+        AccessNode node.start-index, node.end-index, node.scope-id, cached-parent ? parent, ConstNode node.start-index, node.end-index, node.scope-id, \length
+      else if node instanceof AccessNode
+        let node-parent = replace-length-ident node.parent
+        if node-parent != node.parent
+          AccessNode(node.start-index, node.end-index, node.scope-id, node-parent, node.child).walk replace-length-ident
+        else
+          node.walk replace-length-ident
+      else
+        node.walk replace-length-ident
+    let child = replace-length-ident @child.reduce(o).do-wrap(o)
+    if cached-parent?
+      return TmpWrapperNode(@start-index, @end-index, @scope-id
+        AccessNode(@start-index, @end-index, @scope-id
+          AssignNode(@start-index, @end-index, @scope-id, cached-parent, "=", parent)
+          child)
+        [cached-parent.id])
+    
     if parent.is-const() and child.is-const()
       let p-value = parent.const-value()
       let c-value = child.const-value()
@@ -6873,7 +6906,13 @@ node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean =
   def _is-noop(o) -> true
 node-class IdentNode(name as String)
   def cacheable = false
-  def type(o) -> if o then o.scope.type(this) else Type.any
+  def type(o)
+    if @name == CURRENT_ARRAY_LENGTH_NAME
+      Type.number
+    else if o
+      o.scope.type(this)
+    else
+      Type.any
   def _is-noop(o) -> true
 node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, 0, scope-id), label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))

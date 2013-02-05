@@ -197,3 +197,32 @@ test "access with ownership, existential", #
   eq void, y?!.key
   let z = null
   eq void, z?!.key
+
+test "access with * representing length", #
+  let array = [\a, \b, \c]
+  eq \c, array[* - 1]
+  eq \b, array[*-2]
+  let get-array = run-once array
+  eq \a, get-array()[* - 3]
+
+test "access with * followed by another access with *", #
+  let array = [\a, \b, [\c, \d]]
+  eq \d, array[* - 1][* - 1]
+  let get-array = run-once array
+  eq \d, get-array()[* - 1][* - 1]
+
+test "* inside another index in an index", #
+  let alpha = [\a, \b, \c]
+  let bravo = [1, 2]
+  eq \c, alpha[bravo[* - 1]]
+  let get-alpha = run-once alpha
+  let get-bravo = run-once bravo
+  eq \c, get-alpha()[get-bravo()[* - 1]]
+
+test "* inside another index in an index with *", #
+  let alpha = [\a, \b, \c]
+  let bravo = [1, 2]
+  eq \b, alpha[* - bravo[* - 1]]
+  let get-alpha = run-once alpha
+  let get-bravo = run-once bravo
+  eq \b, get-alpha()[* - get-bravo()[* - 1]]
