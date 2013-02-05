@@ -224,3 +224,12 @@ test "for loop of object with destructuring and functions", #
     result.push #-> y
 
   array-eq ["a", "b", "c", "d", "e", "f", "x", "y", "z"], (for f in result; f()).sort()
+
+test "let destructuring with ignore", #
+  let [, x] = [5, 6]
+  eq 6, x
+
+test "let destructuring with ignore in middle", #
+  let [x, , y] = [5, 6, 7]
+  eq 5, x
+  eq 7, y

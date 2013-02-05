@@ -97,7 +97,7 @@ define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier, a
   else
     ident
 
-define syntax DeclarableArray = "[", head as Declarable, tail as (",", this as Declarable)*, "]"
+define syntax DeclarableArray = "[", head as (Declarable|""), tail as (",", this as (Declarable|""))*, "]"
   type: \array
   elements: [head].concat(tail)
 
@@ -127,15 +127,31 @@ macro let
         * @var declarable.ident, declarable.is-mutable
         * @mutate-last value or @noop(), (#(n)@ -> @assign declarable.ident, "=", n), true
     else if declarable.type == \array
-      if declarable.elements.length == 1
-        let handle(element)
-          AST let $element = $value[0]
-        handle(declarable.elements[0])
+      let num-real-elements(i, acc)
+        if i ~< declarable.elements.length
+          num-real-elements inc(i), if declarable.elements[i] then inc(acc) else acc
+        else
+          acc
+      if num-real-elements(0, 0) ~<= 1
+        let handle-element(element, i)
+          AST let $element = $value[$i]
+        let handle(i)
+          if i ~< declarable.elements.length
+            if declarable.elements[i]
+              handle-element(declarable.elements[i], i)
+            else
+              handle(inc(i))
+          else
+            value
+        handle(0)
       else
         @maybe-cache value, #(set-value, value)@
           let handle-element(i, current-value, element, block)@
-            block.push AST let $element = $current-value[$i]
-            handle inc(i), value, block
+            if element
+              block.push AST let $element = $current-value[$i]
+              handle inc(i), value, block
+            else
+              handle inc(i), current-value, block
           let handle(i, current-value, block)@
             if i ~< declarable.elements.length
               handle-element i, current-value, declarable.elements[i], block
