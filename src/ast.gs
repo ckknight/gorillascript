@@ -812,6 +812,32 @@ let to-const(value)
   else
     Const value
 
+exports.Comment := class Comment extends Statement
+  def constructor(@text as String)
+    if text.substring(0, 2) != "/*"
+      throw Error "Expected text to start with '/*'"
+    if text.slice(-2) != "*/"
+      throw Error "Expected text to end with '*/'"
+  
+  def compile(options, level, line-start, sb)!
+    let lines = @text.split("\n")
+    for line, i in lines
+      if i > 0
+        sb "\n"
+        sb.indent options.indent
+      sb line
+  
+  def is-const() -> true
+  def const-value() -> void
+  def is-noop() -> false
+  
+  def walk() -> this
+  
+  def inspect(depth) -> inspect-helper "Comment", @text
+  
+  def to-JSON() -> { type: "Comment", @text }
+  @from-JSON := #({text}) -> Comment(text)
+
 exports.Const := class Const extends Expression
   def constructor(@value as void|null|Boolean|Number|String) ->
   

@@ -624,6 +624,8 @@ let translators =
             ast.Access func, \apply
             [ast.Const(void), arg-array])
   
+  Comment: #(node, scope, location, auto-return) -> #-> ast.Comment(node.text)
+  
   Const: #(node, scope, location, auto-return) -> #-> auto-return ast.Const(node.value)
   
   Continue: #(node, scope)
@@ -1336,6 +1338,18 @@ let translators =
 
     #
       let mutable body = t-body()
+      
+      let comments = []
+      while true
+        if body instanceof ast.Comment
+          comments.push body
+          body := ast.Noop()
+        else if body instanceof ast.Block and body.body[0] instanceof ast.Comment
+          comments.push body.body[0]
+          body := ast.Block body.body[1 to -1]
+        else
+          break
+      
       let init = []
       if scope.has-bound and scope.used-this
         let fake-this = ast.Ident(\_this)
@@ -1393,7 +1407,7 @@ let translators =
             ast.Ident \GLOBAL
             global-node)
         ast.Root(
-          ast.Block [...bare-init, ...init, body]
+          ast.Block [...comments, ...bare-init, ...init, body]
           scope.get-variables()
           ["use strict"])
       else
@@ -1432,7 +1446,7 @@ let translators =
         if scope.options.return
           call-func := ast.Return(call-func)
         ast.Root(
-          ast.Block [...bare-init, call-func]
+          ast.Block [...comments, ...bare-init, call-func]
           []
           [])
   

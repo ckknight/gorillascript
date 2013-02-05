@@ -770,7 +770,7 @@ define MaybeComment = do
 
   namedlet MultiLineComment = #(o)
     let {data, index} = o
-    if C(data, index) == C("/") and C(data, index ~+ 1) == C("*")
+    if C(data, index) == C("/") and C(data, index ~+ 1) == C("*") and C(data, index ~+ 2) != C("!")
       let len = data.length
       index += 2
       while true, index ~+= 1
@@ -790,6 +790,58 @@ define MaybeComment = do
       false
   
   maybe! (one-of! [SingleLineComment, MultiLineComment]), true
+
+let from-char-code = do
+  let f = String.from-char-code
+  #(x)
+    if x == -1
+      "\u0000"
+    else
+      f x
+let process-char-codes(codes, array = [])
+  for v in codes
+    array.push from-char-code(v)
+  array
+
+define LicenseComment = sequential! [
+  _Space
+  [\this, #(o)
+    let {data, index} = o
+    if C(data, index) == C("/") and C(data, index ~+ 1) == C("*") and C(data, index ~+ 2) == C("!")
+      let line = [C("/"), C("*"), C("!")]
+      let lines = [line]
+      let len = data.length
+      let start-index = index
+      index += 3
+      while true, index ~+= 1
+        if index ~>= len
+          o.error "Multi-line license comment never ends"
+        else
+          let ch = C(data, index)
+          if ch == C("*") and C(data, index ~+ 1) == C("/")
+            o.index := index ~+ 2
+            line.push C("*"), C("/")
+            let result = []
+            for l, i in lines
+              if i > 0
+                result.push "\n"
+              process-char-codes l, result
+            return o.comment start-index, result.join ""
+          else if ch in [C("\r"), C("\n"), 8232, 8233]
+            if ch == C("\r") and C(data, index ~+ 1) == C("\n")
+              index ~+= 1
+            o.line ~+= 1
+            lines.push (line := [])
+            o.index := index ~+ 1
+            if not StringIndent(o)
+              o.error "Improper indent in multi-line license comment"
+            index := o.index ~- 1
+          else
+            line.push ch
+    else
+      false]
+  Space
+]
 
 define Space = sequential! [
   _Space
@@ -1732,18 +1784,6 @@ namedlet CommaOrNewlineWithCheckIndent = one-of! [
   SomeEmptyLinesWithCheckIndent
 ]
 namedlet MaybeCommaOrNewline = maybe! CommaOrNewline, true
-
-let from-char-code = do
-  let f = String.from-char-code
-  #(x)
-    if x == -1
-      "\u0000"
-    else
-      f x
-let process-char-codes(codes, array = [])
-  for v in codes
-    array.push from-char-code(v)
-  array
 
 namedlet NameStart = one-of! [Letter, Underscore, DollarSign]
 namedlet NameChar = one-of! [NameStart, NumberChar]
@@ -4195,7 +4235,10 @@ namedlet Statement = sequential! [
 
 namedlet Line = sequential! [
   CheckIndent
-  [\this, Statement]
+  [\this, one-of! [
+    LicenseComment
+    Statement
+  ]]
 ]
 
 let _Block = do
@@ -4289,7 +4332,7 @@ let Root = #(o, callback)
     next block
   else
     next _Block o
-  let x = block or o.nothing(i)
+  let mutable x = block or o.nothing(i)
   EmptyLines(o)
   Space(o)
   let result = o.root i, x
@@ -6845,6 +6888,12 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
         CallNode @start-index, @end-index, @scope-id, func, args, @is-new, @is-apply
       else
         this
+node-class CommentNode(text as String)
+  def type() -> Type.undefined
+  def cacheable = false
+  def is-count() -> true
+  def const-value() -> void
+  def _is-noop() -> true
 node-class ConstNode(value as Number|String|Boolean|void|null)
   def type()
     let value = @value
