@@ -2515,16 +2515,25 @@ let RESERVED_IDENTS = [
   \with
   \yield
 ]
-define Identifier = #(o)
-  let {index} = o
-  let clone = o.clone()
-  let result = Name clone
-  if not result or result in RESERVED_IDENTS or o.macros.has-macro-or-operator result
-    o.fail "identifier"
-    false
-  else
-    o.update clone
-    o.ident index, result
+define Identifier = one-of! [
+  sequential! [
+    #(o) -> _in-ast.peek()
+    Space
+    DollarSign
+    NoSpace
+    [\this, InvocationArguments]
+  ], #(x, o, i) -> o.call i, o.ident(i, '$'), x
+  #(o)
+    let {index} = o
+    let clone = o.clone()
+    let result = Name clone
+    if not result or result in RESERVED_IDENTS or o.macros.has-macro-or-operator result
+      o.fail "identifier"
+      false
+    else
+      o.update clone
+      o.ident index, result
+]
 
 define MaybeNotToken = maybe! word(\not), true
 

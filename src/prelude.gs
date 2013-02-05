@@ -133,12 +133,10 @@ macro let
         else
           acc
       if num-real-elements(0, 0) ~<= 1
-        let handle-element(element, i)
-          AST let $element = $value[$i]
         let handle(i)
           if i ~< declarable.elements.length
             if declarable.elements[i]
-              handle-element(declarable.elements[i], i)
+              AST let $(declarable.elements[i]) = $value[$i]
             else
               handle(inc(i))
           else
@@ -146,35 +144,29 @@ macro let
         handle(0)
       else
         @maybe-cache value, #(set-value, value)@
-          let handle-element(i, current-value, element, block)@
-            if element
-              block.push AST let $element = $current-value[$i]
-              handle inc(i), value, block
-            else
-              handle inc(i), current-value, block
           let handle(i, current-value, block)@
             if i ~< declarable.elements.length
-              handle-element i, current-value, declarable.elements[i], block
+              if declarable.elements[i]
+                block.push AST let $(declarable.elements[i]) = $current-value[$i]
+                handle inc(i), value, block
+              else
+                handle inc(i), current-value, block
             else
               @block block
           handle 0, set-value, []
     else if declarable.type == \object
       if declarable.pairs.length == 1
-        let handle-pair(pair-key, pair-value)
-          AST let $pair-value = $value[$pair-key]
         let handle(pair)
-          handle-pair(pair.key, pair.value)
+          AST let $(pair.value) = $value[$(pair.key)]
         handle(@macro-expand-1(declarable.pairs[0]))
       else
         @maybe-cache value, #(set-value, value)@
-          let handle-pair(i, current-value, pair-key, pair-value, block)@
-            block.push AST let $pair-value = $current-value[$pair-key]
+          let handle-pair(i, current-value, pair, block)@
+            block.push AST let $(pair.value) = $current-value[$(pair.key)]
             handle inc(i), value, block
-          let handle-1(i, current-value, pair, block)@
-            handle-pair i, current-value, pair.key, pair.value, block
           let handle(i, current-value, block)@
             if i ~< declarable.pairs.length
-              handle-1 i, current-value, @macro-expand-1(declarable.pairs[i]), block
+              handle-pair i, current-value, @macro-expand-1(declarable.pairs[i]), block
             else
               @block block
           handle 0, set-value, []
