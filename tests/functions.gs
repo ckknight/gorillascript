@@ -1215,3 +1215,32 @@ test "Parenthetical method call as function", #
     return for x in array; func(x)
 
   array-eq ["pha", "avo", "arlie", "lta", "ho"], map ["alpha", "bravo", "charlie", "delta", "echo"], (.substring(2))
+
+test "Ignored parameter", #
+  let f(, x) -> x
+  
+  eq void, f()
+  eq void, f(5)
+  eq 6, f(5, 6)
+
+test "Ignored parameter in array", #
+  let f([, x]) -> x
+  eq void, f []
+  eq void, f [5]
+  eq 6, f [5, 6]
+
+test "Ignored middle parameter", #
+  let f(x, , y) -> [x, y]
+  
+  array-eq [void, void], f()
+  array-eq [5, void], f(5)
+  array-eq [5, void], f(5, 6)
+  array-eq [5, 7], f(5, 6, 7)
+
+test "Ignored middle parameter in array", #
+  let f([x, , y]) -> [x, y]
+  
+  array-eq [void, void], f []
+  array-eq [5, void], f [5]
+  array-eq [5, void], f [5, 6]
+  array-eq [5, 7], f [5, 6, 7]

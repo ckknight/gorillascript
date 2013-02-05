@@ -971,17 +971,18 @@ let translators =
         for p, i, len in array.elements
           let param = translate-param p, scope, true
           unless param.spread
-            if found-spread == -1
-              init.push ast.Assign(
-                param.ident
-                ast.Access array-ident, i)
-            else
-              let diff = i - found-spread - 1
-              init.push ast.Assign(
-                param.ident
-                ast.Access(
-                  array-ident
-                  if diff == 0 then spread-counter else ast.Binary spread-counter, "+", diff))
+            if param.ident?
+              if found-spread == -1
+                init.push ast.Assign(
+                  param.ident
+                  ast.Access array-ident, i)
+              else
+                let diff = i - found-spread - 1
+                init.push ast.Assign(
+                  param.ident
+                  ast.Access(
+                    array-ident
+                    if diff == 0 then spread-counter else ast.Binary spread-counter, "+", diff))
           else
             if found-spread != -1
               throw Error "Encountered multiple spread parameters"
@@ -1038,10 +1039,11 @@ let translators =
             throw Error "Unexpected non-const object key: $(typeof! key)"
 
           let value = translate-param pair.value, scope, true
-          scope.add-variable value.ident // TODO: is this needed? Array doesn't seem to use it.
-          init.push ast.Assign(
-            value.ident
-            ast.Access object-ident, key), ...value.init
+          if value.ident?
+            scope.add-variable value.ident // TODO: is this needed? Array doesn't seem to use it.
+            init.push ast.Assign(
+              value.ident
+              ast.Access object-ident, key), ...value.init
 
         if inner
           scope.release-ident object-ident
@@ -1049,6 +1051,13 @@ let translators =
         {
           init
           ident: object-ident
+          -spread
+        }
+      
+      Nothing: #(object, scope, inner)
+        {
+          init: []
+          ident: if inner then null else scope.reserve-param()
           -spread
         }
     }

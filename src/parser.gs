@@ -3034,6 +3034,11 @@ namedlet Parameter = one-of! [
   ObjectParameter
 ]
 
+namedlet ParameterOrNothing = one-of! [
+  Parameter
+  Nothing
+]
+
 let validate-spread-parameters(params, o)
   let mutable spread-count = 0
   for param in params by -1
@@ -3043,16 +3048,21 @@ let validate-spread-parameters(params, o)
         o.error "Cannot have more than one spread parameter"
   params
 
+let remove-trailing-nothings(array as [])
+  while array.length and array[* - 1] instanceof NothingNode
+    array.pop()
+  array
+
 namedlet ArrayParameter = sequential! [
   OpenSquareBracket
   EmptyLines
   [\this, maybe! (sequential! [
-    [\head, Parameter]
+    [\head, ParameterOrNothing]
     [\tail, zero-or-more! sequential! [
       CommaOrNewline
-      [\this, Parameter]
+      [\this, ParameterOrNothing]
     ]]
-  ], #(x) -> [x.head, ...x.tail]), #-> []]
+  ], #(x) -> remove-trailing-nothings [x.head, ...x.tail]), #-> []]
   EmptyLines
   MaybeCommaOrNewline
   CloseSquareBracket
@@ -3097,12 +3107,12 @@ namedlet ObjectParameter = sequential! [
 ], #(x, o, i) -> o.object-param i, x
 
 namedlet Parameters = sequential! [
-  [\head, Parameter]
+  [\head, ParameterOrNothing]
   [\tail, zero-or-more! sequential! [
     CommaOrNewline
-    [\this, Parameter]
+    [\this, ParameterOrNothing]
   ]]
-], #(x, o, i) -> validate-spread-parameters [x.head, ...x.tail], o
+], #(x, o, i) -> validate-spread-parameters remove-trailing-nothings([x.head, ...x.tail]), o
 
 namedlet ParameterSequence = sequential! [
   OpenParenthesis
@@ -3133,7 +3143,7 @@ namedlet ParameterSequence = sequential! [
     else if param instanceof ObjectNode
       for pair in param.pairs by -1
         check(names, duplicates, pair.value)
-    else
+    else if param not instanceof NothingNode
       throw Error "Unknown param node: $(typeof! param)"
   #(x, o, i)
     let names = []
@@ -3160,7 +3170,7 @@ let add-param-to-scope(o, param)!
   else if param instanceof ObjectNode
     for pair in param.pairs by -1
       add-param-to-scope o, pair.value
-  else
+  else if param not instanceof NothingNode
     throw Error "Unknown param node type: $(typeof! param)"
 
 let _in-generator = Stack false
