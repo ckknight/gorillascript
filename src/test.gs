@@ -9,7 +9,7 @@ let write = #(text)
 let no-prelude = false
 let mutable passed-tests = 0
 let add-global(name, func)!
-  global[name] := #(...args)
+  GLOBAL[name] := #(...args)
     let result = func ...args
     passed-tests += 1
     result
@@ -18,8 +18,8 @@ for k of assert
   add-global k, assert[k]
 
 add-global "success", #->
-global.eq := global.strict-equal
-global.run-once := #(value)
+GLOBAL.eq := GLOBAL.strict-equal
+GLOBAL.run-once := #(value)
   let f = #
     if f.ran
       fail "called more than once"
@@ -28,7 +28,7 @@ global.run-once := #(value)
   f.ran := false
   f
 
-global.gorilla := gorilla
+GLOBAL.gorilla := gorilla
 
 let mutable current-file = null
 let mutable num-failures = 0
@@ -45,7 +45,7 @@ let add-failure(filename, error)!
   if error.source
     console.log error.source
 
-global.test := #(description, fn)!
+GLOBAL.test := #(description, fn)!
   try
     fn.test := {
       description
@@ -67,7 +67,7 @@ let handle-waiters()
         found := true
         type.splice((Math.random() * type.length) \ 1, 1)[0]()
         break
-global.async-test := #(description, fn)!
+GLOBAL.async-test := #(description, fn)!
   fn.wait := #(get-value as ->, cb as ->)!
     waiters[0].push #-> fn.dont-wait(get-value, cb)
   fn.after := #(get-value as ->, cb as (null|Function))!
@@ -97,7 +97,7 @@ let array-equal = #(a, b)
   else
     a is b
 
-global.array-eq := #(a, b, msg)
+GLOBAL.array-eq := #(a, b, msg)
   if not array-equal a, b
     fail "$(JSON.stringify(a) or 'undefined') != $(JSON.stringify(b) or 'undefined')$(if msg then ': ' & msg else '')"
   else

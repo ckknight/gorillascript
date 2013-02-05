@@ -1060,3 +1060,9 @@ Although it is not recommended practice, as one is probably better served by ret
         sum += i
 
 As you can see, the outer loop has the label `outer` on it and the `continue` also references that same label, meaning it will continue on the outer loop rather than the inner.
+
+## The `GLOBAL` identifier
+
+Since JavaScript can be run outside the browser now, one cannot rely on `window` always being the global object, so GorillaScript provides the `GLOBAL` identifier for just this case, which will be `window` or `global` or the outermost `this`, whichever one works best. It is UPPER-CASE and therefore loud for a reason: try to avoid globals when possible.
+
+    Math == GLOBAL.Math

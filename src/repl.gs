@@ -26,7 +26,7 @@ let non-context-globals = [
   "clearTimeout"
 ]
 for g in non-context-globals by -1
-  sandbox[g] := this[g]
+  sandbox[g] := GLOBAL[g]
 
 sandbox.global := sandbox.root := sandbox.GLOBAL := sandbox
 sandbox._ := void

@@ -151,7 +151,7 @@ let evaluate(code, options)
   let Script = require?('vm')?.Script
   if Script
     let mutable sandbox = Script.create-context()
-    sandbox.global := (sandbox.root := (sandbox.GLOBAL := sandbox))
+    sandbox.global := sandbox.root := sandbox.GLOBAL := sandbox
     if options.sandbox?
       if options.sandbox instanceof sandbox.constructor
         sandbox := options.sandbox
@@ -171,9 +171,9 @@ let evaluate(code, options)
         catch e
           void
     if options.include-globals
-      for k of global
+      for k of GLOBAL
         if sandbox not haskey k
-          sandbox[k] := global[k]
+          sandbox[k] := GLOBAL[k]
     Script.run-in-context code, sandbox
   else
     let fun = Function(code)

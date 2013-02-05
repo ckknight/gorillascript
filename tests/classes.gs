@@ -531,14 +531,13 @@ test "constructor with this setters", #
   eq "charlie", new Class("charlie", "delta").alpha
   eq "delta", new Class("charlie", "delta").bravo
 
-let global = window ? this ? GLOBAL
 test "bound constructor with this setters", #
   class Class
     def constructor(@alpha, @bravo) ->
   
-  delete global.alpha
+  delete GLOBAL.alpha
   ok Class("charlie", "delta") instanceof Class
-  ok global not ownskey "alpha"
+  ok GLOBAL not ownskey "alpha"
   eq "charlie", Class("charlie", "delta").alpha
   eq "delta", Class("charlie", "delta").bravo
 

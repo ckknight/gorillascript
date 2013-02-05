@@ -1,8 +1,6 @@
 require! Type: './types'
 let {inspect} = require 'util'
 
-let GLOBAL = if typeof window != \undefined then window else global
-
 let freeze = if typeof Object.freeze == \function then Object.freeze else #(o) -> o
 
 let next-tick = if typeof process != \undefined and typeof process.next-tick == \function

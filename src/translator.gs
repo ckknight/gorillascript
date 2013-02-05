@@ -1188,6 +1188,8 @@ let translators =
               * body
       if inner-scope.has-stop-iteration
         scope.has-stop-iteration := true
+      if inner-scope.has-global
+        scope.has-global := true
       let func = ast.Func null, param-idents, inner-scope.get-variables(), body, []
       auto-return func
 
@@ -1197,6 +1199,8 @@ let translators =
       scope.add-helper name
     if name == \StopIteration
       scope.has-stop-iteration := true
+    if name == \GLOBAL
+      scope.has-global := true
     #-> auto-return ast.Ident(name)
 
   If: #(node, scope, location, auto-return, unassigned)
@@ -1367,35 +1371,64 @@ let translators =
                   \freeze)
                 [ast.Obj()])
               ast.Obj())))
-
+      
+      let global-node = ast.If(
+        ast.Binary(
+          ast.Unary \typeof, ast.Ident \window
+          "!=="
+          \undefined)
+        ast.Ident \window
+        ast.If(
+          ast.Binary(
+            ast.Unary \typeof, ast.Ident \global
+            "!=="
+            \undefined)
+          ast.Ident \global
+          ast.This()))
+      
       if scope.options.bare
+        if scope.has-global
+          scope.add-variable \GLOBAL
+          bare-init.unshift ast.Assign(
+            ast.Ident \GLOBAL
+            global-node)
         ast.Root(
           ast.Block [...bare-init, ...init, body]
           scope.get-variables()
           ["use strict"])
       else
         if scope.options.eval
+          scope.has-global := true
           let walker = #(node)
             if node instanceof ast.Func
               if node.name?
                 ast.Block
                   * node
-                  * ast.Assign ast.Access(ast.Ident("GLOBAL"), node.name.name), node.name
+                  * ast.Assign ast.Access(ast.Ident(\GLOBAL), node.name.name), node.name
               else
                 node
             else if node instanceof ast.Binary and node.op == "=" and node.left instanceof ast.Ident
-              ast.Assign ast.Access(ast.Ident("GLOBAL"), node.left.name), node.walk walker
+              ast.Assign ast.Access(ast.Ident(\GLOBAL), node.left.name), node.walk walker
           body := body.walk walker
         let mutable call-func = ast.Call(
           ast.Access(
             ast.Func(
               null
-              []
+              if scope.has-global
+                [ast.Ident \GLOBAL]
+              else
+                []
               scope.get-variables()
               ast.Block [...init, body]
               ["use strict"])
             \call)
-          [ast.This()])
+          [
+            ast.This()
+            ...if scope.has-global
+              [global-node]
+            else
+              []
+          ])
         if scope.options.return
           call-func := ast.Return(call-func)
         ast.Root(
