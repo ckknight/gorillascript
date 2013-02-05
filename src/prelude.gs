@@ -1718,7 +1718,7 @@ macro switch
       let mutable is-fallthrough = false
       if @is-block(body)
         let nodes = @nodes(body)
-        let last-node = nodes[nodes.length - 1]
+        let last-node = nodes[* - 1]
         if @is-ident(last-node) and @name(last-node) == \fallthrough
           body := @block(nodes.slice(0, -1))
           is-fallthrough := true
@@ -1732,7 +1732,7 @@ macro switch
           body: @noop()
           fallthrough: true
       result-cases.push
-        node: case-nodes[case-nodes.length - 1]
+        node: case-nodes[* - 1]
         body: body
         fallthrough: is-fallthrough
 
@@ -1746,7 +1746,7 @@ macro switch
       let mutable result = void
       if @is-block(body)
         let nodes = @nodes(body)
-        let last-node = nodes[nodes.length - 1]
+        let last-node = nodes[* - 1]
         if @is-ident(last-node) and @name(last-node) == \fallthrough
           body := @block(nodes.slice(0, -1))
           result := if @is-if(current)

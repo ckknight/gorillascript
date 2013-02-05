@@ -240,7 +240,7 @@ class GeneratorBuilder
   def branch()
     let state = @states.length
     if @current-catch.length
-      @current-catch[@current-catch.length - 1].push state
+      @current-catch[* - 1].push state
     @states.push []
     {
       state
@@ -1228,7 +1228,7 @@ let translators =
         if key not instanceof ast.Const or property
           current-pairs := post-const-pairs
         
-        let current-pair = current-pairs[current-pairs.length - 1]
+        let current-pair = current-pairs[* - 1]
         if property in [\get, \set] and last-property and property != last-property and key instanceof ast.Const and current-pair.key instanceof ast.Const and key.value == current-pair.key.value
           current-pair[last-property] := current-pair.value
           current-pair.property := last-property & property

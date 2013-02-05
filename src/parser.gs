@@ -183,8 +183,8 @@ let sequential(array as [], mutator, dont-cache as Boolean) as (->)
     rules.push rule
     mapping.push key
     let rule-name = rule.parser-name or "<unknown>"
-    if i > 0 and name[name.length - 1].slice(-1) == '"' and rule-name.char-at(0) == '"' and rule-name.slice(-1) == '"'
-      name[name.length - 1] := name[name.length - 1].substring 0, name[name.length - 1].length - 1
+    if i > 0 and name[* - 1].slice(-1) == '"' and C(rule-name, 0) == C('"') and rule-name.slice(-1) == '"'
+      name[* - 1] := name[* - 1].substring 0, name[* - 1].length - 1
       name.push rule-name.substring(1)
     else
       if i > 0
@@ -4156,7 +4156,7 @@ let get-use-custom-binary-operator = do
                     right: part.node
                   }, o, start-index, line
               else
-                for reduce part, j in tail by -1, right = tail[tail.length - 1].node
+                for reduce part, j in tail by -1, right = tail[* - 1].node
                   operator.func {
                     left: if j == 0 then head else tail[j - 1].node
                     part.inverted
@@ -5239,10 +5239,10 @@ macro node-class
       * @param AST end-index, null, null, null, AST Number
       * @param AST scope-id, null, null, null, AST Number
     let full-name = @name(ident)
-    if full-name.substring(full-name.length - 4) != "Node"
+    if full-name.slice(-4) != "Node"
       throw Error "node-class's name must end in 'Node', got $(full-name)"
-    let capped-name = full-name.substring(0, full-name.length - 4)
-    let lower-name = full-name.char-at(0).to-lower-case() & full-name.substring(1, full-name.length - 4)
+    let capped-name = full-name.slice(0, -4)
+    let lower-name = capped-name.char-at(0).to-lower-case() & capped-name.substring(1)
     let type = @ident(full-name)
     let ctor-body = AST
       @start-index := start-index
@@ -6518,14 +6518,14 @@ node-class BlockNode(nodes as [Node], label as IdentNode|TmpNode|null)
     if nodes.length == 0
       Type.undefined
     else
-      nodes[nodes.length - 1].type(o)
+      nodes[* - 1].type(o)
   def with-label(label as IdentNode|TmpNode|null, o)
     if not @label?
       if @nodes.length == 1
         return @nodes[0].with-label label, o
-      else if @nodes.length > 1 and @nodes[@nodes.length - 1] instanceof ForInNode
+      else if @nodes.length > 1 and @nodes[* - 1] instanceof ForInNode
         if for every node in @nodes[0 til -1]; node instanceofsome [AssignNode, VarNode]
-          return BlockNode @start-index, @end-index, @scope-id, @nodes[0 til -1].concat([@nodes[@nodes.length - 1].with-label(label, o)])
+          return BlockNode @start-index, @end-index, @scope-id, @nodes[0 til -1].concat([@nodes[* - 1].with-label(label, o)])
     BlockNode @start-index, @end-index, @scope-id, @nodes, label
   def _reduce(o)
     let changed = false
@@ -7412,7 +7412,7 @@ let build-expected(errors)
   case 2
     "$(errs[0]) or $(errs[1])"
   default
-    "$(errs[0 til -1].join ', '), or $(errs[errs.length - 1])"
+    "$(errs[0 til -1].join ', '), or $(errs[* - 1])"
 
 let build-error-message(errors, last-token)
   "Expected $(build-expected errors), but $(last-token) found"

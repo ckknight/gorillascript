@@ -226,3 +226,11 @@ test "* inside another index in an index with *", #
   let get-alpha = run-once alpha
   let get-bravo = run-once bravo
   eq \b, get-alpha()[* - get-bravo()[* - 1]]
+
+test "Assigning to an access with *", #
+  let array = []
+  array[*] := \a
+  array[*] := \b
+  array[* - 1] := \c
+  array[*] := \d
+  array-eq [\a, \c, \d], array

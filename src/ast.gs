@@ -32,7 +32,7 @@ let get-indent = do
   let cache = [""]
   #(indent)
     if indent >= cache.length
-      let mutable result = cache[cache.length - 1]
+      let mutable result = cache[* - 1]
       for i in cache.length to indent
         result &= INDENT
         cache.push result
@@ -614,7 +614,7 @@ exports.BlockStatement := class BlockStatement extends Statement
       this
   
   def exit-type() -> @last().exit-type()
-  def last() -> @body[@body.length - 1]
+  def last() -> @body[* - 1]
   
   def is-noop() -> @_is-noop ?= for every node in @body by -1; node.is-noop()
   
@@ -630,7 +630,7 @@ exports.BlockExpression := class BlockExpression extends Expression
       if i == len - 1 or not item not instanceof Noop
         if item instanceof BlockExpression
           result.push ...item.body
-          if i < len - 1 and result[result.length - 1] instanceof Noop
+          if i < len - 1 and result[* - 1] instanceof Noop
             result.pop()
         else if item not instanceof Noop
           result.push item
@@ -684,7 +684,7 @@ exports.BlockExpression := class BlockExpression extends Expression
   def is-noop() -> @_is-noop ?= for every node in @body by -1; node.is-noop()
   
   def walk = BlockStatement::walk
-  def last() -> @body[@body.length - 1]
+  def last() -> @body[* - 1]
   
   def inspect(depth) -> inspect-helper depth, "BlockExpression", @body
   
@@ -1614,7 +1614,7 @@ exports.Root := class Root
       this
   
   def exit-type() -> @last().exit-type()
-  def last() -> @body[@body.length - 1]
+  def last() -> @body[* - 1]
   
   def inspect(depth) -> inspect-helper depth, "Root", @body, @variables, @declarations
   
