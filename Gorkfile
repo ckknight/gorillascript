@@ -97,9 +97,9 @@ command \build, "Build GorillaScript from source", #(options, cb)
 
 command "build:full", "Build GorillaScript twice and run tests", #(options, cb)
   delete options.file
-  async! cb <- invoke \build, options
-  async! cb <- invoke \build, options
-  invoke \test, options, cb
+  async! cb <- invoke \build
+  async! cb <- invoke \build
+  invoke \test, cb
 
 command \test, "Run the GorillaScript test suite", #(options, cb)
   async! cb, filename-path <- fs.realpath __filename
