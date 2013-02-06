@@ -3,10 +3,10 @@ GorillaScript.require := require
 
 if window?
   GorillaScript.load := #(url as String, callback as ->)
-    let xhr = if typeof XMLHttpRequest == \function
-      new XMLHttpRequest()
-    else if typeof window.ActiveXObject == \function
+    let xhr = if window.ActiveXObject
       new window.ActiveXObject("Microsoft.XMLHTTP")
+    else if XMLHttpRequest
+      new XMLHttpRequest()
     else
       throw Error "Unable to create XMLHttpRequest"
     

@@ -1402,7 +1402,7 @@ let translators =
       
       if scope.options.bare
         if scope.has-global
-          scope.add-variable \GLOBAL
+          scope.add-variable ast.Ident \GLOBAL
           bare-init.unshift ast.Assign(
             ast.Ident \GLOBAL
             global-node)

@@ -1,6 +1,7 @@
 require! fs
 require! './lib/gorilla'
 require! path
+let {exec} = require 'child_process'
 
 let string-repeat(text, count)
   if count < 1
@@ -18,6 +19,23 @@ let pad-right(mutable text, len, padding)
 
 option \uglify, "u", "Use UglifyJS2 to minify the result"
 option \file, "f", "Build a specific file", "file"
+
+option \prefix, null, "Path to install to (/usr/local by default)"
+command \install, "Install GorillaScript to /usr/local or --prefix", #(options, cb)
+  async! cb, filename-path <- fs.realpath __filename
+  let install-path = options.prefix or "/usr/local"
+  let bin = path.join install-path, "bin"
+  let cmds = [
+    "mkdir -p $bin"
+    "ln -sfn $(path.join filename-path, '..', 'bin', 'gorilla') $bin/gorilla"
+    "ln -sfn $(path.join filename-path, '..', 'bin', 'gork') $bin/gork"
+  ]
+  exec cmds.join(" && "), #(err, stdout, stderr)
+    if err
+      console.error stderr.trim()
+    else
+      output "done\n"
+    cb()
 
 command \build, "Build GorillaScript from source", #(options, cb)
   async! cb, filename-path <- fs.realpath __filename

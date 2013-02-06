@@ -1,0 +1,25 @@
+GorillaScript is a compile-to-JavaScript language designed to empower the user while attempting to prevent some common errors.
+
+To run as a command-line app, first install Node.js, then
+sudo bin/gork install
+
+TODO: register with Node Package Manager (npm)
+
+Run a script:
+gorilla /path/to/script.gs
+
+Compile a script:
+gorilla -c /path/to/script.gs
+
+More options:
+gorilla --help
+
+For documentation, see http://ckknight.github.com/gorillascript/
+
+To suggest a feature or report a bug:
+http://github.com/ckknight/gorillascript/issues/
+
+If you have questions or would like to chat about GorillaScript, join us at #gorillascript on Freenode IRC or on webchat.freenode.net.
+
+Source repository:
+git://github.com/ckknight/gorillascript.git

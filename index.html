@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
+  <title>GorillaScript</title>
+</head>
+<body>
+  <nav>
+    <ul>
+      <li><a href="#why-not-js">Why not use JavaScript?</a>
+      <li><a href="#strict-equality">Strict vs unstrict equality</a>
+      <li><a href="#addition">The <code>+</code> operator (and <code>+=</code>)</a>
+      <li><a href="#strict-mode-by-default">Strict mode by default</a>
+      <li><a href="#type-safety-of-operators">Type safety of operators</a>
+      <li><a href="#immutable-by-default">Immutable by default</a>
+      <li><a href="#indentation">Indentation to mark code blocks</a>
+      <li><a href="#changed-operators">Changed operators</a>
+      <li><a href="#function-syntax">Slightly nicer function syntax</a>
+      <li><a href="#string-interpolation">String interpolation</a>
+      <li><a href="#optional-parameters">Optional parameters</a>
+      <li><a href="#spread-parameters">Spread parameters</a>
+      <li><a href="#dashed-identifiers">Dashed-identifiers</a>
+      <li><a href="#numbers">Nicer number syntax</a>
+      <li><a href="#strings">Some new string syntaxes</a>
+      <li><a href="#objects-and-arrays">Nicer syntaxes for objects and arrays</a>
+      <li><a href="#unless">Unless statement</a>
+      <li><a href="#loops">Loops</a>
+      <li><a href="#lexical-scope">Lexical scoping in loops</a>
+      <li><a href="#array-slicing">Array slicing</a>
+      <li><a href="#array-negative-index">Array negative indexing</a>
+      <li><a href="#expressions">Everything is an expression (mostly)</a>
+      <li><a href="#existential">Existential operator</a>
+      <li><a href="#in"><code>in</code> operator</a>
+      <li><a href="#haskey-ownskey"><code>haskey</code> and <code>ownskey</code></a>
+      <li><a href="#ownership">Access with ownership</a>
+      <li><a href="#apply">Apply syntax</a>
+      <li><a href="#bind">Binding access</a>
+      <li><a href="#classes">Classes</a>
+      <li><a href="#destructuring">Destructuring</a>
+      <li><a href="#switch">Switch</a>
+      <li><a href="#try">Try</a>
+      <li><a href="#regexes">Regular Expressions</a>
+      <li><a href="#custom-interpolation">Custom interpolation strings</a>
+      <li><a href="#iterators">Iterators</a>
+      <li><a href="#async">Async</a>
+      <li><a href="#typing">Optional typing</a>
+      <li><a href="#operators-as-functions">Operators, accesses, and method calls as functions</a>
+      <li><a href="#properties">Getters and setters</a>
+      <li><a href="#labels">Labels and <code>break</code>/<code>continue</code></a>
+      <li><a href="#global">The <code>GLOBAL</code> identifier</a>
+    </ul>
+  </nav>
+  <h1>GorillaScript</h1>
+  <p>GorillaScript is a compile-to-JavaScript language designed to empower the user while attempting to prevent some common errors.</p>
+  
+  <section id="why-not-js">
+    <h2>Why not use JavaScript?</h2>
+    <p>JavaScript has a lot of warts in the language and while the ECMAScript community is doing a good job with its upcoming revisions, it&#8217;s still left with a lot of the old cruft. Also, for those who want to code for older browsers, all the shiny new features that the newer versions of ECMAScript provide are for all intents and purposes unreachable.</p>
+  </section>
+  
+  <section id="strict-equality">
+    <h2>Strict vs unstrict equality</h2>
+    <p><code>==</code> and <code>!=</code> perform type coercion behind the scenes and can be the cause of some subtle bugs.</p>
+    
+    <pre><code>// JavaScript, all the following are true
+1 == "1"
+0 != ""
+3 == "03"
+[] == ""
+[] == 0
+[] == ![]
+[] == false
+null != false
+null == undefined
+</code></pre>
+
+    <p>These could all be fixed by adding an extra equal sign, but GorillaScript makes <code>==</code> and <code>!=</code> strict by default. If one really wants the unstrict equality operators, one can use <code>~=</code> and <code>!~=</code>, but it is not recommended except for comparing against null or undefined, which has the nice postfix operator <code>?</code>.</p>
+  </section>
+  
+  <section id="addition">
+    <h2>The <code>+</code> operator (and <code>+=</code>)</h2>
+
+    <p><code>+</code> can mean one of two things in JavaScript, addition or string concatenation. There is no way to know at compile-time what the consequences of using <code>+</code> is unless one is 100% certain what each type is.</p>
+
+    <pre><code>x + y
+</code></pre>
+
+    <p>Is addition unless both <code>x</code> and <code>y</code> are numbers, booleans, undefined, or null, with any mixed variation. If either is not one of those, at which point it performs string concatenation.</p>
+
+    <pre><code>// JavaScript
+1 + 2 === 3 // as expected
+"hello, " + "world" === "hello, world" // as expected
+"hello, " + 123 === "hello, 123" // sure, I can accept this
+"1" + 2 === "12"
+1 + "2" === "12"
+
+// and for some oddities
+false + false === 0
+false + true === 1
+true + true === 2
+null + null === 0
+isNaN(undefined + undefined)
+[] + [] === ""
+{} + {} === "[object Object][object Object]"
+true + [] === "true"
+new Date() + 1 === "Tue Jan 29 2013 20:25:58 GMT-0800 (PST)1" // or something like it
+new Date() - 1 === 1359519958072 // or some other number
+var foo = {
+  toString: function () { return 5; }
+  valueOf: function () { return "foo"; }
+};
+foo.toString() + 1 === 6
+foo + 1 === "foo1"
+</code></pre>
+
+    <p>GorillaScript solves this by splitting the operator into two: <code>+</code> for addition and <code>&amp;</code> for string concatenation.</p>
+
+    <pre><code>// GorillaScript
+1 + 2 == 3
+"hello, " &amp; "world" == "hello, world"
+"hello, " &amp; 123 == "hello, 123" // concatenation with numbers still works perfectly fine
+1 &amp; 2 == "12" // despite both being numbers, &amp; always makes a string.
+
+1 + "2" // TypeError
+"1" + 2 // TypeError
+"1" + "2" // TypeError
+false + false // TypeError
+null + null // TypeError
+void + void // TypeError
+[] + [] // TypeError
+{} + {} // TypeError
+new Date() + 1 // TypeError
+new Date().getTime() + 1 == 1359519958072 // or some other number
+</code></pre>
+
+    <p>As can be seen, the operators which don&#8217;t fit the proper types exactly fail immediately, allowing one to catch bugs as early as possible rather than allowing them to permeate through one&#8217;s programs.</p>
+
+    <p>Don&#8217;t be worried about losing the bitwise and operator, that is now called <code>bitand</code>.</p>
+  </section>
+  
+  <section id="strict-mode-by-default">
+    <h2>Strict mode by default</h2>
+
+    <p>All GorillaScript code is wrapped in an immediately-invoked function expression (IIFE) which has the declaration of <code>"use strict"</code>. This ensures that on the engines that support it, strict semantics will be followed, meaning less bugs in the long run.</p>
+  </section>
+  
+  <section id="type-safety-of-operators">
+    <h2>Type safety of operators</h2>
+
+    <p>All operators check the types of their operands to assure that there will be no improper inputs and that any errors that do occur are caught as early as possible.</p>
+
+    <ul>
+    <li><code>==</code> and <code>!=</code> do not check the types, since they are already strict by default (in GorillaScript).</li>
+    <li><code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code> are restricted to primitive <code>String</code>s and <code>Number</code>s, but never mixing the two.</li>
+    <li><code>+</code> only works on primitive <code>Number</code>s.</li>
+    <li><code>&amp;</code>, the new string concatenation operator, works on primitive <code>String</code>s and <code>Number</code>s.</li>
+    <li><code>-</code>, <code>*</code>, <code>/</code>, <code>\</code> (floor division), <code>%</code>, <code>%%</code> (divisible-by), <code>^</code> (exponentiation, not bitwise xor), <code>bitand</code> (instead of <code>&amp;</code>), <code>bitor</code> (instead of <code>|</code>), <code>bitxor</code> (instead of <code>^</code>), <code>bitnot</code> (instead of <code>~</code>), <code>bitlshift</code> (instead of <code>&lt;&lt;</code>), <code>bitrshift</code> (instead of <code>&gt;&gt;</code>), <code>biturshift</code> (instead of <code>&gt;&gt;&gt;</code>), <code>-</code> (unary negate), <code>+</code> (unary coerce-to-number), and all their respective assignment operators (<code>-=</code>, <code>+=</code>, etc.) all only work on primitive <code>Number</code>s.</li>
+    </ul>
+
+    <p>No other operators&#8217; types are checked.</p>
+
+    <p>If one really wishes to work in an environment where the operands&#8217; types are not checked, one can always prepend the operator with <code>~</code>, so there is a <code>~*</code> operator which performs multiplication without checking. It is recommended to instead parse input data into conforming types before performing operations on them.</p>
+
+    <p>Thankfully, GorillaScript is able to tell which types most values are, so in the general case, there should be little to no runtime type checking occurring.</p>
+  </section>
+  
+  <section id="immutable-by-default">
+    <h2>Immutable by default</h2>
+
+    <p>GorillaScript uses two separate tokens for declaration as compared to assignment. Also, instead of JavaScript&#8217;s <code>var</code> keyword, GorillaScript uses <code>let</code>. Unless one specifies <code>let mutable</code>, the local constant cannot be reset to any other value. The object in the value can still be mutated (assuming it is mutable). This can prevent some errors and often helps with the clarity of one&#8217;s code.</p>
+
+    <p>Also, no undeclared variables can be altered, preventing unexpected global pollution (and typos).</p>
+
+    <pre><code>let x = 5
+x := 6 // Error
+let mutable y = 5
+y := 6 // perfectly fine
+z := 6 // never declared, this is an error
+</code></pre>
+
+    <p>As you may have noticed, there are two different operators for declaration <code>=</code> as compared to assignment <code>:=</code>. This is to clarify the difference. In an ideal program, having as little mutable state as possible is best, so if <code>:=</code> jumps out, that&#8217;s a good thing.</p>
+  </section>
+
+  <section id="indentation">
+    <h2>Indentation to mark code blocks</h2>
+
+    <p>Instead of using braces to dictate code blocks, GorillaScript opts for whitespace indentation as a way to mark blocks. Although this may be jarring at first and one may be skeptical, any good programmer properly indents his or her code to have a consistent whitespace anyway. GorillaScript does not dictate how many spaces or tabs are used, as long as it is consistent within any given block.</p>
+
+    <pre class="gs-code"><code>if hello
+  if loudly
+    "HELLO!"
+  else
+    "hi"
+else
+  "Goodbye."
+</code></pre>
+
+    <p>You may have also noticed the lack of semicolons. The parser is able to tell when the end of a statement is without them, so they are unnecessary.</p>
+  </section>
+  
+  <section id="changed-operators">
+    <h2>Changed operators</h2>
+
+    <p>Many of the operators have changed to provide more clarity or to free up the usage of certain symbols.</p>
+
+    <ul>
+      <li><code>===</code> - <code>==</code></li>
+      <li><code>!==</code> - <code>!=</code></li>
+      <li><code>==</code> - <code>~=</code></li>
+      <li><code>!=</code> - <code>!~=</code></li>
+      <li><code>!x</code> - <code>not x</code></li>
+      <li><code>+</code> - <code>+</code> for addition, <code>&amp;</code> for string concatenation, type-checked</li>
+      <li><code>&amp;</code> - <code>bitand</code>, type-checked</li>
+      <li><code>|</code> - <code>bitor</code>, type-checked</li>
+      <li><code>^</code> - <code>bitxor</code>, type-checked</li>
+      <li><code>~x</code> - <code>bitnot x</code>, type-checked</li>
+      <li><code>&lt;&lt;</code> - <code>bitlshift</code>, type-checked</li>
+      <li><code>&gt;&gt;</code> - <code>bitrshift</code>, type-checked</li>
+      <li><code>&gt;&gt;&gt;</code> - <code>biturshift</code>, type-checked</li>
+      <li><code>--x</code> - <code>x -= 1</code>, type-checked</li>
+      <li><code>++x</code> - <code>x += 1</code>, type-checked</li>
+      <li><code>x--</code> - <code>post-dec! x</code>, not recommended except for advanced cases</li>
+      <li><code>x++</code> - <code>post-inc! x</code>, not recommended except for advanced cases</li>
+      <li><code>&amp;&amp;</code> - <code>and</code></li>
+      <li><code>||</code> - <code>or</code>, can no longer be used with <code>and</code> unless one group is in parentheses.</li>
+      <li><code>x ? y : z</code> - <code>if x then y else z</code></li>
+      <li><code>key in obj</code> - <code>obj haskey key</code>, reversed arguments. Can use <code>not haskey</code></li>
+      <li><code>obj instanceof constructor</code> - Can also use <code>not instanceof</code></li>
+      <li><code>delete x.y</code> - Returns the value of <code>x.y</code> as well as deleting. Does not work on global variables anymore, use <code>delete GLOBAL.x</code></li>
+    </ul>
+
+    <p>Kept the same:</p>
+
+    <ul>
+      <li><code>&lt;</code> - type-checked</li>
+      <li><code>&lt;=</code> - type-checked</li>
+      <li><code>&gt;</code> - type-checked</li>
+      <li><code>&gt;=</code> - type-checked</li>
+      <li><code>-</code> - type-checked</li>
+      <li><code>*</code> - type-checked</li>
+      <li><code>/</code> - type-checked</li>
+      <li><code>%</code> - type-checked</li>
+      <li><code>-x</code> - type-checked</li>
+      <li><code>+x</code> - type-checked</li>
+      <li><code>x[y]</code></li>
+      <li><code>typeof x</code></li>
+      <li><code>throw x</code> - Can now be used as an expression</li>
+    </ul>
+
+    <p>Added:</p>
+
+    <ul>
+      <li><code>typeof! x</code> - displays the constructor name of the object, <code>typeof! {} == "Object"</code>, <code>typeof! [] == "Array"</code></li>
+      <li><code>throw? x</code> - Only throws <code>x</code> if <code>x</code> is not null or undefined.</li>
+      <li><code>x ^ y</code> - Same as <code>Math.pow(x, y)</code></li>
+      <li><code>x \ y</code> - Same as <code>Math.floor(x / y)</code></li>
+      <li><code>xor</code> - For logical completeness with <code>and</code> and <code>or</code></li>
+      <li><code>x and= y</code> - Same as <code>if x then x := y</code></li>
+      <li><code>x or= y</code> - Same as <code>if not x then x := y</code></li>
+      <li><code>x in y</code> - Does <code>x</code> exist in array <code>y</code>. Can use <code>not in</code>. Highly efficient if <code>y</code> is a literal array.</li>
+      <li><code>x ownskey y</code> - Does <code>x</code> own the property named <code>y</code>. Can use <code>not ownskey</code></li>
+      <li><code>x &lt;=&gt; y</code> - if x == y, 0. if x &lt; y, -1. otherwise, 1.</li>
+      <li><code>x %% y</code> - Is x divisible by <code>y</code>? Same as <code>x % y == 0</code>.</li>
+      <li><code>x min y</code> - Choose the lower number or lexicographically lesser string</li>
+      <li><code>x min= y</code> - If <code>y</code> is less than <code>x</code>, set <code>x</code> to <code>y</code>.</li>
+      <li><code>x max y</code> - Choose the higher number or lexicographically greater string</li>
+      <li><code>x max= y</code> - If <code>y</code> is greater than <code>x</code>, set <code>x</code> to <code>y</code>.</li>
+      <li><code>x?</code> - Is <code>x</code> <code>null</code> or <code>undefined</code>?</li>
+      <li><code>x ? y</code> - If <code>x</code> is <code>null</code> or <code>undefined</code>, then <code>y</code>, otherwise keep the value of <code>x</code>. <code>y</code> may not be executed.</li>
+      <li><code>x ?= y</code> - If <code>x</code> is <code>null</code> or <code>undefined</code>, then set <code>x</code> to <code>y</code>. <code>y</code> may not be executed.</li>
+      <li><code>is-array! x</code> - True if <code>x</code> is an Array (and not just an Array-like object). Works on arrays from a different context.</li>
+      <li><code>is-object! x</code> - True if <code>x</code> is an Object and not null. Works on objects from a different context.</li>
+      <li><code>x to y</code> - Create an array from <code>x</code> to inclusive <code>y</code>.</li>
+      <li><code>x til y</code> - Create an array from <code>x</code> until exclusive <code>y</code>.</li>
+      <li><code>array by step</code> - Take every <code>step</code>th value from the array. If <code>step</code> is less than 0, go in reverse.</li>
+      <li><code>x to y by step</code> - Create an array from <code>x</code> to inclusive <code>y</code>, stepping by <code>step</code>.</li>
+      <li><code>x til y by step</code> - Create an array from <code>x</code> until exclusive <code>y</code>, stepping by <code>step</code>.</li>
+      <li><code>x instanceofsome y</code> - Iterate over array and check with <code>instanceof</code>. Highly efficient if <code>y</code> is a literal array.</li>
+      <li><code>x is y</code> - Works like the ECMAScript6 Object.is, which is like GorillaScript&#8217;s <code>==</code>, but differentiating between <code>0</code> and <code>-0</code> and properly comparing <code>NaN is NaN</code>. Not recommended to use unless you know you&#8217;re working with numbers.</li>
+      <li><code>x isnt y</code> - Same as <code>not (x is y)</code></li>
+    </ul>
+  </section>
+  
+  <section id="function-syntax">
+    <h2>Slightly nicer function syntax</h2>
+
+    <p>There are two ways to specify functions, one directly using <code>let</code>, and one as an anonymous function. Also, unlike JavaScript, the last expression is automatically returned (unless tagging the function with <code>!</code>). Functions can be called optionally without parentheses, as long as it is unambiguous.</p>
+
+    <pre class="gs-code"><code>let increment(x)
+  x + 1
+
+assert increment(0) == 1
+assert (increment 1) == 2
+assert 3 == increment 2
+
+let run(callback)
+  callback()
+
+assert run(#-&gt; "hello") == "hello"
+assert (run #-&gt; "there") == "there"
+assert run(#
+  "you") == "you"
+assert run(#
+  let x = "guys"
+  "good " &amp; x) == "good guys"
+
+// this syntax also works
+let f() -&gt; Math.random()
+console.log f()
+</code></pre>
+
+    <p>The outer <code>this</code> can also be captured be appending <code>@</code> to the head of the function declaration, creating a &#8220;bound&#8221; function. This is similar to ECMAScript 5&#8217;s <code>Function.prototype.bind</code>, but more efficient since a hidden <code>_this</code> variable is used rather than an extra function call.</p>
+
+    <pre class="gs-code"><code>let func()
+  let inner()@
+    this
+
+  assert func() == this
+</code></pre>
+  </section>
+  
+  <section id="string-interpolation">
+    <h2>String interpolation</h2>
+
+    <p>Inside double-quoted strings <code>("like this")</code>, not single-quoted strings <code>('like this')</code>, one can specify string interpolations using the <code>$</code> symbol, followed by an identifier or a parenthetical expression.</p>
+
+    <pre class="gs-code"><code>let hello(name)
+  "Hello, $name"
+
+assert hello("World") == "Hello, World"
+assert hello("Universe") == "Hello, Universe"
+
+// or
+
+let greet(names)
+  "Hello, $(names.join ', ')"
+
+assert greet(["World", "Universe"]) == "Hello, World, Universe"
+</code></pre>
+  </section>
+
+  <section id="optional-parameters">
+    <h2>Optional parameters</h2>
+
+    <p>To specify an optional parameter, one simply need to specify <code>= value</code> in the function parameter list.</p>
+
+    <pre class="gs-code"><code>let hello(name = "World")
+  "Hello, $name"
+
+assert hello() == "Hello, World"
+assert hello("Universe") == "Hello, Universe"
+</code></pre>
+
+    <p>If a value is passed in that is null or undefined, it will be automatically turned into the default value.</p>
+  </section>
+  
+  <section id="spread-parameters">
+    <h2>Spread parameters</h2>
+
+    <p>Instead of using JavaScript&#8217;s atrociously broken <code>arguments</code> special, one can specify a spread parameter by prefixing <code>...</code>. Only one can occur in a function parameter list, but it can be at any position.</p>
+
+    <pre class="gs-code"><code>let hello(...names)
+  if names.length == 0
+    "No one is here"
+  else
+    "Hello, $(names.join ', ')"
+
+hello() == "No one is here"
+hello("World") == "Hello, World"
+hello("World", "Universe") == "Hello, World, Universe"
+</code></pre>
+
+    <p>And so that callers don&#8217;t feel bad about themselves, you can call with spread as well.</p>
+
+    <pre class="gs-code"><code>let f(a, b, c) -&gt; [a, b, c]
+
+let items = [1, 2]
+
+f(0, ...f(...items, 3), 4)
+</code></pre>
+  </section>
+  
+  <section id="dashed-identifiers">
+    <h2>Dashed-identifiers</h2>
+
+    <p>Although completely optional to use if you prefer using <code>camelScript</code>-style identifiers, one can now specify identifiers with dashes, such as <code>my-name</code> or <code>gorillas-are-awesome</code>. They are turned into <code>myName</code> and <code>gorillasAreAwesome</code>, respectively.</p>
+
+    <pre class="gs-code"><code>let gorillas-are-awesome = "Yes, they are."
+</code></pre>
+  </section>
+  
+  <section id="numbers">
+    <h2>Nicer number syntax</h2>
+
+    <p>All numbers can have arbitrary underscores in the middle of them, which can be used for thousands separators or bitwise n-bit separators. (<code>1_234_567</code> or <code>0x1234_5678_90ab_cdef</code>)</p>
+
+    <p>Decimal numbers can have inline-comments appended to them after an underscore. (<code>1000_ms</code>)</p>
+
+    <p>Octals use the format <code>0o12345670</code> instead of <code>01234567</code>, to help with clarity.</p>
+
+    <p>Binary numbers are available with the format <code>0b10101010</code>.</p>
+
+    <p>Arbitrary-radix numbers are available by specifying a decimal number between 2 and 36, <code>r</code>, and the number. (<code>4r01230123</code>, <code>36rjdhremn</code>)</p>
+
+    <pre class="gs-code"><code>let time = 10_000_ms
+let hex = 0x1234_5678
+let octal = 0o070
+let binary = 0b1010010101
+let radix = 36rNFfdH45
+let float = 123_456.789_012
+</code></pre>
+
+    <p>Non-decimals do support floating point unlike JavaScript, though that is a lesser-used feature.</p>
+  </section>
+  
+  <section id="strings">
+    <h2>Some new string syntaxes</h2>
+
+    <p>Aside from the already-seen string interpolation, there are also triple-quoted strings, which allow for multi-line and are indentation-friendly.</p>
+
+    <pre class="gs-code"><code>let name = "Jimmy"
+let string = """
+  Hello there.
+    I have a story to tell you, $name.
+  I can't think of it right now, though.
+  """
+</code></pre>
+    
+    <p>The indentation is stripped (but not line 2&#8217;s, since that's deliberate), and interpolation is done for <code>$name</code>, and the first and last newlines are removed. This all occurs at compile-time, so your result code will be as fast as possible.</p>
+
+    <p>There are also string like <code>'''this'''</code> which do not have interpolation, if you wish to use it.</p>
+
+    <p>There is also a short syntax for single-word strings that also convert <code>dashed-names</code> to <code>camelCase</code> just as normal identifiers do.</p>
+
+    <pre class="gs-code"><code>assert "Jimmy" == \Jimmy
+assert object.some-key == object[\some-key]
+assert "someKey" == \some-key
+</code></pre>
+  </section>
+  
+  <section id="objects-and-arrays">
+    <h2>Nicer syntaxes for objects and arrays</h2>
+
+    <p>Although the standard JavaScript-style syntaxes work, there are a few other ways to specify objects and arrays.</p>
+
+    <pre class="gs-code"><code>let list = [1, 2, 3]
+let other-list = [...list, 4, 5, 6] // now contains [1, 2, 3, 4, 5, 6]
+
+// another way to specify an array
+let items =
+  * "Apples"
+  * "Bananas"
+  * "Cherries"
+
+let obj = {
+  list // same as list: list
+  sum: 6
+}
+
+let great-apes =
+  bonobos:
+    awesomeness: "pretty cool"
+    population: 40_000
+  humans:
+    awesomeness: "let's not say anything bad about these guys"
+    population: 7_000_000_000
+  gorillas:
+    awesomeness: "clearly the best"
+    population: 100_000
+
+let special = {
+  [1 + 2]: "three"
+  "key$i": "interpolated key"
+  class: "JavaScript would fail on the 'class' key."
+}
+</code></pre>
+
+    <p>To specify the prototype of an object:</p>
+
+    <pre class="gs-code"><code>let parent = { hello: \there }
+let child = { extends parent
+  value: 1
+}
+assert child.hello == \there
+assert child.value == 1
+</code></pre>
+  </section>
+
+  <section id="unless">
+    <h2>Unless statement</h2>
+
+    <p>To correlate with the <code>if</code> statement, there is also an <code>unless</code> statement which works as its exact opposite.</p>
+
+    <pre class="gs-code"><code>if hates-bananas
+  "You monster."
+else unless loves-gorillas
+  "How could you?"
+else if likes-the-gorillaz
+  "Fire comes out of the monkey's head."
+else
+  "Well, at least you love gorillas and don't hate bananas."
+</code></pre>
+  </section>
+
+  <section id="loops">
+    <h2>Loops</h2>
+
+    <p>GorillaScript provides many different looping constructs, all fitted for their own purposes.</p>
+
+    <p>Normal while loop, same as JavaScript:</p>
+
+    <pre class="gs-code"><code>let mutable i = 0
+while i &lt; 10
+  console.log i
+  i += 1
+</code></pre>
+
+    <p>Opposite of a while loop, <code>until</code>:</p>
+
+    <pre class="gs-code"><code>let mutable i = 0
+until i &gt;= 10
+  console.log i
+  i += 1
+</code></pre>
+
+    <p>Better version of the above, acts like JavaScript&#8217;s for(;;)</p>
+
+    <pre class="gs-code"><code>let mutable i = 0
+while i &lt; 10, i += 1
+  console.log i
+</code></pre>
+
+    <p>Even better version:</p>
+
+    <pre class="gs-code"><code>for i in 0 til 10
+  console.log i
+</code></pre>
+
+    <p>Or if you want to go in reverse,</p>
+
+    <pre class="gs-code"><code>for i in 9 to 0 by -1
+  console.log i
+</code></pre>
+
+    <p>Or by twos:</p>
+
+    <pre class="gs-code"><code>for i in 0 til 10 by 2
+  console.log i
+</code></pre>
+
+    <p>You don&#8217;t have to use literal numbers, they can be any expression in GorillaScript. You can also use <code>to</code>, <code>til</code>, and <code>by</code> to make arrays outside of loops.</p>
+
+    <p>The difference between <code>til</code> and <code>to</code> is that <code>til</code> goes up until it hits the end, but <code>to</code> includes the end.</p>
+
+    <p>To iterate over an array,</p>
+
+    <pre class="gs-code"><code>for food in ["Apples", "Bananas", "Cherries"]
+  console.log food
+</code></pre>
+
+    <p>If you want its index,</p>
+
+    <pre class="gs-code"><code>for food, index in ["Apples", "Bananas", "Cherries"]
+  console.log "$index: $food"
+</code></pre>
+
+    <p>You can also get the total length of the array, if you need it:</p>
+
+    <pre class="gs-code"><code>for value, index, length in some-array
+  f()
+</code></pre>
+
+    <p>To iterate an array in reverse (slightly more efficient):</p>
+
+    <pre class="gs-code"><code>for value, index in some-array by -1
+  // index goes from some-array.length - 1 down to 0.
+  console.log value
+</code></pre>
+
+    <p>To iterate only a part of the array:</p>
+
+    <pre class="gs-code"><code>for value in some-array[2 to 5]
+  console.log value
+</code></pre>
+
+    <p>It works similarly to some-array.slice(2, 6). You can slice outside of loops as well.</p>
+
+    <p>To iterate over objects, you can use <code>of</code> instead of <code>in</code>:</p>
+
+    <pre class="gs-code"><code>for key, value of some-object
+  console.log key, value
+</code></pre>
+
+    <p>GorillaScript automatically runs an Object.prototype.hasOwnProperty check on the key. To avoid this, use:</p>
+
+    <pre class="gs-code"><code>for key, value ofall some-object
+  console.log key, value
+</code></pre>
+
+    <p>Any loop can be an expression simply by returning it or assigning it to a variable. This will create an array.</p>
+
+    <pre class="gs-code"><code>let squares = for value in 0 to 10
+  value ^ 2
+
+// squares now contains [0, 1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
+</code></pre>
+
+    <p>Single-line loops can be specified as so:</p>
+
+    <pre class="gs-code"><code>let squares = for value in 0 to 10; value ^ 2
+</code></pre>
+
+    <p>There are also reducing loops which work by placing one of the reducers (<code>first</code>, <code>every</code>, <code>some</code>, <code>filter</code>, <code>reduce</code>) on the <code>for</code> or <code>while</code> loop.</p>
+
+    <pre class="gs-code"><code>let all-good = for every item in array; item.is-good()
+let has-bad = for some item in array; item.is-bad()
+let best-value = for first item in array
+  if item.is-best()
+    item.value
+let only-good = for filter item in array; item.is-good()
+let sum = for reduce value in [0, 1, 2, 3, 4], current = 0
+  current + value
+</code></pre>
+
+    <p>These work on any <code>for</code> or <code>while</code> loop.</p>
+  </section>
+
+  <section id="lexical-scope">
+    <h2>Lexical scoping in loops</h2>
+
+    <p>A common bug in JavaScript is when one creates a function inside a loop that refers to the current index or value or some other variable that changes each loop iteration. GorillaScript solves this problem by wrapping any for loop that creates a function in another function, so the following works by seemingly lexically-scoping the inside of the for loop rather than abiding by JavaScript&#8217;s normal function scoping.</p>
+
+    <pre class="gs-code"><code>let funcs = []
+for i in 0 til 10
+  funcs.push #-&gt; i
+
+funcs[0]() == 0
+funcs[5]() == 5
+</code></pre>
+
+    <p>With no extra work on the developer&#8217;s part.</p>
+  </section>
+  
+  <section id="array-slicing">
+    <h2>Array slicing</h2>
+
+    <p>As mentioned briefly earlier, one can use the <code>to</code>, <code>til</code>, and <code>by</code> syntaxes to slice on arrays.</p>
+
+    <pre class="gs-code"><code>let array = [\a, \b, \c, \d, \e]
+assert-arr array[1 to 3], [\a, \b, \c]
+assert-arr array[1 to 5 by 2], [\a, \c, \e]
+assert-arr array[5 to 1 by -2], [\e, \c, \a]
+assert-arr array by -1, [\e, \d, \c, \b, \a]
+assert-arr array[0 to -1], [\a, \b, \c, \d, \e]
+assert-arr array[0 to Infinity], [\a, \b, \c, \d, \e]
+</code></pre>
+
+    <p>The negative values work just as they do in <code>.slice</code>, unlike normal accessing</p>
+  </section>
+  
+  <section id="array-negative-index">
+    <h2>Array negative indexing</h2>
+
+    <p>GorillaScript can&#8217;t wrap every single access in a check to see if the child is a negative value (as Python or some other languages do), due to efficiency, but it does provide a nice syntax to make it easier.</p>
+
+    <pre class="gs-code"><code>let array = [\a, \b, \c, \d, \e]
+assert array[* - 1] == \e
+assert array[* - 2] == \d
+assert array[* \ 2] == \c // halfway point in the array
+</code></pre>
+
+    <p>When a standalone <code>*</code> is encountered in an index, it is converted to the current array&#8217;s <code>.length</code>.</p>
+  </section>
+  
+  <section id="expressions">
+    <h2>Everything is an expression (mostly)</h2>
+
+    <p>Unlike JavaScript, <code>for</code> loops, <code>while</code> loops, <code>try</code> blocks, and <code>if</code> constructs can be used as expressions.</p>
+
+    <pre class="gs-code"><code>let array = for i in 0 to 10; i
+let trial = try
+  throw Error()
+catch e
+  "Caught something"
+assert trial == "Caught something"
+let check = if youre-amazing
+  "It's true"
+else
+  "Not amazing."
+</code></pre>
+  </section>
+  
+  <section id="existential">
+    <h2>Existential operator</h2>
+
+    <p>If one wishes to check a value against null or undefined, the existential operator (<code>?</code>) can be used.</p>
+
+    <pre class="gs-code"><code>let exists = value?
+</code></pre>
+
+    <p>It can also be used for access soaking</p>
+
+    <pre class="gs-code"><code>let inner = value?.which.might?.not.exist
+</code></pre>
+
+    <p>Turns into</p>
+
+    <pre class="gs-code"><code>let inner = if value?
+  let _ref = value.which.might
+  if _ref?
+    _ref.not.exist
+</code></pre>
+
+    <p>It can also be used for function checking</p>
+
+    <pre class="gs-code"><code>let result = f?()
+</code></pre>
+
+    <p>Turns into</p>
+
+    <pre class="gs-code"><code>let result = if typeof f == \function
+  f()
+</code></pre>
+  </section>
+  
+  <section id="in">
+    <h2><code>in</code> operator</h2>
+
+    <p>To correlate with array iteration, <code>in</code> checks if a value is in an array, in a similar way to <code>array.indexOf(value) != -1</code> would.</p>
+
+    <pre class="gs-code"><code>assert \hello in [\hi, \there, \hello]
+</code></pre>
+
+    <p>To check if an object contains a key, see the <code>haskey</code> operator.</p>
+  </section>
+  
+  <section id="haskey-ownskey">
+    <h2><code>haskey</code> and <code>ownskey</code></h2>
+
+    <p>Instead of using JavaScript&#8217;s <code>in</code>, <code>haskey</code> is used to verify a key&#8217;s existence on an object. Also, <code>ownskey</code> is also available to check if a key exists on an object without prototype-checking.</p>
+
+    <pre class="gs-code"><code>let parent = { alpha: \bravo }
+let child = { extends parent, charlie: \delta }
+
+assert parent haskey \alpha
+assert parent ownskey \alpha
+assert parent not haskey \charlie
+assert parent not ownskey \charlie
+assert child haskey \alpha
+assert child not ownskey \alpha
+assert child haskey \charlie
+assert child ownskey \charlie
+</code></pre>
+  </section>
+  
+  <section id="ownership">
+    <h2>Access with ownership</h2>
+
+    <p>Sometimes you may have an object where you want to access its key but only in the case of the object owning the key as a property.</p>
+
+    <pre class="gs-code"><code>assert if parent ownskey key
+  parent[key]
+
+// functionally equivalent to
+
+assert parent![key]
+</code></pre>
+
+    <p>Or, for a known key:</p>
+
+    <pre class="gs-code"><code>assert if parent ownskey \key
+  parent.key
+
+assert parent!.key
+</code></pre>
+  </section>
+  
+  <section id="apply">
+    <h2>Apply syntax</h2>
+
+    <p>In JavaScript, if you wish to specify the <code>this</code> argument passed to a function, one must use either <code>.call</code> or <code>.apply</code>. GorillaScript provides the <code>@</code> syntax:</p>
+
+    <pre class="gs-code"><code>let f() -&gt; this
+
+let obj = {}
+assert obj == f@ obj
+assert obj == f@(obj)
+
+Array.prototype.slice@ arguments, 1
+</code></pre>
+
+    <p>It transparently converts to <code>.call</code> or <code>.apply</code> (whichever is more appropriate), using the first argument as its <code>this</code>.</p>
+  </section>
+  
+  <section id="bind">
+    <h2>Binding access</h2>
+
+    <p>ECMAScript 5 supplies <code>Function.prototype.bind</code> as a way to bind functions to a specific this (and specify arguments). To do a similar binding in GorillaScript, one need only use the familiar <code>@</code> syntax with access.</p>
+
+    <pre class="gs-code"><code>let obj = {
+  f: # -&gt; this
+}
+
+let bound = obj@.f
+assert bound() == obj
+let unbound = obj.f
+assert unbound() == window
+</code></pre>
+  </section>
+
+  <section id="classes">
+    <h2>Classes</h2>
+
+    <p>GorillaScript provides a way to make classical-style classes. JavaScript does not have classes normally, so GorillaScript&#8217;s creation is slightly hackish, but works for the general case.</p>
+
+    <pre class="gs-code"><code>class Animal
+  def constructor(@name) -&gt;
+
+  def eat() -&gt; "$(@name) eats"
+
+class GreatApe extends Animal
+  // no constructor, Animal's is automatically called
+  def eat(food="fruit") -&gt; super.eat() &amp; " a " &amp; food
+
+class Gorilla extends GreatApe
+  def constructor(@name, @favorite-food)
+    // important to call the super constructor.
+    super(@name)
+
+  def eat() -&gt; super.eat(@favorite-food)
+
+class Chimp extends GreatApe
+  def eat() -&gt; super.eat("banana")
+
+let bobo = Chimp("Bobo") // new is not required on GorillaScript-made classes
+assert bobo.eat() == "Bobo eats a banana"
+
+let toko = Gorilla("Toko", "cherry")
+assert toko.eat() == "Toko eats a cherry"
+
+// set a method on the Gorilla constructor
+Gorilla::barrel := # -&gt; @name &amp; " throws a barrel!"
+
+assert toko.barrel() == "Toko throws a barrel!"
+</code></pre>
+
+    <p>Classes can <code>extend</code> other classes and call into their superclass with <code>super</code>. The constructor functions automatically check the <code>this</code> argument and if it is not the current class&#8217;s type (such as when called without <code>new</code>), it will create a new one on-the-fly.</p>
+  </section>
+  
+  <section id="destructuring">
+    <h2>Destructuring</h2>
+
+    <p>GorillaScript, like ECMAScript 6, provides a destructuring declaration.</p>
+
+    <pre class="gs-code"><code>let [x, y] = [1, 2]
+assert x == 1
+assert y == 2
+
+let {a, b: c} = {a: 3, b: 4}
+assert a == 3
+assert c == 4
+</code></pre>
+
+    <p>These can be nested like so:</p>
+
+    <pre class="gs-code"><code>let [a, {b, c: [d]}] = get-data()
+</code></pre>
+
+    <p>And the spread operator (<code>...</code>) can be used once per array destructure:</p>
+
+    <pre class="gs-code"><code>let [value, ...rest] = array
+</code></pre>
+  </section>
+  
+  <section id="switch">
+    <h2>Switch</h2>
+
+    <p>Like JavaScript, GorillaScript provides <code>switch</code>. The only major exception is that JavaScript is fallthrough-by-default, and GorillaScript is break-by-default. GorillaScript can also specify multiple values to check at once instead of having multiple cases. <code>switch</code> can also be used as an expression.</p>
+
+    <pre class="gs-code"><code>switch value
+case 0, 1, 2
+  "small"
+case 3, 4, 5
+  fallthrough // in the last position of the case, causes the case to fall through to the next case.
+case 6, 7, 8
+  "large"
+default
+  "unknown"
+</code></pre>
+
+    <p>Unlike JavaScript, GorillaScript provides a topicless <code>switch</code>, which works by checking if each case is truthy rather than comparing against a value. <code>fallthrough</code> works the same way as a normal switch statement. This does not generate a JavaScript <code>switch</code> statement, as it is extremely inefficient to use <code>switch</code> in JavaScript without constant <code>case</code> checks.</p>
+
+    <pre class="gs-code"><code>switch
+case is-good()
+  "good"
+case is-bad()
+  "bad"
+default
+  "neutral"
+</code></pre>
+  </section>
+
+  <section id="try">
+    <h2>Try-catch-else-finally</h2>
+
+    <p>Try-catch also works similarly to JavaScript, except that catches can have type-checks and the notable exception of the <code>else</code> statement, for when no error was caught, but occurs before the <code>finally</code> statement.</p>
+
+    <pre class="gs-code"><code>try
+  something-dangerous()
+catch e as SpecificError
+  handle-error(e)
+catch e
+  uh-oh()
+else
+  whew()
+finally
+  cleanup()
+</code></pre>
+
+    <p>At least one of <code>catch</code>, <code>else</code>, or <code>finally</code> must be used, but so can all three.</p>
+  </section>
+  
+  <section id="regexes">
+    <h2>Regular Expressions</h2>
+
+    <p>Unlike JavaScript, Regular Expressions borrow the string syntax simply prefixed with <code>r</code> and postfixed with any RegExp flags deemed necessary. Also, if triple-quoted strings (e.g. <code>r"""reg"""g</code>) are used, all spaces are ignored as well as any <code># hash comments</code></p>
+
+    <pre class="gs-code"><code>r"l".test "apple"
+let regex = r"""
+  This is a large regex, $name
+  And all the space is ignored # and this is ignored, too!
+  """gim
+</code></pre>
+  </section>
+
+  <section id="custom-interpolation">
+    <h2>Custom interpolation strings</h2>
+
+    <p>If one doesn&#8217;t wish to use simple string concatenation with string interpolation, <code>%</code> can be prefixed to any double-quoted string to return an array instead which can then be interpolated in a custom manner. All even-numbered strings are guaranteed to be source literals and all odd-numbered values (might not be strings) are interpolated input.</p>
+
+    <p>The following is an example of automatic HTML escaping, but the same concept could be applied to SQL strings or practically any string with unsafe input.</p>
+
+    <pre class="gs-code"><code>class SafeHTML
+  def constructor(@text as String) -&gt;
+  def to-string() -&gt; @text
+let to-HTML = do
+  let escapes = {
+    "&amp;": "&amp;amp;"
+    "&lt;": "&amp;lt;"
+    "&gt;": "&amp;gt;"
+    '"': "&amp;quot;"
+    "'": "&amp;#39;"
+  }
+  let replacer(x) -&gt; escapes[x]
+  let regex = r"[&amp;&lt;&gt;""']"g
+  let escape(text) -&gt; text.replace(regex, replacer)
+  #(arr)
+    (for x, i in arr
+      if i %% 2 or x instanceof SafeHTML
+        x
+      else
+        escape String(x)).join ""
+
+assert "&lt;h1&gt;normal&lt;/h1&gt;" == to-HTML %"&lt;h1&gt;normal&lt;/h1&gt;"
+let evil-name = "&lt;\"bob\" the 'great' &amp; powerful&gt;"
+assert "&amp;lt;&amp;quot;bob&amp;quot; the &amp;#39;great&amp;#39; &amp;amp; powerful&amp;gt;" == to-HTML %"$evil-name"
+assert "&lt;span&gt;&amp;lt;&amp;quot;bob&amp;quot; the &amp;#39;great&amp;#39; &amp;amp; powerful&amp;gt;&lt;/span&gt;" == to-HTML %"&lt;span&gt;$evil-name&lt;/span&gt;"
+assert "&lt;span&gt;&lt;\"bob\" the 'great' &amp; powerful&gt;&lt;/span&gt;" == to-HTML %"&lt;span&gt;$(SafeHTML evil-name)&lt;/span&gt;"
+</code></pre>
+  </section>
+
+  <section id="iterators">
+    <h2>Iterators</h2>
+
+    <p>Iterators are an ECMAScript 6 feature that have been in Mozilla&#8217;s JavaScript since 1.7. GorillaScript can both produce and consume such iterators.</p>
+
+    <pre class="gs-code"><code>for value, index from some-iterable
+  console.log value
+</code></pre>
+
+    <p>Turns into the following code:</p>
+
+    <pre class="gs-code"><code>let _iter = some-iterable.iterator()
+try
+  let mutable index = -1
+  while true
+    index += 1
+    let value = try
+      _iter.next()
+    catch e
+      if e == StopIteration
+        break
+      else
+        throw e
+    console.log value
+finally
+  _iter?.close?()
+</code></pre>
+
+    <p>Which means that any object that implements the <code>iterator</code> method acts as an iterable. That return value merely needs to implement the <code>next</code> method, and optionally a <code>close</code> method.</p>
+
+    <p>If <code>Array.prototype</code> were to implement <code>iterator</code>, which the ECMAScript 6 draft is recommending, one could iterate over <code>Array</code>s, <code>Set</code>s, <code>Map</code>s, but one can iterate over any custom type now or by simply adding an <code>Array.prototype.iterator</code> method.</p>
+
+    <p>Production of iterators is easy as well in GorillaScript. You need merely append the <code>*</code> and use the <code>yield</code> statement.</p>
+
+    <pre class="gs-code"><code>let fib()*
+  let mutable a = 0
+  let mutable b = 1
+  while true
+    yield b
+    let tmp = a
+    a := b
+    b += tmp
+</code></pre>
+
+    <p>Produces an iterable which returns the infinite sequence of fibonacci numbers. The resultant code looks something along the lines of:</p>
+
+    <pre class="gs-code"><code>let fib()
+  let mutable a = 0
+  let mutable b = 1
+  let mutable _state = 0
+  {
+    iterator: #-&gt; this
+    next: #
+      while true
+        switch _state
+        case 0
+          _state := 1
+          return b
+        case 1
+          let tmp = a
+          a := b
+          b += tmp
+          _state := 0
+  }
+</code></pre>
+
+    <p>The state machine is made for you and any GorillaScript construct can be used inside a generator function (except for <code>return</code>).</p>
+
+    <p>One could then easily then use the fib iterator:</p>
+
+    <pre class="gs-code"><code>for value from fib()
+  console.log value
+  if value &gt; 4000000
+    break
+</code></pre>
+  </section>
+
+  <section id="async">
+    <h2>Async</h2>
+
+    <p>GorillaScript provides a whole slew of asynchronous-capable syntax to make dealing with &#8220;callback hell&#8221; just a little easier. Since JavaScript fundamentals and frameworks (node.js, for example) tend to be very async-friendly, this is especially helpful.</p>
+
+    <h3>Calling an async function</h3>
+
+    <pre class="gs-code"><code>async err, text &lt;- fs.read-file "somefile.txt", "utf8"
+throw? err
+console.log text
+</code></pre>
+
+    <p>No indentation necessary, every line following the async call will be part of the implicitly-constructed callback. The resultant code looks like:</p>
+
+    <pre class="gs-code"><code>fs.read-file "somefile.txt", "utf8", #(err, text)@
+  throw? err
+  console.log text
+</code></pre>
+
+    <p>Although that may not seem too useful with only one block of indentation, when dealing with complex database access or multiple sources of input, it is very easy to become overwhelmed.</p>
+
+    <h3>Async function with automatic error handling</h3>
+
+    <p>In the case where you don&#8217;t want to throw the error, but instead need to pass it to a callback (which takes the error as the first argument), you have one of two options:</p>
+
+    <pre class="gs-code"><code>let run(callback)
+  async err, text &lt;- fs.read-file "somefile.txt", "utf8"
+  if err?
+    return callback err
+  callback null, do-something(text)
+</code></pre>
+
+    <p>Or you can use</p>
+
+    <pre class="gs-code"><code>let run(callback)
+  async! callback, text &lt;- fs.read-file "somefile.txt", "utf8"
+  callback null, do-something(text)
+</code></pre>
+
+    <p>Which is functionally equivalent.</p>
+
+    <h3>Async loops</h3>
+
+    <p>Often, one may use a library to manage asynchronous handling of loops and iteration over arrays, but that is all built right into GorillaScript. Every loop construct you&#8217;ve seen works seamlessly by prepending <code>async</code> and specifying the <code>next</code> callback.</p>
+
+    <p>The <code>next</code> callback expects 0 to 2 arguments, if it receives a non-<code>null</code>-or-<code>undefined</code> value as its first argument, it will halt the loop immediately, as an error or other break has occurred. If it receives a second argument, it will append that value to an array, which may be optionally requested by the developer.</p>
+
+    <p><code>asyncfor</code> loops can specify their level of parallelism manually (defaulting to <code>1</code>, which runs serially). If parallelism is set to <code>0</code>, it runs completely parallel.</p>
+
+    <pre class="gs-code"><code>// read two files at a time
+asyncfor(2) err, array &lt;- next, filename in ["a.txt", "b.txt", "c.txt", "d.txt"]
+  async err, text &lt;- fs.read-file filename, "utf8"
+  if err?
+    // if an error occurs, it propagates up and no more files will be read, and post-async execution
+    // will occur immediately.
+    return next err
+  next null, { filename, text }
+throw? err
+console.log array // array will now be filled with objects like { filename: "a.txt", text: "lots of text here" }
+</code></pre>
+
+    <p>Which turns into a device which looks something like:</p>
+
+    <pre class="gs-code"><code>let _array = ["a.txt", "b.txt", "c.txt", "d.txt"]
+__async-result 2, array.length,
+  #(i, next)@
+    let filename = array[i]
+    fs.read-file filename, "utf8", #(err, text)@
+      if err?
+        return next err
+      next null, { filename, text }
+  #(err, array)@
+    throw? err
+    console.log array
+</code></pre>
+
+    <p>There is also <code>asyncwhile</code> and <code>asyncuntil</code>, which work similarly to their normal constructs but require the <code>next</code> argument to inform the code that its execution has completed one way or another.</p>
+
+    <h3>Async conditionals</h3>
+
+    <p>If you wish to use conditionals which may or may not have asynchronous code inside their bodies, <code>asyncif</code> or <code>asyncunless</code> is necessary.</p>
+
+    <pre class="gs-code"><code>asyncif text &lt;- next, some-boolean()
+  async err, text &lt;- fs.read-file filename, "utf8"
+  throw? err
+  next(text)
+// else is optional, will automatically call next() if not provided
+console.log text
+</code></pre>
+
+    <p>Which turns into something like:</p>
+
+    <pre class="gs-code"><code>let next(text)
+  console.log text
+if some-boolean()
+  fs.read-file filename, "utf8", #(err, text)@
+    throw? err
+    next(text)
+else
+  next()
+</code></pre>
+
+    <h3><code>returning</code></h3>
+
+    <p>Occasionally, one needs to return a value such as <code>false</code> in an event handler, while using an asynchronous command. This is where the <code>returning</code> statement comes in. It works just like <code>return</code>, only it runs at the end of its block rather than where it is placed.</p>
+
+    <pre class="gs-code"><code>register-event #(filename)
+  returning false
+  async err, text &lt;- fs.read-file filename, "utf8"
+  throw? err
+  console.log text
+</code></pre>
+
+    <p>Which turns into:</p>
+
+    <pre class="gs-code"><code>register-event #(filename)
+  fs.read-file filename, "utf8", #(err, text)
+    throw? err
+    console.log
+  return false
+</code></pre>
+  </section>
+
+  <section id="typing">
+    <h2>Optional typing</h2>
+
+    <p>On parameters, one can put types in the format <code>param as Type</code>. These will be checked at runtime and the type inference engine will be aware of them.</p>
+
+    <p>The types <code>String</code>, <code>Number</code>, <code>Boolean</code>, and <code>Function</code> will check against <code>typeof</code>, not with <code>instanceof</code>.</p>
+
+    <p><code>null</code>, <code>void</code>, and <code>undefined</code> (alias for <code>void</code>) are also seen as valid types.</p>
+
+    <p>Arrays can be made using the syntax of <code>[]</code> for an array of any type or <code>[Type]</code> for a specific array. The contents will be checked at runtime.</p>
+
+    <p>Objects can be made using the standard object syntax with all values being types, e.g. <code>{x: Number, y: String}</code></p>
+
+    <p>Functions with specific parameters or return value can be defined with <code>-&gt;</code> for any parameter, any return. <code>-&gt; Type</code> for a specific return value, <code>Type -&gt; Type</code> for a single-argument with a specific return value, or <code>(Type, Type) -&gt; Type</code> for two arguments with a specific return value.</p>
+
+    <p>Type unions can be made with <code>|</code>, e.g. <code>Number|String</code>. Order is irrelevant.</p>
+
+    <p>One can also place a return type on functions, which is not checked at runtime, but is used by the type inference engine.</p>
+
+    <p>Some examples:</p>
+
+    <pre class="gs-code"><code>let increment(x as Number) -&gt; x + 1
+let greet(x as String|Number) -&gt; "Hello, $x"
+let run(x as -&gt; Number) -&gt; x()
+let get-number() as Number -&gt; num
+let join(x as [String]) -&gt; x.join ", "
+let use-object(o as {x: Number, y: Number}) -&gt; o.x + o.y
+</code></pre>
+
+    <p>Types can also be placed on let statements, to help with the type inference engine.</p>
+
+    <pre class="gs-code"><code>let x as Number = f()</code></pre>
+  </section>
+
+  <section id="operators-as-functions">
+    <h2>Operators, accesses, and method calls as functions</h2>
+
+    <p>In functional programming, it is often handy to use one of the built-in operators as a function, and GorillaScript provides this capability.</p>
+
+    <pre class="gs-code"><code>let add = (+) // same as #(x, y) -&gt; x + y
+assert add(5, 6) == 11
+
+let square = (^ 2) // same as #(x) -&gt; x ^ 2
+assert square(10) == 100
+
+let double = (2 *) // same as #(x) -&gt; 2 * x
+assert double(5) == 10
+
+let invert = (not) // same as #(x) -&gt; not x
+assert invert(true) == false
+assert invert(false) == true
+
+assert 10 == [1, 2, 3, 4].reduce (+)
+</code></pre>
+
+    <p>Any binary operator can be used this way, and any unary operator can be used as long as it does not share the same token as a binary operator.</p>
+
+    <p>One can also use the same syntax for accesses and method calls</p>
+
+    <pre class="gs-code"><code>let get-length = (.length) // same as #(x) -&gt; x.length
+assert get-length("hello") == 5
+
+let to-hex = (.to-string(16)) // same as #(x) -&gt; x.to-string(16)
+assert to-hex(255) == "ff"
+</code></pre>
+  </section>
+
+  <section id="properties">
+    <h2>Getters and setters</h2>
+
+    <p>Getter and setter support is up to the engine to support, and is therefore not recommended to be used in the general case. Even Internet Explorer 8 only provides support if the object is a DOM Element, so I cannot recommend using them on a broad scale unless you control the JavaScript engine (such as in node.js).</p>
+
+    <p>There are two ways to define getters and setters:</p>
+
+    <pre class="gs-code"><code>let obj =
+  _x: 0
+  get x: # -&gt; @_x
+  set x: #(value)! -&gt; @_x := value
+
+  _y: 0
+  property y:
+    get: #-&gt; @_y
+    set: #(value)! -&gt; @_y := value
+    configurable: true
+    enumerable: true
+</code></pre>
+
+    <p>When using the <code>get</code> and <code>set</code> pair, they must be defined next to each other (order is irrelevant). One can also supply only <code>get</code> or only <code>set</code>.</p>
+
+    <p>When using the <code>property</code> syntax, the value is the same as one calling <code>Object.defineProperty</code>, in fact, that is all that is happening behind the scenes.</p>
+
+    <p><strong>Note: this will throw an <code>Exception</code> if <code>Object.defineProperty</code> is not defined</strong></p>
+  </section>
+
+  <section id="labels">
+    <h2>Labels and <code>break</code>/<code>continue</code></h2>
+
+    <p>JavaScript provides a way to add a label to a block and then be able to <code>break</code> or <code>continue</code> (if it is a loop) on that block.</p>
+
+    <p>Although it is not recommended practice, as one is probably better served by rethinking the algorithm, GorillaScript does provide the capability.</p>
+
+    <pre class="gs-code"><code>let mutable sum = 0
+label! outer for i in 0 to 10
+  for j in 0 to 10
+    if i == j
+      continue outer
+    sum += i
+</code></pre>
+
+    <p>As you can see, the outer loop has the label <code>outer</code> on it and the <code>continue</code> also references that same label, meaning it will continue on the outer loop rather than the inner.</p>
+  </section>
+
+  <section id="global">
+    <h2>The <code>GLOBAL</code> identifier</h2>
+
+    <p>Since JavaScript can be run outside the browser now, one cannot rely on <code>window</code> always being the global object, so GorillaScript provides the <code>GLOBAL</code> identifier for just this case, which will be <code>window</code> or <code>global</code> or the outermost <code>this</code>, whichever one works best. It is UPPER-CASE and therefore loud for a reason: try to avoid globals when possible.</p>
+
+    <pre class="gs-code"><code>assert Math == GLOBAL.Math
+</code></pre>
+  </section>
+  
+  
+  <script src="extras/gorillascript.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+  <script src="extras/index.gs" type="text/gorillascript"></script>
+</body>
+</html>
