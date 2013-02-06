@@ -11,30 +11,70 @@ cli.set-usage "gork [OPTIONS]"
 
 let command-to-action = {}
 let command-to-description = {}
+let command-to-dependencies = {}
 let switches = {}
 let mutable options = {}
 
-GLOBAL.command := #(name as String, description, action)
+GLOBAL.command := #(name as String, description, dependencies, action)
   if typeof description == \function
-    return GLOBAL.command(name, null, action)
+    return GLOBAL.command(name, null, null, description)
+  else if is-array! description
+    return GLOBAL.command(name, null, description, action)
+  else if typeof dependencies == \function
+    return GLOBAL.command(name, description, null, dependencies)
+  if description? and typeof description != \string
+    throw TypeError "Expected action to be a String or null, got $(typeof! description)"
+  if dependencies? and not is-array! dependencies
+    throw TypeError "Expected action to be an Array or null, got $(typeof! dependencies)"
   if typeof action != \function
     throw TypeError "Expected action to be a Function, got $(typeof! action)"
-  command-to-action[name] := action
   if description?
     command-to-description[name] := description
-  action
+  if dependencies?
+    command-to-dependencies[name] := dependencies
+  command-to-action[name] := action
 
 GLOBAL.option := #(flag as String, letter as String|null, description as String, type as String|void)!
   switches[flag] := [letter, description, ...if type? then [type] else []]
 
-GLOBAL.invoke := #(name as String, callback)
+let ran-commands = []
+
+let invoke-command(name as String, explicit as Boolean, callback as Function|null)
+  if not explicit and name in ran-commands
+    return callback?()
+  
   if command-to-action not ownskey name
-    fatal-error "No such command: $name"
+    fatal-error "No such command: '$name'"
+  
+  ran-commands.push name
+  let dependencies = command-to-dependencies![name] or []
+  asyncif next, callback?
+    asyncfor err <- next, dependency in dependencies
+      invoke-command dependency, false, next
+    if err?
+      return callback(err)
+    next()
+  else
+    for dependency in dependencies
+      invoke-command dependency, false
+    next()
   
   let action = command-to-action[name]
-  if action.length >= 2 and typeof callback != \function
-    fatal-error "Cannot invoke command $name without specifying a callback"
-  action(options, callback)
+  if action.length >= 2 and not callback?
+    fatal-error "Cannot invoke command '$name' without specifying a callback"
+  
+  if action.length < 2 and callback?
+    let mutable result = void
+    try
+      result := action(options)
+    catch e
+      return callback(e)
+    callback(null, result)
+  else
+    action(options, callback)
+
+GLOBAL.invoke := #(name as String, callback as Function|null)
+  invoke-command(name, true, callback)
 
 GLOBAL.exit := process.exit
 
@@ -55,8 +95,9 @@ exports.run := #(callback = fatal-error)
       if command-to-action not ownskey command
         fatal-error "Unknown command: $command"
     options := opts
-    asyncfor err <- next, arg in commands
-      invoke arg, next
+    
+    asyncfor err <- next, command in commands
+      invoke command, next
     callback(err)
 
 let string-repeat(text, count)
