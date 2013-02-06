@@ -221,7 +221,7 @@ module.exports := class Type
       else if other instanceof SimpleType
         @name <=> other.name or @id <=> other.id
       else
-        "SimpleType" <=> other.constructor.name
+        "SimpleType" <=> other.constructor.display-name
     
     def union(other as Type)
       if other instanceof SimpleType
@@ -310,7 +310,7 @@ module.exports := class Type
       else if other instanceof ArrayType
         @subtype.compare(other.subtype)
       else
-        "ArrayType" <=> other.constructor.name
+        "ArrayType" <=> other.constructor.display-name
     
     def union(other as Type)
       if other instanceof ArrayType
@@ -438,7 +438,7 @@ module.exports := class Type
             become(this, other)
             0
       else
-        "ObjectType" <=> other.constructor.name
+        "ObjectType" <=> other.constructor.display-name
 
     def union(other as Type)
       if other instanceof ObjectType
@@ -596,7 +596,7 @@ module.exports := class Type
             become(this, other)
           cmp
       else
-        "FunctionType" <=> other.constructor.name
+        "FunctionType" <=> other.constructor.display-name
 
     def union(other as Type)
       if other instanceof FunctionType
@@ -702,7 +702,7 @@ module.exports := class Type
             become(this, other)
           cmp
       else
-        "UnionType" <=> other.constructor.name
+        "UnionType" <=> other.constructor.display-name
     
     def union(other as Type)
       if other instanceofsome [SimpleType, ArrayType, FunctionType]
@@ -826,7 +826,7 @@ module.exports := class Type
             become(this, other)
           cmp
       else
-        "ComplementType" <=> other.constructor.name
+        "ComplementType" <=> other.constructor.display-name
     
     let get-untypes(untype) as [Type]
       if untype instanceof UnionType
@@ -914,7 +914,7 @@ module.exports := class Type
       if this == other
         0
       else
-        "AnyType" <=> other.constructor.name
+        "AnyType" <=> other.constructor.display-name
     
     def union(other) -> this
     def intersect(other) -> other
@@ -939,7 +939,7 @@ module.exports := class Type
       if this == other
         0
       else
-        "NoneType" <=> other.constructor.name
+        "NoneType" <=> other.constructor.display-name
     
     def union(other) -> other
     def intersect(other) -> this
