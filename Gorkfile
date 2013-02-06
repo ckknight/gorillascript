@@ -1,0 +1,93 @@
+require! fs
+require! './lib/gorilla'
+require! path
+
+let string-repeat(text, count)
+  if count < 1
+    ""
+  else if count == 1
+    text
+  else if count bitand 1
+    text & string-repeat text, count - 1
+  else
+    string-repeat text & text, count / 2
+let pad-left(mutable text, len, padding)
+  string-repeat(padding, len - text.length) & text
+let pad-right(mutable text, len, padding)
+  text & string-repeat(padding, len - text.length)
+
+option \uglify, "u", "Use UglifyJS2 to minify the result"
+option \file, "f", "Build a specific file", "file"
+
+command \build, "Build GorillaScript from source", #(options, cb)
+  async! cb, mutable files <- fs.readdir "./src"
+  
+  files := for filter file in files
+    file != "prelude.gs"
+  if options.file
+    let file-filter = options.file.split ","
+    for file in file-filter
+      if file not in files
+        return cb "Cannot build unknown file: $file"
+    files := for filter file in files
+      file in file-filter
+  
+  if files.length == 0
+    return cb("No files to build")
+  
+  async! cb <- gorilla.init()
+  
+  let inputs = {}
+  asyncfor(0) next, file in files
+    async! cb, text <- fs.read-file path.join("./src", file), "utf-8"
+    inputs[file] := text
+    next()
+  
+  let longest-name-len = for reduce file in files, current = 0; current max file.length
+  
+  output string-repeat(" ", longest-name-len)
+  output "     parse     macro     reduce    translate compile $(if options.uglify then '  uglify  ' else '')|  total\n"
+  let totals = {}
+  let mutable total-time = 0
+  let results = {}
+  asyncfor err <- next, file in files
+    let code = inputs[file]
+    output "$(pad-right file & ':', longest-name-len + 1, ' ') "
+    let start-file-time = Date.now()
+    let progress = #(name, time)!
+      totals[name] := (totals[name] or 0) + time
+      output "  $(pad-left ((time / 1000_ms).to-fixed 3), 6, ' ') s"
+    async err, compiled <- gorilla.compile code, { extends options, filename: file, progress: progress }
+    if err?
+      output "\n"
+      return next(err)
+    results[file] := compiled.code
+    let end-file-time = Date.now()
+    let file-time = end-file-time - start-file-time
+    output " | $(pad-left ((file-time / 1000_ms).to-fixed 3), 6, ' ') s\n"
+    total-time += file-time
+    gc?()
+    next()
+  if err?
+    return cb(err)
+  if files.length > 1
+    output string-repeat "-", longest-name-len + 53
+    if options.uglify
+      output string-repeat "-", 10
+    output "+"
+    output string-repeat "-", 9
+    output "\n"
+    output pad-right "total: ", longest-name-len + 2, ' '
+    for part in [\parse, \macro-expand, \reduce, \translate, \compile, ...if options.uglify then [\uglify] else []]
+      output "  $(pad-left ((totals[part] / 1000_ms).to-fixed 3), 6, ' ') s"
+    output " | $(pad-left ((total-time / 1000_ms).to-fixed 3), 6, ' ') s\n"
+
+  asyncfor(0) err <- next, file in files
+    let compiled = results[file]
+    let output-file = path.join "./lib", file.replace r"\.gs\$", ".js"
+    async err <- fs.rename output-file, "$(output-file).bak"
+    if err? and err.code != \ENOENT
+      return next(err)
+    async! next <- fs.write-file output-file, compiled, "utf8"
+    next()
+  cb(err)

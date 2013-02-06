@@ -1798,11 +1798,17 @@ else
       keys.push key
     keys
 
+define operator unary keys!
+  ASTE __keys($node)
+
 define helper __allkeys = #(x) as [String]
   let keys = []
   for key ofall x
     keys.push key
   keys
+
+define operator unary allkeys!
+  ASTE __allkeys($node)
 
 define helper __new = do
   let new-creators = []
