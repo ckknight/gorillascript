@@ -25,14 +25,15 @@ cli.parse
 
 async filenames, options <- cli.main()
 
+let opts = {}
 let uglify = if options.uglify
+  opts.undefined-name := \undefined
   do
     let UglifyJS = require("uglify-js")
     #(code) -> UglifyJS.minify(code, from-string: true).code
 else
   #(code) -> code
 
-let opts = {}
 asyncif next, options["no-prelude"]
   opts.no-prelude := true
   next()

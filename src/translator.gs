@@ -1406,6 +1406,8 @@ let translators =
           bare-init.unshift ast.Assign(
             ast.Ident \GLOBAL
             global-node)
+        if scope.options.undefined-name?
+          scope.add-variable scope.options.undefined-name
         ast.Root(
           ast.Block [...comments, ...bare-init, ...init, body]
           scope.get-variables()
@@ -1428,10 +1430,16 @@ let translators =
           ast.Access(
             ast.Func(
               null
-              if scope.has-global
-                [ast.Ident \GLOBAL]
-              else
-                []
+              [
+                ...if scope.has-global
+                  [ast.Ident \GLOBAL]
+                else
+                  []
+                ...if scope.options.undefined-name?
+                  [ast.Ident scope.options.undefined-name, true]
+                else
+                  []
+              ]
               scope.get-variables()
               ast.Block [...init, body]
               ["use strict"])

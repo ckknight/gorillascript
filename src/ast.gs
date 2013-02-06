@@ -413,7 +413,7 @@ exports.Binary := class Binary extends Expression
           sb "."
     else if left.is-const() and left.const-value() == void
       sb "("
-      sb to-JS-source(void)
+      (if left instanceof Const then left else Const(void)).compile options, Level.inside-parentheses, false, sb
       sb ")"
     else
       left.compile options, Level.call-or-access, line-start, sb
@@ -843,12 +843,15 @@ exports.Const := class Const extends Expression
   
   def compile(options, level, line-start, sb)!
     let value = @value
-    let wrap = level >= Level.increment and (value == undefined or (typeof value == "number" and not is-finite(value)))
-    if wrap
-      sb "("
-    sb to-JS-source(value)
-    if wrap
-      sb ")"
+    if value == void and options.undefined-name?
+      sb options.undefined-name
+    else
+      let wrap = level >= Level.increment and (value == void or (typeof value == "number" and not is-finite(value)))
+      if wrap
+        sb "("
+      sb to-JS-source(value)
+      if wrap
+        sb ")"
   def compile-as-block(options, level, line-start, sb)!
     Noop().compile-as-block(options, level, line-start, sb)
   
@@ -1194,8 +1197,8 @@ exports.Func := class Func extends Expression
     Func (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations
 
 exports.Ident := class Ident extends Expression
-  def constructor(@name as String)
-    unless is-acceptable-ident name
+  def constructor(@name as String, allow-unacceptable as Boolean)
+    unless allow-unacceptable or is-acceptable-ident name
       throw Error "Not an acceptable identifier name: $name"
   
   def compile(options, level, line-start, sb)!
@@ -1565,7 +1568,6 @@ exports.Regex := class Regex extends Expression
   def compile-as-block(options, level, line-start, sb)!
     Noop().compile-as-block(options, level, line-start, sb)
 
-  def is-const() -> false
   def is-noop() -> true
   
   def walk() -> this
