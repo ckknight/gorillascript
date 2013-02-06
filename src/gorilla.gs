@@ -4,6 +4,8 @@ require! os
 require! fs
 require! path
 
+exports.version := "1.0"
+
 // TODO: Remove register-extension when fully deprecated.
 if require.extensions
   require.extensions[".gs"] := #(module, filename)
@@ -18,8 +20,8 @@ let fetch-and-parse-prelude = do
   let flush(err, value)
     while fetchers.length > 0
       fetchers.shift()(err, value)
-  let prelude-src-path = path.join(path.dirname(fs.realpath-sync(__filename)), '../src/prelude.gs')
-  let prelude-cache-path = path.join(os.tmp-dir(), 'gs-prelude.cache')
+  let prelude-src-path = if __filename? then path.join(path.dirname(fs.realpath-sync(__filename)), '../src/prelude.gs')
+  let prelude-cache-path = if os? then path.join(os.tmp-dir(), 'gs-prelude.cache')
   let f(cb)
     if parsed-prelude?
       return cb null, parsed-prelude
@@ -48,6 +50,10 @@ let fetch-and-parse-prelude = do
       fs.write-file prelude-cache-path, parsed-prelude.macros.serialize(), "utf8", #(err)
         throw? err
     flush(null, parsed-prelude)
+  
+  f.serialized := #(cb)
+    async! cb <- f()
+    fs.read-file prelude-cache-path, "utf8", cb
       
   f.sync := #
     if parsed-prelude?
@@ -74,7 +80,13 @@ let fetch-and-parse-prelude = do
         fs.write-file prelude-cache-path, parsed-prelude.macros.serialize(), "utf8", #(err)
           throw? err
       parsed-prelude
+  
+  exports.with-prelude := #(serialized-prelude)
+    parsed-prelude := parser.deserialize-prelude(serialized-prelude)
+    this
   f
+
+exports.get-serialized-prelude := fetch-and-parse-prelude.serialized
 
 let parse = exports.parse := #(source, options = {}, callback)
   if typeof options == \function
@@ -97,7 +109,7 @@ exports.get-reserved-words := #(options = {})
 
 let translate = exports.ast := #(source, options = {}, callback)
   if typeof options == \function
-    return translate source, null, callback
+    return translate source, null, options
   let start-time = new Date().get-time()
   asyncif parsed, translated <- next, callback?
     async! callback, parsed <- parse source, options
@@ -122,7 +134,7 @@ let translate = exports.ast := #(source, options = {}, callback)
 
 let compile = exports.compile := #(source, options = {}, callback)
   if typeof options == \function
-    return compile source, null, callback
+    return compile source, null, options
   let start-time = new Date().get-time()
   asyncif translated <- next, callback?
     async! callback, translated <- translate source, options
@@ -174,12 +186,12 @@ let evaluate(code, options)
           sandbox[k] := GLOBAL[k]
     Script.run-in-context code, sandbox
   else
-    let fun = Function(code)
+    let fun = Function("return $code")
     fun()
 
 exports.eval := #(source, options = {}, callback)
   if typeof options == \function
-    return exports.eval source, null, callback
+    return exports.eval source, null, options
   options.eval := true
   options.return := false
   asyncif compiled <- next, callback?
@@ -206,7 +218,10 @@ exports.eval := #(source, options = {}, callback)
 
 exports.run := #(source, options = {}, callback)!
   if typeof options == \function
-    return exports.run source, null, callback
+    return exports.run source, null, options
+  if typeof process == \undefined
+    exports.eval(source, options, if callback? then #(err) -> callback(err))
+    return
   let main-module = require.main
   main-module.filename := (process.argv[1] := if options.filename
     fs.realpath-sync(options.filename)

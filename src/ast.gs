@@ -1,4 +1,5 @@
-let {inspect} = require 'util'
+require! util
+let inspect = util?.inspect
 
 enum Level
   def block // { f(); `...`; g(); }

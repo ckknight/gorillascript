@@ -1,5 +1,6 @@
 require! Type: './types'
-let {inspect} = require 'util'
+require! util
+let inspect = util?.inspect
 
 let freeze = if typeof Object.freeze == \function then Object.freeze else #(o) -> o
 
@@ -7541,8 +7542,8 @@ module.exports := parse
 module.exports.ParserError := ParserError
 module.exports.MacroError := MacroError
 module.exports.Node := Node
-module.exports.deserialize-prelude := #(data as String)
-  let parsed = JSON.parse(data)
+module.exports.deserialize-prelude := #(data)
+  let parsed = if typeof data == \string then JSON.parse(data) else data
   let macros = MacroHolder()
   macros.deserialize(parsed)
   {

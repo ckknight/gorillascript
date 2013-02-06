@@ -1,4 +1,5 @@
-let {inspect} = require 'util'
+require! util
+let inspect = util?.inspect
 
 module.exports := class Type
   def constructor()

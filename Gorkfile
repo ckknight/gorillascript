@@ -99,7 +99,53 @@ command "build:full", "Build GorillaScript twice and run tests", #(options, cb)
   delete options.file
   async! cb <- invoke \build
   async! cb <- invoke \build
+  async! cb <- invoke "build:browser"
   invoke \test, cb
+
+command "build:browser", "Merge GorillaScript for use in the browser", #(options, cb)
+  async! cb, filename-path <- fs.realpath __filename
+  let lib-path = path.join(path.dirname(filename-path), "lib")
+  let parts = []
+  asyncfor next, file in ["types", "ast", "parser", "translator", "gorilla", "browser"]
+    async! cb, text <- fs.read-file path.join(lib-path, file & ".js"), "utf8"
+    parts.push """
+      require['./$file'] = (function () {
+        var module = { exports: this };
+        var exports = this;
+        $(text.split("\n").join("\n  "))
+        return module.exports;
+      }.call({}));
+      """
+    next()
+  
+  async! cb, serialized-prelude <- gorilla.get-serialized-prelude()
+  let code = """
+    ;(function (root) {
+      var GorillaScript = (function () {
+        function require(path) {
+          return require[path];
+        }
+        $(parts.join("\n").split("\n").join("\n  "))
+        
+        return require["./gorilla"].withPrelude($serialized-prelude);
+      }());
+      
+      if (typeof define === "function" && define.amd) {
+        define(function () { return GorillaScript; });
+      } else {
+        root.GorillaScript = GorillaScript;
+      }
+    }(this));
+    """
+  if options.uglify
+    output "Built gorillascript.js, uglifying... "
+    let start-time = new Date().get-time()
+    code := require("uglify-js").minify(code, from-string: true).code
+    output "$(((new Date().get-time() - start-time) / 1000_ms).to-fixed 3) s\n"
+  else
+    output "Built gorillascript.js\n"
+  async! cb <- fs.write-file path.join(path.join(path.dirname(filename-path), "extras"), "gorillascript.js"), code, "utf8"
+  cb()
 
 command \test, "Run the GorillaScript test suite", #(options, cb)
   async! cb, filename-path <- fs.realpath __filename

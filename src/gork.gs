@@ -81,9 +81,10 @@ GLOBAL.exit := process.exit
 GLOBAL.output := cli.output
 
 exports.run := #(callback = fatal-error)
-  async! callback, path <- fs.realpath(".")
-  async! callback, filepath <- find-gorkfile path
+  async! callback, current-path <- fs.realpath(".")
+  async! callback, filepath <- find-gorkfile current-path
   async! callback, text <- fs.read-file filepath, "utf-8"
+  process.chdir path.dirname(filepath)
   async! callback <- gorilla.eval text, filename: "Gorkfile", include-globals: true
   cli.parse switches, command-to-description
   if process.argv.length <= 2
