@@ -26,13 +26,9 @@ cli.parse
 async filenames, options <- cli.main()
 
 let opts = {}
-let uglify = if options.uglify
+if options.uglify
   opts.undefined-name := \undefined
-  do
-    let UglifyJS = require("uglify-js")
-    #(code) -> UglifyJS.minify(code, from-string: true).code
-else
-  #(code) -> code
+  opts.uglify := true
 
 asyncif next, options["no-prelude"]
   opts.no-prelude := true
@@ -42,7 +38,7 @@ else
   throw? err
   next()
 
-if options.stdout and not options.uglify
+if options.stdout
   opts.writer := #(text) -> process.stdout.write text
 
 let handle-code(code, callback = #->)
@@ -54,7 +50,9 @@ let handle-code(code, callback = #->)
     next null, util.inspect nodes.result, false, null
   else if options.stdout
     async! next, result <- gorilla.compile code, opts
-    next null, uglify(result.code) or ""
+    if opts.uglify
+      process.stdout.write "\n"
+    next null, result.code
   else
     async! next, result <- gorilla.eval code, opts
     next null, util.inspect result
@@ -93,7 +91,7 @@ else if filenames.length
       async! next, compilation <- gorilla.compile code, opts
       let end-time = Date.now()
       process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
-      compiled[filename] := uglify(compilation.code)
+      compiled[filename] := compilation.code
       next()
     else if options.stdout
       handle-code code, next

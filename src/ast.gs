@@ -1615,11 +1615,20 @@ exports.Root := class Root
     if not options.indent
       options.indent := 0
     
-    let writer = if typeof options.writer == \function then options.writer
+    let UglifyJS = if options.uglify then require("uglify-js")
+    
+    let writer = if not UglifyJS and typeof options.writer == \function then options.writer
     let sb = if writer then StringWriter(writer) else StringBuilder()
     compile-func-body(options, sb, @declarations, @variables, @body)
     if not writer?
-      sb.to-string()
+      let mutable code = sb.to-string()
+      if UglifyJS
+        code := UglifyJS.minify(code, from-string: true).code
+      if typeof options.writer == \function
+        options.writer(code)
+        ""
+      else
+        code
   
   def to-string() -> @compile()
   
