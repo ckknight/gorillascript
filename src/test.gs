@@ -3,6 +3,14 @@ require! path
 require! assert
 require! './gorilla'
 
+let argv = process.argv[2 to -1]
+
+let options = {}
+if argv[0] == "--uglify"
+  options.uglify := true
+  options.undefined-name := \undefined
+  argv.shift()
+
 let write = #(text)
   process.stdout.write text
 
@@ -111,9 +119,9 @@ let tests-path = path.join(path.dirname(filename-path), "../tests")
 
 async err, files <- fs.readdir tests-path
 throw? err
-if process.argv.length > 2
+if argv.length
   files := for file in files
-    if file in process.argv[2 to -1]
+    if file in argv
       file
 
 files.sort()
@@ -154,7 +162,7 @@ asyncif next, not no-prelude
   next()
 
 write string-repeat(" ", longest-name-len)
-write "     parse     macro     reduce    translate compile   eval            total\n"
+write "     parse     macro     reduce    translate compile $(if options.uglify then '  uglify  ' else '')  eval            total\n"
 
 let totals = {}
 asyncfor err <- next, file in files
@@ -171,7 +179,7 @@ asyncfor err <- next, file in files
   let progress = #(name, time)
     totals[name] := (totals[name] or 0) + time
     write "  $(pad-left ((time / 1000_ms).to-fixed 3), 6, ' ') s"
-  async err, result <- gorilla.eval code.to-string(), { filename, include-globals: true, no-prelude, progress }
+  async err, result <- gorilla.eval code.to-string(), { extends options, filename, include-globals: true, no-prelude, progress }
   if err?
     write "\n"
     failure := true

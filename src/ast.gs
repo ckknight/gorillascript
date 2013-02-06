@@ -1615,22 +1615,29 @@ exports.Root := class Root
     if not options.indent
       options.indent := 0
     
-    let UglifyJS = if options.uglify then require("uglify-js")
-    
-    let writer = if not UglifyJS and typeof options.writer == \function then options.writer
+    let writer = if not options.uglify and typeof options.writer == \function then options.writer
     let sb = if writer then StringWriter(writer) else StringBuilder()
+    let start-time = new Date().get-time()
     compile-func-body(options, sb, @declarations, @variables, @body)
+    let end-compile-time = new Date().get-time()
+    options.progress?(\compile, end-compile-time - start-time)
+    let mutable end-uglify-time = 0
     if not writer?
       let mutable code = sb.to-string()
-      if UglifyJS
-        code := UglifyJS.minify(code, from-string: true).code
+      if options.uglify
+        code := require("uglify-js").minify(code, from-string: true).code
+        end-uglify-time := new Date().get-time()
+        options.progress?(\uglify, end-uglify-time - end-compile-time)
       if typeof options.writer == \function
         options.writer(code)
-        ""
-      else
-        code
+        code := ""
+    {
+      compile-time: end-compile-time - start-time
+      uglify-time: if options.uglify then end-uglify-time - end-compile-time
+      code: code or ""
+    }
   
-  def to-string() -> @compile()
+  def to-string() -> @compile().code
   
   def to-function = Node::to-function
   

@@ -6,8 +6,16 @@ require! './gorilla'
 async err, files <- fs.readdir './src'
 throw? err
 
+let argv = process.argv[2 to -1]
+
+let options = {}
+if argv[0] == "--uglify"
+  options.uglify := true
+  options.undefined-name := \undefined
+  argv.shift()
+
 files := for file in files.sort()
-  if (process.argv.length < 3 or file in process.argv[2 to -1]) and file.match(r"\.gs\$"i) and file != "prelude.gs"
+  if (argv.length == 0 or file in argv) and file.match(r"\.gs\$"i) and file != "prelude.gs"
     file
 
 let write(text)
@@ -49,7 +57,7 @@ let pad-right(mutable text, len, padding)
   text & string-repeat(padding, len - text.length)
 
 write string-repeat(" ", longest-name-len)
-write "     parse     macro     reduce    translate compile    total\n"
+write "     parse     macro     reduce    translate compile $(if options.uglify then '  uglify  ' else '')|  total\n"
 let totals = {}
 let mutable total-time = 0
 let results = {}
@@ -60,7 +68,7 @@ asyncfor err <- next, file in files
   let progress = #(name, time)!
     totals[name] := (totals[name] or 0) + time
     write "  $(pad-left ((time / 1000_ms).to-fixed 3), 6, ' ') s"
-  async err, compiled <- gorilla.compile code, filename: filename, progress: progress
+  async err, compiled <- gorilla.compile code, { extends options, filename: filename, progress: progress }
   if err?
     write "\n"
     return next(err)
@@ -75,11 +83,13 @@ if err?
   return done(err)
 if files.length > 1
   write string-repeat "-", longest-name-len + 53
+  if options.uglify
+    write string-repeat "-", 10
   write "+"
   write string-repeat "-", 9
   write "\n"
   write pad-right "total: ", longest-name-len + 2, ' '
-  for part in [\parse, \macro-expand, \reduce, \translate, \compile]
+  for part in [\parse, \macro-expand, \reduce, \translate, \compile, ...if options.uglify then [\uglify] else []]
     write "  $(pad-left ((totals[part] / 1000_ms).to-fixed 3), 6, ' ') s"
   write " | $(pad-left ((total-time / 1000_ms).to-fixed 3), 6, ' ') s\n"
 

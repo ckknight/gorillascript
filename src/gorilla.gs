@@ -129,18 +129,16 @@ let compile = exports.compile := #(source, options = {}, callback)
     next translated
   else
     next translate source, options
-  let start-compile-time = new Date().get-time()
-  let code = translated.node.compile options
-  let end-time = new Date().get-time()
-  options.progress?(\compile, end-time - start-compile-time)
+  let compiled = translated.node.compile options
   let result = {
     translated.parse-time
     translated.macro-expand-time
     translated.reduce-time
     translated.translate-time
-    compile-time: end-time - start-compile-time
-    time: end-time - start-time
-    code
+    compiled.compile-time
+    compiled.uglify-time
+    time: new Date().get-time() - start-time
+    compiled.code
   }
   if callback?
     callback null, result

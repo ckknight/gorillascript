@@ -2437,7 +2437,7 @@ macro class
     let change-defs(node)@ -> @walk node, #(node)@
       if @is-def(node)
         let key = @left(node)
-        let value = @right(node) ? ASTE #-> throw Error "Not implemented: $(@constructor.name).$($key)()"
+        let value = @right(node) ? ASTE #-> throw Error "Not implemented: $(@constructor.display-name or @constructor.name).$($key)()"
         change-defs ASTE $prototype[$key] := $value
     body := change-defs body
     
