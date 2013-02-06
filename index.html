@@ -3,9 +3,17 @@
 <head>
   <meta http-equiv="content-type" content="text/html;charset=UTF-8" />
   <title>GorillaScript</title>
+  <link rel="stylesheet" href="extras/style.css" />
 </head>
 <body>
-  <nav>
+  <nav id="top-nav">
+    <ul>
+      <li><a href="#try" id="try-link">Try it out</a>
+      <li><a href="#toc">Table of contents</a>
+      <li class="right"><a href="http://github.com/ckknight/gorillascript">Fork on Github</a>
+    </ul>
+  </nav>
+  <nav id="toc">
     <ul>
       <li><a href="#why-not-js">Why not use JavaScript?</a>
       <li><a href="#strict-equality">Strict vs unstrict equality</a>
@@ -38,7 +46,7 @@
       <li><a href="#classes">Classes</a>
       <li><a href="#destructuring">Destructuring</a>
       <li><a href="#switch">Switch</a>
-      <li><a href="#try">Try</a>
+      <li><a href="#try-catch">Try-catch-else-finally</a>
       <li><a href="#regexes">Regular Expressions</a>
       <li><a href="#custom-interpolation">Custom interpolation strings</a>
       <li><a href="#iterators">Iterators</a>
@@ -50,6 +58,11 @@
       <li><a href="#global">The <code>GLOBAL</code> identifier</a>
     </ul>
   </nav>
+  <div id="try">
+    <textarea id="try-input">alert "Hello, GorillaScript!"</textarea>
+    <textarea id="try-output" readonly></textarea>
+  </div>
+  <div id="container">
   <h1>GorillaScript</h1>
   <p>GorillaScript is a compile-to-JavaScript language designed to empower the user while attempting to prevent some common errors.</p>
   
@@ -62,7 +75,7 @@
     <h2>Strict vs unstrict equality</h2>
     <p><code>==</code> and <code>!=</code> perform type coercion behind the scenes and can be the cause of some subtle bugs.</p>
     
-    <pre><code>// JavaScript, all the following are true
+    <pre class="js-code"><code>// JavaScript, all the following are true
 1 == "1"
 0 != ""
 3 == "03"
@@ -82,12 +95,12 @@ null == undefined
 
     <p><code>+</code> can mean one of two things in JavaScript, addition or string concatenation. There is no way to know at compile-time what the consequences of using <code>+</code> is unless one is 100% certain what each type is.</p>
 
-    <pre><code>x + y
+    <pre class="js-code"><code>x + y
 </code></pre>
 
     <p>Is addition unless both <code>x</code> and <code>y</code> are numbers, booleans, undefined, or null, with any mixed variation. If either is not one of those, at which point it performs string concatenation.</p>
 
-    <pre><code>// JavaScript
+    <pre class="js-code"><code>// JavaScript
 1 + 2 === 3 // as expected
 "hello, " + "world" === "hello, world" // as expected
 "hello, " + 123 === "hello, 123" // sure, I can accept this
@@ -115,7 +128,7 @@ foo + 1 === "foo1"
 
     <p>GorillaScript solves this by splitting the operator into two: <code>+</code> for addition and <code>&amp;</code> for string concatenation.</p>
 
-    <pre><code>// GorillaScript
+    <pre class="gs-code no-convert"><code>// GorillaScript
 1 + 2 == 3
 "hello, " &amp; "world" == "hello, world"
 "hello, " &amp; 123 == "hello, 123" // concatenation with numbers still works perfectly fine
@@ -171,7 +184,7 @@ new Date().getTime() + 1 == 1359519958072 // or some other number
 
     <p>Also, no undeclared variables can be altered, preventing unexpected global pollution (and typos).</p>
 
-    <pre><code>let x = 5
+    <pre class="gs-code no-convert"><code>let x = 5
 x := 6 // Error
 let mutable y = 5
 y := 6 // perfectly fine
@@ -900,7 +913,7 @@ default
 </code></pre>
   </section>
 
-  <section id="try">
+  <section id="try-catch">
     <h2>Try-catch-else-finally</h2>
 
     <p>Try-catch also works similarly to JavaScript, except that catches can have type-checks and the notable exception of the <code>else</code> statement, for when no error was caught, but occurs before the <code>finally</code> statement.</p>
@@ -1289,7 +1302,7 @@ label! outer for i in 0 to 10
     <pre class="gs-code"><code>assert Math == GLOBAL.Math
 </code></pre>
   </section>
-  
+  </div>
   
   <script src="extras/gorillascript.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
