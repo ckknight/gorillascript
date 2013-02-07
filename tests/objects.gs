@@ -828,3 +828,10 @@ test "Multiple sets of the same key", #
     set alpha: 'delta'
   }
   """), #(e) -> e.line == 5
+
+test "Method declaration in object", #
+  let x = {
+    f() -> "g"
+  }
+  
+  eq "g", x.f()

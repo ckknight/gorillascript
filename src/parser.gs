@@ -2752,16 +2752,24 @@ define ObjectKeyColon = with-message! 'key ":"', sequential! [
   except! character! "="
 ]
 
+define ObjectKeyNotColon = sequential! [
+  [\this, ObjectKey]
+  NotColon
+]
+
 namedlet DualObjectKey = short-circuit! ObjectKeyColon, sequential! [
   [\key, ObjectKeyColon]
   [\value, Expression]
 ]
 
+define GetSetToken = one-of! [
+  word \get
+  word \set
+]
 define PropertyObjectKeyColon = sequential! [
   [\property, one-of! [
     word \property
-    word \get
-    word \set
+    GetSetToken
   ]]
   Space
   [\key, ObjectKeyColon]
@@ -2771,9 +2779,23 @@ namedlet PropertyDualObjectKey = short-circuit! PropertyObjectKeyColon, sequenti
   [\value, Expression]
 ], #(x) -> { x.property-key.key, x.value, property: x.property-key.property }
 
+namedlet MethodDeclaration = sequential! [
+  [\property, maybe! (sequential! [
+    [\this, GetSetToken]
+    Space
+  ]), NOTHING]
+  [\key, ObjectKeyNotColon]
+  [\value, FunctionDeclaration]
+], #(x) -> { x.key, x.value, property: if x.property != NOTHING then x.property }
+
 namedlet PropertyOrDualObjectKey = one-of! [
   PropertyDualObjectKey
   DualObjectKey
+]
+
+namedlet PropertyOrDualObjectKeyOrMethodDeclaration = one-of! [
+  PropertyOrDualObjectKey
+  MethodDeclaration
 ]
 
 namedlet IdentifierOrSimpleAccessStart = one-of! [
@@ -2871,7 +2893,7 @@ namedlet SingularObjectKey = one-of! [
 ]
 
 define KeyValuePair = one-of! [
-  PropertyOrDualObjectKey
+  PropertyOrDualObjectKeyOrMethodDeclaration
   sequential! [
     Space
     [\bool, maybe! PlusOrMinus, NOTHING]
@@ -3397,7 +3419,7 @@ namedlet MacroSyntaxChoiceParameters = sequential! [
 namedlet MacroOptions = maybe! (sequential! [
   word \with
   [\this, UnclosedObjectLiteral]
-], #(x)
+], #(x, o)
   let options = {}
   for {key, value} in x.pairs
     unless key.is-const()
