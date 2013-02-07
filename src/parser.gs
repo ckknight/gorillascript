@@ -4587,7 +4587,7 @@ class MacroHelper
     if @is-ident node
       node.name
   def ident(name as String)
-    if require('./ast').is-acceptable-ident(name)
+    if require('./ast').is-acceptable-ident(name, true)
       @state.ident @index, name
   
   def is-call(node) -> @macro-expand-1(node) instanceof CallNode

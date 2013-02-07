@@ -62,6 +62,15 @@ let StringBuilder()
 
 let is-negative(value) -> value < 0 or 1 / value < 0
 
+let unicode-replacer(m)
+  let num = m.char-code-at(0).to-string(16)
+  return switch num.length
+  case 1; "\\u000$num"
+  case 2; "\\u00$num"
+  case 3; "\\u0$num"
+  case 4; "\\u$num"
+  default; throw Error()
+
 let to-JS-source = do
   let to-JS-source-types =
     undefined: #-> "void 0"
@@ -91,14 +100,7 @@ let to-JS-source = do
         case '"'; '\\"'
         case "'"; "\\'"
         case "\\"; "\\\\"
-        default
-          let num = m.char-code-at(0).to-string(16)
-          return switch num.length
-          case 1; "\\u000$num"
-          case 2; "\\u00$num"
-          case 3; "\\u0$num"
-          case 4; "\\u$num"
-          default; throw Error()
+        default; unicode-replacer(m)
       let DOUBLE_QUOTE_REGEX = r'[\u0000-\u001f"\\\u0080-\uffff]'g
       let SINGLE_QUOTE_REGEX = r"[\u0000-\u001f'\\\u0080-\uffff]"g
       #(value)
@@ -120,6 +122,7 @@ let to-JS-source = do
 
 let is-acceptable-ident = exports.is-acceptable-ident := do
   let IDENTIFIER_REGEX = r'^[a-zA-Z_\$][a-zA-Z_\$0-9]*$'
+  let IDENTIFIER_UNICODE_REGEX = r'^[a-zA-Z_\$\u00a0-\uffff][a-zA-Z_\$0-9\u00a0-\uffff]*$'
   let RESERVED = [
     "arguments"
     "break"
@@ -172,8 +175,9 @@ let is-acceptable-ident = exports.is-acceptable-ident := do
     "with"
     "yield"
   ]
-  #(name as String)
-    IDENTIFIER_REGEX.test(name) and name not in RESERVED
+  #(name as String, allow-unicode as Boolean)
+    let regex = if allow-unicode then IDENTIFIER_UNICODE_REGEX else IDENTIFIER_REGEX
+    regex.test(name) and name not in RESERVED
 
 exports.Node := class Node
   def constructor()
@@ -1138,7 +1142,7 @@ let compile-func-body(options, sb, declarations, variables, body)!
     for variable, i in variables
       if i > 0
         sb ", "
-      sb variables[i]
+      Ident(variables[i], true).compile options, Level.inside-parentheses, false, sb
     sb ";\n"
   
   if not body.is-noop()
@@ -1149,7 +1153,7 @@ let compile-func-body(options, sb, declarations, variables, body)!
 let compile-func(options, sb, name, params, declarations, variables, body)
   sb "function "
   if name?
-    name.compile sb, Level.inside-parentheses, false, sb
+    name.compile options, Level.inside-parentheses, false, sb
   sb "("
   for param, i in params
     if i > 0
@@ -1199,11 +1203,11 @@ exports.Func := class Func extends Expression
 
 exports.Ident := class Ident extends Expression
   def constructor(@name as String, allow-unacceptable as Boolean)
-    unless allow-unacceptable or is-acceptable-ident name
+    unless allow-unacceptable or is-acceptable-ident name, true
       throw Error "Not an acceptable identifier name: $name"
-  
+    
   def compile(options, level, line-start, sb)!
-    sb @name
+    sb @name.replace r"[\u0000-\u001f\u0080-\uffff]"g, unicode-replacer
   
   def compile-as-block(options, level, line-start, sb)!
     Noop().compile-as-block(options, level, line-start, sb)
