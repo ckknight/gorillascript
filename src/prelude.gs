@@ -2347,6 +2347,9 @@ macro class
     if display-name?
       init.push ASTE $name.display-name := $display-name
     
+    if superclass
+      init.push AST $sup.extended?($name)
+    
     let fix-supers(node)@ -> @walk node, #(node)@
       if @is-super(node)
         let mutable child = @super-child(node)
