@@ -40,7 +40,9 @@ let unique(array)
 
 let get-all-property-names(obj)
   let result = []
-  let mutable current = obj
+  if not obj?
+    return result
+  let mutable current = Object(obj)
   while current?
     result.push ...Object.get-own-property-names(current)
     current := Object.get-prototype-of(current)
