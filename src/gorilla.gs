@@ -107,16 +107,42 @@ exports.get-reserved-words := #(options = {})
   else
     parser.get-reserved-words(fetch-and-parse-prelude.sync().macros)
 
+let join-parsed-results(results)
+  let joined-parsed = {
+    parse-time: 0
+    macro-expand-time: 0
+    reduce-time: 0
+    result: []
+  }
+  for parsed in results
+    joined-parsed.parse-time += parsed.parse-time
+    joined-parsed.macro-expand-time += parsed.macro-expand-time
+    joined-parsed.reduce-time += parsed.reduce-time
+    joined-parsed.result.push parsed.result
+  joined-parsed
+
 let translate = exports.ast := #(source, options = {}, callback)
   if typeof options == \function
     return translate source, null, options
   let start-time = new Date().get-time()
   asyncif parsed, translated <- next, callback?
-    async! callback, parsed <- parse source, options
+    asyncif parsed <- next2, is-array! source
+      asyncfor err, results <- next3, item in source
+        parse item, options, next3
+      if err?
+        return callback(err)
+      next2 join-parsed-results(results)
+    else
+      async! callback, parsed <- parse source, options
+      next2 parsed
     async! callback, translated <- translator parsed.result, options
     next parsed, translated
   else
-    let parsed = parse source, options
+    let parsed = if is-array! source
+      join-parsed-results for item in source
+        parse item, options
+    else
+      parse source, options
     next parsed, translator(parsed.result, options)
   
   let result = {

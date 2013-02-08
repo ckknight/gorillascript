@@ -1359,139 +1359,6 @@ let translators =
       throw Error "Expected Return in statement position"
     let t-value = translate node.node, scope, \expression, null, unassigned
     #-> ast.Return node.line, node.column, t-value()
-
-  Root: #(node, scope, location, auto-return, unassigned)
-    let t-body = translate node.body, scope, \top-statement, scope.options.return or scope.options.eval, unassigned
-
-    #
-      let mutable body = t-body()
-      
-      let comments = []
-      while true
-        if body instanceof ast.Comment
-          comments.push body
-          body := ast.Noop node.line, node.column
-        else if body instanceof ast.Block and body.body[0] instanceof ast.Comment
-          comments.push body.body[0]
-          body := ast.Block node.line, node.column, body.body[1 to -1]
-        else
-          break
-      
-      let init = []
-      if scope.has-bound and scope.used-this
-        let fake-this = ast.Ident node.line, node.column, \_this
-        scope.add-variable fake-this // TODO: type for this?
-        init.push ast.Assign node.line, node.column, fake-this, ast.This(node.line, node.column)
-      scope.fill-helper-dependencies()
-      for helper in scope.get-helpers()
-        if HELPERS.has(helper)
-          let ident = ast.Ident node.line, node.column, helper
-          scope.add-variable ident // TODO: type?
-          init.push ast.Assign node.line, node.column, ident, HELPERS.get(helper)
-
-      let bare-init = []
-      if scope.has-stop-iteration
-        // This probably needs to be redone to check StopIteration on the global object (whichever that is), so that cross-file generators work properly.
-        bare-init.push ast.If node.line, node.column,
-          ast.Binary node.line, node.column,
-            ast.Unary node.line, node.column, \typeof, ast.Ident node.line, node.column, \StopIteration
-            "==="
-            \undefined
-          ast.Assign node.line, node.column,
-            ast.Ident node.line, node.column, \StopIteration
-            ast.If node.line, node.column,
-              ast.Binary node.line, node.column,
-                ast.Unary node.line, node.column, \typeof, ast.Access node.line, node.column,
-                  ast.Ident node.line, node.column, \Object
-                  \freeze
-                "==="
-                \function
-              ast.Call node.line, node.column,
-                ast.Access node.line, node.column,
-                  ast.Ident node.line, node.column, \Object
-                  \freeze
-                [ast.Obj node.line, node.column]
-              ast.Obj node.line, node.column
-      
-      let global-node = ast.If node.line, node.column,
-        ast.Binary node.line, node.column,
-          ast.Unary node.line, node.column, \typeof, ast.Ident node.line, node.column, \window
-          "!=="
-          \undefined
-        ast.Ident node.line, node.column, \window
-        ast.If node.line, node.column,
-          ast.Binary node.line, node.column,
-            ast.Unary node.line, node.column, \typeof, ast.Ident node.line, node.column, \global
-            "!=="
-            \undefined
-          ast.Ident node.line, node.column, \global
-          ast.This node.line, node.column
-      
-      if scope.options.bare
-        if scope.has-global
-          scope.add-variable ast.Ident node.line, node.column, \GLOBAL
-          bare-init.unshift ast.Assign node.line, node.column,
-            ast.Ident node.line, node.column, \GLOBAL
-            global-node
-        if scope.options.undefined-name?
-          scope.add-variable scope.options.undefined-name
-        ast.Root node.line, node.column,
-          ast.Block node.line, node.column, [...comments, ...bare-init, ...init, body]
-          scope.get-variables()
-          ["use strict"]
-      else
-        if scope.options.eval
-          scope.has-global := true
-          let walker = #(node)
-            if node instanceof ast.Func
-              if node.name?
-                ast.Block node.line, node.column,
-                  * node
-                  * ast.Assign node.line, node.column,
-                      ast.Access node.line, node.column,
-                        ast.Ident node.line, node.column, \GLOBAL
-                        node.name.name
-                      node.name
-              else
-                node
-            else if node instanceof ast.Binary and node.op == "=" and node.left instanceof ast.Ident
-              ast.Assign node.line, node.column,
-                ast.Access node.line, node.column,
-                  ast.Ident node.line, node.column, \GLOBAL
-                  node.left.name
-                node.walk walker
-          body := body.walk walker
-        let mutable call-func = ast.Call node.line, node.column,
-          ast.Access node.line, node.column,
-            ast.Func node.line, node.column,
-              null
-              [
-                ...if scope.has-global
-                  [ast.Ident node.line, node.column, \GLOBAL]
-                else
-                  []
-                ...if scope.options.undefined-name?
-                  [ast.Ident node.line, node.column, scope.options.undefined-name, true]
-                else
-                  []
-              ]
-              scope.get-variables()
-              ast.Block node.line, node.column, [...init, body]
-              ["use strict"]
-            \call
-          [
-            ast.This(node.line, node.column)
-            ...if scope.has-global
-              [global-node]
-            else
-              []
-          ]
-        if scope.options.return
-          call-func := ast.Return(node.line, node.column, call-func)
-        ast.Root node.line, node.column,
-          ast.Block node.line, node.column, [...comments, ...bare-init, call-func]
-          []
-          []
   
   Switch: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
@@ -1593,6 +1460,171 @@ let translate-array(nodes as [], scope as Scope, location as String, auto-return
   return for node, i, len in nodes
     translate nodes[i], scope, location, i == len - 1 and auto-return, unassigned
 
+
+let translate-root(mutable roots as Object, scope as Scope)
+  if not is-array! roots
+    roots := [roots]
+  if roots.length == 0
+    roots.push { type: "Root", line: 0, column: 0, body: { type: "Nothing", line: 0, column: 0 } }
+
+  let mutable bodies = for root, i, len in roots
+    
+    let inner-scope = if len > 1
+      scope.clone(true)
+    else
+      scope
+    translate(root.body, inner-scope, \top-statement, scope.options.return or scope.options.eval, [])()
+  let body = if roots.length == 1
+    if roots[0] not instanceof ParserNode.Root
+      throw Error "Cannot translate non-Root object"
+    translate(roots[0].body, scope, \top-statement, scope.options.return or scope.options.eval, [])()
+  else
+    ast.Block 0, 0,
+      for root in roots
+        if root not instanceof ParserNode.Root
+          throw Error "Cannot translate non-Root object"
+        let inner-scope = scope.clone(true)
+        let {comments, body: root-body} = split-comments translate(root.body, inner-scope, \top-statement, scope.options.return or scope.options.eval, [])()
+        ast.Block root.line, root.column, [
+          ...comments
+          ast.Call root.line, root.column,
+            ast.Func root.line, root.column, null, [], inner-scope.get-variables(), root-body
+        ]
+  
+  let global-node = ast.If body.line, body.column,
+    ast.Binary body.line, body.column,
+      ast.Unary body.line, body.column, \typeof, ast.Ident body.line, body.column, \window
+      "!=="
+      \undefined
+    ast.Ident body.line, body.column, \window
+    ast.If body.line, body.column,
+      ast.Binary body.line, body.column,
+        ast.Unary body.line, body.column, \typeof, ast.Ident body.line, body.column, \global
+        "!=="
+        \undefined
+      ast.Ident body.line, body.column, \global
+      ast.This body.line, body.column
+  
+  let init = []
+  if scope.has-bound and scope.used-this
+    let fake-this = ast.Ident body.line, body.column, \_this
+    scope.add-variable fake-this // TODO: type for this?
+    init.push ast.Assign body.line, body.column, fake-this, ast.This(body.line, body.column)
+  
+  scope.fill-helper-dependencies()
+  for helper in scope.get-helpers()
+    if HELPERS.has(helper)
+      let ident = ast.Ident body.line, body.column, helper
+      scope.add-variable ident // TODO: type?
+      init.push ast.Assign body.line, body.column, ident, HELPERS.get(helper)
+  
+  let bare-init = []
+  if scope.has-stop-iteration
+    // This probably needs to be redone to check StopIteration on the global object (whichever that is), so that cross-file generators work properly.
+    bare-init.push ast.If body.line, body.column,
+      ast.Binary body.line, body.column,
+        ast.Unary body.line, body.column, \typeof, ast.Ident body.line, body.column, \StopIteration
+        "==="
+        \undefined
+      ast.Assign body.line, body.column,
+        ast.Ident body.line, body.column, \StopIteration
+        ast.If body.line, body.column,
+          ast.Binary body.line, body.column,
+            ast.Unary body.line, body.column, \typeof, ast.Access body.line, body.column,
+              ast.Ident body.line, body.column, \Object
+              \freeze
+            "==="
+            \function
+          ast.Call body.line, body.column,
+            ast.Access body.line, body.column,
+              ast.Ident body.line, body.column, \Object
+              \freeze
+            [ast.Obj body.line, body.column]
+          ast.Obj body.line, body.column
+  
+  let split-comments(mutable body)
+    let comments = []
+    while true
+      if body instanceof ast.Comment
+        comments.push body
+        body := ast.Noop body.line, body.column
+      else if body instanceof ast.Block and body.body[0] instanceof ast.Comment
+        comments.push body.body[0]
+        body := ast.Block body.line, body.column, body.body[1 to -1]
+      else
+        break
+    { comments, body }
+  
+  if scope.options.eval
+    scope.has-global := true
+    let walker = #(node)
+      if node instanceof ast.Func
+        if node.name?
+          ast.Block node.line, node.column,
+            * node
+            * ast.Assign node.line, node.column,
+                ast.Access node.line, node.column,
+                  ast.Ident node.line, node.column, \GLOBAL
+                  node.name.name
+                node.name
+        else
+          node
+      else if node instanceof ast.Binary and node.op == "=" and node.left instanceof ast.Ident
+        ast.Assign node.line, node.column,
+          ast.Access node.line, node.column,
+            ast.Ident node.line, node.column, \GLOBAL
+            node.left.name
+          node.walk walker
+    body := body.walk walker
+  
+  if scope.options.bare
+    if scope.has-global
+      scope.add-variable ast.Ident body.line, body.column, \GLOBAL
+      bare-init.unshift ast.Assign body.line, body.column,
+        ast.Ident body.line, body.column, \GLOBAL
+        global-node
+    if scope.options.undefined-name?
+      scope.add-variable scope.options.undefined-name
+    
+    let {comments, body: uncommented-body} = split-comments bodies[0]
+    ast.Root body.line, body.column,
+      ast.Block body.line, body.column, [...comments, ...bare-init, ...init, uncommented-body]
+      scope.get-variables()
+      ["use strict"]
+  else
+    let {comments, body: uncommented-body} = split-comments body
+    let mutable call-func = ast.Call body.line, body.column,
+      ast.Access body.line, body.column,
+        ast.Func body.line, body.column,
+          null
+          [
+            ...if scope.has-global
+              [ast.Ident body.line, body.column, \GLOBAL]
+            else
+              []
+            ...if scope.options.undefined-name?
+              [ast.Ident body.line, body.column, scope.options.undefined-name, true]
+            else
+              []
+          ]
+          scope.get-variables()
+          ast.Block body.line, body.column, [...init, uncommented-body]
+          ["use strict"]
+        \call
+      [
+        ast.This(body.line, body.column)
+        ...if scope.has-global
+          [global-node]
+        else
+          []
+      ]
+    if scope.options.return
+      call-func := ast.Return(body.line, body.column, call-func)
+    ast.Root body.line, body.column,
+      ast.Block body.line, body.column, [...comments, ...bare-init, call-func]
+      []
+      []
+
 module.exports := #(node, options = {}, callback)
   if typeof options == \function
     return module.exports(node, null, options)
@@ -1600,7 +1632,7 @@ module.exports := #(node, options = {}, callback)
   let start-time = new Date().get-time()
   try
     let scope = Scope(options, false)
-    result := translate(node, scope, \statement, false, {})()
+    result := translate-root(node, scope)
     scope.release-tmps()
   catch e
     if callback?

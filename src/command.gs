@@ -94,48 +94,65 @@ else if filenames.length
   let sourcemap = if options.sourcemap then require("./sourcemap")(options.output, ".")
   
   let compiled = {}
-  asyncfor err <- next, filename in filenames
-    let code = input[filename]
-    if options.compile
-      process.stdout.write "Compiling $(path.basename filename) ... "
-      if options.sourcemap
-        sourcemap.set-source path.basename(filename)
-        opts.sourcemap := sourcemap
-      let start-time = Date.now()
-      async! next, compilation <- gorilla.compile code, opts
-      let end-time = Date.now()
-      process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
-      compiled[filename] := compilation.code
-      next()
-    else if options.stdout
-      handle-code code, next
-    else
-      gorilla.run code, { extends opts, filename }, next
-  throw? err
+  asyncif next, not options.join
+    asyncfor err <- done, filename in filenames
+      let code = input[filename]
+      if options.compile
+        process.stdout.write "Compiling $(path.basename filename) ... "
+        if options.sourcemap
+          sourcemap.set-source path.basename(filename)
+          opts.sourcemap := sourcemap
+        let start-time = Date.now()
+        async! done, compilation <- gorilla.compile code, opts
+        let end-time = Date.now()
+        process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
+        compiled[filename] := compilation.code
+        done()
+      else if options.stdout
+        handle-code code, done
+      else
+        gorilla.run code, { extends opts, filename }, done
+    throw? err
+    next()
+  else
+    async err, compilation <- gorilla.compile (for filename in filenames; input[filename]), opts
+    throw? err
+    compiled["join"] := compilation.code
+    next()
   
   if options.compile
-    asyncfor(0) next, filename in filenames
-      let js-filename = path.basename(filename, path.extname(filename)) & ".js"
-      let source-dir = path.dirname filename
-      let base-dir = source-dir
-      asyncif js-path <- done, options.output and filenames.length == 1
-        done options.output
-      else
-        let dir = if options.output
-          path.join options.output, base-dir
+    if not options.join
+      asyncfor(0) next, filename in filenames
+        let js-filename = path.basename(filename, path.extname(filename)) & ".js"
+        let source-dir = path.dirname filename
+        let base-dir = source-dir
+        let js-path = if options.output and filenames.length == 1
+          options.output
         else
-          source-dir
-        done path.join dir, js-filename
-      let js-dir = path.dirname(js-path)
-      async exists <- fs.exists js-dir
-      asyncif done, not exists
-        async <- child_process.exec "mkdir -p $js-dir"
-        done()
-      let js-code = compiled[filename]
-      async err <- fs.write-file js-path, js-code, "utf8"
+          let dir = if options.output
+            path.join options.output, base-dir
+          else
+            source-dir
+          path.join dir, js-filename
+        let js-dir = path.dirname(js-path)
+        async exists <- fs.exists js-dir
+        asyncif done, not exists
+          async <- child_process.exec "mkdir -p $js-dir"
+          done()
+        let js-code = compiled[filename]
+        async err <- fs.write-file js-path, js-code, "utf8"
+        if err
+          cli.error err.to-string()
+        next()
+    else
+      let js-path = if options.output
+        options.output
+      else
+        path.join(path.dirname(filenames[0]), "out.js")
+      
+      async err <- fs.write-file js-path, compiled.join, "utf8"
       if err
         cli.error err.to-string()
-      next()
   
   if sourcemap?
     async err <- fs.write-file options.sourcemap, sourcemap.to-string(), "utf8"
