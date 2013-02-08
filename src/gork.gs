@@ -93,12 +93,15 @@ exports.run := #(callback = fatal-error)
   cli.main #(args, opts)
     let commands = [@command, ...args]
     for command in commands
-      if command-to-action not ownskey command
+      if command and command-to-action not ownskey command
         fatal-error "Unknown command: $command"
     options := opts
     
     asyncfor err <- next, command in commands
-      invoke command, next
+      if command
+        invoke command, next
+      else
+        next()
     callback(err)
 
 let string-repeat(text, count)
