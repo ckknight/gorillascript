@@ -2120,23 +2120,23 @@ macro asyncfor
     else
       let first = @tmp \first, true, \boolean
       let value = @tmp \value, true
+      let arr = @tmp \arr, true
       AST
         $init
         let $first = true
-        let $next = do
-          let $result = []
-          #($err, $value)@
-            if $err?
-              return $done($err)
-            if $first
-              $first := false
-            else
-              $step
-              if arguments.length ~> 1
-                $result.push $value
-            unless $test
-              return $done(null, $result)
-            $body
+        let $arr = []
+        let $next($err, $value)@
+          if $err?
+            return $done($err)
+          if $first
+            $first := false
+          else
+            $step
+            if arguments.length ~> 1
+              $arr.push $value
+          unless $test
+            return $done(null, $arr)
+          $body
         let $done($err, $result)@
           $rest
         $next()
