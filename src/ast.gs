@@ -39,17 +39,30 @@ let get-indent = do
         cache.push result
     cache[indent]
 
-let StringWriter(callback)
-  let sw = #(item)! -> callback item
-  sw.indent := #(count)!
+let wrap-string-handler(callback)
+  let cb = #(item)!
+    let s = String(item)
+    let parts = s.split(r"(?:\r\n?|[\n\u2028\u2029])"g)
+    if parts.length == 1
+      cb.column += parts[0].length
+    else
+      let len = parts.length
+      cb.line += len - 1
+      cb.column := parts[len - 1].length + 1
+    callback s
+  cb.line := 1
+  cb.column := 1
+  cb.indent := #(count)!
     callback get-indent(count)
-  sw
+    cb.column += count
+  cb
+
+let StringWriter(callback)
+  let sb = wrap-string-handler callback
 
 let StringBuilder()
   let data = []
-  let sb = #(item)! -> data.push item
-  sb.indent := #(count)!
-    data.push get-indent(count)
+  let sb = wrap-string-handler #(item)! -> data.push item
   sb.to-string := #
     switch data.length
     case 0; ""
@@ -242,7 +255,9 @@ exports.Access := #(line as Number, column as Number, parent, ...children)
 exports.Arguments := class Arguments extends Expression
   def constructor(@line as Number, @column as Number) ->
   
-  def compile(options, level, line-start, sb)! -> sb "arguments"
+  def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    sb "arguments"
   def compile-as-block(options, level, line-start, sb)! -> Noop(@line, @column).compile-as-block(options, level, line-start, sb)
   def walk() -> this
   def is-noop() -> true
@@ -320,6 +335,7 @@ exports.Arr := class Arr extends Expression
           sb ", "
         item.compile options, Level.sequence, false, sb
   def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     sb "["
     let f = if @should-compile-large() then compile-large else compile-small
     f(@elements, options, level, line-start, sb)
@@ -450,6 +466,7 @@ exports.Binary := class Binary extends Expression
       sb ")"
   
   def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     let f = if @op == "." then compile-access else compile-other
     f(@op, @left, @right, options, level, line-start, sb)
   
@@ -582,6 +599,7 @@ exports.BlockStatement := class BlockStatement extends Statement
       if not node.is-noop()
         node
     
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     let child-options = if @label? then inc-indent(options) else options
     
     if @label?
@@ -654,6 +672,7 @@ exports.BlockExpression := class BlockExpression extends Expression
         if not node.is-noop() or i == len - 1
           node
       
+      options.sourcemap?.add(sb.line, sb.column, @line, @column)
       let wrap = level > Level.inside-parentheses and nodes.length > 1
       if wrap
         sb "("
@@ -672,6 +691,7 @@ exports.BlockExpression := class BlockExpression extends Expression
         if not node.is-noop()
           node
       
+      options.sourcemap?.add(sb.line, sb.column, @line, @column)
       let wrap = level > Level.inside-parentheses and nodes.length > 1
       if wrap
         sb "("
@@ -711,6 +731,7 @@ exports.Break := class Break extends Statement
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     sb "break"
     if @label?
       sb " "
@@ -758,6 +779,7 @@ exports.Call := class Call extends Expression
       arg.compile options, Level.sequence, false, sb
     sb ")"
   def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     let wrap = level > Level.call-or-access or (not @is-new and (@func instanceof Func or (@func instanceof Binary and @func.op == "." and @func.left instanceof Func)))
     if wrap
       sb "("
@@ -843,6 +865,7 @@ exports.Const := class Const extends Expression
   def constructor(@line as Number, @column as Number, @value as void|null|Boolean|Number|String) ->
   
   def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     let value = @value
     if value == void and options.undefined-name?
       sb options.undefined-name
@@ -891,6 +914,7 @@ exports.Continue := class Continue extends Statement
   def compile(options, level, line-start, sb)
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     sb "continue"
     if @label?
       sb " "
@@ -921,6 +945,7 @@ exports.Debugger := class Debugger extends Statement
   def compile(options, level, line-start, sb)
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     sb "debugger;"
   
   def walk() -> this
@@ -942,6 +967,7 @@ exports.DoWhile := class DoWhile extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -979,7 +1005,8 @@ exports.Eval := class Eval extends Expression
       code := to-const line, column, code
     @code := code
   
-  def compile(options, level, line-start, sb)!
+  def compile(options, level, line-start, sb)!  
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     if @code instanceof Const
       sb String(@code.value)
     else
@@ -1017,6 +1044,7 @@ exports.For := class For extends Statement
     else
       @test
     
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1077,6 +1105,7 @@ exports.ForIn := class ForIn extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1170,6 +1199,7 @@ exports.Func := class Func extends Expression
     validate-func-params-and-variables params, variables
   
   def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     let wrap = line-start and not @name
     if wrap
       sb "("
@@ -1206,6 +1236,7 @@ exports.Ident := class Ident extends Expression
       throw Error "Not an acceptable identifier name: $name"
     
   def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     sb @name.replace r"[\u0000-\u001f\u0080-\uffff]"g, unicode-replacer
   
   def compile-as-block(options, level, line-start, sb)!
@@ -1257,6 +1288,7 @@ exports.IfStatement := class IfStatement extends Statement
       else
         IfStatement(@line, @column, Unary(@test.line, @test.column, "!", @test), @when-false, @when-true, @label).compile(options, level, line-start, sb)
     else
+      options.sourcemap?.add(sb.line, sb.column, @line, @column)
       if @label?
         @label.compile options, level, line-start, sb
         sb ": "
@@ -1378,6 +1410,7 @@ exports.IfExpression := class IfExpression extends Expression
     if level == Level.block
       @to-statement().compile(options, level, line-start, sb)
     else
+      options.sourcemap?.add(sb.line, sb.column, @line, @column)
       let wrap = level > Level.inline-condition
       if wrap
         sb "("
@@ -1489,6 +1522,7 @@ exports.Obj := class Obj extends Expression
       sb " "
   
   def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     if line-start
       sb "("
     sb "{"
@@ -1567,6 +1601,7 @@ exports.Regex := class Regex extends Expression
   def constructor(@line as Number, @column as Number, @source as String, @flags as String = "") ->
 
   def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     sb "/"
     sb @source.replace(r"(\\\\)*\\?/"g, "\$1\\/") or "(?:)"
     sb "/"
@@ -1590,6 +1625,7 @@ exports.Return := class Return extends Statement
       return node.to-statement().mutate-last (#(n) -> Return line, column, n), true
   
   def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     sb "return"
     unless @node.is-const() and @node.const-value() == void
       sb " "
@@ -1624,6 +1660,7 @@ exports.Root := class Root
     let writer = if not options.uglify and typeof options.writer == \function then options.writer
     let sb = if writer then StringWriter(writer) else StringBuilder()
     let start-time = new Date().get-time()
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     compile-func-body(options, sb, @declarations, @variables, @body)
     let end-compile-time = new Date().get-time()
     options.progress?(\compile, end-compile-time - start-time)
@@ -1674,7 +1711,9 @@ exports.Root := class Root
 exports.This := class This extends Expression
   def constructor(@line as Number, @column as Number) ->
   
-  def compile(options, level, line-start, sb)! -> sb "this"
+  def compile(options, level, line-start, sb)!
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    sb "this"
   def compile-as-block(options, level, line-start, sb)!
     Noop(@line, @column).compile-as-block(options, level, line-start, sb)
   
@@ -1693,6 +1732,7 @@ exports.Throw := class Throw extends Statement
       return node.to-statement().mutate-last (#(n)@ -> Throw @line, @column, n), true
   
   def compile(options, level, line-start, sb)
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     sb "throw "
     @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
@@ -1725,6 +1765,7 @@ exports.Switch := class Switch extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1821,6 +1862,7 @@ exports.TryCatch := class TryCatch extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1877,6 +1919,7 @@ exports.TryFinally := class TryFinally extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1942,6 +1985,7 @@ exports.Unary := class Unary extends Expression
   
   def compile(options, level, line-start, sb)!
     let op = @op
+    options.sourcemap?.add(sb.line, sb.column, @line, @column)
     if op in ["++post", "--post"]
       @node.compile options, Level.unary, false, sb
       sb op.substring(0, 2)
