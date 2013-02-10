@@ -248,22 +248,28 @@ exports.Statement := class Statement extends Node
   def compile-as-statement(options, line-start, sb)
     @compile options, Level.block, line-start, sb
 
-exports.Access := #(line as Number, column as Number, parent, ...children)
+exports.Access := #(pos, parent, ...children)
   for reduce child in children, current = parent
-    Binary line, column, current, ".", child
+    Binary pos, current, ".", child
+
+let make-pos(line as Number, column as Number, file as String|void)
+  let pos = { line, column }
+  if file
+    pos.file := file
+  pos
 
 exports.Arguments := class Arguments extends Expression
-  def constructor(@line as Number, @column as Number) ->
+  def constructor(@pos as {}) ->
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb "arguments"
-  def compile-as-block(options, level, line-start, sb)! -> Noop(@line, @column).compile-as-block(options, level, line-start, sb)
+  def compile-as-block(options, level, line-start, sb)! -> Noop(@pos).compile-as-block(options, level, line-start, sb)
   def walk() -> this
   def is-noop() -> true
-  def inspect(depth) -> "Arguments()"
-  def to-JSON() -> { type: "Arguments", @line, @column }
-  @from-JSON := #({line, column}) -> Arguments(line, column)
+  def inspect(depth) -> inspect-helper depth, "Arguments", @pos
+  def to-JSON() -> { type: "Arguments", @pos.line, @pos.column, @pos.file }
+  @from-JSON := #({line, column, file}) -> Arguments(make-pos(line, column, file))
 
 let walk-array(array as [], walker as ->)
   let mutable changed = false
@@ -285,7 +291,7 @@ let dec-depth(depth)
   else
     null
 
-let inspect-helper(depth, name, ...args)
+let inspect-helper(depth, name, pos, ...args)
   let d = dec-depth depth
   let mutable found = false
   for arg in args by -1
@@ -316,7 +322,7 @@ let simplify(obj)
     obj
 
 exports.Arr := class Arr extends Expression
-  def constructor(@line as Number, @column as Number, @elements as [Expression] = []) ->
+  def constructor(@pos as {}, @elements as [Expression] = []) ->
   
   let compile-large(elements, options, level, line-start, sb)!
     let child-options = inc-indent options
@@ -335,15 +341,19 @@ exports.Arr := class Arr extends Expression
           sb ", "
         item.compile options, Level.sequence, false, sb
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file(@pos.file)
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "["
     let f = if @should-compile-large() then compile-large else compile-small
     f(@elements, options, level, line-start, sb)
     sb "]"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   def compile-as-block(options, level, line-start, sb)
-    BlockExpression(@line, @column, @elements).compile-as-block(options, level, line-start, sb)
+    BlockExpression(@pos, @elements).compile-as-block(options, level, line-start, sb)
   def compile-as-statement(options, line-start, sb)!
-    BlockStatement(@line, @column, @elements).compile(options, line-start, sb)
+    BlockStatement(@pos, @elements).compile(options, line-start, sb)
   
   def should-compile-large()
     switch @elements.length
@@ -366,19 +376,19 @@ exports.Arr := class Arr extends Expression
   def walk(walker)
     let elements = walk-array @elements, walker
     if @elements != elements
-      Arr @line, @column, elements
+      Arr @pos, elements
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Arr", @elements
+  def inspect(depth) -> inspect-helper depth, "Arr", @pos, @elements
   
-  def to-JSON() -> { type: "Arr", @line, @column, elements: simplify(@elements) }
-  @from-JSON := #({line, column, elements}) -> Arr line, column, array-from-JSON(elements)
+  def to-JSON() -> { type: "Arr", @pos.line, @pos.column, @pos.file, elements: simplify(@elements) }
+  @from-JSON := #({line, column, file, elements}) -> Arr make-pos(line, column, file), array-from-JSON(elements)
 
-exports.Assign := #(line, column, left, right)
-  Binary line, column, left, "=", right
+exports.Assign := #(pos, left, right)
+  Binary pos, left, "=", right
 
-exports.BinaryChain := #(line, column, op, ...args)
+exports.BinaryChain := #(pos, op, ...args)
   if op == "+"
     for i in args.length - 2 to 0 by -1
       let left = args[i]
@@ -386,31 +396,39 @@ exports.BinaryChain := #(line, column, op, ...args)
       if (typeof left == \string or (left instanceof Const and typeof left.value == \string)) and (typeof right == \string or (right instanceof Const and typeof right.value == \string))
         args.splice i, 2, (if typeof left == \string then left else left.value) & (if typeof right == \string then right else right.value)
   for reduce arg in args[1 to -1], current = args[0]
-    Binary line, column, current, op, arg
+    Binary pos, current, op, arg
 
-exports.And := #(line, column, ...args)
+exports.And := #(pos, ...args)
   if args.length == 0
-    Const line, column, true
+    Const pos, true
   else
     for reduce i in 1 til args.length, current = args[0]
-      Binary line, column, current, "&&", args[i]
+      Binary pos, current, "&&", args[i]
 
-exports.Or := #(line, column, ...args)
+exports.Or := #(pos, ...args)
   if args.length == 0
-    Const line, column, false
+    Const pos, false
   else
     for reduce i in 1 til args.length, current = args[0]
-      Binary line, column, current, "||", args[i]
+      Binary pos, current, "||", args[i]
+
+let to-const(pos, value)
+  if value instanceof Node
+    throw Error "Cannot convert $(typeof! value) to a Const"
+  else if value instanceof RegExp
+    Regex pos, value.source, value.flags
+  else
+    Const pos, value
 
 exports.Binary := class Binary extends Expression
-  def constructor(@line as Number, @column as Number, mutable left = Noop(line, column), @op as String, mutable right = Noop(line, column))
+  def constructor(@pos as {}, mutable left = Noop(pos), @op as String, mutable right = Noop(pos))
     if OPERATOR_PRECEDENCE not ownskey op
       throw Error "Unknown binary operator: $(to-JS-source op)"
     
     if left not instanceof Expression
-      left := to-const line, column, left
+      left := to-const pos, left
     if right not instanceof Expression
-      right := to-const line, column, right
+      right := to-const pos, right
     
     @left := left
     @right := right
@@ -434,7 +452,7 @@ exports.Binary := class Binary extends Expression
           sb "."
     else if left.is-const() and left.const-value() == void
       sb "("
-      (if left instanceof Const then left else Const(@line, @column, void)).compile options, Level.inside-parentheses, false, sb
+      (if left instanceof Const then left else Const(@pos, void)).compile options, Level.inside-parentheses, false, sb
       sb ")"
     else
       left.compile options, Level.call-or-access, line-start, sb
@@ -466,27 +484,31 @@ exports.Binary := class Binary extends Expression
       sb ")"
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file(@pos.file)
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     let f = if @op == "." then compile-access else compile-other
     f(@op, @left, @right, options, level, line-start, sb)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def compile-as-block(options, level, line-start, sb)!
     if ASSIGNMENT_OPS ownskey @op or @op in ["&&", "||"]
       super.compile-as-block(options, level, line-start, sb)
     else
-      BlockExpression(@line, @column, [@left, @right]).compile-as-block(options, level, line-start, sb)
+      BlockExpression(@pos, [@left, @right]).compile-as-block(options, level, line-start, sb)
   def compile-as-statement(options, line-start, sb)!
     let left = @left
     let op = @op
     if ASSIGNMENT_OPS ownskey op
       if left instanceof Ident and typeof @right.to-statement == "function" and false
         @right.to-statement()
-          .mutate-last((#(node)@ -> Binary @line, @column, left, op, node), true)
+          .mutate-last((#(node)@ -> Binary @pos, left, op, node), true)
           .compile-as-statement(options, line-start, sb)
       else
         super.compile-as-statement(options, line-start, sb)
     else
-      BlockStatement(@line, @column, [@left, @right]).compile-as-statement(options, line-start, sb)
+      BlockStatement(@pos, [@left, @right]).compile-as-statement(options, line-start, sb)
   
   let ASSIGNMENT_OPS = {
     +"="
@@ -566,29 +588,32 @@ exports.Binary := class Binary extends Expression
     let left = walker(@left) ? @left.walk(walker)
     let right = walker(@right) ? @right.walk(walker)
     if @left != left or @right != right
-      Binary @line, @column, left, @op, right
+      Binary @pos, left, @op, right
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Binary", @left, @op, @right
+  def inspect(depth) -> inspect-helper depth, "Binary", @pos, @left, @op, @right
   
-  def to-JSON() -> { type: "Binary", @line, @column, left: simplify(@left), @op, right: simplify(@right) }
-  @from-JSON := #({line, column, left, op, right}) -> Binary line, column, from-JSON(left), op, from-JSON(right)
+  def to-JSON() -> { type: "Binary", @pos.line, @pos.column, @pos.file, left: simplify(@left), @op, right: simplify(@right) }
+  @from-JSON := #({line, column, file, left, op, right}) -> Binary make-pos(line, column, file), from-JSON(left), op, from-JSON(right)
 
 exports.BlockStatement := class BlockStatement extends Statement
-  def constructor(@line as Number, @column as Number, body as [Node] = [], @label as Ident|null)
+  def constructor(@pos as {}, body as [Node] = [], @label as Ident|null)
     let result = []
     for item in body
       let statement = item.maybe-to-statement()
-      if statement instanceof BlockStatement and not statement.label
+      if statement instanceof BlockStatement and not statement.label and (statement.pos.file == pos.file or not statement.pos.file)
         result.push ...statement.body
       else if statement not instanceof Noop
         result.push statement
       if statement.exit-type()?
         break
     switch result.length
-    case 0; return Noop(line, column)
-    case 1; return result[0]
+    case 0; return Noop(pos)
+    case 1
+      if pos.file and not result[0].pos.file
+        result[0].pos.file := pos.file
+      return result[0]
     @body := result
   
   def compile(options, level, line-start, sb)!
@@ -599,7 +624,9 @@ exports.BlockStatement := class BlockStatement extends Statement
       if not node.is-noop()
         node
     
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     let child-options = if @label? then inc-indent(options) else options
     
     if @label?
@@ -617,12 +644,14 @@ exports.BlockStatement := class BlockStatement extends Statement
       sb "\n"
       sb.indent options.indent
       sb "}"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let body = walk-array(@body, walker)
     let label = if @label? then walker(@label) ? @label.walk(walker) else @label
     if @body != body or @label != label
-      Block @line, @column, body, label
+      Block @pos, body, label
     else
       this
   
@@ -632,7 +661,7 @@ exports.BlockStatement := class BlockStatement extends Statement
     if last != new-last
       let body = @body[0 til -1]
       body.push new-last
-      Block @line, @column, body
+      Block @pos, body
     else
       this
   
@@ -641,28 +670,31 @@ exports.BlockStatement := class BlockStatement extends Statement
   
   def is-noop() -> @_is-noop ?= for every node in @body by -1; node.is-noop()
   
-  def inspect(depth) -> inspect-helper depth, "BlockStatement", @body, @label
+  def inspect(depth) -> inspect-helper depth, "BlockStatement", @pos, @body, @label
   
-  def to-JSON() -> { type: "BlockStatement", @line, @column, @body, label: @label ? void }
-  @from-JSON := #({line, column, body, label}) -> BlockStatement line, column, array-from-JSON(body), if label? then from-JSON(label) else null
+  def to-JSON() -> { type: "BlockStatement", @pos.line, @pos.column, @pos.file, @body, label: @label ? void }
+  @from-JSON := #({line, column, file, body, label}) -> BlockStatement make-pos(line, column, file), array-from-JSON(body), if label? then from-JSON(label) else null
 
 exports.BlockExpression := class BlockExpression extends Expression
-  def constructor(@line as Number, @column as Number, body as [Expression] = [])
+  def constructor(@pos as {}, body as [Expression] = [])
     let result = []
     for item, i, len in body
       if i == len - 1 or not item not instanceof Noop
-        if item instanceof BlockExpression
+        if item instanceof BlockExpression and (item.pos.file == pos.file or not item.pos.file)
           result.push ...item.body
           if i < len - 1 and result[* - 1] instanceof Noop
             result.pop()
         else if item not instanceof Noop
           result.push item
     switch result.length
-    case 0; return Noop(line, column)
-    case 1; return result[0]
+    case 0; return Noop(pos)
+    case 1
+      if pos.file and not result[0].pos.file
+        result[0].pos.file := pos.file
+      return result[0]
     @body := result
   
-  def to-statement() -> BlockStatement @line, @column, @body
+  def to-statement() -> BlockStatement @pos, @body
   
   def compile(options, level, line-start, sb)!
     if level == Level.block
@@ -672,7 +704,9 @@ exports.BlockExpression := class BlockExpression extends Expression
         if not node.is-noop() or i == len - 1
           node
       
-      options.sourcemap?.add(sb.line, sb.column, @line, @column)
+      if options.sourcemap? and @pos.file
+        options.sourcemap.push-file @pos.file
+      options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
       let wrap = level > Level.inside-parentheses and nodes.length > 1
       if wrap
         sb "("
@@ -682,6 +716,8 @@ exports.BlockExpression := class BlockExpression extends Expression
         item.compile options, if wrap then Level.sequence else level, false, sb
       if wrap
         sb ")"
+      if options.sourcemap? and @pos.file
+        options.sourcemap.pop-file()
   
   def compile-as-block(options, level, line-start, sb)!
     if level == Level.block
@@ -691,7 +727,9 @@ exports.BlockExpression := class BlockExpression extends Expression
         if not node.is-noop()
           node
       
-      options.sourcemap?.add(sb.line, sb.column, @line, @column)
+      if options.sourcemap? and @pos.file
+        options.sourcemap.push-file @pos.file
+      options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
       let wrap = level > Level.inside-parentheses and nodes.length > 1
       if wrap
         sb "("
@@ -701,6 +739,8 @@ exports.BlockExpression := class BlockExpression extends Expression
         item.compile-as-block options, if wrap then Level.sequence else level, false, sb
       if wrap
         sb ")"
+      if options.sourcemap? and @pos.file
+        options.sourcemap.pop-file()
   
   def is-large()
     @_is-large ?= @body.length > 4 or for some part in @body by -1; part.is-large()
@@ -711,32 +751,36 @@ exports.BlockExpression := class BlockExpression extends Expression
   def walk = BlockStatement::walk
   def last() -> @body[* - 1]
   
-  def inspect(depth) -> inspect-helper depth, "BlockExpression", @body
+  def inspect(depth) -> inspect-helper depth, "BlockExpression", @pos, @body
   
-  def to-JSON() -> { type: "BlockExpression", @line, @column, @body }
-  @from-JSON := #({line, column, body}) -> BlockExpression line, column, array-from-JSON(body)
+  def to-JSON() -> { type: "BlockExpression", @pos.line, @pos.column, @pos.file, @body }
+  @from-JSON := #({line, column, file, body}) -> BlockExpression make-pos(line, column, file), array-from-JSON(body)
 
-let Block = exports.Block := #(line as Number, column as Number, body as [Node] = [], label as Ident|null)
+let Block = exports.Block := #(pos, body as [Node] = [], label as Ident|null)
   if body.length == 0
-    Noop(line, column)
+    Noop(pos)
   else
     if not label? and (for every item in body by -1; item instanceof Expression)
-      BlockExpression line, column, body
+      BlockExpression pos, body
     else
-      BlockStatement line, column, body, label
+      BlockStatement pos, body, label
 
 exports.Break := class Break extends Statement
-  def constructor(@line as Number, @column as Number, @label as Ident|null) ->
+  def constructor(@pos as {}, @label as Ident|null) ->
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "break"
     if @label?
       sb " "
       @label.compile options, Level.inside-parentheses, false, sb
     sb ";"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file @pos.file
   
   def walk() -> this
   
@@ -745,19 +789,19 @@ exports.Break := class Break extends Statement
   def walk(walker)
     let label = if @label? then walker(@label) ? @label.walk(walker) else @label
     if label != @label
-      Break @line, @column, label
+      Break @pos, label
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Break", @label
+  def inspect(depth) -> inspect-helper depth, "Break", @pos, @label
   
   def is-large() -> false
   
-  def to-JSON() -> { type: "Break", @line, @column, label: @label ? void }
-  @from-JSON := #({line, column, label}) -> Break line, column, if label then from-JSON(label) else null
+  def to-JSON() -> { type: "Break", @pos.line, @pos.column, @pos.file, label: @label ? void }
+  @from-JSON := #({line, column, file, label}) -> Break make-pos(line, column, file), if label then from-JSON(label) else null
 
 exports.Call := class Call extends Expression
-  def constructor(@line as Number, @column as Number, @func as Expression = Noop(line, column), @args as [Expression] = [], @is-new as Boolean) ->
+  def constructor(@pos as {}, @func as Expression = Noop(pos), @args as [Expression] = [], @is-new as Boolean) ->
   
   let compile-large(args, options, level, line-start, sb)!
     sb "("
@@ -779,7 +823,9 @@ exports.Call := class Call extends Expression
       arg.compile options, Level.sequence, false, sb
     sb ")"
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     let wrap = level > Level.call-or-access or (not @is-new and (@func instanceof Func or (@func instanceof Binary and @func.op == "." and @func.left instanceof Func)))
     if wrap
       sb "("
@@ -790,6 +836,8 @@ exports.Call := class Call extends Expression
     f(@args, options, level, line-start, sb)
     if wrap
       sb ")"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def should-compile-large()
     if @args.length > 4
@@ -818,25 +866,17 @@ exports.Call := class Call extends Expression
     let func = walker(@func) ? @func.walk(walker)
     let args = walk-array(@args, walker)
     if @func != func or @args != args
-      Call @line, @column, func, args, @is-new
+      Call @pos, func, args, @is-new
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Call", @func, @args, @is-new
+  def inspect(depth) -> inspect-helper depth, "Call", @pos, @func, @args, @is-new
   
-  def to-JSON() -> { type: "Call", @line, @column, func: simplify(@func), args: simplify(@args), is-new: @is-new or void }
-  @from-JSON := #({line, column, func, args, is-new}) -> Call line, column, from-JSON(func), array-from-JSON(args), is-new
-
-let to-const(line, column, value)
-  if value instanceof Node
-    throw Error "Cannot convert $(typeof! value) to a Const"
-  else if value instanceof RegExp
-    Regex line, column, value.source, value.flags
-  else
-    Const line, column, value
+  def to-JSON() -> { type: "Call", @pos.line, @pos.column, @pos.file, func: simplify(@func), args: simplify(@args), is-new: @is-new or void }
+  @from-JSON := #({line, column, file, func, args, is-new}) -> Call make-pos(line, column, file), from-JSON(func), array-from-JSON(args), is-new
 
 exports.Comment := class Comment extends Statement
-  def constructor(@line as Number, @column as Number, @text as String)
+  def constructor(@pos as {}, @text as String)
     if text.substring(0, 2) != "/*"
       throw Error "Expected text to start with '/*'"
     if text.slice(-2) != "*/"
@@ -856,16 +896,18 @@ exports.Comment := class Comment extends Statement
   
   def walk() -> this
   
-  def inspect(depth) -> inspect-helper "Comment", @text
+  def inspect(depth) -> inspect-helper "Comment", @pos, @text
   
-  def to-JSON() -> { type: "Comment", @line, @column, @text }
-  @from-JSON := #({line, column, text}) -> Comment(line, column, text)
+  def to-JSON() -> { type: "Comment", @pos.line, @pos.column, @pos.file, @text }
+  @from-JSON := #({line, column, file, text}) -> Comment(make-pos(line, column, file), text)
 
 exports.Const := class Const extends Expression
-  def constructor(@line as Number, @column as Number, @value as void|null|Boolean|Number|String) ->
+  def constructor(@pos as {}, @value as void|null|Boolean|Number|String) ->
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     let value = @value
     if value == void and options.undefined-name?
       sb options.undefined-name
@@ -876,8 +918,10 @@ exports.Const := class Const extends Expression
       sb to-JS-source(value)
       if wrap
         sb ")"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   def compile-as-block(options, level, line-start, sb)!
-    Noop(@line, @column).compile-as-block(options, level, line-start, sb)
+    Noop(@pos).compile-as-block(options, level, line-start, sb)
   
   def is-const() -> true
   def is-noop = @::is-const
@@ -888,7 +932,7 @@ exports.Const := class Const extends Expression
   def inspect(depth) -> "Const($(inspect @value, null, dec-depth depth))"
   
   def to-JSON()
-    let result = { type: "Const", @line, @column, @value }
+    let result = { type: "Const", @pos.line, @pos.column, @pos.file, @value }
     if typeof @value == \number and not is-finite(@value)
       result.infinite := true
       if @value == Infinity
@@ -901,7 +945,7 @@ exports.Const := class Const extends Expression
       result.sign := if is-negative(@value) then -1 else 1
     result
   @from-JSON := #(obj)
-    Const obj.line, obj.column, if obj.infinite
+    Const make-pos(obj.line, obj.column, obj.file), if obj.infinite
       obj.value / 0
     else if obj.value == 0
       if obj.sign and obj.sign < 0 then -0 else 0
@@ -909,17 +953,21 @@ exports.Const := class Const extends Expression
       obj.value
 
 exports.Continue := class Continue extends Statement
-  def constructor(@line as Number, @column as Number, @label as Ident|null) ->
+  def constructor(@pos as {}, @label as Ident|null) ->
   
   def compile(options, level, line-start, sb)
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "continue"
     if @label?
       sb " "
       @label.compile options, Level.inside-parentheses, false, sb
     sb ";"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk() -> this
   
@@ -930,44 +978,46 @@ exports.Continue := class Continue extends Statement
   def walk(walker)
     let label = if @label? then walker(@label) ? @label.walk(walker) else @label
     if label != @label
-      Continue @line, @column, label
+      Continue @pop, label
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Continue", @label
+  def inspect(depth) -> inspect-helper depth, "Continue", @pos, @label
   
-  def to-JSON() -> { type: "Continue", @line, @column, label: @label ? void }
-  @from-JSON := #({line, column, label}) -> Continue line, column, if label then from-JSON(label) else null
+  def to-JSON() -> { type: "Continue", @pos.line, @pos.column, @pos.file, label: @label ? void }
+  @from-JSON := #({line, column, file, label}) -> Continue make-pos(line, column, file), if label then from-JSON(label) else null
 
 exports.Debugger := class Debugger extends Statement
-  def constructor(@line as Number, @column as Number) ->
+  def constructor(@pos as {}) ->
   
   def compile(options, level, line-start, sb)
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb "debugger;"
   
   def walk() -> this
 
   def is-large() -> false
   
-  def inspect() -> "Debugger()"
+  def inspect(depth) -> inspect-helper depth, "Debugger", @pos
   
-  def to-JSON() -> { type: "Debugger", @line, @column }
-  @from-JSON := #({line, column}) -> Debugger(line, column)
+  def to-JSON() -> { type: "Debugger", @pos.line, @pos.column, @pos.file }
+  @from-JSON := #({line, column, file}) -> Debugger(make-pos(line, column, file))
 
 exports.DoWhile := class DoWhile extends Statement
-  def constructor(@line as Number, @column as Number, body as Node = Noop(line, column), @test as Expression = Noop(line, column), @label as Ident|null)
+  def constructor(@pos as {}, body as Node = Noop(pos), @test as Expression = Noop(pos), @label as Ident|null)
     @body := body.maybe-to-statement()
     if test.is-const() and not test.const-value()
-      return Block(line, column, [@body], label)
+      return Block(pos, [@body], label)
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -984,52 +1034,58 @@ exports.DoWhile := class DoWhile extends Statement
     sb " while ("
     @test.compile options, Level.inside-parentheses, false, sb
     sb ");"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let body = walker(@body) ? @body.walk(walker)
     let test = walker(@test) ? @test.walk(walker)
     let label = if @label? then walker(@label) ? @label.walk(walker) else @label
     if body != @body or test != @test or label != @label
-      DoWhile @line, @column, body, test, label
+      DoWhile @pos, body, test, label
     else
       this
 
-  def inspect(depth) -> inspect-helper depth, "DoWhile", @body, @test, @label
+  def inspect(depth) -> inspect-helper depth, "DoWhile", @pos, @body, @test, @label
   
-  def to-JSON() -> { type: "DoWhile", @line, @column, body: simplify(@body), test: simplify(@test), label: @label ? void }
-  @from-JSON := #({line, column, body, test, label}) -> DoWhile line, column, from-JSON(body), from-JSON(test), if label? then from-JSON(label) else null
+  def to-JSON() -> { type: "DoWhile", @pos.line, @pos.column, @pos.file, body: simplify(@body), test: simplify(@test), label: @label ? void }
+  @from-JSON := #({line, column, file, body, test, label}) -> DoWhile make-pos(line, column, file), from-JSON(body), from-JSON(test), if label? then from-JSON(label) else null
 
 exports.Eval := class Eval extends Expression
-  def constructor(@line as Number, @column as Number, mutable code = Noop(line, column))
+  def constructor(@pos as {}, mutable code = Noop(pos))
     if code not instanceof Expression
-      code := to-const line, column, code
+      code := to-const pos, code
     @code := code
   
   def compile(options, level, line-start, sb)!  
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     if @code instanceof Const
       sb String(@code.value)
     else
       sb "eval("
       @code.compile options, Level.sequence, false, sb
       sb ")"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let code = walker(@code) ? @code.walk(walker)
     if code != @code
-      Eval @line, @column, code
+      Eval @pops, code
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Eval", @code
+  def inspect(depth) -> inspect-helper depth, "Eval", @pos, @code
   
-  def to-JSON() -> { type: "Eval", @line, @column, code: simplify(@code) }
-  @from-JSON := #({line, column, code}) -> Eval line, column, from-JSON(code)
+  def to-JSON() -> { type: "Eval", @pos.line, @pos.column, @pos.file, code: simplify(@code) }
+  @from-JSON := #({line, column, file, code}) -> Eval make-pos(line, column, file), from-JSON(code)
 
 exports.For := class For extends Statement
-  def constructor(@line as Number, @column as Number, @init as Expression = Noop(line, column), mutable test = Const(line, column, true), @step as Expression = Noop(line, column), body as Node, @label as Ident|null)
+  def constructor(@pos as {}, @init as Expression = Noop(pos), mutable test = Const(pos, true), @step as Expression = Noop(pos), body as Node, @label as Ident|null)
     if test not instanceof Expression
-      test := to-const line, column, test
+      test := to-const pos, test
     if test.is-const() and not test.const-value()
       return init
     @test := test
@@ -1040,11 +1096,13 @@ exports.For := class For extends Statement
       throw Error "Cannot compile a statement except on the Block level"
     
     let test = if @test.is-const() and typeof @test.const-value() != \boolean
-      Const(@line, @column, not not @test.const-value())
+      Const(@pos, not not @test.const-value())
     else
       @test
     
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1072,6 +1130,8 @@ exports.For := class For extends Statement
       sb "\n"
       sb.indent options.indent
       sb "}"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let init = walker(@init) ? @init.walk(walker)
@@ -1080,32 +1140,35 @@ exports.For := class For extends Statement
     let body = walker(@body) ? @body.walk(walker)
     let label = if @label? then walker(@label) ? @label.walk(walker) else @label
     if init != @init or test != @test or step != @step or body != @body or label != @label
-      For @line, @column, init, test, step, body, label
+      For @pos, init, test, step, body, label
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "For", @init, @test, @step, @body, @label
+  def inspect(depth) -> inspect-helper depth, "For", @pos, @init, @test, @step, @body, @label
   
   def to-JSON()
     type: "For"
-    line: @line
-    column: @column
+    line: @pos.line
+    column: @pos.column
+    file: @pos.file
     init: simplify(@init)
     test: simplify(@test)
     step: simplify(@step)
     body: simplify(@body)
     label: @label ? void
-  @from-JSON := #({line, column, init, test, step, body, label}) -> For line, column, from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body), if label? then from-JSON(label) else null
+  @from-JSON := #({line, column, file, init, test, step, body, label}) -> For make-pos(line, column, file), from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body), if label? then from-JSON(label) else null
 
 exports.ForIn := class ForIn extends Statement
-  def constructor(@line as Number, @column as Number, @key as Ident, @object as Expression = Noop(line, column), body as Node = Noop(line, column), @label as Ident|null)
+  def constructor(@pos as {}, @key as Ident, @object as Expression = Noop(line, column), body as Node = Noop(line, column), @label as Ident|null)
     @body := body.maybe-to-statement()
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1124,6 +1187,8 @@ exports.ForIn := class ForIn extends Statement
       sb "\n"
       sb.indent options.indent
       sb "}"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let key = walker(@key) ? @key.walk(walker)
@@ -1131,21 +1196,22 @@ exports.ForIn := class ForIn extends Statement
     let body = walker(@body) ? @body.walk(walker)
     let label = if @label? then walker(@label) ? @label.walk(walker) else @label
     if key != @key or object != @object or body != @body or label != @label
-      ForIn @line, @column, key, object, body
+      ForIn @pos, key, object, body
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "ForIn", @key, @object, @body, @label
+  def inspect(depth) -> inspect-helper depth, "ForIn", @pos, @key, @object, @body, @label
   
   def to-JSON()
     type: "ForIn"
-    line: @line
-    column: @column
+    line: @pos.line
+    column: @pos.column
+    file: @pos.file
     key: @key
     object: simplify(@object)
     body: simplify(@body)
     label: @label ? void
-  @from-JSON := #({line, column, key, object, body, label}) -> ForIn line, column, from-JSON(key), from-JSON(object), from-JSON(body), if label? then from-JSON(label) else null
+  @from-JSON := #({line, column, file, key, object, body, label}) -> ForIn make-pos(line, column, file), from-JSON(key), from-JSON(object), from-JSON(body), if label? then from-JSON(label) else null
 
 let validate-func-params-and-variables(params, variables)!
   let names = []
@@ -1170,7 +1236,7 @@ let compile-func-body(options, sb, declarations, variables, body)!
     for variable, i in variables
       if i > 0
         sb ", "
-      Ident(body.line, body.column, variables[i], true).compile options, Level.inside-parentheses, false, sb
+      Ident(body.pos, variables[i], true).compile options, Level.inside-parentheses, false, sb
     sb ";\n"
   
   if not body.is-noop()
@@ -1195,17 +1261,21 @@ let compile-func(options, sb, name, params, declarations, variables, body)
   sb "}"
 
 exports.Func := class Func extends Expression
-  def constructor(@line as Number, @column as Number, @name as null|Ident, @params as [Ident] = [], @variables as [String] = [], @body as Node = Noop(line, column), @declarations as [String] = [])
+  def constructor(@pos as {}, @name as null|Ident, @params as [Ident] = [], @variables as [String] = [], @body as Node = Noop(line, column), @declarations as [String] = [])
     validate-func-params-and-variables params, variables
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     let wrap = line-start and not @name
     if wrap
       sb "("
     compile-func options, sb, @name, @params, @declarations, @variables, @body
     if wrap
       sb ")"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def compile-as-statement(options, line-start, sb)!
     @compile options, Level.block, line-start, sb
@@ -1220,46 +1290,46 @@ exports.Func := class Func extends Expression
     let params = walk-array(@params, walker)
     let body = @body.walk(walker)
     if name != @name or params != @params or body != @body
-      Func @line, @column, name, params, @variables, body, @declarations, @meta
+      Func @pos, name, params, @variables, body, @declarations, @meta
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Func", @name, @params, @variables, @body, @declarations, @meta
+  def inspect(depth) -> inspect-helper depth, "Func", @pos, @name, @params, @variables, @body, @declarations, @meta
   
-  def to-JSON() -> { type: "Func", @line, @column, name: @name or void, params: simplify(@params), variables: simplify(@variables), body: simplify(@body), declarations: simplify(@declarations) }
-  @from-JSON := #({line, column, name, params, variables, body, declarations})
-    Func line, column, (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations
+  def to-JSON() -> { type: "Func", @pos.line, @pos.column, @pos.file, name: @name or void, params: simplify(@params), variables: simplify(@variables), body: simplify(@body), declarations: simplify(@declarations) }
+  @from-JSON := #({line, column, file, name, params, variables, body, declarations})
+    Func make-pos(line, column, file), (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations
 
 exports.Ident := class Ident extends Expression
-  def constructor(@line as Number, @column as Number, @name as String, allow-unacceptable as Boolean)
+  def constructor(@pos as {}, @name as String, allow-unacceptable as Boolean)
     unless allow-unacceptable or is-acceptable-ident name, true
       throw Error "Not an acceptable identifier name: $name"
     
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb @name.replace r"[\u0000-\u001f\u0080-\uffff]"g, unicode-replacer
   
   def compile-as-block(options, level, line-start, sb)!
-    Noop(@line, @column).compile-as-block(options, level, line-start, sb)
+    Noop(@pos).compile-as-block(options, level, line-start, sb)
   
   def walk() -> this
   
-  def inspect(depth) -> inspect-helper depth, "Ident", @name
+  def inspect(depth) -> inspect-helper depth, "Ident", @pos, @name
   
   def is-noop() -> true
   
-  def to-JSON() -> { type: "Ident", @line, @column, @name }
-  @from-JSON := #({line, column, name}) -> Ident line, column, name
+  def to-JSON() -> { type: "Ident", @pos.line, @pos.column, @pos.file, @name }
+  @from-JSON := #({line, column, file, name}) -> Ident make-pos(line, column, file), name
 
 exports.IfStatement := class IfStatement extends Statement
-  def constructor(@line as Number, @column as Number, mutable test as Expression = Noop(line, column), mutable when-true as Node = Noop(line, column), mutable when-false as Node = Noop(line, column), @label as Ident|null)
+  def constructor(@pos as {}, mutable test as Expression = Noop(pos), mutable when-true as Node = Noop(pos), mutable when-false as Node = Noop(pos), @label as Ident|null)
     if test instanceof Unary and test.op == "!" and test.node instanceof Unary and test.node.op == "!"
       test := test.node.node
     if test.is-const()
       return if test.const-value()
-        Block line, column, [when-true], label
+        Block pos, [when-true], label
       else
-        Block line, column, [when-false], label
+        Block pos, [when-false], label
     else
       when-true := when-true.maybe-to-statement()
       when-false := when-false.maybe-to-statement()
@@ -1268,9 +1338,9 @@ exports.IfStatement := class IfStatement extends Statement
           return test.maybe-to-statement()
         else
           // TODO: the test inversion doesn't change the inner operators, just wraps it all
-          return IfStatement@ this, line, column, Unary(test.line, test.column, "!", test), when-false, when-true, label
+          return IfStatement@ this, pos, Unary(test.pos, "!", test), when-false, when-true, label
       else if when-false instanceof Noop and when-true instanceof IfStatement and when-true.when-false instanceof Noop and not when-true.label?
-        @test := Binary line, column, test, "&&", when-true.test
+        @test := Binary pos, test, "&&", when-true.test
         @when-true := when-true.when-true
         @when-false := when-false
       else
@@ -1286,9 +1356,11 @@ exports.IfStatement := class IfStatement extends Statement
       if @when-false.is-noop()
         @test.compile-as-statement options, true, sb
       else
-        IfStatement(@line, @column, Unary(@test.line, @test.column, "!", @test), @when-false, @when-true, @label).compile(options, level, line-start, sb)
+        IfStatement(@pos, Unary(@test.pos, "!", @test), @when-false, @when-true, @label).compile(options, level, line-start, sb)
     else
-      options.sourcemap?.add(sb.line, sb.column, @line, @column)
+      if options.sourcemap? and @pos.file
+        options.sourcemap.push-file @pos.file
+      options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
       if @label?
         @label.compile options, level, line-start, sb
         sb ": "
@@ -1313,6 +1385,8 @@ exports.IfStatement := class IfStatement extends Statement
           sb "\n"
           sb.indent options.indent
           sb "}"
+      if options.sourcemap? and @pos.file
+        options.sourcemap.pop-file()
         
   def walk(walker)
     let test = walker(@test) ? @test.walk walker
@@ -1321,7 +1395,7 @@ exports.IfStatement := class IfStatement extends Statement
     let label = if @label? then walker(@label) ? @label.walk walker else @label
     
     if test != @test or when-true != @when-true or when-false != @when-false or label != @label
-      If @line, @column, test, when-true, when-false, label
+      If @pos, test, when-true, when-false, label
     else
       this
   
@@ -1329,7 +1403,7 @@ exports.IfStatement := class IfStatement extends Statement
     let when-true = @when-true.mutate-last(func, include-noop)
     let when-false = @when-false.mutate-last(func, include-noop)
     if when-true != @when-true or when-false != @when-false
-      If @line, @column, @test, when-true, when-false, @label
+      If @pos, @test, when-true, when-false, @label
     else
       this
   
@@ -1346,23 +1420,23 @@ exports.IfStatement := class IfStatement extends Statement
   
   def is-noop() -> @_is-noop ?= @test.is-noop() and @when-true.is-noop() and @when-false.is-noop()
   
-  def inspect(depth) -> inspect-helper depth, "IfStatement", @test, @when-true, @when-false
+  def inspect(depth) -> inspect-helper depth, "IfStatement", @pos, @test, @when-true, @when-false
   
-  def to-JSON() -> { type: "IfStatement", @line, @column, test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false), label: @label ? void }
-  @from-JSON := #({line, column, test, when-true, when-false, label}) -> IfStatement line, column, from-JSON(test), from-JSON(when-true), from-JSON(when-false), if label? then from-JSON(label) else null
+  def to-JSON() -> { type: "IfStatement", @pos.line, @pos.column, @pos.file, test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false), label: @label ? void }
+  @from-JSON := #({line, column, file, test, when-true, when-false, label}) -> IfStatement make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false), if label? then from-JSON(label) else null
 
 exports.IfExpression := class IfExpression extends Expression
-  def constructor(@line as Number, @column as Number, mutable test as Expression = Noop(line, column), mutable when-true = Noop(line, column), mutable when-false = Noop(line, column))
+  def constructor(@pos as {}, mutable test as Expression = Noop(pos), mutable when-true = Noop(pos), mutable when-false = Noop(pos))
     if when-true not instanceof Expression
-      when-true := to-const line, column, when-true
+      when-true := to-const pos, when-true
     if when-false not instanceof Expression
-      when-false := to-const line, column, when-false
+      when-false := to-const pos, when-false
     if test instanceof Unary and test.op == "!" and test.node instanceof Unary and test.node.op == "!"
       test := test.node.node
     if test.is-const()
       return if test.const-value() then when-true else when-false
     else if when-false instanceof Noop and when-true instanceof IfExpression and when-true.when-false instanceof Noop
-      @test := Binary line, @column, test, "&&", when-true.test
+      @test := Binary pos, test, "&&", when-true.test
       @when-true := when-true.when-true
       @when-false := when-false
     else
@@ -1370,7 +1444,7 @@ exports.IfExpression := class IfExpression extends Expression
       @when-true := when-true
       @when-false := when-false
   
-  def to-statement() -> IfStatement @line, @column, @test, @when-true, @when-false
+  def to-statement() -> IfStatement @pos, @test, @when-true, @when-false
   
   let compile-small(test, when-true, when-false, options, line-start, sb)!
     test.compile options, Level.inline-condition, line-start, sb
@@ -1410,7 +1484,9 @@ exports.IfExpression := class IfExpression extends Expression
     if level == Level.block
       @to-statement().compile(options, level, line-start, sb)
     else
-      options.sourcemap?.add(sb.line, sb.column, @line, @column)
+      if options.sourcemap? and @pos.file
+        options.sourcemap.push-file @pos.file
+      options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
       let wrap = level > Level.inline-condition
       if wrap
         sb "("
@@ -1418,14 +1494,16 @@ exports.IfExpression := class IfExpression extends Expression
       f @test, @when-true, @when-false, options, not wrap and line-start, sb
       if wrap
         sb ")"
+      if options.sourcemap? and @pos.file
+        options.sourcemap.pop-file()
   def compile-as-block(options, level, line-start, sb)!
     if @when-true.is-noop()
       if @when-false.is-noop()
         @test.compile-as-block(options, level, line-start, sb)
       else
-        Binary(@line, @column, @test, "||", @when-false).compile-as-block(options, level, line-start, sb)
+        Binary(@pos, @test, "||", @when-false).compile-as-block(options, level, line-start, sb)
     else if @when-false.is-noop()
-      Binary(@line, @column, @test, "&&", @when-true).compile-as-block(options, level, line-start, sb)
+      Binary(@pos, @test, "&&", @when-true).compile-as-block(options, level, line-start, sb)
     else
       @compile(options, level, line-start, sb)
   
@@ -1437,25 +1515,25 @@ exports.IfExpression := class IfExpression extends Expression
   
   def walk = IfStatement::walk
   
-  def inspect(depth) -> inspect-helper depth, "IfExpression", @test, @when-true, @when-false
+  def inspect(depth) -> inspect-helper depth, "IfExpression", @pos, @test, @when-true, @when-false
   
-  def to-JSON() -> { type: "IfExpression", @line, @column, test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false) }
-  @from-JSON := #({line, column, test, when-true, when-false}) -> IfExpression line, column, from-JSON(test), from-JSON(when-true), from-JSON(when-false)
+  def to-JSON() -> { type: "IfExpression", @pos.line, @pos.column, @pos.file, test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false) }
+  @from-JSON := #({line, column, file, test, when-true, when-false}) -> IfExpression make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false)
 
-let If = exports.If := #(line as Number, column as Number, test, when-true, when-false, label)
+let If = exports.If := #(pos as {}, test, when-true, when-false, label)
   if when-true instanceof Statement or when-false instanceof Statement or label?
-    IfStatement line, column, test, when-true, when-false, label
+    IfStatement pos, test, when-true, when-false, label
   else
-    IfExpression line, column, test, when-true, when-false
+    IfExpression pos, test, when-true, when-false
 
 exports.Noop := class Noop extends Expression
-  def constructor(@line as Number, @column as Number) ->
+  def constructor(@pos as {}) ->
 
   def compile-as-statement() ->
 
   def compile(options, level, line-start, sb)!
     if level > Level.block
-      Const(@line, @column, void).compile options, level, line-start, sb
+      Const(@pos, void).compile options, level, line-start, sb
 
   def is-const() -> true
   def is-noop = @::is-const
@@ -1468,10 +1546,10 @@ exports.Noop := class Noop extends Expression
     else
       this
   
-  def inspect() -> "Noop()"
+  def inspect(depth) -> inspect-helper depth, "Noop", @pos
   
-  def to-JSON() -> { type: "Noop", @line, @column }
-  @from-JSON := #({line, column}) -> Noop line, column
+  def to-JSON() -> { type: "Noop", @pos.line, @pos.column, @pos.file }
+  @from-JSON := #({line, column, file}) -> Noop make-pos(line, column, file)
 
 exports.Obj := class Obj extends Expression
   let validate-unique-keys(elements)!
@@ -1482,7 +1560,7 @@ exports.Obj := class Obj extends Expression
         throw Error "Found duplicate key: $(to-JS-source key)"
       keys.push key
   
-  def constructor(@line as Number, @column as Number, @elements as [ObjPair] = [])
+  def constructor(@pos as {}, @elements as [ObjPair] = [])
     validate-unique-keys elements
   
   let to-safe-key(key)
@@ -1522,7 +1600,9 @@ exports.Obj := class Obj extends Expression
       sb " "
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     if line-start
       sb "("
     sb "{"
@@ -1531,11 +1611,13 @@ exports.Obj := class Obj extends Expression
     sb "}"
     if line-start
       sb ")"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def compile-as-block(options, level, line-start, sb)!
-    BlockExpression(@line, @column, for element in @elements; element.value).compile-as-block(options, level, line-start, sb)
+    BlockExpression(@pos, for element in @elements; element.value).compile-as-block(options, level, line-start, sb)
   def compile-as-statement(options, line-start, sb)!
-    BlockStatement(@line, @column, for element in @elements; element.value).compile-as-statement(options, line-start, sb)
+    BlockStatement(@pos, for element in @elements; element.value).compile-as-statement(options, line-start, sb)
   
   def should-compile-large()
     switch @elements.length
@@ -1559,30 +1641,31 @@ exports.Obj := class Obj extends Expression
   def walk(walker)
     let elements = walk-array(@elements, walker)
     if elements != @elements
-      Obj @line, @column, elements
+      Obj @pos, elements
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Obj", @elements
+  def inspect(depth) -> inspect-helper depth, "Obj", @pos, @elements
   
   def to-JSON()
     type: "Obj"
-    line: @line
-    column: @column
+    line: @pos.line
+    column: @pos.column
+    file: @pos.file
     pairs: simplify(for pair in @pairs
-      { pair.line, pair.column, pair.key, value: simplify(pair.value) })
-  @from-JSON := #({line, column, pairs})
+      { pair.pos.line, pair.pos.column, pair.pos.file, pair.key, value: simplify(pair.value) })
+  @from-JSON := #({line, column, file, pairs})
     let result-pairs = []
     for pair in (pairs or [])
       if not pair or not is-object! pair
         throw Error "Expecting an object with a key and value"
-      result-pairs.push ObjPair pair.line, pair.column, pair.key, from-JSON(pair.value)
-    Obj line, column, result-pairs
+      result-pairs.push ObjPair make-pos(pair.line, pair.column, pair.file), pair.key, from-JSON(pair.value)
+    Obj make-pos(line, column, file), result-pairs
   
   Obj.Pair := class ObjPair
-    def constructor(@line as Number, @column as Number, @key as String, mutable value = Noop(line, column))
+    def constructor(@pos as {}, @key as String, mutable value = Noop(line, column))
       if value not instanceof Expression
-        value := to-const line, column, value
+        value := to-const pos, value
       @value := value
     
     def is-small() -> @value.is-small()
@@ -1591,51 +1674,55 @@ exports.Obj := class Obj extends Expression
     def walk(walker)
       let value = walker(@value) ? @value.walk(walker)
       if value != @value
-        ObjPair @line, @column, @key, value
+        ObjPair @pos, @key, value
       else
         this
     
-    def inspect(depth) -> inspect-helper depth, "Pair", @key, @value
+    def inspect(depth) -> inspect-helper depth, "Pair", @pos, @key, @value
 
 exports.Regex := class Regex extends Expression
-  def constructor(@line as Number, @column as Number, @source as String, @flags as String = "") ->
+  def constructor(@pos as {}, @source as String, @flags as String = "") ->
 
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb "/"
     sb @source.replace(r"(\\\\)*\\?/"g, "\$1\\/") or "(?:)"
     sb "/"
     sb @flags
   def compile-as-block(options, level, line-start, sb)!
-    Noop(@line, @column).compile-as-block(options, level, line-start, sb)
+    Noop(@pos).compile-as-block(options, level, line-start, sb)
 
   def is-noop() -> true
   
   def walk() -> this
 
-  def inspect(depth) -> inspect-helper depth, "Regex", @source, @flags
+  def inspect(depth) -> inspect-helper depth, "Regex", @pos, @source, @flags
 
   def to-JSON()
-    { type: "Regex", @line, @column, @source, @flags }
-  @from-JSON := #({line, column, source, flags}) -> Regex(line, column, source, flags)
+    { type: "Regex", @pos.line, @pos.column, @pos.file, @source, @flags }
+  @from-JSON := #({line, column, file, source, flags}) -> Regex make-pos(line, column, file), source, flags
 
 exports.Return := class Return extends Statement
-  def constructor(@line as Number, @column as Number, @node as Expression = Noop(line, column))
+  def constructor(@pos as {}, @node as Expression = Noop(pos))
     if typeof node.to-statement == "function"
-      return node.to-statement().mutate-last (#(n) -> Return line, column, n), true
+      return node.to-statement().mutate-last (#(n) -> Return pos, n), true
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "return"
     unless @node.is-const() and @node.const-value() == void
       sb " "
       @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
     if node != @node
-      Return @line, @column, node
+      Return @pos, node
     else
       this
   
@@ -1644,13 +1731,13 @@ exports.Return := class Return extends Statement
   def is-small() -> @node.is-small()
   def is-large() -> @node.is-large()
   
-  def inspect(depth) -> inspect-helper depth, "Return", @node
+  def inspect(depth) -> inspect-helper depth, "Return", @pos, @node
   
-  def to-JSON() -> { type: "Return", @line, @column, node: simplify(@node) }
-  @from-JSON := #({line, column, node}) -> Return line, column, from-JSON(node)
+  def to-JSON() -> { type: "Return", @pos.line, @pos.column, @pos.file, node: simplify(@node) }
+  @from-JSON := #({line, column, file, node}) -> Return make-pos(line, column, file), from-JSON(node)
 
 exports.Root := class Root
-  def constructor(@line as Number, @column as Number, @body as Node = Noop(line, column), @variables as [String] = [], @declarations as [String] = [])
+  def constructor(@pos as {}, @body as Node = Noop(pos), @variables as [String] = [], @declarations as [String] = [])
     validate-func-params-and-variables [], variables
 
   def compile(options = {})
@@ -1660,17 +1747,39 @@ exports.Root := class Root
     let writer = if not options.uglify and typeof options.writer == \function then options.writer
     let sb = if writer then StringWriter(writer) else StringBuilder()
     let start-time = new Date().get-time()
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     compile-func-body(options, sb, @declarations, @variables, @body)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
     let end-compile-time = new Date().get-time()
     options.progress?(\compile, end-compile-time - start-time)
     let mutable end-uglify-time = 0
     if not writer?
       let mutable code = sb.to-string()
       if options.uglify
-        code := require("uglify-js").minify(code, from-string: true).code
+        let mutable tmp-map = void
+        let fs = require("fs")
+        if options.sourcemap?
+          let path = require("path")
+          let os = require("os")
+          tmp-map := path.join(os.tmp-dir(), "gs-$(Math.random() * 2^32).map")
+          fs.write-file-sync(tmp-map, options.sourcemap.to-string(), "utf8")
+        let UglifyJS = require("uglify-js")
+        let old-warn_function = UglifyJS.AST_Node?.warn_function
+        if typeof old-warn_function == \function
+          UglifyJS.AST_Node.warn_function := #->
+        let minified = UglifyJS.minify(code, from-string: true, in-source-map: tmp-map, out-source-map: options.sourcemap?.generated-file)
+        if old-warn_function?
+          UglifyJS.AST_Node.warn_function := old-warn_function
+        if tmp-map?
+          fs.unlink-sync tmp-map
+        code := minified.code
         end-uglify-time := new Date().get-time()
         options.progress?(\uglify, end-uglify-time - end-compile-time)
+        if options.sourcemap?
+          options.sourcemap := minified.map
       if typeof options.writer == \function
         options.writer(code)
         code := ""
@@ -1689,58 +1798,62 @@ exports.Root := class Root
   def walk(walker)
     let body = @body.walk(walker)
     if body != @body
-      Root @line, @column, body, @variables, @declarations
+      Root @pos, body, @variables, @declarations
     else
       this
   
   def mutate-last(func, include-noop)
     let body = @body.mutate-last func, include-noop
     if body != @body
-      Root @line, @column, body, @variables, @declarations
+      Root @pos, body, @variables, @declarations
     else
       this
   
   def exit-type() -> @last().exit-type()
   def last() -> @body[* - 1]
   
-  def inspect(depth) -> inspect-helper depth, "Root", @body, @variables, @declarations
+  def inspect(depth) -> inspect-helper depth, "Root", @pos, @body, @variables, @declarations
   
-  def to-JSON() -> { type: "Root", @line, @column, body: simplify(@body), variables: simplify(@variables), declarations: simplify(@declarations) }
-  @from-JSON := #({line, column, body, variables, declarations}) -> Root line, column, from-JSON(body), variables, declarations
+  def to-JSON() -> { type: "Root", @pos.line, @pos.column, @pos.file, body: simplify(@body), variables: simplify(@variables), declarations: simplify(@declarations) }
+  @from-JSON := #({line, column, file, body, variables, declarations}) -> Root make-pos(line, column, file), from-JSON(body), variables, declarations
 
 exports.This := class This extends Expression
-  def constructor(@line as Number, @column as Number) ->
+  def constructor(@pos as {}) ->
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb "this"
   def compile-as-block(options, level, line-start, sb)!
-    Noop(@line, @column).compile-as-block(options, level, line-start, sb)
+    Noop(@pos).compile-as-block(options, level, line-start, sb)
   
   def is-noop() -> true
   
   def walk() -> this
   
-  def inspect() -> "This()"
+  def inspect(depth) -> inspect-helper depth, "This", @pos
   
-  def to-JSON() -> { type: "This", @line, @column }
-  @from-JSON := #({line, column}) -> This(line, column)
+  def to-JSON() -> { type: "This", @pos.line, @pos.column, @pos.file }
+  @from-JSON := #({line, column, file}) -> This(make-pos(line, column, file))
 
 exports.Throw := class Throw extends Statement
-  def constructor(@line as Number, @column as Number, @node as Expression = Noop(line, column))
+  def constructor(@pos as {}, @node as Expression = Noop(line, column))
     if typeof node.to-statement == "function"
-      return node.to-statement().mutate-last (#(n)@ -> Throw @line, @column, n), true
+      return node.to-statement().mutate-last (#(n)@ -> Throw @pos, n), true
   
   def compile(options, level, line-start, sb)
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "throw "
     @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
     if node != @node
-      Throw @line, @column, node
+      Throw @pos, node
     else
       this
   
@@ -1749,15 +1862,15 @@ exports.Throw := class Throw extends Statement
   def is-small() -> @node.is-small()
   def is-large() -> @node.is-large()
   
-  def inspect(depth) -> inspect-helper depth, "Throw", @node
+  def inspect(depth) -> inspect-helper depth, "Throw", @pos, @node
   
-  def to-JSON() -> { type: "Throw", @line, @column, node: simplify(@node) }
-  @from-JSON := #({line, column, node}) -> Throw line, column, from-JSON(node)
+  def to-JSON() -> { type: "Throw", @pos.line, @pos.column, @pos.file, node: simplify(@node) }
+  @from-JSON := #({line, column, file, node}) -> Throw make-pos(line, column, file), from-JSON(node)
 
 exports.Switch := class Switch extends Statement
-  def constructor(@line as Number, @column as Number, mutable node = Noop(line, column), @cases as [SwitchCase] = [], default-case as Node = Noop(line, column), @label as Ident|null)
+  def constructor(@pos as {}, mutable node = Noop(pos), @cases as [SwitchCase] = [], default-case as Node = Noop(pos), @label as Ident|null)
     if node not instanceof Expression
-      node := to-const line, column, node
+      node := to-const pos, node
     @node := node
     @default-case := default-case.maybe-to-statement()
   
@@ -1765,7 +1878,9 @@ exports.Switch := class Switch extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1801,6 +1916,8 @@ exports.Switch := class Switch extends Statement
     sb "\n"
     sb.indent options.indent
     sb "}"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
@@ -1808,33 +1925,34 @@ exports.Switch := class Switch extends Statement
     let default-case = walker(@default-case) ? @default-case.walk(walker)
     let label = if @label? then walker(@label) ? @label.walk(walker) else @label
     if node != @node or cases != @cases or default-case != @default-case or label != @label
-      Switch @line, @column, node, cases, default-case, label
+      Switch @pos, node, cases, default-case, label
     else
       this
   
-  def inspect(depth) -> @inspect-helper depth, "Switch", @node, @cases, @default-case, @label
+  def inspect(depth) -> @inspect-helper depth, "Switch", @pos, @node, @cases, @default-case, @label
   
   def to-JSON()
     type: "Switch"
-    line: @line
-    column: @column
+    line: @pos.line
+    column: @pos.column
+    file: @pos.file
     node: simplify(@node)
     cases: simplify(for case_ in @cases
-      { node: simplify(case_.node), body: simplify(case_.body) })
+      { case_.pos.line, case_.pos.column, case_.pos.file, node: simplify(case_.node), body: simplify(case_.body) })
     default-case: simplify(@default-case)
     label: @label ? void
-  @from-JSON := #({line, column, node, cases, default-case, label})
+  @from-JSON := #({line, column, file, node, cases, default-case, label})
     let result-cases = []
     for case_ in (cases or [])
       if not case_ or typeof case_ != \object
         throw Error "Expected an object with a node and body"
-      result-cases.push SwitchCase case_.line, case_.column, from-JSON(case_.node), from-JSON(case_.body)
-    Switch line, column, from-JSON(node), result-cases, from-JSON(default-case), if label? then from-JSON(label) else null
+      result-cases.push SwitchCase make-pos(case_.line, case_.column, case_.file), from-JSON(case_.node), from-JSON(case_.body)
+    Switch make-pos(line, column, file), from-JSON(node), result-cases, from-JSON(default-case), if label? then from-JSON(label) else null
   
   Switch.Case := class SwitchCase
-    def constructor(@line as Number, @column as Number, mutable node = Noop(line, column), body as Node = Noop(line, column))
+    def constructor(@pos as {}, mutable node = Noop(pos), body as Node = Noop(pos))
       if node not instanceof Expression
-        node := to-const line, column, node
+        node := to-const pos, node
       @node := node
       @body := body.maybe-to-statement()
     
@@ -1845,14 +1963,14 @@ exports.Switch := class Switch extends Statement
       let node = walker(@node) ? @node.walk(walker)
       let body = walker(@body) ? @body.walk(walker)
       if node != @node or body != @body
-        SwitchCase @line, @column, node, body
+        SwitchCase @pos, node, body
       else
         this
     
-    def inspect(depth) -> inspect-helper depth, "Case", @node, @body
+    def inspect(depth) -> inspect-helper depth, "Case", @pos, @node, @body
 
 exports.TryCatch := class TryCatch extends Statement
-  def constructor(@line as Number, @column as Number, try-body as Node = Noop(line, column), @catch-ident as Ident, catch-body as Node = Noop(line, column), @label as Ident|null)
+  def constructor(@pos as {}, try-body as Node = Noop(pos), @catch-ident as Ident, catch-body as Node = Noop(pos), @label as Ident|null)
     @try-body := try-body.maybe-to-statement()
     if @try-body.is-noop()
       return @try-body
@@ -1862,7 +1980,9 @@ exports.TryCatch := class TryCatch extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1882,6 +2002,8 @@ exports.TryCatch := class TryCatch extends Statement
       sb "\n"
       sb.indent options.indent
     sb "}"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let try-body = walker(@try-body) ? @try-body.walk(walker)
@@ -1889,24 +2011,25 @@ exports.TryCatch := class TryCatch extends Statement
     let catch-body = walker(@catch-body) ? @catch-body.walk(walker)
     let label = if @label? then walker(@label) ? @label.walk(walker) else @label
     if try-body != @try-body or catch-ident != @catch-ident or catch-body != @catch-body or label != @label
-      TryCatch @line, @column, try-body, catch-ident, catch-body, label
+      TryCatch @pos, try-body, catch-ident, catch-body, label
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "TryCatch", @try-body, @catch-ident, @catch-body, @label
+  def inspect(depth) -> inspect-helper depth, "TryCatch", @pos, @try-body, @catch-ident, @catch-body, @label
   
   def to-JSON()
     type: "TryCatch"
-    line: @line
-    column: @column
+    line: @pos.line
+    column: @pos.column
+    file: @pos.file
     try-body: simplify(@try-body)
     catch-ident: @catch-ident
     catch-body: simplify(@catch-body)
     label: @label ? void
-  @from-JSON := #({line, column, try-body, catch-ident, catch-body, label}) -> TryCatch line, column, from-JSON(try-body), from-JSON(catch-ident), from-JSON(catch-body), if label? then from-JSON(label) else null
+  @from-JSON := #({line, column, file, try-body, catch-ident, catch-body, label}) -> TryCatch make-pos(line, column, file), from-JSON(try-body), from-JSON(catch-ident), from-JSON(catch-body), if label? then from-JSON(label) else null
 
 exports.TryFinally := class TryFinally extends Statement
-  def constructor(@line as Number, @column as Number, try-body as Node = Noop(line, column), finally-body as Node = Noop(line, column), @label as Ident|null)
+  def constructor(@pos as {}, try-body as Node = Noop(pos), finally-body as Node = Noop(pos), @label as Ident|null)
     @try-body := try-body.maybe-to-statement()
     @finally-body := finally-body.maybe-to-statement()
     if not label?
@@ -1919,7 +2042,9 @@ exports.TryFinally := class TryFinally extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     if @label?
       @label.compile options, level, line-start, sb
       sb ": "
@@ -1949,29 +2074,32 @@ exports.TryFinally := class TryFinally extends Statement
     sb "\n"
     sb.indent options.indent
     sb "}"
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def walk(walker)
     let try-body = walker(@try-body) ? @try-body.walk(walker)
     let finally-body = walker(@finally-body) ? @finally-body.walk(walker)
     let label = if @label? then walker(@label) ? @label.walk(walker) else @label
     if try-body != @try-body or finally-body != @finally-body or label != @label
-      TryFinally @line, @column, try-body, finally-body, label
+      TryFinally @pos, try-body, finally-body, label
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "TryFinally", @try-body, @finally-body, @label
+  def inspect(depth) -> inspect-helper depth, "TryFinally", @pos, @try-body, @finally-body, @label
   
   def to-JSON()
     type: "TryFinally"
-    line: @line
-    column: @column
+    line: @pos.line
+    column: @pos.column
+    file: @pos.file
     try-body: simplify(@try-body)
     finally-body: simplify(@finally-body)
     label: @label ? void
-  @from-JSON := #({line, column, try-body, finally-body, label}) -> TryFinally line, column, from-JSON(try-body), from-JSON(finally-body), if label? then from-JSON(label) else null
+  @from-JSON := #({line, column, file, try-body, finally-body, label}) -> TryFinally make-pos(line, column, file), from-JSON(try-body), from-JSON(finally-body), if label? then from-JSON(label) else null
 
 exports.Unary := class Unary extends Expression
-  def constructor(@line as Number, @column as Number, @op as String, mutable node = Noop(line, column))
+  def constructor(@pos as {}, @op as String, mutable node = Noop(line, column))
     if op not in KNOWN_OPERATORS
       throw Error "Unknown unary operator: $op"
     
@@ -1985,7 +2113,9 @@ exports.Unary := class Unary extends Expression
   
   def compile(options, level, line-start, sb)!
     let op = @op
-    options.sourcemap?.add(sb.line, sb.column, @line, @column)
+    if options.sourcemap? and @pos.file
+      options.sourcemap.push-file @pos.file
+    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     if op in ["++post", "--post"]
       @node.compile options, Level.unary, false, sb
       sb op.substring(0, 2)
@@ -1994,6 +2124,8 @@ exports.Unary := class Unary extends Expression
       if op in ["typeof", "void", "delete"] or (op in ["+", "-", "++", "--"] and ((@node instanceof Unary and op in ["+", "-", "++", "--"]) or (@node instanceof Const and typeof @node.value == "number" and is-negative(@node.value))))
         sb " "
       @node.compile options, Level.unary, false, sb
+    if options.sourcemap? and @pos.file
+      options.sourcemap.pop-file()
   
   def compile-as-block(options, level, line-start, sb)!
     let op = @op
@@ -2040,21 +2172,21 @@ exports.Unary := class Unary extends Expression
   def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
     if node != @node
-      Unary(@line, @column, @op, node)
+      Unary(@pos, @op, node)
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Unary", @op, @node
+  def inspect(depth) -> inspect-helper depth, "Unary", @pos, @op, @node
   
-  def to-JSON() -> { type: "Unary", @line, @column, @op, node: simplify(@node) }
-  @from-JSON := #({line, column, op, node}) -> Unary line, column, op, from-JSON(node)
+  def to-JSON() -> { type: "Unary", @pos.line, @pos.column, @pos.file, @op, node: simplify(@node) }
+  @from-JSON := #({line, column, file, op, node}) -> Unary make-pos(line, column, file), op, from-JSON(node)
 
-let While = exports.While := #(line, column, test, body, label)
-  For(line, column, null, test, null, body, label)
+let While = exports.While := #(pos, test, body, label)
+  For(pos, null, test, null, body, label)
 
 let from-JSON = exports.from-JSON := #(obj)
   if not obj?
-    return Noop(0, 0)
+    return Noop(make-pos(0, 0))
   
   if typeof obj != \object
     throw TypeError "Must provide an object to deserialize"

@@ -4369,7 +4369,7 @@ let Root = #(o, callback)
   let mutable x = block or o.nothing(i)
   EmptyLines(o)
   Space(o)
-  let result = o.root i, x
+  let result = o.root i, o.options.filename, x
   o.clear-cache()
   if callback?
     callback null, result
@@ -5300,7 +5300,7 @@ class Node
     else
       this
 
-let inspect-helper(depth, name, ...args)
+let inspect-helper(depth, name, line, column, ...args)
   let d = if depth? then depth - 1 else null
   let mutable found = false
   for arg in args by -1
@@ -5388,7 +5388,7 @@ macro node-class
     let add-methods = []
     if not find-def \inspect
       inspect-parts := @array(inspect-parts)
-      add-methods.push AST def inspect(depth) -> inspect-helper depth, $full-name, ...$inspect-parts
+      add-methods.push AST def inspect(depth) -> inspect-helper depth, $full-name, @line, @column, ...$inspect-parts
     if args.length and not find-def \walk
       let walk-init = []
       let mutable walk-check = AST false
@@ -5665,7 +5665,7 @@ class State
       obj
   
   let make-macro-root(index, params, body)
-    @root index, @return index, @function(index
+    @root index, void, @return index, @function(index
       [
         params
         @param index, (@ident index, \__wrap), void, false, true, void
@@ -7260,7 +7260,7 @@ node-class ReturnNode(node as Node = ConstNode(line, column, scope-id, void))
       ReturnNode @line, @column, @scope-id, node
     else
       this
-node-class RootNode(body as Node)
+node-class RootNode(file as String|void, body as Node)
   def is-statement() -> true
 node-class SpreadNode(node as Node)
   def _reduce(o)

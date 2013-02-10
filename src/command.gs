@@ -92,16 +92,15 @@ else if filenames.length
   throw? err
   
   let sourcemap = if options.sourcemap then require("./sourcemap")(options.output, ".")
+  opts.sourcemap := sourcemap
   
   let compiled = {}
   asyncif next, not options.join
     asyncfor err <- done, filename in filenames
       let code = input[filename]
+      opts.filename := filename
       if options.compile
         process.stdout.write "Compiling $(path.basename filename) ... "
-        if options.sourcemap
-          sourcemap.set-source path.basename(filename)
-          opts.sourcemap := sourcemap
         let start-time = Date.now()
         async! done, compilation <- gorilla.compile code, opts
         let end-time = Date.now()
@@ -115,6 +114,7 @@ else if filenames.length
     throw? err
     next()
   else
+    opts.filenames := filenames
     async err, compilation <- gorilla.compile (for filename in filenames; input[filename]), opts
     throw? err
     compiled["join"] := compilation.code
@@ -155,7 +155,7 @@ else if filenames.length
         cli.error err.to-string()
   
   if sourcemap?
-    async err <- fs.write-file options.sourcemap, sourcemap.to-string(), "utf8"
+    async err <- fs.write-file options.sourcemap, opts.sourcemap.to-string(), "utf8"
     if err
       cli.error err.to-string()
 else

@@ -127,7 +127,9 @@ let translate = exports.ast := #(source, options = {}, callback)
   let start-time = new Date().get-time()
   asyncif parsed, translated <- next, callback?
     asyncif parsed <- next2, is-array! source
-      asyncfor err, results <- next3, item in source
+      asyncfor err, results <- next3, item, i in source
+        if is-array! options.filenames
+          options.filename := options.filenames[i]
         parse item, options, next3
       if err?
         return callback(err)
@@ -140,6 +142,8 @@ let translate = exports.ast := #(source, options = {}, callback)
   else
     let parsed = if is-array! source
       join-parsed-results for item in source
+        if is-array! options.filenames
+          options.filename := options.filenames[i]
         parse item, options
     else
       parse source, options
