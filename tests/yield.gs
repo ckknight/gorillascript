@@ -58,6 +58,19 @@ test "yield with variables", #
   
   array-eq [0, 1, 2], iterator-to-array(fun())
 
+test "yield with conditional that has no inner yields", #
+  let fun(value)*
+    yield "alpha"
+    let mutable next = void
+    if value
+      next := "bravo"
+    else
+      next := "charlie"
+    yield next
+
+  array-eq ["alpha", "bravo"], iterator-to-array(fun(true))
+  array-eq ["alpha", "charlie"], iterator-to-array(fun(false))
+
 test "yield with while", #
   let fun()*
     yield 0
@@ -79,7 +92,6 @@ test "yield with while and increment", #
   
   array-eq [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], iterator-to-array(fun())
 
-
 test "yield with while and break", #
   let fun()*
     yield 0
@@ -92,6 +104,18 @@ test "yield with while and break", #
     yield 10
   
   array-eq [0, 1, 2, 3, 4, 5, 10], iterator-to-array(fun())
+
+test "yield with while and break that has no inner yields", #
+  let fun(value)*
+    yield "alpha"
+    let mutable i = 1
+    while i < 10
+      if i > 5
+        break
+      i += 1
+    yield i
+
+  array-eq ["alpha", 6], iterator-to-array(fun())
 
 test "yield with while and increment and continue", #
   let fun()*

@@ -342,6 +342,33 @@ let get-pos(node as ParserNode)
   make-pos(node.line, node.column, node.file)
 
 let generator-translate = do
+  let has-generator-node(node, checking = [ParserNode.Yield, ParserNode.Break, ParserNode.Continue])
+    let FOUND = {}
+    let walker(node)
+      if node instanceofsome checking
+        throw FOUND
+      else if node instanceofsome [ParserNode.For, ParserNode.ForIn]
+        node.walk #(n)
+          if has-generator-node n, [ParserNode.Yield]
+            throw FOUND
+          else
+            n
+      else if node instanceof ParserNode.Switch
+        node.walk #(n)
+          if has-generator-node n, [ParserNode.Yield, ParserNode.Continue]
+            throw FOUND
+          else
+            n
+      else
+        node.walk walker
+    try
+      walker node
+    catch e
+      if e == FOUND
+        return true
+      else
+        throw e
+    false
   let generator-translators =
     Block: #(node, scope, mutable builder, break-state, continue-state)
       if node.label?
@@ -471,7 +498,7 @@ let generator-translate = do
     Yield: #(node, scope, builder)
       builder.yield get-pos(node), translate node.node, scope, \expression
   #(node, scope, builder, break-state, continue-state)
-    if generator-translators ownskey node.constructor.capped-name
+    if generator-translators ownskey node.constructor.capped-name and has-generator-node node
       let ret = generator-translators[node.constructor.capped-name](node, scope, builder, break-state, continue-state)
       if ret not instanceof GeneratorBuilder
         throw Error "Translated non-GeneratorBuilder: $(typeof! ret)"
