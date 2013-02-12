@@ -247,3 +247,26 @@ test "yield with try-finally", #
   throws g.next, #(e) -> e == obj
   ok cleanup.ran
   throws g.next, #(e) -> e == StopIteration
+
+test "yield with switch", #
+  let fun(get-value)*
+    switch get-value()
+    case 0; yield 0
+    case 1
+      yield 1
+      yield 2
+    case 2
+      yield 3
+      fallthrough
+    case 3
+      yield 4
+      yield 5
+    default
+      yield 6
+      yield 7
+  
+  array-eq [0], iterator-to-array fun(run-once 0)
+  array-eq [1, 2], iterator-to-array fun(run-once 1)
+  array-eq [3, 4, 5], iterator-to-array fun(run-once 2)
+  array-eq [4, 5], iterator-to-array fun(run-once 3)
+  array-eq [6, 7], iterator-to-array fun(run-once 4)

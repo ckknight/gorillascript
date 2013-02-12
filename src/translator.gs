@@ -471,6 +471,37 @@ let generator-translate = do
         g-when-false.goto get-pos(node.when-false), #-> post-branch.state
       post-branch.builder
     
+    Switch: #(node, scope, mutable builder, break-state, continue-state)
+      let t-node = translate node.node, scope, \expression
+      let cached-node = scope.reserve-ident get-pos(node), \ref
+      builder.add #-> ast.Assign(get-pos(node), cached-node, t-node())
+      let body-states = []
+      for case_, i in node.cases
+        let t-case-node = translate case_.node, scope, \expression
+        let equal-branch = builder.branch()
+        body-states[i] := equal-branch.state
+        let g-case-body = generator-translate case_.body, scope, equal-branch.builder, #-> post-branch.state, continue-state
+        g-case-body.goto get-pos(case_.node), if case_.fallthrough
+          #-> body-states[i + 1] or post-branch.state
+        else
+          #-> post-branch.state
+        let inequal-branch = builder.branch()
+        builder.goto get-pos(node), #-> ast.IfExpression get-pos(node.node),
+          ast.Binary get-pos(case_.node),
+            cached-node
+            "==="
+            t-case-node()
+          equal-branch.state
+          inequal-branch.state
+        builder := inequal-branch.builder
+      if node.default-case?
+        let g-default-body = generator-translate node.default-case, scope, builder, #-> post-branch.state, continue-state
+        g-default-body.goto get-pos(node.default-case), #-> post-branch.state
+      else
+        builder.goto get-pos(node), #-> post-branch.state
+      let post-branch = builder.branch()
+      post-branch.builder
+    
     TmpWrapper: #(node, scope, mutable builder, break-state, continue-state)
       builder := generator-translate node.node, scope, builder, break-state, continue-state
       for tmp in node.tmps by -1
