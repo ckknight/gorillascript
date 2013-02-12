@@ -16,6 +16,19 @@ test "single-value yield on single-line", #
   array-eq ["bravo"], iterator-to-array(fun("bravo"))
   array-eq ["charlie"], iterator-to-array(fun("charlie"))
 
+test "single-value yield this on single-line", #
+  let fun()* -> yield this
+  
+  let obj = {}
+  array-eq [obj], iterator-to-array(fun@(obj))
+
+test "single-value bound yield this on single-line", #
+  let get-iter()
+    let fun()@* -> yield this
+  
+  let obj = {}
+  array-eq [obj], iterator-to-array(get-iter@(obj)())
+
 test "multi-valued yield", #
   let fun()*
     yield "alpha"
@@ -190,17 +203,21 @@ test "yield with try-catch", #
 test "yield with try-finally", #
   let cleanup = runOnce void
   let obj = {}
+  let fun-this = {}
   let fun()*
+    eq this, fun-this
     yield "alpha"
     try
+      eq this, fun-this
       yield "bravo"
       throw obj
       yield "charlie"
     finally
+      eq this, fun-this
       cleanup()
     yield "delta"
   
-  let g = fun()
+  let g = fun@(fun-this)
   eq "alpha", g.next()
   eq "bravo", g.next()
   throws g.next, #(e) -> e == obj

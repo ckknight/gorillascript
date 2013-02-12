@@ -1136,7 +1136,10 @@ let translators =
         translate-types[node.constructor.capped-name](node, scope)
 
     #(node, scope, location, auto-return) -> #
-      let inner-scope = scope.clone(not not node.bound)
+      let mutable inner-scope = scope.clone(not not node.bound)
+      let real-inner-scope = inner-scope
+      if node.generator and not inner-scope.bound
+        inner-scope := inner-scope.clone(true)
       let param-idents = []
       let initializers = []
       let mutable found-spread = -1
@@ -1216,7 +1219,7 @@ let translators =
         else
           if inner-scope.bound
             scope.used-this := true
-          if inner-scope.has-bound and not inner-scope.bound
+          if (inner-scope.has-bound or node.generator) and not real-inner-scope.bound
             let fake-this = ast.Ident get-pos(node.body), \_this
             inner-scope.add-variable fake-this // TODO: the type for this?
             body := ast.Block get-pos(node.body),
