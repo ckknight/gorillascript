@@ -1406,3 +1406,11 @@ test "Addition verifies numericity with an idle return statement", #
 
   eq 235, 1 + f(false)
   throws #-> 1 + f(true), TypeError
+
+test "Assigning an unknown variable is an error", #
+  throws #-> gorilla.compile("""let x = 0
+  y := 5"""), #(e) -> e.line == 2
+
+test "Assigning an immutable variable is an error", #
+  throws #-> gorilla.compile("""let x = 0
+  x := 5"""), #(e) -> e.line == 2

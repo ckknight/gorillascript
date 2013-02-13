@@ -13,7 +13,7 @@ test "Labeled block", #
 
 test "Labeled if", #
   let f(test, should-break)
-    let x = 0b0000
+    let mutable x = 0b0000
     label! blah if test
       x bitor= 0b0001
       if should-break
@@ -33,7 +33,7 @@ test "Labeled if", #
 
 test "Labeled switch", #
   let f(topic, should-break)
-    let x = 0b0000
+    let mutable x = 0b0000
     label! blah switch topic
     case true
       x bitor= 0b0001
@@ -53,7 +53,7 @@ test "Labeled switch", #
   eq 0b1100, f(false, false)
 
 test "Labeled while", #
-  let sum = 0
+  let mutable sum = 0
   let mutable i = 0
   label! blah while i < 10, i += 1
     if i %% 2
@@ -86,7 +86,7 @@ test "Labeled for-of", #
 test "Labeled try-catch", #
   let f(should-break)
     let err = {}
-    let result = 0
+    let mutable result = 0
     label! blah try
       result bitor= 0b001
       if should-break
@@ -104,7 +104,7 @@ test "Labeled try-catch", #
 test "Labeled try-finally", #
   let f(should-break)
     let err = {}
-    let result = 0
+    let mutable result = 0
     try
       label! blah try
         result bitor= 0b0001

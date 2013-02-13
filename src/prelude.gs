@@ -89,11 +89,11 @@ define operator unary ? with postfix: true, type: \boolean, label: \existential
   else
     ASTE $node !~= null
 
-define operator assign :=
+define operator assign := with type: \right
   @assign left, "=", right
 
 define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier, as-type as ("as", this as Type)?
-  if @is-ident(ident) or @is-tmp(ident)
+  if @is-ident-or-tmp(ident)
     type: \ident
     is-mutable: is-mutable == "mutable"
     ident: ident
@@ -137,10 +137,10 @@ macro let
         else
           acc
       if num-real-elements(0, 0) ~<= 1
-        let handle(i)
+        let handle(i)@
           if i ~< declarable.elements.length
             if declarable.elements[i]
-              AST let $(declarable.elements[i]) = $value[$i]
+              @macro-expand-1 AST let $(declarable.elements[i]) = $value[$i]
             else
               handle(inc(i))
           else
@@ -151,7 +151,7 @@ macro let
           let handle(i, current-value, block)@
             if i ~< declarable.elements.length
               if declarable.elements[i]
-                block.push AST let $(declarable.elements[i]) = $current-value[$i]
+                block.push @macro-expand-1 AST let $(declarable.elements[i]) = $current-value[$i]
                 handle inc(i), value, block
               else
                 handle inc(i), current-value, block
@@ -160,13 +160,13 @@ macro let
           handle 0, set-value, []
     else if declarable.type == \object
       if declarable.pairs.length == 1
-        let handle(pair)
-          AST let $(pair.value) = $value[$(pair.key)]
+        let handle(pair)@
+          @macro-expand-1 AST let $(pair.value) = $value[$(pair.key)]
         handle(@macro-expand-1(declarable.pairs[0]))
       else
         @maybe-cache value, #(set-value, value)@
           let handle-pair(i, current-value, pair, block)@
-            block.push AST let $(pair.value) = $current-value[$(pair.key)]
+            block.push @macro-expand-1 AST let $(pair.value) = $current-value[$(pair.key)]
             handle inc(i), value, block
           let handle(i, current-value, block)@
             if i ~< declarable.pairs.length

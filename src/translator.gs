@@ -1260,7 +1260,7 @@ let translators =
         inner-scope.release-ident spread-counter
       
       let unassigned = {}
-      let body = if node.generator
+      let mutable body = if node.generator
         generator-translate(node.body, inner-scope, GeneratorBuilder(get-pos(node), inner-scope)).create()
       else
         translate(node.body, inner-scope, \top-statement, node.auto-return, unassigned)()
@@ -1513,7 +1513,7 @@ let translators =
       scope.add-variable ident, Type.any, node.is-mutable
       ast.Noop(get-pos(node))
 
-let translate(node as Object, scope as Scope, location as String, auto-return, unassigned)
+let translate(node as Object, scope as Scope, location as String, mutable auto-return, unassigned)
   if typeof auto-return != \function
     auto-return := make-auto-return auto-return
 
@@ -1550,7 +1550,7 @@ let translate-root(mutable roots as Object, scope as Scope)
 
   let no-pos = make-pos 0, 0
   
-  let body = if roots.length == 1
+  let mutable body = if roots.length == 1
     if roots[0] not instanceof ParserNode.Root
       throw Error "Cannot translate non-Root object"
     ast.Block get-pos(roots[0]),

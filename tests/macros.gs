@@ -9,7 +9,7 @@ macro myfor
   syntax ident as Identifier, "=", start, ",", end, body as Body
     let init = []
     
-    init.push (AST let $ident = $start)
+    init.push (AST let mutable $ident = $start)
     
     myif @has-func(body)
       let func = @tmp \f

@@ -36,7 +36,7 @@ let identity(x) -> x
 let ret-this() -> this
 
 let get-tmp-id = do
-  let id = -1
+  let mutable id = -1
   #-> id += 1
 
 let cache(rule as ->, dont-cache as Boolean) as (->)
@@ -64,7 +64,7 @@ let cache(rule as ->, dont-cache as Boolean) as (->)
 
 macro with-message!(message, rule)
   let init = []
-  message := @cache message, message, \message, true
+  message := @cache message, init, \message, true
   rule := @cache rule, init, \rule, true
   AST do
     $init
@@ -138,8 +138,8 @@ macro one-of!(array, mutator)
     AST mutate! $(elements[0]), $mutator
   default
     let init = []
-    let checks = AST false
-    for rule, i, len in elements
+    let mutable checks = AST false
+    for mutable rule, i, len in elements
       if @is-const(rule)
         if typeof @value(rule) != \string
           throw Error "Can only handle constant string literals"
@@ -221,6 +221,7 @@ macro sequential!(array, mutator)
   
   let mutable has-result = false
   let mutable has-this = false
+  let result = @tmp \result
   let checks = for item, i in @elements(array)
     if @is-array(item)
       let parts = @elements(item)
@@ -234,9 +235,9 @@ macro sequential!(array, mutator)
       let rule = @cache parts[1], init, \rule, true
       if @value(key) == \this
         has-this := true
-        AST result := $rule clone
+        AST $result := $rule clone
       else
-        AST result[$key] := $rule clone
+        AST $result[$key] := $rule clone
     else
       let rule = @cache item, init, \rule, true
       AST $rule clone
@@ -245,13 +246,13 @@ macro sequential!(array, mutator)
   
   let has-mutator = mutator and not (@is-const(mutator) and @value(mutator) == void)
   
-  let result = if has-result
+  let ret = if has-result
     let inner = AST
       o.update clone
-      result
+      $result
     AST mutate! (#(o)
       let clone = o.clone()
-      let mutable result = if $has-this then void else {}
+      let mutable $result = if $has-this then void else {}
       $code and $inner), $mutator
   else
     let has-const-mutator = has-mutator and @is-const(mutator)
@@ -269,9 +270,9 @@ macro sequential!(array, mutator)
   if init.length
     AST do
       $init
-      $result
+      $ret
   else
-    result
+    ret
 
 macro maybe!(rule, missing-value, found-value)
   if (@is-const(missing-value) and not @value(missing-value)) or not missing-value
@@ -758,7 +759,7 @@ define NewlineWithCheckIndent = sequential! [
 
 define MaybeComment = do
   namedlet SingleLineComment = #(o)
-    let {data, index} = o
+    let {data, mutable index} = o
     if C(data, index) == C("/") and C(data, index ~+ 1) == C("/")
       let len = data.length
       index += 2
@@ -770,7 +771,7 @@ define MaybeComment = do
       false
 
   namedlet MultiLineComment = #(o)
-    let {data, index} = o
+    let {data, mutable index} = o
     if C(data, index) == C("/") and C(data, index ~+ 1) == C("*") and C(data, index ~+ 2) != C("!")
       let len = data.length
       index += 2
@@ -807,9 +808,9 @@ let process-char-codes(codes, array = [])
 define LicenseComment = sequential! [
   _Space
   [\this, #(o)
-    let {data, index} = o
+    let {data, mutable index} = o
     if C(data, index) == C("/") and C(data, index ~+ 1) == C("*") and C(data, index ~+ 2) == C("!")
-      let line = [C("/"), C("*"), C("!")]
+      let mutable line = [C("/"), C("*"), C("!")]
       let lines = [line]
       let len = data.length
       let start-index = index
@@ -3229,22 +3230,22 @@ namedlet ParameterSequence = sequential! [
       o.error "Duplicate parameter name: $(duplicates.sort().join ', ')"
     x
 
-let add-param-to-scope(o, param)!
+let add-param-to-scope(o, param, force-mutable)!
   if param instanceof ParamNode
     if param.ident instanceofsome [IdentNode, TmpNode]
-      o.scope.add param.ident, param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
+      o.scope.add param.ident, force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else if param.ident instanceof AccessNode
       if param.ident.child not instanceof ConstNode or typeof param.ident.child.value != \string
         throw Error "Expected constant access: $(typeof! param.ident.child)"
-      o.scope.add IdentNode(param.line, param.column, param.scope-id, param.ident.child.value), param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
+      o.scope.add IdentNode(param.line, param.column, param.scope-id, param.ident.child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else
       throw Error "Unknown param ident: $(typeof! param.ident)"
   else if param instanceof ArrayNode
     for element in param.elements by -1
-      add-param-to-scope o, element
+      add-param-to-scope o, element, force-mutable
   else if param instanceof ObjectNode
     for pair in param.pairs by -1
-      add-param-to-scope o, pair.value
+      add-param-to-scope o, pair.value, force-mutable
   else if param not instanceof NothingNode
     throw Error "Unknown param node type: $(typeof! param)"
 
@@ -3436,6 +3437,13 @@ namedlet MacroOptions = maybe! (sequential! [
     options[key.const-value()] := value.const-value()
   options), #-> {}
 
+let add-macro-syntax-parameters-to-scope(params, o)!
+  for param in params
+    if param instanceof SyntaxParamNode
+      let {ident} = param
+      if ident instanceof IdentNode
+        o.scope.add ident, true, Type.any
+
 define SyntaxToken = word \syntax
 namedlet MacroSyntax = sequential! [
   CheckIndent
@@ -3449,6 +3457,8 @@ namedlet MacroSyntax = sequential! [
         throw SHORT_CIRCUIT
       let options = MacroOptions clone
       clone.start-macro-syntax i, params, options
+      add-macro-syntax-parameters-to-scope params, clone
+      clone.scope.add clone.ident(i, \macro-name), true, Type.string
       let body = FunctionBody clone
       if not body
         throw SHORT_CIRCUIT
@@ -3482,7 +3492,7 @@ namedlet MacroBody = one-of! [
     if not params
       return false
     for param in params by -1
-      add-param-to-scope clone, param
+      add-param-to-scope clone, param, true
     let options = MacroOptions clone
     let body = FunctionBody clone
     if not body
@@ -3510,8 +3520,12 @@ namedlet DefineSyntax = short-circuit! DefineSyntaxStart, sequential! [
   [\name, Identifier]
   DeclareEqualSymbol
   [\value, MacroSyntaxParameters]
-  [\body, maybe! FunctionBody, NOTHING]
-], #(x, o, i) -> o.define-syntax i, x.name.name, x.value, if x.body != NOTHING then x.body
+], #(x, o, i)
+  let clone = o.clone(o.clone-scope())
+  add-macro-syntax-parameters-to-scope x.value, clone
+  let body = FunctionBody(clone)
+  o.update clone
+  o.define-syntax i, x.name.name, x.value, body or void
 
 define DefineHelperStart = sequential! [word(\define), word(\helper)]
 namedlet DefineHelper = short-circuit! DefineHelperStart, sequential! [
@@ -3884,7 +3898,7 @@ let convert-invocation-or-access = do
   let link-types =
     access: do
       let index-types =
-        multi: #(o, i, child) -> #(parent)
+        multi: #(o, i, child) -> #(mutable parent)
           let mutable set-parent = parent
           let tmp-ids = []
           if parent.cacheable
@@ -4510,6 +4524,9 @@ class MacroHelper
   def has-variable(ident as TmpNode|IdentNode)
     @state.scope.has(ident)
   
+  def is-variable-mutable(ident as TmpNode|IdentNode)
+    @state.scope.is-mutable(ident)
+  
   def var(ident as IdentNode|TmpNode, is-mutable as Boolean) -> @state.var @index, ident, is-mutable
   def def(key as Node = NothingNode(0, 0, @state.scope.id), value as Node|void) -> @state.def @index, key, @do-wrap(value)
   def noop() -> @state.nothing @index
@@ -5111,7 +5128,7 @@ class MacroHolder
     if id >= 0 and id < by-id.length
       by-id[id]
   
-  def add-macro(m, mutable macro-id as Number|void, type as Type|void)
+  def add-macro(m, mutable macro-id as Number|void, type as Type|String|void)
     let by-id = @by-id
     if macro-id?
       if by-id ownskey macro-id
@@ -5157,7 +5174,7 @@ class MacroHolder
     binary-operators.push data
     if options.label
       @add-by-label options.label, data
-    @add-macro m, macro-id, if options.type? then Type![options.type]
+    @add-macro m, macro-id, if options.type in [\left, \right] then options.type else if options.type? then Type![options.type]
   
   def get-by-label(label)
     @by-label![label]
@@ -5178,7 +5195,7 @@ class MacroHolder
     @assign-operators.push data
     if options.label
       @add-by-label options.label, data
-    @add-macro m, macro-id, if options.type? then Type![options.type]
+    @add-macro m, macro-id, if options.type in [\left, \right] then options.type else if options.type? then Type![options.type]
   
   def add-unary-operator(operators, m, options, macro-id)
     for op in operators by -1
@@ -5205,7 +5222,7 @@ class MacroHolder
     store.push data
     if options.label
       @add-by-label options.label, data
-    @add-macro m, macro-id, if options.type? then Type![options.type]
+    @add-macro m, macro-id, if options.type == \node then options.type else if options.type? then Type![options.type]
   
   def add-serialized-helper(name as String, helper, type, dependencies)!
     let helpers = (@serialization.helpers ?= {})
@@ -5327,7 +5344,7 @@ macro node-class
     let capped-name = full-name.slice(0, -4)
     let lower-name = capped-name.char-at(0).to-lower-case() & capped-name.substring(1)
     let type = @ident(full-name)
-    let ctor-body = AST
+    let mutable ctor-body = AST
       @line := line
       @column := column
       @scope-id := scope-id
@@ -5382,8 +5399,7 @@ macro node-class
     
     let add-methods = []
     if not find-def \inspect
-      inspect-parts := @array(inspect-parts)
-      add-methods.push AST def inspect(depth) -> inspect-helper depth, $full-name, @line, @column, ...$inspect-parts
+      add-methods.push AST def inspect(depth) -> inspect-helper depth, $full-name, @line, @column, ...$(@array inspect-parts)
     if args.length and not find-def \walk
       let walk-init = []
       let mutable walk-check = AST false
@@ -5992,7 +6008,7 @@ class State
         handle-macro-syntax@ this, 0, \define-syntax, handler, handle-params@(this, deserialize-params(params, @scope.id)), null, options, id
     
     binary-operator: #({code, operators, options, id})
-      let handler = Function(code)()
+      let mutable handler = Function(code)()
       if typeof handler != \function
         throw Error "Error deserializing function for binary operator $(operators.join ', ')"
       let state = this
@@ -6011,7 +6027,7 @@ class State
         handle-macro-syntax@ this, 0, \binary-operator, handler, void, operators, options, id
       
     assign-operator: #({code, operators, options, id})
-      let handler = Function(code)()
+      let mutable handler = Function(code)()
       if typeof handler != \function
         throw Error "Error deserializing function for assign operator $(operators.join ', ')"
       let state = this
@@ -6075,6 +6091,11 @@ class State
       else
         let clone = o.clone(o.get-scope(scope-id))
         let macro-helper = MacroHelper clone, i, _position.peek(), _in-generator.peek()
+        if type == \assign-operator and macro-helper.is-ident(x.left)
+          if not macro-helper.has-variable(x.left)
+            throw MacroError Error("Trying to assign with $(x.op) to unknown variable: $(macro-helper.name x.left)"), o.data, line
+          else if not macro-helper.is-variable-mutable(x.left)
+            throw MacroError Error("Trying to assign with $(x.op) to immutable variable: $(macro-helper.name x.left)"), o.data, line
         let mutable result = try
           handler@ macro-helper, remove-noops(x), macro-helper@.wrap, macro-helper@.node
         catch e as MacroError
@@ -6187,6 +6208,8 @@ class State
         // I know this somewhat violates the expanding only once assumption, but it makes
         // using this so much easier to know that macro-expand-1 will never return a MacroAccessNode
         @macro-expand-1(result)
+      else if result instanceof Node
+        result._macro-expanded := result
       else
         result
     else
@@ -6203,8 +6226,7 @@ class State
         callback null, node._macro-expand-alled
       else if node not instanceof MacroAccessNode
         async! callback, walked <- node.walk-async walker
-        walked._macro-expanded := walked
-        callback null, walked
+        callback null, (walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked)
       else
         let mutable expanded = void
         try
@@ -6212,9 +6234,9 @@ class State
         catch e
           return callback e
         if expanded not instanceof Node
-          return callback null, (node._macro-expand-alled := expanded)
+          return callback null, (node._macro-expand-alled := node._macro-expanded := expanded)
         async! callback, walked <- walker expanded
-        callback null, (expanded._macro-expand-alled := walked._macro-expanded := walked)
+        callback null, (expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked)
 
     walker node, callback
   
@@ -6224,13 +6246,13 @@ class State
         node._macro-expand-alled
       else if node not instanceof MacroAccessNode
         let walked = node.walk walker
-        walked._macro-expanded := walked
+        walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
       else
         let expanded = @macro-expand-1 node
         if expanded not instanceof Node
-          return (node._macro-expand-alled := expanded)
+          return (node._macro-expand-alled := node._macro-expanded := expanded)
         let walked = walker expanded
-        expanded._macro-expand-alled := walked._macro-expanded := walked
+        expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
     
     walker node
   
@@ -6652,7 +6674,7 @@ node-class BlockNode(nodes as [Node], label as IdentNode|TmpNode|null)
           return BlockNode @line, @column, @scope-id, @nodes[0 til -1].concat([@nodes[* - 1].with-label(label, o)])
     BlockNode @line, @column, @scope-id, @nodes, label
   def _reduce(o)
-    let changed = false
+    let mutable changed = false
     let body = []
     for node, i, len in @nodes
       let reduced = node.reduce(o)
@@ -7083,7 +7105,10 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
   def type(o as State) -> @_type ?= do
     let type = o.macros.get-type-by-id(@id)
     if type?
-      type
+      if typeof type == \string
+        @data[type].type(o)
+      else
+        type
     else
       o.macro-expand-1(this).type(o)
   def with-label(label as IdentNode|TmpNode|null, o)

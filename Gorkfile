@@ -143,14 +143,14 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
       if is-array! v
         for item, i in v
           if typeof item.code == \string and item.code.substring(0, 7) == "return "
-            let minified = require("uglify-js").minify(item.code.substring(7), from-string: true).code
+            let mutable minified = require("uglify-js").minify(item.code.substring(7), from-string: true).code
             if minified.char-at(0) == "("
               minified := "return$minified"
             else
               minified := "return $minified"
             item.code := minified
     serialized-prelude := JSON.stringify deserialized-prelude
-  let code = """
+  let mutable code = """
     ;(function (root) {
       var GorillaScript = (function () {
         function require(path) {
