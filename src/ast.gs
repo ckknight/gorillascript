@@ -1652,11 +1652,11 @@ exports.Obj := class Obj extends Expression
     line: @pos.line
     column: @pos.column
     file: @pos.file
-    pairs: simplify(for pair in @pairs
+    elements: simplify(for pair in @elements
       { pair.pos.line, pair.pos.column, pair.pos.file, pair.key, value: simplify(pair.value) })
-  @from-JSON := #({line, column, file, pairs})
+  @from-JSON := #({line, column, file, elements})
     let result-pairs = []
-    for pair in (pairs or [])
+    for pair in (elements or [])
       if not pair or not is-object! pair
         throw Error "Expecting an object with a key and value"
       result-pairs.push ObjPair make-pos(pair.line, pair.column, pair.file), pair.key, from-JSON(pair.value)
