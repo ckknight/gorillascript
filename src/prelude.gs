@@ -1080,7 +1080,7 @@ macro for
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
       value := value.ident
-      let [start, end, step, inclusive] = @call-args(array)
+      let [mutable start, mutable end, mutable step, mutable inclusive] = @call-args(array)
     
       let init = []
     
@@ -1510,9 +1510,7 @@ macro for
         throw Error("Cannot use a for loop with an else as an expression")
       let arr = @tmp \arr, false, @type(body).array()
       body := @mutate-last body or @noop(), #(node) -> (ASTE $arr.push $node)
-      init := AST
-        $arr := []
-        $init
+      init.unshift AST let $arr = []
       let loop = @for-in(key, object, body)
       AST
         $init
@@ -1818,7 +1816,7 @@ define helper __new = do
   let new-creators = []
   #(Ctor, args)
     let length = args.length
-    let creator = new-creators[length]
+    let mutable creator = new-creators[length]
     if not creator
       let func = ["return new C("]
       for i in 0 til length
@@ -1982,7 +1980,7 @@ define helper __async-result = #(mutable limit, length, on-value, mutable on-com
           f(null, result)
   next()
 
-define helper __async-iter = #(mutable limit, iterator, on-value, on-complete)
+define helper __async-iter = #(mutable limit, iterator, on-value, mutable on-complete)
   if limit ~< 1 or limit != limit
     limit := Infinity
   let mutable broken = null
@@ -2029,7 +2027,7 @@ define helper __async-iter = #(mutable limit, iterator, on-value, on-complete)
         f(broken)
   next()
 
-define helper __async-iter-result = #(mutable limit, iterator, on-value, on-complete)
+define helper __async-iter-result = #(mutable limit, iterator, on-value, mutable on-complete)
   if limit ~< 1 or limit != limit
     limit := Infinity
   let mutable broken = null
@@ -2163,7 +2161,7 @@ macro asyncfor
       if @is-array(value) or @is-object(value)
         throw Error "Cannot assign a number to a complex declarable"
       value := value.ident
-      let [start, end, step, inclusive] = @call-args(array)
+      let [mutable start, mutable end, mutable step, mutable inclusive] = @call-args(array)
       
       if @is-const(start)
         if typeof @value(start) != \number
@@ -2251,7 +2249,7 @@ macro asyncfor
       $rest
   
   syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), rest as DedentedBody
-    let {err, result} = results ? {}
+    let {mutable err, result} = results ? {}
     
     index ?= @tmp \i, true
     err ?= @tmp \err, true
@@ -2276,7 +2274,7 @@ macro asyncif, asyncunless
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, rest as DedentedBody
     if macro-name == \asyncunless
       test := ASTE not $test
-    let {err, result} = results ? {}
+    let {mutable err, result} = results ? {}
     
     let f = @tmp \f, false
     
@@ -2667,7 +2665,46 @@ define helper __bind = #(parent, child) as Function
     throw Error "Trying to bind child '$(String child)' which is not a function"
   # -> func@ parent, ...arguments
 
-define helper __def-prop = Object.define-property
+define helper __def-prop = do
+  let fallback = Object.define-property
+  if typeof fallback == \function and (do
+      try
+        let o = {}
+        fallback(o, \sentinel, {})
+        o haskey \sentinel
+      catch e
+        false)
+    fallback
+  else
+    let supports-accessors = Object.prototype ownskey \__define-getter__
+    let lookup-getter = supports-accessors and Object::__lookup-getter__
+    let lookup-setter = supports-accessors and Object::__lookup-setter__
+    let define-getter = supports-accessors and Object::__define-getter__
+    let define-setter = supports-accessors and Object::__define-setter__
+    #(object as Function|Object, property as String, descriptor as Object)
+      if typeof fallback == \function
+        try
+          return fallback object, property, descriptor
+        catch e
+          void
+      
+      if descriptor ownskey \value
+        if supports-accessors and (lookup-getter@ object, property or lookup-setter@ object, property)
+          let proto = object.__proto__
+          object.__proto__ := Object.prototype
+          delete object[property]
+          object[property] := descriptor.value
+          object.__proto__ := proto
+        else
+          object[property] := descriptor.value
+      else
+        if not supports-accessors
+          throw Error "Getters and setters cannot be defined on this Javascript engine"
+        if descriptor ownskey \get
+          define-getter@ object, property, descriptor.get
+        if descriptor ownskey \set
+          define-setter@ object, property, descriptor.set
+      object
 
 macro label!
   syntax label as Identifier, node as (Statement|Body)

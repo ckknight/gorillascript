@@ -1273,8 +1273,10 @@ assert to-hex(255) == "ff"
     <p>When using the <code>get</code> and <code>set</code> pair, they must be defined next to each other (order is irrelevant). One can also supply only <code>get</code> or only <code>set</code>.</p>
 
     <p>When using the <code>property</code> syntax, the value is the same as one calling <code>Object.defineProperty</code>, in fact, that is all that is happening behind the scenes.</p>
+    
+    <p>If <code>Object.defineProperty</code> is not available, then it will try to sanely fallback, but it might not be successful. If specifying <code>value</code> instead of <code>get</code>/<code>set</code>, it will always work, but the <code>configurable</code>/<code>enumerable</code>/<code>writable</code> attributes are not guaranteed.</p>
 
-    <p><strong>Note: this will throw an <code>Exception</code> if <code>Object.defineProperty</code> is not defined</strong></p>
+    <p><strong>Note: this might throw an <code>Exception</code> if <code>Object.defineProperty</code> is not defined</strong></p>
   </section>
 
   <section id="labels">
