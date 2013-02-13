@@ -2681,7 +2681,7 @@ define helper __def-prop = do
     let lookup-setter = supports-accessors and Object::__lookup-setter__
     let define-getter = supports-accessors and Object::__define-getter__
     let define-setter = supports-accessors and Object::__define-setter__
-    #(object as Function|Object, property as String, descriptor as Object)
+    #(object as {}|->, property as String, descriptor as {})
       if typeof fallback == \function
         try
           return fallback object, property, descriptor

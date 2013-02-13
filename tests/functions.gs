@@ -1149,6 +1149,44 @@ test "typed function which returns any but has a parameter", #
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
 
+test "typed object or function", #
+  let fun(x as {}|->)
+    if typeof x == \function
+      x()
+    else
+      x
+  
+  let obj = {}
+  eq obj, fun obj
+  eq obj, fun #-> obj
+  eq "x", fun #-> "x"
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+
+test "typed function or object", #
+  let fun(x as ->|{})
+    if typeof x == \function
+      x()
+    else
+      x
+  
+  let obj = {}
+  eq obj, fun obj
+  eq obj, fun #-> obj
+  eq "x", fun #-> "x"
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+
 test "function with return type", #
   let fun() as String -> "hello"
   

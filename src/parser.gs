@@ -3018,8 +3018,7 @@ define ObjectType = sequential! [
 let _in-function-type-params = Stack false
 let in-function-type-params = make-alter-stack _in-function-type-params, true
 let not-in-function-type-params = make-alter-stack _in-function-type-params, false
-define FunctionType = sequential! [
-  #(o) -> not _in-function-type-params.peek()
+namedlet FunctionType = sequential! [
   one-of! [
     sequential! [
       OpenParenthesis
@@ -3033,7 +3032,11 @@ define FunctionType = sequential! [
     in-function-type-params #(o) -> TypeReference o
     Nothing
   ]
-  symbol "->"
+  sequential! [
+    Space
+    Minus
+    character! ">"
+  ]
   [\this, maybe! TypeReference, NOTHING]
 ], #(x, o, i)
   if x == NOTHING
@@ -3041,8 +3044,10 @@ define FunctionType = sequential! [
   else
     o.type-function i, x
 
-define NonUnionType = one-of! [
-  FunctionType
+namedlet NonUnionType = one-of! [
+  #(o)
+    if not _in-function-type-params.peek()
+      FunctionType(o)
   sequential! [
     OpenParenthesis
     [\this, not-in-function-type-params #(o) -> TypeReference o]
