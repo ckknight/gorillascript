@@ -920,6 +920,10 @@ define Period = character! "."
 define ColonChar = character! ":"
 define Pipe = with-space! character! "|"
 define DoubleColon = sequential! [ColonChar, ColonChar], "::"
+define ColonEqual = with-space! sequential! [
+  ColonChar
+  character! "="
+], ":="
 namedlet Minus = character! "-"
 namedlet Plus = character! "+"
 namedlet PlusOrMinus = character! "+-"
@@ -1816,6 +1820,7 @@ define Symbol = with-message! "symbol", with-space! _Symbol
 let _NameOrSymbol = one-or-more-of! [
   _Name
   _Symbol
+  ColonEqual
 ], #(x) -> x.join ""
 let NameOrSymbol = with-space! _NameOrSymbol
 
@@ -3645,15 +3650,7 @@ namedlet ComplexAssignable = one-of! [
   //ObjectAssignable
 ]
 
-namedlet DirectAssignment = sequential! [
-  [\left, ComplexAssignable]
-  Space
-  ColonChar
-  character! "="
-  [\right, ExpressionOrAssignment]
-], #(x, o, i) -> o.assign i, x.left, "=", x.right.do-wrap(o)
-
-namedlet CustomAssignment = #(o)
+define Assignment = #(o)
   let start-index = o.index
   let line = o.line
   let clone = o.clone()
@@ -3675,11 +3672,6 @@ namedlet CustomAssignment = #(o)
         right
       }, o, start-index, line
   false
-
-define Assignment = one-of! [
-  DirectAssignment
-  CustomAssignment
-]
 
 namedlet UnclosedObjectLiteral = sequential! [
   [\head, PropertyOrDualObjectKey]
@@ -5178,7 +5170,10 @@ class MacroHolder
       @operator-names[op] := true
     let data = 
       rule: one-of for op in operators
-        word-or-symbol op
+        if op == ":="
+          ColonEqual
+        else
+          word-or-symbol op
       func: m
     @assign-operators.push data
     if options.label
@@ -5642,6 +5637,7 @@ class State
     ",": Comma
     ";": Semicolon
     ":": Colon
+    ":=": ColonEqual
     "": Nothing
     "\n": NewlineWithCheckIndent
     "(": OpenParenthesis

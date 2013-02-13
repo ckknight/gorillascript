@@ -79,14 +79,18 @@ macro if, unless
 
 define operator binary ~& with precedence: 4, type: \string
   if @has-type(left, \numeric) and @has-type(right, \numeric)
-    left := @binary @const(""), "+", left
-  @binary left, "+", right
+    @binary @binary(@const(""), "+", left), "+", right
+  else
+    @binary left, "+", right
 
 define operator unary ? with postfix: true, type: \boolean, label: \existential
   if @is-ident-or-tmp(node) and not @has-variable(node)
     ASTE typeof $node != \undefined and $node != null
   else
     ASTE $node !~= null
+
+define operator assign :=
+  @assign left, "=", right
 
 define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier, as-type as ("as", this as Type)?
   if @is-ident(ident) or @is-tmp(ident)
