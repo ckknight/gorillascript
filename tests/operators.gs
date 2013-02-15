@@ -1474,3 +1474,22 @@ test "Pipe operators are executed in expected order", #
   eq 123, 5 |> with-addition(double) |> with-addition(square)
   // ((5 * 2) + 4) ^ 2 + 3
   eq 199, with-addition(square) <| with-addition(double) <| 5
+
+test "Import operators", #
+  let source = { alpha: \bravo }
+  let mutable dest = { charlie: \delta }
+  
+  eq dest, dest <<< source
+  eq \bravo, dest.alpha
+  eq \delta, dest.charlie
+  
+  dest := { charlie: \delta }
+  eq dest, source >>> dest
+  eq \bravo, dest.alpha
+  eq \delta, dest.charlie
+  
+  dest := { charlie: \delta }
+  
+  eq dest, dest <<< { alpha: \bravo }
+  eq \bravo, dest.alpha
+  eq \delta, dest.charlie

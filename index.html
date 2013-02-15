@@ -296,6 +296,8 @@ else
       <li><code>x &gt;&gt; y</code> - Compose <code>y</code> and <code>x</code>, like <code>#(...args) -&gt; y(x(...args))</code></li>
       <li><code>x |&gt; f</code> - Pipe <code>x</code> into <code>f</code>, like <code>f(x)</code></li>
       <li><code>f &lt;| x</code> - Pipe <code>x</code> into <code>f</code>, like <code>f(x)</code></li>
+      <li><code>x &lt;&lt;&lt; y</code> - Import all properties from <code>y</code> into <code>x</code>, like <code>for k, v of y; x[k] := v</code></li>
+      <li><code>x &gt;&gt;&gt; y</code> - Import all properties from <code>x</code> into <code>y</code>, like <code>for k, v of x; y[k] := v</code></li>
     </ul>
   </section>
   

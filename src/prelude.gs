@@ -9,7 +9,7 @@ macro do
 // 3: by
 // 4: to, til
 // 5: <=>
-// 6: in, haskey, ownskey, instanceof, instanceofsome
+// 6: in, haskey, ownskey, instanceof, instanceofsome, <<<, >>>
 // 7: &
 // 8: min, max
 // 9: biturshift, bitrshift, bitlshift
@@ -2778,3 +2778,32 @@ define operator binary |> with precedence: 0
       $right($tmp)
   else
     ASTE $right($left)
+
+define helper __import = #(destination, source) as {}
+  for k, v of source
+    destination[k] := v
+  destination
+
+define operator binary <<< with precedence: 6
+  if @is-object(right)
+    let tmp = @tmp \ref
+    let block =
+      * AST let $tmp = $left
+    for {key, value, property} in @pairs(right)
+      // TODO: handle property
+      if property?
+        return ASTE __import $left, $right
+      block.push AST $tmp[$key] := $value
+    block.push AST $tmp
+    ASTE $block
+  else
+    ASTE __import $left, $right
+
+define operator binary >>> with precedence: 6
+  if not @is-noop(left) and not @is-noop(right)
+    let tmp = @tmp \ref
+    AST
+      let $tmp = $left
+      $right <<< $tmp
+  else
+    ASTE $right <<< $left
