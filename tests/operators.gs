@@ -1436,3 +1436,41 @@ test "Compose operators", #
   
   let times-8 = double << double << double
   eq 40, times-8 5
+
+test "Compose operators are executed in expected order", #
+  let with-addition = do
+    let mutable id = 0
+    #(f)
+      let my-id = (id += 1)
+      #(x) -> f(x) + my-id
+  
+  let double(x) -> x * 2
+  let square(x) -> x ^ 2
+  
+  let alpha = with-addition(square) << with-addition(double) // ((x * 2) + 2) ^ 2 + 1
+  array-eq [5, 17, 37, 65, 101, 145], [alpha(0), alpha(1), alpha(2), alpha(3), alpha(4), alpha(5)]
+  
+  let bravo = with-addition(square) >> with-addition(double) // ((x ^ 2) + 3) * 2 + 4
+  array-eq [10, 12, 18, 28, 42, 60], [bravo(0), bravo(1), bravo(2), bravo(3), bravo(4), bravo(5)]
+
+test "Pipe operators", #
+  let double(x) -> x * 2
+  let square(x) -> x ^ 2
+  
+  eq 100, 5 |> double |> square
+  eq 100, square <| double <| 5
+
+test "Pipe operators are executed in expected order", #
+  let with-addition = do
+    let mutable id = 0
+    #(f)
+      let my-id = (id += 1)
+      #(x) -> f(x) + my-id
+  
+  let double(x) -> x * 2
+  let square(x) -> x ^ 2
+  
+  // ((5 * 2) + 1) ^ 2 + 2
+  eq 123, 5 |> with-addition(double) |> with-addition(square)
+  // ((5 * 2) + 4) ^ 2 + 3
+  eq 199, with-addition(square) <| with-addition(double) <| 5

@@ -4782,6 +4782,10 @@ class MacroHelper
     node := @macro-expand-1 node
     node? and node not instanceofsome [ConstNode, IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
   
+  def is-noop(mutable node)
+    node := @macro-expand-1 node
+    node.is-noop(@state)
+  
   def is-type-array(node) -> @macro-expand-1(node) instanceof TypeArrayNode
   def subtype(mutable node)
     node := @macro-expand-1 node
@@ -6694,6 +6698,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         BinaryNode @line, @column, @scope-id, left, op, right
       else
         this
+  def _is-noop(o) -> @__is-noop ?= @left.is-noop(o) and @right.is-noop(o)
 node-class BlockNode(nodes as [Node], label as IdentNode|TmpNode|null)
   def type(o)
     let nodes = @nodes
