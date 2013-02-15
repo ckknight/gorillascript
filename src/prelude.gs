@@ -2779,27 +2779,28 @@ define operator binary |> with precedence: 0
   else
     ASTE $right($left)
 
-define helper __import = #(destination, source) as {}
-  for k, v of source
-    destination[k] := v
-  destination
+define helper __import = #(dest, source) as {}
+  for k of source
+    dest[k] := source[k]
+  dest
 
 define operator binary <<< with precedence: 6
   if @is-object(right)
-    let tmp = @tmp \ref
-    let block =
-      * AST let $tmp = $left
-    for {key, value, property} in @pairs(right)
-      // TODO: handle property
-      if property?
-        return ASTE __import $left, $right
-      block.push AST $tmp[$key] := $value
-    block.push AST $tmp
-    ASTE $block
+    @maybe-cache left, #(set-left, next-left)@
+      let mutable current-left = set-left
+      let block = []
+      for {key, value, property} in @pairs(right)
+        // TODO: handle property
+        if property?
+          return ASTE __import $left, $right
+        block.push AST $current-left[$key] := $value
+        current-left := next-left
+      block.push AST $current-left
+      ASTE $block
   else
     ASTE __import $left, $right
 
-define operator binary >>> with precedence: 6
+define operator binary >>> with precedence: 6, right-to-left: true
   if not @is-noop(left) and not @is-noop(right)
     let tmp = @tmp \ref
     AST

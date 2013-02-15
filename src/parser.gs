@@ -16,12 +16,6 @@ let generate-cache-key = do
   let mutable id = -1
   #-> id += 1
 
-let copy(o as {}) as {}
-  let result = {}
-  for k, v of o
-    result[k] := v
-  result
-
 let assert(value)
   if not value
     throw Error "Assertion failed: $(String value)"
@@ -4094,18 +4088,14 @@ let convert-invocation-or-access = do
       switch part.type
       case \proto-access, \proto-access-index
         links.push { type: \access, child: o.const(i, \prototype), part.existential }
-        let clone = copy(part)
-        clone.type := if part.type == \proto-access then \access else \access-index
-        links.push clone
+        links.push {} <<< part <<< { type: if part.type == \proto-access then \access else \access-index }
       case \access, \access-index
         links.push part
       case \call
         if is-new and part.is-apply
           o.error "Cannot call with both new and @ at the same time"
-        let clone = copy(part)
-        clone.is-new := is-new
+        links.push {} <<< part <<< { is-new }
         is-new := false
-        links.push clone
       default
         o.error "Unknown link type: $(part.type)"
   
@@ -5121,17 +5111,17 @@ class MacroHolder
   
   def clone()
     let clone = MacroHolder()
-    clone.by-name := copy(@by-name)
+    clone.by-name := {} <<< @by-name
     clone.by-id := @by-id.slice()
-    clone.by-label := copy(@by-label)
+    clone.by-label := {} <<< @by-label
     clone.type-by-id := @type-by-id.slice()
-    clone.operator-names := copy(@operator-names)
+    clone.operator-names := {} <<< @operator-names
     clone.binary-operators := @binary-operators.slice()
     clone.assign-operators := @assign-operators.slice()
     clone.prefix-unary-operators := @prefix-unary-operators.slice()
     clone.postfix-unary-operators := @postfix-unary-operators.slice()
-    clone.serialization := copy(@serialization)
-    clone.syntaxes := copy(@syntaxes)
+    clone.serialization := {} <<< @serialization
+    clone.syntaxes := {} <<< @syntaxes
     clone
 
   def get-by-name(name)
@@ -5271,7 +5261,7 @@ class MacroHolder
   def add-macro-serialization(serialization as Object)!
     if typeof serialization.type != \string
       throw Error "Expected a string type"
-    let obj = copy(serialization)
+    let obj = {} <<< serialization
     delete obj.type
     let by-type = (@serialization[serialization.type] ?= [])
     by-type.push obj

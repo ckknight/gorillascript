@@ -1493,3 +1493,15 @@ test "Import operators", #
   eq dest, dest <<< { alpha: \bravo }
   eq \bravo, dest.alpha
   eq \delta, dest.charlie
+
+test "Import chain", #
+  let a = {} <<< { alpha: \bravo } <<< { charlie: \delta }
+  eq \bravo, a.alpha
+  eq \delta, a.charlie
+  
+  let one = { alpha: \bravo }
+  let two = { charlie: \delta }
+  let b = {} <<< one <<< two
+  eq \bravo, b.alpha
+  eq \delta, b.charlie
+  eq void, one.charlie
