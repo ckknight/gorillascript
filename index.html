@@ -291,6 +291,8 @@ else
       <li><code>x instanceofsome y</code> - Iterate over array and check with <code>instanceof</code>. Highly efficient if <code>y</code> is a literal array.</li>
       <li><code>x is y</code> - Works like the ECMAScript6 Object.is, which is like GorillaScript&#8217;s <code>==</code>, but differentiating between <code>0</code> and <code>-0</code> and properly comparing <code>NaN is NaN</code>. Not recommended to use unless you know you&#8217;re working with numbers.</li>
       <li><code>x isnt y</code> - Same as <code>not (x is y)</code></li>
+      <li><code>x &lt;&lt; y</code> - Compose x and y, like <code>#(...args) -&gt; x(y(...args))</code></li>
+      <li><code>x &gt;&gt; y</code> - Compose y and x, like <code>#(...args) -&gt; y(x(...args))</code></li>
     </ul>
   </section>
   

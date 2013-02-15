@@ -1414,3 +1414,16 @@ test "Assigning an unknown variable is an error", #
 test "Assigning an immutable variable is an error", #
   throws #-> gorilla.compile("""let x = 0
   x := 5"""), #(e) -> e.line == 2
+
+test "Compose operators", #
+  let double(x) -> x * 2
+  let square(x) -> x ^ 2
+  
+  let square-of-double = square << double
+  let double-of-square = square >> double
+  
+  eq 100, square-of-double(5)
+  eq 50, double-of-square(5)
+  
+  let times-8 = double << double << double
+  eq 40, times-8 5

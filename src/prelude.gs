@@ -2,6 +2,21 @@ macro do
   syntax body as (Body | (";", this as Statement))
     ASTE (#@ -> $body)()
 
+// Precedences:
+// 0: and, or, xor, ?, bitand, bitor, bitxor
+// 1: ==, !=, ~=, !~=, is, isnt, <, <= (shared with <), >, >= (shared with >), %%
+// 2: by
+// 3: to, til
+// 4: <=>
+// 5: in, haskey, ownskey, instanceof, instanceofsome
+// 6: &
+// 7: min, max
+// 8: biturshift, bitrshift, bitlshift
+// 9: +, - (shared)
+// 10: *, /, %, \ (shared)
+// 11: ^
+// 12: <<, >>
+
 define operator binary and with precedence: 0
   @binary left, "&&", right
 
@@ -77,7 +92,7 @@ macro if, unless
       if i ~>= 0 then f(dec(i), @if((if else-ifs[i].type == "unless" then (ASTE not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
     @if(if macro-name == \unless then ASTE not $test else test, body, f(dec(else-ifs.length), else-body))
 
-define operator binary ~& with precedence: 4, type: \string
+define operator binary ~& with precedence: 6, type: \string
   if @has-type(left, \numeric) and @has-type(right, \numeric)
     @binary @binary(@const(""), "+", left), "+", right
   else
@@ -217,7 +232,7 @@ define operator assign or=
         $left
 
 // let's define the unstrict operators first
-define operator binary ~*, ~/, ~%, ~\ with precedence: 8, type: \number
+define operator binary ~*, ~/, ~%, ~\ with precedence: 10, type: \number
   if op == "~\\"
     ASTE Math.floor $(@binary left, "/", right)
   else if op == "~*"
@@ -258,7 +273,7 @@ define operator unary ~+, ~- with type: \number
   else
     @mutate-last node or @noop(), (#(n)@ -> @unary if op == "~+" then "+" else "-", n), true
 
-define operator binary ~+, ~- with precedence: 7, type: \number
+define operator binary ~+, ~- with precedence: 9, type: \number
   if op == "~+"
     if not @is-type right, \numeric
       @binary left, "-", ASTE ~-($right)
@@ -269,7 +284,7 @@ define operator binary ~+, ~- with precedence: 7, type: \number
   else
     @binary left, "-", right
 
-define operator binary ~^ with precedence: 9, right-to-left: true, type: \number
+define operator binary ~^ with precedence: 11, right-to-left: true, type: \number
   if @is-const(right)
     let value = @value(right)
     if value == 0.5
@@ -326,7 +341,7 @@ define operator assign ~-= with type: \number
   else
     @assign left, "-=", right
 
-define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 6, maximum: 1, type: \number
+define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 8, maximum: 1, type: \number
   if op == "~bitlshift"
     @binary left, "<<", right
   else if op == "~bitrshift"
@@ -414,14 +429,14 @@ define operator unary - with type: \number
   else
     ASTE ~-(+$node)
 
-define operator binary ^ with precedence: 9, right-to-left: true, type: \number
+define operator binary ^ with precedence: 11, right-to-left: true, type: \number
   ASTE +$left ~^ +$right
 
 define operator assign ^= with type: \number
   @maybe-cache-access left, #(set-left, left)@
     ASTE $set-left := $left ^ $right
 
-define operator binary *, /, %, \ with precedence: 8, type: \number
+define operator binary *, /, %, \ with precedence: 10, type: \number
   if op == "*"
     ASTE +$left ~* +$right
   else if op == "/"
@@ -434,13 +449,13 @@ define operator binary *, /, %, \ with precedence: 8, type: \number
 define operator unary % with postfix: true, type: \number
   ASTE $node / 100
 
-define operator binary +, - with precedence: 7, type: \number
+define operator binary +, - with precedence: 9, type: \number
   if op == "+"
     ASTE +$left ~+ +$right
   else
     ASTE +$left ~- +$right
 
-define operator binary bitlshift, bitrshift, biturshift with precedence: 6, maximum: 1, type: \number
+define operator binary bitlshift, bitrshift, biturshift with precedence: 8, maximum: 1, type: \number
   if op == "bitlshift"
     ASTE +$left ~bitlshift +$right
   else if op == "bitrshift"
@@ -452,7 +467,7 @@ define operator assign \= with type: \number
   @maybe-cache-access left, #(set-left, left)@
     ASTE $set-left := $left \ $right
 
-define operator binary & with precedence: 4, type: \string, label: \string-concat
+define operator binary & with precedence: 6, type: \string, label: \string-concat
   if @is-type left, \number
     if @has-type right, \number
       left := ASTE "" ~& $left
@@ -473,7 +488,7 @@ define operator assign &= with type: \string
   @maybe-cache-access left, #(set-left, left)@
     ASTE $set-left := $left & $right
 
-define operator binary in with precedence: 3, maximum: 1, invertible: true, type: \boolean
+define operator binary in with precedence: 5, maximum: 1, invertible: true, type: \boolean
   if @is-array(right)
     let elements = @elements(right)
     if elements.length == 0
@@ -496,15 +511,15 @@ define operator binary in with precedence: 3, maximum: 1, invertible: true, type
   else
     ASTE __in($left, $right)
 
-define operator binary haskey with precedence: 3, maximum: 1, invertible: true, type: \boolean
+define operator binary haskey with precedence: 5, maximum: 1, invertible: true, type: \boolean
   @binary right, \in, left
 
 define helper __owns = Object.prototype.has-own-property
 
-define operator binary ownskey with precedence: 3, maximum: 1, invertible: true, type: \boolean, label: \ownership
+define operator binary ownskey with precedence: 5, maximum: 1, invertible: true, type: \boolean, label: \ownership
   ASTE __owns@($left, $right)
 
-define operator binary instanceof with precedence: 3, maximum: 1, invertible: true, type: \boolean
+define operator binary instanceof with precedence: 5, maximum: 1, invertible: true, type: \boolean
   @binary left, \instanceof, right
 
 define helper __cmp = #(left, right) as Number
@@ -521,7 +536,7 @@ define helper __cmp = #(left, right) as Number
     else
       1
 
-define operator binary <=> with precedence: 2, maximum: 1, type: \number
+define operator binary <=> with precedence: 4, maximum: 1, type: \number
   ASTE __cmp($left, $right)
 
 define operator binary %% with precedence: 1, maximum: 1, invertible: true, type: \boolean
@@ -606,22 +621,22 @@ define operator binary >, >= with precedence: 1, maximum: 1, type: \boolean
   else
     ASTE not ($left < $right)
 
-define operator binary ~min with precedence: 5
+define operator binary ~min with precedence: 7
   @maybe-cache left, #(set-left, left)@
     @maybe-cache right, #(set-right, right)@
       ASTE if $set-left ~< $set-right then $left else $right
 
-define operator binary ~max with precedence: 5
+define operator binary ~max with precedence: 7
   @maybe-cache left, #(set-left, left)@
     @maybe-cache right, #(set-right, right)@
       ASTE if $set-left ~> $set-right then $left else $right
 
-define operator binary min with precedence: 5
+define operator binary min with precedence: 7
   @maybe-cache left, #(set-left, left)@
     @maybe-cache right, #(set-right, right)@
       ASTE if $set-left < $set-right then $left else $right
 
-define operator binary max with precedence: 5
+define operator binary max with precedence: 7
   @maybe-cache left, #(set-left, left)@
     @maybe-cache right, #(set-right, right)@
       ASTE if $set-left > $set-right then $left else $right
@@ -997,13 +1012,6 @@ define helper __range = #(start as Number, end as Number, step as Number, inclus
       result.push i
   result
 
-// TODO: might want to redo these precedences
-define operator binary to with maximum: 1, precedence: 2, type: \array
-  ASTE __range($left, $right, 1, true)
-
-define operator binary til with maximum: 1, precedence: 2, type: \array
-  ASTE __range($left, $right, 1, false)
-
 define helper __step = #(array, step as Number) as []
   if step == 0
     throw RangeError "step cannot be zero"
@@ -1038,7 +1046,13 @@ define helper __slice-step = #(array, start, end, mutable step, inclusive) as []
   else
     __step(arr, step)
 
-define operator binary by with maximum: 1, precedence: 1, type: \array
+define operator binary to with maximum: 1, precedence: 3, type: \array
+  ASTE __range($left, $right, 1, true)
+
+define operator binary til with maximum: 1, precedence: 3, type: \array
+  ASTE __range($left, $right, 1, false)
+
+define operator binary by with maximum: 1, precedence: 2, type: \array
   if not @has-type(right, \number)
     throw Error "Must provide a number to the 'by' operator"
   if @is-const(right) and @value(right) == 0
@@ -1539,7 +1553,7 @@ macro for
       $current
 
 
-define operator binary instanceofsome with precedence: 3, maximum: 1, invertible: true, type: \boolean
+define operator binary instanceofsome with precedence: 5, maximum: 1, invertible: true, type: \boolean
   if @is-array(right)
     let elements = @elements(right)
     if elements.length == 0
@@ -2709,3 +2723,18 @@ define helper __def-prop = do
 macro label!
   syntax label as Identifier, node as (Statement|Body)
     @with-label node, label
+
+define helper __compose = #(left as ->, right as ->) as ->
+  #-> left@(this, right@(this, ...arguments))
+
+define operator binary << with precedence: 12, type: \function
+  ASTE __compose $left, $right
+
+define operator binary >> with precedence: 12, type: \function, right-to-left: true
+  if @is-complex left
+    let tmp = @tmp \ref
+    AST
+      let $tmp = $left
+      __compose $right, $tmp
+  else
+    ASTE __compose $right, $left
