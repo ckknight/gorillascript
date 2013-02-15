@@ -1288,7 +1288,13 @@ let translators =
       if inner-scope.has-global
         scope.has-global := true
       let func = ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
-      auto-return func
+      auto-return if node.curry
+        scope.add-helper \__curry
+        ast.Call func.pos,
+          ast.Ident func.pos, \__curry
+          [func]
+      else
+        func
 
   Ident: #(node, scope, location, auto-return)
     let name = node.name

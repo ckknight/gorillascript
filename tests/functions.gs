@@ -1282,3 +1282,16 @@ test "Ignored middle parameter in array", #
   array-eq [5, void], f [5]
   array-eq [5, void], f [5, 6]
   array-eq [5, 7], f [5, 6, 7]
+
+test "Curried function", #
+  let add(x, y)^ -> x + y
+  
+  eq 10, add 4, 6
+  let plus-5 = add 5
+  eq 10, plus-5 5
+  eq 15, plus-5 10
+  eq add, add()
+  eq plus-5, plus-5()
+  let plus-4 = add 4
+  ok plus-4 != plus-5
+  eq 10, plus-4 6

@@ -2724,7 +2724,7 @@ macro label!
   syntax label as Identifier, node as (Statement|Body)
     @with-label node, label
 
-define helper __compose = #(left as ->, right as ->) as ->
+define helper __compose = #(left as ->, right as ->) as (->)
   #-> left@(this, right@(this, ...arguments))
 
 define operator binary << with precedence: 12, type: \function
@@ -2738,3 +2738,19 @@ define operator binary >> with precedence: 12, type: \function, right-to-left: t
       __compose $right, $tmp
   else
     ASTE __compose $right, $left
+
+define helper __curry = #(f as ->) as (->)
+  if f.length > 1
+    let currier(args)
+      if args.length >= f.length
+        f.apply this, args
+      else
+        let ret()
+          if arguments.length == 0
+            ret
+          else
+            currier args.concat(__slice@(arguments))
+        ret
+    currier []
+  else
+    f

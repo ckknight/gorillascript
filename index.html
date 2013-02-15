@@ -56,6 +56,7 @@
       <li><a href="#properties">Getters and setters</a>
       <li><a href="#labels">Labels and <code>break</code>/<code>continue</code></a>
       <li><a href="#global">The <code>GLOBAL</code> identifier</a>
+      <li><a href="#curry">Curried functions</a>
     </ul>
   </nav>
   <div id="try">
@@ -1305,6 +1306,46 @@ label! outer for i in 0 to 10
     <p>Since JavaScript can be run outside the browser now, one cannot rely on <code>window</code> always being the global object, so GorillaScript provides the <code>GLOBAL</code> identifier for just this case, which will be <code>window</code> or <code>global</code> or the outermost <code>this</code>, whichever one works best. It is UPPER-CASE and therefore loud for a reason: try to avoid globals when possible.</p>
 
     <pre class="gs-code"><code>assert Math == GLOBAL.Math
+</code></pre>
+  </section>
+  
+  <section id="curry">
+    <h2>Curried functions</h2>
+    
+    <p>Currying is a technique of transforming a function which takes multiple arguments in such a way that it can be called as a chain of functions. GorillaScript provides a nice way to automatically curry functions.</p>
+    
+    <pre class="gs-code"><code>let add(a, b, c)^
+  a + b + c
+
+assert add(1, 2, 3) == 6 // same as before
+let add-one = add 1
+assert add-one(2, 3) == 6
+let add-two = add 2
+assert add-two(1, 3) == 6
+let add-one-and-two = add-one 2 // or add 1, 2
+assert add-one-and-two(3) == 6
+</code></pre>
+    
+    <p>Simply by putting the caret (<code>^</code>) after the function parameters, functions are automatically curried. Curried functions work extremely well in functional-style programming and are extremely handy when coupled with the compose operators (<code>&lt;&lt;</code> and <code>&gt;&gt;</code>)</p>
+    
+    <pre class="gs-code"><code>let sort-by(key, array)^
+  array.sort #(a, b) -&gt; a[key] &lt;=&gt; b[key]
+
+let sort-by-id = sort-by \id
+let sort-by-name = sort-by \name
+
+let items =
+  * id: 0
+    name: "Dog"
+  * id: 1
+    name: "Car"
+  * id: 2
+    name: "Robot"
+  * id: 3
+    name: "Guitar"
+
+let items-by-name = sort-by-name items
+let items-by-id = sort-by-id items
 </code></pre>
   </section>
   </div>

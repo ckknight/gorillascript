@@ -1761,6 +1761,7 @@ define TripleDoubleQuote = sequential! [DoubleQuote, DoubleQuote, DoubleQuote], 
 define TripleSingleQuote = sequential! [SingleQuote, SingleQuote, SingleQuote], "'''"
 define Semicolon = with-space! character! ";"
 namedlet Asterix = character! "*"
+namedlet Caret = character! "^"
 define OpenParenthesis = with-space! character! "("
 define CloseParenthesis = with-space! character! ")"
 define OpenSquareBracketChar = character! "["
@@ -2595,7 +2596,8 @@ namedlet CustomOperatorCloseParenthesis = do
                 right
               }, clone, i, line
               true
-              false)
+              false
+              true)
             o.update clone
             return result
     for operator in o.macros.prefix-unary-operators by -1
@@ -3254,6 +3256,32 @@ let add-param-to-scope(o, param, force-mutable)!
   else if param not instanceof NothingNode
     throw Error "Unknown param node type: $(typeof! param)"
 
+namedlet FunctionFlag = one-of! [
+  character! "!"
+  AtSign
+  Asterix
+  Caret
+]
+
+namedlet FunctionFlags = zero-or-more! FunctionFlag, #(x, o, i)
+  let flags = { +auto-return, -bound, -generator, -curry }
+  let unique-chars = []
+  for c in x
+    if c in unique-chars
+      o.error "Function flag $(from-char-code c) specified more than once"
+    else
+      unique-chars.push c
+      switch c
+      case C("!")
+        flags.auto-return := false
+      case C("@")
+        flags.bound := true
+      case C("*")
+        flags.generator := true
+      case C("^")
+        flags.curry := true
+  flags
+
 let _in-generator = Stack false
 namedlet _FunctionBody = one-of! [
   sequential! [
@@ -3267,17 +3295,14 @@ namedlet GeneratorFunctionBody = make-alter-stack(_in-generator, true)(_Function
 namedlet FunctionDeclaration = do
   let params-rule = maybe! ParameterSequence, #-> []
   let rest-rule = sequential! [
+    [\flags, FunctionFlags]
     [\as-type, in-function-type-params MaybeAsType]
-    [\auto-return, maybe! character!("!"), NOTHING]
-    [\bound, maybe! AtSign, NOTHING]
-    [\generator-body, #(o)
-      let generator = not not Asterix(o)
-      let body = if generator
-        GeneratorFunctionBody(o)
-      else
-        FunctionBody(o)
-      body and { generator, body}]
   ]
+  let body-rule = #(generator)
+    if generator
+      GeneratorFunctionBody
+    else
+      FunctionBody
   #(o)
     let index = o.index
     let clone = o.clone(o.clone-scope())
@@ -3289,11 +3314,14 @@ namedlet FunctionDeclaration = do
     let rest = rest-rule clone
     if not rest
       return false
-    let {as-type, auto-return, bound, generator-body: {generator, body}} = rest
-    if auto-return != NOTHING and generator
-      o.error "A function cannot be both non-returning and a generator"
+    let {flags, as-type} = rest
+    if not flags.auto-return and flags.generator
+      o.error "A function cannot be both non-returning (!) and a generator (*)"
+    let body = body-rule(flags.generator)(clone)
+    if not body
+      return false
     o.update clone
-    o.function index, params, body, auto-return == NOTHING, bound != NOTHING, if as-type != NOTHING then as-type, generator
+    o.function index, params, body, flags.auto-return, flags.bound, flags.curry, if as-type != NOTHING then as-type, flags.generator
 
 namedlet FunctionLiteral = short-circuit! HashSign, sequential! [
   HashSign
@@ -4675,13 +4703,13 @@ class MacroHelper
     
     CallNode(func.line, func.column, @state.scope.id, @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new, is-apply).reduce(@state)
   
-  def func(mutable params, body, auto-return = true, bound as (Node|Boolean) = false)
+  def func(mutable params, body, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean)
     let clone = @state.clone(@state.clone-scope())
     params := for param in params
       let p = param.rescope(clone.scope.id, clone)
       add-param-to-scope clone, p
       p
-    FunctionNode(body.line, body.column, @state.scope.id, params, body.rescope(clone.scope.id, clone), auto-return, bound).reduce(@state)
+    FunctionNode(body.line, body.column, @state.scope.id, params, body.rescope(clone.scope.id, clone), auto-return, bound, curry).reduce(@state)
   
   def is-func(node) -> @macro-expand-1(node) instanceof FunctionNode
   def func-body(mutable node)
@@ -4696,6 +4724,9 @@ class MacroHelper
   def func-is-bound(mutable node)
     node := @macro-expand-1 node
     if @is-func node then not not node.bound and node.bound not instanceof Node
+  def func-is-curried(mutable node)
+    node := @macro-expand-1 node
+    if @is-func node then not not node.curry
   
   def param(ident, default-value, spread, is-mutable, as-type)
     ParamNode(ident.line, ident.column, ident.scope-id, ident, default-value, spread, is-mutable, as-type).reduce(@state)
@@ -7033,7 +7064,7 @@ node-class ForInNode(key as Node, object as Node, body as Node, label as IdentNo
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
     ForInNode @line, @column, @scope-id, @key, @object, @body, label
-node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, as-type as Node|void, generator as Boolean)
+node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean)
   def type(o) -> @_type ?= do
     // TODO: handle generator types
     if @as-type?

@@ -1296,6 +1296,15 @@ test "Operators as functions", #
   t (throw?), null, false
   t (throw?), void, false
 
+test "Operators as functions are curried", #
+  let add = (+)
+  eq 3, add 1, 2
+  let plus-5 = add 5
+  eq 8, plus-5 3
+  eq 9, plus-5 4
+  let plus-6 = add 6
+  eq 10, plus-6 4
+
 test "Partial operator functions", #
   let double = (* 2)
   eq \function, typeof double
