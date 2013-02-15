@@ -2,20 +2,7 @@ require! fs
 require! './lib/gorilla'
 require! path
 let {exec} = require 'child_process'
-
-let string-repeat(text, count)
-  if count < 1
-    ""
-  else if count == 1
-    text
-  else if count bitand 1
-    text & string-repeat text, count - 1
-  else
-    string-repeat text & text, count / 2
-let pad-left(mutable text, len, padding)
-  string-repeat(padding, len - text.length) & text
-let pad-right(mutable text, len, padding)
-  text & string-repeat(padding, len - text.length)
+let {string-repeat, pad-left, pad-right} = require './lib/utils'
 
 option \uglify, "u", "Use UglifyJS2 to minify the result"
 option \file, "f", "Build a specific file", "file"
@@ -124,7 +111,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
   async! cb, filename-path <- fs.realpath __filename
   let lib-path = path.join(path.dirname(filename-path), "lib")
   let parts = []
-  asyncfor next, file in ["types", "ast", "parser", "translator", "gorilla", "browser"]
+  asyncfor next, file in ["utils", "types", "ast", "parser", "translator", "gorilla", "browser"]
     async! cb, text <- fs.read-file path.join(lib-path, file & ".js"), "utf8"
     parts.push """
       require['./$file'] = (function () {

@@ -1349,6 +1349,8 @@ let items =
 let items-by-name = sort-by-name items
 let items-by-id = sort-by-id items
 </code></pre>
+    
+    <p>It is not recommended to use currying with default arguments (e.g. <code>#(x = 0)^</code>) or spread arguments (e.g. <code>#(...args)</code>), since the curry helper checks a function's <code>.length</code> to determine how many arguments before calling the actual function, and it may be non-obvious.</p>
   </section>
   </div>
   

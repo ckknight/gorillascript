@@ -104,19 +104,6 @@ exports.run := #(callback = fatal-error)
         next()
     callback(err)
 
-let string-repeat(text, count)
-  if count < 1
-    ""
-  else if count == 1
-    text
-  else if count bitand 1
-    text & string-repeat text, count - 1
-  else
-    string-repeat text & text, count / 2
-
-let pad-right(text, length)
-  text & string-repeat(" ", length - text.length)
-
 let fatal-error(message)
   if not message?
     return

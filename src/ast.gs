@@ -1,5 +1,6 @@
 require! util
 let inspect = util?.inspect
+let {pad-left} = require './utils'
 
 enum Level
   def block // { f(); `...`; g(); }
@@ -73,16 +74,10 @@ let StringBuilder()
       text
   sb
 
-let is-negative(value) -> value < 0 or 1 / value < 0
+let is-negative(value) -> value < 0 or value is -0
 
 let unicode-replacer(m)
-  let num = m.char-code-at(0).to-string(16)
-  return switch num.length
-  case 1; "\\u000$num"
-  case 2; "\\u00$num"
-  case 3; "\\u0$num"
-  case 4; "\\u$num"
-  default; throw Error()
+  "\\u$(pad-left m.char-code-at(0).to-string(16), 4, '0')"
 
 let to-JS-source = do
   let to-JS-source-types =
@@ -201,10 +196,7 @@ exports.Node := class Node
     @compile-as-statement { indent: 0, +bare }, true, sb
     sb.to-string()
   
-  def to-function()
-    new Function @to-string()
-  
-  def compile() -> throw Error "compile not implemented: $(@constructor.name)"
+  def compile
   
   def maybe-to-statement()
     if typeof @to-statement == "function"
@@ -1790,8 +1782,6 @@ exports.Root := class Root
     }
   
   def to-string() -> @compile().code
-  
-  def to-function = Node::to-function
   
   def is-large() -> true
   
