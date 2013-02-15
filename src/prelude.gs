@@ -2400,8 +2400,8 @@ macro class
       if @is-def(node)
         let key = @left(node)
         if @is-const(key) and @value(key) == \constructor
-          if @is-func(@right(node)) and @func-is-curried(@right(node))
-            throw Error "Cannot curry a class's constructor"
+          //if @is-func(@right(node)) and @func-is-curried(@right(node))
+          //  throw Error "Cannot curry a class's constructor"
           constructor-count += 1
       void
     
@@ -2410,7 +2410,7 @@ macro class
       @walk body, #(node)@
         if @is-def(node)
           let key = @left(node)
-          if @is-const(key) and @value(key) == \constructor and @is-func(@right(node))
+          if @is-const(key) and @value(key) == \constructor and @is-func(@right(node)) and not @func-is-curried(@right(node))
             has-top-level-constructor := true
           node
         else
@@ -2454,7 +2454,16 @@ macro class
           let key = @left(node)
           if @is-const(key) and @value(key) == \constructor
             let value = @right(node)
-            ASTE $ctor := $value
+            if @is-func value
+              let constructor = @func(
+                @func-params value
+                @func-body value
+                false
+                AST if eval("this") instanceof $name then eval("this") else { extends $prototype }
+                @func-is-curried value)
+              ASTE $ctor := $constructor
+            else
+              ASTE $ctor := $value
     else
       if not superclass
         init.push AST
@@ -2752,7 +2761,7 @@ define helper __curry = #(f as ->) as (->)
           if arguments.length == 0
             ret
           else
-            currier args.concat(__slice@(arguments))
+            currier@ this, args.concat(__slice@(arguments))
         ret
     currier []
   else

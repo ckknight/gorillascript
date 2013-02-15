@@ -1,3 +1,7 @@
+let has-name = do
+  let func() ->
+  func.name == "func"
+
 test "empty class", #
   let Class = class
   
@@ -199,6 +203,9 @@ test "named nested classes", #
   eq "Inner", new Outer.Inner().label
   eq "from inner", (new Outer.Inner).method()
   eq "from inner", new Outer.Inner().method()
+  if has-name
+    eq "Outer", Outer.name
+    eq "Inner", Outer.Inner.name
 
 test "Nested inheritance", #
   let Outer = class
@@ -331,10 +338,12 @@ test "named class", #
   
   eq "function", typeof Class
   eq 0, Class.length
-  eq "Class", Class.displayName
+  eq "Class", Class.display-name
   ok new Class instanceof Class
   eq "result", new Class().method()
   eq "hello", Class.static
+  if has-name
+    eq "Class", Class.name
 
 test "namespaced named classes", #
   let alpha = {}
@@ -349,17 +358,22 @@ test "namespaced named classes", #
   eq "undefined", typeof eval "Monkey"
   eq "alpha", alpha.Monkey.label
   eq "bravo", bravo.Monkey.label
-  eq "Monkey", alpha.Monkey.displayName
-  eq "Monkey", bravo.Monkey.displayName
+  eq "Monkey", alpha.Monkey.display-name
+  eq "Monkey", bravo.Monkey.display-name
+  if has-name
+    eq "Monkey", alpha.Monkey.name
+    eq "Monkey", bravo.Monkey.name
 
 test "named class as an expression rather than a statement", #
   let Alpha = class Bravo
     def method() -> "blah"
   
   eq Alpha, Bravo
-  eq "Bravo", Alpha.displayName
+  eq "Bravo", Alpha.display-name
   ok new Alpha instanceof Bravo
   ok new Bravo instanceof Alpha
+  if has-name
+    eq "Bravo", Alpha.name
 
 test "named class with inheritance", #
   class Alpha
@@ -371,6 +385,9 @@ test "named class with inheritance", #
   
   eq "alpha", new Alpha().method()
   eq "alpha bravo", new Bravo().method()
+  if has-name
+    eq "Alpha", Alpha.name
+    eq "Bravo", Bravo.name
 
 test "namespaced named class with inheritance", #
   class Base
@@ -389,6 +406,10 @@ test "namespaced named class with inheritance", #
   
   eq "base alpha", new alpha.Child().method()
   eq "base bravo", new bravo.Child().method()
+  if has-name
+    eq "Base", Base.name
+    eq "Child", alpha.Child.name
+    eq "Child", bravo.Child.name
 
 test "class with calculated method names", #
   class Class
@@ -446,8 +467,8 @@ test "multiple constructors", #
   let falsy = makeClass(false)
   ok new truthy().value
   ok not new falsy().value
-  eq "Class", truthy.displayName
-  eq "Class", falsy.displayName
+  eq "Class", truthy.display-name
+  eq "Class", falsy.display-name
   ok truthy.static
   ok not falsy.static
 
@@ -520,7 +541,7 @@ test "Named class that is a reserved word", #
   class obj.if
   
   ok new obj.if instanceof obj.if
-  //eq "if", obj.if.displayName
+  //eq "if", obj.if.display-name
 
 
 test "constructor with this setters", #
@@ -594,3 +615,36 @@ test "Immediate new call of a class", #
   let object = new class
   
   eq "object", typeof object
+
+test "Class with a curried constructor", #
+  class Class
+    def constructor(@a, @b, @c)^ ->
+  
+  eq "Class", Class.display-name
+  if has-name
+    eq "Class", Class.name
+  
+  ok Class(1, 2, 3) instanceof Class
+  ok new Class(1, 2, 3) instanceof Class
+  eq 1, Class(1, 2, 3).a
+  eq 2, Class(1, 2, 3).b
+  eq 3, Class(1, 2, 3).c
+  
+  let f = Class(1)
+  eq \function, typeof f
+  ok f(2, 3) instanceof Class
+  ok new f(2, 3) instanceof Class
+  let obj = { extends Class.prototype }
+  eq obj, f@(obj, 2, 3)
+  eq 1, obj.a
+  eq 2, obj.b
+  eq 3, obj.c
+  
+  let g = f(2)
+  eq \function, typeof g
+  ok g(3) instanceof Class
+  ok new g(3) instanceof Class
+  eq 1, g(3).a
+  eq 2, g(3).b
+  eq 3, g(3).c
+  eq 4, g(4).c

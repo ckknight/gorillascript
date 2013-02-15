@@ -1295,3 +1295,9 @@ test "Curried function", #
   let plus-4 = add 4
   ok plus-4 != plus-5
   eq 10, plus-4 6
+
+test "Curried function takes the last this", #
+  let get-this(x, y)^ -> this
+  
+  let obj = {}
+  eq obj, get-this@({}, 1)@(obj, 2)
