@@ -2400,6 +2400,8 @@ macro class
       if @is-def(node)
         let key = @left(node)
         if @is-const(key) and @value(key) == \constructor
+          if @is-func(@right(node)) and @func-is-curried(@right(node))
+            throw Error "Cannot curry a class's constructor"
           constructor-count += 1
       void
     
