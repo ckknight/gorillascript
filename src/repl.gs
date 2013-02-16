@@ -3,6 +3,7 @@ require! readline
 require! util
 require! vm
 require! module
+require! child_process
 
 let REPL_PROMPT = "gs> "
 let REPL_PROMPT_CONTINUATION = "..> "
@@ -127,57 +128,84 @@ let get-completions(prefix, candidates)
     if starts-with(e, prefix)
       e
 
-process.on \uncaught-exception, error
+exports.start := #(options = {})
+  process.on \uncaught-exception, error
 
-let repl = if readline.create-interface.length < 3
-  stdin.on \data, #(buffer) -> repl.write buffer
-  readline.create-interface stdin, auto-complete
-else
-  readline.create-interface stdin, stdout, auto-complete
-
-let mutable recent-sigint = false
-repl.on \SIGINT, #
-  if backlog
-    backlog := ''
-    process.stdout.write '\n'
-    repl.set-prompt REPL_PROMPT
-    repl.prompt()
-    repl.write(null, {+ctrl, name: 'u'})
-  else if not recent-sigint
-    process.stdout.write "\n(^C again to quit)\n"
-    repl.set-prompt REPL_PROMPT
-    repl.prompt()
-    repl.write(null, {+ctrl, name: 'u'})
-    recent-sigint := true
+  let repl = if readline.create-interface.length < 3
+    stdin.on \data, #(buffer) -> repl.write buffer
+    readline.create-interface stdin, auto-complete
   else
-    repl.close()
+    readline.create-interface stdin, stdout, auto-complete
 
-repl.on \close, #
-  process.stdout.write '\n'
-  stdin.destroy()
+  let mutable pipe = void
+  if options.pipe
+    pipe := child_process.spawn(options.pipe)
+    let mutable pipe-backlog = ""
+    pipe.stdout.on 'data', #(data)
+      pipe-backlog &= data.to-string()
+      while true
+        let match = pipe-backlog.match(r"^[^\n]*\n")
+        if not match
+          break
+        let line = match[0]
+        pipe-backlog := pipe-backlog.substring line.length
+        if r"^(?:\u001b.*?h)?\w*?> ".test(line)
+          set-timeout #-> repl.prompt(), 50
+        else if not r"^(?:\u001b.*?h)?\.+ ".test(line)
+          process.stdout.write line
+    
+    pipe.stderr.on 'data', #(data)
+      process.stderr.write data
 
-repl.on \line, #(buffer)
-  recent-sigint := false
-  if not buffer.to-string().trim() and not backlog
-    repl.prompt()
-    return
-  backlog &= buffer
-  if backlog.char-at(backlog.length - 1) == "\\"
-    backlog := backlog.substring(0, backlog.length - 1) & "\n"
-    repl.set-prompt REPL_PROMPT_CONTINUATION
-    repl.prompt()
-    return
+  let mutable recent-sigint = false
+  repl.on \SIGINT, #
+    if backlog
+      backlog := ''
+      process.stdout.write '\n'
+      repl.set-prompt REPL_PROMPT
+      repl.prompt()
+      repl.write(null, {+ctrl, name: 'u'})
+    else if not recent-sigint
+      process.stdout.write "\n(^C again to quit)\n"
+      repl.set-prompt REPL_PROMPT
+      repl.prompt()
+      repl.write(null, {+ctrl, name: 'u'})
+      recent-sigint := true
+    else
+      repl.close()
+      pipe?.kill()
+
+  repl.on \close, #
+    process.stdout.write '\n'
+    stdin.destroy()
+  
+  repl.on \line, #(buffer)
+    recent-sigint := false
+    if not buffer.to-string().trim() and not backlog
+      repl.prompt()
+      return
+    backlog &= buffer
+    if backlog.char-at(backlog.length - 1) == "\\"
+      backlog := backlog.substring(0, backlog.length - 1) & "\n"
+      repl.set-prompt REPL_PROMPT_CONTINUATION
+      repl.prompt()
+      return
+    repl.set-prompt REPL_PROMPT
+
+    let code = backlog
+    backlog := ""
+    if pipe
+      async err, compiled <- gorilla.compile code, { eval: true, filename: \repl, modulename: \repl }
+      pipe.stdin.write compiled.code
+    else
+      async err, ret <- gorilla.eval code, { sandbox, filename: \repl, modulename: \repl }
+      if err
+        error err
+      else if ret != void
+        sandbox._ := ret
+        process.stdout.write util.inspect(ret, false, 2, enable-colors) & "\n"
+      repl.prompt()
+
   repl.set-prompt REPL_PROMPT
-
-  let code = backlog
-  backlog := ""
-  async err, ret <- gorilla.eval code, { sandbox, filename: \repl, modulename: \repl }
-  if err
-    error err
-  else if ret != void
-    sandbox._ := ret
-    process.stdout.write util.inspect(ret, false, 2, enable-colors) & "\n"
   repl.prompt()
-
-repl.set-prompt REPL_PROMPT
-repl.prompt()
+ 

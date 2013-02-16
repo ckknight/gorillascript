@@ -5,13 +5,17 @@ require! fs
 require! path
 require! child_process
 
+async err, which-gjs-stdout, which-gjs-stderr <- child_process.exec "which gjs"
+
+let has-gjs = not err? and which-gjs-stdout.length and not which-gjs-stderr.length
+
 cli.enable 'version'
 
 cli.set-app "gorilla", "1.0"
 
 cli.set-usage "gorilla [OPTIONS] path/to/script.gs"
 
-cli.parse
+let parse-options =
   ast:          ["a", "Display JavaScript AST nodes instead of compilation"]
   compile:      ["c", "Compile to JavaScript and save as .js files"]
   output:       ["o", "Set the file/directory for compiled JavaScript", "path"]
@@ -24,6 +28,12 @@ cli.parse
   sourcemap:    ["m", "Build a SourceMap", "file"]
   join:         ["j", "Join all the generated JavaScript into a single file"]
   "no-prelude": [false, "Do not include the standard prelude"]
+
+if has-gjs
+  parse-options <<<
+    gjs:        [false, "Run with gjs"]
+
+cli.parse parse-options
 
 async filenames, options <- cli.main()
 
@@ -55,6 +65,15 @@ let handle-code(code, callback = #->)
     if opts.uglify
       process.stdout.write "\n"
     next null, result.code
+  else if options.gjs
+    async! next, compiled <- gorilla.compile code, { eval: true } <<< opts
+    let gjs = child_process.spawn "gjs"
+    pipe.stdout.on 'data', #(data) -> process.stdout.write data
+    pipe.stderr.on 'data', #(data) -> process.stderr.write data
+    pipe.stdin.write compiled.code
+    set-timeout (#
+      pipe.stdin.end()
+      next null, ""), 50
   else
     async! next, result <- gorilla.eval code, opts
     next null, util.inspect result
@@ -79,8 +98,10 @@ else if filenames.length > 1 and options.sourcemap and not options.join
   console.error "Cannot specify --sourcemap with multiple files unless using --join"
 else if options.eval?
   handle-code String(options.eval)
-else if options.interactive
-  require './repl'
+else if options.interactive and options.stdin
+  console.error "Cannot specify --interactive and --stdin"
+else if options.interactive and filenames.length
+  console.error "Cannot specify --interactive and filenames"
 else if options.stdin
   cli.with-stdin handle-code
 else if filenames.length
@@ -159,4 +180,4 @@ else if filenames.length
     if err
       cli.error err.to-string()
 else
-  require './repl'
+  require('./repl').start(if options.gjs then { pipe: "gjs" })

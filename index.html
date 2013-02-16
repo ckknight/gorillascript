@@ -57,6 +57,7 @@
       <li><a href="#labels">Labels and <code>break</code>/<code>continue</code></a>
       <li><a href="#global">The <code>GLOBAL</code> identifier</a>
       <li><a href="#curry">Curried functions</a>
+      <li><a href="#gnome">GNOME bindings</a>
     </ul>
   </nav>
   <div id="try">
@@ -1353,6 +1354,22 @@ let items-by-id = sort-by-id items
 </code></pre>
     
     <p>It is not recommended to use currying with default arguments (e.g. <code>#(x = 0)^</code>) or spread arguments (e.g. <code>#(...args)</code>), since the curry helper checks a function's <code>.length</code> to determine how many arguments before calling the actual function, and it may be non-obvious.</p>
+  </section>
+  
+  <section id="gnome">
+    <h2>GNOME bindings</h2>
+    
+    <p>GNOME now has JavaScript bindings with <a href="https://live.gnome.org/Gjs">Gjs</a> and GorillaScript supports this to the best of its ability.</p>
+    
+    <p>As long as you have <code>gjs</code> installed locally, there are three ways to run Gjs with GorillaScript:</p>
+    
+    <ul>
+      <li><p>REPL: If you run <code>gorilla --gjs</code>, a REPL opens that pipes its JavaScript code to <code>gjs</code></p></li>
+      <li><p>Running a <code>.gs</code> file: If you run <code>gorilla --gjs myfile.gs</code>, it will compile the code of <code>myfile.gs</code> and pipe its results to <code>gjs</code> all at once.</p></li>
+      <li><p>Compile and run with <code>gjs</code>. You can compile any <code>.gs</code> file as per usual with <code>gorilla -c</code> and run the result <code>.js</code> file with <code>gjs</code>. You'll want to do this before distributing any code anyway.</p></li>
+    </ul>
+    
+    <p>Aside from being written in GorillaScript rather than JavaScript, it will then function as any other Gjs script
   </section>
   </div>
   
