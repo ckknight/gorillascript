@@ -12,10 +12,11 @@ command \install, "Install GorillaScript to /usr/local or --prefix", #(options, 
   async! cb, filename-path <- fs.realpath __filename
   let install-path = options.prefix or "/usr/local"
   let bin = path.join install-path, "bin"
+  let files = ["gorilla", "gork", "gjs-gorilla"]
   let cmds = [
     "mkdir -p $bin"
-    "ln -sfn $(path.join filename-path, '..', 'bin', 'gorilla') $bin/gorilla"
-    "ln -sfn $(path.join filename-path, '..', 'bin', 'gork') $bin/gork"
+    ...for file in files
+      "ln -sfn $(path.join filename-path, '..', 'bin', file) $bin/$file"
   ]
   exec cmds.join(" && "), #(err, stdout, stderr)
     if err

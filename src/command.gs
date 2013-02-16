@@ -67,12 +67,13 @@ let handle-code(code, callback = #->)
     next null, result.code
   else if options.gjs
     async! next, compiled <- gorilla.compile code, { eval: true } <<< opts
+    console.log "running with gjs"
     let gjs = child_process.spawn "gjs"
-    pipe.stdout.on 'data', #(data) -> process.stdout.write data
-    pipe.stderr.on 'data', #(data) -> process.stderr.write data
-    pipe.stdin.write compiled.code
+    gjs.stdout.on 'data', #(data) -> process.stdout.write data
+    gjs.stderr.on 'data', #(data) -> process.stderr.write data
+    gjs.stdin.write compiled.code
     set-timeout (#
-      pipe.stdin.end()
+      gjs.stdin.end()
       next null, ""), 50
   else
     async! next, result <- gorilla.eval code, opts
@@ -128,7 +129,7 @@ else if filenames.length
         process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
         compiled[filename] := compilation.code
         done()
-      else if options.stdout
+      else if options.stdout or options.gjs
         handle-code code, done
       else
         gorilla.run code, { extends opts, filename }, done

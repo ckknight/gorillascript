@@ -1364,12 +1364,38 @@ let items-by-id = sort-by-id items
     <p>As long as you have <code>gjs</code> installed locally, there are three ways to run Gjs with GorillaScript:</p>
     
     <ul>
-      <li><p>REPL: If you run <code>gorilla --gjs</code>, a REPL opens that pipes its JavaScript code to <code>gjs</code></p></li>
-      <li><p>Running a <code>.gs</code> file: If you run <code>gorilla --gjs myfile.gs</code>, it will compile the code of <code>myfile.gs</code> and pipe its results to <code>gjs</code> all at once.</p></li>
+      <li><p>REPL: If you run <code>gorilla --gjs</code> or <code>gjs-gorilla</code>, a REPL opens that pipes its JavaScript code to <code>gjs</code></p></li>
+      <li><p>Running a <code>.gs</code> file: If you run <code>gorilla --gjs myfile.gs</code> or <code>gjs-gorilla myfile.gs</code>, it will compile the code of <code>myfile.gs</code> and pipe its results to <code>gjs</code> all at once.</p></li>
       <li><p>Compile and run with <code>gjs</code>. You can compile any <code>.gs</code> file as per usual with <code>gorilla -c</code> and run the result <code>.js</code> file with <code>gjs</code>. You'll want to do this before distributing any code anyway.</p></li>
     </ul>
     
-    <p>Aside from being written in GorillaScript rather than JavaScript, it will then function as any other Gjs script
+    <p>Aside from being written in GorillaScript rather than JavaScript, it will then function as any other Gjs script</p>
+    
+    <p>Here is the standard Hello World Gjs code converted to GorillaScript:</p>
+    <pre class="gs-code"><code>#!/usr/bin/env gjs-gorilla
+
+let {Gtk, GLib} = imports.gi
+
+// Initialize the gtk
+Gtk.init null, 0
+
+let mwindow = new Gtk.Window type: Gtk.WindowType.TOPLEVEL
+let label = new Gtk.Label label: "Hello World"
+
+// Set the window title
+mwindow.title := "Hello World!"
+mwindow.connect "destroy", #-> Gtk.main_quit()
+
+// Add the label
+mwindow.add label
+
+// Show the widgets
+label.show()
+mwindow.show()
+
+Gtk.main()
+</code></pre>
+
   </section>
   </div>
   
