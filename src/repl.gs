@@ -202,7 +202,6 @@ exports.start := #(options = {})
       if err
         error err
       else if ret != void
-        sandbox._ := ret
         process.stdout.write util.inspect(ret, false, 2, enable-colors) & "\n"
       repl.prompt()
 

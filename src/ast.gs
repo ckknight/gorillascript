@@ -495,7 +495,7 @@ exports.Binary := class Binary extends Expression
     if ASSIGNMENT_OPS ownskey op
       if left instanceof Ident and typeof @right.to-statement == "function" and false
         @right.to-statement()
-          .mutate-last((#(node)@ -> Binary @pos, left, op, node), true)
+          .mutate-last((#(node)@ -> Binary @pos, left, op, node), { +noop })
           .compile-as-statement(options, line-start, sb)
       else
         super.compile-as-statement(options, line-start, sb)
@@ -647,9 +647,9 @@ exports.BlockStatement := class BlockStatement extends Statement
     else
       this
   
-  def mutate-last(func, include-noop)
+  def mutate-last(func, options)
     let last = @last()
-    let new-last = last.mutate-last(func, include-noop)
+    let new-last = last.mutate-last(func, options)
     if last != new-last
       let body = @body[0 til -1]
       body.push new-last
@@ -1391,9 +1391,9 @@ exports.IfStatement := class IfStatement extends Statement
     else
       this
   
-  def mutate-last(func, include-noop)
-    let when-true = @when-true.mutate-last(func, include-noop)
-    let when-false = @when-false.mutate-last(func, include-noop)
+  def mutate-last(func, options)
+    let when-true = @when-true.mutate-last(func, options)
+    let when-false = @when-false.mutate-last(func, options)
     if when-true != @when-true or when-false != @when-false
       If @pos, @test, when-true, when-false, @label
     else
@@ -1532,8 +1532,8 @@ exports.Noop := class Noop extends Expression
   def const-value() -> void
 
   def walk() -> this
-  def mutate-last(func, include-noop)
-    if include-noop
+  def mutate-last(func, options)
+    if options?.noop
       func(this)
     else
       this
@@ -1697,7 +1697,7 @@ exports.Regex := class Regex extends Expression
 exports.Return := class Return extends Statement
   def constructor(@pos as {}, @node as Expression = Noop(pos))
     if typeof node.to-statement == "function"
-      return node.to-statement().mutate-last (#(n) -> Return pos, n), true
+      return node.to-statement().mutate-last (#(n) -> Return pos, n), { +noop }
   
   def compile(options, level, line-start, sb)!
     if options.sourcemap? and @pos.file
@@ -1724,6 +1724,16 @@ exports.Return := class Return extends Statement
   def is-large() -> @node.is-large()
   
   def inspect(depth) -> inspect-helper depth, "Return", @pos, @node
+  
+  def mutate-last(func, options)
+    if options?.return
+      let node = @node.mutate-last(func, options)
+      if node != @node
+        Return @pos, node
+      else
+        this
+    else
+      this
   
   def to-JSON() -> { type: "Return", @pos.line, @pos.column, @pos.file, node: simplify(@node) }
   @from-JSON := #({line, column, file, node}) -> Return make-pos(line, column, file), from-JSON(node)
@@ -1792,8 +1802,8 @@ exports.Root := class Root
     else
       this
   
-  def mutate-last(func, include-noop)
-    let body = @body.mutate-last func, include-noop
+  def mutate-last(func, options)
+    let body = @body.mutate-last func, options
     if body != @body
       Root @pos, body, @variables, @declarations
     else
@@ -1828,7 +1838,7 @@ exports.This := class This extends Expression
 exports.Throw := class Throw extends Statement
   def constructor(@pos as {}, @node as Expression = Noop(line, column))
     if typeof node.to-statement == "function"
-      return node.to-statement().mutate-last (#(n)@ -> Throw @pos, n), true
+      return node.to-statement().mutate-last (#(n)@ -> Throw @pos, n), { +noop }
   
   def compile(options, level, line-start, sb)
     if options.sourcemap? and @pos.file

@@ -2868,7 +2868,7 @@
                 function (node) {
                   return Binary(_this.pos, left, op, node);
                 },
-                true
+                { noop: true }
               ).compileAsStatement(options, lineStart, sb);
             } else {
               _Expression_prototype.compileAsStatement.call(this, options, lineStart, sb);
@@ -3131,10 +3131,10 @@
             return this;
           }
         };
-        _BlockStatement_prototype.mutateLast = function (func, includeNoop) {
+        _BlockStatement_prototype.mutateLast = function (func, options) {
           var body, last, newLast;
           last = this.last();
-          newLast = last.mutateLast(func, includeNoop);
+          newLast = last.mutateLast(func, options);
           if (last !== newLast) {
             body = __slice.call(this.body, 0, -1);
             body.push(newLast);
@@ -5147,10 +5147,10 @@
             return this;
           }
         };
-        _IfStatement_prototype.mutateLast = function (func, includeNoop) {
+        _IfStatement_prototype.mutateLast = function (func, options) {
           var whenFalse, whenTrue;
-          whenTrue = this.whenTrue.mutateLast(func, includeNoop);
-          whenFalse = this.whenFalse.mutateLast(func, includeNoop);
+          whenTrue = this.whenTrue.mutateLast(func, options);
+          whenFalse = this.whenFalse.mutateLast(func, options);
           if (whenTrue !== this.whenTrue || whenFalse !== this.whenFalse) {
             return If(
               this.pos,
@@ -5496,8 +5496,8 @@
         _Noop_prototype.walk = function () {
           return this;
         };
-        _Noop_prototype.mutateLast = function (func, includeNoop) {
-          if (includeNoop) {
+        _Noop_prototype.mutateLast = function (func, options) {
+          if (options != null ? options.noop : void 0) {
             return func(this);
           } else {
             return this;
@@ -5934,7 +5934,7 @@
               function (n) {
                 return Return(pos, n);
               },
-              true
+              { noop: true }
             );
           }
           return _this;
@@ -5988,6 +5988,19 @@
         };
         _Return_prototype.inspect = function (depth) {
           return inspectHelper(depth, "Return", this.pos, this.node);
+        };
+        _Return_prototype.mutateLast = function (func, options) {
+          var node;
+          if (options != null ? options["return"] : void 0) {
+            node = this.node.mutateLast(func, options);
+            if (node !== this.node) {
+              return Return(this.pos, node);
+            } else {
+              return this;
+            }
+          } else {
+            return this;
+          }
         };
         _Return_prototype.toJSON = function () {
           return {
@@ -6156,9 +6169,9 @@
             return this;
           }
         };
-        _Root_prototype.mutateLast = function (func, includeNoop) {
+        _Root_prototype.mutateLast = function (func, options) {
           var body;
-          body = this.body.mutateLast(func, includeNoop);
+          body = this.body.mutateLast(func, options);
           if (body !== this.body) {
             return Root(this.pos, body, this.variables, this.declarations);
           } else {
@@ -6285,7 +6298,7 @@
               function (n) {
                 return Throw(_this.pos, n);
               },
-              true
+              { noop: true }
             );
           }
           return _this;
@@ -30112,6 +30125,20 @@
             }
           };
           body = body.walk(walker);
+          body = body.mutateLast(
+            function (node) {
+              return ast.Assign(
+                node.pos,
+                ast.Access(
+                  node.pos,
+                  ast.Ident(node.pos, "GLOBAL"),
+                  ast.Const(node.pos, "_")
+                ),
+                node
+              );
+            },
+            { "return": true }
+          );
         }
         if (scope.options.bare) {
           if (scope.hasGlobal) {

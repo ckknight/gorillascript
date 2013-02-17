@@ -1647,6 +1647,12 @@ let translate-root(mutable roots as Object, scope as Scope)
             node.left.name
           node.walk walker
     body := body.walk walker
+    body := body.mutate-last (#(node)
+      ast.Assign node.pos,
+        ast.Access node.pos,
+          ast.Ident node.pos, \GLOBAL
+          ast.Const node.pos, \_
+        node), { return: true }
   
   if scope.options.bare
     if scope.has-global
