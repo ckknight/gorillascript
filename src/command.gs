@@ -28,6 +28,7 @@ let parse-options =
   sourcemap:    ["m", "Build a SourceMap", "file"]
   join:         ["j", "Join all the generated JavaScript into a single file"]
   "no-prelude": [false, "Do not include the standard prelude"]
+  //js:           [false, "Compile to JavaScript (default)"]
 
 if has-gjs
   parse-options <<<
@@ -36,6 +37,8 @@ if has-gjs
 cli.parse parse-options
 
 async filenames, options <- cli.main()
+
+let lang = "js"
 
 let opts = {}
 if options.uglify
@@ -46,7 +49,7 @@ asyncif next, options["no-prelude"]
   opts.no-prelude := true
   next()
 else
-  async err <- gorilla.init()
+  async err <- gorilla.init { lang }
   throw? err
   next()
 

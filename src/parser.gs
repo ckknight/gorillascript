@@ -4646,7 +4646,8 @@ class MacroHelper
     if @is-ident node
       node.name
   def ident(name as String)
-    if require('./ast').is-acceptable-ident(name, true)
+    // TODO: don't assume JS
+    if require('./jsast').is-acceptable-ident(name, true)
       @state.ident @index, name
   
   def is-call(node) -> @macro-expand-1(node) instanceof CallNode
@@ -5284,8 +5285,9 @@ class MacroHolder
     JSON.stringify(@serialization)
   
   def deserialize(data)!
-    require! './translator'
-    require! './ast'
+    // TODO: pass in the output language rather than assume JS
+    require! translator: './jstranslator'
+    require! ast: './jsast'
     for name, {helper, type, dependencies} of (data!.helpers ? {})
       translator.define-helper(name, ast.fromJSON(helper), Type.fromJSON(type), dependencies)
     
@@ -5671,7 +5673,8 @@ class State
     @nothing @index
   
   def define-helper(i, name as IdentNode, value as Node)
-    require! './translator'
+    // TODO: keep helpers in the parser and have the translator ask for them
+    require! translator: './jstranslator'
     let node = @macro-expand-all(value).reduce(this)
     let type = node.type(this)
     let {helper, dependencies} = translator.define-helper(name, node, type)
@@ -5829,7 +5832,7 @@ class State
         @error "Unexpected parameter type: $(typeof! param)"
     sequential sequence
   let macro-syntax-types =
-    syntax: #(index, params, body, options, state-options)
+    syntax: #(index, params, body, options, state-options, translator)
       let func-params = @object-param index,
         * key: @const(index, \macro-name)
           value: @param index, (@ident index, \macro-name), void, false, true, void
@@ -5840,7 +5843,7 @@ class State
               value: @param index, param.ident, void, false, true, void
       
       let raw-func = make-macro-root@ this, index, func-params, body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
@@ -5858,7 +5861,7 @@ class State
           names: @current-macro
       }
     
-    define-syntax: #(index, params, body, options, state-options)
+    define-syntax: #(index, params, body, options, state-options, translator)
       let func-params = for param in params
         if param instanceof SyntaxParamNode
           key: @const index, param.ident.name
@@ -5869,7 +5872,7 @@ class State
       let handler = if body?
         do
           let raw-func = make-macro-root@ this, index, @object-param(index, func-params), body
-          let translated = require('./translator')(@macro-expand-all(raw-func).reduce(state), return: true)
+          let translated = translator(@macro-expand-all(raw-func).reduce(state), return: true)
           let compilation = translated.node.to-string()
           if state-options.serialize-macros
             serialization := compilation
@@ -5889,13 +5892,13 @@ class State
           params: serialize-params params
       }
     
-    call: #(index, params, body, options, state-options)
+    call: #(index, params, body, options, state-options, translator)
       let func-params = @object-param index, [
         { key: @const(index, \macro-name), value: @param index, (@ident index, \macro-name), void, false, true, void }
         { key: @const(index, \macro-data), value: @array-param(index, params) }
       ]
       let raw-func = make-macro-root@ this, index, func-params, body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -5915,13 +5918,13 @@ class State
           names: @current-macro
       }
     
-    binary-operator: #(index, operators, body, options, state-options)
+    binary-operator: #(index, operators, body, options, state-options, translator)
       let raw-func = make-macro-root@ this, index, @object-param(index, [
         { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -5949,13 +5952,13 @@ class State
           options: options
       }
     
-    assign-operator: #(index, operators, body, options, state-options)
+    assign-operator: #(index, operators, body, options, state-options, translator)
       let raw-func = make-macro-root@ this, index, @object-param(index, [
         { key: @const(index, \left), value: @param index, (@ident index, \left), void, false, true, void }
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \right), value: @param index, (@ident index, \right), void, false, true, void }
       ]), body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -5974,12 +5977,12 @@ class State
           options: options
       }
     
-    unary-operator: #(index, operators, body, options, state-options)
+    unary-operator: #(index, operators, body, options, state-options, translator)
       let raw-func = make-macro-root@ this, index, @object-param(index, [
         { key: @const(index, \op), value: @param index, (@ident index, \op), void, false, true, void }
         { key: @const(index, \node), value: @param index, (@ident index, \node), void, false, true, void }
       ]), body
-      let translated = require('./translator')(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -6183,7 +6186,8 @@ class State
     if not @current-macro
       this.error "Attempting to specify a macro syntax when not in a macro"
     
-    let {handler, rule, serialization} = macro-syntax-types[type]@(this, index, params, body, options, @options)
+    // TODO: don't assume translator uses JS
+    let {handler, rule, serialization} = macro-syntax-types[type]@(this, index, params, body, options, @options, require('./jstranslator'))
     
     let macro-id = handle-macro-syntax@ this, index, type, handler, rule, params, options
     if serialization?
@@ -6905,7 +6909,8 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
         if PRIMORDIAL_FUNCTIONS ownskey name
           return PRIMORDIAL_FUNCTIONS[name]
         else if name.length > 2 and C(name, 0) == C("_") and C(name, 1) == C("_")
-          let {helpers} = require('./translator')
+          // TODO: handle helpers in the parser rather than requiring the translator
+          let {helpers} = require('./jstranslator')
           if helpers.has name
             func-type := helpers.type name
             if func-type.is-subset-of(Type.function)

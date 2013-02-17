@@ -6,8 +6,11 @@ let {string-repeat, pad-left, pad-right} = require './lib/utils'
 
 option \uglify, "u", "Use UglifyJS2 to minify the result"
 option \file, "f", "Build a specific file", "file"
-
 option \prefix, null, "Path to install to (/usr/local by default)"
+//option \js, null, "Compile to JavaScript (default)"
+
+let get-lang(options) -> "js"
+
 command \install, "Install GorillaScript to /usr/local or --prefix", #(options, cb)
   async! cb, filename-path <- fs.realpath __filename
   let install-path = options.prefix or "/usr/local"
@@ -31,7 +34,7 @@ command \build, "Build GorillaScript from source", #(options, cb)
   async! cb, mutable files <- fs.readdir src-path
   
   files := for filter file in files
-    file != "prelude.gs"
+    not r'prelude\.gs$'.test(file)
   if options.file
     let file-filter = options.file.split ","
     for file in file-filter
@@ -43,7 +46,7 @@ command \build, "Build GorillaScript from source", #(options, cb)
   if files.length == 0
     return cb("No files to build")
   
-  async! cb <- gorilla.init()
+  async! cb <- gorilla.init(lang: get-lang(options))
   
   files.sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
   let inputs = {}
@@ -124,7 +127,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
       """
     next()
   
-  async! cb, mutable serialized-prelude <- gorilla.get-serialized-prelude()
+  async! cb, mutable serialized-prelude <- gorilla.get-serialized-prelude("js")
   if options.uglify
     let deserialized-prelude = JSON.parse serialized-prelude
     for k, v of deserialized-prelude
@@ -146,7 +149,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
         }
         $(parts.join("\n").split("\n").join("\n  "))
         
-        return require["./gorilla"].withPrelude($serialized-prelude);
+        return require["./gorilla"].withPrelude("js", $serialized-prelude);
       }());
       
       if (typeof define === "function" && define.amd) {
@@ -294,7 +297,7 @@ command \test, "Run the GorillaScript test suite", #(options, cb)
   
   let longest-name-len = for reduce file in files, current = 0; current max file.length
   
-  async! cb <- gorilla.init()
+  async! cb <- gorilla.init(lang: get-lang(options))
   
   output string-repeat(" ", longest-name-len)
   output "     parse     macro     reduce    translate compile $(if options.uglify then '  uglify  ' else '')  eval    |       total\n"

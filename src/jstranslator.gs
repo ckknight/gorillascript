@@ -1,4 +1,4 @@
-require! './ast'
+require! ast: './jsast'
 let AstNode = ast.Node
 require! Type: './types'
 let {Node: ParserNode} = require('./parser')
