@@ -994,6 +994,28 @@ test "typed array parameter", #
   throws #-> fun([{}]), TypeError
   throws #-> fun([new String("hello")]), TypeError
 
+test "typed array as generic", #
+  let fun(value as Array<String>) -> value
+
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  array-eq [], fun([])
+  array-eq ["alpha"], fun(["alpha"])
+  array-eq ["alpha", "bravo"], fun(["alpha", "bravo"])
+  array-eq ["alpha", "bravo", "charlie"], fun(["alpha", "bravo", "charlie"])
+  throws #-> fun([1]), TypeError
+  throws #-> fun([null]), TypeError
+  throws #-> fun([void]), TypeError
+  throws #-> fun([false]), TypeError
+  throws #-> fun([{}]), TypeError
+  throws #-> fun([new String("hello")]), TypeError
+
 test "typed array parameter of typed array parameter", #
   let fun(value as [[String]]) -> value
 

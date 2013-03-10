@@ -1600,6 +1600,8 @@ macro try
         let types = @array for type in (if @is-type-union(type-catch.type) then @types(type-catch.type) else [type-catch.type])
           if @is-type-array(type)
             throw Error "Expected a normal type, cannot use an array type"
+          else if @is-type-generic(type)
+            throw Error "Expected a normal type, cannot use a generic type"
           else if @is-type-function(type)
             throw Error "Expected a normal type, cannot use a function type"
           else if @is-type-object(type)

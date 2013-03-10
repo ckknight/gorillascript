@@ -2975,10 +2975,11 @@ define ArrayType = sequential! [
   [\this, maybe! TypeReference, NOTHING]
   CloseSquareBracket
 ], #(x, o, i)
+  let array-ident = o.ident i, \Array
   if x == NOTHING
-    o.ident i, \Array
+    array-ident
   else
-    o.type-array i, x
+    o.type-generic i, array-ident, [x]
 
 namedlet ObjectTypePair = sequential! [
   [\key, ConstObjectKey]
@@ -3040,6 +3041,8 @@ namedlet FunctionType = sequential! [
   else
     o.type-function i, x
 
+define LessThanSign = character! "<"
+
 namedlet NonUnionType = one-of! [
   #(o)
     if not _in-function-type-params.peek()
@@ -3051,7 +3054,23 @@ namedlet NonUnionType = one-of! [
   ]
   ArrayType
   ObjectType
-  IdentifierOrSimpleAccess
+  sequential! [
+    [\base, IdentifierOrSimpleAccess]
+    [\args, maybe! (short-circuit! LessThanSign, sequential! [
+      LessThanSign
+      [\head, TypeReference]
+      [\tail, zero-or-more! sequential! [
+        Comma
+        [\this, TypeReference]
+      ]]
+      Space
+      character! ">"
+    ], #(x) -> [x.head, ...x.tail]), #-> []]
+  ], #(x, o, i)
+    if x.args.length == 0
+      x.base
+    else
+      o.type-generic i, x.base, x.args
   VoidLiteral
   NullLiteral
 ]
@@ -4508,8 +4527,12 @@ let node-to-type = do
       else
         // shouldn't really occur
         Type.any
-    else if node instanceof TypeArrayNode
-      node-to-type(node.subtype).array()
+    else if node instanceof TypeGenericNode
+      if node.basetype instanceof IdentNode and node.basetype == \Array
+        node-to-type(node.args[0]).array()
+      else
+        // TODO: fix when generics are added to the type system
+        node-to-type(node.basetype)
     else if node instanceof TypeFunctionNode
       node-to-type(node.return-type).function()
     else if node instanceof TypeUnionNode
@@ -4777,10 +4800,22 @@ class MacroHelper
     node := @macro-expand-1 node
     node.is-noop(@state)
   
-  def is-type-array(node) -> @macro-expand-1(node) instanceof TypeArrayNode
+  def is-type-array(mutable node)
+    node := @macro-expand-1(node)
+    node instanceof TypeGenericNode and node.basetype instanceof IdentNode and node.basetype.name == \Array
   def subtype(mutable node)
     node := @macro-expand-1 node
-    @is-type-array(node) and node.subtype
+    if node instanceof TypeGenericNode
+      if node.basetype instanceof IdentNode and node.basetype.name == \Array
+        node.args[0]
+  
+  def is-type-generic(node) -> @macro-expand-1(node) instanceof TypeGenericNode
+  def basetype(mutable node)
+    node := @macro-expand-1 node
+    node instanceof TypeGenericNode and node.basetype
+  def type-arguments(mutable node)
+    node := @macro-expand-1 node
+    node instanceof TypeGenericNode and node.args
   
   def is-type-object(node) -> @macro-expand-1(node) instanceof TypeObjectNode
   
@@ -7460,8 +7495,8 @@ node-class TryFinallyNode(try-body as Node, finally-body as Node, label as Ident
   def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
   def with-label(label as IdentNode|TmpNode|null)
     TryFinallyNode @line, @column, @scope-id, @try-body, @finally-body, label
-node-class TypeArrayNode(subtype as Node)
 node-class TypeFunctionNode(return-type as Node)
+node-class TypeGenericNode(basetype as Node, args as [Node])
 node-class TypeObjectNode(pairs as [])
   let reduce-pair(pair, o)
     let key = pair.key.reduce(o)

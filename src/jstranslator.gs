@@ -169,6 +169,7 @@ let HELPERS = new class Helpers
 
 class GeneratorBuilder
   def constructor(@pos as {}, @scope as Scope, states, @current-state = 1, state-ident, pending-finallies-ident, @finallies = [], @catches = [], @current-catch = [])
+    scope.has-stop-iteration := true
     @states := states ? [
       [#-> ast.Throw pos, ast.Ident pos, \StopIteration]
       []
@@ -945,6 +946,11 @@ let translators =
         }
       TypeFunction: #(ident, node, scope, has-default-value, accesses)
         translate-type-checks.Ident(ident, { name: \Function }, scope, has-default-value, accesses)
+      TypeGeneric: #(ident, node, scope, has-default-value, accesses)
+        if node.basetype.name == \Array
+          translate-type-checks.TypeArray(ident, { subtype: node.args[0] }, scope, has-default-value, accesses)
+        else
+          translate-type-checks.Ident(ident, node.basetype, scope, has-default-value, accesses)
       TypeArray: #(ident, node, scope, has-default-value, accesses)
         let access = ast.Access ident.pos, ident, ...accesses
         scope.add-helper \__is-array
