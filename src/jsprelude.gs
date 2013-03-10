@@ -212,6 +212,36 @@ macro return?
           if $set-n?
             return $n), true
 
+macro returnif
+  syntax node as Expression
+    if @in-generator
+      throw Error "Cannot use return in a generator function"
+    @mutate-last node or @noop(), (#(n)@
+      if @is-type n, \boolean
+        AST
+          if $n
+            return true
+      else
+        @maybe-cache n, #(set-n, n)@
+          AST
+            if $set-n
+              return $n), true
+
+macro returnunless
+  syntax node as Expression
+    if @in-generator
+      throw Error "Cannot use return in a generator function"
+    @mutate-last node or @noop(), (#(n)@
+      if @is-type n, \boolean
+        AST
+          unless $n
+            return false
+      else
+        @maybe-cache n, #(set-n, n)@
+          AST
+            unless $set-n
+              return $n), true
+
 define operator assign and=
   @maybe-cache-access left, #(set-left, left)@
     if @position == \expression

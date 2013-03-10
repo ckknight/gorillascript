@@ -122,3 +122,45 @@ test "inline expression with lots of conditionals", #
   
   fun(no, fail, no, fail, fail, fail, no, fail, yes)
   fun(yes, yes, fail, yes, yes, fail, fail, fail, fail)
+
+test "returnif", #
+  let otherwise = {}
+  let f(get-value)
+    returnif get-value()
+    otherwise
+
+  let obj = {}
+  eq obj, f(#-> obj)
+  eq true, f(#-> true)
+  eq otherwise, f(#-> 0)
+  eq otherwise, f(#-> false)
+
+test "returnunless", #
+  let otherwise = {}
+  let f(get-value)
+    returnunless get-value()
+    otherwise
+  
+  let obj = {}
+  eq otherwise, f(#-> obj)
+  eq otherwise, f(#-> true)
+  eq false, f(#-> false)
+  eq 0, f(#-> 0)
+
+test "returnif with known boolean", #
+  let otherwise = {}
+  let f(x)
+    returnif x == "yes"
+    otherwise
+
+  eq otherwise, f("no")
+  eq true, f("yes")
+
+test "returnunless with known boolean", #
+  let otherwise = {}
+  let f(x)
+    returnunless x == "yes"
+    otherwise
+
+  eq false, f("no")
+  eq otherwise, f("yes")
