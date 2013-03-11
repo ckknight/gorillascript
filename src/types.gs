@@ -270,6 +270,12 @@ module.exports := class Type
         throw Error "Must provide at least one generic type argument"
       @id := get-id()
       @args := args.slice()
+      if @base == array-base and args.length == 1
+        return? args[0]._array
+        args[0]._array := this
+      else if @base == function-base and args.length == 1
+        return? args[0]._function
+        args[0]._function := this
 
     let become(alpha, bravo)!
       if alpha.id > bravo.id

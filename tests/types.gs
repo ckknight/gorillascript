@@ -65,9 +65,9 @@ test "Complement", #
   eq "any \\ [Boolean]", (~T.boolean.array()).to-string()
   eq "any \\ []", (~T.array).to-string()
   
-  ok ~(~T.boolean) equals T.boolean
+  eq T.boolean, ~(~T.boolean)
   ok ~(~(T.boolean union T.function)) equals (T.boolean union T.function)
-  ok ~(~(T.boolean.array())) equals T.boolean.array()
+  eq T.boolean.array(), ~(~(T.boolean.array()))
   
   eq T.any, ~T.boolean union ~T.string
   ok ~(T.boolean union T.string) equals (~T.boolean intersect ~T.string)
@@ -757,7 +757,7 @@ test "Intersection of specialized array", #
   eq T.none, T.number.array() intersect T.none, "[N] ∩ 0"
   eq T.number.array(), T.number.array() intersect T.array, "[N] ∩ [*]"
   eq T.number.array(), T.number.array() intersect T.number.array(), "[N] ∩ [N]"
-  ok (T.number.array() intersect T.string.array()) equals T.none.array(), "[N] ∩ [S]"
+  eq T.none.array(), (T.number.array() intersect T.string.array()), "[N] ∩ [S]"
   eq T.number.array(), T.number.array() intersect ~T.number, "[N] ∩ !N"
   eq T.none, T.number.array() intersect ~T.number.array(), "[N] ∩ ![N]"
   eq T.none, T.number.array() intersect T.function, "[N] ∩ -> *"
@@ -790,7 +790,7 @@ test "Intersection of specialized function", #
   eq T.none, T.number.function() intersect T.none, "-> N ∩ 0"
   eq T.number.function(), T.number.function() intersect T.function, "-> N ∩ -> *"
   eq T.number.function(), T.number.function() intersect T.number.function(), "-> N ∩ -> N"
-  ok (T.number.function() intersect T.string.function()) equals T.none.function(), "-> N ∩ -> S"
+  eq T.none.function(), (T.number.function() intersect T.string.function()), "-> N ∩ -> S"
   eq T.number.function(), T.number.function() intersect ~T.number, "-> N ∩ !N"
   eq T.none, T.number.function() intersect ~T.number.function(), "-> N ∩ !(-> N)"
   eq T.none, T.number.function() intersect T.array, "-> N ∩ [*]"
