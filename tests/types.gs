@@ -26,6 +26,16 @@ test "Basic string representation", #
   eq "{x: Number}", T.make-object(x: T.number).to-string()
   eq "{x: Number, y: String}", T.make-object(x: T.number, y: T.string).to-string()
   eq "{x: Number, y: String}", T.make-object(y: T.string, x: T.number).to-string()
+  eq "Thing<String>", T.generic("Thing", T.string).to-string()
+  eq "Thing<Number>", T.generic("Thing", T.number).to-string()
+  eq "Thing<(Number|String)>", T.generic("Thing", T.string-or-number).to-string()
+  eq "Thing<String, Boolean>", T.generic("Thing", T.string, T.boolean).to-string()
+  eq "Thing<Number, Boolean>", T.generic("Thing", T.number, T.boolean).to-string()
+  eq "Thing<(Number|String), Boolean>", T.generic("Thing", T.string-or-number, T.boolean).to-string()
+  eq "Thing<>", T.generic("Thing", T.any).to-string()
+  eq "Thing<,Boolean>", T.generic("Thing", T.any, T.boolean).to-string()
+  eq "Thing<Boolean,>", T.generic("Thing", T.boolean, T.any).to-string()
+  eq "Thing<,>", T.generic("Thing", T.any, T.any).to-string()
 
 define operator binary subset with maximum: 1, invertible: true
   AST $left.is-subset-of $right
@@ -73,6 +83,7 @@ test "Subset of simple", #
   ok T.number not subset T.number.array(), "N ⊆ [N]"
   ok T.number not subset T.number.function(), "N ⊆ -> N"
   ok T.number not subset T.object, "N ⊆ {}"
+  ok T.number not subset T.generic("Thing", T.number), "N ⊆ X<N>"
 
 test "Subset of union", #
   ok T.string-or-number not subset T.number, "(S ∪ N) ⊆ N"
@@ -89,6 +100,7 @@ test "Subset of union", #
   ok T.string-or-number not subset ~T.string, "(S ∪ N) ⊆ !S"
   ok T.string-or-number not subset ~T.string-or-number, "(S ∪ N) ⊆ !(S ∪ N)"
   ok T.string-or-number not subset T.object, "(S ∪ N) ⊆ {}"
+  ok T.string-or-number not subset T.generic("Thing", T.number), "(S ∪ N) ⊆ X<N>"
 
 test "Subset of complement", #
   ok ~T.number not subset T.number, "!N ⊆ N"
@@ -105,6 +117,7 @@ test "Subset of complement", #
   ok ~T.number subset ~T.number, "!N ⊆ !N"
   ok ~T.number not subset ~T.string, "!N ⊆ !S"
   ok ~T.number not subset T.object, "!N ⊆ {}"
+  ok ~T.number not subset T.generic("Thing", T.number), "!N ⊆ X<N>"
 
 test "Subset of none", #
   ok T.none subset T.number, "0 ⊆ N"
@@ -116,6 +129,7 @@ test "Subset of none", #
   ok T.none subset T.number.function(), "0 ⊆ -> N"
   ok T.none subset ~T.number, "0 ⊆ !N"
   ok T.none subset T.object, "0 ⊆ {}"
+  ok T.none subset T.generic("Thing", T.number), "0 ⊆ X<N>"
 
 test "Subset of any", #
   ok T.any not subset T.number, "* ⊆ N"
@@ -127,6 +141,7 @@ test "Subset of any", #
   ok T.any not subset T.number.function(), "* ⊆ -> N"
   ok T.any not subset ~T.number, "* ⊆ !N"
   ok T.any not subset T.object, "* ⊆ {}"
+  ok T.any not subset T.generic("Thing", T.number), "* ⊆ X<N>"
 
 test "Subset of specialized array", #
   ok T.number.array() not subset T.number, "[N] ⊆ N"
@@ -140,6 +155,7 @@ test "Subset of specialized array", #
   ok T.number.array() subset ~T.number, "[N] ⊆ !N"
   ok T.number.array() not subset T.number.function(), "[N] ⊆ -> N"
   ok T.number.array() not subset T.object, "[N] ⊆ {}"
+  ok T.number.array() not subset T.generic("Thing", T.number), "[N] ⊆ X<N>"
 
 test "Subset of array", #
   ok T.array not subset T.number, "[*] ⊆ N"
@@ -153,6 +169,7 @@ test "Subset of array", #
   ok T.array not subset T.number.function(), "[*] ⊆ -> N"
   // TODO: array is kind of a subset of {length: Number}
   ok T.array not subset T.object, "[*] ⊆ {}"
+  ok T.array not subset T.generic("Thing", T.any), "[*] ⊆ X<*>"
 
 test "Subset of specialized function", #
   ok T.number.function() not subset T.number, "-> N ⊆ N"
@@ -167,6 +184,7 @@ test "Subset of specialized function", #
   ok T.number.function() not subset T.number.array(), "-> N ⊆ [N]"
   // TODO: a function is kind of a subset of {name: String, length: Number, etc.}
   ok T.number.function() not subset T.object, "-> N ⊆ {}"
+  ok T.number.function() not subset T.generic("Thing", T.number), "-> N ⊆ X<N>"
 
 test "Subset of function", #
   ok T.function not subset T.number, "-> * ⊆ N"
@@ -181,6 +199,7 @@ test "Subset of function", #
   ok T.function not subset T.number.array(), "-> * ⊆ [N]"
   // TODO: a function is kind of a subset of {name: String, length: Number, etc.}
   ok T.function not subset T.object, "-> * ⊆ {}"
+  ok T.function not subset T.generic("Thing", T.any), "-> * ⊆ X<*>"
 
 test "Subset of specialized object", #
   let my-object = T.make-object(x: T.number)
@@ -198,6 +217,7 @@ test "Subset of specialized object", #
   ok my-object subset my-object, "{x:N} ⊆ {x:N}"
   ok my-object subset T.make-object(x: T.number), "{x:N} ⊆ {x:N}"
   ok my-object not subset T.make-object(x: T.string), "{x:N} ⊆ {x:S}"
+  ok my-object not subset T.generic("Thing", T.number), "{x:N} ⊆ X<N>"
 
 test "Subset of object", #
   ok T.object not subset T.number, "{} ⊆ N"
@@ -205,13 +225,35 @@ test "Subset of object", #
   ok T.object not subset T.string-or-number, "{} ⊆ (S ∪ N)"
   ok T.object subset T.any, "{} ⊆ *"
   ok T.object not subset T.none, "{} ⊆ 0"
-  ok T.object not subset T.function, "{} ⊆ {}"
-  ok T.object not subset T.number.function(), "{} ⊆ [N]"
+  ok T.object not subset T.function, "{} ⊆ -> *"
+  ok T.object not subset T.number.function(), "{} ⊆ -> N"
   ok T.object subset ~T.number, "{} ⊆ !N"
   ok T.object not subset T.array, "{} ⊆ [N]"
   ok T.object not subset T.number.array(), "{} ⊆ [N]"
   ok T.object subset T.object, "{} ⊆ {}"
   ok T.object not subset T.make-object(x: T.number), "{} ⊆ {x:N}"
+  ok T.object not subset T.generic("Thing", T.number), "{} ⊆ X<N>"
+
+test "Subset of generic", #
+  let my-generic = T.generic("Thing", T.number)
+  ok my-generic not subset T.number, "X<N> ⊆ N"
+  ok my-generic not subset T.string, "X<N> ⊆ S"
+  ok my-generic not subset T.string-or-number, "X<N> ⊆ (S ∪ N)"
+  ok my-generic subset T.any, "X<N> ⊆ *"
+  ok my-generic not subset T.none, "X<N> ⊆ 0"
+  ok my-generic not subset T.function, "X<N> ⊆ -> *"
+  ok my-generic not subset T.number.function(), "X<N> ⊆ -> N"
+  ok my-generic subset ~T.number, "X<N> ⊆ !N"
+  ok my-generic not subset T.array, "X<N> ⊆ [N]"
+  ok my-generic not subset T.number.array(), "X<N> ⊆ [N]"
+  ok my-generic not subset T.object, "X<N> ⊆ {}"
+  ok my-generic not subset T.make-object(x: T.number), "X<N> ⊆ {x:N}"
+  ok my-generic subset my-generic, "X<N> ⊆ X<N>"
+  ok my-generic not subset T.generic("Other", T.number), "X<N> ⊆ Y<N>"
+  // even though the name is the same, they might point to different 'Thing's
+  ok my-generic not subset T.generic("Thing", T.number), "X<N> ⊆ Z<N>"
+  ok my-generic subset T.generic(my-generic.base, T.number), "X<N> ⊆ X<N>"
+  ok my-generic subset T.generic(my-generic.base, T.string-or-number), "X<N> ⊆ X<S ∪ N>"
 
 test "Overlap of simple", #
   ok T.number overlaps T.number, "N ∩ N"
@@ -224,6 +266,7 @@ test "Overlap of simple", #
   ok T.number not overlaps T.number.array(), "N ∩ [N]"
   ok T.number not overlaps T.number.function(), "N ∩ -> N"
   ok T.number not overlaps T.object, "N ∩ {}"
+  ok T.number not overlaps T.generic("Thing", T.number), "N ∩ X<N>"
 
 test "Overlap of union", #
   ok T.string-or-number overlaps T.number, "(S ∪ N) ∩ N"
@@ -241,6 +284,7 @@ test "Overlap of union", #
   ok T.string-or-number not overlaps ~T.string-or-number, "(S ∪ N) ∩ !(S ∪ N)"
   ok T.string-or-number not overlaps T.string-or-number.function(), "(S ∪ N) ∩ -> (S ∪ N)"
   ok T.string-or-number not overlaps T.object, "(S ∪ N) ∩ {}"
+  ok T.string-or-number not overlaps T.generic("Thing", T.number), "(S ∪ N) ∩ X<N>"
 
 test "Overlap of complement", #
   ok ~T.number not overlaps T.number, "!N ∩ N"
@@ -255,7 +299,8 @@ test "Overlap of complement", #
   ok ~T.number overlaps ~T.number, "!N ∩ !N"
   ok ~T.number overlaps ~T.string, "!N ∩ !S"
   ok ~T.number overlaps T.number.function(), "!N ∩ -> N"
-  ok ~T.number overlaps T.object, "~N ∩ {}"
+  ok ~T.number overlaps T.object, "!N ∩ {}"
+  ok ~T.number overlaps T.generic("Thing", T.number), "!N ∩ X<N>"
 
 test "Overlap of none", #
   ok T.none not overlaps T.number, "0 ∩ N"
@@ -267,6 +312,7 @@ test "Overlap of none", #
   ok T.none not overlaps ~T.number, "0 ∩ !N"
   ok T.none not overlaps T.number.function(), "0 ∩ -> N"
   ok T.none not overlaps T.object, "0 ∩ {}"
+  ok T.none not overlaps T.generic("Thing", T.number), "0 ∩ X<N>"
 
 test "Overlap of any", #
   ok T.any overlaps T.number, "* ∩ N"
@@ -278,6 +324,7 @@ test "Overlap of any", #
   ok T.any overlaps ~T.number, "* ∩ !N"
   ok T.any overlaps T.number.function(), "* ∩ -> N"
   ok T.any overlaps T.object, "* ∩ {}"
+  ok T.any overlaps T.generic("Thing", T.number), "* ∩ X<N>"
 
 test "Overlap of specialized array", #
   ok T.number.array() not overlaps T.number, "[N] ∩ N"
@@ -291,6 +338,7 @@ test "Overlap of specialized array", #
   ok T.number.array() overlaps ~T.number, "[N] ∩ !N"
   ok T.number.array() not overlaps T.number.function(), "[N] ∩ -> N"
   ok T.number.array() not overlaps T.object, "[N] ∩ {}"
+  ok T.number.array() not overlaps T.generic("Thing", T.number), "[N] ∩ X<N>"
 
 test "Overlap of array", #
   ok T.array not overlaps T.number, "[*] ∩ N"
@@ -303,6 +351,7 @@ test "Overlap of array", #
   ok T.array overlaps ~T.number, "[*] ∩ !N"
   ok T.array not overlaps T.number.function(), "[*] ∩ -> N"
   ok T.array not overlaps T.object, "[*] ∩ {}"
+  ok T.array not overlaps T.generic("Thing", T.any), "[*] ∩ X<*>"
 
 test "Overlap of specialized function", #
   ok T.number.function() not overlaps T.number, "-> N ∩ N"
@@ -317,6 +366,7 @@ test "Overlap of specialized function", #
   ok T.number.function() overlaps ~T.number, "-> N ∩ !N"
   ok T.number.function() not overlaps T.number.array(), "-> N ∩ -> N"
   ok T.number.function() not overlaps T.object, "-> N ∩ {}"
+  ok T.number.function() not overlaps T.generic("Thing", T.number), "[*] ∩ X<N>"
 
 test "Overlap of function", #
   ok T.function not overlaps T.number, "-> * ∩ N"
@@ -330,6 +380,7 @@ test "Overlap of function", #
   ok T.function overlaps T.number.function(), "-> * ∩ -> N"
   ok T.function overlaps T.function, "-> * ∩ -> *"
   ok T.function not overlaps T.object, "-> * ∩ {}"
+  ok T.function not overlaps T.generic("Thing", T.any), "-> * ∩ X<*>"
 
 test "Overlap of specialized object", #
   let my-object = T.make-object(x: T.number)
@@ -354,6 +405,7 @@ test "Overlap of specialized object", #
   ok my-object overlaps T.make-object(x: T.number), "{x:N} ∩ {x:N}"
   ok my-object overlaps T.make-object(x: T.string), "{x:N} ∩ {x:S}"
   ok my-object overlaps T.make-object(y: T.string), "{x:N} ∩ {y:S}"
+  ok my-object not overlaps T.generic("Thing", T.number), "{x:N} ∩ X<N>"
 
 test "Overlap of object", #
   ok T.object not overlaps T.number, "{} ∩ N"
@@ -370,6 +422,29 @@ test "Overlap of object", #
   ok T.object not overlaps T.function, "{} ∩ -> *"
   ok T.object overlaps T.object, "{} ∩ {}"
   ok T.object overlaps T.make-object(x: T.number), "{} ∩ {x:N}"
+  ok T.object not overlaps T.generic("Thing", T.number), "{} ∩ X<N>"
+
+test "Overlap of generic", #
+  let my-generic = T.generic("Thing", T.number)
+  ok my-generic not overlaps T.number, "X<N> ∩ N"
+  ok my-generic not overlaps T.string, "X<N> ∩ S"
+  ok my-generic not overlaps T.string-or-number, "X<N> ∩ (S ∪ N)"
+  ok my-generic overlaps T.any, "X<N> ∩ *"
+  ok my-generic not overlaps T.none, "X<N> ∩ 0"
+  ok my-generic not overlaps T.array, "X<N> ∩ [*]"
+  ok my-generic not overlaps T.function, "X<N> ∩ -> *"
+  ok my-generic not overlaps T.number.function(), "X<N> ∩ -> N"
+  ok my-generic not overlaps T.string.function(), "X<N> ∩ -> S"
+  ok my-generic overlaps ~T.number, "X<N> ∩ !N"
+  ok my-generic overlaps ~T.make-object(x: T.number), "X<N> ∩ !X<N>"
+  ok my-generic overlaps ~T.object, "X<N> ∩ !{}"
+  ok my-generic not overlaps T.number.array(), "X<N> ∩ [N]"
+  ok my-generic not overlaps T.object, "X<N> ∩ {}"
+  ok my-generic overlaps my-generic, "X<N> ∩ X<N>"
+  ok my-generic not overlaps T.generic("Other", T.number), "X<N> ∩ Y<N>"
+  ok my-generic not overlaps T.generic("Thing", T.number), "X<N> ∩ Z<N>"
+  ok my-generic overlaps T.generic(my-generic.base, T.number), "X<N> ∩ X<N>"
+  ok my-generic overlaps T.generic(my-generic.base, T.string), "X<N> ∩ X<S>"
 
 test "Union of simple", #
   eq T.number, T.number union T.number, "N ∪ N"
@@ -386,6 +461,7 @@ test "Union of simple", #
   ok (T.number union T.object) equals (T.object union T.number), "N ∪ {}"
   eq "({}|Number)", (T.number union T.object).to-string()
   eq "({x: Number}|Number)", (T.number union T.make-object(x: T.number)).to-string()
+  eq "(Thing<Number>|Number)", (T.number union T.generic("Thing", T.number)).to-string()
 
 test "Union of union", #
   eq T.string-or-number, T.string-or-number union T.number, "(S ∪ N) ∪ N"
@@ -409,6 +485,7 @@ test "Union of union", #
   ok (T.string-or-number union T.object) equals (T.object union T.number union T.string), "(S ∪ N) ∪ {}"
   eq "({}|Number|String)", (T.string-or-number union T.object).to-string()
   eq "({x: (Number|String)}|Number|String)", (T.string-or-number union T.make-object(x: T.string-or-number)).to-string()
+  eq "(Thing<(Number|String)>|Number|String)", (T.string-or-number union T.generic("Thing", T.string-or-number)).to-string()
 
 test "Union of complement", #
   let not-number = ~T.number
@@ -429,6 +506,7 @@ test "Union of complement", #
   ok (not-number union ~T.number) equals not-number, "!N ∪ !N"
   eq T.any, not-number union ~T.string, "!N ∪ !S"
   eq not-number, not-number union T.object, "!N ∪ {}"
+  eq not-number, not-number union T.generic("Thing", T.number), "!N ∪ X<N>"
 
 test "Union of none", #
   eq T.number, T.none union T.number, "0 ∪ N"
@@ -444,6 +522,8 @@ test "Union of none", #
   eq T.object, T.none union T.object, "0 ∪ {}"
   let my-object = T.make-object(x: T.number)
   eq my-object, T.none union my-object, "0 ∪ {x:N}"
+  let my-generic = T.generic("Thing", T.number)
+  eq my-generic, T.none union my-generic, "0 ∪ X<N>"
 
 test "Union of any", #
   eq T.any, T.any union T.number, "* ∪ N"
@@ -457,6 +537,7 @@ test "Union of any", #
   eq T.any, T.any union ~T.number, "* ∪ !N"
   eq T.any, T.any union T.object, "* ∪ {}"
   eq T.any, T.any union T.make-object(x: T.number), "* ∪ {}"
+  eq T.any, T.any union T.generic("Thing", T.number), "* ∪ X<N>"
 
 test "Union of specialized array", #
   eq "([Number]|Number)", (T.number.array() union T.number).to-string(), "[N] ∪ N"
@@ -473,6 +554,7 @@ test "Union of specialized array", #
   eq T.any, T.number.array() union ~T.number.array(), "[N] ∪ ![N]"
   eq "([Number]|{})", (T.number.array() union T.object).to-string(), "[N] ∪ {}"
   eq "([Number]|{x: Number})", (T.number.array() union T.make-object(x: T.number)).to-string(), "[N] ∪ {x:N}"
+  eq "([Number]|Thing<Number>)", (T.number.array() union T.generic("Thing", T.number)).to-string(), "[N] ∪ X<N>"
 
 test "Union of array", #
   eq "([]|Number)", (T.array union T.number).to-string(), "[*] ∪ N"
@@ -488,6 +570,7 @@ test "Union of array", #
   eq T.any, T.array union ~T.array, "[*] ∪ ![*]"
   eq "([]|{})", (T.array union T.object).to-string(), "[*] ∪ {}"
   eq "([]|{x: Number})", (T.array union T.make-object(x: T.number)).to-string(), "[*] ∪ {x:*}"
+  eq "([]|Thing<Number>)", (T.array union T.generic("Thing", T.number)).to-string(), "[*] ∪ X<N>"
 
 test "Union of specialized function", #
   eq "(-> Number|Number)", (T.number.function() union T.number).to-string(), "-> N ∪ N"
@@ -504,6 +587,7 @@ test "Union of specialized function", #
   eq T.any, T.number.function() union ~T.number.function(), "-> N ∪ !(-> N)"
   eq "(-> Number|{})", (T.number.function() union T.object).to-string(), "-> N ∪ {}"
   eq "(-> Number|{x: Number})", (T.number.function() union T.make-object(x: T.number)).to-string(), "-> N ∪ {x:N}"
+  eq "(-> Number|Thing<Number>)", (T.number.function() union T.generic("Thing", T.number)).to-string(), "-> N ∪ X<N>"
 
 test "Union of function", #
   eq "(->|Number)", (T.function union T.number).to-string(), "-> * ∪ N"
@@ -519,6 +603,7 @@ test "Union of function", #
   eq T.any, T.function union ~T.function, "-> * ∪ !(-> *)"
   eq "(->|{})", (T.function union T.object).to-string(), "-> * ∪ {}"
   eq "(->|{x: Number})", (T.function union T.make-object(x: T.number)).to-string(), "-> * ∪ {x:N}"
+  eq "(->|Thing<Number>)", (T.function union T.generic("Thing", T.number)).to-string(), "-> * ∪ X<N>"
 
 test "Union of specialized object", #
   let my-object = T.make-object(x: T.number)
@@ -539,6 +624,7 @@ test "Union of specialized object", #
   eq my-object, T.make-object(x: T.number, y: T.string) union my-object, "{x:N, y:S} ∪ {x:N}"
   eq T.object, my-object union T.make-object(x: T.string) union T.object, "{x:N} ∪ {x:S} ∪ {}"
   eq my-object, T.make-object(x: T.number, y: T.string) union T.make-object(x: T.number, z: T.boolean) union my-object, "{x:N, x:S} ∪ {x:N, z:B} ∪ {x:N}"
+  eq "(Thing<Number>|{x: Number})", (my-object union T.generic("Thing", T.number)).to-string(), "{x:N} ∪ X<N>"
 
 test "Union of object", #
   eq "({}|Number)", (T.object union T.number).to-string(), "{} ∪ N"
@@ -553,6 +639,26 @@ test "Union of object", #
   eq T.any, T.object union ~T.object, "{} ∪ !{}"
   eq T.object, T.object union T.object, "{} ∪ {}"
   eq T.object, T.object union T.make-object(x: T.number), "{} ∪ {x:N}"
+  eq "(Thing<Number>|{})", (T.object union T.generic("Thing", T.number)).to-string(), "{} ∪ X<N>"
+
+test "Union of generic", #
+  let my-generic = T.generic("Thing", T.number)
+  eq "(Thing<Number>|Number)", (my-generic union T.number).to-string(), "X<N> ∪ N"
+  eq "(Thing<Number>|String)", (my-generic union T.string).to-string(), "X<N> ∪ S"
+  eq "(Thing<Number>|Number|String)", (my-generic union T.string-or-number).to-string(), "X<N> ∪ (S ∪ N)"
+  eq "([Number]|Thing<Number>)", (my-generic union T.number.array()).to-string(), "X<N> ∪ [N]"
+  eq "(-> Number|Thing<Number>)", (my-generic union T.number.function()).to-string(), "X<N> ∪ -> N"
+  eq T.any, my-generic union T.any, "X<N> ∪ *"
+  eq my-generic, my-generic union T.none, "X<N> ∪ 0"
+  let not-number = ~T.number
+  eq not-number, my-generic union not-number, "X<N> ∪ !N"
+  eq T.any, my-generic union ~my-generic, "X<N> ∪ !X<N>"
+  eq "(Thing<Number>|{})", (my-generic union T.object).to-string(), "X<N> ∪ {}"
+  eq "(Thing<Number>|{x: Number})", (my-generic union T.make-object(x: T.number)).to-string(), "X<N> ∪ {x:N}"
+  eq "(Other<Number>|Thing<Number>)", (my-generic union T.generic("Other", T.number)).to-string(), "X<N> ∪ Y<N>"
+  eq "(Thing<Number>|Thing<Number>)", (my-generic union T.generic("Thing", T.number)).to-string(), "X<N> ∪ Z<N>"
+  eq my-generic, my-generic union T.generic(my-generic.base, T.number), "X<N> ∪ X<N>"
+  eq "(Thing<Number>|Thing<String>)", (my-generic union T.generic(my-generic.base, T.string)).to-string(), "X<N> ∪ X<S>"
 
 test "Intersection of simple", #
   eq T.number, T.number intersect T.number, "N ∩ N"
@@ -566,6 +672,7 @@ test "Intersection of simple", #
   eq T.none, T.number intersect T.number.function(), "N ∩ -> N"
   eq T.none, T.number intersect T.object, "N ∩ {}"
   eq T.none, T.number intersect T.make-object(x: T.number), "N ∩ {x:N}"
+  eq T.none, T.number intersect T.generic("Thing", T.number), "N ∩ X<N>"
 
 test "Intersection of union", #
   eq T.number, T.string-or-number intersect T.number, "(S ∪ N) ∩ N"
@@ -584,6 +691,7 @@ test "Intersection of union", #
   eq T.none, T.string-or-number intersect ~T.string-or-number, "(S ∪ N) ∩ !(S ∪ N)"
   eq T.none, T.string-or-number intersect T.object, "(S ∪ N) ∩ {}"
   eq T.none, T.string-or-number intersect T.make-object(x: T.string-or-number), "(S ∪ N) ∩ {x:(S ∪ N)}"
+  eq T.none, T.string-or-number intersect T.generic("Thing", T.number), "(S ∪ N) ∩ X<N>"
 
 test "Intersection of complement", #
   let not-number = ~T.number
@@ -605,7 +713,10 @@ test "Intersection of complement", #
   ok (not-number intersect ~T.number) equals not-number, "!N ∩ !N"
   ok (not-number intersect ~T.string) equals ~T.string-or-number, "!N ∩ !S"
   eq T.object, (not-number intersect T.object), "!N ∩ {}"
-  ok (not-number intersect T.make-object(x: not-number)) equals T.make-object(x: not-number), "!N ∩ {x:!N}"
+  let my-object = T.make-object(x: not-number)
+  eq my-object, not-number intersect my-object, "!N ∩ {x:!N}"
+  let my-generic = T.generic("Thing", not-number)
+  eq my-generic, not-number intersect my-generic, "!N ∩ X<!N>"
 
 test "Intersection of none", #
   eq T.none, T.none intersect T.number, "0 ∩ N"
@@ -618,6 +729,8 @@ test "Intersection of none", #
   eq T.none, T.none intersect T.function.array(), "0 ∩ -> N"
   eq T.none, T.none intersect ~T.number, "0 ∩ !N"
   eq T.none, T.none intersect T.object, "0 ∩ {}"
+  eq T.none, T.none intersect T.make-object(x: T.number), "0 ∩ {x:N}"
+  eq T.none, T.none intersect T.generic("Thing", T.number), "0 ∩ X<N>"
 
 test "Intersection of any", #
   eq T.number, T.any intersect T.number, "* ∩ N"
@@ -633,6 +746,8 @@ test "Intersection of any", #
   eq T.object, T.any intersect T.object, "* ∩ {}"
   let my-object = T.make-object(x: T.number)
   eq my-object, T.any intersect my-object, "* ∩ {x:N}"
+  let my-generic = T.generic("Thing", T.number)
+  eq my-generic, T.any intersect my-generic, "* ∩ X<N>"
 
 test "Intersection of specialized array", #
   eq T.none, T.number.array() intersect T.number, "[N] ∩ N"
@@ -649,6 +764,7 @@ test "Intersection of specialized array", #
   eq T.none, T.number.array() intersect T.number.function(), "[N] ∩ -> N"
   eq T.none, T.number.array() intersect T.object, "[N] ∩ {}"
   eq T.none, T.number.array() intersect T.make-object(x: T.number), "[N] ∩ {x:N}"
+  eq T.none, T.number.array() intersect T.generic("Thing", T.number), "[N] ∩ X<N>"
 
 test "Intersection of array", #
   eq T.none, T.array intersect T.number, "[*] ∩ N"
@@ -664,6 +780,7 @@ test "Intersection of array", #
   eq T.none, T.array intersect T.number.function(), "[*] ∩ -> N"
   eq T.none, T.array intersect T.object, "[*] ∩ {}"
   eq T.none, T.array intersect T.make-object(x: T.number), "[*] ∩ {x:N}"
+  eq T.none, T.array intersect T.generic("Thing", T.any), "[*] ∩ X<*>"
 
 test "Intersection of specialized function", #
   eq T.none, T.number.function() intersect T.number, "-> N ∩ N"
@@ -680,6 +797,7 @@ test "Intersection of specialized function", #
   eq T.none, T.number.function() intersect T.number.array(), "-> N ∩ [N]"
   eq T.none, T.number.function() intersect T.object, "-> N ∩ {}"
   eq T.none, T.number.function() intersect T.make-object(x: T.number), "-> N ∩ {x:N}"
+  eq T.none, T.number.function() intersect T.generic("Thing", T.number), "-> N ∩ X<N>"
 
 test "Intersection of function", #
   eq T.none, T.function intersect T.number, "-> * ∩ N"
@@ -695,6 +813,7 @@ test "Intersection of function", #
   eq T.none, T.function intersect T.number.array(), "-> * ∩ [N]"
   eq T.none, T.function intersect T.object, "-> * ∩ {}"
   eq T.none, T.function intersect T.make-object(x: T.number), "-> * ∩ {x:N}"
+  eq T.none, T.function intersect T.generic("Thing", T.number), "-> * ∩ X<N>"
 
 test "Intersection of specialized object", #
   let my-object = T.make-object(x: T.number)
@@ -715,6 +834,7 @@ test "Intersection of specialized object", #
   eq other-object, my-object intersect other-object, "{x:N} ∩ {x:N, y:S}"
   let bad-object = T.make-object(x: T.string)
   ok (my-object intersect bad-object) equals T.make-object(x: T.none), "{x:N} ∩ {x:S}"
+  eq T.none, my-object intersect T.generic("Thing", T.number), "{x:N} ∩ X<N>"
 
 test "Intersection of object", #
   eq T.none, T.object intersect T.number, "{} ∩ N"
@@ -731,6 +851,28 @@ test "Intersection of object", #
   eq T.object, T.object intersect T.object, "{} ∩ {}"
   let my-object = T.make-object(x: T.number)
   eq my-object, T.object intersect my-object, "{} ∩ {x:N}"
+  eq T.none, T.object intersect T.generic("Thing", T.number), "{} ∩ X<N>"
+
+test "Intersection of generic", #
+  let my-generic = T.generic("Thing", T.number)
+  eq T.none, my-generic intersect T.number, "X<N> ∩ N"
+  eq T.none, my-generic intersect T.string, "X<N> ∩ S"
+  eq T.none, my-generic intersect T.string-or-number, "X<N> ∩ (S ∪ N)"
+  eq my-generic, my-generic intersect T.any, "X<N> ∩ *"
+  eq T.none, my-generic intersect T.none, "X<N> ∩ 0"
+  eq T.none, my-generic intersect T.function, "X<N> ∩ -> *"
+  eq T.none, my-generic intersect T.number.function(), "X<N> ∩ -> N"
+  eq my-generic, my-generic intersect ~T.number, "X<N> ∩ !N"
+  eq T.none, my-generic intersect ~my-generic, "X<N> ∩ !X<N>"
+  eq T.none, my-generic intersect T.array, "X<N> ∩ [*]"
+  eq T.none, my-generic intersect T.number.array(), "X<N> ∩ [N]"
+  eq T.none, my-generic intersect T.object, "X<N> ∩ {}"
+  eq T.none, my-generic intersect T.make-object(x: T.number), "X<N> ∩ {x:N}"
+  eq my-generic, my-generic intersect T.generic(my-generic.base, T.string-or-number), "X<N> ∩ X<(S ∪ N)>"
+  eq my-generic, T.generic(my-generic.base, T.string-or-number) intersect my-generic, "X<(S ∪ N)> ∩ X<N>"
+  ok (my-generic intersect T.generic(my-generic.base, T.string)) equals T.generic(my-generic.base, T.none), "X<N> ∩ X<S>"
+  eq T.none, my-generic intersect T.generic("Other", T.number), "X<N> ∩ Y<N>"
+  eq T.none, my-generic intersect T.generic("Thing", T.number), "X<N> ∩ Z<N>"
 
 test "Arrays", #
   eq "[]", T.array.to-string()
@@ -836,3 +978,4 @@ test "Serialization", #
   ok ~T.string-or-number equals handle(~T.string-or-number)
   ok ~T.number equals handle(~T.number)
   ok T.make-object(x: T.number) equals handle(T.make-object(x: T.number))
+  ok T.generic(T.string, T.number) equals handle(T.generic(T.string, T.number))
