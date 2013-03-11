@@ -4529,13 +4529,14 @@ let node-to-type = do
         // shouldn't really occur
         Type.any
     else if node instanceof TypeGenericNode
-      if node.basetype instanceof IdentNode and node.basetype == \Array
-        node-to-type(node.args[0]).array()
-      else if node.basetype instanceof IdentNode and node.basetype == \Function
-        node-to-type(node.args[0]).function()
+      let basetype = node-to-type(node.basetype)
+      let args = for arg in node.args; node-to-type(arg)
+      if basetype in [Type.array, Type.function]
+        Type.generic basetype.base, ...args
+      else if basetype != Type.any
+        Type.generic basetype, ...args
       else
-        // TODO: fix when generics are added to the type system
-        node-to-type(node.basetype)
+        Type.any
     else if node instanceof TypeUnionNode
       for reduce type in node.types by -1, current = Type.none
         current.union(node-to-type(type))
