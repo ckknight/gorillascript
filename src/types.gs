@@ -14,7 +14,7 @@ module.exports := class Type
   def intersect
   def complement() -> @_complement ?= ComplementType this
   def array() -> @_array ?= Type.generic(array-base, this)
-  def function() -> @_function ?= FunctionType(this)
+  def function() -> @_function ?= Type.generic(function-base, this)
   
   let contains(alpha, bravo) as Boolean
     for item in alpha by -1
@@ -284,6 +284,11 @@ module.exports := class Type
           "[]"
         else
           "[$(String @args[0])]"
+      else if @base == function-base and @args.length == 1
+        if @args[0] == any
+          "->"
+        else
+          "-> $(String @args[0])"
       else
         let sb = []
         sb.push String @base
@@ -430,6 +435,8 @@ module.exports := class Type
       let base-type = Type.from-JSON(base)
       if base-type == array-base and args.length == 1
         Type.from-JSON(args[0]).array()
+      else if base-type == function-base and args.length == 1
+        Type.from-JSON(args[0]).function()
       else
         GenericType base-type, (for arg in args; Type.from-JSON(arg))
   @generic := #(base, ...args)
@@ -618,104 +625,6 @@ module.exports := class Type
       ObjectType deserialized-pairs
   @make-object := #(data) -> ObjectType(data)
   
-  class FunctionType extends Type
-    def constructor(@return-type as Type)
-      @id := get-id()
-
-    def to-string() -> @_name ?= if @return-type == any then "->" else "-> $(String @return-type)"
-    
-    let become(alpha, bravo)
-      if alpha.id > bravo.id
-        return become bravo, alpha
-      bravo.return-type := alpha.return-type
-      bravo.id := alpha.id
-    
-    def equals(other)
-      if other == this
-        true
-      else if other instanceof FunctionType
-        if @id == other.id
-          true
-        else if @return-type.equals(other.return-type)
-          become(this, other)
-          true
-        else
-          false
-      else
-        false
-
-    def compare(other)
-      if this == other
-        0
-      else if other instanceof FunctionType
-        if @id == other.id
-          0
-        else
-          let cmp = @return-type.compare(other.return-type)
-          if cmp == 0
-            become(this, other)
-          cmp
-      else
-        "FunctionType" <=> other.constructor.display-name
-
-    def union(other as Type)
-      if other instanceof FunctionType
-        if @equals(other)
-          this
-        else if @return-type.is-subset-of(other.return-type)
-          other
-        else if other.return-type.is-subset-of(@return-type)
-          this
-        else
-          make-union-type [this, other], true
-      else if other instanceofsome [SimpleType, GenericType, ObjectType]
-        make-union-type [this, other], true
-      else
-        other.union this
-
-    def intersect(other as Type)
-      if other instanceof FunctionType
-        if @equals(other)
-          this
-        else if @return-type.is-subset-of(other.return-type)
-          this
-        else if other.return-type.is-subset-of(@return-type)
-          other
-        else
-          none.function()
-      else if other instanceofsome [SimpleType, GenericType, ObjectType]
-        none
-      else
-        other.intersect this
-
-    def is-subset-of(other as Type)
-      if other instanceof FunctionType
-        @return-type.is-subset-of(other.return-type)
-      else if other instanceof UnionType
-        for some type in other.types by -1
-          @is-subset-of(type)
-      else if other instanceof ComplementType
-        not @is-subset-of(other.untype)
-      else
-        other == any
-
-    def overlaps(other as Type)
-      if other instanceof FunctionType
-        @return-type.overlaps(other.return-type)
-      else if other instanceofsome [SimpleType, GenericType, ObjectType]
-        false
-      else
-        other.overlaps this
-
-    def inspect(depth)
-      if @return-type == any
-        "Type.function"
-      else
-        "$(inspect @return-type, null, depth).function()"
-    
-    def to-JSON() -> { type: \function, @return-type }
-    from-JSON-types.function := #({return-type}) -> Type.from-JSON(return-type).function()
-  
   class UnionType extends Type
     def constructor(@types as [Type])
       if types.length <= 1
@@ -762,7 +671,7 @@ module.exports := class Type
         "UnionType" <=> other.constructor.display-name
     
     def union(other as Type)
-      if other instanceofsome [SimpleType, GenericType, FunctionType]
+      if other instanceofsome [SimpleType, GenericType]
         let types = union @types, [other]
         if types == @types
           this
@@ -801,7 +710,7 @@ module.exports := class Type
         other.union this
     
     def intersect(other as Type)
-      if other instanceofsome [SimpleType, GenericType, ObjectType, FunctionType]
+      if other instanceofsome [SimpleType, GenericType, ObjectType]
         make-union-type intersect @types, [other]
       else if other instanceof UnionType
         let types = intersect @types, other.types
@@ -825,7 +734,7 @@ module.exports := class Type
     def overlaps(other as Type)
       if other instanceof SimpleType
         contains @types, other
-      else if other instanceofsome [GenericType, ObjectType, FunctionType]
+      else if other instanceofsome [GenericType, ObjectType]
         for some type in @types by -1
           type.overlaps(other)
       else if other instanceof UnionType
@@ -889,7 +798,7 @@ module.exports := class Type
         [untype]
 
     def union(other as Type)
-      if other instanceofsome [SimpleType, GenericType, ObjectType, FunctionType]
+      if other instanceofsome [SimpleType, GenericType, ObjectType]
         let my-untypes = get-untypes(@untype)
         let untypes = relative-complement my-untypes, [other]
         if untypes == my-untypes
@@ -909,7 +818,7 @@ module.exports := class Type
         other.union this
     
     def intersect(other as Type)
-      if other instanceofsome [SimpleType, GenericType, ObjectType, FunctionType]
+      if other instanceofsome [SimpleType, GenericType, ObjectType]
         if contains get-untypes(@untype), other
           none
         else
@@ -932,7 +841,7 @@ module.exports := class Type
         other == any
     
     def overlaps(other as Type)
-      if other instanceofsome [SimpleType, GenericType, FunctionType]
+      if other instanceofsome [SimpleType, GenericType]
         not @untype.overlaps(other)
       else if other instanceof ObjectType
         for every untype in get-untypes(@untype) by -1
@@ -1006,6 +915,7 @@ module.exports := class Type
     from-JSON-types.none := #-> none
   
   let array-base = @array-base := @make "Array"
+  let function-base = @function-base := @make "Function"
   @undefined := @make "undefined"
   @null := @make "null"
   @boolean := @make "Boolean"

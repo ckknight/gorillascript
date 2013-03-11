@@ -1186,10 +1186,10 @@ let translators =
           case void; Type.undefined
           default
             throw Error "Unexpected const type: $(String node.value)"
-        TypeArray: #(node, scope)
-          translate-type(node.subtype, scope).array()
-        TypeFunction: #(node, scope)
-          translate-type(node.return-type, scope).function()
+        TypeGeneric: #(node, scope)
+          let base = translate-type(node.basetype, scope)
+          let args = for arg in node.args; translate-type(arg, scope)
+          Type.generic(base, ...args)
         TypeUnion: #(node, scope)
           for reduce type in node.types, current = Type.none
             current.union(translate-type(type))

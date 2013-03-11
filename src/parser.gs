@@ -3036,10 +3036,11 @@ namedlet FunctionType = sequential! [
   ]
   [\this, maybe! TypeReference, NOTHING]
 ], #(x, o, i)
+  let function-ident = o.ident i, \Function
   if x == NOTHING
-    o.ident i, \Function
+    function-ident
   else
-    o.type-function i, x
+    o.type-generic i, function-ident, [x]
 
 define LessThanSign = character! "<"
 
@@ -4530,11 +4531,11 @@ let node-to-type = do
     else if node instanceof TypeGenericNode
       if node.basetype instanceof IdentNode and node.basetype == \Array
         node-to-type(node.args[0]).array()
+      else if node.basetype instanceof IdentNode and node.basetype == \Function
+        node-to-type(node.args[0]).function()
       else
         // TODO: fix when generics are added to the type system
         node-to-type(node.basetype)
-    else if node instanceof TypeFunctionNode
-      node-to-type(node.return-type).function()
     else if node instanceof TypeUnionNode
       for reduce type in node.types by -1, current = Type.none
         current.union(node-to-type(type))
@@ -4819,10 +4820,14 @@ class MacroHelper
   
   def is-type-object(node) -> @macro-expand-1(node) instanceof TypeObjectNode
   
-  def is-type-function(node) -> @macro-expand-1(node) instanceof TypeFunctionNode
+  def is-type-function(mutable node)
+    node := @macro-expand-1(node)
+    node instanceof TypeGenericNode and node.basetype instanceof IdentNode and node.basetype.name == \Function
   def return-type(mutable node)
     node := @macro-expand-1 node
-    @is-type-function(node) and node.return-type
+    if node instanceof TypeGenericNode
+      if node.basetype instanceof IdentNode and node.basetype.name == \Function
+        node.args[0]
   
   def is-type-union(node) -> @macro-expand-1(node) instanceof TypeUnionNode
   def types(mutable node)
@@ -6938,7 +6943,7 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
       let func = @func
       let mutable func-type = func.type(o)
       if func-type.is-subset-of(Type.function)
-        return func-type.return-type
+        return func-type.args[0]
       else if func instanceof IdentNode
         let {name} = func
         if PRIMORDIAL_FUNCTIONS ownskey name
@@ -6949,14 +6954,14 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
           if helpers.has name
             func-type := helpers.type name
             if func-type.is-subset-of(Type.function)
-              return func-type.return-type
+              return func-type.args[0]
       else if func instanceof AccessNode
         let {parent, child} = func
         if child instanceof ConstNode
           if child.value in [\call, \apply]
             let parent-type = parent.type(o)
             if parent-type.is-subset-of(Type.function)
-              return parent-type.return-type
+              return parent-type.args[0]
           else if parent instanceof IdentNode
             return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
           // else check the type of parent, maybe figure out its methods
