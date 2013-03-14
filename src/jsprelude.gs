@@ -1879,6 +1879,20 @@ define helper __instanceofsome = #(value, array) as Boolean
   for some item in array by -1
     value instanceof item
 
+define helper __make-instanceof = #(ctor) as (-> Boolean)
+  if ctor == String
+    #(x) -> typeof x == \string
+  else if ctor == Number
+    #(x) -> typeof x == \number
+  else if ctor == Function
+    #(x) -> typeof x == \function
+  else if ctor == Boolean
+    #(x) -> typeof x == \boolean
+  else if ctor == Array
+    __is-array
+  else
+    #(x) -> x instanceof ctor
+
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
     if not @is-call(call)
@@ -2371,9 +2385,10 @@ macro def
     @def key, void
 
 macro class
-  syntax name as SimpleAssignable?, superclass as ("extends", this)?, body as Body?
+  syntax name as SimpleAssignable?, generic as ("<", head as Ident, tail as (",", this as Ident)*, ">")?, superclass as ("extends", this)?, body as Body?
     let mutable declaration = void
     let mutable assignment = void
+    let generic-args = if generic? then [generic.head, ...generic.tail] else []
     if @is-ident(name)
       declaration := name
     else if @is-access(name)
@@ -2529,6 +2544,62 @@ macro class
       $init
       $body
       return $name
+    
+    if generic-args.length > 0
+      let generic-cache = @tmp \cache, false, \object
+      let generic-params = for generic-arg in generic-args; @param(generic-arg)
+      let make-class-ident = @tmp \make, false, \function
+      let instanceofs = {}
+      for generic-arg in generic-args
+        let name = @name(generic-arg)
+        let key = @tmp "instanceof_$(name)", false, \function
+        instanceofs[name] := {
+          key
+          let: AST let $key = __make-instanceof($generic-arg)
+          used: false
+        }
+      result := @walk @macro-expand-all(result), #(node)@
+        if @is-binary(node) and @op(node) == \instanceof
+          let right = @right(node)
+          if @is-ident(right)
+            let name = @name(right)
+            if instanceofs ownskey name
+              let func = instanceofs[name].key
+              instanceofs[name].used := true
+              let left = @left(node)
+              return ASTE $func($left)
+      let instanceof-lets = for name, item of instanceofs
+        if item.used
+          item.let
+      if instanceof-lets.length
+        result := AST
+          $instanceof-lets
+          $result
+      let make-class-func = @func(generic-params, result, true, false)
+      let generic-array = @array generic-args
+      let get-generic-body = do
+        let blargh(current-cache, index)@
+          if index == generic-args.length
+            return current-cache
+          let generic-arg = generic-args[index]
+          let next-item = if index == generic-args.length - 1
+            ASTE $make-class-ident(...$generic-array)
+          else
+            ASTE WeakMap()
+          let cached-ident = @tmp \c, false, \function
+          AST
+            let mutable $cached-ident = $current-cache.get($generic-arg)
+            if not $cached-ident?
+              $current-cache.set $generic-arg, ($cached-ident := $next-item)
+            $(blargh cached-ident, index + 1)
+        blargh(generic-cache, 0)
+      let get-generic-func = @func(generic-params, get-generic-body, true, false)
+      result := AST do
+        let $make-class-ident = $make-class-func
+        let $generic-cache = WeakMap()
+        {
+          generic: $get-generic-func
+        }
     
     if declaration?
       AST let $declaration = $result

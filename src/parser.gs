@@ -1765,6 +1765,7 @@ define OpenCurlyBrace = with-space! character! "{"
 define CloseCurlyBrace = with-space! character! "}"
 define Backslash = character! "\\"
 define Comma = with-space! character! ","
+define LessThanSign = character! "<"
 define MaybeComma = maybe! Comma, true
 define CommaOrNewline = one-of! [
   sequential! [
@@ -2677,7 +2678,7 @@ namedlet Parenthetical = sequential! [
       clone.scope.add left, false, Type.any
       o.function(i
         [clone.param i, left]
-        convert-invocation-or-access(false, { type: \normal, -existential, node: left }, x, o, i).rescope(clone.scope.id, clone)
+        convert-invocation-or-access(false, { type: \normal, -existential, node: left, generic: [] }, x, o, i).rescope(clone.scope.id, clone)
         true
         false)
   ]]
@@ -3041,8 +3042,6 @@ namedlet FunctionType = sequential! [
     function-ident
   else
     o.type-generic i, function-ident, [x]
-
-define LessThanSign = character! "<"
 
 namedlet NonUnionType = one-of! [
   #(o)
@@ -3882,6 +3881,16 @@ namedlet UnclosedArguments = sequential! [
 
 define InvocationArguments = one-of! [ClosedArguments, UnclosedArguments]
 
+define GenericPart = maybe! (short-circuit! LessThanSign, sequential! [
+  LessThanSign
+  [\head, BasicInvocationOrAccess]
+  [\tail, zero-or-more! sequential! [
+    Comma
+    [\this, BasicInvocationOrAccess]
+  ]]
+  character! ">"
+], #(x) -> [x.head, ...x.tail]), #-> []
+
 define MaybeExclamationPointNoSpace = maybe! (sequential! [
   NoSpace
   character! "!"
@@ -3895,12 +3904,14 @@ namedlet InvocationOrAccessPart = one-of! [
     Space
     [\type, one-of! [Period, DoubleColon]]
     [\child, IdentifierNameConstOrNumberLiteral]
+    [\generic, GenericPart]
   ], #(x) -> {
     type: if x.type == "::" then \proto-access else \access
     x.child
     existential: x.existential == "?"
     owns: x.owns == "!"
     bind: x.bind != NOTHING
+    x.generic
   }
   sequential! [
     [\existential, MaybeExistentialSymbolNoSpace]
@@ -3910,6 +3921,7 @@ namedlet InvocationOrAccessPart = one-of! [
     OpenSquareBracketChar
     [\child, Index]
     CloseSquareBracket
+    [\generic, GenericPart]
   ], #(x, o, i)
     if x.child.type == \single
       {
@@ -3918,12 +3930,15 @@ namedlet InvocationOrAccessPart = one-of! [
         existential: x.existential == "?"
         owns: x.owns == "!"
         bind: x.bind != NOTHING
+        x.generic
       }
     else
       if x.owns == "!"
         o.error "Cannot use ! when using a multiple or slicing index"
       if x.bind != NOTHING
         o.error "Cannot use @ when using a multiple or slicing index"
+      if x.generic.length > 0
+        o.error "Cannot use <> when using a multiple or slicing index"
       {
         x.type
         x.child
@@ -4097,20 +4112,30 @@ let convert-invocation-or-access = do
       
       link-types[link.type](o, i, head, link, j, links)
   #(mutable is-new, head, tail, o, i)
-    if tail.length == 0 and not is-new and head.type == \normal
+    if tail.length == 0 and not is-new and head.type == \normal and (not head.generic or head.generic.length == 0)
       return head.node
     
     let links = []
     if head.type == \this-access
       links.push { type: \access, head.child, head.existential }
-  
+    
+    if head.generic and head.generic.length != 0
+      links.push { type: \access, child: o.const(i, \generic), -existential }
+      links.push { type: \call, args: head.generic, -existential }
+    
     for part in tail
       switch part.type
       case \proto-access, \proto-access-index
         links.push { type: \access, child: o.const(i, \prototype), part.existential }
         links.push {} <<< part <<< { type: if part.type == \proto-access then \access else \access-index }
+        if part.generic and part.generic.length != 0
+          links.push { type: \access, child: o.const(i, \generic), -existential }
+          links.push { type: \call, args: part.generic, -existential }
       case \access, \access-index
         links.push part
+        if part.generic and part.generic.length != 0
+          links.push { type: \access, child: o.const(i, \generic), -existential }
+          links.push { type: \call, args: part.generic, -existential }
       case \call
         if is-new and part.is-apply
           o.error "Cannot call with both new and @ at the same time"
@@ -4146,9 +4171,10 @@ namedlet BasicInvocationOrAccess = sequential! [
       node: x
     }
   ]]
+  [\generic, GenericPart]
   [\tail, zero-or-more! InvocationOrAccessPart]
-], #({is-new, head, tail}, o, i)
-  convert-invocation-or-access(is-new != NOTHING, head, tail, o, i)
+], #({is-new, head, generic, tail}, o, i)
+  convert-invocation-or-access(is-new != NOTHING, {} <<< head <<< {generic}, tail, o, i)
 
 define SuperToken = word "super"
 namedlet SuperInvocation = short-circuit! SuperToken, sequential! [
@@ -4744,7 +4770,7 @@ class MacroHelper
     node := @macro-expand-1 node
     if @is-func node then not not node.curry
   
-  def param(ident, default-value, spread, is-mutable, as-type)
+  def param(ident as Node, default-value, spread, is-mutable, as-type)
     ParamNode(ident.line, ident.column, ident.scope-id, ident, default-value, spread, is-mutable, as-type).reduce(@state)
   
   def is-param(node) -> @macro-expand-1(node) instanceof ParamNode
@@ -4850,11 +4876,11 @@ class MacroHelper
       node.op
   def left(mutable node)
     node := @macro-expand-1 node
-    if @is-def(node) or @is-let(node) or @is-binary(node)
+    if @is-def(node) or @is-binary(node)
       node.left
   def right(mutable node)
     node := @macro-expand-1 node
-    if @is-def(node) or @is-let(node) or @is-binary(node)
+    if @is-def(node) or @is-binary(node)
       node.right
   def unary-node(mutable node)
     node := @macro-expand-1 node

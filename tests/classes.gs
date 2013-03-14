@@ -648,3 +648,23 @@ test "Class with a curried constructor", #
   eq 2, g(3).b
   eq 3, g(3).c
   eq 4, g(4).c
+
+test "Generic class", #
+  if not GLOBAL.WeakMap?
+    return
+  class Class<T>
+    def constructor(@value)
+      if value not instanceof T
+        throw TypeError("Expected $value to be a T, got " & typeof! value)
+
+  let x = {Class}
+
+  // trying to construct the base class doesn't work
+  throws #-> Class()
+  throws #-> x.Class()
+  
+  ok Class<String>("hello") instanceof Class<String>
+  ok x.Class<String>("hello") instanceof x.Class<String>
+  ok new Class<String>("hello") instanceof Class<String>
+  ok new x.Class<String>("hello") instanceof x.Class<String>
+  eq "hello", Class<String>("hello").value
