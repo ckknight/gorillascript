@@ -344,24 +344,29 @@ test "not", #
   eq false, not true
 
 test "instanceof", #
-  ok new String("") instanceof String
-  ok not (new String("") instanceof Function)
-  ok new String("") not instanceof Function
+  let MyType() ->
+  ok new MyType() instanceof MyType
+  ok "hello" not instanceof MyType
+  ok "hello" instanceof String
+  ok new MyType() not instanceof String
+  ok 1234 instanceof Number
+  ok (#->) instanceof Function
+  ok [] instanceof Array
 
 test "instanceofsome", #
-  ok new String("") instanceofsome [String]
-  ok not (new String("") instanceofsome [Function])
-  ok new String("") not instanceofsome [Function]
+  ok "" instanceofsome [String]
+  ok not ("" instanceofsome [Function])
+  ok "" not instanceofsome [Function]
   
-  ok new String("") not instanceofsome []
-  ok new String("") instanceofsome [String, Function]
-  ok new String("") instanceofsome [Function, String]
-  ok new String("") not instanceofsome [Number, Function]
+  ok "" not instanceofsome []
+  ok "" instanceofsome [String, Function]
+  ok "" instanceofsome [Function, String]
+  ok "" not instanceofsome [Number, Function]
   
-  let mutable str = run-once new String("")
+  let mutable str = run-once ""
   ok str() not instanceofsome []
   ok str.ran
-  str := run-once new String("")
+  str := run-once ""
   ok str() instanceofsome [Function, String]
 
 test "unary negate", #

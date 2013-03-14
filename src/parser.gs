@@ -2,9 +2,9 @@ require! Type: './types'
 require! util
 let inspect = util?.inspect
 
-let freeze = if typeof Object.freeze == \function then Object.freeze else #(o) -> o
+let freeze = if is-function! Object.freeze then Object.freeze else #(o) -> o
 
-let next-tick = if typeof process != \undefined and typeof process.next-tick == \function
+let next-tick = if not is-undefined! process and is-function! process.next-tick
   process.next-tick
 else
   #(f) -> set-timeout(f, 0)
@@ -94,7 +94,7 @@ macro mutate!(rule, mutator)
         if not result
           false
         else
-          if typeof $mutator == \function
+          if is-function! $mutator
             $mutator result, o, index, line
           else if $mutator != void
             $mutator
@@ -135,7 +135,7 @@ macro one-of!(array, mutator)
     let mutable checks = AST false
     for mutable rule, i, len in elements
       if @is-const(rule)
-        if typeof @value(rule) != \string
+        unless is-string! @value(rule)
           throw Error "Can only handle constant string literals"
         rule := AST word-or-symbol $rule
       rule := @cache rule, init, \rule, true
@@ -162,13 +162,13 @@ let sequential(array as [], mutator, dont-cache as Boolean) as (->)
     if is-array! item
       if item.length != 2
         throw Error "Found an array with $(item.length) length at index #$i"
-      if typeof item[0] != \string
+      unless is-string! item[0]
         throw TypeError "Array in index #$i has an improper key: $(typeof! item[0])"
-      if typeof item[1] != \function
+      unless is-function! item[1]
         throw TypeError "Array in index #$i has an improper rule: $(typeof! item[1])"
       key := item[0]
       rule := item[1]
-    else if typeof item == \function
+    else if is-function! item
       rule := item
     else
       throw TypeError "Found a non-array, non-function in index #$i: $(typeof! item)"
@@ -221,7 +221,7 @@ macro sequential!(array, mutator)
       let parts = @elements(item)
       if parts.length != 2
         throw TypeError "Found an array with $(parts.length) length at index #$i"
-      else if not @is-const(parts[0]) or typeof @value(parts[0]) != \string
+      else if not @is-const(parts[0]) or not is-string! @value(parts[0])
         throw TypeError "Array in index #$i has an improper key"
       
       has-result := true
@@ -286,7 +286,7 @@ macro maybe!(rule, missing-value, found-value)
     else
       AST named $calculated-name, #(o)
         let {index, line} = o
-        $rule(o) or if typeof $missing-value == \function
+        $rule(o) or if is-function! $missing-value
           $missing-value void, o, index, line
         else
           $missing-value
@@ -295,13 +295,13 @@ macro maybe!(rule, missing-value, found-value)
       let {index, line} = o
       let result = $rule o
       if not result
-        if typeof $missing-value == \function
+        if is-function! $missing-value
           $missing-value void, o, index, line
         else
           $missing-value
       else
         if $found-value != void
-          if typeof $found-value == \function
+          if is-function! $found-value
             $found-value result, o, index, line
           else
             $found-value
@@ -371,9 +371,9 @@ macro short-circuit!(expected, backend)
     result
 
 macro calculate-multiple-name!(name, min-count, max-count)
-  if not @is-const(min-count) or typeof @value(min-count) != \number
+  if not @is-const(min-count) or not is-number! @value(min-count)
     throw Error "Expected min-count to be a const number"
-  if not @is-const(max-count) or typeof @value(max-count) != \number
+  if not @is-const(max-count) or not is-number! @value(max-count)
     throw Error "Expected max-count to be a const number"
   
   if @value(min-count) == 0
@@ -393,9 +393,9 @@ macro calculate-multiple-name!(name, min-count, max-count)
   AST "$($name)$($ending)"
 
 macro multiple!(min-count, max-count, rule, mutator, name)
-  if not @is-const(min-count) or typeof @value(min-count) != \number
+  if not @is-const(min-count) or not is-number! @value(min-count)
     throw Error "Expected min-count to be a const number"
-  if not @is-const(max-count) or typeof @value(max-count) != \number
+  if not @is-const(max-count) or not is-number! @value(max-count)
     throw Error "Expected min-count to be a const number"
   
   if @value(min-count) == 0 and @value(max-count) == 1
@@ -458,7 +458,7 @@ macro one-or-more-of!(array, mutator) -> AST one-or-more! (one-of! $array), $mut
 
 macro character!(chars, name)
   if @is-const(chars)
-    if typeof @value(chars) != \string
+    if not is-string! @value(chars)
       throw Error "Must provide a literal array or string"
   else if not @is-array(chars)
     throw Error "Must provide a literal array or string"
@@ -478,17 +478,17 @@ macro character!(chars, name)
           throw Error "Sub-arrays must contain constant strings or numbers"
         left := @value(left)
         right := @value(right)
-        if typeof left == \string
+        if is-string! left
           if left.length != 1
             throw Error "Expected a string of length 1"
           left := C(left)
-        else if typeof left != \number
+        else if not is-number! left
           throw Error "Expected a string or number"
-        if typeof right == \string
+        if is-string! right
           if right.length != 1
             throw Error "Expected a string of length 1"
           right := C(right)
-        else if typeof left != \number
+        else if not is-number! left
           throw Error "Expected a string or number"
         if left > right
           throw Error "left must be less than or equal to right"
@@ -496,10 +496,10 @@ macro character!(chars, name)
           codes.push i
       else if @is-const(part)
         let mutable value = @value(part)
-        if typeof value == \string
+        if is-string! value
           for i in 0 til value.length
             codes.push C(value, i)
-        else if typeof value == \number
+        else if is-number! value
           codes.push value
         else
           throw Error "Expected a string or number"
@@ -2129,7 +2129,7 @@ let double-string-literal-handler = #(x, o, i)
   let string-parts = []
   let mutable current-literal = []
   for part in x
-    if typeof part == \number
+    if is-number! part
       current-literal.push part
     else if part not instanceof NothingNode
       string-parts.push o.const i, process-char-codes(current-literal).join ""
@@ -2150,7 +2150,7 @@ namedlet DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
   
   if string-parts.length == 0
     o.const i, ""
-  else if string-parts.length == 1 and string-parts[0].is-const() and typeof string-parts[0].const-value() == "string"
+  else if string-parts.length == 1 and string-parts[0].is-const() and is-string! string-parts[0].const-value()
     string-parts[0]
   else
     o.string i, string-parts
@@ -2202,7 +2202,7 @@ namedlet TripleDoubleStringLine = zero-or-more-of! [
   let string-parts = []
   let mutable current-literal = []
   for part in x
-    if typeof part == \number
+    if is-number! part
       current-literal.push part
     else if part not instanceof NothingNode
       string-parts.push process-char-codes(current-literal).join ""
@@ -2232,11 +2232,11 @@ let triple-string-handler(x, o, i)
     string-parts.push ...line
   
   for j in string-parts.length - 2 to 0 by -1
-    if typeof string-parts[j] == \string and typeof string-parts[j + 1] == \string
+    if is-string! string-parts[j] and is-string! string-parts[j + 1]
       string-parts.splice(j, 2, string-parts[j] ~& string-parts[j + 1])
   
   for part, j in string-parts
-    if typeof part == \string
+    if is-string! part
       string-parts[j] := o.const i, part
   
   string-parts
@@ -2271,7 +2271,7 @@ let make-triple-string(quote, line)
     
     if string-parts.length == 0
       o.const i, ""
-    else if string-parts.length == 1 and string-parts[0].is-const() and typeof string-parts[0].const-value() == \string
+    else if string-parts.length == 1 and string-parts[0].is-const() and is-string! string-parts[0].const-value()
       string-parts[0]
     else
       o.string i, string-parts
@@ -2383,7 +2383,7 @@ namedlet RegexLiteral = with-space! one-of! [
   let string-parts = []
   let mutable current-literal = []
   for part in x.text
-    if typeof part == \number
+    if is-number! part
       current-literal.push part
     else if part != NOTHING and part not instanceof NothingNode
       if current-literal.length > 0
@@ -2397,7 +2397,7 @@ namedlet RegexLiteral = with-space! one-of! [
 
   let text = if string-parts.length == 0
     o.const i, ""
-  else if string-parts.length == 1 and string-parts[0].is-const() and typeof string-parts[0].const-value() == \string
+  else if string-parts.length == 1 and string-parts[0].is-const() and is-string! string-parts[0].const-value()
     string-parts[0]
   else
     o.string i, string-parts
@@ -2872,7 +2872,7 @@ namedlet SingularObjectKey = one-of! [
     [\this, ConstantLiteral]
     NotColon
   ], #(node, o, i)
-    let key = if node.is-const() and typeof node.const-value()
+    let key = if node.is-const() and not is-string! node.const-value()
       o.const i, String(node.const-value())
     else
       node
@@ -3223,7 +3223,7 @@ namedlet ParameterSequence = sequential! [
       let name = if param.ident instanceof IdentNode
         param.ident.name
       else if param.ident instanceof AccessNode
-        if param.ident.child not instanceof ConstNode or typeof param.ident.child.value != \string
+        if param.ident.child not instanceof ConstNode or not is-string! param.ident.child.value
           throw Error "Expected constant access: $(typeof! param.ident.child)"
         param.ident.child.value
       else
@@ -3255,7 +3255,7 @@ let add-param-to-scope(o, param, force-mutable)!
     if param.ident instanceofsome [IdentNode, TmpNode]
       o.scope.add param.ident, force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else if param.ident instanceof AccessNode
-      if param.ident.child not instanceof ConstNode or typeof param.ident.child.value != \string
+      if param.ident.child not instanceof ConstNode or not is-string! param.ident.child.value
         throw Error "Expected constant access: $(typeof! param.ident.child)"
       o.scope.add IdentNode(param.line, param.column, param.scope-id, param.ident.child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else
@@ -4455,7 +4455,7 @@ class ParserError extends Error
   def constructor(message as String, text as String, line as Number)
     let err = super("$message at line #$line")
     @message := err.message
-    if typeof Error.capture-stack-trace == \function
+    if is-function! Error.capture-stack-trace
       Error.capture-stack-trace this, ParserError
     else if err haskey \stack
       @stack := err.stack
@@ -4468,7 +4468,7 @@ class MacroError extends Error
     let inner-type = typeof! inner
     let err = super("$(if inner-type == \Error then '' else inner-type & ': ')$(String inner?.message) at line #$line")
     @message := err.message
-    if inner haskey \stack and typeof inner.stack == \string
+    if inner haskey \stack and is-string! inner.stack
       @inner-stack := inner.stack
       @stack := "MacroError at #$line: " & inner.stack
     else if typeof Error.capture-stack-trace == \function
@@ -4664,7 +4664,7 @@ class MacroHelper
     (if save then @saved-tmps else @unsaved-tmps).push id
     if not type?
       type := Type.any
-    else if typeof type == "string"
+    else if is-string! type
       if Type![type] not instanceof Type
         throw Error "$type is not a known type name"
       type := Type![type]
@@ -4811,7 +4811,7 @@ class MacroHelper
     @state.object(0, (for {key, value, property} in pairs; {key: @do-wrap(key), value: @do-wrap(value) property})).reduce(@state)
   
   def type(node)
-    if typeof node == \string
+    if is-string! node
       Type![node] or throw Error "Unknown type $(node)"
     else if node instanceof Node
       node.type(@state)
@@ -4956,7 +4956,7 @@ class MacroHelper
       node instanceof NothingNode
   
   let constify-object(obj, line, column, scope-id)
-    if not obj or typeof obj != \object or obj instanceof RegExp
+    if not is-object! obj or obj instanceof RegExp
       ConstNode line, column, scope-id, obj
     else if is-array! obj
       ArrayNode line, column, scope-id, for item in obj
@@ -4997,7 +4997,7 @@ class MacroHelper
   @constify-object := constify-object
   
   let walk(node, func)
-    if not node or typeof node != \object or node instanceof RegExp
+    if not is-object! node or node instanceof RegExp
       return node
     
     if node not instanceof Node
@@ -5107,7 +5107,7 @@ class MacroHelper
     Debugger: identity
     Throw: identity
   def mutate-last(mutable node, func as Node -> Node, include-noop)
-    if not node or typeof node != \object or node instanceof RegExp
+    if not is-object! node or node instanceof RegExp
       return node
     
     if node not instanceof Node
@@ -5326,9 +5326,7 @@ class MacroHolder
     let helpers = (@serialization.helpers ?= {})
     helpers[name] := { helper, type, dependencies }
   
-  def add-macro-serialization(serialization as Object)!
-    if typeof serialization.type != \string
-      throw Error "Expected a string type"
+  def add-macro-serialization(serialization as {type: String})!
     let obj = {} <<< serialization
     delete obj.type
     let by-type = (@serialization[serialization.type] ?= [])
@@ -5768,7 +5766,7 @@ class State
       return for item in obj; reduce-object o, item
     else if obj instanceof Node
       obj.reduce(o)
-    else if typeof obj == \object and obj != null
+    else if is-object! obj
       let result = {}
       for k, v of obj
         result[k] := reduce-object o, v
@@ -5861,7 +5859,7 @@ class State
         calc-param@ this, choice
     else if param.is-const()
       let string = param.const-value()
-      if typeof string != \string
+      if not is-string! string
         @error "Expected a constant string parameter, got $(typeof! string)"
       macro-syntax-const-literals![string] or word-or-symbol string
     else if param instanceof SyntaxManyNode
@@ -5881,7 +5879,7 @@ class State
     for param in params
       if param.is-const()
         let string = param.const-value()
-        if typeof string != \string
+        if not is-string! string
           @error "Expected a constant string parameter, got $(typeof! string)"
 
         sequence.push macro-syntax-const-literals![string] or word-or-symbol string
@@ -5914,7 +5912,7 @@ class State
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error creating function for macro: $(String @current-macro)"
       let state = this
       {
@@ -5944,7 +5942,7 @@ class State
           if state-options.serialize-macros
             serialization := compilation
           let handler = Function(compilation)()
-          if typeof handler != \function
+          if not is-function! handler
             throw Error "Error creating function for syntax: $(options.name)"
           #(args, ...rest) -> reduce-object(state, handler@(this, reduce-object(state, args), ...rest))
       else
@@ -5969,7 +5967,7 @@ class State
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error creating function for macro: $(@current-macro)"
       let state = this
       handler := do inner = handler
@@ -5995,7 +5993,7 @@ class State
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error creating function for binary operator $(operators.join ', ')"
       let state = this
       if options.invertible
@@ -6029,7 +6027,7 @@ class State
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error creating function for assign operator $(operators.join ', ')"
       let state = this
       handler := do inner = handler
@@ -6053,7 +6051,7 @@ class State
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error creating function for unary operator $(operators.join ', ')"
       let state = this
       handler := do inner = handler
@@ -6071,7 +6069,7 @@ class State
   let macro-deserializers =
     syntax: #({code, params, names, options, id})
       let mutable handler = Function(code)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error deserializing function for macro $(name)"
       let state = this
       handler := do inner = handler
@@ -6081,7 +6079,7 @@ class State
     
     call: #({code, names, options, id})
       let mutable handler = Function(code)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error deserializing function for macro $(name)"
       let state = this
       handler := do inner = handler
@@ -6097,7 +6095,7 @@ class State
       let state = this
       if code?
         handler := Function(code)()
-        if typeof handler != \function
+        if not is-function! handler
           throw Error "Error deserializing function for macro syntax $(options.name)"
         handler := do inner = handler
           #(args, ...rest) -> reduce-object(state, inner@(this, reduce-object(state, args), ...rest))
@@ -6109,7 +6107,7 @@ class State
     
     binary-operator: #({code, operators, options, id})
       let mutable handler = Function(code)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error deserializing function for binary operator $(operators.join ', ')"
       let state = this
       if options.invertible
@@ -6128,7 +6126,7 @@ class State
       
     assign-operator: #({code, operators, options, id})
       let mutable handler = Function(code)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error deserializing function for assign operator $(operators.join ', ')"
       let state = this
       handler := do inner = handler
@@ -6138,7 +6136,7 @@ class State
     
     unary-operator: #({code, operators, options, id})!
       let mutable handler = Function(code)()
-      if typeof handler != \function
+      if not is-function! handler
         throw Error "Error deserializing function for unary operator $(operators.join ', ')"
       let state = this
       handler := do inner = handler
@@ -6147,7 +6145,7 @@ class State
         handle-macro-syntax@ this, 0, \unary-operator, handler, void, operators, options, id
   
   let remove-noops(obj)
-    if Array.isArray(obj)
+    if is-array! obj
       return for item in obj
         if item instanceof NothingNode
           void
@@ -6155,7 +6153,7 @@ class State
           remove-noops(item)
     else if obj instanceof Node
       obj
-    else if obj and typeof obj == \object and obj not instanceof RegExp
+    else if is-object! obj and obj not instanceof RegExp
       let result = {}
       for k, v of obj
         if v not instanceof NothingNode
@@ -6372,7 +6370,7 @@ node-class AccessNode(parent as Node, child as Node)
         let child-value = child.const-value()
         if child-value == \length
           return Type.number
-        else if typeof child-value == \number
+        else if is-number! child-value
           return if child-value >= 0 and child-value %% 1
             if is-string
               Type.string.union(Type.undefined)
@@ -6391,7 +6389,7 @@ node-class AccessNode(parent as Node, child as Node)
             parent-type.subtype.union(Type.undefined)
           else
             Type.any
-    else if parent-type.is-subset-of(Type.object) and typeof parent-type.value == \function
+    else if parent-type.is-subset-of(Type.object) and is-function! parent-type.value
       let child = o.macro-expand-1(@child).reduce(o)
       if child.is-const()
         return parent-type.value(String child.const-value())
@@ -6433,7 +6431,7 @@ node-class AccessNode(parent as Node, child as Node)
       if not has-step
         if inclusive.is-const()
           if inclusive.const-value()
-            end := if end.is-const() and typeof end.const-value() == \number
+            end := if end.is-const() and is-number! end.const-value()
               ConstNode end.line, end.column, end.scope-id, end.const-value() + 1 or Infinity
             else
               BinaryNode end.line, end.column, end.scope-id,
@@ -6530,7 +6528,7 @@ node-class AssignNode(left as Node, op as String, right as Node)
       let type = ops![@op]
       if not type
         Type.any
-      else if typeof type == "function"
+      else if is-function! type
         type @left.type(o), @right.type(o)
       else
         type
@@ -6577,7 +6575,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       let type = ops![@op]
       if not type
         Type.any
-      else if typeof type == "function"
+      else if is-function! type
         type @left.type(o), @right.type(o)
       else
         type
@@ -6629,7 +6627,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
           UnaryNode @line, @column, @scope-id, "+", y
         else if x.const-value() == "" and y.type(o).is-subset-of(Type.string)
           y
-        else if typeof x.const-value() == \string and y instanceof BinaryNode and y.op == "+" and y.left.is-const() and typeof y.left.const-value() == \string
+        else if is-string! x.const-value() and y instanceof BinaryNode and y.op == "+" and y.left.is-const() and is-string! y.left.const-value()
           BinaryNode @line, @column, @scope-id, ConstNode(x.line, x.column, @scope-id, x.const-value() & y.left.const-value()), "+", y.right
         else if x.const-value() is NaN
           BlockNode @line, @column, @scope-id, [y, x]
@@ -6668,18 +6666,18 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "+": #(x, y, o)
         if y.const-value() == 0 and x.type(o).is-subset-of(Type.number)
           UnaryNode @line, @column, @scope-id, "+", x
-        else if typeof y.const-value() == "number" and y.value < 0 and x.type(o).is-subset-of(Type.number)
+        else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
           BinaryNode @line, @column, @scope-id, x, "-", ConstNode(y.line, y.column, @scope-id, -y.const-value())
         else if y.const-value() == "" and x.type(o).is-subset-of(Type.string)
           x
-        else if typeof y.const-value() == \string and x instanceof BinaryNode and x.op == "+" and x.right.is-const() and typeof x.right.const-value() == \string
+        else if is-string! y.const-value() and x instanceof BinaryNode and x.op == "+" and x.right.is-const() and is-string! x.right.const-value()
           BinaryNode @line, @column, @scope-id, x.left, "+", ConstNode(x.right.line, x.right.column, @scope-id, x.right.const-value() & y.const-value())
         else if y.const-value() is NaN
           BlockNode @line, @column, @scope-id, [x, y]
       "-": #(x, y, o)
         if y.const-value() == 0
           UnaryNode @line, @column, @scope-id, "+", x
-        else if typeof y.const-value() == "number" and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
+        else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
           BinaryNode @line, @column, @scope-id, x, "+", ConstNode(y.line, y.column, @scope-id, -y.const-value())
         else if y.const-value() is NaN
           BlockNode @line, @column, @scope-id, [x, y]
@@ -7067,7 +7065,7 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
             let c-value = child.const-value()
             if parent.is-const()
               let p-value = parent.const-value()
-              if typeof p-value[c-value] == \function
+              if is-function! p-value[c-value]
                 try
                   let value = p-value[c-value] ...const-args
                   return ConstNode @line, @column, @scope-id, value
@@ -7208,7 +7206,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
   def type(o as State) -> @_type ?= do
     let type = o.macros.get-type-by-id(@id)
     if type?
-      if typeof type == \string
+      if is-string! type
         @data[type].type(o)
       else
         type
@@ -7234,7 +7232,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
         func item
       else if is-array! item
         map item, #(x) -> walk-item x, func
-      else if item and typeof item == \object
+      else if is-object! item
         walk-object item, func
       else
         item
@@ -7266,7 +7264,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
         func item, callback
       else if is-array! item
         map-async item, (#(x, cb) -> walk-item x, func, cb), callback
-      else if item and typeof item == \object
+      else if is-object! item
         walk-object item, func, callback
       else
         callback null, item
@@ -7597,7 +7595,7 @@ node-class UnaryNode(op as String, node as Node)
           else if node instanceof BinaryNode
             if invertible-binary-ops ownskey node.op
               let invert = invertible-binary-ops[node.op]
-              if typeof invert == \function
+              if is-function! invert
                 invert@ this, node.left, node.right
               else
                 BinaryNode @line, @column, @scope-id, node.left, invert, node.right
@@ -7734,7 +7732,7 @@ module.exports.ParserError := ParserError
 module.exports.MacroError := MacroError
 module.exports.Node := Node
 module.exports.deserialize-prelude := #(data)
-  let parsed = if typeof data == \string then JSON.parse(data) else data
+  let parsed = if is-string! data then JSON.parse(data) else data
   let macros = MacroHolder()
   macros.deserialize(parsed)
   {

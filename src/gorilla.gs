@@ -93,7 +93,7 @@ let fetch-and-parse-prelude = do
 exports.get-serialized-prelude := fetch-and-parse-prelude.serialized
 
 let parse = exports.parse := #(source, options = {}, callback)
-  if typeof options == \function
+  if is-function! options
     return parse source, null, options
   if options.no-prelude
     parser(source, null, options, callback)
@@ -126,13 +126,13 @@ let join-parsed-results(results)
   joined-parsed
 
 let translate = exports.ast := #(source, options = {}, callback)
-  if typeof options == \function
+  if is-function! options
     return translate source, null, options
   let start-time = new Date().get-time()
-  let translator = if typeof options.translator == \function
+  let translator = if is-function! options.translator
     options.translator
   else 
-    require(if typeof options.translator == \string then options.translator else DEFAULT_TRANSLATOR)
+    require(if is-string! options.translator then options.translator else DEFAULT_TRANSLATOR)
   asyncif parsed, translated <- next, callback?
     asyncif parsed <- next2, is-array! source
       asyncfor err, results <- next3, item, i in source
@@ -171,7 +171,7 @@ let translate = exports.ast := #(source, options = {}, callback)
     result
 
 let compile = exports.compile := #(source, options = {}, callback)
-  if typeof options == \function
+  if is-function! options
     return compile source, null, options
   let start-time = new Date().get-time()
   asyncif translated <- next, callback?
@@ -228,7 +228,7 @@ let evaluate(code, options)
     fun()
 
 exports.eval := #(source, options = {}, callback)
-  if typeof options == \function
+  if is-function! options
     return exports.eval source, null, options
   options.eval := true
   options.return := false
@@ -255,9 +255,9 @@ exports.eval := #(source, options = {}, callback)
     result
 
 exports.run := #(source, options = {}, callback)!
-  if typeof options == \function
+  if is-function! options
     return exports.run source, null, options
-  if typeof process == \undefined
+  if is-undefined! process
     exports.eval(source, options, if callback? then #(err) -> callback(err))
     return
   let main-module = require.main
@@ -282,7 +282,7 @@ exports.run := #(source, options = {}, callback)!
     callback?()
 
 let init = exports.init := #(options = {}, callback)!
-  if typeof options == \callback
+  if is-function! options
     return init(void, options)
   if callback?
     fetch-and-parse-prelude(options.lang or "js", callback)

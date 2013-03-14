@@ -104,10 +104,7 @@ class Scope
     }
 
   def has-variable(ident as ast.Ident)
-    if typeof @variables[ident.name] == \object
-      @variables haskey ident.name
-    else
-      false
+    @variables haskey ident.name and is-object! @variables[ident.name]
   
   def has-own-variable(ident as ast.Ident)
     @variables ownskey ident.name
@@ -179,7 +176,7 @@ class GeneratorBuilder
   
   def add(t-node)
     unless t-node instanceof GeneratorBuilder
-      unless typeof t-node == \function
+      unless is-function! t-node
         throw TypeError "Expected node to be a GeneratorBuilder or Function, got $(typeof! t-node)"
       @states[@current-state].push t-node
       this
@@ -808,7 +805,7 @@ let translators =
         []
       else if accesses[0] instanceof ast.Const
         [
-          if typeof accesses[0].value == \string and ast.is-acceptable-ident(accesses[0].value)
+          if is-string! accesses[0].value and ast.is-acceptable-ident(accesses[0].value)
             ".$(accesses[0].value)"
           else
             "[$(JSON.stringify accesses[0].value)]"
@@ -1031,7 +1028,7 @@ let translators =
           scope.mark-as-param ident
 
         let later-init = []
-        if ident instanceof ast.Binary and ident.op == "." and ident.right instanceof ast.Const and typeof ident.right.value == \string
+        if ident instanceof ast.Binary and ident.op == "." and ident.right instanceof ast.Const and is-string! ident.right.value
           let tmp = ast.Ident ident.pos, ident.right.value
           later-init.push ast.Binary(ident.pos, ident, "=", tmp)
           ident := tmp
@@ -1526,14 +1523,14 @@ let translators =
       ast.Noop(get-pos(node))
 
 let translate(node as Object, scope as Scope, location as String, mutable auto-return, unassigned)
-  if typeof auto-return != \function
+  unless is-function! auto-return
     auto-return := make-auto-return auto-return
 
   unless translators ownskey node.constructor.capped-name
     throw Error "Unable to translate unknown node type: $(String node.constructor.capped-name)"
 
   let ret = translators[node.constructor.capped-name](node, scope, location, auto-return, unassigned)
-  if typeof ret != "function"
+  unless is-function! ret
     throw Error "Translated non-function: $(typeof! ret)"
   ret
 
@@ -1709,7 +1706,7 @@ let translate-root(mutable roots as Object, scope as Scope)
       []
 
 module.exports := #(node, options = {}, callback)
-  if typeof options == \function
+  if is-function! options
     return module.exports(node, null, options)
   let mutable result = void
   let start-time = new Date().get-time()
@@ -1736,7 +1733,7 @@ module.exports := #(node, options = {}, callback)
 module.exports.helpers := HELPERS
 module.exports.define-helper := #(name, value, type as Type, mutable dependencies)
   let scope = Scope({}, false)
-  let ident = if typeof name == \string
+  let ident = if is-string! name
     ast.Ident(make-pos(0, 0), name)
   else if name instanceof ParserNode.Ident
     translate(name, scope, \left-expression)()

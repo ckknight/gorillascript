@@ -16,17 +16,17 @@ let switches = {}
 let mutable options = {}
 
 GLOBAL.command := #(name as String, description, dependencies, action)
-  if typeof description == \function
+  if is-function! description
     return GLOBAL.command(name, null, null, description)
   else if is-array! description
     return GLOBAL.command(name, null, description, action)
-  else if typeof dependencies == \function
+  else if is-function! dependencies
     return GLOBAL.command(name, description, null, dependencies)
-  if description? and typeof description != \string
+  if description? and not is-string! description
     throw TypeError "Expected action to be a String or null, got $(typeof! description)"
   if dependencies? and not is-array! dependencies
     throw TypeError "Expected action to be an Array or null, got $(typeof! dependencies)"
-  if typeof action != \function
+  if not is-function! action
     throw TypeError "Expected action to be a Function, got $(typeof! action)"
   if description?
     command-to-description[name] := description

@@ -117,13 +117,9 @@ let to-JS-source = do
         else
           "'" & value.replace(SINGLE_QUOTE_REGEX, escape-helper) & "'"
     boolean: #(value) -> if value then "true" else "false"
-    object: #(value)
-      if value == null
-        "null"
-      else
-        throw Error()
+    null: #-> "null"
   #(value) as String
-    let f = to-JS-source-types![typeof value]
+    let f = to-JS-source-types![if value == null then "null" else typeof value]
     unless f
       throw TypeError "Cannot compile const $(typeof! value)"
     f value
@@ -199,7 +195,7 @@ exports.Node := class Node
   def compile
   
   def maybe-to-statement()
-    if typeof @to-statement == "function"
+    if is-function! @to-statement
       @to-statement()
     else
       this
@@ -223,7 +219,7 @@ exports.Expression := class Expression extends Node
   def compile-as-block(options, level, line-start, sb)! -> @compile options, level, line-start, sb
   
   def compile-as-statement(options, line-start, sb)!
-    if typeof @to-statement == "function"
+    if is-function! @to-statement
       @to-statement().compile-as-statement options, line-start, sb
     else
       @compile options, Level.block, line-start, sb
@@ -303,11 +299,11 @@ let inspect-helper(depth, name, pos, ...args)
     "$name($(parts.join ', '))"
 
 let simplify(obj)
-  if Array.isArray(obj)
+  if is-array! obj
     if obj.length == 0
       void
     else
-      obj
+      return for item in obj; simplify(item)
   else if obj instanceof Noop
     void
   else
@@ -385,8 +381,8 @@ exports.BinaryChain := #(pos, op, ...args)
     for i in args.length - 2 to 0 by -1
       let left = args[i]
       let right = args[i + 1]
-      if (typeof left == \string or (left instanceof Const and typeof left.value == \string)) and (typeof right == \string or (right instanceof Const and typeof right.value == \string))
-        args.splice i, 2, (if typeof left == \string then left else left.value) & (if typeof right == \string then right else right.value)
+      if (is-string! left or (left instanceof Const and is-string! left.value)) and (is-string! right or (right instanceof Const and is-string! right.value))
+        args.splice i, 2, (if is-string! left then left else left.value) & (if is-string! right then right else right.value)
   for reduce arg in args[1 to -1], current = args[0]
     Binary pos, current, op, arg
 
@@ -426,13 +422,13 @@ exports.Binary := class Binary extends Expression
     @right := right
   
   let compile-access(op, left, right, options, level, line-start, sb)!
-    let dot-access = right instanceof Const and typeof right.value == "string" and is-acceptable-ident(right.value)
+    let dot-access = right instanceof Const and is-string! right.value and is-acceptable-ident(right.value)
     let wrap = level > Level.call-or-access
     
     if wrap
       sb "("
     
-    if left instanceof Const and typeof left.value == "number"
+    if left instanceof Const and is-number! left.value
       let string-left = to-JS-source left.value
       if is-negative(left.value) or not is-finite(left.value)
         sb "("
@@ -493,7 +489,7 @@ exports.Binary := class Binary extends Expression
     let left = @left
     let op = @op
     if ASSIGNMENT_OPS ownskey op
-      if left instanceof Ident and typeof @right.to-statement == "function" and false
+      if left instanceof Ident and is-function! @right.to-statement and false
         @right.to-statement()
           .mutate-last((#(node)@ -> Binary @pos, left, op, node), { +noop })
           .compile-as-statement(options, line-start, sb)
@@ -904,7 +900,7 @@ exports.Const := class Const extends Expression
     if value == void and options.undefined-name?
       sb options.undefined-name
     else
-      let wrap = level >= Level.increment and (value == void or (typeof value == "number" and not is-finite(value)))
+      let wrap = level >= Level.increment and (value == void or (is-number! value and not is-finite(value)))
       if wrap
         sb "("
       sb to-JS-source(value)
@@ -925,7 +921,7 @@ exports.Const := class Const extends Expression
   
   def to-JSON()
     let result = { type: "Const", @pos.line, @pos.column, @pos.file, @value }
-    if typeof @value == \number and not is-finite(@value)
+    if is-number! @value and not is-finite(@value)
       result.infinite := true
       if @value == Infinity
         result.value := 1
@@ -1087,7 +1083,7 @@ exports.For := class For extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    let test = if @test.is-const() and typeof @test.const-value() != \boolean
+    let test = if @test.is-const() and not is-boolean! @test.const-value()
       Const(@pos, not not @test.const-value())
     else
       @test
@@ -1696,7 +1692,7 @@ exports.Regex := class Regex extends Expression
 
 exports.Return := class Return extends Statement
   def constructor(@pos as {}, @node as Expression = Noop(pos))
-    if typeof node.to-statement == "function"
+    if is-function! node.to-statement
       return node.to-statement().mutate-last (#(n) -> Return pos, n), { +noop }
   
   def compile(options, level, line-start, sb)!
@@ -1746,7 +1742,7 @@ exports.Root := class Root
     if not options.indent
       options.indent := 0
     
-    let writer = if not options.uglify and typeof options.writer == \function then options.writer
+    let writer = if not options.uglify and is-function! options.writer then options.writer
     let sb = if writer then StringWriter(writer) else StringBuilder()
     let start-time = new Date().get-time()
     if options.sourcemap? and @pos.file
@@ -1770,7 +1766,7 @@ exports.Root := class Root
           fs.write-file-sync(tmp-map, options.sourcemap.to-string(), "utf8")
         let UglifyJS = require("uglify-js")
         let old-warn_function = UglifyJS.AST_Node?.warn_function
-        if typeof old-warn_function == \function
+        if is-function! old-warn_function
           UglifyJS.AST_Node.warn_function := #->
         let minified = UglifyJS.minify(code, from-string: true, in-source-map: tmp-map, out-source-map: options.sourcemap?.generated-file)
         if old-warn_function?
@@ -1782,7 +1778,7 @@ exports.Root := class Root
         options.progress?(\uglify, end-uglify-time - end-compile-time)
         if options.sourcemap?
           options.sourcemap := minified.map
-      if typeof options.writer == \function
+      if is-function! options.writer
         options.writer(code)
         code := ""
     {
@@ -1837,7 +1833,7 @@ exports.This := class This extends Expression
 
 exports.Throw := class Throw extends Statement
   def constructor(@pos as {}, @node as Expression = Noop(line, column))
-    if typeof node.to-statement == "function"
+    if is-function! node.to-statement
       return node.to-statement().mutate-last (#(n)@ -> Throw @pos, n), { +noop }
   
   def compile(options, level, line-start, sb)
@@ -1944,7 +1940,7 @@ exports.Switch := class Switch extends Statement
   @from-JSON := #({line, column, file, node, cases, default-case, label})
     let result-cases = []
     for case_ in (cases or [])
-      if not case_ or typeof case_ != \object
+      if not is-object! case_
         throw Error "Expected an object with a node and body"
       result-cases.push SwitchCase make-pos(case_.line, case_.column, case_.file), from-JSON(case_.node), from-JSON(case_.body)
     Switch make-pos(line, column, file), from-JSON(node), result-cases, from-JSON(default-case), if label? then from-JSON(label) else null
@@ -2121,7 +2117,7 @@ exports.Unary := class Unary extends Expression
       sb op.substring(0, 2)
     else
       sb op
-      if op in ["typeof", "void", "delete"] or (op in ["+", "-", "++", "--"] and ((@node instanceof Unary and op in ["+", "-", "++", "--"]) or (@node instanceof Const and typeof @node.value == "number" and is-negative(@node.value))))
+      if op in ["typeof", "void", "delete"] or (op in ["+", "-", "++", "--"] and ((@node instanceof Unary and op in ["+", "-", "++", "--"]) or (@node instanceof Const and is-number! @node.value and is-negative(@node.value))))
         sb " "
       @node.compile options, Level.unary, false, sb
     if options.sourcemap? and @pos.file
@@ -2188,13 +2184,13 @@ let from-JSON = exports.from-JSON := #(obj)
   if not obj?
     return Noop(make-pos(0, 0))
   
-  if typeof obj != \object
+  if not is-object! obj
     throw TypeError "Must provide an object to deserialize"
   
-  if Array.isArray(obj)
+  if is-array! obj
     throw TypeError "Not expecting an array"
   
-  if typeof obj.type != \string
+  if not is-string! obj.type
     throw Error "Expected an object with a string 'type' key"
   
   if exports not ownskey obj.type
@@ -2205,7 +2201,7 @@ let from-JSON = exports.from-JSON := #(obj)
 let array-from-JSON(array)
   if not array?
     []
-  else if Array.isArray(array)
+  else if is-array! array
     return for item in array; from-JSON(item)
   else
     throw Error "Expected an array, got $(typeof! array)"

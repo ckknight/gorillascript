@@ -180,11 +180,9 @@ module.exports := class Type
       UnionType(types)
   
   let from-JSON-types = {}
-  @from-JSON := #(x)
-    if not x or typeof x != \object
-      throw TypeError "Expected an Object, got $(typeof x)"
+  @from-JSON := #(x as Object)
     let type = x.type
-    if typeof type != \string
+    if not is-string! type
       throw TypeError "Unspecified type"
     else if from-JSON-types not ownskey type
       throw TypeError "Unknown serialization type: $type"
@@ -447,13 +445,11 @@ module.exports := class Type
         GenericType base-type, (for arg in args; Type.from-JSON(arg))
   @generic := #(base, ...args)
     GenericType(
-      if typeof base == \string then Type.make(base) else base
+      if is-string! base then Type.make(base) else base
       args)
   
   class ObjectType extends Type
-    def constructor(data)
-      if typeof data != \object or data instanceof RegExp
-        throw TypeError "Expected an object, got $(typeof! data)"
+    def constructor(data as Object)
       let pairs = []
       for k, v of data
         if v not instanceof Type

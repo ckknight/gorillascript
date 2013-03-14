@@ -36,6 +36,30 @@ define operator binary == with precedence: 2, maximum: 1, type: \boolean
 define operator binary != with precedence: 2, maximum: 1, type: \boolean
   ASTE not ($left == $right)
 
+define operator unary is-undefined! with type: \boolean
+  (@is-ident-or-tmp(node) and not @has-variable(node) and ASTE typeof $node == \undefined) or ASTE $node == undefined
+
+define operator unary is-null! with type: \boolean
+  (@is-ident-or-tmp(node) and not @has-variable(node) and ASTE typeof $node == \object and $node == null) or ASTE $node == null
+
+define operator unary is-string! with type: \boolean
+  ASTE typeof $node == \string
+
+define operator unary is-number! with type: \boolean
+  ASTE typeof $node == \number
+
+define operator unary is-boolean! with type: \boolean
+  ASTE typeof $node == \boolean
+
+define operator unary is-function! with type: \boolean
+  ASTE typeof $node == \function
+
+define operator unary is-array! with type: \boolean
+  @mutate-last node or @noop(), (#(n)@ -> (@is-ident-or-tmp(n) and not @has-variable(n) and ASTE typeof $n == \object and __is-array($n)) or ASTE __is-array($n)), true
+
+define operator unary is-object! with type: \boolean
+  @mutate-last node or @noop(), (#(n)@ -> ASTE typeof $n == \object and $n != null), true
+
 define operator binary ~= with precedence: 2, maximum: 1, type: \boolean
   @binary left, "==", right
 
@@ -341,7 +365,7 @@ define operator assign ~+= with type: \number
       return @unary "++", left
     else if value == ~-1
       return @unary "--", left
-    else if typeof value == \number and not @is-type left, \numeric
+    else if is-number! value and not @is-type left, \numeric
       return @assign left, "-=", @const(~-value)
   
   if @is-type left, \numeric
@@ -425,13 +449,13 @@ define operator unary typeof! with type: \string
     @mutate-last node or @noop(), (#(n)@ -> ASTE __typeof($n)), true
 
 define helper __num = #(num) as Number
-  if typeof num != \number
+  if not is-number! num
     throw TypeError("Expected a number, got " ~& typeof! num)
   else
     num
 
 define helper __str = #(str) as String
-  if typeof str != \string
+  if not is-string! str
     throw TypeError("Expected a string, got " ~& typeof! str)
   else
     str
@@ -455,7 +479,7 @@ define operator unary + with type: \number
       ASTE __num($n)), true
 
 define operator unary - with type: \number
-  if @is-const(node) and typeof @value(node) == \number
+  if @is-const(node) and is-number! @value(node)
     @const(~-@value(node))
   else
     ASTE ~-(+$node)
@@ -551,6 +575,19 @@ define operator binary ownskey with precedence: 6, maximum: 1, invertible: true,
   ASTE __owns@($left, $right)
 
 define operator binary instanceof with precedence: 6, maximum: 1, invertible: true, type: \boolean
+  if @is-ident(right)
+    if @name(right) == \String
+      return ASTE is-string! $left
+    else if @name(right) == \Number
+      return ASTE is-number! $left
+    else if @name(right) == \Boolean
+      return ASTE is-boolean! $left
+    else if @name(right) == \Function
+      return ASTE is-function! $left
+    else if @name(right) == \Array
+      return ASTE is-array! $left
+    else if @name(right) == \Object
+      return ASTE is-object! $left
   @binary left, \instanceof, right
 
 define helper __cmp = #(left, right) as Number
@@ -577,7 +614,7 @@ define operator binary ~%% with precedence: 2, maximum: 1, invertible: true, typ
   ASTE $left ~% $right == 0
 
 define helper __int = #(num) as Number
-  if typeof num != \number
+  if not is-number! num
     throw TypeError("Expected a number, got " ~& typeof! num)
   else if num not ~%% 1
     throw TypeError("Expected an integer, got " ~& num)
@@ -863,7 +900,7 @@ macro with
 
 define helper __slice = Array.prototype.slice
 
-define helper __freeze = if typeof Object.freeze == \function
+define helper __freeze = if is-function! Object.freeze
   Object.freeze
 else
   #(x) -> x
@@ -873,20 +910,14 @@ define helper __freeze-func = #(x)
     __freeze(x.prototype)
   __freeze(x)
 
-define helper __is-array = if typeof Array.is-array == \function
+define helper __is-array = if is-function! Array.is-array
   Array.is-array
 else
   do
     let _to-string = Object.prototype.to-string
     #(x) as Boolean -> _to-string@(x) == "[object Array]"
 
-define operator unary is-array! with type: \boolean
-  @mutate-last node or @noop(), (#(n)@ -> ASTE __is-array($n)), true
-
 define helper __is-object = #(x) as Boolean -> typeof x == \object and x != null
-
-define operator unary is-object! with type: \boolean
-  @mutate-last node or @noop(), (#(n)@ -> ASTE __is-object($n)), true
 
 define helper __to-array = #(x) as []
   if not x?
@@ -898,7 +929,7 @@ define helper __to-array = #(x) as []
   else
     __slice@ x
 
-define helper __create = if typeof Object.create == \function
+define helper __create = if is-function! Object.create
   Object.create
 else
   #(x)
@@ -1096,7 +1127,7 @@ define operator binary by with maximum: 1, precedence: 3, type: \array
       throw Error "'by' step must be an integer"
     ASTE __step($left, $right)
 
-define helper __in = if typeof Array.prototype.index-of == \function
+define helper __in = if is-function! Array.prototype.index-of
   do
     let index-of = Array.prototype.index-of
     #(child, parent) as Boolean -> index-of@(parent, child) != -1
@@ -1130,14 +1161,14 @@ macro for
       let init = []
     
       if @is-const(start)
-        if typeof @value(start) != \number
+        if not is-number! @value(start)
           throw Error "Cannot start with a non-number: #(@value start)"
       else
         start := ASTE +$start
       init.push @macro-expand-all AST let mutable $value = $start
 
       if @is-const(end)
-        if typeof @value(end) != \number
+        if not is-number! @value(end)
           throw Error "Cannot end with a non-number: #(@value start)"
       else if @is-complex(end)
         end := @cache (ASTE +$end), init, \end, false
@@ -1145,7 +1176,7 @@ macro for
         init.push ASTE +$end
 
       if @is-const(step)
-        if typeof @value(step) != \number
+        if not is-number! @value(step)
           throw Error "Cannot step with a non-number: #(@value step)"
       else if @is-complex(step)
         step := @cache (ASTE +$step), init, \step, false
@@ -1276,14 +1307,14 @@ macro for
           step := args[3]
           inclusive := args[4]
       if @is-const(step)
-        if typeof @value(step) != \number or @value(step) not %% 1
-          throw Error "Expected step to be an integer, got $(typeof @value(step)) ($(String @value(step)))"
+        if not is-number! @value(step) or @value(step) not %% 1
+          throw Error "Expected step to be an integer, got $(typeof! @value(step)) ($(String @value(step)))"
         else if @value(step) == 0
           throw Error "Step must be non-zero"
-      if start and @is-const(start) and @value(start) != Infinity and (typeof @value(start) != \number or @value(start) not %% 1)
-        throw Error "Expected start to be an integer, got $(typeof @value(start)) ($(String @value(start)))"
-      if end and @is-const(end) and @value(end) != Infinity and (typeof @value(end) != \number or @value(end) not %% 1)
-        throw Error "Expected end to be an integer or Infinity, got $(typeof @value(end)) ($(String @value(end)))"
+      if start and @is-const(start) and @value(start) != Infinity and (not is-number! @value(start) or @value(start) not %% 1)
+        throw Error "Expected start to be an integer, got $(typeof! @value(start)) ($(String @value(start)))"
+      if end and @is-const(end) and @value(end) != Infinity and (not is-number! @value(end) or @value(end) not %% 1)
+        throw Error "Expected end to be an integer or Infinity, got $(typeof! @value(end)) ($(String @value(end)))"
       
       if not is-string and not @is-type array, \array-like
         array := ASTE __to-array $array
@@ -1838,7 +1869,7 @@ macro switch
       else
         $current
 
-define helper __keys = if typeof Object.keys == \function
+define helper __keys = if is-function! Object.keys
   Object.keys
 else
   #(x) as [String]
@@ -1881,17 +1912,19 @@ define helper __instanceofsome = #(value, array) as Boolean
 
 define helper __make-instanceof = #(ctor) as (-> Boolean)
   if ctor == String
-    #(x) -> typeof x == \string
+    (is-string!)
   else if ctor == Number
-    #(x) -> typeof x == \number
+    (is-number!)
   else if ctor == Function
-    #(x) -> typeof x == \function
+    (is-function!)
   else if ctor == Boolean
-    #(x) -> typeof x == \boolean
+    (is-boolean!)
   else if ctor == Array
     __is-array
+  else if ctor == Object
+    __is-object
   else
-    #(x) -> x instanceof ctor
+    (instanceof ctor)
 
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
@@ -1930,8 +1963,8 @@ define helper __xor = #(x, y)
 macro require!
   syntax name as Expression
     if @is-const name
-      if typeof @value(name) != \string
-        throw Error("Expected a constant string, got $(typeof @value(name))")
+      if not is-string! @value(name)
+        throw Error("Expected a constant string, got $(typeof! @value(name))")
     
     if @is-const name
       let mutable ident-name = @value(name)
@@ -1964,7 +1997,7 @@ macro require!
       throw Error("Expected either a constant string or ident or object")
 
 define helper __once = #(mutable func)
-  if typeof func != \function
+  if not is-function! func
     throw Error "Expected func to be a Function, got $(typeof! func)"
   # -> if func
     let f = func
@@ -2225,13 +2258,13 @@ macro asyncfor
       let [mutable start, mutable end, mutable step, mutable inclusive] = @call-args(array)
       
       if @is-const(start)
-        if typeof @value(start) != \number
+        if not is-number! @value(start)
           throw Error "Cannot start with a non-number: #(@value start)"
       else
         start := ASTE +$start
 
       if @is-const(end)
-        if typeof @value(end) != \number
+        if not is-number! @value(end)
           throw Error "Cannot end with a non-number: #(@value start)"
       else if @is-complex(end)
         end := @cache (ASTE +$end), init, \end, false
@@ -2239,7 +2272,7 @@ macro asyncfor
         init.push ASTE +$end
 
       if @is-const(step)
-        if typeof @value(step) != \number
+        if not is-number! @value(step)
           throw Error "Cannot step with a non-number: #(@value step)"
       else if @is-complex(step)
         step := @cache (ASTE +$step), init, \step, false
@@ -2385,7 +2418,7 @@ macro def
     @def key, void
 
 macro class
-  syntax name as SimpleAssignable?, generic as ("<", head as Ident, tail as (",", this as Ident)*, ">")?, superclass as ("extends", this)?, body as Body?
+  syntax name as SimpleAssignable?, generic as ("<", head as Identifier, tail as (",", this as Identifier)*, ">")?, superclass as ("extends", this)?, body as Body?
     let mutable declaration = void
     let mutable assignment = void
     let generic-args = if generic? then [generic.head, ...generic.tail] else []
@@ -2393,7 +2426,7 @@ macro class
       declaration := name
     else if @is-access(name)
       assignment := name
-      if @is-const(@child(name)) and typeof @value(@child(name)) == \string
+      if @is-const(@child(name)) and is-string! @value(@child(name))
         name := @ident(@value(@child(name))) ? @tmp \class, false, \function
       else
         name := @tmp \class, false, \function
@@ -2487,7 +2520,7 @@ macro class
         let $name()
           let $self = if this instanceof $name then this else { extends $prototype }
           
-          if typeof $ctor == \function
+          if is-function! $ctor
             let $result = $ctor@ $self, ...arguments
             if Object($result) == $result
               return $result
@@ -2616,7 +2649,7 @@ macro enum
       declaration := name
     else if @is-access(name)
       assignment := name
-      if @is-const(@child(name)) and typeof @value(@child(name)) == \string
+      if @is-const(@child(name)) and is-string! @value(@child(name))
         name := @ident(@value(@child(name))) ? @tmp \enum, false, \object
       else
         name := @tmp \enum, false, \object
@@ -2656,7 +2689,7 @@ macro namespace
       declaration := name
     else if @is-access(name)
       assignment := name
-      if @is-const(@child(name)) and typeof @value(@child(name)) == \string
+      if @is-const(@child(name)) and is-string! @value(@child(name))
         name := @ident(@value(@child(name))) ? @tmp \ns, false, \object
       else
         name := @tmp \ns, false, \object
@@ -2739,7 +2772,7 @@ macro returning
       $rest
       return $node
 
-define helper __is = if typeof Object.is == \function
+define helper __is = if is-function! Object.is
   Object.is
 else
   #(x, y) as Boolean
@@ -2755,7 +2788,7 @@ define operator binary is with precedence: 2, maximum: 1, type: \boolean
         let result = __is(@value(left), @value(right))
         ASTE $result
       else
-        if typeof @value(left) == \number and isNaN @value(left)
+        if is-number! @value(left) and isNaN @value(left)
           @maybe-cache right, #(set-right, right)@
             ASTE $set-right != $right
         else if @value(left) == 0
@@ -2767,7 +2800,7 @@ define operator binary is with precedence: 2, maximum: 1, type: \boolean
         else
           ASTE $left == $right
     else if @is-const(right)
-      if typeof @value(right) == \number and isNaN @value(right)
+      if is-number! @value(right) and isNaN @value(right)
         @maybe-cache left, #(set-left, left)@
           ASTE $set-left != $left
       else if @value(right) == 0
@@ -2790,13 +2823,13 @@ define helper __bind = #(parent, child) as Function
   if not parent?
     throw TypeError "Expected parent to be an object, got $(typeof! parent)"
   let func = parent[child]
-  if typeof func != \function
+  if not is-function! func
     throw Error "Trying to bind child '$(String child)' which is not a function"
   # -> func@ parent, ...arguments
 
 define helper __def-prop = do
   let fallback = Object.define-property
-  if typeof fallback == \function and (do
+  if is-function! fallback and (do
       try
         let o = {}
         fallback(o, \sentinel, {})
@@ -2811,7 +2844,7 @@ define helper __def-prop = do
     let define-getter = supports-accessors and Object::__define-getter__
     let define-setter = supports-accessors and Object::__define-setter__
     #(object as {}|->, property as String, descriptor as {})
-      if typeof fallback == \function
+      if is-function! fallback
         try
           return fallback object, property, descriptor
         catch e
