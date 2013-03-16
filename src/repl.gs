@@ -201,7 +201,7 @@ exports.start := #(options = {})
       async err, ret <- gorilla.eval code, { sandbox, filename: \repl, modulename: \repl }
       if err
         error err
-      else if ret != void
+      else if not is-void! ret
         process.stdout.write util.inspect(ret, false, 2, enable-colors) & "\n"
       repl.prompt()
 

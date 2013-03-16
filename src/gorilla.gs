@@ -257,7 +257,7 @@ exports.eval := #(source, options = {}, callback)
 exports.run := #(source, options = {}, callback)!
   if is-function! options
     return exports.run source, null, options
-  if is-undefined! process
+  if is-void! process
     exports.eval(source, options, if callback? then #(err) -> callback(err))
     return
   let main-module = require.main

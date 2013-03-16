@@ -36,30 +36,6 @@ define operator binary == with precedence: 2, maximum: 1, type: \boolean
 define operator binary != with precedence: 2, maximum: 1, type: \boolean
   ASTE not ($left == $right)
 
-define operator unary is-undefined! with type: \boolean
-  (@is-ident-or-tmp(node) and not @has-variable(node) and ASTE typeof $node == \undefined) or ASTE $node == undefined
-
-define operator unary is-null! with type: \boolean
-  (@is-ident-or-tmp(node) and not @has-variable(node) and ASTE typeof $node == \object and $node == null) or ASTE $node == null
-
-define operator unary is-string! with type: \boolean
-  ASTE typeof $node == \string
-
-define operator unary is-number! with type: \boolean
-  ASTE typeof $node == \number
-
-define operator unary is-boolean! with type: \boolean
-  ASTE typeof $node == \boolean
-
-define operator unary is-function! with type: \boolean
-  ASTE typeof $node == \function
-
-define operator unary is-array! with type: \boolean
-  @mutate-last node or @noop(), (#(n)@ -> (@is-ident-or-tmp(n) and not @has-variable(n) and ASTE typeof $n == \object and __is-array($n)) or ASTE __is-array($n)), true
-
-define operator unary is-object! with type: \boolean
-  @mutate-last node or @noop(), (#(n)@ -> ASTE typeof $n == \object and $n != null), true
-
 define operator binary ~= with precedence: 2, maximum: 1, type: \boolean
   @binary left, "==", right
 
@@ -117,17 +93,56 @@ macro if, unless
       if i ~>= 0 then f(dec(i), @if((if else-ifs[i].type == "unless" then (ASTE not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
     @if(if macro-name == \unless then ASTE not $test else test, body, f(dec(else-ifs.length), else-body))
 
-define operator binary ~& with precedence: 7, type: \string
-  if @has-type(left, \numeric) and @has-type(right, \numeric)
-    @binary @binary(@const(""), "+", left), "+", right
-  else
-    @binary left, "+", right
-
 define operator unary ? with postfix: true, type: \boolean, label: \existential
   if @is-ident-or-tmp(node) and not @has-variable(node)
     ASTE typeof $node != \undefined and $node != null
   else
     ASTE $node !~= null
+
+define operator unary is-void!, is-undefined! with type: \boolean
+  if @is-ident-or-tmp(node) and not @has-variable(node)
+    ASTE typeof $node == \undefined
+  else
+    ASTE $node == void
+
+define operator unary is-null! with type: \boolean
+  if @is-ident-or-tmp(node) and not @has-variable(node)
+    ASTE typeof $node != \undefined and $node == null
+  else
+    ASTE $node == null
+
+define operator unary is-string! with type: \boolean
+  ASTE typeof $node == \string
+
+define operator unary is-number! with type: \boolean
+  ASTE typeof $node == \number
+
+define operator unary is-boolean! with type: \boolean
+  ASTE typeof $node == \boolean
+
+define operator unary is-function! with type: \boolean
+  ASTE typeof $node == \function
+
+define operator unary is-array! with type: \boolean
+  @mutate-last node or @noop(), (#(n)@ -> (@is-ident-or-tmp(n) and not @has-variable(n) and ASTE typeof $n == \object and __is-array($n)) or ASTE __is-array($n)), true
+
+define operator unary is-object! with type: \boolean
+  @mutate-last node or @noop(), (#(n)@ -> ASTE typeof $n == \object and $n != null), true
+
+define helper __xor = #(x, y)
+  if x
+    if y
+      false
+    else
+      x
+  else
+    y or x
+
+define operator binary ~& with precedence: 7, type: \string
+  if @has-type(left, \numeric) and @has-type(right, \numeric)
+    @binary @binary(@const(""), "+", left), "+", right
+  else
+    @binary left, "+", right
 
 define operator assign := with type: \right
   @assign left, "=", right
@@ -435,9 +450,9 @@ define operator assign ~&= with type: \string
 define helper __typeof = do
   let _to-string = Object.prototype.to-string
   #(o) as String
-    if o == undefined
+    if is-void! o
       "Undefined"
-    else if o == null
+    else if is-null! o
       "Null"
     else
       (o.constructor and o.constructor.name) or _to-string@(o).slice(8, ~-1)
@@ -1053,61 +1068,6 @@ macro while, until
       for reduce ; $test; $step, $current = $current-start
         $body
 
-define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean) as [Number]
-  if step == 0
-    throw RangeError "step cannot be zero"
-  else if not is-finite start
-    throw RangeError "start must be finite"
-  else if not is-finite end
-    throw RangeError "end must be finite"
-  let result = []
-  let mutable i = start
-  if step ~> 0
-    while i ~< end, i ~+= step
-      result.push i
-    if inclusive and i ~<= end
-      result.push i
-  else
-    while i ~> end, i ~+= step
-      result.push i
-    if inclusive and i ~>= end
-      result.push i
-  result
-
-define helper __step = #(array, step as Number) as []
-  if step == 0
-    throw RangeError "step cannot be zero"
-  else if step == 1
-    __to-array(array)
-  else if step == -1
-    __slice@(array).reverse()
-  else if step not %% 1
-    throw RangeError "step must be an integer, got $(String step)"
-  else
-    let result = []
-    if step > 0
-      let mutable i = 0
-      let len = +array.length
-      while i < len, i += step
-        result.push array[i]
-    else
-      let mutable i = array.length - 1
-      while i >= 0, i += step
-        result.push array[i]
-    result
-
-define helper __slice-step = #(array, start, end, mutable step, inclusive) as []
-  let arr = if step ~< 0
-    __slice@(array, if inclusive then end else end ~+ 1, start ~+ 1 or Infinity)
-  else
-    __slice@(array, start, if inclusive then end ~+ 1 or Infinity else end)
-  if step == 1
-    arr
-  else if step == -1
-    arr.reverse()
-  else
-    __step(arr, step)
-
 define operator binary to with maximum: 1, precedence: 4, type: \array
   ASTE __range($left, $right, 1, true)
 
@@ -1297,7 +1257,7 @@ macro for
           array := args[0]
           start := args[1]
           end := args[2]
-          if @is-const(end) and @value(end) == void
+          if @is-const(end) and is-void! @value(end)
             end := ASTE Infinity
         else if @name(@call-func(array)) == \__slice-step and not @call-is-apply(array)
           let args = @call-args(array)
@@ -1614,6 +1574,255 @@ macro for
       $loop
       $current
 
+define operator unary mutate-function! with type: \node, label: \mutate-function
+  let article(text)
+    if r"^[aeiou]"i.test(text)
+      "an"
+    else
+      "a"
+  let with-article(text) -> "$(article text) $text"
+  let translate-type-check(value, value-name, type, has-default-value)@
+    if @is-ident(type)
+      let result = AST
+        if $value not instanceof $type
+          throw TypeError "Expected $($value-name) to be $($(with-article @name(type))), got $(typeof! $value)"
+      if not has-default-value and @name(type) == \Boolean
+        AST! if not $value?
+          $value := false
+        else
+          $result
+      else
+        result
+    else if @is-access(type)
+      AST
+        if $value not instanceof $type
+          throw TypeError "Expected $($value-name) to be $($(with-article @value(@child(type)))), got $(typeof! $value)"
+    else if @is-type-union(type)
+      let mutable check = void
+      let mutable has-boolean = false
+      let mutable has-void = false
+      let mutable has-null = false
+      let names = []
+      let tests = []
+      for t in @types(type)
+        if @is-const(t)
+          if is-null! @value(t)
+            has-null := true
+            names.push \null
+          else if is-void! @value(t)
+            has-void := true
+            names.push \undefined
+          else
+            throw Error "Unknown const value for typechecking: $(String @value(t))"
+        else if @is-ident(t)
+          if @name(t) == \Boolean
+            has-boolean := true
+          names.push @name(t)
+          tests.push ASTE $value not instanceof $t
+        else
+          throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
+
+      let test = if tests.length
+        @binary-chain "&&", tests
+      else
+        ASTE true
+      let mutable result = AST if $test
+        throw TypeError "Expected $($value-name) to be $($(with-article names.join ' or ')), got $(typeof! $value)"
+
+      if not has-default-value
+        if has-null or has-void
+          if has-null xor has-void
+            result := AST! if not $value?
+              $value := if $has-null then null else void
+            else
+              $result
+          else
+            result := AST if $value?
+              $result
+        else if has-boolean
+          result := AST! if not $value?
+            $value := false
+          else
+            $result
+      result
+    else if @is-type-generic(type)
+      if @name(@basetype(type)) == \Array
+        let index = @tmp \i, false, \number
+        let sub-check = translate-type-check (ASTE $value[$index]), (ASTE $value-name & "[" & $index & "]"), @type-arguments(type)[0], false
+        AST if not is-array! $value
+          throw TypeError "Expected $($value-name) to be an Array, got $(typeof! $value)"
+        else
+          for (let mutable $index = $value.length); post-dec! $index;
+            $sub-check
+      else if @name(@basetype(type)) == \Function
+        translate-type-check(value, value-name, @basetype(type), has-default-value)
+      else
+        throw Error "Not implemented: generic types"
+    else if @is-type-object(type)
+      let checks = for {key, value: pair-value} in @pairs(type)
+        translate-type-check (ASTE $value[$key]), (ASTE $value-name & "." & $key), pair-value, false
+      AST if not is-object! $value
+        throw TypeError "Expected $($value-name) to be an Object, got $(typeof! $value)"
+      else
+        $checks
+    else
+      throw Error "Unknown type to translate: $(typeof! type)"
+  let init = []
+  let mutable changed = false
+  let translate-param(param, in-destructure)@
+    if @is-array(param)
+      changed := true
+      let array-ident = @tmp \p, false, \array
+      let mutable found-spread = -1
+      let mutable spread-counter = void
+      for element, i, len in @elements(param)
+        let init-index = init.length
+        let element-param = translate-param element, true
+        if element-param?
+          let element-ident = @param-ident(element-param)
+          if not @param-is-spread(element-param)
+            if found-spread == -1
+              init.splice init-index, 0, AST let $element-ident = $array-ident[$i]
+            else
+              init.splice init-index, 0, AST let $element-ident = $array-ident[$spread-counter + ($i - $found-spread - 1)]
+          else
+            if found-spread != -1
+              throw Error "Cannot have multiple spread parameters in an array destructure"
+            found-spread := i
+            if i == len - 1
+              init.splice init-index, 0, AST let $element-ident = __slice@ $array-ident, ...(if $i == 0 then [] else [$i])
+            else
+              spread-counter := @tmp \i, false, \number
+              init.splice init-index, 0, AST
+                let mutable $spread-counter = $array-ident.length - ($len - $i - 1)
+                let $element-ident = if $spread-counter > $i
+                  __slice@ $array-ident, $i, $spread-counter
+                else
+                  $spread-counter := $i
+                  []
+      @rewrap @param(array-ident, null, false, false, null), param
+    else if @is-object(param)
+      changed := true
+      let object-ident = @tmp \p, false, \object
+      
+      for pair in @pairs(param)
+        let init-index = init.length
+        let value = translate-param(pair.value, true)
+        if value?
+          let value-ident = @param-ident(value)
+          let key = pair.key
+          init.splice init-index, 0, AST let $value-ident = $object-ident[$key]
+      
+      @rewrap @param(object-ident, null, false, false, null), param
+    else if @is-param(param)
+      let default-value = @param-default-value(param)
+      let as-type = @param-type(param)
+      let param-ident = @param-ident(param)
+      if default-value? or as-type? or not @is-ident-or-tmp(param-ident)
+        changed := true
+        let ident = if @is-ident-or-tmp(param-ident)
+          param-ident
+        else if @is-access(param-ident)
+          @ident(@value(@child(param-ident)))
+        else
+          throw Error "Not an ident or this-access: $(typeof! param-ident)"
+        let type-check = if as-type?
+          translate-type-check(ident, @name(ident), as-type, default-value?)
+        else
+          @noop()
+        init.push if default-value?
+          AST!
+            if not $ident?
+              $ident := $default-value
+            else
+              $type-check
+        else
+          type-check
+        if param-ident != ident
+          init.push AST $param-ident := $ident
+        @rewrap @param(ident, null, @param-is-spread(param), @param-is-mutable(param), null), param
+      else
+        param
+    else if @is-nothing(param)
+      changed := true
+      if in-destructure
+        null
+      else
+        let blank-ident = @tmp \p, false, \object
+        @rewrap @param(blank-ident, null, false, false, null), param
+    else
+      throw Error "Unknown param type: $(typeof! param)"
+  let params = for param in @func-params(node)
+    translate-param(param, false)
+  
+  if init.length or changed
+    let mutable body = @func-body(node)
+    @rewrap(@func(params
+      AST
+        $init
+        $body
+      @func-is-auto-return(node) and not @is-nothing(body)
+      @func-is-bound(node)
+      @func-is-curried(node)
+      @func-as-type(node)
+      @func-is-generator(node)), node)
+  else
+    node
+
+define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean) as [Number]
+  if step == 0
+    throw RangeError "step cannot be zero"
+  else if not is-finite start
+    throw RangeError "start must be finite"
+  else if not is-finite end
+    throw RangeError "end must be finite"
+  let result = []
+  let mutable i = start
+  if step ~> 0
+    while i ~< end, i ~+= step
+      result.push i
+    if inclusive and i ~<= end
+      result.push i
+  else
+    while i ~> end, i ~+= step
+      result.push i
+    if inclusive and i ~>= end
+      result.push i
+  result
+
+define helper __step = #(array, step as Number) as []
+  if step == 0
+    throw RangeError "step cannot be zero"
+  else if step == 1
+    __to-array(array)
+  else if step == -1
+    __slice@(array).reverse()
+  else if step not %% 1
+    throw RangeError "step must be an integer, got $(String step)"
+  else
+    let result = []
+    if step > 0
+      let mutable i = 0
+      let len = +array.length
+      while i < len, i += step
+        result.push array[i]
+    else
+      let mutable i = array.length - 1
+      while i >= 0, i += step
+        result.push array[i]
+    result
+
+define helper __slice-step = #(array, start, end, mutable step, inclusive) as []
+  let arr = if step ~< 0
+    __slice@(array, if inclusive then end else end ~+ 1, start ~+ 1 or Infinity)
+  else
+    __slice@(array, start, if inclusive then end ~+ 1 or Infinity else end)
+  if step == 1
+    arr
+  else if step == -1
+    arr.reverse()
+  else
+    __step(arr, step)
 
 define operator binary instanceofsome with precedence: 6, maximum: 1, invertible: true, type: \boolean
   if @is-array(right)
@@ -1933,7 +2142,7 @@ macro async
     
     params := if params then [params.head].concat(params.tail) else []
     let func = @func(params, body, true, true)
-    @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call), @call-is-apply(call)
+    @call @call-func(call), @call-args(call).concat([ASTE mutate-function! $func]), @call-is-new(call), @call-is-apply(call)
 
 macro async!
   syntax callback as Expression, params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
@@ -1949,16 +2158,7 @@ macro async!
         $body
       true
       true
-    @call @call-func(call), @call-args(call).concat([func]), @call-is-new(call), @call-is-apply(call)
-
-define helper __xor = #(x, y)
-  if x
-    if y
-      false
-    else
-      x
-  else
-    y or x
+    @call @call-func(call), @call-args(call).concat([ASTE mutate-function! $func]), @call-is-new(call), @call-is-apply(call)
 
 macro require!
   syntax name as Expression
@@ -2503,11 +2703,11 @@ macro class
           let key = @left(node)
           if @is-const(key) and @value(key) == \constructor
             let value = @right(node)
-            let constructor = @func(
+            let constructor = @rewrap(@func(
               @func-params value
               @func-body value
               false
-              AST if eval("this") instanceof $name then eval("this") else { extends $prototype })
+              AST if eval("this") instanceof $name then eval("this") else { extends $prototype }), value)
             init.unshift AST let $name = $constructor
             @noop()
         else
@@ -2535,12 +2735,12 @@ macro class
           if @is-const(key) and @value(key) == \constructor
             let value = @right(node)
             if @is-func value
-              let constructor = @func(
+              let constructor = @rewrap(@func(
                 @func-params value
                 @func-body value
                 false
                 AST if eval("this") instanceof $name then eval("this") else { extends $prototype }
-                @func-is-curried value)
+                @func-is-curried value), value)
               ASTE $ctor := $constructor
             else
               ASTE $ctor := $value

@@ -413,7 +413,7 @@ test "default value call function each access", #
   let make()
     i += 1
     i
-  let fun = #(value = make()) -> value
+  let fun = #(val = make()) -> val
   
   eq 1, fun()
   eq 2, fun(null)
@@ -622,14 +622,14 @@ test "duplicate parameter name", #
   let fun([a], {a}) ->"""), #(e) -> e.line == 2
 
 test "typed parameters, Boolean", #
-  let fun(value as Boolean) -> value
+  let fun(val as Boolean) -> val
   
   eq false, fun(false)
   eq true, fun(true)
   eq false, fun(null)
   eq false, fun(void)
   eq false, fun()
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Boolean, got Number"
   throws #-> fun(1), TypeError
   throws #-> fun(""), TypeError
   throws #-> fun("stuff"), TypeError
@@ -639,14 +639,14 @@ test "typed parameters, Boolean", #
   throws #-> fun(new Boolean(true)), TypeError
 
 test "typed parameters, String", #
-  let fun(value as String) -> value
+  let fun(val as String) -> val
   
   eq "", fun("")
   eq "hello", fun("hello")
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a String, got Number"
   throws #-> fun(NaN), TypeError
   throws #-> fun(true), TypeError
   throws #-> fun(false), TypeError
@@ -656,7 +656,7 @@ test "typed parameters, String", #
   throws #-> fun(new String("hello")), TypeError
 
 test "typed parameters, Number", #
-  let fun(value as Number) -> value
+  let fun(val as Number) -> val
   
   eq 0, fun(0)
   eq 1, fun(1)
@@ -667,7 +667,7 @@ test "typed parameters, Number", #
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
-  throws #-> fun(""), TypeError
+  throws #-> fun(""), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Number, got String"
   throws #-> fun(true), TypeError
   throws #-> fun(false), TypeError
   throws #-> fun({}), TypeError
@@ -683,7 +683,7 @@ test "typed parameters, Function", #
   eq 0, fun(#-> 0)
   eq "hello", fun(#-> "hello")
   throws #-> fun(), TypeError
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected f to be a Function, got Number"
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
   throws #-> fun(""), TypeError
@@ -693,7 +693,7 @@ test "typed parameters, Function", #
   throws #-> fun([]), TypeError
 
 test "typed parameters, Array", #
-  let fun(value as Array) -> value
+  let fun(val as Array) -> val
   
   let getArgs() -> arguments
   
@@ -703,7 +703,7 @@ test "typed parameters, Array", #
   array-eq [], fun([])
   array-eq ["hello"], fun(["hello"])
   array-eq ["hello", 1, true], fun(["hello", 1, true])
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be an Array, got Number"
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -715,7 +715,7 @@ test "typed parameters, Array", #
   throws #-> fun(new FakeArray()), TypeError
 
 test "typed parameters, Array as []", #
-  let fun(value as []) -> value
+  let fun(val as []) -> val
   
   let getArgs() -> arguments
   
@@ -725,7 +725,7 @@ test "typed parameters, Array as []", #
   array-eq [], fun([])
   array-eq ["hello"], fun(["hello"])
   array-eq ["hello", 1, true], fun(["hello", 1, true])
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be an Array, got Number"
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -737,12 +737,12 @@ test "typed parameters, Array as []", #
   throws #-> fun(new FakeArray()), TypeError
 
 test "typed parameters, Object", #
-  let fun(value as Object) -> value
+  let fun(val as Object) -> val
   
   array-eq [], fun([]) // technically valid
   let obj = {}
   eq obj, fun(obj)
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be an Object, got Number"
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -751,12 +751,12 @@ test "typed parameters, Object", #
   throws #-> fun(false), TypeError
 
 test "typed parameters, Object as {}", #
-  let fun(value as {}) -> value
+  let fun(val as {}) -> val
   
   array-eq [], fun([]) // technically valid
   let obj = {}
   eq obj, fun(obj)
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be an Object, got Number"
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -765,14 +765,14 @@ test "typed parameters, Object as {}", #
   throws #-> fun(false), TypeError
 
 test "typed parameters, specific object", #
-  let fun(value as {x: Number}) -> value.x
+  let fun(val as {x: Number}) -> val.x
   
   let obj = {}
-  throws #-> fun({}), TypeError
+  throws #-> fun({}), #(x) -> x instanceof TypeError and x.message == "Expected val.x to be a Number, got Undefined"
   eq 1, fun({x: 1})
   eq 1, fun({x: 1, y: 2})
   throws #-> fun([]), TypeError
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be an Object, got Number"
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -782,7 +782,7 @@ test "typed parameters, specific object", #
 
 test "typed parameters, arbitrary ident", #
   let Thing()! ->
-  let fun(value as Thing) -> value
+  let fun(val as Thing) -> val
   
   let alpha = new Thing()
   let bravo = new Thing()
@@ -791,7 +791,7 @@ test "typed parameters, arbitrary ident", #
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
-  throws #-> fun(""), TypeError
+  throws #-> fun(""), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Thing, got String"
   throws #-> fun(true), TypeError
   throws #-> fun(false), TypeError
   throws #-> fun(0), TypeError
@@ -799,7 +799,7 @@ test "typed parameters, arbitrary ident", #
   throws #-> fun([]), TypeError
 
 test "typed parameters, Number or String", #
-  let fun(value as Number|String) -> value
+  let fun(val as Number|String) -> val
   
   eq 0, fun(0)
   eq 1, fun(1)
@@ -812,7 +812,7 @@ test "typed parameters, Number or String", #
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
-  throws #-> fun(true), TypeError
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Number or String, got Boolean"
   throws #-> fun(false), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
@@ -820,7 +820,7 @@ test "typed parameters, Number or String", #
   throws #-> fun(new String("")), TypeError
 
 test "typed parameters, Number or Boolean", #
-  let fun(value as Number|Boolean) -> value
+  let fun(val as Number|Boolean) -> val
   
   eq 0, fun(0)
   eq 1, fun(1)
@@ -833,14 +833,14 @@ test "typed parameters, Number or Boolean", #
   eq false, fun(null)
   eq true, fun(true)
   eq false, fun(false)
-  throws #-> fun(""), TypeError
+  throws #-> fun(""), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Number or Boolean, got String"
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
   throws #-> fun(new Number(0)), TypeError
   throws #-> fun(new Boolean(false)), TypeError
 
 test "typed parameters, Number or null", #
-  let fun(value as Number|null) -> value
+  let fun(val as Number|null) -> val
   
   eq 0, fun(0)
   eq 1, fun(1)
@@ -851,7 +851,7 @@ test "typed parameters, Number or null", #
   eq null, fun()
   eq null, fun(void)
   eq null, fun(null)
-  throws #-> fun(true), TypeError
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Number or null, got Boolean"
   throws #-> fun(false), TypeError
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
@@ -859,7 +859,7 @@ test "typed parameters, Number or null", #
   throws #-> fun(new Number(0)), TypeError
 
 test "typed parameters, Number or void", #
-  let fun(value as Number|void) -> value
+  let fun(val as Number|void) -> val
   
   eq 0, fun(0)
   eq 1, fun(1)
@@ -870,7 +870,7 @@ test "typed parameters, Number or void", #
   eq void, fun()
   eq void, fun(void)
   eq void, fun(null)
-  throws #-> fun(true), TypeError
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Number or undefined, got Boolean"
   throws #-> fun(false), TypeError
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
@@ -878,42 +878,42 @@ test "typed parameters, Number or void", #
   throws #-> fun(new Number(0)), TypeError
 
 test "typed parameters, Boolean or null", #
-  let fun(value as Boolean|null) -> value
+  let fun(val as Boolean|null) -> val
   
   eq null, fun()
   eq true, fun(true)
   eq false, fun(false)
   eq null, fun(void)
   eq null, fun(null)
-  throws #-> fun(0)
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Boolean or null, got Number"
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
   throws #-> fun(new Boolean(false)), TypeError
 
 test "typed parameters, Boolean or void", #
-  let fun(value as Boolean|void) -> value
+  let fun(val as Boolean|void) -> val
   
   eq void, fun()
   eq true, fun(true)
   eq false, fun(false)
   eq void, fun(void)
   eq void, fun(null)
-  throws #-> fun(0)
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Boolean or undefined, got Number"
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
   throws #-> fun(new Boolean(false)), TypeError
 
 test "typed parameters, Boolean or null or void", #
-  let fun(value as Boolean|null|void) -> value
+  let fun(val as Boolean|null|void) -> val
   
   eq void, fun()
   eq true, fun(true)
   eq false, fun(false)
   eq void, fun(void)
   eq null, fun(null)
-  throws #-> fun(0)
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Boolean or null or undefined, got Number"
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
@@ -922,11 +922,11 @@ test "typed parameters, Boolean or null or void", #
 test "typed parameters, special type or null", #
   let Thing()! ->
   
-  let fun(value as Thing|null) -> value
+  let fun(val as Thing|null) -> val
   
   let x = new Thing()
   eq x, fun(x)
-  throws #-> fun(0)
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Thing or null, got Number"
   eq null, fun()
   eq null, fun(void)
   eq null, fun(null)
@@ -939,7 +939,7 @@ test "typed parameters, special type or null", #
 test "typed parameters, special type or String", #
   let Thing()! ->
   
-  let fun(value as Thing|String) -> value
+  let fun(val as Thing|String) -> val
   
   let x = new Thing()
   eq x, fun(x)
@@ -947,7 +947,7 @@ test "typed parameters, special type or String", #
   throws #-> fun()
   throws #-> fun(void)
   throws #-> fun(null)
-  throws #-> fun(true), TypeError
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Thing or String, got Boolean"
   throws #-> fun(false), TypeError
   eq "", fun("")
   throws #-> fun({}), TypeError
@@ -957,7 +957,7 @@ test "typed parameters, special type or String", #
 test "typed parameters, special type or String or null", #
   let Thing()! ->
   
-  let fun(value as Thing|String|null) -> value
+  let fun(val as Thing|String|null) -> val
   
   let x = new Thing()
   eq x, fun(x)
@@ -965,7 +965,7 @@ test "typed parameters, special type or String or null", #
   eq null, fun()
   eq null, fun(void)
   eq null, fun(null)
-  throws #-> fun(true), TypeError
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Thing or String or null, got Boolean"
   throws #-> fun(false), TypeError
   eq "", fun("")
   throws #-> fun({}), TypeError
@@ -973,9 +973,9 @@ test "typed parameters, special type or String or null", #
   throws #-> fun(new String("")), TypeError
 
 test "typed array parameter", #
-  let fun(value as [String]) -> value
+  let fun(val as [String]) -> val
 
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be an Array, got Number"
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -987,7 +987,7 @@ test "typed array parameter", #
   array-eq ["alpha"], fun(["alpha"])
   array-eq ["alpha", "bravo"], fun(["alpha", "bravo"])
   array-eq ["alpha", "bravo", "charlie"], fun(["alpha", "bravo", "charlie"])
-  throws #-> fun([1]), TypeError
+  throws #-> fun([1]), #(x) -> x instanceof TypeError and x.message == "Expected val[0] to be a String, got Number"
   throws #-> fun([null]), TypeError
   throws #-> fun([void]), TypeError
   throws #-> fun([false]), TypeError
@@ -995,9 +995,9 @@ test "typed array parameter", #
   throws #-> fun([new String("hello")]), TypeError
 
 test "typed array as generic", #
-  let fun(value as Array<String>) -> value
+  let fun(val as Array<String>) -> val
 
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be an Array, got Number"
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -1009,7 +1009,7 @@ test "typed array as generic", #
   array-eq ["alpha"], fun(["alpha"])
   array-eq ["alpha", "bravo"], fun(["alpha", "bravo"])
   array-eq ["alpha", "bravo", "charlie"], fun(["alpha", "bravo", "charlie"])
-  throws #-> fun([1]), TypeError
+  throws #-> fun([1]), #(x) -> x instanceof TypeError and x.message == "Expected val[0] to be a String, got Number"
   throws #-> fun([null]), TypeError
   throws #-> fun([void]), TypeError
   throws #-> fun([false]), TypeError
@@ -1017,9 +1017,9 @@ test "typed array as generic", #
   throws #-> fun([new String("hello")]), TypeError
 
 test "typed array parameter of typed array parameter", #
-  let fun(value as [[String]]) -> value
+  let fun(val as [[String]]) -> val
 
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be an Array, got Number"
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -1031,9 +1031,9 @@ test "typed array parameter of typed array parameter", #
   array-eq [[]], fun([[]])
   array-eq [[], ["alpha"]], fun([[], ["alpha"]])
   array-eq [[], ["alpha"], ["bravo", "charlie"]], fun([[], ["alpha"], ["bravo", "charlie"]])
-  throws #-> fun([1]), TypeError
-  throws #-> fun([[1]]), TypeError
-  throws #-> fun([["alpha"], [1]]), TypeError
+  throws #-> fun([1]), #(x) -> x instanceof TypeError and x.message == "Expected val[0] to be an Array, got Number"
+  throws #-> fun([[1]]), #(x) -> x instanceof TypeError and x.message == "Expected val[0][0] to be a String, got Number"
+  throws #-> fun([["alpha"], [1]]), #(x) -> x instanceof TypeError and x.message == "Expected val[1][0] to be a String, got Number"
   throws #-> fun(["alpha"]), TypeError
   throws #-> fun([null]), TypeError
   throws #-> fun([void]), TypeError
@@ -1042,9 +1042,9 @@ test "typed array parameter of typed array parameter", #
   throws #-> fun([new String("hello")]), TypeError
 
 test "typed array parameter of specific objects", #
-  let fun(value as [{x: String}]) -> return for {x} in value; x
+  let fun(val as [{x: String}]) -> return for {x} in val; x
 
-  throws #-> fun(0), TypeError
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be an Array, got Number"
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
@@ -1053,10 +1053,11 @@ test "typed array parameter of specific objects", #
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
   array-eq [], fun([])
-  throws #-> fun(["alpha"]), TypeError
+  throws #-> fun(["alpha"]), #(x) -> x instanceof TypeError and x.message == "Expected val[0] to be an Object, got String"
   throws #-> fun([{}]), TypeError
   array-eq ["alpha"], fun([{x: "alpha"}])
   array-eq ["alpha", "bravo"], fun([{x: "alpha"}, {x: "bravo"}])
+  throws #-> fun([{x: "alpha"}, {x: 2}]), #(x) -> x instanceof TypeError and x.message == "Expected val[1].x to be a String, got Number"
   throws #-> fun([1]), TypeError
   throws #-> fun([null]), TypeError
   throws #-> fun([void]), TypeError
@@ -1064,7 +1065,7 @@ test "typed array parameter of specific objects", #
   throws #-> fun([new String("hello")]), TypeError
 
 test "typed array parameter of specific objects with more than one key", #
-  let fun(value as [{x: Number, y: Number}]) -> return for {x, y} in value; x * y
+  let fun(val as [{x: Number, y: Number}]) -> return for {x, y} in val; x * y
 
   throws #-> fun(0), TypeError
   throws #-> fun(), TypeError

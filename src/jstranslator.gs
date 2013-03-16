@@ -624,7 +624,7 @@ let translators =
       let t-left = translate node.left, scope, \left-expression
       let t-right = translate node.right, scope, \expression, null, unassigned
       if unassigned and node.left instanceof ParserNode.Ident
-        if op == "=" and unassigned[node.left.name] and node.right.is-const() and node.right.const-value() == void
+        if op == "=" and unassigned[node.left.name] and node.right.is-const() and is-void! node.right.const-value()
           return #-> ast.Noop(get-pos(node))
         unassigned[node.left.name] := false
       
@@ -819,208 +819,53 @@ let translators =
           ...build-access-string-node(accesses[1 to -1])
         ]
     let translate-type-checks =
-      Ident: #(ident, node, scope, has-default-value, accesses)
-        let access = ast.Access ident.pos, ident, ...accesses
-        scope.add-helper \__typeof
-        let result = ast.If ident.pos,
-          make-type-check-test access, node.name, scope
-          ast.Throw ident.pos,
-            ast.Call ident.pos,
-              ast.Ident ident.pos, \TypeError
-              [ast.BinaryChain ident.pos, "+",
-                "Expected $(ident.name)"
-                ...build-access-string-node(accesses)
-                " to be $(with-article node.name), got "
-                ast.Call ident.pos,
-                  ast.Ident ident.pos, \__typeof
-                  [access]]
-        if not has-default-value and node.name == \Boolean
-          {
-            check: ast.If ident.pos,
-              ast.Binary ident.pos, ident, "==", ast.Const ident.pos, null
-              ast.Assign ident.pos, ident, ast.Const(ident.pos, false)
-              result
-            type: Type.boolean
-          }
+      Ident: #(node)
+        if primitive-types ownskey node.name
+          Type[primitive-types[node.name]]
         else
-          {
-            check: result
-            type: if primitive-types ownskey node.name
-              Type[primitive-types[node.name]]
-            else
-              Type.any // FIXME
-          }
-      Access: #(ident, node, scope, has-default-value, accesses)
-        let access = ast.Access ident.pos, ident, ...accesses
-        scope.add-helper \__typeof
-        let type = translate(node, scope, \expression)()
-        {
-          check: ast.If ident.pos,
-            ast.Unary ident.pos,
-              "!"
-              ast.Binary ident.pos,
-                access
-                \instanceof
-                type
-            ast.Throw ident.pos,
-              ast.Call ident.pos,
-                ast.Ident ident.pos, \TypeError
-                [ast.BinaryChain ident.pos, "+",
-                  "Expected $(ident.name)"
-                  ...build-access-string-node(accesses)
-                  " to be $(with-article type.right.value), got "
-                  ast.Call ident.pos,
-                    ast.Ident ident.pos, \__typeof
-                    [access]]
-          type: Type.any // FIXME
-        }
-      TypeUnion: #(ident, node, scope, has-default-value, accesses)
-        // TODO: cache typeof ident if requested more than once.
-        let access = ast.Access ident.pos, ident, ...accesses
-        scope.add-helper \__typeof
-        let mutable check = void
-        let mutable has-boolean = false
-        let mutable has-void = false
-        let mutable has-null = false
-        let names = []
-        let tests = []
-        let types = []
+          Type.any // FIXME
+      Access: #(node)
+        Type.any // FIXME
+      TypeUnion: #(node)
+        let mutable result = Type.none
         for type in node.types
           if type instanceof ParserNode.Const
-            if type.value == null
-              has-null := true
-              names.push \null
-              types.push Type.null
-            else if type.value == void
-              has-void := true
-              names.push \undefined
-              types.push Type.undefined
+            if is-null! type.value
+              result := result.union Type.null
+            else if is-void! type.value
+              result := result.union Type.undefined
             else
               throw Error "Unknown const value for typechecking: $(String type.value)"
           else if type instanceof ParserNode.Ident
-            if type.name == \Boolean
-              has-boolean := true
-            names.push type.name
-            tests.push make-type-check-test access, type.name, scope
-            types.push if primitive-types ownskey type.name
+            result := result.union if primitive-types ownskey type.name
               Type[primitive-types[type.name]]
             else
               Type.any // FIXME
           else
             throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
-
-        if has-null and has-void and not has-default-value
-          tests.unshift ast.Binary ident.pos, access, "!=", null
-        let mutable result = ast.If ident.pos,
-          ast.And ident.pos, ...tests
-          ast.Throw ident.pos,
-            ast.Call ident.pos,
-              ast.Ident ident.pos, \TypeError
-              [ast.BinaryChain ident.pos, "+",
-                "Expected $(ident.name)"
-                ...build-access-string-node(accesses)
-                " to be $(with-article names.join ' or '), got "
-                ast.Call ident.pos,
-                  ast.Ident ident.pos, \__typeof
-                  [access]]
-
-        if not has-default-value
-          if has-null or has-void
-            if has-null xor has-void
-              result := ast.If ident.pos,
-                ast.Binary ident.pos, access, "==", ast.Const ident.pos, null
-                ast.Assign ident.pos, access, ast.Const ident.pos, if has-null then null else void
-                result
-          else if has-boolean
-            result := ast.If ident.pos,
-              ast.Binary ident.pos, access, "==", ast.Const ident.pos, null
-              ast.Assign ident.pos, access, ast.Const ident.pos, false
-              result
-        {
-          check: result
-          type: for reduce type in types by -1, current = Type.none
-            current.union(type)
-        }
-      TypeFunction: #(ident, node, scope, has-default-value, accesses)
-        translate-type-checks.Ident(ident, { name: \Function }, scope, has-default-value, accesses)
-      TypeGeneric: #(ident, node, scope, has-default-value, accesses)
+        result
+      TypeFunction: #(node)
+        Type.function
+      TypeGeneric: #(node)
         if node.basetype.name == \Array
-          translate-type-checks.TypeArray(ident, { subtype: node.args[0] }, scope, has-default-value, accesses)
+          translate-type-check(node.args[0]).array()
+        else if node.basetype.name == \Function
+          Type.function
         else
-          translate-type-checks.Ident(ident, node.basetype, scope, has-default-value, accesses)
-      TypeArray: #(ident, node, scope, has-default-value, accesses)
-        let access = ast.Access ident.pos, ident, ...accesses
-        scope.add-helper \__is-array
-        let index = scope.reserve-ident ident.pos, \i, Type.number
-        let length = scope.reserve-ident ident.pos, \len, Type.number
-        let sub-check = translate-type-check(ident, node.subtype, scope, false, [...accesses, index])
-        let result = ast.If ident.pos,
-          ast.Unary ident.pos,
-            "!"
-            ast.Call ident.pos,
-              ast.Ident ident.pos, \__is-array
-              [access]
-          ast.Throw ident.pos,
-            ast.Call ident.pos,
-              ast.Ident ident.pos, \TypeError
-              [ast.BinaryChain ident.pos, "+",
-                "Expected $(ident.name)"
-                ...build-access-string-node(accesses)
-                " to be an Array, got "
-                ast.Call ident.pos,
-                  ast.Ident ident.pos, \__typeof
-                  [access]]
-          ast.For ident.pos,
-            ast.Block ident.pos,
-              * ast.Assign ident.pos, index, ast.Const ident.pos, 0
-              * ast.Assign ident.pos, length, ast.Access ident.pos, access, \length
-            ast.Binary ident.pos, index, "<", length
-            ast.Unary ident.pos, "++", index
-            sub-check.check
-        scope.release-ident index
-        scope.release-ident length
-        {
-          check: result
-          type: sub-check.type.array()
-        }
-      TypeObject: #(ident, node, scope, has-default-value, accesses)
-        let access = ast.Access ident.pos, ident, ...accesses
-        scope.add-helper \__is-object
+          Type.any
+      TypeObject: #(node)
         let type-data = {}
         
-        let result = ast.If ident.pos,
-          ast.Unary ident.pos,
-            "!"
-            ast.Call ident.pos,
-              ast.Ident ident.pos, \__is-object
-              [access]
-          ast.Throw ident.pos,
-            ast.Call ident.pos,
-              ast.Ident ident.pos, \TypeError
-              [ast.BinaryChain ident.pos, "+",
-                "Expected $(ident.name)"
-                ...build-access-string-node(accesses)
-                " to be an Object, got "
-                ast.Call ident.pos,
-                  ast.Ident ident.pos, \__typeof
-                  [access]]
-          for reduce {key, value} in node.pairs, current = ast.Noop(ident.pos)
-            if key instanceof ParserNode.Const
-              let {check, type} = translate-type-check(ident, value, scope, false, [...accesses, ast.Const get-pos(key), key.value])
-              type-data[key.value] := type
-              ast.Block ident.pos,
-                * current
-                * check
+        for {key, value} in node.pairs
+          if key instanceof ParserNode.Const
+            type-data[key.value] := translate-type-check(value)
         
-        {
-          check: result
-          type: Type.make-object type-data
-        }
-    let translate-type-check(ident, node, scope, has-default-value, accesses)
+        Type.make-object type-data
+    let translate-type-check(node)
       unless translate-type-checks ownskey node.constructor.capped-name
         throw Error "Unknown type: $(String node.constructor.capped-name)"
 
-      translate-type-checks[node.constructor.capped-name] ident, node, scope, has-default-value, accesses
+      translate-type-checks[node.constructor.capped-name] node
     let translate-param-types = {
       Param: #(param, scope, inner)
         let mutable ident = translate(param.ident, scope, \param)()
@@ -1036,124 +881,15 @@ let translators =
         unless ident instanceof ast.Ident
           throw Error "Expecting param to be an Ident, got $(typeof! ident)"
         
-        let type-check = if param.as-type then translate-type-check(ident, param.as-type, scope, param.default-value?, [])
+        let type = if param.as-type then translate-type-check(param.as-type)
         // TODO: mark the param as having a type
         if inner
-          scope.add-variable ident, type-check?.type, param.is-mutable
+          scope.add-variable ident, type, param.is-mutable
 
-        let init = []
-        if param.default-value?
-          init.push ast.If ident.pos,
-            ast.Binary ident.pos, ident, "==", ast.Const ident.pos, null
-            ast.Assign ident.pos, ident, translate(param.default-value, scope, \expression)()
-            type-check?.check
-        else if type-check
-          init.push type-check.check
         {
-          init: [...init, ...later-init]
+          init: later-init
           ident
           spread: not not param.spread
-        }
-
-      Array: #(array, scope, inner)
-        let array-ident = if inner then scope.reserve-ident get-pos(array), \p, Type.array else scope.reserve-param(get-pos(array))
-        let init = []
-        let mutable found-spread = -1
-        let mutable spread-counter = void
-        for p, i, len in array.elements
-          let param = translate-param p, scope, true
-          unless param.spread
-            if param.ident?
-              if found-spread == -1
-                init.push ast.Assign param.ident.pos,
-                  param.ident
-                  ast.Access param.ident.pos, array-ident, i
-              else
-                let diff = i - found-spread - 1
-                init.push ast.Assign param.ident.pos,
-                  param.ident
-                  ast.Access param.ident.pos,
-                    array-ident
-                    if diff == 0 then spread-counter else ast.Binary param.ident.pos, spread-counter, "+", diff
-          else
-            if found-spread != -1
-              throw Error "Encountered multiple spread parameters"
-            found-spread := i
-            scope.add-helper \__slice
-            if i == len - 1
-              init.push ast.Assign param.ident.pos,
-                param.ident
-                ast.Call param.ident.pos,
-                  ast.Access param.ident.pos,
-                    ast.Ident param.ident.pos, \__slice
-                    \call
-                  [array-ident, ...(if i == 0 then [] else [ast.Const(param.ident.pos, i)])]
-            else
-              spread-counter := scope.reserve-ident param.ident.pos, \i, Type.number
-              init.push ast.Assign param.ident.pos,
-                param.ident
-                ast.IfExpression param.ident.pos,
-                  ast.Binary param.ident.pos,
-                    i
-                    "<"
-                    ast.Assign param.ident.pos,
-                      spread-counter
-                      ast.Binary param.ident.pos,
-                        ast.Access param.ident.pos, array-ident, \length
-                        "-"
-                        len - i - 1
-                  ast.Call param.ident.pos,
-                    ast.Access param.ident.pos,
-                      ast.Ident param.ident.pos, \__slice
-                      \call
-                    [array-ident, ast.Const(param.ident.pos, i), spread-counter]
-                  ast.BlockExpression param.ident.pos,
-                    * ast.Assign param.ident.pos,
-                        spread-counter
-                        ast.Const(param.ident.pos, i)
-                    * ast.Arr param.ident.pos
-          init.push ...param.init
-        if spread-counter?
-          scope.release-ident spread-counter
-        if inner
-          scope.release-ident array-ident
-        {
-          init
-          ident: array-ident
-          -spread
-        }
-
-      Object: #(object, scope, inner)
-        let object-ident = if inner then scope.reserve-ident get-pos(object), \p, Type.object else scope.reserve-param(get-pos(object))
-        let init = []
-
-        for pair in object.pairs
-          let key = translate(pair.key, scope, \expression)()
-          unless key instanceof ast.Const
-            throw Error "Unexpected non-const object key: $(typeof! key)"
-
-          let value = translate-param pair.value, scope, true
-          if value.ident?
-            scope.add-variable value.ident // TODO: is this needed? Array doesn't seem to use it.
-            init.push ast.Assign key.pos,
-              value.ident
-              ast.Access key.pos, object-ident, key
-            init.push ...value.init
-
-        if inner
-          scope.release-ident object-ident
-
-        {
-          init
-          ident: object-ident
-          -spread
-        }
-      
-      Nothing: #(node, scope, inner)
-        {
-          init: []
-          ident: if inner then null else scope.reserve-param(get-pos(node))
-          -spread
         }
     }
 

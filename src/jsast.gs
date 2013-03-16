@@ -119,7 +119,7 @@ let to-JS-source = do
     boolean: #(value) -> if value then "true" else "false"
     null: #-> "null"
   #(value) as String
-    let f = to-JS-source-types![if value == null then "null" else typeof value]
+    let f = to-JS-source-types![if is-null! value then "null" else typeof value]
     unless f
       throw TypeError "Cannot compile const $(typeof! value)"
     f value
@@ -438,7 +438,7 @@ exports.Binary := class Binary extends Expression
         sb string-left
         if dot-access and string-left.index-of("e") == -1 and string-left.index-of(".") == -1
           sb "."
-    else if left.is-const() and left.const-value() == void
+    else if left.is-const() and is-void! left.const-value()
       sb "("
       (if left instanceof Const then left else Const(@pos, void)).compile options, Level.inside-parentheses, false, sb
       sb ")"
@@ -897,10 +897,10 @@ exports.Const := class Const extends Expression
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     let value = @value
-    if value == void and options.undefined-name?
+    if is-void! value and options.undefined-name?
       sb options.undefined-name
     else
-      let wrap = level >= Level.increment and (value == void or (is-number! value and not is-finite(value)))
+      let wrap = level >= Level.increment and (is-void! value or (is-number! value and not is-finite(value)))
       if wrap
         sb "("
       sb to-JS-source(value)
@@ -1396,7 +1396,7 @@ exports.IfStatement := class IfStatement extends Statement
       this
   
   def exit-type()
-    if @_exit-type == void
+    if is-void! @_exit-type
       let true-exit = @when-true.exit-type()
       let false-exit = @when-false.exit-type()
       @_exit-type := if true-exit == false-exit
@@ -1700,7 +1700,7 @@ exports.Return := class Return extends Statement
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "return"
-    unless @node.is-const() and @node.const-value() == void
+    unless @node.is-const() and is-void! @node.const-value()
       sb " "
       @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
