@@ -835,3 +835,99 @@ test "Method declaration in object", #
   }
   
   eq "g", x.f()
+
+test "Extending an object with get/set", #
+  if not accessor-support
+    return
+  
+  let obj = {value: "hello"}
+  obj <<< {
+    get x: #
+      @value
+    set x: #(value)!
+      @value := value
+  }
+  eq "hello", obj.x
+  obj.x := "there"
+  eq "there", obj.x
+
+test "Extending an object with get", #
+  if not accessor-support
+    return
+  
+  let obj = {value: "hello"}
+  obj <<< {
+    get x: #
+      @value
+  }
+  eq "hello", obj.x
+  obj.value := "there"
+  eq "there", obj.x
+
+test "Extending an object with set", #
+  if not accessor-support
+    return
+
+  let obj = {value: "hello"}
+  obj <<< {
+    set x: #(value)!
+      @value := value
+  }
+  eq "hello", obj.value
+  obj.x := "there"
+  eq "there", obj.value
+
+test "Extending an object with accessor property", #
+  if not accessor-support
+    return
+
+  let obj = {value: "hello"}
+  obj <<< {
+    property x:
+      get: #
+        @value
+      set: #(value)!
+        @value := value
+  }
+  eq "hello", obj.x
+  obj.x := "there"
+  eq "there", obj.x
+
+test "Extending an object with getter property", #
+  if not accessor-support
+    return
+
+  let obj = {value: "hello"}
+  obj <<< {
+    property x:
+      get: #
+        @value
+  }
+  eq "hello", obj.x
+  obj.value := "there"
+  eq "there", obj.x
+
+test "Extending an object with setter property", #
+  if not accessor-support
+    return
+
+  let obj = {value: "hello"}
+  obj <<< {
+    property x:
+      set: #(value)!
+        @value := value
+  }
+  eq "hello", obj.value
+  obj.x := "there"
+  eq "there", obj.value
+
+test "Extending an object with value property", #
+  let obj = {}
+  obj <<< {
+    property x:
+      value: "hello"
+      writable: true
+  }
+  eq "hello", obj.x
+  obj.x := "there"
+  eq "there", obj.x

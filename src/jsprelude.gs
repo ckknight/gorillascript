@@ -3160,11 +3160,33 @@ define operator binary <<< with precedence: 6
     @maybe-cache left, #(set-left, next-left)@
       let mutable current-left = set-left
       let block = []
-      for {key, value, property} in @pairs(right)
-        // TODO: handle property
+      let pairs = @pairs(right)
+      for {key, value, property}, i, len in pairs
         if property?
-          return ASTE __import $left, $right
-        block.push AST $current-left[$key] := $value
+          if property in [\get, \set] and i < len - 1 and pairs[i + 1].property? and @eq(key, pairs[i + 1].key) and pairs[i + 1].property != property and pairs[i + 1].property in [\get, \set]
+            continue
+          
+          if property == \property
+            block.push AST __def-prop $current-left, $key, $value
+          else if property in [\get, \set]
+            let descriptor = if i > 0 and pairs[i - 1].property? and @eq(key, pairs[i - 1].key) and pairs[i - 1].property != property and pairs[i - 1].property in [\get, \set]
+              ASTE {
+                [$(pairs[i - 1].property)]: $(pairs[i - 1].value)
+                [$property]: $value
+                enumerable: true
+                configurable: true
+              }
+            else
+              ASTE {
+                [$property]: $value
+                enumerable: true
+                configurable: true
+              }
+            block.push AST __def-prop $current-left, $key, $descriptor
+          else
+            throw Error "Unknown property: $property"
+        else
+          block.push AST $current-left[$key] := $value
         current-left := next-left
       block.push AST $current-left
       ASTE $block

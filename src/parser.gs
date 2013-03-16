@@ -4666,6 +4666,16 @@ class MacroHelper
     else
       new-node
   
+  def eq(mutable alpha, mutable bravo)
+    alpha := @real alpha
+    bravo := @real bravo
+    if alpha instanceof ConstNode
+      bravo instanceof ConstNode and alpha.value == bravo.value
+    else if alpha instanceof IdentNode
+      bravo instanceof IdentNode and alpha.name == bravo.name
+    else
+      false
+  
   def is-labeled-block(mutable node)
     node := @real(node)
     if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryCatchFinallyNode]
