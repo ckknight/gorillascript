@@ -1764,7 +1764,8 @@ define CloseParenthesis = with-space! character! ")"
 define OpenSquareBracketChar = character! "["
 define OpenSquareBracket = with-space! OpenSquareBracketChar
 define CloseSquareBracket = with-space! character! "]"
-define OpenCurlyBrace = with-space! character! "{"
+define OpenCurlyBraceChar = character! "{"
+define OpenCurlyBrace = with-space! OpenCurlyBraceChar
 define CloseCurlyBrace = with-space! character! "}"
 define Backslash = character! "\\"
 define Comma = with-space! character! ","
@@ -2728,6 +2729,20 @@ namedlet ArrayLiteral = prevent-unclosed-object-literal sequential! [
 ], #(x, o, i)
   o.array i, [...x.first, ...x.rest]
 
+define SetLiteralToken = sequential! [Space, PercentSign, OpenSquareBracketChar]
+namedlet SetLiteral = short-circuit! SetLiteralToken, sequential! [
+  Space
+  PercentSign
+  [\this, ArrayLiteral]
+], #(x, o, i, line)
+  let construct-set = o.macros.get-by-label(\construct-set)
+  if not construct-set
+    throw Error "Cannot use literal set until the construct-set macro has been defined"
+  construct-set.func {
+    op: ""
+    node: x
+  }, o, i, line
+
 namedlet BracketedObjectKey = sequential! [
   OpenSquareBracket
   [\this, ExpressionOrAssignment]
@@ -2950,6 +2965,45 @@ namedlet ObjectLiteral = sequential! [
   CloseCurlyBrace
 ], #(x, o, i)
   o.object i, [...x.first, ...x.rest], if x.prototype != NOTHING then x.prototype
+
+let MapKeyValuePair = DualObjectKey
+
+define MapLiteralToken = sequential! [Space, PercentSign, OpenCurlyBraceChar]
+namedlet MapLiteral = short-circuit! MapLiteralToken, sequential! [
+  MapLiteralToken
+  Space
+  [\first, maybe! (sequential! [
+    [\head, MapKeyValuePair],
+    [\tail, zero-or-more! sequential! [
+      Comma
+      [\this, MapKeyValuePair]
+    ]]
+    MaybeComma
+  ], #(x) -> [x.head, ...x.tail]), #-> []]
+  [\rest, maybe! (sequential! [
+    SomeEmptyLines
+    MaybeAdvance
+    [\this, maybe! (sequential! [
+      CheckIndent
+      [\head, MapKeyValuePair]
+      [\tail, zero-or-more! sequential! [
+        CommaOrNewlineWithCheckIndent
+        [\this, MapKeyValuePair]
+      ]]
+    ], #(x) -> [x.head, ...x.tail]), #-> []]
+    EmptyLines
+    MaybeCommaOrNewline
+    PopIndent
+  ]), #-> []]
+  CloseCurlyBrace
+], #(x, o, i, line)
+  let construct-map = o.macros.get-by-label(\construct-map)
+  if not construct-map
+    throw Error "Cannot use literal map until the construct-map macro has been defined"
+  construct-map.func {
+    op: ""
+    node: o.object i, [...x.first, ...x.rest]
+  }, o, i, line
 
 namedlet Body = sequential! [
   Space
@@ -3828,6 +3882,8 @@ define PrimaryExpression = one-of! [
   Literal
   ArrayLiteral
   ObjectLiteral
+  SetLiteral
+  MapLiteral
   Ast
   Parenthetical
   FunctionLiteral
@@ -4648,6 +4704,7 @@ class MacroHelper
   def debugger() -> @state.debugger(@index)
   def break(label as IdentNode|TmpNode|null) -> @state.break(@index, label)
   def continue(label as IdentNode|TmpNode|null) -> @state.continue(@index, label)
+  def spread(node as Node) -> @state.spread(@index, node)
   
   def real(mutable node)
     node := @macro-expand-1(node)
@@ -4742,6 +4799,12 @@ class MacroHelper
         expanded.const-value()
   def const(value)
     @state.const @index, value
+  
+  def is-spread(node) -> @real(node) instanceof SpreadNode
+  def spread-subnode(mutable node)
+    node := @real(node)
+    if node instanceof SpreadNode
+      node.node
   
   def is-node(node) -> node instanceof Node
   def is-ident(node) -> @real(node) instanceof IdentNode
@@ -4855,6 +4918,14 @@ class MacroHelper
   def elements(mutable node)
     node := @real node
     if @is-array node then node.elements
+  
+  def array-has-spread(mutable node)
+    node := @real node
+    if node instanceof ArrayNode
+      for some element in node.elements
+        @real(element) instanceof SpreadNode
+    else
+      false
   
   def is-object(node) -> @real(node) instanceof ObjectNode
   def pairs(mutable node)

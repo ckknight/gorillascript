@@ -3327,3 +3327,43 @@ define helper Set = if is-function! GLOBAL.Set then GLOBAL.Set else do
     this
   Set.display-name := "Set"
   Set
+
+define operator unary set! with type: \object, label: \construct-set
+  let set = @tmp \s, false, \object
+  if @is-array(node) and not @array-has-spread(node)
+    if @elements(node).length == 0
+      ASTE Set()
+    else
+      let parts = []
+      for element in @elements(node)
+        parts.push AST $set.add $element
+      AST
+        let $set = Set()
+        $parts
+        $set
+  else
+    let item = @tmp \x, false, \any
+    AST
+      let $set = Set()
+      for $item in $node
+        $set.add $item
+      $set
+
+define operator unary map! with type: \object, label: \construct-map
+  if not @is-object(node)
+    throw Error "map! can only be used on literal objects"
+  
+  let pairs = @pairs(node)
+  if pairs.length == 0
+    ASTE Map()
+  else
+    let map = @tmp \m, false, \object
+    let parts = []
+    for {key, value, property} in pairs
+      if property?
+        throw Error "Cannot use map! on an object with custom properties"
+      parts.push AST $map.set $key, $value
+    AST
+      let $map = Map()
+      $parts
+      $map
