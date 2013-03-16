@@ -939,65 +939,14 @@ let translators =
         inner-scope := inner-scope.clone(true)
       let param-idents = []
       let initializers = []
-      let mutable found-spread = -1
-      let mutable spread-counter = void
 
       for p, i, len in node.params
         let param = translate-param p, inner-scope, false
-        unless param.spread
-          if found-spread == -1
-            param-idents.push param.ident
-          else
-            inner-scope.add-variable param.ident, Type.any, param.is-mutable // TODO: figure out param type
-            let diff = i - found-spread - 1
-            initializers.push ast.Assign param.ident.pos,
-              param.ident
-              ast.Access param.ident.pos,
-                ast.Arguments param.ident.pos
-                if diff == 0 then spread-counter else ast.Binary(param.ident.pos, spread-counter, "+", diff)
-        else
-          if found-spread != -1
-            throw Error "Encountered multiple spread parameters"
-          found-spread := i
-          inner-scope.add-helper \__slice
-          inner-scope.add-variable param.ident, Type.array, param.is-mutable // TODO: figure out param type
-          if i == len - 1
-            initializers.push ast.Assign param.ident.pos,
-              param.ident
-              ast.Call param.ident.pos,
-                ast.Access param.ident.pos,
-                  ast.Ident param.ident.pos, \__slice
-                  \call
-                [ast.Arguments(param.ident.pos), ...(if i == 0 then [] else [ast.Const(param.ident.pos, i)])]
-          else
-            spread-counter := inner-scope.reserve-ident param.ident.pos, \ref, Type.number
-            initializers.push ast.Assign param.ident.pos,
-              param.ident
-              ast.IfExpression param.ident.pos,
-                ast.Binary param.ident.pos,
-                  i
-                  "<"
-                  ast.Assign param.ident.pos,
-                    spread-counter
-                    ast.Binary param.ident.pos,
-                      ast.Access param.ident.pos,
-                        ast.Arguments(param.ident.pos)
-                        \length
-                      "-"
-                      len - i - 1
-                ast.Call param.ident.pos,
-                  ast.Access param.ident.pos,
-                    ast.Ident param.ident.pos, \__slice
-                    \call
-                  [ast.Arguments(param.ident.pos), ast.Const(param.ident.pos, i), spread-counter]
-                ast.BlockExpression param.ident.pos,
-                  * ast.Assign param.ident.pos, spread-counter, ast.Const(param.ident.pos, i)
-                  * ast.Arr param.ident.pos
+        if param.spread
+          throw Error "Encountered a spread parameter"
+        param-idents.push param.ident
         initializers.push ...param.init
 
-      if spread-counter
-        inner-scope.release-ident spread-counter
-      
       let unassigned = {}
       let mutable body = if node.generator
         generator-translate(node.body, inner-scope, GeneratorBuilder(get-pos(node), inner-scope)).create()

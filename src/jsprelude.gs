@@ -1752,8 +1752,37 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         @rewrap @param(blank-ident, null, false, false, null), param
     else
       throw Error "Unknown param type: $(typeof! param)"
-  let params = for param in @func-params(node)
-    translate-param(param, false)
+  
+  let mutable found-spread = -1
+  let mutable spread-counter = void
+  let params = []
+  for param, i, len in @func-params(node)
+    let init-index = init.length
+    let p = translate-param(param, false)
+    let ident = @param-ident(p)
+    if @param-is-spread(p)
+      if found-spread != -1
+        throw Error "Cannot have two spread parameters"
+      changed := true
+      found-spread := i
+      if i == len - 1
+        init.splice init-index, 0, AST
+          let $ident = __slice@ arguments, ...(if $i == 0 then [] else [$i])
+      else
+        spread-counter := @tmp \i, false, \number
+        init.splice init-index, 0, AST
+          let mutable $spread-counter = arguments.length - ($len - $i - 1)
+          let $ident = if $spread-counter > $i
+            __slice@ arguments, $i, $spread-counter
+          else
+            $spread-counter := $i
+            []
+    else
+      if found-spread == -1
+        params.push p
+      else
+        init.splice init-index, 0, AST
+          let $ident = arguments[$spread-counter + ($i - $found-spread - 1)]
   
   if init.length or changed
     let mutable body = @func-body(node)
