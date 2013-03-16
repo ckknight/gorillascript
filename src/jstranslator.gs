@@ -14,7 +14,6 @@ class Scope
     @variables := if variables then { extends variables } else {}
     @has-bound := false
     @used-this := false
-    @has-stop-iteration := false
     @id := get-id()
 
   def maybe-cache(item as ast.Expression, type as Type = Type.any, func as (AstNode, AstNode, Boolean) -> AstNode)
@@ -69,7 +68,7 @@ class Scope
   def mark-as-param(ident as ast.Ident)!
     @remove-variable(ident)
 
-  def add-helper(name)!
+  def add-helper(name as String)!
     @helpers[name] := true
   
   def fill-helper-dependencies()!
@@ -96,6 +95,9 @@ class Scope
       k
 
     helpers.sort lower-sorter
+  
+  def has-helper(helper as String)
+    @helpers ownskey helper
 
   def add-variable(ident as ast.Ident, type as Type = Type.any, is-mutable as Boolean)!
     @variables[ident.name] := {
@@ -166,7 +168,7 @@ let HELPERS = new class Helpers
 
 class GeneratorBuilder
   def constructor(@pos as {}, @scope as Scope, states, @current-state = 1, state-ident, pending-finallies-ident, @finallies = [], @catches = [], @current-catch = [])
-    scope.has-stop-iteration := true
+    scope.add-helper \StopIteration
     @states := states ? [
       [#-> ast.Throw pos, ast.Ident pos, \StopIteration]
       []
@@ -766,58 +768,6 @@ let translators =
       Number: \number
       Function: \function
     }
-    let make-type-check-test(ident, type, scope)
-      if primitive-types ownskey type
-        ast.Binary ident.pos,
-          ast.Unary ident.pos, \typeof, ident
-          "!=="
-          primitive-types[type]
-      else if type == \Array
-        scope.add-helper \__is-array
-        ast.Unary ident.pos,
-          "!"
-          ast.Call ident.pos,
-            ast.Ident ident.pos, \__is-array
-            [ident]
-      else if type == \Object
-        scope.add-helper \__is-object
-        ast.Unary ident.pos,
-          "!"
-          ast.Call ident.pos,
-            ast.Ident ident.pos, \__is-object
-            [ident]
-      else
-        ast.Unary ident.pos,
-          "!"
-          ast.Binary ident.pos,
-            ident
-            \instanceof
-            ast.Ident ident.pos, type
-    let article(word)
-      if r"^[aeiou]"i.test(word)
-        "an"
-      else
-        "a"
-    let with-article(word)
-      "$(article word) $word"
-    let build-access-string-node(accesses)
-      if accesses.length == 0
-        []
-      else if accesses[0] instanceof ast.Const
-        [
-          if is-string! accesses[0].value and ast.is-acceptable-ident(accesses[0].value)
-            ".$(accesses[0].value)"
-          else
-            "[$(JSON.stringify accesses[0].value)]"
-          ...build-access-string-node(accesses[1 to -1])
-        ]
-      else
-        [
-          "["
-          accesses[0]
-          "]"
-          ...build-access-string-node(accesses[1 to -1])
-        ]
     let translate-type-checks =
       Ident: #(node)
         if primitive-types ownskey node.name
@@ -971,10 +921,6 @@ let translators =
             body := ast.Block get-pos(node.body),
               * ast.Assign get-pos(node.body), fake-this, ast.This(get-pos(node.body))
               * body
-      if inner-scope.has-stop-iteration
-        scope.has-stop-iteration := true
-      if inner-scope.has-global
-        scope.has-global := true
       let func = ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
       auto-return if node.curry
         scope.add-helper \__curry
@@ -986,12 +932,7 @@ let translators =
 
   Ident: #(node, scope, location, auto-return)
     let name = node.name
-    if name.length > 2 and name.charCodeAt(0) == "_".charCodeAt(0) and name.charCodeAt(1) == "_".charCodeAt(0)
-      scope.add-helper name
-    if name == \StopIteration
-      scope.has-stop-iteration := true
-    if name == \GLOBAL
-      scope.has-global := true
+    scope.add-helper name
     #-> auto-return ast.Ident get-pos(node), name
 
   If: #(node, scope, location, auto-return, unassigned)
@@ -1263,20 +1204,6 @@ let translate-root(mutable roots as Object, scope as Scope)
             ast.Func root-pos, null, [], inner-scope.get-variables(), root-body
         ]
   
-  let global-node = ast.If body.pos,
-    ast.Binary body.pos,
-      ast.Unary body.pos, \typeof, ast.Ident body.pos, \window
-      "!=="
-      \undefined
-    ast.Ident body.pos, \window
-    ast.If body.pos,
-      ast.Binary body.pos,
-        ast.Unary body.pos, \typeof, ast.Ident body.pos, \global
-        "!=="
-        \undefined
-      ast.Ident body.pos, \global
-      ast.This body.pos
-  
   let init = []
   if scope.has-bound and scope.used-this
     let fake-this = ast.Ident body.pos, \_this
@@ -1285,39 +1212,17 @@ let translate-root(mutable roots as Object, scope as Scope)
   
   scope.fill-helper-dependencies()
   for helper in scope.get-helpers()
-    if HELPERS.has(helper)
+    if helper != \GLOBAL and HELPERS.has(helper)
       let ident = ast.Ident body.pos, helper
       scope.add-variable ident // TODO: type?
       init.push ast.Assign body.pos, ident, HELPERS.get(helper)
   
   let bare-init = []
-  if scope.has-stop-iteration
-    // This probably needs to be redone to check StopIteration on the global object (whichever that is), so that cross-file generators work properly.
-    bare-init.push ast.If body.pos,
-      ast.Binary body.pos,
-        ast.Unary body.pos, \typeof, ast.Ident body.pos, \StopIteration
-        "==="
-        \undefined
-      ast.Assign body.pos,
-        ast.Ident body.pos, \StopIteration
-        ast.If body.pos,
-          ast.Binary body.pos,
-            ast.Unary body.pos, \typeof, ast.Access body.pos,
-              ast.Ident body.pos, \Object
-              \freeze
-            "==="
-            \function
-          ast.Call body.pos,
-            ast.Access body.pos,
-              ast.Ident body.pos, \Object
-              \freeze
-            [ast.Obj body.pos]
-          ast.Obj body.pos
   
   if scope.options.eval
-    scope.has-global := true
     let walker = #(node)
       if node instanceof ast.Func
+        scope.add-helper \GLOBAL
         if node.name?
           ast.Block node.pos,
             * node
@@ -1329,6 +1234,7 @@ let translate-root(mutable roots as Object, scope as Scope)
         else
           node
       else if node instanceof ast.Binary and node.op == "=" and node.left instanceof ast.Ident
+        scope.add-helper \GLOBAL
         ast.Assign node.pos,
           ast.Access node.pos,
             ast.Ident node.pos, \GLOBAL
@@ -1336,6 +1242,7 @@ let translate-root(mutable roots as Object, scope as Scope)
           node.walk walker
     body := body.walk walker
     body := body.mutate-last (#(node)
+      scope.add-helper \GLOBAL
       ast.Assign node.pos,
         ast.Access node.pos,
           ast.Ident node.pos, \GLOBAL
@@ -1343,11 +1250,11 @@ let translate-root(mutable roots as Object, scope as Scope)
         node), { return: true }
   
   if scope.options.bare
-    if scope.has-global
+    if scope.has-helper(\GLOBAL)
       scope.add-variable ast.Ident body.pos, \GLOBAL
       bare-init.unshift ast.Assign body.pos,
         ast.Ident body.pos, \GLOBAL
-        global-node
+        HELPERS.get(\GLOBAL)
     if scope.options.undefined-name?
       scope.add-variable scope.options.undefined-name
     
@@ -1363,7 +1270,7 @@ let translate-root(mutable roots as Object, scope as Scope)
         ast.Func body.pos,
           null
           [
-            ...if scope.has-global
+            ...if scope.has-helper(\GLOBAL)
               [ast.Ident body.pos, \GLOBAL]
             else
               []
@@ -1378,8 +1285,8 @@ let translate-root(mutable roots as Object, scope as Scope)
         \call
       [
         ast.This(body.pos)
-        ...if scope.has-global
-          [global-node]
+        ...if scope.has-helper(\GLOBAL)
+          [HELPERS.get(\GLOBAL)]
         else
           []
       ]

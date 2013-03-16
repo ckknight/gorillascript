@@ -129,6 +129,8 @@ define operator unary is-array! with type: \boolean
 define operator unary is-object! with type: \boolean
   @mutate-last node or @noop(), (#(n)@ -> ASTE typeof $n == \object and $n != null), true
 
+define helper GLOBAL = if not is-void! window then window else if not is-void! global then global else this
+
 define helper __xor = #(x, y)
   if x
     if y
@@ -1941,7 +1943,11 @@ macro try
       $init
       $current
 
-
+define helper StopIteration = if GLOBAL.StopIteration?
+  GLOBAL.StopIteration
+else
+  __freeze {}
+  
 macro for
   syntax reducer as (\every | \some | \first | \filter)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     let init = []
