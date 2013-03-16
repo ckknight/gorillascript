@@ -3201,3 +3201,129 @@ define operator binary >>> with precedence: 6, right-to-left: true
       $right <<< $tmp
   else
     ASTE $right <<< $left
+
+define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else do
+  let WeakMap()
+    if this not instanceof WeakMap
+      return WeakMap@ { extends WeakMap.prototype }, ...arguments
+    let keys = []
+    let values = []
+    
+    @get := #(key, fallback)
+      if Object(key) != key
+        throw TypeError "Invalid value used as weak map key"
+      let index = keys.index-of key
+      if index == -1
+        fallback
+      else
+        values[index]
+    @has := #(key)
+      if Object(key) != key
+        throw TypeError "Invalid value used as weak map key"
+      keys.index-of(key) != -1
+    @set := #(key, value)!
+      if Object(key) != key
+        throw TypeError "Invalid value used as weak map key"
+      let mutable index = keys.index-of key
+      if index == -1
+        index := keys.length
+        keys[index] := key
+      values[index] := value
+    @delete := #(key)!
+      if Object(key) != key
+        throw TypeError "Invalid value used as weak map key"
+      let mutable index = keys.index-of key
+      if index != -1
+        keys.splice index, 1
+        values.splice index, 1
+    this
+  WeakMap.display-name := "WeakMap"
+  WeakMap
+
+define helper __index-of-identical = #(array, item)
+  if typeof item == \number
+    if item is NaN
+      for check, i in array by -1
+        if check is NaN
+          return i
+      return -1
+    else if item == 0
+      let inf = 1 ~/ item
+      for check, i in array by -1
+        if check == 0 and 1 ~/ check == inf
+          return i
+      return -1
+  array.index-of item
+
+define helper Map = if is-function! GLOBAL.Map then GLOBAL.Map else do
+  let Map(iterable)
+    if this not instanceof Map
+      return Map@ { extends Map.prototype }, ...arguments
+    let keys = []
+    let values = []
+    @get := #(key, fallback)
+      let index = __index-of-identical(keys, key)
+      if index == -1
+        fallback
+      else
+        values[index]
+    @has := #(key)
+      __index-of-identical(keys, key) != -1
+    @set := #(key, value)!
+      let mutable index = __index-of-identical(keys, key)
+      if index == -1
+        index := keys.length
+        keys[index] := key
+      values[index] := value
+    @delete := #(key)!
+      let index = __index-of-identical(keys, key)
+      if index != -1
+        keys.splice index, 1
+        values.splice index, 1
+    @keys := #()*
+      for key in keys
+        yield key
+    @values := #()*
+      for value in values
+        yield value
+    @items := @iterator := #()*
+      for key, i in keys by -1
+        yield [key, values[i]]
+    if iterable?
+      if is-array! iterable
+        for x in iterable
+          @set x[0], x[1]
+      else
+        for x from iterable
+          @set x[0], x[1]
+    this
+  Map.display-name := "Map"
+  Map
+
+define helper Set = if is-function! GLOBAL.Set then GLOBAL.Set else do
+  let Set(iterable)
+    if this not instanceof Set
+      return Set@ { extends Set.prototype }, ...arguments
+    let items = []
+    @has := #(item)
+      __index-of-identical(items, item) != -1
+    @add := #(item)!
+      if __index-of-identical(items, item) == -1
+        items.push item
+    @delete := #(item)!
+      let index = __index-of-identical(items, item)
+      if index != -1
+        items.splice index, 1
+    @values := @iterator := #()*
+      for item in items by -1
+        yield item
+    if iterable?
+      if is-array! iterable
+        for item in iterable
+          @add item
+      else
+        for item from iterable
+          @add item
+    this
+  Set.display-name := "Set"
+  Set
