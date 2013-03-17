@@ -115,7 +115,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
   async! cb, filename-path <- fs.realpath __filename
   let lib-path = path.join(path.dirname(filename-path), "lib")
   let parts = []
-  asyncfor next, file in ["utils", "types", "ast", "parser", "translator", "gorilla", "browser"]
+  asyncfor next, file in ["utils", "types", "jsast", "parser", "jstranslator", "gorilla", "browser"]
     async! cb, text <- fs.read-file path.join(lib-path, file & ".js"), "utf8"
     parts.push """
       require['./$file'] = (function () {
