@@ -57,6 +57,7 @@
       <li><a href="#labels">Labels and <code>break</code>/<code>continue</code></a>
       <li><a href="#global">The <code>GLOBAL</code> identifier</a>
       <li><a href="#curry">Curried functions</a>
+      <li><a href="#generic">Generics</a>
       <li><a href="#gnome">GNOME bindings</a>
     </ul>
   </nav>
@@ -1354,6 +1355,40 @@ let items-by-id = sort-by-id items
 </code></pre>
     
     <p>It is not recommended to use currying with default arguments (e.g. <code>#(x = 0)^</code>) or spread arguments (e.g. <code>#(...args)</code>), since the curry helper checks a function's <code>.length</code> to determine how many arguments before calling the actual function, and it may be non-obvious.</p>
+  </section>
+  
+  <section id="generic">
+    <h2>Generics</h2>
+    
+    <p>GorillaScript supports reified generic classes, which are similar to .NET's generics or C++'s templates.</p>
+    
+    <p>If a function is called with generic arguments, it is converted as so:</p>
+    
+    <pre class="gs-code"><code>func&lt;String&gt;("hello")
+// turns into
+func.generic(String)("hello")
+</code></pre>
+
+    <p>How the function handles the <code>.generic</code> call can vary, but GorillaScript's classes handle it elegantly:</p>
+    
+    <pre class="gs-code"><code>class MyClass&lt;T&gt;
+  def constructor(@value as T) ->
+  
+  def get-value() as T
+    @value
+
+let wrapped-string = MyClass&lt;String&gt;("hello")
+let wrapped-number = MyClass&lt;Number&gt;(1234)
+let wrapped-any = MyClass({})
+</code></pre>
+
+    <p>In the previous case, <code>MyClass&lt;String&gt;</code>, <code>MyClass&lt;Number&gt;</code>, and <code>MyClass</code> (same as <code>MyClass&lt;null&gt;</code>) all refer to three independent classes which have different semantics.</p>
+    
+    <p>You may be wondering about <code>MyClass&lt;null&gt;</code>, but it simply refers to absolutely any type being accepted, whether it's a <code>String</code>, <code>Object</code>, <code>void</code>, or some custom object.</p>
+    
+    <p>Type-checking works as expected and <code>T</code> (or whatever type you call it) is available at runtime to refer to the bound generic type.</p>
+    
+    <p>It is recommended that you name your generic argument <code>T</code> or have it start with the letter <code>T</code>, as in <code>TKey</code> or <code>TResult</code>.</p>
   </section>
   
   <section id="gnome">
