@@ -2155,7 +2155,9 @@ define helper __instanceofsome = #(value, array) as Boolean
     value instanceof item
 
 define helper __make-instanceof = #(ctor) as (-> Boolean)
-  if ctor == String
+  if not ctor?
+    #-> true
+  else if ctor == String
     (is-string!)
   else if ctor == Number
     (is-number!)
@@ -2845,6 +2847,7 @@ macro class
           $result
       let make-class-func = @func(generic-params, result, true, false)
       let generic-array = @array generic-args
+      let fake-void-ident = @tmp \any, false, \object
       let get-generic-body = do
         let blargh(current-cache, index)@
           if index == generic-args.length
@@ -2856,18 +2859,23 @@ macro class
             ASTE WeakMap()
           let cached-ident = @tmp \c, false, \function
           AST
-            let mutable $cached-ident = $current-cache.get($generic-arg)
+            let mutable $cached-ident = $current-cache.get($generic-arg ? $fake-void-ident)
             if not $cached-ident?
-              $current-cache.set $generic-arg, ($cached-ident := $next-item)
+              $current-cache.set ($generic-arg ? $fake-void-ident), ($cached-ident := $next-item)
             $(blargh cached-ident, index + 1)
         blargh(generic-cache, 0)
       let get-generic-func = @func(generic-params, get-generic-body, true, false)
+      let generic-ident = @tmp \generic, false, \function
+      let result-ident = @tmp \result, false, \function
       result := AST do
-        let $make-class-ident = $make-class-func
-        let $generic-cache = WeakMap()
-        {
-          generic: $get-generic-func
-        }
+        let $generic-ident = do
+          let $make-class-ident = $make-class-func
+          let $generic-cache = WeakMap()
+          let $fake-void-ident = {}
+          $get-generic-func
+        let $result-ident = $generic-ident()
+        $result-ident.generic := $generic-ident
+        $result-ident
     
     if declaration?
       AST let $declaration = $result

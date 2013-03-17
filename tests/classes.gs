@@ -651,21 +651,26 @@ test "Class with a curried constructor", #
 
 test "Generic class", #
   class Class<T>
-    def constructor(@value)
-      if value not instanceof T
-        throw TypeError("Expected $value to be a T, got " & typeof! value)
+    def constructor(@value as T) ->
 
   let x = {Class}
-
-  // trying to construct the base class doesn't work
-  throws #-> Class()
-  throws #-> x.Class()
   
   ok Class<String>("hello") instanceof Class<String>
+  ok Class<String>("hello") not instanceof Class // they're two separate classes
   ok x.Class<String>("hello") instanceof x.Class<String>
   ok new Class<String>("hello") instanceof Class<String>
   ok new x.Class<String>("hello") instanceof x.Class<String>
   eq "hello", Class<String>("hello").value
+  
+  ok Class("hello") instanceof Class
+  ok Class("hello") not instanceof Class<String> // no guarantee there
+  ok Class(1234) instanceof Class
+  ok Class({}) instanceof Class
+  eq "hello", Class("hello").value
+  eq 1234, Class(1234).value
+  eq x, Class(x).value
+  eq Class, Class<null>
+  eq Class, Class<void>
 
 test "Generic class extending normal class", #
   class Base
@@ -721,3 +726,76 @@ test "Normal class extending generic class", #
   throws #-> x.bravo("hello")
   eq "Child.charlie(1234)", x.charlie(1234)
   throws #-> x.charlie("hello")
+
+test "Generic class with two arguments", #
+  class Dict<TKey, TValue>
+    def constructor()
+      @keys := []
+      @values := []
+    
+    def get(key as TKey, fallback as TValue|void) as TValue|void
+      let index = @keys.index-of key
+      if index == -1
+        fallback
+      else
+        @values[index]
+    
+    def set(key as TKey, value as TValue)!
+      let keys = @keys
+      let mutable index = keys.index-of key
+      if index == -1
+        index := keys.length
+        keys[index] := key
+      @values[index] := value
+    
+    def has(key as TKey) as Boolean
+      @keys.index-of(key) != -1
+    
+    def delete(key as TKey) as Boolean
+      let keys = @keys
+      let index = keys.index-of key
+      if index == -1
+        false
+      else
+        @keys.splice index, 1
+        @values.splice index, 1
+        true
+  
+  let number-to-string = Dict<Number, String>()
+  eq void, number-to-string.get(10)
+  throws #-> number-to-string.get("hello")
+  throws #-> number-to-string.get(10, true)
+  number-to-string.set(1, "one")
+  number-to-string.set(2, "two")
+  number-to-string.set(3, "three")
+  throws #-> number-to-string.set(4, false)
+  eq "one", number-to-string.get(1)
+  eq "two", number-to-string.get(2)
+  eq "three", number-to-string.get(3)
+  eq "unknown", number-to-string.get(4, "unknown")
+  ok number-to-string.has(1)
+  ok not number-to-string.has(10)
+  throws #-> number-to-string.has(true)
+  ok number-to-string.delete(1)
+  throws #-> number-to-string.delete(true)
+  ok not number-to-string.has(1)
+  ok not number-to-string.delete(1)
+  
+  let boolean-to-any = Dict<Boolean, null>()
+  boolean-to-any.set(true, "yes")
+  boolean-to-any.set(false, 0)
+  eq "yes", boolean-to-any.get(true)
+  eq 0, boolean-to-any.get(false)
+  boolean-to-any.set(true, number-to-string)
+  eq number-to-string, boolean-to-any.get(true)
+
+test "Generic class with generic class as arg", #
+  class Class<T>
+    def constructor(@value as T) ->
+  
+  let x = Class<String>("hello")
+  eq "hello", x.value
+  let y = Class<Class<String>>(x)
+  eq x, y.value
+  let z = Class(y)
+  eq y, z.value
