@@ -650,8 +650,6 @@ test "Class with a curried constructor", #
   eq 4, g(4).c
 
 test "Generic class", #
-  if not GLOBAL.WeakMap?
-    return
   class Class<T>
     def constructor(@value)
       if value not instanceof T
@@ -668,3 +666,58 @@ test "Generic class", #
   ok new Class<String>("hello") instanceof Class<String>
   ok new x.Class<String>("hello") instanceof x.Class<String>
   eq "hello", Class<String>("hello").value
+
+test "Generic class extending normal class", #
+  class Base
+    def alpha() -> "Base.alpha()"
+    def bravo() -> "Base.bravo()"
+  
+  class Child<T> extends Base
+    def bravo() -> "Child.bravo(), not $(super.bravo())"
+    def charlie(value as T) -> "Child.charlie($(String value))"
+  
+  let x = Child<Number>()
+  ok x instanceof Base
+  ok x instanceof Child<Number>
+  eq "Base.alpha()", x.alpha()
+  eq "Child.bravo(), not Base.bravo()", x.bravo()
+  eq "Child.charlie(1234)", x.charlie(1234)
+  throws #-> x.charlie("hello")
+
+test "Generic class extending generic class", #
+  class Base<T>
+    def alpha(value as T) -> "Base.alpha($(String value))"
+    def bravo(value as T) -> "Base.bravo($(String value))"
+  
+  class Child<T> extends Base<T>
+    def bravo(value as T) -> "Child.bravo($(String value)), not $(super.bravo value)"
+    def charlie(value as T) -> "Child.charlie($(String value))"
+  
+  let x = Child<Number>()
+  ok x instanceof Base<Number>
+  ok x instanceof Child<Number>
+  eq "Base.alpha(1234)", x.alpha(1234)
+  throws #-> x.alpha("hello")
+  eq "Child.bravo(1234), not Base.bravo(1234)", x.bravo(1234)
+  throws #-> x.bravo("hello")
+  eq "Child.charlie(1234)", x.charlie(1234)
+  throws #-> x.charlie("hello")
+
+test "Normal class extending generic class", #
+  class Base<T>
+    def alpha(value as T) -> "Base.alpha($(String value))"
+    def bravo(value as T) -> "Base.bravo($(String value))"
+  
+  class Child extends Base<Number>
+    def bravo(value as Number) -> "Child.bravo($(String value)), not $(super.bravo value)"
+    def charlie(value as Number) -> "Child.charlie($(String value))"
+  
+  let x = Child()
+  ok x instanceof Base<Number>
+  ok x instanceof Child
+  eq "Base.alpha(1234)", x.alpha(1234)
+  throws #-> x.alpha("hello")
+  eq "Child.bravo(1234), not Base.bravo(1234)", x.bravo(1234)
+  throws #-> x.bravo("hello")
+  eq "Child.charlie(1234)", x.charlie(1234)
+  throws #-> x.charlie("hello")
