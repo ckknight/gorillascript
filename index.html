@@ -31,6 +31,7 @@
       <li><a href="#numbers">Nicer number syntax</a>
       <li><a href="#strings">Some new string syntaxes</a>
       <li><a href="#objects-and-arrays">Nicer syntaxes for objects and arrays</a>
+      <li><a href="#maps-and-sets">First-class support for Maps and Sets</a>
       <li><a href="#unless">Unless statement</a>
       <li><a href="#loops">Loops</a>
       <li><a href="#lexical-scope">Lexical scoping in loops</a>
@@ -506,6 +507,45 @@ let child = { extends parent
 }
 assert child.hello == \there
 assert child.value == 1
+</code></pre>
+  </section>
+  
+  <section id="maps-and-sets">
+    <h2>First-class support for Maps and Sets</h2>
+    
+    <p><code>Map</code> and <code>Set</code> are available in the upcoming ECMAScript 6 and in some existing JavaScript engines. There are also shims to provide support in engines that do not support it out-of-the-box.</p>
+    
+    <p>GorillaScript will automatically provide a shim if used, but it is recommended to use either a native implementation or a more-efficient shim.</p>
+    
+    <p><code>Map</code> is similar to <code>Object</code>, except its keys are not required to be <code>String</code>s, but can be any type. Also, access and assignment is done through method calls rather than raw dot-access.</p>
+    
+    <p><code>Set</code> is a collection of unique values, similar to a <code>Map</code> where all values are <code>true</code>.</p>
+    
+    <p>GorillaScript has syntax for declaring both of these as literals, just as one can do with <code>Array</code>s or <code>Object</code>s.</p>
+    
+    <pre class="gs-code"><code>let obj = {}
+let other = {}
+let map = %{
+  [obj]: 1
+  [other]: "hello"
+}
+assert map.get(obj) == 1
+assert map.get(other) == "hello"
+map.delete other
+assert map.has obj
+assert not map.has other
+map.set other, "there"
+assert map.has other
+assert map.get(other) == "there"
+
+let set = %[obj, other]
+assert set.has(obj)
+assert set.has(other)
+set.delete(other)
+assert not set.has(other)
+set.add other
+assert set.has(other)
+set.add other // does nothing, already in the set.
 </code></pre>
   </section>
 
