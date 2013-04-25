@@ -1400,7 +1400,7 @@ let items-by-id = sort-by-id items
   <section id="generic">
     <h2>Generics</h2>
     
-    <p>GorillaScript supports reified generic classes, which are similar to .NET's generics or C++'s templates.</p>
+    <p>GorillaScript supports reified generic classes and functions, which are similar to .NET's generics or C++'s templates.</p>
     
     <p>If a function is called with generic arguments, it is converted as so:</p>
     
@@ -1427,6 +1427,16 @@ let wrapped-any = MyClass({})
     <p>You may be wondering about <code>MyClass&lt;null&gt;</code>, but it simply refers to absolutely any type being accepted, whether it's a <code>String</code>, <code>Object</code>, <code>void</code>, or some custom object.</p>
     
     <p>Type-checking works as expected and <code>T</code> (or whatever type you call it) is available at runtime to refer to the bound generic type.</p>
+    
+    <p>Here is an example of a simple function (rather than a class) with generic arguments:</p>
+    
+    <pre class="gs-code"><code>let func&lt;T&gt;(value as T) -> value
+
+assert func&lt;String&gt;("hello") == "hello"
+assert func&lt;Number&gt;(1234) == 1234
+assert func(true) == true // no type specified, so any type is allowed
+assert func(null) == null
+</code></pre>
     
     <p>It is recommended that you name your generic argument <code>T</code> or have it start with the letter <code>T</code>, as in <code>TKey</code> or <code>TResult</code>.</p>
   </section>

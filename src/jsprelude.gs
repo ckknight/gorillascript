@@ -1576,6 +1576,24 @@ macro for
       $loop
       $current
 
+define helper __generic-func = #(num-args as Number, make as ->)
+  let cache = WeakMap()
+  let any = {}
+  let generic = #
+    for reduce i in num-args to 0 by -1, current = cache
+      let type = arguments[i] ? any
+      let mutable item = current.get(type)
+      if not item?
+        item := if i == 0
+          make@ this, ...arguments
+        else
+          WeakMap()
+        current.set type, item
+      item
+  let result = generic()
+  result.generic := generic
+  result
+
 define operator unary mutate-function! with type: \node, label: \mutate-function
   let article(text)
     if r"^[aeiou]"i.test(text)
@@ -1851,36 +1869,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         $instanceof-lets
         $result
     let make-function-func = @func(generic-params, result, true, false)
-    let generic-array = @array generic-args
-    let fake-void-ident = @tmp \any, false, \object
-    let get-generic-body = do
-      let blargh(current-cache, index)@
-        if index == generic-args.length
-          return current-cache
-        let generic-arg = generic-args[index]
-        let next-item = if index == generic-args.length - 1
-          ASTE $make-function-ident(...$generic-array)
-        else
-          ASTE WeakMap()
-        let cached-ident = @tmp \c, false, \function
-        AST
-          let mutable $cached-ident = $current-cache.get($generic-arg ? $fake-void-ident)
-          if not $cached-ident?
-            $current-cache.set ($generic-arg ? $fake-void-ident), ($cached-ident := $next-item)
-          $(blargh cached-ident, index + 1)
-      blargh(generic-cache, 0)
-    let get-generic-func = @func(generic-params, get-generic-body, true, false)
-    let generic-ident = @tmp \generic, false, \function
-    let result-ident = @tmp \result, false, \function
-    result := AST do
-      let $generic-ident = do
-        let $make-function-ident = $make-function-func
-        let $generic-cache = WeakMap()
-        let $fake-void-ident = {}
-        $get-generic-func
-      let $result-ident = $generic-ident()
-      $result-ident.generic := $generic-ident
-      $result-ident
+    result := AST __generic-func $(generic-args.length), $make-function-func
   result
 
 define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean) as [Number]
@@ -2788,7 +2777,7 @@ macro class
         for generic-arg, i in generic-args
           if i > 0
             parts.push @const(", ")
-          parts.push ASTE if $generic-arg? then __name $generic-arg else ""
+          parts.push ASTE if $generic-arg !~= null then __name $generic-arg else ""
         parts.push @const(">")
         display-name := @binary-chain "+", parts
       init.push ASTE $name.display-name := $display-name
@@ -2950,36 +2939,7 @@ macro class
           $instanceof-lets
           $result
       let make-class-func = @func(generic-params, result, true, false)
-      let generic-array = @array generic-args
-      let fake-void-ident = @tmp \any, false, \object
-      let get-generic-body = do
-        let blargh(current-cache, index)@
-          if index == generic-args.length
-            return current-cache
-          let generic-arg = generic-args[index]
-          let next-item = if index == generic-args.length - 1
-            ASTE $make-class-ident(...$generic-array)
-          else
-            ASTE WeakMap()
-          let cached-ident = @tmp \c, false, \function
-          AST
-            let mutable $cached-ident = $current-cache.get($generic-arg ? $fake-void-ident)
-            if not $cached-ident?
-              $current-cache.set ($generic-arg ? $fake-void-ident), ($cached-ident := $next-item)
-            $(blargh cached-ident, index + 1)
-        blargh(generic-cache, 0)
-      let get-generic-func = @func(generic-params, get-generic-body, true, false)
-      let generic-ident = @tmp \generic, false, \function
-      let result-ident = @tmp \result, false, \function
-      result := AST do
-        let $generic-ident = do
-          let $make-class-ident = $make-class-func
-          let $generic-cache = WeakMap()
-          let $fake-void-ident = {}
-          $get-generic-func
-        let $result-ident = $generic-ident()
-        $result-ident.generic := $generic-ident
-        $result-ident
+      result := AST __generic-func $(generic-args.length), $make-class-func
     
     if declaration?
       AST let $declaration = $result
