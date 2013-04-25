@@ -3377,6 +3377,9 @@ namedlet FunctionDeclaration = do
     let index = o.index
     let line = o.line
     let clone = o.clone(o.clone-scope())
+    let generic = GenericDefinitionPart clone
+    if not generic
+      return false
     let params = params-rule clone
     if not params
       return false
@@ -3392,7 +3395,7 @@ namedlet FunctionDeclaration = do
     if not body
       return false
     o.update clone
-    let func = o.function index, params, body, flags.auto-return, flags.bound, flags.curry, if as-type != NOTHING then as-type, flags.generator
+    let func = o.function index, params, body, flags.auto-return, flags.bound, flags.curry, if as-type != NOTHING then as-type, flags.generator, generic
     let mutate-function-macro = o.macros.get-by-label(\mutate-function)
     if not mutate-function-macro
       func
@@ -3963,12 +3966,22 @@ namedlet UnclosedArguments = sequential! [
 
 define InvocationArguments = one-of! [ClosedArguments, UnclosedArguments]
 
-define GenericPart = maybe! (short-circuit! LessThanSign, sequential! [
+define GenericPart = maybe! (sequential! [
   LessThanSign
   [\head, BasicInvocationOrAccess]
   [\tail, zero-or-more! sequential! [
     Comma
     [\this, BasicInvocationOrAccess]
+  ]]
+  character! ">"
+], #(x) -> [x.head, ...x.tail]), #-> []
+
+define GenericDefinitionPart = maybe! (sequential! [
+  LessThanSign
+  [\head, Identifier]
+  [\tail, zero-or-more! sequential! [
+    Comma
+    [\this, Identifier]
   ]]
   character! ">"
 ], #(x) -> [x.head, ...x.tail]), #-> []
@@ -4863,13 +4876,13 @@ class MacroHelper
     
     CallNode(func.line, func.column, @state.scope.id, @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new, is-apply).reduce(@state)
   
-  def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean)
+  def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
     let clone = @state.clone(@state.clone-scope())
     params := for param in params
       let p = param.rescope(clone.scope.id, clone)
       add-param-to-scope clone, p
       p
-    FunctionNode(body.line, body.column, @state.scope.id, params, body.rescope(clone.scope.id, clone), auto-return, bound, curry, as-type, generator).reduce(@state)
+    FunctionNode(body.line, body.column, @state.scope.id, params, body.rescope(clone.scope.id, clone), auto-return, bound, curry, as-type, generator, generic).reduce(@state)
   
   def is-func(node) -> @real(node) instanceof FunctionNode
   def func-body(mutable node)
@@ -4893,6 +4906,12 @@ class MacroHelper
   def func-is-generator(mutable node)
     node := @real node
     if @is-func node then not not node.generator
+  def func-generic(mutable node)
+    node := @real node
+    if @is-func node
+      node.generic.slice()
+    else
+      []
   
   def param(ident as Node, default-value, spread, is-mutable, as-type)
     ParamNode(ident.line, ident.column, ident.scope-id, ident, default-value, spread, is-mutable, as-type).reduce(@state)
@@ -7325,7 +7344,7 @@ node-class ForInNode(key as Node, object as Node, body as Node, label as IdentNo
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
     ForInNode @line, @column, @scope-id, @key, @object, @body, label
-node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean)
+node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
   def type(o) -> @_type ?= do
     // TODO: handle generator types
     if @as-type?

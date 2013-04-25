@@ -5,6 +5,7 @@ let {exec} = require 'child_process'
 let {string-repeat, pad-left, pad-right} = require './lib/utils'
 
 option \uglify, "u", "Use UglifyJS2 to minify the result"
+option \minify, null, "Minimize the use of unnecessary whitespace"
 option \file, "f", "Build a specific file", "file"
 option \prefix, null, "Path to install to (/usr/local by default)"
 //option \js, null, "Compile to JavaScript (default)"
@@ -181,6 +182,9 @@ command \test, "Run the GorillaScript test suite", #(options, cb)
         return cb "Cannot build unknown file: $file"
     files := for filter file in files
       file in file-filter
+  else
+    files := for filter file in files
+      path.extname(file) == ".gs"
   
   if files.length == 0
     return cb("No files to test")

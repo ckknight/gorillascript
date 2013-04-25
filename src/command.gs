@@ -25,10 +25,12 @@ let parse-options =
   stdin:        ["s", "Listen for and compile GorillaScript from stdin"]
   eval:         ["e", "Compile and run a string from command line", "string"]
   uglify:       ["u", "Uglify compiled code with UglifyJS2"]
+  minify:       [false, "Minimize the use of unnecessary whitespace"]
   sourcemap:    ["m", "Build a SourceMap", "file"]
   join:         ["j", "Join all the generated JavaScript into a single file"]
   "no-prelude": [false, "Do not include the standard prelude"]
   //js:           [false, "Compile to JavaScript (default)"]
+  watch:        ["w", "Watch for changes and compile as-needed"]
 
 if has-gjs
   parse-options <<<
@@ -44,13 +46,14 @@ let opts = {}
 if options.uglify
   opts.undefined-name := \undefined
   opts.uglify := true
+if options.minify
+  opts.minify := true
 
 asyncif next, options["no-prelude"]
   opts.no-prelude := true
   next()
 else
-  async err <- gorilla.init { lang }
-  throw? err
+  async! throw <- gorilla.init { lang }
   next()
 
 if options.stdout
@@ -108,7 +111,18 @@ else if options.interactive and filenames.length
   console.error "Cannot specify --interactive and filenames"
 else if options.stdin
   cli.with-stdin handle-code
+else if options.watch and not filenames.length
+  console.error "Cannot specify --watch without filenames"
+else if options.watch and not options.compile
+  console.error "Must specify --compile if specifying --watch"
+else if options.watch and options.join
+  console.error "TODO: Cannot specify --watch and --join"
+else if options.watch and options.sourcemap
+  console.error "TODO: Cannot specify --watch and --sourcemap"
 else if filenames.length
+  let sourcemap = if options.sourcemap then require("./sourcemap")(options.output, ".")
+  opts.sourcemap := sourcemap
+  
   let input = {}
   asyncfor(0) err <- next, filename in filenames
     async! next, code <- fs.read-file filename
@@ -116,72 +130,104 @@ else if filenames.length
     next()
   throw? err
   
-  let sourcemap = if options.sourcemap then require("./sourcemap")(options.output, ".")
-  opts.sourcemap := sourcemap
-  
   let compiled = {}
+  let handle-single(filename, code, done as ->)
+    opts.filename := filename
+    if options.compile
+      process.stdout.write "Compiling $(path.basename filename) ... "
+      let start-time = Date.now()
+      async! done, compilation <- gorilla.compile code, opts
+      let end-time = Date.now()
+      process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
+      compiled[filename] := compilation.code
+      done()
+    else if options.stdout or options.gjs
+      handle-code code, done
+    else
+      gorilla.run code, { extends opts, filename }, done
+  
   asyncif next, not options.join
     asyncfor err <- done, filename in filenames
-      let code = input[filename]
-      opts.filename := filename
-      if options.compile
-        process.stdout.write "Compiling $(path.basename filename) ... "
-        let start-time = Date.now()
-        async! done, compilation <- gorilla.compile code, opts
-        let end-time = Date.now()
-        process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
-        compiled[filename] := compilation.code
-        done()
-      else if options.stdout or options.gjs
-        handle-code code, done
-      else
-        gorilla.run code, { extends opts, filename }, done
+      handle-single filename, input[filename], done
     throw? err
     next()
   else
     opts.filenames := filenames
-    async err, compilation <- gorilla.compile (for filename in filenames; input[filename]), opts
-    throw? err
+    async! throw, compilation <- gorilla.compile (for filename in filenames; input[filename]), opts
     compiled["join"] := compilation.code
     next()
   
-  if options.compile
-    if not options.join
-      asyncfor(0) next, filename in filenames
-        let js-filename = path.basename(filename, path.extname(filename)) & ".js"
-        let source-dir = path.dirname filename
-        let base-dir = source-dir
-        let js-path = if options.output and filenames.length == 1
-          options.output
-        else
-          let dir = if options.output
-            path.join options.output, base-dir
-          else
-            source-dir
-          path.join dir, js-filename
-        let js-dir = path.dirname(js-path)
-        async exists <- fs.exists js-dir
-        asyncif done, not exists
-          async <- child_process.exec "mkdir -p $js-dir"
-          done()
-        let js-code = compiled[filename]
-        async err <- fs.write-file js-path, js-code, "utf8"
-        if err
-          cli.error err.to-string()
-        next()
+  let get-js-output-path(filename)
+    if options.output and filenames.length == 1
+      options.output
+    else
+      let base-dir = path.dirname filename
+      let dir = if options.output
+        path.join options.output, base-dir
+      else
+        base-dir
+      path.join dir, path.basename(filename, path.extname(filename)) & ".js"
+  
+  let write-single(filename, done as ->)
+    let js-path = get-js-output-path filename
+    let js-dir = path.dirname(js-path)
+    async exists <- fs.exists js-dir
+    asyncif next, not exists
+      async <- child_process.exec "mkdir -p $js-dir"
+      next()
+    let js-code = compiled[filename]
+    async! done <- fs.write-file js-path, js-code, "utf8"
+    done()
+  
+  asyncif next, options.compile
+    asyncif next, not options.join
+      asyncfor(0) err <- next, filename in filenames
+        write-single filename, next
+      throw? err
+      next()
     else
       let js-path = if options.output
         options.output
       else
         path.join(path.dirname(filenames[0]), "out.js")
       
-      async err <- fs.write-file js-path, compiled.join, "utf8"
-      if err
-        cli.error err.to-string()
+      async! throw <- fs.write-file js-path, compiled.join, "utf8"
+      next()
+    next()
   
-  if sourcemap?
-    async err <- fs.write-file options.sourcemap, opts.sourcemap.to-string(), "utf8"
-    if err
-      cli.error err.to-string()
+  asyncif next, sourcemap?
+    async! throw <- fs.write-file options.sourcemap, opts.sourcemap.to-string(), "utf8"
+    next()
+  
+  if options.watch
+    let watch-queue = {}
+    let handle-queue = do
+      let mutable in-handle = false
+      #
+        if in-handle
+          return
+        in-handle := true
+        let mutable lowest-time = new Date().get-time() - 1000_ms
+        let mutable best-name = void
+        for name, time of watch-queue
+          if time < lowest-time
+            lowest-time := time
+            best-name := name
+        if best-name?
+          delete watch-queue[best-name]
+          async! throw <- handle-single best-name, input[best-name]
+          async! throw <- write-single best-name
+          in-handle := false
+          handle-queue()
+        else
+          in-handle := false
+    for filename in filenames
+      fs.watch filename, #(event, name = filename)!
+        async err, code <- fs.read-file name
+        input[name] := code.to-string()
+        if watch-queue not ownskey name
+          watch-queue[name] := new Date().get-time()
+    set-interval handle-queue, 17
+    console.log "Watching $(filenames.join ', ')..."
 else
   require('./repl').start(if options.gjs then { pipe: "gjs" })

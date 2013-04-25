@@ -812,7 +812,7 @@ test "typed parameters, Number or String", #
   throws #-> fun(), TypeError
   throws #-> fun(void), TypeError
   throws #-> fun(null), TypeError
-  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Number or String, got Boolean"
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Number or String, got Boolean"
   throws #-> fun(false), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
@@ -833,7 +833,7 @@ test "typed parameters, Number or Boolean", #
   eq false, fun(null)
   eq true, fun(true)
   eq false, fun(false)
-  throws #-> fun(""), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Number or Boolean, got String"
+  throws #-> fun(""), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Number or Boolean, got String"
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
   throws #-> fun(new Number(0)), TypeError
@@ -851,7 +851,7 @@ test "typed parameters, Number or null", #
   eq null, fun()
   eq null, fun(void)
   eq null, fun(null)
-  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Number or null, got Boolean"
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Number or null, got Boolean"
   throws #-> fun(false), TypeError
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
@@ -870,7 +870,7 @@ test "typed parameters, Number or void", #
   eq void, fun()
   eq void, fun(void)
   eq void, fun(null)
-  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Number or undefined, got Boolean"
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Number or undefined, got Boolean"
   throws #-> fun(false), TypeError
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
@@ -885,7 +885,7 @@ test "typed parameters, Boolean or null", #
   eq false, fun(false)
   eq null, fun(void)
   eq null, fun(null)
-  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Boolean or null, got Number"
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Boolean or null, got Number"
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
@@ -899,7 +899,7 @@ test "typed parameters, Boolean or void", #
   eq false, fun(false)
   eq void, fun(void)
   eq void, fun(null)
-  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Boolean or undefined, got Number"
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Boolean or undefined, got Number"
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
@@ -913,7 +913,7 @@ test "typed parameters, Boolean or null or void", #
   eq false, fun(false)
   eq void, fun(void)
   eq null, fun(null)
-  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Boolean or null or undefined, got Number"
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Boolean or null or undefined, got Number"
   throws #-> fun(""), TypeError
   throws #-> fun({}), TypeError
   throws #-> fun([]), TypeError
@@ -926,7 +926,7 @@ test "typed parameters, special type or null", #
   
   let x = new Thing()
   eq x, fun(x)
-  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Thing or null, got Number"
+  throws #-> fun(0), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Thing or null, got Number"
   eq null, fun()
   eq null, fun(void)
   eq null, fun(null)
@@ -947,7 +947,7 @@ test "typed parameters, special type or String", #
   throws #-> fun()
   throws #-> fun(void)
   throws #-> fun(null)
-  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Thing or String, got Boolean"
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Thing or String, got Boolean"
   throws #-> fun(false), TypeError
   eq "", fun("")
   throws #-> fun({}), TypeError
@@ -965,7 +965,7 @@ test "typed parameters, special type or String or null", #
   eq null, fun()
   eq null, fun(void)
   eq null, fun(null)
-  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be a Thing or String or null, got Boolean"
+  throws #-> fun(true), #(x) -> x instanceof TypeError and x.message == "Expected val to be one of Thing or String or null, got Boolean"
   throws #-> fun(false), TypeError
   eq "", fun("")
   throws #-> fun({}), TypeError
@@ -1324,3 +1324,65 @@ test "Curried function takes the last this", #
   
   let obj = {}
   eq obj, get-this@({}, 1)@(obj, 2)
+
+test "Generic function", #
+  let f<T>(val as T) -> val
+  
+  eq "Hello", f<String>("Hello")
+  eq 1234, f<Number>(1234)
+  eq true, f<Boolean>(true)
+  let obj = {}
+  eq obj, f<Object>(obj)
+  let arr = []
+  eq arr, f<Array>(arr)
+  throws #-> f<String>(1234), #(x) -> x instanceof TypeError and x.message == "Expected val to be a String, got Number"
+  throws #-> f<Number>("hello"), TypeError
+  throws #-> f<Boolean>(0), TypeError
+  throws #-> f<Boolean>({}), TypeError
+  throws #-> f<Object>(true), TypeError
+  throws #-> f<Array>({}), TypeError
+  
+  let MyType() ->
+  let my-obj = new MyType()
+  eq my-obj, f<MyType>(my-obj)
+  throws #-> f<MyType>("hello"), #(x) -> x instanceof TypeError and x.message == "Expected val to be a MyType, got String"
+  
+  eq "Hello", f("Hello")
+  eq "Hello", f<null>("Hello")
+  eq f, f<null>
+  eq f<Number>, f<Number>
+  eq 1234, f(1234)
+  eq null, f(null)
+  eq void, f(void)
+
+test "Generic anonymous function", #
+  let call(arg, type, func) -> func<type>(arg)
+  eq "Hello", call "Hello", String, #<T>(val as T) -> val
+  eq 1234, call 1234, Number, #<T>(val as T) -> val
+  eq true, call true, Boolean, #<T>(val as T) -> val
+  eq "Hello", call "Hello", null, #<T>(val as T) -> val
+  throws #-> call(1234, String, #<T>(val as T) -> val), #(x) -> x instanceof TypeError and x.message == "Expected val to be a String, got Number"
+  throws #-> call("hello", Number, #<T>(val as T) -> val), TypeError
+  
+  let check-equal(func)
+    eq func, func<null>
+    eq func<Number>, func<Number>
+  
+  check-equal #<T>(val as T) -> val
+
+test "Generic function as class", #
+  let Box<T>(value as T)
+    let self = if this instanceof Box<T>
+      this
+    else
+      { extends Box<T>.prototype }
+    
+    self.value := value
+    
+    self
+  
+  eq "Hello", Box<String>("Hello").value
+  eq "Hello", new Box<String>("Hello").value
+  ok Box<String>("Hello") instanceof Box<String>
+  
+  eq "Hello", Box<Box<String>>(Box<String>("Hello")).value.value

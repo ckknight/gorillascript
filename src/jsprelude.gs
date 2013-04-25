@@ -1583,11 +1583,24 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
     else
       "a"
   let with-article(text) -> "$(article text) $text"
+  let PRIMORDIAL_TYPES = {
+    +Number
+    +String
+    +Boolean
+    +Function
+    +Array
+    +Object
+  }
   let translate-type-check(value, value-name, type, has-default-value)@
     if @is-ident(type)
-      let result = AST
-        if $value not instanceof $type
-          throw TypeError "Expected $($value-name) to be $($(with-article @name(type))), got $(typeof! $value)"
+      let result = if PRIMORDIAL_TYPES ownskey @name(type)
+        AST
+          if $value not instanceof $type
+            throw TypeError "Expected $($value-name) to be $($(with-article @name(type))), got $(typeof! $value)"
+      else
+        AST
+          if $value not instanceof $type
+            throw TypeError "Expected $($value-name) to be a $(__name $type), got $(typeof! $value)"
       if not has-default-value and @name(type) == \Boolean
         AST! if not $value?
           $value := false
@@ -1610,16 +1623,19 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         if @is-const(t)
           if is-null! @value(t)
             has-null := true
-            names.push \null
+            names.push @const \null
           else if is-void! @value(t)
             has-void := true
-            names.push \undefined
+            names.push @const \undefined
           else
             throw Error "Unknown const value for typechecking: $(String @value(t))"
         else if @is-ident(t)
           if @name(t) == \Boolean
             has-boolean := true
-          names.push @name(t)
+          if PRIMORDIAL_TYPES ownskey @name(t)
+            names.push @const(@name(t))
+          else
+            names.push ASTE __name $t
           tests.push ASTE $value not instanceof $t
         else
           throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
@@ -1628,8 +1644,10 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         @binary-chain "&&", tests
       else
         ASTE true
+      let type-names = for reduce name in names[1 til Infinity], current = names[0]
+        ASTE "$($current) or $($name)"
       let mutable result = AST if $test
-        throw TypeError "Expected $($value-name) to be $($(with-article names.join ' or ')), got $(typeof! $value)"
+        throw TypeError "Expected $($value-name) to be one of $($type-names), got $(typeof! $value)"
 
       if not has-default-value
         if has-null or has-void
@@ -1786,7 +1804,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         init.splice init-index, 0, AST
           let $ident = arguments[$spread-counter + ($i - $found-spread - 1)]
   
-  if init.length or changed
+  let mutable result = if init.length or changed
     let mutable body = @func-body(node)
     @rewrap(@func(params
       AST
@@ -1796,9 +1814,74 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
       @func-is-bound(node)
       @func-is-curried(node)
       @func-as-type(node)
-      @func-is-generator(node)), node)
+      @func-is-generator(node)
+      @func-generic(node)), node)
   else
     node
+  
+  let generic-args = @func-generic(node)
+  if generic-args.length > 0
+    let generic-cache = @tmp \cache, false, \object
+    let generic-params = for generic-arg in generic-args; @param(generic-arg)
+    let make-function-ident = @tmp \make, false, \function
+    let instanceofs = {}
+    for generic-arg in generic-args
+      let name = @name(generic-arg)
+      let key = @tmp "instanceof_$(name)", false, \function
+      instanceofs[name] := {
+        key
+        let: AST let $key = __make-instanceof($generic-arg)
+        used: false
+      }
+    result := @walk @macro-expand-all(result), #(node)@
+      if @is-binary(node) and @op(node) == \instanceof
+        let right = @right(node)
+        if @is-ident(right)
+          let name = @name(right)
+          if instanceofs ownskey name
+            let func = instanceofs[name].key
+            instanceofs[name].used := true
+            let left = @left(node)
+            return ASTE $func($left)
+    let instanceof-lets = for name, item of instanceofs
+      if item.used
+        item.let
+    if instanceof-lets.length
+      result := AST
+        $instanceof-lets
+        $result
+    let make-function-func = @func(generic-params, result, true, false)
+    let generic-array = @array generic-args
+    let fake-void-ident = @tmp \any, false, \object
+    let get-generic-body = do
+      let blargh(current-cache, index)@
+        if index == generic-args.length
+          return current-cache
+        let generic-arg = generic-args[index]
+        let next-item = if index == generic-args.length - 1
+          ASTE $make-function-ident(...$generic-array)
+        else
+          ASTE WeakMap()
+        let cached-ident = @tmp \c, false, \function
+        AST
+          let mutable $cached-ident = $current-cache.get($generic-arg ? $fake-void-ident)
+          if not $cached-ident?
+            $current-cache.set ($generic-arg ? $fake-void-ident), ($cached-ident := $next-item)
+          $(blargh cached-ident, index + 1)
+      blargh(generic-cache, 0)
+    let get-generic-func = @func(generic-params, get-generic-body, true, false)
+    let generic-ident = @tmp \generic, false, \function
+    let result-ident = @tmp \result, false, \function
+    result := AST do
+      let $generic-ident = do
+        let $make-function-ident = $make-function-func
+        let $generic-cache = WeakMap()
+        let $fake-void-ident = {}
+        $get-generic-func
+      let $result-ident = $generic-ident()
+      $result-ident.generic := $generic-ident
+      $result-ident
+  result
 
 define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean) as [Number]
   if step == 0
@@ -2154,23 +2237,31 @@ define helper __instanceofsome = #(value, array) as Boolean
   for some item in array by -1
     value instanceof item
 
-define helper __make-instanceof = #(ctor) as (-> Boolean)
-  if not ctor?
-    #-> true
-  else if ctor == String
-    (is-string!)
-  else if ctor == Number
-    (is-number!)
-  else if ctor == Function
-    (is-function!)
-  else if ctor == Boolean
-    (is-boolean!)
-  else if ctor == Array
-    __is-array
-  else if ctor == Object
-    __is-object
-  else
-    (instanceof ctor)
+define helper __make-instanceof = do
+  let ret-true = #-> true
+  let str = (is-string!)
+  let num = (is-number!)
+  let func = (is-function!)
+  let bool = (is-boolean!)
+  #(ctor) as (-> Boolean)
+    if not ctor?
+      ret-true
+    else if ctor == String
+      str
+    else if ctor == Number
+      num
+    else if ctor == Function
+      func
+    else if ctor == Boolean
+      bool
+    else if ctor == Array
+      __is-array
+    else if ctor == Object
+      __is-object
+    else
+      (instanceof ctor)
+
+define helper __name = #(func as ->) as String -> func.display-name or func.name or ""
 
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
@@ -2182,17 +2273,22 @@ macro async
     @call @call-func(call), @call-args(call).concat([ASTE mutate-function! $func]), @call-is-new(call), @call-is-apply(call)
 
 macro async!
-  syntax callback as Expression, params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
+  syntax callback as ("throw" | Expression), params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
     if not @is-call(call)
       throw Error("async! call expression must be a call")
     
     let error = @tmp \e, false
     params := [@param(error)].concat(params)
     let func = @func params,
-      AST
-        if $error?
-          return $callback $error
-        $body
+      if callback == "throw"
+        AST
+          throw? $error
+          $body
+      else
+        AST
+          if $error?
+            return $callback $error
+          $body
       true
       true
     @call @call-func(call), @call-args(call).concat([ASTE mutate-function! $func]), @call-is-new(call), @call-is-apply(call)
@@ -2685,8 +2781,16 @@ macro class
     else
       init.push AST let $prototype = $name.prototype
     
-    let display-name = if @is-ident(name) then @const(@name(name))
+    let mutable display-name = if @is-ident(name) then @const(@name(name))
     if display-name?
+      if generic-args.length > 0
+        let parts = [display-name, @const("<")]
+        for generic-arg, i in generic-args
+          if i > 0
+            parts.push @const(", ")
+          parts.push ASTE if $generic-arg? then __name $generic-arg else ""
+        parts.push @const(">")
+        display-name := @binary-chain "+", parts
       init.push ASTE $name.display-name := $display-name
     
     if superclass
@@ -2799,7 +2903,7 @@ macro class
     let change-defs(node)@ -> @walk node, #(node)@
       if @is-def(node)
         let key = @left(node)
-        let value = @right(node) ? ASTE #-> throw Error "Not implemented: $(@constructor.display-name or @constructor.name).$($key)()"
+        let value = @right(node) ? ASTE #-> throw Error "Not implemented: $(__name @constructor).$($key)()"
         change-defs ASTE $prototype[$key] := $value
     body := change-defs body
     

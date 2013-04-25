@@ -661,6 +661,8 @@ test "Generic class", #
   ok new Class<String>("hello") instanceof Class<String>
   ok new x.Class<String>("hello") instanceof x.Class<String>
   eq "hello", Class<String>("hello").value
+  eq "Class<String>", Class<String>.display-name
+  eq "Class<Number>", Class<Number>.display-name
   
   ok Class("hello") instanceof Class
   ok Class("hello") not instanceof Class<String> // no guarantee there
@@ -671,6 +673,7 @@ test "Generic class", #
   eq x, Class(x).value
   eq Class, Class<null>
   eq Class, Class<void>
+  eq "Class<>", Class.display-name
 
 test "Generic class extending normal class", #
   class Base
@@ -780,6 +783,7 @@ test "Generic class with two arguments", #
   throws #-> number-to-string.delete(true)
   ok not number-to-string.has(1)
   ok not number-to-string.delete(1)
+  eq "Dict<Number, String>", Dict<Number, String>.display-name
   
   let boolean-to-any = Dict<Boolean, null>()
   boolean-to-any.set(true, "yes")
@@ -788,6 +792,7 @@ test "Generic class with two arguments", #
   eq 0, boolean-to-any.get(false)
   boolean-to-any.set(true, number-to-string)
   eq number-to-string, boolean-to-any.get(true)
+  eq "Dict<Boolean, >", Dict<Boolean, null>.display-name
 
 test "Generic class with generic class as arg", #
   class Class<T>
@@ -799,3 +804,32 @@ test "Generic class with generic class as arg", #
   eq x, y.value
   let z = Class(y)
   eq y, z.value
+  
+  eq "Class<String>", Class<String>.display-name
+  eq "Class<Class<String>>", Class<Class<String>>.display-name
+  eq "Class<>", Class.display-name
+
+test "Class with generic method", #
+  class Class
+    def run<T>(val as T) -> val
+  
+  let o = Class()
+  eq "Hello", o.run("Hello")
+  eq 1234, o.run(1234)
+  eq "Hello", o.run<String>("Hello")
+  eq 1234, o.run<Number>(1234)
+  throws #-> o.run<String>(1234), #(x) -> x instanceof TypeError and x.message == "Expected val to be a String, got Number"
+
+test "Generic class with generic method", #
+  class Class<T>
+    def run<U>(x as T, y as U) -> {x, y}
+  
+  let check(expected-x, expected-y, actual)
+    eq expected-x, actual.x
+    eq expected-y, actual.y
+  
+  check "one", 1, Class<String>().run<Number>("one", 1)
+  check "yes", true, Class<String>().run<Boolean>("yes", true)
+  check check, Class, Class<Function>().run<Function>(check, Class)
+  throws #-> Class<String>().run<Number>(1234, 1234), #(x) -> x instanceof TypeError and x.message == "Expected x to be a String, got Number"
+  throws #-> Class<String>().run<Number>("Hello", "There"), #(x) -> x instanceof TypeError and x.message == "Expected y to be a Number, got String"

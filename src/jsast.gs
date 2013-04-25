@@ -323,17 +323,18 @@ exports.Arr := class Arr extends Expression
     sb "\n"
     sb.indent options.indent
   let compile-small(elements, options, level, line-start, sb)!
-    if elements.length
-      for item, i in elements
-        if i > 0
-          sb ", "
-        item.compile options, Level.sequence, false, sb
+    for item, i in elements
+      if i > 0
+        sb ","
+        if not options.minify
+          sb " "
+      item.compile options, Level.sequence, false, sb
   def compile(options, level, line-start, sb)!
     if options.sourcemap? and @pos.file
       options.sourcemap.push-file(@pos.file)
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "["
-    let f = if @should-compile-large() then compile-large else compile-small
+    let f = if not options.minify and @should-compile-large() then compile-large else compile-small
     f(@elements, options, level, line-start, sb)
     sb "]"
     if options.sourcemap? and @pos.file
@@ -464,9 +465,12 @@ exports.Binary := class Binary extends Expression
     if wrap
       sb "("
     left.compile options, if associativity == "right" and left instanceof Binary and OPERATOR_PRECEDENCE[left.op] == op-level then op-level + 1 else op-level, line-start and not wrap, sb
-    sb " "
+    let spaced = not options.minify or r"^\w".test(op)
+    if spaced
+      sb " "
     sb op
-    sb " "
+    if spaced
+      sb " "
     right.compile options, if associativity == "left" and right instanceof Binary and OPERATOR_PRECEDENCE[right.op] == op-level then op-level + 1 else op-level, false, sb
     if wrap
       sb ")"
@@ -604,7 +608,7 @@ exports.BlockStatement := class BlockStatement extends Statement
       return result[0]
     @body := result
   
-  def compile(options, level, line-start, sb)!
+  def compile(options, level, mutable line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
@@ -617,20 +621,32 @@ exports.BlockStatement := class BlockStatement extends Statement
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
     let child-options = if @label? then inc-indent(options) else options
     
+    let minify = options.minify
+    
     if @label?
       @label.compile options, level, line-start, sb
-      sb ": {\n"
-      sb.indent child-options.indent
-    
-    for item, i in nodes
-      if i > 0
+      line-start := false
+      sb ":"
+      if not minify
+        sb " "
+      sb "{"
+      if not minify
         sb "\n"
         sb.indent child-options.indent
-      item.compile-as-statement child-options, true, sb
+        line-start := true
+    
+    for item, i in nodes
+      if i > 0 and not minify
+        sb "\n"
+        sb.indent child-options.indent
+        line-start := true
+      item.compile-as-statement child-options, line-start, sb
+      line-start := false
     
     if @label?
-      sb "\n"
-      sb.indent options.indent
+      if not minify
+        sb "\n"
+        sb.indent options.indent
       sb "}"
     if options.sourcemap? and @pos.file
       options.sourcemap.pop-file()
@@ -700,7 +716,9 @@ exports.BlockExpression := class BlockExpression extends Expression
         sb "("
       for item, i in nodes
         if i > 0
-          sb ", "
+          sb ","
+          if not options.minify
+            sb " "
         item.compile options, if wrap then Level.sequence else level, false, sb
       if wrap
         sb ")"
@@ -807,7 +825,9 @@ exports.Call := class Call extends Expression
     sb "("
     for arg, i in args
       if i > 0
-        sb ", "
+        sb ","
+        if not options.minify
+          sb " "
       arg.compile options, Level.sequence, false, sb
     sb ")"
   def compile(options, level, line-start, sb)!
@@ -820,7 +840,7 @@ exports.Call := class Call extends Expression
     if @is-new
       sb "new "
     @func.compile options, if @is-new then Level.new-call else Level.call-or-access, line-start and not wrap and not @is-new, sb
-    let f = if @should-compile-large() then compile-large else compile-small
+    let f = if not options.minify and @should-compile-large() then compile-large else compile-small
     f(@args, options, level, line-start, sb)
     if wrap
       sb ")"
@@ -875,7 +895,8 @@ exports.Comment := class Comment extends Statement
     for line, i in lines
       if i > 0
         sb "\n"
-        sb.indent options.indent
+        if not options.minify
+          sb.indent options.indent
       sb line
   
   def is-const() -> true
@@ -999,27 +1020,43 @@ exports.DoWhile := class DoWhile extends Statement
     if test.is-const() and not test.const-value()
       return Block(pos, [@body], label)
   
-  def compile(options, level, line-start, sb)!
+  def compile(options, level, mutable line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
     if options.sourcemap? and @pos.file
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
-      sb ": "
+      line-start := false
+      sb ":"
+      if not minify
+        sb " "
     sb "do"
     if @body.is-noop()
       sb ";"
     else
-      sb " {\n"
-      sb.indent options.indent + 1
-      @body.compile-as-statement inc-indent(options), true, sb
-      sb "\n"
-      sb.indent options.indent
+      if not minify
+        sb " "
+      sb "{"
+      if not minify
+        sb "\n"
+        sb.indent options.indent + 1
+        line-start := true
+      @body.compile-as-statement inc-indent(options), line-start, sb
+      line-start := false
+      if not minify
+        sb "\n"
+        sb.indent options.indent
       sb "}"
-    sb " while ("
+    if not minify
+      sb " "
+    sb "while"
+    if not minify
+      sb " "
+    sb "("
     @test.compile options, Level.inside-parentheses, false, sb
     sb ");"
     if options.sourcemap? and @pos.file
@@ -1091,32 +1128,50 @@ exports.For := class For extends Statement
     if options.sourcemap? and @pos.file
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
-      sb ": "
+      sb ":"
+      if not minify
+        sb " "
     
     if @init.is-noop() and @step.is-noop()
-      sb "while ("
+      sb "while"
+      if not minify
+        sb " "
+      sb "("
       test.compile options, Level.inside-parentheses, false, sb
     else
-      sb "for ("
+      sb "for"
+      if not minify
+        sb " "
+      sb "("
       if not @init.is-noop()
         @init.compile-as-block options, Level.inside-parentheses, false, sb
-      sb "; "
+      sb ";"
+      if not minify
+        sb " "
       if not test.is-const() or not test.const-value()
         test.compile options, Level.inside-parentheses, false, sb
-      sb "; "
+      sb ";"
+      if not minify
+        sb " "
       if not @step.is-noop()
         @step.compile-as-block options, Level.inside-parentheses, false, sb
     sb ")"
     if @body.is-noop()
       sb ";"
     else
-      sb " {\n"
-      sb.indent options.indent + 1
-      @body.compile-as-statement inc-indent(options), true, sb
-      sb "\n"
-      sb.indent options.indent
+      if not minify
+        sb " "
+      sb "{"
+      if not minify
+        sb "\n"
+        sb.indent options.indent + 1
+      @body.compile-as-statement inc-indent(options), not minify, sb
+      if not minify
+        sb "\n"
+        sb.indent options.indent
       sb "}"
     if options.sourcemap? and @pos.file
       options.sourcemap.pop-file()
@@ -1157,11 +1212,17 @@ exports.ForIn := class ForIn extends Statement
     if options.sourcemap? and @pos.file
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
-      sb ": "
+      sb ":"
+      if not minify
+        sb " "
     
-    sb "for ("
+    sb "for"
+    if not minify
+      sb " "
+    sb "("
     @key.compile options, Level.inside-parentheses, false, sb
     sb " in "
     @object.compile options, Level.inside-parentheses, false, sb
@@ -1169,11 +1230,16 @@ exports.ForIn := class ForIn extends Statement
     if @body.is-noop()
       sb ";"
     else
-      sb " {\n"
-      sb.indent options.indent + 1
-      @body.compile-as-statement inc-indent(options), true, sb
-      sb "\n"
-      sb.indent options.indent
+      if not minify
+        sb " "
+      sb "{"
+      if not minify
+        sb "\n"
+        sb.indent options.indent + 1
+      @body.compile-as-statement inc-indent(options), not minify, sb
+      if not minify
+        sb "\n"
+        sb.indent options.indent
       sb "}"
     if options.sourcemap? and @pos.file
       options.sourcemap.pop-file()
@@ -1212,40 +1278,65 @@ let validate-func-params-and-variables(params, variables)!
       throw Error "Duplicate variable: $variable"
     names.push variable
 
-let compile-func-body(options, sb, declarations, variables, body)!
+let compile-func-body(options, sb, declarations, variables, body, mutable line-start)!
+  let minify = options.minify
   for declaration in declarations
-    sb.indent options.indent
+    if not minify
+      sb.indent options.indent
     sb to-JS-source(declaration)
-    sb ";\n"
+    sb ";"
+    line-start := false
+    if not minify
+      sb "\n"
+      line-start := true
   
   if variables.length > 0
-    sb.indent options.indent
+    if not minify
+      sb.indent options.indent
     sb "var "
     for variable, i in variables
       if i > 0
-        sb ", "
+        sb ","
+        if not minify
+          sb " "
       Ident(body.pos, variables[i], true).compile options, Level.inside-parentheses, false, sb
-    sb ";\n"
+    sb ";"
+    line-start := false
+    if not minify
+      sb "\n"
+      line-start := true
   
   if not body.is-noop()
-    sb.indent options.indent
-    body.compile-as-statement options, true, sb
-    sb "\n"
+    if not minify
+      sb.indent options.indent
+    body.compile-as-statement options, line-start, sb
+    if not minify
+      sb "\n"
 
 let compile-func(options, sb, name, params, declarations, variables, body)
-  sb "function "
+  sb "function"
+  let minify = options.minify
+  if not minify or name?
+    sb " "
   if name?
     name.compile options, Level.inside-parentheses, false, sb
   sb "("
   for param, i in params
     if i > 0
-      sb ", "
+      sb ","
+      if not minify
+        sb " "
     param.compile options, Level.inside-parentheses, false, sb
-  sb ") {"
+  sb ")"
+  if not minify
+    sb " "
+  sb "{"
   if variables.length or declarations.length or not body.is-noop()
-    sb "\n"
-    compile-func-body inc-indent(options), sb, declarations, variables, body
-    sb.indent options.indent
+    if not minify
+      sb "\n"
+    compile-func-body inc-indent(options), sb, declarations, variables, body, not minify
+    if not minify
+      sb.indent options.indent
   sb "}"
 
 exports.Func := class Func extends Expression
@@ -1267,6 +1358,7 @@ exports.Func := class Func extends Expression
   
   def compile-as-statement(options, line-start, sb)!
     @compile options, Level.block, line-start, sb
+    // TODO: there's bound to be an issue with minify and line-start and using that as whether or not to add a semicolon
     unless line-start and @name
       sb ";"
   
@@ -1349,29 +1441,49 @@ exports.IfStatement := class IfStatement extends Statement
       if options.sourcemap? and @pos.file
         options.sourcemap.push-file @pos.file
       options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+      let minify = options.minify
       if @label?
         @label.compile options, level, line-start, sb
-        sb ": "
-      sb "if ("
+        sb ":"
+        if not minify
+          sb " "
+      sb "if"
+      if not minify
+        sb " "
+      sb "("
       @test.compile options, Level.inside-parentheses, false, sb
-      sb ") {\n"
+      sb ")"
+      if not minify
+        sb " "
+      sb "{"
       let child-options = inc-indent options
-      sb.indent child-options.indent
-      @when-true.compile-as-statement child-options, true, sb
-      sb "\n"
-      sb.indent options.indent
+      if not minify
+        sb "\n"
+        sb.indent child-options.indent
+      @when-true.compile-as-statement child-options, not minify, sb
+      if not minify
+        sb "\n"
+        sb.indent options.indent
       sb "}"
       let when-false = @when-false
       if not when-false.is-noop()
-        sb " else "
+        if not minify
+          sb " "
+        sb "else"
         if when-false instanceof IfStatement and not when-false.label?
+          sb " "
           when-false.compile options, level, false, sb
         else
-          sb "{\n"
-          sb.indent child-options.indent
-          when-false.compile-as-statement child-options, true, sb
-          sb "\n"
-          sb.indent options.indent
+          if not minify
+            sb " "
+          sb "{"
+          if not minify
+            sb "\n"
+            sb.indent child-options.indent
+          when-false.compile-as-statement child-options, not minify, sb
+          if not minify
+            sb "\n"
+            sb.indent options.indent
           sb "}"
       if options.sourcemap? and @pos.file
         options.sourcemap.pop-file()
@@ -1435,10 +1547,11 @@ exports.IfExpression := class IfExpression extends Expression
   def to-statement() -> IfStatement @pos, @test, @when-true, @when-false
   
   let compile-small(test, when-true, when-false, options, line-start, sb)!
+    let minify = options.minify
     test.compile options, Level.inline-condition, line-start, sb
-    sb " ? "
+    sb (if minify then "?" else " ? ")
     when-true.compile options, Level.inline-condition, false, sb
-    sb " : "
+    sb (if minify then ":" else " : ")
     when-false.compile options, Level.inline-condition, false, sb
   let compile-large(test, when-true, when-false, options, line-start, sb)!
     let child-options = inc-indent options
@@ -1478,7 +1591,7 @@ exports.IfExpression := class IfExpression extends Expression
       let wrap = level > Level.inline-condition
       if wrap
         sb "("
-      let f = if @when-true.is-large() or @when-false.is-large() then compile-large else compile-small
+      let f = if not options.minify and (@when-true.is-large() or @when-false.is-large()) then compile-large else compile-small
       f @test, @when-true, @when-false, options, not wrap and line-start, sb
       if wrap
         sb ")"
@@ -1577,27 +1690,33 @@ exports.Obj := class Obj extends Expression
   
   let compile-small(elements, options, sb)!
     if elements.length
-      sb " "
+      let minify = options.minify
+      if not minify
+        sb " "
       for element, i in elements
         if i > 0
           sb ", "
         let {key} = element
         sb to-safe-key key
-        sb ": "
+        sb ":"
+        if not minify
+          sb " "
         element.value.compile options, Level.sequence, false, sb
-      sb " "
+      if not minify
+        sb " "
   
   def compile(options, level, line-start, sb)!
     if options.sourcemap? and @pos.file
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
-    if line-start
+    let wrap = line-start // TODO: this might be wrong if immediately following a semicolon but not at the start of a line (as in minify)
+    if wrap
       sb "("
     sb "{"
-    let f = if @should-compile-large() then compile-large else compile-small
+    let f = if not options.minify and @should-compile-large() then compile-large else compile-small
     f @elements, options, sb
     sb "}"
-    if line-start
+    if wrap
       sb ")"
     if options.sourcemap? and @pos.file
       options.sourcemap.pop-file()
@@ -1748,7 +1867,7 @@ exports.Root := class Root
     if options.sourcemap? and @pos.file
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
-    compile-func-body(options, sb, @declarations, @variables, @body)
+    compile-func-body(options, sb, @declarations, @variables, @body, true)
     if options.sourcemap? and @pos.file
       options.sourcemap.pop-file()
     let end-compile-time = new Date().get-time()
@@ -1877,40 +1996,56 @@ exports.Switch := class Switch extends Statement
     if options.sourcemap? and @pos.file
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
-      sb ": "
-    sb "switch ("
+      sb ":"
+      if not minify
+        sb " "
+    sb "switch"
+    if not minify
+      sb " "
+    sb "("
     @node.compile options, Level.inside-parentheses, false, sb
-    sb ") {"
+    sb ")"
+    if not minify
+      sb " "
+    sb "{"
     let child-options = inc-indent options
     for case_ in @cases
-      sb "\n"
-      sb.indent options.indent
+      if not minify
+        sb "\n"
+        sb.indent options.indent
       sb "case "
       case_.node.compile options, Level.inside-parentheses, false, sb
       sb ":"
       if not case_.body.is-noop()
         if case_.node.is-small() and case_.body.is-small()
-          sb " "
+          if not minify
+            sb " "
           case_.body.compile-as-statement options, true, sb
         else
-          sb "\n"
-          sb.indent child-options.indent
+          if not minify
+            sb "\n"
+            sb.indent child-options.indent
           case_.body.compile-as-statement child-options, true, sb
     if not @default-case.is-noop()
-      sb "\n"
-      sb.indent options.indent
+      if not minify
+        sb "\n"
+        sb.indent options.indent
       sb "default:"
       if @default-case.is-small()
-        sb " "
+        if not minify
+          sb " "
         @default-case.compile-as-statement options, true, sb
       else
-        sb "\n"
-        sb.indent child-options.indent
+        if not minify
+          sb "\n"
+          sb.indent child-options.indent
         @default-case.compile-as-statement child-options, true, sb
-    sb "\n"
-    sb.indent options.indent
+    if not minify
+      sb "\n"
+      sb.indent options.indent
     sb "}"
     if options.sourcemap? and @pos.file
       options.sourcemap.pop-file()
@@ -1979,24 +2114,31 @@ exports.TryCatch := class TryCatch extends Statement
     if options.sourcemap? and @pos.file
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
-      sb ": "
-    sb "try {\n"
+      sb ":"
+      if not minify
+        sb " "
+    sb (if minify then "try{" else "try {\n")
     let child-options = inc-indent options
-    sb.indent child-options.indent
-    @try-body.compile-as-statement child-options, true, sb
-    sb "\n"
-    sb.indent options.indent
-    sb "} catch ("
-    @catch-ident.compile options, Level.inside-parentheses, false, sb
-    sb ") {"
-    if not @catch-body.is-noop()
-      sb "\n"
+    if not minify
       sb.indent child-options.indent
-      @catch-body.compile-as-statement child-options, true, sb
+    @try-body.compile-as-statement child-options, true, sb
+    if not minify
       sb "\n"
       sb.indent options.indent
+    sb (if minify then "}catch(" else "} catch (")
+    @catch-ident.compile options, Level.inside-parentheses, false, sb
+    sb (if minify then "){" else ") {")
+    if not @catch-body.is-noop()
+      if not minify
+        sb "\n"
+        sb.indent child-options.indent
+      @catch-body.compile-as-statement child-options, true, sb
+      if not minify
+        sb "\n"
+        sb.indent options.indent
     sb "}"
     if options.sourcemap? and @pos.file
       options.sourcemap.pop-file()
@@ -2041,34 +2183,44 @@ exports.TryFinally := class TryFinally extends Statement
     if options.sourcemap? and @pos.file
       options.sourcemap.push-file @pos.file
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
-      sb ": "
-    sb "try {\n"
+      sb ":"
+      if not minify
+        sb " "
+    sb (if minify then "try{" else "try {\n")
     let child-options = inc-indent(options)
-    sb.indent child-options.indent
+    if not minify
+      sb.indent child-options.indent
     if @try-body instanceof TryCatch and not @try-body.label?
       @try-body.try-body.compile-as-statement child-options, true, sb
-      sb "\n"
-      sb.indent options.indent
-      sb "} catch ("
-      @try-body.catch-ident.compile options, Level.inside-parentheses, false, sb
-      sb ") {"
-      if not @try-body.catch-body.is-noop()
-        sb "\n"
-        sb.indent child-options.indent
-        @try-body.catch-body.compile-as-statement child-options, true, sb
+      if not minify
         sb "\n"
         sb.indent options.indent
+      sb (if minify then "}catch(" else "} catch (")
+      @try-body.catch-ident.compile options, Level.inside-parentheses, false, sb
+      sb (if minify then "){" else ") {")
+      if not @try-body.catch-body.is-noop()
+        if not minify
+          sb "\n"
+          sb.indent child-options.indent
+        @try-body.catch-body.compile-as-statement child-options, true, sb
+        if not minify
+          sb "\n"
+          sb.indent options.indent
     else
       @try-body.compile-as-statement child-options, true, sb
+      if not minify
+        sb "\n"
+        sb.indent options.indent
+    sb (if minify then "}finally{" else "} finally {\n")
+    if not minify
+      sb.indent child-options.indent
+    @finally-body.compile-as-statement child-options, true, sb
+    if not minify
       sb "\n"
       sb.indent options.indent
-    sb "} finally {\n"
-    sb.indent child-options.indent
-    @finally-body.compile-as-statement child-options, true, sb
-    sb "\n"
-    sb.indent options.indent
     sb "}"
     if options.sourcemap? and @pos.file
       options.sourcemap.pop-file()
