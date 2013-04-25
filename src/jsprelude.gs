@@ -1822,20 +1822,23 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         init.splice init-index, 0, AST
           let $ident = arguments[$spread-counter + ($i - $found-spread - 1)]
   
-  let mutable result = if init.length or changed
-    let mutable body = @func-body(node)
+  let mutable result = if init.length or changed or @func-is-curried(node)
+    let body = @func-body(node)
     @rewrap(@func(params
       AST
         $init
         $body
       @func-is-auto-return(node) and not @is-nothing(body)
       @func-is-bound(node)
-      @func-is-curried(node)
+      false
       @func-as-type(node)
       @func-is-generator(node)
       @func-generic(node)), node)
   else
     node
+  
+  if @func-is-curried(node)
+    result := ASTE __curry $(params.length), $result
   
   let generic-args = @func-generic(node)
   if generic-args.length > 0
@@ -2864,7 +2867,17 @@ macro class
           let key = @left(node)
           if @is-const(key) and @value(key) == \constructor
             let value = @right(node)
-            if @is-func value
+            if @is-call(value) and @is-ident(@call-func(value)) and @name(@call-func(value)) == \__curry and @call-args(value).length == 2 and @is-func(@call-args(value)[1])
+              let first-arg = @call-args(value)[0]
+              let mutable constructor = @call-args(value)[1]
+              constructor := @rewrap(@func(
+                @func-params constructor
+                @func-body constructor
+                false
+                AST if eval("this") instanceof $name then eval("this") else { extends $prototype }
+                false), value)
+              ASTE $ctor := __curry $first-arg, $constructor
+            else if @is-func value
               let constructor = @rewrap(@func(
                 @func-params value
                 @func-body value
@@ -3194,10 +3207,10 @@ define operator binary >> with precedence: 13, type: \function, right-to-left: t
   else
     ASTE __compose $right, $left
 
-define helper __curry = #(f as ->) as (->)
-  if f.length > 1
+define helper __curry = #(num-args as Number, f as ->) as (->)
+  if num-args > 1
     let currier(args)
-      if args.length >= f.length
+      if args.length >= num-args
         f.apply this, args
       else
         let ret()

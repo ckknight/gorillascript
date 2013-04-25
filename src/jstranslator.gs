@@ -921,14 +921,9 @@ let translators =
             body := ast.Block get-pos(node.body),
               * ast.Assign get-pos(node.body), fake-this, ast.This(get-pos(node.body))
               * body
-      let func = ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
-      auto-return if node.curry
-        scope.add-helper \__curry
-        ast.Call func.pos,
-          ast.Ident func.pos, \__curry
-          [func]
-      else
-        func
+      if node.curry
+        throw Error "Expected node to already be curried"
+      auto-return ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
 
   Ident: #(node, scope, location, auto-return)
     let name = node.name

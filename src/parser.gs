@@ -2549,6 +2549,16 @@ define MaybeExistentialSymbolNoSpace = maybe! (sequential! [
   character! "?"
 ], "?"), true
 
+let mutate-function(func, o, index, line)
+  let mutate-function-macro = o.macros.get-by-label(\mutate-function)
+  if not mutate-function-macro
+    func
+  else
+    mutate-function-macro.func {
+      op: ""
+      node: func
+    }, o, index, line
+
 namedlet CustomOperatorCloseParenthesis = do
   let handle-unary-operator(operator, o, i, line)
     let clone = o.clone(o.clone-scope())
@@ -2557,14 +2567,14 @@ namedlet CustomOperatorCloseParenthesis = do
       o.update clone
       let node = clone.ident i, \x
       clone.scope.add node, false, Type.any
-      o.function(i
+      mutate-function o.function(i
         [clone.param i, node]
         operator.func {
           op
           node
         }, clone, i, line
         true
-        false)
+        false), o, i, line
   #(o)
     let i = o.index
     let line = o.line
@@ -2598,7 +2608,7 @@ namedlet CustomOperatorCloseParenthesis = do
               false
               true)
             o.update clone
-            return result
+            return mutate-function result, o, i, line
     for operator in o.macros.prefix-unary-operators by -1
       return? handle-unary-operator operator, o, i, line
     for operator in o.macros.postfix-unary-operators by -1
@@ -2644,7 +2654,7 @@ namedlet Parenthetical = sequential! [
         let clone = o.clone(o.clone-scope())
         let right = o.tmp i, get-tmp-id(), \x
         clone.scope.add right, false, Type.any
-        o.function(i
+        mutate-function o.function(i
           [clone.param i, right]
           operator.operator.func {
             left: left.rescope(clone.scope.id, clone)
@@ -2653,7 +2663,7 @@ namedlet Parenthetical = sequential! [
             right
           }, clone, i, line
           true
-          false)
+          false), o, i, line
     CustomOperatorCloseParenthesis
     sequential! [
       [\operator, CustomBinaryOperator]
@@ -2663,7 +2673,7 @@ namedlet Parenthetical = sequential! [
       let clone = o.clone(o.clone-scope())
       let left = o.tmp i, get-tmp-id(), \x
       clone.scope.add left, false, Type.any
-      o.function(i
+      mutate-function o.function(i
         [clone.param i, left]
         operator.func {
           left
@@ -2672,19 +2682,19 @@ namedlet Parenthetical = sequential! [
           right: right.rescope(clone.scope.id, clone)
         }, clone, i, line
         true
-        false)
+        false), o, i, line
     sequential! [
       [\this, one-or-more! InvocationOrAccessPart]
       CloseParenthesis
-    ], #(x, o, i)
+    ], #(x, o, i, line)
       let clone = o.clone(o.clone-scope())
       let left = o.tmp i, get-tmp-id(), \x
       clone.scope.add left, false, Type.any
-      o.function(i
+      mutate-function o.function(i
         [clone.param i, left]
         convert-invocation-or-access(false, { type: \normal, -existential, node: left, generic: [] }, x, o, i).rescope(clone.scope.id, clone)
         true
-        false)
+        false), o, i, line
   ]]
 ]
 
@@ -3360,6 +3370,7 @@ namedlet _FunctionBody = one-of! [
   ]
   Body
 ]
+
 namedlet FunctionBody = make-alter-stack(_in-generator, false)(_FunctionBody)
 namedlet GeneratorFunctionBody = make-alter-stack(_in-generator, true)(_FunctionBody)
 namedlet FunctionDeclaration = do
@@ -3396,14 +3407,7 @@ namedlet FunctionDeclaration = do
       return false
     o.update clone
     let func = o.function index, params, body, flags.auto-return, flags.bound, flags.curry, if as-type != NOTHING then as-type, flags.generator, generic
-    let mutate-function-macro = o.macros.get-by-label(\mutate-function)
-    if not mutate-function-macro
-      func
-    else
-      mutate-function-macro.func {
-        op: ""
-        node: func
-      }, o, index, line
+    mutate-function func, o, index, line
 
 namedlet FunctionLiteral = short-circuit! HashSign, sequential! [
   HashSign
