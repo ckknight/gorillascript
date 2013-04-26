@@ -143,6 +143,10 @@ define helper __xor = #(x, y)
 define operator binary ~& with precedence: 7, type: \string
   if @has-type(left, \numeric) and @has-type(right, \numeric)
     @binary @binary(@const(""), "+", left), "+", right
+  else if @is-const(left) and @value(left) == "" and @is-type(right, \string)
+    right
+  else if @is-const(right) and @value(right) == "" and @is-type(left, \string)
+    left
   else
     @binary left, "+", right
 
@@ -540,10 +544,7 @@ define operator assign \= with type: \number
     ASTE $set-left := $left \ $right
 
 define operator binary & with precedence: 7, type: \string, label: \string-concat
-  if @is-type left, \number
-    if @has-type right, \number
-      left := ASTE "" ~& $left
-  else if not @is-type left, \string
+  if not @is-type left, \string-or-number
     left := if not @has-type left, \number
       ASTE __str $left
     else
@@ -556,9 +557,11 @@ define operator binary & with precedence: 7, type: \string, label: \string-conca
   ASTE $left ~& $right
 
 define operator assign &= with type: \string
-  // TODO: if left is proven to be a string, use raw operators instead
-  @maybe-cache-access left, #(set-left, left)@
-    ASTE $set-left := $left & $right
+  if @is-type left, \string
+    ASTE $left ~&= "" & $right
+  else
+    @maybe-cache-access left, #(set-left, left)@
+      ASTE $set-left := $left & $right
 
 define operator binary in with precedence: 6, maximum: 1, invertible: true, type: \boolean
   if @is-array(right)
