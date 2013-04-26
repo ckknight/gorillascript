@@ -1,6 +1,7 @@
 require! util
 let inspect = util?.inspect
 let {pad-left} = require './utils'
+let {is-acceptable-ident, to-JS-source} = require './jsutils'
 
 enum Level
   def block // { f(); `...`; g(); }
@@ -74,122 +75,13 @@ let StringBuilder()
       text
   sb
 
-let is-negative(value) -> value < 0 or value is -0
-
-let unicode-replacer(m)
-  "\\u$(pad-left m.char-code-at(0).to-string(16), 4, '0')"
-
-let to-JS-source = do
-  let to-JS-source-types =
-    undefined: #-> "void 0"
-    number: #(value)
-      if value == 0
-        if is-negative value
-          "-0"
-        else
-          "0"
-      else if is-finite value
-        String value
-      else if value is NaN
-        "0/0"
-      else if value > 0
-        "1/0"
-      else
-        "-1/0"
-    string: do
-      let escape-helper(m)
-        switch m
-        case "\b"; "\\b"
-        case "\t"; "\\t"
-        case "\n"; "\\n"
-        case "\f"; "\\f"
-        case "\r"; "\\r"
-        case "\n"; "\\n"
-        case '"'; '\\"'
-        case "'"; "\\'"
-        case "\\"; "\\\\"
-        default; unicode-replacer(m)
-      let DOUBLE_QUOTE_REGEX = r'[\u0000-\u001f"\\\u0080-\uffff]'g
-      let SINGLE_QUOTE_REGEX = r"[\u0000-\u001f'\\\u0080-\uffff]"g
-      #(value)
-        if value.index-of('"') == -1 or value.index-of("'") != -1
-          '"' & value.replace(DOUBLE_QUOTE_REGEX, escape-helper) & '"'
-        else
-          "'" & value.replace(SINGLE_QUOTE_REGEX, escape-helper) & "'"
-    boolean: #(value) -> if value then "true" else "false"
-    null: #-> "null"
-  #(value) as String
-    let f = to-JS-source-types![if is-null! value then "null" else typeof value]
-    unless f
-      throw TypeError "Cannot compile const $(typeof! value)"
-    f value
-
-let is-acceptable-ident = exports.is-acceptable-ident := do
-  let IDENTIFIER_REGEX = r'^[a-zA-Z_\$][a-zA-Z_\$0-9]*$'
-  let IDENTIFIER_UNICODE_REGEX = r'^[a-zA-Z_\$\u00a0-\uffff][a-zA-Z_\$0-9\u00a0-\uffff]*$'
-  let RESERVED = [
-    "arguments"
-    "break"
-    "case"
-    "catch"
-    "class"
-    "const"
-    "continue"
-    "debugger"
-    "default"
-    "delete"
-    "do"
-    "else"
-    "enum"
-    "export"
-    "extends"
-    "eval"
-    "false"
-    "finally"
-    "for"
-    "function"
-    "if"
-    "implements"
-    "import"
-    "in"
-    "Infinity"
-    "instanceof"
-    "interface"
-    "let"
-    "NaN"
-    "new"
-    "null"
-    "package"
-    "private"
-    "protected"
-    "public"
-    "return"
-    "static"
-    "super"
-    "switch"
-    "this"
-    "throw"
-    "true"
-    "try"
-    "typeof"
-    "undefined"
-    "var"
-    "void"
-    "while"
-    "with"
-    "yield"
-  ]
-  #(name as String, allow-unicode as Boolean)
-    let regex = if allow-unicode then IDENTIFIER_UNICODE_REGEX else IDENTIFIER_REGEX
-    regex.test(name) and name not in RESERVED
-
 exports.Node := class Node
   def constructor()
     throw Error "Node cannot be instantiated directly"
   
-  def to-string()
+  def to-string(options = {})
     let sb = StringBuilder()
-    @compile-as-statement { indent: 0, +bare }, true, sb
+    @compile-as-statement { indent: 0, +bare } <<< options, true, sb
     sb.to-string()
   
   def compile
@@ -408,6 +300,8 @@ let to-const(pos, value)
     Regex pos, value.source, value.flags
   else
     Const pos, value
+
+let is-negative(value as Number) -> value < 0 or value is -0
 
 exports.Binary := class Binary extends Expression
   def constructor(@pos as {}, mutable left = Noop(pos), @op as String, mutable right = Noop(pos))
@@ -1384,7 +1278,9 @@ exports.Ident := class Ident extends Expression
   def constructor(@pos as {}, @name as String, allow-unacceptable as Boolean)
     unless allow-unacceptable or is-acceptable-ident name, true
       throw Error "Not an acceptable identifier name: $name"
-    
+  
+  let unicode-replacer(m)
+    "\\u$(pad-left m.char-code-at(0).to-string(16), 4, '0')"
   def compile(options, level, line-start, sb)!
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb @name.replace r"[\u0000-\u001f\u0080-\uffff]"g, unicode-replacer
@@ -1695,7 +1591,9 @@ exports.Obj := class Obj extends Expression
         sb " "
       for element, i in elements
         if i > 0
-          sb ", "
+          sb ","
+          if not minify
+            sb " "
         let {key} = element
         sb to-safe-key key
         sb ":"
@@ -1906,7 +1804,7 @@ exports.Root := class Root
       code: code or ""
     }
   
-  def to-string() -> @compile().code
+  def to-string(options = {}) -> @compile(options).code
   
   def is-large() -> true
   

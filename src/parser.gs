@@ -4833,7 +4833,7 @@ class MacroHelper
       node.name
   def ident(name as String)
     // TODO: don't assume JS
-    if require('./jsast').is-acceptable-ident(name, true)
+    if require('./jsutils').is-acceptable-ident(name, true)
       @state.ident @index, name
   
   def is-call(node) -> @real(node) instanceof CallNode
@@ -5506,8 +5506,11 @@ class MacroHolder
     else
       throw Error "Unknown syntax: $(name)"
   
-  def serialize()
-    JSON.stringify(@serialization)
+  def serialize(allow-js as Boolean)
+    if allow-js
+      require('./jsutils').to-JS-source(@serialization)
+    else
+      JSON.stringify(@serialization)
   
   def deserialize(data)!
     // TODO: pass in the output language rather than assume JS
@@ -6093,7 +6096,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string()
+      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
       if not is-function! handler
@@ -6129,7 +6132,7 @@ class State
           ]
           let raw-func = make-macro-root@ this, index, func-param, body
           let translated = translator(@macro-expand-all(raw-func).reduce(state), @macros, return: true)
-          let compilation = translated.node.to-string()
+          let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
           if state-options.serialize-macros
             serialization := compilation
           let handler = Function(compilation)()
@@ -6171,7 +6174,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string()
+      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if not is-function! handler
@@ -6205,7 +6208,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string()
+      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if not is-function! handler
@@ -6247,7 +6250,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string()
+      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if not is-function! handler
@@ -6280,7 +6283,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string()
+      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if not is-function! handler
