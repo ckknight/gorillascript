@@ -5506,11 +5506,18 @@ class MacroHolder
     else
       throw Error "Unknown syntax: $(name)"
   
-  def serialize(allow-js as Boolean)
-    if allow-js
-      require('./jsutils').to-JS-source(@serialization)
+  def serialize(allow-JS as Boolean)
+    let serialization = {} <<< @serialization
+    let helpers = serialization!.helpers
+    if helpers
+      for name, helper of helpers
+        for dep, i in helper.dependencies by -1
+          if helpers not ownskey dep
+            helper.dependencies.splice i, 1
+    if allow-JS
+      require('./jsutils').to-JS-source(serialization)
     else
-      JSON.stringify(@serialization)
+      JSON.stringify(serialization)
   
   def deserialize(data)!
     // TODO: pass in the output language rather than assume JS

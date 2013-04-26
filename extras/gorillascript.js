@@ -920,20 +920,22 @@
           }
         }
         fromJSONTypes = {};
-        Type.fromJSON = function (x) {
+        function fromJSON(x) {
           var type;
-          if (typeof x !== "object" || x === null) {
-            throw TypeError("Expected x to be an Object, got " + __typeof(x));
-          }
-          type = x.type;
-          if (typeof type !== "string") {
-            throw TypeError("Unspecified type");
-          } else if (!__owns.call(fromJSONTypes, type)) {
-            throw TypeError("Unknown serialization type: " + __strnum(type));
+          if (typeof x === "string") {
+            return fromJSON({ type: "simple", name: x });
           } else {
-            return fromJSONTypes[type](x);
+            type = x.type;
+            if (typeof type !== "string") {
+              throw TypeError("Unspecified type");
+            } else if (!__owns.call(fromJSONTypes, type)) {
+              throw TypeError("Unknown serialization type: " + __strnum(type));
+            } else {
+              return fromJSONTypes[type](x);
+            }
           }
-        };
+        }
+        Type.fromJSON = fromJSON;
         getId = (function () {
           var id;
           id = -1;
@@ -1071,7 +1073,7 @@
                   _else = false;
                   v = Type[k];
                   if (v === _this) {
-                    return { type: "simple", name: k };
+                    return k;
                   }
                 }
               }
@@ -1368,7 +1370,22 @@
             return sb.join("");
           };
           _GenericType_prototype.toJSON = function () {
-            return { type: "generic", base: this.base, args: this.args };
+            var _this;
+            _this = this;
+            return (function () {
+              var _else, k, v;
+              _else = true;
+              for (k in Type) {
+                if (__owns.call(Type, k)) {
+                  _else = false;
+                  v = Type[k];
+                  if (v === _this) {
+                    return k;
+                  }
+                }
+              }
+              return { type: "generic", base: _this.base, args: _this.args };
+            }());
           };
           fromJSONTypes.generic = function (_p) {
             var args, base, baseType;
@@ -1685,13 +1702,17 @@
           };
           _ObjectType_prototype.toJSON = function () {
             var _arr, _i, _len, _ref, k, pairs, v;
-            pairs = {};
-            for (_arr = __toArray(this.pairs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
-              k = (_ref = _arr[_i])[0];
-              v = _ref[1];
-              pairs[k] = v;
+            if (this.pairs.length === 0) {
+              return "object";
+            } else {
+              pairs = {};
+              for (_arr = __toArray(this.pairs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                k = (_ref = _arr[_i])[0];
+                v = _ref[1];
+                pairs[k] = v;
+              }
+              return { type: "object", pairs: pairs };
             }
-            return { type: "object", pairs: pairs };
           };
           fromJSONTypes.object = function (_p) {
             var deserializedPairs, k, pairs, v;
@@ -1915,7 +1936,22 @@
             }()).join(").union(")) + ")";
           };
           _UnionType_prototype.toJSON = function () {
-            return { type: "union", types: this.types };
+            var _this;
+            _this = this;
+            return (function () {
+              var _else, k, v;
+              _else = true;
+              for (k in Type) {
+                if (__owns.call(Type, k)) {
+                  _else = false;
+                  v = Type[k];
+                  if (v === _this) {
+                    return k;
+                  }
+                }
+              }
+              return { type: "union", types: _this.types };
+            }());
           };
           fromJSONTypes.union = function (_p) {
             var _arr, _i, current, type, types;
@@ -2099,7 +2135,22 @@
             return __strnum(this.untype.inspect(depth)) + ".complement()";
           };
           _ComplementType_prototype.toJSON = function () {
-            return { type: "complement", untype: this.complement() };
+            var _this;
+            _this = this;
+            return (function () {
+              var _else, k, v;
+              _else = true;
+              for (k in Type) {
+                if (__owns.call(Type, k)) {
+                  _else = false;
+                  v = Type[k];
+                  if (v === _this) {
+                    return k;
+                  }
+                }
+              }
+              return { type: "complement", untype: _this.complement() };
+            }());
           };
           fromJSONTypes.complement = function (_p) {
             var untype;
@@ -2157,7 +2208,7 @@
             return "Type.any";
           };
           _AnyType_prototype.toJSON = function () {
-            return { type: "any" };
+            return "any";
           };
           fromJSONTypes.any = function () {
             return any;
@@ -2213,7 +2264,7 @@
             return "Type.none";
           };
           _NoneType_prototype.toJSON = function () {
-            return { type: "none" };
+            return "none";
           };
           fromJSONTypes.none = function () {
             return none;
@@ -19557,16 +19608,34 @@
             throw Error("Unknown syntax: " + name);
           }
         };
-        _MacroHolder_prototype.serialize = function (allowJs) {
-          if (allowJs == null) {
-            allowJs = false;
-          } else if (typeof allowJs !== "boolean") {
-            throw TypeError("Expected allowJs to be a Boolean, got " + __typeof(allowJs));
+        _MacroHolder_prototype.serialize = function (allowJS) {
+          var _arr, dep, helper, helpers, i, name, serialization;
+          if (allowJS == null) {
+            allowJS = false;
+          } else if (typeof allowJS !== "boolean") {
+            throw TypeError("Expected allowJS to be a Boolean, got " + __typeof(allowJS));
           }
-          if (allowJs) {
-            return require("./jsutils").toJSSource(this.serialization);
+          serialization = __import({}, this.serialization);
+          if (__owns.call(serialization, "helpers")) {
+            helpers = serialization.helpers;
+          }
+          if (helpers) {
+            for (name in helpers) {
+              if (__owns.call(helpers, name)) {
+                helper = helpers[name];
+                for (_arr = __toArray(helper.dependencies), i = _arr.length; i--; ) {
+                  dep = _arr[i];
+                  if (!__owns.call(helpers, dep)) {
+                    helper.dependencies.splice(i, 1);
+                  }
+                }
+              }
+            }
+          }
+          if (allowJS) {
+            return require("./jsutils").toJSSource(serialization);
           } else {
-            return JSON.stringify(this.serialization);
+            return JSON.stringify(serialization);
           }
         };
         _MacroHolder_prototype.deserialize = function (data) {
@@ -35382,8 +35451,8 @@
               whenFalse: {type: "This", line: 132, column: 103}
             }
           },
-          type: {type: "any"},
-          dependencies: ["GLOBAL", "global", "window"]
+          type: "any",
+          dependencies: ["GLOBAL"]
         },
         __xor: {
           helper: {
@@ -35432,12 +35501,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: ["__xor", "x", "y"]
+          type: "function",
+          dependencies: ["__xor"]
         },
         __typeof: {
           helper: {
@@ -35599,12 +35664,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "string"}]
-          },
-          dependencies: ["__typeof", "_toString", "o", "Object"]
+          type: {type: "generic", base: "functionBase", args: ["string"]},
+          dependencies: ["__typeof"]
         },
         __num: {
           helper: {
@@ -35663,12 +35724,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "number"}]
-          },
-          dependencies: ["__num", "__typeof", "num", "TypeError"]
+          type: {type: "generic", base: "functionBase", args: ["number"]},
+          dependencies: ["__num", "__typeof"]
         },
         __str: {
           helper: {
@@ -35727,12 +35784,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "string"}]
-          },
-          dependencies: ["__str", "__typeof", "str", "TypeError"]
+          type: {type: "generic", base: "functionBase", args: ["string"]},
+          dependencies: ["__str", "__typeof"]
         },
         __strnum: {
           helper: {
@@ -35832,19 +35885,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "string"}]
-          },
-          dependencies: [
-            "__strnum",
-            "__typeof",
-            "String",
-            "strnum",
-            "type",
-            "TypeError"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["string"]},
+          dependencies: ["__strnum", "__typeof"]
         },
         __owns: {
           helper: {
@@ -35862,8 +35904,8 @@
             op: ".",
             right: {type: "Const", line: 592, column: 41, value: "hasOwnProperty"}
           },
-          type: {type: "any"},
-          dependencies: ["__owns", "Object"]
+          type: "any",
+          dependencies: ["__owns"]
         },
         __cmp: {
           helper: {
@@ -36051,18 +36093,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "number"}]
-          },
-          dependencies: [
-            "__cmp",
-            "left",
-            "right",
-            "type",
-            "TypeError"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["number"]},
+          dependencies: ["__cmp"]
         },
         __int: {
           helper: {
@@ -36166,12 +36198,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "number"}]
-          },
-          dependencies: ["__int", "__typeof", "num", "TypeError"]
+          type: {type: "generic", base: "functionBase", args: ["number"]},
+          dependencies: ["__int", "__typeof"]
         },
         __nonzero: {
           helper: {
@@ -36224,12 +36252,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: ["__nonzero", "num", "RangeError"]
+          type: "function",
+          dependencies: ["__nonzero"]
         },
         __lt: {
           helper: {
@@ -36380,18 +36404,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "boolean"}]
-          },
-          dependencies: [
-            "__lt",
-            "type",
-            "TypeError",
-            "x",
-            "y"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["boolean"]},
+          dependencies: ["__lt"]
         },
         __lte: {
           helper: {
@@ -36542,18 +36556,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "boolean"}]
-          },
-          dependencies: [
-            "__lte",
-            "type",
-            "TypeError",
-            "x",
-            "y"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["boolean"]},
+          dependencies: ["__lte"]
         },
         __slice: {
           helper: {
@@ -36571,8 +36575,8 @@
             op: ".",
             right: {type: "Const", line: 921, column: 41, value: "slice"}
           },
-          type: {type: "any"},
-          dependencies: ["__slice", "Array"]
+          type: "any",
+          dependencies: ["__slice"]
         },
         __freeze: {
           helper: {
@@ -36621,8 +36625,8 @@
               }
             }
           },
-          type: {type: "any"},
-          dependencies: ["__freeze", "Object", "x"]
+          type: "any",
+          dependencies: ["__freeze"]
         },
         __freezeFunc: {
           helper: {
@@ -36684,12 +36688,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: ["__freeze", "__freezeFunc", "x"]
+          type: "function",
+          dependencies: ["__freeze", "__freezeFunc"]
         },
         __isArray: {
           helper: {
@@ -36803,14 +36803,8 @@
               }
             }
           },
-          type: {type: "any"},
-          dependencies: [
-            "__isArray",
-            "_toString",
-            "Array",
-            "Object",
-            "x"
-          ]
+          type: "any",
+          dependencies: ["__isArray"]
         },
         __isObject: {
           helper: {
@@ -36852,12 +36846,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "boolean"}]
-          },
-          dependencies: ["__isObject", "x"]
+          type: {type: "generic", base: "functionBase", args: ["boolean"]},
+          dependencies: ["__isObject"]
         },
         __toArray: {
           helper: {
@@ -36979,23 +36969,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "arrayBase"},
-              args: [{type: "any"}]
-            }]
-          },
-          dependencies: [
-            "__isArray",
-            "__slice",
-            "__toArray",
-            "__typeof",
-            "TypeError",
-            "x"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["array"]},
+          dependencies: ["__isArray", "__slice", "__toArray", "__typeof"]
         },
         __create: {
           helper: {
@@ -37078,8 +37053,8 @@
               }
             }
           },
-          type: {type: "any"},
-          dependencies: ["__create", "F", "Object", "x"]
+          type: "any",
+          dependencies: ["__create"]
         },
         __pow: {
           helper: {
@@ -37090,8 +37065,8 @@
             op: ".",
             right: {type: "Const", line: 960, column: 28, value: "pow"}
           },
-          type: {type: "any"},
-          dependencies: ["__pow", "Math"]
+          type: "any",
+          dependencies: ["__pow"]
         },
         __floor: {
           helper: {
@@ -37102,8 +37077,8 @@
             op: ".",
             right: {type: "Const", line: 961, column: 30, value: "floor"}
           },
-          type: {type: "any"},
-          dependencies: ["__floor", "Math"]
+          type: "any",
+          dependencies: ["__floor"]
         },
         __sqrt: {
           helper: {
@@ -37114,8 +37089,8 @@
             op: ".",
             right: {type: "Const", line: 962, column: 29, value: "sqrt"}
           },
-          type: {type: "any"},
-          dependencies: ["__sqrt", "Math"]
+          type: "any",
+          dependencies: ["__sqrt"]
         },
         __log: {
           helper: {
@@ -37126,8 +37101,8 @@
             op: ".",
             right: {type: "Const", line: 963, column: 28, value: "log"}
           },
-          type: {type: "any"},
-          dependencies: ["__log", "Math"]
+          type: "any",
+          dependencies: ["__log"]
         },
         __in: {
           helper: {
@@ -37357,20 +37332,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "boolean"}]
-          },
-          dependencies: [
-            "__in",
-            "Array",
-            "child",
-            "i",
-            "indexOf",
-            "len",
-            "parent"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["boolean"]},
+          dependencies: ["__in"]
         },
         __genericFunc: {
           helper: {
@@ -37678,26 +37641,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: [
-            "__genericFunc",
-            "__toArray",
-            "any",
-            "cache",
-            "current",
-            "generic",
-            "i",
-            "item",
-            "make",
-            "numArgs",
-            "result",
-            "type",
-            "WeakMap"
-          ]
+          type: "function",
+          dependencies: ["__genericFunc", "__toArray", "WeakMap"]
         },
         __range: {
           helper: {
@@ -38200,28 +38145,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "arrayBase"},
-              args: [{type: "simple", name: "number"}]
-            }]
-          },
-          dependencies: [
-            "__range",
-            "__typeof",
-            "end",
-            "i",
-            "inclusive",
-            "isFinite",
-            "RangeError",
-            "result",
-            "start",
-            "step",
-            "TypeError"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["numberArray"]},
+          dependencies: ["__range", "__typeof"]
         },
         __step: {
           helper: {
@@ -38643,29 +38568,13 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "arrayBase"},
-              args: [{type: "any"}]
-            }]
-          },
+          type: {type: "generic", base: "functionBase", args: ["array"]},
           dependencies: [
             "__num",
             "__slice",
             "__step",
             "__toArray",
-            "__typeof",
-            "array",
-            "i",
-            "len",
-            "RangeError",
-            "result",
-            "step",
-            "String",
-            "TypeError"
+            "__typeof"
           ]
         },
         __sliceStep: {
@@ -38902,26 +38811,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "arrayBase"},
-              args: [{type: "any"}]
-            }]
-          },
-          dependencies: [
-            "__slice",
-            "__sliceStep",
-            "__step",
-            "arr",
-            "array",
-            "end",
-            "inclusive",
-            "start",
-            "step"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["array"]},
+          dependencies: ["__slice", "__sliceStep", "__step"]
         },
         StopIteration: {
           helper: {
@@ -38959,7 +38850,7 @@
               args: [{type: "Obj", line: 68158, column: 68160}]
             }
           },
-          type: {type: "any"},
+          type: "any",
           dependencies: ["__freeze", "GLOBAL", "StopIteration"]
         },
         __keys: {
@@ -39068,15 +38959,8 @@
               }
             }
           },
-          type: {type: "any"},
-          dependencies: [
-            "__keys",
-            "__owns",
-            "key",
-            "keys",
-            "Object",
-            "x"
-          ]
+          type: "any",
+          dependencies: ["__keys", "__owns"]
         },
         __allkeys: {
           helper: {
@@ -39128,16 +39012,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "arrayBase"},
-              args: [{type: "simple", name: "string"}]
-            }]
-          },
-          dependencies: ["__allkeys", "key", "keys", "x"]
+          type: {type: "generic", base: "functionBase", args: ["stringArray"]},
+          dependencies: ["__allkeys"]
         },
         __new: {
           helper: {
@@ -39431,23 +39307,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: [
-            "__new",
-            "__num",
-            "args",
-            "creator",
-            "Ctor",
-            "func",
-            "Function",
-            "i",
-            "length",
-            "newCreators"
-          ]
+          type: "function",
+          dependencies: ["__new", "__num"]
         },
         __instanceofsome: {
           helper: {
@@ -39577,18 +39438,8 @@
               }
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "boolean"}]
-          },
-          dependencies: [
-            "__instanceofsome",
-            "__toArray",
-            "array",
-            "item",
-            "value"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["boolean"]},
+          dependencies: ["__instanceofsome", "__toArray"]
         },
         __makeInstanceof: {
           helper: {
@@ -39894,31 +39745,10 @@
           },
           type: {
             type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "functionBase"},
-              args: [{type: "simple", name: "boolean"}]
-            }]
+            base: "functionBase",
+            args: [{type: "generic", base: "functionBase", args: ["boolean"]}]
           },
-          dependencies: [
-            "__isArray",
-            "__isObject",
-            "__makeInstanceof",
-            "Array",
-            "bool",
-            "Boolean",
-            "ctor",
-            "func",
-            "Function",
-            "num",
-            "Number",
-            "Object",
-            "retTrue",
-            "str",
-            "String",
-            "x"
-          ]
+          dependencies: ["__isArray", "__isObject", "__makeInstanceof"]
         },
         __name: {
           helper: {
@@ -40012,12 +39842,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "simple", name: "string"}]
-          },
-          dependencies: ["__name", "__typeof", "func", "TypeError"]
+          type: {type: "generic", base: "functionBase", args: ["string"]},
+          dependencies: ["__name", "__typeof"]
         },
         __once: {
           helper: {
@@ -40134,23 +39960,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "functionBase"},
-              args: [{type: "any"}]
-            }]
-          },
-          dependencies: [
-            "__once",
-            "__toArray",
-            "__typeof",
-            "Error",
-            "f",
-            "func"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["function"]},
+          dependencies: ["__once", "__toArray", "__typeof"]
         },
         __async: {
           helper: {
@@ -40568,28 +40379,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: [
-            "__async",
-            "__once",
-            "broken",
-            "err",
-            "f",
-            "i",
-            "index",
-            "length",
-            "limit",
-            "next",
-            "onComplete",
-            "onValue",
-            "onValueCallback",
-            "slotsUsed",
-            "sync"
-          ]
+          type: "function",
+          dependencies: ["__async", "__once"]
         },
         __asyncResult: {
           helper: {
@@ -41103,30 +40894,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: [
-            "__asyncResult",
-            "__once",
-            "broken",
-            "err",
-            "f",
-            "i",
-            "index",
-            "length",
-            "limit",
-            "next",
-            "onComplete",
-            "onValue",
-            "onValueCallback",
-            "result",
-            "slotsUsed",
-            "sync",
-            "value"
-          ]
+          type: "function",
+          dependencies: ["__asyncResult", "__once"]
         },
         __asyncIter: {
           helper: {
@@ -41709,33 +41478,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: [
-            "__asyncIter",
-            "__once",
-            "broken",
-            "close",
-            "done",
-            "e",
-            "err",
-            "f",
-            "i",
-            "index",
-            "iterator",
-            "limit",
-            "next",
-            "onComplete",
-            "onValue",
-            "onValueCallback",
-            "slotsUsed",
-            "StopIteration",
-            "sync",
-            "value"
-          ]
+          type: "function",
+          dependencies: ["__asyncIter", "__once", "StopIteration"]
         },
         __asyncIterResult: {
           helper: {
@@ -42406,34 +42150,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: [
-            "__asyncIterResult",
-            "__once",
-            "broken",
-            "close",
-            "done",
-            "e",
-            "err",
-            "f",
-            "i",
-            "index",
-            "iterator",
-            "limit",
-            "next",
-            "onComplete",
-            "onValue",
-            "onValueCallback",
-            "result",
-            "slotsUsed",
-            "StopIteration",
-            "sync",
-            "value"
-          ]
+          type: "function",
+          dependencies: ["__asyncIterResult", "__once", "StopIteration"]
         },
         __is: {
           helper: {
@@ -42566,8 +42284,8 @@
               }
             }
           },
-          type: {type: "any"},
-          dependencies: ["__is", "Object", "x", "y"]
+          type: "any",
+          dependencies: ["__is"]
         },
         __bind: {
           helper: {
@@ -42723,26 +42441,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "functionBase"},
-              args: [{type: "any"}]
-            }]
-          },
-          dependencies: [
-            "__bind",
-            "__toArray",
-            "__typeof",
-            "child",
-            "Error",
-            "func",
-            "parent",
-            "String",
-            "TypeError"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["function"]},
+          dependencies: ["__bind", "__toArray", "__typeof"]
         },
         __defProp: {
           helper: {
@@ -43609,27 +43309,8 @@
               }
             }
           },
-          type: {type: "any"},
-          dependencies: [
-            "__defProp",
-            "__owns",
-            "__typeof",
-            "defineGetter",
-            "defineSetter",
-            "descriptor",
-            "e",
-            "Error",
-            "fallback",
-            "lookupGetter",
-            "lookupSetter",
-            "o",
-            "object",
-            "Object",
-            "property",
-            "proto",
-            "supportsAccessors",
-            "TypeError"
-          ]
+          type: "any",
+          dependencies: ["__defProp", "__owns", "__typeof"]
         },
         __compose: {
           helper: {
@@ -43784,23 +43465,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "functionBase"},
-              args: [{type: "any"}]
-            }]
-          },
-          dependencies: [
-            "__compose",
-            "__toArray",
-            "__typeof",
-            "left",
-            "right",
-            "TypeError"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["function"]},
+          dependencies: ["__compose", "__toArray", "__typeof"]
         },
         __curry: {
           helper: {
@@ -44113,27 +43779,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{
-              type: "generic",
-              base: {type: "simple", name: "functionBase"},
-              args: [{type: "any"}]
-            }]
-          },
-          dependencies: [
-            "__curry",
-            "__num",
-            "__slice",
-            "__typeof",
-            "args",
-            "currier",
-            "f",
-            "numArgs",
-            "ret",
-            "TypeError"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["function"]},
+          dependencies: ["__curry", "__num", "__slice", "__typeof"]
         },
         __import: {
           helper: {
@@ -44210,18 +43857,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "object", pairs: {}}]
-          },
-          dependencies: [
-            "__import",
-            "__owns",
-            "dest",
-            "k",
-            "source"
-          ]
+          type: {type: "generic", base: "functionBase", args: ["object"]},
+          dependencies: ["__import", "__owns"]
         },
         WeakMap: {
           helper: {
@@ -44867,21 +44504,8 @@
               }
             }
           },
-          type: {type: "any"},
-          dependencies: [
-            "__create",
-            "__toArray",
-            "fallback",
-            "GLOBAL",
-            "index",
-            "key",
-            "keys",
-            "Object",
-            "TypeError",
-            "value",
-            "values",
-            "WeakMap"
-          ]
+          type: "any",
+          dependencies: ["__create", "__toArray", "GLOBAL", "WeakMap"]
         },
         __indexOfIdentical: {
           helper: {
@@ -45217,20 +44841,8 @@
               ]
             }
           },
-          type: {
-            type: "generic",
-            base: {type: "simple", name: "functionBase"},
-            args: [{type: "any"}]
-          },
-          dependencies: [
-            "__indexOfIdentical",
-            "__toArray",
-            "array",
-            "check",
-            "i",
-            "inf",
-            "item"
-          ]
+          type: "function",
+          dependencies: ["__indexOfIdentical", "__toArray"]
         },
         Map: {
           helper: {
@@ -47213,25 +46825,15 @@
               }
             }
           },
-          type: {type: "any"},
+          type: "any",
           dependencies: [
             "__create",
             "__indexOfIdentical",
             "__isArray",
             "__toArray",
-            "e",
-            "fallback",
             "GLOBAL",
-            "i",
-            "index",
-            "iterable",
-            "key",
-            "keys",
             "Map",
-            "StopIteration",
-            "value",
-            "values",
-            "x"
+            "StopIteration"
           ]
         },
         Set: {
@@ -48220,18 +47822,13 @@
               }
             }
           },
-          type: {type: "any"},
+          type: "any",
           dependencies: [
             "__create",
             "__indexOfIdentical",
             "__isArray",
             "__toArray",
-            "e",
             "GLOBAL",
-            "index",
-            "item",
-            "items",
-            "iterable",
             "Set",
             "StopIteration"
           ]
