@@ -5982,7 +5982,7 @@ class State
     else
       throw Error()
   let serialize-params(params)
-    return for param in params
+    simplify-array for param in params
       if param.is-const()
         { type: \const, value: param.const-value() }
       else if param instanceof SyntaxParamNode
@@ -6014,18 +6014,21 @@ class State
       SyntaxManyNode 0, 0, scope-id, deserialize-param-type(as-type.inner, scope-id), as-type.multiplier
     default
       throw Error "Unknown as-type: $(String as-type.type)"
-  let deserialize-params(params, scope-id)
-    return for param in params
-      if param.type == \const
-        ConstNode 0, 0, scope-id, param.value
-      else
-        let node = if param.type == \ident
-          IdentNode 0, 0, scope-id, param.name
-        else if param.type == \this
-          ThisNode 0, 0, scope-id
+  let deserialize-params(mutable params, scope-id)
+    if not is-array! params
+      deserialize-params fix-array(params), scope-id
+    else
+      return for param in params
+        if param.type == \const
+          ConstNode 0, 0, scope-id, param.value
         else
-          throw Error "Unknown param: $(String param.type)"
-        SyntaxParamNode 0, 0, scope-id, node, deserialize-param-type(param.as-type, scope-id)
+          let node = if param.type == \ident
+            IdentNode 0, 0, scope-id, param.name
+          else if param.type == \this
+            ThisNode 0, 0, scope-id
+          else
+            throw Error "Unknown param: $(String param.type)"
+          SyntaxParamNode 0, 0, scope-id, node, deserialize-param-type(param.as-type, scope-id)
   
   let calc-param(param)
     if param instanceof IdentNode
@@ -6079,6 +6082,17 @@ class State
       else
         @error "Unexpected parameter type: $(typeof! param)"
     sequential sequence
+  let simplify-array(operators as [])
+    if operators.length == 0
+      void
+    else if operators.length == 1 and not is-array! operators[0]
+      operators[0]
+    else
+      operators
+  let simplify-object(options as {})
+    for k, v of options
+      return options
+    return void
   let macro-syntax-types =
     syntax: #(index, params, mutable body, options, state-options, translator)
       let macro-full-data-ident = @ident index, \macro-full-data
@@ -6115,9 +6129,9 @@ class State
         serialization: if serialization?
           type: \syntax
           code: serialization
-          options: options
+          options: simplify-object options
           params: serialize-params params
-          names: @current-macro
+          names: simplify-array @current-macro
       }
     
     define-syntax: #(index, params, mutable body, options, state-options, translator)
@@ -6154,7 +6168,7 @@ class State
         serialization: if state-options.serialize-macros
           type: \define-syntax
           code: serialization
-          options: options
+          options: simplify-object options
           params: serialize-params params
       }
     
@@ -6196,8 +6210,8 @@ class State
         serialization: if serialization?
           type: \call
           code: serialization
-          options: options
-          names: @current-macro
+          options: simplify-object options
+          names: simplify-array @current-macro
       }
     
     binary-operator: #(index, operators, mutable body, options, state-options, translator)
@@ -6238,8 +6252,8 @@ class State
         serialization: if serialization?
           type: \binary-operator
           code: serialization
-          operators: operators
-          options: options
+          operators: simplify-array operators
+          options: simplify-object options
       }
     
     assign-operator: #(index, operators, mutable body, options, state-options, translator)
@@ -6271,8 +6285,8 @@ class State
         serialization: if serialization?
           type: \assign-operator
           code: serialization
-          operators: operators
-          options: options
+          operators: simplify-array operators
+          options: simplify-object options
       }
     
     unary-operator: #(index, operators, mutable body, options, state-options, translator)
@@ -6304,12 +6318,20 @@ class State
         serialization: if serialization?
           type: \unary-operator
           code: serialization
-          operators: operators
-          options: options
+          operators: simplify-array operators
+          options: simplify-object options
       }
   
+  let fix-array(operators)
+    if not operators?
+      []
+    else if is-array! operators
+      operators
+    else
+      [operators]
   let macro-deserializers =
-    syntax: #({code, params, names, options, id})
+    syntax: #({code, params, mutable names, options = {}, id})
+      names := fix-array names
       let mutable handler = Function(code)()
       if not is-function! handler
         throw Error "Error deserializing function for macro $(name)"
@@ -6319,7 +6341,8 @@ class State
       @enter-macro names, #@
         handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params, @scope.id)), null, options, id
     
-    call: #({code, names, options, id})
+    call: #({code, mutable names, options = {}, id})
+      names := fix-array names
       let mutable handler = Function(code)()
       if not is-function! handler
         throw Error "Error deserializing function for macro $(name)"
@@ -6329,7 +6352,7 @@ class State
       @enter-macro name, #@
         handle-macro-syntax@ this, 0, \call, handler, InvocationArguments, null, options, id
     
-    define-syntax: #({code, params, options, id})
+    define-syntax: #({code, params, options = {}, id})
       if @macros.has-syntax(options.name)
         throw Error "Cannot override already-defined syntax: $(options.name)"
       
@@ -6347,7 +6370,8 @@ class State
       @enter-macro DEFINE_SYNTAX, #@
         handle-macro-syntax@ this, 0, \define-syntax, handler, handle-params@(this, deserialize-params(params, @scope.id)), null, options, id
     
-    binary-operator: #({code, operators, options, id})
+    binary-operator: #({code, mutable operators, options = {}, id})
+      operators := fix-array operators
       let mutable handler = Function(code)()
       if not is-function! handler
         throw Error "Error deserializing function for binary operator $(operators.join ', ')"
@@ -6366,7 +6390,8 @@ class State
       @enter-macro BINARY_OPERATOR, #@
         handle-macro-syntax@ this, 0, \binary-operator, handler, void, operators, options, id
       
-    assign-operator: #({code, operators, options, id})
+    assign-operator: #({code, mutable operators, options = {}, id})
+      operators := fix-array operators
       let mutable handler = Function(code)()
       if not is-function! handler
         throw Error "Error deserializing function for assign operator $(operators.join ', ')"
@@ -6376,7 +6401,8 @@ class State
       @enter-macro ASSIGN_OPERATOR, #@
         handle-macro-syntax@ this, 0, \assign-operator, handler, void, operators, options, id
     
-    unary-operator: #({code, operators, options, id})!
+    unary-operator: #({code, mutable operators, options = {}, id})!
+      operators := fix-array operators
       let mutable handler = Function(code)()
       if not is-function! handler
         throw Error "Error deserializing function for unary operator $(operators.join ', ')"

@@ -20294,29 +20294,31 @@
           }
         }
         function serializeParams(params) {
-          var _arr, _arr2, _i, _len, ident, param, value;
-          for (_arr = [], _arr2 = __toArray(params), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
-            param = _arr2[_i];
-            if (param.isConst()) {
-              _arr.push({ type: "const", value: param.constValue() });
-            } else if (param instanceof SyntaxParamNode) {
-              ident = param.ident;
-              if (ident instanceof IdentNode) {
-                value = { type: "ident", name: ident.name };
-              } else if (ident instanceof ThisNode) {
-                value = { type: "this" };
+          return simplifyArray((function () {
+            var _arr, _arr2, _i, _len, ident, param, value;
+            for (_arr = [], _arr2 = __toArray(params), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+              param = _arr2[_i];
+              if (param.isConst()) {
+                _arr.push({ type: "const", value: param.constValue() });
+              } else if (param instanceof SyntaxParamNode) {
+                ident = param.ident;
+                if (ident instanceof IdentNode) {
+                  value = { type: "ident", name: ident.name };
+                } else if (ident instanceof ThisNode) {
+                  value = { type: "this" };
+                } else {
+                  throw Error();
+                }
+                if (param.asType) {
+                  value.asType = serializeParamType(param.asType);
+                }
+                _arr.push(value);
               } else {
                 throw Error();
               }
-              if (param.asType) {
-                value.asType = serializeParamType(param.asType);
-              }
-              _arr.push(value);
-            } else {
-              throw Error();
             }
-          }
-          return _arr;
+            return _arr;
+          }()));
         }
         function deserializeParamType(asType, scopeId) {
           if (asType == null) {
@@ -20351,28 +20353,32 @@
         }
         function deserializeParams(params, scopeId) {
           var _arr, _arr2, _i, _len, node, param;
-          for (_arr = [], _arr2 = __toArray(params), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
-            param = _arr2[_i];
-            if (param.type === "const") {
-              _arr.push(ConstNode(0, 0, scopeId, param.value));
-            } else {
-              if (param.type === "ident") {
-                node = IdentNode(0, 0, scopeId, param.name);
-              } else if (param.type === "this") {
-                node = ThisNode(0, 0, scopeId);
+          if (!__isArray(params)) {
+            return deserializeParams(fixArray(params), scopeId);
+          } else {
+            for (_arr = [], _arr2 = __toArray(params), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+              param = _arr2[_i];
+              if (param.type === "const") {
+                _arr.push(ConstNode(0, 0, scopeId, param.value));
               } else {
-                throw Error("Unknown param: " + String(param.type));
+                if (param.type === "ident") {
+                  node = IdentNode(0, 0, scopeId, param.name);
+                } else if (param.type === "this") {
+                  node = ThisNode(0, 0, scopeId);
+                } else {
+                  throw Error("Unknown param: " + String(param.type));
+                }
+                _arr.push(SyntaxParamNode(
+                  0,
+                  0,
+                  scopeId,
+                  node,
+                  deserializeParamType(param.asType, scopeId)
+                ));
               }
-              _arr.push(SyntaxParamNode(
-                0,
-                0,
-                scopeId,
-                node,
-                deserializeParamType(param.asType, scopeId)
-              ));
             }
+            return _arr;
           }
-          return _arr;
         }
         function calcParam(param) {
           var _this, calced, macros, multiplier, name, string;
@@ -20487,6 +20493,31 @@
           }
           return sequential(sequence);
         }
+        function simplifyArray(operators) {
+          if (!__isArray(operators)) {
+            throw TypeError("Expected operators to be an Array, got " + __typeof(operators));
+          }
+          if (operators.length === 0) {
+            return;
+          } else if (operators.length === 1 && !__isArray(operators[0])) {
+            return operators[0];
+          } else {
+            return operators;
+          }
+        }
+        function simplifyObject(options) {
+          var k, v;
+          if (typeof options !== "object" || options === null) {
+            throw TypeError("Expected options to be an Object, got " + __typeof(options));
+          }
+          for (k in options) {
+            if (__owns.call(options, k)) {
+              v = options[k];
+              return options;
+            }
+          }
+          return;
+        }
         macroSyntaxTypes = {
           syntax: function (index, params, body, options, stateOptions, translator) {
             var _this, compilation, funcParam, handler, macroDataIdent, macroFullDataIdent, macroNameIdent, rawFunc, serialization, state, translated;
@@ -20548,9 +20579,9 @@
                 ? {
                   type: "syntax",
                   code: serialization,
-                  options: options,
+                  options: simplifyObject(options),
                   params: serializeParams(params),
-                  names: this.currentMacro
+                  names: simplifyArray(this.currentMacro)
                 }
                 : void 0
             };
@@ -20611,7 +20642,7 @@
             return {
               handler: handler,
               rule: handleParams.call(this, params),
-              serialization: stateOptions.serializeMacros ? { type: "defineSyntax", code: serialization, options: options, params: serializeParams(params) } : void 0
+              serialization: stateOptions.serializeMacros ? { type: "defineSyntax", code: serialization, options: simplifyObject(options), params: serializeParams(params) } : void 0
             };
           },
           call: function (index, params, body, options, stateOptions, translator) {
@@ -20673,7 +20704,7 @@
             return {
               handler: handler,
               rule: InvocationArguments,
-              serialization: serialization != null ? { type: "call", code: serialization, options: options, names: this.currentMacro } : void 0
+              serialization: serialization != null ? { type: "call", code: serialization, options: simplifyObject(options), names: simplifyArray(this.currentMacro) } : void 0
             };
           },
           binaryOperator: function (index, operators, body, options, stateOptions, translator) {
@@ -20743,7 +20774,7 @@
             return {
               handler: handler,
               rule: void 0,
-              serialization: serialization != null ? { type: "binaryOperator", code: serialization, operators: operators, options: options } : void 0
+              serialization: serialization != null ? { type: "binaryOperator", code: serialization, operators: simplifyArray(operators), options: simplifyObject(options) } : void 0
             };
           },
           assignOperator: function (index, operators, body, options, stateOptions, translator) {
@@ -20792,7 +20823,7 @@
             return {
               handler: handler,
               rule: void 0,
-              serialization: serialization != null ? { type: "assignOperator", code: serialization, operators: operators, options: options } : void 0
+              serialization: serialization != null ? { type: "assignOperator", code: serialization, operators: simplifyArray(operators), options: simplifyObject(options) } : void 0
             };
           },
           unaryOperator: function (index, operators, body, options, stateOptions, translator) {
@@ -20841,10 +20872,19 @@
             return {
               handler: handler,
               rule: void 0,
-              serialization: serialization != null ? { type: "unaryOperator", code: serialization, operators: operators, options: options } : void 0
+              serialization: serialization != null ? { type: "unaryOperator", code: serialization, operators: simplifyArray(operators), options: simplifyObject(options) } : void 0
             };
           }
         };
+        function fixArray(operators) {
+          if (operators == null) {
+            return [];
+          } else if (__isArray(operators)) {
+            return operators;
+          } else {
+            return [operators];
+          }
+        }
         macroDeserializers = {
           syntax: function (_p) {
             var _this, code, handler, id, names, options, params, state;
@@ -20853,7 +20893,11 @@
             params = _p.params;
             names = _p.names;
             options = _p.options;
+            if (options == null) {
+              options = {};
+            }
             id = _p.id;
+            names = fixArray(names);
             handler = Function(code)();
             if (typeof handler !== "function") {
               throw Error("Error deserializing function for macro " + __strnum(name));
@@ -20885,7 +20929,11 @@
             code = _p.code;
             names = _p.names;
             options = _p.options;
+            if (options == null) {
+              options = {};
+            }
             id = _p.id;
+            names = fixArray(names);
             handler = Function(code)();
             if (typeof handler !== "function") {
               throw Error("Error deserializing function for macro " + __strnum(name));
@@ -20917,6 +20965,9 @@
             code = _p.code;
             params = _p.params;
             options = _p.options;
+            if (options == null) {
+              options = {};
+            }
             id = _p.id;
             if (this.macros.hasSyntax(options.name)) {
               throw Error("Cannot override already-defined syntax: " + __strnum(options.name));
@@ -20958,7 +21009,11 @@
             code = _p.code;
             operators = _p.operators;
             options = _p.options;
+            if (options == null) {
+              options = {};
+            }
             id = _p.id;
+            operators = fixArray(operators);
             handler = Function(code)();
             if (typeof handler !== "function") {
               throw Error("Error deserializing function for binary operator " + __strnum(operators.join(", ")));
@@ -21011,7 +21066,11 @@
             code = _p.code;
             operators = _p.operators;
             options = _p.options;
+            if (options == null) {
+              options = {};
+            }
             id = _p.id;
+            operators = fixArray(operators);
             handler = Function(code)();
             if (typeof handler !== "function") {
               throw Error("Error deserializing function for assign operator " + __strnum(operators.join(", ")));
@@ -21043,7 +21102,11 @@
             code = _p.code;
             operators = _p.operators;
             options = _p.options;
+            if (options == null) {
+              options = {};
+            }
             id = _p.id;
+            operators = fixArray(operators);
             handler = Function(code)();
             if (typeof handler !== "function") {
               throw Error("Error deserializing function for unary operator " + __strnum(operators.join(", ")));
@@ -31997,8 +32060,7 @@
       syntax: [
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;body=macroData.body;return __node("Call",3,9,__node("Function",3,12,[],__wrap(body,2),true,true,false,void 0,false,[]),[],false,false);};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "body",
             asType: {
@@ -32017,21 +32079,19 @@
                 }
               ]
             }
-          }],
-          names: ["do"],
+          },
+          names: "do",
           id: 0
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;return this["debugger"]();};}.call(this));',
-          options: {},
-          params: [{type: "const", value: ""}],
-          names: ["debugger"],
+          params: {type: "const", value: ""},
+          names: "debugger",
           id: 14
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var label,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;label=macroData.label;return this["continue"](label);};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "label",
             asType: {
@@ -32041,14 +32101,13 @@
                 {type: "const", value: ""}
               ]
             }
-          }],
-          names: ["continue"],
+          },
+          names: "continue",
           id: 15
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var label,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;label=macroData.label;return this["break"](label);};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "label",
             asType: {
@@ -32058,13 +32117,12 @@
                 {type: "const", value: ""}
               ]
             }
-          }],
-          names: ["break"],
+          },
+          names: "break",
           id: 16
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var func,ident,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;ident=macroData.ident;func=macroData.func;this["let"](ident,false,this.type(func));return this.block([this["var"](ident,false),this.assign(ident,"=",func)]);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -32077,12 +32135,11 @@
               asType: {type: "ident", name: "FunctionDeclaration"}
             }
           ],
-          names: ["let"],
+          names: "let",
           id: 17
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _this,body,elseBody,elseIfs,macroData,macroName,test;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;function dec(x){return x - 1;};function f(i,current){return i>=0&&f(dec(i),_this["if"](elseIfs[i].test,elseIfs[i].body,current))||current;};return this["if"](macroName==="unless"&&__node("MacroAccess",88,40,3,88,{op:"not",node:__wrap(test,23)},"expression",false,false)||test,body,f(dec(elseIfs.length),elseBody));};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -32134,7 +32191,6 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _this,body,elseBody,elseIfs,macroData,macroName,test;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;function dec(x){return x - 1;};function f(i,current){if(i>=0){return f(dec(i),_this["if"](elseIfs[i].type==="unless"?__node("MacroAccess",93,80,3,93,{op:"not",node:__wrap(elseIfs[i].test,28)},"expression",false,false):elseIfs[i].test,elseIfs[i].body,current));}else{return current;}};return this["if"](macroName==="unless"?__node("MacroAccess",94,43,3,94,{op:"not",node:__wrap(test,26)},"expression",false,false):test,body,f(dec(elseIfs.length),elseBody));};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -32252,7 +32308,6 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,_this,declarable,handle,macroData,macroName,numRealElements,value;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;declarable=macroData.declarable;value=macroData.value;function inc(x){return x + 1;};declarable=this.macroExpand1(declarable);if(!declarable){throw Error("Unknown declarable: "+String(declarable));}if(declarable.type==="ident"){this["let"](declarable.ident,declarable.isMutable,declarable.asType?this.toType(declarable.asType):this.type(value));return this.block([this["var"](declarable.ident,declarable.isMutable),this.mutateLast(value||this.noop(),function(n){return _this.assign(declarable.ident,"=",n);},true)]);}else if(declarable.type==="array"){numRealElements=function(i,acc){if(i<declarable.elements.length){return numRealElements(inc(i),declarable.elements[i]?inc(acc):acc);}else{return acc;}};if(numRealElements(0,0)<=1){handle=function(i){if(i<declarable.elements.length){if(declarable.elements[i]){return _this.macroExpand1(__node("MacroAccess",204,34,38,204,{macroName:"let",macroData:{declarable:__node("MacroAccess",204,38,37,204,__node("MacroAccess",204,38,31,204,{ident:__wrap(declarable.elements[i],55)},"statement",false,false),"statement",false,false),value:__node("Access",204,66,__wrap(value,55),__wrap(i,55))}},"statement",false,false));}else{return handle(inc(i));}}else{return value;}};return handle(0);}else{return this.maybeCache(value,function(setValue,value){function handle(i,currentValue,block){if(i<declarable.elements.length){if(declarable.elements[i]){block.push(_this.macroExpand1(__node("MacroAccess",215,47,38,215,{macroName:"let",macroData:{declarable:__node("MacroAccess",215,51,37,215,__node("MacroAccess",215,51,31,215,{ident:__wrap(declarable.elements[i],58)},"statement",false,false),"statement",false,false),value:__node("Access",215,79,__wrap(currentValue,58),__wrap(i,58))}},"statement",false,false)));return handle(inc(i),value,block);}else{return handle(inc(i),currentValue,block);}}else{return _this.block(block);}};return handle(0,setValue,[]);});}}else if(declarable.type==="object"){if(declarable.pairs.length===1){handle=function(pair){return _this.macroExpand1(__node("MacroAccess",225,30,38,225,{macroName:"let",macroData:{declarable:__node("MacroAccess",225,34,37,225,__node("MacroAccess",225,34,31,225,{ident:__wrap(pair.value,60)},"statement",false,false),"statement",false,false),value:__node("Access",225,50,__wrap(value,60),__wrap(pair.key,60))}},"statement",false,false));};return handle(this.macroExpand1(declarable.pairs[0]));}else{return this.maybeCache(value,function(setValue,value){function handlePair(i,currentValue,pair,block){block.push(_this.macroExpand1(__node("MacroAccess",230,43,38,230,{macroName:"let",macroData:{declarable:__node("MacroAccess",230,47,37,230,__node("MacroAccess",230,47,31,230,{ident:__wrap(pair.value,63)},"statement",false,false),"statement",false,false),value:__node("Access",230,63,__wrap(currentValue,63),__wrap(pair.key,63))}},"statement",false,false)));return handle(inc(i),value,block);};function handle(i,currentValue,block){if(i<declarable.pairs.length){return handlePair(i,currentValue,_this.macroExpand1(declarable.pairs[i]),block);}else{return _this.block(block);}};return handle(0,setValue,[]);});}}else{throw Error("Unknown declarable "+String(declarable)+" "+String(declarable!=null&&(_ref=declarable.constructor)!=null?_ref.name:void 0));}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -32266,13 +32321,12 @@
               asType: {type: "ident", name: "ExpressionOrAssignment"}
             }
           ],
-          names: ["let"],
+          names: "let",
           id: 38
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(this.inGenerator){throw Error("Cannot use return in a generator function");}if(node){return this.mutateLast(node||this.noop(),function(n){return _this["return"](n);},true);}else{return this["return"]();}};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "node",
             asType: {
@@ -32280,46 +32334,42 @@
               multiplier: "?",
               inner: {type: "ident", name: "Expression"}
             }
-          }],
-          names: ["return"],
+          },
+          names: "return",
           id: 39
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(this.inGenerator){throw Error("Cannot use return in a generator function");}return this.mutateLast(node||this.noop(),function(n){return _this.maybeCache(n,function(setN,n){return __node("MacroAccess",257,11,19,257,{macroName:"if",macroData:{test:__node("MacroAccess",257,13,20,257,{op:"?",node:__wrap(setN,70)},"statement",false,false),body:__node("MacroAccess",258,13,39,258,{macroName:"return",macroData:{node:__wrap(n,70)}},"statement",false,false),elseIfs:[]}},"statement",false,false);});},true);};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "node",
             asType: {type: "ident", name: "Expression"}
-          }],
-          names: ["return?"],
+          },
+          names: "return?",
           id: 40
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(this.inGenerator){throw Error("Cannot use return in a generator function");}return this.mutateLast(node||this.noop(),function(n){if(_this.isType(n,"boolean")){return __node("MacroAccess",267,11,19,267,{macroName:"if",macroData:{test:__wrap(n,72),body:__node("MacroAccess",268,13,39,268,{macroName:"return",macroData:{node:__node("Const",268,19,true)}},"statement",false,false),elseIfs:[]}},"statement",false,false);}else{return _this.maybeCache(n,function(setN,n){return __node("MacroAccess",272,13,19,272,{macroName:"if",macroData:{test:__wrap(setN,73),body:__node("MacroAccess",273,15,39,273,{macroName:"return",macroData:{node:__wrap(n,73)}},"statement",false,false),elseIfs:[]}},"statement",false,false);});}},true);};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "node",
             asType: {type: "ident", name: "Expression"}
-          }],
-          names: ["returnif"],
+          },
+          names: "returnif",
           id: 41
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(this.inGenerator){throw Error("Cannot use return in a generator function");}return this.mutateLast(node||this.noop(),function(n){if(_this.isType(n,"boolean")){return __node("MacroAccess",282,11,19,282,{macroName:"unless",macroData:{test:__wrap(n,75),body:__node("MacroAccess",283,13,39,283,{macroName:"return",macroData:{node:__node("Const",283,19,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false);}else{return _this.maybeCache(n,function(setN,n){return __node("MacroAccess",287,13,19,287,{macroName:"unless",macroData:{test:__wrap(setN,76),body:__node("MacroAccess",288,15,39,288,{macroName:"return",macroData:{node:__wrap(n,76)}},"statement",false,false),elseIfs:[]}},"statement",false,false);});}},true);};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "node",
             asType: {type: "ident", name: "Expression"}
-          }],
-          names: ["returnunless"],
+          },
+          names: "returnunless",
           id: 42
         },
         {
           code: 'return (function(){"use strict";var __lt,__num,__typeof;__lt=function(x,y){var type;type=typeof x;if(type!=="number"&&type!=="string"){throw TypeError("Cannot compare a non-number/string: "+type);}else if(type!==typeof y){throw TypeError("Cannot compare elements of different types: "+type+" vs "+typeof y);}else{return x<y;}};__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _this,body,f,locals,macroData,macroName,params,values;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;locals=macroData.locals;body=macroData.body;params=[];values=[];if(locals){if(locals.ident){params.push(this.param(locals.ident));values.push(locals.value);}f=function(i){if(__lt(i,locals.rest.length)){if(locals.rest[i].ident){params.push(_this.param(locals.rest[i].ident));values.push(locals.rest[i].value);}return f(__num(i)+1);}};f(0);}return this.call(this.func(params,body,true,true),values);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -32383,12 +32433,11 @@
               }
             }
           ],
-          names: ["do"],
+          names: "do",
           id: 102
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,func,macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;body=macroData.body;func=__node("Function",918,22,[],__wrap(body,210),true,false,false,void 0,false,[]);return __node("Call",919,9,__wrap(func,208),[__wrap(node,208)],false,true);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -32416,12 +32465,11 @@
               }
             }
           ],
-          names: ["with"],
+          names: "with",
           id: 103
         },
         {
           code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var arr,body,elseBody,init,loop,macroData,macroName,reducer,runElse,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;init=macroData.init;test=macroData.test;step=macroData.step;body=macroData.body;elseBody=macroData.elseBody;if(init==null){init=this.noop();}if(test==null){test=__node("Const",968,17,true);}if(step==null){step=this.noop();}if(reducer){if(reducer==="first"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",972,62,39,972,{macroName:"return",macroData:{node:__wrap(node,220)}},"statement",false,false);});loop=this["for"](init,test,step,body);return __node("MacroAccess",974,13,0,974,{macroName:"do",macroData:{body:__node("Block",975,1,[__wrap(loop,219),__wrap(elseBody,219)],null)}},"expression",false,false);}else{if(elseBody){throw Error("Cannot use a for loop with an else with "+__strnum(reducer));}if(reducer==="some"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",982,13,19,982,{macroName:"if",macroData:{test:__wrap(node,222),body:__node("MacroAccess",983,15,39,983,{macroName:"return",macroData:{node:__node("Const",983,21,true)}},"statement",false,false),elseIfs:[]}},"statement",false,false);});loop=[this["for"](init,test,step,body),__node("MacroAccess",984,57,39,984,{macroName:"return",macroData:{node:__node("Const",984,64,false)}},"statement",false,false)];return __node("MacroAccess",985,15,0,985,{macroName:"do",macroData:{body:__wrap(loop,219)}},"expression",false,false);}else if(reducer==="every"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",989,13,19,989,{macroName:"if",macroData:{test:__node("MacroAccess",989,15,3,989,{op:"not",node:__wrap(node,224)},"statement",false,false),body:__node("MacroAccess",990,15,39,990,{macroName:"return",macroData:{node:__node("Const",990,21,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false);});loop=[this["for"](init,test,step,body),__node("MacroAccess",991,57,39,991,{macroName:"return",macroData:{node:__node("Const",991,64,true)}},"statement",false,false)];return __node("MacroAccess",992,15,0,992,{macroName:"do",macroData:{body:__wrap(loop,219)}},"expression",false,false);}else{throw Error("Unknown reducer: "+__strnum(reducer));}}}else if(elseBody){if(this.position==="expression"){throw Error("Cannot use a for loop with an else as an expression");}runElse=this.tmp("else",false,"boolean");body=__node("Block",1001,1,[__node("MacroAccess",1001,9,30,1001,{left:__wrap(runElse,219),op:":=",right:__node("Const",1001,21,false)},"statement",false,false),__wrap(body,219)],null);init=__node("Block",1004,1,[__node("MacroAccess",1004,9,30,1004,{left:__wrap(runElse,219),op:":=",right:__node("Const",1004,21,true)},"statement",false,false),__wrap(init,219)],null);loop=this["for"](init,test,step,body);return __node("Block",1008,1,[__wrap(loop,219),__node("MacroAccess",1009,9,19,1009,{macroName:"if",macroData:{test:__wrap(runElse,219),body:__wrap(elseBody,219),elseIfs:[]}},"statement",false,false)],null);}else if(this.position==="expression"){arr=this.tmp("arr",false,this.type(body).array());body=this.mutateLast(body||this.noop(),function(node){return __node("Call",1013,61,__node("Access",1013,61,__wrap(arr,229),__node("Const",1013,67,"push")),[__wrap(node,229)],false,false);});init=__node("Block",1015,1,[__node("MacroAccess",1015,9,30,1015,{left:__wrap(arr,219),op:":=",right:__node("Array",1015,16,[])},"statement",false,false),__wrap(init,219)],null);loop=this["for"](init,test,step,body);return __node("Block",1019,1,[__wrap(loop,219),__wrap(arr,219)],null);}else{return this["for"](init,test,step,body);}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -32529,12 +32577,11 @@
               }
             }
           ],
-          names: ["for"],
+          names: "for",
           id: 104
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,current,currentStart,init,macroData,macroName,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;init=macroData.init;test=macroData.test;step=macroData.step;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;if(init==null){init=this.noop();}if(test==null){test=__node("Const",1026,17,true);}if(step==null){step=this.noop();}body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1029,59,30,1029,{left:__wrap(current,232),op:":=",right:__wrap(node,232)},"expression",false,false);});return __node("Block",1031,1,[__node("MacroAccess",1031,7,38,1031,{macroName:"let",macroData:{declarable:__node("MacroAccess",1031,10,37,1031,__node("MacroAccess",1031,10,31,1031,{isMutable:"mutable",ident:__wrap(current,231)},"statement",false,false),"statement",false,false),value:__wrap(currentStart,231)}},"statement",false,false),__node("MacroAccess",1032,7,104,1032,{macroName:"for",macroData:{init:__wrap(init,231),test:__wrap(test,231),step:__wrap(step,231),body:__wrap(body,231)}},"statement",false,false),__wrap(current,231)],null);};}.call(this));',
-          options: {},
           params: [
             {type: "const", value: "reduce"},
             {
@@ -32601,12 +32648,11 @@
               }
             }
           ],
-          names: ["for"],
+          names: "for",
           id: 105
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,elseBody,macroData,macroName,reducer,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;test=macroData.test;step=macroData.step;body=macroData.body;elseBody=macroData.elseBody;if(macroName==="until"){test=__node("MacroAccess",1039,19,3,1039,{op:"not",node:__wrap(test,233)},"expression",false,false);}if(reducer==="every"){return __node("MacroAccess",1042,11,104,1042,{macroName:"for",macroData:{reducer:"every",test:__wrap(test,233),step:__wrap(step,233),body:__wrap(body,233),elseBody:__wrap(elseBody,233)}},"expression",false,false);}else if(reducer==="some"){return __node("MacroAccess",1047,11,104,1047,{macroName:"for",macroData:{reducer:"some",test:__wrap(test,233),step:__wrap(step,233),body:__wrap(body,233),elseBody:__wrap(elseBody,233)}},"expression",false,false);}else if(reducer==="first"){return __node("MacroAccess",1052,11,104,1052,{macroName:"for",macroData:{reducer:"first",test:__wrap(test,233),step:__wrap(step,233),body:__wrap(body,233),elseBody:__wrap(elseBody,233)}},"expression",false,false);}else if(this.position==="expression"){return __node("MacroAccess",1057,11,104,1057,{macroName:"for",macroData:{test:__wrap(test,233),step:__wrap(step,233),body:__wrap(body,233),elseBody:__wrap(elseBody,233)}},"expression",false,false);}else{return __node("MacroAccess",1063,9,104,1063,{macroName:"for",macroData:{test:__wrap(test,233),step:__wrap(step,233),body:__wrap(body,233),elseBody:__wrap(elseBody,233)}},"statement",false,false);}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -32707,7 +32753,6 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,current,currentStart,macroData,macroName,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;test=macroData.test;step=macroData.step;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;if(macroName==="until"){test=__node("MacroAccess",1070,19,3,1070,{op:"not",node:__wrap(test,234)},"expression",false,false);}return __node("MacroAccess",1073,7,105,1073,{macroName:"for",macroData:{test:__wrap(test,234),step:__wrap(step,234),current:__wrap(current,234),currentStart:__wrap(currentStart,234),body:__wrap(body,234)}},"statement",false,false);};}.call(this));',
-          options: {},
           params: [
             {type: "const", value: "reduce"},
             {
@@ -32767,7 +32812,6 @@
         },
         {
           code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _ref,_ref2,args,array,body,elseBody,end,func,hasIndex,hasLength,inclusive,increment,index,init,isString,length,letIndex,letLength,letValue,macroData,macroName,reducer,start,step,test,tmp,value,valueExpr,valueIdent;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;elseBody=macroData.elseBody;value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__toArray"&&!this.callIsApply(array)){array=this.callArgs(array)[0];}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){throw Error("Cannot assign a number to a complex declarable");}value=value.ident;start=(_ref=this.callArgs(array))[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];init=[];if(this.isConst(start)){if(typeof this.value(start)!=="number"){throw Error("Cannot start with a non-number: #(@value start)");}}else{start=__node("MacroAccess",1132,22,58,1132,{op:"+",node:__wrap(start,243)},"expression",false,false);}init.push(this.macroExpandAll(__node("MacroAccess",1133,38,38,1133,{macroName:"let",macroData:{declarable:__node("MacroAccess",1133,42,37,1133,__node("MacroAccess",1133,42,31,1133,{isMutable:"mutable",ident:__wrap(value,243)},"statement",false,false),"statement",false,false),value:__wrap(start,243)}},"statement",false,false)));if(this.isConst(end)){if(typeof this.value(end)!=="number"){throw Error("Cannot end with a non-number: #(@value start)");}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",1139,28,58,1139,{op:"+",node:__wrap(end,243)},"expression",false,false),init,"end",false);}else{init.push(__node("MacroAccess",1141,23,58,1141,{op:"+",node:__wrap(end,243)},"expression",false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){throw Error("Cannot step with a non-number: #(@value step)");}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",1147,29,58,1147,{op:"+",node:__wrap(step,243)},"expression",false,false),init,"step",false);}else{init.push(__node("MacroAccess",1149,23,58,1149,{op:"+",node:__wrap(step,243)},"expression",false,false));}if(this.isComplex(inclusive)){inclusive=this.cache(__wrap(inclusive,243),init,"incl",false);}if(this.isConst(step)){if(__num(this.value(step))>0){if(this.isConst(end)&&this.value(end)===1/0){test=__node("Const",1157,17,true);}else{test=__node("MacroAccess",1159,17,18,1159,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1159,36,9,1159,{left:__wrap(value,243),inverted:false,op:"~<=",right:__wrap(end,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1159,57,9,1159,{left:__wrap(value,243),inverted:false,op:"~<",right:__wrap(end,243)},"expression",false,false)}},"expression",false,false);}}else if(this.isConst(end)&&this.value(end)===-1/0){test=__node("Const",1162,17,true);}else{test=__node("MacroAccess",1164,17,18,1164,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1164,36,10,1164,{left:__wrap(value,243),inverted:false,op:"~>=",right:__wrap(end,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1164,57,10,1164,{left:__wrap(value,243),inverted:false,op:"~>",right:__wrap(end,243)},"expression",false,false)}},"expression",false,false);}}else{test=__node("MacroAccess",1166,13,19,1166,{macroName:"if",macroData:{test:__node("MacroAccess",1166,16,10,1166,{left:__wrap(step,243),inverted:false,op:"~>",right:__node("Const",1166,26,0)},"expression",false,false),body:__node("MacroAccess",1167,11,18,1167,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1167,29,9,1167,{left:__wrap(value,243),inverted:false,op:"~<=",right:__wrap(end,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1167,50,9,1167,{left:__wrap(value,243),inverted:false,op:"~<",right:__wrap(end,243)},"expression",false,false)}},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",1169,11,18,1169,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1169,29,10,1169,{left:__wrap(value,243),inverted:false,op:"~>=",right:__wrap(end,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1169,50,10,1169,{left:__wrap(value,243),inverted:false,op:"~>",right:__wrap(end,243)},"expression",false,false)}},"statement",false,false)}},"expression",false,false);}increment=__node("MacroAccess",1171,35,52,1171,{left:__wrap(value,243),op:"~+=",right:__wrap(step,243)},"expression",false,false);if(length){init.push(this.macroExpandAll(__node("MacroAccess",1174,40,38,1174,{macroName:"let",macroData:{declarable:__node("MacroAccess",1174,44,37,1174,__node("MacroAccess",1174,44,31,1174,{ident:__wrap(length,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1174,54,19,1174,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1175,11,45,1175,{left:__node("MacroAccess",1175,12,49,1175,{left:__node("MacroAccess",1175,12,49,1175,{left:__wrap(end,243),inverted:false,op:"~-",right:__wrap(start,243)},"expression",false,false),inverted:false,op:"~+",right:__wrap(step,243)},"expression",false,false),inverted:false,op:"~\\\\",right:__wrap(step,243)},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",1177,11,45,1177,{left:__node("MacroAccess",1177,12,49,1177,{left:__wrap(end,243),inverted:false,op:"~-",right:__wrap(start,243)},"expression",false,false),inverted:false,op:"~\\\\",right:__wrap(step,243)},"statement",false,false)}},"expression",false,false)}},"statement",false,false)));}if(index){init.push(this.macroExpandAll(__node("MacroAccess",1180,40,38,1180,{macroName:"let",macroData:{declarable:__node("MacroAccess",1180,44,37,1180,__node("MacroAccess",1180,44,31,1180,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("Const",1180,62,0)}},"statement",false,false)));increment=__node("Block",1182,1,[__wrap(increment,243),__node("MacroAccess",1183,11,101,1183,{left:__wrap(index,243),op:"+=",right:__node("Const",1183,21,1)},"statement",false,false)],null);if(this.hasFunc(body)){func=this.tmp("f",false,"function");init.push(__node("MacroAccess",1186,25,38,1186,{macroName:"let",macroData:{declarable:__node("MacroAccess",1186,29,37,1186,__node("MacroAccess",1186,29,31,1186,{ident:__wrap(func,243)},"statement",false,false),"statement",false,false),value:__node("Function",1186,39,[__node("Param",1186,40,__wrap(value,249),void 0,false,false,void 0),__node("Param",1186,47,__wrap(index,249),void 0,false,false,void 0)],__wrap(body,249),true,false,false,void 0,false,[])}},"statement",false,false));body=__node("Call",1187,24,__wrap(func,243),[__node("This",1187,32),__wrap(value,243),__wrap(index,243)],false,true);}}else if(this.hasFunc(body)){func=this.tmp("f",false,"function");init.push(__node("MacroAccess",1190,23,38,1190,{macroName:"let",macroData:{declarable:__node("MacroAccess",1190,27,37,1190,__node("MacroAccess",1190,27,31,1190,{ident:__wrap(func,243)},"statement",false,false),"statement",false,false),value:__node("Function",1190,37,[__node("Param",1190,38,__wrap(value,252),void 0,false,false,void 0)],__wrap(body,252),true,false,false,void 0,false,[])}},"statement",false,false));body=__node("Call",1191,22,__wrap(func,243),[__node("This",1191,30),__wrap(value,243)],false,true);}if(reducer==="every"){return __node("MacroAccess",1194,13,104,1194,{macroName:"for",macroData:{reducer:"every",init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else if(reducer==="some"){return __node("MacroAccess",1199,13,104,1199,{macroName:"for",macroData:{reducer:"some",init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else if(reducer==="first"){return __node("MacroAccess",1204,13,104,1204,{macroName:"for",macroData:{reducer:"first",init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else if(reducer==="filter"){body=this.mutateLast(body,function(node){return __node("MacroAccess",1210,14,19,1210,{macroName:"if",macroData:{test:__wrap(node,253),body:__wrap(value,253),elseIfs:[]}},"statement",false,false);});return __node("MacroAccess",1212,13,104,1212,{macroName:"for",macroData:{init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else if(this.position==="expression"){return __node("MacroAccess",1217,13,104,1217,{macroName:"for",macroData:{init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else{return __node("MacroAccess",1223,11,104,1223,{macroName:"for",macroData:{init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"statement",false,false);}}else{init=[];isString=this.isType(array,"string");hasIndex=index!=null;if(index==null){index=this.tmp("i",false,"number");}hasLength=length!=null;if(length==null){length=this.tmp("len",false,"number");}this.macroExpandAll(__node("MacroAccess",1236,28,38,1236,{macroName:"let",macroData:{declarable:__node("MacroAccess",1236,32,37,1236,__node("MacroAccess",1236,32,31,1236,{ident:__wrap(length,243)},"statement",false,false),"statement",false,false),value:__node("Const",1236,43,0)}},"statement",false,false));array=this.macroExpandAll(array);step=__node("Const",1240,31,1);start=__node("Const",1241,32,0);end=__node("Const",1242,29,1/0);inclusive=__node("Const",1243,35,false);if(this.isCall(array)&&this.isIdent(this.callFunc(array))){if(this.name(this.callFunc(array))==="__step"&&!this.callIsApply(array)){args=this.callArgs(array);array=args[0];step=args[1];if(this.isConst(step)){if(__num(this.value(step))>=0){start=__node("Const",1251,29,0);end=__node("Const",1252,26,1/0);}else{start=__node("Const",1254,28,1/0);end=__node("Const",1255,27,0);}}else{start=void 0;end=void 0;}inclusive=__node("Const",1259,28,true);}else if(this.name(this.callFunc(array))==="__slice"&&this.callIsApply(array)){args=this.callArgs(array);array=args[0];start=args[1];end=args[2];if(this.isConst(end)&&this.value(end)===void 0){end=__node("Const",1266,24,1/0);}}else if(this.name(this.callFunc(array))==="__sliceStep"&&!this.callIsApply(array)){args=this.callArgs(array);array=args[0];start=args[1];end=args[2];step=args[3];inclusive=args[4];}}if(this.isConst(step)){if(typeof this.value(step)!=="number"||__num(this.value(step))%1!==0){throw Error("Expected step to be an integer, got "+__typeof(this.value(step))+" ("+String(this.value(step))+")");}else if(this.value(step)===0){throw Error("Step must be non-zero");}}if(start&&this.isConst(start)&&this.value(start)!==1/0&&(typeof this.value(start)!=="number"||__num(this.value(start))%1!==0)){throw Error("Expected start to be an integer, got "+__typeof(this.value(start))+" ("+String(this.value(start))+")");}if(end&&this.isConst(end)&&this.value(end)!==1/0&&(typeof this.value(end)!=="number"||__num(this.value(end))%1!==0)){throw Error("Expected end to be an integer or Infinity, got "+__typeof(this.value(end))+" ("+String(this.value(end))+")");}if(!isString&&!this.isType(array,"arrayLike")){array=__node("Call",1285,22,__node("Ident",1285,22,"__toArray"),[__wrap(array,243)],false,false);}array=this.cache(array,init,isString?"str":"arr",false);valueExpr=__node("MacroAccess",1288,28,18,1288,{macroName:"if",macroData:{test:__wrap(isString,243),body:__node("Call",1288,47,__node("Access",1288,47,__wrap(array,243),__node("Const",1288,55,"charAt")),[__wrap(index,243)],false,false),elseIfs:[],elseBody:__node("Access",1288,75,__wrap(array,243),__wrap(index,243))}},"expression",false,false);letIndex=this.macroExpandAll(__node("MacroAccess",1289,44,38,1289,{macroName:"let",macroData:{declarable:__node("MacroAccess",1289,48,37,1289,__node("MacroAccess",1289,48,31,1289,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("Const",1289,66,0)}},"statement",false,false));if(value&&value.type==="ident"&&!value.isMutable){valueIdent=value.ident;}else{valueIdent=this.tmp("v",false);}letValue=this.macroExpandAll(__node("MacroAccess",1291,44,38,1291,{macroName:"let",macroData:{declarable:__node("MacroAccess",1291,48,37,1291,__node("MacroAccess",1291,48,31,1291,{ident:__wrap(value,243)},"statement",false,false),"statement",false,false),value:__wrap(valueExpr,243)}},"statement",false,false));letLength=this.macroExpandAll(__node("MacroAccess",1292,45,38,1292,{macroName:"let",macroData:{declarable:__node("MacroAccess",1292,49,37,1292,__node("MacroAccess",1292,49,31,1292,{ident:__wrap(length,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1292,59,58,1292,{op:"+",node:__node("Access",1292,61,__wrap(array,243),__node("Const",1292,68,"length"))},"expression",false,false)}},"statement",false,false));test=(_ref=this.isConst(step)?__num(this.value(step))>0?(this.isConst(start)?__num(this.value(start))>=0?(init.push(__node("MacroAccess",1298,28,38,1298,{macroName:"let",macroData:{declarable:__node("MacroAccess",1298,32,37,1298,__node("MacroAccess",1298,32,31,1298,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__wrap(start,243)}},"statement",false,false)),init.push(letLength)):(init.push(letLength),init.push(__node("MacroAccess",1302,28,38,1302,{macroName:"let",macroData:{declarable:__node("MacroAccess",1302,32,37,1302,__node("MacroAccess",1302,32,31,1302,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1302,49,64,1302,{left:__wrap(length,243),inverted:false,op:"+",right:__wrap(start,243)},"expression",false,false)}},"statement",false,false))):(init.push(letLength),init.push(__node("MacroAccess",1305,26,38,1305,{macroName:"let",macroData:{declarable:__node("MacroAccess",1305,30,37,1305,__node("MacroAccess",1305,30,31,1305,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("Call",1305,47,__node("Ident",1305,47,"__int"),[__wrap(start,243)],false,false)}},"statement",false,false)),init.push(__node("MacroAccess",1306,27,18,1306,{macroName:"if",macroData:{test:__node("MacroAccess",1306,30,9,1306,{left:__wrap(index,243),inverted:false,op:"~<",right:__node("Const",1306,41,0)},"expression",false,false),body:__node("MacroAccess",1306,49,101,1306,{left:__wrap(index,243),op:"+=",right:__wrap(length,243)},"expression",false,false),elseIfs:[]}},"expression",false,false))),this.isConst(end)&&(this.value(end)===1/0||this.isConst(inclusive)&&this.value(inclusive)&&this.value(end)===-1)?[__node("MacroAccess",1308,18,9,1308,{left:__wrap(index,243),inverted:false,op:"~<",right:__wrap(length,243)},"expression",false,false),__node("MacroAccess",1308,44,52,1308,{left:__wrap(index,243),op:"~+=",right:__wrap(step,243)},"expression",false,false)]:(tmp=this.tmp("end",false,"number"),init.push(__node("MacroAccess",1311,26,38,1311,{macroName:"let",macroData:{declarable:__node("MacroAccess",1311,30,37,1311,__node("MacroAccess",1311,30,31,1311,{isMutable:"mutable",ident:__wrap(tmp,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1311,45,58,1311,{op:"+",node:__wrap(end,243)},"expression",false,false)}},"statement",false,false)),!this.isConst(end)?init.push(__node("MacroAccess",1313,29,18,1313,{macroName:"if",macroData:{test:__node("MacroAccess",1313,32,9,1313,{left:__wrap(tmp,243),inverted:false,op:"~<",right:__node("Const",1313,41,0)},"expression",false,false),body:__node("MacroAccess",1313,49,52,1313,{left:__wrap(tmp,243),op:"~+=",right:__wrap(length,243)},"expression",false,false),elseIfs:[]}},"expression",false,false)):__num(this.value(end))<0?init.push(__node("MacroAccess",1315,29,52,1315,{left:__wrap(tmp,243),op:"~+=",right:__wrap(length,243)},"expression",false,false)):void 0,init.push(__node("MacroAccess",1316,27,18,1316,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1316,48,30,1316,{left:__wrap(tmp,243),op:":=",right:__node("MacroAccess",1316,55,2,1316,{left:__node("MacroAccess",1316,55,64,1316,{left:__wrap(tmp,243),inverted:false,op:"+",right:__node("Const",1316,63,1)},"expression",false,false),inverted:false,op:"or",right:__node("Const",1316,67,1/0)},"expression",false,false)},"expression",false,false),elseIfs:[]}},"expression",false,false)),init.push(__node("MacroAccess",1317,27,84,1317,{left:__wrap(tmp,243),op:"~min=",right:__wrap(length,243)},"expression",false,false)),[__node("MacroAccess",1318,18,9,1318,{left:__wrap(index,243),inverted:false,op:"~<",right:__wrap(tmp,243)},"expression",false,false),__node("MacroAccess",1318,39,52,1318,{left:__wrap(index,243),op:"~+=",right:__wrap(step,243)},"expression",false,false)])):this.value(step)===-1&&(!start||this.isConst(start)&&((_ref2=this.value(start))===-1||_ref2===1/0)&&this.isConst(end)&&this.value(end)===0&&this.isConst(inclusive)&&this.value(inclusive))?(hasLength?(init.push(letLength),init.push(__node("MacroAccess",1322,26,38,1322,{macroName:"let",macroData:{declarable:__node("MacroAccess",1322,30,37,1322,__node("MacroAccess",1322,30,31,1322,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__wrap(length,243)}},"statement",false,false))):init.push(__node("MacroAccess",1324,26,38,1324,{macroName:"let",macroData:{declarable:__node("MacroAccess",1324,30,37,1324,__node("MacroAccess",1324,30,31,1324,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1324,47,58,1324,{op:"+",node:__node("Access",1324,49,__wrap(array,243),__node("Const",1324,56,"length"))},"expression",false,false)}},"statement",false,false)),[__node("MacroAccess",1325,16,13,1325,{op:"postDec!",node:__wrap(index,243)},"expression",false,false),this.noop()]):(!this.isConst(end)||__num(this.value(end))<0?(hasLength=true):void 0,this.isConst(start)?(_ref2=this.value(start))===-1||_ref2===1/0?hasLength?(init.push(letLength),init.push(__node("MacroAccess",1333,30,38,1333,{macroName:"let",macroData:{declarable:__node("MacroAccess",1333,34,37,1333,__node("MacroAccess",1333,34,31,1333,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1333,51,49,1333,{left:__wrap(length,243),inverted:false,op:"~-",right:__node("Const",1333,63,1)},"expression",false,false)}},"statement",false,false))):init.push(__node("MacroAccess",1335,30,38,1335,{macroName:"let",macroData:{declarable:__node("MacroAccess",1335,34,37,1335,__node("MacroAccess",1335,34,31,1335,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1335,51,49,1335,{left:__node("MacroAccess",1335,51,58,1335,{op:"+",node:__node("Access",1335,53,__wrap(array,243),__node("Const",1335,60,"length"))},"expression",false,false),inverted:false,op:"~-",right:__node("Const",1335,70,1)},"expression",false,false)}},"statement",false,false)):(init.push(letLength),__num(this.value(start))>=0?init.push(__node("MacroAccess",1339,30,38,1339,{macroName:"let",macroData:{declarable:__node("MacroAccess",1339,34,37,1339,__node("MacroAccess",1339,34,31,1339,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1339,51,18,1339,{macroName:"if",macroData:{test:__node("MacroAccess",1339,54,9,1339,{left:__wrap(start,243),inverted:false,op:"~<",right:__wrap(length,243)},"expression",false,false),body:__wrap(start,243),elseIfs:[],elseBody:__node("MacroAccess",1339,89,49,1339,{left:__wrap(length,243),inverted:false,op:"~-",right:__node("Const",1339,101,1)},"expression",false,false)}},"expression",false,false)}},"statement",false,false)):init.push(__node("MacroAccess",1341,30,38,1341,{macroName:"let",macroData:{declarable:__node("MacroAccess",1341,34,37,1341,__node("MacroAccess",1341,34,31,1341,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1341,51,49,1341,{left:__wrap(length,243),inverted:false,op:"~+",right:__node("MacroAccess",1341,62,58,1341,{op:"+",node:__wrap(start,243)},"expression",false,false)},"expression",false,false)}},"statement",false,false))):(init.push(letLength),init.push(__node("MacroAccess",1344,26,38,1344,{macroName:"let",macroData:{declarable:__node("MacroAccess",1344,30,37,1344,__node("MacroAccess",1344,30,31,1344,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1344,47,58,1344,{op:"+",node:__wrap(start,243)},"expression",false,false)}},"statement",false,false)),init.push(__node("MacroAccess",1345,26,18,1345,{macroName:"if",macroData:{test:__node("MacroAccess",1345,29,9,1345,{left:__wrap(index,243),inverted:false,op:"~<",right:__node("Const",1345,40,0)},"statement",false,false),body:__node("MacroAccess",1345,48,52,1345,{left:__wrap(index,243),op:"~+=",right:__wrap(length,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1345,74,84,1345,{left:__wrap(index,243),op:"~min=",right:__wrap(length,243)},"expression",false,false)}},"statement",false,false)),init.push(__node("MacroAccess",1346,26,53,1346,{left:__wrap(index,243),op:"~-=",right:__node("Const",1346,38,1)},"statement",false,false))),this.isConst(end)?__num(this.value(end))>=0?[__node("MacroAccess",1349,20,18,1349,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1349,39,10,1349,{left:__wrap(index,243),inverted:false,op:"~>=",right:__wrap(end,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1349,60,10,1349,{left:__wrap(index,243),inverted:false,op:"~>",right:__wrap(end,243)},"expression",false,false)}},"expression",false,false),__node("MacroAccess",1349,81,52,1349,{left:__wrap(index,243),op:"~+=",right:__wrap(step,243)},"expression",false,false)]:[__node("MacroAccess",1351,20,18,1351,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1351,39,10,1351,{left:__wrap(index,243),inverted:false,op:"~>=",right:__node("MacroAccess",1351,50,64,1351,{left:__wrap(end,243),inverted:false,op:"+",right:__wrap(length,243)},"expression",false,false)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1351,70,10,1351,{left:__wrap(index,243),inverted:false,op:"~>",right:__node("MacroAccess",1351,80,64,1351,{left:__wrap(end,243),inverted:false,op:"+",right:__wrap(length,243)},"expression",false,false)},"expression",false,false)}},"expression",false,false),__node("MacroAccess",1351,101,52,1351,{left:__wrap(index,243),op:"~+=",right:__wrap(step,243)},"expression",false,false)]:(tmp=this.tmp("end",false,"number"),init.push(__node("MacroAccess",1354,26,38,1354,{macroName:"let",macroData:{declarable:__node("MacroAccess",1354,30,37,1354,__node("MacroAccess",1354,30,31,1354,{isMutable:"mutable",ident:__wrap(tmp,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1354,45,58,1354,{op:"+",node:__wrap(end,243)},"expression",false,false)}},"statement",false,false)),init.push(__node("MacroAccess",1355,26,18,1355,{macroName:"if",macroData:{test:__node("MacroAccess",1355,29,9,1355,{left:__wrap(tmp,243),inverted:false,op:"~<",right:__node("Const",1355,38,0)},"statement",false,false),body:__node("MacroAccess",1355,46,52,1355,{left:__wrap(tmp,243),op:"~+=",right:__wrap(length,243)},"expression",false,false),elseIfs:[]}},"statement",false,false)),[__node("MacroAccess",1356,18,18,1356,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1356,37,10,1356,{left:__wrap(index,243),inverted:false,op:"~>=",right:__wrap(tmp,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1356,58,10,1356,{left:__wrap(index,243),inverted:false,op:"~>",right:__wrap(tmp,243)},"expression",false,false)}},"expression",false,false),__node("MacroAccess",1356,79,52,1356,{left:__wrap(index,243),op:"~+=",right:__wrap(step,243)},"expression",false,false)])):(this.isComplex(step)?(step=this.cache(__node("Call",1359,31,__node("Ident",1359,31,"__int"),[__node("Call",1359,38,__node("Ident",1359,38,"__nonzero"),[__wrap(step,243)],false,false)],false,false),init,"step",false)):init.unshift(__node("Call",1361,28,__node("Ident",1361,28,"__int"),[__node("Call",1361,35,__node("Ident",1361,35,"__nonzero"),[__wrap(step,243)],false,false)],false,false)),init.push(letLength),!start?(init.push(__node("MacroAccess",1364,24,38,1364,{macroName:"let",macroData:{declarable:__node("MacroAccess",1364,28,37,1364,__node("MacroAccess",1364,28,31,1364,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1364,45,18,1364,{macroName:"if",macroData:{test:__node("MacroAccess",1364,48,10,1364,{left:__wrap(step,243),inverted:false,op:"~>",right:__node("Const",1364,58,0)},"expression",false,false),body:__node("Const",1364,65,0),elseIfs:[],elseBody:__node("MacroAccess",1364,71,49,1364,{left:__wrap(length,243),inverted:false,op:"~-",right:__node("Const",1364,83,1)},"expression",false,false)}},"expression",false,false)}},"statement",false,false)),[__node("MacroAccess",1366,17,18,1366,{macroName:"if",macroData:{test:__node("MacroAccess",1366,20,10,1366,{left:__wrap(step,243),inverted:false,op:"~>",right:__node("Const",1366,30,0)},"expression",false,false),body:__node("MacroAccess",1366,36,9,1366,{left:__wrap(index,243),inverted:false,op:"~<",right:__wrap(length,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1366,59,10,1366,{left:__wrap(index,243),inverted:false,op:"~>=",right:__node("Const",1366,71,0)},"expression",false,false)}},"expression",false,false),__node("MacroAccess",1367,17,52,1367,{left:__wrap(index,243),op:"~+=",right:__wrap(step,243)},"expression",false,false)]):(this.isConst(start)?this.value(start)===1/0?init.push(__node("MacroAccess",1372,28,38,1372,{macroName:"let",macroData:{declarable:__node("MacroAccess",1372,32,37,1372,__node("MacroAccess",1372,32,31,1372,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1372,49,49,1372,{left:__wrap(length,243),inverted:false,op:"~-",right:__node("Const",1372,61,1)},"expression",false,false)}},"statement",false,false)):init.push(__node("MacroAccess",1374,28,38,1374,{macroName:"let",macroData:{declarable:__node("MacroAccess",1374,32,37,1374,__node("MacroAccess",1374,32,31,1374,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1374,49,18,1374,{macroName:"if",macroData:{test:__node("MacroAccess",1374,52,10,1374,{left:__wrap(start,243),inverted:false,op:"~>=",right:__node("Const",1374,64,0)},"expression",false,false),body:__wrap(start,243),elseIfs:[],elseBody:__node("MacroAccess",1374,82,64,1374,{left:__wrap(start,243),inverted:false,op:"+",right:__wrap(length,243)},"expression",false,false)}},"expression",false,false)}},"statement",false,false)):(init.push(__node("MacroAccess",1376,26,38,1376,{macroName:"let",macroData:{declarable:__node("MacroAccess",1376,30,37,1376,__node("MacroAccess",1376,30,31,1376,{isMutable:"mutable",ident:__wrap(index,243)},"statement",false,false),"statement",false,false),value:__wrap(start,243)}},"statement",false,false)),init.push(__node("MacroAccess",1377,26,18,1377,{macroName:"if",macroData:{test:__node("MacroAccess",1377,29,9,1377,{left:__wrap(index,243),inverted:false,op:"~<",right:__node("Const",1377,40,0)},"statement",false,false),body:__node("MacroAccess",1377,48,101,1377,{left:__wrap(index,243),op:"+=",right:__wrap(length,243)},"expression",false,false),elseIfs:[{test:__node("MacroAccess",1377,74,9,1377,{left:__wrap(step,243),inverted:false,op:"~<",right:__node("Const",1377,84,0)},"statement",false,false),body:__node("MacroAccess",1377,92,84,1377,{left:__wrap(index,243),op:"~min=",right:__wrap(length,243)},"expression",false,false)}]}},"statement",false,false))),tmp=this.tmp("end",false,"number"),this.isConst(end)?init.push(__node("MacroAccess",1380,26,38,1380,{macroName:"let",macroData:{declarable:__node("MacroAccess",1380,30,37,1380,__node("MacroAccess",1380,30,31,1380,{isMutable:"mutable",ident:__wrap(tmp,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1380,45,18,1380,{macroName:"if",macroData:{test:__node("MacroAccess",1380,48,9,1380,{left:__wrap(end,243),inverted:false,op:"~<",right:__node("Const",1380,57,0)},"expression",false,false),body:__node("MacroAccess",1380,63,49,1380,{left:__wrap(end,243),inverted:false,op:"~+",right:__wrap(length,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1380,84,81,1380,{left:__wrap(end,243),inverted:false,op:"max",right:__node("MacroAccess",1380,95,18,1380,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1380,113,49,1380,{left:__wrap(length,243),inverted:false,op:"~-",right:__node("Const",1380,125,1)},"expression",false,false),elseIfs:[],elseBody:__wrap(length,243)}},"expression",false,false)},"expression",false,false)}},"expression",false,false)}},"statement",false,false)):(init.push(__node("MacroAccess",1382,26,38,1382,{macroName:"let",macroData:{declarable:__node("MacroAccess",1382,30,37,1382,__node("MacroAccess",1382,30,31,1382,{isMutable:"mutable",ident:__wrap(tmp,243)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1382,45,58,1382,{op:"+",node:__wrap(end,243)},"expression",false,false)}},"statement",false,false)),init.push(__node("MacroAccess",1383,26,18,1383,{macroName:"if",macroData:{test:__node("MacroAccess",1383,29,9,1383,{left:__wrap(tmp,243),inverted:false,op:"~<",right:__node("Const",1383,38,0)},"statement",false,false),body:__node("MacroAccess",1383,46,101,1383,{left:__wrap(tmp,243),op:"+=",right:__wrap(length,243)},"expression",false,false),elseIfs:[{test:__node("MacroAccess",1383,70,10,1383,{left:__wrap(step,243),inverted:false,op:"~>",right:__node("Const",1383,80,0)},"statement",false,false),body:__node("MacroAccess",1383,88,84,1383,{left:__wrap(tmp,243),op:"~min=",right:__node("MacroAccess",1383,98,18,1383,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1383,117,49,1383,{left:__wrap(length,243),inverted:false,op:"~-",right:__node("Const",1383,129,1)},"expression",false,false),elseIfs:[],elseBody:__wrap(length,243)}},"expression",false,false)},"expression",false,false)}],elseBody:__node("MacroAccess",1383,151,85,1383,{left:__wrap(tmp,243),op:"~max=",right:__node("MacroAccess",1383,163,18,1383,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("Const",1383,182,0),elseIfs:[],elseBody:__node("MacroAccess",1383,188,59,1383,{op:"-",node:__node("Const",1383,190,1)},"expression",false,false)}},"expression",false,false)},"expression",false,false)}},"statement",false,false))),end=tmp,[__node("MacroAccess",1386,17,19,1386,{macroName:"if",macroData:{test:__node("MacroAccess",1386,20,10,1386,{left:__wrap(step,243),inverted:false,op:"~>",right:__node("Const",1386,30,0)},"expression",false,false),body:__node("MacroAccess",1387,15,18,1387,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1387,33,9,1387,{left:__wrap(index,243),inverted:false,op:"~<=",right:__wrap(end,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1387,54,9,1387,{left:__wrap(index,243),inverted:false,op:"~<",right:__wrap(end,243)},"expression",false,false)}},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",1389,15,18,1389,{macroName:"if",macroData:{test:__wrap(inclusive,243),body:__node("MacroAccess",1389,33,10,1389,{left:__wrap(index,243),inverted:false,op:"~>=",right:__wrap(end,243)},"expression",false,false),elseIfs:[],elseBody:__node("MacroAccess",1389,54,9,1389,{left:__wrap(index,243),inverted:false,op:"~<",right:__wrap(end,243)},"expression",false,false)}},"statement",false,false)}},"expression",false,false),__node("MacroAccess",1390,17,52,1390,{left:__wrap(index,243),op:"~+=",right:__wrap(step,243)},"expression",false,false)])))[0];increment=_ref[1];if(this.hasFunc(body)){func=this.tmp("f",false,"function");if(value&&valueIdent!==value.ident){body=__node("Block",1397,1,[__node("MacroAccess",1397,13,38,1397,{macroName:"let",macroData:{declarable:__node("MacroAccess",1397,16,37,1397,__node("MacroAccess",1397,16,31,1397,{ident:__wrap(value,243)},"statement",false,false),"statement",false,false),value:__wrap(valueIdent,243)}},"statement",false,false),__wrap(body,243)],null);}if(hasIndex){init.push(__node("MacroAccess",1400,24,38,1400,{macroName:"let",macroData:{declarable:__node("MacroAccess",1400,28,37,1400,__node("MacroAccess",1400,28,31,1400,{ident:__wrap(func,243)},"statement",false,false),"statement",false,false),value:__node("Function",1400,38,[__node("Param",1400,39,__wrap(valueIdent,274),void 0,false,false,void 0),__node("Param",1400,52,__wrap(index,274),void 0,false,false,void 0)],__wrap(body,274),true,false,false,void 0,false,[])}},"statement",false,false));body=__node("Call",1401,23,__wrap(func,243),[__node("This",1401,31),__wrap(valueExpr,243),__wrap(index,243)],false,true);}else{init.push(__node("MacroAccess",1403,24,38,1403,{macroName:"let",macroData:{declarable:__node("MacroAccess",1403,28,37,1403,__node("MacroAccess",1403,28,31,1403,{ident:__wrap(func,243)},"statement",false,false),"statement",false,false),value:__node("Function",1403,38,[__node("Param",1403,39,__wrap(valueIdent,276),void 0,false,false,void 0)],__wrap(body,276),true,false,false,void 0,false,[])}},"statement",false,false));body=__node("Call",1404,23,__wrap(func,243),[__node("This",1404,31),__wrap(valueExpr,243)],false,true);}}else if(valueIdent===value.ident||reducer!=="filter"){body=__node("Block",1407,1,[__node("MacroAccess",1407,11,38,1407,{macroName:"let",macroData:{declarable:__node("MacroAccess",1407,14,37,1407,__node("MacroAccess",1407,14,31,1407,{ident:__wrap(value,243)},"statement",false,false),"statement",false,false),value:__wrap(valueExpr,243)}},"statement",false,false),__wrap(body,243)],null);}else{body=__node("Block",1411,1,[__node("MacroAccess",1411,11,38,1411,{macroName:"let",macroData:{declarable:__node("MacroAccess",1411,14,37,1411,__node("MacroAccess",1411,14,31,1411,{ident:__wrap(valueIdent,243)},"statement",false,false),"statement",false,false),value:__wrap(valueExpr,243)}},"statement",false,false),__node("MacroAccess",1412,11,38,1412,{macroName:"let",macroData:{declarable:__node("MacroAccess",1412,14,37,1412,__node("MacroAccess",1412,14,31,1412,{ident:__wrap(value,243)},"statement",false,false),"statement",false,false),value:__wrap(valueIdent,243)}},"statement",false,false),__wrap(body,243)],null);}if(reducer==="every"){return __node("MacroAccess",1416,13,104,1416,{macroName:"for",macroData:{reducer:"every",init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else if(reducer==="some"){return __node("MacroAccess",1421,13,104,1421,{macroName:"for",macroData:{reducer:"some",init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else if(reducer==="first"){return __node("MacroAccess",1426,13,104,1426,{macroName:"for",macroData:{reducer:"first",init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else if(reducer==="filter"){body=this.mutateLast(body,function(node){return __node("MacroAccess",1432,14,19,1432,{macroName:"if",macroData:{test:__wrap(node,280),body:__wrap(valueIdent,280),elseIfs:[]}},"statement",false,false);});return __node("MacroAccess",1434,13,104,1434,{macroName:"for",macroData:{init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else if(this.position==="expression"){return __node("MacroAccess",1439,13,104,1439,{macroName:"for",macroData:{init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"expression",false,false);}else{return __node("MacroAccess",1445,11,104,1445,{macroName:"for",macroData:{init:__wrap(init,243),test:__wrap(test,243),step:__wrap(increment,243),body:__wrap(body,243),elseBody:__wrap(elseBody,243)}},"statement",false,false);}}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -32889,12 +32933,11 @@
               }
             }
           ],
-          names: ["for"],
+          names: "for",
           id: 111
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var array,body,current,currentStart,index,length,macroData,macroName,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;value=macroData.value;index=macroData.index;array=macroData.array;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;value=this.macroExpand1(value);body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1452,59,30,1452,{left:__wrap(current,282),op:":=",right:__wrap(node,282)},"expression",false,false);});if(index!=null){length=index.length;}index=index!=null?index.value:void 0;return __node("Block",1456,1,[__node("MacroAccess",1456,7,38,1456,{macroName:"let",macroData:{declarable:__node("MacroAccess",1456,10,37,1456,__node("MacroAccess",1456,10,31,1456,{isMutable:"mutable",ident:__wrap(current,281)},"statement",false,false),"statement",false,false),value:__wrap(currentStart,281)}},"statement",false,false),__node("MacroAccess",1457,7,111,1457,{macroName:"for",macroData:{value:__node("MacroAccess",1457,10,37,1457,__node("MacroAccess",1457,10,31,1457,{ident:__wrap(value,281)},"statement",false,false),"statement",false,false),index:{value:__wrap(index,281),length:__wrap(length,281)},array:__wrap(array,281),body:__wrap(body,281)}},"statement",false,false),__wrap(current,281)],null);};}.call(this));',
-          options: {},
           params: [
             {type: "const", value: "reduce"},
             {
@@ -32974,12 +33017,11 @@
               }
             }
           ],
-          names: ["for"],
+          names: "for",
           id: 112
         },
         {
           code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var arr,body,elseBody,func,index,init,key,letIndex,letValue,loop,macroData,macroName,object,own,post,reducer,runElse,type,value,valueIdent;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;elseBody=macroData.elseBody;index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}own=type==="of";init=[];if(own||value){object=this.cache(object,init,"obj",false);}this["let"](key,false,this.type("string"));letValue=value&&this.macroExpandAll(__node("MacroAccess",1473,52,38,1473,{macroName:"let",macroData:{declarable:__node("MacroAccess",1473,56,37,1473,__node("MacroAccess",1473,56,31,1473,{ident:__wrap(value,284)},"statement",false,false),"statement",false,false),value:__node("Access",1473,65,__wrap(object,284),__wrap(key,284))}},"statement",false,false));letIndex=index&&this.macroExpandAll(__node("MacroAccess",1474,52,38,1474,{macroName:"let",macroData:{declarable:__node("MacroAccess",1474,56,37,1474,__node("MacroAccess",1474,56,31,1474,{isMutable:"mutable",ident:__wrap(index,284)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1474,73,59,1474,{op:"-",node:__node("Const",1474,75,1)},"expression",false,false)}},"statement",false,false));if(this.hasFunc(body)){func=this.tmp("f",false,"function");if(value){if(value.type==="ident"){valueIdent=value.ident;}else{valueIdent=this.tmp("v",false);}}if(value&&valueIdent!==value.ident){body=__node("Block",1480,1,[__node("MacroAccess",1480,11,38,1480,{macroName:"let",macroData:{declarable:__node("MacroAccess",1480,14,37,1480,__node("MacroAccess",1480,14,31,1480,{ident:__wrap(value,284)},"statement",false,false),"statement",false,false),value:__wrap(valueIdent,284)}},"statement",false,false),__wrap(body,284)],null);}if(index){init.push(__node("MacroAccess",1483,23,38,1483,{macroName:"let",macroData:{declarable:__node("MacroAccess",1483,27,37,1483,__node("MacroAccess",1483,27,31,1483,{ident:__wrap(func,284)},"statement",false,false),"statement",false,false),value:__node("Function",1483,37,[__node("Param",1483,38,__wrap(key,294),void 0,false,false,void 0),__node("Param",1483,43,__wrap(valueIdent,294),void 0,false,false,void 0),__node("Param",1483,57,__wrap(index,294),void 0,false,false,void 0)],__wrap(body,294),true,false,false,void 0,false,[])}},"statement",false,false));body=__node("Call",1484,22,__wrap(func,284),[__node("This",1484,30),__wrap(key,284),__node("Access",1484,41,__wrap(object,284),__wrap(key,284)),__wrap(index,284)],false,true);}else if(value){init.push(__node("MacroAccess",1486,23,38,1486,{macroName:"let",macroData:{declarable:__node("MacroAccess",1486,27,37,1486,__node("MacroAccess",1486,27,31,1486,{ident:__wrap(func,284)},"statement",false,false),"statement",false,false),value:__node("Function",1486,37,[__node("Param",1486,38,__wrap(key,296),void 0,false,false,void 0),__node("Param",1486,43,__wrap(valueIdent,296),void 0,false,false,void 0)],__wrap(body,296),true,false,false,void 0,false,[])}},"statement",false,false));body=__node("Call",1487,22,__wrap(func,284),[__node("This",1487,30),__wrap(key,284),__node("Access",1487,41,__wrap(object,284),__wrap(key,284))],false,true);}else{init.push(__node("MacroAccess",1489,23,38,1489,{macroName:"let",macroData:{declarable:__node("MacroAccess",1489,27,37,1489,__node("MacroAccess",1489,27,31,1489,{ident:__wrap(func,284)},"statement",false,false),"statement",false,false),value:__node("Function",1489,37,[__node("Param",1489,38,__wrap(key,298),void 0,false,false,void 0)],__wrap(body,298),true,false,false,void 0,false,[])}},"statement",false,false));body=__node("Call",1490,22,__wrap(func,284),[__node("This",1490,30),__wrap(key,284)],false,true);}}else if(value){body=__node("Block",1493,1,[__wrap(letValue,284),__wrap(body,284)],null);}post=[];if(elseBody){runElse=this.tmp("else",false,"boolean");init.push(__node("MacroAccess",1499,21,38,1499,{macroName:"let",macroData:{declarable:__node("MacroAccess",1499,25,37,1499,__node("MacroAccess",1499,25,31,1499,{ident:__wrap(runElse,284)},"statement",false,false),"statement",false,false),value:__node("Const",1499,37,true)}},"statement",false,false));body=__node("Block",1501,1,[__node("MacroAccess",1501,9,30,1501,{left:__wrap(runElse,284),op:":=",right:__node("Const",1501,21,false)},"statement",false,false),__wrap(body,284)],null);post.push(__node("MacroAccess",1504,9,19,1504,{macroName:"if",macroData:{test:__wrap(runElse,284),body:__wrap(elseBody,284),elseIfs:[]}},"statement",false,false));}if(index){init.push(letIndex);body=__node("Block",1510,1,[__node("MacroAccess",1510,9,52,1510,{left:__wrap(index,284),op:"~+=",right:__node("Const",1510,20,1)},"statement",false,false),__wrap(body,284)],null);}if(own){body=__node("MacroAccess",1515,9,19,1515,{macroName:"if",macroData:{test:__node("MacroAccess",1515,11,71,1515,{left:__wrap(object,284),inverted:false,op:"ownskey",right:__wrap(key,284)},"statement",false,false),body:__wrap(body,284),elseIfs:[]}},"statement",false,false);}if(reducer){if(reducer==="first"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1520,62,39,1520,{macroName:"return",macroData:{node:__wrap(node,302)}},"statement",false,false);});loop=this.forIn(key,object,body);return __node("MacroAccess",1522,12,0,1522,{macroName:"do",macroData:{body:__node("Block",1523,1,[__wrap(init,284),__wrap(loop,284),__wrap(elseBody,284)],null)}},"statement",false,false);}else{if(elseBody){throw Error("Cannot use a for loop with an else with "+__strnum(reducer));}if(reducer==="some"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1531,13,19,1531,{macroName:"if",macroData:{test:__wrap(node,304),body:__node("MacroAccess",1532,15,39,1532,{macroName:"return",macroData:{node:__node("Const",1532,21,true)}},"statement",false,false),elseIfs:[]}},"statement",false,false);});loop=this.forIn(key,object,body);return __node("MacroAccess",1534,14,0,1534,{macroName:"do",macroData:{body:__node("Block",1535,1,[__wrap(init,284),__wrap(loop,284),__node("Const",1537,13,false)],null)}},"statement",false,false);}else if(reducer==="every"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1540,13,19,1540,{macroName:"if",macroData:{test:__node("MacroAccess",1540,15,3,1540,{op:"not",node:__wrap(node,306)},"statement",false,false),body:__node("MacroAccess",1541,15,39,1541,{macroName:"return",macroData:{node:__node("Const",1541,21,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false);});loop=this.forIn(key,object,body);return __node("MacroAccess",1543,14,0,1543,{macroName:"do",macroData:{body:__node("Block",1544,1,[__wrap(init,284),__wrap(loop,284),__node("Const",1546,13,true)],null)}},"statement",false,false);}else{throw Error("Unknown reducer: "+__strnum(reducer));}}}else if(this.position==="expression"){if(elseBody){throw Error("Cannot use a for loop with an else as an expression");}arr=this.tmp("arr",false,this.type(body).array());body=this.mutateLast(body||this.noop(),function(node){return __node("Call",1553,61,__node("Access",1553,61,__wrap(arr,309),__node("Const",1553,67,"push")),[__wrap(node,309)],false,false);});init.unshift(__node("MacroAccess",1554,23,38,1554,{macroName:"let",macroData:{declarable:__node("MacroAccess",1554,27,37,1554,__node("MacroAccess",1554,27,31,1554,{ident:__wrap(arr,284)},"statement",false,false),"statement",false,false),value:__node("Array",1554,34,[])}},"statement",false,false));loop=this.forIn(key,object,body);return __node("Block",1557,1,[__wrap(init,284),__wrap(loop,284),__wrap(arr,284)],null);}else{loop=this.forIn(key,object,body);return __node("Block",1563,1,[__wrap(init,284),__wrap(loop,284),__wrap(post,284)],null);}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -33110,12 +33152,11 @@
               }
             }
           ],
-          names: ["for"],
+          names: "for",
           id: 113
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,current,currentStart,index,key,loop,macroData,macroName,object,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1568,59,30,1568,{left:__wrap(current,314),op:":=",right:__wrap(node,314)},"expression",false,false);});if(value!=null){index=value.index;}value=value!=null?value.value:void 0;if(type==="of"){loop=__node("MacroAccess",1572,10,113,1572,{macroName:"for",macroData:{key:__wrap(key,313),value:{value:__node("MacroAccess",1572,20,37,1572,__node("MacroAccess",1572,20,31,1572,{ident:__wrap(value,313)},"statement",false,false),"statement",false,false),index:__wrap(index,313)},type:"of",object:__wrap(object,313),body:__wrap(body,313)}},"statement",false,false);}else{loop=__node("MacroAccess",1575,10,113,1575,{macroName:"for",macroData:{key:__wrap(key,313),value:{value:__node("MacroAccess",1575,20,37,1575,__node("MacroAccess",1575,20,31,1575,{ident:__wrap(value,313)},"statement",false,false),"statement",false,false),index:__wrap(index,313)},type:"ofall",object:__wrap(object,313),body:__wrap(body,313)}},"statement",false,false);}return __node("Block",1578,1,[__node("MacroAccess",1578,7,38,1578,{macroName:"let",macroData:{declarable:__node("MacroAccess",1578,10,37,1578,__node("MacroAccess",1578,10,31,1578,{isMutable:"mutable",ident:__wrap(current,313)},"statement",false,false),"statement",false,false),value:__wrap(currentStart,313)}},"statement",false,false),__wrap(loop,313),__wrap(current,313)],null);};}.call(this));',
-          options: {},
           params: [
             {type: "const", value: "reduce"},
             {
@@ -33205,12 +33246,11 @@
               }
             }
           ],
-          names: ["for"],
+          names: "for",
           id: 114
         },
         {
           code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _this,catchBody,catchIdent,catchPart,current,elseBody,finallyBody,hasElse,init,macroData,macroName,runElse,tryBody,typedCatches;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;tryBody=macroData.tryBody;typedCatches=macroData.typedCatches;catchPart=macroData.catchPart;elseBody=macroData.elseBody;finallyBody=macroData.finallyBody;hasElse=!!elseBody;if(!catchPart&&hasElse&&!finallyBody){throw Error("Must provide at least a catch, else, or finally to a try block");}if(catchPart!=null){catchIdent=catchPart.ident;}if(catchPart!=null){catchBody=catchPart.body;}if(typedCatches.length!==0){if(!catchIdent){catchIdent=typedCatches[0].ident;}catchBody=(function(){var _arr,_f,_i,current;current=catchBody||__node("MacroAccess",1973,94,11,1973,{op:"throw",node:__wrap(catchIdent,400)},"statement",false,false);for(_arr=__toArray(typedCatches), _i=_arr.length, _f=function(typeCatch){var _this,letErr,typeIdent,types;_this=this;typeIdent=typeCatch.ident;if(this.name(typeIdent)!==this.name(catchIdent)){letErr=__node("MacroAccess",1976,14,38,1976,{macroName:"let",macroData:{declarable:__node("MacroAccess",1976,18,37,1976,__node("MacroAccess",1976,18,31,1976,{ident:__wrap(typeIdent,400)},"statement",false,false),"statement",false,false),value:__wrap(catchIdent,400)}},"statement",false,false);}else{letErr=this.noop();}types=this.array((function(){var _arr,_arr2,_i,_len,type;for(_arr=[], _arr2=__toArray(_this.isTypeUnion(typeCatch.type)?_this.types(typeCatch.type):[typeCatch.type]), _i=0, _len=_arr2.length;_i<_len;++_i){type=_arr2[_i];if(_this.isTypeArray(type)){throw Error("Expected a normal type, cannot use an array type");}else if(_this.isTypeGeneric(type)){throw Error("Expected a normal type, cannot use a generic type");}else if(_this.isTypeFunction(type)){throw Error("Expected a normal type, cannot use a function type");}else if(_this.isTypeObject(type)){throw Error("Expected a normal type, cannot use an object type");}_arr.push(type);}return _arr;}()));return current=__node("MacroAccess",1990,11,19,1990,{macroName:"if",macroData:{test:__node("MacroAccess",1990,13,116,1990,{left:__wrap(catchIdent,400),inverted:false,op:"instanceofsome",right:__wrap(types,400)},"statement",false,false),body:__node("Block",1991,1,[__wrap(letErr,400),__wrap(typeCatch.body,400)],null),elseIfs:[],elseBody:__wrap(current,400)}},"statement",false,false);};_i--;){_f.call(_this,_arr[_i]);}return current;}());}init=[];if(hasElse){runElse=this.tmp("else",false,"boolean");init.push(__node("MacroAccess",1999,20,38,1999,{macroName:"let",macroData:{declarable:__node("MacroAccess",1999,24,37,1999,__node("MacroAccess",1999,24,31,1999,{ident:__wrap(runElse,400)},"statement",false,false),"statement",false,false),value:__node("Const",1999,36,true)}},"statement",false,false));if(catchBody){catchBody=__node("Block",2002,1,[__node("MacroAccess",2002,11,30,2002,{left:__wrap(runElse,400),op:":=",right:__node("Const",2002,23,false)},"statement",false,false),__wrap(catchBody,400)],null);}else{catchIdent=this.tmp("err");catchBody=__node("Block",2007,1,[__node("MacroAccess",2007,11,30,2007,{left:__wrap(runElse,400),op:":=",right:__node("Const",2007,23,false)},"statement",false,false),__node("MacroAccess",2008,11,11,2008,{op:"throw",node:__wrap(catchIdent,400)},"statement",false,false)],null);}}current=tryBody;if(catchBody){current=this.tryCatch(current,catchIdent,catchBody);}if(hasElse){current=this.tryFinally(current,__node("MacroAccess",2015,9,19,2015,{macroName:"if",macroData:{test:__wrap(runElse,400),body:__wrap(elseBody,400),elseIfs:[]}},"statement",false,false));}if(finallyBody){current=this.tryFinally(current,finallyBody);}return __node("Block",2021,1,[__wrap(init,400),__wrap(current,400)],null);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -33387,12 +33427,11 @@
               }
             }
           ],
-          names: ["try"],
+          names: "try",
           id: 117
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,captureValue,elseBody,func,index,init,iterable,iterator,macroData,macroName,main,post,reducer,runElse,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;value=macroData.value;index=macroData.index;iterable=macroData.iterable;body=macroData.body;elseBody=macroData.elseBody;init=[];iterator=this.cache(__node("Call",2032,30,__node("Access",2032,30,__wrap(iterable,410),__node("Const",2032,41,"iterator")),[],false,false),init,"iter",false);step=[];if(index){init.push(__node("MacroAccess",2036,20,38,2036,{macroName:"let",macroData:{declarable:__node("MacroAccess",2036,24,37,2036,__node("MacroAccess",2036,24,31,2036,{isMutable:"mutable",ident:__wrap(index,410)},"statement",false,false),"statement",false,false),value:__node("Const",2036,42,0)}},"statement",false,false));step.push(__node("MacroAccess",2037,21,52,2037,{left:__wrap(index,410),op:"~+=",right:__node("Const",2037,33,1)},"expression",false,false));}captureValue=__node("MacroAccess",2039,28,117,2039,{macroName:"try",macroData:{tryBody:__node("MacroAccess",2040,7,38,2040,{macroName:"let",macroData:{declarable:__node("MacroAccess",2040,10,37,2040,__node("MacroAccess",2040,10,31,2040,{ident:__wrap(value,410)},"statement",false,false),"statement",false,false),value:__node("Call",2040,19,__node("Access",2040,19,__wrap(iterator,410),__node("Const",2040,30,"next")),[],false,false)}},"statement",false,false),typedCatches:[],catchPart:{ident:__node("Ident",2041,10,"e"),body:__node("MacroAccess",2042,7,19,2042,{macroName:"if",macroData:{test:__node("MacroAccess",2042,9,5,2042,{left:__node("Ident",2042,9,"e"),inverted:false,op:"==",right:__node("Ident",2042,14,"StopIteration")},"statement",false,false),body:__node("MacroAccess",2043,9,16,2043,{macroName:"break",macroData:{}},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",2045,9,11,2045,{op:"throw",node:__node("Ident",2045,14,"e")},"statement",false,false)}},"statement",false,false)}}},"statement",false,false);post=[];if(elseBody&&!reducer&&this.position!=="expression"){runElse=this.tmp("else",false,"boolean");init.push(__node("MacroAccess",2050,21,38,2050,{macroName:"let",macroData:{declarable:__node("MacroAccess",2050,25,37,2050,__node("MacroAccess",2050,25,31,2050,{ident:__wrap(runElse,410)},"statement",false,false),"statement",false,false),value:__node("Const",2050,37,true)}},"statement",false,false));body=__node("Block",2052,1,[__node("MacroAccess",2052,9,30,2052,{left:__wrap(runElse,410),op:":=",right:__node("Const",2052,21,false)},"statement",false,false),__wrap(body,410)],null);post.push(__node("MacroAccess",2055,9,19,2055,{macroName:"if",macroData:{test:__wrap(runElse,410),body:__wrap(elseBody,410),elseIfs:[]}},"statement",false,false));}if(this.hasFunc(body)){func=this.tmp("f",false,"function");if(!index){init.push(__node("MacroAccess",2061,22,38,2061,{macroName:"let",macroData:{declarable:__node("MacroAccess",2061,26,37,2061,__node("MacroAccess",2061,26,31,2061,{ident:__wrap(func,410)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2061,36,115,2061,{op:"",node:__node("Function",2061,36,[__node("Param",2061,37,__wrap(value,421),void 0,false,false,void 0)],__wrap(body,421),true,false,false,void 0,false,[])},"expression",false,false)}},"statement",false,false));body=__node("Block",2063,1,[__wrap(captureValue,410),__node("Call",2064,11,__wrap(func,410),[__node("This",2064,18),__wrap(value,410)],false,true)],null);}else{init.push(__node("MacroAccess",2066,22,38,2066,{macroName:"let",macroData:{declarable:__node("MacroAccess",2066,26,37,2066,__node("MacroAccess",2066,26,31,2066,{ident:__wrap(func,410)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2066,36,115,2066,{op:"",node:__node("Function",2066,36,[__node("Param",2066,37,__wrap(value,423),void 0,false,false,void 0),__node("Param",2066,44,__wrap(index,423),void 0,false,false,void 0)],__wrap(body,423),true,false,false,void 0,false,[])},"expression",false,false)}},"statement",false,false));body=__node("Block",2068,1,[__wrap(captureValue,410),__node("Call",2069,11,__wrap(func,410),[__node("This",2069,18),__wrap(value,410),__wrap(index,410)],false,true)],null);}}else{body=__node("Block",2072,1,[__wrap(captureValue,410),__wrap(body,410)],null);}if(reducer==="every"){main=__node("MacroAccess",2076,11,104,2076,{macroName:"for",macroData:{reducer:"every",init:__wrap(init,410),test:__node("Const",2076,28,true),step:__wrap(step,410),body:__wrap(body,410),elseBody:__wrap(elseBody,410)}},"expression",false,false);}else if(reducer==="some"){main=__node("MacroAccess",2081,11,104,2081,{macroName:"for",macroData:{reducer:"some",init:__wrap(init,410),test:__node("Const",2081,27,true),step:__wrap(step,410),body:__wrap(body,410),elseBody:__wrap(elseBody,410)}},"expression",false,false);}else if(reducer==="first"){main=__node("MacroAccess",2086,11,104,2086,{macroName:"for",macroData:{reducer:"first",init:__wrap(init,410),test:__node("Const",2086,28,true),step:__wrap(step,410),body:__wrap(body,410),elseBody:__wrap(elseBody,410)}},"expression",false,false);}else if(reducer==="filter"){body=this.mutateLast(body,function(node){return __node("MacroAccess",2092,12,19,2092,{macroName:"if",macroData:{test:__wrap(node,425),body:__wrap(value,425),elseIfs:[]}},"statement",false,false);});main=__node("MacroAccess",2094,11,104,2094,{macroName:"for",macroData:{init:__wrap(init,410),test:__node("Const",2094,22,true),step:__wrap(step,410),body:__wrap(body,410),elseBody:__wrap(elseBody,410)}},"expression",false,false);}else if(this.position==="expression"){main=__node("MacroAccess",2099,11,104,2099,{macroName:"for",macroData:{init:__wrap(init,410),test:__node("Const",2099,22,true),step:__wrap(step,410),body:__wrap(body,410),elseBody:__wrap(elseBody,410)}},"expression",false,false);}else{main=__node("Block",2105,1,[__node("MacroAccess",2105,9,104,2105,{macroName:"for",macroData:{init:__wrap(init,410),test:__node("Const",2105,19,true),step:__wrap(step,410),body:__wrap(body,410)}},"statement",false,false),__wrap(post,410)],null);}return __node("MacroAccess",2109,8,117,2109,{macroName:"try",macroData:{tryBody:__wrap(main,410),typedCatches:[],finallyBody:__node("If",2112,7,__node("MacroAccess",2112,7,20,2112,{op:"",node:__wrap(iterator,410)},"statement",false,false),__node("If",2112,7,__node("Binary",2112,7,__node("Unary",2112,7,"typeof",__node("Access",2112,7,__wrap(iterator,410),__node("Const",2112,18,"close"))),"===",__node("Const",2112,7,"function")),__node("Call",2112,7,__node("Access",2112,7,__wrap(iterator,410),__node("Const",2112,18,"close")),[],false,false),__node("Nothing",0,0),null),__node("Nothing",0,0),null)}},"statement",false,false);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -33495,12 +33534,11 @@
               }
             }
           ],
-          names: ["for"],
+          names: "for",
           id: 118
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,current,currentStart,index,iterator,macroData,macroName,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;value=macroData.value;index=macroData.index;iterator=macroData.iterator;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",2115,59,30,2115,{left:__wrap(current,427),op:":=",right:__wrap(node,427)},"expression",false,false);});return __node("Block",2117,1,[__node("MacroAccess",2117,7,38,2117,{macroName:"let",macroData:{declarable:__node("MacroAccess",2117,10,37,2117,__node("MacroAccess",2117,10,31,2117,{isMutable:"mutable",ident:__wrap(current,426)},"statement",false,false),"statement",false,false),value:__wrap(currentStart,426)}},"statement",false,false),__node("MacroAccess",2118,7,118,2118,{macroName:"for",macroData:{value:__wrap(value,426),index:__wrap(index,426),iterable:__wrap(iterator,426),body:__wrap(body,426)}},"statement",false,false),__wrap(current,426)],null);};}.call(this));',
-          options: {},
           params: [
             {type: "const", value: "reduce"},
             {
@@ -33561,12 +33599,11 @@
               }
             }
           ],
-          names: ["for"],
+          names: "for",
           id: 119
         },
         {
           code: 'return (function(){"use strict";var __isArray,__num,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _arr,_arr2,_i,_i2,_len,_len2,body,case_,caseNode,caseNodes,cases,defaultCase,isFallthrough,lastNode,macroData,macroName,node,nodes,resultCases;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;cases=macroData.cases;defaultCase=macroData.defaultCase;resultCases=[];for(_arr=__toArray(cases), _i=0, _len=_arr.length;_i<_len;++_i){case_=_arr[_i];caseNodes=[case_.nodeHead].concat(case_.nodeTail);body=case_.body;isFallthrough=false;if(this.isBlock(body)){nodes=this.nodes(body);lastNode=nodes[__num(nodes.length)-1];if(this.isIdent(lastNode)&&this.name(lastNode)==="fallthrough"){body=this.block(nodes.slice(0,-1));isFallthrough=true;}}else if(this.isIdent(body)&&this.name(body)==="fallthrough"){body=this.noop();isFallthrough=true;}for(_arr2=__toArray(caseNodes.slice(0,-1)), _i2=0, _len2=_arr2.length;_i2<_len2;++_i2){caseNode=_arr2[_i2];resultCases.push({node:caseNode,body:this.noop(),fallthrough:true});}resultCases.push({node:caseNodes[__num(caseNodes.length)-1],body:body,fallthrough:isFallthrough});}return this["switch"](node,resultCases,defaultCase);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -33674,12 +33711,11 @@
               }
             }
           ],
-          names: ["switch"],
+          names: "switch",
           id: 120
         },
         {
           code: 'return (function(){"use strict";var __isArray,__num,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _arr,_i,body,case_,cases,current,defaultCase,fall,isFallthrough,lastNode,macroData,macroName,nodes,result,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;cases=macroData.cases;defaultCase=macroData.defaultCase;current=defaultCase;for(_arr=__toArray(cases), _i=_arr.length;_i--;){case_=_arr[_i];test=case_.test;body=case_.body;isFallthrough=false;result=void 0;if(this.isBlock(body)){nodes=this.nodes(body);lastNode=nodes[__num(nodes.length)-1];if(this.isIdent(lastNode)&&this.name(lastNode)==="fallthrough"){body=this.block(nodes.slice(0,-1));result=this.isIf(current)?(fall=this.tmp("fall",false,"boolean"),__node("Block",2165,1,[__node("MacroAccess",2165,15,38,2165,{macroName:"let",macroData:{declarable:__node("MacroAccess",2165,18,37,2165,__node("MacroAccess",2165,18,31,2165,{isMutable:"mutable",ident:__wrap(fall,433)},"statement",false,false),"statement",false,false),value:__node("Const",2165,34,false)}},"statement",false,false),__node("MacroAccess",2166,15,19,2166,{macroName:"if",macroData:{test:__wrap(test,433),body:__node("Block",2167,1,[__node("MacroAccess",2167,17,30,2167,{left:__wrap(fall,433),op:":=",right:__node("Const",2167,25,true)},"statement",false,false),__wrap(body,433)],null),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2169,15,19,2169,{macroName:"if",macroData:{test:__node("MacroAccess",2169,17,2,2169,{left:__wrap(fall,433),inverted:false,op:"or",right:__wrap(this.test(current),433)},"statement",false,false),body:__wrap(this.whenTrue(current),433),elseIfs:[],elseBody:__wrap(this.whenFalse(current),433)}},"statement",false,false)],null)):__node("Block",2175,1,[__node("MacroAccess",2175,15,19,2175,{macroName:"if",macroData:{test:__wrap(test,433),body:__wrap(body,433),elseIfs:[]}},"statement",false,false),__wrap(current,433)],null);}}else if(this.isIdent(body)&&this.name(body)==="fallthrough"){if(this.isIf(current)){result=__node("MacroAccess",2180,24,19,2180,{macroName:"if",macroData:{test:__node("MacroAccess",2180,27,2,2180,{left:__wrap(test,433),inverted:false,op:"or",right:__wrap(this.test(current),433)},"statement",false,false),body:__wrap(this.whenTrue(current),433),elseIfs:[],elseBody:__wrap(this.whenFalse(current),433)}},"statement",false,false);}else{result=__node("Block",2186,1,[__wrap(test,433),__wrap(current,433)],null);}}current=result||__node("MacroAccess",2189,20,19,2189,{macroName:"if",macroData:{test:__wrap(case_.test,433),body:__wrap(body,433),elseIfs:[],elseBody:__wrap(current,433)}},"statement",false,false);}return current;};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -33764,12 +33800,11 @@
               }
             }
           ],
-          names: ["switch"],
+          names: "switch",
           id: 121
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,call,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){throw Error("async call expression must be a call");}params=params?[params.head].concat(params.tail):[];func=this.func(params,body,true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",2268,58,115,2268,{op:"mutateFunction!",node:__wrap(func,762)},"expression",false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -33819,12 +33854,11 @@
               asType: {type: "ident", name: "DedentedBody"}
             }
           ],
-          names: ["async"],
+          names: "async",
           id: 124
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,call,callback,error,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;callback=macroData.callback;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){throw Error("async! call expression must be a call");}error=this.tmp("e",false);params=[this.param(error)].concat(params);func=this.func(params,callback==="throw"?__node("Block",2280,1,[__node("MacroAccess",2280,11,100,2280,{op:"throw?",node:__wrap(error,764)},"statement",false,false),__wrap(body,764)],null):__node("Block",2284,1,[__node("MacroAccess",2284,11,19,2284,{macroName:"if",macroData:{test:__node("MacroAccess",2284,13,20,2284,{op:"?",node:__wrap(error,764)},"statement",false,false),body:__node("MacroAccess",2285,13,39,2285,{macroName:"return",macroData:{node:__node("Call",2285,19,__wrap(callback,764),[__wrap(error,764)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,764)],null),true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",2289,58,115,2289,{op:"mutateFunction!",node:__wrap(func,764)},"expression",false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -33867,23 +33901,21 @@
               asType: {type: "ident", name: "DedentedBody"}
             }
           ],
-          names: ["async!"],
+          names: "async!",
           id: 125
         },
         {
           code: 'return (function(){"use strict";var __isArray,__num,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _arr,_i,_len,ident,identName,key,macroData,macroName,name,obj,path,requires,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;if(this.isConst(name)&&typeof this.value(name)!=="string"){throw Error("Expected a constant string, got "+__typeof(this.value(name)));}if(this.isConst(name)){identName=this.value(name);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);return __node("MacroAccess",2302,10,38,2302,{macroName:"let",macroData:{declarable:__node("MacroAccess",2302,14,37,2302,__node("MacroAccess",2302,14,31,2302,{ident:__wrap(ident,767)},"statement",false,false),"statement",false,false),value:__node("Call",2302,23,__node("Ident",2302,23,"require"),[__wrap(name,767)],false,false)}},"statement",false,false);}else if(this.isIdent(name)){path=this.name(name);return __node("MacroAccess",2305,10,38,2305,{macroName:"let",macroData:{declarable:__node("MacroAccess",2305,14,37,2305,__node("MacroAccess",2305,14,31,2305,{ident:__wrap(name,767)},"statement",false,false),"statement",false,false),value:__node("Call",2305,22,__node("Ident",2305,22,"require"),[__wrap(path,767)],false,false)}},"statement",false,false);}else if(this.isObject(name)){requires=[];for(_arr=__toArray(this.pairs(name)), _i=0, _len=_arr.length;_i<_len;++_i){obj=_arr[_i];key=obj.key;value=obj.value;if(!this.isConst(key)){throw Error("If providing an object to require!, all keys must be constant strings");}identName=this.value(key);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);if(this.isConst(value)){requires.push(__node("MacroAccess",2317,28,38,2317,{macroName:"let",macroData:{declarable:__node("MacroAccess",2317,32,37,2317,__node("MacroAccess",2317,32,31,2317,{ident:__wrap(ident,767)},"statement",false,false),"statement",false,false),value:__node("Call",2317,41,__node("Ident",2317,41,"require"),[__wrap(value,767)],false,false)}},"statement",false,false));}else if(this.isIdent(value)){path=this.name(value);requires.push(__node("MacroAccess",2320,28,38,2320,{macroName:"let",macroData:{declarable:__node("MacroAccess",2320,32,37,2320,__node("MacroAccess",2320,32,31,2320,{ident:__wrap(ident,767)},"statement",false,false),"statement",false,false),value:__node("Call",2320,41,__node("Ident",2320,41,"require"),[__wrap(path,767)],false,false)}},"statement",false,false));}else{throw Error("If providing an object to require!, all values must be constant strings or idents");}}return this.block(requires);}else{throw Error("Expected either a constant string or ident or object");}};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "name",
             asType: {type: "ident", name: "Expression"}
-          }],
-          names: ["require!"],
+          },
+          names: "require!",
           id: 126
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,arr,body,done,err,first,init,macroData,macroName,next,rest,result,results,step,test,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;init=macroData.init;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;if(err==null){err=this.tmp("err",true);}if(init==null){init=this.noop();}if(test==null){test=__node("Const",2510,17,true);}if(step==null){step=this.noop(step);}done=this.tmp("done",true,"function");if(!result){if(!step){return __node("Block",2516,1,[__wrap(init,806),__node("MacroAccess",2517,11,17,2517,{macroName:"let",macroData:{ident:__wrap(next,806),func:__node("MacroAccess",2517,20,115,2517,{op:"",node:__node("Function",2517,20,[__node("Param",2517,21,__wrap(err,808),void 0,false,false,void 0)],__node("Block",2518,1,[__node("MacroAccess",2518,13,19,2518,{macroName:"if",macroData:{test:__node("MacroAccess",2518,15,20,2518,{op:"?",node:__wrap(err,808)},"statement",false,false),body:__node("MacroAccess",2519,15,39,2519,{macroName:"return",macroData:{node:__node("Call",2519,21,__wrap(done,808),[__wrap(err,808)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2520,13,19,2520,{macroName:"unless",macroData:{test:__wrap(test,808),body:__node("MacroAccess",2521,15,39,2521,{macroName:"return",macroData:{node:__node("Call",2521,21,__wrap(done,808),[__node("Const",2521,28,null)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,808)],null),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("MacroAccess",2523,11,17,2523,{macroName:"let",macroData:{ident:__wrap(done,806),func:__node("MacroAccess",2523,20,115,2523,{op:"",node:__node("Function",2523,20,[__node("Param",2523,21,__wrap(err,809),void 0,false,false,void 0)],__wrap(rest,809),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("Call",2525,11,__wrap(next,806),[],false,false)],null);}else{first=this.tmp("first",true,"boolean");return __node("Block",2529,1,[__wrap(init,806),__node("MacroAccess",2530,11,38,2530,{macroName:"let",macroData:{declarable:__node("MacroAccess",2530,14,37,2530,__node("MacroAccess",2530,14,31,2530,{ident:__wrap(first,806)},"statement",false,false),"statement",false,false),value:__node("Const",2530,23,true)}},"statement",false,false),__node("MacroAccess",2531,11,17,2531,{macroName:"let",macroData:{ident:__wrap(next,806),func:__node("MacroAccess",2531,20,115,2531,{op:"",node:__node("Function",2531,20,[__node("Param",2531,21,__wrap(err,812),void 0,false,false,void 0)],__node("Block",2532,1,[__node("MacroAccess",2532,13,19,2532,{macroName:"if",macroData:{test:__node("MacroAccess",2532,15,20,2532,{op:"?",node:__wrap(err,812)},"statement",false,false),body:__node("MacroAccess",2533,15,39,2533,{macroName:"return",macroData:{node:__node("Call",2533,21,__wrap(done,812),[__wrap(err,812)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2534,13,19,2534,{macroName:"if",macroData:{test:__wrap(first,812),body:__node("MacroAccess",2535,15,30,2535,{left:__wrap(first,812),op:":=",right:__node("Const",2535,24,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(step,812)}},"statement",false,false),__node("MacroAccess",2538,13,19,2538,{macroName:"unless",macroData:{test:__wrap(test,812),body:__node("MacroAccess",2539,15,39,2539,{macroName:"return",macroData:{node:__node("Call",2539,21,__wrap(done,812),[__node("Const",2539,28,null)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,812)],null),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("MacroAccess",2541,11,17,2541,{macroName:"let",macroData:{ident:__wrap(done,806),func:__node("MacroAccess",2541,20,115,2541,{op:"",node:__node("Function",2541,20,[__node("Param",2541,21,__wrap(err,813),void 0,false,false,void 0)],__wrap(rest,813),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("Call",2543,11,__wrap(next,806),[],false,false)],null);}}else{first=this.tmp("first",true,"boolean");value=this.tmp("value",true);arr=this.tmp("arr",true);return __node("Block",2549,1,[__wrap(init,806),__node("MacroAccess",2550,9,38,2550,{macroName:"let",macroData:{declarable:__node("MacroAccess",2550,12,37,2550,__node("MacroAccess",2550,12,31,2550,{ident:__wrap(first,806)},"statement",false,false),"statement",false,false),value:__node("Const",2550,21,true)}},"statement",false,false),__node("MacroAccess",2551,9,38,2551,{macroName:"let",macroData:{declarable:__node("MacroAccess",2551,12,37,2551,__node("MacroAccess",2551,12,31,2551,{ident:__wrap(arr,806)},"statement",false,false),"statement",false,false),value:__node("Array",2551,19,[])}},"statement",false,false),__node("MacroAccess",2552,9,17,2552,{macroName:"let",macroData:{ident:__wrap(next,806),func:__node("MacroAccess",2552,18,115,2552,{op:"",node:__node("Function",2552,18,[__node("Param",2552,19,__wrap(err,819),void 0,false,false,void 0),__node("Param",2552,24,__wrap(value,819),void 0,false,false,void 0)],__node("Block",2553,1,[__node("MacroAccess",2553,11,19,2553,{macroName:"if",macroData:{test:__node("MacroAccess",2553,13,20,2553,{op:"?",node:__wrap(err,819)},"statement",false,false),body:__node("MacroAccess",2554,13,39,2554,{macroName:"return",macroData:{node:__node("Call",2554,19,__wrap(done,819),[__wrap(err,819)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2555,11,19,2555,{macroName:"if",macroData:{test:__wrap(first,819),body:__node("MacroAccess",2556,13,30,2556,{left:__wrap(first,819),op:":=",right:__node("Const",2556,22,false)},"statement",false,false),elseIfs:[],elseBody:__node("Block",2558,1,[__wrap(step,819),__node("MacroAccess",2559,13,19,2559,{macroName:"if",macroData:{test:__node("MacroAccess",2559,15,10,2559,{left:__node("Access",2559,15,__node("Args",2559,15),__node("Const",2559,26,"length")),inverted:false,op:"~>",right:__node("Const",2559,36,1)},"statement",false,false),body:__node("Call",2560,15,__node("Access",2560,15,__wrap(arr,819),__node("Const",2560,20,"push")),[__wrap(value,819)],false,false),elseIfs:[]}},"statement",false,false)],null)}},"statement",false,false),__node("MacroAccess",2561,11,19,2561,{macroName:"unless",macroData:{test:__wrap(test,819),body:__node("MacroAccess",2562,13,39,2562,{macroName:"return",macroData:{node:__node("Call",2562,19,__wrap(done,819),[__node("Const",2562,26,null),__wrap(arr,819)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,819)],null),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("MacroAccess",2564,9,17,2564,{macroName:"let",macroData:{ident:__wrap(done,806),func:__node("MacroAccess",2564,18,115,2564,{op:"",node:__node("Function",2564,18,[__node("Param",2564,19,__wrap(err,820),void 0,false,false,void 0),__node("Param",2564,24,__wrap(result,820),void 0,false,false,void 0)],__wrap(rest,820),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("Call",2566,9,__wrap(next,806),[],false,false)],null);}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -33989,12 +34021,11 @@
               asType: {type: "ident", name: "DedentedBody"}
             }
           ],
-          names: ["asyncfor"],
+          names: "asyncfor",
           id: 127
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,array,body,end,err,inclusive,index,init,length,lengthCalc,macroData,macroName,next,parallelism,rest,result,results,start,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;if(err==null){err=this.tmp("err",true);}init=[];value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(parallelism==null){parallelism=__node("Const",2579,25,1);}if(index==null){index=this.tmp("i",true,"number");}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){throw Error("Cannot assign a number to a complex declarable");}value=value.ident;start=(_ref=this.callArgs(array))[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];if(this.isConst(start)){if(typeof this.value(start)!=="number"){throw Error("Cannot start with a non-number: #(@value start)");}}else{start=__node("MacroAccess",2592,22,58,2592,{op:"+",node:__wrap(start,821)},"expression",false,false);}if(this.isConst(end)){if(typeof this.value(end)!=="number"){throw Error("Cannot end with a non-number: #(@value start)");}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",2598,28,58,2598,{op:"+",node:__wrap(end,821)},"expression",false,false),init,"end",false);}else{init.push(__node("MacroAccess",2600,23,58,2600,{op:"+",node:__wrap(end,821)},"expression",false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){throw Error("Cannot step with a non-number: #(@value step)");}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",2606,29,58,2606,{op:"+",node:__wrap(step,821)},"expression",false,false),init,"step",false);}else{init.push(__node("MacroAccess",2608,23,58,2608,{op:"+",node:__wrap(step,821)},"expression",false,false));}body=__node("Block",2611,1,[__node("MacroAccess",2611,9,38,2611,{macroName:"let",macroData:{declarable:__node("MacroAccess",2611,12,37,2611,__node("MacroAccess",2611,12,31,2611,{ident:__wrap(value,821)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2611,21,49,2611,{left:__node("MacroAccess",2611,21,45,2611,{left:__wrap(index,821),inverted:false,op:"~*",right:__wrap(step,821)},"expression",false,false),inverted:false,op:"~+",right:__wrap(start,821)},"expression",false,false)}},"statement",false,false),__wrap(body,821)],null);lengthCalc=__node("MacroAccess",2614,29,19,2614,{macroName:"if",macroData:{test:__wrap(inclusive,821),body:__node("MacroAccess",2615,9,45,2615,{left:__node("MacroAccess",2615,10,49,2615,{left:__node("MacroAccess",2615,10,49,2615,{left:__wrap(end,821),inverted:false,op:"~-",right:__wrap(start,821)},"expression",false,false),inverted:false,op:"~+",right:__wrap(step,821)},"expression",false,false),inverted:false,op:"~\\\\",right:__wrap(step,821)},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",2617,9,45,2617,{left:__node("MacroAccess",2617,10,49,2617,{left:__wrap(end,821),inverted:false,op:"~-",right:__wrap(start,821)},"expression",false,false),inverted:false,op:"~\\\\",right:__wrap(step,821)},"statement",false,false)}},"expression",false,false);if(!length){length=lengthCalc;}else{init.push(__node("MacroAccess",2621,22,38,2621,{macroName:"let",macroData:{declarable:__node("MacroAccess",2621,26,37,2621,__node("MacroAccess",2621,26,31,2621,{ident:__wrap(length,821)},"statement",false,false),"statement",false,false),value:__wrap(lengthCalc,821)}},"statement",false,false));}}else{array=this.cache(array,init,"arr",true);body=__node("Block",2626,1,[__node("MacroAccess",2626,9,38,2626,{macroName:"let",macroData:{declarable:__node("MacroAccess",2626,12,37,2626,__node("MacroAccess",2626,12,31,2626,{ident:__wrap(value,821)},"statement",false,false),"statement",false,false),value:__node("Access",2626,21,__wrap(array,821),__wrap(index,821))}},"statement",false,false),__wrap(body,821)],null);if(!length){length=__node("MacroAccess",2630,23,58,2630,{op:"+",node:__node("Access",2630,25,__wrap(array,821),__node("Const",2630,32,"length"))},"expression",false,false);}else{init.push(__node("MacroAccess",2632,22,38,2632,{macroName:"let",macroData:{declarable:__node("MacroAccess",2632,26,37,2632,__node("MacroAccess",2632,26,31,2632,{ident:__wrap(length,821)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2632,36,58,2632,{op:"+",node:__node("Access",2632,38,__wrap(array,821),__node("Const",2632,45,"length"))},"expression",false,false)}},"statement",false,false));}}if(!result){return __node("Block",2636,1,[__wrap(init,821),__node("Call",2637,9,__node("Ident",2637,9,"__async"),[__node("MacroAccess",2637,17,58,2637,{op:"+",node:__wrap(parallelism,821)},"expression",false,false),__wrap(length,821),__node("MacroAccess",2637,42,115,2637,{op:"",node:__node("Function",2637,42,[__node("Param",2637,43,__wrap(index,828),void 0,false,false,void 0),__node("Param",2637,50,__wrap(next,828),void 0,false,false,void 0)],__wrap(body,828),true,true,false,void 0,false,[])},"expression",false,false),__node("MacroAccess",2637,70,115,2637,{op:"",node:__node("Function",2637,70,[__node("Param",2637,71,__wrap(err,829),void 0,false,false,void 0)],__wrap(rest,829),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}else{return __node("Block",2640,1,[__wrap(init,821),__node("Call",2641,9,__node("Ident",2641,9,"__asyncResult"),[__node("MacroAccess",2641,24,58,2641,{op:"+",node:__wrap(parallelism,821)},"expression",false,false),__wrap(length,821),__node("MacroAccess",2641,49,115,2641,{op:"",node:__node("Function",2641,49,[__node("Param",2641,50,__wrap(index,830),void 0,false,false,void 0),__node("Param",2641,57,__wrap(next,830),void 0,false,false,void 0)],__wrap(body,830),true,true,false,void 0,false,[])},"expression",false,false),__node("MacroAccess",2641,77,115,2641,{op:"",node:__node("Function",2641,77,[__node("Param",2641,78,__wrap(err,831),void 0,false,false,void 0),__node("Param",2641,83,__wrap(result,831),void 0,false,false,void 0)],__wrap(rest,831),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34128,12 +34159,11 @@
               asType: {type: "ident", name: "DedentedBody"}
             }
           ],
-          names: ["asyncfor"],
+          names: "asyncfor",
           id: 128
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,body,err,getKeys,index,init,key,keys,macroData,macroName,next,object,own,parallelism,rest,result,results,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;own=type==="of";init=[];object=this.cache(object,init,"obj",true);index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}if(value){body=__node("Block",2655,1,[__node("MacroAccess",2655,9,38,2655,{macroName:"let",macroData:{declarable:__node("MacroAccess",2655,12,37,2655,__node("MacroAccess",2655,12,31,2655,{ident:__wrap(value,832)},"statement",false,false),"statement",false,false),value:__node("Access",2655,21,__wrap(object,832),__wrap(key,832))}},"statement",false,false),__wrap(body,832)],null);}keys=this.tmp("keys",true,"stringArray");if(own){getKeys=__node("MacroAccess",2660,10,113,2660,{macroName:"for",macroData:{key:__wrap(key,832),type:"of",object:__wrap(object,832),body:__node("Call",2661,9,__node("Access",2661,9,__wrap(keys,832),__node("Const",2661,15,"push")),[__wrap(key,832)],false,false)}},"statement",false,false);}else{getKeys=__node("MacroAccess",2663,10,113,2663,{macroName:"for",macroData:{key:__wrap(key,832),type:"ofall",object:__wrap(object,832),body:__node("Call",2664,9,__node("Access",2664,9,__wrap(keys,832),__node("Const",2664,15,"push")),[__wrap(key,832)],false,false)}},"statement",false,false);}return __node("Block",2666,1,[__wrap(init,832),__node("MacroAccess",2667,7,38,2667,{macroName:"let",macroData:{declarable:__node("MacroAccess",2667,10,37,2667,__node("MacroAccess",2667,10,31,2667,{ident:__wrap(keys,832)},"statement",false,false),"statement",false,false),value:__node("Array",2667,18,[])}},"statement",false,false),__wrap(getKeys,832),__node("MacroAccess",2669,7,128,2669,{macroName:"asyncfor",macroData:{parallelism:__wrap(parallelism,832),results:{err:__wrap(err,832),result:__wrap(result,832)},next:__wrap(next,832),value:__node("MacroAccess",2669,53,37,2669,__node("MacroAccess",2669,53,31,2669,{ident:__wrap(key,832)},"statement",false,false),"statement",false,false),index:{value:__wrap(index,832)},array:__wrap(keys,832),body:__wrap(body,832),rest:__wrap(rest,832)}},"statement",false,false)],null);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34277,12 +34307,11 @@
               asType: {type: "ident", name: "DedentedBody"}
             }
           ],
-          names: ["asyncfor"],
+          names: "asyncfor",
           id: 129
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,body,err,index,iterator,macroData,macroName,next,parallelism,rest,result,results,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;iterator=macroData.iterator;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;if(index==null){index=this.tmp("i",true);}if(err==null){err=this.tmp("err",true);}if(parallelism==null){parallelism=__node("Const",2678,25,1);}if(!result){return __node("Call",2681,11,__node("Ident",2681,11,"__asyncIter"),[__node("MacroAccess",2681,25,58,2681,{op:"+",node:__wrap(parallelism,839)},"expression",false,false),__wrap(iterator,839),__node("MacroAccess",2681,52,115,2681,{op:"",node:__node("Function",2681,52,[__node("Param",2681,53,__wrap(value,840),void 0,false,false,void 0),__node("Param",2681,60,__wrap(index,840),void 0,false,false,void 0),__node("Param",2681,68,__wrap(next,840),void 0,false,false,void 0)],__wrap(body,840),true,true,false,void 0,false,[])},"expression",false,false),__node("MacroAccess",2681,88,115,2681,{op:"",node:__node("Function",2681,88,[__node("Param",2681,89,__wrap(err,841),void 0,false,false,void 0)],__wrap(rest,841),true,true,false,void 0,false,[])},"expression",false,false)],false,false);}else{return __node("Call",2683,11,__node("Ident",2683,11,"__asyncIterResult"),[__node("MacroAccess",2683,32,58,2683,{op:"+",node:__wrap(parallelism,839)},"expression",false,false),__wrap(iterator,839),__node("MacroAccess",2683,59,115,2683,{op:"",node:__node("Function",2683,59,[__node("Param",2683,60,__wrap(value,842),void 0,false,false,void 0),__node("Param",2683,67,__wrap(index,842),void 0,false,false,void 0),__node("Param",2683,75,__wrap(next,842),void 0,false,false,void 0)],__wrap(body,842),true,true,false,void 0,false,[])},"expression",false,false),__node("MacroAccess",2683,95,115,2683,{op:"",node:__node("Function",2683,95,[__node("Param",2683,96,__wrap(err,843),void 0,false,false,void 0),__node("Param",2683,101,__wrap(result,843),void 0,false,false,void 0)],__wrap(rest,843),true,true,false,void 0,false,[])},"expression",false,false)],false,false);}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34397,12 +34426,11 @@
               asType: {type: "ident", name: "DedentedBody"}
             }
           ],
-          names: ["asyncfor"],
+          names: "asyncfor",
           id: 130
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,body,err,macroData,macroName,next,rest,result,results,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;if(macroName==="asyncuntil"){test=__node("MacroAccess",2688,19,3,2688,{op:"not",node:__wrap(test,844)},"expression",false,false);}err=(_ref=results!=null?results:{}).err;result=_ref.result;return __node("MacroAccess",2691,7,127,2691,{macroName:"asyncfor",macroData:{results:{err:__wrap(err,844),result:__wrap(result,844)},next:__wrap(next,844),test:__wrap(test,844),step:__wrap(step,844),body:__wrap(body,844),rest:__wrap(rest,844)}},"statement",false,false);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34501,7 +34529,6 @@
         },
         {
           code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _ref,body,current,done,elseBody,elseIf,elseIfs,err,f,i,innerTest,macroData,macroName,rest,result,results,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;done=macroData.done;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;rest=macroData.rest;if(macroName==="asyncunless"){test=__node("MacroAccess",2698,19,3,2698,{op:"not",node:__wrap(test,845)},"expression",false,false);}err=(_ref=results!=null?results:{}).err;result=_ref.result;f=this.tmp("f",false);if(elseBody){current=__node("MacroAccess",2704,11,30,2704,{left:__wrap(f,845),op:":=",right:__node("MacroAccess",2704,19,115,2704,{op:"",node:__node("Function",2704,19,[__node("Param",2704,20,__wrap(done,847),void 0,false,false,void 0)],__wrap(elseBody,847),true,true,false,void 0,false,[])},"expression",false,false)},"expression",false,false);}else{current=__node("MacroAccess",2706,11,30,2706,{left:__wrap(f,845),op:":=",right:__node("MacroAccess",2706,19,115,2706,{op:"",node:__node("Function",2706,19,[__node("Param",2706,20,__wrap(done,848),void 0,false,false,void 0)],__node("Call",2706,30,__wrap(done,848),[],false,false),true,true,false,void 0,false,[])},"expression",false,false)},"expression",false,false);}i=__num(elseIfs.length)-1;for(;i>=0;--i){elseIf=elseIfs[i];innerTest=elseIf.test;if(elseIf.type==="unless"){innerTest=__node("MacroAccess",2713,27,3,2713,{op:"not",node:__wrap(innerTest,845)},"expression",false,false);}current=__node("MacroAccess",2714,21,19,2714,{macroName:"if",macroData:{test:__wrap(innerTest,845),body:__node("MacroAccess",2715,9,30,2715,{left:__wrap(f,845),op:":=",right:__node("MacroAccess",2715,16,115,2715,{op:"",node:__node("Function",2715,16,[__node("Param",2715,17,__wrap(done,850),void 0,false,false,void 0)],__wrap(elseIf.body,850),true,true,false,void 0,false,[])},"expression",false,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(current,845)}},"statement",false,false);}current=__node("MacroAccess",2719,19,19,2719,{macroName:"if",macroData:{test:__wrap(test,845),body:__node("MacroAccess",2720,7,30,2720,{left:__wrap(f,845),op:":=",right:__node("MacroAccess",2720,14,115,2720,{op:"",node:__node("Function",2720,14,[__node("Param",2720,15,__wrap(done,851),void 0,false,false,void 0)],__wrap(body,851),true,true,false,void 0,false,[])},"expression",false,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(current,845)}},"statement",false,false);if(!err&&!result){return __node("Block",2726,1,[__wrap(current,845),__node("Call",2727,9,__wrap(f,845),[__node("MacroAccess",2727,13,115,2727,{op:"",node:__node("Function",2727,13,[],__wrap(rest,852),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}else if(!result){return __node("Block",2730,1,[__wrap(current,845),__node("Call",2731,9,__wrap(f,845),[__node("MacroAccess",2731,13,115,2731,{op:"",node:__node("Function",2731,13,[__node("Param",2731,14,__wrap(err,853),void 0,false,false,void 0)],__wrap(rest,853),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}else{if(err==null){err=this.tmp("err",true);}return __node("Block",2735,1,[__wrap(current,845),__node("Call",2736,9,__wrap(f,845),[__node("MacroAccess",2736,13,115,2736,{op:"",node:__node("Function",2736,13,[__node("Param",2736,14,__wrap(err,854),void 0,false,false,void 0),__node("Param",2736,19,__wrap(result,854),void 0,false,false,void 0)],__wrap(rest,854),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34667,7 +34694,6 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var func,key,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;key=macroData.key;func=macroData.func;return this.def(key,func);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34680,12 +34706,11 @@
               asType: {type: "ident", name: "FunctionDeclaration"}
             }
           ],
-          names: ["def"],
+          names: "def",
           id: 133
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var key,macroData,macroName,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;key=macroData.key;value=macroData.value;return this.def(key,value);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34699,23 +34724,21 @@
               asType: {type: "ident", name: "ExpressionOrAssignment"}
             }
           ],
-          names: ["def"],
+          names: "def",
           id: 134
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var key,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;key=macroData.key;return this.def(key,void 0);};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "key",
             asType: {type: "ident", name: "ObjectKey"}
-          }],
-          names: ["def"],
+          },
+          names: "def",
           id: 135
         },
         {
           code: 'return (function(){"use strict";var __isArray,__owns,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__owns=Object.prototype.hasOwnProperty;__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _arr,_i,_len,_ref,_this,assignment,body,constructorCount,ctor,declaration,displayName,generic,genericArg,genericArgs,genericCache,genericParams,hasSuperclass,hasTopLevelConstructor,i,init,instanceofLets,instanceofs,item,key,macroData,macroName,makeClassFunc,makeClassIdent,name,parts,prototype,result,self,sup,superclass,superproto;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;generic=macroData.generic;superclass=macroData.superclass;body=macroData.body;if(generic!=null){genericArgs=[generic.head].concat(__toArray(generic.tail));}else{genericArgs=[];}if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){name=(_ref=this.ident(this.value(this.child(name))))!=null?_ref:this.tmp("class",false,"function");}else{name=this.tmp("class",false,"function");}}else{name=this.tmp("class",false,"function");}hasSuperclass=!!superclass;sup=superclass&&(this.isIdent(superclass)?superclass:this.tmp("super",false,"function"));init=[];if(!superclass){superproto=__node("Access",2768,11,__node("Ident",2768,11,"Object"),__node("Const",2768,19,"prototype"));}else{superproto=this.tmp(this.isIdent(sup)?__strnum(this.name(sup))+"_prototype":"super_prototype",false,"object");}prototype=this.tmp(this.isIdent(name)?__strnum(this.name(name))+"_prototype":"prototype",false,"object");if(superclass){init.push(__node("MacroAccess",2773,20,38,2773,{macroName:"let",macroData:{declarable:__node("MacroAccess",2773,24,37,2773,__node("MacroAccess",2773,24,31,2773,{ident:__wrap(superproto,858)},"statement",false,false),"statement",false,false),value:__node("Access",2773,38,__wrap(sup,858),__node("Const",2773,44,"prototype"))}},"statement",false,false));init.push(__node("MacroAccess",2774,20,38,2774,{macroName:"let",macroData:{declarable:__node("MacroAccess",2774,24,37,2774,__node("MacroAccess",2774,24,31,2774,{ident:__wrap(prototype,858)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2774,37,30,2774,{left:__node("Access",2774,43,__wrap(name,858),__node("Const",2774,44,"prototype")),op:":=",right:__node("Object",90905,90929,[],__wrap(superproto,858))},"expression",false,false)}},"statement",false,false));init.push(__node("MacroAccess",2775,21,30,2775,{left:__node("Access",2775,32,__wrap(prototype,858),__node("Const",2775,33,"constructor")),op:":=",right:__wrap(name,858)},"expression",false,false));}else{init.push(__node("MacroAccess",2777,20,38,2777,{macroName:"let",macroData:{declarable:__node("MacroAccess",2777,24,37,2777,__node("MacroAccess",2777,24,31,2777,{ident:__wrap(prototype,858)},"statement",false,false),"statement",false,false),value:__node("Access",2777,37,__wrap(name,858),__node("Const",2777,44,"prototype"))}},"statement",false,false));}if(this.isIdent(name)){displayName=this["const"](this.name(name));}if(displayName!=null){if(genericArgs.length>0){parts=[displayName,this["const"]("<")];for(i=0, _len=genericArgs.length;i<_len;++i){genericArg=genericArgs[i];if(i>0){parts.push(this["const"](", "));}parts.push(__node("MacroAccess",2786,26,18,2786,{macroName:"if",macroData:{test:__node("MacroAccess",2786,29,8,2786,{left:__wrap(genericArg,858),inverted:false,op:"!~=",right:__node("Const",2786,46,null)},"expression",false,false),body:__node("Call",2786,56,__node("Ident",2786,56,"__name"),[__wrap(genericArg,858)],false,false),elseIfs:[],elseBody:__node("Const",2786,82,"")}},"expression",false,false));}parts.push(this["const"](">"));displayName=this.binaryChain("+",parts);}init.push(__node("MacroAccess",2789,21,30,2789,{left:__node("Access",2789,27,__wrap(name,858),__node("Const",2789,28,"displayName")),op:":=",right:__wrap(displayName,858)},"expression",false,false));}if(superclass){init.push(__node("If",2792,20,__node("Binary",2792,20,__node("Unary",2792,20,"typeof",__node("Access",2792,20,__wrap(sup,858),__node("Const",2792,26,"extended"))),"===",__node("Const",2792,20,"function")),__node("Call",2792,20,__node("Access",2792,20,__wrap(sup,858),__node("Const",2792,26,"extended")),[__wrap(name,858)],false,false),__node("Nothing",0,0),null));}function fixSupers(node){return _this.walk(node,function(node){var _arr,_arr2,_i,_len,args,child,superArg;if(_this.isSuper(node)){child=_this.superChild(node);if(child!=null){child=fixSupers(child);}for(_arr=[], _arr2=__toArray(_this.superArgs(node)), _i=0, _len=_arr2.length;_i<_len;++_i){superArg=_arr2[_i];_arr.push(fixSupers(superArg));}args=_arr;return _this.call(child!=null?__node("Access",2804,17,__wrap(superproto,870),__wrap(child,870)):!superclass?__node("Ident",2806,17,"Object"):__wrap(sup,870),[__node("This",2809,16)].concat(args),false,true);}});};body=fixSupers(this.macroExpandAll(body));constructorCount=0;this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){++constructorCount;}}return;});hasTopLevelConstructor=false;if(constructorCount===1){this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"&&_this.isFunc(_this.right(node))&&!_this.funcIsCurried(_this.right(node))){hasTopLevelConstructor=true;}return node;}else{return node;}});}self=this.tmp("this");if(hasTopLevelConstructor){body=this.walk(body,function(node){var constructor,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",2846,18,18,2846,{macroName:"if",macroData:{test:__node("MacroAccess",2846,21,72,2846,{left:__node("Eval",2846,21,__node("Const",2846,27,"this")),inverted:false,op:"instanceof",right:__wrap(name,877)},"statement",false,false),body:__node("Eval",2846,56,__node("Const",2846,62,"this")),elseIfs:[],elseBody:__node("Object",93369,93392,[],__wrap(prototype,877))}},"statement",false,false)),value);init.unshift(__node("MacroAccess",2847,29,38,2847,{macroName:"let",macroData:{declarable:__node("MacroAccess",2847,33,37,2847,__node("MacroAccess",2847,33,31,2847,{ident:__wrap(name,877)},"statement",false,false),"statement",false,false),value:__wrap(constructor,877)}},"statement",false,false));return _this.noop();}}else{return node;}});}else if(constructorCount!==0){ctor=this.tmp("ctor",false,"function");result=this.tmp("ref");init.push(__node("Block",2855,1,[__node("MacroAccess",2855,9,38,2855,{macroName:"let",macroData:{declarable:__node("MacroAccess",2855,12,37,2855,__node("MacroAccess",2855,12,31,2855,{isMutable:"mutable",ident:__wrap(ctor,858)},"statement",false,false),"statement",false,false),value:__node("Const",2855,28,void 0)}},"statement",false,false),__node("MacroAccess",2856,9,17,2856,{macroName:"let",macroData:{ident:__wrap(name,858),func:__node("MacroAccess",2856,18,115,2856,{op:"",node:__node("Function",2856,18,[],__node("Block",2857,1,[__node("MacroAccess",2857,11,38,2857,{macroName:"let",macroData:{declarable:__node("MacroAccess",2857,14,37,2857,__node("MacroAccess",2857,14,31,2857,{ident:__wrap(self,884)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2857,22,18,2857,{macroName:"if",macroData:{test:__node("MacroAccess",2857,25,72,2857,{left:__node("This",2857,25),inverted:false,op:"instanceof",right:__wrap(name,884)},"expression",false,false),body:__node("This",2857,52),elseIfs:[],elseBody:__node("Object",93748,93771,[],__wrap(prototype,884))}},"expression",false,false)}},"statement",false,false),__node("MacroAccess",2859,11,19,2859,{macroName:"if",macroData:{test:__node("MacroAccess",2859,13,26,2859,{op:"isFunction!",node:__wrap(ctor,884)},"statement",false,false),body:__node("Block",2860,1,[__node("MacroAccess",2860,13,38,2860,{macroName:"let",macroData:{declarable:__node("MacroAccess",2860,16,37,2860,__node("MacroAccess",2860,16,31,2860,{ident:__wrap(result,884)},"statement",false,false),"statement",false,false),value:__node("Call",2860,26,__wrap(ctor,884),[__wrap(self,884),__node("Spread",2860,40,__node("Args",2860,44))],false,true)}},"statement",false,false),__node("MacroAccess",2861,13,19,2861,{macroName:"if",macroData:{test:__node("MacroAccess",2861,15,5,2861,{left:__node("Call",2861,15,__node("Ident",2861,15,"Object"),[__wrap(result,884)],false,false),inverted:false,op:"==",right:__wrap(result,884)},"statement",false,false),body:__node("MacroAccess",2862,15,39,2862,{macroName:"return",macroData:{node:__wrap(result,884)}},"statement",false,false),elseIfs:[]}},"statement",false,false)],null),elseIfs:[{type:"if",test:__wrap(hasSuperclass,884),body:__node("Block",2864,1,[__node("MacroAccess",2864,13,38,2864,{macroName:"let",macroData:{declarable:__node("MacroAccess",2864,16,37,2864,__node("MacroAccess",2864,16,31,2864,{ident:__wrap(result,884)},"statement",false,false),"statement",false,false),value:__node("Call",2864,26,__wrap(sup,884),[__wrap(self,884),__node("Spread",2864,39,__node("Args",2864,43))],false,true)}},"statement",false,false),__node("MacroAccess",2865,13,19,2865,{macroName:"if",macroData:{test:__node("MacroAccess",2865,15,5,2865,{left:__node("Call",2865,15,__node("Ident",2865,15,"Object"),[__wrap(result,884)],false,false),inverted:false,op:"==",right:__wrap(result,884)},"statement",false,false),body:__node("MacroAccess",2866,15,39,2866,{macroName:"return",macroData:{node:__wrap(result,884)}},"statement",false,false),elseIfs:[]}},"statement",false,false)],null)}]}},"statement",false,false),__wrap(self,884)],null),true,false,false,void 0,false,[])},"statement",false,false)}},"statement",false,false)],null));body=this.walk(body,function(node){var constructor,firstArg,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);if(_this.isCall(value)&&_this.isIdent(_this.callFunc(value))&&_this.name(_this.callFunc(value))==="__curry"&&_this.callArgs(value).length===2&&_this.isFunc(_this.callArgs(value)[1])){firstArg=_this.callArgs(value)[0];constructor=_this.callArgs(value)[1];constructor=_this.rewrap(_this.func(_this.funcParams(constructor),_this.funcBody(constructor),false,__node("MacroAccess",2880,20,18,2880,{macroName:"if",macroData:{test:__node("MacroAccess",2880,23,72,2880,{left:__node("Eval",2880,23,__node("Const",2880,29,"this")),inverted:false,op:"instanceof",right:__wrap(name,888)},"statement",false,false),body:__node("Eval",2880,58,__node("Const",2880,64,"this")),elseIfs:[],elseBody:__node("Object",94808,94831,[],__wrap(prototype,888))}},"statement",false,false),false),value);return __node("MacroAccess",2882,19,30,2882,{left:__wrap(ctor,888),op:":=",right:__node("Call",2882,28,__node("Ident",2882,28,"__curry"),[__wrap(firstArg,888),__wrap(constructor,888)],false,false)},"expression",false,false);}else if(_this.isFunc(value)){constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",2888,20,18,2888,{macroName:"if",macroData:{test:__node("MacroAccess",2888,23,72,2888,{left:__node("Eval",2888,23,__node("Const",2888,29,"this")),inverted:false,op:"instanceof",right:__wrap(name,888)},"statement",false,false),body:__node("Eval",2888,58,__node("Const",2888,64,"this")),elseIfs:[],elseBody:__node("Object",95171,95194,[],__wrap(prototype,888))}},"statement",false,false),_this.funcIsCurried(value)),value);return __node("MacroAccess",2890,19,30,2890,{left:__wrap(ctor,888),op:":=",right:__wrap(constructor,888)},"expression",false,false);}else{return __node("MacroAccess",2892,19,30,2892,{left:__wrap(ctor,888),op:":=",right:__wrap(value,888)},"expression",false,false);}}}});}else if(!superclass){init.push(__node("MacroAccess",2896,11,17,2896,{macroName:"let",macroData:{ident:__wrap(name,858),func:__node("MacroAccess",2896,20,115,2896,{op:"",node:__node("Function",2896,20,[],__node("MacroAccess",2896,25,18,2896,{macroName:"if",macroData:{test:__node("MacroAccess",2896,28,72,2896,{left:__node("This",2896,28),inverted:false,op:"instanceof",right:__wrap(name,893)},"statement",false,false),body:__node("This",2896,55),elseIfs:[],elseBody:__node("Object",95455,95478,[],__wrap(prototype,893))}},"statement",false,false),true,false,false,void 0,false,[])},"statement",false,false)}},"statement",false,false));}else{result=this.tmp("ref");init.push(__node("MacroAccess",2900,11,17,2900,{macroName:"let",macroData:{ident:__wrap(name,858),func:__node("MacroAccess",2900,20,115,2900,{op:"",node:__node("Function",2900,20,[],__node("Block",2901,1,[__node("MacroAccess",2901,13,38,2901,{macroName:"let",macroData:{declarable:__node("MacroAccess",2901,16,37,2901,__node("MacroAccess",2901,16,31,2901,{ident:__wrap(self,895)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2901,24,18,2901,{macroName:"if",macroData:{test:__node("MacroAccess",2901,27,72,2901,{left:__node("This",2901,27),inverted:false,op:"instanceof",right:__wrap(name,895)},"expression",false,false),body:__node("This",2901,54),elseIfs:[],elseBody:__node("Object",95628,95651,[],__wrap(prototype,895))}},"expression",false,false)}},"statement",false,false),__node("MacroAccess",2902,13,38,2902,{macroName:"let",macroData:{declarable:__node("MacroAccess",2902,16,37,2902,__node("MacroAccess",2902,16,31,2902,{ident:__wrap(result,895)},"statement",false,false),"statement",false,false),value:__node("Call",2902,26,__wrap(sup,895),[__wrap(self,895),__node("Spread",2902,39,__node("Args",2902,43))],false,true)}},"statement",false,false),__node("MacroAccess",2903,13,19,2903,{macroName:"if",macroData:{test:__node("MacroAccess",2903,15,5,2903,{left:__node("Call",2903,15,__node("Ident",2903,15,"Object"),[__wrap(result,895)],false,false),inverted:false,op:"==",right:__wrap(result,895)},"statement",false,false),body:__wrap(result,895),elseIfs:[],elseBody:__wrap(self,895)}},"statement",false,false)],null),true,false,false,void 0,false,[])},"statement",false,false)}},"statement",false,false));}function changeDefs(node){return _this.walk(node,function(node){var _ref,key,value;if(_this.isDef(node)){key=_this.left(node);if((_ref=_this.right(node))!=null){value=_ref;}else{value=__node("MacroAccess",2911,42,115,2911,{op:"",node:__node("Function",2911,42,[],__node("MacroAccess",2911,44,11,2911,{op:"throw",node:__node("Call",2911,50,__node("Ident",2911,50,"Error"),[__node("MacroAccess",2911,57,67,2911,{left:__node("MacroAccess",2911,57,67,2911,{left:__node("MacroAccess",2911,57,67,2911,{left:__node("MacroAccess",2911,57,67,2911,{left:__node("Const",2911,57,"Not implemented: "),op:"",right:__node("Call",2911,77,__node("Ident",2911,77,"__name"),[__node("Access",2911,84,__node("This",2911,84),__node("Const",2911,85,"constructor"))],false,false)},"expression",false,false),op:"",right:__node("Const",2911,57,".")},"expression",false,false),op:"",right:__wrap(key,902)},"expression",false,false),op:"",right:__node("Const",2911,57,"()")},"expression",false,false)],false,false)},"statement",false,false),true,false,false,void 0,false,[])},"expression",false,false);}return changeDefs(__node("MacroAccess",2912,25,30,2912,{left:__node("Access",2912,36,__wrap(prototype,899),__wrap(key,899)),op:":=",right:__wrap(value,899)},"expression",false,false));}});};body=changeDefs(body);body=this.walk(body,function(node){if(_this.isFunc(node)){if(!_this.funcIsBound(node)){return node;}}else if(_this.isThis(node)){return name;}});result=__node("MacroAccess",2922,29,102,2922,{macroName:"do",macroData:{locals:{ident:__wrap(sup,858),value:__wrap(superclass,858),rest:[]},body:__node("Block",2923,1,[__wrap(init,858),__wrap(body,858),__node("MacroAccess",2925,7,39,2925,{macroName:"return",macroData:{node:__wrap(name,858)}},"statement",false,false)],null)}},"statement",false,false);if(genericArgs.length>0){genericCache=this.tmp("cache",false,"object");for(_arr=[], _i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];_arr.push(this.param(genericArg));}genericParams=_arr;makeClassIdent=this.tmp("make",false,"function");instanceofs={};for(_i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];name=this.name(genericArg);key=this.tmp("instanceof_"+__strnum(name),false,"function");instanceofs[name]={key:key,"let":__node("MacroAccess",2937,19,38,2937,{macroName:"let",macroData:{declarable:__node("MacroAccess",2937,23,37,2937,__node("MacroAccess",2937,23,31,2937,{ident:__wrap(key,858)},"statement",false,false),"statement",false,false),value:__node("Call",2937,30,__node("Ident",2937,30,"__makeInstanceof"),[__wrap(genericArg,858)],false,false)}},"statement",false,false),used:false};}result=this.walk(this.macroExpandAll(result),function(node){var func,left,name,right;if(_this.isBinary(node)&&_this.op(node)==="instanceof"){right=_this.right(node);if(_this.isIdent(right)){name=_this.name(right);if(__owns.call(instanceofs,name)){func=instanceofs[name].key;instanceofs[name].used=true;left=_this.left(node);return __node("Call",2949,26,__wrap(func,912),[__wrap(left,912)],false,false);}}}});_arr=[];for(name in instanceofs){if(__owns.call(instanceofs,name)){item=instanceofs[name];if(item.used){_arr.push(item["let"]);}}}instanceofLets=_arr;if(instanceofLets.length){result=__node("Block",2955,1,[__wrap(instanceofLets,858),__wrap(result,858)],null);}makeClassFunc=this.func(genericParams,result,true,false);result=__node("Call",2958,20,__node("Ident",2958,20,"__genericFunc"),[__wrap(genericArgs.length,858),__wrap(makeClassFunc,858)],false,false);}if(declaration!=null){return __node("MacroAccess",2961,10,38,2961,{macroName:"let",macroData:{declarable:__node("MacroAccess",2961,14,37,2961,__node("MacroAccess",2961,14,31,2961,{ident:__wrap(declaration,858)},"statement",false,false),"statement",false,false),value:__wrap(result,858)}},"statement",false,false);}else if(assignment!=null){return __node("MacroAccess",2963,11,30,2963,{left:__wrap(assignment,858),op:":=",right:__wrap(result,858)},"expression",false,false);}else{return result;}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34789,12 +34812,11 @@
               }
             }
           ],
-          names: ["class"],
+          names: "class",
           id: 136
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,_this,assignment,body,declaration,index,macroData,macroName,name,result;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;body=macroData.body;if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){name=(_ref=this.ident(this.value(this.child(name))))!=null?_ref:this.tmp("enum",false,"object");}else{name=this.tmp("enum",false,"object");}}else{name=this.tmp("enum",false,"object");}index=0;body=this.walk(this.macroExpandAll(body),function(node){var key,value;if(_this.isDef(node)){key=_this.left(node);value=_this.right(node);if(!_this.isConst(key)){throw Error("Cannot have non-const enum keys");}if(!value){++index;value=index;}return __node("MacroAccess",2992,13,30,2992,{left:__node("Access",2992,13,__node("This",2992,13),__wrap(key,921)),op:":=",right:__wrap(value,921)},"expression",false,false);}else{return node;}});result=__node("MacroAccess",2996,22,103,2996,{macroName:"with",macroData:{node:__node("Object",98695,98698,[],void 0),body:__node("Block",2997,1,[__wrap(body,920),__node("MacroAccess",2998,7,39,2998,{macroName:"return",macroData:{node:__node("This",2998,13)}},"statement",false,false)],null)}},"expression",false,false);if(declaration!=null){return __node("MacroAccess",3001,10,38,3001,{macroName:"let",macroData:{declarable:__node("MacroAccess",3001,14,37,3001,__node("MacroAccess",3001,14,31,3001,{ident:__wrap(declaration,920)},"statement",false,false),"statement",false,false),value:__wrap(result,920)}},"statement",false,false);}else if(assignment!=null){return __node("MacroAccess",3003,11,30,3003,{left:__wrap(assignment,920),op:":=",right:__wrap(result,920)},"expression",false,false);}else{return result;}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34815,12 +34837,11 @@
               }
             }
           ],
-          names: ["enum"],
+          names: "enum",
           id: 137
         },
         {
           code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _ref,_this,assignment,body,declaration,init,macroData,macroName,name,result,sup,superobject;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;superobject=macroData.superobject;body=macroData.body;if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){name=(_ref=this.ident(this.value(this.child(name))))!=null?_ref:this.tmp("ns",false,"object");}else{name=this.tmp("ns",false,"object");}}else{name=this.tmp("ns",false,"object");}sup=superobject&&(this.isIdent(superobject)?superobject:this.tmp("super",false,"object"));init=[];if(!superobject){init.push(__node("MacroAccess",3025,20,38,3025,{macroName:"let",macroData:{declarable:__node("MacroAccess",3025,24,37,3025,__node("MacroAccess",3025,24,31,3025,{ident:__wrap(name,925)},"statement",false,false),"statement",false,false),value:__node("Object",99569,99572,[],void 0)}},"statement",false,false));}else{init.push(__node("MacroAccess",3027,20,38,3027,{macroName:"let",macroData:{declarable:__node("MacroAccess",3027,24,37,3027,__node("MacroAccess",3027,24,31,3027,{ident:__wrap(name,925)},"statement",false,false),"statement",false,false),value:__node("Object",99613,99630,[],__wrap(sup,925))}},"statement",false,false));}function fixSupers(node){return _this.walk(node,function(node){var _arr,_arr2,_i,_len,args,child,parent,superArg;if(_this.isSuper(node)){child=_this.superChild(node);if(child!=null){child=fixSupers(child);}for(_arr=[], _arr2=__toArray(_this.superArgs(node)), _i=0, _len=_arr2.length;_i<_len;++_i){superArg=_arr2[_i];_arr.push(fixSupers(superArg));}args=_arr;if(!superobject){parent=__node("Access",3037,15,__node("Ident",3037,15,"Object"),__node("Const",3037,23,"prototype"));}else{parent=__wrap(sup,931);}return _this.call(child!=null?__node("Access",3042,17,__wrap(parent,931),__wrap(child,931)):__wrap(parent,931),[__node("This",3045,16)].concat(args),false,true);}});};body=fixSupers(this.macroExpandAll(body));function changeDefs(node){return _this.walk(node,function(node){var key,value;if(_this.isDef(node)){key=_this.left(node);value=_this.right(node);return changeDefs(__node("MacroAccess",3054,25,30,3054,{left:__node("Access",3054,31,__wrap(name,935),__wrap(key,935)),op:":=",right:__wrap(value,935)},"expression",false,false));}});};body=changeDefs(body);body=this.walk(body,function(node){if(_this.isFunc(node)){if(!_this.funcIsBound(node)){return node;}}else if(_this.isThis(node)){return name;}});result=__node("MacroAccess",3064,29,102,3064,{macroName:"do",macroData:{locals:{ident:__wrap(sup,925),value:__wrap(superobject,925),rest:[]},body:__node("Block",3065,1,[__wrap(init,925),__wrap(body,925),__node("MacroAccess",3067,7,39,3067,{macroName:"return",macroData:{node:__wrap(name,925)}},"statement",false,false)],null)}},"statement",false,false);if(declaration!=null){return __node("MacroAccess",3070,10,38,3070,{macroName:"let",macroData:{declarable:__node("MacroAccess",3070,14,37,3070,__node("MacroAccess",3070,14,31,3070,{ident:__wrap(declaration,925)},"statement",false,false),"statement",false,false),value:__wrap(result,925)}},"statement",false,false);}else if(assignment!=null){return __node("MacroAccess",3072,11,30,3072,{left:__wrap(assignment,925),op:":=",right:__wrap(result,925)},"expression",false,false);}else{return result;}};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34856,34 +34877,31 @@
               }
             }
           ],
-          names: ["namespace"],
+          names: "namespace",
           id: 138
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(!this.inGenerator){throw Error("Can only use yield in a generator function");}return this.mutateLast(node||this.noop(),function(n){return _this["yield"](n);},true);};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "node",
             asType: {type: "ident", name: "Expression"}
-          }],
-          names: ["yield"],
+          },
+          names: "yield",
           id: 139
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var item,macroData,macroName,node,yieldItem;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(!this.inGenerator){throw Error("Can only use yield* in a generator function");}item=this.tmp("item");yieldItem=this["yield"](item);return __node("MacroAccess",3089,7,118,3089,{macroName:"for",macroData:{value:__wrap(item,942),iterable:__wrap(node,942),body:__wrap(yieldItem,942)}},"statement",false,false);};}.call(this));',
-          options: {},
-          params: [{
+          params: {
             type: "ident",
             name: "node",
             asType: {type: "ident", name: "Expression"}
-          }],
-          names: ["yield*"],
+          },
+          names: "yield*",
           id: 140
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var macroData,macroName,node,rest;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;rest=macroData.rest;return __node("Block",3095,1,[__wrap(rest,945),__node("MacroAccess",3096,7,39,3096,{macroName:"return",macroData:{node:__wrap(node,945)}},"statement",false,false)],null);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34896,12 +34914,11 @@
               asType: {type: "ident", name: "DedentedBody"}
             }
           ],
-          names: ["returning"],
+          names: "returning",
           id: 141
         },
         {
           code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var label,macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;label=macroData.label;node=macroData.node;return this.withLabel(node,label);};}.call(this));',
-          options: {},
           params: [
             {
               type: "ident",
@@ -34920,44 +34937,44 @@
               }
             }
           ],
-          names: ["label!"],
+          names: "label!",
           id: 144
         }
       ],
       binaryOperator: [
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.binary(left,"&&",right);};}.call(this));',
-          operators: ["and"],
+          operators: "and",
           options: {precedence: 1},
           id: 1
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.binary(left,"||",right);};}.call(this));',
-          operators: ["or"],
+          operators: "or",
           options: {precedence: 1},
           id: 2
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.binary(left,"===",right);};}.call(this));',
-          operators: ["=="],
+          operators: "==",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 5
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",37,7,3,37,{op:"not",node:__node("MacroAccess",37,13,5,37,{left:__wrap(left,10),inverted:false,op:"==",right:__wrap(right,10)},"expression",false,false)},"expression",false,false);};}.call(this));',
-          operators: ["!="],
+          operators: "!=",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 6
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.binary(left,"==",right);};}.call(this));',
-          operators: ["~="],
+          operators: "~=",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 7
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",43,7,3,43,{op:"not",node:__node("MacroAccess",43,13,7,43,{left:__wrap(left,12),inverted:false,op:"~=",right:__wrap(right,12)},"expression",false,false)},"expression",false,false);};}.call(this));',
-          operators: ["!~="],
+          operators: "!~=",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 8
         },
@@ -34975,7 +34992,7 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.hasType(left,"numeric")&&this.hasType(right,"numeric")){return this.binary(this.binary(this["const"](""),"+",left),"+",right);}else if(this.isConst(left)&&this.value(left)===""&&this.isType(right,"string")){return right;}else if(this.isConst(right)&&this.value(right)===""&&this.isType(left,"string")){return left;}else{return this.binary(left,"+",right);}};}.call(this));',
-          operators: ["~&"],
+          operators: "~&",
           options: {precedence: 7, type: "string"},
           id: 29
         },
@@ -34993,7 +35010,7 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,value;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isConst(right)){value=this.value(right);if(value===0.5){return __node("Call",367,18,__node("Access",367,18,__node("Ident",367,18,"Math"),__node("Const",367,24,"sqrt")),[__wrap(left,90)],false,false);}else if(value===1){return __node("MacroAccess",369,18,48,369,{op:"~+",node:__wrap(left,90)},"expression",false,false);}else if(value===2){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",372,13,45,372,{left:__wrap(setLeft,92),inverted:false,op:"~*",right:__wrap(left,92)},"expression",false,false);});}else if(value===3){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",375,13,45,375,{left:__node("MacroAccess",375,13,45,375,{left:__wrap(setLeft,93),inverted:false,op:"~*",right:__wrap(left,93)},"expression",false,false),inverted:false,op:"~*",right:__wrap(left,93)},"expression",false,false);});}}return __node("Call",376,7,__node("Access",376,7,__node("Ident",376,7,"Math"),__node("Const",376,13,"pow")),[__wrap(left,90),__wrap(right,90)],false,false);};}.call(this));',
-          operators: ["~^"],
+          operators: "~^",
           options: {precedence: 12, rightToLeft: true, type: "number"},
           id: 50
         },
@@ -35005,7 +35022,7 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",509,7,50,509,{left:__node("MacroAccess",509,7,58,509,{op:"+",node:__wrap(left,119)},"expression",false,false),inverted:false,op:"~^",right:__node("MacroAccess",509,17,58,509,{op:"+",node:__wrap(right,119)},"expression",false,false)},"expression",false,false);};}.call(this));',
-          operators: ["^"],
+          operators: "^",
           options: {precedence: 12, rightToLeft: true, type: "number"},
           id: 60
         },
@@ -35029,25 +35046,25 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isType(left,"stringOrNumber")){left=!this.hasType(left,"number")?__node("Call",549,11,__node("Ident",549,11,"__str"),[__wrap(left,128)],false,false):__node("Call",551,11,__node("Ident",551,11,"__strnum"),[__wrap(left,128)],false,false);}if(!this.isType(right,"stringOrNumber")){right=!this.hasType(right,"number")?__node("Call",554,11,__node("Ident",554,11,"__str"),[__wrap(right,128)],false,false):__node("Call",556,11,__node("Ident",556,11,"__strnum"),[__wrap(right,128)],false,false);}return __node("MacroAccess",557,7,29,557,{left:__wrap(left,128),inverted:false,op:"~&",right:__wrap(right,128)},"expression",false,false);};}.call(this));',
-          operators: ["&"],
+          operators: "&",
           options: {precedence: 7, type: "string", label: "stringConcat"},
           id: 67
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var elements,f,left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isArray(right)){elements=this.elements(right);if(elements.length===0){if(this.isComplex(left)){return __node("Block",572,1,[__wrap(left,131),__node("Const",573,11,false)],null);}else{return __node("Const",575,13,false);}}else if(elements.length===1){return __node("MacroAccess",577,11,5,577,{left:__wrap(left,131),inverted:false,op:"==",right:__wrap(elements[0],131)},"expression",false,false);}else{f=function(i,current,left){if(i<elements.length){return f(+i+1,__node("MacroAccess",581,25,2,581,{left:__wrap(current,133),inverted:false,op:"or",right:__node("MacroAccess",581,37,5,581,{left:__wrap(left,133),inverted:false,op:"==",right:__wrap(elements[i],133)},"expression",false,false)},"expression",false,false),left);}else{return current;}};return this.maybeCache(left,function(setLeft,left){return f(1,__node("MacroAccess",585,18,5,585,{left:__wrap(setLeft,134),inverted:false,op:"==",right:__wrap(elements[0],134)},"expression",false,false),left);});}}else{return __node("Call",587,9,__node("Ident",587,9,"__in"),[__wrap(left,131),__wrap(right,131)],false,false);}};}.call(this));',
-          operators: ["in"],
+          operators: "in",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 69
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.binary(right,"in",left);};}.call(this));',
-          operators: ["haskey"],
+          operators: "haskey",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 70
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",595,7,__node("Ident",595,7,"__owns"),[__wrap(left,136),__wrap(right,136)],false,true);};}.call(this));',
-          operators: ["ownskey"],
+          operators: "ownskey",
           options: {
             precedence: 6,
             maximum: 1,
@@ -35059,25 +35076,25 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isIdent(right)){if(this.name(right)==="String"){return __node("MacroAccess",600,18,23,600,{op:"isString!",node:__wrap(left,137)},"expression",false,false);}else if(this.name(right)==="Number"){return __node("MacroAccess",602,18,24,602,{op:"isNumber!",node:__wrap(left,137)},"expression",false,false);}else if(this.name(right)==="Boolean"){return __node("MacroAccess",604,18,25,604,{op:"isBoolean!",node:__wrap(left,137)},"expression",false,false);}else if(this.name(right)==="Function"){return __node("MacroAccess",606,18,26,606,{op:"isFunction!",node:__wrap(left,137)},"expression",false,false);}else if(this.name(right)==="Array"){return __node("MacroAccess",608,18,27,608,{op:"isArray!",node:__wrap(left,137)},"expression",false,false);}else if(this.name(right)==="Object"){return __node("MacroAccess",610,18,28,610,{op:"isObject!",node:__wrap(left,137)},"expression",false,false);}}return this.binary(left,"instanceof",right);};}.call(this));',
-          operators: ["instanceof"],
+          operators: "instanceof",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 72
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",628,7,__node("Ident",628,7,"__cmp"),[__wrap(left,140),__wrap(right,140)],false,false);};}.call(this));',
-          operators: ["<=>"],
+          operators: "<=>",
           options: {precedence: 5, maximum: 1, type: "number"},
           id: 73
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",631,7,5,631,{left:__node("MacroAccess",631,7,62,631,{left:__wrap(left,141),inverted:false,op:"%",right:__wrap(right,141)},"expression",false,false),inverted:false,op:"==",right:__node("Const",631,26,0)},"expression",false,false);};}.call(this));',
-          operators: ["%%"],
+          operators: "%%",
           options: {precedence: 2, maximum: 1, invertible: true, type: "boolean"},
           id: 74
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",634,7,5,634,{left:__node("MacroAccess",634,7,45,634,{left:__wrap(left,142),inverted:false,op:"~%",right:__wrap(right,142)},"expression",false,false),inverted:false,op:"==",right:__node("Const",634,27,0)},"expression",false,false);};}.call(this));',
-          operators: ["~%%"],
+          operators: "~%%",
           options: {precedence: 2, maximum: 1, invertible: true, type: "boolean"},
           id: 75
         },
@@ -35095,145 +35112,145 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",715,11,18,715,{macroName:"if",macroData:{test:__node("MacroAccess",715,14,9,715,{left:__wrap(setLeft,153),inverted:false,op:"~<",right:__wrap(setRight,153)},"expression",false,false),body:__wrap(left,153),elseIfs:[],elseBody:__wrap(right,153)}},"expression",false,false);});});};}.call(this));',
-          operators: ["~min"],
+          operators: "~min",
           options: {precedence: 8},
           id: 78
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",720,11,18,720,{macroName:"if",macroData:{test:__node("MacroAccess",720,14,10,720,{left:__wrap(setLeft,156),inverted:false,op:"~>",right:__wrap(setRight,156)},"expression",false,false),body:__wrap(left,156),elseIfs:[],elseBody:__wrap(right,156)}},"expression",false,false);});});};}.call(this));',
-          operators: ["~max"],
+          operators: "~max",
           options: {precedence: 8},
           id: 79
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",725,11,18,725,{macroName:"if",macroData:{test:__node("MacroAccess",725,14,76,725,{left:__wrap(setLeft,159),inverted:false,op:"<",right:__wrap(setRight,159)},"expression",false,false),body:__wrap(left,159),elseIfs:[],elseBody:__wrap(right,159)}},"expression",false,false);});});};}.call(this));',
-          operators: ["min"],
+          operators: "min",
           options: {precedence: 8},
           id: 80
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",730,11,18,730,{macroName:"if",macroData:{test:__node("MacroAccess",730,14,77,730,{left:__wrap(setLeft,162),inverted:false,op:">",right:__wrap(setRight,162)},"expression",false,false),body:__wrap(left,162),elseIfs:[],elseBody:__wrap(right,162)}},"expression",false,false);});});};}.call(this));',
-          operators: ["max"],
+          operators: "max",
           options: {precedence: 8},
           id: 81
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",733,7,__node("Ident",733,7,"__xor"),[__wrap(left,163),__wrap(right,163)],false,false);};}.call(this));',
-          operators: ["xor"],
+          operators: "xor",
           options: {precedence: 1},
           id: 82
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",737,9,18,737,{macroName:"if",macroData:{test:__node("MacroAccess",737,12,20,737,{op:"?",node:__wrap(setLeft,165)},"expression",false,false),body:__wrap(left,165),elseIfs:[],elseBody:__wrap(right,165)}},"expression",false,false);});};}.call(this));',
-          operators: ["?"],
+          operators: "?",
           options: {precedence: 1},
           id: 83
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.binary(left,"&",right);};}.call(this));',
-          operators: ["~bitand"],
+          operators: "~bitand",
           options: {precedence: 1, type: "number"},
           id: 90
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.binary(left,"|",right);};}.call(this));',
-          operators: ["~bitor"],
+          operators: "~bitor",
           options: {precedence: 1, type: "number"},
           id: 91
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.binary(left,"^",right);};}.call(this));',
-          operators: ["~bitxor"],
+          operators: "~bitxor",
           options: {precedence: 1, type: "number"},
           id: 92
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",813,7,90,813,{left:__node("MacroAccess",813,7,58,813,{op:"+",node:__wrap(left,188)},"expression",false,false),inverted:false,op:"~bitand",right:__node("MacroAccess",813,22,58,813,{op:"+",node:__wrap(right,188)},"expression",false,false)},"expression",false,false);};}.call(this));',
-          operators: ["bitand"],
+          operators: "bitand",
           options: {precedence: 1, type: "number"},
           id: 94
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",816,7,91,816,{left:__node("MacroAccess",816,7,58,816,{op:"+",node:__wrap(left,189)},"expression",false,false),inverted:false,op:"~bitor",right:__node("MacroAccess",816,21,58,816,{op:"+",node:__wrap(right,189)},"expression",false,false)},"expression",false,false);};}.call(this));',
-          operators: ["bitor"],
+          operators: "bitor",
           options: {precedence: 1, type: "number"},
           id: 95
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",819,7,92,819,{left:__node("MacroAccess",819,7,58,819,{op:"+",node:__wrap(left,190)},"expression",false,false),inverted:false,op:"~bitxor",right:__node("MacroAccess",819,22,58,819,{op:"+",node:__wrap(right,190)},"expression",false,false)},"expression",false,false);};}.call(this));',
-          operators: ["bitxor"],
+          operators: "bitxor",
           options: {precedence: 1, type: "number"},
           id: 96
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",1077,7,__node("Ident",1077,7,"__range"),[__wrap(left,235),__wrap(right,235),__node("Const",1077,31,1),__node("Const",1077,33,true)],false,false);};}.call(this));',
-          operators: ["to"],
+          operators: "to",
           options: {maximum: 1, precedence: 4, type: "array"},
           id: 108
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",1080,7,__node("Ident",1080,7,"__range"),[__wrap(left,236),__wrap(right,236),__node("Const",1080,31,1),__node("Const",1080,33,false)],false,false);};}.call(this));',
-          operators: ["til"],
+          operators: "til",
           options: {maximum: 1, precedence: 4, type: "array"},
           id: 109
         },
         {
           code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var callArgs,left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.hasType(right,"number")){throw Error("Must provide a number to the \'by\' operator");}if(this.isConst(right)&&this.value(right)===0){throw Error("\'by\' step must be non-zero");}if(this.isCall(left)&&this.isIdent(this.callFunc(left))&&this.name(this.callFunc(left))==="__range"&&!this.callIsApply(left)){callArgs=this.callArgs(left);return __node("Call",1089,9,__node("Ident",1089,9,"__range"),[__wrap(callArgs[0],237),__wrap(callArgs[1],237),__wrap(right,237),__wrap(callArgs[3],237)],false,false);}else{if(this.isConst(right)&&__num(this.value(right))%1!==0){throw Error("\'by\' step must be an integer");}return __node("Call",1093,9,__node("Ident",1093,9,"__step"),[__wrap(left,237),__wrap(right,237)],false,false);}};}.call(this));',
-          operators: ["by"],
+          operators: "by",
           options: {maximum: 1, precedence: 3, type: "array"},
           id: 110
         },
         {
           code: 'return (function(){"use strict";var __lt,__num,__typeof;__lt=function(x,y){var type;type=typeof x;if(type!=="number"&&type!=="string"){throw TypeError("Cannot compare a non-number/string: "+type);}else if(type!==typeof y){throw TypeError("Cannot compare elements of different types: "+type+" vs "+typeof y);}else{return x<y;}};__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var element,elements,f,left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isArray(right)){elements=this.elements(right);if(elements.length===0){if(this.isComplex(left)){return __node("Block",1942,1,[__wrap(left,393),__node("Const",1943,11,false)],null);}else{return __node("Const",1945,13,false);}}else if(elements.length===1){element=elements[0];return __node("MacroAccess",1948,11,72,1948,{left:__wrap(left,393),inverted:false,op:"instanceof",right:__wrap(element,393)},"expression",false,false);}else{f=function(i,current,left){var element;if(__lt(i,elements.length)){element=elements[i];return f(__num(i)+1,__node("MacroAccess",1953,24,2,1953,{left:__wrap(current,396),inverted:false,op:"or",right:__node("MacroAccess",1953,36,72,1953,{left:__wrap(left,396),inverted:false,op:"instanceof",right:__wrap(element,396)},"expression",false,false)},"expression",false,false),left);}else{return current;}};return this.maybeCache(left,function(setLeft,left){var element;element=elements[0];return f(1,__node("MacroAccess",1958,18,72,1958,{left:__wrap(setLeft,398),inverted:false,op:"instanceof",right:__wrap(element,398)},"expression",false,false),left);});}}else{return __node("Call",1960,9,__node("Ident",1960,9,"__instanceofsome"),[__wrap(left,393),__wrap(right,393)],false,false);}};}.call(this));',
-          operators: ["instanceofsome"],
+          operators: "instanceofsome",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 116
         },
         {
           code: 'return (function(){"use strict";var __is,__num,__typeof;__is=typeof Object.is==="function"?Object.is:function(x,y){if(x===y){return x!==0||1/x===1/y;}else{return x!==x&&y!==y;}};__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _this,left,op,result,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.hasType(left,"number")&&this.hasType(right,"number")){if(this.isConst(left)){if(this.isConst(right)){result=__is(this.value(left),this.value(right));return __wrap(result,947);}else if(typeof this.value(left)==="number"&&isNaN(this.value(left))){return this.maybeCache(right,function(setRight,right){return __node("MacroAccess",3116,17,6,3116,{left:__wrap(setRight,949),inverted:false,op:"!=",right:__wrap(right,949)},"expression",false,false);});}else if(this.value(left)===0){return this.maybeCache(right,function(setRight,right){if(1/__num(_this.value(left))<0){return __node("MacroAccess",3120,19,1,3120,{left:__node("MacroAccess",3120,19,5,3120,{left:__wrap(setRight,950),inverted:false,op:"==",right:__node("Const",3120,34,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3120,39,76,3120,{left:__node("MacroAccess",3120,39,45,3120,{left:__node("Const",3120,40,1),inverted:false,op:"~/",right:__wrap(right,950)},"expression",false,false),inverted:false,op:"<",right:__node("Const",3120,54,0)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",3122,19,1,3122,{left:__node("MacroAccess",3122,19,5,3122,{left:__wrap(setRight,950),inverted:false,op:"==",right:__node("Const",3122,34,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3122,39,77,3122,{left:__node("MacroAccess",3122,39,45,3122,{left:__node("Const",3122,40,1),inverted:false,op:"~/",right:__wrap(right,950)},"expression",false,false),inverted:false,op:">",right:__node("Const",3122,54,0)},"expression",false,false)},"expression",false,false);}});}else{return __node("MacroAccess",3124,15,5,3124,{left:__wrap(left,947),inverted:false,op:"==",right:__wrap(right,947)},"expression",false,false);}}else if(this.isConst(right)){if(typeof this.value(right)==="number"&&isNaN(this.value(right))){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",3128,15,6,3128,{left:__wrap(setLeft,951),inverted:false,op:"!=",right:__wrap(left,951)},"expression",false,false);});}else if(this.value(right)===0){return this.maybeCache(left,function(setLeft,left){if(1/__num(_this.value(right))<0){return __node("MacroAccess",3132,17,1,3132,{left:__node("MacroAccess",3132,17,5,3132,{left:__wrap(setLeft,952),inverted:false,op:"==",right:__node("Const",3132,31,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3132,36,76,3132,{left:__node("MacroAccess",3132,36,45,3132,{left:__node("Const",3132,37,1),inverted:false,op:"~/",right:__wrap(left,952)},"expression",false,false),inverted:false,op:"<",right:__node("Const",3132,50,0)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",3134,17,1,3134,{left:__node("MacroAccess",3134,17,5,3134,{left:__wrap(setLeft,952),inverted:false,op:"==",right:__node("Const",3134,31,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3134,36,77,3134,{left:__node("MacroAccess",3134,36,45,3134,{left:__node("Const",3134,37,1),inverted:false,op:"~/",right:__wrap(left,952)},"expression",false,false),inverted:false,op:">",right:__node("Const",3134,50,0)},"expression",false,false)},"expression",false,false);}});}else{return __node("MacroAccess",3136,13,5,3136,{left:__wrap(left,947),inverted:false,op:"==",right:__wrap(right,947)},"expression",false,false);}}else{return __node("Call",3138,11,__node("Ident",3138,11,"__is"),[__wrap(left,947),__wrap(right,947)],false,false);}}else{return __node("MacroAccess",3140,9,5,3140,{left:__wrap(left,947),inverted:false,op:"==",right:__wrap(right,947)},"expression",false,false);}};}.call(this));',
-          operators: ["is"],
+          operators: "is",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 142
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",3143,7,3,3143,{op:"not",node:__node("MacroAccess",3143,13,142,3143,{left:__wrap(left,953),inverted:false,op:"is",right:__wrap(right,953)},"expression",false,false)},"expression",false,false);};}.call(this));',
-          operators: ["isnt"],
+          operators: "isnt",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 143
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",3202,7,__node("Ident",3202,7,"__compose"),[__wrap(left,971),__wrap(right,971)],false,false);};}.call(this));',
-          operators: ["<<"],
+          operators: "<<",
           options: {precedence: 13, type: "function"},
           id: 145
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3208,1,[__node("MacroAccess",3208,7,38,3208,{macroName:"let",macroData:{declarable:__node("MacroAccess",3208,10,37,3208,__node("MacroAccess",3208,10,31,3208,{ident:__wrap(tmp,972)},"statement",false,false),"statement",false,false),value:__wrap(left,972)}},"statement",false,false),__node("Call",3209,7,__node("Ident",3209,7,"__compose"),[__wrap(right,972),__wrap(tmp,972)],false,false)],null);}else{return __node("Call",3211,9,__node("Ident",3211,9,"__compose"),[__wrap(right,972),__wrap(left,972)],false,false);}};}.call(this));',
-          operators: [">>"],
+          operators: ">>",
           options: {precedence: 13, type: "function", rightToLeft: true},
           id: 146
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",3230,7,__wrap(left,979),[__wrap(right,979)],false,false);};}.call(this));',
-          operators: ["<|"],
+          operators: "<|",
           options: {precedence: 0, rightToLeft: true},
           id: 147
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3236,1,[__node("MacroAccess",3236,7,38,3236,{macroName:"let",macroData:{declarable:__node("MacroAccess",3236,10,37,3236,__node("MacroAccess",3236,10,31,3236,{ident:__wrap(tmp,980)},"statement",false,false),"statement",false,false),value:__wrap(left,980)}},"statement",false,false),__node("Call",3237,7,__wrap(right,980),[__wrap(tmp,980)],false,false)],null);}else{return __node("Call",3239,9,__wrap(right,980),[__wrap(left,980)],false,false);}};}.call(this));',
-          operators: ["|>"],
+          operators: "|>",
           options: {precedence: 0},
           id: 148
         },
         {
           code: 'return (function(){"use strict";var __isArray,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isObject(right)){return this.maybeCache(left,function(setLeft,nextLeft){var _arr,_ref,block,currentLeft,descriptor,i,key,len,pairs,property,value;currentLeft=setLeft;block=[];pairs=_this.pairs(right);for(_arr=__toArray(pairs), i=0, len=_arr.length;i<len;++i){key=(_ref=_arr[i]).key;value=_ref.value;property=_ref.property;if(property!=null){if((property==="get"||property==="set")&&i<len-1&&pairs[i+1].property!=null&&_this.eq(key,pairs[i+1].key)&&pairs[i+1].property!==property&&((_ref=pairs[i+1].property)==="get"||_ref==="set")){continue;}if(property==="property"){block.push(__node("Call",3258,27,__node("Ident",3258,27,"__defProp"),[__wrap(currentLeft,985),__wrap(key,985),__wrap(value,985)],false,false));}else if(property==="get"||property==="set"){if(i>0&&pairs[i-1].property!=null&&_this.eq(key,pairs[i-1].key)&&pairs[i-1].property!==property&&((_ref=pairs[i-1].property)==="get"||_ref==="set")){descriptor=__node("Object",106871,107059,[{key:__wrap(pairs[i-1].property,985),value:__wrap(pairs[i-1].value,985),property:void 0},{key:__wrap(property,985),value:__wrap(value,985),property:void 0},{key:__node("Const",3264,17,"enumerable"),value:__node("Const",3264,28,true),property:void 0},{key:__node("Const",3265,17,"configurable"),value:__node("Const",3265,30,true),property:void 0}],void 0);}else{descriptor=__node("Object",107095,107217,[{key:__wrap(property,985),value:__wrap(value,985),property:void 0},{key:__node("Const",3270,17,"enumerable"),value:__node("Const",3270,28,true),property:void 0},{key:__node("Const",3271,17,"configurable"),value:__node("Const",3271,30,true),property:void 0}],void 0);}block.push(__node("Call",3273,27,__node("Ident",3273,27,"__defProp"),[__wrap(currentLeft,985),__wrap(key,985),__wrap(descriptor,985)],false,false));}else{throw Error("Unknown property: "+__strnum(property));}}else{block.push(__node("MacroAccess",3277,25,30,3277,{left:__node("Access",3277,39,__wrap(currentLeft,985),__wrap(key,985)),op:":=",right:__wrap(value,985)},"statement",false,false));}currentLeft=nextLeft;}block.push(__wrap(currentLeft,985));return __wrap(block,985);});}else{return __node("Call",3282,9,__node("Ident",3282,9,"__import"),[__wrap(left,984),__wrap(right,984)],false,false);}};}.call(this));',
-          operators: ["<<<"],
+          operators: "<<<",
           options: {precedence: 6},
           id: 149
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3288,1,[__node("MacroAccess",3288,7,38,3288,{macroName:"let",macroData:{declarable:__node("MacroAccess",3288,10,37,3288,__node("MacroAccess",3288,10,31,3288,{ident:__wrap(tmp,992)},"statement",false,false),"statement",false,false),value:__wrap(left,992)}},"statement",false,false),__node("MacroAccess",3289,7,149,3289,{left:__wrap(right,992),inverted:false,op:"<<<",right:__wrap(tmp,992)},"statement",false,false)],null);}else{return __node("MacroAccess",3291,9,149,3291,{left:__wrap(right,992),inverted:false,op:"<<<",right:__wrap(left,992)},"expression",false,false);}};}.call(this));',
-          operators: [">>>"],
+          operators: ">>>",
           options: {precedence: 6, rightToLeft: true},
           id: 150
         }
@@ -35241,37 +35258,37 @@
       unaryOperator: [
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return _this.unary("!",n);},true);};}.call(this));',
-          operators: ["not"],
+          operators: "not",
           options: {type: "boolean"},
           id: 3
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return _this.unary("typeof",n);},true);};}.call(this));',
-          operators: ["typeof"],
+          operators: "typeof",
           options: {type: "string"},
           id: 4
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return _this["throw"](n);},true);};}.call(this));',
-          operators: ["throw"],
+          operators: "throw",
           options: {type: "none"},
           id: 11
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return this.unary("++post",node);};}.call(this));',
-          operators: ["postInc!"],
+          operators: "postInc!",
           options: {type: "number"},
           id: 12
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return this.unary("--post",node);};}.call(this));',
-          operators: ["postDec!"],
+          operators: "postDec!",
           options: {type: "number"},
           id: 13
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",98,9,1,98,{left:__node("MacroAccess",98,9,6,98,{left:__node("MacroAccess",98,9,4,98,{op:"typeof",node:__wrap(node,29)},"expression",false,false),inverted:false,op:"!=",right:__node("Const",98,27,"undefined")},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",98,40,6,98,{left:__wrap(node,29),inverted:false,op:"!=",right:__node("Const",98,49,null)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",100,9,8,100,{left:__wrap(node,29),inverted:false,op:"!~=",right:__node("Const",100,19,null)},"expression",false,false);}};}.call(this));',
-          operators: ["?"],
+          operators: "?",
           options: {postfix: true, type: "boolean", label: "existential"},
           id: 20
         },
@@ -35283,43 +35300,43 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",110,9,1,110,{left:__node("MacroAccess",110,9,6,110,{left:__node("MacroAccess",110,9,4,110,{op:"typeof",node:__wrap(node,31)},"expression",false,false),inverted:false,op:"!=",right:__node("Const",110,27,"undefined")},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",110,40,5,110,{left:__wrap(node,31),inverted:false,op:"==",right:__node("Const",110,49,null)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",112,9,5,112,{left:__wrap(node,31),inverted:false,op:"==",right:__node("Const",112,18,null)},"expression",false,false);}};}.call(this));',
-          operators: ["isNull!"],
+          operators: "isNull!",
           options: {type: "boolean"},
           id: 22
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",115,7,5,115,{left:__node("MacroAccess",115,7,4,115,{op:"typeof",node:__wrap(node,32)},"expression",false,false),inverted:false,op:"==",right:__node("Const",115,25,"string")},"expression",false,false);};}.call(this));',
-          operators: ["isString!"],
+          operators: "isString!",
           options: {type: "boolean"},
           id: 23
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",118,7,5,118,{left:__node("MacroAccess",118,7,4,118,{op:"typeof",node:__wrap(node,33)},"expression",false,false),inverted:false,op:"==",right:__node("Const",118,25,"number")},"expression",false,false);};}.call(this));',
-          operators: ["isNumber!"],
+          operators: "isNumber!",
           options: {type: "boolean"},
           id: 24
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",121,7,5,121,{left:__node("MacroAccess",121,7,4,121,{op:"typeof",node:__wrap(node,34)},"expression",false,false),inverted:false,op:"==",right:__node("Const",121,25,"boolean")},"expression",false,false);};}.call(this));',
-          operators: ["isBoolean!"],
+          operators: "isBoolean!",
           options: {type: "boolean"},
           id: 25
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",124,7,5,124,{left:__node("MacroAccess",124,7,4,124,{op:"typeof",node:__wrap(node,35)},"expression",false,false),inverted:false,op:"==",right:__node("Const",124,25,"function")},"expression",false,false);};}.call(this));',
-          operators: ["isFunction!"],
+          operators: "isFunction!",
           options: {type: "boolean"},
           id: 26
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return _this.isIdentOrTmp(n)&&!_this.hasVariable(n)&&__node("MacroAccess",127,97,1,127,{left:__node("MacroAccess",127,97,5,127,{left:__node("MacroAccess",127,97,4,127,{op:"typeof",node:__wrap(n,37)},"expression",false,false),inverted:false,op:"==",right:__node("Const",127,112,"object")},"expression",false,false),inverted:false,op:"and",right:__node("Call",127,122,__node("Ident",127,122,"__isArray"),[__wrap(n,37)],false,false)},"expression",false,false)||__node("Call",127,146,__node("Ident",127,146,"__isArray"),[__wrap(n,37)],false,false);},true);};}.call(this));',
-          operators: ["isArray!"],
+          operators: "isArray!",
           options: {type: "boolean"},
           id: 27
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return __node("MacroAccess",130,47,1,130,{left:__node("MacroAccess",130,47,5,130,{left:__node("MacroAccess",130,47,4,130,{op:"typeof",node:__wrap(n,39)},"expression",false,false),inverted:false,op:"==",right:__node("Const",130,62,"object")},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",130,72,6,130,{left:__wrap(n,39),inverted:false,op:"!=",right:__node("Const",130,78,null)},"expression",false,false)},"expression",false,false);},true);};}.call(this));',
-          operators: ["isObject!"],
+          operators: "isObject!",
           options: {type: "boolean"},
           id: 28
         },
@@ -35331,79 +35348,77 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",468,9,18,468,{macroName:"if",macroData:{test:__node("MacroAccess",468,12,5,468,{left:__node("MacroAccess",468,12,4,468,{op:"typeof",node:__wrap(node,110)},"expression",false,false),inverted:false,op:"==",right:__node("Const",468,30,"undefined")},"expression",false,false),body:__node("Const",468,45,"Undefined"),elseIfs:[],elseBody:__node("Call",468,61,__node("Ident",468,61,"__typeof"),[__wrap(node,110)],false,false)}},"expression",false,false);}else{return this.mutateLast(node||this.noop(),function(n){return __node("Call",470,49,__node("Ident",470,49,"__typeof"),[__wrap(n,111)],false,false);},true);}};}.call(this));',
-          operators: ["typeof!"],
+          operators: "typeof!",
           options: {type: "string"},
           id: 57
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){if(_this.isType(n,"number")){return n;}else{return __node("Call",500,11,__node("Ident",500,11,"__num"),[__wrap(n,117)],false,false);}},true);};}.call(this));',
-          operators: ["+"],
+          operators: "+",
           options: {type: "number"},
           id: 58
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;if(this.isConst(node)&&typeof this.value(node)==="number"){return this["const"](-this.value(node));}else{return __node("MacroAccess",506,9,48,506,{op:"~-",node:__node("MacroAccess",506,13,58,506,{op:"+",node:__wrap(node,118)},"expression",false,false)},"expression",false,false);}};}.call(this));',
-          operators: ["-"],
+          operators: "-",
           options: {type: "number"},
           id: 59
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",526,7,62,526,{left:__wrap(node,123),inverted:false,op:"/",right:__node("Const",526,16,100)},"expression",false,false);};}.call(this));',
-          operators: ["%"],
+          operators: "%",
           options: {postfix: true, type: "number"},
           id: 63
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return _this.unary("~",n);},true);};}.call(this));',
-          operators: ["~bitnot"],
+          operators: "~bitnot",
           options: {type: "number"},
           id: 97
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",825,7,97,825,{op:"~bitnot",node:__node("MacroAccess",825,15,58,825,{op:"+",node:__wrap(node,193)},"expression",false,false)},"expression",false,false);};}.call(this));',
-          operators: ["bitnot"],
+          operators: "bitnot",
           options: {type: "number"},
           id: 98
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;if(!this.isAccess(node)){throw Error("Can only use delete on an access");}if(this.position==="expression"){return this.maybeCacheAccess(node,function(setNode,node){var del,tmp;tmp=_this.tmp("ref");del=_this.unary("delete",node);return __node("Block",835,1,[__node("MacroAccess",835,9,38,835,{macroName:"let",macroData:{declarable:__node("MacroAccess",835,12,37,835,__node("MacroAccess",835,12,31,835,{ident:__wrap(tmp,195)},"statement",false,false),"statement",false,false),value:__wrap(setNode,195)}},"statement",false,false),__wrap(del,195),__wrap(tmp,195)],null);});}else{return this.unary("delete",node);}};}.call(this));',
-          operators: ["delete"],
+          operators: "delete",
           options: {standalone: false},
           id: 99
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return this.maybeCache(node,function(setNode,node){return __node("MacroAccess",843,9,18,843,{macroName:"if",macroData:{test:__node("MacroAccess",843,12,20,843,{op:"?",node:__wrap(setNode,200)},"expression",false,false),body:__node("MacroAccess",843,28,11,843,{op:"throw",node:__wrap(node,200)},"expression",false,false),elseIfs:[]}},"expression",false,false);});};}.call(this));',
-          operators: ["throw?"],
+          operators: "throw?",
           options: {type: "undefined"},
           id: 100
         },
         {
           code: 'return (function(){"use strict";var __isArray,__num,__owns,__slice,__strnum,__toArray,__typeof,__xor;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__owns=Object.prototype.hasOwnProperty;__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());__xor=function(x,y){if(x){if(y){return false;}else{return x;}}else{return y||x;}};return function(macroData,__wrap,__node){var _arr,_arr2,_i,_len,_this,body,changed,foundSpread,genericArg,genericArgs,genericCache,genericParams,i,ident,init,initIndex,instanceofLets,instanceofs,item,key,len,makeFunctionFunc,makeFunctionIdent,name,node,op,p,param,params,PRIMORDIAL_TYPES,result,spreadCounter;_this=this;op=macroData.op;node=macroData.node;function article(text){if(/^[aeiou]/i.test(text)){return "an";}else{return "a";}};function withArticle(text){return article(text)+" "+__strnum(text);};PRIMORDIAL_TYPES={Number:true,String:true,Boolean:true,Function:true,Array:true,Object:true};function translateTypeCheck(value,valueName,type,hasDefaultValue){var _arr,_arr2,_i,_len,_ref,check,checks,current,hasBoolean,hasNull,hasVoid,index,key,name,names,pairValue,result,subCheck,t,test,tests,typeNames;if(_this.isIdent(type)){if(__owns.call(PRIMORDIAL_TYPES,_this.name(type))){result=__node("MacroAccess",1619,11,19,1619,{macroName:"if",macroData:{test:__node("MacroAccess",1619,13,72,1619,{left:__wrap(value,328),inverted:true,op:"instanceof",right:__wrap(type,328)},"statement",false,false),body:__node("MacroAccess",1620,13,11,1620,{op:"throw",node:__node("Call",1620,18,__node("Ident",1620,18,"TypeError"),[__node("MacroAccess",1620,29,67,1620,{left:__node("MacroAccess",1620,29,67,1620,{left:__node("MacroAccess",1620,29,67,1620,{left:__node("MacroAccess",1620,29,67,1620,{left:__node("MacroAccess",1620,29,67,1620,{left:__node("Const",1620,29,"Expected "),op:"",right:__wrap(valueName,328)},"expression",false,false),op:"",right:__node("Const",1620,29," to be ")},"expression",false,false),op:"",right:__wrap(withArticle(_this.name(type)),328)},"expression",false,false),op:"",right:__node("Const",1620,29,", got ")},"expression",false,false),op:"",right:__node("MacroAccess",1620,98,57,1620,{op:"typeof!",node:__wrap(value,328)},"expression",false,false)},"expression",false,false)],false,false)},"statement",false,false),elseIfs:[]}},"statement",false,false);}else{result=__node("MacroAccess",1623,11,19,1623,{macroName:"if",macroData:{test:__node("MacroAccess",1623,13,72,1623,{left:__wrap(value,328),inverted:true,op:"instanceof",right:__wrap(type,328)},"statement",false,false),body:__node("MacroAccess",1624,13,11,1624,{op:"throw",node:__node("Call",1624,18,__node("Ident",1624,18,"TypeError"),[__node("MacroAccess",1624,29,67,1624,{left:__node("MacroAccess",1624,29,67,1624,{left:__node("MacroAccess",1624,29,67,1624,{left:__node("MacroAccess",1624,29,67,1624,{left:__node("MacroAccess",1624,29,67,1624,{left:__node("Const",1624,29,"Expected "),op:"",right:__wrap(valueName,328)},"expression",false,false),op:"",right:__node("Const",1624,29," to be a ")},"expression",false,false),op:"",right:__node("Call",1624,64,__node("Ident",1624,64,"__name"),[__wrap(type,328)],false,false)},"expression",false,false),op:"",right:__node("Const",1624,29,", got ")},"expression",false,false),op:"",right:__node("MacroAccess",1624,85,57,1624,{op:"typeof!",node:__wrap(value,328)},"expression",false,false)},"expression",false,false)],false,false)},"statement",false,false),elseIfs:[]}},"statement",false,false);}if(!hasDefaultValue&&_this.name(type)==="Boolean"){return __node("MacroAccess",1626,13,19,1626,{macroName:"if",macroData:{test:__node("MacroAccess",1626,16,3,1626,{op:"not",node:__node("MacroAccess",1626,20,20,1626,{op:"?",node:__wrap(value,328)},"statement",false,true)},"statement",false,true),body:__node("MacroAccess",1627,11,30,1627,{left:__wrap(value,328),op:":=",right:__node("Const",1627,20,false)},"statement",false,true),elseIfs:[],elseBody:__wrap(result,328)}},"statement",false,true);}else{return result;}}else if(_this.isAccess(type)){return __node("MacroAccess",1634,9,19,1634,{macroName:"if",macroData:{test:__node("MacroAccess",1634,11,72,1634,{left:__wrap(value,328),inverted:true,op:"instanceof",right:__wrap(type,328)},"statement",false,false),body:__node("MacroAccess",1635,11,11,1635,{op:"throw",node:__node("Call",1635,16,__node("Ident",1635,16,"TypeError"),[__node("MacroAccess",1635,27,67,1635,{left:__node("MacroAccess",1635,27,67,1635,{left:__node("MacroAccess",1635,27,67,1635,{left:__node("MacroAccess",1635,27,67,1635,{left:__node("MacroAccess",1635,27,67,1635,{left:__node("Const",1635,27,"Expected "),op:"",right:__wrap(valueName,328)},"expression",false,false),op:"",right:__node("Const",1635,27," to be ")},"expression",false,false),op:"",right:__wrap(withArticle(_this.value(_this.child(type))),328)},"expression",false,false),op:"",right:__node("Const",1635,27,", got ")},"expression",false,false),op:"",right:__node("MacroAccess",1635,105,57,1635,{op:"typeof!",node:__wrap(value,328)},"expression",false,false)},"expression",false,false)],false,false)},"statement",false,false),elseIfs:[]}},"statement",false,false);}else if(_this.isTypeUnion(type)){hasBoolean=false;hasVoid=false;hasNull=false;names=[];tests=[];for(_arr=__toArray(_this.types(type)), _i=0, _len=_arr.length;_i<_len;++_i){t=_arr[_i];if(_this.isConst(t)){if(_this.value(t)===null){hasNull=true;names.push(_this["const"]("null"));}else if(_this.value(t)===void 0){hasVoid=true;names.push(_this["const"]("undefined"));}else{throw Error("Unknown const value for typechecking: "+String(_this.value(t)));}}else if(_this.isIdent(t)){if(_this.name(t)==="Boolean"){hasBoolean=true;}if(__owns.call(PRIMORDIAL_TYPES,_this.name(t))){names.push(_this["const"](_this.name(t)));}else{names.push(__node("Call",1659,28,__node("Ident",1659,28,"__name"),[__wrap(t,328)],false,false));}tests.push(__node("MacroAccess",1660,26,72,1660,{left:__wrap(value,328),inverted:true,op:"instanceof",right:__wrap(t,328)},"expression",false,false));}else{throw Error("Not implemented: typechecking for non-idents/consts within a type-union");}}if(tests.length){test=_this.binaryChain("&&",tests);}else{test=__node("Const",1667,13,true);}current=names[0];for(_i=1, _len=names.length;_i<_len;++_i){name=names[_i];current=__node("MacroAccess",1669,14,67,1669,{left:__node("MacroAccess",1669,14,67,1669,{left:__wrap(current,328),op:"",right:__node("Const",1669,14," or ")},"expression",false,false),op:"",right:__wrap(name,328)},"expression",false,false);}typeNames=current;result=__node("MacroAccess",1670,31,19,1670,{macroName:"if",macroData:{test:__wrap(test,328),body:__node("MacroAccess",1671,9,11,1671,{op:"throw",node:__node("Call",1671,14,__node("Ident",1671,14,"TypeError"),[__node("MacroAccess",1671,25,67,1671,{left:__node("MacroAccess",1671,25,67,1671,{left:__node("MacroAccess",1671,25,67,1671,{left:__node("MacroAccess",1671,25,67,1671,{left:__node("MacroAccess",1671,25,67,1671,{left:__node("Const",1671,25,"Expected "),op:"",right:__wrap(valueName,328)},"expression",false,false),op:"",right:__node("Const",1671,25," to be one of ")},"expression",false,false),op:"",right:__wrap(typeNames,328)},"expression",false,false),op:"",right:__node("Const",1671,25,", got ")},"expression",false,false),op:"",right:__node("MacroAccess",1671,85,57,1671,{op:"typeof!",node:__wrap(value,328)},"expression",false,false)},"expression",false,false)],false,false)},"statement",false,false),elseIfs:[]}},"statement",false,false);if(!hasDefaultValue){if(hasNull||hasVoid){if(__xor(hasNull,hasVoid)){result=__node("MacroAccess",1676,27,19,1676,{macroName:"if",macroData:{test:__node("MacroAccess",1676,30,3,1676,{op:"not",node:__node("MacroAccess",1676,34,20,1676,{op:"?",node:__wrap(value,328)},"statement",false,true)},"statement",false,true),body:__node("MacroAccess",1677,15,30,1677,{left:__wrap(value,328),op:":=",right:__node("MacroAccess",1677,24,18,1677,{macroName:"if",macroData:{test:__wrap(hasNull,328),body:__node("Const",1677,42,null),elseIfs:[],elseBody:__node("Const",1677,52,void 0)}},"expression",false,true)},"statement",false,true),elseIfs:[],elseBody:__wrap(result,328)}},"statement",false,true);}else{result=__node("MacroAccess",1681,26,19,1681,{macroName:"if",macroData:{test:__node("MacroAccess",1681,29,20,1681,{op:"?",node:__wrap(value,328)},"statement",false,false),body:__wrap(result,328),elseIfs:[]}},"statement",false,false);}}else if(hasBoolean){result=__node("MacroAccess",1684,25,19,1684,{macroName:"if",macroData:{test:__node("MacroAccess",1684,28,3,1684,{op:"not",node:__node("MacroAccess",1684,32,20,1684,{op:"?",node:__wrap(value,328)},"statement",false,true)},"statement",false,true),body:__node("MacroAccess",1685,13,30,1685,{left:__wrap(value,328),op:":=",right:__node("Const",1685,22,false)},"statement",false,true),elseIfs:[],elseBody:__wrap(result,328)}},"statement",false,true);}}return result;}else if(_this.isTypeGeneric(type)){if(_this.name(_this.basetype(type))==="Array"){index=_this.tmp("i",false,"number");subCheck=translateTypeCheck(__node("Access",1692,51,__wrap(value,328),__wrap(index,328)),__node("MacroAccess",1692,74,67,1692,{left:__node("MacroAccess",1692,74,67,1692,{left:__node("MacroAccess",1692,74,67,1692,{left:__wrap(valueName,328),inverted:false,op:"&",right:__node("Const",1692,89,"[")},"expression",false,false),inverted:false,op:"&",right:__wrap(index,328)},"expression",false,false),inverted:false,op:"&",right:__node("Const",1692,104,"]")},"expression",false,false),_this.typeArguments(type)[0],false);return __node("MacroAccess",1693,12,19,1693,{macroName:"if",macroData:{test:__node("MacroAccess",1693,15,3,1693,{op:"not",node:__node("MacroAccess",1693,19,27,1693,{op:"isArray!",node:__wrap(value,328)},"statement",false,false)},"statement",false,false),body:__node("MacroAccess",1694,11,11,1694,{op:"throw",node:__node("Call",1694,16,__node("Ident",1694,16,"TypeError"),[__node("MacroAccess",1694,27,67,1694,{left:__node("MacroAccess",1694,27,67,1694,{left:__node("MacroAccess",1694,27,67,1694,{left:__node("Const",1694,27,"Expected "),op:"",right:__wrap(valueName,328)},"expression",false,false),op:"",right:__node("Const",1694,27," to be an Array, got ")},"expression",false,false),op:"",right:__node("MacroAccess",1694,74,57,1694,{op:"typeof!",node:__wrap(value,328)},"expression",false,false)},"expression",false,false)],false,false)},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",1696,11,104,1696,{macroName:"for",macroData:{init:__node("MacroAccess",1696,16,38,1696,{macroName:"let",macroData:{declarable:__node("MacroAccess",1696,19,37,1696,__node("MacroAccess",1696,19,31,1696,{isMutable:"mutable",ident:__wrap(index,328)},"expression",false,false),"expression",false,false),value:__node("Access",1696,36,__wrap(value,328),__node("Const",1696,44,"length"))}},"expression",false,false),test:__node("MacroAccess",1696,52,13,1696,{op:"postDec!",node:__wrap(index,328)},"statement",false,false),body:__wrap(subCheck,328)}},"statement",false,false)}},"statement",false,false);}else if(_this.name(_this.basetype(type))==="Function"){return translateTypeCheck(value,valueName,_this.basetype(type),hasDefaultValue);}else{throw Error("Not implemented: generic types");}}else if(_this.isTypeObject(type)){for(_arr=[], _arr2=__toArray(_this.pairs(type)), _i=0, _len=_arr2.length;_i<_len;++_i){key=(_ref=_arr2[_i]).key;pairValue=_ref.value;_arr.push(translateTypeCheck(__node("Access",1704,35,__wrap(value,328),__wrap(key,328)),__node("MacroAccess",1704,56,67,1704,{left:__node("MacroAccess",1704,56,67,1704,{left:__wrap(valueName,328),inverted:false,op:"&",right:__node("Const",1704,71,".")},"expression",false,false),inverted:false,op:"&",right:__wrap(key,328)},"expression",false,false),pairValue,false));}checks=_arr;return __node("MacroAccess",1705,10,19,1705,{macroName:"if",macroData:{test:__node("MacroAccess",1705,13,3,1705,{op:"not",node:__node("MacroAccess",1705,17,28,1705,{op:"isObject!",node:__wrap(value,328)},"statement",false,false)},"statement",false,false),body:__node("MacroAccess",1706,9,11,1706,{op:"throw",node:__node("Call",1706,14,__node("Ident",1706,14,"TypeError"),[__node("MacroAccess",1706,25,67,1706,{left:__node("MacroAccess",1706,25,67,1706,{left:__node("MacroAccess",1706,25,67,1706,{left:__node("Const",1706,25,"Expected "),op:"",right:__wrap(valueName,328)},"expression",false,false),op:"",right:__node("Const",1706,25," to be an Object, got ")},"expression",false,false),op:"",right:__node("MacroAccess",1706,73,57,1706,{op:"typeof!",node:__wrap(value,328)},"expression",false,false)},"expression",false,false)],false,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(checks,328)}},"statement",false,false);}else{throw Error("Unknown type to translate: "+__typeof(type));}};init=[];changed=false;function translateParam(param,inDestructure){var _arr,_i,_len,arrayIdent,asType,blankIdent,defaultValue,element,elementIdent,elementParam,foundSpread,i,ident,initIndex,key,len,objectIdent,pair,paramIdent,spreadCounter,typeCheck,value,valueIdent;if(_this.isArray(param)){changed=true;arrayIdent=_this.tmp("p",false,"array");foundSpread=-1;for(_arr=__toArray(_this.elements(param)), i=0, len=_arr.length;i<len;++i){element=_arr[i];initIndex=init.length;elementParam=translateParam(element,true);if(elementParam!=null){elementIdent=_this.paramIdent(elementParam);if(!_this.paramIsSpread(elementParam)){if(foundSpread===-1){init.splice(initIndex,0,__node("MacroAccess",1726,45,38,1726,{macroName:"let",macroData:{declarable:__node("MacroAccess",1726,49,37,1726,__node("MacroAccess",1726,49,31,1726,{ident:__wrap(elementIdent,339)},"statement",false,false),"statement",false,false),value:__node("Access",1726,66,__wrap(arrayIdent,339),__wrap(i,339))}},"statement",false,false));}else{init.splice(initIndex,0,__node("MacroAccess",1728,45,38,1728,{macroName:"let",macroData:{declarable:__node("MacroAccess",1728,49,37,1728,__node("MacroAccess",1728,49,31,1728,{ident:__wrap(elementIdent,339)},"statement",false,false),"statement",false,false),value:__node("Access",1728,66,__wrap(arrayIdent,339),__node("MacroAccess",1728,80,64,1728,{left:__wrap(spreadCounter,339),inverted:false,op:"+",right:__node("MacroAccess",1728,99,64,1728,{left:__node("MacroAccess",1728,99,64,1728,{left:__wrap(i,339),inverted:false,op:"-",right:__wrap(foundSpread,339)},"expression",false,false),inverted:false,op:"-",right:__node("Const",1728,120,1)},"expression",false,false)},"expression",false,false))}},"statement",false,false));}}else{if(foundSpread!==-1){throw Error("Cannot have multiple spread parameters in an array destructure");}foundSpread=i;if(i===len-1){init.splice(initIndex,0,__node("MacroAccess",1734,45,38,1734,{macroName:"let",macroData:{declarable:__node("MacroAccess",1734,49,37,1734,__node("MacroAccess",1734,49,31,1734,{ident:__wrap(elementIdent,339)},"statement",false,false),"statement",false,false),value:__node("Call",1734,66,__node("Ident",1734,66,"__slice"),[__wrap(arrayIdent,339),__node("Spread",1734,89,__node("MacroAccess",1734,94,18,1734,{macroName:"if",macroData:{test:__node("MacroAccess",1734,96,5,1734,{left:__wrap(i,339),inverted:false,op:"==",right:__node("Const",1734,103,0)},"expression",false,false),body:__node("Array",1734,109,[]),elseIfs:[],elseBody:__node("Array",1734,117,[__wrap(i,339)])}},"expression",false,false))],false,true)}},"statement",false,false));}else{spreadCounter=_this.tmp("i",false,"number");init.splice(initIndex,0,__node("Block",1738,1,[__node("MacroAccess",1738,17,38,1738,{macroName:"let",macroData:{declarable:__node("MacroAccess",1738,20,37,1738,__node("MacroAccess",1738,20,31,1738,{isMutable:"mutable",ident:__wrap(spreadCounter,339)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1738,46,64,1738,{left:__node("Access",1738,46,__wrap(arrayIdent,339),__node("Const",1738,60,"length")),inverted:false,op:"-",right:__node("MacroAccess",1738,70,64,1738,{left:__node("MacroAccess",1738,70,64,1738,{left:__wrap(len,339),inverted:false,op:"-",right:__wrap(i,339)},"expression",false,false),inverted:false,op:"-",right:__node("Const",1738,82,1)},"expression",false,false)},"expression",false,false)}},"statement",false,false),__node("MacroAccess",1739,17,38,1739,{macroName:"let",macroData:{declarable:__node("MacroAccess",1739,20,37,1739,__node("MacroAccess",1739,20,31,1739,{ident:__wrap(elementIdent,339)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1739,37,19,1739,{macroName:"if",macroData:{test:__node("MacroAccess",1739,40,77,1739,{left:__wrap(spreadCounter,339),inverted:false,op:">",right:__wrap(i,339)},"expression",false,false),body:__node("Call",1740,19,__node("Ident",1740,19,"__slice"),[__wrap(arrayIdent,339),__wrap(i,339),__wrap(spreadCounter,339)],false,true),elseIfs:[],elseBody:__node("Block",1742,1,[__node("MacroAccess",1742,19,30,1742,{left:__wrap(spreadCounter,339),op:":=",right:__wrap(i,339)},"statement",false,false),__node("Array",1743,19,[])],null)}},"expression",false,false)}},"statement",false,false)],null));}}}}return _this.rewrap(_this.param(arrayIdent,null,false,false,null),param);}else if(_this.isObject(param)){changed=true;objectIdent=_this.tmp("p",false,"object");for(_arr=__toArray(_this.pairs(param)), _i=0, _len=_arr.length;_i<_len;++_i){pair=_arr[_i];initIndex=init.length;value=translateParam(pair.value,true);if(value!=null){valueIdent=_this.paramIdent(value);key=pair.key;init.splice(initIndex,0,__node("MacroAccess",1755,41,38,1755,{macroName:"let",macroData:{declarable:__node("MacroAccess",1755,45,37,1755,__node("MacroAccess",1755,45,31,1755,{ident:__wrap(valueIdent,339)},"statement",false,false),"statement",false,false),value:__node("Access",1755,60,__wrap(objectIdent,339),__wrap(key,339))}},"statement",false,false));}}return _this.rewrap(_this.param(objectIdent,null,false,false,null),param);}else if(_this.isParam(param)){defaultValue=_this.paramDefaultValue(param);asType=_this.paramType(param);paramIdent=_this.paramIdent(param);if(defaultValue!=null||asType!=null||!_this.isIdentOrTmp(paramIdent)){changed=true;if(_this.isIdentOrTmp(paramIdent)){ident=paramIdent;}else if(_this.isAccess(paramIdent)){ident=_this.ident(_this.value(_this.child(paramIdent)));}else{throw Error("Not an ident or this-access: "+__typeof(paramIdent));}if(asType!=null){typeCheck=translateTypeCheck(ident,_this.name(ident),asType,defaultValue!=null);}else{typeCheck=_this.noop();}init.push(defaultValue!=null?__node("MacroAccess",1776,13,19,1776,{macroName:"if",macroData:{test:__node("MacroAccess",1776,15,3,1776,{op:"not",node:__node("MacroAccess",1776,19,20,1776,{op:"?",node:__wrap(ident,339)},"statement",false,true)},"statement",false,true),body:__node("MacroAccess",1777,15,30,1777,{left:__wrap(ident,339),op:":=",right:__wrap(defaultValue,339)},"statement",false,true),elseIfs:[],elseBody:__wrap(typeCheck,339)}},"statement",false,true):typeCheck);if(paramIdent!==ident){init.push(__node("MacroAccess",1783,24,30,1783,{left:__wrap(paramIdent,339),op:":=",right:__wrap(ident,339)},"statement",false,false));}return _this.rewrap(_this.param(ident,null,_this.paramIsSpread(param),_this.paramIsMutable(param),null),param);}else{return param;}}else if(_this.isNothing(param)){changed=true;if(inDestructure){return null;}else{blankIdent=_this.tmp("p",false,"object");return _this.rewrap(_this.param(blankIdent,null,false,false,null),param);}}else{throw Error("Unknown param type: "+__typeof(param));}};foundSpread=-1;params=[];for(_arr=__toArray(this.funcParams(node)), i=0, len=_arr.length;i<len;++i){param=_arr[i];initIndex=init.length;p=translateParam(param,false);ident=this.paramIdent(p);if(this.paramIsSpread(p)){if(foundSpread!==-1){throw Error("Cannot have two spread parameters");}changed=true;foundSpread=i;if(i===len-1){init.splice(initIndex,0,__node("MacroAccess",1811,11,38,1811,{macroName:"let",macroData:{declarable:__node("MacroAccess",1811,14,37,1811,__node("MacroAccess",1811,14,31,1811,{ident:__wrap(ident,324)},"statement",false,false),"statement",false,false),value:__node("Call",1811,23,__node("Ident",1811,23,"__slice"),[__node("Args",1811,33),__node("Spread",1811,43,__node("MacroAccess",1811,48,18,1811,{macroName:"if",macroData:{test:__node("MacroAccess",1811,50,5,1811,{left:__wrap(i,324),inverted:false,op:"==",right:__node("Const",1811,57,0)},"expression",false,false),body:__node("Array",1811,63,[]),elseIfs:[],elseBody:__node("Array",1811,71,[__wrap(i,324)])}},"expression",false,false))],false,true)}},"statement",false,false));}else{spreadCounter=this.tmp("i",false,"number");init.splice(initIndex,0,__node("Block",1815,1,[__node("MacroAccess",1815,11,38,1815,{macroName:"let",macroData:{declarable:__node("MacroAccess",1815,14,37,1815,__node("MacroAccess",1815,14,31,1815,{isMutable:"mutable",ident:__wrap(spreadCounter,324)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1815,40,64,1815,{left:__node("Access",1815,40,__node("Args",1815,40),__node("Const",1815,51,"length")),inverted:false,op:"-",right:__node("MacroAccess",1815,61,64,1815,{left:__node("MacroAccess",1815,61,64,1815,{left:__wrap(len,324),inverted:false,op:"-",right:__wrap(i,324)},"expression",false,false),inverted:false,op:"-",right:__node("Const",1815,73,1)},"expression",false,false)},"expression",false,false)}},"statement",false,false),__node("MacroAccess",1816,11,38,1816,{macroName:"let",macroData:{declarable:__node("MacroAccess",1816,14,37,1816,__node("MacroAccess",1816,14,31,1816,{ident:__wrap(ident,324)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",1816,23,19,1816,{macroName:"if",macroData:{test:__node("MacroAccess",1816,26,77,1816,{left:__wrap(spreadCounter,324),inverted:false,op:">",right:__wrap(i,324)},"expression",false,false),body:__node("Call",1817,13,__node("Ident",1817,13,"__slice"),[__node("Args",1817,22),__wrap(i,324),__wrap(spreadCounter,324)],false,true),elseIfs:[],elseBody:__node("Block",1819,1,[__node("MacroAccess",1819,13,30,1819,{left:__wrap(spreadCounter,324),op:":=",right:__wrap(i,324)},"statement",false,false),__node("Array",1820,13,[])],null)}},"expression",false,false)}},"statement",false,false)],null));}}else if(foundSpread===-1){params.push(p);}else{init.splice(initIndex,0,__node("MacroAccess",1826,11,38,1826,{macroName:"let",macroData:{declarable:__node("MacroAccess",1826,14,37,1826,__node("MacroAccess",1826,14,31,1826,{ident:__wrap(ident,324)},"statement",false,false),"statement",false,false),value:__node("Access",1826,23,__node("Args",1826,23),__node("MacroAccess",1826,34,64,1826,{left:__wrap(spreadCounter,324),inverted:false,op:"+",right:__node("MacroAccess",1826,53,64,1826,{left:__node("MacroAccess",1826,53,64,1826,{left:__wrap(i,324),inverted:false,op:"-",right:__wrap(foundSpread,324)},"expression",false,false),inverted:false,op:"-",right:__node("Const",1826,74,1)},"expression",false,false)},"expression",false,false))}},"statement",false,false));}}if(init.length||changed||this.funcIsCurried(node)){body=this.funcBody(node);result=this.rewrap(this.func(params,__node("Block",1832,1,[__wrap(init,324),__wrap(body,324)],null),this.funcIsAutoReturn(node)&&!this.isNothing(body),this.funcIsBound(node),false,this.funcAsType(node),this.funcIsGenerator(node),this.funcGeneric(node)),node);}else{result=node;}if(this.funcIsCurried(node)){result=__node("Call",1844,19,__node("Ident",1844,19,"__curry"),[__wrap(params.length,324),__wrap(result,324)],false,false);}genericArgs=this.funcGeneric(node);if(__num(genericArgs.length)>0){genericCache=this.tmp("cache",false,"object");for(_arr=[], _arr2=__toArray(genericArgs), _i=0, _len=_arr2.length;_i<_len;++_i){genericArg=_arr2[_i];_arr.push(this.param(genericArg));}genericParams=_arr;makeFunctionIdent=this.tmp("make",false,"function");instanceofs={};for(_arr=__toArray(genericArgs), _i=0, _len=_arr.length;_i<_len;++_i){genericArg=_arr[_i];name=this.name(genericArg);key=this.tmp("instanceof_"+__strnum(name),false,"function");instanceofs[name]={key:key,"let":__node("MacroAccess",1857,17,38,1857,{macroName:"let",macroData:{declarable:__node("MacroAccess",1857,21,37,1857,__node("MacroAccess",1857,21,31,1857,{ident:__wrap(key,324)},"statement",false,false),"statement",false,false),value:__node("Call",1857,28,__node("Ident",1857,28,"__makeInstanceof"),[__wrap(genericArg,324)],false,false)}},"statement",false,false),used:false};}result=this.walk(this.macroExpandAll(result),function(node){var func,left,name,right;if(_this.isBinary(node)&&_this.op(node)==="instanceof"){right=_this.right(node);if(_this.isIdent(right)){name=_this.name(right);if(__owns.call(instanceofs,name)){func=instanceofs[name].key;instanceofs[name].used=true;left=_this.left(node);return __node("Call",1869,24,__wrap(func,377),[__wrap(left,377)],false,false);}}}});_arr=[];for(name in instanceofs){if(__owns.call(instanceofs,name)){item=instanceofs[name];if(item.used){_arr.push(item["let"]);}}}instanceofLets=_arr;if(instanceofLets.length){result=__node("Block",1875,1,[__wrap(instanceofLets,324),__wrap(result,324)],null);}makeFunctionFunc=this.func(genericParams,result,true,false);result=__node("Call",1878,18,__node("Ident",1878,18,"__genericFunc"),[__wrap(genericArgs.length,324),__wrap(makeFunctionFunc,324)],false,false);}return result;};}.call(this));',
-          operators: ["mutateFunction!"],
+          operators: "mutateFunction!",
           options: {type: "node", label: "mutateFunction"},
           id: 115
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return __node("Call",2204,7,__node("Ident",2204,7,"__keys"),[__wrap(node,440)],false,false);};}.call(this));',
-          operators: ["keys!"],
-          options: {},
+          operators: "keys!",
           id: 122
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;return __node("Call",2213,7,__node("Ident",2213,7,"__allkeys"),[__wrap(node,443)],false,false);};}.call(this));',
-          operators: ["allkeys!"],
-          options: {},
+          operators: "allkeys!",
           id: 123
         },
         {
           code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _arr,_i,_len,element,item,node,op,parts,set;op=macroData.op;node=macroData.node;set=this.tmp("s",false,"object");if(this.isArray(node)&&!this.arrayHasSpread(node)){if(this.elements(node).length===0){return __node("Call",3423,11,__node("Ident",3423,11,"Set"),[],false,false);}else{parts=[];for(_arr=__toArray(this.elements(node)), _i=0, _len=_arr.length;_i<_len;++_i){element=_arr[_i];parts.push(__node("Call",3427,23,__node("Access",3427,23,__wrap(set,1024),__node("Const",3427,29,"add")),[__wrap(element,1024)],false,false));}return __node("Block",3429,1,[__node("MacroAccess",3429,9,38,3429,{macroName:"let",macroData:{declarable:__node("MacroAccess",3429,12,37,3429,__node("MacroAccess",3429,12,31,3429,{ident:__wrap(set,1024)},"statement",false,false),"statement",false,false),value:__node("Call",3429,19,__node("Ident",3429,19,"Set"),[],false,false)}},"statement",false,false),__wrap(parts,1024),__wrap(set,1024)],null);}}else{item=this.tmp("x",false,"any");return __node("Block",3435,1,[__node("MacroAccess",3435,7,38,3435,{macroName:"let",macroData:{declarable:__node("MacroAccess",3435,10,37,3435,__node("MacroAccess",3435,10,31,3435,{ident:__wrap(set,1024)},"statement",false,false),"statement",false,false),value:__node("Call",3435,17,__node("Ident",3435,17,"Set"),[],false,false)}},"statement",false,false),__node("MacroAccess",3436,7,111,3436,{macroName:"for",macroData:{value:__node("MacroAccess",3436,10,37,3436,__node("MacroAccess",3436,10,31,3436,{ident:__wrap(item,1024)},"statement",false,false),"statement",false,false),array:__wrap(node,1024),body:__node("Call",3437,9,__node("Access",3437,9,__wrap(set,1024),__node("Const",3437,14,"add")),[__wrap(item,1024)],false,false)}},"statement",false,false),__wrap(set,1024)],null);}};}.call(this));',
-          operators: ["set!"],
+          operators: "set!",
           options: {type: "object", label: "constructSet"},
           id: 151
         },
         {
           code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _arr,_i,_len,_ref,key,map,node,op,pairs,parts,property,value;op=macroData.op;node=macroData.node;if(!this.isObject(node)){throw Error("map! can only be used on literal objects");}pairs=this.pairs(node);if(pairs.length===0){return __node("Call",3446,9,__node("Ident",3446,9,"Map"),[],false,false);}else{map=this.tmp("m",false,"object");parts=[];for(_arr=__toArray(pairs), _i=0, _len=_arr.length;_i<_len;++_i){key=(_ref=_arr[_i]).key;value=_ref.value;property=_ref.property;if(property!=null){throw Error("Cannot use map! on an object with custom properties");}parts.push(__node("Call",3453,21,__node("Access",3453,21,__wrap(map,1030),__node("Const",3453,27,"set")),[__wrap(key,1030),__wrap(value,1030)],false,false));}return __node("Block",3455,1,[__node("MacroAccess",3455,7,38,3455,{macroName:"let",macroData:{declarable:__node("MacroAccess",3455,10,37,3455,__node("MacroAccess",3455,10,31,3455,{ident:__wrap(map,1030)},"statement",false,false),"statement",false,false),value:__node("Call",3455,17,__node("Ident",3455,17,"Map"),[],false,false)}},"statement",false,false),__wrap(parts,1030),__wrap(map,1030)],null);}};}.call(this));',
-          operators: ["map!"],
+          operators: "map!",
           options: {type: "object", label: "constructMap"},
           id: 152
         }
@@ -47837,20 +47852,18 @@
       assignOperator: [
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.assign(left,"=",right);};}.call(this));',
-          operators: [":="],
+          operators: ":=",
           options: {type: "right"},
           id: 30
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){if(_this.position==="expression"){return __node("MacroAccess",293,11,1,293,{left:__wrap(setLeft,78),inverted:false,op:"and",right:__node("MacroAccess",293,27,30,293,{left:__wrap(left,78),op:":=",right:__wrap(right,78)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",295,10,19,295,{macroName:"if",macroData:{test:__wrap(setLeft,78),body:__node("MacroAccess",296,9,30,296,{left:__wrap(left,78),op:":=",right:__wrap(right,78)},"statement",false,false),elseIfs:[],elseBody:__wrap(left,78)}},"statement",false,false);}});};}.call(this));',
-          operators: ["and="],
-          options: {},
+          operators: "and=",
           id: 43
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){if(_this.position==="expression"){return __node("MacroAccess",303,11,2,303,{left:__wrap(setLeft,80),inverted:false,op:"or",right:__node("MacroAccess",303,26,30,303,{left:__wrap(left,80),op:":=",right:__wrap(right,80)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",305,10,19,305,{macroName:"if",macroData:{test:__node("MacroAccess",305,13,3,305,{op:"not",node:__wrap(setLeft,80)},"statement",false,false),body:__node("MacroAccess",306,9,30,306,{left:__wrap(left,80),op:":=",right:__wrap(right,80)},"statement",false,false),elseIfs:[],elseBody:__wrap(left,80)}},"statement",false,false);}});};}.call(this));',
-          operators: ["or="],
-          options: {},
+          operators: "or=",
           id: 44
         },
         {
@@ -47861,25 +47874,25 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",340,9,30,340,{left:__wrap(setLeft,85),op:":=",right:__node("MacroAccess",340,22,45,340,{left:__wrap(left,85),inverted:false,op:"~\\\\",right:__wrap(right,85)},"expression",false,false)},"expression",false,false);});};}.call(this));',
-          operators: ["~\\="],
+          operators: "~\\=",
           options: {type: "number"},
           id: 47
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",380,9,30,380,{left:__wrap(setLeft,95),op:":=",right:__node("MacroAccess",380,22,50,380,{left:__wrap(left,95),inverted:false,op:"~^",right:__wrap(right,95)},"expression",false,false)},"expression",false,false);});};}.call(this));',
-          operators: ["~^="],
+          operators: "~^=",
           options: {type: "number"},
           id: 51
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right,value;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isConst(right)){value=this.value(right);if(value===1){return this.unary("++",left);}else if(value===-1){return this.unary("--",left);}else if(typeof value==="number"&&!this.isType(left,"numeric")){return this.assign(left,"-=",this["const"](-value));}}if(this.isType(left,"numeric")){if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){if(!_this.isType(n,"numeric")){n=__node("MacroAccess",396,20,48,396,{op:"~+",node:__wrap(n,98)},"expression",false,false);}return _this.assign(left,"+=",n);},true);}else{if(!this.isType(right,"numeric")){right=__node("MacroAccess",400,22,48,400,{op:"~+",node:__wrap(right,96)},"expression",false,false);}return this.assign(left,"+=",right);}}else if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){return _this.assign(left,"-=",__node("MacroAccess",404,72,48,404,{op:"~-",node:__wrap(n,99)},"expression",false,false));},true);}else{return this.assign(left,"-=",__node("MacroAccess",406,31,48,406,{op:"~-",node:__wrap(right,96)},"expression",false,false));}};}.call(this));',
-          operators: ["~+="],
+          operators: "~+=",
           options: {type: "number"},
           id: 52
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right,value;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isConst(right)){value=this.value(right);if(value===1){return this.unary("--",left);}else if(value===-1){return this.unary("++",left);}}if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){return _this.assign(left,"-=",n);},true);}else{return this.assign(left,"-=",right);}};}.call(this));',
-          operators: ["~-="],
+          operators: "~-=",
           options: {type: "number"},
           id: 53
         },
@@ -47891,62 +47904,56 @@
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){if(_this.hasType(left,"numeric")&&_this.hasType(n,"numeric")){n=__node("MacroAccess",449,18,29,449,{left:__node("Const",449,19,""),inverted:false,op:"~&",right:__node("Ident",449,24,"n")},"expression",false,false);}return _this.assign(left,"+=",n);},true);}else{if(this.hasType(left,"numeric")&&this.hasType(right,"numeric")){right=__node("MacroAccess",453,20,29,453,{left:__node("Const",453,21,""),inverted:false,op:"~&",right:__node("Ident",453,26,"right")},"expression",false,false);}return this.assign(left,"+=",right);}};}.call(this));',
-          operators: ["~&="],
+          operators: "~&=",
           options: {type: "string"},
           id: 56
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",513,9,30,513,{left:__wrap(setLeft,121),op:":=",right:__node("MacroAccess",513,22,60,513,{left:__wrap(left,121),inverted:false,op:"^",right:__wrap(right,121)},"expression",false,false)},"expression",false,false);});};}.call(this));',
-          operators: ["^="],
+          operators: "^=",
           options: {type: "number"},
           id: 61
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",544,9,30,544,{left:__wrap(setLeft,127),op:":=",right:__node("MacroAccess",544,22,62,544,{left:__wrap(left,127),inverted:false,op:"\\\\",right:__wrap(right,127)},"expression",false,false)},"expression",false,false);});};}.call(this));',
-          operators: ["\\="],
+          operators: "\\=",
           options: {type: "number"},
           id: 66
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isType(left,"string")){return __node("MacroAccess",561,9,56,561,{left:__wrap(left,129),op:"~&=",right:__node("MacroAccess",561,19,67,561,{left:__node("Const",561,20,""),inverted:false,op:"&",right:__wrap(right,129)},"expression",false,false)},"expression",false,false);}else{return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",564,11,30,564,{left:__wrap(setLeft,130),op:":=",right:__node("MacroAccess",564,24,67,564,{left:__wrap(left,130),inverted:false,op:"&",right:__wrap(right,130)},"expression",false,false)},"expression",false,false);});}};}.call(this));',
-          operators: ["&="],
+          operators: "&=",
           options: {type: "string"},
           id: 68
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",742,11,19,742,{macroName:"if",macroData:{test:__node("MacroAccess",742,14,10,742,{left:__wrap(setLeft,168),inverted:false,op:"~>",right:__wrap(setRight,168)},"expression",false,false),body:__node("MacroAccess",743,9,30,743,{left:__wrap(left,168),op:":=",right:__wrap(right,168)},"statement",false,false),elseIfs:[],elseBody:__wrap(left,168)}},"expression",false,false);});});};}.call(this));',
-          operators: ["~min="],
-          options: {},
+          operators: "~min=",
           id: 84
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",750,11,19,750,{macroName:"if",macroData:{test:__node("MacroAccess",750,14,9,750,{left:__wrap(setLeft,171),inverted:false,op:"~<",right:__wrap(setRight,171)},"expression",false,false),body:__node("MacroAccess",751,9,30,751,{left:__wrap(left,171),op:":=",right:__wrap(right,171)},"statement",false,false),elseIfs:[],elseBody:__wrap(left,171)}},"expression",false,false);});});};}.call(this));',
-          operators: ["~max="],
-          options: {},
+          operators: "~max=",
           id: 85
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",758,11,19,758,{macroName:"if",macroData:{test:__node("MacroAccess",758,14,77,758,{left:__wrap(setLeft,174),inverted:false,op:">",right:__wrap(setRight,174)},"expression",false,false),body:__node("MacroAccess",759,9,30,759,{left:__wrap(left,174),op:":=",right:__wrap(right,174)},"statement",false,false),elseIfs:[],elseBody:__wrap(left,174)}},"expression",false,false);});});};}.call(this));',
-          operators: ["min="],
-          options: {},
+          operators: "min=",
           id: 86
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",766,11,19,766,{macroName:"if",macroData:{test:__node("MacroAccess",766,14,76,766,{left:__wrap(setLeft,177),inverted:false,op:"<",right:__wrap(setRight,177)},"expression",false,false),body:__node("MacroAccess",767,9,30,767,{left:__wrap(left,177),op:":=",right:__wrap(right,177)},"statement",false,false),elseIfs:[],elseBody:__wrap(left,177)}},"expression",false,false);});});};}.call(this));',
-          operators: ["max="],
-          options: {},
+          operators: "max=",
           id: 87
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",773,9,30,773,{left:__wrap(setLeft,179),op:":=",right:__node("MacroAccess",773,22,82,773,{left:__wrap(left,179),inverted:false,op:"xor",right:__wrap(right,179)},"expression",false,false)},"expression",false,false);});};}.call(this));',
-          operators: ["xor="],
-          options: {},
+          operators: "xor=",
           id: 88
         },
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){if(_this.position==="expression"){return __node("MacroAccess",779,13,18,779,{macroName:"if",macroData:{test:__node("MacroAccess",779,16,20,779,{op:"?",node:__wrap(setLeft,182)},"expression",false,false),body:__wrap(leftValue,182),elseIfs:[],elseBody:__node("MacroAccess",779,51,30,779,{left:__wrap(left,182),op:":=",right:__wrap(right,182)},"expression",false,false)}},"expression",false,false);}else{return __node("MacroAccess",781,12,19,781,{macroName:"if",macroData:{test:__node("MacroAccess",781,15,3,781,{op:"not",node:__node("MacroAccess",781,19,20,781,{op:"?",node:__wrap(setLeft,182)},"statement",false,false)},"statement",false,false),body:__node("MacroAccess",782,11,30,782,{left:__wrap(left,182),op:":=",right:__wrap(right,182)},"statement",false,false),elseIfs:[],elseBody:__wrap(leftValue,182)}},"statement",false,false);}});});};}.call(this));',
-          operators: ["?="],
-          options: {},
+          operators: "?=",
           id: 89
         },
         {
@@ -48061,16 +48068,16 @@
         {
           code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var value;value=macroData.value;value=this.macroExpand1(value);return {key:this.name(value.ident),value:value};};}.call(this));',
           options: {name: "DeclarableObjectSingularPair"},
-          params: [{
+          params: {
             type: "ident",
             name: "value",
             asType: {type: "ident", name: "DeclarableIdent"}
-          }],
+          },
           id: 33
         },
         {
           options: {name: "DeclarableObjectDualPair"},
-          params: [{
+          params: {
             type: "this",
             asType: {
               type: "sequence",
@@ -48088,12 +48095,12 @@
                 }
               ]
             }
-          }],
+          },
           id: 34
         },
         {
           options: {name: "DeclarableObjectPair"},
-          params: [{
+          params: {
             type: "this",
             asType: {
               type: "choice",
@@ -48102,7 +48109,7 @@
                 {type: "ident", name: "DeclarableObjectSingularPair"}
               ]
             }
-          }],
+          },
           id: 35
         },
         {
@@ -48139,7 +48146,7 @@
         },
         {
           options: {name: "Declarable"},
-          params: [{
+          params: {
             type: "this",
             asType: {
               type: "choice",
@@ -48149,7 +48156,7 @@
                 {type: "ident", name: "DeclarableIdent"}
               ]
             }
-          }],
+          },
           id: 37
         }
       ]
