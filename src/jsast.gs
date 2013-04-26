@@ -103,6 +103,9 @@ exports.Node := class Node
   
   def exit-type() -> null
   def last() -> this
+  
+  def to-JSON() -> [@constructor.name, @pos.line, @pos.column, @pos.file or 0, ...@_to-JSON()]
+  def _to-JSON() -> []
 
 exports.Expression := class Expression extends Node
   def constructor()
@@ -132,9 +135,11 @@ exports.Access := #(pos, parent, ...children)
   for reduce child in children, current = parent
     Binary pos, current, ".", child
 
-let make-pos(line as Number, column as Number, file as String|void)
+let make-pos(line as Number, column as Number, file as String|Number|void)
   let pos = { line, column }
   if file
+    if not is-string! file
+      throw TypeError "Must provide a valid string for file"
     pos.file := file
   pos
 
@@ -148,8 +153,7 @@ exports.Arguments := class Arguments extends Expression
   def walk() -> this
   def is-noop() -> true
   def inspect(depth) -> inspect-helper depth, "Arguments", @pos
-  def to-JSON() -> { type: "Arguments", @pos.line, @pos.column, @pos.file }
-  @from-JSON := #({line, column, file}) -> Arguments(make-pos(line, column, file))
+  @from-JSON := #(line, column, file) -> Arguments(make-pos(line, column, file))
 
 let walk-array(array as [], walker as ->)
   let mutable changed = false
@@ -190,14 +194,27 @@ let inspect-helper(depth, name, pos, ...args)
   else
     "$name($(parts.join ', '))"
 
-let simplify(obj)
+let simplify-array(array as [], child-default-value, keep-trailing as Boolean)
+  if array.length == 0
+    array
+  else
+    let result = []
+    let mutable last-noop = -1
+    for item, i in array
+      if item instanceof Noop
+        last-noop := i
+      else
+        last-noop := -1
+      result.push simplify(item, child-default-value)
+    if not keep-trailing and last-noop != -1
+      result.splice last-noop, Infinity
+    result
+
+let simplify(obj, default-value)
   if is-array! obj
-    if obj.length == 0
-      void
-    else
-      return for item in obj; simplify(item)
+    simplify-array(obj)
   else if obj instanceof Noop
-    void
+    default-value
   else
     obj
 
@@ -263,8 +280,8 @@ exports.Arr := class Arr extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Arr", @pos, @elements
   
-  def to-JSON() -> { type: "Arr", @pos.line, @pos.column, @pos.file, elements: simplify(@elements) }
-  @from-JSON := #({line, column, file, elements}) -> Arr make-pos(line, column, file), array-from-JSON(elements)
+  def _to-JSON() -> simplify-array(@elements, 0)
+  @from-JSON := #(line, column, file, ...elements) -> Arr make-pos(line, column, file), array-from-JSON(elements)
 
 exports.Assign := #(pos, left, right)
   Binary pos, left, "=", right
@@ -480,8 +497,12 @@ exports.Binary := class Binary extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Binary", @pos, @left, @op, @right
   
-  def to-JSON() -> { type: "Binary", @pos.line, @pos.column, @pos.file, left: simplify(@left), @op, right: simplify(@right) }
-  @from-JSON := #({line, column, file, left, op, right}) -> Binary make-pos(line, column, file), from-JSON(left), op, from-JSON(right)
+  def _to-JSON()
+    let result = [simplify(@left, 0), @op]
+    if simplify(@right)
+      result.push ...@right.to-JSON()
+    result
+  @from-JSON := #(line, column, file, left, op, ...right) -> Binary make-pos(line, column, file), from-JSON(left), op, from-JSON(right)
 
 exports.BlockStatement := class BlockStatement extends Statement
   def constructor(@pos as {}, body as [Node] = [], @label as Ident|null)
@@ -570,8 +591,8 @@ exports.BlockStatement := class BlockStatement extends Statement
   
   def inspect(depth) -> inspect-helper depth, "BlockStatement", @pos, @body, @label
   
-  def to-JSON() -> { type: "BlockStatement", @pos.line, @pos.column, @pos.file, @body, label: @label ? void }
-  @from-JSON := #({line, column, file, body, label}) -> BlockStatement make-pos(line, column, file), array-from-JSON(body), if label? then from-JSON(label) else null
+  def _to-JSON() -> [@label or 0, ...@body]
+  @from-JSON := #(line, column, file, label, ...body) -> BlockStatement make-pos(line, column, file), array-from-JSON(body), if label then from-JSON(label) else null
 
 exports.BlockExpression := class BlockExpression extends Expression
   def constructor(@pos as {}, body as [Expression] = [])
@@ -653,8 +674,8 @@ exports.BlockExpression := class BlockExpression extends Expression
   
   def inspect(depth) -> inspect-helper depth, "BlockExpression", @pos, @body
   
-  def to-JSON() -> { type: "BlockExpression", @pos.line, @pos.column, @pos.file, @body }
-  @from-JSON := #({line, column, file, body}) -> BlockExpression make-pos(line, column, file), array-from-JSON(body)
+  def _to-JSON() -> @body
+  @from-JSON := #(line, column, file, ...body) -> BlockExpression make-pos(line, column, file), array-from-JSON(body)
 
 let Block = exports.Block := #(pos, body as [Node] = [], label as Ident|null)
   if body.length == 0
@@ -697,8 +718,8 @@ exports.Break := class Break extends Statement
   
   def is-large() -> false
   
-  def to-JSON() -> { type: "Break", @pos.line, @pos.column, @pos.file, label: @label ? void }
-  @from-JSON := #({line, column, file, label}) -> Break make-pos(line, column, file), if label then from-JSON(label) else null
+  def _to-JSON() -> if @label? then [@label] else []
+  @from-JSON := #(line, column, file, label) -> Break make-pos(line, column, file), if label then from-JSON(label) else null
 
 exports.Call := class Call extends Expression
   def constructor(@pos as {}, @func as Expression = Noop(pos), @args as [Expression] = [], @is-new as Boolean) ->
@@ -774,8 +795,8 @@ exports.Call := class Call extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Call", @pos, @func, @args, @is-new
   
-  def to-JSON() -> { type: "Call", @pos.line, @pos.column, @pos.file, func: simplify(@func), args: simplify(@args), is-new: @is-new or void }
-  @from-JSON := #({line, column, file, func, args, is-new}) -> Call make-pos(line, column, file), from-JSON(func), array-from-JSON(args), is-new
+  def _to-JSON() -> [simplify(@func, 0), if @is-new then 1 else 0, ...simplify-array(@args, 0)]
+  @from-JSON := #(line, column, file, func, is-new, ...args) -> Call make-pos(line, column, file), from-JSON(func), array-from-JSON(args), not not is-new
 
 exports.Comment := class Comment extends Statement
   def constructor(@pos as {}, @text as String)
@@ -801,8 +822,8 @@ exports.Comment := class Comment extends Statement
   
   def inspect(depth) -> inspect-helper "Comment", @pos, @text
   
-  def to-JSON() -> { type: "Comment", @pos.line, @pos.column, @pos.file, @text }
-  @from-JSON := #({line, column, file, text}) -> Comment(make-pos(line, column, file), text)
+  def _to-JSON() -> [@text]
+  @from-JSON := #(line, column, file, text) -> Comment(make-pos(line, column, file), text)
 
 exports.Const := class Const extends Expression
   def constructor(@pos as {}, @value as void|null|Boolean|Number|String) ->
@@ -834,26 +855,33 @@ exports.Const := class Const extends Expression
   
   def inspect(depth) -> "Const($(inspect @value, null, dec-depth depth))"
   
-  def to-JSON()
-    let result = { type: "Const", @pos.line, @pos.column, @pos.file, @value }
+  def _to-JSON()
     if is-number! @value and not is-finite(@value)
-      result.infinite := true
-      if @value == Infinity
-        result.value := 1
-      else if @value == -Infinity
-        result.value := -1
-      else if @value is NaN
-        result.value := 0
-    else if @value == 0
-      result.sign := if is-negative(@value) then -1 else 1
-    result
-  @from-JSON := #(obj)
-    Const make-pos(obj.line, obj.column, obj.file), if obj.infinite
-      obj.value / 0
-    else if obj.value == 0
-      if obj.sign and obj.sign < 0 then -0 else 0
+      [
+        if @value > 0
+          1
+        else if @value < 0
+          -1
+        else
+          0
+        1
+      ]
+    else if @value == 0 and is-negative(@value)
+      [
+        0
+        2
+      ]
+    else if is-undefined! @value
+      []
     else
-      obj.value
+      [@value]
+  @from-JSON := #(line, column, file, value, state)
+    Const make-pos(line, column, file), if state == 1
+      value / 0
+    else if value == 0 and state == 2
+      -0
+    else
+      value
 
 exports.Continue := class Continue extends Statement
   def constructor(@pos as {}, @label as Ident|null) ->
@@ -887,8 +915,8 @@ exports.Continue := class Continue extends Statement
   
   def inspect(depth) -> inspect-helper depth, "Continue", @pos, @label
   
-  def to-JSON() -> { type: "Continue", @pos.line, @pos.column, @pos.file, label: @label ? void }
-  @from-JSON := #({line, column, file, label}) -> Continue make-pos(line, column, file), if label then from-JSON(label) else null
+  def _to-JSON() -> if @label? then [@label] else []
+  @from-JSON := #(line, column, file, label) -> Continue make-pos(line, column, file), if label then from-JSON(label) else null
 
 exports.Debugger := class Debugger extends Statement
   def constructor(@pos as {}) ->
@@ -905,8 +933,7 @@ exports.Debugger := class Debugger extends Statement
   
   def inspect(depth) -> inspect-helper depth, "Debugger", @pos
   
-  def to-JSON() -> { type: "Debugger", @pos.line, @pos.column, @pos.file }
-  @from-JSON := #({line, column, file}) -> Debugger(make-pos(line, column, file))
+  @from-JSON := #(line, column, file) -> Debugger(make-pos(line, column, file))
 
 exports.DoWhile := class DoWhile extends Statement
   def constructor(@pos as {}, body as Node = Noop(pos), @test as Expression = Noop(pos), @label as Ident|null)
@@ -967,8 +994,8 @@ exports.DoWhile := class DoWhile extends Statement
 
   def inspect(depth) -> inspect-helper depth, "DoWhile", @pos, @body, @test, @label
   
-  def to-JSON() -> { type: "DoWhile", @pos.line, @pos.column, @pos.file, body: simplify(@body), test: simplify(@test), label: @label ? void }
-  @from-JSON := #({line, column, file, body, test, label}) -> DoWhile make-pos(line, column, file), from-JSON(body), from-JSON(test), if label? then from-JSON(label) else null
+  def _to-JSON() -> [@label or 0, simplify(@test, 0), simplify(@body, 0)]
+  @from-JSON := #(line, column, file, label, test, body) -> DoWhile make-pos(line, column, file), from-JSON(body), from-JSON(test), if label then from-JSON(label) else null
 
 exports.Eval := class Eval extends Expression
   def constructor(@pos as {}, mutable code = Noop(pos))
@@ -998,8 +1025,8 @@ exports.Eval := class Eval extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Eval", @pos, @code
   
-  def to-JSON() -> { type: "Eval", @pos.line, @pos.column, @pos.file, code: simplify(@code) }
-  @from-JSON := #({line, column, file, code}) -> Eval make-pos(line, column, file), from-JSON(code)
+  def _to-JSON() -> [simplify(@code, 0)]
+  @from-JSON := #(line, column, file, code) -> Eval make-pos(line, column, file), from-JSON(code)
 
 exports.For := class For extends Statement
   def constructor(@pos as {}, @init as Expression = Noop(pos), mutable test = Const(pos, true), @step as Expression = Noop(pos), body as Node, @label as Ident|null)
@@ -1083,17 +1110,12 @@ exports.For := class For extends Statement
   
   def inspect(depth) -> inspect-helper depth, "For", @pos, @init, @test, @step, @body, @label
   
-  def to-JSON()
-    type: "For"
-    line: @pos.line
-    column: @pos.column
-    file: @pos.file
-    init: simplify(@init)
-    test: simplify(@test)
-    step: simplify(@step)
-    body: simplify(@body)
-    label: @label ? void
-  @from-JSON := #({line, column, file, init, test, step, body, label}) -> For make-pos(line, column, file), from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body), if label? then from-JSON(label) else null
+  def _to-JSON()
+    let result = [@label or 0, simplify(@init, 0), simplify(@test, 0), simplify(@step, 0)]
+    if simplify(@body)
+      result.push ...@body.to-JSON()
+    result
+  @from-JSON := #(line, column, file, label, init, test, step, ...body) -> For make-pos(line, column, file), from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body), if label then from-JSON(label) else null
 
 exports.ForIn := class ForIn extends Statement
   def constructor(@pos as {}, @key as Ident, @object as Expression = Noop(line, column), body as Node = Noop(line, column), @label as Ident|null)
@@ -1150,16 +1172,12 @@ exports.ForIn := class ForIn extends Statement
   
   def inspect(depth) -> inspect-helper depth, "ForIn", @pos, @key, @object, @body, @label
   
-  def to-JSON()
-    type: "ForIn"
-    line: @pos.line
-    column: @pos.column
-    file: @pos.file
-    key: @key
-    object: simplify(@object)
-    body: simplify(@body)
-    label: @label ? void
-  @from-JSON := #({line, column, file, key, object, body, label}) -> ForIn make-pos(line, column, file), from-JSON(key), from-JSON(object), from-JSON(body), if label? then from-JSON(label) else null
+  def _to-JSON()
+    let result = [@label or 0, @key, simplify(@object, 0)]
+    if simplify(@body)
+      result.push ...@body.to-JSON()
+    result
+  @from-JSON := #(line, column, file, label, key, object, ...body) -> ForIn make-pos(line, column, file), from-JSON(key), from-JSON(object), from-JSON(body), if label then from-JSON(label) else null
 
 let validate-func-params-and-variables(params, variables)!
   let names = []
@@ -1270,8 +1288,12 @@ exports.Func := class Func extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Func", @pos, @name, @params, @variables, @body, @declarations, @meta
   
-  def to-JSON() -> { type: "Func", @pos.line, @pos.column, @pos.file, name: @name or void, params: simplify(@params), variables: simplify(@variables), body: simplify(@body), declarations: simplify(@declarations) }
-  @from-JSON := #({line, column, file, name, params, variables, body, declarations})
+  def _to-JSON()
+    let result = [@name or 0, simplify-array(@params, 0), simplify-array(@variables, 0), simplify-array(@declarations, 0)]
+    if simplify(@body)
+      result.push ...@body.to-JSON()
+    result
+  @from-JSON := #(line, column, file, name, params, variables, declarations, ...body)
     Func make-pos(line, column, file), (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations
 
 exports.Ident := class Ident extends Expression
@@ -1294,8 +1316,8 @@ exports.Ident := class Ident extends Expression
   
   def is-noop() -> true
   
-  def to-JSON() -> { type: "Ident", @pos.line, @pos.column, @pos.file, @name }
-  @from-JSON := #({line, column, file, name}) -> Ident make-pos(line, column, file), name
+  def _to-JSON() -> [@name]
+  @from-JSON := #(line, column, file, name) -> Ident make-pos(line, column, file), name
 
 exports.IfStatement := class IfStatement extends Statement
   def constructor(@pos as {}, mutable test as Expression = Noop(pos), mutable when-true as Node = Noop(pos), mutable when-false as Node = Noop(pos), @label as Ident|null)
@@ -1418,8 +1440,12 @@ exports.IfStatement := class IfStatement extends Statement
   
   def inspect(depth) -> inspect-helper depth, "IfStatement", @pos, @test, @when-true, @when-false
   
-  def to-JSON() -> { type: "IfStatement", @pos.line, @pos.column, @pos.file, test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false), label: @label ? void }
-  @from-JSON := #({line, column, file, test, when-true, when-false, label}) -> IfStatement make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false), if label? then from-JSON(label) else null
+  def _to-JSON()
+    let result = [@label or 0, simplify(@test, 0), simplify(@when-true, 0)]
+    if simplify(@when-false)
+      result.push ...@when-false.to-JSON()
+    result
+  @from-JSON := #(line, column, file, label, test, when-true, ...when-false) -> IfStatement make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false), if label then from-JSON(label) else null
 
 exports.IfExpression := class IfExpression extends Expression
   def constructor(@pos as {}, mutable test as Expression = Noop(pos), mutable when-true = Noop(pos), mutable when-false = Noop(pos))
@@ -1514,8 +1540,12 @@ exports.IfExpression := class IfExpression extends Expression
   
   def inspect(depth) -> inspect-helper depth, "IfExpression", @pos, @test, @when-true, @when-false
   
-  def to-JSON() -> { type: "IfExpression", @pos.line, @pos.column, @pos.file, test: simplify(@test), when-true: simplify(@when-true), when-false: simplify(@when-false) }
-  @from-JSON := #({line, column, file, test, when-true, when-false}) -> IfExpression make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false)
+  def _to-JSON()
+    let result = [simplify(@test, 0), simplify(@when-true, 0)]
+    if simplify(@when-false)
+      result.push ...@when-false.to-JSON()
+    result
+  @from-JSON := #(line, column, file, test, when-true, ...when-false) -> IfExpression make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false)
 
 let If = exports.If := #(pos as {}, test, when-true, when-false, label)
   if when-true instanceof Statement or when-false instanceof Statement or label?
@@ -1545,8 +1575,7 @@ exports.Noop := class Noop extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Noop", @pos
   
-  def to-JSON() -> { type: "Noop", @pos.line, @pos.column, @pos.file }
-  @from-JSON := #({line, column, file}) -> Noop make-pos(line, column, file)
+  @from-JSON := #(line, column, file) -> Noop make-pos(line, column, file)
 
 exports.Obj := class Obj extends Expression
   let validate-unique-keys(elements)!
@@ -1652,19 +1681,21 @@ exports.Obj := class Obj extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Obj", @pos, @elements
   
-  def to-JSON()
-    type: "Obj"
-    line: @pos.line
-    column: @pos.column
-    file: @pos.file
-    elements: simplify(for pair in @elements
-      { pair.pos.line, pair.pos.column, pair.pos.file, pair.key, value: simplify(pair.value) })
-  @from-JSON := #({line, column, file, elements})
+  def _to-JSON()
+    let result = []
+    for pair in @elements
+      let pos = pair.pos
+      result.push pos.line, pos.column, pos.file, pair.key, simplify(pair.value)
+    result
+  @from-JSON := #(line, column, file, ...element-data)
     let result-pairs = []
-    for pair in (elements or [])
-      if not pair or not is-object! pair
-        throw Error "Expecting an object with a key and value"
-      result-pairs.push ObjPair make-pos(pair.line, pair.column, pair.file), pair.key, from-JSON(pair.value)
+    for i in 0 til element-data.length by 5
+      let p-line = element-data[i]
+      let p-column = element-data[i + 1]
+      let p-file = element-data[i + 2]
+      let key = element-data[i + 3]
+      let value = element-data[i + 4]
+      result-pairs.push ObjPair make-pos(p-line, p-column, p-file), key, from-JSON(value)
     Obj make-pos(line, column, file), result-pairs
   
   Obj.Pair := class ObjPair
@@ -1702,10 +1733,9 @@ exports.Regex := class Regex extends Expression
   def walk() -> this
 
   def inspect(depth) -> inspect-helper depth, "Regex", @pos, @source, @flags
-
-  def to-JSON()
-    { type: "Regex", @pos.line, @pos.column, @pos.file, @source, @flags }
-  @from-JSON := #({line, column, file, source, flags}) -> Regex make-pos(line, column, file), source, flags
+  
+  def _to-JSON() -> [@source, @flags]
+  @from-JSON := #(line, column, file, source, flags) -> Regex make-pos(line, column, file), source, flags
 
 exports.Return := class Return extends Statement
   def constructor(@pos as {}, @node as Expression = Noop(pos))
@@ -1748,8 +1778,12 @@ exports.Return := class Return extends Statement
     else
       this
   
-  def to-JSON() -> { type: "Return", @pos.line, @pos.column, @pos.file, node: simplify(@node) }
-  @from-JSON := #({line, column, file, node}) -> Return make-pos(line, column, file), from-JSON(node)
+  def _to-JSON()
+    if simplify(@node)
+      @node.to-JSON()
+    else
+      []
+  @from-JSON := #(line, column, file, ...node) -> Return make-pos(line, column, file), from-JSON(node)
 
 exports.Root := class Root
   def constructor(@pos as {}, @body as Node = Noop(pos), @variables as [String] = [], @declarations as [String] = [])
@@ -1827,8 +1861,12 @@ exports.Root := class Root
   
   def inspect(depth) -> inspect-helper depth, "Root", @pos, @body, @variables, @declarations
   
-  def to-JSON() -> { type: "Root", @pos.line, @pos.column, @pos.file, body: simplify(@body), variables: simplify(@variables), declarations: simplify(@declarations) }
-  @from-JSON := #({line, column, file, body, variables, declarations}) -> Root make-pos(line, column, file), from-JSON(body), variables, declarations
+  def _to-JSON()
+    let result = [simplify-array(@variables, 0), simplify-array(@declarations, 0)]
+    if simplify(@body)
+      result.push ...@body.to-JSON()
+    result
+  @from-JSON := #(line, column, file, variables, declarations, ...body) -> Root make-pos(line, column, file), from-JSON(body), variables, declarations
 
 exports.This := class This extends Expression
   def constructor(@pos as {}) ->
@@ -1845,8 +1883,7 @@ exports.This := class This extends Expression
   
   def inspect(depth) -> inspect-helper depth, "This", @pos
   
-  def to-JSON() -> { type: "This", @pos.line, @pos.column, @pos.file }
-  @from-JSON := #({line, column, file}) -> This(make-pos(line, column, file))
+  @from-JSON := #(line, column, file) -> This(make-pos(line, column, file))
 
 exports.Throw := class Throw extends Statement
   def constructor(@pos as {}, @node as Expression = Noop(line, column))
@@ -1877,8 +1914,12 @@ exports.Throw := class Throw extends Statement
   
   def inspect(depth) -> inspect-helper depth, "Throw", @pos, @node
   
-  def to-JSON() -> { type: "Throw", @pos.line, @pos.column, @pos.file, node: simplify(@node) }
-  @from-JSON := #({line, column, file, node}) -> Throw make-pos(line, column, file), from-JSON(node)
+  def _to-JSON()
+    if simplify(@node)
+      @node.to-JSON()
+    else
+      []
+  @from-JSON := #(line, column, file, ...node) -> Throw make-pos(line, column, file), from-JSON(node)
 
 exports.Switch := class Switch extends Statement
   def constructor(@pos as {}, mutable node = Noop(pos), @cases as [SwitchCase] = [], default-case as Node = Noop(pos), @label as Ident|null)
@@ -1960,23 +2001,33 @@ exports.Switch := class Switch extends Statement
   
   def inspect(depth) -> @inspect-helper depth, "Switch", @pos, @node, @cases, @default-case, @label
   
-  def to-JSON()
-    type: "Switch"
-    line: @pos.line
-    column: @pos.column
-    file: @pos.file
-    node: simplify(@node)
-    cases: simplify(for case_ in @cases
-      { case_.pos.line, case_.pos.column, case_.pos.file, node: simplify(case_.node), body: simplify(case_.body) })
-    default-case: simplify(@default-case)
-    label: @label ? void
-  @from-JSON := #({line, column, file, node, cases, default-case, label})
+  def _to-JSON()
+    let result = [@label or 0, simplify(@node, 0)]
+    for case_ in @cases
+      result.push case_.pos.line, case_.pos.column, case_.pos.file, simplify(case_.node, 0), simplify(case_.body, 0)
+    if @default-case not instanceof Noop
+      result.push simplify(@default-case, 0)
+    result
+  @from-JSON := #(line, column, file, label, node, ...case-data)
+    let mutable len = case-data.length
+    let mutable default-case = void
+    switch len % 5
+    case 0
+      void
+    case 1
+      len -= 1
+      default-case := case-data[len]
+    default
+      throw Error "Unknown number of arguments passed to fromJSON"
     let result-cases = []
-    for case_ in (cases or [])
-      if not is-object! case_
-        throw Error "Expected an object with a node and body"
-      result-cases.push SwitchCase make-pos(case_.line, case_.column, case_.file), from-JSON(case_.node), from-JSON(case_.body)
-    Switch make-pos(line, column, file), from-JSON(node), result-cases, from-JSON(default-case), if label? then from-JSON(label) else null
+    for i in 0 til len by 5
+      let c-line = case-data[i]
+      let c-column = case-data[i + 1]
+      let c-file = case-data[i + 2]
+      let c-node = case-data[i + 3]
+      let c-body = case-data[i + 4]
+      result-cases.push SwitchCase make-pos(c-line, c-column, c-file), from-JSON(c-node), from-JSON(c-body)
+    Switch make-pos(line, column, file), from-JSON(node), result-cases, from-JSON(default-case), if label then from-JSON(label) else null
   
   Switch.Case := class SwitchCase
     def constructor(@pos as {}, mutable node = Noop(pos), body as Node = Noop(pos))
@@ -2053,16 +2104,12 @@ exports.TryCatch := class TryCatch extends Statement
   
   def inspect(depth) -> inspect-helper depth, "TryCatch", @pos, @try-body, @catch-ident, @catch-body, @label
   
-  def to-JSON()
-    type: "TryCatch"
-    line: @pos.line
-    column: @pos.column
-    file: @pos.file
-    try-body: simplify(@try-body)
-    catch-ident: @catch-ident
-    catch-body: simplify(@catch-body)
-    label: @label ? void
-  @from-JSON := #({line, column, file, try-body, catch-ident, catch-body, label}) -> TryCatch make-pos(line, column, file), from-JSON(try-body), from-JSON(catch-ident), from-JSON(catch-body), if label? then from-JSON(label) else null
+  def _to-JSON()
+    let result = [@label or 0, simplify(@try-body, 0), @catch-ident]
+    if simplify(@catch-body)
+      result.push ...@catch-body.to-JSON()
+    result
+  @from-JSON := #(line, column, file, label, try-body, catch-ident, ...catch-body) -> TryCatch make-pos(line, column, file), from-JSON(try-body), from-JSON(catch-ident), from-JSON(catch-body), if label then from-JSON(label) else null
 
 exports.TryFinally := class TryFinally extends Statement
   def constructor(@pos as {}, try-body as Node = Noop(pos), finally-body as Node = Noop(pos), @label as Ident|null)
@@ -2134,15 +2181,12 @@ exports.TryFinally := class TryFinally extends Statement
   
   def inspect(depth) -> inspect-helper depth, "TryFinally", @pos, @try-body, @finally-body, @label
   
-  def to-JSON()
-    type: "TryFinally"
-    line: @pos.line
-    column: @pos.column
-    file: @pos.file
-    try-body: simplify(@try-body)
-    finally-body: simplify(@finally-body)
-    label: @label ? void
-  @from-JSON := #({line, column, file, try-body, finally-body, label}) -> TryFinally make-pos(line, column, file), from-JSON(try-body), from-JSON(finally-body), if label? then from-JSON(label) else null
+  def _to-JSON()
+    let result = [@label or 0, simplify(@try-body, 0)]
+    if simplify(@finally-body)
+      result.push ...@finally-body.to-JSON()
+    result
+  @from-JSON := #(line, column, file, label, try-body, ...finally-body) -> TryFinally make-pos(line, column, file), from-JSON(try-body), from-JSON(finally-body), if label then from-JSON(label) else null
 
 exports.Unary := class Unary extends Expression
   def constructor(@pos as {}, @op as String, mutable node = Noop(line, column))
@@ -2224,29 +2268,40 @@ exports.Unary := class Unary extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Unary", @pos, @op, @node
   
-  def to-JSON() -> { type: "Unary", @pos.line, @pos.column, @pos.file, @op, node: simplify(@node) }
-  @from-JSON := #({line, column, file, op, node}) -> Unary make-pos(line, column, file), op, from-JSON(node)
+  def _to-JSON()
+    let result = [@op]
+    if simplify(@node)
+      result.push ...@node.to-JSON()
+    result
+  @from-JSON := #(line, column, file, op, ...node) -> Unary make-pos(line, column, file), op, from-JSON(node)
 
 let While = exports.While := #(pos, test, body, label)
   For(pos, null, test, null, body, label)
 
 let from-JSON = exports.from-JSON := #(obj)
-  if not obj?
+  if not obj
     return Noop(make-pos(0, 0))
   
-  if not is-object! obj
-    throw TypeError "Must provide an object to deserialize"
-  
   if is-array! obj
-    throw TypeError "Not expecting an array"
+    if obj.length == 0
+      return Noop(make-pos(0, 0))
+    let type = obj[0]
+    if obj.length < 1 or not is-string! type
+      throw Error "Expected an array with a string as its first item"
+    if exports not ownskey type
+      throw Error "Unknown node type: $(obj.type)"
+
+    exports[type].from-JSON(...obj[1 til Infinity])
+  else if is-object! obj
+    if not is-string! obj.type
+      throw Error "Expected an object with a string 'type' key"
   
-  if not is-string! obj.type
-    throw Error "Expected an object with a string 'type' key"
+    if exports not ownskey obj.type
+      throw Error "Unknown node type: $(obj.type)"
   
-  if exports not ownskey obj.type
-    throw Error "Unknown node type: $(obj.type)"
-  
-  exports[obj.type].from-JSON(obj)
+    exports[obj.type].from-JSON(obj)
+  else 
+    throw TypeError "Must provide an object or array to deserialize"
 
 let array-from-JSON(array)
   if not array?

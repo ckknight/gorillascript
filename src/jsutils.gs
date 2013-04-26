@@ -66,7 +66,7 @@ let to-JS-source = do
   let more-indent(options)
     { extends options, indent: options.indent + 1 }
   let LARGE_CHARACTER_SIZE = 50
-  let LARGE_CONTAINER_SIZE = 5
+  let LARGE_CONTAINER_SIZE = 7
   let is-large(value)
     if not value?
       false

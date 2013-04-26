@@ -5970,65 +5970,81 @@ class State
   
   let serialize-param-type(as-type)
     if as-type instanceof IdentNode
-      { type: \ident, as-type.name }
+      //{ type: \ident, as-type.name }
+      [\ident, as-type.name]
     else if as-type instanceof SyntaxSequenceNode
-      { type: \sequence, items: serialize-params(as-type.params) }
+      //{ type: \sequence, items: serialize-params(as-type.params) }
+      [\sequence, ...fix-array serialize-params(as-type.params)]
     else if as-type instanceof SyntaxChoiceNode
-      { type: \choice, choices: for choice in as-type.choices; serialize-param-type(choice) }
+      //{ type: \choice, choices: for choice in as-type.choices; serialize-param-type(choice) }
+      [\choice, ...for choice in as-type.choices; serialize-param-type(choice)]
     else if as-type.is-const()
-      { type: \const, value: as-type.const-value() }
+      //{ type: \const, value: as-type.const-value() }
+      [\const, as-type.const-value()]
     else if as-type instanceof SyntaxManyNode
-      { type: \many, as-type.multiplier, inner: serialize-param-type(as-type.inner) }
+      //{ type: \many, as-type.multiplier, inner: serialize-param-type(as-type.inner) }
+      [\many, as-type.multiplier, ...serialize-param-type(as-type.inner)]
     else
-      throw Error()
+      throw Error("Unknown param type: $(typeof! as-type)")
   let serialize-params(params)
     simplify-array for param in params
       if param.is-const()
-        { type: \const, value: param.const-value() }
+        [\const, param.const-value()]
       else if param instanceof SyntaxParamNode
         let {ident} = param
         let value = if ident instanceof IdentNode
-          { type: \ident, ident.name }
+          [\ident, ident.name]
         else if ident instanceof ThisNode
-          { type: \this }
+          [\this]
         else
           throw Error()
         if param.as-type
-          value.as-type := serialize-param-type(param.as-type)
+          value.push ...serialize-param-type(param.as-type)
         value
       else
         throw Error()
-  let deserialize-param-type(as-type, scope-id)
-    if not as-type?
-      return void
-    switch as-type.type
-    case \ident
-      IdentNode 0, 0, scope-id, as-type.name
-    case \sequence
-      SyntaxSequenceNode 0, 0, scope-id, deserialize-params(as-type.items, scope-id)
-    case \choice
-      SyntaxChoiceNode 0, 0, scope-id, for choice in as-type.choices; deserialize-param-type(choice, scope-id)
-    case \const
-      ConstNode 0, 0, scope-id, as-type.value
-    case \many
-      SyntaxManyNode 0, 0, scope-id, deserialize-param-type(as-type.inner, scope-id), as-type.multiplier
-    default
-      throw Error "Unknown as-type: $(String as-type.type)"
-  let deserialize-params(mutable params, scope-id)
-    if not is-array! params
-      deserialize-params fix-array(params), scope-id
-    else
-      return for param in params
-        if param.type == \const
-          ConstNode 0, 0, scope-id, param.value
+  let deserialize-param-type = do
+    let deserialize-param-type-by-type =
+      ident: #(scope-id, name)
+        IdentNode 0, 0, scope-id, name
+      sequence: #(scope-id, ...items)
+        SyntaxSequenceNode 0, 0, scope-id, deserialize-params(items, scope-id)
+      choice: #(scope-id, ...choices)
+        SyntaxChoiceNode 0, 0, scope-id, for choice in choices; deserialize-param-type(choice, scope-id)
+      const: #(scope-id, value)
+        ConstNode 0, 0, scope-id, value
+      many: #(scope-id, multiplier, ...inner)
+        SyntaxManyNode 0, 0, scope-id, deserialize-param-type(inner, scope-id), multiplier
+    #(as-type as [] = [], scope-id)
+      if as-type.length == 0
+        return void
+      else
+        let type = as-type[0]
+        if deserialize-param-type-by-type ownskey type
+          deserialize-param-type-by-type[type] scope-id, ...as-type[1 til Infinity]
         else
-          let node = if param.type == \ident
-            IdentNode 0, 0, scope-id, param.name
-          else if param.type == \this
-            ThisNode 0, 0, scope-id
-          else
-            throw Error "Unknown param: $(String param.type)"
-          SyntaxParamNode 0, 0, scope-id, node, deserialize-param-type(param.as-type, scope-id)
+          throw Error "Unknown as-type: $(String type)"
+  let deserialize-params = do
+    let deserialize-param-by-type =
+      const: #(scope-id, value)
+        ConstNode 0, 0, scope-id, value
+      ident: #(scope-id, name, ...as-type)
+        SyntaxParamNode 0, 0,
+          scope-id
+          IdentNode 0, 0, scope-id, name
+          deserialize-param-type(as-type, scope-id)
+      this: #(scope-id, ...as-type)
+        SyntaxParamNode 0, 0,
+          scope-id
+          ThisNode 0, 0, scope-id
+          deserialize-param-type(as-type, scope-id)
+    #(params, scope-id)
+      return for param in fix-array(params)
+        let [type] = param
+        if deserialize-param-by-type ownskey type
+          deserialize-param-by-type[type] scope-id, ...param[1 til Infinity]
+        else
+          throw Error "Unknown param type: $(String type)"
   
   let calc-param(param)
     if param instanceof IdentNode
@@ -6092,7 +6108,14 @@ class State
   let simplify-object(options as {})
     for k, v of options
       return options
-    return void
+    return void  
+  let get-compilation-options(state-options as {})
+    if state-options.serialize-macros
+      {
+        +minify
+      }
+    else
+      {}
   let macro-syntax-types =
     syntax: #(index, params, mutable body, options, state-options, translator)
       let macro-full-data-ident = @ident index, \macro-full-data
@@ -6117,7 +6140,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
+      let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
       if not is-function! handler
@@ -6153,7 +6176,7 @@ class State
           ]
           let raw-func = make-macro-root@ this, index, func-param, body
           let translated = translator(@macro-expand-all(raw-func).reduce(state), @macros, return: true)
-          let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
+          let compilation = translated.node.to-string(get-compilation-options state-options)
           if state-options.serialize-macros
             serialization := compilation
           let handler = Function(compilation)()
@@ -6195,7 +6218,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
+      let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if not is-function! handler
@@ -6229,7 +6252,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
+      let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if not is-function! handler
@@ -6271,7 +6294,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
+      let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if not is-function! handler
@@ -6304,7 +6327,7 @@ class State
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
-      let compilation = translated.node.to-string(minify: not not state-options.serialize-macros)
+      let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
       if not is-function! handler
