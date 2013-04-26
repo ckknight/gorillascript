@@ -180,14 +180,18 @@ module.exports := class Type
       UnionType(types)
   
   let from-JSON-types = {}
-  @from-JSON := #(x as Object)
-    let type = x.type
-    if not is-string! type
-      throw TypeError "Unspecified type"
-    else if from-JSON-types not ownskey type
-      throw TypeError "Unknown serialization type: $type"
+  let from-JSON(x)
+    if is-string! x
+      from-JSON { type: \simple, name: x }
     else
-      from-JSON-types[type] x
+      let type = x.type
+      if not is-string! type
+        throw TypeError "Unspecified type"
+      else if from-JSON-types not ownskey type
+        throw TypeError "Unknown serialization type: $type"
+      else
+        from-JSON-types[type] x
+  @from-JSON := from-JSON
   
   let get-id = do
     let mutable id = -1
@@ -256,7 +260,7 @@ module.exports := class Type
     def to-JSON()
       for first k, v of Type
         if v == this
-          { type: \simple, name: k }
+          k
       else
         throw Error "Cannot serialize custom type: $(String this)"
     from-JSON-types.simple := #({name}) -> Type![name] or throw Error "Unknown type: $(String name)"
@@ -434,7 +438,12 @@ module.exports := class Type
       sb.push ")"
       sb.join ""
 
-    def to-JSON() -> { type: \generic, @base, @args }
+    def to-JSON()
+      for first k, v of Type
+        if v == this
+          k
+      else
+        { type: \generic, @base, @args }
     from-JSON-types.generic := #({base, args})
       let base-type = Type.from-JSON(base)
       if base-type == array-base and args.length == 1
@@ -616,10 +625,13 @@ module.exports := class Type
           obj[k] := v
         "Type.makeObject($(inspect obj, null, if depth? then depth - 1 else null))"
     def to-JSON()
-      let pairs = {}
-      for [k, v] in @pairs
-        pairs[k] := v
-      { type: \object, pairs }
+      if @pairs.length == 0
+        \object
+      else
+        let pairs = {}
+        for [k, v] in @pairs
+          pairs[k] := v
+        { type: \object, pairs }
     from-JSON-types.object := #({pairs})
       let deserialized-pairs = {}
       for k, v of pairs
@@ -747,7 +759,12 @@ module.exports := class Type
     def inspect(depth)
       "(" & (for type in @types; inspect type, null, if depth? then depth - 1 else null).join(").union(") & ")"
     
-    def to-JSON() -> { type: \union, @types }
+    def to-JSON()
+      for first k, v of Type
+        if v == this
+          k
+      else
+        { type: \union, @types }
     from-JSON-types.union := #({types})
       for reduce type in types by -1, current = Type.none
         current.union(Type.from-JSON(type))
@@ -863,7 +880,12 @@ module.exports := class Type
     def inspect(depth)
       @untype.inspect(depth) & ".complement()"
     
-    def to-JSON() -> { type: \complement, untype: @complement() }
+    def to-JSON()
+      for first k, v of Type
+        if v == this
+          k
+      else
+        { type: \complement, untype: @complement() }
     from-JSON-types.complement := #({untype}) -> Type.from-JSON(untype).complement()
   
   let any = @any := new class AnyType extends Type
@@ -888,7 +910,7 @@ module.exports := class Type
     def complement() -> none
     def inspect() -> "Type.any"
     
-    def to-JSON() -> { type: \any }
+    def to-JSON() -> \any
     from-JSON-types.any := #-> any
   
   let none = @none := new class NoneType extends Type
@@ -913,7 +935,7 @@ module.exports := class Type
     def complement() -> any
     def inspect() -> "Type.none"
     
-    def to-JSON() -> { type: \none }
+    def to-JSON() -> \none
     from-JSON-types.none := #-> none
   
   let array-base = @array-base := @make "Array"
