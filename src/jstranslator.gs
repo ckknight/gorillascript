@@ -1,7 +1,7 @@
 require! ast: './jsast'
 let AstNode = ast.Node
 require! Type: './types'
-let {Node: ParserNode} = require('./parser')
+let {Node: ParserNode, MacroHolder} = require('./parser')
 
 let needs-caching(item)
   return item not instanceofsome [ast.Ident, ast.Const, ast.This, ast.Arguments]
@@ -10,7 +10,7 @@ class Scope
   let get-id = do
     let mutable id = -1
     # -> id += 1
-  def constructor(@options = {}, @bound = false, @used-tmps = {}, @helpers = {}, variables, @tmps = {})
+  def constructor(@options = {}, @macros as MacroHolder, @bound = false, @used-tmps = {}, @helper-names = {}, variables, @tmps = {})
     @variables := if variables then { extends variables } else {}
     @has-bound := false
     @used-this := false
@@ -69,35 +69,35 @@ class Scope
     @remove-variable(ident)
 
   def add-helper(name as String)!
-    @helpers[name] := true
+    @helper-names[name] := true
   
   def fill-helper-dependencies()!
-    let mutable helpers = @helpers
+    let mutable helper-names = @helper-names
     let mutable to-add = {}
     while true
-      for helper of helpers
-        if HELPERS.has helper
-          for dep in HELPERS.dependencies(helper) by -1
-            if helpers not ownskey dep
+      for name of helper-names
+        if @macros.has-helper name
+          for dep in @macros.helper-dependencies(name) by -1
+            if helper-names not ownskey dep
               to-add[dep] := true
       
-      for helper of to-add
-        @add-helper helper
+      for name of to-add
+        @add-helper name
       else
         break
-      helpers := to-add
+      helper-names := to-add
       to-add := {}
 
   let lower-sorter(a, b) -> a.to-lower-case() <=> b.to-lower-case()
 
   def get-helpers()
-    let helpers = for k of @helpers
+    let names = for k of @helper-names
       k
 
-    helpers.sort lower-sorter
+    names.sort lower-sorter
   
-  def has-helper(helper as String)
-    @helpers ownskey helper
+  def has-helper(name as String)
+    @helper-names ownskey name
 
   def add-variable(ident as ast.Ident, type as Type = Type.any, is-mutable as Boolean)!
     @variables[ident.name] := {
@@ -125,7 +125,7 @@ class Scope
   def clone(bound)
     if bound
       @has-bound := true
-    Scope(@options, bound, { extends @used-tmps }, @helpers, @variables, { extends @tmps })
+    Scope(@options, @macros, bound, { extends @used-tmps }, @helper-names, @variables, { extends @tmps })
 
 let wrap-return(x)
   x.mutate-last #(n) -> ast.Return n.pos, n
@@ -133,38 +133,6 @@ let wrap-return(x)
 let identity(x) -> x
 
 let make-auto-return(x) -> if x then wrap-return else identity
-
-let HELPERS = new class Helpers
-  def constructor()
-    @data := {}
-    @types := {}
-    @deps := {}
-
-  def add(name as String, value as ast.Expression, type as Type, dependencies as [String])
-    @data[name] := value
-    @types[name] := type
-    @deps[name] := dependencies
-
-  def has(name as String)
-    @data ownskey name
-
-  def get(name as String)
-    if @data ownskey name
-      @data[name]
-    else
-      throw Error "No such helper: $name"
-  
-  def type(name as String)
-    if @types ownskey name
-      @types[name]
-    else
-      throw Error "No such helper: $name"
-  
-  def dependencies(name as String)
-    if @deps ownskey name
-      @deps[name]
-    else
-      throw Error "No such helper: $name"
 
 class GeneratorBuilder
   def constructor(@pos as {}, @scope as Scope, states, @current-state = 1, state-ident, pending-finallies-ident, @finallies = [], @catches = [], @current-catch = [])
@@ -1207,10 +1175,10 @@ let translate-root(mutable roots as Object, scope as Scope)
   
   scope.fill-helper-dependencies()
   for helper in scope.get-helpers()
-    if helper != \GLOBAL and HELPERS.has(helper)
+    if helper != \GLOBAL and scope.macros.has-helper(helper)
       let ident = ast.Ident body.pos, helper
       scope.add-variable ident // TODO: type?
-      init.push ast.Assign body.pos, ident, HELPERS.get(helper)
+      init.push ast.Assign body.pos, ident, scope.macros.get-helper(helper)
   
   let bare-init = []
   
@@ -1249,7 +1217,7 @@ let translate-root(mutable roots as Object, scope as Scope)
       scope.add-variable ast.Ident body.pos, \GLOBAL
       bare-init.unshift ast.Assign body.pos,
         ast.Ident body.pos, \GLOBAL
-        HELPERS.get(\GLOBAL)
+        scope.macros.get-helper(\GLOBAL)
     if scope.options.undefined-name?
       scope.add-variable scope.options.undefined-name
     
@@ -1281,7 +1249,7 @@ let translate-root(mutable roots as Object, scope as Scope)
       [
         ast.This(body.pos)
         ...if scope.has-helper(\GLOBAL)
-          [HELPERS.get(\GLOBAL)]
+          [scope.macros.get-helper(\GLOBAL)]
         else
           []
       ]
@@ -1292,13 +1260,13 @@ let translate-root(mutable roots as Object, scope as Scope)
       []
       []
 
-module.exports := #(node, options = {}, callback)
+module.exports := #(node, macros as MacroHolder, options = {}, callback)
   if is-function! options
-    return module.exports(node, null, options)
+    return module.exports(node, macros, null, options)
   let mutable result = void
   let start-time = new Date().get-time()
   try
-    let scope = Scope(options, false)
+    let scope = Scope(options, macros, false)
     result := translate-root(node, scope)
     scope.release-tmps()
   catch e
@@ -1317,9 +1285,8 @@ module.exports := #(node, options = {}, callback)
   else
     ret
 
-module.exports.helpers := HELPERS
-module.exports.define-helper := #(name, value, type as Type, mutable dependencies)
-  let scope = Scope({}, false)
+module.exports.define-helper := #(macros as MacroHolder, name, value, type as Type, mutable dependencies)
+  let scope = Scope({}, macros, false)
   let ident = if is-string! name
     ast.Ident(make-pos(0, 0), name)
   else if name instanceof ParserNode.Ident
@@ -1335,7 +1302,7 @@ module.exports.define-helper := #(name, value, type as Type, mutable dependencie
   else
     throw TypeError "Expected value to be a parser or ast Node, got $(typeof! value)"
   dependencies ?= scope.get-helpers()
-  HELPERS.add ident.name, helper, type, dependencies
+  macros.add-helper ident.name, helper, type, dependencies
   {
     helper
     dependencies

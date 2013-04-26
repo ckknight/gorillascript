@@ -145,7 +145,7 @@ let translate = exports.ast := #(source, options = {}, callback)
     else
       async! callback, parsed <- parse source, options
       next2 parsed
-    async! callback, translated <- translator parsed.result, options
+    async! callback, translated <- translator parsed.result, parsed.macros, options
     next parsed, translated
   else
     let parsed = if is-array! source
@@ -155,7 +155,7 @@ let translate = exports.ast := #(source, options = {}, callback)
         parse item, options
     else
       parse source, options
-    next parsed, translator(parsed.result, options)
+    next parsed, translator(parsed.result, parsed.macros, options)
   
   let result = {
     translated.node

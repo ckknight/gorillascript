@@ -5316,6 +5316,7 @@ class MacroHolder
     @prefix-unary-operators := []
     @postfix-unary-operators := []
     @serialization := {}
+    @helpers := {}
     @syntaxes := {
       Logic: prevent-unclosed-object-literal Logic
       Expression
@@ -5347,6 +5348,7 @@ class MacroHolder
     clone.prefix-unary-operators := @prefix-unary-operators.slice()
     clone.postfix-unary-operators := @postfix-unary-operators.slice()
     clone.serialization := {} <<< @serialization
+    clone.helpers := {} <<< @helpers
     clone.syntaxes := {} <<< @syntaxes
     clone
 
@@ -5509,12 +5511,37 @@ class MacroHolder
   
   def deserialize(data)!
     // TODO: pass in the output language rather than assume JS
-    require! translator: './jstranslator'
     require! ast: './jsast'
     for name, {helper, type, dependencies} of (data!.helpers ? {})
-      translator.define-helper(name, ast.fromJSON(helper), Type.fromJSON(type), dependencies)
+      @add-helper name, ast.fromJSON(helper), Type.fromJSON(type), dependencies
     
     State("", this).deserialize-macros(data)
+  
+  def add-helper(name as String, value, type as Type, dependencies as [String])
+    if @helpers ownskey name
+      throw Error "Trying to overwrite helper $name"
+    @helpers[name] := { value, type, dependencies }
+
+  def has-helper(name as String)
+    @helpers ownskey name
+
+  def get-helper(name as String)
+    if @helpers ownskey name
+      @helpers[name].value
+    else
+      throw Error "No such helper: $name"
+
+  def helper-type(name as String)
+    if @helpers ownskey name
+      @helpers[name].type
+    else
+      throw Error "No such helper: $name"
+
+  def helper-dependencies(name as String)
+    if @helpers ownskey name
+      @helpers[name].dependencies
+    else
+      throw Error "No such helper: $name"
 
 class Node
   def constructor() -> throw Error "Node should not be instantiated directly"
@@ -5796,19 +5823,7 @@ class Scope
       Type.any
 
 class State
-  def constructor(data, macros = MacroHolder(), options = {}, index = 0, line = 1, line-info, failures = FailureManager(), cache = [], indent = Stack(1), current-macro = null, prevent-failures = 0, known-scopes = [], scope)
-    @data := data
-    @macros := macros
-    @options := options
-    @index := index
-    @line := line
-    @line-info := line-info
-    @failures := failures
-    @cache := cache
-    @indent := indent
-    @current-macro := current-macro
-    @prevent-failures := prevent-failures
-    @known-scopes := known-scopes
+  def constructor(@data, @macros as MacroHolder = MacroHolder(), @options = {}, @index = 0, @line = 1, @line-info, @failures as FailureManager = FailureManager(), @cache = [], @indent = Stack(1), @current-macro = null, @prevent-failures = 0, @known-scopes = [], scope)
     if not scope
       @scope := Scope(known-scopes.length)
       known-scopes.push @scope
@@ -5900,7 +5915,7 @@ class State
     require! translator: './jstranslator'
     let node = @macro-expand-all(value).reduce(this)
     let type = node.type(this)
-    let {helper, dependencies} = translator.define-helper(name, node, type)
+    let {helper, dependencies} = translator.define-helper(@macros, name, node, type)
     if @options.serialize-macros
       @macros.add-serialized-helper(name.name, helper, type, dependencies)
     @nothing i
@@ -6077,7 +6092,7 @@ class State
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
@@ -6113,7 +6128,7 @@ class State
             body
           ]
           let raw-func = make-macro-root@ this, index, func-param, body
-          let translated = translator(@macro-expand-all(raw-func).reduce(state), return: true)
+          let translated = translator(@macro-expand-all(raw-func).reduce(state), @macros, return: true)
           let compilation = translated.node.to-string()
           if state-options.serialize-macros
             serialization := compilation
@@ -6155,7 +6170,7 @@ class State
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -6189,7 +6204,7 @@ class State
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -6231,7 +6246,7 @@ class State
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -6264,7 +6279,7 @@ class State
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
       let compilation = translated.node.to-string()
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -7192,13 +7207,10 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
         let {name} = func
         if PRIMORDIAL_FUNCTIONS ownskey name
           return PRIMORDIAL_FUNCTIONS[name]
-        else if name.length > 2 and C(name, 0) == C("_") and C(name, 1) == C("_")
-          // TODO: handle helpers in the parser rather than requiring the translator
-          let {helpers} = require('./jstranslator')
-          if helpers.has name
-            func-type := helpers.type name
-            if func-type.is-subset-of(Type.function)
-              return func-type.args[0]
+        else if o?.macros.has-helper name
+          func-type := o.macros.helper-type name
+          if func-type.is-subset-of(Type.function)
+            return func-type.args[0]
       else if func instanceof AccessNode
         let {parent, child} = func
         if child instanceof ConstNode
@@ -7947,22 +7959,25 @@ let parse(text as String, macros as MacroHolder|null, options as {} = {}, callba
     else
       ret
 module.exports := parse
-module.exports.ParserError := ParserError
-module.exports.MacroError := MacroError
-module.exports.Node := Node
-module.exports.deserialize-prelude := #(data)
-  let parsed = if is-string! data then JSON.parse(data) else data
-  let macros = MacroHolder()
-  macros.deserialize(parsed)
-  {
-    result: NothingNode(0, 0, -1)
-    macros
-  }
 let unique(array)
   let result = []
   for item in array
     if item not in result
       result.push item
   result
-module.exports.get-reserved-words := #(macros)
-  unique [...RESERVED_IDENTS, ...(macros?.get-macro-and-operator-names?() or [])]
+parse <<< {
+  ParserError
+  MacroError
+  Node
+  MacroHolder
+  deserialize-prelude: #(data)
+    let parsed = if is-string! data then JSON.parse(data) else data
+    let macros = MacroHolder()
+    macros.deserialize(parsed)
+    {
+      result: NothingNode(0, 0, -1)
+      macros
+    }
+  get-reserved-words: #(macros)
+    unique [...RESERVED_IDENTS, ...(macros?.get-macro-and-operator-names?() or [])]
+}

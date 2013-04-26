@@ -18830,6 +18830,7 @@
           _this.prefixUnaryOperators = [];
           _this.postfixUnaryOperators = [];
           _this.serialization = {};
+          _this.helpers = {};
           _this.syntaxes = {
             Logic: preventUnclosedObjectLiteral(Logic),
             Expression: Expression,
@@ -18865,6 +18866,7 @@
           clone.prefixUnaryOperators = this.prefixUnaryOperators.slice();
           clone.postfixUnaryOperators = this.postfixUnaryOperators.slice();
           clone.serialization = __import({}, this.serialization);
+          clone.helpers = __import({}, this.helpers);
           clone.syntaxes = __import({}, this.syntaxes);
           return clone;
         };
@@ -19194,8 +19196,7 @@
           return JSON.stringify(this.serialization);
         };
         _MacroHolder_prototype.deserialize = function (data) {
-          var _obj, _ref, ast, dependencies, helper, name, translator, type;
-          translator = require("./jstranslator");
+          var _obj, _ref, ast, dependencies, helper, name, type;
           ast = require("./jsast");
           _obj = (_ref = __owns.call(data, "helpers") ? data.helpers : void 0) != null ? _ref : {};
           for (name in _obj) {
@@ -19203,10 +19204,68 @@
               helper = (_ref = _obj[name]).helper;
               type = _ref.type;
               dependencies = _ref.dependencies;
-              translator.defineHelper(name, ast.fromJSON(helper), Type.fromJSON(type), dependencies);
+              this.addHelper(name, ast.fromJSON(helper), Type.fromJSON(type), dependencies);
             }
           }
           State("", this).deserializeMacros(data);
+        };
+        _MacroHolder_prototype.addHelper = function (name, value, type, dependencies) {
+          var _i;
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          if (!(type instanceof Type)) {
+            throw TypeError("Expected type to be a " + __name(Type) + ", got " + __typeof(type));
+          }
+          if (!__isArray(dependencies)) {
+            throw TypeError("Expected dependencies to be an Array, got " + __typeof(dependencies));
+          } else {
+            for (_i = dependencies.length; _i--; ) {
+              if (typeof dependencies[_i] !== "string") {
+                throw TypeError("Expected " + ("dependencies[" + _i + "]") + " to be a String, got " + __typeof(dependencies[_i]));
+              }
+            }
+          }
+          if (__owns.call(this.helpers, name)) {
+            throw Error("Trying to overwrite helper " + name);
+          }
+          return this.helpers[name] = { value: value, type: type, dependencies: dependencies };
+        };
+        _MacroHolder_prototype.hasHelper = function (name) {
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          return __owns.call(this.helpers, name);
+        };
+        _MacroHolder_prototype.getHelper = function (name) {
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          if (__owns.call(this.helpers, name)) {
+            return this.helpers[name].value;
+          } else {
+            throw Error("No such helper: " + name);
+          }
+        };
+        _MacroHolder_prototype.helperType = function (name) {
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          if (__owns.call(this.helpers, name)) {
+            return this.helpers[name].type;
+          } else {
+            throw Error("No such helper: " + name);
+          }
+        };
+        _MacroHolder_prototype.helperDependencies = function (name) {
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          if (__owns.call(this.helpers, name)) {
+            return this.helpers[name].dependencies;
+          } else {
+            throw Error("No such helper: " + name);
+          }
         };
         return MacroHolder;
       }());
@@ -19493,47 +19552,51 @@
         function State(data, macros, options, index, line, lineInfo, failures, cache, indent, currentMacro, preventFailures, knownScopes, scope) {
           var _this;
           _this = this instanceof State ? this : __create(_State_prototype);
+          _this.data = data;
           if (macros == null) {
             macros = MacroHolder();
+          } else if (!(macros instanceof MacroHolder)) {
+            throw TypeError("Expected macros to be a " + __name(MacroHolder) + ", got " + __typeof(macros));
           }
+          _this.macros = macros;
           if (options == null) {
             options = {};
           }
+          _this.options = options;
           if (index == null) {
             index = 0;
           }
+          _this.index = index;
           if (line == null) {
             line = 1;
           }
+          _this.line = line;
+          _this.lineInfo = lineInfo;
           if (failures == null) {
             failures = FailureManager();
+          } else if (!(failures instanceof FailureManager)) {
+            throw TypeError("Expected failures to be a " + __name(FailureManager) + ", got " + __typeof(failures));
           }
+          _this.failures = failures;
           if (cache == null) {
             cache = [];
           }
+          _this.cache = cache;
           if (indent == null) {
             indent = Stack(1);
           }
+          _this.indent = indent;
           if (currentMacro == null) {
             currentMacro = null;
           }
+          _this.currentMacro = currentMacro;
           if (preventFailures == null) {
             preventFailures = 0;
           }
+          _this.preventFailures = preventFailures;
           if (knownScopes == null) {
             knownScopes = [];
           }
-          _this.data = data;
-          _this.macros = macros;
-          _this.options = options;
-          _this.index = index;
-          _this.line = line;
-          _this.lineInfo = lineInfo;
-          _this.failures = failures;
-          _this.cache = cache;
-          _this.indent = indent;
-          _this.currentMacro = currentMacro;
-          _this.preventFailures = preventFailures;
           _this.knownScopes = knownScopes;
           if (!scope) {
             _this.scope = Scope(knownScopes.length);
@@ -19687,7 +19750,7 @@
           translator = require("./jstranslator");
           node = this.macroExpandAll(value).reduce(this);
           type = node.type(this);
-          helper = (_ref = translator.defineHelper(name, node, type)).helper;
+          helper = (_ref = translator.defineHelper(this.macros, name, node, type)).helper;
           dependencies = _ref.dependencies;
           if (this.options.serializeMacros) {
             this.macros.addSerializedHelper(name.name, helper, type, dependencies);
@@ -20021,7 +20084,7 @@
               [body]
             ));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
             compilation = translated.node.toString();
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -20080,7 +20143,7 @@
                   return _arr;
                 }()).concat([body]));
                 rawFunc = makeMacroRoot.call(_this, index, funcParam, body);
-                translated = translator(_this.macroExpandAll(rawFunc).reduce(state), { "return": true });
+                translated = translator(_this.macroExpandAll(rawFunc).reduce(state), _this.macros, { "return": true });
                 compilation = translated.node.toString();
                 if (stateOptions.serializeMacros) {
                   serialization = compilation;
@@ -20147,7 +20210,7 @@
               [body]
             ));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
             compilation = translated.node.toString();
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -20196,7 +20259,7 @@
               return _arr;
             }()).concat([body]));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
             compilation = translated.node.toString();
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -20266,7 +20329,7 @@
               return _arr;
             }()).concat([body]));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
             compilation = translated.node.toString();
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -20315,7 +20378,7 @@
               return _arr;
             }()).concat([body]));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
             compilation = translated.node.toString();
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -22958,7 +23021,7 @@
             _this = this;
             if ((_ref = this._type) == null) {
               return this._type = (function () {
-                var _ref, _ref2, _ref3, _ref4, child, func, funcType, helpers, name, parent, parentType;
+                var _ref, _ref2, _ref3, _ref4, child, func, funcType, name, parent, parentType;
                 func = _this.func;
                 funcType = func.type(o);
                 if (funcType.isSubsetOf(Type["function"])) {
@@ -22967,13 +23030,10 @@
                   name = func.name;
                   if (__owns.call(PRIMORDIAL_FUNCTIONS, name)) {
                     return PRIMORDIAL_FUNCTIONS[name];
-                  } else if (__num(name.length) > 2 && name.charCodeAt(0) === 95 && name.charCodeAt(1) === 95) {
-                    helpers = require("./jstranslator").helpers;
-                    if (helpers.has(name)) {
-                      funcType = helpers.type(name);
-                      if (funcType.isSubsetOf(Type["function"])) {
-                        return funcType.args[0];
-                      }
+                  } else if (o != null ? o.macros.hasHelper(name) : void 0) {
+                    funcType = o.macros.helperType(name);
+                    if (funcType.isSubsetOf(Type["function"])) {
+                      return funcType.args[0];
                     }
                   }
                 } else if (func instanceof AccessNode) {
@@ -27960,10 +28020,22 @@
         });
       }
       module.exports = parse;
-      module.exports.ParserError = ParserError;
-      module.exports.MacroError = MacroError;
-      module.exports.Node = Node;
-      module.exports.deserializePrelude = function (data) {
+      function unique(array) {
+        var _arr, _i, _len, item, result;
+        result = [];
+        for (_arr = __toArray(array), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+          item = _arr[_i];
+          if (!__in(item, result)) {
+            result.push(item);
+          }
+        }
+        return result;
+      }
+      parse.ParserError = ParserError;
+      parse.MacroError = MacroError;
+      parse.Node = Node;
+      parse.MacroHolder = MacroHolder;
+      parse.deserializePrelude = function (data) {
         var macros, parsed;
         if (typeof data === "string") {
           parsed = JSON.parse(data);
@@ -27977,18 +28049,7 @@
           macros: macros
         };
       };
-      function unique(array) {
-        var _arr, _i, _len, item, result;
-        result = [];
-        for (_arr = __toArray(array), _i = 0, _len = _arr.length; _i < _len; ++_i) {
-          item = _arr[_i];
-          if (!__in(item, result)) {
-            result.push(item);
-          }
-        }
-        return result;
-      }
-      module.exports.getReservedWords = function (macros) {
+      parse.getReservedWords = function (macros) {
         return unique(__toArray(RESERVED_IDENTS).concat(__toArray(macros != null && typeof macros.getMacroAndOperatorNames === "function" && macros.getMacroAndOperatorNames() || [])));
       };
     }.call(this, typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : this));
@@ -28000,7 +28061,7 @@
     var exports = this;
     (function () {
       "use strict";
-      var __cmp, __create, __instanceofsome, __isArray, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, ast, AstNode, GeneratorBuilder, generatorTranslate, Helpers, HELPERS, ParserNode, Scope, translators, Type;
+      var __cmp, __create, __instanceofsome, __isArray, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, _ref, ast, AstNode, GeneratorBuilder, generatorTranslate, MacroHolder, ParserNode, Scope, translators, Type;
       __cmp = function (left, right) {
         var type;
         if (left === right) {
@@ -28097,19 +28158,24 @@
       ast = require("./jsast");
       AstNode = ast.Node;
       Type = require("./types");
-      ParserNode = require("./parser").Node;
+      ParserNode = (_ref = require("./parser")).Node;
+      MacroHolder = _ref.MacroHolder;
       function needsCaching(item) {
         return !(item instanceof ast.Ident) && !(item instanceof ast.Const) && !(item instanceof ast.This) && !(item instanceof ast.Arguments);
       }
       Scope = (function () {
         var _Scope_prototype, getId;
-        function Scope(options, bound, usedTmps, helpers, variables, tmps) {
+        function Scope(options, macros, bound, usedTmps, helperNames, variables, tmps) {
           var _this;
           _this = this instanceof Scope ? this : __create(_Scope_prototype);
           if (options == null) {
             options = {};
           }
           _this.options = options;
+          if (!(macros instanceof MacroHolder)) {
+            throw TypeError("Expected macros to be a " + __name(MacroHolder) + ", got " + __typeof(macros));
+          }
+          _this.macros = macros;
           if (bound == null) {
             bound = false;
           }
@@ -28118,10 +28184,10 @@
             usedTmps = {};
           }
           _this.usedTmps = usedTmps;
-          if (helpers == null) {
-            helpers = {};
+          if (helperNames == null) {
+            helperNames = {};
           }
-          _this.helpers = helpers;
+          _this.helperNames = helperNames;
           if (tmps == null) {
             tmps = {};
           }
@@ -28273,34 +28339,34 @@
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
-          this.helpers[name] = true;
+          this.helperNames[name] = true;
         };
         _Scope_prototype.fillHelperDependencies = function () {
-          var _arr, _else, _i, dep, helper, helpers, toAdd;
-          helpers = this.helpers;
+          var _arr, _else, _i, dep, helperNames, name, toAdd;
+          helperNames = this.helperNames;
           toAdd = {};
           while (true) {
-            for (helper in helpers) {
-              if (__owns.call(helpers, helper) && HELPERS.has(helper)) {
-                for (_arr = __toArray(HELPERS.dependencies(helper)), _i = _arr.length; _i--; ) {
+            for (name in helperNames) {
+              if (__owns.call(helperNames, name) && this.macros.hasHelper(name)) {
+                for (_arr = __toArray(this.macros.helperDependencies(name)), _i = _arr.length; _i--; ) {
                   dep = _arr[_i];
-                  if (!__owns.call(helpers, dep)) {
+                  if (!__owns.call(helperNames, dep)) {
                     toAdd[dep] = true;
                   }
                 }
               }
             }
             _else = true;
-            for (helper in toAdd) {
-              if (__owns.call(toAdd, helper)) {
+            for (name in toAdd) {
+              if (__owns.call(toAdd, name)) {
                 _else = false;
-                this.addHelper(helper);
+                this.addHelper(name);
               }
             }
             if (_else) {
               break;
             }
-            helpers = toAdd;
+            helperNames = toAdd;
             toAdd = {};
           }
         };
@@ -28308,22 +28374,22 @@
           return __cmp(a.toLowerCase(), b.toLowerCase());
         }
         _Scope_prototype.getHelpers = function () {
-          var _arr, _obj, helpers, k;
+          var _arr, _obj, k, names;
           _arr = [];
-          _obj = this.helpers;
+          _obj = this.helperNames;
           for (k in _obj) {
             if (__owns.call(_obj, k)) {
               _arr.push(k);
             }
           }
-          helpers = _arr;
-          return helpers.sort(lowerSorter);
+          names = _arr;
+          return names.sort(lowerSorter);
         };
-        _Scope_prototype.hasHelper = function (helper) {
-          if (typeof helper !== "string") {
-            throw TypeError("Expected helper to be a String, got " + __typeof(helper));
+        _Scope_prototype.hasHelper = function (name) {
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
-          return __owns.call(this.helpers, helper);
+          return __owns.call(this.helperNames, name);
         };
         _Scope_prototype.addVariable = function (ident, type, isMutable) {
           if (!(ident instanceof ast.Ident)) {
@@ -28386,9 +28452,10 @@
           }
           return Scope(
             this.options,
+            this.macros,
             bound,
             __create(this.usedTmps),
-            this.helpers,
+            this.helperNames,
             this.variables,
             __create(this.tmps)
           );
@@ -28410,80 +28477,6 @@
           return identity;
         }
       }
-      HELPERS = new (Helpers = (function () {
-        var _Helpers_prototype;
-        function Helpers() {
-          var _this;
-          _this = this instanceof Helpers ? this : __create(_Helpers_prototype);
-          _this.data = {};
-          _this.types = {};
-          _this.deps = {};
-          return _this;
-        }
-        _Helpers_prototype = Helpers.prototype;
-        Helpers.displayName = "Helpers";
-        _Helpers_prototype.add = function (name, value, type, dependencies) {
-          var _i;
-          if (typeof name !== "string") {
-            throw TypeError("Expected name to be a String, got " + __typeof(name));
-          }
-          if (!(value instanceof ast.Expression)) {
-            throw TypeError("Expected value to be an Expression, got " + __typeof(value));
-          }
-          if (!(type instanceof Type)) {
-            throw TypeError("Expected type to be a " + __name(Type) + ", got " + __typeof(type));
-          }
-          if (!__isArray(dependencies)) {
-            throw TypeError("Expected dependencies to be an Array, got " + __typeof(dependencies));
-          } else {
-            for (_i = dependencies.length; _i--; ) {
-              if (typeof dependencies[_i] !== "string") {
-                throw TypeError("Expected " + ("dependencies[" + _i + "]") + " to be a String, got " + __typeof(dependencies[_i]));
-              }
-            }
-          }
-          this.data[name] = value;
-          this.types[name] = type;
-          return this.deps[name] = dependencies;
-        };
-        _Helpers_prototype.has = function (name) {
-          if (typeof name !== "string") {
-            throw TypeError("Expected name to be a String, got " + __typeof(name));
-          }
-          return __owns.call(this.data, name);
-        };
-        _Helpers_prototype.get = function (name) {
-          if (typeof name !== "string") {
-            throw TypeError("Expected name to be a String, got " + __typeof(name));
-          }
-          if (__owns.call(this.data, name)) {
-            return this.data[name];
-          } else {
-            throw Error("No such helper: " + name);
-          }
-        };
-        _Helpers_prototype.type = function (name) {
-          if (typeof name !== "string") {
-            throw TypeError("Expected name to be a String, got " + __typeof(name));
-          }
-          if (__owns.call(this.types, name)) {
-            return this.types[name];
-          } else {
-            throw Error("No such helper: " + name);
-          }
-        };
-        _Helpers_prototype.dependencies = function (name) {
-          if (typeof name !== "string") {
-            throw TypeError("Expected name to be a String, got " + __typeof(name));
-          }
-          if (__owns.call(this.deps, name)) {
-            return this.deps[name];
-          } else {
-            throw Error("No such helper: " + name);
-          }
-        };
-        return Helpers;
-      }()))();
       GeneratorBuilder = (function () {
         var _GeneratorBuilder_prototype;
         function GeneratorBuilder(pos, scope, states, currentState, stateIdent, pendingFinalliesIdent, finallies, catches, currentCatch) {
@@ -30533,10 +30526,10 @@
         scope.fillHelperDependencies();
         for (_arr = __toArray(scope.getHelpers()), _i = 0, _len = _arr.length; _i < _len; ++_i) {
           helper = _arr[_i];
-          if (helper !== "GLOBAL" && HELPERS.has(helper)) {
+          if (helper !== "GLOBAL" && scope.macros.hasHelper(helper)) {
             ident = ast.Ident(body.pos, helper);
             scope.addVariable(ident);
-            init.push(ast.Assign(body.pos, ident, HELPERS.get(helper)));
+            init.push(ast.Assign(body.pos, ident, scope.macros.getHelper(helper)));
           }
         }
         bareInit = [];
@@ -30596,7 +30589,7 @@
             bareInit.unshift(ast.Assign(
               body.pos,
               ast.Ident(body.pos, "GLOBAL"),
-              HELPERS.get("GLOBAL")
+              scope.macros.getHelper("GLOBAL")
             ));
           }
           if (scope.options.undefinedName != null) {
@@ -30631,7 +30624,7 @@
               ),
               "call"
             ),
-            [ast.This(body.pos)].concat(scope.hasHelper("GLOBAL") ? [HELPERS.get("GLOBAL")] : [])
+            [ast.This(body.pos)].concat(scope.hasHelper("GLOBAL") ? [scope.macros.getHelper("GLOBAL")] : [])
           );
           if (scope.options["return"]) {
             callFunc = ast.Return(body.pos, callFunc);
@@ -30644,17 +30637,20 @@
           );
         }
       }
-      module.exports = function (node, options, callback) {
+      module.exports = function (node, macros, options, callback) {
         var endTime, result, ret, scope, startTime;
+        if (!(macros instanceof MacroHolder)) {
+          throw TypeError("Expected macros to be a " + __name(MacroHolder) + ", got " + __typeof(macros));
+        }
         if (options == null) {
           options = {};
         }
         if (typeof options === "function") {
-          return module.exports(node, null, options);
+          return module.exports(node, macros, null, options);
         }
         startTime = new Date().getTime();
         try {
-          scope = Scope(options, false);
+          scope = Scope(options, macros, false);
           result = translateRoot(node, scope);
           scope.releaseTmps();
         } catch (e) {
@@ -30675,13 +30671,15 @@
           return ret;
         }
       };
-      module.exports.helpers = HELPERS;
-      module.exports.defineHelper = function (name, value, type, dependencies) {
+      module.exports.defineHelper = function (macros, name, value, type, dependencies) {
         var helper, ident, scope;
+        if (!(macros instanceof MacroHolder)) {
+          throw TypeError("Expected macros to be a " + __name(MacroHolder) + ", got " + __typeof(macros));
+        }
         if (!(type instanceof Type)) {
           throw TypeError("Expected type to be a " + __name(Type) + ", got " + __typeof(type));
         }
-        scope = Scope({}, false);
+        scope = Scope({}, macros, false);
         if (typeof name === "string") {
           ident = ast.Ident(
             makePos(0, 0),
@@ -30705,7 +30703,7 @@
         if (dependencies == null) {
           dependencies = scope.getHelpers();
         }
-        HELPERS.add(ident.name, helper, type, dependencies);
+        macros.addHelper(ident.name, helper, type, dependencies);
         return { helper: helper, dependencies: dependencies };
       };
     }.call(this));
@@ -31130,7 +31128,7 @@
               };
             }
             return _f(function (parsed) {
-              return translator(parsed.result, options, function (_e, translated) {
+              return translator(parsed.result, parsed.macros, options, function (_e, translated) {
                 if (_e != null) {
                   return callback(_e);
                 }
@@ -31156,7 +31154,7 @@
             } else {
               parsed = parse(source, options);
             }
-            return next(parsed, translator(parsed.result, options));
+            return next(parsed, translator(parsed.result, parsed.macros, options));
           };
         }
         return _f(function (parsed, translated) {
