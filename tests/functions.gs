@@ -1402,5 +1402,13 @@ test "Generic function ignores provided generic arguments beyond the declared", 
   
   eq func<Number, String>, func<Number, String, Boolean>
   eq func<Number, String>, func<Number, String, null>
+  eq func<Number, String>, func<Number, String, void>
   eq func<Number, null>, func<Number>
   eq func, func<null, null>
+  eq func, func<void, void>
+  eq func, func<null>
+  eq func, func<void>
+  eq func<null, Boolean>, func<void, Boolean>
+  eq func<null, Boolean>, func<null, Boolean, Number>
+  eq func<null, Boolean>, func<null, Boolean, String>
+  eq func<null, Boolean>, func<null, Boolean, null>
