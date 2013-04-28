@@ -1583,7 +1583,7 @@ define helper __generic-func = #(num-args as Number, make as ->)
   let cache = WeakMap()
   let any = {}
   let generic = #
-    for reduce i in num-args to 0 by -1, current = cache
+    for reduce i in num-args - 1 to 0 by -1, current = cache
       let type = arguments[i] ? any
       let mutable item = current.get(type)
       if not item?

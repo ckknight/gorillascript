@@ -158,7 +158,8 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
         require._cache = {};
         $(parts.join("\n").split("\n").join("\n  "))
         
-        return require["./gorilla"].withPrelude("js", $serialized-prelude);
+        require("./browser");
+        return require("./gorilla").withPrelude("js", $serialized-prelude);
       }());
       
       if (typeof define === "function" && define.amd) {

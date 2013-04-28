@@ -1386,3 +1386,21 @@ test "Generic function as class", #
   ok Box<String>("Hello") instanceof Box<String>
   
   eq "Hello", Box<Box<String>>(Box<String>("Hello")).value.value
+
+
+test "Generic function ignores provided generic arguments beyond the declared", #
+  let func<T1, T2>() ->
+  
+  eq func<String, String>, func<String, String>
+  not-equal func<String, String>, func<String, Number>
+  not-equal func<String, String>, func<Number, String>
+  not-equal func<String, Number>, func<Number, String>
+  eq func<String, Number>, func<String, Number>
+  not-equal func<String, Number>, func<Number, Number>
+  not-equal func<Number, String>, func<Number, Number>
+  eq func<Number, Number>, func<Number, Number>
+  
+  eq func<Number, String>, func<Number, String, Boolean>
+  eq func<Number, String>, func<Number, String, null>
+  eq func<Number, null>, func<Number>
+  eq func, func<null, null>
