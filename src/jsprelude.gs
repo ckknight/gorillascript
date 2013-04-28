@@ -363,7 +363,11 @@ define operator binary ~+, ~- with precedence: 10, type: \number
 define operator binary ~^ with precedence: 12, right-to-left: true, type: \number
   if @is-const(right)
     let value = @value(right)
-    if value == 0.5
+    if value == 0
+      return AST
+        $left
+        1
+    else if value == 0.5
       return ASTE Math.sqrt $left
     else if value == 1
       return ASTE ~+$left
@@ -373,6 +377,16 @@ define operator binary ~^ with precedence: 12, right-to-left: true, type: \numbe
     else if value == 3
       return @maybe-cache left, #(set-left, left)
         ASTE $set-left ~* $left ~* $left
+    else if value == ~-0.5
+      return ASTE 1 ~/ Math.sqrt($left)
+    else if value == ~-1
+      return ASTE 1 ~/ $left
+    else if value == ~-2
+      return @maybe-cache left, #(set-left, left)
+        ASTE 1 ~/ ($set-left ~* $left)
+    else if value == ~-3
+      return @maybe-cache left, #(set-left, left)
+        ASTE 1 ~/ ($set-left ~* $left ~* $left)
   ASTE Math.pow $left, $right
 
 define operator assign ~^= with type: \number
@@ -1854,7 +1868,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
       let key = @tmp "instanceof_$(name)", false, \function
       instanceofs[name] := {
         key
-        let: AST let $key = __make-instanceof($generic-arg)
+        let: AST let $key = __get-instanceof($generic-arg)
         used: false
       }
     result := @walk @macro-expand-all(result), #(node)@
@@ -2232,29 +2246,24 @@ define helper __instanceofsome = #(value, array) as Boolean
   for some item in array by -1
     value instanceof item
 
-define helper __make-instanceof = do
-  let ret-true = #-> true
-  let str = (is-string!)
-  let num = (is-number!)
-  let func = (is-function!)
-  let bool = (is-boolean!)
+define helper __get-instanceof = do
+  let is-any = #-> true
+  let is-str = (is-string!)
+  let is-num = (is-number!)
+  let is-func = (is-function!)
+  let is-bool = (is-boolean!)
   #(ctor) as (-> Boolean)
     if not ctor?
-      ret-true
-    else if ctor == String
-      str
-    else if ctor == Number
-      num
-    else if ctor == Function
-      func
-    else if ctor == Boolean
-      bool
-    else if ctor == Array
-      __is-array
-    else if ctor == Object
-      __is-object
+      is-any
     else
-      (instanceof ctor)
+      switch ctor
+      case String; is-str
+      case Number; is-num
+      case Function; is-func
+      case Boolean; is-bool
+      case Array; __is-array
+      case Object; __is-object
+      default; (instanceof ctor)
 
 define helper __name = #(func as ->) as String -> func.display-name or func.name or ""
 
@@ -2327,7 +2336,7 @@ macro require!
 define helper __once = #(mutable func)
   if not is-function! func
     throw Error "Expected func to be a Function, got $(typeof! func)"
-  # -> if func
+  # -> if func?
     let f = func
     func := null
     f@ this, ...arguments
@@ -2934,7 +2943,7 @@ macro class
         let key = @tmp "instanceof_$(name)", false, \function
         instanceofs[name] := {
           key
-          let: AST let $key = __make-instanceof($generic-arg)
+          let: AST let $key = __get-instanceof($generic-arg)
           used: false
         }
       result := @walk @macro-expand-all(result), #(node)@
