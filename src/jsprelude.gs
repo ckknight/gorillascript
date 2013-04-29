@@ -2039,11 +2039,38 @@ define helper StopIteration = if GLOBAL.StopIteration?
   GLOBAL.StopIteration
 else
   __freeze {}
-  
+
+define helper __array-to-iter = do
+  let proto = {
+    iterator: #-> this
+    next: #
+      let i = @index + 1
+      let array = @array
+      if i >= array.length
+        throw StopIteration
+      @index := i
+      array[i]
+  }
+  #(array as [])
+    { extends proto
+      array
+      index: -1
+    }
+
+define helper __iter = #(iterable)
+  if not iterable?
+    throw TypeError "Expected iterable to be an Object, got $(typeof! iterable)"
+  else if is-array! iterable
+    __array-to-iter(iterable)
+  else if is-function! iterable.iterator
+    iterable.iterator()
+  else
+    throw Error "Expected iterable to be an Array or an Object with an 'iterator' function, got $(typeof! iterable)"
+
 macro for
   syntax reducer as (\every | \some | \first | \filter)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
     let init = []
-    let iterator = @cache AST $iterable.iterator(), init, \iter, false
+    let iterator = @cache AST __iter($iterable), init, \iter, false
     
     let step = []
     if index
@@ -3220,43 +3247,73 @@ define operator binary >>> with precedence: 6, right-to-left: true
   else
     ASTE $right <<< $left
 
-define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else do
-  let WeakMap()
-    if this not instanceof WeakMap
-      return WeakMap@ { extends WeakMap.prototype }, ...arguments
-    let keys = []
-    let values = []
+// TODO: this could break, it seems, if an object is added that is thawed, but is then frozen.
+define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else class WeakMap
+  let uid-rand()
+    Math.random().to-string(36).slice(2)
+  let create-uid()
+    "$(uid-rand())-$(new Date().get-time())-$(uid-rand())-$(uid-rand())"
+  let is-extensible = Object.is-extensible or #-> true
+  
+  def constructor()
+    @_keys := []
+    @_values := []
+    @_uid := create-uid()
+  
+  def get(key)
+    if Object(key) != key
+      throw TypeError "Invalid value used as weak map key"
     
-    @get := #(key, fallback)
-      if Object(key) != key
-        throw TypeError "Invalid value used as weak map key"
-      let index = keys.index-of key
+    if is-extensible(key)
+      key![@_uid]
+    else
+      let index = @_keys.index-of key
       if index == -1
-        fallback
+        void
       else
-        values[index]
-    @has := #(key)
-      if Object(key) != key
-        throw TypeError "Invalid value used as weak map key"
-      keys.index-of(key) != -1
-    @set := #(key, value)!
-      if Object(key) != key
-        throw TypeError "Invalid value used as weak map key"
+        @_values[index]
+  
+  def has(key)
+    if Object(key) != key
+      throw TypeError "Invalid value used as weak map key"
+    
+    if is-extensible(key)
+      key ownskey @_uid
+    else
+      @_keys.index-of(key) != -1
+  
+  let def-prop = if is-function! Object.define-property then Object.define-property else #(o, k, d)! -> o[k] := d.value
+  def set(key, value)!
+    if Object(key) != key
+      throw TypeError "Invalid value used as weak map key"
+    
+    if is-extensible(key)
+      def-prop key, @_uid, {
+        +configurable
+        +writable
+        -enumerable
+        value
+      }
+    else
+      let keys = @_keys
       let mutable index = keys.index-of key
       if index == -1
         index := keys.length
         keys[index] := key
-      values[index] := value
-    @delete := #(key)!
-      if Object(key) != key
-        throw TypeError "Invalid value used as weak map key"
+      @_values[index] := value
+  
+  def delete(key)!
+    if Object(key) != key
+      throw TypeError "Invalid value used as weak map key"
+    
+    if is-extensible(key)
+      delete key[@_uid]
+    else
+      let keys = @_keys
       let mutable index = keys.index-of key
       if index != -1
         keys.splice index, 1
-        values.splice index, 1
-    this
-  WeakMap.display-name := "WeakMap"
-  WeakMap
+        @_values.splice index, 1
 
 define helper __index-of-identical = #(array, item)
   if typeof item == \number
@@ -3273,78 +3330,80 @@ define helper __index-of-identical = #(array, item)
       return -1
   array.index-of item
 
-define helper Map = if is-function! GLOBAL.Map then GLOBAL.Map else do
-  let Map(iterable)
-    if this not instanceof Map
-      return Map@ { extends Map.prototype }, ...arguments
-    let keys = []
-    let values = []
-    @get := #(key, fallback)
-      let index = __index-of-identical(keys, key)
-      if index == -1
-        fallback
-      else
-        values[index]
-    @has := #(key)
-      __index-of-identical(keys, key) != -1
-    @set := #(key, value)!
-      let mutable index = __index-of-identical(keys, key)
-      if index == -1
-        index := keys.length
-        keys[index] := key
-      values[index] := value
-    @delete := #(key)!
-      let index = __index-of-identical(keys, key)
-      if index != -1
-        keys.splice index, 1
-        values.splice index, 1
-    @keys := #()*
-      for key in keys
-        yield key
-    @values := #()*
-      for value in values
-        yield value
-    @items := @iterator := #()*
-      for key, i in keys by -1
-        yield [key, values[i]]
+define helper Map = if is-function! GLOBAL.Map then GLOBAL.Map else class Map
+  def constructor(iterable)
+    @_keys := []
+    @_values := []
     if iterable?
-      if is-array! iterable
-        for x in iterable
-          @set x[0], x[1]
-      else
-        for x from iterable
-          @set x[0], x[1]
-    this
-  Map.display-name := "Map"
-  Map
+      for x from iterable
+        @set x[0], x[1]
+  
+  def get(key)
+    let index = __index-of-identical @_keys, key
+    if index == -1
+      void
+    else
+      @_values[index]
+  
+  def has(key)
+    __index-of-identical(@_keys, key) != -1
+  
+  def set(key, value)!
+    let keys = @_keys
+    let mutable index = __index-of-identical keys, key
+    if index == -1
+      index := keys.length
+      keys[index] := key
+    @_values[index] := value
+  
+  def delete(key)
+    let keys = @_keys
+    let index = __index-of-identical(keys, key)
+    if index == -1
+      false
+    else
+      keys.splice index, 1
+      @_values.splice index, 1
+  
+  def keys()*
+    for key in @_keys by -1
+      yield key
+  
+  def values()*
+    for value in @_values by -1
+      yield value
+  
+  def items()*
+    let values = @_values
+    for key, i in @_keys by -1
+      yield [key, values[i]]
+  def iterator = Map::items
 
-define helper Set = if is-function! GLOBAL.Set then GLOBAL.Set else do
-  let Set(iterable)
-    if this not instanceof Set
-      return Set@ { extends Set.prototype }, ...arguments
-    let items = []
-    @has := #(item)
-      __index-of-identical(items, item) != -1
-    @add := #(item)!
-      if __index-of-identical(items, item) == -1
-        items.push item
-    @delete := #(item)!
-      let index = __index-of-identical(items, item)
-      if index != -1
-        items.splice index, 1
-    @values := @iterator := #()*
-      for item in items by -1
-        yield item
+define helper Set = if is-function! GLOBAL.Set then GLOBAL.Set else class Set
+  def constructor(iterable)
+    @_items := []
     if iterable?
-      if is-array! iterable
-        for item in iterable
-          @add item
-      else
-        for item from iterable
-          @add item
-    this
-  Set.display-name := "Set"
-  Set
+      for item from iterable
+        @add item
+  
+  def has(item)
+    __index-of-identical(@_items, item) != -1
+  def add(item)!
+    let items = @_items
+    if __index-of-identical(items, item) == -1
+      items.push item
+  def delete(item)!
+    let items = @_items
+    let index = __index-of-identical items, item
+    if index != -1
+      items.splice index, 1
+      true
+    else
+      false
+  def values()*
+    for item in @_items by -1
+      yield item
+  def iterator = Set::values
 
 define operator unary set! with type: \object, label: \construct-set
   let set = @tmp \s, false, \object
