@@ -2333,182 +2333,99 @@ macro require!
     else
       throw Error("Expected either a constant string or ident or object")
 
-define helper __once = #(mutable func)
-  if not is-function! func
-    throw Error "Expected func to be a Function, got $(typeof! func)"
-  # -> if func?
+define helper __once = do
+  let replacement() -> throw Error "Attempted to call function more than once"
+  #(mutable func as ->) -> #
     let f = func
-    func := null
+    func := replacement
     f@ this, ...arguments
-  else
-    throw Error "Attempted to call function more than once"
 
-define helper __async = #(mutable limit, length, on-value, mutable on-complete)
+define helper __async = #(mutable limit as Number, length as Number, has-result as Boolean, on-value as ->, on-complete as ->)!
+  let result = if has-result then [] else null
   if length ~<= 0
-    return on-complete(null)
-  if limit ~< 1 or limit != limit
-    limit := Infinity
-  
-  let mutable broken = null
-  let mutable slots-used = 0
-  let mutable sync = false
-  let on-value-callback(err)
-    slots-used ~-= 1
-    if err? and not broken?
-      broken := err
-    if not sync
-      next()
-  let mutable index = 0
-  let next()
-    while not broken? and slots-used ~< limit and index ~< length
-      slots-used ~+= 1
-      let i = index
-      index ~+= 1
-      sync := true
-      on-value i, __once(on-value-callback)
-      sync := false
-    if broken? or slots-used == 0
-      let f = on-complete
-      on-complete := void
-      if f
-        f(broken)
-  next()
-
-define helper __async-result = #(mutable limit, length, on-value, mutable on-complete)
-  if length ~<= 0
-    return on-complete(null, [])
+    return on-complete null, result
   if limit ~< 1 or limit != limit
     limit := Infinity
 
   let mutable broken = null
   let mutable slots-used = 0
   let mutable sync = false
-  let result = []
-  let on-value-callback(err, value)
+  let mutable completed = false
+  let on-value-callback(err, value)!
+    if completed
+      return
     slots-used ~-= 1
     if err? and not broken?
       broken := err
-    if not broken? and arguments.length ~> 1
+    if has-result and not broken? and arguments.length ~> 1
       result.push value
     if not sync
       next()
-  let mutable index = 0
-  let next()
-    while not broken? and slots-used ~< limit and index ~< length
+  let mutable index = -1
+  let next()!
+    while not completed and not broken? and slots-used ~< limit and (index += 1) ~< length
       slots-used ~+= 1
-      let i = index
-      index += 1
       sync := true
-      on-value i, __once(on-value-callback)
+      on-value index, __once(on-value-callback)
       sync := false
-    if broken? or slots-used == 0
-      let f = on-complete
-      on-complete := void
-      if f
-        if broken?
-          f(broken)
-        else
-          f(null, result)
+    if not completed and (broken? or slots-used == 0)
+      completed := true
+      if broken?
+        on-complete(broken)
+      else
+        on-complete(null, result)
   next()
 
-define helper __async-iter = #(mutable limit, iterator, on-value, mutable on-complete)
+define helper __async-iter = #(mutable limit as Number, iterator as {next: Function}, has-result as Boolean, on-value as ->, on-complete as ->)!
   if limit ~< 1 or limit != limit
     limit := Infinity
   let mutable broken = null
   let mutable slots-used = 0
   let mutable sync = false
-  let on-value-callback(err)
+  let result = if has-result then [] else null
+  let mutable completed = false
+  let on-value-callback(err, value)!
+    if completed
+      return
     slots-used ~-= 1
     if err? and not broken?
       broken := err
+    if has-result and not broken? and arguments.length ~> 1
+      result.push value
     if not sync
       next()
-  let mutable index = 0
-  let mutable done = false
+  let mutable index = -1
+  let mutable iter-stopped = false
   let mutable close = #
     close := null
     iterator?.close?()
-  let next()
-    while not broken? and slots-used ~< limit and not done
+  let next()!
+    while not completed and not broken? and slots-used ~< limit and not iter-stopped
       try
         let value = iterator.next()
       catch e
         if e == StopIteration
-          done := true
+          iter-stopped := true
         else
           broken := e
         break
       slots-used ~+= 1
-      let i = index
-      index ~+= 1
       sync := true
       try
-        on-value value, i, __once(on-value-callback)
+        on-value value, (index += 1), __once(on-value-callback)
       catch e
         if close
           close()
         throw e
       sync := false
-    if broken? or slots-used == 0
-      let f = on-complete
-      on-complete := void
+    if not completed and (broken? or slots-used == 0)
+      completed := true
       if close
         close()
-      if f
-        f(broken)
-  next()
-
-define helper __async-iter-result = #(mutable limit, iterator, on-value, mutable on-complete)
-  if limit ~< 1 or limit != limit
-    limit := Infinity
-  let mutable broken = null
-  let mutable slots-used = 0
-  let mutable sync = false
-  let result = []
-  let on-value-callback(err, value)
-    slots-used ~-= 1
-    if err? and not broken?
-      broken := err
-    if not broken? and arguments.length ~> 1
-      result.push value
-    if not sync
-      next()
-  let mutable index = 0
-  let mutable done = false
-  let mutable close = #
-    close := null
-    iterator?.close?()
-  let next()
-    while not broken? and slots-used ~< limit and not done
-      try
-        let value = iterator.next()
-      catch e
-        if e == StopIteration
-          done := true
-        else
-          broken := e
-        break
-      slots-used ~+= 1
-      let i = index
-      index ~+= 1
-      sync := true
-      try
-        on-value value, i, __once(on-value-callback)
-      catch e
-        if close
-          close()
-        throw e
-      sync := false
-    if broken? or slots-used == 0
-      let f = on-complete
-      on-complete := void
-      if close
-        close()
-      if f
-        if broken?
-          f(broken)
-        else
-          f(null, result)
+      if broken?
+        on-complete(broken)
+      else
+        on-complete(null, result)
   next()
 
 macro asyncfor
@@ -2576,6 +2493,7 @@ macro asyncfor
   
   syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), rest as DedentedBody
     let {mutable err, result} = results ? {}
+    let has-result = not not result
     err ?= @tmp \err, true
     let init = []
     
@@ -2640,14 +2558,14 @@ macro asyncfor
       else
         init.push AST let $length = +$array.length
     
-    if not result
-      AST
-        $init
-        __async(+$parallelism, $length, #($index, $next)@ -> $body, #($err)@ -> $rest)
-    else
-      AST
-        $init
-        __async-result(+$parallelism, $length, #($index, $next)@ -> $body, #($err, $result)@ -> $rest)
+    AST
+      $init
+      __async +$parallelism, $length, $has-result,
+        #($index, $next)@ -> $body
+        if $has-result
+          #($err, $result)@ -> $rest 
+        else
+          #($err)@ -> $rest
   
   syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
     let {err, result} = results ? {}
@@ -2681,15 +2599,18 @@ macro asyncfor
   
   syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), rest as DedentedBody
     let {mutable err, result} = results ? {}
+    let has-result = not not result
     
     index ?= @tmp \i, true
     err ?= @tmp \err, true
     parallelism ?= ASTE 1
     
-    if not result
-      ASTE __async-iter(+$parallelism, $iterator, #($value, $index, $next)@ -> $body, #($err)@ -> $rest)
-    else
-      ASTE __async-iter-result(+$parallelism, $iterator, #($value, $index, $next)@ -> $body, #($err, $result)@ -> $rest)
+    ASTE __async-iter +$parallelism, $iterator, $has-result,
+      #($value, $index, $next)@ -> $body
+      if $has-result
+        #($err, $result)@ -> $rest
+      else
+        #($err)@ -> $rest
 
 macro asyncwhile, asyncuntil
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
