@@ -795,6 +795,8 @@ let from-char-code = do
   #(x)
     if x == -1
       "\u0000"
+    else if x > 0xFFFF
+      f(((x - 0x10000) bitrshift 10) + 0xD800) ~& f(((x - 0x10000) % 0x400) + 0xDC00)
     else
       f x
 let process-char-codes(codes, array = [])
@@ -1766,7 +1768,8 @@ define OpenSquareBracket = with-space! OpenSquareBracketChar
 define CloseSquareBracket = with-space! character! "]"
 define OpenCurlyBraceChar = character! "{"
 define OpenCurlyBrace = with-space! OpenCurlyBraceChar
-define CloseCurlyBrace = with-space! character! "}"
+define CloseCurlyBraceChar = character! "}"
+define CloseCurlyBrace = with-space! CloseCurlyBraceChar
 define Backslash = character! "\\"
 define Comma = with-space! character! ","
 define LessThanSign = character! "<"
@@ -2055,8 +2058,21 @@ namedlet HexEscapeSequence = short-circuit! LowerX, sequential! [
 define LowerU = character! "u"
 namedlet UnicodeEscapeSequence = short-circuit! LowerU, sequential! [
   LowerU
-  [\this, multiple! 4, 4, HexDigit]
-], #(x) -> parse-int(process-char-codes(x).join(""), 16) or -1
+  [\this, one-of! [
+    mutate! (multiple! 4, 4, HexDigit), #(x) -> parse-int(process-char-codes(x).join(""), 16) or -1
+    sequential! [
+      OpenCurlyBraceChar
+      [\this, multiple! 1, 6, HexDigit]
+      CloseCurlyBraceChar
+    ], #(x, o, i)
+      let inner = process-char-codes(x).join("")
+      let result = parse-int(inner, 16) or -1
+      if result > 0x10FFFF
+        o.error "Unicode escape sequence too large: \\u{$inner}"
+      else
+        result
+  ]]
+]
 
 namedlet SingleEscapeCharacter = do
   let ESCAPED_CHARACTERS =

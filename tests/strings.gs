@@ -211,6 +211,37 @@ test "Escape codes", #
   eq "\5", String.from-char-code(5)
   eq "\6", String.from-char-code(6)
   eq "\7", String.from-char-code(7)
+  eq "\u{0}", "\u0000"
+  eq "\u{00}", "\u0000"
+  eq "\u{000}", "\u0000"
+  eq "\u{0000}", "\u0000"
+  eq "\u{00000}", "\u0000"
+  eq "\u{000000}", "\u0000"
+  eq "\u{f}", "\u000f"
+  eq "\u{0f}", "\u000f"
+  eq "\u{00f}", "\u000f"
+  eq "\u{000f}", "\u000f"
+  eq "\u{0000f}", "\u000f"
+  eq "\u{00000f}", "\u000f"
+  eq "\u{ff}", "\u00ff"
+  eq "\u{0ff}", "\u00ff"
+  eq "\u{00ff}", "\u00ff"
+  eq "\u{000ff}", "\u00ff"
+  eq "\u{0000ff}", "\u00ff"
+  eq "\u{fff}", "\u0fff"
+  eq "\u{0fff}", "\u0fff"
+  eq "\u{00fff}", "\u0fff"
+  eq "\u{000fff}", "\u0fff"
+  eq "\u{ffff}", "\uffff"
+  eq "\u{0ffff}", "\uffff"
+  eq "\u{00ffff}", "\uffff"
+  eq 1, "\u{00ffff}".length
+  eq 2, "\u{010000}".length
+  eq 2, "\u{10ffff}".length
+  throws #-> gorilla.compile('''let x = 0
+  let y = "\\u{110000}"'''), #(e) -> e.line == 2
+  eq 2, "\u{20bb7}".length
+  eq "\ud842\udfb7", "\u{20bb7}"
 
 test "Array strings", #
   array-eq [], %""

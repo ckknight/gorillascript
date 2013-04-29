@@ -459,6 +459,18 @@ let string = """
 assert object.some-key == object[\some-key]
 assert "someKey" == \some-key
 </code></pre>
+
+    <p>GorillaScript includes all the escape sequences you may be familiar with in JavaScript, such as <code>\0</code>, <code>\t</code>, <code>\v</code>, and many more. You needn&#8217;t worry about some non-standard escape codes such as <code>\v</code>, as GorillaScript compiles to the lowest common denominator.</p>
+    
+    <p>It also includes the <code>\u</code> unicode escape sequence which takes 4 hex characters trailing it and <code>\x</code> which takes 2 hex characters trailing it.</p>
+    
+    <p>Unlike JavaScript, GorillaScript can properly handle unicode code points greater than <code>0xFFFF</code>, by having the <code>\u{}</code> syntax. Inside the braces, one can put between 1 and 6 hex characters as long as the representation doesn't exceed <code>0x10FFFF</code>. This will be split up into two UTF-16 code points if exceeding <code>0xFFFF</code>.</p>
+    
+    <pre class="gs-code"><code>let escapes = "\b\f\r\n\t\v\0\1\2\3\4\5\6\7"
+let hex = "\xe9"
+let unicode = "\u1d25"
+let large-unicode = "\u{20bb7}"
+</code></pre>
   </section>
   
   <section id="objects-and-arrays">
