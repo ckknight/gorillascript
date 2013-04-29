@@ -3247,7 +3247,6 @@ define operator binary >>> with precedence: 6, right-to-left: true
   else
     ASTE $right <<< $left
 
-// TODO: this could break, it seems, if an object is added that is thawed, but is then frozen.
 define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else class WeakMap
   let uid-rand()
     Math.random().to-string(36).slice(2)
@@ -3258,7 +3257,18 @@ define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else 
   def constructor()
     @_keys := []
     @_values := []
+    // the keys which were once extensible but no longer are
+    @_chilly := []
     @_uid := create-uid()
+  
+  let check(key)!
+    let uid = @_uid
+    if key ownskey uid
+      let chilly = @_chilly
+      if chilly.index-of(key) == -1
+        chilly.push key
+        @_keys.push key
+        @_values.push key[uid]
   
   def get(key)
     if Object(key) != key
@@ -3267,6 +3277,7 @@ define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else 
     if is-extensible(key)
       key![@_uid]
     else
+      check@ this, key
       let index = @_keys.index-of key
       if index == -1
         void
@@ -3280,6 +3291,7 @@ define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else 
     if is-extensible(key)
       key ownskey @_uid
     else
+      check@ this, key
       @_keys.index-of(key) != -1
   
   let def-prop = if is-function! Object.define-property then Object.define-property else #(o, k, d)! -> o[k] := d.value
@@ -3295,6 +3307,7 @@ define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else 
         value
       }
     else
+      check@ this, key
       let keys = @_keys
       let mutable index = keys.index-of key
       if index == -1
@@ -3309,6 +3322,7 @@ define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else 
     if is-extensible(key)
       delete key[@_uid]
     else
+      check@ this, key
       let keys = @_keys
       let mutable index = keys.index-of key
       if index != -1
