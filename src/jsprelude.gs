@@ -2299,6 +2299,8 @@ macro async
     if not @is-call(call)
       throw Error("async call expression must be a call")
     
+    body ?= @noop()
+    
     params := if params then [params.head].concat(params.tail) else []
     let func = @func(params, body, true, true)
     @call @call-func(call), @call-args(call).concat([ASTE mutate-function! $func]), @call-is-new(call), @call-is-apply(call)
@@ -2307,6 +2309,8 @@ macro async!
   syntax callback as ("throw" | Expression), params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
     if not @is-call(call)
       throw Error("async! call expression must be a call")
+    
+    body ?= @noop()
     
     let error = @tmp \e, false
     params := [@param(error)].concat(params)
@@ -2461,7 +2465,8 @@ macro asyncfor
     err ?= @tmp \err, true
     init ?= @noop()
     test ?= ASTE true
-    step ?= @noop(step)
+    step ?= @noop()
+    rest ?= @noop()
     let done = @tmp \done, true, \function
     if not result
       if not step
@@ -2523,6 +2528,8 @@ macro asyncfor
     let has-result = not not result
     err ?= @tmp \err, true
     let init = []
+    
+    rest ?= @noop()
     
     value := @macro-expand-1(value)
     let mutable length = null
@@ -2600,6 +2607,8 @@ macro asyncfor
     let init = []
     object := @cache object, init, \obj, true
     
+    rest ?= @noop()
+    
     let mutable index = null
     if value
       index := value.index
@@ -2628,6 +2637,8 @@ macro asyncfor
     let {mutable err, result} = results ? {}
     let has-result = not not result
     
+    rest ?= @noop()
+    
     index ?= @tmp \i, true
     err ?= @tmp \err, true
     parallelism ?= ASTE 1
@@ -2643,6 +2654,9 @@ macro asyncwhile, asyncuntil
   syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (BodyNoEnd | (";", this as Statement)), "end", rest as DedentedBody
     if macro-name == \asyncuntil
       test := ASTE not $test
+    
+    rest ?= @noop()
+    
     let {err, result} = results ? {}
     AST
       asyncfor $err, $result <- $next, ; $test; $step
@@ -2656,6 +2670,8 @@ macro asyncif, asyncunless
     let {mutable err, result} = results ? {}
     
     let f = @tmp \f, false
+    
+    rest ?= @noop()
     
     let mutable current = if else-body
       ASTE $f := #($done)@ -> $else-body
@@ -3048,6 +3064,7 @@ macro yield*
 
 macro returning
   syntax node as Expression, rest as DedentedBody
+    rest ?= @noop()
     AST
       $rest
       return $node

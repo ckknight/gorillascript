@@ -12,6 +12,10 @@ else
 let SHORT_CIRCUIT = freeze { to-string: #-> "short-circuit" }
 let NOTHING = freeze { to-string: #-> "" }
 
+let EMBED_OPEN_DEFAULT = "<%"
+let EMBED_OPEN_WRITE_DEFAULT = "="
+let EMBED_CLOSE_DEFAULT = "%>"
+
 let generate-cache-key = do
   let mutable id = -1
   #-> id += 1
@@ -644,7 +648,7 @@ let wrap(func as ->, name = get-func-name(func)) as (->)
   named func.parser-name, #(o)
     id += 1
     let i = id
-    console.log "$(i)-$(name) starting at line #$(o.line), index $(o.index), indent $(o.indent.peek())"
+    console.log "$(i)-$(name) starting at line #$(o.line), index $(o.index), indent $(o.indent.peek()) : $(JSON.stringify o.data.substr(o.index, 10))"
     let result = func o
     if not result
       console.log "$(i)-$(name) failure at line #$(o.line), index $(o.index), indent $(o.indent.peek())"
@@ -744,15 +748,22 @@ define Newline = #(o)
     o.fail "newline"
     false
 
+namedlet Eof = #(o) -> o.index ~>= o.data.length
 namedlet CheckStop = do
-  namedlet Eof = #(o) -> o.index >= o.data.length
   namedlet Stop = one-of! [Newline, Eof]
   check! Stop
-define NewlineWithCheckIndent = sequential! [
+
+let _NewlineWithCheckIndent = sequential! [
   Newline
   EmptyLines
   CheckIndent
 ]
+
+define NewlineWithCheckIndent = #(o)
+  if o.options.noindent
+    EmptyLines(o)
+  else
+    _NewlineWithCheckIndent(o)
 
 define MaybeComment = do
   namedlet SingleLineComment = #(o)
@@ -2820,6 +2831,8 @@ define NotColonUnlessNoIndentAndNewline = #(o)
   if o.options.noindent
     if ColonNewline(o.clone())
       true
+    else if o.options.embedded
+      ColonEmbeddedClose(o.clone()) or NotColon(o)
     else
       NotColon(o)
   else
@@ -2848,7 +2861,7 @@ namedlet NoNewlineIfNoIndent = #(o)
   else
     true
 
-namedlet DualObjectKey = short-circuit! ObjectKeyColon, sequential! [
+namedlet DualObjectKey = sequential! [
   [\key, ObjectKeyColon]
   NoNewlineIfNoIndent
   [\value, Expression]
@@ -3096,7 +3109,8 @@ namedlet EndNoIndent = sequential! [
 ]
 
 namedlet BodyNoIndentNoEnd = sequential! [
-  ColonNewline
+  #(o) -> ColonNewline(o.clone()) or (o.options.embedded and ColonEmbeddedClose(o.clone()))
+  Colon
   EmptyLines
   [\this, Block]
 ]
@@ -3129,6 +3143,12 @@ namedlet DedentedBody = sequential! [
   [\this, oneOf! [
     sequential! [
       Newline
+      EmptyLines
+      [\this, Block]
+    ]
+    sequential! [
+      #(o) -> o.options.embedded
+      check! EmbeddedClose
       EmptyLines
       [\this, Block]
     ]
@@ -4549,6 +4569,7 @@ namedlet Statement = sequential! [
     DefineSyntax
     Assignment
     ExpressionAsStatement
+    EmbeddedLiteralText
   ]]
   Space
   // TODO: have statement decorators?
@@ -4648,6 +4669,7 @@ let Shebang = maybe! (sequential! [
   character! "#"
   character! "!"
   zero-or-more! any-except! Newline
+  maybe! Newline, true
 ], true), true
 
 let Root = #(o, callback)
@@ -4668,6 +4690,118 @@ let Root = #(o, callback)
   EmptyLines(o)
   Space(o)
   let result = o.root i, o.options.filename, x
+  o.clear-cache()
+  if callback?
+    callback null, result
+  else
+    result
+
+let _allow-embedded-text = Stack true
+let disallow-embedded-text = make-alter-stack _allow-embedded-text, false
+
+namedlet EmbeddedWriteExpression = disallow-embedded-text sequential! [
+  EmbeddedOpen
+  EmbeddedOpenWrite
+  [\this, Expression]
+  EmbeddedClose
+], #(x, o, i) -> o.embed-write i, x, true
+
+namedlet EmbeddedBlock = sequential! [
+  EmbeddedOpen
+  except! EmbeddedOpenWrite
+  [\this, _Block]
+  EmbeddedClose
+]
+
+namedlet EmbeddedLiteralTextInnerPart = one-of! [
+  EmbeddedReadLiteralText
+  EmbeddedWriteExpression
+  EmbeddedBlock
+]
+
+namedlet EmbeddedLiteralTextInner = zero-or-more! EmbeddedLiteralTextInnerPart, #(x, o, i) -> o.block i, x
+
+namedlet EmbeddedLiteralText = sequential! [
+  #(o) -> o.options.embedded and _allow-embedded-text.peek()
+  EmbeddedClose
+  [\this, EmbeddedLiteralTextInner]
+  one-of! [
+    Eof
+    sequential! [
+      EmbeddedOpen
+      except! EmbeddedOpenWrite
+    ]
+  ]
+]
+
+let get-embedded-rule = do
+  let make-embedded-rule(text as String)
+    let len = text.length
+    let codes = for i in 0 til len; C(text, i)
+    #(o)
+      let i = o.index
+      let data = o.data
+      for j in 0 til len
+        if C(data, i + j) != codes[j]
+          return false
+      o.index := i + len
+      text
+  let rules = {}
+  #(text as String)
+    if rules ownskey text
+      rules[text]
+    else
+      rules[text] := make-embedded-rule text
+let make-embedded-rule(key, default-value) -> #(o)
+  let mutable text = o.options[key]
+  if not is-string! text
+    text := default-value
+  get-embedded-rule(text)(o)
+define EmbeddedOpen = make-embedded-rule \embedded-open, EMBED_OPEN_DEFAULT
+define EmbeddedOpenWrite = make-embedded-rule \embedded-open-write, EMBED_OPEN_WRITE_DEFAULT
+define EmbeddedClose = sequential! [
+  EmptyLines
+  Space
+  [\this, one-of! [
+    Eof
+    make-embedded-rule \embedded-close, EMBED_CLOSE_DEFAULT
+  ]]
+]
+define ColonEmbeddedClose = sequential! [
+  Colon
+  [\this, EmbeddedClose]
+]
+let unpretty-text(text as String)
+  text.replace r"\s+", " "
+define EmbeddedReadLiteralText = #(o)
+  let {data, mutable index} = o
+  let start-index = index
+  let len = data.length
+  while index ~< len, index ~+= 1
+    o.index := index
+    if EmbeddedOpen(o.clone())
+      break
+    let ch = C(data, index)
+    if ch in [C("\r"), C("\n"), 8232, 8233]
+      if ch == C("\r") and C(data, index ~+ 1) == C("\n")
+        index ~+= 1
+      o.line ~+= 1
+  o.index := index
+  if index == start-index
+    false
+  else
+    let mutable text = data.substring(start-index, index)
+    if o.options.embedded-unpretty
+      text := unpretty-text(text)
+    o.embed-write start-index, o.const(index, text), false
+
+namedlet EmbeddedRoot = #(o, callback)
+  o.clear-cache()
+  let start-index = o.index
+  BOM(o)
+  Shebang(o)
+  let node = EmbeddedLiteralTextInner(o)
+  let result = o.root start-index, o.options.filename, node, true
   o.clear-cache()
   if callback?
     callback null, result
@@ -7535,6 +7669,7 @@ node-class DebuggerNode
   def is-statement() -> true
 node-class DefNode(left as Node, right as Node|void)
   def type(o) -> if @right? then @right.type(o) else Type.any
+node-class EmbedWriteNode(text as Node, escape as Boolean)
 node-class EvalNode(code as Node)
 node-class ForNode(init as Node = NothingNode(0, 0, scope-id), test as Node = ConstNode(0, 0, scope-id, true), step as Node = NothingNode(0, 0, scope-id), body as Node, label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
@@ -7799,7 +7934,7 @@ node-class ReturnNode(node as Node = ConstNode(line, column, scope-id, void))
       ReturnNode @line, @column, @scope-id, node
     else
       this
-node-class RootNode(file as String|void, body as Node)
+node-class RootNode(file as String|void, body as Node, is-embedded as Boolean)
   def is-statement() -> true
 node-class SpreadNode(node as Node)
   def _reduce(o)
@@ -8093,15 +8228,20 @@ let build-error-message(errors, last-token)
 let parse(text as String, macros as MacroHolder|null, options as {} = {}, callback as Function|null)
   let o = State text, macros?.clone(), options
   
+  let root-rule = if o.options.embedded
+    EmbeddedRoot
+  else
+    Root
+  
   let start-time = new Date().get-time()
   asyncif result <- next, callback?
-    async err, root <- Root o
+    async err, root <- root-rule o
     if err? and err != SHORT_CIRCUIT
       return callback err
     next root
   else
     try
-      next Root o
+      next root-rule o
     catch e
       if e != SHORT_CIRCUIT
         throw e

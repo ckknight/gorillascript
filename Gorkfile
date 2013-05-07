@@ -249,8 +249,11 @@ command \test, "Run the GorillaScript test suite", #(options, cb)
       }
       fn@ fn
     catch e
-      e.description := description
-      e.source := fn.to-string()
+      try
+        e.description := description
+        e.source := fn.to-string()
+      catch x
+        void
       add-failure fn.test.filename, e
 
   let waiters = [[], []]

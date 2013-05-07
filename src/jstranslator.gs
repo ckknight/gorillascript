@@ -14,6 +14,7 @@ class Scope
     @variables := if variables then { extends variables } else {}
     @has-bound := false
     @used-this := false
+    @used-done := false
     @id := get-id()
 
   def maybe-cache(item as ast.Expression, type as Type = Type.any, func as (AstNode, AstNode, Boolean) -> AstNode)
@@ -66,7 +67,10 @@ class Scope
     delete @used-tmps[ident.name]
 
   def mark-as-param(ident as ast.Ident)!
-    @remove-variable(ident)
+    @variables[ident.name].is-param := true
+
+  def mark-as-function(ident as ast.Ident)!
+    @variables[ident.name].is-function := true
 
   def add-helper(name as String)!
     @helper-names[name] := true
@@ -118,7 +122,9 @@ class Scope
     delete @variables[ident.name]
 
   def get-variables()
-    let variables = for k of @variables; k
+    let variables = for k, v of @variables
+      if not v.is-param and not v.is-function
+        k
 
     variables.sort lower-sorter
 
@@ -167,7 +173,7 @@ class GeneratorBuilder
   
   def pending-finally(pos as {}, t-finally-body)
     let ident = @scope.reserve-ident pos, \finally, Type.undefined.function()
-    @scope.remove-variable ident
+    @scope.mark-as-function ident
     @finallies.push #-> ast.Func pos, ident, [], [], t-finally-body()
     @states[@current-state].push #@-> ast.Call pos,
       ast.Access pos, @pending-finallies-ident, \push
@@ -229,7 +235,7 @@ class GeneratorBuilder
     let body =
       * ast.Assign @pos, @state-ident, 1
     let close = @scope.reserve-ident @pos, \close, Type.undefined.function()
-    @scope.remove-variable(close)
+    @scope.mark-as-function close
     if @finallies.length == 0
       @scope.remove-variable(@pending-finallies-ident)
       body.push ast.Func @pos, close, [], [], ast.Block @pos,
@@ -252,6 +258,8 @@ class GeneratorBuilder
             ast.TryFinally @pos,
               ast.Call @pos, f
               ast.Call @pos, close
+      if inner-scope.used-done
+        @scope.used-done := true
     let scope = @scope
     let err = scope.reserve-ident @pos, \e, Type.any
     let catches = @catches
@@ -602,7 +610,7 @@ let translators =
         let left = t-left()
         let right = t-right()
         if op == "=" and location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name? and scope.has-own-variable(left) and not scope.is-variable-mutable(left)
-          scope.remove-variable left
+          scope.mark-as-function left
           let func = ast.Func(get-pos(node), left, right.params, right.variables, right.body, right.declarations)
           if auto-return != identity
             ast.Block get-pos(node),
@@ -698,7 +706,20 @@ let translators =
   Def: #(node, scope, location, auto-return)
     // TODO: line numbers
     throw Error "Cannot have a stray def"
-
+  
+  EmbedWrite: #(node, scope, location, auto-return, unassigned)
+    let t-text = translate node.text, scope, \expression, null, unassigned
+    #
+      ast.Call get-pos(node),
+        ast.Ident get-pos(node), \write
+        [
+          t-text()
+          ...if node.escape
+            [ast.Const get-pos(node), true]
+          else
+            []
+        ]
+  
   Eval: #(node, scope, location, auto-return, unassigned)
     let t-code = translate node.code, scope, \expression, null, unassigned
     #-> auto-return ast.Eval get-pos(node), t-code()
@@ -787,8 +808,6 @@ let translators =
     let translate-param-types = {
       Param: #(param, scope, inner)
         let mutable ident = translate(param.ident, scope, \param)()
-        if param.ident instanceof ParserNode.Tmp
-          scope.mark-as-param ident
 
         let later-init = []
         if ident instanceof ast.Binary and ident.op == "." and ident.right instanceof ast.Const and is-string! ident.right.value
@@ -801,8 +820,8 @@ let translators =
         
         let type = if param.as-type then translate-type-check(param.as-type)
         // TODO: mark the param as having a type
-        if inner
-          scope.add-variable ident, type, param.is-mutable
+        scope.add-variable ident, type, param.is-mutable
+        scope.mark-as-param ident
 
         {
           init: later-init
@@ -891,12 +910,53 @@ let translators =
               * body
       if node.curry
         throw Error "Expected node to already be curried"
+      if inner-scope.used-done or real-inner-scope.used-done
+        scope.used-done := true
       auto-return ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
 
-  Ident: #(node, scope, location, auto-return)
-    let name = node.name
-    scope.add-helper name
-    #-> auto-return ast.Ident get-pos(node), name
+  Ident: do
+    let PRIMORDIAL_GLOBALS = {
+      +Object
+      +String
+      +Number
+      +Boolean
+      +Function
+      +Array
+      +Math
+      +JSON
+      +Date
+      +RegExp
+      +Error
+      +RangeError
+      +ReferenceError
+      +SyntaxError
+      +TypeError
+      +URIError
+      +escape
+      +unescape
+      +parseInt
+      +parseFloat
+      +isNaN
+      +isFinite
+      +decodeURI
+      +decodeURIComponent
+      +encodeURI
+      +encodeURIComponent
+    }
+    #(node, scope, location, auto-return)
+      let name = node.name
+      scope.add-helper name
+      #
+        let ident = ast.Ident get-pos(node), name
+        if not scope.options.embedded or PRIMORDIAL_GLOBALS ownskey name or location != \expression or scope.has-variable(ident) or scope.macros.has-helper(name)
+          auto-return ident
+        else if name == \done
+          scope.used-done := true
+          auto-return ident
+        else
+          ast.Access get-pos(node),
+            ast.Ident get-pos(node), \context
+            ast.Const get-pos(node), name
 
   If: #(node, scope, location, auto-return, unassigned)
     let inner-location = if location in [\statement, \top-statement]
@@ -1160,6 +1220,8 @@ let translate-root(mutable roots as Object, scope as Scope)
           throw Error "Cannot translate non-Root object"
         let inner-scope = scope.clone(true)
         let {comments, body: root-body} = split-comments translate(root.body, inner-scope, \top-statement, scope.options.return or scope.options.eval, [])()
+        if inner-scope.used-done
+          scope.used-done := true
         let root-pos = get-pos(root)
         ast.Block root-pos, [
           ...comments
@@ -1212,6 +1274,33 @@ let translate-root(mutable roots as Object, scope as Scope)
           ast.Const node.pos, \_
         node), { return: true }
   
+  let {comments, body: mutable uncommented-body} = split-comments body
+  if scope.options.embedded
+    uncommented-body := ast.Block body.pos,
+      [
+        ast.Return body.pos,
+          ast.Func body.pos,
+            null
+            [
+              ast.Ident body.pos, \write
+              ast.Ident body.pos, \context
+              ast.Ident body.pos, \done
+            ]
+            []
+            ast.Block body.pos, [
+              ast.If body.pos,
+                ast.Binary body.pos, ast.Ident(body.pos, \context), "==", ast.Const(body.pos, null)
+                ast.Assign body.pos, ast.Ident(body.pos, \context), ast.Obj(body.pos)
+              if scope.used-done
+                uncommented-body
+              else
+                ast.Block body.pos, [
+                  uncommented-body
+                  ast.Call body.pos, ast.Ident(body.pos, \done), []
+                ]
+            ]
+      ]
+  
   if scope.options.bare
     if scope.has-helper(\GLOBAL)
       scope.add-variable ast.Ident body.pos, \GLOBAL
@@ -1221,13 +1310,11 @@ let translate-root(mutable roots as Object, scope as Scope)
     if scope.options.undefined-name?
       scope.add-variable scope.options.undefined-name
     
-    let {comments, body: uncommented-body} = split-comments body
     ast.Root body.pos,
       ast.Block body.pos, [...comments, ...bare-init, ...init, uncommented-body]
       scope.get-variables()
       ["use strict"]
   else
-    let {comments, body: uncommented-body} = split-comments body
     let mutable call-func = ast.Call body.pos,
       ast.Access body.pos,
         ast.Func body.pos,

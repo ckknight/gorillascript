@@ -7544,7 +7544,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __bind, __cmp, __create, __curry, __import, __in, __isArray, __lt, __lte, __name, __num, __once, __owns, __slice, __str, __strnum, __toArray, __typeof, _asterixAsArrayLength, _Block, _FunctionBody, _inAst, _inEvilAst, _inFunctionTypeParams, _inGenerator, _inMacro, _Name, _NameOrSymbol, _position, _preventUnclosedObjectLiteral, _Space, _Symbol, AccessMultiNode, AccessNode, Advance, AnyArrayLiteral, AnyChar, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, Assignment, AssignmentAsExpression, AssignNode, Ast, Asterix, asterixAsArrayLength, AstExpression, AstExpressionToken, AsToken, AstStatement, AstToken, AtSign, Backslash, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, BracketedObjectKey, BreakNode, CallNode, Caret, CheckIndent, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEqual, ColonNewline, Comma, CommaOrNewline, CommaOrNewlineWithCheckIndent, CommentNode, ComplexAssignable, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CustomBinaryOperator, CustomOperatorCloseParenthesis, CustomPostfixUnary, CustomPrefixUnary, DebuggerNode, DecimalDigit, DecimalNumber, DeclareEqualSymbol, DedentedBody, DefineHelper, DefineHelperStart, DefineMacro, DefineOperator, DefineOperatorStart, DefineSyntax, DefineSyntaxStart, DefNode, DollarSign, DoubleColon, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EmptyLine, EmptyLines, End, EndNoIndent, EndToken, EqualChar, Eval, EvalNode, EvalToken, Expression, ExpressionAsStatement, ExpressionOrAssignment, FailureManager, FalseLiteral, ForInNode, ForNode, freeze, fromCharCode, FunctionBody, FunctionDeclaration, FunctionFlag, FunctionFlags, FunctionLiteral, FunctionNode, FunctionType, generateCacheKey, GeneratorFunctionBody, GenericDefinitionPart, GenericPart, getReservedIdents, GetSetToken, getTmpId, getUseCustomBinaryOperator, HashSign, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrAccessPart, IdentifierOrAccessStart, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierParameter, IdentNode, IfNode, inAst, IndentationRequired, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, Index, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inspect, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThanSign, Letter, LicenseComment, Line, LinePart, Literal, Logic, LowerR, LowerU, LowerX, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, MacroToken, MapKeyValuePair, MapLiteral, MapLiteralToken, MaybeAdvance, MaybeAsType, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointNoSpace, MaybeExistentialSymbolNoSpace, MaybeNotToken, MaybeSpreadToken, MethodDeclaration, Minus, Name, NameChar, NamePart, NameStart, NaNLiteral, Newline, NewlineWithCheckIndent, nextTick, Node, nodeToType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NOTHING, Nothing, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectKeyNotColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, ParserError, PercentSign, PercentSignDoubleQuote, PercentSignTripleDoubleQuote, Period, Pipe, Plus, PlusOrMinus, PopIndent, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyObjectKeyColon, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, PushFakeIndent, PushIndent, RadixNumber, RegexComment, RegexDoubleToken, RegexFlags, RegexLiteral, RegexpNode, RegexSingleToken, RegexTripleDoubleToken, RegexTripleSingleToken, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, SetLiteral, SetLiteralToken, Shebang, SHORT_CIRCUIT, SimpleAssignable, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpreadNode, SpreadOrExpression, Stack, State, Statement, StringIndent, StringInterpolation, StringLiteral, SuperInvocation, SuperNode, SuperToken, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, SyntaxToken, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, Underscore, UnicodeEscapeSequence, UseMacro, util, VarNode, VoidLiteral, YieldNode, Zero;
+      var __async, __bind, __cmp, __create, __curry, __import, __in, __isArray, __lt, __lte, __name, __num, __once, __owns, __slice, __str, __strnum, __toArray, __typeof, _allowEmbeddedText, _asterixAsArrayLength, _Block, _FunctionBody, _inAst, _inEvilAst, _inFunctionTypeParams, _inGenerator, _inMacro, _Name, _NameOrSymbol, _position, _preventUnclosedObjectLiteral, _Space, _Symbol, AccessMultiNode, AccessNode, Advance, AnyArrayLiteral, AnyChar, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, Assignment, AssignmentAsExpression, AssignNode, Ast, Asterix, asterixAsArrayLength, AstExpression, AstExpressionToken, AsToken, AstStatement, AstToken, AtSign, Backslash, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, BracketedObjectKey, BreakNode, CallNode, Caret, CheckIndent, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEqual, ColonNewline, Comma, CommaOrNewline, CommaOrNewlineWithCheckIndent, CommentNode, ComplexAssignable, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CustomBinaryOperator, CustomOperatorCloseParenthesis, CustomPostfixUnary, CustomPrefixUnary, DebuggerNode, DecimalDigit, DecimalNumber, DeclareEqualSymbol, DedentedBody, DefineHelper, DefineHelperStart, DefineMacro, DefineOperator, DefineOperatorStart, DefineSyntax, DefineSyntaxStart, DefNode, disallowEmbeddedText, DollarSign, DoubleColon, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedLiteralText, EmbeddedLiteralTextInner, EmbeddedLiteralTextInnerPart, EmbeddedOpen, EmbeddedOpenWrite, EmbeddedReadLiteralText, EmbeddedRoot, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, End, EndNoIndent, EndToken, Eof, EqualChar, Eval, EvalNode, EvalToken, Expression, ExpressionAsStatement, ExpressionOrAssignment, FailureManager, FalseLiteral, ForInNode, ForNode, freeze, fromCharCode, FunctionBody, FunctionDeclaration, FunctionFlag, FunctionFlags, FunctionLiteral, FunctionNode, FunctionType, generateCacheKey, GeneratorFunctionBody, GenericDefinitionPart, GenericPart, getEmbeddedRule, getReservedIdents, GetSetToken, getTmpId, getUseCustomBinaryOperator, HashSign, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrAccessPart, IdentifierOrAccessStart, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierParameter, IdentNode, IfNode, inAst, IndentationRequired, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, Index, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inspect, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThanSign, Letter, LicenseComment, Line, LinePart, Literal, Logic, LowerR, LowerU, LowerX, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, MacroToken, MapKeyValuePair, MapLiteral, MapLiteralToken, MaybeAdvance, MaybeAsType, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointNoSpace, MaybeExistentialSymbolNoSpace, MaybeNotToken, MaybeSpreadToken, MethodDeclaration, Minus, Name, NameChar, NamePart, NameStart, NaNLiteral, Newline, NewlineWithCheckIndent, nextTick, Node, nodeToType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, Nothing, NOTHING, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectKeyNotColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, ParserError, PercentSign, PercentSignDoubleQuote, PercentSignTripleDoubleQuote, Period, Pipe, Plus, PlusOrMinus, PopIndent, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyObjectKeyColon, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, PushFakeIndent, PushIndent, RadixNumber, RegexComment, RegexDoubleToken, RegexFlags, RegexLiteral, RegexpNode, RegexSingleToken, RegexTripleDoubleToken, RegexTripleSingleToken, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, SetLiteral, SetLiteralToken, Shebang, SHORT_CIRCUIT, SimpleAssignable, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpreadNode, SpreadOrExpression, Stack, State, Statement, StringIndent, StringInterpolation, StringLiteral, SuperInvocation, SuperNode, SuperToken, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, SyntaxToken, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, Underscore, UnicodeEscapeSequence, UseMacro, util, VarNode, VoidLiteral, YieldNode, Zero;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -7838,6 +7838,9 @@
           return "";
         }
       });
+      EMBED_OPEN_DEFAULT = "<%";
+      EMBED_OPEN_WRITE_DEFAULT = "=";
+      EMBED_CLOSE_DEFAULT = "%>";
       generateCacheKey = (function () {
         var id;
         id = -1;
@@ -8158,7 +8161,7 @@
           var i, result;
           ++id;
           i = id;
-          console.log(i + "-" + __strnum(name) + " starting at line #" + __strnum(o.line) + ", index " + __strnum(o.index) + ", indent " + __strnum(o.indent.peek()));
+          console.log(i + "-" + __strnum(name) + " starting at line #" + __strnum(o.line) + ", index " + __strnum(o.index) + ", indent " + __strnum(o.indent.peek()) + " : " + __str(JSON.stringify(o.data.substr(o.index, 10))));
           result = func(o);
           if (!result) {
             console.log(i + "-" + __strnum(name) + " failure at line #" + __strnum(o.line) + ", index " + __strnum(o.index) + ", indent " + __strnum(o.indent.peek()));
@@ -8276,11 +8279,11 @@
           return false;
         }
       }));
+      Eof = named("Eof", function (o) {
+        return o.index >= o.data.length;
+      });
       CheckStop = named("CheckStop", (function () {
-        var Eof, Stop;
-        Eof = named("Eof", function (o) {
-          return !__lt(o.index, o.data.length);
-        });
+        var Stop;
         Stop = named("Stop", function (o) {
           return Newline(o) || Eof(o);
         });
@@ -8288,10 +8291,17 @@
           return Stop(o.clone());
         };
       }()));
-      NewlineWithCheckIndent = cache(named("NewlineWithCheckIndent", function (o) {
+      function _NewlineWithCheckIndent(o) {
         var clone;
         clone = o.clone();
         return Newline(clone) && EmptyLines(clone) && CheckIndent(clone) && (o.update(clone), true);
+      }
+      NewlineWithCheckIndent = cache(named("NewlineWithCheckIndent", function (o) {
+        if (o.options.noindent) {
+          return EmptyLines(o);
+        } else {
+          return _NewlineWithCheckIndent(o);
+        }
       }));
       MaybeComment = cache(named("MaybeComment", (function () {
         var MultiLineComment, SingleLineComment;
@@ -12165,6 +12175,8 @@
         if (o.options.noindent) {
           if (ColonNewline(o.clone())) {
             return true;
+          } else if (o.options.embedded) {
+            return ColonEmbeddedClose(o.clone()) || NotColon(o);
           } else {
             return NotColon(o);
           }
@@ -12224,26 +12236,12 @@
           return true;
         }
       });
-      DualObjectKey = named("DualObjectKey", (function () {
-        function _backend(o) {
-          var _result, clone;
-          clone = o.clone();
-          _result = {};
-          return (_result.key = ObjectKeyColon(clone)) && NoNewlineIfNoIndent(clone) && (_result.value = Expression(clone)) && (o.update(clone), _result);
-        }
-        return named(_backend != null && _backend.parserName || "<unknown>", function (o) {
-          var result;
-          if (!ObjectKeyColon(o.clone())) {
-            return false;
-          } else {
-            result = _backend(o);
-            if (!result) {
-              throw SHORT_CIRCUIT;
-            }
-            return result;
-          }
-        });
-      }()));
+      DualObjectKey = named("DualObjectKey", function (o) {
+        var _result, clone;
+        clone = o.clone();
+        _result = {};
+        return (_result.key = ObjectKeyColon(clone)) && NoNewlineIfNoIndent(clone) && (_result.value = Expression(clone)) && (o.update(clone), _result);
+      });
       GetSetToken = cache(named("GetSetToken", (function () {
         var _rule, _rule2;
         _rule = word("get");
@@ -13152,12 +13150,17 @@
           return EmptyLines(clone) && Space(clone) && _rule(clone) && EndToken(clone) && (o.update(clone), true);
         };
       }()));
-      BodyNoIndentNoEnd = named("BodyNoIndentNoEnd", function (o) {
-        var _result, clone;
-        clone = o.clone();
-        _result = void 0;
-        return ColonNewline(clone) && EmptyLines(clone) && (_result = Block(clone)) && (o.update(clone), _result);
-      });
+      BodyNoIndentNoEnd = named("BodyNoIndentNoEnd", (function () {
+        function _rule(o) {
+          return ColonNewline(o.clone()) || o.options.embedded && ColonEmbeddedClose(o.clone());
+        }
+        return function (o) {
+          var _result, clone;
+          clone = o.clone();
+          _result = void 0;
+          return _rule(clone) && Colon(clone) && EmptyLines(clone) && (_result = Block(clone)) && (o.update(clone), _result);
+        };
+      }()));
       BodyNoIndent = named("BodyNoIndent", function (o) {
         var _result, clone;
         clone = o.clone();
@@ -13188,14 +13191,29 @@
       DedentedBody = named("DedentedBody", (function () {
         var _rule;
         _rule = (function () {
+          var _rule3;
           function _rule2(o) {
             var _result, clone;
             clone = o.clone();
             _result = void 0;
             return Newline(clone) && EmptyLines(clone) && (_result = Block(clone)) && (o.update(clone), _result);
           }
+          _rule3 = (function () {
+            function _rule4(o) {
+              return o.options.embedded;
+            }
+            function _rule5(o) {
+              return EmbeddedClose(o.clone());
+            }
+            return function (o) {
+              var _result, clone;
+              clone = o.clone();
+              _result = void 0;
+              return _rule4(clone) && _rule5(clone) && EmptyLines(clone) && (_result = Block(clone)) && (o.update(clone), _result);
+            };
+          }());
           return function (o) {
-            return _rule2(o) || Nothing(o);
+            return _rule2(o) || _rule3(o) || Nothing(o);
           };
         }());
         return function (o) {
@@ -17170,7 +17188,7 @@
       Statement = named("Statement", (function () {
         var _rule;
         _rule = inStatement(function (o) {
-          return DefineMacro(o) || DefineHelper(o) || DefineOperator(o) || DefineSyntax(o) || Assignment(o) || ExpressionAsStatement(o);
+          return DefineMacro(o) || DefineHelper(o) || DefineOperator(o) || DefineSyntax(o) || Assignment(o) || ExpressionAsStatement(o) || EmbeddedLiteralText(o);
         });
         return function (o) {
           var _result, clone;
@@ -17380,7 +17398,7 @@
       Shebang = (function () {
         var _rule;
         _rule = (function () {
-          var _rule4;
+          var _rule4, _rule5;
           function _rule2(o) {
             if (o.data.charCodeAt(o.index) === 35) {
               o.index = __num(o.index) + 1;
@@ -17400,25 +17418,28 @@
             }
           }
           _rule4 = (function () {
-            var _rule5;
-            _rule5 = named("!" + __strnum(Newline != null && Newline.parserName || "Newline"), function (o) {
+            var _rule6;
+            _rule6 = named("!" + __strnum(Newline != null && Newline.parserName || "Newline"), function (o) {
               return !Newline(o.clone()) && AnyChar(o);
             });
-            return named(__strnum(_rule5 != null && _rule5.parserName || "<unknown>") + "*", function (o) {
+            return named(__strnum(_rule6 != null && _rule6.parserName || "<unknown>") + "*", function (o) {
               var clone, item, result;
               clone = o.clone();
               result = [];
-              while (item = _rule5(clone)) {
+              while (item = _rule6(clone)) {
                 result.push(item);
               }
               o.update(clone);
               return result;
             });
           }());
+          _rule5 = named(__strnum(Newline != null && Newline.parserName || "Newline") + "?", function (o) {
+            return Newline(o) || true;
+          });
           return function (o) {
             var clone;
             clone = o.clone();
-            return _rule2(clone) && _rule3(clone) && _rule4(clone) && (o.update(clone), true);
+            return _rule2(clone) && _rule3(clone) && _rule4(clone) && _rule5(clone) && (o.update(clone), true);
           };
         }());
         return named(__strnum(_rule != null && _rule.parserName || "<unknown>") + "?", function (o) {
@@ -17461,6 +17482,227 @@
           }
         });
       }
+      _allowEmbeddedText = Stack(true);
+      disallowEmbeddedText = makeAlterStack(_allowEmbeddedText, false);
+      EmbeddedWriteExpression = named("EmbeddedWriteExpression", disallowEmbeddedText((function () {
+        function _rule(o) {
+          var _result, clone;
+          clone = o.clone();
+          _result = void 0;
+          return EmbeddedOpen(clone) && EmbeddedOpenWrite(clone) && (_result = Expression(clone)) && EmbeddedClose(clone) && (o.update(clone), _result);
+        }
+        function _mutator(x, o, i) {
+          return o.embedWrite(i, x, true);
+        }
+        return named(_rule != null && _rule.parserName || "<unknown>", function (o) {
+          var index, line, result;
+          index = o.index;
+          line = o.line;
+          result = _rule(o);
+          if (!result) {
+            return false;
+          } else {
+            return _mutator(result, o, index, line);
+          }
+        });
+      }())));
+      EmbeddedBlock = named("EmbeddedBlock", (function () {
+        var _rule;
+        _rule = named("!" + __strnum(typeof EmbeddedOpenWrite !== "undefined" && EmbeddedOpenWrite !== null && EmbeddedOpenWrite.parserName || "EmbeddedOpenWrite"), function (o) {
+          return !EmbeddedOpenWrite(o.clone());
+        });
+        return function (o) {
+          var _result, clone;
+          clone = o.clone();
+          _result = void 0;
+          return EmbeddedOpen(clone) && _rule(clone) && (_result = _Block(clone)) && EmbeddedClose(clone) && (o.update(clone), _result);
+        };
+      }()));
+      EmbeddedLiteralTextInnerPart = named("EmbeddedLiteralTextInnerPart", function (o) {
+        return EmbeddedReadLiteralText(o) || EmbeddedWriteExpression(o) || EmbeddedBlock(o);
+      });
+      EmbeddedLiteralTextInner = named("EmbeddedLiteralTextInner", (function () {
+        var _rule;
+        _rule = named(__strnum(EmbeddedLiteralTextInnerPart != null && EmbeddedLiteralTextInnerPart.parserName || "EmbeddedLiteralTextInnerPart") + "*", function (o) {
+          var clone, item, result;
+          clone = o.clone();
+          result = [];
+          while (item = EmbeddedLiteralTextInnerPart(clone)) {
+            result.push(item);
+          }
+          o.update(clone);
+          return result;
+        });
+        function _mutator(x, o, i) {
+          return o.block(i, x);
+        }
+        return named(_rule != null && _rule.parserName || "<unknown>", function (o) {
+          var index, line, result;
+          index = o.index;
+          line = o.line;
+          result = _rule(o);
+          if (!result) {
+            return false;
+          } else {
+            return _mutator(result, o, index, line);
+          }
+        });
+      }()));
+      EmbeddedLiteralText = named("EmbeddedLiteralText", (function () {
+        var _rule2;
+        function _rule(o) {
+          return o.options.embedded && _allowEmbeddedText.peek();
+        }
+        _rule2 = (function () {
+          var _rule3;
+          _rule3 = (function () {
+            var _rule4;
+            _rule4 = named("!" + __strnum(typeof EmbeddedOpenWrite !== "undefined" && EmbeddedOpenWrite !== null && EmbeddedOpenWrite.parserName || "EmbeddedOpenWrite"), function (o) {
+              return !EmbeddedOpenWrite(o.clone());
+            });
+            return function (o) {
+              var clone;
+              clone = o.clone();
+              return EmbeddedOpen(clone) && _rule4(clone) && (o.update(clone), true);
+            };
+          }());
+          return function (o) {
+            return Eof(o) || _rule3(o);
+          };
+        }());
+        return function (o) {
+          var _result, clone;
+          clone = o.clone();
+          _result = void 0;
+          return _rule(clone) && EmbeddedClose(clone) && (_result = EmbeddedLiteralTextInner(clone)) && _rule2(clone) && (o.update(clone), _result);
+        };
+      }()));
+      getEmbeddedRule = (function () {
+        var rules;
+        function makeEmbeddedRule(text) {
+          var _arr, codes, i, len;
+          if (typeof text !== "string") {
+            throw TypeError("Expected text to be a String, got " + __typeof(text));
+          }
+          len = text.length;
+          for (_arr = [], i = 0; i < len; ++i) {
+            _arr.push(text.charCodeAt(i));
+          }
+          codes = _arr;
+          return function (o) {
+            var data, i, j;
+            i = o.index;
+            data = o.data;
+            for (j = 0; j < len; ++j) {
+              if (data.charCodeAt(__num(i) + j) !== codes[j]) {
+                return false;
+              }
+            }
+            o.index = __num(i) + len;
+            return text;
+          };
+        }
+        rules = {};
+        return function (text) {
+          if (typeof text !== "string") {
+            throw TypeError("Expected text to be a String, got " + __typeof(text));
+          }
+          if (__owns.call(rules, text)) {
+            return rules[text];
+          } else {
+            return rules[text] = makeEmbeddedRule(text);
+          }
+        };
+      }());
+      function makeEmbeddedRule(key, defaultValue) {
+        return function (o) {
+          var text;
+          text = o.options[key];
+          if (typeof text !== "string") {
+            text = defaultValue;
+          }
+          return getEmbeddedRule(text)(o);
+        };
+      }
+      EmbeddedOpen = cache(named("EmbeddedOpen", makeEmbeddedRule("embeddedOpen", EMBED_OPEN_DEFAULT)));
+      EmbeddedOpenWrite = cache(named("EmbeddedOpenWrite", makeEmbeddedRule("embeddedOpenWrite", EMBED_OPEN_WRITE_DEFAULT)));
+      EmbeddedClose = cache(named("EmbeddedClose", (function () {
+        var _rule;
+        _rule = (function () {
+          var _rule2;
+          _rule2 = makeEmbeddedRule("embeddedClose", EMBED_CLOSE_DEFAULT);
+          return function (o) {
+            return Eof(o) || _rule2(o);
+          };
+        }());
+        return function (o) {
+          var _result, clone;
+          clone = o.clone();
+          _result = void 0;
+          return EmptyLines(clone) && Space(clone) && (_result = _rule(clone)) && (o.update(clone), _result);
+        };
+      }())));
+      ColonEmbeddedClose = cache(named("ColonEmbeddedClose", function (o) {
+        var _result, clone;
+        clone = o.clone();
+        _result = void 0;
+        return Colon(clone) && (_result = EmbeddedClose(clone)) && (o.update(clone), _result);
+      }));
+      function unprettyText(text) {
+        if (typeof text !== "string") {
+          throw TypeError("Expected text to be a String, got " + __typeof(text));
+        }
+        return text.replace(/\s+/, " ");
+      }
+      EmbeddedReadLiteralText = cache(named("EmbeddedReadLiteralText", function (o) {
+        var ch, data, index, len, startIndex, text;
+        data = o.data;
+        index = o.index;
+        startIndex = index;
+        len = data.length;
+        for (; index < len; ++index) {
+          o.index = index;
+          if (EmbeddedOpen(o.clone())) {
+            break;
+          }
+          ch = data.charCodeAt(index);
+          if (ch === 13 || ch === 10 || ch === 8232 || ch === 8233) {
+            if (ch === 13 && data.charCodeAt(+index + 1) === 10) {
+              ++index;
+            }
+            ++o.line;
+          }
+        }
+        o.index = index;
+        if (index === startIndex) {
+          return false;
+        } else {
+          text = data.substring(startIndex, index);
+          if (o.options.embeddedUnpretty) {
+            text = unprettyText(text);
+          }
+          return o.embedWrite(
+            startIndex,
+            o["const"](index, text),
+            false
+          );
+        }
+      }));
+      EmbeddedRoot = named("EmbeddedRoot", function (o, callback) {
+        var node, result, startIndex;
+        o.clearCache();
+        startIndex = o.index;
+        BOM(o);
+        Shebang(o);
+        node = EmbeddedLiteralTextInner(o);
+        result = o.root(startIndex, o.options.filename, node, true);
+        o.clearCache();
+        if (callback != null) {
+          return callback(null, result);
+        } else {
+          return result;
+        }
+      });
       ParserError = (function (Error) {
         var _Error_prototype, _ParserError_prototype;
         function ParserError(message, text, line) {
@@ -24173,6 +24415,93 @@
         };
         return DefNode;
       }(Node));
+      Node.EmbedWrite = EmbedWriteNode = (function (Node) {
+        var _EmbedWriteNode_prototype, _Node_prototype;
+        function EmbedWriteNode(line, column, scopeId, text, escape) {
+          var _this;
+          _this = this instanceof EmbedWriteNode ? this : __create(_EmbedWriteNode_prototype);
+          if (typeof line !== "number") {
+            throw TypeError("Expected line to be a Number, got " + __typeof(line));
+          }
+          if (typeof column !== "number") {
+            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          }
+          if (typeof scopeId !== "number") {
+            throw TypeError("Expected scopeId to be a Number, got " + __typeof(scopeId));
+          }
+          if (!(text instanceof Node)) {
+            throw TypeError("Expected text to be a " + __name(Node) + ", got " + __typeof(text));
+          }
+          if (escape == null) {
+            escape = false;
+          } else if (typeof escape !== "boolean") {
+            throw TypeError("Expected escape to be a Boolean, got " + __typeof(escape));
+          }
+          _this.line = line;
+          _this.column = column;
+          _this.scopeId = scopeId;
+          _this._reduced = void 0;
+          _this._macroExpanded = void 0;
+          _this._macroExpandAlled = void 0;
+          _this.text = text;
+          _this.escape = escape;
+          return _this;
+        }
+        _Node_prototype = Node.prototype;
+        _EmbedWriteNode_prototype = EmbedWriteNode.prototype = __create(_Node_prototype);
+        _EmbedWriteNode_prototype.constructor = EmbedWriteNode;
+        EmbedWriteNode.displayName = "EmbedWriteNode";
+        if (typeof Node.extended === "function") {
+          Node.extended(EmbedWriteNode);
+        }
+        EmbedWriteNode.cappedName = "EmbedWrite";
+        EmbedWriteNode.argNames = ["text", "escape"];
+        State.addNodeFactory("embedWrite", EmbedWriteNode);
+        _EmbedWriteNode_prototype.inspect = function (depth) {
+          return inspectHelper(
+            depth,
+            "EmbedWriteNode",
+            this.line,
+            this.column,
+            this.text,
+            this.escape
+          );
+        };
+        _EmbedWriteNode_prototype.walk = function (f) {
+          var text;
+          text = f(this.text);
+          if (text !== this.text) {
+            return EmbedWriteNode(
+              this.line,
+              this.column,
+              this.scopeId,
+              text,
+              this.escape
+            );
+          } else {
+            return this;
+          }
+        };
+        _EmbedWriteNode_prototype.walkAsync = function (f, callback) {
+          var _this;
+          _this = this;
+          return f(this.text, function (_e, text) {
+            if (_e != null) {
+              return callback(_e);
+            }
+            return callback(null, text !== _this.text
+              ? EmbedWriteNode(
+                _this.line,
+                _this.column,
+                _this.scopeId,
+                text,
+                _this.escape
+              )
+              : _this);
+          });
+        };
+        return EmbedWriteNode;
+      }(Node));
       Node.Eval = EvalNode = (function (Node) {
         var _EvalNode_prototype, _Node_prototype;
         function EvalNode(line, column, scopeId, code) {
@@ -26072,7 +26401,7 @@
       }(Node));
       Node.Root = RootNode = (function (Node) {
         var _Node_prototype, _RootNode_prototype;
-        function RootNode(line, column, scopeId, file, body) {
+        function RootNode(line, column, scopeId, file, body, isEmbedded) {
           var _this;
           _this = this instanceof RootNode ? this : __create(_RootNode_prototype);
           if (typeof line !== "number") {
@@ -26092,6 +26421,11 @@
           if (!(body instanceof Node)) {
             throw TypeError("Expected body to be a " + __name(Node) + ", got " + __typeof(body));
           }
+          if (isEmbedded == null) {
+            isEmbedded = false;
+          } else if (typeof isEmbedded !== "boolean") {
+            throw TypeError("Expected isEmbedded to be a Boolean, got " + __typeof(isEmbedded));
+          }
           _this.line = line;
           _this.column = column;
           _this.scopeId = scopeId;
@@ -26100,6 +26434,7 @@
           _this._macroExpandAlled = void 0;
           _this.file = file;
           _this.body = body;
+          _this.isEmbedded = isEmbedded;
           return _this;
         }
         _Node_prototype = Node.prototype;
@@ -26110,7 +26445,7 @@
           Node.extended(RootNode);
         }
         RootNode.cappedName = "Root";
-        RootNode.argNames = ["file", "body"];
+        RootNode.argNames = ["file", "body", "isEmbedded"];
         State.addNodeFactory("root", RootNode);
         _RootNode_prototype.isStatement = function () {
           return true;
@@ -26122,7 +26457,8 @@
             this.line,
             this.column,
             this.file,
-            this.body
+            this.body,
+            this.isEmbedded
           );
         };
         _RootNode_prototype.walk = function (f) {
@@ -26134,7 +26470,8 @@
               this.column,
               this.scopeId,
               this.file,
-              body
+              body,
+              this.isEmbedded
             );
           } else {
             return this;
@@ -26153,7 +26490,8 @@
                 _this.column,
                 _this.scopeId,
                 _this.file,
-                body
+                body,
+                _this.isEmbedded
               )
               : _this);
           });
@@ -28459,14 +28797,14 @@
         case 1: return errs[0];
         case 2: return __strnum(errs[0]) + " or " + __strnum(errs[1]);
         default:
-          return __strnum(__slice.call(errs, 0, -1).join(", ")) + ", or " + __strnum(errs[errs.length - 1]);
+          return __strnum(__slice.call(errs, 0, -1).join(", ")) + ", or " + __strnum(errs[__num(errs.length) - 1]);
         }
       }
       function buildErrorMessage(errors, lastToken) {
         return "Expected " + __strnum(buildExpected(errors)) + ", but " + __strnum(lastToken) + " found";
       }
       function parse(text, macros, options, callback) {
-        var _f, o, startTime;
+        var _f, o, rootRule, startTime;
         if (typeof text !== "string") {
           throw TypeError("Expected text to be a String, got " + __typeof(text));
         }
@@ -28490,10 +28828,15 @@
           macros != null ? macros.clone() : void 0,
           options
         );
+        if (o.options.embedded) {
+          rootRule = EmbeddedRoot;
+        } else {
+          rootRule = Root;
+        }
         startTime = new Date().getTime();
         if (callback != null) {
           _f = function (next) {
-            return Root(o, function (err, root) {
+            return rootRule(o, function (err, root) {
               if (err != null && err !== SHORT_CIRCUIT) {
                 return callback(err);
               }
@@ -28503,7 +28846,7 @@
         } else {
           _f = function (next) {
             try {
-              return next(Root(o));
+              return next(rootRule(o));
             } catch (e) {
               if (e !== SHORT_CIRCUIT) {
                 throw e;
@@ -28760,6 +29103,7 @@
           _this.variables = variables ? __create(variables) : {};
           _this.hasBound = false;
           _this.usedThis = false;
+          _this.usedDone = false;
           _this.id = getId();
           return _this;
         }
@@ -28898,7 +29242,13 @@
           if (!(ident instanceof ast.Ident)) {
             throw TypeError("Expected ident to be an Ident, got " + __typeof(ident));
           }
-          this.removeVariable(ident);
+          this.variables[ident.name].isParam = true;
+        };
+        _Scope_prototype.markAsFunction = function (ident) {
+          if (!(ident instanceof ast.Ident)) {
+            throw TypeError("Expected ident to be an Ident, got " + __typeof(ident));
+          }
+          this.variables[ident.name].isFunction = true;
         };
         _Scope_prototype.addHelper = function (name) {
           if (typeof name !== "string") {
@@ -29000,12 +29350,15 @@
           delete this.variables[ident.name];
         };
         _Scope_prototype.getVariables = function () {
-          var _arr, _obj, k, variables;
+          var _arr, _obj, k, v, variables;
           _arr = [];
           _obj = this.variables;
           for (k in _obj) {
             if (__owns.call(_obj, k)) {
-              _arr.push(k);
+              v = _obj[k];
+              if (!v.isParam && !v.isFunction) {
+                _arr.push(k);
+              }
             }
           }
           variables = _arr;
@@ -29137,7 +29490,7 @@
             throw TypeError("Expected pos to be an Object, got " + __typeof(pos));
           }
           ident = this.scope.reserveIdent(pos, "finally", Type["undefined"]["function"]());
-          this.scope.removeVariable(ident);
+          this.scope.markAsFunction(ident);
           this.finallies.push(function () {
             return ast.Func(
               pos,
@@ -29248,7 +29601,7 @@
           });
           body = [ast.Assign(this.pos, this.stateIdent, 1)];
           close = this.scope.reserveIdent(this.pos, "close", Type["undefined"]["function"]());
-          this.scope.removeVariable(close);
+          this.scope.markAsFunction(close);
           if (this.finallies.length === 0) {
             this.scope.removeVariable(this.pendingFinalliesIdent);
             body.push(ast.Func(
@@ -29285,6 +29638,9 @@
                 ))
               ])
             ));
+            if (innerScope.usedDone) {
+              this.scope.usedDone = true;
+            }
           }
           scope = this.scope;
           err = scope.reserveIdent(this.pos, "e", Type.any);
@@ -29995,7 +30351,7 @@
               left = tLeft();
               right = tRight();
               if (op === "=" && location === "topStatement" && left instanceof ast.Ident && right instanceof ast.Func && right.name == null && scope.hasOwnVariable(left) && !scope.isVariableMutable(left)) {
-                scope.removeVariable(left);
+                scope.markAsFunction(left);
                 func = ast.Func(
                   getPos(node),
                   left,
@@ -30211,6 +30567,25 @@
         Def: function (node, scope, location, autoReturn) {
           throw Error("Cannot have a stray def");
         },
+        EmbedWrite: function (node, scope, location, autoReturn, unassigned) {
+          var tText;
+          tText = translate(
+            node.text,
+            scope,
+            "expression",
+            null,
+            unassigned
+          );
+          return function () {
+            return ast.Call(
+              getPos(node),
+              ast.Ident(getPos(node), "write"),
+              [tText()].concat(node.escape
+                ? [ast.Const(getPos(node), true)]
+                : [])
+            );
+          };
+        },
         Eval: function (node, scope, location, autoReturn, unassigned) {
           var tCode;
           tCode = translate(
@@ -30352,9 +30727,6 @@
             Param: function (param, scope, inner) {
               var ident, laterInit, tmp, type;
               ident = translate(param.ident, scope, "param")();
-              if (param.ident instanceof ParserNode.Tmp) {
-                scope.markAsParam(ident);
-              }
               laterInit = [];
               if (ident instanceof ast.Binary && ident.op === "." && ident.right instanceof ast.Const && typeof ident.right.value === "string") {
                 tmp = ast.Ident(ident.pos, ident.right.value);
@@ -30367,9 +30739,8 @@
               if (param.asType) {
                 type = translateTypeCheck(param.asType);
               }
-              if (inner) {
-                scope.addVariable(ident, type, param.isMutable);
-              }
+              scope.addVariable(ident, type, param.isMutable);
+              scope.markAsParam(ident);
               return { init: laterInit, ident: ident, spread: !!param.spread };
             }
           };
@@ -30499,6 +30870,9 @@
               if (node.curry) {
                 throw Error("Expected node to already be curried");
               }
+              if (innerScope.usedDone || realInnerScope.usedDone) {
+                scope.usedDone = true;
+              }
               return autoReturn(ast.Func(
                 getPos(node),
                 null,
@@ -30510,14 +30884,58 @@
             };
           };
         }()),
-        Ident: function (node, scope, location, autoReturn) {
-          var name;
-          name = node.name;
-          scope.addHelper(name);
-          return function () {
-            return autoReturn(ast.Ident(getPos(node), name));
+        Ident: (function () {
+          var PRIMORDIAL_GLOBALS;
+          PRIMORDIAL_GLOBALS = {
+            Object: true,
+            String: true,
+            Number: true,
+            Boolean: true,
+            Function: true,
+            Array: true,
+            Math: true,
+            JSON: true,
+            Date: true,
+            RegExp: true,
+            Error: true,
+            RangeError: true,
+            ReferenceError: true,
+            SyntaxError: true,
+            TypeError: true,
+            URIError: true,
+            escape: true,
+            unescape: true,
+            parseInt: true,
+            parseFloat: true,
+            isNaN: true,
+            isFinite: true,
+            decodeURI: true,
+            decodeURIComponent: true,
+            encodeURI: true,
+            encodeURIComponent: true
           };
-        },
+          return function (node, scope, location, autoReturn) {
+            var name;
+            name = node.name;
+            scope.addHelper(name);
+            return function () {
+              var ident;
+              ident = ast.Ident(getPos(node), name);
+              if (!scope.options.embedded || __owns.call(PRIMORDIAL_GLOBALS, name) || location !== "expression" || scope.hasVariable(ident) || scope.macros.hasHelper(name)) {
+                return autoReturn(ident);
+              } else if (name === "done") {
+                scope.usedDone = true;
+                return autoReturn(ident);
+              } else {
+                return ast.Access(
+                  getPos(node),
+                  ast.Ident(getPos(node), "context"),
+                  ast.Const(getPos(node), name)
+                );
+              }
+            };
+          };
+        }()),
         If: function (node, scope, location, autoReturn, unassigned) {
           var innerLocation, tLabel, tTest, tWhenFalse, tWhenTrue;
           if (location === "statement" || location === "topStatement") {
@@ -31068,6 +31486,9 @@
                 []
               )())).comments;
               rootBody = _ref.body;
+              if (innerScope.usedDone) {
+                scope.usedDone = true;
+              }
               rootPos = getPos(root);
               _arr.push(ast.Block(rootPos, __toArray(comments).concat([
                 ast.Call(rootPos, ast.Func(
@@ -31148,6 +31569,47 @@
             { "return": true }
           );
         }
+        comments = (_ref = splitComments(body)).comments;
+        uncommentedBody = _ref.body;
+        if (scope.options.embedded) {
+          uncommentedBody = ast.Block(body.pos, [
+            ast.Return(body.pos, ast.Func(
+              body.pos,
+              null,
+              [
+                ast.Ident(body.pos, "write"),
+                ast.Ident(body.pos, "context"),
+                ast.Ident(body.pos, "done")
+              ],
+              [],
+              ast.Block(body.pos, [
+                ast.If(
+                  body.pos,
+                  ast.Binary(
+                    body.pos,
+                    ast.Ident(body.pos, "context"),
+                    "==",
+                    ast.Const(body.pos, null)
+                  ),
+                  ast.Assign(
+                    body.pos,
+                    ast.Ident(body.pos, "context"),
+                    ast.Obj(body.pos)
+                  )
+                ),
+                scope.usedDone ? uncommentedBody
+                  : ast.Block(body.pos, [
+                    uncommentedBody,
+                    ast.Call(
+                      body.pos,
+                      ast.Ident(body.pos, "done"),
+                      []
+                    )
+                  ])
+              ])
+            ))
+          ]);
+        }
         if (scope.options.bare) {
           if (scope.hasHelper("GLOBAL")) {
             scope.addVariable(ast.Ident(body.pos, "GLOBAL"));
@@ -31160,8 +31622,6 @@
           if (scope.options.undefinedName != null) {
             scope.addVariable(scope.options.undefinedName);
           }
-          comments = (_ref = splitComments(body)).comments;
-          uncommentedBody = _ref.body;
           return ast.Root(
             body.pos,
             ast.Block(body.pos, __toArray(comments).concat(__toArray(bareInit), __toArray(init), [uncommentedBody])),
@@ -31169,8 +31629,6 @@
             ["use strict"]
           );
         } else {
-          comments = (_ref = splitComments(body)).comments;
-          uncommentedBody = _ref.body;
           callFunc = ast.Call(
             body.pos,
             ast.Access(
@@ -33180,7 +33638,7 @@
           id: 121
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,call,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){throw Error("async call expression must be a call");}params=params?[params.head].concat(params.tail):[];func=this.func(params,body,true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",2304,58,115,2304,{op:"mutateFunction!",node:__wrap(func,773)},"expression",false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,call,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){throw Error("async call expression must be a call");}if(body==null){body=this.noop();}params=params?[params.head].concat(params.tail):[];func=this.func(params,body,true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",2306,58,115,2306,{op:"mutateFunction!",node:__wrap(func,773)},"expression",false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
           params: [
             [
               "ident",
@@ -33207,7 +33665,7 @@
           id: 124
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,call,callback,error,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;callback=macroData.callback;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){throw Error("async! call expression must be a call");}error=this.tmp("e",false);params=[this.param(error)].concat(params);func=this.func(params,callback==="throw"?__node("Block",2316,1,[__node("MacroAccess",2316,11,100,2316,{op:"throw?",node:__wrap(error,775)},"statement",false,false),__wrap(body,775)],null):__node("Block",2320,1,[__node("MacroAccess",2320,11,19,2320,{macroName:"if",macroData:{test:__node("MacroAccess",2320,13,20,2320,{op:"?",node:__wrap(error,775)},"statement",false,false),body:__node("MacroAccess",2321,13,39,2321,{macroName:"return",macroData:{node:__node("Call",2321,19,__wrap(callback,775),[__wrap(error,775)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,775)],null),true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",2325,58,115,2325,{op:"mutateFunction!",node:__wrap(func,775)},"expression",false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,call,callback,error,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;callback=macroData.callback;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){throw Error("async! call expression must be a call");}if(body==null){body=this.noop();}error=this.tmp("e",false);params=[this.param(error)].concat(params);func=this.func(params,callback==="throw"?__node("Block",2320,1,[__node("MacroAccess",2320,11,100,2320,{op:"throw?",node:__wrap(error,775)},"statement",false,false),__wrap(body,775)],null):__node("Block",2324,1,[__node("MacroAccess",2324,11,19,2324,{macroName:"if",macroData:{test:__node("MacroAccess",2324,13,20,2324,{op:"?",node:__wrap(error,775)},"statement",false,false),body:__node("MacroAccess",2325,13,39,2325,{macroName:"return",macroData:{node:__node("Call",2325,19,__wrap(callback,775),[__wrap(error,775)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,775)],null),true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",2329,58,115,2329,{op:"mutateFunction!",node:__wrap(func,775)},"expression",false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
           params: [
             [
               "ident",
@@ -33233,13 +33691,13 @@
           id: 125
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__num,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _arr,_i,_len,ident,identName,key,macroData,macroName,name,obj,path,requires,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;if(this.isConst(name)&&typeof this.value(name)!=="string"){throw Error("Expected a constant string, got "+__typeof(this.value(name)));}if(this.isConst(name)){identName=this.value(name);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);return __node("MacroAccess",2338,10,38,2338,{macroName:"let",macroData:{declarable:__node("MacroAccess",2338,14,37,2338,__node("MacroAccess",2338,14,31,2338,{ident:__wrap(ident,778)},"statement",false,false),"statement",false,false),value:__node("Call",2338,23,__node("Ident",2338,23,"require"),[__wrap(name,778)],false,false)}},"statement",false,false);}else if(this.isIdent(name)){path=this.name(name);return __node("MacroAccess",2341,10,38,2341,{macroName:"let",macroData:{declarable:__node("MacroAccess",2341,14,37,2341,__node("MacroAccess",2341,14,31,2341,{ident:__wrap(name,778)},"statement",false,false),"statement",false,false),value:__node("Call",2341,22,__node("Ident",2341,22,"require"),[__wrap(path,778)],false,false)}},"statement",false,false);}else if(this.isObject(name)){requires=[];for(_arr=__toArray(this.pairs(name)), _i=0, _len=_arr.length;_i<_len;++_i){obj=_arr[_i];key=obj.key;value=obj.value;if(!this.isConst(key)){throw Error("If providing an object to require!, all keys must be constant strings");}identName=this.value(key);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);if(this.isConst(value)){requires.push(__node("MacroAccess",2353,28,38,2353,{macroName:"let",macroData:{declarable:__node("MacroAccess",2353,32,37,2353,__node("MacroAccess",2353,32,31,2353,{ident:__wrap(ident,778)},"statement",false,false),"statement",false,false),value:__node("Call",2353,41,__node("Ident",2353,41,"require"),[__wrap(value,778)],false,false)}},"statement",false,false));}else if(this.isIdent(value)){path=this.name(value);requires.push(__node("MacroAccess",2356,28,38,2356,{macroName:"let",macroData:{declarable:__node("MacroAccess",2356,32,37,2356,__node("MacroAccess",2356,32,31,2356,{ident:__wrap(ident,778)},"statement",false,false),"statement",false,false),value:__node("Call",2356,41,__node("Ident",2356,41,"require"),[__wrap(path,778)],false,false)}},"statement",false,false));}else{throw Error("If providing an object to require!, all values must be constant strings or idents");}}return this.block(requires);}else{throw Error("Expected either a constant string or ident or object");}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__num,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _arr,_i,_len,ident,identName,key,macroData,macroName,name,obj,path,requires,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;if(this.isConst(name)&&typeof this.value(name)!=="string"){throw Error("Expected a constant string, got "+__typeof(this.value(name)));}if(this.isConst(name)){identName=this.value(name);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);return __node("MacroAccess",2342,10,38,2342,{macroName:"let",macroData:{declarable:__node("MacroAccess",2342,14,37,2342,__node("MacroAccess",2342,14,31,2342,{ident:__wrap(ident,778)},"statement",false,false),"statement",false,false),value:__node("Call",2342,23,__node("Ident",2342,23,"require"),[__wrap(name,778)],false,false)}},"statement",false,false);}else if(this.isIdent(name)){path=this.name(name);return __node("MacroAccess",2345,10,38,2345,{macroName:"let",macroData:{declarable:__node("MacroAccess",2345,14,37,2345,__node("MacroAccess",2345,14,31,2345,{ident:__wrap(name,778)},"statement",false,false),"statement",false,false),value:__node("Call",2345,22,__node("Ident",2345,22,"require"),[__wrap(path,778)],false,false)}},"statement",false,false);}else if(this.isObject(name)){requires=[];for(_arr=__toArray(this.pairs(name)), _i=0, _len=_arr.length;_i<_len;++_i){obj=_arr[_i];key=obj.key;value=obj.value;if(!this.isConst(key)){throw Error("If providing an object to require!, all keys must be constant strings");}identName=this.value(key);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);if(this.isConst(value)){requires.push(__node("MacroAccess",2357,28,38,2357,{macroName:"let",macroData:{declarable:__node("MacroAccess",2357,32,37,2357,__node("MacroAccess",2357,32,31,2357,{ident:__wrap(ident,778)},"statement",false,false),"statement",false,false),value:__node("Call",2357,41,__node("Ident",2357,41,"require"),[__wrap(value,778)],false,false)}},"statement",false,false));}else if(this.isIdent(value)){path=this.name(value);requires.push(__node("MacroAccess",2360,28,38,2360,{macroName:"let",macroData:{declarable:__node("MacroAccess",2360,32,37,2360,__node("MacroAccess",2360,32,31,2360,{ident:__wrap(ident,778)},"statement",false,false),"statement",false,false),value:__node("Call",2360,41,__node("Ident",2360,41,"require"),[__wrap(path,778)],false,false)}},"statement",false,false));}else{throw Error("If providing an object to require!, all values must be constant strings or idents");}}return this.block(requires);}else{throw Error("Expected either a constant string or ident or object");}};}.call(this));',
           params: [["ident", "name", "ident", "Expression"]],
           names: "require!",
           id: 126
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,arr,body,done,err,first,init,macroData,macroName,next,rest,result,results,step,test,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;init=macroData.init;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;if(err==null){err=this.tmp("err",true);}if(init==null){init=this.noop();}if(test==null){test=__node("Const",2463,17,true);}if(step==null){step=this.noop(step);}done=this.tmp("done",true,"function");if(!result){if(!step){return __node("Block",2469,1,[__wrap(init,805),__node("MacroAccess",2470,11,17,2470,{macroName:"let",macroData:{ident:__wrap(next,805),func:__node("MacroAccess",2470,20,115,2470,{op:"",node:__node("Function",2470,20,[__node("Param",2470,21,__wrap(err,807),void 0,false,false,void 0)],__node("Block",2471,1,[__node("MacroAccess",2471,13,19,2471,{macroName:"if",macroData:{test:__node("MacroAccess",2471,15,20,2471,{op:"?",node:__wrap(err,807)},"statement",false,false),body:__node("MacroAccess",2472,15,39,2472,{macroName:"return",macroData:{node:__node("Call",2472,21,__wrap(done,807),[__wrap(err,807)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2473,13,19,2473,{macroName:"unless",macroData:{test:__wrap(test,807),body:__node("MacroAccess",2474,15,39,2474,{macroName:"return",macroData:{node:__node("Call",2474,21,__wrap(done,807),[__node("Const",2474,28,null)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,807)],null),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("MacroAccess",2476,11,17,2476,{macroName:"let",macroData:{ident:__wrap(done,805),func:__node("MacroAccess",2476,20,115,2476,{op:"",node:__node("Function",2476,20,[__node("Param",2476,21,__wrap(err,808),void 0,false,false,void 0)],__wrap(rest,808),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("Call",2478,11,__wrap(next,805),[],false,false)],null);}else{first=this.tmp("first",true,"boolean");return __node("Block",2482,1,[__wrap(init,805),__node("MacroAccess",2483,11,38,2483,{macroName:"let",macroData:{declarable:__node("MacroAccess",2483,14,37,2483,__node("MacroAccess",2483,14,31,2483,{ident:__wrap(first,805)},"statement",false,false),"statement",false,false),value:__node("Const",2483,23,true)}},"statement",false,false),__node("MacroAccess",2484,11,17,2484,{macroName:"let",macroData:{ident:__wrap(next,805),func:__node("MacroAccess",2484,20,115,2484,{op:"",node:__node("Function",2484,20,[__node("Param",2484,21,__wrap(err,811),void 0,false,false,void 0)],__node("Block",2485,1,[__node("MacroAccess",2485,13,19,2485,{macroName:"if",macroData:{test:__node("MacroAccess",2485,15,20,2485,{op:"?",node:__wrap(err,811)},"statement",false,false),body:__node("MacroAccess",2486,15,39,2486,{macroName:"return",macroData:{node:__node("Call",2486,21,__wrap(done,811),[__wrap(err,811)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2487,13,19,2487,{macroName:"if",macroData:{test:__wrap(first,811),body:__node("MacroAccess",2488,15,30,2488,{left:__wrap(first,811),op:":=",right:__node("Const",2488,24,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(step,811)}},"statement",false,false),__node("MacroAccess",2491,13,19,2491,{macroName:"unless",macroData:{test:__wrap(test,811),body:__node("MacroAccess",2492,15,39,2492,{macroName:"return",macroData:{node:__node("Call",2492,21,__wrap(done,811),[__node("Const",2492,28,null)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,811)],null),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("MacroAccess",2494,11,17,2494,{macroName:"let",macroData:{ident:__wrap(done,805),func:__node("MacroAccess",2494,20,115,2494,{op:"",node:__node("Function",2494,20,[__node("Param",2494,21,__wrap(err,812),void 0,false,false,void 0)],__wrap(rest,812),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("Call",2496,11,__wrap(next,805),[],false,false)],null);}}else{first=this.tmp("first",true,"boolean");value=this.tmp("value",true);arr=this.tmp("arr",true);return __node("Block",2502,1,[__wrap(init,805),__node("MacroAccess",2503,9,38,2503,{macroName:"let",macroData:{declarable:__node("MacroAccess",2503,12,37,2503,__node("MacroAccess",2503,12,31,2503,{ident:__wrap(first,805)},"statement",false,false),"statement",false,false),value:__node("Const",2503,21,true)}},"statement",false,false),__node("MacroAccess",2504,9,38,2504,{macroName:"let",macroData:{declarable:__node("MacroAccess",2504,12,37,2504,__node("MacroAccess",2504,12,31,2504,{ident:__wrap(arr,805)},"statement",false,false),"statement",false,false),value:__node("Array",2504,19,[])}},"statement",false,false),__node("MacroAccess",2505,9,17,2505,{macroName:"let",macroData:{ident:__wrap(next,805),func:__node("MacroAccess",2505,18,115,2505,{op:"",node:__node("Function",2505,18,[__node("Param",2505,19,__wrap(err,818),void 0,false,false,void 0),__node("Param",2505,24,__wrap(value,818),void 0,false,false,void 0)],__node("Block",2506,1,[__node("MacroAccess",2506,11,19,2506,{macroName:"if",macroData:{test:__node("MacroAccess",2506,13,20,2506,{op:"?",node:__wrap(err,818)},"statement",false,false),body:__node("MacroAccess",2507,13,39,2507,{macroName:"return",macroData:{node:__node("Call",2507,19,__wrap(done,818),[__wrap(err,818)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2508,11,19,2508,{macroName:"if",macroData:{test:__wrap(first,818),body:__node("MacroAccess",2509,13,30,2509,{left:__wrap(first,818),op:":=",right:__node("Const",2509,22,false)},"statement",false,false),elseIfs:[],elseBody:__node("Block",2511,1,[__wrap(step,818),__node("MacroAccess",2512,13,19,2512,{macroName:"if",macroData:{test:__node("MacroAccess",2512,15,10,2512,{left:__node("Access",2512,15,__node("Args",2512,15),__node("Const",2512,26,"length")),inverted:false,op:"~>",right:__node("Const",2512,36,1)},"statement",false,false),body:__node("Call",2513,15,__node("Access",2513,15,__wrap(arr,818),__node("Const",2513,20,"push")),[__wrap(value,818)],false,false),elseIfs:[]}},"statement",false,false)],null)}},"statement",false,false),__node("MacroAccess",2514,11,19,2514,{macroName:"unless",macroData:{test:__wrap(test,818),body:__node("MacroAccess",2515,13,39,2515,{macroName:"return",macroData:{node:__node("Call",2515,19,__wrap(done,818),[__node("Const",2515,26,null),__wrap(arr,818)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,818)],null),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("MacroAccess",2517,9,17,2517,{macroName:"let",macroData:{ident:__wrap(done,805),func:__node("MacroAccess",2517,18,115,2517,{op:"",node:__node("Function",2517,18,[__node("Param",2517,19,__wrap(err,819),void 0,false,false,void 0),__node("Param",2517,24,__wrap(result,819),void 0,false,false,void 0)],__wrap(rest,819),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("Call",2519,9,__wrap(next,805),[],false,false)],null);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,arr,body,done,err,first,init,macroData,macroName,next,rest,result,results,step,test,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;init=macroData.init;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;if(err==null){err=this.tmp("err",true);}if(init==null){init=this.noop();}if(test==null){test=__node("Const",2467,17,true);}if(step==null){step=this.noop();}if(rest==null){rest=this.noop();}done=this.tmp("done",true,"function");if(!result){if(!step){return __node("Block",2474,1,[__wrap(init,805),__node("MacroAccess",2475,11,17,2475,{macroName:"let",macroData:{ident:__wrap(next,805),func:__node("MacroAccess",2475,20,115,2475,{op:"",node:__node("Function",2475,20,[__node("Param",2475,21,__wrap(err,807),void 0,false,false,void 0)],__node("Block",2476,1,[__node("MacroAccess",2476,13,19,2476,{macroName:"if",macroData:{test:__node("MacroAccess",2476,15,20,2476,{op:"?",node:__wrap(err,807)},"statement",false,false),body:__node("MacroAccess",2477,15,39,2477,{macroName:"return",macroData:{node:__node("Call",2477,21,__wrap(done,807),[__wrap(err,807)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2478,13,19,2478,{macroName:"unless",macroData:{test:__wrap(test,807),body:__node("MacroAccess",2479,15,39,2479,{macroName:"return",macroData:{node:__node("Call",2479,21,__wrap(done,807),[__node("Const",2479,28,null)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,807)],null),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("MacroAccess",2481,11,17,2481,{macroName:"let",macroData:{ident:__wrap(done,805),func:__node("MacroAccess",2481,20,115,2481,{op:"",node:__node("Function",2481,20,[__node("Param",2481,21,__wrap(err,808),void 0,false,false,void 0)],__wrap(rest,808),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("Call",2483,11,__wrap(next,805),[],false,false)],null);}else{first=this.tmp("first",true,"boolean");return __node("Block",2487,1,[__wrap(init,805),__node("MacroAccess",2488,11,38,2488,{macroName:"let",macroData:{declarable:__node("MacroAccess",2488,14,37,2488,__node("MacroAccess",2488,14,31,2488,{ident:__wrap(first,805)},"statement",false,false),"statement",false,false),value:__node("Const",2488,23,true)}},"statement",false,false),__node("MacroAccess",2489,11,17,2489,{macroName:"let",macroData:{ident:__wrap(next,805),func:__node("MacroAccess",2489,20,115,2489,{op:"",node:__node("Function",2489,20,[__node("Param",2489,21,__wrap(err,811),void 0,false,false,void 0)],__node("Block",2490,1,[__node("MacroAccess",2490,13,19,2490,{macroName:"if",macroData:{test:__node("MacroAccess",2490,15,20,2490,{op:"?",node:__wrap(err,811)},"statement",false,false),body:__node("MacroAccess",2491,15,39,2491,{macroName:"return",macroData:{node:__node("Call",2491,21,__wrap(done,811),[__wrap(err,811)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2492,13,19,2492,{macroName:"if",macroData:{test:__wrap(first,811),body:__node("MacroAccess",2493,15,30,2493,{left:__wrap(first,811),op:":=",right:__node("Const",2493,24,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(step,811)}},"statement",false,false),__node("MacroAccess",2496,13,19,2496,{macroName:"unless",macroData:{test:__wrap(test,811),body:__node("MacroAccess",2497,15,39,2497,{macroName:"return",macroData:{node:__node("Call",2497,21,__wrap(done,811),[__node("Const",2497,28,null)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,811)],null),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("MacroAccess",2499,11,17,2499,{macroName:"let",macroData:{ident:__wrap(done,805),func:__node("MacroAccess",2499,20,115,2499,{op:"",node:__node("Function",2499,20,[__node("Param",2499,21,__wrap(err,812),void 0,false,false,void 0)],__wrap(rest,812),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("Call",2501,11,__wrap(next,805),[],false,false)],null);}}else{first=this.tmp("first",true,"boolean");value=this.tmp("value",true);arr=this.tmp("arr",true);return __node("Block",2507,1,[__wrap(init,805),__node("MacroAccess",2508,9,38,2508,{macroName:"let",macroData:{declarable:__node("MacroAccess",2508,12,37,2508,__node("MacroAccess",2508,12,31,2508,{ident:__wrap(first,805)},"statement",false,false),"statement",false,false),value:__node("Const",2508,21,true)}},"statement",false,false),__node("MacroAccess",2509,9,38,2509,{macroName:"let",macroData:{declarable:__node("MacroAccess",2509,12,37,2509,__node("MacroAccess",2509,12,31,2509,{ident:__wrap(arr,805)},"statement",false,false),"statement",false,false),value:__node("Array",2509,19,[])}},"statement",false,false),__node("MacroAccess",2510,9,17,2510,{macroName:"let",macroData:{ident:__wrap(next,805),func:__node("MacroAccess",2510,18,115,2510,{op:"",node:__node("Function",2510,18,[__node("Param",2510,19,__wrap(err,818),void 0,false,false,void 0),__node("Param",2510,24,__wrap(value,818),void 0,false,false,void 0)],__node("Block",2511,1,[__node("MacroAccess",2511,11,19,2511,{macroName:"if",macroData:{test:__node("MacroAccess",2511,13,20,2511,{op:"?",node:__wrap(err,818)},"statement",false,false),body:__node("MacroAccess",2512,13,39,2512,{macroName:"return",macroData:{node:__node("Call",2512,19,__wrap(done,818),[__wrap(err,818)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__node("MacroAccess",2513,11,19,2513,{macroName:"if",macroData:{test:__wrap(first,818),body:__node("MacroAccess",2514,13,30,2514,{left:__wrap(first,818),op:":=",right:__node("Const",2514,22,false)},"statement",false,false),elseIfs:[],elseBody:__node("Block",2516,1,[__wrap(step,818),__node("MacroAccess",2517,13,19,2517,{macroName:"if",macroData:{test:__node("MacroAccess",2517,15,10,2517,{left:__node("Access",2517,15,__node("Args",2517,15),__node("Const",2517,26,"length")),inverted:false,op:"~>",right:__node("Const",2517,36,1)},"statement",false,false),body:__node("Call",2518,15,__node("Access",2518,15,__wrap(arr,818),__node("Const",2518,20,"push")),[__wrap(value,818)],false,false),elseIfs:[]}},"statement",false,false)],null)}},"statement",false,false),__node("MacroAccess",2519,11,19,2519,{macroName:"unless",macroData:{test:__wrap(test,818),body:__node("MacroAccess",2520,13,39,2520,{macroName:"return",macroData:{node:__node("Call",2520,19,__wrap(done,818),[__node("Const",2520,26,null),__wrap(arr,818)],false,false)}},"statement",false,false),elseIfs:[]}},"statement",false,false),__wrap(body,818)],null),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("MacroAccess",2522,9,17,2522,{macroName:"let",macroData:{ident:__wrap(done,805),func:__node("MacroAccess",2522,18,115,2522,{op:"",node:__node("Function",2522,18,[__node("Param",2522,19,__wrap(err,819),void 0,false,false,void 0),__node("Param",2522,24,__wrap(result,819),void 0,false,false,void 0)],__wrap(rest,819),true,true,false,void 0,false,[])},"statement",false,false)}},"statement",false,false),__node("Call",2524,9,__wrap(next,805),[],false,false)],null);}};}.call(this));',
           params: [
             [
               "ident",
@@ -33302,7 +33760,7 @@
           id: 127
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,array,body,end,err,hasResult,inclusive,index,init,length,lengthCalc,macroData,macroName,next,parallelism,rest,result,results,start,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;hasResult=!!result;if(err==null){err=this.tmp("err",true);}init=[];value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(parallelism==null){parallelism=__node("Const",2533,25,1);}if(index==null){index=this.tmp("i",true,"number");}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){throw Error("Cannot assign a number to a complex declarable");}value=value.ident;start=(_ref=this.callArgs(array))[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];if(this.isConst(start)){if(typeof this.value(start)!=="number"){throw Error("Cannot start with a non-number: #(@value start)");}}else{start=__node("MacroAccess",2546,22,58,2546,{op:"+",node:__wrap(start,820)},"expression",false,false);}if(this.isConst(end)){if(typeof this.value(end)!=="number"){throw Error("Cannot end with a non-number: #(@value start)");}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",2552,28,58,2552,{op:"+",node:__wrap(end,820)},"expression",false,false),init,"end",false);}else{init.push(__node("MacroAccess",2554,23,58,2554,{op:"+",node:__wrap(end,820)},"expression",false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){throw Error("Cannot step with a non-number: #(@value step)");}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",2560,29,58,2560,{op:"+",node:__wrap(step,820)},"expression",false,false),init,"step",false);}else{init.push(__node("MacroAccess",2562,23,58,2562,{op:"+",node:__wrap(step,820)},"expression",false,false));}body=__node("Block",2565,1,[__node("MacroAccess",2565,9,38,2565,{macroName:"let",macroData:{declarable:__node("MacroAccess",2565,12,37,2565,__node("MacroAccess",2565,12,31,2565,{ident:__wrap(value,820)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2565,21,49,2565,{left:__node("MacroAccess",2565,21,45,2565,{left:__wrap(index,820),inverted:false,op:"~*",right:__wrap(step,820)},"expression",false,false),inverted:false,op:"~+",right:__wrap(start,820)},"expression",false,false)}},"statement",false,false),__wrap(body,820)],null);lengthCalc=__node("MacroAccess",2568,29,19,2568,{macroName:"if",macroData:{test:__wrap(inclusive,820),body:__node("MacroAccess",2569,9,45,2569,{left:__node("MacroAccess",2569,10,49,2569,{left:__node("MacroAccess",2569,10,49,2569,{left:__wrap(end,820),inverted:false,op:"~-",right:__wrap(start,820)},"expression",false,false),inverted:false,op:"~+",right:__wrap(step,820)},"expression",false,false),inverted:false,op:"~\\\\",right:__wrap(step,820)},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",2571,9,45,2571,{left:__node("MacroAccess",2571,10,49,2571,{left:__wrap(end,820),inverted:false,op:"~-",right:__wrap(start,820)},"expression",false,false),inverted:false,op:"~\\\\",right:__wrap(step,820)},"statement",false,false)}},"expression",false,false);if(!length){length=lengthCalc;}else{init.push(__node("MacroAccess",2575,22,38,2575,{macroName:"let",macroData:{declarable:__node("MacroAccess",2575,26,37,2575,__node("MacroAccess",2575,26,31,2575,{ident:__wrap(length,820)},"statement",false,false),"statement",false,false),value:__wrap(lengthCalc,820)}},"statement",false,false));}}else{array=this.cache(array,init,"arr",true);body=__node("Block",2580,1,[__node("MacroAccess",2580,9,38,2580,{macroName:"let",macroData:{declarable:__node("MacroAccess",2580,12,37,2580,__node("MacroAccess",2580,12,31,2580,{ident:__wrap(value,820)},"statement",false,false),"statement",false,false),value:__node("Access",2580,21,__wrap(array,820),__wrap(index,820))}},"statement",false,false),__wrap(body,820)],null);if(!length){length=__node("MacroAccess",2584,23,58,2584,{op:"+",node:__node("Access",2584,25,__wrap(array,820),__node("Const",2584,32,"length"))},"expression",false,false);}else{init.push(__node("MacroAccess",2586,22,38,2586,{macroName:"let",macroData:{declarable:__node("MacroAccess",2586,26,37,2586,__node("MacroAccess",2586,26,31,2586,{ident:__wrap(length,820)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2586,36,58,2586,{op:"+",node:__node("Access",2586,38,__wrap(array,820),__node("Const",2586,45,"length"))},"expression",false,false)}},"statement",false,false));}}return __node("Block",2589,1,[__wrap(init,820),__node("Call",2590,7,__node("Ident",2590,7,"__async"),[__node("MacroAccess",2590,15,58,2590,{op:"+",node:__wrap(parallelism,820)},"expression",false,false),__wrap(length,820),__wrap(hasResult,820),__node("MacroAccess",2591,10,115,2591,{op:"",node:__node("Function",2591,10,[__node("Param",2591,11,__wrap(index,828),void 0,false,false,void 0),__node("Param",2591,18,__wrap(next,828),void 0,false,false,void 0)],__wrap(body,828),true,true,false,void 0,false,[])},"expression",false,false),__node("MacroAccess",2592,9,19,2592,{macroName:"if",macroData:{test:__wrap(hasResult,820),body:__node("MacroAccess",2593,12,115,2593,{op:"",node:__node("Function",2593,12,[__node("Param",2593,13,__wrap(err,829),void 0,false,false,void 0),__node("Param",2593,18,__wrap(result,829),void 0,false,false,void 0)],__wrap(rest,829),true,true,false,void 0,false,[])},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",2595,12,115,2595,{op:"",node:__node("Function",2595,12,[__node("Param",2595,13,__wrap(err,830),void 0,false,false,void 0)],__wrap(rest,830),true,true,false,void 0,false,[])},"statement",false,false)}},"expression",false,false)],false,false)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,array,body,end,err,hasResult,inclusive,index,init,length,lengthCalc,macroData,macroName,next,parallelism,rest,result,results,start,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;hasResult=!!result;if(err==null){err=this.tmp("err",true);}init=[];if(rest==null){rest=this.noop();}value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(parallelism==null){parallelism=__node("Const",2540,25,1);}if(index==null){index=this.tmp("i",true,"number");}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){throw Error("Cannot assign a number to a complex declarable");}value=value.ident;start=(_ref=this.callArgs(array))[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];if(this.isConst(start)){if(typeof this.value(start)!=="number"){throw Error("Cannot start with a non-number: #(@value start)");}}else{start=__node("MacroAccess",2553,22,58,2553,{op:"+",node:__wrap(start,820)},"expression",false,false);}if(this.isConst(end)){if(typeof this.value(end)!=="number"){throw Error("Cannot end with a non-number: #(@value start)");}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",2559,28,58,2559,{op:"+",node:__wrap(end,820)},"expression",false,false),init,"end",false);}else{init.push(__node("MacroAccess",2561,23,58,2561,{op:"+",node:__wrap(end,820)},"expression",false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){throw Error("Cannot step with a non-number: #(@value step)");}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",2567,29,58,2567,{op:"+",node:__wrap(step,820)},"expression",false,false),init,"step",false);}else{init.push(__node("MacroAccess",2569,23,58,2569,{op:"+",node:__wrap(step,820)},"expression",false,false));}body=__node("Block",2572,1,[__node("MacroAccess",2572,9,38,2572,{macroName:"let",macroData:{declarable:__node("MacroAccess",2572,12,37,2572,__node("MacroAccess",2572,12,31,2572,{ident:__wrap(value,820)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2572,21,49,2572,{left:__node("MacroAccess",2572,21,45,2572,{left:__wrap(index,820),inverted:false,op:"~*",right:__wrap(step,820)},"expression",false,false),inverted:false,op:"~+",right:__wrap(start,820)},"expression",false,false)}},"statement",false,false),__wrap(body,820)],null);lengthCalc=__node("MacroAccess",2575,29,19,2575,{macroName:"if",macroData:{test:__wrap(inclusive,820),body:__node("MacroAccess",2576,9,45,2576,{left:__node("MacroAccess",2576,10,49,2576,{left:__node("MacroAccess",2576,10,49,2576,{left:__wrap(end,820),inverted:false,op:"~-",right:__wrap(start,820)},"expression",false,false),inverted:false,op:"~+",right:__wrap(step,820)},"expression",false,false),inverted:false,op:"~\\\\",right:__wrap(step,820)},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",2578,9,45,2578,{left:__node("MacroAccess",2578,10,49,2578,{left:__wrap(end,820),inverted:false,op:"~-",right:__wrap(start,820)},"expression",false,false),inverted:false,op:"~\\\\",right:__wrap(step,820)},"statement",false,false)}},"expression",false,false);if(!length){length=lengthCalc;}else{init.push(__node("MacroAccess",2582,22,38,2582,{macroName:"let",macroData:{declarable:__node("MacroAccess",2582,26,37,2582,__node("MacroAccess",2582,26,31,2582,{ident:__wrap(length,820)},"statement",false,false),"statement",false,false),value:__wrap(lengthCalc,820)}},"statement",false,false));}}else{array=this.cache(array,init,"arr",true);body=__node("Block",2587,1,[__node("MacroAccess",2587,9,38,2587,{macroName:"let",macroData:{declarable:__node("MacroAccess",2587,12,37,2587,__node("MacroAccess",2587,12,31,2587,{ident:__wrap(value,820)},"statement",false,false),"statement",false,false),value:__node("Access",2587,21,__wrap(array,820),__wrap(index,820))}},"statement",false,false),__wrap(body,820)],null);if(!length){length=__node("MacroAccess",2591,23,58,2591,{op:"+",node:__node("Access",2591,25,__wrap(array,820),__node("Const",2591,32,"length"))},"expression",false,false);}else{init.push(__node("MacroAccess",2593,22,38,2593,{macroName:"let",macroData:{declarable:__node("MacroAccess",2593,26,37,2593,__node("MacroAccess",2593,26,31,2593,{ident:__wrap(length,820)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2593,36,58,2593,{op:"+",node:__node("Access",2593,38,__wrap(array,820),__node("Const",2593,45,"length"))},"expression",false,false)}},"statement",false,false));}}return __node("Block",2596,1,[__wrap(init,820),__node("Call",2597,7,__node("Ident",2597,7,"__async"),[__node("MacroAccess",2597,15,58,2597,{op:"+",node:__wrap(parallelism,820)},"expression",false,false),__wrap(length,820),__wrap(hasResult,820),__node("MacroAccess",2598,10,115,2598,{op:"",node:__node("Function",2598,10,[__node("Param",2598,11,__wrap(index,828),void 0,false,false,void 0),__node("Param",2598,18,__wrap(next,828),void 0,false,false,void 0)],__wrap(body,828),true,true,false,void 0,false,[])},"expression",false,false),__node("MacroAccess",2599,9,19,2599,{macroName:"if",macroData:{test:__wrap(hasResult,820),body:__node("MacroAccess",2600,12,115,2600,{op:"",node:__node("Function",2600,12,[__node("Param",2600,13,__wrap(err,829),void 0,false,false,void 0),__node("Param",2600,18,__wrap(result,829),void 0,false,false,void 0)],__wrap(rest,829),true,true,false,void 0,false,[])},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",2602,12,115,2602,{op:"",node:__node("Function",2602,12,[__node("Param",2602,13,__wrap(err,830),void 0,false,false,void 0)],__wrap(rest,830),true,true,false,void 0,false,[])},"statement",false,false)}},"expression",false,false)],false,false)],null);};}.call(this));',
           params: [
             [
               "ident",
@@ -33373,7 +33831,7 @@
           id: 128
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,body,err,getKeys,index,init,key,keys,macroData,macroName,next,object,own,parallelism,rest,result,results,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;own=type==="of";init=[];object=this.cache(object,init,"obj",true);index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}if(value){body=__node("Block",2609,1,[__node("MacroAccess",2609,9,38,2609,{macroName:"let",macroData:{declarable:__node("MacroAccess",2609,12,37,2609,__node("MacroAccess",2609,12,31,2609,{ident:__wrap(value,831)},"statement",false,false),"statement",false,false),value:__node("Access",2609,21,__wrap(object,831),__wrap(key,831))}},"statement",false,false),__wrap(body,831)],null);}keys=this.tmp("keys",true,"stringArray");if(own){getKeys=__node("MacroAccess",2614,10,113,2614,{macroName:"for",macroData:{key:__wrap(key,831),type:"of",object:__wrap(object,831),body:__node("Call",2615,9,__node("Access",2615,9,__wrap(keys,831),__node("Const",2615,15,"push")),[__wrap(key,831)],false,false)}},"statement",false,false);}else{getKeys=__node("MacroAccess",2617,10,113,2617,{macroName:"for",macroData:{key:__wrap(key,831),type:"ofall",object:__wrap(object,831),body:__node("Call",2618,9,__node("Access",2618,9,__wrap(keys,831),__node("Const",2618,15,"push")),[__wrap(key,831)],false,false)}},"statement",false,false);}return __node("Block",2620,1,[__wrap(init,831),__node("MacroAccess",2621,7,38,2621,{macroName:"let",macroData:{declarable:__node("MacroAccess",2621,10,37,2621,__node("MacroAccess",2621,10,31,2621,{ident:__wrap(keys,831)},"statement",false,false),"statement",false,false),value:__node("Array",2621,18,[])}},"statement",false,false),__wrap(getKeys,831),__node("MacroAccess",2623,7,128,2623,{macroName:"asyncfor",macroData:{parallelism:__wrap(parallelism,831),results:{err:__wrap(err,831),result:__wrap(result,831)},next:__wrap(next,831),value:__node("MacroAccess",2623,53,37,2623,__node("MacroAccess",2623,53,31,2623,{ident:__wrap(key,831)},"statement",false,false),"statement",false,false),index:{value:__wrap(index,831)},array:__wrap(keys,831),body:__wrap(body,831),rest:__wrap(rest,831)}},"statement",false,false)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,body,err,getKeys,index,init,key,keys,macroData,macroName,next,object,own,parallelism,rest,result,results,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;own=type==="of";init=[];object=this.cache(object,init,"obj",true);if(rest==null){rest=this.noop();}index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}if(value){body=__node("Block",2618,1,[__node("MacroAccess",2618,9,38,2618,{macroName:"let",macroData:{declarable:__node("MacroAccess",2618,12,37,2618,__node("MacroAccess",2618,12,31,2618,{ident:__wrap(value,831)},"statement",false,false),"statement",false,false),value:__node("Access",2618,21,__wrap(object,831),__wrap(key,831))}},"statement",false,false),__wrap(body,831)],null);}keys=this.tmp("keys",true,"stringArray");if(own){getKeys=__node("MacroAccess",2623,10,113,2623,{macroName:"for",macroData:{key:__wrap(key,831),type:"of",object:__wrap(object,831),body:__node("Call",2624,9,__node("Access",2624,9,__wrap(keys,831),__node("Const",2624,15,"push")),[__wrap(key,831)],false,false)}},"statement",false,false);}else{getKeys=__node("MacroAccess",2626,10,113,2626,{macroName:"for",macroData:{key:__wrap(key,831),type:"ofall",object:__wrap(object,831),body:__node("Call",2627,9,__node("Access",2627,9,__wrap(keys,831),__node("Const",2627,15,"push")),[__wrap(key,831)],false,false)}},"statement",false,false);}return __node("Block",2629,1,[__wrap(init,831),__node("MacroAccess",2630,7,38,2630,{macroName:"let",macroData:{declarable:__node("MacroAccess",2630,10,37,2630,__node("MacroAccess",2630,10,31,2630,{ident:__wrap(keys,831)},"statement",false,false),"statement",false,false),value:__node("Array",2630,18,[])}},"statement",false,false),__wrap(getKeys,831),__node("MacroAccess",2632,7,128,2632,{macroName:"asyncfor",macroData:{parallelism:__wrap(parallelism,831),results:{err:__wrap(err,831),result:__wrap(result,831)},next:__wrap(next,831),value:__node("MacroAccess",2632,53,37,2632,__node("MacroAccess",2632,53,31,2632,{ident:__wrap(key,831)},"statement",false,false),"statement",false,false),index:{value:__wrap(index,831)},array:__wrap(keys,831),body:__wrap(body,831),rest:__wrap(rest,831)}},"statement",false,false)],null);};}.call(this));',
           params: [
             [
               "ident",
@@ -33450,7 +33908,7 @@
           id: 129
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,body,err,hasResult,index,iterator,macroData,macroName,next,parallelism,rest,result,results,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;iterator=macroData.iterator;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;hasResult=!!result;if(index==null){index=this.tmp("i",true);}if(err==null){err=this.tmp("err",true);}if(parallelism==null){parallelism=__node("Const",2633,25,1);}return __node("Call",2635,9,__node("Ident",2635,9,"__asyncIter"),[__node("MacroAccess",2635,23,58,2635,{op:"+",node:__wrap(parallelism,838)},"expression",false,false),__wrap(iterator,838),__wrap(hasResult,838),__node("MacroAccess",2636,8,115,2636,{op:"",node:__node("Function",2636,8,[__node("Param",2636,9,__wrap(value,840),void 0,false,false,void 0),__node("Param",2636,16,__wrap(index,840),void 0,false,false,void 0),__node("Param",2636,24,__wrap(next,840),void 0,false,false,void 0)],__wrap(body,840),true,true,false,void 0,false,[])},"expression",false,false),__node("MacroAccess",2637,7,19,2637,{macroName:"if",macroData:{test:__wrap(hasResult,838),body:__node("MacroAccess",2638,10,115,2638,{op:"",node:__node("Function",2638,10,[__node("Param",2638,11,__wrap(err,841),void 0,false,false,void 0),__node("Param",2638,16,__wrap(result,841),void 0,false,false,void 0)],__wrap(rest,841),true,true,false,void 0,false,[])},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",2640,10,115,2640,{op:"",node:__node("Function",2640,10,[__node("Param",2640,11,__wrap(err,842),void 0,false,false,void 0)],__wrap(rest,842),true,true,false,void 0,false,[])},"statement",false,false)}},"expression",false,false)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,body,err,hasResult,index,iterator,macroData,macroName,next,parallelism,rest,result,results,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;iterator=macroData.iterator;body=macroData.body;rest=macroData.rest;err=(_ref=results!=null?results:{}).err;result=_ref.result;hasResult=!!result;if(rest==null){rest=this.noop();}if(index==null){index=this.tmp("i",true);}if(err==null){err=this.tmp("err",true);}if(parallelism==null){parallelism=__node("Const",2644,25,1);}return __node("Call",2646,9,__node("Ident",2646,9,"__asyncIter"),[__node("MacroAccess",2646,23,58,2646,{op:"+",node:__wrap(parallelism,838)},"expression",false,false),__wrap(iterator,838),__wrap(hasResult,838),__node("MacroAccess",2647,8,115,2647,{op:"",node:__node("Function",2647,8,[__node("Param",2647,9,__wrap(value,840),void 0,false,false,void 0),__node("Param",2647,16,__wrap(index,840),void 0,false,false,void 0),__node("Param",2647,24,__wrap(next,840),void 0,false,false,void 0)],__wrap(body,840),true,true,false,void 0,false,[])},"expression",false,false),__node("MacroAccess",2648,7,19,2648,{macroName:"if",macroData:{test:__wrap(hasResult,838),body:__node("MacroAccess",2649,10,115,2649,{op:"",node:__node("Function",2649,10,[__node("Param",2649,11,__wrap(err,841),void 0,false,false,void 0),__node("Param",2649,16,__wrap(result,841),void 0,false,false,void 0)],__wrap(rest,841),true,true,false,void 0,false,[])},"statement",false,false),elseIfs:[],elseBody:__node("MacroAccess",2651,10,115,2651,{op:"",node:__node("Function",2651,10,[__node("Param",2651,11,__wrap(err,842),void 0,false,false,void 0)],__wrap(rest,842),true,true,false,void 0,false,[])},"statement",false,false)}},"expression",false,false)],false,false);};}.call(this));',
           params: [
             [
               "ident",
@@ -33512,7 +33970,7 @@
           id: 130
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,body,err,macroData,macroName,next,rest,result,results,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;if(macroName==="asyncuntil"){test=__node("MacroAccess",2645,19,3,2645,{op:"not",node:__wrap(test,843)},"expression",false,false);}err=(_ref=results!=null?results:{}).err;result=_ref.result;return __node("MacroAccess",2648,7,127,2648,{macroName:"asyncfor",macroData:{results:{err:__wrap(err,843),result:__wrap(result,843)},next:__wrap(next,843),test:__wrap(test,843),step:__wrap(step,843),body:__wrap(body,843),rest:__wrap(rest,843)}},"statement",false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,body,err,macroData,macroName,next,rest,result,results,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;if(macroName==="asyncuntil"){test=__node("MacroAccess",2656,19,3,2656,{op:"not",node:__wrap(test,843)},"expression",false,false);}if(rest==null){rest=this.noop();}err=(_ref=results!=null?results:{}).err;result=_ref.result;return __node("MacroAccess",2662,7,127,2662,{macroName:"asyncfor",macroData:{results:{err:__wrap(err,843),result:__wrap(result,843)},next:__wrap(next,843),test:__wrap(test,843),step:__wrap(step,843),body:__wrap(body,843),rest:__wrap(rest,843)}},"statement",false,false);};}.call(this));',
           params: [
             [
               "ident",
@@ -33562,7 +34020,7 @@
           id: 131
         },
         {
-          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _ref,body,current,done,elseBody,elseIf,elseIfs,err,f,i,innerTest,macroData,macroName,rest,result,results,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;done=macroData.done;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;rest=macroData.rest;if(macroName==="asyncunless"){test=__node("MacroAccess",2655,19,3,2655,{op:"not",node:__wrap(test,844)},"expression",false,false);}err=(_ref=results!=null?results:{}).err;result=_ref.result;f=this.tmp("f",false);if(elseBody){current=__node("MacroAccess",2661,11,30,2661,{left:__wrap(f,844),op:":=",right:__node("MacroAccess",2661,19,115,2661,{op:"",node:__node("Function",2661,19,[__node("Param",2661,20,__wrap(done,846),void 0,false,false,void 0)],__wrap(elseBody,846),true,true,false,void 0,false,[])},"expression",false,false)},"expression",false,false);}else{current=__node("MacroAccess",2663,11,30,2663,{left:__wrap(f,844),op:":=",right:__node("MacroAccess",2663,19,115,2663,{op:"",node:__node("Function",2663,19,[__node("Param",2663,20,__wrap(done,847),void 0,false,false,void 0)],__node("Call",2663,30,__wrap(done,847),[],false,false),true,true,false,void 0,false,[])},"expression",false,false)},"expression",false,false);}i=__num(elseIfs.length)-1;for(;i>=0;--i){elseIf=elseIfs[i];innerTest=elseIf.test;if(elseIf.type==="unless"){innerTest=__node("MacroAccess",2670,27,3,2670,{op:"not",node:__wrap(innerTest,844)},"expression",false,false);}current=__node("MacroAccess",2671,21,19,2671,{macroName:"if",macroData:{test:__wrap(innerTest,844),body:__node("MacroAccess",2672,9,30,2672,{left:__wrap(f,844),op:":=",right:__node("MacroAccess",2672,16,115,2672,{op:"",node:__node("Function",2672,16,[__node("Param",2672,17,__wrap(done,849),void 0,false,false,void 0)],__wrap(elseIf.body,849),true,true,false,void 0,false,[])},"expression",false,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(current,844)}},"statement",false,false);}current=__node("MacroAccess",2676,19,19,2676,{macroName:"if",macroData:{test:__wrap(test,844),body:__node("MacroAccess",2677,7,30,2677,{left:__wrap(f,844),op:":=",right:__node("MacroAccess",2677,14,115,2677,{op:"",node:__node("Function",2677,14,[__node("Param",2677,15,__wrap(done,850),void 0,false,false,void 0)],__wrap(body,850),true,true,false,void 0,false,[])},"expression",false,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(current,844)}},"statement",false,false);if(!err&&!result){return __node("Block",2683,1,[__wrap(current,844),__node("Call",2684,9,__wrap(f,844),[__node("MacroAccess",2684,13,115,2684,{op:"",node:__node("Function",2684,13,[],__wrap(rest,851),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}else if(!result){return __node("Block",2687,1,[__wrap(current,844),__node("Call",2688,9,__wrap(f,844),[__node("MacroAccess",2688,13,115,2688,{op:"",node:__node("Function",2688,13,[__node("Param",2688,14,__wrap(err,852),void 0,false,false,void 0)],__wrap(rest,852),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}else{if(err==null){err=this.tmp("err",true);}return __node("Block",2692,1,[__wrap(current,844),__node("Call",2693,9,__wrap(f,844),[__node("MacroAccess",2693,13,115,2693,{op:"",node:__node("Function",2693,13,[__node("Param",2693,14,__wrap(err,853),void 0,false,false,void 0),__node("Param",2693,19,__wrap(result,853),void 0,false,false,void 0)],__wrap(rest,853),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _ref,body,current,done,elseBody,elseIf,elseIfs,err,f,i,innerTest,macroData,macroName,rest,result,results,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;done=macroData.done;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;rest=macroData.rest;if(macroName==="asyncunless"){test=__node("MacroAccess",2669,19,3,2669,{op:"not",node:__wrap(test,844)},"expression",false,false);}err=(_ref=results!=null?results:{}).err;result=_ref.result;f=this.tmp("f",false);if(rest==null){rest=this.noop();}if(elseBody){current=__node("MacroAccess",2677,11,30,2677,{left:__wrap(f,844),op:":=",right:__node("MacroAccess",2677,19,115,2677,{op:"",node:__node("Function",2677,19,[__node("Param",2677,20,__wrap(done,846),void 0,false,false,void 0)],__wrap(elseBody,846),true,true,false,void 0,false,[])},"expression",false,false)},"expression",false,false);}else{current=__node("MacroAccess",2679,11,30,2679,{left:__wrap(f,844),op:":=",right:__node("MacroAccess",2679,19,115,2679,{op:"",node:__node("Function",2679,19,[__node("Param",2679,20,__wrap(done,847),void 0,false,false,void 0)],__node("Call",2679,30,__wrap(done,847),[],false,false),true,true,false,void 0,false,[])},"expression",false,false)},"expression",false,false);}i=__num(elseIfs.length)-1;for(;i>=0;--i){elseIf=elseIfs[i];innerTest=elseIf.test;if(elseIf.type==="unless"){innerTest=__node("MacroAccess",2686,27,3,2686,{op:"not",node:__wrap(innerTest,844)},"expression",false,false);}current=__node("MacroAccess",2687,21,19,2687,{macroName:"if",macroData:{test:__wrap(innerTest,844),body:__node("MacroAccess",2688,9,30,2688,{left:__wrap(f,844),op:":=",right:__node("MacroAccess",2688,16,115,2688,{op:"",node:__node("Function",2688,16,[__node("Param",2688,17,__wrap(done,849),void 0,false,false,void 0)],__wrap(elseIf.body,849),true,true,false,void 0,false,[])},"expression",false,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(current,844)}},"statement",false,false);}current=__node("MacroAccess",2692,19,19,2692,{macroName:"if",macroData:{test:__wrap(test,844),body:__node("MacroAccess",2693,7,30,2693,{left:__wrap(f,844),op:":=",right:__node("MacroAccess",2693,14,115,2693,{op:"",node:__node("Function",2693,14,[__node("Param",2693,15,__wrap(done,850),void 0,false,false,void 0)],__wrap(body,850),true,true,false,void 0,false,[])},"expression",false,false)},"statement",false,false),elseIfs:[],elseBody:__wrap(current,844)}},"statement",false,false);if(!err&&!result){return __node("Block",2699,1,[__wrap(current,844),__node("Call",2700,9,__wrap(f,844),[__node("MacroAccess",2700,13,115,2700,{op:"",node:__node("Function",2700,13,[],__wrap(rest,851),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}else if(!result){return __node("Block",2703,1,[__wrap(current,844),__node("Call",2704,9,__wrap(f,844),[__node("MacroAccess",2704,13,115,2704,{op:"",node:__node("Function",2704,13,[__node("Param",2704,14,__wrap(err,852),void 0,false,false,void 0)],__wrap(rest,852),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}else{if(err==null){err=this.tmp("err",true);}return __node("Block",2708,1,[__wrap(current,844),__node("Call",2709,9,__wrap(f,844),[__node("MacroAccess",2709,13,115,2709,{op:"",node:__node("Function",2709,13,[__node("Param",2709,14,__wrap(err,853),void 0,false,false,void 0),__node("Param",2709,19,__wrap(result,853),void 0,false,false,void 0)],__wrap(rest,853),true,true,false,void 0,false,[])},"expression",false,false)],false,false)],null);}};}.call(this));',
           params: [
             [
               "ident",
@@ -33675,7 +34133,7 @@
           id: 135
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__owns,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__owns=Object.prototype.hasOwnProperty;__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _arr,_i,_len,_ref,_this,assignment,body,constructorCount,ctor,declaration,displayName,generic,genericArg,genericArgs,genericCache,genericParams,hasSuperclass,hasTopLevelConstructor,i,init,instanceofLets,instanceofs,item,key,macroData,macroName,makeClassFunc,makeClassIdent,name,parts,prototype,result,self,sup,superclass,superproto;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;generic=macroData.generic;superclass=macroData.superclass;body=macroData.body;if(generic!=null){genericArgs=[generic.head].concat(__toArray(generic.tail));}else{genericArgs=[];}if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){name=(_ref=this.ident(this.value(this.child(name))))!=null?_ref:this.tmp("class",false,"function");}else{name=this.tmp("class",false,"function");}}else{name=this.tmp("class",false,"function");}hasSuperclass=!!superclass;sup=superclass&&(this.isIdent(superclass)?superclass:this.tmp("super",false,"function"));init=[];if(!superclass){superproto=__node("Access",2725,11,__node("Ident",2725,11,"Object"),__node("Const",2725,19,"prototype"));}else{superproto=this.tmp(this.isIdent(sup)?__strnum(this.name(sup))+"_prototype":"super_prototype",false,"object");}prototype=this.tmp(this.isIdent(name)?__strnum(this.name(name))+"_prototype":"prototype",false,"object");if(superclass){init.push(__node("MacroAccess",2730,20,38,2730,{macroName:"let",macroData:{declarable:__node("MacroAccess",2730,24,37,2730,__node("MacroAccess",2730,24,31,2730,{ident:__wrap(superproto,857)},"statement",false,false),"statement",false,false),value:__node("Access",2730,38,__wrap(sup,857),__node("Const",2730,44,"prototype"))}},"statement",false,false));init.push(__node("MacroAccess",2731,20,38,2731,{macroName:"let",macroData:{declarable:__node("MacroAccess",2731,24,37,2731,__node("MacroAccess",2731,24,31,2731,{ident:__wrap(prototype,857)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2731,37,30,2731,{left:__node("Access",2731,43,__wrap(name,857),__node("Const",2731,44,"prototype")),op:":=",right:__node("Object",90555,90579,[],__wrap(superproto,857))},"expression",false,false)}},"statement",false,false));init.push(__node("MacroAccess",2732,21,30,2732,{left:__node("Access",2732,32,__wrap(prototype,857),__node("Const",2732,33,"constructor")),op:":=",right:__wrap(name,857)},"expression",false,false));}else{init.push(__node("MacroAccess",2734,20,38,2734,{macroName:"let",macroData:{declarable:__node("MacroAccess",2734,24,37,2734,__node("MacroAccess",2734,24,31,2734,{ident:__wrap(prototype,857)},"statement",false,false),"statement",false,false),value:__node("Access",2734,37,__wrap(name,857),__node("Const",2734,44,"prototype"))}},"statement",false,false));}if(this.isIdent(name)){displayName=this["const"](this.name(name));}if(displayName!=null){if(genericArgs.length>0){parts=[displayName,this["const"]("<")];for(i=0, _len=genericArgs.length;i<_len;++i){genericArg=genericArgs[i];if(i>0){parts.push(this["const"](", "));}parts.push(__node("MacroAccess",2743,26,18,2743,{macroName:"if",macroData:{test:__node("MacroAccess",2743,29,8,2743,{left:__wrap(genericArg,857),inverted:false,op:"!~=",right:__node("Const",2743,46,null)},"expression",false,false),body:__node("Call",2743,56,__node("Ident",2743,56,"__name"),[__wrap(genericArg,857)],false,false),elseIfs:[],elseBody:__node("Const",2743,82,"")}},"expression",false,false));}parts.push(this["const"](">"));displayName=this.binaryChain("+",parts);}init.push(__node("MacroAccess",2746,21,30,2746,{left:__node("Access",2746,27,__wrap(name,857),__node("Const",2746,28,"displayName")),op:":=",right:__wrap(displayName,857)},"expression",false,false));}if(superclass){init.push(__node("If",2749,20,__node("Binary",2749,20,__node("Unary",2749,20,"typeof",__node("Access",2749,20,__wrap(sup,857),__node("Const",2749,26,"extended"))),"===",__node("Const",2749,20,"function")),__node("Call",2749,20,__node("Access",2749,20,__wrap(sup,857),__node("Const",2749,26,"extended")),[__wrap(name,857)],false,false),__node("Nothing",0,0),null));}function fixSupers(node){return _this.walk(node,function(node){var _arr,_arr2,_i,_len,args,child,superArg;if(_this.isSuper(node)){child=_this.superChild(node);if(child!=null){child=fixSupers(child);}for(_arr=[], _arr2=__toArray(_this.superArgs(node)), _i=0, _len=_arr2.length;_i<_len;++_i){superArg=_arr2[_i];_arr.push(fixSupers(superArg));}args=_arr;return _this.call(child!=null?__node("Access",2761,17,__wrap(superproto,869),__wrap(child,869)):!superclass?__node("Ident",2763,17,"Object"):__wrap(sup,869),[__node("This",2766,16)].concat(args),false,true);}});};body=fixSupers(this.macroExpandAll(body));constructorCount=0;this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){++constructorCount;}}return;});hasTopLevelConstructor=false;if(constructorCount===1){this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"&&_this.isFunc(_this.right(node))&&!_this.funcIsCurried(_this.right(node))){hasTopLevelConstructor=true;}return node;}else{return node;}});}self=this.tmp("this");if(hasTopLevelConstructor){body=this.walk(body,function(node){var constructor,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",2803,18,18,2803,{macroName:"if",macroData:{test:__node("MacroAccess",2803,21,72,2803,{left:__node("Eval",2803,21,__node("Const",2803,27,"this")),inverted:false,op:"instanceof",right:__wrap(name,876)},"statement",false,false),body:__node("Eval",2803,56,__node("Const",2803,62,"this")),elseIfs:[],elseBody:__node("Object",93019,93042,[],__wrap(prototype,876))}},"statement",false,false)),value);init.unshift(__node("MacroAccess",2804,29,38,2804,{macroName:"let",macroData:{declarable:__node("MacroAccess",2804,33,37,2804,__node("MacroAccess",2804,33,31,2804,{ident:__wrap(name,876)},"statement",false,false),"statement",false,false),value:__wrap(constructor,876)}},"statement",false,false));return _this.noop();}}else{return node;}});}else if(constructorCount!==0){ctor=this.tmp("ctor",false,"function");result=this.tmp("ref");init.push(__node("Block",2812,1,[__node("MacroAccess",2812,9,38,2812,{macroName:"let",macroData:{declarable:__node("MacroAccess",2812,12,37,2812,__node("MacroAccess",2812,12,31,2812,{isMutable:"mutable",ident:__wrap(ctor,857)},"statement",false,false),"statement",false,false),value:__node("Const",2812,28,void 0)}},"statement",false,false),__node("MacroAccess",2813,9,17,2813,{macroName:"let",macroData:{ident:__wrap(name,857),func:__node("MacroAccess",2813,18,115,2813,{op:"",node:__node("Function",2813,18,[],__node("Block",2814,1,[__node("MacroAccess",2814,11,38,2814,{macroName:"let",macroData:{declarable:__node("MacroAccess",2814,14,37,2814,__node("MacroAccess",2814,14,31,2814,{ident:__wrap(self,883)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2814,22,18,2814,{macroName:"if",macroData:{test:__node("MacroAccess",2814,25,72,2814,{left:__node("This",2814,25),inverted:false,op:"instanceof",right:__wrap(name,883)},"expression",false,false),body:__node("This",2814,52),elseIfs:[],elseBody:__node("Object",93398,93421,[],__wrap(prototype,883))}},"expression",false,false)}},"statement",false,false),__node("MacroAccess",2816,11,19,2816,{macroName:"if",macroData:{test:__node("MacroAccess",2816,13,26,2816,{op:"isFunction!",node:__wrap(ctor,883)},"statement",false,false),body:__node("Block",2817,1,[__node("MacroAccess",2817,13,38,2817,{macroName:"let",macroData:{declarable:__node("MacroAccess",2817,16,37,2817,__node("MacroAccess",2817,16,31,2817,{ident:__wrap(result,883)},"statement",false,false),"statement",false,false),value:__node("Call",2817,26,__wrap(ctor,883),[__wrap(self,883),__node("Spread",2817,40,__node("Args",2817,44))],false,true)}},"statement",false,false),__node("MacroAccess",2818,13,19,2818,{macroName:"if",macroData:{test:__node("MacroAccess",2818,15,5,2818,{left:__node("Call",2818,15,__node("Ident",2818,15,"Object"),[__wrap(result,883)],false,false),inverted:false,op:"==",right:__wrap(result,883)},"statement",false,false),body:__node("MacroAccess",2819,15,39,2819,{macroName:"return",macroData:{node:__wrap(result,883)}},"statement",false,false),elseIfs:[]}},"statement",false,false)],null),elseIfs:[{type:"if",test:__wrap(hasSuperclass,883),body:__node("Block",2821,1,[__node("MacroAccess",2821,13,38,2821,{macroName:"let",macroData:{declarable:__node("MacroAccess",2821,16,37,2821,__node("MacroAccess",2821,16,31,2821,{ident:__wrap(result,883)},"statement",false,false),"statement",false,false),value:__node("Call",2821,26,__wrap(sup,883),[__wrap(self,883),__node("Spread",2821,39,__node("Args",2821,43))],false,true)}},"statement",false,false),__node("MacroAccess",2822,13,19,2822,{macroName:"if",macroData:{test:__node("MacroAccess",2822,15,5,2822,{left:__node("Call",2822,15,__node("Ident",2822,15,"Object"),[__wrap(result,883)],false,false),inverted:false,op:"==",right:__wrap(result,883)},"statement",false,false),body:__node("MacroAccess",2823,15,39,2823,{macroName:"return",macroData:{node:__wrap(result,883)}},"statement",false,false),elseIfs:[]}},"statement",false,false)],null)}]}},"statement",false,false),__wrap(self,883)],null),true,false,false,void 0,false,[])},"statement",false,false)}},"statement",false,false)],null));body=this.walk(body,function(node){var constructor,firstArg,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);if(_this.isCall(value)&&_this.isIdent(_this.callFunc(value))&&_this.name(_this.callFunc(value))==="__curry"&&_this.callArgs(value).length===2&&_this.isFunc(_this.callArgs(value)[1])){firstArg=_this.callArgs(value)[0];constructor=_this.callArgs(value)[1];constructor=_this.rewrap(_this.func(_this.funcParams(constructor),_this.funcBody(constructor),false,__node("MacroAccess",2837,20,18,2837,{macroName:"if",macroData:{test:__node("MacroAccess",2837,23,72,2837,{left:__node("Eval",2837,23,__node("Const",2837,29,"this")),inverted:false,op:"instanceof",right:__wrap(name,887)},"statement",false,false),body:__node("Eval",2837,58,__node("Const",2837,64,"this")),elseIfs:[],elseBody:__node("Object",94458,94481,[],__wrap(prototype,887))}},"statement",false,false),false),value);return __node("MacroAccess",2839,19,30,2839,{left:__wrap(ctor,887),op:":=",right:__node("Call",2839,28,__node("Ident",2839,28,"__curry"),[__wrap(firstArg,887),__wrap(constructor,887)],false,false)},"expression",false,false);}else if(_this.isFunc(value)){constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",2845,20,18,2845,{macroName:"if",macroData:{test:__node("MacroAccess",2845,23,72,2845,{left:__node("Eval",2845,23,__node("Const",2845,29,"this")),inverted:false,op:"instanceof",right:__wrap(name,887)},"statement",false,false),body:__node("Eval",2845,58,__node("Const",2845,64,"this")),elseIfs:[],elseBody:__node("Object",94821,94844,[],__wrap(prototype,887))}},"statement",false,false),_this.funcIsCurried(value)),value);return __node("MacroAccess",2847,19,30,2847,{left:__wrap(ctor,887),op:":=",right:__wrap(constructor,887)},"expression",false,false);}else{return __node("MacroAccess",2849,19,30,2849,{left:__wrap(ctor,887),op:":=",right:__wrap(value,887)},"expression",false,false);}}}});}else if(!superclass){init.push(__node("MacroAccess",2853,11,17,2853,{macroName:"let",macroData:{ident:__wrap(name,857),func:__node("MacroAccess",2853,20,115,2853,{op:"",node:__node("Function",2853,20,[],__node("MacroAccess",2853,25,18,2853,{macroName:"if",macroData:{test:__node("MacroAccess",2853,28,72,2853,{left:__node("This",2853,28),inverted:false,op:"instanceof",right:__wrap(name,892)},"statement",false,false),body:__node("This",2853,55),elseIfs:[],elseBody:__node("Object",95105,95128,[],__wrap(prototype,892))}},"statement",false,false),true,false,false,void 0,false,[])},"statement",false,false)}},"statement",false,false));}else{result=this.tmp("ref");init.push(__node("MacroAccess",2857,11,17,2857,{macroName:"let",macroData:{ident:__wrap(name,857),func:__node("MacroAccess",2857,20,115,2857,{op:"",node:__node("Function",2857,20,[],__node("Block",2858,1,[__node("MacroAccess",2858,13,38,2858,{macroName:"let",macroData:{declarable:__node("MacroAccess",2858,16,37,2858,__node("MacroAccess",2858,16,31,2858,{ident:__wrap(self,894)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2858,24,18,2858,{macroName:"if",macroData:{test:__node("MacroAccess",2858,27,72,2858,{left:__node("This",2858,27),inverted:false,op:"instanceof",right:__wrap(name,894)},"expression",false,false),body:__node("This",2858,54),elseIfs:[],elseBody:__node("Object",95278,95301,[],__wrap(prototype,894))}},"expression",false,false)}},"statement",false,false),__node("MacroAccess",2859,13,38,2859,{macroName:"let",macroData:{declarable:__node("MacroAccess",2859,16,37,2859,__node("MacroAccess",2859,16,31,2859,{ident:__wrap(result,894)},"statement",false,false),"statement",false,false),value:__node("Call",2859,26,__wrap(sup,894),[__wrap(self,894),__node("Spread",2859,39,__node("Args",2859,43))],false,true)}},"statement",false,false),__node("MacroAccess",2860,13,19,2860,{macroName:"if",macroData:{test:__node("MacroAccess",2860,15,5,2860,{left:__node("Call",2860,15,__node("Ident",2860,15,"Object"),[__wrap(result,894)],false,false),inverted:false,op:"==",right:__wrap(result,894)},"statement",false,false),body:__wrap(result,894),elseIfs:[],elseBody:__wrap(self,894)}},"statement",false,false)],null),true,false,false,void 0,false,[])},"statement",false,false)}},"statement",false,false));}function changeDefs(node){return _this.walk(node,function(node){var _ref,key,value;if(_this.isDef(node)){key=_this.left(node);if((_ref=_this.right(node))!=null){value=_ref;}else{value=__node("MacroAccess",2868,42,115,2868,{op:"",node:__node("Function",2868,42,[],__node("MacroAccess",2868,44,11,2868,{op:"throw",node:__node("Call",2868,50,__node("Ident",2868,50,"Error"),[__node("MacroAccess",2868,57,67,2868,{left:__node("MacroAccess",2868,57,67,2868,{left:__node("MacroAccess",2868,57,67,2868,{left:__node("MacroAccess",2868,57,67,2868,{left:__node("Const",2868,57,"Not implemented: "),op:"",right:__node("Call",2868,77,__node("Ident",2868,77,"__name"),[__node("Access",2868,84,__node("This",2868,84),__node("Const",2868,85,"constructor"))],false,false)},"expression",false,false),op:"",right:__node("Const",2868,57,".")},"expression",false,false),op:"",right:__wrap(key,901)},"expression",false,false),op:"",right:__node("Const",2868,57,"()")},"expression",false,false)],false,false)},"statement",false,false),true,false,false,void 0,false,[])},"expression",false,false);}return changeDefs(__node("MacroAccess",2869,25,30,2869,{left:__node("Access",2869,36,__wrap(prototype,898),__wrap(key,898)),op:":=",right:__wrap(value,898)},"expression",false,false));}});};body=changeDefs(body);body=this.walk(body,function(node){if(_this.isFunc(node)){if(!_this.funcIsBound(node)){return node;}}else if(_this.isThis(node)){return name;}});result=__node("MacroAccess",2879,29,102,2879,{macroName:"do",macroData:{locals:{ident:__wrap(sup,857),value:__wrap(superclass,857),rest:[]},body:__node("Block",2880,1,[__wrap(init,857),__wrap(body,857),__node("MacroAccess",2882,7,39,2882,{macroName:"return",macroData:{node:__wrap(name,857)}},"statement",false,false)],null)}},"statement",false,false);if(genericArgs.length>0){genericCache=this.tmp("cache",false,"object");for(_arr=[], _i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];_arr.push(this.param(genericArg));}genericParams=_arr;makeClassIdent=this.tmp("make",false,"function");instanceofs={};for(_i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];name=this.name(genericArg);key=this.tmp("instanceof_"+__strnum(name),false,"function");instanceofs[name]={key:key,"let":__node("MacroAccess",2894,19,38,2894,{macroName:"let",macroData:{declarable:__node("MacroAccess",2894,23,37,2894,__node("MacroAccess",2894,23,31,2894,{ident:__wrap(key,857)},"statement",false,false),"statement",false,false),value:__node("Call",2894,30,__node("Ident",2894,30,"__getInstanceof"),[__wrap(genericArg,857)],false,false)}},"statement",false,false),used:false};}result=this.walk(this.macroExpandAll(result),function(node){var func,left,name,right;if(_this.isBinary(node)&&_this.op(node)==="instanceof"){right=_this.right(node);if(_this.isIdent(right)){name=_this.name(right);if(__owns.call(instanceofs,name)){func=instanceofs[name].key;instanceofs[name].used=true;left=_this.left(node);return __node("Call",2906,26,__wrap(func,911),[__wrap(left,911)],false,false);}}}});_arr=[];for(name in instanceofs){if(__owns.call(instanceofs,name)){item=instanceofs[name];if(item.used){_arr.push(item["let"]);}}}instanceofLets=_arr;if(instanceofLets.length){result=__node("Block",2912,1,[__wrap(instanceofLets,857),__wrap(result,857)],null);}makeClassFunc=this.func(genericParams,result,true,false);result=__node("Call",2915,20,__node("Ident",2915,20,"__genericFunc"),[__wrap(genericArgs.length,857),__wrap(makeClassFunc,857)],false,false);}if(declaration!=null){return __node("MacroAccess",2918,10,38,2918,{macroName:"let",macroData:{declarable:__node("MacroAccess",2918,14,37,2918,__node("MacroAccess",2918,14,31,2918,{ident:__wrap(declaration,857)},"statement",false,false),"statement",false,false),value:__wrap(result,857)}},"statement",false,false);}else if(assignment!=null){return __node("MacroAccess",2920,11,30,2920,{left:__wrap(assignment,857),op:":=",right:__wrap(result,857)},"expression",false,false);}else{return result;}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__owns,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__owns=Object.prototype.hasOwnProperty;__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _arr,_i,_len,_ref,_this,assignment,body,constructorCount,ctor,declaration,displayName,generic,genericArg,genericArgs,genericCache,genericParams,hasSuperclass,hasTopLevelConstructor,i,init,instanceofLets,instanceofs,item,key,macroData,macroName,makeClassFunc,makeClassIdent,name,parts,prototype,result,self,sup,superclass,superproto;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;generic=macroData.generic;superclass=macroData.superclass;body=macroData.body;if(generic!=null){genericArgs=[generic.head].concat(__toArray(generic.tail));}else{genericArgs=[];}if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){name=(_ref=this.ident(this.value(this.child(name))))!=null?_ref:this.tmp("class",false,"function");}else{name=this.tmp("class",false,"function");}}else{name=this.tmp("class",false,"function");}hasSuperclass=!!superclass;sup=superclass&&(this.isIdent(superclass)?superclass:this.tmp("super",false,"function"));init=[];if(!superclass){superproto=__node("Access",2741,11,__node("Ident",2741,11,"Object"),__node("Const",2741,19,"prototype"));}else{superproto=this.tmp(this.isIdent(sup)?__strnum(this.name(sup))+"_prototype":"super_prototype",false,"object");}prototype=this.tmp(this.isIdent(name)?__strnum(this.name(name))+"_prototype":"prototype",false,"object");if(superclass){init.push(__node("MacroAccess",2746,20,38,2746,{macroName:"let",macroData:{declarable:__node("MacroAccess",2746,24,37,2746,__node("MacroAccess",2746,24,31,2746,{ident:__wrap(superproto,857)},"statement",false,false),"statement",false,false),value:__node("Access",2746,38,__wrap(sup,857),__node("Const",2746,44,"prototype"))}},"statement",false,false));init.push(__node("MacroAccess",2747,20,38,2747,{macroName:"let",macroData:{declarable:__node("MacroAccess",2747,24,37,2747,__node("MacroAccess",2747,24,31,2747,{ident:__wrap(prototype,857)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2747,37,30,2747,{left:__node("Access",2747,43,__wrap(name,857),__node("Const",2747,44,"prototype")),op:":=",right:__node("Object",90751,90775,[],__wrap(superproto,857))},"expression",false,false)}},"statement",false,false));init.push(__node("MacroAccess",2748,21,30,2748,{left:__node("Access",2748,32,__wrap(prototype,857),__node("Const",2748,33,"constructor")),op:":=",right:__wrap(name,857)},"expression",false,false));}else{init.push(__node("MacroAccess",2750,20,38,2750,{macroName:"let",macroData:{declarable:__node("MacroAccess",2750,24,37,2750,__node("MacroAccess",2750,24,31,2750,{ident:__wrap(prototype,857)},"statement",false,false),"statement",false,false),value:__node("Access",2750,37,__wrap(name,857),__node("Const",2750,44,"prototype"))}},"statement",false,false));}if(this.isIdent(name)){displayName=this["const"](this.name(name));}if(displayName!=null){if(genericArgs.length>0){parts=[displayName,this["const"]("<")];for(i=0, _len=genericArgs.length;i<_len;++i){genericArg=genericArgs[i];if(i>0){parts.push(this["const"](", "));}parts.push(__node("MacroAccess",2759,26,18,2759,{macroName:"if",macroData:{test:__node("MacroAccess",2759,29,8,2759,{left:__wrap(genericArg,857),inverted:false,op:"!~=",right:__node("Const",2759,46,null)},"expression",false,false),body:__node("Call",2759,56,__node("Ident",2759,56,"__name"),[__wrap(genericArg,857)],false,false),elseIfs:[],elseBody:__node("Const",2759,82,"")}},"expression",false,false));}parts.push(this["const"](">"));displayName=this.binaryChain("+",parts);}init.push(__node("MacroAccess",2762,21,30,2762,{left:__node("Access",2762,27,__wrap(name,857),__node("Const",2762,28,"displayName")),op:":=",right:__wrap(displayName,857)},"expression",false,false));}if(superclass){init.push(__node("If",2765,20,__node("Binary",2765,20,__node("Unary",2765,20,"typeof",__node("Access",2765,20,__wrap(sup,857),__node("Const",2765,26,"extended"))),"===",__node("Const",2765,20,"function")),__node("Call",2765,20,__node("Access",2765,20,__wrap(sup,857),__node("Const",2765,26,"extended")),[__wrap(name,857)],false,false),__node("Nothing",0,0),null));}function fixSupers(node){return _this.walk(node,function(node){var _arr,_arr2,_i,_len,args,child,superArg;if(_this.isSuper(node)){child=_this.superChild(node);if(child!=null){child=fixSupers(child);}for(_arr=[], _arr2=__toArray(_this.superArgs(node)), _i=0, _len=_arr2.length;_i<_len;++_i){superArg=_arr2[_i];_arr.push(fixSupers(superArg));}args=_arr;return _this.call(child!=null?__node("Access",2777,17,__wrap(superproto,869),__wrap(child,869)):!superclass?__node("Ident",2779,17,"Object"):__wrap(sup,869),[__node("This",2782,16)].concat(args),false,true);}});};body=fixSupers(this.macroExpandAll(body));constructorCount=0;this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){++constructorCount;}}return;});hasTopLevelConstructor=false;if(constructorCount===1){this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"&&_this.isFunc(_this.right(node))&&!_this.funcIsCurried(_this.right(node))){hasTopLevelConstructor=true;}return node;}else{return node;}});}self=this.tmp("this");if(hasTopLevelConstructor){body=this.walk(body,function(node){var constructor,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",2819,18,18,2819,{macroName:"if",macroData:{test:__node("MacroAccess",2819,21,72,2819,{left:__node("Eval",2819,21,__node("Const",2819,27,"this")),inverted:false,op:"instanceof",right:__wrap(name,876)},"statement",false,false),body:__node("Eval",2819,56,__node("Const",2819,62,"this")),elseIfs:[],elseBody:__node("Object",93215,93238,[],__wrap(prototype,876))}},"statement",false,false)),value);init.unshift(__node("MacroAccess",2820,29,38,2820,{macroName:"let",macroData:{declarable:__node("MacroAccess",2820,33,37,2820,__node("MacroAccess",2820,33,31,2820,{ident:__wrap(name,876)},"statement",false,false),"statement",false,false),value:__wrap(constructor,876)}},"statement",false,false));return _this.noop();}}else{return node;}});}else if(constructorCount!==0){ctor=this.tmp("ctor",false,"function");result=this.tmp("ref");init.push(__node("Block",2828,1,[__node("MacroAccess",2828,9,38,2828,{macroName:"let",macroData:{declarable:__node("MacroAccess",2828,12,37,2828,__node("MacroAccess",2828,12,31,2828,{isMutable:"mutable",ident:__wrap(ctor,857)},"statement",false,false),"statement",false,false),value:__node("Const",2828,28,void 0)}},"statement",false,false),__node("MacroAccess",2829,9,17,2829,{macroName:"let",macroData:{ident:__wrap(name,857),func:__node("MacroAccess",2829,18,115,2829,{op:"",node:__node("Function",2829,18,[],__node("Block",2830,1,[__node("MacroAccess",2830,11,38,2830,{macroName:"let",macroData:{declarable:__node("MacroAccess",2830,14,37,2830,__node("MacroAccess",2830,14,31,2830,{ident:__wrap(self,883)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2830,22,18,2830,{macroName:"if",macroData:{test:__node("MacroAccess",2830,25,72,2830,{left:__node("This",2830,25),inverted:false,op:"instanceof",right:__wrap(name,883)},"expression",false,false),body:__node("This",2830,52),elseIfs:[],elseBody:__node("Object",93594,93617,[],__wrap(prototype,883))}},"expression",false,false)}},"statement",false,false),__node("MacroAccess",2832,11,19,2832,{macroName:"if",macroData:{test:__node("MacroAccess",2832,13,26,2832,{op:"isFunction!",node:__wrap(ctor,883)},"statement",false,false),body:__node("Block",2833,1,[__node("MacroAccess",2833,13,38,2833,{macroName:"let",macroData:{declarable:__node("MacroAccess",2833,16,37,2833,__node("MacroAccess",2833,16,31,2833,{ident:__wrap(result,883)},"statement",false,false),"statement",false,false),value:__node("Call",2833,26,__wrap(ctor,883),[__wrap(self,883),__node("Spread",2833,40,__node("Args",2833,44))],false,true)}},"statement",false,false),__node("MacroAccess",2834,13,19,2834,{macroName:"if",macroData:{test:__node("MacroAccess",2834,15,5,2834,{left:__node("Call",2834,15,__node("Ident",2834,15,"Object"),[__wrap(result,883)],false,false),inverted:false,op:"==",right:__wrap(result,883)},"statement",false,false),body:__node("MacroAccess",2835,15,39,2835,{macroName:"return",macroData:{node:__wrap(result,883)}},"statement",false,false),elseIfs:[]}},"statement",false,false)],null),elseIfs:[{type:"if",test:__wrap(hasSuperclass,883),body:__node("Block",2837,1,[__node("MacroAccess",2837,13,38,2837,{macroName:"let",macroData:{declarable:__node("MacroAccess",2837,16,37,2837,__node("MacroAccess",2837,16,31,2837,{ident:__wrap(result,883)},"statement",false,false),"statement",false,false),value:__node("Call",2837,26,__wrap(sup,883),[__wrap(self,883),__node("Spread",2837,39,__node("Args",2837,43))],false,true)}},"statement",false,false),__node("MacroAccess",2838,13,19,2838,{macroName:"if",macroData:{test:__node("MacroAccess",2838,15,5,2838,{left:__node("Call",2838,15,__node("Ident",2838,15,"Object"),[__wrap(result,883)],false,false),inverted:false,op:"==",right:__wrap(result,883)},"statement",false,false),body:__node("MacroAccess",2839,15,39,2839,{macroName:"return",macroData:{node:__wrap(result,883)}},"statement",false,false),elseIfs:[]}},"statement",false,false)],null)}]}},"statement",false,false),__wrap(self,883)],null),true,false,false,void 0,false,[])},"statement",false,false)}},"statement",false,false)],null));body=this.walk(body,function(node){var constructor,firstArg,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);if(_this.isCall(value)&&_this.isIdent(_this.callFunc(value))&&_this.name(_this.callFunc(value))==="__curry"&&_this.callArgs(value).length===2&&_this.isFunc(_this.callArgs(value)[1])){firstArg=_this.callArgs(value)[0];constructor=_this.callArgs(value)[1];constructor=_this.rewrap(_this.func(_this.funcParams(constructor),_this.funcBody(constructor),false,__node("MacroAccess",2853,20,18,2853,{macroName:"if",macroData:{test:__node("MacroAccess",2853,23,72,2853,{left:__node("Eval",2853,23,__node("Const",2853,29,"this")),inverted:false,op:"instanceof",right:__wrap(name,887)},"statement",false,false),body:__node("Eval",2853,58,__node("Const",2853,64,"this")),elseIfs:[],elseBody:__node("Object",94654,94677,[],__wrap(prototype,887))}},"statement",false,false),false),value);return __node("MacroAccess",2855,19,30,2855,{left:__wrap(ctor,887),op:":=",right:__node("Call",2855,28,__node("Ident",2855,28,"__curry"),[__wrap(firstArg,887),__wrap(constructor,887)],false,false)},"expression",false,false);}else if(_this.isFunc(value)){constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",2861,20,18,2861,{macroName:"if",macroData:{test:__node("MacroAccess",2861,23,72,2861,{left:__node("Eval",2861,23,__node("Const",2861,29,"this")),inverted:false,op:"instanceof",right:__wrap(name,887)},"statement",false,false),body:__node("Eval",2861,58,__node("Const",2861,64,"this")),elseIfs:[],elseBody:__node("Object",95017,95040,[],__wrap(prototype,887))}},"statement",false,false),_this.funcIsCurried(value)),value);return __node("MacroAccess",2863,19,30,2863,{left:__wrap(ctor,887),op:":=",right:__wrap(constructor,887)},"expression",false,false);}else{return __node("MacroAccess",2865,19,30,2865,{left:__wrap(ctor,887),op:":=",right:__wrap(value,887)},"expression",false,false);}}}});}else if(!superclass){init.push(__node("MacroAccess",2869,11,17,2869,{macroName:"let",macroData:{ident:__wrap(name,857),func:__node("MacroAccess",2869,20,115,2869,{op:"",node:__node("Function",2869,20,[],__node("MacroAccess",2869,25,18,2869,{macroName:"if",macroData:{test:__node("MacroAccess",2869,28,72,2869,{left:__node("This",2869,28),inverted:false,op:"instanceof",right:__wrap(name,892)},"statement",false,false),body:__node("This",2869,55),elseIfs:[],elseBody:__node("Object",95301,95324,[],__wrap(prototype,892))}},"statement",false,false),true,false,false,void 0,false,[])},"statement",false,false)}},"statement",false,false));}else{result=this.tmp("ref");init.push(__node("MacroAccess",2873,11,17,2873,{macroName:"let",macroData:{ident:__wrap(name,857),func:__node("MacroAccess",2873,20,115,2873,{op:"",node:__node("Function",2873,20,[],__node("Block",2874,1,[__node("MacroAccess",2874,13,38,2874,{macroName:"let",macroData:{declarable:__node("MacroAccess",2874,16,37,2874,__node("MacroAccess",2874,16,31,2874,{ident:__wrap(self,894)},"statement",false,false),"statement",false,false),value:__node("MacroAccess",2874,24,18,2874,{macroName:"if",macroData:{test:__node("MacroAccess",2874,27,72,2874,{left:__node("This",2874,27),inverted:false,op:"instanceof",right:__wrap(name,894)},"expression",false,false),body:__node("This",2874,54),elseIfs:[],elseBody:__node("Object",95474,95497,[],__wrap(prototype,894))}},"expression",false,false)}},"statement",false,false),__node("MacroAccess",2875,13,38,2875,{macroName:"let",macroData:{declarable:__node("MacroAccess",2875,16,37,2875,__node("MacroAccess",2875,16,31,2875,{ident:__wrap(result,894)},"statement",false,false),"statement",false,false),value:__node("Call",2875,26,__wrap(sup,894),[__wrap(self,894),__node("Spread",2875,39,__node("Args",2875,43))],false,true)}},"statement",false,false),__node("MacroAccess",2876,13,19,2876,{macroName:"if",macroData:{test:__node("MacroAccess",2876,15,5,2876,{left:__node("Call",2876,15,__node("Ident",2876,15,"Object"),[__wrap(result,894)],false,false),inverted:false,op:"==",right:__wrap(result,894)},"statement",false,false),body:__wrap(result,894),elseIfs:[],elseBody:__wrap(self,894)}},"statement",false,false)],null),true,false,false,void 0,false,[])},"statement",false,false)}},"statement",false,false));}function changeDefs(node){return _this.walk(node,function(node){var _ref,key,value;if(_this.isDef(node)){key=_this.left(node);if((_ref=_this.right(node))!=null){value=_ref;}else{value=__node("MacroAccess",2884,42,115,2884,{op:"",node:__node("Function",2884,42,[],__node("MacroAccess",2884,44,11,2884,{op:"throw",node:__node("Call",2884,50,__node("Ident",2884,50,"Error"),[__node("MacroAccess",2884,57,67,2884,{left:__node("MacroAccess",2884,57,67,2884,{left:__node("MacroAccess",2884,57,67,2884,{left:__node("MacroAccess",2884,57,67,2884,{left:__node("Const",2884,57,"Not implemented: "),op:"",right:__node("Call",2884,77,__node("Ident",2884,77,"__name"),[__node("Access",2884,84,__node("This",2884,84),__node("Const",2884,85,"constructor"))],false,false)},"expression",false,false),op:"",right:__node("Const",2884,57,".")},"expression",false,false),op:"",right:__wrap(key,901)},"expression",false,false),op:"",right:__node("Const",2884,57,"()")},"expression",false,false)],false,false)},"statement",false,false),true,false,false,void 0,false,[])},"expression",false,false);}return changeDefs(__node("MacroAccess",2885,25,30,2885,{left:__node("Access",2885,36,__wrap(prototype,898),__wrap(key,898)),op:":=",right:__wrap(value,898)},"expression",false,false));}});};body=changeDefs(body);body=this.walk(body,function(node){if(_this.isFunc(node)){if(!_this.funcIsBound(node)){return node;}}else if(_this.isThis(node)){return name;}});result=__node("MacroAccess",2895,29,102,2895,{macroName:"do",macroData:{locals:{ident:__wrap(sup,857),value:__wrap(superclass,857),rest:[]},body:__node("Block",2896,1,[__wrap(init,857),__wrap(body,857),__node("MacroAccess",2898,7,39,2898,{macroName:"return",macroData:{node:__wrap(name,857)}},"statement",false,false)],null)}},"statement",false,false);if(genericArgs.length>0){genericCache=this.tmp("cache",false,"object");for(_arr=[], _i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];_arr.push(this.param(genericArg));}genericParams=_arr;makeClassIdent=this.tmp("make",false,"function");instanceofs={};for(_i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];name=this.name(genericArg);key=this.tmp("instanceof_"+__strnum(name),false,"function");instanceofs[name]={key:key,"let":__node("MacroAccess",2910,19,38,2910,{macroName:"let",macroData:{declarable:__node("MacroAccess",2910,23,37,2910,__node("MacroAccess",2910,23,31,2910,{ident:__wrap(key,857)},"statement",false,false),"statement",false,false),value:__node("Call",2910,30,__node("Ident",2910,30,"__getInstanceof"),[__wrap(genericArg,857)],false,false)}},"statement",false,false),used:false};}result=this.walk(this.macroExpandAll(result),function(node){var func,left,name,right;if(_this.isBinary(node)&&_this.op(node)==="instanceof"){right=_this.right(node);if(_this.isIdent(right)){name=_this.name(right);if(__owns.call(instanceofs,name)){func=instanceofs[name].key;instanceofs[name].used=true;left=_this.left(node);return __node("Call",2922,26,__wrap(func,911),[__wrap(left,911)],false,false);}}}});_arr=[];for(name in instanceofs){if(__owns.call(instanceofs,name)){item=instanceofs[name];if(item.used){_arr.push(item["let"]);}}}instanceofLets=_arr;if(instanceofLets.length){result=__node("Block",2928,1,[__wrap(instanceofLets,857),__wrap(result,857)],null);}makeClassFunc=this.func(genericParams,result,true,false);result=__node("Call",2931,20,__node("Ident",2931,20,"__genericFunc"),[__wrap(genericArgs.length,857),__wrap(makeClassFunc,857)],false,false);}if(declaration!=null){return __node("MacroAccess",2934,10,38,2934,{macroName:"let",macroData:{declarable:__node("MacroAccess",2934,14,37,2934,__node("MacroAccess",2934,14,31,2934,{ident:__wrap(declaration,857)},"statement",false,false),"statement",false,false),value:__wrap(result,857)}},"statement",false,false);}else if(assignment!=null){return __node("MacroAccess",2936,11,30,2936,{left:__wrap(assignment,857),op:":=",right:__wrap(result,857)},"expression",false,false);}else{return result;}};}.call(this));',
           params: [
             ["ident", "name", "many", "?", "ident", "SimpleAssignable"],
             [
@@ -33712,7 +34170,7 @@
           id: 136
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,_this,assignment,body,declaration,index,macroData,macroName,name,result;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;body=macroData.body;if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){name=(_ref=this.ident(this.value(this.child(name))))!=null?_ref:this.tmp("enum",false,"object");}else{name=this.tmp("enum",false,"object");}}else{name=this.tmp("enum",false,"object");}index=0;body=this.walk(this.macroExpandAll(body),function(node){var key,value;if(_this.isDef(node)){key=_this.left(node);value=_this.right(node);if(!_this.isConst(key)){throw Error("Cannot have non-const enum keys");}if(!value){++index;value=index;}return __node("MacroAccess",2949,13,30,2949,{left:__node("Access",2949,13,__node("This",2949,13),__wrap(key,920)),op:":=",right:__wrap(value,920)},"expression",false,false);}else{return node;}});result=__node("MacroAccess",2953,22,103,2953,{macroName:"with",macroData:{node:__node("Object",98344,98347,[],void 0),body:__node("Block",2954,1,[__wrap(body,919),__node("MacroAccess",2955,7,39,2955,{macroName:"return",macroData:{node:__node("This",2955,13)}},"statement",false,false)],null)}},"expression",false,false);if(declaration!=null){return __node("MacroAccess",2958,10,38,2958,{macroName:"let",macroData:{declarable:__node("MacroAccess",2958,14,37,2958,__node("MacroAccess",2958,14,31,2958,{ident:__wrap(declaration,919)},"statement",false,false),"statement",false,false),value:__wrap(result,919)}},"statement",false,false);}else if(assignment!=null){return __node("MacroAccess",2960,11,30,2960,{left:__wrap(assignment,919),op:":=",right:__wrap(result,919)},"expression",false,false);}else{return result;}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var _ref,_this,assignment,body,declaration,index,macroData,macroName,name,result;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;body=macroData.body;if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){name=(_ref=this.ident(this.value(this.child(name))))!=null?_ref:this.tmp("enum",false,"object");}else{name=this.tmp("enum",false,"object");}}else{name=this.tmp("enum",false,"object");}index=0;body=this.walk(this.macroExpandAll(body),function(node){var key,value;if(_this.isDef(node)){key=_this.left(node);value=_this.right(node);if(!_this.isConst(key)){throw Error("Cannot have non-const enum keys");}if(!value){++index;value=index;}return __node("MacroAccess",2965,13,30,2965,{left:__node("Access",2965,13,__node("This",2965,13),__wrap(key,920)),op:":=",right:__wrap(value,920)},"expression",false,false);}else{return node;}});result=__node("MacroAccess",2969,22,103,2969,{macroName:"with",macroData:{node:__node("Object",98540,98543,[],void 0),body:__node("Block",2970,1,[__wrap(body,919),__node("MacroAccess",2971,7,39,2971,{macroName:"return",macroData:{node:__node("This",2971,13)}},"statement",false,false)],null)}},"expression",false,false);if(declaration!=null){return __node("MacroAccess",2974,10,38,2974,{macroName:"let",macroData:{declarable:__node("MacroAccess",2974,14,37,2974,__node("MacroAccess",2974,14,31,2974,{ident:__wrap(declaration,919)},"statement",false,false),"statement",false,false),value:__wrap(result,919)}},"statement",false,false);}else if(assignment!=null){return __node("MacroAccess",2976,11,30,2976,{left:__wrap(assignment,919),op:":=",right:__wrap(result,919)},"expression",false,false);}else{return result;}};}.call(this));',
           params: [
             ["ident", "name", "many", "?", "ident", "SimpleAssignable"],
             ["ident", "body", "many", "?", "ident", "Body"]
@@ -33721,7 +34179,7 @@
           id: 137
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _ref,_this,assignment,body,declaration,init,macroData,macroName,name,result,sup,superobject;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;superobject=macroData.superobject;body=macroData.body;if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){name=(_ref=this.ident(this.value(this.child(name))))!=null?_ref:this.tmp("ns",false,"object");}else{name=this.tmp("ns",false,"object");}}else{name=this.tmp("ns",false,"object");}sup=superobject&&(this.isIdent(superobject)?superobject:this.tmp("super",false,"object"));init=[];if(!superobject){init.push(__node("MacroAccess",2982,20,38,2982,{macroName:"let",macroData:{declarable:__node("MacroAccess",2982,24,37,2982,__node("MacroAccess",2982,24,31,2982,{ident:__wrap(name,924)},"statement",false,false),"statement",false,false),value:__node("Object",99218,99221,[],void 0)}},"statement",false,false));}else{init.push(__node("MacroAccess",2984,20,38,2984,{macroName:"let",macroData:{declarable:__node("MacroAccess",2984,24,37,2984,__node("MacroAccess",2984,24,31,2984,{ident:__wrap(name,924)},"statement",false,false),"statement",false,false),value:__node("Object",99262,99279,[],__wrap(sup,924))}},"statement",false,false));}function fixSupers(node){return _this.walk(node,function(node){var _arr,_arr2,_i,_len,args,child,parent,superArg;if(_this.isSuper(node)){child=_this.superChild(node);if(child!=null){child=fixSupers(child);}for(_arr=[], _arr2=__toArray(_this.superArgs(node)), _i=0, _len=_arr2.length;_i<_len;++_i){superArg=_arr2[_i];_arr.push(fixSupers(superArg));}args=_arr;if(!superobject){parent=__node("Access",2994,15,__node("Ident",2994,15,"Object"),__node("Const",2994,23,"prototype"));}else{parent=__wrap(sup,930);}return _this.call(child!=null?__node("Access",2999,17,__wrap(parent,930),__wrap(child,930)):__wrap(parent,930),[__node("This",3002,16)].concat(args),false,true);}});};body=fixSupers(this.macroExpandAll(body));function changeDefs(node){return _this.walk(node,function(node){var key,value;if(_this.isDef(node)){key=_this.left(node);value=_this.right(node);return changeDefs(__node("MacroAccess",3011,25,30,3011,{left:__node("Access",3011,31,__wrap(name,934),__wrap(key,934)),op:":=",right:__wrap(value,934)},"expression",false,false));}});};body=changeDefs(body);body=this.walk(body,function(node){if(_this.isFunc(node)){if(!_this.funcIsBound(node)){return node;}}else if(_this.isThis(node)){return name;}});result=__node("MacroAccess",3021,29,102,3021,{macroName:"do",macroData:{locals:{ident:__wrap(sup,924),value:__wrap(superobject,924),rest:[]},body:__node("Block",3022,1,[__wrap(init,924),__wrap(body,924),__node("MacroAccess",3024,7,39,3024,{macroName:"return",macroData:{node:__wrap(name,924)}},"statement",false,false)],null)}},"statement",false,false);if(declaration!=null){return __node("MacroAccess",3027,10,38,3027,{macroName:"let",macroData:{declarable:__node("MacroAccess",3027,14,37,3027,__node("MacroAccess",3027,14,31,3027,{ident:__wrap(declaration,924)},"statement",false,false),"statement",false,false),value:__wrap(result,924)}},"statement",false,false);}else if(assignment!=null){return __node("MacroAccess",3029,11,30,3029,{left:__wrap(assignment,924),op:":=",right:__wrap(result,924)},"expression",false,false);}else{return result;}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node){var _ref,_this,assignment,body,declaration,init,macroData,macroName,name,result,sup,superobject;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;superobject=macroData.superobject;body=macroData.body;if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){name=(_ref=this.ident(this.value(this.child(name))))!=null?_ref:this.tmp("ns",false,"object");}else{name=this.tmp("ns",false,"object");}}else{name=this.tmp("ns",false,"object");}sup=superobject&&(this.isIdent(superobject)?superobject:this.tmp("super",false,"object"));init=[];if(!superobject){init.push(__node("MacroAccess",2998,20,38,2998,{macroName:"let",macroData:{declarable:__node("MacroAccess",2998,24,37,2998,__node("MacroAccess",2998,24,31,2998,{ident:__wrap(name,924)},"statement",false,false),"statement",false,false),value:__node("Object",99414,99417,[],void 0)}},"statement",false,false));}else{init.push(__node("MacroAccess",3000,20,38,3000,{macroName:"let",macroData:{declarable:__node("MacroAccess",3000,24,37,3000,__node("MacroAccess",3000,24,31,3000,{ident:__wrap(name,924)},"statement",false,false),"statement",false,false),value:__node("Object",99458,99475,[],__wrap(sup,924))}},"statement",false,false));}function fixSupers(node){return _this.walk(node,function(node){var _arr,_arr2,_i,_len,args,child,parent,superArg;if(_this.isSuper(node)){child=_this.superChild(node);if(child!=null){child=fixSupers(child);}for(_arr=[], _arr2=__toArray(_this.superArgs(node)), _i=0, _len=_arr2.length;_i<_len;++_i){superArg=_arr2[_i];_arr.push(fixSupers(superArg));}args=_arr;if(!superobject){parent=__node("Access",3010,15,__node("Ident",3010,15,"Object"),__node("Const",3010,23,"prototype"));}else{parent=__wrap(sup,930);}return _this.call(child!=null?__node("Access",3015,17,__wrap(parent,930),__wrap(child,930)):__wrap(parent,930),[__node("This",3018,16)].concat(args),false,true);}});};body=fixSupers(this.macroExpandAll(body));function changeDefs(node){return _this.walk(node,function(node){var key,value;if(_this.isDef(node)){key=_this.left(node);value=_this.right(node);return changeDefs(__node("MacroAccess",3027,25,30,3027,{left:__node("Access",3027,31,__wrap(name,934),__wrap(key,934)),op:":=",right:__wrap(value,934)},"expression",false,false));}});};body=changeDefs(body);body=this.walk(body,function(node){if(_this.isFunc(node)){if(!_this.funcIsBound(node)){return node;}}else if(_this.isThis(node)){return name;}});result=__node("MacroAccess",3037,29,102,3037,{macroName:"do",macroData:{locals:{ident:__wrap(sup,924),value:__wrap(superobject,924),rest:[]},body:__node("Block",3038,1,[__wrap(init,924),__wrap(body,924),__node("MacroAccess",3040,7,39,3040,{macroName:"return",macroData:{node:__wrap(name,924)}},"statement",false,false)],null)}},"statement",false,false);if(declaration!=null){return __node("MacroAccess",3043,10,38,3043,{macroName:"let",macroData:{declarable:__node("MacroAccess",3043,14,37,3043,__node("MacroAccess",3043,14,31,3043,{ident:__wrap(declaration,924)},"statement",false,false),"statement",false,false),value:__wrap(result,924)}},"statement",false,false);}else if(assignment!=null){return __node("MacroAccess",3045,11,30,3045,{left:__wrap(assignment,924),op:":=",right:__wrap(result,924)},"expression",false,false);}else{return result;}};}.call(this));',
           params: [
             ["ident", "name", "many", "?", "ident", "SimpleAssignable"],
             [
@@ -33745,13 +34203,13 @@
           id: 139
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var item,macroData,macroName,node,yieldItem;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(!this.inGenerator){throw Error("Can only use yield* in a generator function");}item=this.tmp("item");yieldItem=this["yield"](item);return __node("MacroAccess",3046,7,118,3046,{macroName:"for",macroData:{value:__wrap(item,941),iterable:__wrap(node,941),body:__wrap(yieldItem,941)}},"statement",false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var item,macroData,macroName,node,yieldItem;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(!this.inGenerator){throw Error("Can only use yield* in a generator function");}item=this.tmp("item");yieldItem=this["yield"](item);return __node("MacroAccess",3062,7,118,3062,{macroName:"for",macroData:{value:__wrap(item,941),iterable:__wrap(node,941),body:__wrap(yieldItem,941)}},"statement",false,false);};}.call(this));',
           params: [["ident", "node", "ident", "Expression"]],
           names: "yield*",
           id: 140
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var macroData,macroName,node,rest;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;rest=macroData.rest;return __node("Block",3052,1,[__wrap(rest,944),__node("MacroAccess",3053,7,39,3053,{macroName:"return",macroData:{node:__wrap(node,944)}},"statement",false,false)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var macroData,macroName,node,rest;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;rest=macroData.rest;if(rest==null){rest=this.noop();}return __node("Block",3069,1,[__wrap(rest,944),__node("MacroAccess",3070,7,39,3070,{macroName:"return",macroData:{node:__wrap(node,944)}},"statement",false,false)],null);};}.call(this));',
           params: [
             ["ident", "node", "ident", "Expression"],
             ["ident", "rest", "ident", "DedentedBody"]
@@ -34035,49 +34493,49 @@
           id: 116
         },
         {
-          code: 'return (function(){"use strict";var __is,__num,__typeof;__is=typeof Object.is==="function"?Object.is:function(x,y){if(x===y){return x!==0||1/x===1/y;}else{return x!==x&&y!==y;}};__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _this,left,op,result,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.hasType(left,"number")&&this.hasType(right,"number")){if(this.isConst(left)){if(this.isConst(right)){result=__is(this.value(left),this.value(right));return __wrap(result,946);}else if(typeof this.value(left)==="number"&&isNaN(this.value(left))){return this.maybeCache(right,function(setRight,right){return __node("MacroAccess",3073,17,6,3073,{left:__wrap(setRight,948),inverted:false,op:"!=",right:__wrap(right,948)},"expression",false,false);});}else if(this.value(left)===0){return this.maybeCache(right,function(setRight,right){if(1/__num(_this.value(left))<0){return __node("MacroAccess",3077,19,1,3077,{left:__node("MacroAccess",3077,19,5,3077,{left:__wrap(setRight,949),inverted:false,op:"==",right:__node("Const",3077,34,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3077,39,76,3077,{left:__node("MacroAccess",3077,39,45,3077,{left:__node("Const",3077,40,1),inverted:false,op:"~/",right:__wrap(right,949)},"expression",false,false),inverted:false,op:"<",right:__node("Const",3077,54,0)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",3079,19,1,3079,{left:__node("MacroAccess",3079,19,5,3079,{left:__wrap(setRight,949),inverted:false,op:"==",right:__node("Const",3079,34,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3079,39,77,3079,{left:__node("MacroAccess",3079,39,45,3079,{left:__node("Const",3079,40,1),inverted:false,op:"~/",right:__wrap(right,949)},"expression",false,false),inverted:false,op:">",right:__node("Const",3079,54,0)},"expression",false,false)},"expression",false,false);}});}else{return __node("MacroAccess",3081,15,5,3081,{left:__wrap(left,946),inverted:false,op:"==",right:__wrap(right,946)},"expression",false,false);}}else if(this.isConst(right)){if(typeof this.value(right)==="number"&&isNaN(this.value(right))){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",3085,15,6,3085,{left:__wrap(setLeft,950),inverted:false,op:"!=",right:__wrap(left,950)},"expression",false,false);});}else if(this.value(right)===0){return this.maybeCache(left,function(setLeft,left){if(1/__num(_this.value(right))<0){return __node("MacroAccess",3089,17,1,3089,{left:__node("MacroAccess",3089,17,5,3089,{left:__wrap(setLeft,951),inverted:false,op:"==",right:__node("Const",3089,31,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3089,36,76,3089,{left:__node("MacroAccess",3089,36,45,3089,{left:__node("Const",3089,37,1),inverted:false,op:"~/",right:__wrap(left,951)},"expression",false,false),inverted:false,op:"<",right:__node("Const",3089,50,0)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",3091,17,1,3091,{left:__node("MacroAccess",3091,17,5,3091,{left:__wrap(setLeft,951),inverted:false,op:"==",right:__node("Const",3091,31,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3091,36,77,3091,{left:__node("MacroAccess",3091,36,45,3091,{left:__node("Const",3091,37,1),inverted:false,op:"~/",right:__wrap(left,951)},"expression",false,false),inverted:false,op:">",right:__node("Const",3091,50,0)},"expression",false,false)},"expression",false,false);}});}else{return __node("MacroAccess",3093,13,5,3093,{left:__wrap(left,946),inverted:false,op:"==",right:__wrap(right,946)},"expression",false,false);}}else{return __node("Call",3095,11,__node("Ident",3095,11,"__is"),[__wrap(left,946),__wrap(right,946)],false,false);}}else{return __node("MacroAccess",3097,9,5,3097,{left:__wrap(left,946),inverted:false,op:"==",right:__wrap(right,946)},"expression",false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";var __is,__num,__typeof;__is=typeof Object.is==="function"?Object.is:function(x,y){if(x===y){return x!==0||1/x===1/y;}else{return x!==x&&y!==y;}};__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _this,left,op,result,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.hasType(left,"number")&&this.hasType(right,"number")){if(this.isConst(left)){if(this.isConst(right)){result=__is(this.value(left),this.value(right));return __wrap(result,946);}else if(typeof this.value(left)==="number"&&isNaN(this.value(left))){return this.maybeCache(right,function(setRight,right){return __node("MacroAccess",3090,17,6,3090,{left:__wrap(setRight,948),inverted:false,op:"!=",right:__wrap(right,948)},"expression",false,false);});}else if(this.value(left)===0){return this.maybeCache(right,function(setRight,right){if(1/__num(_this.value(left))<0){return __node("MacroAccess",3094,19,1,3094,{left:__node("MacroAccess",3094,19,5,3094,{left:__wrap(setRight,949),inverted:false,op:"==",right:__node("Const",3094,34,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3094,39,76,3094,{left:__node("MacroAccess",3094,39,45,3094,{left:__node("Const",3094,40,1),inverted:false,op:"~/",right:__wrap(right,949)},"expression",false,false),inverted:false,op:"<",right:__node("Const",3094,54,0)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",3096,19,1,3096,{left:__node("MacroAccess",3096,19,5,3096,{left:__wrap(setRight,949),inverted:false,op:"==",right:__node("Const",3096,34,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3096,39,77,3096,{left:__node("MacroAccess",3096,39,45,3096,{left:__node("Const",3096,40,1),inverted:false,op:"~/",right:__wrap(right,949)},"expression",false,false),inverted:false,op:">",right:__node("Const",3096,54,0)},"expression",false,false)},"expression",false,false);}});}else{return __node("MacroAccess",3098,15,5,3098,{left:__wrap(left,946),inverted:false,op:"==",right:__wrap(right,946)},"expression",false,false);}}else if(this.isConst(right)){if(typeof this.value(right)==="number"&&isNaN(this.value(right))){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",3102,15,6,3102,{left:__wrap(setLeft,950),inverted:false,op:"!=",right:__wrap(left,950)},"expression",false,false);});}else if(this.value(right)===0){return this.maybeCache(left,function(setLeft,left){if(1/__num(_this.value(right))<0){return __node("MacroAccess",3106,17,1,3106,{left:__node("MacroAccess",3106,17,5,3106,{left:__wrap(setLeft,951),inverted:false,op:"==",right:__node("Const",3106,31,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3106,36,76,3106,{left:__node("MacroAccess",3106,36,45,3106,{left:__node("Const",3106,37,1),inverted:false,op:"~/",right:__wrap(left,951)},"expression",false,false),inverted:false,op:"<",right:__node("Const",3106,50,0)},"expression",false,false)},"expression",false,false);}else{return __node("MacroAccess",3108,17,1,3108,{left:__node("MacroAccess",3108,17,5,3108,{left:__wrap(setLeft,951),inverted:false,op:"==",right:__node("Const",3108,31,0)},"expression",false,false),inverted:false,op:"and",right:__node("MacroAccess",3108,36,77,3108,{left:__node("MacroAccess",3108,36,45,3108,{left:__node("Const",3108,37,1),inverted:false,op:"~/",right:__wrap(left,951)},"expression",false,false),inverted:false,op:">",right:__node("Const",3108,50,0)},"expression",false,false)},"expression",false,false);}});}else{return __node("MacroAccess",3110,13,5,3110,{left:__wrap(left,946),inverted:false,op:"==",right:__wrap(right,946)},"expression",false,false);}}else{return __node("Call",3112,11,__node("Ident",3112,11,"__is"),[__wrap(left,946),__wrap(right,946)],false,false);}}else{return __node("MacroAccess",3114,9,5,3114,{left:__wrap(left,946),inverted:false,op:"==",right:__wrap(right,946)},"expression",false,false);}};}.call(this));',
           operators: "is",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 142
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",3100,7,3,3100,{op:"not",node:__node("MacroAccess",3100,13,142,3100,{left:__wrap(left,952),inverted:false,op:"is",right:__wrap(right,952)},"expression",false,false)},"expression",false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",3117,7,3,3117,{op:"not",node:__node("MacroAccess",3117,13,142,3117,{left:__wrap(left,952),inverted:false,op:"is",right:__wrap(right,952)},"expression",false,false)},"expression",false,false);};}.call(this));',
           operators: "isnt",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 143
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",3159,7,__node("Ident",3159,7,"__compose"),[__wrap(left,970),__wrap(right,970)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",3176,7,__node("Ident",3176,7,"__compose"),[__wrap(left,970),__wrap(right,970)],false,false);};}.call(this));',
           operators: "<<",
           options: {precedence: 13, type: "function"},
           id: 145
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3165,1,[__node("MacroAccess",3165,7,38,3165,{macroName:"let",macroData:{declarable:__node("MacroAccess",3165,10,37,3165,__node("MacroAccess",3165,10,31,3165,{ident:__wrap(tmp,971)},"statement",false,false),"statement",false,false),value:__wrap(left,971)}},"statement",false,false),__node("Call",3166,7,__node("Ident",3166,7,"__compose"),[__wrap(right,971),__wrap(tmp,971)],false,false)],null);}else{return __node("Call",3168,9,__node("Ident",3168,9,"__compose"),[__wrap(right,971),__wrap(left,971)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3182,1,[__node("MacroAccess",3182,7,38,3182,{macroName:"let",macroData:{declarable:__node("MacroAccess",3182,10,37,3182,__node("MacroAccess",3182,10,31,3182,{ident:__wrap(tmp,971)},"statement",false,false),"statement",false,false),value:__wrap(left,971)}},"statement",false,false),__node("Call",3183,7,__node("Ident",3183,7,"__compose"),[__wrap(right,971),__wrap(tmp,971)],false,false)],null);}else{return __node("Call",3185,9,__node("Ident",3185,9,"__compose"),[__wrap(right,971),__wrap(left,971)],false,false);}};}.call(this));',
           operators: ">>",
           options: {precedence: 13, type: "function", rightToLeft: true},
           id: 146
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",3187,7,__wrap(left,978),[__wrap(right,978)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",3204,7,__wrap(left,978),[__wrap(right,978)],false,false);};}.call(this));',
           operators: "<|",
           options: {precedence: 0, rightToLeft: true},
           id: 147
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3193,1,[__node("MacroAccess",3193,7,38,3193,{macroName:"let",macroData:{declarable:__node("MacroAccess",3193,10,37,3193,__node("MacroAccess",3193,10,31,3193,{ident:__wrap(tmp,979)},"statement",false,false),"statement",false,false),value:__wrap(left,979)}},"statement",false,false),__node("Call",3194,7,__wrap(right,979),[__wrap(tmp,979)],false,false)],null);}else{return __node("Call",3196,9,__wrap(right,979),[__wrap(left,979)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3210,1,[__node("MacroAccess",3210,7,38,3210,{macroName:"let",macroData:{declarable:__node("MacroAccess",3210,10,37,3210,__node("MacroAccess",3210,10,31,3210,{ident:__wrap(tmp,979)},"statement",false,false),"statement",false,false),value:__wrap(left,979)}},"statement",false,false),__node("Call",3211,7,__wrap(right,979),[__wrap(tmp,979)],false,false)],null);}else{return __node("Call",3213,9,__wrap(right,979),[__wrap(left,979)],false,false);}};}.call(this));',
           operators: "|>",
           options: {precedence: 0},
           id: 148
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isObject(right)){return this.maybeCache(left,function(setLeft,nextLeft){var _arr,_ref,block,currentLeft,descriptor,i,key,len,pairs,property,value;currentLeft=setLeft;block=[];pairs=_this.pairs(right);for(_arr=__toArray(pairs), i=0, len=_arr.length;i<len;++i){key=(_ref=_arr[i]).key;value=_ref.value;property=_ref.property;if(property!=null){if((property==="get"||property==="set")&&i<len-1&&pairs[i+1].property!=null&&_this.eq(key,pairs[i+1].key)&&pairs[i+1].property!==property&&((_ref=pairs[i+1].property)==="get"||_ref==="set")){continue;}if(property==="property"){block.push(__node("Call",3215,27,__node("Ident",3215,27,"__defProp"),[__wrap(currentLeft,984),__wrap(key,984),__wrap(value,984)],false,false));}else if(property==="get"||property==="set"){if(i>0&&pairs[i-1].property!=null&&_this.eq(key,pairs[i-1].key)&&pairs[i-1].property!==property&&((_ref=pairs[i-1].property)==="get"||_ref==="set")){descriptor=__node("Object",106520,106708,[{key:__wrap(pairs[i-1].property,984),value:__wrap(pairs[i-1].value,984),property:void 0},{key:__wrap(property,984),value:__wrap(value,984),property:void 0},{key:__node("Const",3221,17,"enumerable"),value:__node("Const",3221,28,true),property:void 0},{key:__node("Const",3222,17,"configurable"),value:__node("Const",3222,30,true),property:void 0}],void 0);}else{descriptor=__node("Object",106744,106866,[{key:__wrap(property,984),value:__wrap(value,984),property:void 0},{key:__node("Const",3227,17,"enumerable"),value:__node("Const",3227,28,true),property:void 0},{key:__node("Const",3228,17,"configurable"),value:__node("Const",3228,30,true),property:void 0}],void 0);}block.push(__node("Call",3230,27,__node("Ident",3230,27,"__defProp"),[__wrap(currentLeft,984),__wrap(key,984),__wrap(descriptor,984)],false,false));}else{throw Error("Unknown property: "+__strnum(property));}}else{block.push(__node("MacroAccess",3234,25,30,3234,{left:__node("Access",3234,39,__wrap(currentLeft,984),__wrap(key,984)),op:":=",right:__wrap(value,984)},"statement",false,false));}currentLeft=nextLeft;}block.push(__wrap(currentLeft,984));return __wrap(block,984);});}else{return __node("Call",3239,9,__node("Ident",3239,9,"__import"),[__wrap(left,983),__wrap(right,983)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isObject(right)){return this.maybeCache(left,function(setLeft,nextLeft){var _arr,_ref,block,currentLeft,descriptor,i,key,len,pairs,property,value;currentLeft=setLeft;block=[];pairs=_this.pairs(right);for(_arr=__toArray(pairs), i=0, len=_arr.length;i<len;++i){key=(_ref=_arr[i]).key;value=_ref.value;property=_ref.property;if(property!=null){if((property==="get"||property==="set")&&i<len-1&&pairs[i+1].property!=null&&_this.eq(key,pairs[i+1].key)&&pairs[i+1].property!==property&&((_ref=pairs[i+1].property)==="get"||_ref==="set")){continue;}if(property==="property"){block.push(__node("Call",3232,27,__node("Ident",3232,27,"__defProp"),[__wrap(currentLeft,984),__wrap(key,984),__wrap(value,984)],false,false));}else if(property==="get"||property==="set"){if(i>0&&pairs[i-1].property!=null&&_this.eq(key,pairs[i-1].key)&&pairs[i-1].property!==property&&((_ref=pairs[i-1].property)==="get"||_ref==="set")){descriptor=__node("Object",106736,106924,[{key:__wrap(pairs[i-1].property,984),value:__wrap(pairs[i-1].value,984),property:void 0},{key:__wrap(property,984),value:__wrap(value,984),property:void 0},{key:__node("Const",3238,17,"enumerable"),value:__node("Const",3238,28,true),property:void 0},{key:__node("Const",3239,17,"configurable"),value:__node("Const",3239,30,true),property:void 0}],void 0);}else{descriptor=__node("Object",106960,107082,[{key:__wrap(property,984),value:__wrap(value,984),property:void 0},{key:__node("Const",3244,17,"enumerable"),value:__node("Const",3244,28,true),property:void 0},{key:__node("Const",3245,17,"configurable"),value:__node("Const",3245,30,true),property:void 0}],void 0);}block.push(__node("Call",3247,27,__node("Ident",3247,27,"__defProp"),[__wrap(currentLeft,984),__wrap(key,984),__wrap(descriptor,984)],false,false));}else{throw Error("Unknown property: "+__strnum(property));}}else{block.push(__node("MacroAccess",3251,25,30,3251,{left:__node("Access",3251,39,__wrap(currentLeft,984),__wrap(key,984)),op:":=",right:__wrap(value,984)},"statement",false,false));}currentLeft=nextLeft;}block.push(__wrap(currentLeft,984));return __wrap(block,984);});}else{return __node("Call",3256,9,__node("Ident",3256,9,"__import"),[__wrap(left,983),__wrap(right,983)],false,false);}};}.call(this));',
           operators: "<<<",
           options: {precedence: 6},
           id: 149
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3245,1,[__node("MacroAccess",3245,7,38,3245,{macroName:"let",macroData:{declarable:__node("MacroAccess",3245,10,37,3245,__node("MacroAccess",3245,10,31,3245,{ident:__wrap(tmp,991)},"statement",false,false),"statement",false,false),value:__wrap(left,991)}},"statement",false,false),__node("MacroAccess",3246,7,149,3246,{left:__wrap(right,991),inverted:false,op:"<<<",right:__wrap(tmp,991)},"statement",false,false)],null);}else{return __node("MacroAccess",3248,9,149,3248,{left:__wrap(right,991),inverted:false,op:"<<<",right:__wrap(left,991)},"expression",false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3262,1,[__node("MacroAccess",3262,7,38,3262,{macroName:"let",macroData:{declarable:__node("MacroAccess",3262,10,37,3262,__node("MacroAccess",3262,10,31,3262,{ident:__wrap(tmp,991)},"statement",false,false),"statement",false,false),value:__wrap(left,991)}},"statement",false,false),__node("MacroAccess",3263,7,149,3263,{left:__wrap(right,991),inverted:false,op:"<<<",right:__wrap(tmp,991)},"statement",false,false)],null);}else{return __node("MacroAccess",3265,9,149,3265,{left:__wrap(right,991),inverted:false,op:"<<<",right:__wrap(left,991)},"expression",false,false);}};}.call(this));',
           operators: ">>>",
           options: {precedence: 6, rightToLeft: true},
           id: 150
@@ -34239,13 +34697,13 @@
           id: 123
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _arr,_i,_len,element,item,node,op,parts,set;op=macroData.op;node=macroData.node;set=this.tmp("s",false,"object");if(this.isArray(node)&&!this.arrayHasSpread(node)){if(this.elements(node).length===0){return __node("Call",3426,11,__node("Ident",3426,11,"Set"),[],false,false);}else{parts=[];for(_arr=__toArray(this.elements(node)), _i=0, _len=_arr.length;_i<_len;++_i){element=_arr[_i];parts.push(__node("Call",3430,23,__node("Access",3430,23,__wrap(set,1043),__node("Const",3430,29,"add")),[__wrap(element,1043)],false,false));}return __node("Block",3432,1,[__node("MacroAccess",3432,9,38,3432,{macroName:"let",macroData:{declarable:__node("MacroAccess",3432,12,37,3432,__node("MacroAccess",3432,12,31,3432,{ident:__wrap(set,1043)},"statement",false,false),"statement",false,false),value:__node("Call",3432,19,__node("Ident",3432,19,"Set"),[],false,false)}},"statement",false,false),__wrap(parts,1043),__wrap(set,1043)],null);}}else{item=this.tmp("x",false,"any");return __node("Block",3438,1,[__node("MacroAccess",3438,7,38,3438,{macroName:"let",macroData:{declarable:__node("MacroAccess",3438,10,37,3438,__node("MacroAccess",3438,10,31,3438,{ident:__wrap(set,1043)},"statement",false,false),"statement",false,false),value:__node("Call",3438,17,__node("Ident",3438,17,"Set"),[],false,false)}},"statement",false,false),__node("MacroAccess",3439,7,111,3439,{macroName:"for",macroData:{value:__node("MacroAccess",3439,10,37,3439,__node("MacroAccess",3439,10,31,3439,{ident:__wrap(item,1043)},"statement",false,false),"statement",false,false),array:__wrap(node,1043),body:__node("Call",3440,9,__node("Access",3440,9,__wrap(set,1043),__node("Const",3440,14,"add")),[__wrap(item,1043)],false,false)}},"statement",false,false),__wrap(set,1043)],null);}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _arr,_i,_len,element,item,node,op,parts,set;op=macroData.op;node=macroData.node;set=this.tmp("s",false,"object");if(this.isArray(node)&&!this.arrayHasSpread(node)){if(this.elements(node).length===0){return __node("Call",3443,11,__node("Ident",3443,11,"Set"),[],false,false);}else{parts=[];for(_arr=__toArray(this.elements(node)), _i=0, _len=_arr.length;_i<_len;++_i){element=_arr[_i];parts.push(__node("Call",3447,23,__node("Access",3447,23,__wrap(set,1043),__node("Const",3447,29,"add")),[__wrap(element,1043)],false,false));}return __node("Block",3449,1,[__node("MacroAccess",3449,9,38,3449,{macroName:"let",macroData:{declarable:__node("MacroAccess",3449,12,37,3449,__node("MacroAccess",3449,12,31,3449,{ident:__wrap(set,1043)},"statement",false,false),"statement",false,false),value:__node("Call",3449,19,__node("Ident",3449,19,"Set"),[],false,false)}},"statement",false,false),__wrap(parts,1043),__wrap(set,1043)],null);}}else{item=this.tmp("x",false,"any");return __node("Block",3455,1,[__node("MacroAccess",3455,7,38,3455,{macroName:"let",macroData:{declarable:__node("MacroAccess",3455,10,37,3455,__node("MacroAccess",3455,10,31,3455,{ident:__wrap(set,1043)},"statement",false,false),"statement",false,false),value:__node("Call",3455,17,__node("Ident",3455,17,"Set"),[],false,false)}},"statement",false,false),__node("MacroAccess",3456,7,111,3456,{macroName:"for",macroData:{value:__node("MacroAccess",3456,10,37,3456,__node("MacroAccess",3456,10,31,3456,{ident:__wrap(item,1043)},"statement",false,false),"statement",false,false),array:__wrap(node,1043),body:__node("Call",3457,9,__node("Access",3457,9,__wrap(set,1043),__node("Const",3457,14,"add")),[__wrap(item,1043)],false,false)}},"statement",false,false),__wrap(set,1043)],null);}};}.call(this));',
           operators: "set!",
           options: {type: "object", label: "constructSet"},
           id: 151
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _arr,_i,_len,_ref,key,map,node,op,pairs,parts,property,value;op=macroData.op;node=macroData.node;if(!this.isObject(node)){throw Error("map! can only be used on literal objects");}pairs=this.pairs(node);if(pairs.length===0){return __node("Call",3449,9,__node("Ident",3449,9,"Map"),[],false,false);}else{map=this.tmp("m",false,"object");parts=[];for(_arr=__toArray(pairs), _i=0, _len=_arr.length;_i<_len;++_i){key=(_ref=_arr[_i]).key;value=_ref.value;property=_ref.property;if(property!=null){throw Error("Cannot use map! on an object with custom properties");}parts.push(__node("Call",3456,21,__node("Access",3456,21,__wrap(map,1049),__node("Const",3456,27,"set")),[__wrap(key,1049),__wrap(value,1049)],false,false));}return __node("Block",3458,1,[__node("MacroAccess",3458,7,38,3458,{macroName:"let",macroData:{declarable:__node("MacroAccess",3458,10,37,3458,__node("MacroAccess",3458,10,31,3458,{ident:__wrap(map,1049)},"statement",false,false),"statement",false,false),value:__node("Call",3458,17,__node("Ident",3458,17,"Map"),[],false,false)}},"statement",false,false),__wrap(parts,1049),__wrap(map,1049)],null);}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node){var _arr,_i,_len,_ref,key,map,node,op,pairs,parts,property,value;op=macroData.op;node=macroData.node;if(!this.isObject(node)){throw Error("map! can only be used on literal objects");}pairs=this.pairs(node);if(pairs.length===0){return __node("Call",3466,9,__node("Ident",3466,9,"Map"),[],false,false);}else{map=this.tmp("m",false,"object");parts=[];for(_arr=__toArray(pairs), _i=0, _len=_arr.length;_i<_len;++_i){key=(_ref=_arr[_i]).key;value=_ref.value;property=_ref.property;if(property!=null){throw Error("Cannot use map! on an object with custom properties");}parts.push(__node("Call",3473,21,__node("Access",3473,21,__wrap(map,1049),__node("Const",3473,27,"set")),[__wrap(key,1049),__wrap(value,1049)],false,false));}return __node("Block",3475,1,[__node("MacroAccess",3475,7,38,3475,{macroName:"let",macroData:{declarable:__node("MacroAccess",3475,10,37,3475,__node("MacroAccess",3475,10,31,3475,{ident:__wrap(map,1049)},"statement",false,false),"statement",false,false),value:__node("Call",3475,17,__node("Ident",3475,17,"Map"),[],false,false)}},"statement",false,false),__wrap(parts,1049),__wrap(map,1049)],null);}};}.call(this));',
           operators: "map!",
           options: {type: "object", label: "constructMap"},
           id: 152
@@ -40528,7 +40986,7 @@
               [],
               [],
               "BlockStatement",
-              2364,
+              2368,
               1,
               0,
               0,
@@ -40537,7 +40995,7 @@
                 1,
                 1,
                 0,
-                ["Ident", 2364, 6, 0, "replacement"],
+                ["Ident", 2368, 6, 0, "replacement"],
                 [],
                 [],
                 [],
@@ -40546,12 +41004,12 @@
                 1,
                 0,
                 "Call",
-                2364,
+                2368,
                 29,
                 0,
-                ["Ident", 2364, 29, 0, "Error"],
+                ["Ident", 2368, 29, 0, "Error"],
                 0,
-                ["Const", 2364, 36, 0, "Attempted to call function more than once"]
+                ["Const", 2368, 36, 0, "Attempted to call function more than once"]
               ],
               [
                 "Return",
@@ -40563,7 +41021,7 @@
                 1,
                 0,
                 0,
-                [["Ident", 2365, 12, 0, "func"]],
+                [["Ident", 2369, 12, 0, "func"]],
                 [],
                 [],
                 "BlockStatement",
@@ -40589,7 +41047,7 @@
                       0,
                       "typeof",
                       "Ident",
-                      2365,
+                      2369,
                       12,
                       0,
                       "func"
@@ -40625,17 +41083,17 @@
                       0,
                       ["Ident", 484, 49, 0, "__typeof"],
                       0,
-                      ["Ident", 2365, 12, 0, "func"]
+                      ["Ident", 2369, 12, 0, "func"]
                     ]
                   ]
                 ],
                 [
                   "Return",
-                  2365,
+                  2369,
                   29,
                   0,
                   "Func",
-                  2365,
+                  2369,
                   29,
                   0,
                   0,
@@ -40643,7 +41101,7 @@
                   ["f"],
                   [],
                   "BlockStatement",
-                  2366,
+                  2370,
                   1,
                   0,
                   0,
@@ -40652,10 +41110,10 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2366, 8, 0, "f"],
+                    ["Ident", 2370, 8, 0, "f"],
                     "=",
                     "Ident",
-                    2366,
+                    2370,
                     12,
                     0,
                     "func"
@@ -40665,39 +41123,39 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2367, 5, 0, "func"],
+                    ["Ident", 2371, 5, 0, "func"],
                     "=",
                     "Ident",
-                    2367,
+                    2371,
                     12,
                     0,
                     "replacement"
                   ],
                   [
                     "Return",
-                    2368,
+                    2372,
                     5,
                     0,
                     "Call",
-                    2368,
+                    2372,
                     5,
                     0,
                     [
                       "Binary",
-                      2368,
+                      2372,
                       5,
                       0,
-                      ["Ident", 2368, 5, 0, "f"],
+                      ["Ident", 2372, 5, 0, "f"],
                       ".",
                       "Const",
-                      2368,
+                      2372,
                       5,
                       0,
                       "apply"
                     ],
                     0,
-                    ["This", 2368, 8, 0],
-                    ["Arguments", 2368, 17, 0]
+                    ["This", 2372, 8, 0],
+                    ["Arguments", 2372, 17, 0]
                   ]
                 ]
               ]
@@ -40715,11 +41173,11 @@
             0,
             0,
             [
-              ["Ident", 2370, 34, 0, "limit"],
-              ["Ident", 2370, 51, 0, "length"],
-              ["Ident", 2370, 69, 0, "hasResult"],
-              ["Ident", 2370, 92, 0, "onValue"],
-              ["Ident", 2370, 108, 0, "onComplete"]
+              ["Ident", 2374, 34, 0, "limit"],
+              ["Ident", 2374, 51, 0, "length"],
+              ["Ident", 2374, 69, 0, "hasResult"],
+              ["Ident", 2374, 92, 0, "onValue"],
+              ["Ident", 2374, 108, 0, "onComplete"]
             ],
             ["broken", "completed", "index", "result", "slotsUsed", "sync"],
             [],
@@ -40746,7 +41204,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  2370,
+                  2374,
                   34,
                   0,
                   "limit"
@@ -40782,7 +41240,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2370, 34, 0, "limit"]
+                  ["Ident", 2374, 34, 0, "limit"]
                 ]
               ]
             ],
@@ -40804,7 +41262,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  2370,
+                  2374,
                   51,
                   0,
                   "length"
@@ -40840,7 +41298,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2370, 51, 0, "length"]
+                  ["Ident", 2374, 51, 0, "length"]
                 ]
               ]
             ],
@@ -40855,7 +41313,7 @@
                 1,
                 1,
                 0,
-                ["Ident", 2370, 69, 0, "hasResult"],
+                ["Ident", 2374, 69, 0, "hasResult"],
                 "==",
                 "Const",
                 100,
@@ -40868,7 +41326,7 @@
                 1,
                 1,
                 0,
-                ["Ident", 2370, 69, 0, "hasResult"],
+                ["Ident", 2374, 69, 0, "hasResult"],
                 "=",
                 "Const",
                 1641,
@@ -40893,7 +41351,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  2370,
+                  2374,
                   69,
                   0,
                   "hasResult"
@@ -40929,7 +41387,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2370, 69, 0, "hasResult"]
+                  ["Ident", 2374, 69, 0, "hasResult"]
                 ]
               ]
             ],
@@ -40951,7 +41409,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  2370,
+                  2374,
                   92,
                   0,
                   "onValue"
@@ -40987,7 +41445,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2370, 92, 0, "onValue"]
+                  ["Ident", 2374, 92, 0, "onValue"]
                 ]
               ]
             ],
@@ -41009,7 +41467,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  2370,
+                  2374,
                   108,
                   0,
                   "onComplete"
@@ -41045,7 +41503,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2370, 108, 0, "onComplete"]
+                  ["Ident", 2374, 108, 0, "onComplete"]
                 ]
               ]
             ],
@@ -41055,16 +41513,16 @@
               1,
               0,
               0,
-              ["Ident", 2371, 18, 0, "hasResult"],
+              ["Ident", 2375, 18, 0, "hasResult"],
               [
                 "Binary",
                 1,
                 1,
                 0,
-                ["Ident", 2371, 6, 0, "result"],
+                ["Ident", 2375, 6, 0, "result"],
                 "=",
                 "Arr",
-                2371,
+                2375,
                 34,
                 0
               ],
@@ -41072,10 +41530,10 @@
               1,
               1,
               0,
-              ["Ident", 2371, 6, 0, "result"],
+              ["Ident", 2375, 6, 0, "result"],
               "=",
               "Const",
-              2371,
+              2375,
               42,
               0,
               null
@@ -41091,10 +41549,10 @@
                 1,
                 1,
                 0,
-                ["Ident", 2372, 5, 0, "length"],
+                ["Ident", 2376, 5, 0, "length"],
                 "<=",
                 "Const",
-                2372,
+                2376,
                 17,
                 0,
                 0
@@ -41105,13 +41563,13 @@
                 1,
                 0,
                 "Call",
-                2373,
+                2377,
                 11,
                 0,
-                ["Ident", 2373, 11, 0, "onComplete"],
+                ["Ident", 2377, 11, 0, "onComplete"],
                 0,
-                ["Const", 2373, 24, 0, null],
-                ["Ident", 2373, 29, 0, "result"]
+                ["Const", 2377, 24, 0, null],
+                ["Ident", 2377, 29, 0, "result"]
               ]
             ],
             [
@@ -41130,10 +41588,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2374, 5, 0, "limit"],
+                  ["Ident", 2378, 5, 0, "limit"],
                   "<",
                   "Const",
-                  2374,
+                  2378,
                   15,
                   0,
                   1
@@ -41143,10 +41601,10 @@
                 1,
                 1,
                 0,
-                ["Ident", 2374, 19, 0, "limit"],
+                ["Ident", 2378, 19, 0, "limit"],
                 "!==",
                 "Ident",
-                2374,
+                2378,
                 28,
                 0,
                 "limit"
@@ -41156,10 +41614,10 @@
                 1,
                 1,
                 0,
-                ["Ident", 2375, 5, 0, "limit"],
+                ["Ident", 2379, 5, 0, "limit"],
                 "=",
                 "Const",
-                2375,
+                2379,
                 13,
                 0,
                 1,
@@ -41171,10 +41629,10 @@
               1,
               1,
               0,
-              ["Ident", 2377, 14, 0, "broken"],
+              ["Ident", 2381, 14, 0, "broken"],
               "=",
               "Const",
-              2377,
+              2381,
               23,
               0,
               null
@@ -41184,10 +41642,10 @@
               1,
               1,
               0,
-              ["Ident", 2378, 14, 0, "slotsUsed"],
+              ["Ident", 2382, 14, 0, "slotsUsed"],
               "=",
               "Const",
-              2378,
+              2382,
               28,
               0,
               0
@@ -41197,10 +41655,10 @@
               1,
               1,
               0,
-              ["Ident", 2379, 14, 0, "sync"],
+              ["Ident", 2383, 14, 0, "sync"],
               "=",
               "Const",
-              2379,
+              2383,
               21,
               0,
               false
@@ -41210,10 +41668,10 @@
               1,
               1,
               0,
-              ["Ident", 2380, 14, 0, "completed"],
+              ["Ident", 2384, 14, 0, "completed"],
               "=",
               "Const",
-              2380,
+              2384,
               26,
               0,
               false
@@ -41223,15 +41681,15 @@
               1,
               1,
               0,
-              ["Ident", 2381, 6, 0, "onValueCallback"],
+              ["Ident", 2385, 6, 0, "onValueCallback"],
               [
-                ["Ident", 2381, 25, 0, "err"],
-                ["Ident", 2381, 29, 0, "value"]
+                ["Ident", 2385, 25, 0, "err"],
+                ["Ident", 2385, 29, 0, "value"]
               ],
               [],
               [],
               "BlockStatement",
-              2382,
+              2386,
               1,
               0,
               0,
@@ -41241,7 +41699,7 @@
                 1,
                 0,
                 0,
-                ["Ident", 2382, 7, 0, "completed"],
+                ["Ident", 2386, 7, 0, "completed"],
                 [
                   "Return",
                   1,
@@ -41260,7 +41718,7 @@
                 0,
                 "--",
                 "Ident",
-                2384,
+                2388,
                 5,
                 0,
                 "slotsUsed"
@@ -41281,7 +41739,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2385, 7, 0, "err"],
+                    ["Ident", 2389, 7, 0, "err"],
                     "!=",
                     "Const",
                     100,
@@ -41294,7 +41752,7 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2385, 20, 0, "broken"],
+                  ["Ident", 2389, 20, 0, "broken"],
                   "==",
                   "Const",
                   100,
@@ -41307,10 +41765,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2386, 7, 0, "broken"],
+                  ["Ident", 2390, 7, 0, "broken"],
                   "=",
                   "Ident",
-                  2386,
+                  2390,
                   16,
                   0,
                   "err"
@@ -41332,13 +41790,13 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2387, 7, 0, "hasResult"],
+                    ["Ident", 2391, 7, 0, "hasResult"],
                     "&&",
                     "Binary",
                     1,
                     1,
                     0,
-                    ["Ident", 2387, 26, 0, "broken"],
+                    ["Ident", 2391, 26, 0, "broken"],
                     "==",
                     "Const",
                     100,
@@ -41353,44 +41811,44 @@
                   0,
                   [
                     "Binary",
-                    2387,
+                    2391,
                     38,
                     0,
-                    ["Arguments", 2387, 38, 0],
+                    ["Arguments", 2391, 38, 0],
                     ".",
                     "Const",
-                    2387,
+                    2391,
                     49,
                     0,
                     "length"
                   ],
                   ">",
                   "Const",
-                  2387,
+                  2391,
                   59,
                   0,
                   1
                 ],
                 [
                   "Call",
-                  2388,
+                  2392,
                   7,
                   0,
                   [
                     "Binary",
-                    2388,
+                    2392,
                     7,
                     0,
-                    ["Ident", 2388, 7, 0, "result"],
+                    ["Ident", 2392, 7, 0, "result"],
                     ".",
                     "Const",
-                    2388,
+                    2392,
                     14,
                     0,
                     "push"
                   ],
                   0,
-                  ["Ident", 2388, 19, 0, "value"]
+                  ["Ident", 2392, 19, 0, "value"]
                 ]
               ],
               [
@@ -41406,17 +41864,17 @@
                   0,
                   "!",
                   "Ident",
-                  2389,
+                  2393,
                   11,
                   0,
                   "sync"
                 ],
                 [
                   "Call",
-                  2390,
+                  2394,
                   7,
                   0,
-                  ["Ident", 2390, 7, 0, "next"],
+                  ["Ident", 2394, 7, 0, "next"],
                   0
                 ]
               ]
@@ -41426,7 +41884,7 @@
               1,
               1,
               0,
-              ["Ident", 2391, 14, 0, "index"],
+              ["Ident", 2395, 14, 0, "index"],
               "=",
               "Const",
               1,
@@ -41439,12 +41897,12 @@
               1,
               1,
               0,
-              ["Ident", 2392, 6, 0, "next"],
+              ["Ident", 2396, 6, 0, "next"],
               [],
               [],
               [],
               "BlockStatement",
-              2393,
+              2397,
               1,
               0,
               0,
@@ -41477,7 +41935,7 @@
                         0,
                         "!",
                         "Ident",
-                        2393,
+                        2397,
                         14,
                         0,
                         "completed"
@@ -41487,7 +41945,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 2393, 32, 0, "broken"],
+                      ["Ident", 2397, 32, 0, "broken"],
                       "==",
                       "Const",
                       100,
@@ -41500,10 +41958,10 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2393, 44, 0, "slotsUsed"],
+                    ["Ident", 2397, 44, 0, "slotsUsed"],
                     "<",
                     "Ident",
-                    2393,
+                    2397,
                     58,
                     0,
                     "limit"
@@ -41520,21 +41978,21 @@
                     0,
                     "++",
                     "Ident",
-                    2393,
+                    2397,
                     70,
                     0,
                     "index"
                   ],
                   "<",
                   "Ident",
-                  2393,
+                  2397,
                   84,
                   0,
                   "length"
                 ],
                 0,
                 "BlockStatement",
-                2394,
+                2398,
                 1,
                 0,
                 0,
@@ -41545,7 +42003,7 @@
                   0,
                   "++",
                   "Ident",
-                  2394,
+                  2398,
                   7,
                   0,
                   "slotsUsed"
@@ -41555,30 +42013,30 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2395, 7, 0, "sync"],
+                  ["Ident", 2399, 7, 0, "sync"],
                   "=",
                   "Const",
-                  2395,
+                  2399,
                   14,
                   0,
                   true
                 ],
                 [
                   "Call",
-                  2396,
+                  2400,
                   7,
                   0,
-                  ["Ident", 2396, 7, 0, "onValue"],
+                  ["Ident", 2400, 7, 0, "onValue"],
                   0,
-                  ["Ident", 2396, 16, 0, "index"],
+                  ["Ident", 2400, 16, 0, "index"],
                   [
                     "Call",
-                    2396,
+                    2400,
                     22,
                     0,
-                    ["Ident", 2396, 22, 0, "__once"],
+                    ["Ident", 2400, 22, 0, "__once"],
                     0,
-                    ["Ident", 2396, 30, 0, "onValueCallback"]
+                    ["Ident", 2400, 30, 0, "onValueCallback"]
                   ]
                 ],
                 [
@@ -41586,10 +42044,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2397, 7, 0, "sync"],
+                  ["Ident", 2401, 7, 0, "sync"],
                   "=",
                   "Const",
-                  2397,
+                  2401,
                   14,
                   0,
                   false
@@ -41613,7 +42071,7 @@
                     0,
                     "!",
                     "Ident",
-                    2398,
+                    2402,
                     11,
                     0,
                     "completed"
@@ -41628,7 +42086,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2398, 27, 0, "broken"],
+                    ["Ident", 2402, 27, 0, "broken"],
                     "!=",
                     "Const",
                     100,
@@ -41641,17 +42099,17 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2398, 37, 0, "slotsUsed"],
+                  ["Ident", 2402, 37, 0, "slotsUsed"],
                   "===",
                   "Const",
-                  2398,
+                  2402,
                   52,
                   0,
                   0
                 ],
                 [
                   "BlockStatement",
-                  2399,
+                  2403,
                   1,
                   0,
                   0,
@@ -41660,10 +42118,10 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2399, 7, 0, "completed"],
+                    ["Ident", 2403, 7, 0, "completed"],
                     "=",
                     "Const",
-                    2399,
+                    2403,
                     19,
                     0,
                     true
@@ -41679,7 +42137,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 2400, 9, 0, "broken"],
+                      ["Ident", 2404, 9, 0, "broken"],
                       "!=",
                       "Const",
                       100,
@@ -41689,31 +42147,31 @@
                     ],
                     [
                       "Call",
-                      2401,
+                      2405,
                       9,
                       0,
-                      ["Ident", 2401, 9, 0, "onComplete"],
+                      ["Ident", 2405, 9, 0, "onComplete"],
                       0,
-                      ["Ident", 2401, 21, 0, "broken"]
+                      ["Ident", 2405, 21, 0, "broken"]
                     ],
                     "Call",
-                    2403,
+                    2407,
                     9,
                     0,
-                    ["Ident", 2403, 9, 0, "onComplete"],
+                    ["Ident", 2407, 9, 0, "onComplete"],
                     0,
-                    ["Const", 2403, 21, 0, null],
-                    ["Ident", 2403, 26, 0, "result"]
+                    ["Const", 2407, 21, 0, null],
+                    ["Ident", 2407, 26, 0, "result"]
                   ]
                 ]
               ]
             ],
             [
               "Call",
-              2404,
+              2408,
               3,
               0,
-              ["Ident", 2404, 3, 0, "next"],
+              ["Ident", 2408, 3, 0, "next"],
               0
             ]
           ],
@@ -41728,11 +42186,11 @@
             0,
             0,
             [
-              ["Ident", 2406, 39, 0, "limit"],
-              ["Ident", 2406, 56, 0, "iterator"],
-              ["Ident", 2406, 86, 0, "hasResult"],
-              ["Ident", 2406, 109, 0, "onValue"],
-              ["Ident", 2406, 125, 0, "onComplete"]
+              ["Ident", 2410, 39, 0, "limit"],
+              ["Ident", 2410, 56, 0, "iterator"],
+              ["Ident", 2410, 86, 0, "hasResult"],
+              ["Ident", 2410, 109, 0, "onValue"],
+              ["Ident", 2410, 125, 0, "onComplete"]
             ],
             [
               "broken",
@@ -41768,7 +42226,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  2406,
+                  2410,
                   39,
                   0,
                   "limit"
@@ -41804,7 +42262,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2406, 39, 0, "limit"]
+                  ["Ident", 2410, 39, 0, "limit"]
                 ]
               ]
             ],
@@ -41831,7 +42289,7 @@
                     0,
                     "typeof",
                     "Ident",
-                    2406,
+                    2410,
                     56,
                     0,
                     "iterator"
@@ -41848,7 +42306,7 @@
                 130,
                 72,
                 0,
-                ["Ident", 2406, 56, 0, "iterator"],
+                ["Ident", 2410, 56, 0, "iterator"],
                 "===",
                 "Const",
                 130,
@@ -41880,7 +42338,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2406, 56, 0, "iterator"]
+                  ["Ident", 2410, 56, 0, "iterator"]
                 ]
               ],
               "IfStatement",
@@ -41903,10 +42361,10 @@
                   1718,
                   35,
                   0,
-                  ["Ident", 2406, 56, 0, "iterator"],
+                  ["Ident", 2410, 56, 0, "iterator"],
                   ".",
                   "Const",
-                  2406,
+                  2410,
                   70,
                   0,
                   "next"
@@ -41947,10 +42405,10 @@
                     1718,
                     35,
                     0,
-                    ["Ident", 2406, 56, 0, "iterator"],
+                    ["Ident", 2410, 56, 0, "iterator"],
                     ".",
                     "Const",
-                    2406,
+                    2410,
                     70,
                     0,
                     "next"
@@ -41969,7 +42427,7 @@
                 1,
                 1,
                 0,
-                ["Ident", 2406, 86, 0, "hasResult"],
+                ["Ident", 2410, 86, 0, "hasResult"],
                 "==",
                 "Const",
                 100,
@@ -41982,7 +42440,7 @@
                 1,
                 1,
                 0,
-                ["Ident", 2406, 86, 0, "hasResult"],
+                ["Ident", 2410, 86, 0, "hasResult"],
                 "=",
                 "Const",
                 1641,
@@ -42007,7 +42465,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  2406,
+                  2410,
                   86,
                   0,
                   "hasResult"
@@ -42043,7 +42501,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2406, 86, 0, "hasResult"]
+                  ["Ident", 2410, 86, 0, "hasResult"]
                 ]
               ]
             ],
@@ -42065,7 +42523,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  2406,
+                  2410,
                   109,
                   0,
                   "onValue"
@@ -42101,7 +42559,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2406, 109, 0, "onValue"]
+                  ["Ident", 2410, 109, 0, "onValue"]
                 ]
               ]
             ],
@@ -42123,7 +42581,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  2406,
+                  2410,
                   125,
                   0,
                   "onComplete"
@@ -42159,7 +42617,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 2406, 125, 0, "onComplete"]
+                  ["Ident", 2410, 125, 0, "onComplete"]
                 ]
               ]
             ],
@@ -42179,10 +42637,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2407, 5, 0, "limit"],
+                  ["Ident", 2411, 5, 0, "limit"],
                   "<",
                   "Const",
-                  2407,
+                  2411,
                   15,
                   0,
                   1
@@ -42192,10 +42650,10 @@
                 1,
                 1,
                 0,
-                ["Ident", 2407, 19, 0, "limit"],
+                ["Ident", 2411, 19, 0, "limit"],
                 "!==",
                 "Ident",
-                2407,
+                2411,
                 28,
                 0,
                 "limit"
@@ -42205,10 +42663,10 @@
                 1,
                 1,
                 0,
-                ["Ident", 2408, 5, 0, "limit"],
+                ["Ident", 2412, 5, 0, "limit"],
                 "=",
                 "Const",
-                2408,
+                2412,
                 13,
                 0,
                 1,
@@ -42220,10 +42678,10 @@
               1,
               1,
               0,
-              ["Ident", 2409, 14, 0, "broken"],
+              ["Ident", 2413, 14, 0, "broken"],
               "=",
               "Const",
-              2409,
+              2413,
               23,
               0,
               null
@@ -42233,10 +42691,10 @@
               1,
               1,
               0,
-              ["Ident", 2410, 14, 0, "slotsUsed"],
+              ["Ident", 2414, 14, 0, "slotsUsed"],
               "=",
               "Const",
-              2410,
+              2414,
               28,
               0,
               0
@@ -42246,10 +42704,10 @@
               1,
               1,
               0,
-              ["Ident", 2411, 14, 0, "sync"],
+              ["Ident", 2415, 14, 0, "sync"],
               "=",
               "Const",
-              2411,
+              2415,
               21,
               0,
               false
@@ -42260,16 +42718,16 @@
               1,
               0,
               0,
-              ["Ident", 2412, 18, 0, "hasResult"],
+              ["Ident", 2416, 18, 0, "hasResult"],
               [
                 "Binary",
                 1,
                 1,
                 0,
-                ["Ident", 2412, 6, 0, "result"],
+                ["Ident", 2416, 6, 0, "result"],
                 "=",
                 "Arr",
-                2412,
+                2416,
                 34,
                 0
               ],
@@ -42277,10 +42735,10 @@
               1,
               1,
               0,
-              ["Ident", 2412, 6, 0, "result"],
+              ["Ident", 2416, 6, 0, "result"],
               "=",
               "Const",
-              2412,
+              2416,
               42,
               0,
               null
@@ -42290,10 +42748,10 @@
               1,
               1,
               0,
-              ["Ident", 2413, 14, 0, "completed"],
+              ["Ident", 2417, 14, 0, "completed"],
               "=",
               "Const",
-              2413,
+              2417,
               26,
               0,
               false
@@ -42303,15 +42761,15 @@
               1,
               1,
               0,
-              ["Ident", 2414, 6, 0, "onValueCallback"],
+              ["Ident", 2418, 6, 0, "onValueCallback"],
               [
-                ["Ident", 2414, 25, 0, "err"],
-                ["Ident", 2414, 29, 0, "value"]
+                ["Ident", 2418, 25, 0, "err"],
+                ["Ident", 2418, 29, 0, "value"]
               ],
               [],
               [],
               "BlockStatement",
-              2415,
+              2419,
               1,
               0,
               0,
@@ -42321,7 +42779,7 @@
                 1,
                 0,
                 0,
-                ["Ident", 2415, 7, 0, "completed"],
+                ["Ident", 2419, 7, 0, "completed"],
                 [
                   "Return",
                   1,
@@ -42340,7 +42798,7 @@
                 0,
                 "--",
                 "Ident",
-                2417,
+                2421,
                 5,
                 0,
                 "slotsUsed"
@@ -42361,7 +42819,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2418, 7, 0, "err"],
+                    ["Ident", 2422, 7, 0, "err"],
                     "!=",
                     "Const",
                     100,
@@ -42374,7 +42832,7 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2418, 20, 0, "broken"],
+                  ["Ident", 2422, 20, 0, "broken"],
                   "==",
                   "Const",
                   100,
@@ -42387,10 +42845,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2419, 7, 0, "broken"],
+                  ["Ident", 2423, 7, 0, "broken"],
                   "=",
                   "Ident",
-                  2419,
+                  2423,
                   16,
                   0,
                   "err"
@@ -42412,13 +42870,13 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2420, 7, 0, "hasResult"],
+                    ["Ident", 2424, 7, 0, "hasResult"],
                     "&&",
                     "Binary",
                     1,
                     1,
                     0,
-                    ["Ident", 2420, 26, 0, "broken"],
+                    ["Ident", 2424, 26, 0, "broken"],
                     "==",
                     "Const",
                     100,
@@ -42433,44 +42891,44 @@
                   0,
                   [
                     "Binary",
-                    2420,
+                    2424,
                     38,
                     0,
-                    ["Arguments", 2420, 38, 0],
+                    ["Arguments", 2424, 38, 0],
                     ".",
                     "Const",
-                    2420,
+                    2424,
                     49,
                     0,
                     "length"
                   ],
                   ">",
                   "Const",
-                  2420,
+                  2424,
                   59,
                   0,
                   1
                 ],
                 [
                   "Call",
-                  2421,
+                  2425,
                   7,
                   0,
                   [
                     "Binary",
-                    2421,
+                    2425,
                     7,
                     0,
-                    ["Ident", 2421, 7, 0, "result"],
+                    ["Ident", 2425, 7, 0, "result"],
                     ".",
                     "Const",
-                    2421,
+                    2425,
                     14,
                     0,
                     "push"
                   ],
                   0,
-                  ["Ident", 2421, 19, 0, "value"]
+                  ["Ident", 2425, 19, 0, "value"]
                 ]
               ],
               [
@@ -42486,17 +42944,17 @@
                   0,
                   "!",
                   "Ident",
-                  2422,
+                  2426,
                   11,
                   0,
                   "sync"
                 ],
                 [
                   "Call",
-                  2423,
+                  2427,
                   7,
                   0,
-                  ["Ident", 2423, 7, 0, "next"],
+                  ["Ident", 2427, 7, 0, "next"],
                   0
                 ]
               ]
@@ -42506,7 +42964,7 @@
               1,
               1,
               0,
-              ["Ident", 2424, 14, 0, "index"],
+              ["Ident", 2428, 14, 0, "index"],
               "=",
               "Const",
               1,
@@ -42519,10 +42977,10 @@
               1,
               1,
               0,
-              ["Ident", 2425, 14, 0, "iterStopped"],
+              ["Ident", 2429, 14, 0, "iterStopped"],
               "=",
               "Const",
-              2425,
+              2429,
               29,
               0,
               false
@@ -42532,10 +42990,10 @@
               1,
               1,
               0,
-              ["Ident", 2426, 14, 0, "close"],
+              ["Ident", 2430, 14, 0, "close"],
               "=",
               "Func",
-              2426,
+              2430,
               24,
               0,
               0,
@@ -42543,7 +43001,7 @@
               [],
               [],
               "BlockStatement",
-              2427,
+              2431,
               1,
               0,
               0,
@@ -42552,23 +43010,23 @@
                 1,
                 1,
                 0,
-                ["Ident", 2427, 5, 0, "close"],
+                ["Ident", 2431, 5, 0, "close"],
                 "=",
                 "Const",
-                2427,
+                2431,
                 13,
                 0,
                 null
               ],
               [
                 "IfStatement",
-                2428,
+                2432,
                 5,
                 0,
                 0,
                 [
                   "Binary",
-                  2428,
+                  2432,
                   5,
                   0,
                   [
@@ -42576,7 +43034,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2428, 5, 0, "iterator"],
+                    ["Ident", 2432, 5, 0, "iterator"],
                     "!=",
                     "Const",
                     100,
@@ -42586,52 +43044,52 @@
                   ],
                   "&&",
                   "Binary",
-                  2428,
+                  2432,
                   5,
                   0,
                   [
                     "Unary",
-                    2428,
+                    2432,
                     5,
                     0,
                     "typeof",
                     "Binary",
-                    2428,
+                    2432,
                     5,
                     0,
-                    ["Ident", 2428, 5, 0, "iterator"],
+                    ["Ident", 2432, 5, 0, "iterator"],
                     ".",
                     "Const",
-                    2428,
+                    2432,
                     15,
                     0,
                     "close"
                   ],
                   "===",
                   "Const",
-                  2428,
+                  2432,
                   5,
                   0,
                   "function"
                 ],
                 [
                   "Return",
-                  2428,
+                  2432,
                   5,
                   0,
                   "Call",
-                  2428,
+                  2432,
                   5,
                   0,
                   [
                     "Binary",
-                    2428,
+                    2432,
                     5,
                     0,
-                    ["Ident", 2428, 5, 0, "iterator"],
+                    ["Ident", 2432, 5, 0, "iterator"],
                     ".",
                     "Const",
-                    2428,
+                    2432,
                     15,
                     0,
                     "close"
@@ -42645,12 +43103,12 @@
               1,
               1,
               0,
-              ["Ident", 2429, 6, 0, "next"],
+              ["Ident", 2433, 6, 0, "next"],
               [],
               ["value"],
               [],
               "BlockStatement",
-              2430,
+              2434,
               1,
               0,
               0,
@@ -42683,7 +43141,7 @@
                         0,
                         "!",
                         "Ident",
-                        2430,
+                        2434,
                         14,
                         0,
                         "completed"
@@ -42693,7 +43151,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 2430, 32, 0, "broken"],
+                      ["Ident", 2434, 32, 0, "broken"],
                       "==",
                       "Const",
                       100,
@@ -42706,10 +43164,10 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2430, 44, 0, "slotsUsed"],
+                    ["Ident", 2434, 44, 0, "slotsUsed"],
                     "<",
                     "Ident",
-                    2430,
+                    2434,
                     58,
                     0,
                     "limit"
@@ -42721,14 +43179,14 @@
                   0,
                   "!",
                   "Ident",
-                  2430,
+                  2434,
                   72,
                   0,
                   "iterStopped"
                 ],
                 0,
                 "BlockStatement",
-                2431,
+                2435,
                 1,
                 0,
                 0,
@@ -42743,30 +43201,30 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2432, 12, 0, "value"],
+                    ["Ident", 2436, 12, 0, "value"],
                     "=",
                     "Call",
-                    2432,
+                    2436,
                     20,
                     0,
                     [
                       "Binary",
-                      2432,
+                      2436,
                       20,
                       0,
-                      ["Ident", 2432, 20, 0, "iterator"],
+                      ["Ident", 2436, 20, 0, "iterator"],
                       ".",
                       "Const",
-                      2432,
+                      2436,
                       30,
                       0,
                       "next"
                     ],
                     0
                   ],
-                  ["Ident", 2433, 12, 0, "e"],
+                  ["Ident", 2437, 12, 0, "e"],
                   "BlockStatement",
-                  2434,
+                  2438,
                   1,
                   0,
                   0,
@@ -42781,10 +43239,10 @@
                       1,
                       1,
                       0,
-                      ["Ident", 2434, 11, 0, "e"],
+                      ["Ident", 2438, 11, 0, "e"],
                       "===",
                       "Ident",
-                      2434,
+                      2438,
                       16,
                       0,
                       "StopIteration"
@@ -42794,10 +43252,10 @@
                       1,
                       1,
                       0,
-                      ["Ident", 2435, 11, 0, "iterStopped"],
+                      ["Ident", 2439, 11, 0, "iterStopped"],
                       "=",
                       "Const",
-                      2435,
+                      2439,
                       26,
                       0,
                       true
@@ -42806,10 +43264,10 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2437, 11, 0, "broken"],
+                    ["Ident", 2441, 11, 0, "broken"],
                     "=",
                     "Ident",
-                    2437,
+                    2441,
                     20,
                     0,
                     "e"
@@ -42823,7 +43281,7 @@
                   0,
                   "++",
                   "Ident",
-                  2439,
+                  2443,
                   7,
                   0,
                   "slotsUsed"
@@ -42833,10 +43291,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2440, 7, 0, "sync"],
+                  ["Ident", 2444, 7, 0, "sync"],
                   "=",
                   "Const",
-                  2440,
+                  2444,
                   14,
                   0,
                   true
@@ -42849,12 +43307,12 @@
                   0,
                   [
                     "Call",
-                    2442,
+                    2446,
                     9,
                     0,
-                    ["Ident", 2442, 9, 0, "onValue"],
+                    ["Ident", 2446, 9, 0, "onValue"],
                     0,
-                    ["Ident", 2442, 18, 0, "value"],
+                    ["Ident", 2446, 18, 0, "value"],
                     [
                       "Unary",
                       1,
@@ -42862,34 +43320,34 @@
                       0,
                       "++",
                       "Ident",
-                      2442,
+                      2446,
                       26,
                       0,
                       "index"
                     ],
                     [
                       "Call",
-                      2442,
+                      2446,
                       38,
                       0,
-                      ["Ident", 2442, 38, 0, "__once"],
+                      ["Ident", 2446, 38, 0, "__once"],
                       0,
-                      ["Ident", 2442, 46, 0, "onValueCallback"]
+                      ["Ident", 2446, 46, 0, "onValueCallback"]
                     ]
                   ],
-                  ["Ident", 2443, 12, 0, "e"],
+                  ["Ident", 2447, 12, 0, "e"],
                   "BlockStatement",
-                  2444,
+                  2448,
                   1,
                   0,
                   0,
-                  ["Ident", 2444, 11, 0, "close"],
+                  ["Ident", 2448, 11, 0, "close"],
                   [
                     "Call",
-                    2445,
+                    2449,
                     11,
                     0,
-                    ["Ident", 2445, 11, 0, "close"],
+                    ["Ident", 2449, 11, 0, "close"],
                     0
                   ],
                   [
@@ -42898,7 +43356,7 @@
                     1,
                     0,
                     "Ident",
-                    2446,
+                    2450,
                     14,
                     0,
                     "e"
@@ -42909,10 +43367,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2447, 7, 0, "sync"],
+                  ["Ident", 2451, 7, 0, "sync"],
                   "=",
                   "Const",
-                  2447,
+                  2451,
                   14,
                   0,
                   false
@@ -42936,7 +43394,7 @@
                     0,
                     "!",
                     "Ident",
-                    2448,
+                    2452,
                     11,
                     0,
                     "completed"
@@ -42951,7 +43409,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2448, 27, 0, "broken"],
+                    ["Ident", 2452, 27, 0, "broken"],
                     "!=",
                     "Const",
                     100,
@@ -42964,17 +43422,17 @@
                   1,
                   1,
                   0,
-                  ["Ident", 2448, 37, 0, "slotsUsed"],
+                  ["Ident", 2452, 37, 0, "slotsUsed"],
                   "===",
                   "Const",
-                  2448,
+                  2452,
                   52,
                   0,
                   0
                 ],
                 [
                   "BlockStatement",
-                  2449,
+                  2453,
                   1,
                   0,
                   0,
@@ -42983,21 +43441,21 @@
                     1,
                     1,
                     0,
-                    ["Ident", 2449, 7, 0, "completed"],
+                    ["Ident", 2453, 7, 0, "completed"],
                     "=",
                     "Const",
-                    2449,
+                    2453,
                     19,
                     0,
                     true
                   ],
-                  ["Ident", 2450, 9, 0, "close"],
+                  ["Ident", 2454, 9, 0, "close"],
                   [
                     "Call",
-                    2451,
+                    2455,
                     9,
                     0,
-                    ["Ident", 2451, 9, 0, "close"],
+                    ["Ident", 2455, 9, 0, "close"],
                     0
                   ],
                   [
@@ -43011,7 +43469,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 2452, 9, 0, "broken"],
+                      ["Ident", 2456, 9, 0, "broken"],
                       "!=",
                       "Const",
                       100,
@@ -43021,31 +43479,31 @@
                     ],
                     [
                       "Call",
-                      2453,
+                      2457,
                       9,
                       0,
-                      ["Ident", 2453, 9, 0, "onComplete"],
+                      ["Ident", 2457, 9, 0, "onComplete"],
                       0,
-                      ["Ident", 2453, 21, 0, "broken"]
+                      ["Ident", 2457, 21, 0, "broken"]
                     ],
                     "Call",
-                    2455,
+                    2459,
                     9,
                     0,
-                    ["Ident", 2455, 9, 0, "onComplete"],
+                    ["Ident", 2459, 9, 0, "onComplete"],
                     0,
-                    ["Const", 2455, 21, 0, null],
-                    ["Ident", 2455, 26, 0, "result"]
+                    ["Const", 2459, 21, 0, null],
+                    ["Ident", 2459, 26, 0, "result"]
                   ]
                 ]
               ]
             ],
             [
               "Call",
-              2456,
+              2460,
               3,
               0,
-              ["Ident", 2456, 3, 0, "next"],
+              ["Ident", 2460, 3, 0, "next"],
               0
             ]
           ],
@@ -43070,13 +43528,13 @@
                 0,
                 "typeof",
                 "Binary",
-                3055,
+                3072,
                 37,
                 0,
-                ["Ident", 3055, 37, 0, "Object"],
+                ["Ident", 3072, 37, 0, "Object"],
                 ".",
                 "Const",
-                3055,
+                3072,
                 45,
                 0,
                 "is"
@@ -43090,25 +43548,25 @@
             ],
             [
               "Binary",
-              3056,
+              3073,
               3,
               0,
-              ["Ident", 3056, 3, 0, "Object"],
+              ["Ident", 3073, 3, 0, "Object"],
               ".",
               "Const",
-              3056,
+              3073,
               10,
               0,
               "is"
             ],
             "Func",
-            3058,
+            3075,
             4,
             0,
             0,
             [
-              ["Ident", 3058, 5, 0, "x"],
-              ["Ident", 3058, 7, 0, "y"]
+              ["Ident", 3075, 5, 0, "x"],
+              ["Ident", 3075, 7, 0, "y"]
             ],
             [],
             [],
@@ -43122,10 +43580,10 @@
               1,
               1,
               0,
-              ["Ident", 3059, 7, 0, "x"],
+              ["Ident", 3076, 7, 0, "x"],
               "===",
               "Ident",
-              3059,
+              3076,
               12,
               0,
               "y"
@@ -43144,10 +43602,10 @@
                 1,
                 1,
                 0,
-                ["Ident", 3060, 7, 0, "x"],
+                ["Ident", 3077, 7, 0, "x"],
                 "!==",
                 "Const",
-                3060,
+                3077,
                 12,
                 0,
                 0
@@ -43162,10 +43620,10 @@
                 1,
                 1,
                 0,
-                ["Const", 3060, 18, 0, 1],
+                ["Const", 3077, 18, 0, 1],
                 "/",
                 "Ident",
-                3060,
+                3077,
                 22,
                 0,
                 "x"
@@ -43175,10 +43633,10 @@
               1,
               1,
               0,
-              ["Const", 3060, 28, 0, 1],
+              ["Const", 3077, 28, 0, 1],
               "/",
               "Ident",
-              3060,
+              3077,
               32,
               0,
               "y"
@@ -43196,10 +43654,10 @@
               1,
               1,
               0,
-              ["Ident", 3062, 7, 0, "x"],
+              ["Ident", 3079, 7, 0, "x"],
               "!==",
               "Ident",
-              3062,
+              3079,
               11,
               0,
               "x"
@@ -43209,10 +43667,10 @@
             1,
             1,
             0,
-            ["Ident", 3062, 17, 0, "y"],
+            ["Ident", 3079, 17, 0, "y"],
             "!==",
             "Ident",
-            3062,
+            3079,
             22,
             0,
             "y"
@@ -43223,18 +43681,18 @@
         __bind: {
           helper: [
             "Func",
-            3102,
+            3119,
             25,
             0,
             0,
             [
-              ["Ident", 3102, 26, 0, "parent"],
-              ["Ident", 3102, 33, 0, "child"]
+              ["Ident", 3119, 26, 0, "parent"],
+              ["Ident", 3119, 33, 0, "child"]
             ],
             ["func"],
             [],
             "BlockStatement",
-            3103,
+            3120,
             1,
             0,
             0,
@@ -43249,7 +43707,7 @@
                 1,
                 1,
                 0,
-                ["Ident", 3103, 9, 0, "parent"],
+                ["Ident", 3120, 9, 0, "parent"],
                 "==",
                 "Const",
                 100,
@@ -43263,17 +43721,17 @@
                 1,
                 0,
                 "Call",
-                3104,
+                3121,
                 10,
                 0,
-                ["Ident", 3104, 10, 0, "TypeError"],
+                ["Ident", 3121, 10, 0, "TypeError"],
                 0,
                 [
                   "Binary",
                   1,
                   1,
                   0,
-                  ["Const", 3104, 21, 0, "Expected parent to be an object, got "],
+                  ["Const", 3121, 21, 0, "Expected parent to be an object, got "],
                   "+",
                   "Call",
                   484,
@@ -43281,7 +43739,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 3104, 68, 0, "parent"]
+                  ["Ident", 3121, 68, 0, "parent"]
                 ]
               ]
             ],
@@ -43290,16 +43748,16 @@
               1,
               1,
               0,
-              ["Ident", 3105, 6, 0, "func"],
+              ["Ident", 3122, 6, 0, "func"],
               "=",
               "Binary",
-              3105,
+              3122,
               13,
               0,
-              ["Ident", 3105, 13, 0, "parent"],
+              ["Ident", 3122, 13, 0, "parent"],
               ".",
               "Ident",
-              3105,
+              3122,
               21,
               0,
               "child"
@@ -43322,7 +43780,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  3106,
+                  3123,
                   22,
                   0,
                   "func"
@@ -43340,10 +43798,10 @@
                 1,
                 0,
                 "Call",
-                3107,
+                3124,
                 10,
                 0,
-                ["Ident", 3107, 10, 0, "Error"],
+                ["Ident", 3124, 10, 0, "Error"],
                 0,
                 [
                   "Binary",
@@ -43355,19 +43813,19 @@
                     1,
                     1,
                     0,
-                    ["Const", 3107, 17, 0, "Trying to bind child '"],
+                    ["Const", 3124, 17, 0, "Trying to bind child '"],
                     "+",
                     "Call",
-                    3107,
+                    3124,
                     42,
                     0,
-                    ["Ident", 3107, 42, 0, "String"],
+                    ["Ident", 3124, 42, 0, "String"],
                     0,
-                    ["Ident", 3107, 49, 0, "child"]
+                    ["Ident", 3124, 49, 0, "child"]
                   ],
                   "+",
                   "Const",
-                  3107,
+                  3124,
                   17,
                   0,
                   "' which is not a function"
@@ -43376,11 +43834,11 @@
             ],
             [
               "Return",
-              3108,
+              3125,
               4,
               0,
               "Func",
-              3108,
+              3125,
               4,
               0,
               0,
@@ -43388,29 +43846,29 @@
               [],
               [],
               "Return",
-              3108,
+              3125,
               7,
               0,
               "Call",
-              3108,
+              3125,
               7,
               0,
               [
                 "Binary",
-                3108,
+                3125,
                 7,
                 0,
-                ["Ident", 3108, 7, 0, "func"],
+                ["Ident", 3125, 7, 0, "func"],
                 ".",
                 "Const",
-                3108,
+                3125,
                 7,
                 0,
                 "apply"
               ],
               0,
-              ["Ident", 3108, 14, 0, "parent"],
-              ["Arguments", 3108, 25, 0]
+              ["Ident", 3125, 14, 0, "parent"],
+              ["Arguments", 3125, 25, 0]
             ]
           ],
           type: {type: "generic", base: "functionBase", args: ["function"]},
@@ -43432,7 +43890,7 @@
               ["defineGetter", "defineSetter", "fallback", "lookupGetter", "lookupSetter", "supportsAccessors"],
               [],
               "BlockStatement",
-              3111,
+              3128,
               1,
               0,
               0,
@@ -43441,16 +43899,16 @@
                 1,
                 1,
                 0,
-                ["Ident", 3111, 6, 0, "fallback"],
+                ["Ident", 3128, 6, 0, "fallback"],
                 "=",
                 "Binary",
-                3111,
+                3128,
                 17,
                 0,
-                ["Ident", 3111, 17, 0, "Object"],
+                ["Ident", 3128, 17, 0, "Object"],
                 ".",
                 "Const",
-                3111,
+                3128,
                 25,
                 0,
                 "defineProperty"
@@ -43478,7 +43936,7 @@
                       0,
                       "typeof",
                       "Ident",
-                      3112,
+                      3129,
                       18,
                       0,
                       "fallback"
@@ -43511,7 +43969,7 @@
                     0,
                     [
                       "BlockStatement",
-                      3114,
+                      3131,
                       1,
                       0,
                       0,
@@ -43520,23 +43978,23 @@
                         1,
                         1,
                         0,
-                        ["Ident", 3114, 12, 0, "o"],
+                        ["Ident", 3131, 12, 0, "o"],
                         "=",
                         "Obj",
-                        102965,
-                        102968,
+                        103181,
+                        103184,
                         0
                       ],
                       [
                         "Call",
-                        3115,
+                        3132,
                         9,
                         0,
-                        ["Ident", 3115, 9, 0, "fallback"],
+                        ["Ident", 3132, 9, 0, "fallback"],
                         0,
-                        ["Ident", 3115, 18, 0, "o"],
-                        ["Const", 3115, 22, 0, "sentinel"],
-                        ["Obj", 102999, 103002, 0]
+                        ["Ident", 3132, 18, 0, "o"],
+                        ["Const", 3132, 22, 0, "sentinel"],
+                        ["Obj", 103215, 103218, 0]
                       ],
                       [
                         "Return",
@@ -43547,22 +44005,22 @@
                         1,
                         1,
                         0,
-                        ["Const", 3116, 19, 0, "sentinel"],
+                        ["Const", 3133, 19, 0, "sentinel"],
                         "in",
                         "Ident",
-                        3116,
+                        3133,
                         9,
                         0,
                         "o"
                       ]
                     ],
-                    ["Ident", 3117, 12, 0, "e"],
+                    ["Ident", 3134, 12, 0, "e"],
                     "Return",
-                    3118,
+                    3135,
                     9,
                     0,
                     "Const",
-                    3118,
+                    3135,
                     9,
                     0,
                     false
@@ -43571,17 +44029,17 @@
                 ],
                 [
                   "Return",
-                  3119,
+                  3136,
                   5,
                   0,
                   "Ident",
-                  3119,
+                  3136,
                   5,
                   0,
                   "fallback"
                 ],
                 "BlockStatement",
-                3121,
+                3138,
                 1,
                 0,
                 0,
@@ -43590,7 +44048,7 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3121, 8, 0, "supportsAccessors"],
+                  ["Ident", 3138, 8, 0, "supportsAccessors"],
                   "=",
                   "Call",
                   609,
@@ -43612,52 +44070,52 @@
                   0,
                   [
                     "Binary",
-                    3121,
+                    3138,
                     29,
                     0,
-                    ["Ident", 3121, 29, 0, "Object"],
+                    ["Ident", 3138, 29, 0, "Object"],
                     ".",
                     "Const",
-                    3121,
+                    3138,
                     37,
                     0,
                     "prototype"
                   ],
-                  ["Const", 3121, 56, 0, "__defineGetter__"]
+                  ["Const", 3138, 56, 0, "__defineGetter__"]
                 ],
                 [
                   "Binary",
                   1,
                   1,
                   0,
-                  ["Ident", 3122, 8, 0, "lookupGetter"],
+                  ["Ident", 3139, 8, 0, "lookupGetter"],
                   "=",
                   "Binary",
                   1,
                   1,
                   0,
-                  ["Ident", 3122, 24, 0, "supportsAccessors"],
+                  ["Ident", 3139, 24, 0, "supportsAccessors"],
                   "&&",
                   "Binary",
-                  3122,
+                  3139,
                   47,
                   0,
                   [
                     "Binary",
-                    3122,
+                    3139,
                     47,
                     0,
-                    ["Ident", 3122, 47, 0, "Object"],
+                    ["Ident", 3139, 47, 0, "Object"],
                     ".",
                     "Const",
-                    3122,
+                    3139,
                     47,
                     0,
                     "prototype"
                   ],
                   ".",
                   "Const",
-                  3122,
+                  3139,
                   56,
                   0,
                   "__lookupGetter__"
@@ -43667,34 +44125,34 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3123, 8, 0, "lookupSetter"],
+                  ["Ident", 3140, 8, 0, "lookupSetter"],
                   "=",
                   "Binary",
                   1,
                   1,
                   0,
-                  ["Ident", 3123, 24, 0, "supportsAccessors"],
+                  ["Ident", 3140, 24, 0, "supportsAccessors"],
                   "&&",
                   "Binary",
-                  3123,
+                  3140,
                   47,
                   0,
                   [
                     "Binary",
-                    3123,
+                    3140,
                     47,
                     0,
-                    ["Ident", 3123, 47, 0, "Object"],
+                    ["Ident", 3140, 47, 0, "Object"],
                     ".",
                     "Const",
-                    3123,
+                    3140,
                     47,
                     0,
                     "prototype"
                   ],
                   ".",
                   "Const",
-                  3123,
+                  3140,
                   56,
                   0,
                   "__lookupSetter__"
@@ -43704,34 +44162,34 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3124, 8, 0, "defineGetter"],
+                  ["Ident", 3141, 8, 0, "defineGetter"],
                   "=",
                   "Binary",
                   1,
                   1,
                   0,
-                  ["Ident", 3124, 24, 0, "supportsAccessors"],
+                  ["Ident", 3141, 24, 0, "supportsAccessors"],
                   "&&",
                   "Binary",
-                  3124,
+                  3141,
                   47,
                   0,
                   [
                     "Binary",
-                    3124,
+                    3141,
                     47,
                     0,
-                    ["Ident", 3124, 47, 0, "Object"],
+                    ["Ident", 3141, 47, 0, "Object"],
                     ".",
                     "Const",
-                    3124,
+                    3141,
                     47,
                     0,
                     "prototype"
                   ],
                   ".",
                   "Const",
-                  3124,
+                  3141,
                   56,
                   0,
                   "__defineGetter__"
@@ -43741,34 +44199,34 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3125, 8, 0, "defineSetter"],
+                  ["Ident", 3142, 8, 0, "defineSetter"],
                   "=",
                   "Binary",
                   1,
                   1,
                   0,
-                  ["Ident", 3125, 24, 0, "supportsAccessors"],
+                  ["Ident", 3142, 24, 0, "supportsAccessors"],
                   "&&",
                   "Binary",
-                  3125,
+                  3142,
                   47,
                   0,
                   [
                     "Binary",
-                    3125,
+                    3142,
                     47,
                     0,
-                    ["Ident", 3125, 47, 0, "Object"],
+                    ["Ident", 3142, 47, 0, "Object"],
                     ".",
                     "Const",
-                    3125,
+                    3142,
                     47,
                     0,
                     "prototype"
                   ],
                   ".",
                   "Const",
-                  3125,
+                  3142,
                   56,
                   0,
                   "__defineSetter__"
@@ -43784,9 +44242,9 @@
                   0,
                   0,
                   [
-                    ["Ident", 3126, 7, 0, "object"],
-                    ["Ident", 3126, 23, 0, "property"],
-                    ["Ident", 3126, 43, 0, "descriptor"]
+                    ["Ident", 3143, 7, 0, "object"],
+                    ["Ident", 3143, 23, 0, "property"],
+                    ["Ident", 3143, 43, 0, "descriptor"]
                   ],
                   ["proto"],
                   [],
@@ -43823,7 +44281,7 @@
                             0,
                             "typeof",
                             "Ident",
-                            3126,
+                            3143,
                             7,
                             0,
                             "object"
@@ -43840,7 +44298,7 @@
                         1,
                         1,
                         0,
-                        ["Ident", 3126, 7, 0, "object"],
+                        ["Ident", 3143, 7, 0, "object"],
                         "===",
                         "Const",
                         130,
@@ -43860,7 +44318,7 @@
                         0,
                         "typeof",
                         "Ident",
-                        3126,
+                        3143,
                         7,
                         0,
                         "object"
@@ -43902,7 +44360,7 @@
                         0,
                         ["Ident", 484, 49, 0, "__typeof"],
                         0,
-                        ["Ident", 3126, 7, 0, "object"]
+                        ["Ident", 3143, 7, 0, "object"]
                       ]
                     ]
                   ],
@@ -43924,7 +44382,7 @@
                         0,
                         "typeof",
                         "Ident",
-                        3126,
+                        3143,
                         23,
                         0,
                         "property"
@@ -43960,7 +44418,7 @@
                         0,
                         ["Ident", 484, 49, 0, "__typeof"],
                         0,
-                        ["Ident", 3126, 23, 0, "property"]
+                        ["Ident", 3143, 23, 0, "property"]
                       ]
                     ]
                   ],
@@ -43987,7 +44445,7 @@
                           0,
                           "typeof",
                           "Ident",
-                          3126,
+                          3143,
                           43,
                           0,
                           "descriptor"
@@ -44004,7 +44462,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 3126, 43, 0, "descriptor"],
+                      ["Ident", 3143, 43, 0, "descriptor"],
                       "===",
                       "Const",
                       130,
@@ -44036,7 +44494,7 @@
                         0,
                         ["Ident", 484, 49, 0, "__typeof"],
                         0,
-                        ["Ident", 3126, 43, 0, "descriptor"]
+                        ["Ident", 3143, 43, 0, "descriptor"]
                       ]
                     ]
                   ],
@@ -44058,7 +44516,7 @@
                         0,
                         "typeof",
                         "Ident",
-                        3127,
+                        3144,
                         22,
                         0,
                         "fallback"
@@ -44082,18 +44540,18 @@
                         1,
                         0,
                         "Call",
-                        3129,
+                        3146,
                         17,
                         0,
-                        ["Ident", 3129, 17, 0, "fallback"],
+                        ["Ident", 3146, 17, 0, "fallback"],
                         0,
-                        ["Ident", 3129, 27, 0, "object"],
-                        ["Ident", 3129, 34, 0, "property"],
-                        ["Ident", 3129, 44, 0, "descriptor"]
+                        ["Ident", 3146, 27, 0, "object"],
+                        ["Ident", 3146, 34, 0, "property"],
+                        ["Ident", 3146, 44, 0, "descriptor"]
                       ],
-                      ["Ident", 3130, 14, 0, "e"],
+                      ["Ident", 3147, 14, 0, "e"],
                       "Const",
-                      3131,
+                      3148,
                       11,
                       0
                     ]
@@ -44123,8 +44581,8 @@
                         "call"
                       ],
                       0,
-                      ["Ident", 3133, 9, 0, "descriptor"],
-                      ["Const", 3133, 30, 0, "value"]
+                      ["Ident", 3150, 9, 0, "descriptor"],
+                      ["Const", 3150, 30, 0, "value"]
                     ],
                     [
                       "IfStatement",
@@ -44137,59 +44595,59 @@
                         1,
                         1,
                         0,
-                        ["Ident", 3134, 11, 0, "supportsAccessors"],
+                        ["Ident", 3151, 11, 0, "supportsAccessors"],
                         "&&",
                         "Call",
-                        3134,
+                        3151,
                         36,
                         0,
                         [
                           "Binary",
-                          3134,
+                          3151,
                           36,
                           0,
-                          ["Ident", 3134, 36, 0, "lookupGetter"],
+                          ["Ident", 3151, 36, 0, "lookupGetter"],
                           ".",
                           "Const",
-                          3134,
+                          3151,
                           36,
                           0,
                           "call"
                         ],
                         0,
-                        ["Ident", 3134, 51, 0, "object"],
+                        ["Ident", 3151, 51, 0, "object"],
                         [
                           "Binary",
                           1,
                           1,
                           0,
-                          ["Ident", 3134, 58, 0, "property"],
+                          ["Ident", 3151, 58, 0, "property"],
                           "||",
                           "Call",
-                          3134,
+                          3151,
                           70,
                           0,
                           [
                             "Binary",
-                            3134,
+                            3151,
                             70,
                             0,
-                            ["Ident", 3134, 70, 0, "lookupSetter"],
+                            ["Ident", 3151, 70, 0, "lookupSetter"],
                             ".",
                             "Const",
-                            3134,
+                            3151,
                             70,
                             0,
                             "call"
                           ],
                           0,
-                          ["Ident", 3134, 86, 0, "object"],
-                          ["Ident", 3134, 93, 0, "property"]
+                          ["Ident", 3151, 86, 0, "object"],
+                          ["Ident", 3151, 93, 0, "property"]
                         ]
                       ],
                       [
                         "BlockStatement",
-                        3135,
+                        3152,
                         1,
                         0,
                         0,
@@ -44198,16 +44656,16 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3135, 14, 0, "proto"],
+                          ["Ident", 3152, 14, 0, "proto"],
                           "=",
                           "Binary",
-                          3135,
+                          3152,
                           22,
                           0,
-                          ["Ident", 3135, 22, 0, "object"],
+                          ["Ident", 3152, 22, 0, "object"],
                           ".",
                           "Const",
-                          3135,
+                          3152,
                           30,
                           0,
                           "__proto__"
@@ -44219,26 +44677,26 @@
                           0,
                           [
                             "Binary",
-                            3136,
+                            3153,
                             17,
                             0,
-                            ["Ident", 3136, 11, 0, "object"],
+                            ["Ident", 3153, 11, 0, "object"],
                             ".",
                             "Const",
-                            3136,
+                            3153,
                             18,
                             0,
                             "__proto__"
                           ],
                           "=",
                           "Binary",
-                          3136,
+                          3153,
                           30,
                           0,
-                          ["Ident", 3136, 30, 0, "Object"],
+                          ["Ident", 3153, 30, 0, "Object"],
                           ".",
                           "Const",
-                          3136,
+                          3153,
                           38,
                           0,
                           "prototype"
@@ -44250,13 +44708,13 @@
                           0,
                           "delete",
                           "Binary",
-                          3137,
+                          3154,
                           17,
                           0,
-                          ["Ident", 3137, 17, 0, "object"],
+                          ["Ident", 3154, 17, 0, "object"],
                           ".",
                           "Ident",
-                          3137,
+                          3154,
                           25,
                           0,
                           "property"
@@ -44268,26 +44726,26 @@
                           0,
                           [
                             "Binary",
-                            3138,
+                            3155,
                             17,
                             0,
-                            ["Ident", 3138, 11, 0, "object"],
+                            ["Ident", 3155, 11, 0, "object"],
                             ".",
                             "Ident",
-                            3138,
+                            3155,
                             18,
                             0,
                             "property"
                           ],
                           "=",
                           "Binary",
-                          3138,
+                          3155,
                           30,
                           0,
-                          ["Ident", 3138, 30, 0, "descriptor"],
+                          ["Ident", 3155, 30, 0, "descriptor"],
                           ".",
                           "Const",
-                          3138,
+                          3155,
                           42,
                           0,
                           "value"
@@ -44299,20 +44757,20 @@
                           0,
                           [
                             "Binary",
-                            3139,
+                            3156,
                             17,
                             0,
-                            ["Ident", 3139, 11, 0, "object"],
+                            ["Ident", 3156, 11, 0, "object"],
                             ".",
                             "Const",
-                            3139,
+                            3156,
                             18,
                             0,
                             "__proto__"
                           ],
                           "=",
                           "Ident",
-                          3139,
+                          3156,
                           30,
                           0,
                           "proto"
@@ -44324,32 +44782,32 @@
                       0,
                       [
                         "Binary",
-                        3141,
+                        3158,
                         17,
                         0,
-                        ["Ident", 3141, 11, 0, "object"],
+                        ["Ident", 3158, 11, 0, "object"],
                         ".",
                         "Ident",
-                        3141,
+                        3158,
                         18,
                         0,
                         "property"
                       ],
                       "=",
                       "Binary",
-                      3141,
+                      3158,
                       30,
                       0,
-                      ["Ident", 3141, 30, 0, "descriptor"],
+                      ["Ident", 3158, 30, 0, "descriptor"],
                       ".",
                       "Const",
-                      3141,
+                      3158,
                       42,
                       0,
                       "value"
                     ],
                     "BlockStatement",
-                    3143,
+                    3160,
                     1,
                     0,
                     0,
@@ -44366,7 +44824,7 @@
                         0,
                         "!",
                         "Ident",
-                        3143,
+                        3160,
                         15,
                         0,
                         "supportsAccessors"
@@ -44377,14 +44835,14 @@
                         1,
                         0,
                         "Call",
-                        3144,
+                        3161,
                         16,
                         0,
-                        ["Ident", 3144, 16, 0, "Error"],
+                        ["Ident", 3161, 16, 0, "Error"],
                         0,
                         [
                           "Const",
-                          3144,
+                          3161,
                           23,
                           0,
                           "Getters and setters cannot be defined on this Javascript engine"
@@ -44416,39 +44874,39 @@
                           "call"
                         ],
                         0,
-                        ["Ident", 3145, 11, 0, "descriptor"],
-                        ["Const", 3145, 32, 0, "get"]
+                        ["Ident", 3162, 11, 0, "descriptor"],
+                        ["Const", 3162, 32, 0, "get"]
                       ],
                       [
                         "Call",
-                        3146,
+                        3163,
                         11,
                         0,
                         [
                           "Binary",
-                          3146,
+                          3163,
                           11,
                           0,
-                          ["Ident", 3146, 11, 0, "defineGetter"],
+                          ["Ident", 3163, 11, 0, "defineGetter"],
                           ".",
                           "Const",
-                          3146,
+                          3163,
                           11,
                           0,
                           "call"
                         ],
                         0,
-                        ["Ident", 3146, 26, 0, "object"],
-                        ["Ident", 3146, 33, 0, "property"],
+                        ["Ident", 3163, 26, 0, "object"],
+                        ["Ident", 3163, 33, 0, "property"],
                         [
                           "Binary",
-                          3146,
+                          3163,
                           43,
                           0,
-                          ["Ident", 3146, 43, 0, "descriptor"],
+                          ["Ident", 3163, 43, 0, "descriptor"],
                           ".",
                           "Const",
-                          3146,
+                          3163,
                           55,
                           0,
                           "get"
@@ -44480,39 +44938,39 @@
                           "call"
                         ],
                         0,
-                        ["Ident", 3147, 11, 0, "descriptor"],
-                        ["Const", 3147, 32, 0, "set"]
+                        ["Ident", 3164, 11, 0, "descriptor"],
+                        ["Const", 3164, 32, 0, "set"]
                       ],
                       [
                         "Call",
-                        3148,
+                        3165,
                         11,
                         0,
                         [
                           "Binary",
-                          3148,
+                          3165,
                           11,
                           0,
-                          ["Ident", 3148, 11, 0, "defineSetter"],
+                          ["Ident", 3165, 11, 0, "defineSetter"],
                           ".",
                           "Const",
-                          3148,
+                          3165,
                           11,
                           0,
                           "call"
                         ],
                         0,
-                        ["Ident", 3148, 26, 0, "object"],
-                        ["Ident", 3148, 33, 0, "property"],
+                        ["Ident", 3165, 26, 0, "object"],
+                        ["Ident", 3165, 33, 0, "property"],
                         [
                           "Binary",
-                          3148,
+                          3165,
                           43,
                           0,
-                          ["Ident", 3148, 43, 0, "descriptor"],
+                          ["Ident", 3165, 43, 0, "descriptor"],
                           ".",
                           "Const",
-                          3148,
+                          3165,
                           55,
                           0,
                           "set"
@@ -44522,11 +44980,11 @@
                   ],
                   [
                     "Return",
-                    3149,
+                    3166,
                     7,
                     0,
                     "Ident",
-                    3149,
+                    3166,
                     7,
                     0,
                     "object"
@@ -44547,8 +45005,8 @@
             0,
             0,
             [
-              ["Ident", 3155, 29, 0, "left"],
-              ["Ident", 3155, 40, 0, "right"]
+              ["Ident", 3172, 29, 0, "left"],
+              ["Ident", 3172, 40, 0, "right"]
             ],
             [],
             [],
@@ -44575,7 +45033,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  3155,
+                  3172,
                   29,
                   0,
                   "left"
@@ -44611,7 +45069,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 3155, 29, 0, "left"]
+                  ["Ident", 3172, 29, 0, "left"]
                 ]
               ]
             ],
@@ -44633,7 +45091,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  3155,
+                  3172,
                   40,
                   0,
                   "right"
@@ -44669,17 +45127,17 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 3155, 40, 0, "right"]
+                  ["Ident", 3172, 40, 0, "right"]
                 ]
               ]
             ],
             [
               "Return",
-              3156,
+              3173,
               4,
               0,
               "Func",
-              3156,
+              3173,
               4,
               0,
               0,
@@ -44687,49 +45145,49 @@
               [],
               [],
               "Return",
-              3156,
+              3173,
               6,
               0,
               "Call",
-              3156,
+              3173,
               6,
               0,
               [
                 "Binary",
-                3156,
+                3173,
                 6,
                 0,
-                ["Ident", 3156, 6, 0, "left"],
+                ["Ident", 3173, 6, 0, "left"],
                 ".",
                 "Const",
-                3156,
+                3173,
                 6,
                 0,
                 "call"
               ],
               0,
-              ["This", 3156, 13, 0],
+              ["This", 3173, 13, 0],
               [
                 "Call",
-                3156,
+                3173,
                 18,
                 0,
                 [
                   "Binary",
-                  3156,
+                  3173,
                   18,
                   0,
-                  ["Ident", 3156, 18, 0, "right"],
+                  ["Ident", 3173, 18, 0, "right"],
                   ".",
                   "Const",
-                  3156,
+                  3173,
                   18,
                   0,
                   "apply"
                 ],
                 0,
-                ["This", 3156, 26, 0],
-                ["Arguments", 3156, 35, 0]
+                ["This", 3173, 26, 0],
+                ["Arguments", 3173, 35, 0]
               ]
             ]
           ],
@@ -44744,8 +45202,8 @@
             0,
             0,
             [
-              ["Ident", 3170, 27, 0, "numArgs"],
-              ["Ident", 3170, 46, 0, "f"]
+              ["Ident", 3187, 27, 0, "numArgs"],
+              ["Ident", 3187, 46, 0, "f"]
             ],
             ["currier"],
             [],
@@ -44772,7 +45230,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  3170,
+                  3187,
                   27,
                   0,
                   "numArgs"
@@ -44808,7 +45266,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 3170, 27, 0, "numArgs"]
+                  ["Ident", 3187, 27, 0, "numArgs"]
                 ]
               ]
             ],
@@ -44830,7 +45288,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  3170,
+                  3187,
                   46,
                   0,
                   "f"
@@ -44866,7 +45324,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 3170, 46, 0, "f"]
+                  ["Ident", 3187, 46, 0, "f"]
                 ]
               ]
             ],
@@ -44881,17 +45339,17 @@
                 1,
                 1,
                 0,
-                ["Ident", 3171, 5, 0, "numArgs"],
+                ["Ident", 3188, 5, 0, "numArgs"],
                 ">",
                 "Const",
-                3171,
+                3188,
                 17,
                 0,
                 1
               ],
               [
                 "BlockStatement",
-                3172,
+                3189,
                 1,
                 0,
                 0,
@@ -44900,14 +45358,14 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3172, 8, 0, "currier"],
+                  ["Ident", 3189, 8, 0, "currier"],
                   "=",
                   "Func",
-                  3172,
+                  3189,
                   16,
                   0,
                   0,
-                  [["Ident", 3172, 17, 0, "args"]],
+                  [["Ident", 3189, 17, 0, "args"]],
                   ["ret"],
                   [],
                   "IfStatement",
@@ -44929,13 +45387,13 @@
                       0,
                       [
                         "Binary",
-                        3173,
+                        3190,
                         9,
                         0,
-                        ["Ident", 3173, 9, 0, "args"],
+                        ["Ident", 3190, 9, 0, "args"],
                         ".",
                         "Const",
-                        3173,
+                        3190,
                         15,
                         0,
                         "length"
@@ -44943,39 +45401,39 @@
                     ],
                     ">=",
                     "Ident",
-                    3173,
+                    3190,
                     24,
                     0,
                     "numArgs"
                   ],
                   [
                     "Return",
-                    3174,
+                    3191,
                     9,
                     0,
                     "Call",
-                    3174,
+                    3191,
                     9,
                     0,
                     [
                       "Binary",
-                      3174,
+                      3191,
                       9,
                       0,
-                      ["Ident", 3174, 9, 0, "f"],
+                      ["Ident", 3191, 9, 0, "f"],
                       ".",
                       "Const",
-                      3174,
+                      3191,
                       11,
                       0,
                       "apply"
                     ],
                     0,
-                    ["This", 3174, 17, 0],
-                    ["Ident", 3174, 22, 0, "args"]
+                    ["This", 3191, 17, 0],
+                    ["Ident", 3191, 22, 0, "args"]
                   ],
                   "BlockStatement",
-                  3176,
+                  3193,
                   1,
                   0,
                   0,
@@ -44984,10 +45442,10 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3176, 12, 0, "ret"],
+                    ["Ident", 3193, 12, 0, "ret"],
                     "=",
                     "Func",
-                    3176,
+                    3193,
                     16,
                     0,
                     0,
@@ -45006,72 +45464,72 @@
                       0,
                       [
                         "Binary",
-                        3177,
+                        3194,
                         13,
                         0,
-                        ["Arguments", 3177, 13, 0],
+                        ["Arguments", 3194, 13, 0],
                         ".",
                         "Const",
-                        3177,
+                        3194,
                         24,
                         0,
                         "length"
                       ],
                       "===",
                       "Const",
-                      3177,
+                      3194,
                       34,
                       0,
                       0
                     ],
                     [
                       "Return",
-                      3178,
+                      3195,
                       13,
                       0,
                       "Ident",
-                      3178,
+                      3195,
                       13,
                       0,
                       "ret"
                     ],
                     "Return",
-                    3180,
+                    3197,
                     13,
                     0,
                     "Call",
-                    3180,
+                    3197,
                     13,
                     0,
                     [
                       "Binary",
-                      3180,
+                      3197,
                       13,
                       0,
-                      ["Ident", 3180, 13, 0, "currier"],
+                      ["Ident", 3197, 13, 0, "currier"],
                       ".",
                       "Const",
-                      3180,
+                      3197,
                       13,
                       0,
                       "call"
                     ],
                     0,
-                    ["This", 3180, 22, 0],
+                    ["This", 3197, 22, 0],
                     [
                       "Call",
-                      3180,
+                      3197,
                       27,
                       0,
                       [
                         "Binary",
-                        3180,
+                        3197,
                         27,
                         0,
-                        ["Ident", 3180, 27, 0, "args"],
+                        ["Ident", 3197, 27, 0, "args"],
                         ".",
                         "Const",
-                        3180,
+                        3197,
                         33,
                         0,
                         "concat"
@@ -45079,34 +45537,34 @@
                       0,
                       [
                         "Call",
-                        3180,
+                        3197,
                         40,
                         0,
                         [
                           "Binary",
-                          3180,
+                          3197,
                           40,
                           0,
-                          ["Ident", 3180, 40, 0, "__slice"],
+                          ["Ident", 3197, 40, 0, "__slice"],
                           ".",
                           "Const",
-                          3180,
+                          3197,
                           40,
                           0,
                           "call"
                         ],
                         0,
-                        ["Arguments", 3180, 49, 0]
+                        ["Arguments", 3197, 49, 0]
                       ]
                     ]
                   ],
                   [
                     "Return",
-                    3181,
+                    3198,
                     9,
                     0,
                     "Ident",
-                    3181,
+                    3198,
                     9,
                     0,
                     "ret"
@@ -45114,24 +45572,24 @@
                 ],
                 [
                   "Return",
-                  3182,
+                  3199,
                   5,
                   0,
                   "Call",
-                  3182,
+                  3199,
                   5,
                   0,
-                  ["Ident", 3182, 5, 0, "currier"],
+                  ["Ident", 3199, 5, 0, "currier"],
                   0,
-                  ["Arr", 3182, 13, 0]
+                  ["Arr", 3199, 13, 0]
                 ]
               ],
               "Return",
-              3184,
+              3201,
               5,
               0,
               "Ident",
-              3184,
+              3201,
               5,
               0,
               "f"
@@ -45143,18 +45601,18 @@
         __import: {
           helper: [
             "Func",
-            3198,
+            3215,
             27,
             0,
             0,
             [
-              ["Ident", 3198, 28, 0, "dest"],
-              ["Ident", 3198, 33, 0, "source"]
+              ["Ident", 3215, 28, 0, "dest"],
+              ["Ident", 3215, 33, 0, "source"]
             ],
             ["k"],
             [],
             "BlockStatement",
-            3199,
+            3216,
             1,
             0,
             0,
@@ -45164,8 +45622,8 @@
               1,
               0,
               0,
-              ["Ident", 3199, 6, 0, "k"],
-              ["Ident", 3199, 11, 0, "source"],
+              ["Ident", 3216, 6, 0, "k"],
+              ["Ident", 3216, 11, 0, "source"],
               "IfStatement",
               1,
               1,
@@ -45190,8 +45648,8 @@
                   "call"
                 ],
                 0,
-                ["Ident", 3199, 11, 0, "source"],
-                ["Ident", 3199, 6, 0, "k"]
+                ["Ident", 3216, 11, 0, "source"],
+                ["Ident", 3216, 6, 0, "k"]
               ],
               [
                 "Binary",
@@ -45200,26 +45658,26 @@
                 0,
                 [
                   "Binary",
-                  3200,
+                  3217,
                   9,
                   0,
-                  ["Ident", 3200, 5, 0, "dest"],
+                  ["Ident", 3217, 5, 0, "dest"],
                   ".",
                   "Ident",
-                  3200,
+                  3217,
                   10,
                   0,
                   "k"
                 ],
                 "=",
                 "Binary",
-                3200,
+                3217,
                 15,
                 0,
-                ["Ident", 3200, 15, 0, "source"],
+                ["Ident", 3217, 15, 0, "source"],
                 ".",
                 "Ident",
-                3200,
+                3217,
                 23,
                 0,
                 "k"
@@ -45227,11 +45685,11 @@
             ],
             [
               "Return",
-              3201,
+              3218,
               3,
               0,
               "Ident",
-              3201,
+              3218,
               3,
               0,
               "dest"
@@ -45258,13 +45716,13 @@
                 0,
                 "typeof",
                 "Binary",
-                3250,
+                3267,
                 40,
                 0,
-                ["Ident", 3250, 40, 0, "GLOBAL"],
+                ["Ident", 3267, 40, 0, "GLOBAL"],
                 ".",
                 "Const",
-                3250,
+                3267,
                 48,
                 0,
                 "WeakMap"
@@ -45278,13 +45736,13 @@
             ],
             [
               "Binary",
-              3250,
+              3267,
               60,
               0,
-              ["Ident", 3250, 60, 0, "GLOBAL"],
+              ["Ident", 3267, 60, 0, "GLOBAL"],
               ".",
               "Const",
-              3250,
+              3267,
               68,
               0,
               "WeakMap"
@@ -45293,15 +45751,15 @@
             1,
             1,
             0,
-            ["Ident", 3250, 86, 0, "WeakMap"],
+            ["Ident", 3267, 86, 0, "WeakMap"],
             "=",
             "Call",
-            2880,
+            2896,
             1,
             0,
             [
               "Func",
-              2880,
+              2896,
               1,
               0,
               0,
@@ -45309,7 +45767,7 @@
               ["_WeakMap_prototype", "defProp", "isExtensible"],
               [],
               "BlockStatement",
-              2880,
+              2896,
               1,
               0,
               0,
@@ -45318,21 +45776,21 @@
                 1,
                 1,
                 0,
-                ["Ident", 3250, 86, 0, "WeakMap"],
+                ["Ident", 3267, 86, 0, "WeakMap"],
                 [],
                 ["_this"],
                 [],
                 "BlockStatement",
-                3258,
+                3275,
                 1,
                 0,
                 0,
                 [
                   "Binary",
-                  3258,
+                  3275,
                   1,
                   0,
-                  ["Ident", 3258, 1, 0, "_this"],
+                  ["Ident", 3275, 1, 0, "_this"],
                   "=",
                   "IfExpression",
                   1,
@@ -45345,30 +45803,30 @@
                     0,
                     [
                       "Eval",
-                      2803,
+                      2819,
                       21,
                       0,
-                      ["Const", 2803, 27, 0, "this"]
+                      ["Const", 2819, 27, 0, "this"]
                     ],
                     "instanceof",
                     "Ident",
-                    3250,
+                    3267,
                     86,
                     0,
                     "WeakMap"
                   ],
                   [
                     "Eval",
-                    2803,
+                    2819,
                     56,
                     0,
-                    ["Const", 2803, 62, 0, "this"]
+                    ["Const", 2819, 62, 0, "this"]
                   ],
                   "Call",
-                  93019,
-                  93042,
+                  93215,
+                  93238,
                   0,
-                  ["Ident", 93019, 93042, 0, "__create"],
+                  ["Ident", 93215, 93238, 0, "__create"],
                   0,
                   ["Ident", 1, 1, 0, "_WeakMap_prototype"]
                 ],
@@ -45379,20 +45837,20 @@
                   0,
                   [
                     "Binary",
-                    3258,
+                    3275,
                     5,
                     0,
-                    ["Ident", 3258, 5, 0, "_this"],
+                    ["Ident", 3275, 5, 0, "_this"],
                     ".",
                     "Const",
-                    3258,
+                    3275,
                     6,
                     0,
                     "_keys"
                   ],
                   "=",
                   "Arr",
-                  3258,
+                  3275,
                   14,
                   0
                 ],
@@ -45403,20 +45861,20 @@
                   0,
                   [
                     "Binary",
-                    3259,
+                    3276,
                     5,
                     0,
-                    ["Ident", 3259, 5, 0, "_this"],
+                    ["Ident", 3276, 5, 0, "_this"],
                     ".",
                     "Const",
-                    3259,
+                    3276,
                     6,
                     0,
                     "_values"
                   ],
                   "=",
                   "Arr",
-                  3259,
+                  3276,
                   16,
                   0
                 ],
@@ -45427,20 +45885,20 @@
                   0,
                   [
                     "Binary",
-                    3261,
+                    3278,
                     5,
                     0,
-                    ["Ident", 3261, 5, 0, "_this"],
+                    ["Ident", 3278, 5, 0, "_this"],
                     ".",
                     "Const",
-                    3261,
+                    3278,
                     6,
                     0,
                     "_chilly"
                   ],
                   "=",
                   "Arr",
-                  3261,
+                  3278,
                   16,
                   0
                 ],
@@ -45451,32 +45909,32 @@
                   0,
                   [
                     "Binary",
-                    3262,
+                    3279,
                     5,
                     0,
-                    ["Ident", 3262, 5, 0, "_this"],
+                    ["Ident", 3279, 5, 0, "_this"],
                     ".",
                     "Const",
-                    3262,
+                    3279,
                     6,
                     0,
                     "_uid"
                   ],
                   "=",
                   "Call",
-                  3262,
+                  3279,
                   13,
                   0,
-                  ["Ident", 3262, 13, 0, "createUid"],
+                  ["Ident", 3279, 13, 0, "createUid"],
                   0
                 ],
                 [
                   "Return",
-                  3258,
+                  3275,
                   1,
                   0,
                   "Ident",
-                  3258,
+                  3275,
                   1,
                   0,
                   "_this"
@@ -45490,13 +45948,13 @@
                 ["Ident", 1, 1, 0, "_WeakMap_prototype"],
                 "=",
                 "Binary",
-                2734,
+                2750,
                 37,
                 0,
-                ["Ident", 3250, 86, 0, "WeakMap"],
+                ["Ident", 3267, 86, 0, "WeakMap"],
                 ".",
                 "Const",
-                2734,
+                2750,
                 44,
                 0,
                 "prototype"
@@ -45508,13 +45966,13 @@
                 0,
                 [
                   "Binary",
-                  2746,
+                  2762,
                   27,
                   0,
-                  ["Ident", 3250, 86, 0, "WeakMap"],
+                  ["Ident", 3267, 86, 0, "WeakMap"],
                   ".",
                   "Const",
-                  2746,
+                  2762,
                   28,
                   0,
                   "displayName"
@@ -45531,47 +45989,47 @@
                 1,
                 1,
                 0,
-                ["Ident", 3251, 6, 0, "uidRand"],
+                ["Ident", 3268, 6, 0, "uidRand"],
                 [],
                 [],
                 [],
                 "Return",
-                3252,
+                3269,
                 5,
                 0,
                 "Call",
-                3252,
+                3269,
                 5,
                 0,
                 [
                   "Binary",
-                  3252,
+                  3269,
                   5,
                   0,
                   [
                     "Call",
-                    3252,
+                    3269,
                     5,
                     0,
                     [
                       "Binary",
-                      3252,
+                      3269,
                       5,
                       0,
                       [
                         "Call",
-                        3252,
+                        3269,
                         5,
                         0,
                         [
                           "Binary",
-                          3252,
+                          3269,
                           5,
                           0,
-                          ["Ident", 3252, 5, 0, "Math"],
+                          ["Ident", 3269, 5, 0, "Math"],
                           ".",
                           "Const",
-                          3252,
+                          3269,
                           10,
                           0,
                           "random"
@@ -45580,30 +46038,30 @@
                       ],
                       ".",
                       "Const",
-                      3252,
+                      3269,
                       19,
                       0,
                       "toString"
                     ],
                     0,
-                    ["Const", 3252, 29, 0, 36]
+                    ["Const", 3269, 29, 0, 36]
                   ],
                   ".",
                   "Const",
-                  3252,
+                  3269,
                   33,
                   0,
                   "slice"
                 ],
                 0,
-                ["Const", 3252, 39, 0, 2]
+                ["Const", 3269, 39, 0, 2]
               ],
               [
                 "Func",
                 1,
                 1,
                 0,
-                ["Ident", 3253, 6, 0, "createUid"],
+                ["Ident", 3270, 6, 0, "createUid"],
                 [],
                 [],
                 [],
@@ -45649,16 +46107,16 @@
                             0,
                             [
                               "Call",
-                              3254,
+                              3271,
                               8,
                               0,
-                              ["Ident", 3254, 8, 0, "uidRand"],
+                              ["Ident", 3271, 8, 0, "uidRand"],
                               0
                             ]
                           ],
                           "+",
                           "Const",
-                          3254,
+                          3271,
                           5,
                           0,
                           "-"
@@ -45672,25 +46130,25 @@
                         0,
                         [
                           "Call",
-                          3254,
+                          3271,
                           22,
                           0,
                           [
                             "Binary",
-                            3254,
+                            3271,
                             22,
                             0,
                             [
                               "Call",
-                              3254,
+                              3271,
                               22,
                               0,
-                              ["Ident", 3254, 25, 0, "Date"],
+                              ["Ident", 3271, 25, 0, "Date"],
                               1
                             ],
                             ".",
                             "Const",
-                            3254,
+                            3271,
                             33,
                             0,
                             "getTime"
@@ -45700,7 +46158,7 @@
                       ],
                       "+",
                       "Const",
-                      3254,
+                      3271,
                       5,
                       0,
                       "-"
@@ -45714,16 +46172,16 @@
                     0,
                     [
                       "Call",
-                      3254,
+                      3271,
                       47,
                       0,
-                      ["Ident", 3254, 47, 0, "uidRand"],
+                      ["Ident", 3271, 47, 0, "uidRand"],
                       0
                     ]
                   ],
                   "+",
                   "Const",
-                  3254,
+                  3271,
                   5,
                   0,
                   "-"
@@ -45737,10 +46195,10 @@
                 0,
                 [
                   "Call",
-                  3254,
+                  3271,
                   61,
                   0,
-                  ["Ident", 3254, 61, 0, "uidRand"],
+                  ["Ident", 3271, 61, 0, "uidRand"],
                   0
                 ]
               ],
@@ -45749,7 +46207,7 @@
                 1,
                 1,
                 0,
-                ["Ident", 3255, 6, 0, "isExtensible"],
+                ["Ident", 3272, 6, 0, "isExtensible"],
                 "=",
                 "Binary",
                 1,
@@ -45757,20 +46215,20 @@
                 0,
                 [
                   "Binary",
-                  3255,
+                  3272,
                   22,
                   0,
-                  ["Ident", 3255, 22, 0, "Object"],
+                  ["Ident", 3272, 22, 0, "Object"],
                   ".",
                   "Const",
-                  3255,
+                  3272,
                   30,
                   0,
                   "isExtensible"
                 ],
                 "||",
                 "Func",
-                3255,
+                3272,
                 48,
                 0,
                 0,
@@ -45778,11 +46236,11 @@
                 [],
                 [],
                 "Return",
-                3255,
+                3272,
                 50,
                 0,
                 "Const",
-                3255,
+                3272,
                 50,
                 0,
                 true
@@ -45792,12 +46250,12 @@
                 1,
                 1,
                 0,
-                ["Ident", 3264, 6, 0, "check"],
-                [["Ident", 3264, 13, 0, "key"]],
+                ["Ident", 3281, 6, 0, "check"],
+                [["Ident", 3281, 13, 0, "key"]],
                 ["chilly", "uid"],
                 [],
                 "BlockExpression",
-                3265,
+                3282,
                 1,
                 0,
                 [
@@ -45805,16 +46263,16 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3265, 8, 0, "uid"],
+                  ["Ident", 3282, 8, 0, "uid"],
                   "=",
                   "Binary",
-                  3265,
+                  3282,
                   14,
                   0,
-                  ["This", 3265, 14, 0],
+                  ["This", 3282, 14, 0],
                   ".",
                   "Const",
-                  3265,
+                  3282,
                   16,
                   0,
                   "_uid"
@@ -45843,12 +46301,12 @@
                       "call"
                     ],
                     0,
-                    ["Ident", 3266, 7, 0, "key"],
-                    ["Ident", 3266, 19, 0, "uid"]
+                    ["Ident", 3283, 7, 0, "key"],
+                    ["Ident", 3283, 19, 0, "uid"]
                   ],
                   [
                     "BlockExpression",
-                    3267,
+                    3284,
                     1,
                     0,
                     [
@@ -45856,16 +46314,16 @@
                       1,
                       1,
                       0,
-                      ["Ident", 3267, 10, 0, "chilly"],
+                      ["Ident", 3284, 10, 0, "chilly"],
                       "=",
                       "Binary",
-                      3267,
+                      3284,
                       19,
                       0,
-                      ["This", 3267, 19, 0],
+                      ["This", 3284, 19, 0],
                       ".",
                       "Const",
-                      3267,
+                      3284,
                       21,
                       0,
                       "_chilly"
@@ -45882,24 +46340,24 @@
                         0,
                         [
                           "Call",
-                          3268,
+                          3285,
                           9,
                           0,
                           [
                             "Binary",
-                            3268,
+                            3285,
                             9,
                             0,
-                            ["Ident", 3268, 9, 0, "chilly"],
+                            ["Ident", 3285, 9, 0, "chilly"],
                             ".",
                             "Const",
-                            3268,
+                            3285,
                             17,
                             0,
                             "indexOf"
                           ],
                           0,
-                          ["Ident", 3268, 26, 0, "key"]
+                          ["Ident", 3285, 26, 0, "key"]
                         ],
                         "===",
                         "Const",
@@ -45910,89 +46368,89 @@
                       ],
                       [
                         "BlockExpression",
-                        3269,
+                        3286,
                         1,
                         0,
                         [
                           "Call",
-                          3269,
+                          3286,
                           9,
                           0,
                           [
                             "Binary",
-                            3269,
+                            3286,
                             9,
                             0,
-                            ["Ident", 3269, 9, 0, "chilly"],
+                            ["Ident", 3286, 9, 0, "chilly"],
                             ".",
                             "Const",
-                            3269,
+                            3286,
                             16,
                             0,
                             "push"
                           ],
                           0,
-                          ["Ident", 3269, 21, 0, "key"]
+                          ["Ident", 3286, 21, 0, "key"]
                         ],
                         [
                           "Call",
-                          3270,
+                          3287,
                           9,
                           0,
                           [
                             "Binary",
-                            3270,
+                            3287,
                             9,
                             0,
                             [
                               "Binary",
-                              3270,
+                              3287,
                               9,
                               0,
-                              ["This", 3270, 9, 0],
+                              ["This", 3287, 9, 0],
                               ".",
                               "Const",
-                              3270,
+                              3287,
                               10,
                               0,
                               "_keys"
                             ],
                             ".",
                             "Const",
-                            3270,
+                            3287,
                             16,
                             0,
                             "push"
                           ],
                           0,
-                          ["Ident", 3270, 21, 0, "key"]
+                          ["Ident", 3287, 21, 0, "key"]
                         ],
                         [
                           "Call",
-                          3271,
+                          3288,
                           9,
                           0,
                           [
                             "Binary",
-                            3271,
+                            3288,
                             9,
                             0,
                             [
                               "Binary",
-                              3271,
+                              3288,
                               9,
                               0,
-                              ["This", 3271, 9, 0],
+                              ["This", 3288, 9, 0],
                               ".",
                               "Const",
-                              3271,
+                              3288,
                               10,
                               0,
                               "_values"
                             ],
                             ".",
                             "Const",
-                            3271,
+                            3288,
                             18,
                             0,
                             "push"
@@ -46000,13 +46458,13 @@
                           0,
                           [
                             "Binary",
-                            3271,
+                            3288,
                             23,
                             0,
-                            ["Ident", 3271, 23, 0, "key"],
+                            ["Ident", 3288, 23, 0, "key"],
                             ".",
                             "Ident",
-                            3271,
+                            3288,
                             27,
                             0,
                             "uid"
@@ -46024,28 +46482,28 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_WeakMap_prototype"],
                   ".",
                   "Const",
-                  3273,
+                  3290,
                   6,
                   0,
                   "get"
                 ],
                 "=",
                 "Func",
-                3273,
+                3290,
                 10,
                 0,
                 0,
-                [["Ident", 3273, 11, 0, "key"]],
+                [["Ident", 3290, 11, 0, "key"]],
                 ["_ref", "index"],
                 [],
                 "BlockStatement",
-                3274,
+                3291,
                 1,
                 0,
                 0,
@@ -46062,16 +46520,16 @@
                     0,
                     [
                       "Call",
-                      3274,
+                      3291,
                       7,
                       0,
-                      ["Ident", 3274, 7, 0, "Object"],
+                      ["Ident", 3291, 7, 0, "Object"],
                       0,
-                      ["Ident", 3274, 15, 0, "key"]
+                      ["Ident", 3291, 15, 0, "key"]
                     ],
                     "!==",
                     "Ident",
-                    3274,
+                    3291,
                     22,
                     0,
                     "key"
@@ -46082,12 +46540,12 @@
                     1,
                     0,
                     "Call",
-                    3275,
+                    3292,
                     12,
                     0,
-                    ["Ident", 3275, 12, 0, "TypeError"],
+                    ["Ident", 3292, 12, 0, "TypeError"],
                     0,
-                    ["Const", 3275, 23, 0, "Invalid value used as weak map key"]
+                    ["Const", 3292, 23, 0, "Invalid value used as weak map key"]
                   ]
                 ],
                 [
@@ -46098,16 +46556,16 @@
                   0,
                   [
                     "Call",
-                    3277,
+                    3294,
                     7,
                     0,
-                    ["Ident", 3277, 7, 0, "isExtensible"],
+                    ["Ident", 3294, 7, 0, "isExtensible"],
                     0,
-                    ["Ident", 3277, 22, 0, "key"]
+                    ["Ident", 3294, 22, 0, "key"]
                   ],
                   [
                     "IfStatement",
-                    3278,
+                    3295,
                     7,
                     0,
                     0,
@@ -46130,22 +46588,22 @@
                         "call"
                       ],
                       0,
-                      ["Ident", 3278, 7, 0, "key"],
+                      ["Ident", 3295, 7, 0, "key"],
                       [
                         "Binary",
-                        3278,
+                        3295,
                         7,
                         0,
-                        ["Ident", 3278, 7, 0, "_ref"],
+                        ["Ident", 3295, 7, 0, "_ref"],
                         "=",
                         "Binary",
-                        3278,
+                        3295,
                         12,
                         0,
-                        ["This", 3278, 12, 0],
+                        ["This", 3295, 12, 0],
                         ".",
                         "Const",
-                        3278,
+                        3295,
                         13,
                         0,
                         "_uid"
@@ -46153,87 +46611,87 @@
                     ],
                     [
                       "Return",
-                      3278,
+                      3295,
                       7,
                       0,
                       "Binary",
-                      3278,
+                      3295,
                       7,
                       0,
-                      ["Ident", 3278, 7, 0, "key"],
+                      ["Ident", 3295, 7, 0, "key"],
                       ".",
                       "Ident",
-                      3278,
+                      3295,
                       7,
                       0,
                       "_ref"
                     ]
                   ],
                   "BlockStatement",
-                  3280,
+                  3297,
                   1,
                   0,
                   0,
                   [
                     "Call",
-                    3280,
+                    3297,
                     7,
                     0,
                     [
                       "Binary",
-                      3280,
+                      3297,
                       7,
                       0,
-                      ["Ident", 3280, 7, 0, "check"],
+                      ["Ident", 3297, 7, 0, "check"],
                       ".",
                       "Const",
-                      3280,
+                      3297,
                       7,
                       0,
                       "call"
                     ],
                     0,
-                    ["This", 3280, 14, 0],
-                    ["Ident", 3280, 19, 0, "key"]
+                    ["This", 3297, 14, 0],
+                    ["Ident", 3297, 19, 0, "key"]
                   ],
                   [
                     "Binary",
                     1,
                     1,
                     0,
-                    ["Ident", 3281, 10, 0, "index"],
+                    ["Ident", 3298, 10, 0, "index"],
                     "=",
                     "Call",
-                    3281,
+                    3298,
                     18,
                     0,
                     [
                       "Binary",
-                      3281,
+                      3298,
                       18,
                       0,
                       [
                         "Binary",
-                        3281,
+                        3298,
                         18,
                         0,
-                        ["This", 3281, 18, 0],
+                        ["This", 3298, 18, 0],
                         ".",
                         "Const",
-                        3281,
+                        3298,
                         20,
                         0,
                         "_keys"
                       ],
                       ".",
                       "Const",
-                      3281,
+                      3298,
                       26,
                       0,
                       "indexOf"
                     ],
                     0,
-                    ["Ident", 3281, 35, 0, "key"]
+                    ["Ident", 3298, 35, 0, "key"]
                   ],
                   [
                     "IfStatement",
@@ -46246,7 +46704,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 3282, 9, 0, "index"],
+                      ["Ident", 3299, 9, 0, "index"],
                       "===",
                       "Const",
                       1,
@@ -46256,38 +46714,38 @@
                     ],
                     [
                       "Return",
-                      3283,
+                      3300,
                       9,
                       0,
                       "Const",
-                      3283,
+                      3300,
                       9,
                       0
                     ],
                     "Return",
-                    3285,
+                    3302,
                     9,
                     0,
                     "Binary",
-                    3285,
+                    3302,
                     9,
                     0,
                     [
                       "Binary",
-                      3285,
+                      3302,
                       9,
                       0,
-                      ["This", 3285, 9, 0],
+                      ["This", 3302, 9, 0],
                       ".",
                       "Const",
-                      3285,
+                      3302,
                       10,
                       0,
                       "_values"
                     ],
                     ".",
                     "Ident",
-                    3285,
+                    3302,
                     18,
                     0,
                     "index"
@@ -46301,28 +46759,28 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_WeakMap_prototype"],
                   ".",
                   "Const",
-                  3287,
+                  3304,
                   6,
                   0,
                   "has"
                 ],
                 "=",
                 "Func",
-                3287,
+                3304,
                 10,
                 0,
                 0,
-                [["Ident", 3287, 11, 0, "key"]],
+                [["Ident", 3304, 11, 0, "key"]],
                 [],
                 [],
                 "BlockStatement",
-                3288,
+                3305,
                 1,
                 0,
                 0,
@@ -46339,16 +46797,16 @@
                     0,
                     [
                       "Call",
-                      3288,
+                      3305,
                       7,
                       0,
-                      ["Ident", 3288, 7, 0, "Object"],
+                      ["Ident", 3305, 7, 0, "Object"],
                       0,
-                      ["Ident", 3288, 15, 0, "key"]
+                      ["Ident", 3305, 15, 0, "key"]
                     ],
                     "!==",
                     "Ident",
-                    3288,
+                    3305,
                     22,
                     0,
                     "key"
@@ -46359,12 +46817,12 @@
                     1,
                     0,
                     "Call",
-                    3289,
+                    3306,
                     12,
                     0,
-                    ["Ident", 3289, 12, 0, "TypeError"],
+                    ["Ident", 3306, 12, 0, "TypeError"],
                     0,
-                    ["Const", 3289, 23, 0, "Invalid value used as weak map key"]
+                    ["Const", 3306, 23, 0, "Invalid value used as weak map key"]
                   ]
                 ],
                 [
@@ -46375,12 +46833,12 @@
                   0,
                   [
                     "Call",
-                    3291,
+                    3308,
                     7,
                     0,
-                    ["Ident", 3291, 7, 0, "isExtensible"],
+                    ["Ident", 3308, 7, 0, "isExtensible"],
                     0,
-                    ["Ident", 3291, 22, 0, "key"]
+                    ["Ident", 3308, 22, 0, "key"]
                   ],
                   [
                     "Return",
@@ -46405,47 +46863,47 @@
                       "call"
                     ],
                     0,
-                    ["Ident", 3292, 7, 0, "key"],
+                    ["Ident", 3309, 7, 0, "key"],
                     [
                       "Binary",
-                      3292,
+                      3309,
                       18,
                       0,
-                      ["This", 3292, 18, 0],
+                      ["This", 3309, 18, 0],
                       ".",
                       "Const",
-                      3292,
+                      3309,
                       20,
                       0,
                       "_uid"
                     ]
                   ],
                   "BlockStatement",
-                  3294,
+                  3311,
                   1,
                   0,
                   0,
                   [
                     "Call",
-                    3294,
+                    3311,
                     7,
                     0,
                     [
                       "Binary",
-                      3294,
+                      3311,
                       7,
                       0,
-                      ["Ident", 3294, 7, 0, "check"],
+                      ["Ident", 3311, 7, 0, "check"],
                       ".",
                       "Const",
-                      3294,
+                      3311,
                       7,
                       0,
                       "call"
                     ],
                     0,
-                    ["This", 3294, 14, 0],
-                    ["Ident", 3294, 19, 0, "key"]
+                    ["This", 3311, 14, 0],
+                    ["Ident", 3311, 19, 0, "key"]
                   ],
                   [
                     "Return",
@@ -46458,36 +46916,36 @@
                     0,
                     [
                       "Call",
-                      3295,
+                      3312,
                       7,
                       0,
                       [
                         "Binary",
-                        3295,
+                        3312,
                         7,
                         0,
                         [
                           "Binary",
-                          3295,
+                          3312,
                           7,
                           0,
-                          ["This", 3295, 7, 0],
+                          ["This", 3312, 7, 0],
                           ".",
                           "Const",
-                          3295,
+                          3312,
                           8,
                           0,
                           "_keys"
                         ],
                         ".",
                         "Const",
-                        3295,
+                        3312,
                         14,
                         0,
                         "indexOf"
                       ],
                       0,
-                      ["Ident", 3295, 23, 0, "key"]
+                      ["Ident", 3312, 23, 0, "key"]
                     ],
                     "!==",
                     "Const",
@@ -46516,13 +46974,13 @@
                     0,
                     "typeof",
                     "Binary",
-                    3297,
+                    3314,
                     33,
                     0,
-                    ["Ident", 3297, 33, 0, "Object"],
+                    ["Ident", 3314, 33, 0, "Object"],
                     ".",
                     "Const",
-                    3297,
+                    3314,
                     41,
                     0,
                     "defineProperty"
@@ -46539,16 +46997,16 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3297, 6, 0, "defProp"],
+                  ["Ident", 3314, 6, 0, "defProp"],
                   "=",
                   "Binary",
-                  3297,
+                  3314,
                   61,
                   0,
-                  ["Ident", 3297, 61, 0, "Object"],
+                  ["Ident", 3314, 61, 0, "Object"],
                   ".",
                   "Const",
-                  3297,
+                  3314,
                   69,
                   0,
                   "defineProperty"
@@ -46557,17 +47015,17 @@
                 1,
                 1,
                 0,
-                ["Ident", 3297, 6, 0, "defProp"],
+                ["Ident", 3314, 6, 0, "defProp"],
                 "=",
                 "Func",
-                3297,
+                3314,
                 91,
                 0,
                 0,
                 [
-                  ["Ident", 3297, 92, 0, "o"],
-                  ["Ident", 3297, 94, 0, "k"],
-                  ["Ident", 3297, 97, 0, "d"]
+                  ["Ident", 3314, 92, 0, "o"],
+                  ["Ident", 3314, 94, 0, "k"],
+                  ["Ident", 3314, 97, 0, "d"]
                 ],
                 [],
                 [],
@@ -46577,26 +47035,26 @@
                 0,
                 [
                   "Binary",
-                  3297,
+                  3314,
                   106,
                   0,
-                  ["Ident", 3297, 104, 0, "o"],
+                  ["Ident", 3314, 104, 0, "o"],
                   ".",
                   "Ident",
-                  3297,
+                  3314,
                   107,
                   0,
                   "k"
                 ],
                 "=",
                 "Binary",
-                3297,
+                3314,
                 112,
                 0,
-                ["Ident", 3297, 112, 0, "d"],
+                ["Ident", 3314, 112, 0, "d"],
                 ".",
                 "Const",
-                3297,
+                3314,
                 115,
                 0,
                 "value"
@@ -46608,31 +47066,31 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_WeakMap_prototype"],
                   ".",
                   "Const",
-                  3298,
+                  3315,
                   6,
                   0,
                   "set"
                 ],
                 "=",
                 "Func",
-                3298,
+                3315,
                 10,
                 0,
                 0,
                 [
-                  ["Ident", 3298, 11, 0, "key"],
-                  ["Ident", 3298, 15, 0, "value"]
+                  ["Ident", 3315, 11, 0, "key"],
+                  ["Ident", 3315, 15, 0, "value"]
                 ],
                 ["index", "keys"],
                 [],
                 "BlockStatement",
-                3299,
+                3316,
                 1,
                 0,
                 0,
@@ -46649,16 +47107,16 @@
                     0,
                     [
                       "Call",
-                      3299,
+                      3316,
                       7,
                       0,
-                      ["Ident", 3299, 7, 0, "Object"],
+                      ["Ident", 3316, 7, 0, "Object"],
                       0,
-                      ["Ident", 3299, 15, 0, "key"]
+                      ["Ident", 3316, 15, 0, "key"]
                     ],
                     "!==",
                     "Ident",
-                    3299,
+                    3316,
                     22,
                     0,
                     "key"
@@ -46669,12 +47127,12 @@
                     1,
                     0,
                     "Call",
-                    3300,
+                    3317,
                     12,
                     0,
-                    ["Ident", 3300, 12, 0, "TypeError"],
+                    ["Ident", 3317, 12, 0, "TypeError"],
                     0,
-                    ["Const", 3300, 23, 0, "Invalid value used as weak map key"]
+                    ["Const", 3317, 23, 0, "Invalid value used as weak map key"]
                   ]
                 ],
                 [
@@ -46685,103 +47143,103 @@
                   0,
                   [
                     "Call",
-                    3302,
+                    3319,
                     7,
                     0,
-                    ["Ident", 3302, 7, 0, "isExtensible"],
+                    ["Ident", 3319, 7, 0, "isExtensible"],
                     0,
-                    ["Ident", 3302, 22, 0, "key"]
+                    ["Ident", 3319, 22, 0, "key"]
                   ],
                   [
                     "Call",
-                    3303,
+                    3320,
                     7,
                     0,
-                    ["Ident", 3303, 7, 0, "defProp"],
+                    ["Ident", 3320, 7, 0, "defProp"],
                     0,
-                    ["Ident", 3303, 16, 0, "key"],
+                    ["Ident", 3320, 16, 0, "key"],
                     [
                       "Binary",
-                      3303,
+                      3320,
                       20,
                       0,
-                      ["This", 3303, 20, 0],
+                      ["This", 3320, 20, 0],
                       ".",
                       "Const",
-                      3303,
+                      3320,
                       22,
                       0,
                       "_uid"
                     ],
                     [
                       "Obj",
-                      108901,
-                      108985,
+                      109117,
+                      109201,
                       0,
-                      3304,
+                      3321,
                       10,
                       null,
                       "configurable",
-                      ["Const", 3304, 9, 0, true],
-                      3305,
+                      ["Const", 3321, 9, 0, true],
+                      3322,
                       10,
                       null,
                       "writable",
-                      ["Const", 3305, 9, 0, true],
-                      3306,
+                      ["Const", 3322, 9, 0, true],
+                      3323,
                       10,
                       null,
                       "enumerable",
-                      ["Const", 3306, 9, 0, false],
-                      3307,
+                      ["Const", 3323, 9, 0, false],
+                      3324,
                       9,
                       null,
                       "value",
-                      ["Ident", 3307, 9, 0, "value"]
+                      ["Ident", 3324, 9, 0, "value"]
                     ]
                   ],
                   "BlockStatement",
-                  3310,
+                  3327,
                   1,
                   0,
                   0,
                   [
                     "Call",
-                    3310,
+                    3327,
                     7,
                     0,
                     [
                       "Binary",
-                      3310,
+                      3327,
                       7,
                       0,
-                      ["Ident", 3310, 7, 0, "check"],
+                      ["Ident", 3327, 7, 0, "check"],
                       ".",
                       "Const",
-                      3310,
+                      3327,
                       7,
                       0,
                       "call"
                     ],
                     0,
-                    ["This", 3310, 14, 0],
-                    ["Ident", 3310, 19, 0, "key"]
+                    ["This", 3327, 14, 0],
+                    ["Ident", 3327, 19, 0, "key"]
                   ],
                   [
                     "Binary",
                     1,
                     1,
                     0,
-                    ["Ident", 3311, 10, 0, "keys"],
+                    ["Ident", 3328, 10, 0, "keys"],
                     "=",
                     "Binary",
-                    3311,
+                    3328,
                     17,
                     0,
-                    ["This", 3311, 17, 0],
+                    ["This", 3328, 17, 0],
                     ".",
                     "Const",
-                    3311,
+                    3328,
                     19,
                     0,
                     "_keys"
@@ -46791,27 +47249,27 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3312, 18, 0, "index"],
+                    ["Ident", 3329, 18, 0, "index"],
                     "=",
                     "Call",
-                    3312,
+                    3329,
                     26,
                     0,
                     [
                       "Binary",
-                      3312,
+                      3329,
                       26,
                       0,
-                      ["Ident", 3312, 26, 0, "keys"],
+                      ["Ident", 3329, 26, 0, "keys"],
                       ".",
                       "Const",
-                      3312,
+                      3329,
                       32,
                       0,
                       "indexOf"
                     ],
                     0,
-                    ["Ident", 3312, 41, 0, "key"]
+                    ["Ident", 3329, 41, 0, "key"]
                   ],
                   [
                     "IfStatement",
@@ -46824,7 +47282,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 3313, 9, 0, "index"],
+                      ["Ident", 3330, 9, 0, "index"],
                       "===",
                       "Const",
                       1,
@@ -46834,7 +47292,7 @@
                     ],
                     [
                       "BlockStatement",
-                      3314,
+                      3331,
                       1,
                       0,
                       0,
@@ -46843,16 +47301,16 @@
                         1,
                         1,
                         0,
-                        ["Ident", 3314, 9, 0, "index"],
+                        ["Ident", 3331, 9, 0, "index"],
                         "=",
                         "Binary",
-                        3314,
+                        3331,
                         17,
                         0,
-                        ["Ident", 3314, 17, 0, "keys"],
+                        ["Ident", 3331, 17, 0, "keys"],
                         ".",
                         "Const",
-                        3314,
+                        3331,
                         23,
                         0,
                         "length"
@@ -46864,20 +47322,20 @@
                         0,
                         [
                           "Binary",
-                          3315,
+                          3332,
                           13,
                           0,
-                          ["Ident", 3315, 9, 0, "keys"],
+                          ["Ident", 3332, 9, 0, "keys"],
                           ".",
                           "Ident",
-                          3315,
+                          3332,
                           14,
                           0,
                           "index"
                         ],
                         "=",
                         "Ident",
-                        3315,
+                        3332,
                         23,
                         0,
                         "key"
@@ -46891,32 +47349,32 @@
                     0,
                     [
                       "Binary",
-                      3316,
+                      3333,
                       15,
                       0,
                       [
                         "Binary",
-                        3316,
+                        3333,
                         7,
                         0,
-                        ["This", 3316, 7, 0],
+                        ["This", 3333, 7, 0],
                         ".",
                         "Const",
-                        3316,
+                        3333,
                         8,
                         0,
                         "_values"
                       ],
                       ".",
                       "Ident",
-                      3316,
+                      3333,
                       16,
                       0,
                       "index"
                     ],
                     "=",
                     "Ident",
-                    3316,
+                    3333,
                     25,
                     0,
                     "value"
@@ -46930,28 +47388,28 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_WeakMap_prototype"],
                   ".",
                   "Const",
-                  3318,
+                  3335,
                   6,
                   0,
                   "delete"
                 ],
                 "=",
                 "Func",
-                3318,
+                3335,
                 13,
                 0,
                 0,
-                [["Ident", 3318, 14, 0, "key"]],
+                [["Ident", 3335, 14, 0, "key"]],
                 ["index", "keys"],
                 [],
                 "BlockStatement",
-                3319,
+                3336,
                 1,
                 0,
                 0,
@@ -46968,16 +47426,16 @@
                     0,
                     [
                       "Call",
-                      3319,
+                      3336,
                       7,
                       0,
-                      ["Ident", 3319, 7, 0, "Object"],
+                      ["Ident", 3336, 7, 0, "Object"],
                       0,
-                      ["Ident", 3319, 15, 0, "key"]
+                      ["Ident", 3336, 15, 0, "key"]
                     ],
                     "!==",
                     "Ident",
-                    3319,
+                    3336,
                     22,
                     0,
                     "key"
@@ -46988,12 +47446,12 @@
                     1,
                     0,
                     "Call",
-                    3320,
+                    3337,
                     12,
                     0,
-                    ["Ident", 3320, 12, 0, "TypeError"],
+                    ["Ident", 3337, 12, 0, "TypeError"],
                     0,
-                    ["Const", 3320, 23, 0, "Invalid value used as weak map key"]
+                    ["Const", 3337, 23, 0, "Invalid value used as weak map key"]
                   ]
                 ],
                 [
@@ -47004,12 +47462,12 @@
                   0,
                   [
                     "Call",
-                    3322,
+                    3339,
                     7,
                     0,
-                    ["Ident", 3322, 7, 0, "isExtensible"],
+                    ["Ident", 3339, 7, 0, "isExtensible"],
                     0,
-                    ["Ident", 3322, 22, 0, "key"]
+                    ["Ident", 3339, 22, 0, "key"]
                   ],
                   [
                     "Unary",
@@ -47018,65 +47476,65 @@
                     0,
                     "delete",
                     "Binary",
-                    3323,
+                    3340,
                     13,
                     0,
-                    ["Ident", 3323, 13, 0, "key"],
+                    ["Ident", 3340, 13, 0, "key"],
                     ".",
                     "Binary",
-                    3323,
+                    3340,
                     18,
                     0,
-                    ["This", 3323, 18, 0],
+                    ["This", 3340, 18, 0],
                     ".",
                     "Const",
-                    3323,
+                    3340,
                     19,
                     0,
                     "_uid"
                   ],
                   "BlockStatement",
-                  3325,
+                  3342,
                   1,
                   0,
                   0,
                   [
                     "Call",
-                    3325,
+                    3342,
                     7,
                     0,
                     [
                       "Binary",
-                      3325,
+                      3342,
                       7,
                       0,
-                      ["Ident", 3325, 7, 0, "check"],
+                      ["Ident", 3342, 7, 0, "check"],
                       ".",
                       "Const",
-                      3325,
+                      3342,
                       7,
                       0,
                       "call"
                     ],
                     0,
-                    ["This", 3325, 14, 0],
-                    ["Ident", 3325, 19, 0, "key"]
+                    ["This", 3342, 14, 0],
+                    ["Ident", 3342, 19, 0, "key"]
                   ],
                   [
                     "Binary",
                     1,
                     1,
                     0,
-                    ["Ident", 3326, 10, 0, "keys"],
+                    ["Ident", 3343, 10, 0, "keys"],
                     "=",
                     "Binary",
-                    3326,
+                    3343,
                     17,
                     0,
-                    ["This", 3326, 17, 0],
+                    ["This", 3343, 17, 0],
                     ".",
                     "Const",
-                    3326,
+                    3343,
                     19,
                     0,
                     "_keys"
@@ -47086,27 +47544,27 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3327, 18, 0, "index"],
+                    ["Ident", 3344, 18, 0, "index"],
                     "=",
                     "Call",
-                    3327,
+                    3344,
                     26,
                     0,
                     [
                       "Binary",
-                      3327,
+                      3344,
                       26,
                       0,
-                      ["Ident", 3327, 26, 0, "keys"],
+                      ["Ident", 3344, 26, 0, "keys"],
                       ".",
                       "Const",
-                      3327,
+                      3344,
                       32,
                       0,
                       "indexOf"
                     ],
                     0,
-                    ["Ident", 3327, 41, 0, "key"]
+                    ["Ident", 3344, 41, 0, "key"]
                   ],
                   [
                     "IfStatement",
@@ -47119,7 +47577,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 3328, 9, 0, "index"],
+                      ["Ident", 3345, 9, 0, "index"],
                       "!==",
                       "Const",
                       1,
@@ -47129,65 +47587,65 @@
                     ],
                     [
                       "BlockStatement",
-                      3329,
+                      3346,
                       1,
                       0,
                       0,
                       [
                         "Call",
-                        3329,
+                        3346,
                         9,
                         0,
                         [
                           "Binary",
-                          3329,
+                          3346,
                           9,
                           0,
-                          ["Ident", 3329, 9, 0, "keys"],
+                          ["Ident", 3346, 9, 0, "keys"],
                           ".",
                           "Const",
-                          3329,
+                          3346,
                           14,
                           0,
                           "splice"
                         ],
                         0,
-                        ["Ident", 3329, 21, 0, "index"],
-                        ["Const", 3329, 28, 0, 1]
+                        ["Ident", 3346, 21, 0, "index"],
+                        ["Const", 3346, 28, 0, 1]
                       ],
                       [
                         "Call",
-                        3330,
+                        3347,
                         9,
                         0,
                         [
                           "Binary",
-                          3330,
+                          3347,
                           9,
                           0,
                           [
                             "Binary",
-                            3330,
+                            3347,
                             9,
                             0,
-                            ["This", 3330, 9, 0],
+                            ["This", 3347, 9, 0],
                             ".",
                             "Const",
-                            3330,
+                            3347,
                             10,
                             0,
                             "_values"
                           ],
                           ".",
                           "Const",
-                          3330,
+                          3347,
                           18,
                           0,
                           "splice"
                         ],
                         0,
-                        ["Ident", 3330, 25, 0, "index"],
-                        ["Const", 3330, 32, 0, 1]
+                        ["Ident", 3347, 25, 0, "index"],
+                        ["Const", 3347, 32, 0, 1]
                       ]
                     ]
                   ]
@@ -47199,7 +47657,7 @@
                 1,
                 0,
                 "Ident",
-                3250,
+                3267,
                 86,
                 0,
                 "WeakMap"
@@ -47213,18 +47671,18 @@
         __indexOfIdentical: {
           helper: [
             "Func",
-            3332,
+            3349,
             39,
             0,
             0,
             [
-              ["Ident", 3332, 40, 0, "array"],
-              ["Ident", 3332, 46, 0, "item"]
+              ["Ident", 3349, 40, 0, "array"],
+              ["Ident", 3349, 46, 0, "item"]
             ],
             ["_arr", "check", "i", "inf"],
             [],
             "BlockStatement",
-            3333,
+            3350,
             1,
             0,
             0,
@@ -47246,14 +47704,14 @@
                   0,
                   "typeof",
                   "Ident",
-                  3333,
+                  3350,
                   12,
                   0,
                   "item"
                 ],
                 "===",
                 "Const",
-                3333,
+                3350,
                 22,
                 0,
                 "number"
@@ -47269,17 +47727,17 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3334, 7, 0, "item"],
+                  ["Ident", 3351, 7, 0, "item"],
                   "!==",
                   "Ident",
-                  3334,
+                  3351,
                   7,
                   0,
                   "item"
                 ],
                 [
                   "BlockStatement",
-                  3335,
+                  3352,
                   1,
                   0,
                   0,
@@ -47307,14 +47765,14 @@
                         0,
                         ["Ident", 1299, 22, 0, "__toArray"],
                         0,
-                        ["Ident", 3335, 22, 0, "array"]
+                        ["Ident", 3352, 22, 0, "array"]
                       ],
                       [
                         "Binary",
                         1,
                         1,
                         0,
-                        ["Ident", 3335, 17, 0, "i"],
+                        ["Ident", 3352, 17, 0, "i"],
                         "=",
                         "Binary",
                         1338,
@@ -47336,7 +47794,7 @@
                       0,
                       "--post",
                       "Ident",
-                      3335,
+                      3352,
                       17,
                       0,
                       "i"
@@ -47352,7 +47810,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 3335, 10, 0, "check"],
+                      ["Ident", 3352, 10, 0, "check"],
                       "=",
                       "Binary",
                       1302,
@@ -47361,7 +47819,7 @@
                       ["Ident", 1, 1, 0, "_arr"],
                       ".",
                       "Ident",
-                      3335,
+                      3352,
                       17,
                       0,
                       "i"
@@ -47377,10 +47835,10 @@
                         1,
                         1,
                         0,
-                        ["Ident", 3336, 11, 0, "check"],
+                        ["Ident", 3353, 11, 0, "check"],
                         "!==",
                         "Ident",
-                        3336,
+                        3353,
                         11,
                         0,
                         "check"
@@ -47391,7 +47849,7 @@
                         1,
                         0,
                         "Ident",
-                        3337,
+                        3354,
                         17,
                         0,
                         "i"
@@ -47420,17 +47878,17 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3339, 12, 0, "item"],
+                  ["Ident", 3356, 12, 0, "item"],
                   "===",
                   "Const",
-                  3339,
+                  3356,
                   21,
                   0,
                   0
                 ],
                 [
                   "BlockStatement",
-                  3340,
+                  3357,
                   1,
                   0,
                   0,
@@ -47439,16 +47897,16 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3340, 10, 0, "inf"],
+                    ["Ident", 3357, 10, 0, "inf"],
                     "=",
                     "Binary",
                     1,
                     1,
                     0,
-                    ["Const", 3340, 17, 0, 1],
+                    ["Const", 3357, 17, 0, 1],
                     "/",
                     "Ident",
-                    3340,
+                    3357,
                     21,
                     0,
                     "item"
@@ -47477,14 +47935,14 @@
                         0,
                         ["Ident", 1299, 22, 0, "__toArray"],
                         0,
-                        ["Ident", 3341, 22, 0, "array"]
+                        ["Ident", 3358, 22, 0, "array"]
                       ],
                       [
                         "Binary",
                         1,
                         1,
                         0,
-                        ["Ident", 3341, 17, 0, "i"],
+                        ["Ident", 3358, 17, 0, "i"],
                         "=",
                         "Binary",
                         1338,
@@ -47506,7 +47964,7 @@
                       0,
                       "--post",
                       "Ident",
-                      3341,
+                      3358,
                       17,
                       0,
                       "i"
@@ -47522,7 +47980,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 3341, 10, 0, "check"],
+                      ["Ident", 3358, 10, 0, "check"],
                       "=",
                       "Binary",
                       1302,
@@ -47531,7 +47989,7 @@
                       ["Ident", 1, 1, 0, "_arr"],
                       ".",
                       "Ident",
-                      3341,
+                      3358,
                       17,
                       0,
                       "i"
@@ -47552,10 +48010,10 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3342, 11, 0, "check"],
+                          ["Ident", 3359, 11, 0, "check"],
                           "===",
                           "Const",
-                          3342,
+                          3359,
                           21,
                           0,
                           0
@@ -47570,17 +48028,17 @@
                           1,
                           1,
                           0,
-                          ["Const", 3342, 27, 0, 1],
+                          ["Const", 3359, 27, 0, 1],
                           "/",
                           "Ident",
-                          3342,
+                          3359,
                           31,
                           0,
                           "check"
                         ],
                         "===",
                         "Ident",
-                        3342,
+                        3359,
                         40,
                         0,
                         "inf"
@@ -47591,7 +48049,7 @@
                         1,
                         0,
                         "Ident",
-                        3343,
+                        3360,
                         17,
                         0,
                         "i"
@@ -47614,28 +48072,28 @@
             ],
             [
               "Return",
-              3345,
+              3362,
               3,
               0,
               "Call",
-              3345,
+              3362,
               3,
               0,
               [
                 "Binary",
-                3345,
+                3362,
                 3,
                 0,
-                ["Ident", 3345, 3, 0, "array"],
+                ["Ident", 3362, 3, 0, "array"],
                 ".",
                 "Const",
-                3345,
+                3362,
                 9,
                 0,
                 "indexOf"
               ],
               0,
-              ["Ident", 3345, 18, 0, "item"]
+              ["Ident", 3362, 18, 0, "item"]
             ]
           ],
           type: "function",
@@ -47659,13 +48117,13 @@
                 0,
                 "typeof",
                 "Binary",
-                3347,
+                3364,
                 36,
                 0,
-                ["Ident", 3347, 36, 0, "GLOBAL"],
+                ["Ident", 3364, 36, 0, "GLOBAL"],
                 ".",
                 "Const",
-                3347,
+                3364,
                 44,
                 0,
                 "Map"
@@ -47679,13 +48137,13 @@
             ],
             [
               "Binary",
-              3347,
+              3364,
               52,
               0,
-              ["Ident", 3347, 52, 0, "GLOBAL"],
+              ["Ident", 3364, 52, 0, "GLOBAL"],
               ".",
               "Const",
-              3347,
+              3364,
               60,
               0,
               "Map"
@@ -47694,15 +48152,15 @@
             1,
             1,
             0,
-            ["Ident", 3347, 74, 0, "Map"],
+            ["Ident", 3364, 74, 0, "Map"],
             "=",
             "Call",
-            2880,
+            2896,
             1,
             0,
             [
               "Func",
-              2880,
+              2896,
               1,
               0,
               0,
@@ -47710,7 +48168,7 @@
               ["_Map_prototype"],
               [],
               "BlockStatement",
-              2880,
+              2896,
               1,
               0,
               0,
@@ -47719,21 +48177,21 @@
                 1,
                 1,
                 0,
-                ["Ident", 3347, 74, 0, "Map"],
-                [["Ident", 3348, 19, 0, "iterable"]],
+                ["Ident", 3364, 74, 0, "Map"],
+                [["Ident", 3365, 19, 0, "iterable"]],
                 ["_iter", "_this", "x"],
                 [],
                 "BlockStatement",
-                3349,
+                3366,
                 1,
                 0,
                 0,
                 [
                   "Binary",
-                  3349,
+                  3366,
                   1,
                   0,
-                  ["Ident", 3349, 1, 0, "_this"],
+                  ["Ident", 3366, 1, 0, "_this"],
                   "=",
                   "IfExpression",
                   1,
@@ -47746,30 +48204,30 @@
                     0,
                     [
                       "Eval",
-                      2803,
+                      2819,
                       21,
                       0,
-                      ["Const", 2803, 27, 0, "this"]
+                      ["Const", 2819, 27, 0, "this"]
                     ],
                     "instanceof",
                     "Ident",
-                    3347,
+                    3364,
                     74,
                     0,
                     "Map"
                   ],
                   [
                     "Eval",
-                    2803,
+                    2819,
                     56,
                     0,
-                    ["Const", 2803, 62, 0, "this"]
+                    ["Const", 2819, 62, 0, "this"]
                   ],
                   "Call",
-                  93019,
-                  93042,
+                  93215,
+                  93238,
                   0,
-                  ["Ident", 93019, 93042, 0, "__create"],
+                  ["Ident", 93215, 93238, 0, "__create"],
                   0,
                   ["Ident", 1, 1, 0, "_Map_prototype"]
                 ],
@@ -47780,20 +48238,20 @@
                   0,
                   [
                     "Binary",
-                    3349,
+                    3366,
                     5,
                     0,
-                    ["Ident", 3349, 5, 0, "_this"],
+                    ["Ident", 3366, 5, 0, "_this"],
                     ".",
                     "Const",
-                    3349,
+                    3366,
                     6,
                     0,
                     "_keys"
                   ],
                   "=",
                   "Arr",
-                  3349,
+                  3366,
                   14,
                   0
                 ],
@@ -47804,20 +48262,20 @@
                   0,
                   [
                     "Binary",
-                    3350,
+                    3367,
                     5,
                     0,
-                    ["Ident", 3350, 5, 0, "_this"],
+                    ["Ident", 3367, 5, 0, "_this"],
                     ".",
                     "Const",
-                    3350,
+                    3367,
                     6,
                     0,
                     "_values"
                   ],
                   "=",
                   "Arr",
-                  3350,
+                  3367,
                   16,
                   0
                 ],
@@ -47832,7 +48290,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3351, 7, 0, "iterable"],
+                    ["Ident", 3368, 7, 0, "iterable"],
                     "!=",
                     "Const",
                     100,
@@ -47865,7 +48323,7 @@
                         0,
                         ["Ident", 2073, 30, 0, "__iter"],
                         0,
-                        ["Ident", 3352, 17, 0, "iterable"]
+                        ["Ident", 3369, 17, 0, "iterable"]
                       ],
                       ["Const", 2146, 19, 0, true],
                       0,
@@ -47885,7 +48343,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3352, 10, 0, "x"],
+                          ["Ident", 3369, 10, 0, "x"],
                           "=",
                           "Call",
                           2081,
@@ -47938,18 +48396,18 @@
                       ],
                       [
                         "Call",
-                        3353,
+                        3370,
                         9,
                         0,
                         [
                           "Binary",
-                          3353,
+                          3370,
                           9,
                           0,
-                          ["Ident", 3353, 9, 0, "_this"],
+                          ["Ident", 3370, 9, 0, "_this"],
                           ".",
                           "Const",
-                          3353,
+                          3370,
                           10,
                           0,
                           "set"
@@ -47957,26 +48415,26 @@
                         0,
                         [
                           "Binary",
-                          3353,
+                          3370,
                           14,
                           0,
-                          ["Ident", 3353, 14, 0, "x"],
+                          ["Ident", 3370, 14, 0, "x"],
                           ".",
                           "Const",
-                          3353,
+                          3370,
                           16,
                           0,
                           0
                         ],
                         [
                           "Binary",
-                          3353,
+                          3370,
                           19,
                           0,
-                          ["Ident", 3353, 19, 0, "x"],
+                          ["Ident", 3370, 19, 0, "x"],
                           ".",
                           "Const",
-                          3353,
+                          3370,
                           22,
                           0,
                           1
@@ -48060,11 +48518,11 @@
                 ],
                 [
                   "Return",
-                  3349,
+                  3366,
                   1,
                   0,
                   "Ident",
-                  3349,
+                  3366,
                   1,
                   0,
                   "_this"
@@ -48078,13 +48536,13 @@
                 ["Ident", 1, 1, 0, "_Map_prototype"],
                 "=",
                 "Binary",
-                2734,
+                2750,
                 37,
                 0,
-                ["Ident", 3347, 74, 0, "Map"],
+                ["Ident", 3364, 74, 0, "Map"],
                 ".",
                 "Const",
-                2734,
+                2750,
                 44,
                 0,
                 "prototype"
@@ -48096,13 +48554,13 @@
                 0,
                 [
                   "Binary",
-                  2746,
+                  2762,
                   27,
                   0,
-                  ["Ident", 3347, 74, 0, "Map"],
+                  ["Ident", 3364, 74, 0, "Map"],
                   ".",
                   "Const",
-                  2746,
+                  2762,
                   28,
                   0,
                   "displayName"
@@ -48121,28 +48579,28 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Map_prototype"],
                   ".",
                   "Const",
-                  3355,
+                  3372,
                   6,
                   0,
                   "get"
                 ],
                 "=",
                 "Func",
-                3355,
+                3372,
                 10,
                 0,
                 0,
-                [["Ident", 3355, 11, 0, "key"]],
+                [["Ident", 3372, 11, 0, "key"]],
                 ["index"],
                 [],
                 "BlockStatement",
-                3356,
+                3373,
                 1,
                 0,
                 0,
@@ -48151,28 +48609,28 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3356, 8, 0, "index"],
+                  ["Ident", 3373, 8, 0, "index"],
                   "=",
                   "Call",
-                  3356,
+                  3373,
                   16,
                   0,
-                  ["Ident", 3356, 16, 0, "__indexOfIdentical"],
+                  ["Ident", 3373, 16, 0, "__indexOfIdentical"],
                   0,
                   [
                     "Binary",
-                    3356,
+                    3373,
                     38,
                     0,
-                    ["This", 3356, 38, 0],
+                    ["This", 3373, 38, 0],
                     ".",
                     "Const",
-                    3356,
+                    3373,
                     39,
                     0,
                     "_keys"
                   ],
-                  ["Ident", 3356, 45, 0, "key"]
+                  ["Ident", 3373, 45, 0, "key"]
                 ],
                 [
                   "IfStatement",
@@ -48185,7 +48643,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3357, 7, 0, "index"],
+                    ["Ident", 3374, 7, 0, "index"],
                     "===",
                     "Const",
                     1,
@@ -48195,38 +48653,38 @@
                   ],
                   [
                     "Return",
-                    3358,
+                    3375,
                     7,
                     0,
                     "Const",
-                    3358,
+                    3375,
                     7,
                     0
                   ],
                   "Return",
-                  3360,
+                  3377,
                   7,
                   0,
                   "Binary",
-                  3360,
+                  3377,
                   7,
                   0,
                   [
                     "Binary",
-                    3360,
+                    3377,
                     7,
                     0,
-                    ["This", 3360, 7, 0],
+                    ["This", 3377, 7, 0],
                     ".",
                     "Const",
-                    3360,
+                    3377,
                     8,
                     0,
                     "_values"
                   ],
                   ".",
                   "Ident",
-                  3360,
+                  3377,
                   16,
                   0,
                   "index"
@@ -48239,24 +48697,24 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Map_prototype"],
                   ".",
                   "Const",
-                  3362,
+                  3379,
                   6,
                   0,
                   "has"
                 ],
                 "=",
                 "Func",
-                3362,
+                3379,
                 10,
                 0,
                 0,
-                [["Ident", 3362, 11, 0, "key"]],
+                [["Ident", 3379, 11, 0, "key"]],
                 [],
                 [],
                 "Return",
@@ -48269,25 +48727,25 @@
                 0,
                 [
                   "Call",
-                  3363,
+                  3380,
                   5,
                   0,
-                  ["Ident", 3363, 5, 0, "__indexOfIdentical"],
+                  ["Ident", 3380, 5, 0, "__indexOfIdentical"],
                   0,
                   [
                     "Binary",
-                    3363,
+                    3380,
                     26,
                     0,
-                    ["This", 3363, 26, 0],
+                    ["This", 3380, 26, 0],
                     ".",
                     "Const",
-                    3363,
+                    3380,
                     27,
                     0,
                     "_keys"
                   ],
-                  ["Ident", 3363, 33, 0, "key"]
+                  ["Ident", 3380, 33, 0, "key"]
                 ],
                 "!==",
                 "Const",
@@ -48303,31 +48761,31 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Map_prototype"],
                   ".",
                   "Const",
-                  3365,
+                  3382,
                   6,
                   0,
                   "set"
                 ],
                 "=",
                 "Func",
-                3365,
+                3382,
                 10,
                 0,
                 0,
                 [
-                  ["Ident", 3365, 11, 0, "key"],
-                  ["Ident", 3365, 15, 0, "value"]
+                  ["Ident", 3382, 11, 0, "key"],
+                  ["Ident", 3382, 15, 0, "value"]
                 ],
                 ["index", "keys"],
                 [],
                 "BlockExpression",
-                3366,
+                3383,
                 1,
                 0,
                 [
@@ -48335,16 +48793,16 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3366, 8, 0, "keys"],
+                  ["Ident", 3383, 8, 0, "keys"],
                   "=",
                   "Binary",
-                  3366,
+                  3383,
                   15,
                   0,
-                  ["This", 3366, 15, 0],
+                  ["This", 3383, 15, 0],
                   ".",
                   "Const",
-                  3366,
+                  3383,
                   17,
                   0,
                   "_keys"
@@ -48354,16 +48812,16 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3367, 16, 0, "index"],
+                  ["Ident", 3384, 16, 0, "index"],
                   "=",
                   "Call",
-                  3367,
+                  3384,
                   24,
                   0,
-                  ["Ident", 3367, 24, 0, "__indexOfIdentical"],
+                  ["Ident", 3384, 24, 0, "__indexOfIdentical"],
                   0,
-                  ["Ident", 3367, 46, 0, "keys"],
-                  ["Ident", 3367, 51, 0, "key"]
+                  ["Ident", 3384, 46, 0, "keys"],
+                  ["Ident", 3384, 51, 0, "key"]
                 ],
                 [
                   "IfExpression",
@@ -48375,7 +48833,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3368, 7, 0, "index"],
+                    ["Ident", 3385, 7, 0, "index"],
                     "===",
                     "Const",
                     1,
@@ -48385,7 +48843,7 @@
                   ],
                   [
                     "BlockExpression",
-                    3369,
+                    3386,
                     1,
                     0,
                     [
@@ -48393,16 +48851,16 @@
                       1,
                       1,
                       0,
-                      ["Ident", 3369, 7, 0, "index"],
+                      ["Ident", 3386, 7, 0, "index"],
                       "=",
                       "Binary",
-                      3369,
+                      3386,
                       15,
                       0,
-                      ["Ident", 3369, 15, 0, "keys"],
+                      ["Ident", 3386, 15, 0, "keys"],
                       ".",
                       "Const",
-                      3369,
+                      3386,
                       21,
                       0,
                       "length"
@@ -48414,20 +48872,20 @@
                       0,
                       [
                         "Binary",
-                        3370,
+                        3387,
                         11,
                         0,
-                        ["Ident", 3370, 7, 0, "keys"],
+                        ["Ident", 3387, 7, 0, "keys"],
                         ".",
                         "Ident",
-                        3370,
+                        3387,
                         12,
                         0,
                         "index"
                       ],
                       "=",
                       "Ident",
-                      3370,
+                      3387,
                       21,
                       0,
                       "key"
@@ -48441,32 +48899,32 @@
                   0,
                   [
                     "Binary",
-                    3371,
+                    3388,
                     13,
                     0,
                     [
                       "Binary",
-                      3371,
+                      3388,
                       5,
                       0,
-                      ["This", 3371, 5, 0],
+                      ["This", 3388, 5, 0],
                       ".",
                       "Const",
-                      3371,
+                      3388,
                       6,
                       0,
                       "_values"
                     ],
                     ".",
                     "Ident",
-                    3371,
+                    3388,
                     14,
                     0,
                     "index"
                   ],
                   "=",
                   "Ident",
-                  3371,
+                  3388,
                   23,
                   0,
                   "value"
@@ -48479,28 +48937,28 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Map_prototype"],
                   ".",
                   "Const",
-                  3373,
+                  3390,
                   6,
                   0,
                   "delete"
                 ],
                 "=",
                 "Func",
-                3373,
+                3390,
                 13,
                 0,
                 0,
-                [["Ident", 3373, 14, 0, "key"]],
+                [["Ident", 3390, 14, 0, "key"]],
                 ["index", "keys"],
                 [],
                 "BlockStatement",
-                3374,
+                3391,
                 1,
                 0,
                 0,
@@ -48509,16 +48967,16 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3374, 8, 0, "keys"],
+                  ["Ident", 3391, 8, 0, "keys"],
                   "=",
                   "Binary",
-                  3374,
+                  3391,
                   15,
                   0,
-                  ["This", 3374, 15, 0],
+                  ["This", 3391, 15, 0],
                   ".",
                   "Const",
-                  3374,
+                  3391,
                   17,
                   0,
                   "_keys"
@@ -48528,16 +48986,16 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3375, 8, 0, "index"],
+                  ["Ident", 3392, 8, 0, "index"],
                   "=",
                   "Call",
-                  3375,
+                  3392,
                   16,
                   0,
-                  ["Ident", 3375, 16, 0, "__indexOfIdentical"],
+                  ["Ident", 3392, 16, 0, "__indexOfIdentical"],
                   0,
-                  ["Ident", 3375, 38, 0, "keys"],
-                  ["Ident", 3375, 43, 0, "key"]
+                  ["Ident", 3392, 38, 0, "keys"],
+                  ["Ident", 3392, 43, 0, "key"]
                 ],
                 [
                   "IfStatement",
@@ -48550,7 +49008,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3376, 7, 0, "index"],
+                    ["Ident", 3393, 7, 0, "index"],
                     "===",
                     "Const",
                     1,
@@ -48560,79 +49018,79 @@
                   ],
                   [
                     "Return",
-                    3377,
+                    3394,
                     7,
                     0,
                     "Const",
-                    3377,
+                    3394,
                     7,
                     0,
                     false
                   ],
                   "BlockStatement",
-                  3379,
+                  3396,
                   1,
                   0,
                   0,
                   [
                     "Call",
-                    3379,
+                    3396,
                     7,
                     0,
                     [
                       "Binary",
-                      3379,
+                      3396,
                       7,
                       0,
-                      ["Ident", 3379, 7, 0, "keys"],
+                      ["Ident", 3396, 7, 0, "keys"],
                       ".",
                       "Const",
-                      3379,
+                      3396,
                       12,
                       0,
                       "splice"
                     ],
                     0,
-                    ["Ident", 3379, 19, 0, "index"],
-                    ["Const", 3379, 26, 0, 1]
+                    ["Ident", 3396, 19, 0, "index"],
+                    ["Const", 3396, 26, 0, 1]
                   ],
                   [
                     "Return",
-                    3380,
+                    3397,
                     7,
                     0,
                     "Call",
-                    3380,
+                    3397,
                     7,
                     0,
                     [
                       "Binary",
-                      3380,
+                      3397,
                       7,
                       0,
                       [
                         "Binary",
-                        3380,
+                        3397,
                         7,
                         0,
-                        ["This", 3380, 7, 0],
+                        ["This", 3397, 7, 0],
                         ".",
                         "Const",
-                        3380,
+                        3397,
                         8,
                         0,
                         "_values"
                       ],
                       ".",
                       "Const",
-                      3380,
+                      3397,
                       16,
                       0,
                       "splice"
                     ],
                     0,
-                    ["Ident", 3380, 23, 0, "index"],
-                    ["Const", 3380, 30, 0, 1]
+                    ["Ident", 3397, 23, 0, "index"],
+                    ["Const", 3397, 30, 0, 1]
                   ]
                 ]
               ],
@@ -48643,20 +49101,20 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Map_prototype"],
                   ".",
                   "Const",
-                  3382,
+                  3399,
                   6,
                   0,
                   "keys"
                 ],
                 "=",
                 "Func",
-                3382,
+                3399,
                 11,
                 0,
                 0,
@@ -48682,59 +49140,59 @@
                 ],
                 [
                   "Binary",
-                  3382,
+                  3399,
                   11,
                   0,
-                  ["Ident", 3382, 11, 0, "_state"],
+                  ["Ident", 3399, 11, 0, "_state"],
                   "=",
                   "Const",
-                  3382,
+                  3399,
                   11,
                   0,
                   1
                 ],
                 [
                   "Func",
-                  3382,
+                  3399,
                   11,
                   0,
-                  ["Ident", 3382, 11, 0, "_close"],
+                  ["Ident", 3399, 11, 0, "_close"],
                   [],
                   [],
                   [],
                   "Binary",
-                  3382,
+                  3399,
                   11,
                   0,
-                  ["Ident", 3382, 11, 0, "_state"],
+                  ["Ident", 3399, 11, 0, "_state"],
                   "=",
                   "Const",
-                  3382,
+                  3399,
                   11,
                   0,
                   0
                 ],
                 [
                   "Return",
-                  3382,
+                  3399,
                   11,
                   0,
                   "Obj",
-                  3382,
+                  3399,
                   11,
                   0,
-                  3382,
+                  3399,
                   11,
                   null,
                   "close",
-                  ["Ident", 3382, 11, 0, "_close"],
-                  3382,
+                  ["Ident", 3399, 11, 0, "_close"],
+                  3399,
                   11,
                   null,
                   "iterator",
                   [
                     "Func",
-                    3382,
+                    3399,
                     11,
                     0,
                     0,
@@ -48742,21 +49200,21 @@
                     [],
                     [],
                     "Return",
-                    3382,
+                    3399,
                     11,
                     0,
                     "This",
-                    3382,
+                    3399,
                     11,
                     0
                   ],
-                  3382,
+                  3399,
                   11,
                   null,
                   "next",
                   [
                     "Func",
-                    3382,
+                    3399,
                     11,
                     0,
                     0,
@@ -48764,36 +49222,36 @@
                     [],
                     [],
                     "For",
-                    3382,
+                    3399,
                     11,
                     0,
                     0,
                     0,
-                    ["Const", 3382, 11, 0, true],
+                    ["Const", 3399, 11, 0, true],
                     0,
                     "TryCatch",
-                    3382,
+                    3399,
                     11,
                     0,
                     0,
                     [
                       "Switch",
-                      3382,
+                      3399,
                       11,
                       0,
                       0,
-                      ["Ident", 3382, 11, 0, "_state"],
-                      3382,
+                      ["Ident", 3399, 11, 0, "_state"],
+                      3399,
                       11,
                       null,
-                      ["Const", 3382, 11, 0, 0],
+                      ["Const", 3399, 11, 0, 0],
                       [
                         "Throw",
-                        3382,
+                        3399,
                         11,
                         0,
                         "Ident",
-                        3382,
+                        3399,
                         11,
                         0,
                         "StopIteration"
@@ -48804,7 +49262,7 @@
                       ["Const", 0, 0, 0, 1],
                       [
                         "BlockStatement",
-                        3382,
+                        3399,
                         11,
                         0,
                         0,
@@ -48823,13 +49281,13 @@
                           0,
                           [
                             "Binary",
-                            3383,
+                            3400,
                             15,
                             0,
-                            ["Ident", 3383, 15, 0, "_this"],
+                            ["Ident", 3400, 15, 0, "_this"],
                             ".",
                             "Const",
-                            3383,
+                            3400,
                             17,
                             0,
                             "_keys"
@@ -48859,7 +49317,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3382, 11, 0, "_state"],
+                          ["Ident", 3399, 11, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -48875,7 +49333,7 @@
                       ["Const", 1, 1, 0, 2],
                       [
                         "BlockStatement",
-                        3382,
+                        3399,
                         11,
                         0,
                         0,
@@ -48884,7 +49342,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3382, 11, 0, "_state"],
+                          ["Ident", 3399, 11, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -48900,7 +49358,7 @@
                       ["Const", 1, 1, 0, 3],
                       [
                         "BlockStatement",
-                        3382,
+                        3399,
                         11,
                         0,
                         0,
@@ -48909,7 +49367,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3382, 11, 0, "_state"],
+                          ["Ident", 3399, 11, 0, "_state"],
                           "=",
                           "IfExpression",
                           1,
@@ -48942,7 +49400,7 @@
                       ["Const", 1, 1, 0, 4],
                       [
                         "BlockStatement",
-                        3382,
+                        3399,
                         11,
                         0,
                         0,
@@ -48951,7 +49409,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3383, 8, 0, "key"],
+                          ["Ident", 3400, 8, 0, "key"],
                           "=",
                           "Binary",
                           1302,
@@ -48970,7 +49428,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3382, 11, 0, "_state"],
+                          ["Ident", 3399, 11, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -48984,7 +49442,7 @@
                           1,
                           0,
                           "Ident",
-                          3384,
+                          3401,
                           12,
                           0,
                           "key"
@@ -48996,7 +49454,7 @@
                       ["Const", 1421, 1, 0, 5],
                       [
                         "BlockStatement",
-                        3382,
+                        3399,
                         11,
                         0,
                         0,
@@ -49005,7 +49463,7 @@
                           1421,
                           1,
                           0,
-                          ["Ident", 3382, 11, 0, "_state"],
+                          ["Ident", 3399, 11, 0, "_state"],
                           "=",
                           "Const",
                           1421,
@@ -49015,78 +49473,78 @@
                         ],
                         ["Break", 1421, 1, 0]
                       ],
-                      3382,
+                      3399,
                       11,
                       null,
-                      ["Const", 3382, 11, 0, 6],
+                      ["Const", 3399, 11, 0, 6],
                       [
                         "BlockStatement",
-                        3382,
+                        3399,
                         11,
                         0,
                         0,
                         [
                           "Binary",
-                          3382,
+                          3399,
                           11,
                           0,
-                          ["Ident", 3382, 11, 0, "_state"],
+                          ["Ident", 3399, 11, 0, "_state"],
                           "=",
                           "Const",
-                          3382,
+                          3399,
                           11,
                           0,
                           0
                         ],
-                        ["Break", 3382, 11, 0]
+                        ["Break", 3399, 11, 0]
                       ],
                       [
                         "Throw",
-                        3382,
+                        3399,
                         11,
                         0,
                         "Call",
-                        3382,
+                        3399,
                         11,
                         0,
-                        ["Ident", 3382, 11, 0, "Error"],
+                        ["Ident", 3399, 11, 0, "Error"],
                         0,
                         [
                           "Binary",
-                          3382,
+                          3399,
                           11,
                           0,
-                          ["Const", 3382, 11, 0, "Unknown state: "],
+                          ["Const", 3399, 11, 0, "Unknown state: "],
                           "+",
                           "Ident",
-                          3382,
+                          3399,
                           11,
                           0,
                           "_state"
                         ]
                       ]
                     ],
-                    ["Ident", 3382, 11, 0, "_e"],
+                    ["Ident", 3399, 11, 0, "_e"],
                     "BlockStatement",
-                    3382,
+                    3399,
                     11,
                     0,
                     0,
                     [
                       "Call",
-                      3382,
+                      3399,
                       11,
                       0,
-                      ["Ident", 3382, 11, 0, "_close"],
+                      ["Ident", 3399, 11, 0, "_close"],
                       0
                     ],
                     [
                       "Throw",
-                      3382,
+                      3399,
                       11,
                       0,
                       "Ident",
-                      3382,
+                      3399,
                       11,
                       0,
                       "_e"
@@ -49101,20 +49559,20 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Map_prototype"],
                   ".",
                   "Const",
-                  3386,
+                  3403,
                   6,
                   0,
                   "values"
                 ],
                 "=",
                 "Func",
-                3386,
+                3403,
                 13,
                 0,
                 0,
@@ -49140,59 +49598,59 @@
                 ],
                 [
                   "Binary",
-                  3386,
+                  3403,
                   13,
                   0,
-                  ["Ident", 3386, 13, 0, "_state"],
+                  ["Ident", 3403, 13, 0, "_state"],
                   "=",
                   "Const",
-                  3386,
+                  3403,
                   13,
                   0,
                   1
                 ],
                 [
                   "Func",
-                  3386,
+                  3403,
                   13,
                   0,
-                  ["Ident", 3386, 13, 0, "_close"],
+                  ["Ident", 3403, 13, 0, "_close"],
                   [],
                   [],
                   [],
                   "Binary",
-                  3386,
+                  3403,
                   13,
                   0,
-                  ["Ident", 3386, 13, 0, "_state"],
+                  ["Ident", 3403, 13, 0, "_state"],
                   "=",
                   "Const",
-                  3386,
+                  3403,
                   13,
                   0,
                   0
                 ],
                 [
                   "Return",
-                  3386,
+                  3403,
                   13,
                   0,
                   "Obj",
-                  3386,
+                  3403,
                   13,
                   0,
-                  3386,
+                  3403,
                   13,
                   null,
                   "close",
-                  ["Ident", 3386, 13, 0, "_close"],
-                  3386,
+                  ["Ident", 3403, 13, 0, "_close"],
+                  3403,
                   13,
                   null,
                   "iterator",
                   [
                     "Func",
-                    3386,
+                    3403,
                     13,
                     0,
                     0,
@@ -49200,21 +49658,21 @@
                     [],
                     [],
                     "Return",
-                    3386,
+                    3403,
                     13,
                     0,
                     "This",
-                    3386,
+                    3403,
                     13,
                     0
                   ],
-                  3386,
+                  3403,
                   13,
                   null,
                   "next",
                   [
                     "Func",
-                    3386,
+                    3403,
                     13,
                     0,
                     0,
@@ -49222,36 +49680,36 @@
                     [],
                     [],
                     "For",
-                    3386,
+                    3403,
                     13,
                     0,
                     0,
                     0,
-                    ["Const", 3386, 13, 0, true],
+                    ["Const", 3403, 13, 0, true],
                     0,
                     "TryCatch",
-                    3386,
+                    3403,
                     13,
                     0,
                     0,
                     [
                       "Switch",
-                      3386,
+                      3403,
                       13,
                       0,
                       0,
-                      ["Ident", 3386, 13, 0, "_state"],
-                      3386,
+                      ["Ident", 3403, 13, 0, "_state"],
+                      3403,
                       13,
                       null,
-                      ["Const", 3386, 13, 0, 0],
+                      ["Const", 3403, 13, 0, 0],
                       [
                         "Throw",
-                        3386,
+                        3403,
                         13,
                         0,
                         "Ident",
-                        3386,
+                        3403,
                         13,
                         0,
                         "StopIteration"
@@ -49262,7 +49720,7 @@
                       ["Const", 0, 0, 0, 1],
                       [
                         "BlockStatement",
-                        3386,
+                        3403,
                         13,
                         0,
                         0,
@@ -49281,13 +49739,13 @@
                           0,
                           [
                             "Binary",
-                            3387,
+                            3404,
                             17,
                             0,
-                            ["Ident", 3387, 17, 0, "_this"],
+                            ["Ident", 3404, 17, 0, "_this"],
                             ".",
                             "Const",
-                            3387,
+                            3404,
                             19,
                             0,
                             "_values"
@@ -49317,7 +49775,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3386, 13, 0, "_state"],
+                          ["Ident", 3403, 13, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -49333,7 +49791,7 @@
                       ["Const", 1, 1, 0, 2],
                       [
                         "BlockStatement",
-                        3386,
+                        3403,
                         13,
                         0,
                         0,
@@ -49342,7 +49800,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3386, 13, 0, "_state"],
+                          ["Ident", 3403, 13, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -49358,7 +49816,7 @@
                       ["Const", 1, 1, 0, 3],
                       [
                         "BlockStatement",
-                        3386,
+                        3403,
                         13,
                         0,
                         0,
@@ -49367,7 +49825,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3386, 13, 0, "_state"],
+                          ["Ident", 3403, 13, 0, "_state"],
                           "=",
                           "IfExpression",
                           1,
@@ -49400,7 +49858,7 @@
                       ["Const", 1, 1, 0, 4],
                       [
                         "BlockStatement",
-                        3386,
+                        3403,
                         13,
                         0,
                         0,
@@ -49409,7 +49867,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3387, 8, 0, "value"],
+                          ["Ident", 3404, 8, 0, "value"],
                           "=",
                           "Binary",
                           1302,
@@ -49428,7 +49886,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3386, 13, 0, "_state"],
+                          ["Ident", 3403, 13, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -49442,7 +49900,7 @@
                           1,
                           0,
                           "Ident",
-                          3388,
+                          3405,
                           12,
                           0,
                           "value"
@@ -49454,7 +49912,7 @@
                       ["Const", 1421, 1, 0, 5],
                       [
                         "BlockStatement",
-                        3386,
+                        3403,
                         13,
                         0,
                         0,
@@ -49463,7 +49921,7 @@
                           1421,
                           1,
                           0,
-                          ["Ident", 3386, 13, 0, "_state"],
+                          ["Ident", 3403, 13, 0, "_state"],
                           "=",
                           "Const",
                           1421,
@@ -49473,78 +49931,78 @@
                         ],
                         ["Break", 1421, 1, 0]
                       ],
-                      3386,
+                      3403,
                       13,
                       null,
-                      ["Const", 3386, 13, 0, 6],
+                      ["Const", 3403, 13, 0, 6],
                       [
                         "BlockStatement",
-                        3386,
+                        3403,
                         13,
                         0,
                         0,
                         [
                           "Binary",
-                          3386,
+                          3403,
                           13,
                           0,
-                          ["Ident", 3386, 13, 0, "_state"],
+                          ["Ident", 3403, 13, 0, "_state"],
                           "=",
                           "Const",
-                          3386,
+                          3403,
                           13,
                           0,
                           0
                         ],
-                        ["Break", 3386, 13, 0]
+                        ["Break", 3403, 13, 0]
                       ],
                       [
                         "Throw",
-                        3386,
+                        3403,
                         13,
                         0,
                         "Call",
-                        3386,
+                        3403,
                         13,
                         0,
-                        ["Ident", 3386, 13, 0, "Error"],
+                        ["Ident", 3403, 13, 0, "Error"],
                         0,
                         [
                           "Binary",
-                          3386,
+                          3403,
                           13,
                           0,
-                          ["Const", 3386, 13, 0, "Unknown state: "],
+                          ["Const", 3403, 13, 0, "Unknown state: "],
                           "+",
                           "Ident",
-                          3386,
+                          3403,
                           13,
                           0,
                           "_state"
                         ]
                       ]
                     ],
-                    ["Ident", 3386, 13, 0, "_e"],
+                    ["Ident", 3403, 13, 0, "_e"],
                     "BlockStatement",
-                    3386,
+                    3403,
                     13,
                     0,
                     0,
                     [
                       "Call",
-                      3386,
+                      3403,
                       13,
                       0,
-                      ["Ident", 3386, 13, 0, "_close"],
+                      ["Ident", 3403, 13, 0, "_close"],
                       0
                     ],
                     [
                       "Throw",
-                      3386,
+                      3403,
                       13,
                       0,
                       "Ident",
-                      3386,
+                      3403,
                       13,
                       0,
                       "_e"
@@ -49559,20 +50017,20 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Map_prototype"],
                   ".",
                   "Const",
-                  3390,
+                  3407,
                   6,
                   0,
                   "items"
                 ],
                 "=",
                 "Func",
-                3390,
+                3407,
                 12,
                 0,
                 0,
@@ -49588,77 +50046,77 @@
                 ],
                 [],
                 "BlockStatement",
-                3391,
+                3408,
                 1,
                 0,
                 0,
                 [
                   "Binary",
-                  3391,
+                  3408,
                   1,
                   0,
-                  ["Ident", 3391, 1, 0, "_this"],
+                  ["Ident", 3408, 1, 0, "_this"],
                   "=",
                   "This",
-                  3391,
+                  3408,
                   1,
                   0
                 ],
                 [
                   "Binary",
-                  3390,
+                  3407,
                   12,
                   0,
-                  ["Ident", 3390, 12, 0, "_state"],
+                  ["Ident", 3407, 12, 0, "_state"],
                   "=",
                   "Const",
-                  3390,
+                  3407,
                   12,
                   0,
                   1
                 ],
                 [
                   "Func",
-                  3390,
+                  3407,
                   12,
                   0,
-                  ["Ident", 3390, 12, 0, "_close"],
+                  ["Ident", 3407, 12, 0, "_close"],
                   [],
                   [],
                   [],
                   "Binary",
-                  3390,
+                  3407,
                   12,
                   0,
-                  ["Ident", 3390, 12, 0, "_state"],
+                  ["Ident", 3407, 12, 0, "_state"],
                   "=",
                   "Const",
-                  3390,
+                  3407,
                   12,
                   0,
                   0
                 ],
                 [
                   "Return",
-                  3390,
+                  3407,
                   12,
                   0,
                   "Obj",
-                  3390,
+                  3407,
                   12,
                   0,
-                  3390,
+                  3407,
                   12,
                   null,
                   "close",
-                  ["Ident", 3390, 12, 0, "_close"],
-                  3390,
+                  ["Ident", 3407, 12, 0, "_close"],
+                  3407,
                   12,
                   null,
                   "iterator",
                   [
                     "Func",
-                    3390,
+                    3407,
                     12,
                     0,
                     0,
@@ -49666,21 +50124,21 @@
                     [],
                     [],
                     "Return",
-                    3390,
+                    3407,
                     12,
                     0,
                     "This",
-                    3390,
+                    3407,
                     12,
                     0
                   ],
-                  3390,
+                  3407,
                   12,
                   null,
                   "next",
                   [
                     "Func",
-                    3390,
+                    3407,
                     12,
                     0,
                     0,
@@ -49688,36 +50146,36 @@
                     [],
                     [],
                     "For",
-                    3390,
+                    3407,
                     12,
                     0,
                     0,
                     0,
-                    ["Const", 3390, 12, 0, true],
+                    ["Const", 3407, 12, 0, true],
                     0,
                     "TryCatch",
-                    3390,
+                    3407,
                     12,
                     0,
                     0,
                     [
                       "Switch",
-                      3390,
+                      3407,
                       12,
                       0,
                       0,
-                      ["Ident", 3390, 12, 0, "_state"],
-                      3390,
+                      ["Ident", 3407, 12, 0, "_state"],
+                      3407,
                       12,
                       null,
-                      ["Const", 3390, 12, 0, 0],
+                      ["Const", 3407, 12, 0, 0],
                       [
                         "Throw",
-                        3390,
+                        3407,
                         12,
                         0,
                         "Ident",
-                        3390,
+                        3407,
                         12,
                         0,
                         "StopIteration"
@@ -49728,7 +50186,7 @@
                       ["Const", 1, 1, 0, 1],
                       [
                         "BlockStatement",
-                        3390,
+                        3407,
                         12,
                         0,
                         0,
@@ -49737,16 +50195,16 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3391, 8, 0, "values"],
+                          ["Ident", 3408, 8, 0, "values"],
                           "=",
                           "Binary",
-                          3391,
+                          3408,
                           17,
                           0,
-                          ["Ident", 3391, 17, 0, "_this"],
+                          ["Ident", 3408, 17, 0, "_this"],
                           ".",
                           "Const",
-                          3391,
+                          3408,
                           19,
                           0,
                           "_values"
@@ -49766,13 +50224,13 @@
                           0,
                           [
                             "Binary",
-                            3392,
+                            3409,
                             18,
                             0,
-                            ["Ident", 3392, 18, 0, "_this"],
+                            ["Ident", 3409, 18, 0, "_this"],
                             ".",
                             "Const",
-                            3392,
+                            3409,
                             20,
                             0,
                             "_keys"
@@ -49783,7 +50241,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3392, 13, 0, "i"],
+                          ["Ident", 3409, 13, 0, "i"],
                           "=",
                           "Binary",
                           1338,
@@ -49802,7 +50260,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3390, 12, 0, "_state"],
+                          ["Ident", 3407, 12, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -49818,7 +50276,7 @@
                       ["Const", 1, 1, 0, 2],
                       [
                         "BlockStatement",
-                        3390,
+                        3407,
                         12,
                         0,
                         0,
@@ -49827,7 +50285,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3390, 12, 0, "_state"],
+                          ["Ident", 3407, 12, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -49843,7 +50301,7 @@
                       ["Const", 1, 1, 0, 3],
                       [
                         "BlockStatement",
-                        3390,
+                        3407,
                         12,
                         0,
                         0,
@@ -49852,7 +50310,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3390, 12, 0, "_state"],
+                          ["Ident", 3407, 12, 0, "_state"],
                           "=",
                           "IfExpression",
                           1,
@@ -49865,7 +50323,7 @@
                             0,
                             "--post",
                             "Ident",
-                            3392,
+                            3409,
                             13,
                             0,
                             "i"
@@ -49885,7 +50343,7 @@
                       ["Const", 1, 1, 0, 4],
                       [
                         "BlockStatement",
-                        3390,
+                        3407,
                         12,
                         0,
                         0,
@@ -49894,7 +50352,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3392, 8, 0, "key"],
+                          ["Ident", 3409, 8, 0, "key"],
                           "=",
                           "Binary",
                           1302,
@@ -49903,7 +50361,7 @@
                           ["Ident", 1, 1, 0, "_arr"],
                           ".",
                           "Ident",
-                          3392,
+                          3409,
                           13,
                           0,
                           "i"
@@ -49913,7 +50371,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3390, 12, 0, "_state"],
+                          ["Ident", 3407, 12, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -49927,19 +50385,19 @@
                           1,
                           0,
                           "Arr",
-                          3393,
+                          3410,
                           12,
                           0,
-                          ["Ident", 3393, 14, 0, "key"],
+                          ["Ident", 3410, 14, 0, "key"],
                           [
                             "Binary",
-                            3393,
+                            3410,
                             18,
                             0,
-                            ["Ident", 3393, 18, 0, "values"],
+                            ["Ident", 3410, 18, 0, "values"],
                             ".",
                             "Ident",
-                            3393,
+                            3410,
                             26,
                             0,
                             "i"
@@ -49952,7 +50410,7 @@
                       ["Const", 1421, 1, 0, 5],
                       [
                         "BlockStatement",
-                        3390,
+                        3407,
                         12,
                         0,
                         0,
@@ -49961,7 +50419,7 @@
                           1421,
                           1,
                           0,
-                          ["Ident", 3390, 12, 0, "_state"],
+                          ["Ident", 3407, 12, 0, "_state"],
                           "=",
                           "Const",
                           1421,
@@ -49971,78 +50429,78 @@
                         ],
                         ["Break", 1421, 1, 0]
                       ],
-                      3390,
+                      3407,
                       12,
                       null,
-                      ["Const", 3390, 12, 0, 6],
+                      ["Const", 3407, 12, 0, 6],
                       [
                         "BlockStatement",
-                        3390,
+                        3407,
                         12,
                         0,
                         0,
                         [
                           "Binary",
-                          3390,
+                          3407,
                           12,
                           0,
-                          ["Ident", 3390, 12, 0, "_state"],
+                          ["Ident", 3407, 12, 0, "_state"],
                           "=",
                           "Const",
-                          3390,
+                          3407,
                           12,
                           0,
                           0
                         ],
-                        ["Break", 3390, 12, 0]
+                        ["Break", 3407, 12, 0]
                       ],
                       [
                         "Throw",
-                        3390,
+                        3407,
                         12,
                         0,
                         "Call",
-                        3390,
+                        3407,
                         12,
                         0,
-                        ["Ident", 3390, 12, 0, "Error"],
+                        ["Ident", 3407, 12, 0, "Error"],
                         0,
                         [
                           "Binary",
-                          3390,
+                          3407,
                           12,
                           0,
-                          ["Const", 3390, 12, 0, "Unknown state: "],
+                          ["Const", 3407, 12, 0, "Unknown state: "],
                           "+",
                           "Ident",
-                          3390,
+                          3407,
                           12,
                           0,
                           "_state"
                         ]
                       ]
                     ],
-                    ["Ident", 3390, 12, 0, "_e"],
+                    ["Ident", 3407, 12, 0, "_e"],
                     "BlockStatement",
-                    3390,
+                    3407,
                     12,
                     0,
                     0,
                     [
                       "Call",
-                      3390,
+                      3407,
                       12,
                       0,
-                      ["Ident", 3390, 12, 0, "_close"],
+                      ["Ident", 3407, 12, 0, "_close"],
                       0
                     ],
                     [
                       "Throw",
-                      3390,
+                      3407,
                       12,
                       0,
                       "Ident",
-                      3390,
+                      3407,
                       12,
                       0,
                       "_e"
@@ -50057,38 +50515,38 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Map_prototype"],
                   ".",
                   "Const",
-                  3394,
+                  3411,
                   6,
                   0,
                   "iterator"
                 ],
                 "=",
                 "Binary",
-                3394,
+                3411,
                 17,
                 0,
                 [
                   "Binary",
-                  3394,
+                  3411,
                   17,
                   0,
-                  ["Ident", 3394, 17, 0, "Map"],
+                  ["Ident", 3411, 17, 0, "Map"],
                   ".",
                   "Const",
-                  3394,
+                  3411,
                   17,
                   0,
                   "prototype"
                 ],
                 ".",
                 "Const",
-                3394,
+                3411,
                 23,
                 0,
                 "items"
@@ -50099,7 +50557,7 @@
                 1,
                 0,
                 "Ident",
-                3347,
+                3364,
                 74,
                 0,
                 "Map"
@@ -50136,13 +50594,13 @@
                 0,
                 "typeof",
                 "Binary",
-                3396,
+                3413,
                 36,
                 0,
-                ["Ident", 3396, 36, 0, "GLOBAL"],
+                ["Ident", 3413, 36, 0, "GLOBAL"],
                 ".",
                 "Const",
-                3396,
+                3413,
                 44,
                 0,
                 "Set"
@@ -50156,13 +50614,13 @@
             ],
             [
               "Binary",
-              3396,
+              3413,
               52,
               0,
-              ["Ident", 3396, 52, 0, "GLOBAL"],
+              ["Ident", 3413, 52, 0, "GLOBAL"],
               ".",
               "Const",
-              3396,
+              3413,
               60,
               0,
               "Set"
@@ -50171,15 +50629,15 @@
             1,
             1,
             0,
-            ["Ident", 3396, 74, 0, "Set"],
+            ["Ident", 3413, 74, 0, "Set"],
             "=",
             "Call",
-            2880,
+            2896,
             1,
             0,
             [
               "Func",
-              2880,
+              2896,
               1,
               0,
               0,
@@ -50187,7 +50645,7 @@
               ["_Set_prototype"],
               [],
               "BlockStatement",
-              2880,
+              2896,
               1,
               0,
               0,
@@ -50196,21 +50654,21 @@
                 1,
                 1,
                 0,
-                ["Ident", 3396, 74, 0, "Set"],
-                [["Ident", 3397, 19, 0, "iterable"]],
+                ["Ident", 3413, 74, 0, "Set"],
+                [["Ident", 3414, 19, 0, "iterable"]],
                 ["_iter", "_this", "item"],
                 [],
                 "BlockStatement",
-                3398,
+                3415,
                 1,
                 0,
                 0,
                 [
                   "Binary",
-                  3398,
+                  3415,
                   1,
                   0,
-                  ["Ident", 3398, 1, 0, "_this"],
+                  ["Ident", 3415, 1, 0, "_this"],
                   "=",
                   "IfExpression",
                   1,
@@ -50223,30 +50681,30 @@
                     0,
                     [
                       "Eval",
-                      2803,
+                      2819,
                       21,
                       0,
-                      ["Const", 2803, 27, 0, "this"]
+                      ["Const", 2819, 27, 0, "this"]
                     ],
                     "instanceof",
                     "Ident",
-                    3396,
+                    3413,
                     74,
                     0,
                     "Set"
                   ],
                   [
                     "Eval",
-                    2803,
+                    2819,
                     56,
                     0,
-                    ["Const", 2803, 62, 0, "this"]
+                    ["Const", 2819, 62, 0, "this"]
                   ],
                   "Call",
-                  93019,
-                  93042,
+                  93215,
+                  93238,
                   0,
-                  ["Ident", 93019, 93042, 0, "__create"],
+                  ["Ident", 93215, 93238, 0, "__create"],
                   0,
                   ["Ident", 1, 1, 0, "_Set_prototype"]
                 ],
@@ -50257,20 +50715,20 @@
                   0,
                   [
                     "Binary",
-                    3398,
+                    3415,
                     5,
                     0,
-                    ["Ident", 3398, 5, 0, "_this"],
+                    ["Ident", 3415, 5, 0, "_this"],
                     ".",
                     "Const",
-                    3398,
+                    3415,
                     6,
                     0,
                     "_items"
                   ],
                   "=",
                   "Arr",
-                  3398,
+                  3415,
                   15,
                   0
                 ],
@@ -50285,7 +50743,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3399, 7, 0, "iterable"],
+                    ["Ident", 3416, 7, 0, "iterable"],
                     "!=",
                     "Const",
                     100,
@@ -50318,7 +50776,7 @@
                         0,
                         ["Ident", 2073, 30, 0, "__iter"],
                         0,
-                        ["Ident", 3400, 20, 0, "iterable"]
+                        ["Ident", 3417, 20, 0, "iterable"]
                       ],
                       ["Const", 2146, 19, 0, true],
                       0,
@@ -50338,7 +50796,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3400, 10, 0, "item"],
+                          ["Ident", 3417, 10, 0, "item"],
                           "=",
                           "Call",
                           2081,
@@ -50391,24 +50849,24 @@
                       ],
                       [
                         "Call",
-                        3401,
+                        3418,
                         9,
                         0,
                         [
                           "Binary",
-                          3401,
+                          3418,
                           9,
                           0,
-                          ["Ident", 3401, 9, 0, "_this"],
+                          ["Ident", 3418, 9, 0, "_this"],
                           ".",
                           "Const",
-                          3401,
+                          3418,
                           10,
                           0,
                           "add"
                         ],
                         0,
-                        ["Ident", 3401, 14, 0, "item"]
+                        ["Ident", 3418, 14, 0, "item"]
                       ]
                     ],
                     "IfStatement",
@@ -50488,11 +50946,11 @@
                 ],
                 [
                   "Return",
-                  3398,
+                  3415,
                   1,
                   0,
                   "Ident",
-                  3398,
+                  3415,
                   1,
                   0,
                   "_this"
@@ -50506,13 +50964,13 @@
                 ["Ident", 1, 1, 0, "_Set_prototype"],
                 "=",
                 "Binary",
-                2734,
+                2750,
                 37,
                 0,
-                ["Ident", 3396, 74, 0, "Set"],
+                ["Ident", 3413, 74, 0, "Set"],
                 ".",
                 "Const",
-                2734,
+                2750,
                 44,
                 0,
                 "prototype"
@@ -50524,13 +50982,13 @@
                 0,
                 [
                   "Binary",
-                  2746,
+                  2762,
                   27,
                   0,
-                  ["Ident", 3396, 74, 0, "Set"],
+                  ["Ident", 3413, 74, 0, "Set"],
                   ".",
                   "Const",
-                  2746,
+                  2762,
                   28,
                   0,
                   "displayName"
@@ -50549,24 +51007,24 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Set_prototype"],
                   ".",
                   "Const",
-                  3403,
+                  3420,
                   6,
                   0,
                   "has"
                 ],
                 "=",
                 "Func",
-                3403,
+                3420,
                 10,
                 0,
                 0,
-                [["Ident", 3403, 11, 0, "item"]],
+                [["Ident", 3420, 11, 0, "item"]],
                 [],
                 [],
                 "Return",
@@ -50579,25 +51037,25 @@
                 0,
                 [
                   "Call",
-                  3404,
+                  3421,
                   5,
                   0,
-                  ["Ident", 3404, 5, 0, "__indexOfIdentical"],
+                  ["Ident", 3421, 5, 0, "__indexOfIdentical"],
                   0,
                   [
                     "Binary",
-                    3404,
+                    3421,
                     26,
                     0,
-                    ["This", 3404, 26, 0],
+                    ["This", 3421, 26, 0],
                     ".",
                     "Const",
-                    3404,
+                    3421,
                     27,
                     0,
                     "_items"
                   ],
-                  ["Ident", 3404, 34, 0, "item"]
+                  ["Ident", 3421, 34, 0, "item"]
                 ],
                 "!==",
                 "Const",
@@ -50613,28 +51071,28 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Set_prototype"],
                   ".",
                   "Const",
-                  3405,
+                  3422,
                   6,
                   0,
                   "add"
                 ],
                 "=",
                 "Func",
-                3405,
+                3422,
                 10,
                 0,
                 0,
-                [["Ident", 3405, 11, 0, "item"]],
+                [["Ident", 3422, 11, 0, "item"]],
                 ["items"],
                 [],
                 "BlockExpression",
-                3406,
+                3423,
                 1,
                 0,
                 [
@@ -50642,16 +51100,16 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3406, 8, 0, "items"],
+                  ["Ident", 3423, 8, 0, "items"],
                   "=",
                   "Binary",
-                  3406,
+                  3423,
                   16,
                   0,
-                  ["This", 3406, 16, 0],
+                  ["This", 3423, 16, 0],
                   ".",
                   "Const",
-                  3406,
+                  3423,
                   18,
                   0,
                   "_items"
@@ -50668,13 +51126,13 @@
                     0,
                     [
                       "Call",
-                      3407,
+                      3424,
                       7,
                       0,
-                      ["Ident", 3407, 7, 0, "__indexOfIdentical"],
+                      ["Ident", 3424, 7, 0, "__indexOfIdentical"],
                       0,
-                      ["Ident", 3407, 29, 0, "items"],
-                      ["Ident", 3407, 35, 0, "item"]
+                      ["Ident", 3424, 29, 0, "items"],
+                      ["Ident", 3424, 35, 0, "item"]
                     ],
                     "===",
                     "Const",
@@ -50685,24 +51143,24 @@
                   ],
                   [
                     "Call",
-                    3408,
+                    3425,
                     7,
                     0,
                     [
                       "Binary",
-                      3408,
+                      3425,
                       7,
                       0,
-                      ["Ident", 3408, 7, 0, "items"],
+                      ["Ident", 3425, 7, 0, "items"],
                       ".",
                       "Const",
-                      3408,
+                      3425,
                       13,
                       0,
                       "push"
                     ],
                     0,
-                    ["Ident", 3408, 18, 0, "item"]
+                    ["Ident", 3425, 18, 0, "item"]
                   ]
                 ]
               ],
@@ -50713,28 +51171,28 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Set_prototype"],
                   ".",
                   "Const",
-                  3409,
+                  3426,
                   6,
                   0,
                   "delete"
                 ],
                 "=",
                 "Func",
-                3409,
+                3426,
                 13,
                 0,
                 0,
-                [["Ident", 3409, 14, 0, "item"]],
+                [["Ident", 3426, 14, 0, "item"]],
                 ["index", "items"],
                 [],
                 "BlockExpression",
-                3410,
+                3427,
                 1,
                 0,
                 [
@@ -50742,16 +51200,16 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3410, 8, 0, "items"],
+                  ["Ident", 3427, 8, 0, "items"],
                   "=",
                   "Binary",
-                  3410,
+                  3427,
                   16,
                   0,
-                  ["This", 3410, 16, 0],
+                  ["This", 3427, 16, 0],
                   ".",
                   "Const",
-                  3410,
+                  3427,
                   18,
                   0,
                   "_items"
@@ -50761,16 +51219,16 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3411, 8, 0, "index"],
+                  ["Ident", 3428, 8, 0, "index"],
                   "=",
                   "Call",
-                  3411,
+                  3428,
                   16,
                   0,
-                  ["Ident", 3411, 16, 0, "__indexOfIdentical"],
+                  ["Ident", 3428, 16, 0, "__indexOfIdentical"],
                   0,
-                  ["Ident", 3411, 38, 0, "items"],
-                  ["Ident", 3411, 44, 0, "item"]
+                  ["Ident", 3428, 38, 0, "items"],
+                  ["Ident", 3428, 44, 0, "item"]
                 ],
                 [
                   "IfExpression",
@@ -50782,7 +51240,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3412, 7, 0, "index"],
+                    ["Ident", 3429, 7, 0, "index"],
                     "!==",
                     "Const",
                     1,
@@ -50792,35 +51250,35 @@
                   ],
                   [
                     "BlockExpression",
-                    3413,
+                    3430,
                     1,
                     0,
                     [
                       "Call",
-                      3413,
+                      3430,
                       7,
                       0,
                       [
                         "Binary",
-                        3413,
+                        3430,
                         7,
                         0,
-                        ["Ident", 3413, 7, 0, "items"],
+                        ["Ident", 3430, 7, 0, "items"],
                         ".",
                         "Const",
-                        3413,
+                        3430,
                         13,
                         0,
                         "splice"
                       ],
                       0,
-                      ["Ident", 3413, 20, 0, "index"],
-                      ["Const", 3413, 27, 0, 1]
+                      ["Ident", 3430, 20, 0, "index"],
+                      ["Const", 3430, 27, 0, 1]
                     ],
-                    ["Const", 3414, 7, 0, true]
+                    ["Const", 3431, 7, 0, true]
                   ],
                   "Const",
-                  3416,
+                  3433,
                   7,
                   0,
                   false
@@ -50833,20 +51291,20 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Set_prototype"],
                   ".",
                   "Const",
-                  3417,
+                  3434,
                   6,
                   0,
                   "values"
                 ],
                 "=",
                 "Func",
-                3417,
+                3434,
                 13,
                 0,
                 0,
@@ -50872,59 +51330,59 @@
                 ],
                 [
                   "Binary",
-                  3417,
+                  3434,
                   13,
                   0,
-                  ["Ident", 3417, 13, 0, "_state"],
+                  ["Ident", 3434, 13, 0, "_state"],
                   "=",
                   "Const",
-                  3417,
+                  3434,
                   13,
                   0,
                   1
                 ],
                 [
                   "Func",
-                  3417,
+                  3434,
                   13,
                   0,
-                  ["Ident", 3417, 13, 0, "_close"],
+                  ["Ident", 3434, 13, 0, "_close"],
                   [],
                   [],
                   [],
                   "Binary",
-                  3417,
+                  3434,
                   13,
                   0,
-                  ["Ident", 3417, 13, 0, "_state"],
+                  ["Ident", 3434, 13, 0, "_state"],
                   "=",
                   "Const",
-                  3417,
+                  3434,
                   13,
                   0,
                   0
                 ],
                 [
                   "Return",
-                  3417,
+                  3434,
                   13,
                   0,
                   "Obj",
-                  3417,
+                  3434,
                   13,
                   0,
-                  3417,
+                  3434,
                   13,
                   null,
                   "close",
-                  ["Ident", 3417, 13, 0, "_close"],
-                  3417,
+                  ["Ident", 3434, 13, 0, "_close"],
+                  3434,
                   13,
                   null,
                   "iterator",
                   [
                     "Func",
-                    3417,
+                    3434,
                     13,
                     0,
                     0,
@@ -50932,21 +51390,21 @@
                     [],
                     [],
                     "Return",
-                    3417,
+                    3434,
                     13,
                     0,
                     "This",
-                    3417,
+                    3434,
                     13,
                     0
                   ],
-                  3417,
+                  3434,
                   13,
                   null,
                   "next",
                   [
                     "Func",
-                    3417,
+                    3434,
                     13,
                     0,
                     0,
@@ -50954,36 +51412,36 @@
                     [],
                     [],
                     "For",
-                    3417,
+                    3434,
                     13,
                     0,
                     0,
                     0,
-                    ["Const", 3417, 13, 0, true],
+                    ["Const", 3434, 13, 0, true],
                     0,
                     "TryCatch",
-                    3417,
+                    3434,
                     13,
                     0,
                     0,
                     [
                       "Switch",
-                      3417,
+                      3434,
                       13,
                       0,
                       0,
-                      ["Ident", 3417, 13, 0, "_state"],
-                      3417,
+                      ["Ident", 3434, 13, 0, "_state"],
+                      3434,
                       13,
                       null,
-                      ["Const", 3417, 13, 0, 0],
+                      ["Const", 3434, 13, 0, 0],
                       [
                         "Throw",
-                        3417,
+                        3434,
                         13,
                         0,
                         "Ident",
-                        3417,
+                        3434,
                         13,
                         0,
                         "StopIteration"
@@ -50994,7 +51452,7 @@
                       ["Const", 0, 0, 0, 1],
                       [
                         "BlockStatement",
-                        3417,
+                        3434,
                         13,
                         0,
                         0,
@@ -51013,13 +51471,13 @@
                           0,
                           [
                             "Binary",
-                            3418,
+                            3435,
                             16,
                             0,
-                            ["Ident", 3418, 16, 0, "_this"],
+                            ["Ident", 3435, 16, 0, "_this"],
                             ".",
                             "Const",
-                            3418,
+                            3435,
                             18,
                             0,
                             "_items"
@@ -51049,7 +51507,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3417, 13, 0, "_state"],
+                          ["Ident", 3434, 13, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -51065,7 +51523,7 @@
                       ["Const", 1, 1, 0, 2],
                       [
                         "BlockStatement",
-                        3417,
+                        3434,
                         13,
                         0,
                         0,
@@ -51074,7 +51532,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3417, 13, 0, "_state"],
+                          ["Ident", 3434, 13, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -51090,7 +51548,7 @@
                       ["Const", 1, 1, 0, 3],
                       [
                         "BlockStatement",
-                        3417,
+                        3434,
                         13,
                         0,
                         0,
@@ -51099,7 +51557,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3417, 13, 0, "_state"],
+                          ["Ident", 3434, 13, 0, "_state"],
                           "=",
                           "IfExpression",
                           1,
@@ -51132,7 +51590,7 @@
                       ["Const", 1, 1, 0, 4],
                       [
                         "BlockStatement",
-                        3417,
+                        3434,
                         13,
                         0,
                         0,
@@ -51141,7 +51599,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3418, 8, 0, "item"],
+                          ["Ident", 3435, 8, 0, "item"],
                           "=",
                           "Binary",
                           1302,
@@ -51160,7 +51618,7 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3417, 13, 0, "_state"],
+                          ["Ident", 3434, 13, 0, "_state"],
                           "=",
                           "Const",
                           1,
@@ -51174,7 +51632,7 @@
                           1,
                           0,
                           "Ident",
-                          3419,
+                          3436,
                           12,
                           0,
                           "item"
@@ -51186,7 +51644,7 @@
                       ["Const", 1421, 1, 0, 5],
                       [
                         "BlockStatement",
-                        3417,
+                        3434,
                         13,
                         0,
                         0,
@@ -51195,7 +51653,7 @@
                           1421,
                           1,
                           0,
-                          ["Ident", 3417, 13, 0, "_state"],
+                          ["Ident", 3434, 13, 0, "_state"],
                           "=",
                           "Const",
                           1421,
@@ -51205,78 +51663,78 @@
                         ],
                         ["Break", 1421, 1, 0]
                       ],
-                      3417,
+                      3434,
                       13,
                       null,
-                      ["Const", 3417, 13, 0, 6],
+                      ["Const", 3434, 13, 0, 6],
                       [
                         "BlockStatement",
-                        3417,
+                        3434,
                         13,
                         0,
                         0,
                         [
                           "Binary",
-                          3417,
+                          3434,
                           13,
                           0,
-                          ["Ident", 3417, 13, 0, "_state"],
+                          ["Ident", 3434, 13, 0, "_state"],
                           "=",
                           "Const",
-                          3417,
+                          3434,
                           13,
                           0,
                           0
                         ],
-                        ["Break", 3417, 13, 0]
+                        ["Break", 3434, 13, 0]
                       ],
                       [
                         "Throw",
-                        3417,
+                        3434,
                         13,
                         0,
                         "Call",
-                        3417,
+                        3434,
                         13,
                         0,
-                        ["Ident", 3417, 13, 0, "Error"],
+                        ["Ident", 3434, 13, 0, "Error"],
                         0,
                         [
                           "Binary",
-                          3417,
+                          3434,
                           13,
                           0,
-                          ["Const", 3417, 13, 0, "Unknown state: "],
+                          ["Const", 3434, 13, 0, "Unknown state: "],
                           "+",
                           "Ident",
-                          3417,
+                          3434,
                           13,
                           0,
                           "_state"
                         ]
                       ]
                     ],
-                    ["Ident", 3417, 13, 0, "_e"],
+                    ["Ident", 3434, 13, 0, "_e"],
                     "BlockStatement",
-                    3417,
+                    3434,
                     13,
                     0,
                     0,
                     [
                       "Call",
-                      3417,
+                      3434,
                       13,
                       0,
-                      ["Ident", 3417, 13, 0, "_close"],
+                      ["Ident", 3434, 13, 0, "_close"],
                       0
                     ],
                     [
                       "Throw",
-                      3417,
+                      3434,
                       13,
                       0,
                       "Ident",
-                      3417,
+                      3434,
                       13,
                       0,
                       "_e"
@@ -51291,38 +51749,38 @@
                 0,
                 [
                   "Binary",
-                  2869,
+                  2885,
                   36,
                   0,
                   ["Ident", 1, 1, 0, "_Set_prototype"],
                   ".",
                   "Const",
-                  3420,
+                  3437,
                   6,
                   0,
                   "iterator"
                 ],
                 "=",
                 "Binary",
-                3420,
+                3437,
                 17,
                 0,
                 [
                   "Binary",
-                  3420,
+                  3437,
                   17,
                   0,
-                  ["Ident", 3420, 17, 0, "Set"],
+                  ["Ident", 3437, 17, 0, "Set"],
                   ".",
                   "Const",
-                  3420,
+                  3437,
                   17,
                   0,
                   "prototype"
                 ],
                 ".",
                 "Const",
-                3420,
+                3437,
                 23,
                 0,
                 "values"
@@ -51333,7 +51791,7 @@
                 1,
                 0,
                 "Ident",
-                3396,
+                3413,
                 74,
                 0,
                 "Set"
