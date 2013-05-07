@@ -87,7 +87,7 @@ macro if, unless
       (i ~>= 0 and f(dec(i), @if(else-ifs[i].test, else-ifs[i].body, current))) or current
     @if((macro-name == \unless and ASTE not $test) or test, body, f(dec(else-ifs.length), else-body))
 
-  syntax test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax test as Logic, body as (BodyNoEnd | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (BodyNoEnd | (";", this as Statement)))*, else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let dec(x) -> eval "x - 1"
     let f(i, current)@
       if i ~>= 0 then f(dec(i), @if((if else-ifs[i].type == "unless" then (ASTE not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
@@ -977,7 +977,7 @@ define helper __sqrt = Math.sqrt
 define helper __log = Math.log
 
 macro for
-  syntax reducer as (\every | \some | \first)?, init as (ExpressionOrAssignment|""), ";", test as (Logic|""), ";", step as (ExpressionOrAssignment|""), body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, init as (ExpressionOrAssignment|""), ";", test as (Logic|""), ";", step as (ExpressionOrAssignment|""), body as (BodyNoEnd | (";", this as Statement)), else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     init ?= @noop()
     test ?= ASTE true
     step ?= @noop()
@@ -1048,7 +1048,7 @@ macro for
       $current
 
 macro while, until
-  syntax reducer as (\every | \some | \first)?, test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, test as Logic, step as (",", this as ExpressionOrAssignment)?, body as (BodyNoEnd | (";", this as Statement)), else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     if macro-name == \until
       test := ASTE not $test
     
@@ -1120,7 +1120,7 @@ else
     false
 
 macro for
-  syntax reducer as (\every | \some | \first | \filter)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first | \filter)?, value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array as Logic, body as (BodyNoEnd | (";", this as Statement)), else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     value := @macro-expand-1(value)
   
     let mutable length = null
@@ -1472,7 +1472,7 @@ macro for
         $body
       $current
 
-  syntax reducer as (\every | \some | \first)?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first)?, key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object as Logic, body as (BodyNoEnd | (";", this as Statement)), else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let mutable index = null
     if value
       index := value.index
@@ -1974,7 +1974,7 @@ define operator binary instanceofsome with precedence: 6, maximum: 1, invertible
     ASTE __instanceofsome($left, $right)
 
 macro try
-  syntax try-body as (Body | (";", this as Statement)), typed-catches as ("\n", "catch", ident as Identifier, "as", type as Type, body as (Body | (";", this as Statement)))*, catch-part as ("\n", "catch", ident as Identifier, body as (Body | (";", this as Statement)))?, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (Body | (";", this as Statement)))?
+  syntax try-body as (BodyNoEnd | (";", this as Statement)), typed-catches as ("\n", "catch", ident as Identifier, "as", type as Type, body as (BodyNoEnd | (";", this as Statement)))*, catch-part as ("\n", "catch", ident as Identifier, body as (BodyNoEnd | (";", this as Statement)))?, else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let has-else = not not else-body
     if not catch-part and has-else and not finally-body
       throw Error("Must provide at least a catch, else, or finally to a try block")
@@ -2068,7 +2068,7 @@ define helper __iter = #(iterable)
     throw Error "Expected iterable to be an Array or an Object with an 'iterator' function, got $(typeof! iterable)"
 
 macro for
-  syntax reducer as (\every | \some | \first | \filter)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (Body | (";", this as Statement)), else-body as ("\n", "else", this as (Body | (";", this as Statement)))?
+  syntax reducer as (\every | \some | \first | \filter)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (BodyNoEnd | (";", this as Statement)), else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let init = []
     let iterator = @cache AST __iter($iterable), init, \iter, false
     
@@ -2161,7 +2161,7 @@ macro for
       $current
 
 macro switch
-  syntax node as Logic, cases as ("\n", "case", node-head as Logic, node-tail as (",", this as Logic)*, body as (Body | (";", this as Statement))?)*, default-case as ("\n", "default", this as (Body | (";", this as Statement))?)?
+  syntax node as Logic, cases as ("\n", "case", node-head as Logic, node-tail as (",", this as Logic)*, body as (BodyNoEnd | (";", this as Statement))?)*, default-case as ("\n", "default", this as (BodyNoEnd | (";", this as Statement))?)?, "end"
     let result-cases = []
     for case_ in cases
       let case-nodes = [case_.node-head].concat(case_.node-tail)
@@ -2189,7 +2189,7 @@ macro switch
 
     @switch(node, result-cases, default-case)
   
-  syntax cases as ("\n", "case", test as Logic, body as (Body | (";", this as Statement))?)*, default-case as ("\n", "default", this as (Body | (";", this as Statement))?)?
+  syntax cases as ("\n", "case", test as Logic, body as (BodyNoEnd | (";", this as Statement))?)*, default-case as ("\n", "default", this as (BodyNoEnd | (";", this as Statement))?)?, "end"
     for reduce case_ in cases by -1, current = default-case
       let test = case_.test
       let mutable body = case_.body
@@ -2456,7 +2456,7 @@ define helper __async-iter = #(mutable limit as Number, iterator as {next: Funct
   next()
 
 macro asyncfor
-  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", init as (Statement|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", init as (Statement|""), ";", test as (Logic|""), ";", step as (Statement|""), body as (BodyNoEnd | (";", this as Statement)), "end", rest as DedentedBody
     let {mutable err, result} = results ? {}
     err ?= @tmp \err, true
     init ?= @noop()
@@ -2518,7 +2518,7 @@ macro asyncfor
           $rest
         $next()
   
-  syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as (BodyNoEnd | (";", this as Statement)), "end", rest as DedentedBody
     let {mutable err, result} = results ? {}
     let has-result = not not result
     err ?= @tmp \err, true
@@ -2594,7 +2594,7 @@ macro asyncfor
         else
           #($err)@ -> $rest
   
-  syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as (BodyNoEnd | (";", this as Statement)), "end", rest as DedentedBody
     let {err, result} = results ? {}
     let own = type == "of"
     let init = []
@@ -2624,7 +2624,7 @@ macro asyncfor
         $body
       $rest
   
-  syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax parallelism as ("(", this as Expression, ")")?, results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as (BodyNoEnd | (";", this as Statement)), "end", rest as DedentedBody
     let {mutable err, result} = results ? {}
     let has-result = not not result
     
@@ -2640,7 +2640,7 @@ macro asyncfor
         #($err)@ -> $rest
 
 macro asyncwhile, asyncuntil
-  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (Body | (";", this as Statement)), rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, next as Identifier, ",", test as Logic, step as (",", this as Statement)?, body as (BodyNoEnd | (";", this as Statement)), "end", rest as DedentedBody
     if macro-name == \asyncuntil
       test := ASTE not $test
     let {err, result} = results ? {}
@@ -2650,7 +2650,7 @@ macro asyncwhile, asyncuntil
       $rest
 
 macro asyncif, asyncunless
-  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, done as Identifier, ",", test as Logic, body as (Body | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (Body | (";", this as Statement)))*, else-body as ("\n", "else", this as (Body | (";", this as Statement)))?, rest as DedentedBody
+  syntax results as (err as Identifier, result as (",", this as Identifier)?, "<-")?, done as Identifier, ",", test as Logic, body as (BodyNoEnd | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (BodyNoEnd | (";", this as Statement)))*, else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end", rest as DedentedBody
     if macro-name == \asyncunless
       test := ASTE not $test
     let {mutable err, result} = results ? {}

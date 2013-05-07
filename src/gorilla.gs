@@ -107,9 +107,9 @@ let parse = exports.parse := #(source, options = {}, callback)
 
 exports.get-reserved-words := #(options = {})
   if options.no-prelude
-    parser.get-reserved-words()
+    parser.get-reserved-words(null, options)
   else
-    parser.get-reserved-words(fetch-and-parse-prelude.sync(options.lang or "js").macros)
+    parser.get-reserved-words(fetch-and-parse-prelude.sync(options.lang or "js").macros, options)
 
 let join-parsed-results(results)
   let joined-parsed = {

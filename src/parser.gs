@@ -861,6 +861,8 @@ define EmptyLine = with-space! Newline
 define EmptyLines = zero-or-more! EmptyLine, true
 define SomeEmptyLines = one-or-more! EmptyLine, true
 
+define NoSpaceNewline = except! EmptyLine
+
 let INDENTS =
   [C "\t"]: 4
   [C " "]: 1
@@ -872,16 +874,21 @@ define CountIndent = zero-or-more! SpaceChar, #(x)
     count += INDENTS[c]
   count
 
+define IndentationRequired = #(o)
+  not o.options.noindent
+
 define CheckIndent = #(o)
   let clone = o.clone()
   let indent = CountIndent clone
-  if indent == clone.indent.peek()
+  if indent == clone.indent.peek() or o.options.noindent
     o.update clone
     true
   else
     false
 
 let Advance = named \Advance, #(o)
+  if o.options.noindent
+    throw Error "Can't use Advance if in noindent mode"
   let clone = o.clone()
   let indent = CountIndent clone
   if indent > clone.indent.peek()
@@ -920,9 +927,10 @@ define Period = character! "."
 define ColonChar = character! ":"
 define Pipe = with-space! character! "|"
 define DoubleColon = sequential! [ColonChar, ColonChar], "::"
+define EqualChar = character! "="
 define ColonEqual = with-space! sequential! [
   ColonChar
-  character! "="
+  EqualChar
 ], ":="
 namedlet Minus = character! "-"
 namedlet Plus = character! "+"
@@ -1758,7 +1766,9 @@ define DoubleQuote = character! '"'
 define SingleQuote = character! "'"
 define TripleDoubleQuote = sequential! [DoubleQuote, DoubleQuote, DoubleQuote], '"""'
 define TripleSingleQuote = sequential! [SingleQuote, SingleQuote, SingleQuote], "'''"
-define Semicolon = with-space! character! ";"
+define SemicolonChar = character! ";"
+define Semicolon = with-space! SemicolonChar
+define Semicolons = one-or-more! Semicolon
 namedlet Asterix = character! "*"
 namedlet Caret = character! "^"
 define OpenParenthesis = with-space! character! "("
@@ -2482,62 +2492,69 @@ namedlet IdentifierNameConst = #(o)
 
 define IdentifierNameConstOrNumberLiteral = one-of! [IdentifierNameConst, NumberLiteral]
 
-let RESERVED_IDENTS = [
-  \as
-  \AST
-  \arguments
-  \break
-  \case
-  \catch
-  \class
-  \const
-  \continue
-  \debugger
-  \default
-  \delete
-  \do
-  \else
-  \enum
-  \eval
-  \export
-  \extends
-  \false
-  \finally
-  \for
-  \function
-  \if
-  \import
-  \Infinity
-  \instanceof
-  \in
-  \let
-  \macro
-  \mutable
-  \NaN
-  \new
-  \not
-  \null
-  \package
-  \private
-  \protected
-  \public
-  \return
-  \static
-  \super
-  \switch
-  \then
-  \this
-  \throw
-  \true
-  \try
-  \typeof
-  \undefined
-  \var
-  \void
-  \while
-  \with
-  \yield
-]
+let get-reserved-idents = do
+  let RESERVED_IDENTS = [
+    \as
+    \AST
+    \arguments
+    \break
+    \case
+    \catch
+    \class
+    \const
+    \continue
+    \debugger
+    \default
+    \delete
+    \do
+    \else
+    \enum
+    \eval
+    \export
+    \extends
+    \false
+    \finally
+    \for
+    \function
+    \if
+    \import
+    \Infinity
+    \instanceof
+    \in
+    \let
+    \macro
+    \mutable
+    \NaN
+    \new
+    \not
+    \null
+    \package
+    \private
+    \protected
+    \public
+    \return
+    \static
+    \super
+    \switch
+    \then
+    \this
+    \throw
+    \true
+    \try
+    \typeof
+    \undefined
+    \var
+    \void
+    \while
+    \with
+    \yield
+  ]
+  let RESERVED_IDENTS_NOINDENT = [...RESERVED_IDENTS, \end].sort()
+  #(options = {})
+    if options.noindent
+      RESERVED_IDENTS_NOINDENT
+    else
+      RESERVED_IDENTS
 define Identifier = one-of! [
   sequential! [
     #(o) -> _in-ast.peek()
@@ -2550,7 +2567,7 @@ define Identifier = one-of! [
     let {index} = o
     let clone = o.clone()
     let result = Name clone
-    if not result or result in RESERVED_IDENTS or o.macros.has-macro-or-operator result
+    if not result or result in get-reserved-idents(o.options) or o.macros.has-macro-or-operator result
       o.fail "identifier"
       false
     else
@@ -2791,12 +2808,33 @@ define Colon = sequential! [
   [\this, ColonChar]
   except! ColonChar
 ]
+
+define ColonNewline = sequential! [
+  Colon
+  Space
+  [\this, Newline]
+]
+
 define NotColon = except! Colon
+define NotColonUnlessNoIndentAndNewline = #(o)
+  if o.options.noindent
+    if ColonNewline(o.clone())
+      true
+    else
+      NotColon(o)
+  else
+    NotColon(o)
 
 define ObjectKeyColon = with-message! 'key ":"', sequential! [
   [\this, ObjectKey]
   Colon
-  except! character! "="
+  except! EqualChar
+  #(o)
+    if o.options.noindent
+      let clone = o.clone()
+      if Space(clone) and Newline(clone)
+        return false
+    true
 ]
 
 define ObjectKeyNotColon = sequential! [
@@ -2804,8 +2842,15 @@ define ObjectKeyNotColon = sequential! [
   NotColon
 ]
 
+namedlet NoNewlineIfNoIndent = #(o)
+  if o.options.noindent
+    NoSpaceNewline(o)
+  else
+    true
+
 namedlet DualObjectKey = short-circuit! ObjectKeyColon, sequential! [
   [\key, ObjectKeyColon]
+  NoNewlineIfNoIndent
   [\value, Expression]
 ]
 
@@ -2823,6 +2868,7 @@ define PropertyObjectKeyColon = sequential! [
 ]
 namedlet PropertyDualObjectKey = short-circuit! PropertyObjectKeyColon, sequential! [
   [\property-key, PropertyObjectKeyColon]
+  NoNewlineIfNoIndent
   [\value, Expression]
 ], #(x) -> { x.property-key.key, x.value, property: x.property-key.property }
 
@@ -3031,7 +3077,7 @@ namedlet MapLiteral = short-circuit! MapLiteralToken, sequential! [
     node: o.object i, [...x.first, ...x.rest]
   }, o, i, line
 
-namedlet Body = sequential! [
+namedlet BodyWithIndent = sequential! [
   Space
   Newline
   EmptyLines
@@ -3039,6 +3085,44 @@ namedlet Body = sequential! [
   [\this, Block]
   PopIndent
 ]
+
+define EndToken = word \end
+
+namedlet EndNoIndent = sequential! [
+  EmptyLines
+  Space
+  maybe! Semicolons, NOTHING
+  EndToken
+]
+
+namedlet BodyNoIndentNoEnd = sequential! [
+  ColonNewline
+  EmptyLines
+  [\this, Block]
+]
+
+namedlet BodyNoIndent = sequential! [
+  [\this, BodyNoIndentNoEnd]
+  EndNoIndent
+]
+
+namedlet End = #(o)
+  if o.options.noindent
+    EndNoIndent(o)
+  else
+    true
+
+namedlet Body = #(o)
+  if o.options.noindent
+    BodyNoIndent(o)
+  else
+    BodyWithIndent(o)
+
+namedlet BodyNoEnd = #(o)
+  if o.options.noindent
+    BodyNoIndentNoEnd(o)
+  else
+    BodyWithIndent(o)
 
 namedlet DedentedBody = sequential! [
   Space
@@ -3491,7 +3575,7 @@ define MacroName = with-message! 'macro-name', with-space! sequential! [
     _Symbol
     _Name
   ], #(x) -> x.join ""]
-  NotColon
+  NotColonUnlessNoIndentAndNewline
 ]
 
 namedlet MacroNames = sequential! [
@@ -3620,11 +3704,20 @@ namedlet MacroSyntax = sequential! [
 
 namedlet MacroBody = one-of! [
   sequential! [
+    #(o)
+      if o.options.noindent
+        Colon(o)
+      else
+        true
     Space
     Newline
     EmptyLines
     [\this, sequential! [
-      Advance
+      #(o)
+        if o.options.noindent
+          MaybeAdvance(o)
+        else
+          Advance(o)
       [\head, MacroSyntax]
       [\tail, zero-or-more! sequential! [
         Newline
@@ -3633,6 +3726,7 @@ namedlet MacroBody = one-of! [
       ]]
       PopIndent
     ]]
+    End
   ], #(x) -> true
   #(o)
     let i = o.index
@@ -3854,6 +3948,7 @@ namedlet IndentedUnclosedObjectLiteralInner = sequential! [
 
 namedlet IndentedUnclosedObjectLiteral = sequential! [
   #(o) -> not _prevent-unclosed-object-literal.peek()
+  IndentationRequired
   Space
   Newline
   EmptyLines
@@ -3889,6 +3984,7 @@ namedlet IndentedUnclosedArrayLiteralInner = sequential! [
 ], #(x, o, i) -> o.array i, [x.head, ...x.tail]
 namedlet IndentedUnclosedArrayLiteral = sequential! [
   #(o) -> not _prevent-unclosed-object-literal.peek()
+  IndentationRequired
   Space
   Newline
   EmptyLines
@@ -3968,6 +4064,7 @@ namedlet UnclosedArguments = sequential! [
   ], #(x) -> [x.head, ...x.tail]]
   [\rest, one-of! [
     sequential! [
+      IndentationRequired
       Comma
       SomeEmptyLines
       Advance
@@ -4457,13 +4554,20 @@ namedlet Statement = sequential! [
   // TODO: have statement decorators?
 ]
 
+namedlet LinePart = one-of! [
+  LicenseComment
+  Statement
+]
+
 namedlet Line = sequential! [
   CheckIndent
-  [\this, one-of! [
-    LicenseComment
-    Statement
+  [\head, LinePart]
+  [\tail, zero-or-more! sequential! [
+    Semicolons
+    [\this, LinePart]
   ]]
-]
+  maybe! Semicolons, NOTHING
+], #(x) -> [x.head, ...x.tail]
 
 let _Block = do
   let mutator = #(lines, o, i)
@@ -4485,7 +4589,11 @@ let _Block = do
       EmptyLines
       [\this, Line]
     ]]
-  ], #(x, o, i) -> mutator([x.head, ...x.tail], o, i)
+  ], #(x, o, i)
+    let lines = [...x.head]
+    for line in x.tail
+      lines.push ...line
+    mutator(lines, o, i)
   
   let run-async = #(o, callback)
     let i = o.index
@@ -4496,7 +4604,7 @@ let _Block = do
       return callback e
     if not head
       return callback null, head
-    let lines = [head]
+    let lines = [...head]
     let next()
       try
         let start-time = new Date().get-time()
@@ -4510,7 +4618,7 @@ let _Block = do
           if not line
             break
           o.update clone
-          lines.push line
+          lines.push ...line
       catch e
         return callback e
       callback null, mutator(lines, o, i)
@@ -5341,6 +5449,8 @@ class MacroHolder
       FunctionDeclaration
       Statement
       Body
+      BodyNoEnd
+      End
       Identifier
       SimpleAssignable
       Parameter
@@ -5959,6 +6069,7 @@ class State
     "]": CloseSquareBracket
     "{": OpenCurlyBrace
     "}": CloseCurlyBrace
+    "end": End
   
   let reduce-object(o, obj)
     if is-array! obj
@@ -8053,6 +8164,6 @@ parse <<< {
       result: NothingNode(0, 0, -1)
       macros
     }
-  get-reserved-words: #(macros)
-    unique [...RESERVED_IDENTS, ...(macros?.get-macro-and-operator-names?() or [])]
+  get-reserved-words: #(macros, options = {})
+    unique [...get-reserved-idents(options), ...(macros?.get-macro-and-operator-names?() or [])]
 }
