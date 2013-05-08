@@ -17,7 +17,7 @@ async-test "Calling a helper", #
 async-test "Calling an async helper", #
   let wait = @wait
   let f = gorilla.eval("""
-  Hello, <% async! done, name <- wait get-name %><%= name %>!<% done() %>
+  Hello, <% async! done, name <- wait get-name %><%= name %>!
   """, embedded: true, noindent: true)
   let text = []
   let get-name = run-once "world"

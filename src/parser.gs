@@ -4561,6 +4561,14 @@ namedlet ExpressionAsStatement = one-of! [
 ]
 define Expression = in-expression ExpressionAsStatement 
 
+define FakeDoneCall = #(o)
+  if o.options.embedded and o.index == o.data.length
+    let i = o.index
+    o.index ~+= 1
+    o.call i, o.ident(i, \done), []
+  else
+    false
+
 namedlet Statement = sequential! [
   [\this, in-statement one-of! [
     DefineMacro
@@ -4570,6 +4578,7 @@ namedlet Statement = sequential! [
     Assignment
     ExpressionAsStatement
     EmbeddedLiteralText
+    FakeDoneCall
   ]]
   Space
   // TODO: have statement decorators?
@@ -4714,6 +4723,7 @@ namedlet EmbeddedBlock = sequential! [
 ]
 
 namedlet EmbeddedLiteralTextInnerPart = one-of! [
+  FakeDoneCall
   EmbeddedReadLiteralText
   EmbeddedWriteExpression
   EmbeddedBlock

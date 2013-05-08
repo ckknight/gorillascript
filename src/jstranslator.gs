@@ -14,7 +14,6 @@ class Scope
     @variables := if variables then { extends variables } else {}
     @has-bound := false
     @used-this := false
-    @used-done := false
     @id := get-id()
 
   def maybe-cache(item as ast.Expression, type as Type = Type.any, func as (AstNode, AstNode, Boolean) -> AstNode)
@@ -258,8 +257,6 @@ class GeneratorBuilder
             ast.TryFinally @pos,
               ast.Call @pos, f
               ast.Call @pos, close
-      if inner-scope.used-done
-        @scope.used-done := true
     let scope = @scope
     let err = scope.reserve-ident @pos, \e, Type.any
     let catches = @catches
@@ -910,8 +907,6 @@ let translators =
               * body
       if node.curry
         throw Error "Expected node to already be curried"
-      if inner-scope.used-done or real-inner-scope.used-done
-        scope.used-done := true
       auto-return ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
 
   Ident: do
@@ -950,8 +945,7 @@ let translators =
         let ident = ast.Ident get-pos(node), name
         if not scope.options.embedded or PRIMORDIAL_GLOBALS ownskey name or location != \expression or scope.has-variable(ident) or scope.macros.has-helper(name)
           auto-return ident
-        else if name == \done
-          scope.used-done := true
+        else if name == \done // TODO: add the variable earlier
           auto-return ident
         else
           ast.Access get-pos(node),
@@ -1220,8 +1214,6 @@ let translate-root(mutable roots as Object, scope as Scope)
           throw Error "Cannot translate non-Root object"
         let inner-scope = scope.clone(true)
         let {comments, body: root-body} = split-comments translate(root.body, inner-scope, \top-statement, scope.options.return or scope.options.eval, [])()
-        if inner-scope.used-done
-          scope.used-done := true
         let root-pos = get-pos(root)
         ast.Block root-pos, [
           ...comments
@@ -1291,13 +1283,10 @@ let translate-root(mutable roots as Object, scope as Scope)
               ast.If body.pos,
                 ast.Binary body.pos, ast.Ident(body.pos, \context), "==", ast.Const(body.pos, null)
                 ast.Assign body.pos, ast.Ident(body.pos, \context), ast.Obj(body.pos)
-              if scope.used-done
+              ast.TryCatch body.pos,
                 uncommented-body
-              else
-                ast.Block body.pos, [
-                  uncommented-body
-                  ast.Call body.pos, ast.Ident(body.pos, \done), []
-                ]
+                ast.Ident body.pos, \e
+                ast.Call body.pos, ast.Ident(body.pos, \done), [ast.Ident(body.pos, \e)]
             ]
       ]
   
