@@ -95,7 +95,9 @@ exports.get-serialized-prelude := fetch-and-parse-prelude.serialized
 let parse = exports.parse := #(source, options = {}, callback)
   if is-function! options
     return parse source, null, options
-  if options.no-prelude
+  if options.macros
+    parser(source, options.macros, options, callback)
+  else if options.no-prelude
     parser(source, null, options, callback)
   else
     if callback?
