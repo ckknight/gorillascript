@@ -31895,7 +31895,7 @@
       fs = require("fs");
       path = require("path");
       DEFAULT_TRANSLATOR = "./jstranslator";
-      exports.version = "1.0";
+      exports.version = "0.5.1";
       if (require.extensions) {
         require.extensions[".gs"] = function (module, filename) {
           var compiled;

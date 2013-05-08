@@ -5,7 +5,7 @@ require! cli
 
 cli.enable 'version'
 
-cli.set-app "gork", "1.0"
+cli.set-app "gork", "0.5.1"
 
 cli.set-usage "gork [OPTIONS]"
 
