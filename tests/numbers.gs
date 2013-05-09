@@ -40,6 +40,8 @@ test "Underscore-separated", #
   eq 0xDEAD_BEEF, 0xde_ad_be_ef
   eq 0o1234_5670, 0o12_34_56_70
   eq 2r0001_0010_0011_0100, 2r0001001000110100
+  eq 1000000, 1_0_0_0_0_0_0_ // ending with an underscore, which is ignored
+  eq 1234.5678, 1_234_._5678_
 
 test "Fractional hex", #
   eq 1/16, 0x0.1

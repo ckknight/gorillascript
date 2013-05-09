@@ -1890,25 +1890,31 @@ namedlet ThisOrShorthandLiteralPeriod = one-of! [
   ]
 ]
 
-define DecimalNumber = do
-  namedlet RawDecimalDigits = one-or-more! DecimalDigit
-  
-  namedlet DecimalDigits = sequential! [
-    [\head, RawDecimalDigits]
+let make-digits-rule(digit)
+  let digits = one-or-more! digit
+  sequential! [
+    [\head, digits]
     [\tail, zero-or-more! sequential! [
       one-or-more! Underscore
-      [\this, RawDecimalDigits]
+      [\this, digits]
     ]]
   ], #(x)
     let parts = process-char-codes x.head
     for part in x.tail
       process-char-codes part, parts
     parts.join ""
+
+define MaybeUnderscores = zero-or-more! Underscore, true
+
+define DecimalNumber = do
+  namedlet DecimalDigits = make-digits-rule DecimalDigit
   
   sequential! [
     [\integer, DecimalDigits]
     [\decimal, maybe! (sequential! [
+      MaybeUnderscores
       Period
+      MaybeUnderscores
       [\this, DecimalDigits]
     ], #(x) -> "." & x), NOTHING]
     [\scientific, maybe! (sequential! [
@@ -1918,7 +1924,7 @@ define DecimalNumber = do
     ], #(x) -> from-char-code(x.e) & (if x.op != NOTHING then from-char-code(x.op) else "") & x.digits), NOTHING]
     maybe! (sequential! [
       Underscore
-      NamePart
+      maybe! NamePart, true
     ]), true
   ], #(x, o, i)
     let {mutable decimal, mutable scientific} = x
@@ -1933,25 +1939,18 @@ define DecimalNumber = do
     o.const i, value
 
 let make-radix-number(radix, separator, digit)
-  let digits = sequential! [
-    [\head, one-or-more! digit]
-    [\tail, zero-or-more! sequential! [
-      one-or-more! Underscore
-      [\this, one-or-more! digit]
-    ]]
-  ], #(x)
-    let parts = process-char-codes x.head
-    for part in x.tail
-      process-char-codes part, parts
-    parts.join ""
+  let digits = make-digits-rule digit
   sequential! [
     Zero
     [\separator, separator]
     [\integer, digits]
     [\decimal, maybe! (sequential! [
+      MaybeUnderscores
       Period
+      MaybeUnderscores
       [\this, digits]
     ]), NOTHING]
+    MaybeUnderscores
   ], #(x, o, i)
     let {integer, mutable decimal} = x
     if decimal == NOTHING
@@ -2000,17 +1999,7 @@ namedlet RadixNumber = do
             c
           else
             false
-      sequential! [
-        [\head, one-or-more! digit]
-        [\tail, zero-or-more! sequential! [
-          one-or-more! Underscore
-          [\this, one-or-more! digit]
-        ]]
-      ], #(x)
-        let parts = process-char-codes x.head
-        for part in x.tail
-          process-char-codes part, parts
-        parts.join ""
+      make-digits-rule digit
   
   let Radix = multiple! 1, 2, DecimalDigit
   #(o)
@@ -2038,8 +2027,11 @@ namedlet RadixNumber = do
     if not is-finite value
       o.error "Unable to parse number: $(radix-num)r$(integer)"
     
+    MaybeUnderscores(clone)
+    
     let sub-clone = clone.clone()
     if Period(sub-clone)
+      MaybeUnderscores(sub-clone)
       let mutable decimal = digits(sub-clone)
       if decimal
         clone.update sub-clone
@@ -2052,6 +2044,7 @@ namedlet RadixNumber = do
             break
           else
             decimal := decimal.slice(0, -1)
+    MaybeUnderscores(clone)
     o.update clone
     o.const start-index, value
 

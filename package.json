@@ -1,7 +1,7 @@
 {
   "name": "gorillascript",
   "description": "GorillaScript is a compile-to-JavaScript language designed to empower the user while attempting to prevent some common errors.",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "author": {
     "name": "Cameron Kenneth Knight",
     "email": "ckknight@gmail.com"
