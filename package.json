@@ -16,5 +16,8 @@
   },
   "main": "index",
   "bin": "./bin/gorilla",
-  "readmeFilename": "README"
+  "readmeFilename": "README",
+  "dependencies": {
+    "cli": "~0.4.4-2"
+  }
 }
