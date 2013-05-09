@@ -11,7 +11,7 @@ let has-gjs = not err? and which-gjs-stdout.length and not which-gjs-stderr.leng
 
 cli.enable 'version'
 
-cli.set-app "gorilla", "0.5.1"
+cli.set-app "gorilla", "0.5.2"
 
 cli.set-usage "gorilla [OPTIONS] path/to/script.gs"
 

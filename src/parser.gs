@@ -13,8 +13,11 @@ let SHORT_CIRCUIT = freeze { to-string: #-> "short-circuit" }
 let NOTHING = freeze { to-string: #-> "" }
 
 let EMBED_OPEN_DEFAULT = "<%"
-let EMBED_OPEN_WRITE_DEFAULT = "="
 let EMBED_CLOSE_DEFAULT = "%>"
+let EMBED_OPEN_WRITE_DEFAULT = "<%="
+let EMBED_CLOSE_WRITE_DEFAULT = "%>"
+let EMBED_OPEN_COMMENT_DEFAULT = "<%--"
+let EMBED_CLOSE_COMMENT_DEFAULT = "--%>"
 
 let generate-cache-key = do
   let mutable id = -1
@@ -750,7 +753,7 @@ define Newline = #(o)
 
 namedlet Eof = #(o) -> o.index ~>= o.data.length
 namedlet CheckStop = do
-  namedlet Stop = one-of! [Newline, Eof]
+  namedlet Stop = one-of! [Newline, Eof, EmbeddedClose, EmbeddedCloseWrite]
   check! Stop
 
 let _NewlineWithCheckIndent = sequential! [
@@ -910,22 +913,30 @@ let Advance = named \Advance, #(o)
     false
 
 let MaybeAdvance = named \MaybeAdvance, #(o)
+  if o.options.noindent
+    return true
   let clone = o.clone()
   let indent = CountIndent clone
   o.indent.push indent
   true
 
 let PushIndent = named \PushIndent, mutate! CountIndent, (#(indent, o)
+  if o.options.noindent
+    return true
   o.indent.push indent
   true), true
 
 let PushFakeIndent = do
   let cache = []
   #(n) -> cache[n] ?= named "PushFakeIndent($n)", #(o)
+    if o.options.noindent
+      return true
     o.indent.push o.indent.peek() + n
     true
 
 let PopIndent = named \PopIndent, #(o)
+  if o.options.noindent
+    return true
   if o.indent.can-pop()
     o.indent.pop()
     true
@@ -1854,9 +1865,14 @@ namedlet AnyChar = #(o)
   if index >= data.length
     o.fail "any"
     false
-  else
+  else  
+    let c = C(data, index)
     o.index ~+= 1
-    C(o.data, index) or -1
+    if c in [C("\r"), C("\n"), 8232, 8233]
+      o.line ~+= 1
+      if c == C("\r") and C(data, index + 1) == C("\n")
+        o.index ~+= 1
+    c or -1
 
 define ThisLiteral = word \this, #(x, o, i) -> o.this i
 
@@ -2832,7 +2848,7 @@ define NotColonUnlessNoIndentAndNewline = #(o)
     if ColonNewline(o.clone())
       true
     else if o.options.embedded
-      ColonEmbeddedClose(o.clone()) or NotColon(o)
+      ColonEmbeddedClose(o.clone()) or ColonEmbeddedCloseWrite(o.clone()) or NotColon(o)
     else
       NotColon(o)
   else
@@ -2847,6 +2863,8 @@ define ObjectKeyColon = with-message! 'key ":"', sequential! [
       let clone = o.clone()
       if Space(clone) and Newline(clone)
         return false
+      else if o.options.embedded
+        return not EmbeddedClose(o.clone()) and not EmbeddedCloseWrite(o.clone())
     true
 ]
 
@@ -3109,10 +3127,15 @@ namedlet EndNoIndent = sequential! [
 ]
 
 namedlet BodyNoIndentNoEnd = sequential! [
-  #(o) -> ColonNewline(o.clone()) or (o.options.embedded and ColonEmbeddedClose(o.clone()))
+  #(o) -> ColonNewline(o.clone()) or (o.options.embedded and (ColonEmbeddedClose(o.clone()) or ColonEmbeddedCloseWrite(o.clone())))
   Colon
   EmptyLines
-  [\this, Block]
+  [\this, #(o)
+    o.indent.push(o.indent.peek() + 1)
+    try
+      return Block(o)
+    finally
+      o.indent.pop()]
 ]
 
 namedlet BodyNoIndent = sequential! [
@@ -4561,43 +4584,57 @@ namedlet ExpressionAsStatement = one-of! [
 ]
 define Expression = in-expression ExpressionAsStatement 
 
-define FakeDoneCall = #(o)
-  if o.options.embedded and o.index == o.data.length
-    let i = o.index
-    o.index ~+= 1
-    o.call i, o.ident(i, \done), []
-  else
-    false
-
 namedlet Statement = sequential! [
   [\this, in-statement one-of! [
+    LicenseComment
     DefineMacro
     DefineHelper
     DefineOperator
     DefineSyntax
     Assignment
     ExpressionAsStatement
-    EmbeddedLiteralText
-    FakeDoneCall
   ]]
   Space
   // TODO: have statement decorators?
 ]
 
 namedlet LinePart = one-of! [
-  LicenseComment
   Statement
+  EmbeddedLiteralText
 ]
 
-namedlet Line = sequential! [
-  CheckIndent
-  [\head, LinePart]
-  [\tail, zero-or-more! sequential! [
+define Line = do
+  let SemicolonsStatement = sequential! [
     Semicolons
-    [\this, LinePart]
-  ]]
-  maybe! Semicolons, NOTHING
-], #(x) -> [x.head, ...x.tail]
+    [\this, Statement]
+  ]
+  #(o)
+    let clone = o.clone()
+    if not CheckIndent(clone)
+      return false
+    let parts = []
+    let mutable need-semicolon = false
+    while true
+      let mutable ret = EmbeddedLiteralText(clone)
+      if ret
+        need-semicolon := false
+        parts.push ret
+      else
+        ret := if need-semicolon
+          SemicolonsStatement(clone)
+        else
+          Statement(clone)
+        if ret
+          need-semicolon := true
+          parts.push ret
+        else
+          break
+    if parts.length > 0
+      Semicolons(clone)
+      o.update clone
+      parts
+    else
+      false
 
 let _Block = do
   let mutator = #(lines, o, i)
@@ -4709,37 +4746,45 @@ let _allow-embedded-text = Stack true
 let disallow-embedded-text = make-alter-stack _allow-embedded-text, false
 
 namedlet EmbeddedWriteExpression = disallow-embedded-text sequential! [
-  EmbeddedOpen
+  except! EmbeddedOpenComment
   EmbeddedOpenWrite
   [\this, Expression]
-  EmbeddedClose
+  EmbeddedCloseWrite
 ], #(x, o, i) -> o.embed-write i, x, true
 
 namedlet EmbeddedBlock = sequential! [
-  EmbeddedOpen
   except! EmbeddedOpenWrite
+  except! EmbeddedOpenComment
+  EmbeddedOpen
   [\this, _Block]
   EmbeddedClose
 ]
 
-namedlet EmbeddedLiteralTextInnerPart = one-of! [
-  FakeDoneCall
+define EmbeddedLiteralTextInnerPart = one-of! [
+  EmbeddedComment
   EmbeddedReadLiteralText
   EmbeddedWriteExpression
+]
+
+define EmbeddedLiteralTextInner = zero-or-more! EmbeddedLiteralTextInnerPart, #(x, o, i) -> o.block i, x
+
+define EmbeddedLiteralTextInnerPartWithBlock = one-of! [
+  EmbeddedLiteralTextInnerPart
   EmbeddedBlock
 ]
 
-namedlet EmbeddedLiteralTextInner = zero-or-more! EmbeddedLiteralTextInnerPart, #(x, o, i) -> o.block i, x
+define EmbeddedLiteralTextInnerWithBlock = zero-or-more! EmbeddedLiteralTextInnerPartWithBlock, #(x, o, i) -> o.block i, x
 
-namedlet EmbeddedLiteralText = sequential! [
-  #(o) -> o.options.embedded and _allow-embedded-text.peek()
+define EmbeddedLiteralText = sequential! [
+  #(o) -> o.options.embedded and _allow-embedded-text.peek() and o.index < o.data.length
   EmbeddedClose
   [\this, EmbeddedLiteralTextInner]
   one-of! [
     Eof
     sequential! [
-      EmbeddedOpen
+      except! EmbeddedOpenComment
       except! EmbeddedOpenWrite
+      EmbeddedOpen
     ]
   ]
 ]
@@ -4767,8 +4812,21 @@ let make-embedded-rule(key, default-value) -> #(o)
   if not is-string! text
     text := default-value
   get-embedded-rule(text)(o)
+define EmbeddedOpenComment = make-embedded-rule \embedded-open-comment, EMBED_OPEN_COMMENT_DEFAULT
+define EmbeddedCloseComment = make-embedded-rule \embedded-close-comment, EMBED_CLOSE_COMMENT_DEFAULT
+
+define EmbeddedComment = #(o)
+  let start-index = o.index
+  if EmbeddedOpenComment(o)
+    let len = o.data.length
+    while o.index ~< len
+      if EmbeddedCloseComment(o) or not AnyChar(o)
+        break
+    o.nothing start-index
+  else
+    false
+
 define EmbeddedOpen = make-embedded-rule \embedded-open, EMBED_OPEN_DEFAULT
-define EmbeddedOpenWrite = make-embedded-rule \embedded-open-write, EMBED_OPEN_WRITE_DEFAULT
 define EmbeddedClose = sequential! [
   EmptyLines
   Space
@@ -4777,19 +4835,33 @@ define EmbeddedClose = sequential! [
     make-embedded-rule \embedded-close, EMBED_CLOSE_DEFAULT
   ]]
 ]
+define EmbeddedOpenWrite = make-embedded-rule \embedded-open-write, EMBED_OPEN_WRITE_DEFAULT
+define EmbeddedCloseWrite = sequential! [
+  EmptyLines
+  Space
+  [\this, one-of! [
+    Eof
+    make-embedded-rule \embedded-close-write, EMBED_CLOSE_WRITE_DEFAULT
+  ]]
+]
+
 define ColonEmbeddedClose = sequential! [
   Colon
   [\this, EmbeddedClose]
 ]
+define ColonEmbeddedCloseWrite = sequential! [
+  Colon
+  [\this, EmbeddedCloseWrite]
+]
 let unpretty-text(text as String)
-  text.replace r"\s+", " "
+  text.replace r"\s+"g, " "
 define EmbeddedReadLiteralText = #(o)
   let {data, mutable index} = o
   let start-index = index
   let len = data.length
   while index ~< len, index ~+= 1
     o.index := index
-    if EmbeddedOpen(o.clone())
+    if EmbeddedOpen(o.clone()) or EmbeddedOpenWrite(o.clone()) or EmbeddedOpenComment(o.clone())
       break
     let ch = C(data, index)
     if ch in [C("\r"), C("\n"), 8232, 8233]
@@ -4810,7 +4882,7 @@ namedlet EmbeddedRoot = #(o, callback)
   let start-index = o.index
   BOM(o)
   Shebang(o)
-  let node = EmbeddedLiteralTextInner(o)
+  let node = EmbeddedLiteralTextInnerWithBlock(o)
   let result = o.root start-index, o.options.filename, node, true
   o.clear-cache()
   if callback?
@@ -5598,6 +5670,7 @@ class MacroHolder
       Identifier
       SimpleAssignable
       Parameter
+      InvocationArguments
       ObjectLiteral: AnyObjectLiteral
       ArrayLiteral: AnyArrayLiteral
       DedentedBody

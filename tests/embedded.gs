@@ -3,7 +3,7 @@ async-test "Simple text", #
   Hello, <%= name %>!
   """, embedded: true, noindent: true)
   let text = []
-  async <- f #(x, escape) -> text.push(x), {name: "world"}
+  f #(x, escape) -> text.push(x), {name: "world"}
   eq "Hello, world!", text.join ""
 
 async-test "Calling a helper", #
@@ -11,25 +11,8 @@ async-test "Calling a helper", #
   Hello, <%= get-name() %>!
   """, embedded: true, noindent: true)
   let text = []
-  async <- f #(x, escape) -> text.push(x), {get-name: #-> "world"}
+  f #(x, escape) -> text.push(x), {get-name: #-> "world"}
   eq "Hello, world!", text.join ""
-
-async-test "Calling an async helper", #
-  let wait = @wait
-  let f = gorilla.eval("""
-  Hello, <% async! done, name <- wait get-name %><%= name %>!
-  """, embedded: true, noindent: true)
-  let text = []
-  let get-name = run-once "world"
-  let mutable body-ran = false
-  f #(x, escape) -> text.push(x), {wait, get-name}, #(err)
-    eq "Hello, world!", text.join ""
-    ok not body-ran
-    body-ran := true
-  ok not get-name.ran
-  @after #-> ok get-name.ran
-  ok not body-ran
-  @after #-> ok body-ran
 
 async-test "if statement", #
   let f = gorilla.eval("""
@@ -39,13 +22,13 @@ async-test "if statement", #
   Hello!
   <% end %>
   """, embedded: true, noindent: true)
-  
+
   let text = []
-  async <- f #(x, escape) -> text.push(x), {name: "world"}
+  f #(x, escape) -> text.push(x), {name: "world"}
   eq "Hello, world!", text.join("").trim()
-  
+
   text.length := 0
-  async <- f #(x, escape) -> text.push(x), null
+  f #(x, escape) -> text.push(x), null
   eq "Hello!", text.join("").trim()
 
 async-test "for loop", #
@@ -54,67 +37,104 @@ async-test "for loop", #
   <%= item.name %>: \$<%= item.price.to-fixed(2) %>
   <% end %>
   """, embedded: true, noindent: true)
-  
+
   let text = []
-  async <- f #(x, escape) -> text.push(x), {items: [
+  f #(x, escape) -> text.push(x), {items: [
     { name: "Apple", price: 1.23 }
     { name: "Banana", price: 0.5 }
     { name: "Cherry", price: 1 }
   ]}
   eq '''
   Apple: $1.23
-  
+
   Banana: $0.50
-  
+
   Cherry: $1.00
   ''', text.join("").trim()
 
-async-test "escape test", #
-  let to-HTML = do
-    let escapes = {
-      "&": "&amp;"
-      "<": "&lt;"
-      ">": "&gt;"
-      '"': "&quot;"
-      "'": "&#39;"
-    }
-    let replacer(x) -> escapes[x]
-    let regex = r"[&<>""']"g
-    let escape(text) -> text.replace(regex, replacer)
-    #(text)
-      if text? and is-function! text.to-HTML
-        String text.to-HTML()
-      else
-        escape String text
-  
-  class SafeHTML
-    def constructor(@text as String) ->
-    def to-string() -> @text
-    def to-HTML() -> @text
-  
-  let escaped-template = gorilla.eval("""
+async-test "escaping", #
+  let template = gorilla.eval("""
   Hello, <%= name %>
-  """, embedded: true, noindent: true)
-  
-  let unescaped-template = gorilla.eval("""
-  Hello, <%=h name %>
   """, embedded: true, noindent: true)
 
   let text = []
   let write(x, escape)!
     let part = if escape
-      to-HTML(x)
+      String(x).to-upper-case()
     else
       String(x)
-    text.push part  
+    text.push part
+
+  template write, {name: "Bob"}
+  eq "Hello, BOB", text.join ""
+
+async-test "Calling an async helper", #
+  let template = gorilla.eval("""
+  <% async! throw, name <- wait get-name %>
+  Hello, <%= name %>!
+  <% done() %>
+  """, embedded: true, noindent: true)
   
-  async <- escaped-template write, {name: "<\"bob\" the 'great' & powerful>"}
-  eq "Hello, &lt;&quot;bob&quot; the &#39;great&#39; &amp; powerful&gt;", text.join("")
+  let get-name = run-once "world"
+  let text = []
+  let mutable body-ran = false
+  template #(x) -> text.push(x), {@wait, get-name, done: #
+    eq "Hello, world!", text.join("").trim()
+    ok not body-ran
+    body-ran := true}
+  ok not get-name.ran
+  @after #-> ok get-name.ran
+  ok not body-ran
+  @after #-> ok body-ran
+
+async-test "Calling an async helper in a block", #
+  let template = gorilla.eval("""
+  <% do: %>
+  <% async! throw, name <- wait get-name %>
+  Hello, <%= name %>!
+  <% done() %>
+  <% end %>\
+  """, embedded: true, noindent: true)
+  
+  let get-name = run-once "world"
+  let text = []
+  let mutable body-ran = false
+  template #(x) -> text.push(x), {@wait, get-name, done: #
+    eq "Hello, world!", text.join("").trim()
+    ok not body-ran
+    body-ran := true}
+  ok not get-name.ran
+  @after #-> ok get-name.ran
+  ok not body-ran
+  @after #-> ok body-ran
+
+async-test "comments", #
+  let template = gorilla.eval("""
+  <%-- ignore() --%>
+  Hello<%-- ignore() --%>, world!
+  <% /* these comments should work, too */ %>
+  """, embedded: true, noindent: true)
+  
+  let text = []
+  template #(x) -> text.push(x)
+  eq "Hello, world!", text.join("").trim()
+
+async-test "Custom tokens", #
+  let template = gorilla.eval("""
+  {* ignore() *}
+  Hello{* ignore() *}, world!
+  {% if test: %}
+  Pass, {{ name }}
+  {% else: %}
+  Fail
+  {% end %}
+  """, embedded: true, noindent: true, embedded-open: "{%", embedded-close: "%}", embedded-open-write: "{{", embedded-close-write: "}}", embedded-open-comment: "{*", embedded-close-comment: "*}")
+  
+  let text = []
+  template #(x) -> text.push(x), {+test, name: "friend"}
+  eq "Hello, world! Pass, friend", text.join("").trim().replace(r"\s+"g, " ")
   
   text.length := 0
-  async <- escaped-template write, {name: SafeHTML "<\"bob\" the 'great' & powerful>"}
-  eq "Hello, <\"bob\" the 'great' & powerful>", text.join("")
+  template #(x) -> text.push(x), {-test}
+  eq "Hello, world! Fail", text.join("").trim().replace(r"\s+"g, " ")
   
-  text.length := 0
-  async <- unescaped-template write, {h: SafeHTML, name: "<\"bob\" the 'great' & powerful>"}
-  eq "Hello, <\"bob\" the 'great' & powerful>", text.join("")

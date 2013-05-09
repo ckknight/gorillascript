@@ -2303,7 +2303,7 @@ macro async
     
     params := if params then [params.head].concat(params.tail) else []
     let func = @func(params, body, true, true)
-    @call @call-func(call), @call-args(call).concat([ASTE mutate-function! $func]), @call-is-new(call), @call-is-apply(call)
+    @call @call-func(call), @call-args(call).concat([ASTE __once (mutate-function! $func)]), @call-is-new(call), @call-is-apply(call)
 
 macro async!
   syntax callback as ("throw" | Expression), params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
@@ -2326,7 +2326,7 @@ macro async!
           $body
       true
       true
-    @call @call-func(call), @call-args(call).concat([ASTE mutate-function! $func]), @call-is-new(call), @call-is-apply(call)
+    @call @call-func(call), @call-args(call).concat([ASTE __once (mutate-function! $func)]), @call-is-new(call), @call-is-apply(call)
 
 macro require!
   syntax name as Expression
@@ -2366,9 +2366,10 @@ macro require!
 
 define helper __once = do
   let replacement() -> throw Error "Attempted to call function more than once"
-  #(mutable func as ->) -> #
+  let do-nothing() ->
+  #(mutable func as ->, silent-fail as Boolean) -> #
     let f = func
-    func := replacement
+    func := if silent-fail then do-nothing else replacement
     f@ this, ...arguments
 
 define helper __async = #(mutable limit as Number, length as Number, has-result as Boolean, on-value as ->, on-complete as ->)!

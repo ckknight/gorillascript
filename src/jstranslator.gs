@@ -945,8 +945,6 @@ let translators =
         let ident = ast.Ident get-pos(node), name
         if not scope.options.embedded or PRIMORDIAL_GLOBALS ownskey name or location != \expression or scope.has-variable(ident) or scope.macros.has-helper(name)
           auto-return ident
-        else if name == \done // TODO: add the variable earlier
-          auto-return ident
         else
           ast.Access get-pos(node),
             ast.Ident get-pos(node), \context
@@ -1140,9 +1138,17 @@ let translators =
   TryCatch: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-try-body = translate node.try-body, scope, \statement, auto-return, unassigned
-    let t-catch-ident = translate node.catch-ident, scope, \left-expression
-    let t-catch-body = translate node.catch-body, scope, \statement, auto-return, unassigned
-    #-> ast.TryCatch get-pos(node), t-try-body(), t-catch-ident(), t-catch-body(), t-label?()
+    let inner-scope = scope.clone(false)
+    let t-catch-ident = translate node.catch-ident, inner-scope, \left-expression
+    let t-catch-body = translate node.catch-body, inner-scope, \statement, auto-return, unassigned
+    #
+      let catch-ident = t-catch-ident()
+      if catch-ident instanceof ast.Ident
+        inner-scope.add-variable catch-ident
+        inner-scope.mark-as-param catch-ident
+      let result = ast.TryCatch get-pos(node), t-try-body(), catch-ident, t-catch-body(), t-label?()
+      scope.variables <<< inner-scope.variables
+      result
 
   TryFinally: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
@@ -1201,6 +1207,12 @@ let translate-root(mutable roots as Object, scope as Scope)
     { comments, body }
 
   let no-pos = make-pos 0, 0
+  
+  if scope.options.embedded
+    for name in [\write, \context]
+      let ident = ast.Ident { line: 0, column: 0 }, name
+      scope.add-variable ident
+      scope.mark-as-param ident
   
   let mutable body = if roots.length == 1
     if roots[0] not instanceof ParserNode.Root
@@ -1276,17 +1288,13 @@ let translate-root(mutable roots as Object, scope as Scope)
             [
               ast.Ident body.pos, \write
               ast.Ident body.pos, \context
-              ast.Ident body.pos, \done
             ]
             []
             ast.Block body.pos, [
               ast.If body.pos,
                 ast.Binary body.pos, ast.Ident(body.pos, \context), "==", ast.Const(body.pos, null)
                 ast.Assign body.pos, ast.Ident(body.pos, \context), ast.Obj(body.pos)
-              ast.TryCatch body.pos,
-                uncommented-body
-                ast.Ident body.pos, \e
-                ast.Call body.pos, ast.Ident(body.pos, \done), [ast.Ident(body.pos, \e)]
+              uncommented-body
             ]
       ]
   

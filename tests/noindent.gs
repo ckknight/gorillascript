@@ -289,3 +289,28 @@ test "unclosed object literal", #
   let obj = a: 1, b: 2, c: 3
   obj.b""", noindent: true)
 
+test "do block in do block", #
+  eq 3, gorilla.eval("""
+  let a = 1
+  do:
+  let b = 2
+  do:
+  a + b
+  end
+  end""", noindent: true)
+
+test "async", #
+  eq "hello", gorilla.eval("""
+  let f(cb) -> cb "hello"
+  async x <- f()
+  x
+  """, noindent: true)
+
+test "async in a do block", #
+  eq "hello", gorilla.eval("""
+  let f(cb) -> cb "hello"
+  do:
+  async x <- f()
+  x
+  end
+  """, noindent: true)
