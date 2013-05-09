@@ -15,7 +15,10 @@
     "url": "git://github.com/ckknight/gorillascript"
   },
   "main": "index",
-  "bin": "./bin/gorilla",
+  "bin": {
+    "gorilla" : "./bin/gorilla",
+    "gork": "./bin/gork"
+  },
   "readmeFilename": "README",
   "dependencies": {
     "cli": "~0.4.4-2"
