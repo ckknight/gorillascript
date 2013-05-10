@@ -1626,6 +1626,16 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
     +Array
     +Object
   }
+  let translate-generic-type(type)@
+    if not @is-type-generic(type)
+      type
+    else
+      let basetype = @basetype(type)
+      if @name(basetype) in [\Array, \Function]
+        basetype
+      else
+        let type-arguments = @array (for subtype in @type-arguments(type); translate-generic-type subtype)
+        ASTE $basetype.generic(...$type-arguments)
   let translate-type-check(value, value-name, type, has-default-value)@
     if @is-ident(type)
       let result = if PRIMORDIAL_TYPES ownskey @name(type)
@@ -1712,7 +1722,10 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
       else if @name(@basetype(type)) == \Function
         translate-type-check(value, value-name, @basetype(type), has-default-value)
       else
-        throw Error "Not implemented: generic types"
+        let generic-type = translate-generic-type(type)
+        AST
+          if $value not instanceof $generic-type
+            throw TypeError "Expected $($value-name) to be a $(__name $generic-type), got $(typeof! $value)"
     else if @is-type-object(type)
       let checks = for {key, value: pair-value} in @pairs(type)
         translate-type-check (ASTE $value[$key]), (ASTE $value-name & "." & $key), pair-value, false

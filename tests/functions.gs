@@ -1412,3 +1412,93 @@ test "Generic function ignores provided generic arguments beyond the declared", 
   eq func<null, Boolean>, func<null, Boolean, Number>
   eq func<null, Boolean>, func<null, Boolean, String>
   eq func<null, Boolean>, func<null, Boolean, null>
+
+test "typed generic", #
+  let MyType<T>(@value as T) ->
+  let fun(x as MyType<Number>) -> x.value
+  
+  eq 10, new MyType<Number>(10).value
+  eq "hello", new MyType<String>("hello").value
+  eq 10, fun new MyType<Number>(10)
+  throws #-> fun(new MyType<String>("hello")), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed generic of typed generic", #
+  let MyType<T>(@value as T) ->
+  let fun(x as MyType<MyType<Number>>) -> x.value.value
+
+  eq 10, new MyType<Number>(10).value
+  eq "hello", new MyType<String>("hello").value
+  eq 10, fun new MyType<MyType<Number>>(new MyType<Number>(10))
+  throws #-> fun(new MyType<Number>(10)), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed generic of array", #
+  let MyType<T>(@value as T) ->
+  let fun(x as MyType<Array>) -> x.value
+
+  eq 10, new MyType<Number>(10).value
+  eq "hello", new MyType<String>("hello").value
+  array-eq [1, 2], fun new MyType<Array>([1, 2])
+  throws #-> fun(new MyType<Number>(10)), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed generic of array as []", #
+  let MyType<T>(@value as T) ->
+  let fun(x as MyType<[]>) -> x.value
+
+  eq 10, new MyType<Number>(10).value
+  eq "hello", new MyType<String>("hello").value
+  array-eq [1, 2], fun new MyType<Array>([1, 2])
+  throws #-> fun(new MyType<Number>(10)), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
+
+test "typed generic of typed array", #
+  let MyType<T>(@value as T) ->
+  let fun(x as MyType<[Number]>) -> x.value
+
+  eq 10, new MyType<Number>(10).value
+  eq "hello", new MyType<String>("hello").value
+  array-eq [1, 2], fun new MyType<Array>([1, 2])
+  throws #-> fun(new MyType<Number>(10)), TypeError
+  throws #-> fun(0), TypeError
+  throws #-> fun(), TypeError
+  throws #-> fun(void), TypeError
+  throws #-> fun(null), TypeError
+  throws #-> fun(true), TypeError
+  throws #-> fun(false), TypeError
+  throws #-> fun(""), TypeError
+  throws #-> fun({}), TypeError
+  throws #-> fun([]), TypeError
