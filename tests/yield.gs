@@ -1,8 +1,13 @@
-let iterator-to-array(iterator)
+let iterator-to-array(iterator, values = [])
+  values.reverse()
+  values.push void
   let arr = []
   while true
     try
-      arr.push iterator.next()
+      arr.push if iterator.send
+        iterator.send values.pop()
+      else
+        iterator.next()
     catch e
       if e == StopIteration
         return arr
@@ -270,3 +275,23 @@ test "yield with switch", #
   array-eq [3, 4, 5], iterator-to-array fun(run-once 2)
   array-eq [4, 5], iterator-to-array fun(run-once 3)
   array-eq [6, 7], iterator-to-array fun(run-once 4)
+
+test "yield in let statement", #
+  let fun()*
+    let x = yield 1
+    yield x
+
+  array-eq [1, 2], iterator-to-array fun(), [2]
+
+test "yield in assign statement", #
+  let order-list = []
+  let order(value)
+    order-list.push value
+    value
+  let obj = {}
+  let fun()*
+    obj[order(\key)] := yield order(\value)
+    array-eq [\key, \value], order-list
+    yield obj.key
+  
+  array-eq [\value, \alpha], iterator-to-array fun(), [\alpha]

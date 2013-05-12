@@ -25,6 +25,20 @@ class Scope
       @release-ident(ident)
       result
   
+  def maybe-cache-access(item as ast.Expression, func, parent-name as String = \ref, child-name as String = \ref, save as Boolean)
+    if item instanceof ast.Binary and item.op == "."
+      @maybe-cache item.left, Type.any, #(set-parent, parent, parent-cached)@
+        @maybe-cache item.right, Type.any, #(set-child, child, child-cached)@
+          if parent-cached or child-cached
+            func(
+              ast.Access(item.pos, set-parent, set-child)
+              ast.Access(item.pos, parent, child)
+              true)
+          else
+            func item, item, false
+    else
+      func item, item, false
+
   def reserve-ident(pos as {}, name-part = \ref, type as Type = Type.any)
     for first i in 1 to Infinity
       let name = if i == 1 then "_$(name-part)" else "_$(name-part)$i"
@@ -148,6 +162,9 @@ class GeneratorBuilder
     ]
     @state-ident := state-ident ? scope.reserve-ident pos, \state, Type.number
     @pending-finallies-ident := pending-finallies-ident ? scope.reserve-ident pos, \finallies, Type.undefined.function().array()
+    let send-scope = scope.clone(false)
+    @received-ident := send-scope.reserve-ident pos, \received, Type.any
+    send-scope.mark-as-param @received-ident
   
   def add(t-node)
     unless t-node instanceof GeneratorBuilder
@@ -257,13 +274,11 @@ class GeneratorBuilder
             ast.TryFinally @pos,
               ast.Call @pos, f
               ast.Call @pos, close
-    let scope = @scope
-    let err = scope.reserve-ident @pos, \e, Type.any
+    let err = @scope.reserve-ident @pos, \e, Type.any
     let catches = @catches
     let state-ident = @state-ident
     let send = @scope.reserve-ident @pos, \send, Type.function
-    @scope.mark-as-function send
-    body.push ast.Func @pos, send, [], [], ast.While(@pos, true,
+    body.push ast.Func @pos, send, [@received-ident], [], ast.While(@pos, true,
       ast.TryCatch @pos,
         ast.Switch @pos,
           state-ident
@@ -280,7 +295,7 @@ class GeneratorBuilder
         err
         for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Call(@pos, close), ast.Throw @pos, err]
           let err-ident = catch-info.t-ident()
-          scope.add-variable err-ident
+          @scope.add-variable err-ident
           ast.If @pos,
             ast.Or @pos, ...(for state in catch-info.try-states; ast.Binary(@pos, state-ident, "===", state))
             ast.Block @pos,
@@ -292,6 +307,7 @@ class GeneratorBuilder
       * ast.Obj.Pair @pos, \iterator, ast.Func @pos, null, [], [], ast.Return(@pos, ast.This(@pos))
       * ast.Obj.Pair @pos, \next, ast.Func @pos, null, [], [], ast.Return @pos, ast.Call @pos, send, [ast.Const @pos, void]
       * ast.Obj.Pair @pos, \send, send
+      * ast.Obj.Pair @pos, \throw, ast.Func @pos, null, [ast.Ident @pos, \e], [], ast.Throw @pos, ast.Ident @pos, \e
     ast.Block @pos, body
 
 let flatten-spread-array(elements)
@@ -347,6 +363,21 @@ let generator-translate = do
         throw e
     false
   let generator-translators =
+    Assign: #(node, scope, mutable builder, break-state, continue-state)
+      if node.right not instanceof ParserNode.Yield
+        return builder.add translate node, scope, \statement, false
+      
+      let t-left = translate node.left, scope, \left-expression
+      let mutable left = void
+      builder.add #
+        async set-left, _left <- scope.maybe-cache-access t-left()
+        left := _left
+        set-left
+      
+      builder := generator-translate node.right, scope, builder, break-state, continue-state
+      
+      builder.add #-> ast.Binary(get-pos(node), left, node.op, builder.received-ident)
+    
     Block: #(node, scope, mutable builder, break-state, continue-state)
       if node.label?
         throw Error "Not implemented: block with label in generator"
@@ -583,44 +614,29 @@ let translators =
     let t-arr = array-translate get-pos(node), node.elements, scope, true, false, unassigned
     #-> auto-return t-arr()
 
-  Assign: do
-    let ops = {
-      "="
-      "*="
-      "/="
-      "%="
-      "+="
-      "-="
-      "<<="
-      ">>="
-      ">>>="
-      "&="
-      "|="
-      "^="
-    }
-    #(node, scope, location, auto-return, unassigned)
-      let op = node.op
-      let t-left = translate node.left, scope, \left-expression
-      let t-right = translate node.right, scope, \expression, null, unassigned
-      if unassigned and node.left instanceof ParserNode.Ident
-        if op == "=" and unassigned[node.left.name] and node.right.is-const() and is-void! node.right.const-value()
-          return #-> ast.Noop(get-pos(node))
-        unassigned[node.left.name] := false
-      
-      #
-        let left = t-left()
-        let right = t-right()
-        if op == "=" and location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name? and scope.has-own-variable(left) and not scope.is-variable-mutable(left)
-          scope.mark-as-function left
-          let func = ast.Func(get-pos(node), left, right.params, right.variables, right.body, right.declarations)
-          if auto-return != identity
-            ast.Block get-pos(node),
-              * func
-              * auto-return left
-          else
-            func
+  Assign: #(node, scope, location, auto-return, unassigned)
+    let op = node.op
+    let t-left = translate node.left, scope, \left-expression
+    let t-right = translate node.right, scope, \expression, null, unassigned
+    if unassigned and node.left instanceof ParserNode.Ident
+      if op == "=" and unassigned[node.left.name] and node.right.is-const() and is-void! node.right.const-value()
+        return #-> ast.Noop(get-pos(node))
+      unassigned[node.left.name] := false
+    
+    #
+      let left = t-left()
+      let right = t-right()
+      if op == "=" and location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name? and scope.has-own-variable(left) and not scope.is-variable-mutable(left)
+        scope.mark-as-function left
+        let func = ast.Func(get-pos(node), left, right.params, right.variables, right.body, right.declarations)
+        if auto-return != identity
+          ast.Block get-pos(node),
+            * func
+            * auto-return left
         else
-          auto-return ast.Binary(get-pos(node), left, op, right)
+          func
+      else
+        auto-return ast.Binary(get-pos(node), left, op, right)
 
   Binary: #(node, scope, location, auto-return, unassigned)
     let t-left = translate node.left, scope, \expression, null, unassigned

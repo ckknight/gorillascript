@@ -8269,7 +8269,6 @@ node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
       this
 node-class YieldNode(node as Node)
   def type() -> Type.undefined
-  def is-statement() -> true
   def _reduce(o)
     let node = @node.reduce(o).do-wrap(o)
     if node != @node
