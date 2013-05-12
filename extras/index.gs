@@ -1,12 +1,4 @@
 jQuery #($)
-  $("a[href=#toc]").click #
-    $("#try").hide()
-    let $toc = $("#toc")
-    let offset = $(this).offset()
-    offset.top += $(this).height() * 2
-    $toc.slide-toggle()
-    $toc.offset offset
-    false
   let handle-try = do
     let mutable compiling = false
     let mutable last-compile = void
@@ -19,9 +11,10 @@ jQuery #($)
       GorillaScript.compile text, #(err, result)
         compiling := false
         if err
+          $("#try-input-wrap").add-class("error")
           $("#try-output").val("// Error: $(String err)\n\n$(last-compile or '')")
         else
-          last-compile := result.code
+          $("#try-input-wrap").remove-class("error")
           $("#try-output").val(result.code)
     let mutable interval = void
     #
@@ -36,13 +29,16 @@ jQuery #($)
         last-text := text
         handle-try()), 17
   $("a[href=#try]").click #
-    $("#toc").hide()
     handle-try()
     let $try = $("#try")
-    let offset = $(this).offset()
-    offset.top += $(this).height() * 2
     $try.slide-toggle()
-    $try.offset offset
+    $("#run-link").toggle-class "hide"
+    false
+  $("a[href=#run]").click #
+    try
+      eval GorillaScript.compile($("#try-input").val(), eval: true).code
+    catch error
+      alert error
     false
   $('.gs-code').each #
     let $this = $(this)
@@ -62,10 +58,11 @@ jQuery #($)
         $div.find(".gs-code").hide()
         let mutable $js-code = $div.find(".js-code")
         if $js-code.length == 0
-          $js-code := $("<pre class='js-code'><code></code></pre>")
+          $js-code := $("<pre class='js-code'><code class='language-javascript'></code></pre>")
           $div.append $js-code
           let gs-code = $this.find("code").text()
           let js-code = GorillaScript.compile(gs-code, return: true, bare: true).code
           $js-code.find("code").text(js-code)
+          Prism.highlightElement($js-code.find("code")[0])
         $js-code.show()
       false
