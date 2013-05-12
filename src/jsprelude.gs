@@ -2077,8 +2077,10 @@ define helper __iter = #(iterable)
     __array-to-iter(iterable)
   else if is-function! iterable.iterator
     iterable.iterator()
+  else if is-function! iterable.next
+    iterable
   else
-    throw Error "Expected iterable to be an Array or an Object with an 'iterator' function, got $(typeof! iterable)"
+    throw Error "Expected iterable to be an Array or an Object with an 'iterator' function or an Object with a 'next' function, got $(typeof! iterable)"
 
 macro for
   syntax reducer as (\every | \some | \first | \filter)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (BodyNoEnd | (";", this as Statement)), else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
