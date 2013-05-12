@@ -261,33 +261,37 @@ class GeneratorBuilder
     let err = scope.reserve-ident @pos, \e, Type.any
     let catches = @catches
     let state-ident = @state-ident
+    let send = @scope.reserve-ident @pos, \send, Type.function
+    @scope.mark-as-function send
+    body.push ast.Func @pos, send, [], [], ast.While(@pos, true,
+      ast.TryCatch @pos,
+        ast.Switch @pos,
+          state-ident
+          for state, i in @states
+            let items = for item in state; item()
+            ast.Switch.Case items[0].pos, i, ast.Block @pos, [
+              ...items
+              ast.Break items[* - 1].pos
+            ]
+          ast.Throw @pos,
+            ast.Call @pos,
+              ast.Ident @pos, \Error
+              [ast.Binary @pos, "Unknown state: ", "+", state-ident]
+        err
+        for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Call(@pos, close), ast.Throw @pos, err]
+          let err-ident = catch-info.t-ident()
+          scope.add-variable err-ident
+          ast.If @pos,
+            ast.Or @pos, ...(for state in catch-info.try-states; ast.Binary(@pos, state-ident, "===", state))
+            ast.Block @pos,
+              * ast.Assign @pos, err-ident, err
+              * ast.Assign @pos, state-ident, catch-info.catch-state
+            current)
     body.push ast.Return @pos, ast.Obj @pos,
       * ast.Obj.Pair @pos, \close, close
       * ast.Obj.Pair @pos, \iterator, ast.Func @pos, null, [], [], ast.Return(@pos, ast.This(@pos))
-      * ast.Obj.Pair @pos, \next, ast.Func @pos, null, [], [], ast.While(@pos, true,
-          ast.TryCatch @pos,
-            ast.Switch @pos,
-              state-ident
-              for state, i in @states
-                let items = for item in state; item()
-                ast.Switch.Case items[0].pos, i, ast.Block @pos, [
-                  ...items
-                  ast.Break items[* - 1].pos
-                ]
-              ast.Throw @pos,
-                ast.Call @pos,
-                  ast.Ident @pos, \Error
-                  [ast.Binary @pos, "Unknown state: ", "+", state-ident]
-            err
-            for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Call(@pos, close), ast.Throw @pos, err]
-              let err-ident = catch-info.t-ident()
-              scope.add-variable err-ident
-              ast.If @pos,
-                ast.Or @pos, ...(for state in catch-info.try-states; ast.Binary(@pos, state-ident, "===", state))
-                ast.Block @pos,
-                  * ast.Assign @pos, err-ident, err
-                  * ast.Assign @pos, state-ident, catch-info.catch-state
-                current)
+      * ast.Obj.Pair @pos, \next, ast.Func @pos, null, [], [], ast.Return @pos, ast.Call @pos, send, [ast.Const @pos, void]
+      * ast.Obj.Pair @pos, \send, send
     ast.Block @pos, body
 
 let flatten-spread-array(elements)
