@@ -1987,7 +1987,7 @@ define operator binary instanceofsome with precedence: 6, maximum: 1, invertible
     ASTE __instanceofsome($left, $right)
 
 macro try
-  syntax try-body as (BodyNoEnd | (";", this as Statement)), typed-catches as ("\n", "catch", ident as Identifier, "as", type as Type, body as (BodyNoEnd | (";", this as Statement)))*, catch-part as ("\n", "catch", ident as Identifier, body as (BodyNoEnd | (";", this as Statement)))?, else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (BodyNoEnd | (";", this as Statement)))?, "end"
+  syntax try-body as (BodyNoEnd | (";", this as Statement)), typed-catches as ("\n", "catch", ident as Identifier, check as ((type as "as", value as Type)|(type as "==", value as Expression)), body as (BodyNoEnd | (";", this as Statement)))*, catch-part as ("\n", "catch", ident as Identifier, body as (BodyNoEnd | (";", this as Statement)))?, else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let has-else = not not else-body
     if not catch-part and has-else and not finally-body
       throw Error("Must provide at least a catch, else, or finally to a try block")
@@ -2003,22 +2003,31 @@ macro try
           AST let $type-ident = $catch-ident
         else
           @noop()
-        let types = @array for type in (if @is-type-union(type-catch.type) then @types(type-catch.type) else [type-catch.type])
-          if @is-type-array(type)
-            throw Error "Expected a normal type, cannot use an array type"
-          else if @is-type-generic(type)
-            throw Error "Expected a normal type, cannot use a generic type"
-          else if @is-type-function(type)
-            throw Error "Expected a normal type, cannot use a function type"
-          else if @is-type-object(type)
-            throw Error "Expected a normal type, cannot use an object type"
-          type
-        AST
-          if $catch-ident instanceofsome $types
-            $let-err
-            $(type-catch.body)
-          else
-            $current
+        if type-catch.check.type == "as"
+          let types = @array for type in (if @is-type-union(type-catch.check.value) then @types(type-catch.check.value) else [type-catch.check.value])
+            if @is-type-array(type)
+              throw Error "Expected a normal type, cannot use an array type"
+            else if @is-type-generic(type)
+              throw Error "Expected a normal type, cannot use a generic type"
+            else if @is-type-function(type)
+              throw Error "Expected a normal type, cannot use a function type"
+            else if @is-type-object(type)
+              throw Error "Expected a normal type, cannot use an object type"
+            type
+          AST
+            if $catch-ident instanceofsome $types
+              $let-err
+              $(type-catch.body)
+            else
+              $current
+        else
+          let value = type-catch.check.value
+          AST
+            if $catch-ident == $value
+              $let-err
+              $(type-catch.body)
+            else
+              $current
     let init = []
     let mutable run-else = void
     if has-else

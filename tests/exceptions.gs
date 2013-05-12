@@ -281,3 +281,28 @@ test "try-catch-as-type-else-finally", #
   eq ":bravo: 2", f BravoError(2)
   eq ":other", f "other"
   eq ":no error", f()
+
+test "try-catch-==-type", #
+  class AlphaError
+    def constructor(@value) ->
+  let obj = {}
+    
+  let f(err)
+    let mutable result = null
+    try
+      throw? err
+    catch e1 as AlphaError
+      result := "alpha: $(e1.value)"
+    catch e2 == obj
+      result := "obj"
+    catch e2
+      result := e2
+    else
+      result := "no error"
+    finally
+      return ":$result"
+  
+  eq ":alpha: 1", f AlphaError(1)
+  eq ":obj", f obj
+  eq ":other", f "other"
+  eq ":no error", f()
