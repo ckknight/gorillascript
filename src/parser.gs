@@ -4,7 +4,9 @@ let inspect = util?.inspect
 
 let freeze = if is-function! Object.freeze then Object.freeze else #(o) -> o
 
-let next-tick = if not is-void! process and is-function! process.next-tick
+let next-tick = if is-function! set-immediate
+  set-immediate
+else if not is-void! process and is-function! process.next-tick
   process.next-tick
 else
   #(f) -> set-timeout(f, 0)

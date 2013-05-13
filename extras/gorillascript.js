@@ -7838,7 +7838,9 @@
           return o;
         };
       }
-      if (typeof process !== "undefined" && typeof process.nextTick === "function") {
+      if (typeof setImmediate === "function") {
+        nextTick = setImmediate;
+      } else if (typeof process !== "undefined" && typeof process.nextTick === "function") {
         nextTick = process.nextTick;
       } else {
         nextTick = function (f) {
@@ -17204,7 +17206,7 @@
             try {
               startTime = new Date().getTime();
               while (true) {
-                if (__num(new Date().getTime()) - __num(startTime) > 17) {
+                if (__num(new Date().getTime()) - __num(startTime) > 5) {
                   return nextTick(next);
                 }
                 clone = o.clone();
@@ -21821,7 +21823,7 @@
           startTime = new Date().getTime();
           function walker(node, callback) {
             var _once, _once2, expanded;
-            if (__num(new Date().getTime()) - __num(startTime) > 17) {
+            if (__num(new Date().getTime()) - __num(startTime) > 5) {
               return nextTick(function () {
                 startTime = new Date().getTime();
                 return walker(node, callback);
