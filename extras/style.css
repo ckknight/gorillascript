@@ -213,7 +213,11 @@ header p { margin-top: -1em; }
 	padding: 0;
 	margin: 1em 1.6em 0;
 }
-.tabs li { display: inline-block; }
+.tabs li {
+	display: inline-block;
+	line-height: normal;
+}
+
 .tabs li a {
 	color: #fff;
 	background: #37abc8;
@@ -237,13 +241,35 @@ header p { margin-top: -1em; }
 
 /* Main {{{*/
 #container {
-  width: auto;
-  margin: 0 11%;
+	width: auto;
+	margin: 0 11%;
 	padding-bottom: 4%;
 }
 
 #container p {
 	line-height: 1.6em;
 	margin: 0 1.6em;
+}
+
+section ul li {
+	line-height: 1.9em;
+}
+
+#container section ul li code {
+	padding: 0.1em 0.4em;
+}
+#container section p code {
+	padding: 0 0.4em;
+}
+#container section ul li code, #container section p code {
+	font-size: 16px;
+	background: #fff;
+	border: 1px solid #aaa;
+}
+#container section h2 code {
+	font-size: 1.5em;
+	margin: 0 0.2em;
+	color: #505050;
+	border-bottom: 1px solid;
 }
 /*}}}*/
