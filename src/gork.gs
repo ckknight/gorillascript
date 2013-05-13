@@ -121,3 +121,6 @@ let find-gorkfile(dir, callback as ->)
     if parent == dir
       return callback(Error "Gorkfile not found in $(process.cwd())")
     find-gorkfile parent, callback
+
+if require.main == module
+  exports.run()
