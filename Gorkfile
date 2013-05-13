@@ -298,6 +298,7 @@ command \test, "Run the GorillaScript test suite", #(options, cb)
 
   sandbox.array-eq := #(a, b, msg)
     if not array-equal a, b
+      let {inspect} = require('util')
       fail "$(JSON.stringify(a) or 'undefined') != $(JSON.stringify(b) or 'undefined')$(if msg then ': ' & msg else '')"
     else
       success()

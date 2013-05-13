@@ -6006,11 +6006,8 @@ macro node-class
                 throw FOUND
         try
           find-walk(body)
-        catch e
-          if e == FOUND
-            return true
-          else
-            throw e
+        catch e == FOUND
+          return true
       false
     
     let is-node-type(arg)@
@@ -6709,7 +6706,7 @@ class State
       let state = this
       handler := do inner = handler
         #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
-      @enter-macro name, #@
+      @enter-macro names, #@
         handle-macro-syntax@ this, 0, \call, handler, InvocationArguments, null, options, id
     
     define-syntax: #({code, params, options = {}, id})
@@ -8268,7 +8265,7 @@ node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
     else
       this
 node-class YieldNode(node as Node)
-  def type() -> Type.undefined
+  def type() -> Type.any
   def _reduce(o)
     let node = @node.reduce(o).do-wrap(o)
     if node != @node

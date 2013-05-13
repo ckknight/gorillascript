@@ -63,14 +63,6 @@ macro debugger
   syntax ""
     @debugger()
 
-macro continue
-  syntax label as (Identifier|"")
-    @continue label
-
-macro break
-  syntax label as (Identifier|"")
-    @break label
-
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
     @let ident, false, @type(func)
@@ -92,6 +84,18 @@ macro if, unless
     let f(i, current)@
       if i ~>= 0 then f(dec(i), @if((if else-ifs[i].type == "unless" then (ASTE not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
     @if(if macro-name == \unless then ASTE not $test else test, body, f(dec(else-ifs.length), else-body))
+
+macro continue
+  syntax label as (Identifier|"")
+    if @position == \expression
+      throw Error "continue can only be used in a statement position"
+    @continue label
+
+macro break
+  syntax label as (Identifier|"")
+    if @position == \expression
+      throw Error "break can only be used in a statement position"
+    @break label
 
 define operator unary ? with postfix: true, type: \boolean, label: \existential
   if @is-ident-or-tmp(node) and not @has-variable(node)
@@ -133,10 +137,7 @@ define helper GLOBAL = if not is-void! window then window else if not is-void! g
 
 define helper __xor = #(x, y)
   if x
-    if y
-      false
-    else
-      x
+    not y and x
   else
     y or x
 
@@ -1477,7 +1478,7 @@ macro for
     if value
       index := value.index
       value := @macro-expand-1(value.value)
-  
+    
     let own = type == "of"
     let init = []
     if own or value
@@ -2095,6 +2096,7 @@ macro for
   syntax reducer as (\every | \some | \first | \filter)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (BodyNoEnd | (";", this as Statement)), else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let init = []
     let iterator = @cache AST __iter($iterable), init, \iter, false
+    let err = @tmp \e, true
     
     let step = []
     if index
@@ -2103,11 +2105,11 @@ macro for
   
     let capture-value = AST try
       let $value = $iterator.next()
-    catch e
-      if e == StopIteration
+    catch $err
+      if $err == StopIteration
         break
       else
-        throw e
+        throw $err
   
     let post = []
     if else-body and not reducer and @position != \expression
@@ -2459,11 +2461,11 @@ define helper __async-iter = #(mutable limit as Number, iterator as {next: Funct
     while not completed and not broken? and slots-used ~< limit and not iter-stopped
       try
         let value = iterator.next()
+      catch e == StopIteration
+        iter-stopped := true
+        break
       catch e
-        if e == StopIteration
-          iter-stopped := true
-        else
-          broken := e
+        broken := e
         break
       slots-used ~+= 1
       sync := true
@@ -2644,16 +2646,12 @@ macro asyncfor
         $body
     
     let keys = @tmp \keys, true, \string-array
-    let get-keys = if own
-      AST for $key of $object
-        $keys.push $key
-    else
-      AST for $key ofall $object
-        $keys.push $key
     AST
       $init
-      let $keys = []
-      $get-keys
+      let $keys = if $own
+        __keys $object
+      else
+        __allkeys $object
       asyncfor($parallelism) $err, $result <- $next, $key, $index in $keys
         $body
       $rest
@@ -3085,11 +3083,42 @@ macro yield*
       throw Error "Can only use yield* in a generator function"
     if @position == \expression
       throw Error "yield* can only be used in a statement position"
-    let item = @tmp \item
-    let yield-item = @yield item
-    AST
-      for $item from $node
-        $yield-item
+    let init = []
+    if @is-type node, \array-like
+      let index = @tmp \i, false, \number
+      init.push AST let $index = 0
+      let length = @tmp \len, false, \number
+      node := @cache node, init, \arr, false
+      init.push AST let $length = $node.length
+      let yield-item = @yield ASTE $node[$index]
+      AST
+        for $init; $index ~< $length; $index += 1
+          $yield-item
+    else
+      let iterator = @cache ASTE __iter($node), init, \iter, false
+      let err = @tmp \e, true
+      let send = @tmp \send
+      let next = @tmp \next
+      let yield-next = @yield next
+      let received = @tmp \tmp
+      AST
+        $init
+        let mutable $received = void
+        let mutable $send = true
+        try
+          while true
+            let $next = if $send then $iterator.send($received) else $iterator.throw $received
+            try
+              $received := $yield-next
+              $send := true
+            catch $err
+              $received := $err
+              $send := false
+        catch $err
+          if $err != StopIteration
+            throw $err
+        finally
+          $iterator?.close?()
 
 macro returning
   syntax node as Expression, rest as DedentedBody
@@ -3504,3 +3533,26 @@ define operator unary map! with type: \object, label: \construct-map
       let $map = Map()
       $parts
       $map
+
+macro first!(head)
+  // FIXME: this is hackish, macro should be (head, ...tail)
+  let tail = arguments[0].macroData[1 to -1]
+  if tail.length == 0
+    ASTE $head
+  else
+    @maybe-cache head, #(set-head, head)@
+      AST
+        $set-head
+        $tail
+        $head
+
+macro last!()
+  // FIXME: this is hackish, macro should be (...start, finish)
+  let start = arguments[0].macroData[0 til -1]
+  let finish = arguments[0].macroData[* - 1]
+  if start.length == 0
+    ASTE $finish
+  else
+    AST
+      $start
+      $finish

@@ -137,4 +137,47 @@ async-test "Custom tokens", #
   text.length := 0
   template #(x) -> text.push(x), {-test}
   eq "Hello, world! Fail", text.join("").trim().replace(r"\s+"g, " ")
+
+async-test "yield statements", #
+  let template = gorilla.eval("""
+  <% let f()*: %>
+    [ <% yield "Alpha" %> ]
+    [ <% yield "Bravo" %> ]
+  <% end %>
+  <% for item from f(): %>
+    <%= item.to-upper-case() %>
+  <% end %>
+  """, embedded: true, noindent: true)
   
+  let text = []
+  let write(x)!
+    text.push String x
+
+  template write, {}
+  eq "[ ALPHA ] [ BRAVO ]", text.join("").trim().replace(r"\s+"g, " ")
+
+async-test "yield expressions", #
+  let template = gorilla.eval("""
+  <% let f()*: %>
+    [ <%= yield "Alpha" %> ]
+    [ <%= yield "Bravo" %> ]
+  <% end %>
+  <% let iter = f()
+     let mutable next-value = void
+     while true:
+       try:
+         let item = iter.send(next-value) %>
+         <%= item.to-upper-case() %>
+      <% next-value := item.to-lower-case()
+       catch e == StopIteration:
+         break
+       end
+     end %>
+  """, embedded: true, noindent: true)
+
+  let text = []
+  let write(x)!
+    text.push String x
+
+  template write, {}
+  eq "[ ALPHA alpha ] [ BRAVO bravo ]", text.join("").trim().replace(r"\s+"g, " ")
