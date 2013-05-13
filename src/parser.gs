@@ -4669,7 +4669,7 @@ let _Block = do
       try
         let start-time = new Date().get-time()
         while true
-          if new Date().get-time() - start-time > 17_ms
+          if new Date().get-time() - start-time > 5_ms
             return next-tick next
           let clone = o.clone()
           if not Newline(clone) or not EmptyLines(clone)
@@ -6944,7 +6944,7 @@ class State
   def macro-expand-all-async(node, callback)
     let mutable start-time = new Date().get-time()
     let walker = #(node, callback)@
-      if (new Date().get-time() - start-time) > 17_ms
+      if (new Date().get-time() - start-time) > 5_ms
         return next-tick #
           start-time := new Date().get-time()
           walker node, callback
