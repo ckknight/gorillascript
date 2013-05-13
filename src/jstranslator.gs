@@ -288,10 +288,10 @@ class GeneratorBuilder
           for state, i in @states
             let items = for item in state; item()
             if items.length == 0
-              // should be an error
-              ast.Switch.Case @pos, i, ast.Break @pos
-            else
-              ast.Switch.Case items[0].pos, i, ast.Block items[0].pos, [
+              throw Error "Found state with no jump in it"
+            ast.Switch.Case items[0].pos,
+              ast.Const items[0].pos, i
+              ast.Block items[0].pos, [
                 ...items
                 ast.Break items[* - 1].pos
               ]
@@ -363,9 +363,9 @@ let has-generator-node = do
   let has-in-loop(node)
     async <- in-loop-cache.get-or-add node
     let mutable result = false
-    if node instanceof ParserNode.Yield
+    if node instanceofsome [ParserNode.Yield, ParserNode.Return]
       result := true
-    else
+    else if node not instanceof ParserNode.Function
       let FOUND = {}
       try
         node.walk #(n)
@@ -383,9 +383,9 @@ let has-generator-node = do
   let has-in-switch(node)
     async <- in-switch-cache.get-or-add node
     returnif in-loop-cache.get node
-    if node instanceofsome [ParserNode.Yield, ParserNode.Continue]
+    if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue]
       true
-    else
+    else if node not instanceof ParserNode.Function
       let FOUND = {}
       try
         node.walk #(n)
@@ -408,9 +408,9 @@ let has-generator-node = do
     async <- normal-cache.get-or-add node
     returnif in-loop-cache.get node
     returnif in-switch-cache.get node
-    if node instanceofsome [ParserNode.Yield, ParserNode.Continue, ParserNode.Break]
+    if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue, ParserNode.Break]
       true
-    else
+    else if node not instanceof ParserNode.Function
       let FOUND = {}
       try
         node.walk #(n)
@@ -924,6 +924,13 @@ let generator-translate = do
           last!(test.cleanup(), t-when-true())
           t-when-false()
     
+    
+    Return: #(node, scope, builder)
+      if not node.node.is-const() or node.node.const-value() != void
+        throw Error "Cannot use a valued return in a generator"
+      builder.goto get-pos(node), #-> 0 // FIXME: this zero is magic, refers to the end state of the generator
+      builder
+      
     Switch: #(node, scope, builder, , continue-state)
       if node.label?
         throw Error "Not implemented: switch with label in generator"

@@ -495,3 +495,13 @@ test "yield in regexp interpolation", #
   ok arr[2] instanceof RegExp
   eq "charlie delta", arr[2].source
   ok arr[2].global
+
+test "return in generator", #
+  let fun(return-early)*
+    yield \alpha
+    if return-early
+      return
+    yield \bravo
+  
+  array-eq [\alpha], iterator-to-array fun(true)
+  array-eq [\alpha, \bravo], iterator-to-array fun(false)

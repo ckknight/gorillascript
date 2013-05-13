@@ -241,8 +241,8 @@ macro let
 
 macro return
   syntax node as Expression?
-    if @in-generator
-      throw Error "Cannot use return in a generator function"
+    if @in-generator and node
+      throw Error "Cannot use valued return in a generator function"
     if node
       @mutate-last node or @noop(), (#(n)@ -> @return n), true
     else
@@ -2320,6 +2320,44 @@ define helper __get-instanceof = do
 
 define helper __name = #(func as ->) as String -> func.display-name or func.name or ""
 
+define helper __once = do
+  let replacement() -> throw Error "Attempted to call function more than once"
+  let do-nothing() ->
+  #(mutable func as ->, silent-fail as Boolean) -> #
+    let f = func
+    func := if silent-fail then do-nothing else replacement
+    f@ this, ...arguments
+
+macro once!(func, silent-fail)
+  if @is-func(func)
+    let body = @func-body func
+    let ran = @tmp \once, true, \boolean
+    func := @rewrap(@func(
+      @func-params func
+      AST
+        if $ran
+          if $silent-fail
+            return
+          else
+            throw Error "Attempted to call function more than once"
+        else
+          $ran := true
+        $body
+      @func-is-auto-return func
+      @func-is-bound func
+      @func-is-curried func
+      @func-as-type func
+      @func-is-generator func
+      @func-generic func))
+    AST
+      let mutable $ran = false
+      $func
+  else
+    if @is-const(silent-fail) and not @value(silent-fail)
+      ASTE __once $func
+    else
+      ASTE __once $func, $silent-fail
+
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
     if not @is-call(call)
@@ -2329,7 +2367,7 @@ macro async
     
     params := if params then [params.head].concat(params.tail) else []
     let func = @func(params, body, true, true)
-    @call @call-func(call), @call-args(call).concat([ASTE __once (mutate-function! $func)]), @call-is-new(call), @call-is-apply(call)
+    @call @call-func(call), @call-args(call).concat([ASTE once! (mutate-function! $func)]), @call-is-new(call), @call-is-apply(call)
 
 macro async!
   syntax callback as ("throw" | Expression), params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
@@ -2352,7 +2390,7 @@ macro async!
           $body
       true
       true
-    @call @call-func(call), @call-args(call).concat([ASTE __once (mutate-function! $func)]), @call-is-new(call), @call-is-apply(call)
+    @call @call-func(call), @call-args(call).concat([ASTE once! (mutate-function! $func)]), @call-is-new(call), @call-is-apply(call)
 
 macro require!
   syntax name as Expression
@@ -2390,14 +2428,6 @@ macro require!
     else
       throw Error("Expected either a constant string or ident or object")
 
-define helper __once = do
-  let replacement() -> throw Error "Attempted to call function more than once"
-  let do-nothing() ->
-  #(mutable func as ->, silent-fail as Boolean) -> #
-    let f = func
-    func := if silent-fail then do-nothing else replacement
-    f@ this, ...arguments
-
 define helper __async = #(mutable limit as Number, length as Number, has-result as Boolean, on-value as ->, on-complete as ->)!
   let result = if has-result then [] else null
   if length ~<= 0
@@ -2424,7 +2454,7 @@ define helper __async = #(mutable limit as Number, length as Number, has-result 
     while not completed and not broken? and slots-used ~< limit and (index += 1) ~< length
       slots-used ~+= 1
       sync := true
-      on-value index, __once(on-value-callback)
+      on-value index, once!(on-value-callback)
       sync := false
     if not completed and (broken? or slots-used == 0)
       completed := true
@@ -2470,7 +2500,7 @@ define helper __async-iter = #(mutable limit as Number, iterator as {next: Funct
       slots-used ~+= 1
       sync := true
       try
-        on-value value, (index += 1), __once(on-value-callback)
+        on-value value, (index += 1), once!(on-value-callback)
       catch e
         if close
           close()
