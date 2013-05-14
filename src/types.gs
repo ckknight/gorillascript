@@ -14,7 +14,7 @@ module.exports := class Type
   def intersect
   def complement() -> @_complement ?= ComplementType this
   def array() -> @_array ?= Type.generic(array-base, this)
-  def function() -> @_function ?= Type.generic(function-base, this)
+  def function(...args) -> @_function ?= Type.generic(function-base, this, ...args)
   
   let contains(alpha, bravo) as Boolean
     for item in alpha by -1
@@ -954,6 +954,8 @@ module.exports := class Type
   @regexp := @make "RegExp"
   @date := @make "Date"
   @error := @make "Error"
+  // technically promise.then should return a promise, but it's self-referential
+  @promise := @make-object({then: @any.function(@function, @function)})
   @numeric := @number.union(@undefined).union(@null).union(@boolean)
   @string-or-number := @string.union(@number)
   @array-like := @array.union(@args)

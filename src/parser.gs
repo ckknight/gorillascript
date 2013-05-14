@@ -3509,6 +3509,9 @@ namedlet _FunctionBody = one-of! [
   Body
 ]
 
+namedlet GeneratorBody = make-alter-stack(_in-generator, true)(Body)
+namedlet GeneratorBodyNoEnd = make-alter-stack(_in-generator, true)(BodyNoEnd)
+
 namedlet FunctionBody = make-alter-stack(_in-generator, false)(_FunctionBody)
 namedlet GeneratorFunctionBody = make-alter-stack(_in-generator, true)(_FunctionBody)
 namedlet FunctionDeclaration = do
@@ -5661,6 +5664,8 @@ class MacroHolder
       Statement
       Body
       BodyNoEnd
+      GeneratorBody
+      GeneratorBodyNoEnd
       End
       Identifier
       SimpleAssignable

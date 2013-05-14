@@ -950,9 +950,10 @@
           }
         };
         _Type_prototype["function"] = function () {
-          var _ref;
+          var _ref, args;
+          args = __slice.call(arguments);
           if ((_ref = this._function) == null) {
-            return this._function = Type.generic(functionBase, this);
+            return this._function = Type.generic.apply(Type, [functionBase, this].concat(__toArray(args)));
           } else {
             return _ref;
           }
@@ -2535,6 +2536,7 @@
         Type.regexp = Type.make("RegExp");
         Type.date = Type.make("Date");
         Type.error = Type.make("Error");
+        Type.promise = Type.makeObject({ then: Type.any["function"](Type["function"], Type["function"]) });
         Type.numeric = Type.number.union(Type["undefined"]).union(Type["null"]).union(Type.boolean);
         Type.stringOrNumber = Type.string.union(Type.number);
         Type.arrayLike = Type.array.union(Type.args);
@@ -7792,7 +7794,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __bind, __cmp, __create, __curry, __import, __in, __isArray, __keys, __lt, __lte, __name, __num, __once, __owns, __slice, __str, __strnum, __toArray, __typeof, _allowEmbeddedText, _asterixAsArrayLength, _Block, _FunctionBody, _inAst, _inEvilAst, _inFunctionTypeParams, _inGenerator, _inMacro, _Name, _NameOrSymbol, _position, _preventUnclosedObjectLiteral, _Space, _Symbol, AccessMultiNode, AccessNode, Advance, AnyArrayLiteral, AnyChar, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, Assignment, AssignmentAsExpression, AssignNode, Ast, Asterix, asterixAsArrayLength, AstExpression, AstExpressionToken, AsToken, AstStatement, AstToken, AtSign, Backslash, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, BracketedObjectKey, BreakNode, CallNode, Caret, CheckIndent, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaOrNewline, CommaOrNewlineWithCheckIndent, CommentNode, ComplexAssignable, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CustomBinaryOperator, CustomOperatorCloseParenthesis, CustomPostfixUnary, CustomPrefixUnary, DebuggerNode, DecimalDigit, DecimalNumber, DeclareEqualSymbol, DedentedBody, DefineHelper, DefineHelperStart, DefineMacro, DefineOperator, DefineOperatorStart, DefineSyntax, DefineSyntaxStart, DefNode, disallowEmbeddedText, DollarSign, DoubleColon, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedComment, EmbeddedLiteralText, EmbeddedLiteralTextInner, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedReadLiteralText, EmbeddedRoot, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, End, EndNoIndent, EndToken, Eof, EqualChar, Eval, EvalNode, EvalToken, Expression, ExpressionAsStatement, ExpressionOrAssignment, FailureManager, FalseLiteral, ForInNode, ForNode, freeze, fromCharCode, FunctionBody, FunctionDeclaration, FunctionFlag, FunctionFlags, FunctionLiteral, FunctionNode, FunctionType, generateCacheKey, GeneratorFunctionBody, GenericDefinitionPart, GenericPart, getEmbeddedRule, getReservedIdents, GetSetToken, getTmpId, getUseCustomBinaryOperator, HashSign, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrAccessPart, IdentifierOrAccessStart, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierParameter, IdentNode, IfNode, inAst, IndentationRequired, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, Index, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inspect, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThanSign, Letter, LicenseComment, Line, LinePart, Literal, Logic, LowerR, LowerU, LowerX, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, MacroToken, MapKeyValuePair, MapLiteral, MapLiteralToken, MaybeAdvance, MaybeAsType, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointNoSpace, MaybeExistentialSymbolNoSpace, MaybeNotToken, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, Minus, Name, NameChar, NamePart, NameStart, NaNLiteral, Newline, NewlineWithCheckIndent, nextTick, Node, nodeToType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NOTHING, Nothing, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectKeyNotColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, ParserError, PercentSign, PercentSignDoubleQuote, PercentSignTripleDoubleQuote, Period, Pipe, Plus, PlusOrMinus, PopIndent, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyObjectKeyColon, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, PushFakeIndent, PushIndent, RadixNumber, RegexComment, RegexDoubleToken, RegexFlags, RegexLiteral, RegexpNode, RegexSingleToken, RegexTripleDoubleToken, RegexTripleSingleToken, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, SetLiteral, SetLiteralToken, Shebang, SHORT_CIRCUIT, SimpleAssignable, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpreadNode, SpreadOrExpression, Stack, State, Statement, StringIndent, StringInterpolation, StringLiteral, SuperInvocation, SuperNode, SuperToken, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, SyntaxToken, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, Underscore, UnicodeEscapeSequence, UseMacro, util, VarNode, VoidLiteral, YieldNode, Zero;
+      var __async, __bind, __cmp, __create, __curry, __import, __in, __isArray, __keys, __lt, __lte, __name, __num, __once, __owns, __slice, __str, __strnum, __toArray, __typeof, _allowEmbeddedText, _asterixAsArrayLength, _Block, _FunctionBody, _inAst, _inEvilAst, _inFunctionTypeParams, _inGenerator, _inMacro, _Name, _NameOrSymbol, _position, _preventUnclosedObjectLiteral, _Space, _Symbol, AccessMultiNode, AccessNode, Advance, AnyArrayLiteral, AnyChar, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, Assignment, AssignmentAsExpression, AssignNode, Ast, Asterix, asterixAsArrayLength, AstExpression, AstExpressionToken, AsToken, AstStatement, AstToken, AtSign, Backslash, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, BracketedObjectKey, BreakNode, CallNode, Caret, CheckIndent, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaOrNewline, CommaOrNewlineWithCheckIndent, CommentNode, ComplexAssignable, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CustomBinaryOperator, CustomOperatorCloseParenthesis, CustomPostfixUnary, CustomPrefixUnary, DebuggerNode, DecimalDigit, DecimalNumber, DeclareEqualSymbol, DedentedBody, DefineHelper, DefineHelperStart, DefineMacro, DefineOperator, DefineOperatorStart, DefineSyntax, DefineSyntaxStart, DefNode, disallowEmbeddedText, DollarSign, DoubleColon, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedComment, EmbeddedLiteralText, EmbeddedLiteralTextInner, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedReadLiteralText, EmbeddedRoot, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, End, EndNoIndent, EndToken, Eof, EqualChar, Eval, EvalNode, EvalToken, Expression, ExpressionAsStatement, ExpressionOrAssignment, FailureManager, FalseLiteral, ForInNode, ForNode, freeze, fromCharCode, FunctionBody, FunctionDeclaration, FunctionFlag, FunctionFlags, FunctionLiteral, FunctionNode, FunctionType, generateCacheKey, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, GenericDefinitionPart, GenericPart, getEmbeddedRule, getReservedIdents, GetSetToken, getTmpId, getUseCustomBinaryOperator, HashSign, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrAccessPart, IdentifierOrAccessStart, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierParameter, IdentNode, IfNode, inAst, IndentationRequired, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, Index, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inspect, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThanSign, Letter, LicenseComment, Line, LinePart, Literal, Logic, LowerR, LowerU, LowerX, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, MacroToken, MapKeyValuePair, MapLiteral, MapLiteralToken, MaybeAdvance, MaybeAsType, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointNoSpace, MaybeExistentialSymbolNoSpace, MaybeNotToken, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, Minus, Name, NameChar, NamePart, NameStart, NaNLiteral, Newline, NewlineWithCheckIndent, nextTick, Node, nodeToType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, Nothing, NOTHING, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectKeyNotColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, ParserError, PercentSign, PercentSignDoubleQuote, PercentSignTripleDoubleQuote, Period, Pipe, Plus, PlusOrMinus, PopIndent, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyObjectKeyColon, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, PushFakeIndent, PushIndent, RadixNumber, RegexComment, RegexDoubleToken, RegexFlags, RegexLiteral, RegexpNode, RegexSingleToken, RegexTripleDoubleToken, RegexTripleSingleToken, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, setImmediate, SetLiteral, SetLiteralToken, Shebang, SHORT_CIRCUIT, SimpleAssignable, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpreadNode, SpreadOrExpression, Stack, State, Statement, StringIndent, StringInterpolation, StringLiteral, SuperInvocation, SuperNode, SuperToken, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, SyntaxToken, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, Underscore, UnicodeEscapeSequence, UseMacro, util, VarNode, VoidLiteral, YieldNode, Zero;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -8074,6 +8076,14 @@
           }
         };
       }());
+      setImmediate = typeof GLOBAL.setImmediate === "function" ? GLOBAL.setImmediate
+        : typeof process !== "undefined" && typeof process.nextTick === "function" ? process.nextTick
+        : function (func) {
+          if (typeof func !== "function") {
+            throw TypeError("Expected func to be a Function, got " + __typeof(func));
+          }
+          return setTimeout(func, 0);
+        };
       Type = require("./types");
       util = require("util");
       if (util != null) {
@@ -14368,6 +14378,8 @@
           return _rule(o) || Body(o);
         };
       }()));
+      GeneratorBody = named("GeneratorBody", makeAlterStack(_inGenerator, true)(Body));
+      GeneratorBodyNoEnd = named("GeneratorBodyNoEnd", makeAlterStack(_inGenerator, true)(BodyNoEnd));
       FunctionBody = named("FunctionBody", makeAlterStack(_inGenerator, false)(_FunctionBody));
       GeneratorFunctionBody = named("GeneratorFunctionBody", makeAlterStack(_inGenerator, true)(_FunctionBody));
       FunctionDeclaration = named("FunctionDeclaration", (function () {
@@ -19714,6 +19726,8 @@
             Statement: Statement,
             Body: Body,
             BodyNoEnd: BodyNoEnd,
+            GeneratorBody: GeneratorBody,
+            GeneratorBodyNoEnd: GeneratorBodyNoEnd,
             End: End,
             Identifier: Identifier,
             SimpleAssignable: SimpleAssignable,
@@ -30374,7 +30388,7 @@
         inLoopCache = Cache.generic(ParserNode, Boolean)();
         function hasInLoop(node) {
           var _once;
-          return inLoopCache.getOrAdd(node, (_once = false, function () {
+          return inLoopCache.getOrAdd(node, (_once = false, function (node) {
             var FOUND, result;
             if (_once) {
               throw Error("Attempted to call function more than once");
@@ -30383,7 +30397,7 @@
             }
             result = false;
             if (node instanceof ParserNode.Yield || node instanceof ParserNode.Return) {
-              result = true;
+              return true;
             } else if (!(node instanceof ParserNode.Function)) {
               FOUND = {};
               try {
@@ -30395,19 +30409,19 @@
                 });
               } catch (e) {
                 if (e === FOUND) {
-                  result = true;
+                  return true;
                 } else {
                   throw e;
                 }
               }
             }
-            return result;
+            return false;
           }));
         }
         inSwitchCache = Cache.generic(ParserNode, Boolean)();
         function hasInSwitch(node) {
           var _once;
-          return inSwitchCache.getOrAdd(node, (_once = false, function () {
+          return inSwitchCache.getOrAdd(node, (_once = false, function (node) {
             var _ref, FOUND;
             if (_once) {
               throw Error("Attempted to call function more than once");
@@ -30439,8 +30453,8 @@
                   throw e;
                 }
               }
-              return false;
             }
+            return false;
           }));
         }
         normalCache = Cache.generic(ParserNode, Boolean)();
@@ -30449,7 +30463,7 @@
           if (!(node instanceof ParserNode)) {
             throw TypeError("Expected node to be a " + __name(ParserNode) + ", got " + __typeof(node));
           }
-          return normalCache.getOrAdd(node, (_once = false, function () {
+          return normalCache.getOrAdd(node, (_once = false, function (node) {
             var _ref, FOUND;
             if (_once) {
               throw Error("Attempted to call function more than once");
@@ -30488,8 +30502,8 @@
                   throw e;
                 }
               }
-              return false;
             }
+            return false;
           }));
         }
         return hasGeneratorNode;
@@ -33934,7 +33948,7 @@
       fs = require("fs");
       path = require("path");
       DEFAULT_TRANSLATOR = "./jstranslator";
-      exports.version = "0.6.0";
+      exports.version = "0.6.1";
       if (require.extensions) {
         require.extensions[".gs"] = function (module, filename) {
           var compiled;
@@ -36364,6 +36378,18 @@
           ],
           names: "label!",
           id: 145
+        },
+        {
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(this.isFunc(node)&&!this.funcIsGenerator(node)){throw Error("Must be used with a generator function");}return __node("Call",3657,9,__node("Ident",3657,9,"__generatorToPromiser"),[__wrap(node,1109)],false,false);};}.call(this));',
+          params: [["ident", "node", "ident", "Expression"]],
+          names: "promise!",
+          id: 156
+        },
+        {
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,func,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;body=macroData.body;func=this.rewrap(this.func([],body,true,true,false,null,true),body);return __node("Call",3668,9,__node("Call",3668,9,__node("Ident",3668,9,"__generatorToPromiser"),[__wrap(func,1110)],false,false),[],false,false);};}.call(this));',
+          params: [["ident", "body", "ident", "GeneratorBody"]],
+          names: "promise!",
+          id: 157
         }
       ],
       binaryOperator: [
@@ -36840,6 +36866,12 @@
           operators: "map!",
           options: {type: "object", label: "constructMap"},
           id: 153
+        },
+        {
+          code: 'return (function(){"use strict";var __slice;__slice=Array.prototype.slice;return function(macroData,__wrap,__node){var args,func,head,node,op,tail;op=macroData.op;node=macroData.node;if(!this.isCall(node)){throw Error("async call expression must be a call");}func=this.callFunc(node);args=this.callArgs(node);if(this.callIsNew(node)){args=this.array(args);return __node("Call",3687,9,__node("Ident",3687,9,"__toPromise"),[__node("Ident",3687,23,"__new"),__node("Const",3687,29,void 0),__node("Array",3687,35,[__wrap(func,1115),__wrap(args,1115)])],false,false);}else if(this.callIsApply(node)){if(args.length===0||!this.isSpread(args[0])){head=args[0];tail=this.array(__slice.call(args,1));return __node("Call",3692,11,__node("Ident",3692,11,"__toPromise"),[__wrap(func,1115),__wrap(head,1115),__wrap(tail,1115)],false,false);}else{return this.maybeCache(this.array(args),function(setArgs,args){return __node("Call",3695,13,__node("Ident",3695,13,"__toPromise"),[__wrap(func,1119),__node("Access",3695,33,__wrap(setArgs,1119),__node("Const",3695,44,0)),__wrap(args,1119)],false,false);});}}else{args=this.array(args);if(this.isAccess(func)){return this.maybeCache(parent,function(setParent,parent){var child;child=this.child(func);return __node("Call",3701,13,__node("Ident",3701,13,"__toPromise"),[__node("Access",3701,27,__wrap(setParent,1120),__wrap(child,1120)),__wrap(parent,1120),__wrap(args,1120)],false,false);});}else{return __node("Call",3703,11,__node("Ident",3703,11,"__toPromise"),[__wrap(func,1115),__node("Const",3703,31,void 0),__wrap(args,1115)],false,false);}}};}.call(this));',
+          operators: "toPromise!",
+          options: {type: "promise"},
+          id: 158
         }
       ],
       helpers: {
@@ -54039,6 +54071,1439 @@
           ],
           type: "any",
           dependencies: ["__create", "__indexOfIdentical", "__iter", "__toArray", "GLOBAL", "Set"]
+        },
+        setImmediate: {
+          helper: [
+            "IfExpression",
+            1,
+            1,
+            0,
+            [
+              "Binary",
+              1,
+              1,
+              0,
+              [
+                "Unary",
+                1,
+                1,
+                0,
+                "typeof",
+                "Binary",
+                3585,
+                46,
+                0,
+                ["Ident", 3585, 46, 0, "GLOBAL"],
+                ".",
+                "Const",
+                3585,
+                54,
+                0,
+                "setImmediate"
+              ],
+              "===",
+              "Const",
+              128,
+              25,
+              0,
+              "function"
+            ],
+            [
+              "Binary",
+              3586,
+              3,
+              0,
+              ["Ident", 3586, 3, 0, "GLOBAL"],
+              ".",
+              "Const",
+              3586,
+              10,
+              0,
+              "setImmediate"
+            ],
+            "IfExpression",
+            1,
+            1,
+            0,
+            [
+              "Binary",
+              1,
+              1,
+              0,
+              [
+                "Binary",
+                1,
+                1,
+                0,
+                [
+                  "Unary",
+                  1,
+                  1,
+                  0,
+                  "typeof",
+                  "Ident",
+                  3587,
+                  21,
+                  0,
+                  "process"
+                ],
+                "!==",
+                "Const",
+                108,
+                27,
+                0,
+                "undefined"
+              ],
+              "&&",
+              "Binary",
+              1,
+              1,
+              0,
+              [
+                "Unary",
+                1,
+                1,
+                0,
+                "typeof",
+                "Binary",
+                3587,
+                46,
+                0,
+                ["Ident", 3587, 46, 0, "process"],
+                ".",
+                "Const",
+                3587,
+                55,
+                0,
+                "nextTick"
+              ],
+              "===",
+              "Const",
+              128,
+              25,
+              0,
+              "function"
+            ],
+            [
+              "Binary",
+              3588,
+              3,
+              0,
+              ["Ident", 3588, 3, 0, "process"],
+              ".",
+              "Const",
+              3588,
+              11,
+              0,
+              "nextTick"
+            ],
+            "Func",
+            1852,
+            1,
+            0,
+            0,
+            [["Ident", 3590, 5, 0, "func"]],
+            [],
+            [],
+            "BlockStatement",
+            1852,
+            1,
+            0,
+            0,
+            [
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                613,
+                18,
+                0,
+                [
+                  "Unary",
+                  1,
+                  1,
+                  0,
+                  "typeof",
+                  "Ident",
+                  3590,
+                  5,
+                  0,
+                  "func"
+                ],
+                "!==",
+                "Const",
+                128,
+                25,
+                0,
+                "function"
+              ],
+              [
+                "Throw",
+                1,
+                1,
+                0,
+                "Call",
+                1637,
+                18,
+                0,
+                ["Ident", 1637, 18, 0, "TypeError"],
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Const", 1, 1, 0, "Expected func to be a Function, got "],
+                  "+",
+                  "Call",
+                  477,
+                  49,
+                  0,
+                  ["Ident", 477, 49, 0, "__typeof"],
+                  0,
+                  ["Ident", 3590, 5, 0, "func"]
+                ]
+              ]
+            ],
+            [
+              "Return",
+              3590,
+              19,
+              0,
+              "Call",
+              3590,
+              19,
+              0,
+              ["Ident", 3590, 19, 0, "setTimeout"],
+              0,
+              ["Ident", 3590, 32, 0, "func"],
+              ["Const", 3590, 38, 0, 0]
+            ]
+          ],
+          type: "any",
+          dependencies: ["__typeof", "GLOBAL", "setImmediate"]
+        },
+        __defer: {
+          helper: [
+            "Func",
+            3592,
+            26,
+            0,
+            0,
+            [],
+            ["deferred", "isError", "value"],
+            [],
+            "BlockStatement",
+            3593,
+            1,
+            0,
+            0,
+            [
+              "Binary",
+              1,
+              1,
+              0,
+              ["Ident", 3593, 14, 0, "isError"],
+              "=",
+              "Const",
+              3593,
+              25,
+              0,
+              false
+            ],
+            [
+              "Binary",
+              1,
+              1,
+              0,
+              ["Ident", 3594, 14, 0, "value"],
+              "=",
+              "Const",
+              3594,
+              22,
+              0,
+              null
+            ],
+            [
+              "Binary",
+              1,
+              1,
+              0,
+              ["Ident", 3596, 14, 0, "deferred"],
+              "=",
+              "Arr",
+              3596,
+              39,
+              0
+            ],
+            [
+              "Func",
+              1,
+              1,
+              0,
+              ["Ident", 3597, 6, 0, "complete"],
+              [
+                ["Ident", 3597, 16, 0, "newIsError"],
+                ["Ident", 3597, 29, 0, "newValue"]
+              ],
+              ["funcs"],
+              [],
+              "IfExpression",
+              1,
+              1,
+              0,
+              ["Ident", 3598, 7, 0, "deferred"],
+              [
+                "BlockExpression",
+                3599,
+                1,
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Ident", 3599, 10, 0, "funcs"],
+                  "=",
+                  "Ident",
+                  3599,
+                  27,
+                  0,
+                  "deferred"
+                ],
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Ident", 3600, 7, 0, "deferred"],
+                  "=",
+                  "Const",
+                  3600,
+                  18,
+                  0,
+                  null
+                ],
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Ident", 3601, 7, 0, "isError"],
+                  "=",
+                  "Ident",
+                  3601,
+                  18,
+                  0,
+                  "newIsError"
+                ],
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Ident", 3602, 7, 0, "value"],
+                  "=",
+                  "Ident",
+                  3602,
+                  15,
+                  0,
+                  "newValue"
+                ],
+                [
+                  "IfExpression",
+                  1,
+                  1,
+                  0,
+                  [
+                    "Binary",
+                    3603,
+                    9,
+                    0,
+                    ["Ident", 3603, 9, 0, "funcs"],
+                    ".",
+                    "Const",
+                    3603,
+                    16,
+                    0,
+                    "length"
+                  ],
+                  [
+                    "Call",
+                    3604,
+                    9,
+                    0,
+                    ["Ident", 3604, 9, 0, "setImmediate"],
+                    0,
+                    [
+                      "Func",
+                      3604,
+                      24,
+                      0,
+                      0,
+                      [],
+                      ["_end", "i"],
+                      [],
+                      "For",
+                      1,
+                      1,
+                      0,
+                      0,
+                      [
+                        "BlockExpression",
+                        0,
+                        0,
+                        0,
+                        [
+                          "Binary",
+                          1,
+                          1,
+                          0,
+                          ["Ident", 3605, 14, 0, "i"],
+                          "=",
+                          "Const",
+                          3605,
+                          20,
+                          0,
+                          0
+                        ],
+                        [
+                          "Binary",
+                          1,
+                          1,
+                          0,
+                          ["Ident", 1, 1, 0, "_end"],
+                          "=",
+                          "Binary",
+                          3605,
+                          25,
+                          0,
+                          ["Ident", 3605, 25, 0, "funcs"],
+                          ".",
+                          "Const",
+                          3605,
+                          32,
+                          0,
+                          "length"
+                        ]
+                      ],
+                      [
+                        "Binary",
+                        1,
+                        1,
+                        0,
+                        ["Ident", 3605, 14, 0, "i"],
+                        "<",
+                        "Ident",
+                        1,
+                        1,
+                        0,
+                        "_end"
+                      ],
+                      [
+                        "Unary",
+                        1,
+                        1,
+                        0,
+                        "++",
+                        "Ident",
+                        3605,
+                        14,
+                        0,
+                        "i"
+                      ],
+                      "Call",
+                      3606,
+                      13,
+                      0,
+                      [
+                        "Binary",
+                        3606,
+                        13,
+                        0,
+                        ["Ident", 3606, 13, 0, "funcs"],
+                        ".",
+                        "Ident",
+                        3606,
+                        19,
+                        0,
+                        "i"
+                      ],
+                      0
+                    ]
+                  ]
+                ]
+              ]
+            ],
+            [
+              "Return",
+              116830,
+              117552,
+              0,
+              "Obj",
+              116830,
+              117552,
+              0,
+              3609,
+              5,
+              null,
+              "promise",
+              [
+                "Obj",
+                116844,
+                117454,
+                0,
+                3610,
+                7,
+                null,
+                "then",
+                [
+                  "Func",
+                  3610,
+                  14,
+                  0,
+                  0,
+                  [
+                    ["Ident", 3610, 15, 0, "onFulfilled"],
+                    ["Ident", 3610, 28, 0, "onRejected"]
+                  ],
+                  ["_ref", "fulfill", "promise", "reject"],
+                  [],
+                  "BlockStatement",
+                  3611,
+                  1,
+                  0,
+                  0,
+                  [
+                    "Binary",
+                    1,
+                    1,
+                    0,
+                    ["Ident", 3611, 14, 0, "promise"],
+                    "=",
+                    "Binary",
+                    231,
+                    63,
+                    0,
+                    [
+                      "Binary",
+                      1,
+                      1,
+                      0,
+                      ["Ident", 1, 1, 0, "_ref"],
+                      "=",
+                      "Call",
+                      3611,
+                      41,
+                      0,
+                      ["Ident", 3611, 41, 0, "__defer"],
+                      0
+                    ],
+                    ".",
+                    "Const",
+                    0,
+                    0,
+                    0,
+                    "promise"
+                  ],
+                  [
+                    "Binary",
+                    1,
+                    1,
+                    0,
+                    ["Ident", 3611, 22, 0, "fulfill"],
+                    "=",
+                    "Binary",
+                    231,
+                    63,
+                    0,
+                    ["Ident", 1, 1, 0, "_ref"],
+                    ".",
+                    "Const",
+                    0,
+                    0,
+                    0,
+                    "fulfill"
+                  ],
+                  [
+                    "Binary",
+                    1,
+                    1,
+                    0,
+                    ["Ident", 3611, 31, 0, "reject"],
+                    "=",
+                    "Binary",
+                    231,
+                    63,
+                    0,
+                    ["Ident", 1, 1, 0, "_ref"],
+                    ".",
+                    "Const",
+                    0,
+                    0,
+                    0,
+                    "reject"
+                  ],
+                  [
+                    "Func",
+                    1,
+                    1,
+                    0,
+                    ["Ident", 3612, 12, 0, "step"],
+                    [],
+                    ["f", "result"],
+                    [],
+                    "TryCatch",
+                    1,
+                    1,
+                    0,
+                    0,
+                    [
+                      "BlockStatement",
+                      3613,
+                      1,
+                      0,
+                      0,
+                      [
+                        "IfStatement",
+                        1,
+                        1,
+                        0,
+                        0,
+                        ["Ident", 3613, 21, 0, "isError"],
+                        [
+                          "Binary",
+                          1,
+                          1,
+                          0,
+                          ["Ident", 3613, 14, 0, "f"],
+                          "=",
+                          "Ident",
+                          3613,
+                          35,
+                          0,
+                          "onRejected"
+                        ],
+                        "Binary",
+                        1,
+                        1,
+                        0,
+                        ["Ident", 3613, 14, 0, "f"],
+                        "=",
+                        "Ident",
+                        3613,
+                        52,
+                        0,
+                        "onFulfilled"
+                      ],
+                      [
+                        "IfStatement",
+                        1,
+                        1,
+                        0,
+                        0,
+                        [
+                          "Binary",
+                          1,
+                          1,
+                          0,
+                          [
+                            "Unary",
+                            1,
+                            1,
+                            0,
+                            "typeof",
+                            "Ident",
+                            3614,
+                            26,
+                            0,
+                            "f"
+                          ],
+                          "===",
+                          "Const",
+                          128,
+                          25,
+                          0,
+                          "function"
+                        ],
+                        [
+                          "BlockStatement",
+                          3615,
+                          1,
+                          0,
+                          0,
+                          [
+                            "Binary",
+                            1,
+                            1,
+                            0,
+                            ["Ident", 3615, 16, 0, "result"],
+                            "=",
+                            "Call",
+                            3615,
+                            25,
+                            0,
+                            ["Ident", 3615, 25, 0, "f"],
+                            0,
+                            ["Ident", 3615, 28, 0, "value"]
+                          ],
+                          [
+                            "IfStatement",
+                            1,
+                            1,
+                            0,
+                            0,
+                            [
+                              "Binary",
+                              1,
+                              1,
+                              0,
+                              ["Ident", 3616, 15, 0, "result"],
+                              "&&",
+                              "Binary",
+                              1,
+                              1,
+                              0,
+                              [
+                                "Unary",
+                                1,
+                                1,
+                                0,
+                                "typeof",
+                                "Binary",
+                                3616,
+                                39,
+                                0,
+                                ["Ident", 3616, 39, 0, "result"],
+                                ".",
+                                "Const",
+                                3616,
+                                47,
+                                0,
+                                "then"
+                              ],
+                              "===",
+                              "Const",
+                              128,
+                              25,
+                              0,
+                              "function"
+                            ],
+                            [
+                              "Call",
+                              3617,
+                              15,
+                              0,
+                              [
+                                "Binary",
+                                3617,
+                                15,
+                                0,
+                                ["Ident", 3617, 15, 0, "result"],
+                                ".",
+                                "Const",
+                                3617,
+                                22,
+                                0,
+                                "then"
+                              ],
+                              0,
+                              ["Ident", 3617, 27, 0, "fulfill"],
+                              ["Ident", 3617, 35, 0, "reject"]
+                            ],
+                            "Call",
+                            3619,
+                            15,
+                            0,
+                            ["Ident", 3619, 15, 0, "fulfill"],
+                            0,
+                            ["Ident", 3619, 23, 0, "result"]
+                          ]
+                        ],
+                        "Call",
+                        3621,
+                        13,
+                        0,
+                        [
+                          "IfExpression",
+                          1,
+                          1,
+                          0,
+                          ["Ident", 3621, 16, 0, "isError"],
+                          ["Ident", 3621, 30, 0, "reject"],
+                          "Ident",
+                          3621,
+                          42,
+                          0,
+                          "fulfill"
+                        ],
+                        0,
+                        ["Ident", 3621, 52, 0, "value"]
+                      ]
+                    ],
+                    ["Ident", 3622, 14, 0, "e"],
+                    "Call",
+                    3623,
+                    11,
+                    0,
+                    ["Ident", 3623, 11, 0, "reject"],
+                    0,
+                    ["Ident", 3623, 18, 0, "e"]
+                  ],
+                  [
+                    "IfStatement",
+                    1,
+                    1,
+                    0,
+                    0,
+                    ["Ident", 3625, 11, 0, "deferred"],
+                    [
+                      "Call",
+                      3626,
+                      11,
+                      0,
+                      [
+                        "Binary",
+                        3626,
+                        11,
+                        0,
+                        ["Ident", 3626, 11, 0, "deferred"],
+                        ".",
+                        "Const",
+                        3626,
+                        20,
+                        0,
+                        "push"
+                      ],
+                      0,
+                      ["Ident", 3626, 25, 0, "step"]
+                    ],
+                    "Call",
+                    3628,
+                    11,
+                    0,
+                    ["Ident", 3628, 11, 0, "setImmediate"],
+                    0,
+                    ["Ident", 3628, 25, 0, "step"]
+                  ],
+                  [
+                    "Return",
+                    3629,
+                    9,
+                    0,
+                    "Ident",
+                    3629,
+                    9,
+                    0,
+                    "promise"
+                  ]
+                ]
+              ],
+              3631,
+              5,
+              null,
+              "fulfill",
+              [
+                "Func",
+                3631,
+                15,
+                0,
+                0,
+                [["Ident", 3631, 16, 0, "value"]],
+                [],
+                [],
+                "Call",
+                3631,
+                26,
+                0,
+                ["Ident", 3631, 26, 0, "complete"],
+                0,
+                ["Const", 3631, 36, 0, false],
+                ["Ident", 3631, 42, 0, "value"]
+              ],
+              3632,
+              5,
+              null,
+              "reject",
+              [
+                "Func",
+                3632,
+                14,
+                0,
+                0,
+                [["Ident", 3632, 15, 0, "value"]],
+                [],
+                [],
+                "Call",
+                3632,
+                25,
+                0,
+                ["Ident", 3632, 25, 0, "complete"],
+                0,
+                ["Const", 3632, 35, 0, true],
+                ["Ident", 3632, 40, 0, "value"]
+              ]
+            ]
+          ],
+          type: {
+            type: "generic",
+            base: "functionBase",
+            args: [{
+              type: "object",
+              pairs: {
+                fulfill: {type: "generic", base: "functionBase", args: ["undefined"]},
+                promise: {type: "object", pairs: {then: "function"}},
+                reject: {type: "generic", base: "functionBase", args: ["undefined"]}
+              }
+            }]
+          },
+          dependencies: ["__defer", "setImmediate"]
+        },
+        __generatorToPromiser: {
+          helper: [
+            "Func",
+            1852,
+            1,
+            0,
+            0,
+            [["Ident", 3635, 43, 0, "factory"]],
+            [],
+            [],
+            "BlockStatement",
+            1852,
+            1,
+            0,
+            0,
+            [
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                613,
+                18,
+                0,
+                [
+                  "Unary",
+                  1,
+                  1,
+                  0,
+                  "typeof",
+                  "Ident",
+                  3635,
+                  43,
+                  0,
+                  "factory"
+                ],
+                "!==",
+                "Const",
+                128,
+                25,
+                0,
+                "function"
+              ],
+              [
+                "Throw",
+                1,
+                1,
+                0,
+                "Call",
+                1637,
+                18,
+                0,
+                ["Ident", 1637, 18, 0, "TypeError"],
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Const", 1, 1, 0, "Expected factory to be a Function, got "],
+                  "+",
+                  "Call",
+                  477,
+                  49,
+                  0,
+                  ["Ident", 477, 49, 0, "__typeof"],
+                  0,
+                  ["Ident", 3635, 43, 0, "factory"]
+                ]
+              ]
+            ],
+            [
+              "Return",
+              3635,
+              62,
+              0,
+              "Func",
+              3635,
+              62,
+              0,
+              0,
+              [],
+              ["generator"],
+              [],
+              "BlockStatement",
+              3636,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                1,
+                1,
+                0,
+                ["Ident", 3636, 6, 0, "generator"],
+                "=",
+                "Call",
+                3636,
+                18,
+                0,
+                [
+                  "Binary",
+                  3636,
+                  18,
+                  0,
+                  ["Ident", 3636, 18, 0, "factory"],
+                  ".",
+                  "Const",
+                  3636,
+                  18,
+                  0,
+                  "apply"
+                ],
+                0,
+                ["This", 3636, 28, 0],
+                ["Arguments", 3636, 37, 0]
+              ],
+              [
+                "Func",
+                1,
+                1,
+                0,
+                ["Ident", 3637, 6, 0, "continuer"],
+                [
+                  ["Ident", 3637, 17, 0, "verb"],
+                  ["Ident", 3637, 22, 0, "arg"]
+                ],
+                ["defer", "item"],
+                [],
+                "BlockStatement",
+                3638,
+                1,
+                0,
+                0,
+                [
+                  "TryCatch",
+                  1,
+                  1,
+                  0,
+                  0,
+                  [
+                    "Binary",
+                    1,
+                    1,
+                    0,
+                    ["Ident", 3639, 10, 0, "item"],
+                    "=",
+                    "Call",
+                    3639,
+                    17,
+                    0,
+                    [
+                      "Binary",
+                      3639,
+                      17,
+                      0,
+                      ["Ident", 3639, 17, 0, "generator"],
+                      ".",
+                      "Ident",
+                      3639,
+                      28,
+                      0,
+                      "verb"
+                    ],
+                    0,
+                    ["Ident", 3639, 34, 0, "arg"]
+                  ],
+                  ["Ident", 3640, 10, 0, "e"],
+                  "BlockStatement",
+                  3641,
+                  1,
+                  0,
+                  0,
+                  [
+                    "Binary",
+                    1,
+                    1,
+                    0,
+                    ["Ident", 3641, 10, 0, "defer"],
+                    "=",
+                    "Call",
+                    3641,
+                    18,
+                    0,
+                    ["Ident", 3641, 18, 0, "__defer"],
+                    0
+                  ],
+                  [
+                    "Call",
+                    3642,
+                    7,
+                    0,
+                    [
+                      "Binary",
+                      3642,
+                      7,
+                      0,
+                      ["Ident", 3642, 7, 0, "defer"],
+                      ".",
+                      "Const",
+                      3642,
+                      13,
+                      0,
+                      "reject"
+                    ],
+                    0,
+                    ["Ident", 3642, 20, 0, "e"]
+                  ],
+                  [
+                    "Return",
+                    1,
+                    1,
+                    0,
+                    "Binary",
+                    3643,
+                    13,
+                    0,
+                    ["Ident", 3643, 13, 0, "defer"],
+                    ".",
+                    "Const",
+                    3643,
+                    20,
+                    0,
+                    "promise"
+                  ]
+                ],
+                [
+                  "IfStatement",
+                  1,
+                  1,
+                  0,
+                  0,
+                  [
+                    "Binary",
+                    3644,
+                    7,
+                    0,
+                    ["Ident", 3644, 7, 0, "item"],
+                    ".",
+                    "Const",
+                    3644,
+                    13,
+                    0,
+                    "done"
+                  ],
+                  [
+                    "Return",
+                    3645,
+                    7,
+                    0,
+                    "Binary",
+                    3645,
+                    7,
+                    0,
+                    ["Ident", 3645, 7, 0, "item"],
+                    ".",
+                    "Const",
+                    3645,
+                    12,
+                    0,
+                    "value"
+                  ],
+                  "Return",
+                  3647,
+                  7,
+                  0,
+                  "Call",
+                  3647,
+                  7,
+                  0,
+                  [
+                    "Binary",
+                    3647,
+                    7,
+                    0,
+                    [
+                      "Binary",
+                      3647,
+                      7,
+                      0,
+                      ["Ident", 3647, 7, 0, "item"],
+                      ".",
+                      "Const",
+                      3647,
+                      12,
+                      0,
+                      "value"
+                    ],
+                    ".",
+                    "Const",
+                    3647,
+                    18,
+                    0,
+                    "then"
+                  ],
+                  0,
+                  ["Ident", 3647, 23, 0, "callback"],
+                  ["Ident", 3647, 32, 0, "errback"]
+                ]
+              ],
+              [
+                "Func",
+                1,
+                1,
+                0,
+                ["Ident", 3648, 6, 0, "callback"],
+                [["Ident", 3648, 16, 0, "value"]],
+                [],
+                [],
+                "Return",
+                3648,
+                25,
+                0,
+                "Call",
+                3648,
+                25,
+                0,
+                ["Ident", 3648, 25, 0, "continuer"],
+                0,
+                ["Const", 3648, 37, 0, "send"],
+                ["Ident", 3648, 42, 0, "value"]
+              ],
+              [
+                "Func",
+                1,
+                1,
+                0,
+                ["Ident", 3649, 6, 0, "errback"],
+                [["Ident", 3649, 15, 0, "value"]],
+                [],
+                [],
+                "Return",
+                3649,
+                24,
+                0,
+                "Call",
+                3649,
+                24,
+                0,
+                ["Ident", 3649, 24, 0, "continuer"],
+                0,
+                ["Const", 3649, 36, 0, "throw"],
+                ["Ident", 3649, 42, 0, "value"]
+              ],
+              [
+                "Return",
+                3650,
+                3,
+                0,
+                "Call",
+                3650,
+                3,
+                0,
+                ["Ident", 3650, 3, 0, "callback"],
+                0,
+                ["Const", 3650, 12, 0]
+              ]
+            ]
+          ],
+          type: {type: "generic", base: "functionBase", args: ["function"]},
+          dependencies: ["__defer", "__generatorToPromiser", "__toArray", "__typeof"]
+        },
+        __toPromise: {
+          helper: [
+            "Func",
+            3670,
+            31,
+            0,
+            0,
+            [
+              ["Ident", 3670, 32, 0, "func"],
+              ["Ident", 3670, 37, 0, "context"],
+              ["Ident", 3670, 46, 0, "args"]
+            ],
+            ["d"],
+            [],
+            "BlockStatement",
+            3671,
+            1,
+            0,
+            0,
+            [
+              "Binary",
+              1,
+              1,
+              0,
+              ["Ident", 3671, 6, 0, "d"],
+              "=",
+              "Call",
+              3671,
+              10,
+              0,
+              ["Ident", 3671, 10, 0, "__defer"],
+              0
+            ],
+            [
+              "Call",
+              3672,
+              3,
+              0,
+              [
+                "Binary",
+                3672,
+                3,
+                0,
+                ["Ident", 3672, 3, 0, "func"],
+                ".",
+                "Const",
+                3672,
+                3,
+                0,
+                "apply"
+              ],
+              0,
+              ["Ident", 3672, 9, 0, "context"],
+              [
+                "Call",
+                3672,
+                3,
+                0,
+                [
+                  "Binary",
+                  3672,
+                  3,
+                  0,
+                  [
+                    "Call",
+                    3672,
+                    21,
+                    0,
+                    ["Ident", 3672, 21, 0, "__toArray"],
+                    0,
+                    ["Ident", 3672, 21, 0, "args"]
+                  ],
+                  ".",
+                  "Const",
+                  3672,
+                  3,
+                  0,
+                  "concat"
+                ],
+                0,
+                [
+                  "Arr",
+                  3672,
+                  28,
+                  0,
+                  [
+                    "Func",
+                    3672,
+                    28,
+                    0,
+                    0,
+                    [
+                      ["Ident", 3672, 29, 0, "err"],
+                      ["Ident", 3672, 33, 0, "value"]
+                    ],
+                    [],
+                    [],
+                    "IfExpression",
+                    1,
+                    1,
+                    0,
+                    [
+                      "Binary",
+                      1,
+                      1,
+                      0,
+                      ["Ident", 3673, 7, 0, "err"],
+                      "!=",
+                      "Const",
+                      104,
+                      19,
+                      0,
+                      null
+                    ],
+                    [
+                      "Call",
+                      3674,
+                      7,
+                      0,
+                      [
+                        "Binary",
+                        3674,
+                        7,
+                        0,
+                        ["Ident", 3674, 7, 0, "d"],
+                        ".",
+                        "Const",
+                        3674,
+                        9,
+                        0,
+                        "reject"
+                      ],
+                      0,
+                      ["Ident", 3674, 16, 0, "err"]
+                    ],
+                    "Call",
+                    3676,
+                    7,
+                    0,
+                    [
+                      "Binary",
+                      3676,
+                      7,
+                      0,
+                      ["Ident", 3676, 7, 0, "d"],
+                      ".",
+                      "Const",
+                      3676,
+                      9,
+                      0,
+                      "fulfill"
+                    ],
+                    0,
+                    ["Ident", 3676, 17, 0, "value"]
+                  ]
+                ]
+              ]
+            ],
+            [
+              "Return",
+              3677,
+              3,
+              0,
+              "Binary",
+              3677,
+              3,
+              0,
+              ["Ident", 3677, 3, 0, "d"],
+              ".",
+              "Const",
+              3677,
+              5,
+              0,
+              "promise"
+            ]
+          ],
+          type: "function",
+          dependencies: ["__defer", "__toArray", "__toPromise"]
         }
       },
       assignOperator: [

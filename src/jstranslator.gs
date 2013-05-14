@@ -157,10 +157,10 @@ let make-auto-return(x) -> if x then wrap-return else identity
 let make-has-generator-node = #
   let in-loop-cache = Cache<ParserNode, Boolean>()
   let has-in-loop(node)
-    async <- in-loop-cache.get-or-add node
+    async node <- in-loop-cache.get-or-add node
     let mutable result = false
     if node instanceofsome [ParserNode.Yield, ParserNode.Return]
-      result := true
+      return true
     else if node not instanceof ParserNode.Function
       let FOUND = {}
       try
@@ -170,17 +170,17 @@ let make-has-generator-node = #
           n
       catch e
         if e == FOUND
-          result := true
+          return true
         else
           throw e
-    result
+    false
 
   let in-switch-cache = Cache<ParserNode, Boolean>()
   let has-in-switch(node)
-    async <- in-switch-cache.get-or-add node
+    async node <- in-switch-cache.get-or-add node
     returnif in-loop-cache.get node
     if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue]
-      true
+      return true
     else if node not instanceof ParserNode.Function
       let FOUND = {}
       try
@@ -197,15 +197,15 @@ let make-has-generator-node = #
           return true
         else
           throw e
-      false
+    false
 
   let normal-cache = Cache<ParserNode, Boolean>()
   let has-generator-node(node as ParserNode)
-    async <- normal-cache.get-or-add node
+    async node <- normal-cache.get-or-add node
     returnif in-loop-cache.get node
     returnif in-switch-cache.get node
     if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue, ParserNode.Break]
-      true
+      return true
     else if node not instanceof ParserNode.Function
       let FOUND = {}
       try
@@ -225,7 +225,7 @@ let make-has-generator-node = #
           return true
         else
           throw e
-      false
+    false
   has-generator-node
 
 let uid()

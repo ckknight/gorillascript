@@ -3581,3 +3581,123 @@ macro last!()
     AST
       $start
       $finish
+
+define helper set-immediate = if is-function! GLOBAL.set-immediate
+  GLOBAL.set-immediate
+else if not is-void! process and is-function! process.next-tick
+  process.next-tick
+else
+  #(func as ->) -> set-timeout(func, 0)
+
+define helper __defer = #
+  let mutable is-error = false
+  let mutable value = null
+  
+  let mutable deferred as Array|null = []
+  let complete(new-is-error, new-value)!
+    if deferred
+      let funcs as Array = deferred
+      deferred := null
+      is-error := new-is-error
+      value := new-value
+      if funcs.length
+        set-immediate #
+          for i in 0 til funcs.length
+            funcs[i]()
+  
+  {
+    promise: {
+      then: #(on-fulfilled, on-rejected)
+        let {promise, fulfill, reject} = __defer()
+        let step = #! -> try
+          let f = if is-error then on-rejected else on-fulfilled
+          if is-function! f
+            let result = f value
+            if result and is-function! result.then
+              result.then fulfill, reject
+            else
+              fulfill result
+          else
+            (if is-error then reject else fulfill)(value)
+        catch e
+          reject e
+
+        if deferred
+          deferred.push step
+        else
+          set-immediate step
+        promise
+    }
+    fulfill: #(value)! -> complete false, value
+    reject: #(value)! -> complete true, value
+  }
+
+define helper __generator-to-promiser = #(factory as ->) -> #
+  let generator = factory@ this, ...arguments
+  let continuer(verb, arg)
+    try
+      let item = generator[verb](arg)
+    catch e
+      let defer = __defer()
+      defer.reject e
+      return defer.promise
+    if item.done
+      item.value
+    else
+      item.value.then callback, errback
+  let callback(value) -> continuer \send, value
+  let errback(value) -> continuer \throw, value
+  callback(void)
+
+macro promise!
+  syntax node as Expression
+    if @is-func(node) and not @func-is-generator(node)
+      throw Error "Must be used with a generator function"
+  
+    ASTE __generator-to-promiser($node)
+  
+  syntax body as GeneratorBody
+    let func = @rewrap(@func([]
+      body
+      true
+      true
+      false
+      null
+      true), body)
+    
+    ASTE __generator-to-promiser($func)()
+
+define helper __to-promise = #(func, context, args)
+  let d = __defer()
+  func@ context, ...args, #(err, value)!
+    if err?
+      d.reject err
+    else
+      d.fulfill value
+  d.promise
+
+define operator unary to-promise! with type: \promise
+  if not @is-call(node)
+    throw Error("async call expression must be a call")
+  
+  let func = @call-func(node)
+  let mutable args = @call-args(node)
+  if @call-is-new(node)
+    args := @array args
+    ASTE __to-promise __new, void, [$func, $args]
+  else if @call-is-apply(node)
+    if args.length == 0 or not @is-spread(args[0])
+      let head = args[0]
+      let tail = @array args[1 to -1]
+      ASTE __to-promise $func, $head, $tail
+    else
+      @maybe-cache @array(args), #(set-args, args)
+        ASTE __to-promise $func, $set-args[0], $args
+  else
+    args := @array args
+    if @is-access func
+      @maybe-cache parent, #(set-parent, parent)
+        let child = @child(func)
+        ASTE __to-promise $set-parent[$child], $parent, $args
+    else
+      ASTE __to-promise $func, void, $args
