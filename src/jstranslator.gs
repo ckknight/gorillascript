@@ -284,6 +284,16 @@ class GeneratorState
       ])
     branch
   
+  def return(pos as {}, t-node as ->|null)!
+    if not t-node?
+      @goto pos, #@-> @builder.stop
+    else
+      @add @make-goto pos, #@-> @builder.stop, false
+      @add #-> ast.Return pos, ast.Obj pos, [
+        ast.Obj.Pair pos, \done, ast.Const pos, true
+        ast.Obj.Pair pos, \value, t-node()
+      ]
+  
   def get-redirect() as GeneratorState
     @builder.get-redirect(this)
   
@@ -456,34 +466,38 @@ class GeneratorBuilder
     let catches = @catches
     let state-ident = @state-ident
     let send = @scope.reserve-ident @pos, \send, Type.function
+    let switch-step = ast.Switch @pos,
+      state-ident
+      for state in @states-order
+        if not @redirects.has state
+          let nodes = for t-node in state.nodes; t-node()
+          if nodes.length == 0
+            throw Error "Found state with no nodes in it"
+          ast.Switch.Case nodes[0].pos,
+            ast.Const nodes[0].pos, state.case-id()
+            ast.Block nodes[0].pos, nodes
+      ast.Throw @pos,
+        ast.Call @pos,
+          ast.Ident @pos, \Error
+          [ast.Binary @pos, "Unknown state: ", "+", state-ident]
     body.push ast.Func @pos, send, [@received-ident], [], ast.While(@pos, true,
-      ast.TryCatch @pos,
-        ast.Switch @pos,
-          state-ident
-          for state in @states-order
-            if not @redirects.has state
-              let nodes = for t-node in state.nodes; t-node()
-              if nodes.length == 0
-                throw Error "Found state with no nodes in it"
-              ast.Switch.Case nodes[0].pos,
-                ast.Const nodes[0].pos, state.case-id()
-                ast.Block nodes[0].pos, nodes
-          ast.Throw @pos,
-            ast.Call @pos,
-              ast.Ident @pos, \Error
-              [ast.Binary @pos, "Unknown state: ", "+", state-ident]
-        err
-        for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Call(@pos, close), ast.Throw @pos, err]
-          let err-ident = catch-info.t-ident()
-          @scope.add-variable err-ident
-          ast.If @pos,
-            ast.Or @pos, ...(for state in catch-info.try-states
-              if not @redirects.has state
-                ast.Binary(@pos, state-ident, "===", ast.Const(@pos, state.case-id())))
-            ast.Block @pos,
-              * ast.Assign @pos, err-ident, err
-              * ast.Assign @pos, state-ident, ast.Const(@pos, catch-info.catch-state.case-id())
-            current)
+      if not catches.length and not @finallies.length
+        switch-step
+      else
+        ast.TryCatch @pos,
+          switch-step
+          err
+          for reduce catch-info in catches by -1, current = ast.Block @pos, [...if @finallies.length then [ast.Call(@pos, close)] else [], ast.Throw @pos, err]
+            let err-ident = catch-info.t-ident()
+            @scope.add-variable err-ident
+            ast.If @pos,
+              ast.Or @pos, ...(for state in catch-info.try-states
+                if not @redirects.has state
+                  ast.Binary(@pos, state-ident, "===", ast.Const(@pos, state.case-id())))
+              ast.Block @pos,
+                * ast.Assign @pos, err-ident, err
+                * ast.Assign @pos, state-ident, ast.Const(@pos, catch-info.catch-state.case-id())
+              current)
     body.push ast.Return @pos, ast.Obj @pos,
       * ast.Obj.Pair @pos, \close, close
       * ast.Obj.Pair @pos, \iterator, ast.Func @pos, null, [], [], ast.Return(@pos, ast.This(@pos))
@@ -1000,11 +1014,18 @@ let generator-translate = do
           last!(test.cleanup(), t-when-true())
           t-when-false()
     
-    Return: #(node, scope, state)
-      if not node.node.is-const() or node.node.const-value() != void
-        throw Error "Cannot use a valued return in a generator"
-      state.goto get-pos(node), #-> state.builder.stop
-      state
+    Return: #(node, scope, mutable state)
+      let pos = get-pos(node)
+      if node.node.is-const() and node.node.const-value() == void
+        state.return get-pos(node)
+        state
+      else
+        let g-node = generator-translate-expression node.node, scope, state, false
+        state := g-node.state
+        state.return get-pos(node), #-> first!(
+          g-node.t-node()
+          g-node.cleanup())
+        state
       
     Switch: #(node, scope, state, , continue-state)
       if node.label?

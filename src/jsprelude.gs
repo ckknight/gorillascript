@@ -241,8 +241,6 @@ macro let
 
 macro return
   syntax node as Expression?
-    if @in-generator and node
-      throw Error "Cannot use valued return in a generator function"
     if node
       @mutate-last node or @noop(), (#(n)@ -> @return n), true
     else
@@ -250,8 +248,6 @@ macro return
 
 macro return?
   syntax node as Expression
-    if @in-generator
-      throw Error "Cannot use return in a generator function"
     @mutate-last node or @noop(), (#(n)@
       @maybe-cache n, #(set-n, n)@
         AST
@@ -260,8 +256,6 @@ macro return?
 
 macro returnif
   syntax node as Expression
-    if @in-generator
-      throw Error "Cannot use return in a generator function"
     @mutate-last node or @noop(), (#(n)@
       if @is-type n, \boolean
         AST
@@ -275,8 +269,6 @@ macro returnif
 
 macro returnunless
   syntax node as Expression
-    if @in-generator
-      throw Error "Cannot use return in a generator function"
     @mutate-last node or @noop(), (#(n)@
       if @is-type n, \boolean
         AST

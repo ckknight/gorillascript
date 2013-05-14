@@ -8,7 +8,10 @@ let iterator-to-array(iterator, values = [])
     else
       iterator.next()
     if item.done
-      return arr
+      if item.value?
+        return { arr, item.value }
+      else
+        return arr
     arr.push item.value
 
 let order-list()
@@ -505,3 +508,12 @@ test "return in generator", #
   
   array-eq [\alpha], iterator-to-array fun(true)
   array-eq [\alpha, \bravo], iterator-to-array fun(false)
+
+test "return with value in generator", #
+  let fun(value)*
+    yield \alpha
+    return? value
+    yield \bravo
+  
+  deep-equal { arr: [\alpha], value: \charlie }, iterator-to-array fun(\charlie)
+  deep-equal [\alpha, \bravo], iterator-to-array fun()
