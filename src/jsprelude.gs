@@ -3692,7 +3692,7 @@ define operator unary to-promise! with type: \promise
       ASTE __to-promise $func, $head, $tail
     else
       @maybe-cache @array(args), #(set-args, args)
-        ASTE __to-promise $func, $set-args[0], $args
+        ASTE __to-promise $func, $set-args[0], $args.slice(1)
   else
     args := @array args
     if @is-access func
