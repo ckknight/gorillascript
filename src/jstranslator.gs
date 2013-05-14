@@ -466,46 +466,40 @@ class GeneratorBuilder
     let catches = @catches
     let state-ident = @state-ident
     let step = @scope.reserve-ident @pos, \step, Type.function
-    let switch-step = ast.Switch @pos,
-      state-ident
-      for state in @states-order
-        if not @redirects.has state
-          let nodes = for t-node in state.nodes; t-node()
-          if nodes.length == 0
-            throw Error "Found state with no nodes in it"
-          ast.Switch.Case nodes[0].pos,
-            ast.Const nodes[0].pos, state.case-id()
-            ast.Block nodes[0].pos, nodes
-      ast.Throw @pos,
-        ast.Call @pos,
-          ast.Ident @pos, \Error
-          [ast.Binary @pos, "Unknown state: ", "+", state-ident]
     let send = @scope.reserve-ident @pos, \send, Type.function
     body.push ast.Func @pos, step, [@received-ident], [], ast.While @pos, true,
-      if not catches.length
-        switch-step
-      else
-        ast.TryCatch @pos,
-          switch-step
-          err
-          for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Throw @pos, err]
-            let err-ident = catch-info.t-ident()
-            @scope.add-variable err-ident
-            ast.If @pos,
-              ast.Or @pos, ...(for state in catch-info.try-states
-                if not @redirects.has state
-                  ast.Binary(@pos, state-ident, "===", ast.Const(@pos, state.case-id())))
-              ast.Block @pos,
-                * ast.Assign @pos, err-ident, err
-                * ast.Assign @pos, state-ident, ast.Const(@pos, catch-info.catch-state.case-id())
-              current
-    body.push ast.Func @pos, send, [@received-ident], [], ast.TryCatch @pos,
+      ast.Switch @pos,
+        state-ident
+        for state in @states-order
+          if not @redirects.has state
+            let nodes = for t-node in state.nodes; t-node()
+            if nodes.length == 0
+              throw Error "Found state with no nodes in it"
+            ast.Switch.Case nodes[0].pos,
+              ast.Const nodes[0].pos, state.case-id()
+              ast.Block nodes[0].pos, nodes
+        ast.Throw @pos,
+          ast.Call @pos,
+            ast.Ident @pos, \Error
+            [ast.Binary @pos, "Unknown state: ", "+", state-ident]
+    let send-try-catch = ast.TryCatch @pos,
       ast.Return @pos, ast.Call @pos, step, [@received-ident]
       err
-      ast.Block @pos, [
-        ast.Call @pos, close, []
-        ast.Throw @pos, err
-      ]
+      for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Call(@pos, close, []), ast.Throw @pos, err]
+        let err-ident = catch-info.t-ident()
+        @scope.add-variable err-ident
+        ast.If @pos,
+          ast.Or @pos, ...(for state in catch-info.try-states
+            if not @redirects.has state
+              ast.Binary(@pos, state-ident, "===", ast.Const(@pos, state.case-id())))
+          ast.Block @pos,
+            * ast.Assign @pos, err-ident, err
+            * ast.Assign @pos, state-ident, ast.Const(@pos, catch-info.catch-state.case-id())
+          current
+    body.push ast.Func @pos, send, [@received-ident], [], if catches.length
+      ast.While @pos, true, send-try-catch
+    else
+      send-try-catch
     body.push ast.Return @pos, ast.Obj @pos,
       * ast.Obj.Pair @pos, \close, close
       * ast.Obj.Pair @pos, \iterator, ast.Func @pos, null, [], [], ast.Return(@pos, ast.This(@pos))
