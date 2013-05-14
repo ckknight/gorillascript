@@ -263,8 +263,8 @@ section ul li {
 }
 #container section ul li code, #container section p code {
 	font-size: 16px;
-	background: #fff;
-	border: 1px solid #aaa;
+	background: #ddd;
+	color: #707070;
 }
 #container section h2 code {
 	font-size: 1.5em;
