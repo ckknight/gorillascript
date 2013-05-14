@@ -30885,7 +30885,7 @@
           this.catches.push({ tryStates: catchStates, tIdent: tIdent, catchState: state });
         };
         _GeneratorBuilder_prototype.create = function () {
-          var _this, body, catches, close, err, f, innerScope, send, stateIdent, switchStep;
+          var _this, body, catches, close, err, f, innerScope, send, stateIdent, step, switchStep;
           _this = this;
           if (this.currentCatch.length) {
             throw Error("Cannot create a generator if there are stray catches");
@@ -30937,7 +30937,7 @@
           err = this.scope.reserveIdent(this.pos, "e", Type.any);
           catches = this.catches;
           stateIdent = this.stateIdent;
-          send = this.scope.reserveIdent(this.pos, "send", Type["function"]);
+          step = this.scope.reserveIdent(this.pos, "step", Type["function"]);
           switchStep = ast.Switch(
             this.pos,
             stateIdent,
@@ -30969,17 +30969,16 @@
               [ast.Binary(this.pos, "Unknown state: ", "+", stateIdent)]
             ))
           );
+          send = this.scope.reserveIdent(this.pos, "send", Type["function"]);
           body.push(ast.Func(
             this.pos,
-            send,
+            step,
             [this.receivedIdent],
             [],
-            ast.While(this.pos, true, !catches.length && !this.finallies.length ? switchStep
+            ast.While(this.pos, true, !catches.length ? switchStep
               : ast.TryCatch(this.pos, switchStep, err, (function () {
                 var _arr, _f, _i, current;
-                current = ast.Block(_this.pos, (_this.finallies.length
-                  ? [ast.Call(_this.pos, close)]
-                  : []).concat([ast.Throw(_this.pos, err)]));
+                current = ast.Block(_this.pos, [ast.Throw(_this.pos, err)]);
                 for (_arr = __toArray(catches), _i = _arr.length, _f = function (catchInfo) {
                   var _this, errIdent;
                   _this = this;
@@ -31008,6 +31007,21 @@
                 }
                 return current;
               }())))
+          ));
+          body.push(ast.Func(
+            this.pos,
+            send,
+            [this.receivedIdent],
+            [],
+            ast.TryCatch(
+              this.pos,
+              ast.Return(this.pos, ast.Call(this.pos, step, [this.receivedIdent])),
+              err,
+              ast.Block(this.pos, [
+                ast.Call(this.pos, close, []),
+                ast.Throw(this.pos, err)
+              ])
+            )
           ));
           body.push(ast.Return(this.pos, ast.Obj(this.pos, [
             ast.Obj.Pair(this.pos, "close", close),

@@ -465,7 +465,7 @@ class GeneratorBuilder
     let err = @scope.reserve-ident @pos, \e, Type.any
     let catches = @catches
     let state-ident = @state-ident
-    let send = @scope.reserve-ident @pos, \send, Type.function
+    let step = @scope.reserve-ident @pos, \step, Type.function
     let switch-step = ast.Switch @pos,
       state-ident
       for state in @states-order
@@ -480,14 +480,15 @@ class GeneratorBuilder
         ast.Call @pos,
           ast.Ident @pos, \Error
           [ast.Binary @pos, "Unknown state: ", "+", state-ident]
-    body.push ast.Func @pos, send, [@received-ident], [], ast.While(@pos, true,
-      if not catches.length and not @finallies.length
+    let send = @scope.reserve-ident @pos, \send, Type.function
+    body.push ast.Func @pos, step, [@received-ident], [], ast.While @pos, true,
+      if not catches.length
         switch-step
       else
         ast.TryCatch @pos,
           switch-step
           err
-          for reduce catch-info in catches by -1, current = ast.Block @pos, [...if @finallies.length then [ast.Call(@pos, close)] else [], ast.Throw @pos, err]
+          for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Throw @pos, err]
             let err-ident = catch-info.t-ident()
             @scope.add-variable err-ident
             ast.If @pos,
@@ -497,7 +498,14 @@ class GeneratorBuilder
               ast.Block @pos,
                 * ast.Assign @pos, err-ident, err
                 * ast.Assign @pos, state-ident, ast.Const(@pos, catch-info.catch-state.case-id())
-              current)
+              current
+    body.push ast.Func @pos, send, [@received-ident], [], ast.TryCatch @pos,
+      ast.Return @pos, ast.Call @pos, step, [@received-ident]
+      err
+      ast.Block @pos, [
+        ast.Call @pos, close, []
+        ast.Throw @pos, err
+      ]
     body.push ast.Return @pos, ast.Obj @pos,
       * ast.Obj.Pair @pos, \close, close
       * ast.Obj.Pair @pos, \iterator, ast.Func @pos, null, [], [], ast.Return(@pos, ast.This(@pos))

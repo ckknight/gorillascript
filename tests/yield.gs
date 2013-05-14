@@ -517,3 +517,18 @@ test "return with value in generator", #
   
   deep-equal { arr: [\alpha], value: \charlie }, iterator-to-array fun(\charlie)
   deep-equal [\alpha, \bravo], iterator-to-array fun()
+
+test "yield with an uncaught error returns that it's done after error", #
+  let fun(obj)*
+    yield \alpha
+    throw obj
+    fail()
+    yield \bravo
+    fail()
+  
+  let err = {}
+  let iter = fun(err)
+  deep-equal { done: false, value: \alpha }, iter.next()
+  throws #-> iter.next(), #(e) -> e == err
+  for i in 0 til 10
+    deep-equal { done: true, value: void }, iter.next()
