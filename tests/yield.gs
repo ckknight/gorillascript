@@ -28,6 +28,10 @@ test "single-value yield on single-line", #
   array-eq ["alpha"], iterator-to-array(fun("alpha"))
   array-eq ["bravo"], iterator-to-array(fun("bravo"))
   array-eq ["charlie"], iterator-to-array(fun("charlie"))
+  let iter = fun("delta")
+  deep-equal { done: false, value: "delta" }, iter.next()
+  for i in 0 til 10
+    deep-equal { done: true, value: void }, iter.next()
 
 test "single-value yield this on single-line", #
   let fun()* -> yield this
@@ -515,8 +519,14 @@ test "return with value in generator", #
     return? value
     yield \bravo
   
-  deep-equal { arr: [\alpha], value: \charlie }, iterator-to-array fun(\charlie)
-  deep-equal [\alpha, \bravo], iterator-to-array fun()
+  let mutable iter = fun(\charlie)
+  deep-equal { arr: [\alpha], value: \charlie }, iterator-to-array iter
+  for i in 0 til 10
+    deep-equal { done: true, value: void }, iter.next()
+  iter := fun()
+  deep-equal [\alpha, \bravo], iterator-to-array iter
+  for i in 0 til 10
+    deep-equal { done: true, value: void }, iter.next()
 
 test "yield with an uncaught error returns that it's done after error", #
   let fun(obj)*
