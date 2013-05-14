@@ -154,165 +154,287 @@ let identity(x) -> x
 
 let make-auto-return(x) -> if x then wrap-return else identity
 
-class GeneratorBuilder
-  let uid(id)
-    "$(id)-$(Math.random().to-string(36).slice(2))-$(new Date().get-time())"
-  def constructor(@pos as {}, @scope as Scope, states, states-order, @state-redirects = {}, @state-ids = {}, current-state, stop-state, state-ident, pending-finallies-ident, @finallies = [], @catches = [], @current-catch = [], @has-generator-node = make-has-generator-node())
-    scope.add-helper \StopIteration
-    if states?
-      @states := states
-      @states-order := states-order
-      @current-state := current-state
-      @stop-state := stop-state
-    else  
-      @states-order := [
-        uid(0)
-        uid(1)
-      ]
-      @states := {
-        [@states-order[0]]: [#-> ast.Throw pos, ast.Ident pos, \StopIteration]
-        [@states-order[1]]: []
-      }
-      @current-state := @states-order[1]
-      @stop-state := @states-order[0]
-    @state-ident := state-ident ? scope.reserve-ident pos, \state, Type.number
-    @pending-finallies-ident := pending-finallies-ident ? scope.reserve-ident pos, \finallies, Type.undefined.function().array()
-    let send-scope = scope.clone(false)
-    @received-ident := send-scope.reserve-ident pos, \received, Type.any
-    send-scope.mark-as-param @received-ident
+let make-has-generator-node = #
+  let in-loop-cache = Cache<ParserNode, Boolean>()
+  let has-in-loop(node)
+    async <- in-loop-cache.get-or-add node
+    let mutable result = false
+    if node instanceofsome [ParserNode.Yield, ParserNode.Return]
+      result := true
+    else if node not instanceof ParserNode.Function
+      let FOUND = {}
+      try
+        node.walk #(n)
+          if has-in-loop n
+            throw FOUND
+          n
+      catch e
+        if e == FOUND
+          result := true
+        else
+          throw e
+    result
+
+  let in-switch-cache = Cache<ParserNode, Boolean>()
+  let has-in-switch(node)
+    async <- in-switch-cache.get-or-add node
+    returnif in-loop-cache.get node
+    if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue]
+      true
+    else if node not instanceof ParserNode.Function
+      let FOUND = {}
+      try
+        node.walk #(n)
+          if n instanceofsome [ParserNode.For, ParserNode.ForIn]
+            if has-in-loop n
+              throw FOUND
+          else
+            if has-in-switch n
+              throw FOUND
+          n
+      catch e
+        if e == FOUND
+          return true
+        else
+          throw e
+      false
+
+  let normal-cache = Cache<ParserNode, Boolean>()
+  let has-generator-node(node as ParserNode)
+    async <- normal-cache.get-or-add node
+    returnif in-loop-cache.get node
+    returnif in-switch-cache.get node
+    if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue, ParserNode.Break]
+      true
+    else if node not instanceof ParserNode.Function
+      let FOUND = {}
+      try
+        node.walk #(n)
+          if n instanceofsome [ParserNode.For, ParserNode.ForIn]
+            if has-in-loop n
+              throw FOUND
+          else if n instanceof ParserNode.Switch
+            if has-in-switch n
+              throw FOUND
+          else
+            if has-generator-node n
+              throw FOUND
+          n
+      catch e
+        if e == FOUND
+          return true
+        else
+          throw e
+      false
+  has-generator-node
+
+let uid()
+  "$(Math.random().to-string(36).slice(2))-$(new Date().get-time())"
+class GeneratorState
+  def constructor(@builder as GeneratorBuilder)
+    @nodes := []
   
-  def clone(new-state)
-    GeneratorBuilder(@pos, @scope, @states, @states-order, @state-redirects, @state-ids, new-state, @stop-state, @state-ident, @pending-finallies-ident, @finallies, @catches, @current-catch, @has-generator-node)
+  def has-generator-node(node)
+    @builder.has-generator-node node
   
-  def add(t-node)
-    unless t-node instanceof GeneratorBuilder
-      unless is-function! t-node
-        throw TypeError "Expected node to be a GeneratorBuilder or Function, got $(typeof! t-node)"
-      @states[@current-state].push t-node
+  def add(t-node as ->) as GeneratorState
+    @nodes.push t-node
+    this
+  
+  def branch() as GeneratorState
+    let state = GeneratorState @builder
+    if @builder.current-catch.length
+      @builder.current-catch[* - 1].push state
+    @builder.states-order.push state
+    state
+  
+  def case-id() as Number
+    @builder.case-id(@get-redirect())
+
+  def make-goto(pos as {}, t-state as ->, include-break as Boolean)
+    #@
+      let state = t-state()
+      
+      let case-id = if state instanceof GeneratorState
+        ast.Const pos, state.case-id()
+      else if state instanceof ast.Node
+        state
+      else
+        throw Error "Expected a GeneratorState or Node, got $(typeof! state)"
+      
+      if case-id instanceof ast.Const and is-number! case-id.value and case-id.value == @case-id() + 1
+        ast.Unary pos, "++", @builder.state-ident
+      else
+        let assign = ast.Assign pos, @builder.state-ident, case-id
+        if include-break
+          ast.Block pos, [
+            assign
+            ast.Break pos
+          ]
+        else
+          assign
+
+  def yield(pos as {}, t-node as ->) as GeneratorState
+    let branch = @branch()
+    @nodes.push(
+      @make-goto pos, #-> branch, false
+      #-> ast.Return pos, t-node())
+    branch
+  
+  def get-redirect() as GeneratorState
+    @builder.get-redirect(this)
+  
+  let get-case-id(pos as {}, value) as ast.Node
+    if value instanceof GeneratorState
+      ast.Const pos, value.case-id()
+    else if value instanceof ast.Node
+      value
+    else
+      throw TypeError "Expected a GeneratorState or Node, got $(typeof! value)"
+  
+  def goto(pos as {}, t-state as ->, prevent-redirect as Boolean)!
+    let nodes = @nodes
+    if nodes.length == 0 and not prevent-redirect
+      @builder.add-redirect this, t-state
+    nodes.push(@make-goto pos,
+      # -> get-case-id(pos, t-state())
+      true)
+
+  def noop(pos as {}) as GeneratorState
+    if @nodes.length == 0
       this
     else
-      t-node
-  
-  def _redirect-state(mutable state as String)
-    let start = state
-    while @state-redirects ownskey state
-      state := @state-redirects[state]()
-    @state-ids[state]
-  
-  def make-goto(pos as {}, t-state as ->)
-    #@
-      let mutable state = t-state()
-      if typeof state == \string
-        state := ast.Const pos, @_redirect-state(state)
-      ast.Assign pos, @state-ident, state
-
-  def yield(pos as {}, t-node as ->)
-    let branch = @branch()
-    @states[@current-state].push(
-      @make-goto pos, #-> branch.state
-      #-> ast.Return pos, t-node())
-    branch.builder
-  
-  def goto(pos as {}, t-state as ->, dont-redirect)!
-    let current = @states[@current-state]
-    if current.length == 0 and not dont-redirect
-      @state-redirects[@current-state] := t-state
-    current.push(
-      @make-goto pos, #@
-        let state = t-state()
-        if is-string! state
-          @_redirect-state(state)
-        else
-          state
-      #-> ast.Break(pos))
+      let branch = @branch()
+      @goto pos, #-> branch
+      branch
   
   def goto-if(pos as {}, t-test as ->, t-when-true as ->, t-when-false as ->)!
-    @goto pos, (#@-> ast.IfExpression pos, t-test(), @_redirect-state(t-when-true()), @_redirect-state(t-when-false())), true
+    @goto pos,
+      #@ -> ast.IfExpression pos, t-test(),
+        get-case-id(pos, t-when-true())
+        get-case-id(pos, t-when-false())
+      true
   
-  def pending-finally(pos as {}, t-finally-body as ->)
-    let ident = @scope.reserve-ident pos, \finally, Type.undefined.function()
-    @scope.mark-as-function ident
-    @finallies.push #-> ast.Func pos, ident, [], [], t-finally-body()
-    @states[@current-state].push #@-> ast.Call pos,
-      ast.Access pos, @pending-finallies-ident, \push
+  def pending-finally(pos as {}, t-finally-body as ->) as GeneratorState
+    let scope = @builder.scope
+    let ident = scope.reserve-ident pos, \finally, Type.undefined.function()
+    scope.mark-as-function ident
+    @builder.finallies.push #-> ast.Func pos, ident, [], [], t-finally-body()
+    @nodes.push #@-> ast.Call pos,
+      ast.Access pos, @builder.pending-finallies-ident, \push
       [ident]
     this
   
-  def run-pending-finally(pos as {})
-    @states[@current-state].push #@-> ast.Call pos,
-      ast.Access pos,
-        ast.Call pos,
-          ast.Access pos, @pending-finallies-ident, \pop
-        \call
-      [ast.This(pos)]
+  def run-pending-finally(pos as {}) as GeneratorState
+    @nodes.push #@-> ast.Call pos,
+      ast.Call pos,
+        ast.Access pos, @builder.pending-finallies-ident, \pop
     this
   
-  def noop(pos as {})
-    if @states[@current-state].length
-      let branch = @branch()
-      @goto pos, #-> branch.state
-      branch.builder
-    else
-      this
-  
-  def enter-try-catch(pos as {})
+  def enter-try-catch(pos as {}) as GeneratorState
     let fresh = @noop(pos)
-    fresh.current-catch :=
-      * ...fresh.current-catch
-      * * fresh.current-state
+    @builder.enter-try-catch fresh
     fresh
   
-  def exit-try-catch(pos as {}, t-ident as ->, t-post-state as ->)
-    if @current-catch.length == 0
-      throw Error "Unable to exit-try-catch without first using enter-try-catch"
+  def exit-try-catch(pos as {}, t-ident as ->, t-post-state as ->) as GeneratorState
     @goto pos, t-post-state
     let fresh = @noop(pos)
-    let catch-states = fresh.current-catch.pop()
-    catch-states.splice catch-states.index-of(fresh.current-state), 1
-    fresh.catches.push {
+    @builder.exit-try-catch fresh, t-ident
+    fresh
+
+class GeneratorBuilder
+  def constructor(@pos as {}, @scope as Scope)
+    @current-catch := []
+    @redirects := Map()
+    @start := GeneratorState(this)
+    @stop := GeneratorState(this).add #-> ast.Throw pos, ast.Ident pos, \StopIteration
+    @states-order := [@start]
+    
+    @state-ident := state-ident ? scope.reserve-ident pos, \state, Type.number
+    @pending-finallies-ident := scope.reserve-ident pos, \finallies, Type.undefined.function().array()
+    let send-scope = scope.clone(false)
+    @received-ident := send-scope.reserve-ident pos, \received, Type.any
+    send-scope.mark-as-param @received-ident
+    
+    @finallies := []
+    @catches := []
+    @has-generator-node := make-has-generator-node()
+  
+  def add-redirect(from-state as GeneratorState, to-state as ->)!
+    @redirects.set from-state, to-state
+  
+  def get-redirect(from-state as GeneratorState) as GeneratorState
+    let mutable redirect-func = @redirects.get from-state
+    if not redirect-func?
+      from-state
+    else if redirect-func instanceof GeneratorState
+      redirect-func
+    else if is-function! redirect-func
+      let mutable redirect = redirect-func()
+      if redirect instanceof GeneratorState
+        redirect := @get-redirect redirect
+      else
+        throw Error "Expected a GeneratorState, got $(typeof! redirect-func)"
+      @redirects.set from-state, redirect
+      redirect
+    else
+      throw Error "Unknown value in redirects: $(typeof! redirect-func)"
+  
+  def _calculate-case-ids()!
+    let mutable id = -1
+    let case-ids = @case-ids := Map()
+    for state in @states-order
+      if not @redirects.has state
+        case-ids.set state, (id += 1)
+  
+  def case-id(state as GeneratorState) as Number
+    let case-ids = @case-ids
+    if not case-ids?
+      throw Error "_calculate-case-ids must be called first"
+    
+    if not case-ids.has state
+      throw Error "case-ids does not contain state"
+    
+    case-ids.get state
+
+  def enter-try-catch(state as GeneratorState)!
+    @current-catch.push [state]
+  
+  def exit-try-catch(state as GeneratorState, t-ident as ->)!
+    if @current-catch.length == 0
+      throw Error "Unable to exit-try-catch without first using enter-try-catch"
+    let catch-states = @current-catch.pop()
+    let index = catch-states.index-of state
+    if index != -1
+      catch-states.splice index, 1
+    
+    @catches.push {
       try-states: catch-states
       t-ident
-      catch-state: fresh.current-state
+      catch-state: state
     }
-    fresh
-  
-  def branch()
-    let state = uid(@states-order.length)
-    if @current-catch.length
-      @current-catch[* - 1].push state
-    @states-order.push state
-    @states[state] := []
-    {
-      state
-      builder: @clone(state)
-    }
-  
-  def _calculate-state-ids()!
-    let mutable id = -1
-    for state in @states-order
-      if @state-redirects not ownskey state
-        @state-ids[state] := (id += 1)
+    state
   
   def create()
     if @current-catch.length
       throw Error "Cannot create a generator if there are stray catches"
-    @goto @pos, #@-> @stop-state
-    @_calculate-state-ids()
+    @states-order.push @stop
+    @_calculate-case-ids()
     let body =
-      * ast.Assign @pos, @state-ident, ast.Const @pos, @_redirect-state(@states-order[1])
+      * ast.Assign @pos, @state-ident, ast.Const @pos, @start.case-id()
     let close = @scope.reserve-ident @pos, \close, Type.undefined.function()
     @scope.mark-as-function close
     if @finallies.length == 0
       @scope.remove-variable(@pending-finallies-ident)
       body.push ast.Func @pos, close, [], [], ast.Block @pos,
-        * ast.Assign @pos, @state-ident, @_redirect-state(@stop-state)
+        * ast.Assign @pos, @state-ident, @stop.case-id()
     else
       body.push ast.Assign @pos, @pending-finallies-ident, ast.Arr(@pos)
       body.push ...(for f in @finallies; f())
       let inner-scope = @scope.clone(false)
       let f = inner-scope.reserve-ident @pos, \f, Type.undefined.function().union(Type.undefined)
       body.push ast.Func @pos, close, [], inner-scope.get-variables(), ast.Block @pos,
-        * ast.Assign @pos, @state-ident, @_redirect-state(@stop-state)
+        * ast.Assign @pos, @state-ident, @stop.case-id()
         * ast.Assign @pos,
             f
             ast.Call @pos,
@@ -333,16 +455,13 @@ class GeneratorBuilder
         ast.Switch @pos,
           state-ident
           for state in @states-order
-            if @state-redirects not ownskey state
-              let items = for t-item in @states[state]; t-item()
-              if items.length == 0
-                throw Error "Found state with no jump in it"
-              ast.Switch.Case items[0].pos,
-                ast.Const items[0].pos, @state-ids[state]
-                ast.Block items[0].pos, [
-                  ...items
-                  ast.Break items[* - 1].pos
-                ]
+            if not @redirects.has state
+              let nodes = for t-node in state.nodes; t-node()
+              if nodes.length == 0
+                throw Error "Found state with no nodes in it"
+              ast.Switch.Case nodes[0].pos,
+                ast.Const nodes[0].pos, state.case-id()
+                ast.Block nodes[0].pos, nodes
           ast.Throw @pos,
             ast.Call @pos,
               ast.Ident @pos, \Error
@@ -353,11 +472,11 @@ class GeneratorBuilder
           @scope.add-variable err-ident
           ast.If @pos,
             ast.Or @pos, ...(for state in catch-info.try-states
-              if @state-redirects not ownskey state
-                ast.Binary(@pos, state-ident, "===", ast.Const(@pos, @state-ids[state])))
+              if not @redirects.has state
+                ast.Binary(@pos, state-ident, "===", ast.Const(@pos, state.case-id())))
             ast.Block @pos,
               * ast.Assign @pos, err-ident, err
-              * ast.Assign @pos, state-ident, ast.Const(@pos, @state-ids[catch-info.catch-state])
+              * ast.Assign @pos, state-ident, ast.Const(@pos, catch-info.catch-state.case-id())
             current)
     body.push ast.Return @pos, ast.Obj @pos,
       * ast.Obj.Pair @pos, \close, close
@@ -366,80 +485,6 @@ class GeneratorBuilder
       * ast.Obj.Pair @pos, \send, send
       * ast.Obj.Pair @pos, \throw, ast.Func @pos, null, [ast.Ident @pos, \e], [], ast.Throw @pos, ast.Ident @pos, \e
     ast.Block @pos, body
-  
-  let make-has-generator-node = #
-    let in-loop-cache = Cache<ParserNode, Boolean>()
-    let has-in-loop(node)
-      async <- in-loop-cache.get-or-add node
-      let mutable result = false
-      if node instanceofsome [ParserNode.Yield, ParserNode.Return]
-        result := true
-      else if node not instanceof ParserNode.Function
-        let FOUND = {}
-        try
-          node.walk #(n)
-            if has-in-loop n
-              throw FOUND
-            n
-        catch e
-          if e == FOUND
-            result := true
-          else
-            throw e
-      result
-
-    let in-switch-cache = Cache<ParserNode, Boolean>()
-    let has-in-switch(node)
-      async <- in-switch-cache.get-or-add node
-      returnif in-loop-cache.get node
-      if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue]
-        true
-      else if node not instanceof ParserNode.Function
-        let FOUND = {}
-        try
-          node.walk #(n)
-            if n instanceofsome [ParserNode.For, ParserNode.ForIn]
-              if has-in-loop n
-                throw FOUND
-            else
-              if has-in-switch n
-                throw FOUND
-            n
-        catch e
-          if e == FOUND
-            return true
-          else
-            throw e
-        false
-
-    let normal-cache = Cache<ParserNode, Boolean>()
-    let has-generator-node(node as ParserNode)
-      async <- normal-cache.get-or-add node
-      returnif in-loop-cache.get node
-      returnif in-switch-cache.get node
-      if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue, ParserNode.Break]
-        true
-      else if node not instanceof ParserNode.Function
-        let FOUND = {}
-        try
-          node.walk #(n)
-            if n instanceofsome [ParserNode.For, ParserNode.ForIn]
-              if has-in-loop n
-                throw FOUND
-            else if n instanceof ParserNode.Switch
-              if has-in-switch n
-                throw FOUND
-            else
-              if has-generator-node n
-                throw FOUND
-            n
-        catch e
-          if e == FOUND
-            return true
-          else
-            throw e
-        false
-    has-generator-node
 
 let flatten-spread-array(elements)
   let result = []
@@ -486,11 +531,11 @@ let generator-translate = do
       memoize value
     else
       same value
-  let handle-assign(assign-to, scope, builder as GeneratorBuilder, mutable t-node as ->, cleanup as -> = do-nothing)
+  let handle-assign(assign-to, scope, state as GeneratorState, mutable t-node as ->, cleanup as -> = do-nothing)
     if is-function! assign-to
       let t-assign-to = memoize assign-to
       {
-        builder: builder.add #
+        state: state.add #
           let node = t-node()
           ast.Assign node.pos, t-assign-to(), node
         t-node: t-assign-to
@@ -500,14 +545,14 @@ let generator-translate = do
       t-node := memoize t-node
       let t-tmp = memoize # -> scope.reserve-ident t-node().pos, \tmp, Type.any
       let node-needs-caching = memoize #
-        t-node() == builder.received-ident or needs-caching t-node()
+        t-node() == state.builder.received-ident or needs-caching t-node()
       {
-        builder: builder.add #
+        state: state.add #
+          let node = t-node()
           if node-needs-caching()
-            let node = t-node()
             ast.Assign node.pos, t-tmp(), node
           else
-            t-node()
+            node
         t-node: #
           if node-needs-caching()
             t-tmp()
@@ -520,7 +565,7 @@ let generator-translate = do
       }
     else
       {
-        builder
+        state
         t-node
         cleanup
       }
@@ -538,19 +583,18 @@ let generator-translate = do
           scope.release-ident tmp
     else
       #-> scope.release-ident t-tmp()
-  let generator-array-translate(pos, elements, scope, mutable builder, assign-to)
+  let generator-array-translate(pos, elements, scope, mutable state as GeneratorState, assign-to)
     let t-tmp = make-t-tmp assign-to, scope, pos, \arr, Type.array
     
     let mutable t-array-start = null
     for element, i in elements
-      if t-array-start or builder.has-generator-node element
+      if t-array-start or state.has-generator-node element
         if not t-array-start?
           t-array-start := array-translate pos, elements[0 til i], scope, true, false
-          builder := builder.add #-> ast.Assign pos, t-tmp(), t-array-start()
+          state := state.add #-> ast.Assign pos, t-tmp(), t-array-start()
         if element instanceof ParserNode.Spread
-          let expr = generator-translate-expression element.node, scope, builder, false
-          builder := expr.builder
-          builder.add #
+          let expr = generator-translate-expression element.node, scope, state, false
+          state := expr.state.add #
             let tmp = t-tmp()
             scope.add-helper \__to-array
             ast.Call get-pos(element),
@@ -562,43 +606,46 @@ let generator-translate = do
                 tmp
                 ast.Call get-pos(element),
                   ast.Ident get-pos(element), \__to-array
-                  [expr.t-node()]
+                  [first!(expr.t-node(), expr.cleanup())]
               ]
         else
-          let expr = generator-translate-expression element, scope, builder, false
-          builder := expr.builder
-          builder.add #-> ast.Call get-pos(element), ast.Access(get-pos(element), t-tmp(), ast.Const get-pos(element), \push), [expr.t-node()]
+          let expr = generator-translate-expression element, scope, state, false
+          state := expr.state.add #-> ast.Call get-pos(element),
+            ast.Access get-pos(element),
+              t-tmp(),
+              ast.Const get-pos(element), \push
+            [first!(expr.t-node(), expr.cleanup())]
     if not t-array-start?
       {
-        builder
+        state
         t-node: array-translate pos, elements, scope, true, false
         cleanup: do-nothing
       }
     else
       {
-        builder
+        state
         t-node: t-tmp
         cleanup: make-cleanup(assign-to, scope, t-tmp)
       }
   let expressions =
-    Access: #(node, scope, builder, assign-to)
-      let g-parent = generator-translate-expression node.parent, scope, builder, true
-      let g-child = generator-translate-expression node.child, scope, g-parent.builder, false
-      handle-assign assign-to, scope, g-child.builder, #-> first!(
+    Access: #(node, scope, state, assign-to)
+      let g-parent = generator-translate-expression node.parent, scope, state, true
+      let g-child = generator-translate-expression node.child, scope, g-parent.state, false
+      handle-assign assign-to, scope, g-child.state, #-> first!(
         ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
         g-parent.cleanup()
         g-child.cleanup())
     
-    Array: #(node, scope, builder, assign-to)
-      generator-array-translate get-pos(node), node.elements, scope, builder, assign-to
+    Array: #(node, scope, state, assign-to)
+      generator-array-translate get-pos(node), node.elements, scope, state, assign-to
     
-    Assign: #(node, scope, builder, assign-to)
+    Assign: #(node, scope, state, assign-to)
       let left = node.left
       let g-left = if left instanceof ParserNode.Access
-        let g-parent = generator-translate-expression left.parent, scope, builder, true
-        let g-child = generator-translate-expression left.child, scope, g-parent.builder, true
+        let g-parent = generator-translate-expression left.parent, scope, state, true
+        let g-child = generator-translate-expression left.child, scope, g-parent.state, true
         {
-          g-child.builder
+          g-child.state
           t-node: #-> ast.Access get-pos(left), g-parent.t-node(), g-child.t-node()
           cleanup: #
             g-parent.cleanup()
@@ -606,84 +653,84 @@ let generator-translate = do
         }
       else
         {
-          builder
+          state
           t-node: translate node.left, scope, \left-expression
           cleanup: do-nothing
         }
       
-      let g-right = generator-translate-expression node.right, scope, g-left.builder, g-left.t-node
-      handle-assign assign-to, scope, g-right.builder, g-right.t-node, #
+      let g-right = generator-translate-expression node.right, scope, g-left.state, g-left.t-node
+      handle-assign assign-to, scope, g-right.state, g-right.t-node, #
         g-left.cleanup()
         g-right.cleanup()
     
     Binary: do
       let lazy-ops = {
-        "&&": #(node, scope, builder, assign-to)
-          let g-left = generator-translate-expression node.left, scope, builder, assign-to or true
+        "&&": #(node, scope, state, assign-to)
+          let g-left = generator-translate-expression node.left, scope, state, assign-to or true
           let t-node = memoize g-left.t-node
-          g-left.builder.goto-if get-pos(node), t-node, #-> when-true-branch.state, #-> post-branch.state
-          let when-true-branch = g-left.builder.branch()
-          let g-right = generator-translate-expression node.right, scope, when-true-branch.builder, t-node
-          g-right.builder.goto get-pos(node), #-> post-branch.state
-          let post-branch = g-left.builder.branch()
+          g-left.state.goto-if get-pos(node), t-node, #-> when-true-branch, #-> post-branch
+          let when-true-branch = g-left.state.branch()
+          let g-right = generator-translate-expression node.right, scope, when-true-branch, t-node
+          g-right.state.goto get-pos(node), #-> post-branch
+          let post-branch = g-left.state.branch()
           {
             t-node
-            post-branch.builder
+            state: post-branch
             cleanup: #
               g-left.cleanup()
               g-right.cleanup()
           }
-        "||": #(node, scope, builder, assign-to)
-          let g-left = generator-translate-expression node.left, scope, builder, assign-to or true
+        "||": #(node, scope, state, assign-to)
+          let g-left = generator-translate-expression node.left, scope, state, assign-to or true
           let t-node = memoize g-left.t-node
-          g-left.builder.goto-if get-pos(node), t-node, #-> post-branch.state, #-> when-false-branch.state
-          let when-false-branch = g-left.builder.branch()
-          let g-right = generator-translate-expression node.right, scope, when-false-branch.builder, t-node
-          g-right.builder.goto get-pos(node), #-> post-branch.state
-          let post-branch = g-left.builder.branch()
+          g-left.state.goto-if get-pos(node), t-node, #-> post-branch, #-> when-false-branch
+          let when-false-branch = g-left.state.branch()
+          let g-right = generator-translate-expression node.right, scope, when-false-branch, t-node
+          g-right.state.goto get-pos(node), #-> post-branch
+          let post-branch = g-left.state.branch()
           {
             t-node
-            post-branch.builder
+            state: post-branch
             cleanup: #
               g-left.cleanup()
               g-right.cleanup()
           }
       }
-      #(node, scope, builder, assign-to)
+      #(node, scope, state, assign-to)
         if lazy-ops ownskey node.op
-          lazy-ops[node.op] node, scope, builder, assign-to
+          lazy-ops[node.op] node, scope, state, assign-to
         else
-          let g-left = generator-translate-expression node.left, scope, builder, true
-          let g-right = generator-translate-expression node.right, scope, g-left.builder, false
-          handle-assign assign-to, scope, g-right.builder, #-> first!(
+          let g-left = generator-translate-expression node.left, scope, state, true
+          let g-right = generator-translate-expression node.right, scope, g-left.state, false
+          handle-assign assign-to, scope, g-right.state, #-> first!(
             ast.Binary get-pos(node),
               g-left.t-node()
               last!(g-left.cleanup(), node.op)
               first!(g-right.t-node(), g-right.cleanup()))
     
-    Block: #(node, scope, mutable builder, assign-to)
+    Block: #(node, scope, mutable state, assign-to)
       for subnode, i, len in node.nodes
-        let result = generator-translate-expression subnode, scope, builder, i == len - 1 and assign-to
-        builder := result.builder
+        let result = generator-translate-expression subnode, scope, state, i == len - 1 and assign-to
+        state := result.state
         if i == len - 1
           return result
       throw Error "Unreachable state"
     
-    Call: #(node, scope, mutable builder, assign-to)
-      let g-func = generator-translate-expression node.func, scope, builder, true
+    Call: #(node, scope, mutable state, assign-to)
+      let g-func = generator-translate-expression node.func, scope, state, true
       let {is-apply, is-new, args} = node
       
       if is-apply and (args.length == 0 or args[0] not instanceof ParserNode.Spread)
         let g-start = if args.length == 0
           {
-            g-func.builder
+            g-func.state
             t-node: #-> ast.Const get-pos(node), void
             cleanup: do-nothing
           }
         else
-          generator-translate-expression args[0], scope, g-func.builder, true
-        let g-args = generator-array-translate get-pos(node), args[1 to -1], scope, g-start.builder
-        handle-assign assign-to, scope, g-args.builder, #
+          generator-translate-expression args[0], scope, g-func.state, true
+        let g-args = generator-array-translate get-pos(node), args[1 to -1], scope, g-start.state
+        handle-assign assign-to, scope, g-args.state, #
           let func = g-func.t-node()
           let start = g-start.t-node()
           let args = g-args.t-node()
@@ -705,8 +752,8 @@ let generator-translate = do
                 args
               ]
       else
-        let g-args = generator-array-translate get-pos(node), args, scope, g-func.builder
-        handle-assign assign-to, scope, g-args.builder, #
+        let g-args = generator-array-translate get-pos(node), args, scope, g-func.state
+        handle-assign assign-to, scope, g-args.state, #
           let func = g-func.t-node()
           let args = g-args.t-node()
           g-func.cleanup()
@@ -748,9 +795,9 @@ let generator-translate = do
                 args
               ]
     
-    EmbedWrite: #(node, scope, mutable builder, assign-to)
-      let g-text = generator-translate-expression node.text, scope, builder, false
-      handle-assign assign-to, scope, g-text.builder, (#-> ast.Call get-pos(node),
+    EmbedWrite: #(node, scope, mutable state, assign-to)
+      let g-text = generator-translate-expression node.text, scope, state, false
+      handle-assign assign-to, scope, g-text.state, (#-> ast.Call get-pos(node),
         ast.Ident get-pos(node), \write
         [
           g-text.t-node()
@@ -760,28 +807,28 @@ let generator-translate = do
             []
         ]), g-text.cleanup
     
-    Eval: #(node, scope, mutable builder, assign-to)
-      let g-code = generator-translate-expression node.code, scope, builder, false
-      handle-assign assign-to, scope, g-code.builder, #-> ast.Eval get-pos(node), g-code.t-node(), g-code.cleanup
+    Eval: #(node, scope, mutable state, assign-to)
+      let g-code = generator-translate-expression node.code, scope, state, false
+      handle-assign assign-to, scope, g-code.state, #-> ast.Eval get-pos(node), g-code.t-node(), g-code.cleanup
     
-    If: #(node, scope, mutable builder, assign-to)
-      let test = generator-translate-expression node.test, scope, builder, builder.has-generator-node(node.test)
-      builder := test.builder
+    If: #(node, scope, mutable state, assign-to)
+      let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
+      state := test.state
       
-      if builder.has-generator-node(node.when-true) or builder.has-generator-node(node.when-false)
+      if state.has-generator-node(node.when-true) or state.has-generator-node(node.when-false)
         // TODO: handle case when only one of when-true/when-false has generator nodes
-        builder.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch.state, #-> when-false-branch.state
+        state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch, #-> when-false-branch
         let t-tmp = make-t-tmp(assign-to, scope, get-pos(node))
-        let when-true-branch = builder.branch()
+        let when-true-branch = state.branch()
         let g-when-true = generator-translate-expression node.when-true, scope, when-true-branch, t-tmp
-        g-when-true.builder.goto get-pos(node.when-true), #-> post-branch.state
-        let when-false-branch = builder.branch()
+        g-when-true.state.goto get-pos(node.when-true), #-> post-branch
+        let when-false-branch = state.branch()
         let g-when-false = generator-translate-expression node.when-false, scope, when-false-branch, t-tmp
-        g-when-false.builder.goto get-pos(node.when-false), #-> post-branch.state
-        let post-branch = builder.branch()
+        g-when-false.state.goto get-pos(node.when-false), #-> post-branch
+        let post-branch = state.branch()
         let cleanup = make-cleanup assign-to, scope, t-tmp
         {
-          post-branch.builder
+          state: post-branch
           t-node: t-tmp
           cleanup: #
             g-when-true.cleanup()
@@ -791,14 +838,14 @@ let generator-translate = do
       else
         let t-when-true = translate node.when-true, scope, \expression
         let t-when-false = translate node.when-false, scope, \expression
-        handle-assign assign-to, scope, builder, #-> ast.If get-pos(node),
+        handle-assign assign-to, scope, state, #-> ast.If get-pos(node),
           test.t-node()
           last!(test.cleanup(), t-when-true())
           t-when-false()
     
-    Regexp: #(node, scope, mutable builder, assign-to)
-      let g-source = generator-translate-expression node.source, scope, builder, false
-      handle-assign assign-to, scope, builder, (#
+    Regexp: #(node, scope, mutable state, assign-to)
+      let g-source = generator-translate-expression node.source, scope, state, false
+      handle-assign assign-to, scope, state, (#
         let source = g-source.t-node()
         if source.is-const()
           ast.Regex get-pos(node), String(source.const-value()), node.flags
@@ -810,88 +857,88 @@ let generator-translate = do
               ast.Const get-pos(node), flags
             ]), g-source.cleanup
     
-    TmpWrapper: #(node, scope, builder, assign-to)
-      let g-node = generator-translate-expression node.node, scope, builder, false
-      handle-assign assign-to, scope, g-node.builder, g-node.t-node, #
+    TmpWrapper: #(node, scope, state, assign-to)
+      let g-node = generator-translate-expression node.node, scope, state, false
+      handle-assign assign-to, scope, g-node.state, g-node.t-node, #
         g-node.cleanup()
         for tmp in node.tmps by -1
           scope.release-tmp tmp
     
-    Unary: #(node, scope, builder, assign-to)
-      let g-node = generator-translate-expression node.node, scope, builder, false
-      handle-assign assign-to, scope, g-node.builder, #-> first!(
+    Unary: #(node, scope, state, assign-to)
+      let g-node = generator-translate-expression node.node, scope, state, false
+      handle-assign assign-to, scope, g-node.state, #-> first!(
         ast.Unary get-pos(node),
           node.op
           first!(g-node.t-node(), g-node.cleanup()))
     
-    Yield: #(node, scope, mutable builder, assign-to)
-      let g-node = generator-translate-expression node.node, scope, builder, false
-      builder := builder.yield get-pos(node), g-node.t-node
-      handle-assign assign-to, scope, builder, #-> builder.received-ident, g-node.cleanup
+    Yield: #(node, scope, mutable state, assign-to)
+      let g-node = generator-translate-expression node.node, scope, state, false
+      state := state.yield get-pos(node), g-node.t-node
+      handle-assign assign-to, scope, state, #-> state.builder.received-ident, g-node.cleanup
   
-  let generator-translate-expression(node as ParserNode, scope as Scope, builder as GeneratorBuilder, assign-to as Boolean|->)
+  let generator-translate-expression(node as ParserNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->)
     let key = node.constructor.capped-name
-    if builder.has-generator-node node
+    if state.has-generator-node node
       if expressions ownskey key
-        expressions[key](node, scope, builder, assign-to)
+        expressions[key](node, scope, state, assign-to)
       else
         throw Error "Unknown expression type: $(typeof! node)"
     else
-      handle-assign assign-to, scope, builder, translate node, scope, \expression
+      handle-assign assign-to, scope, state, translate node, scope, \expression
   
   let statements =
-    Block: #(node, scope, builder, break-state, continue-state)
+    Block: #(node, scope, state, break-state, continue-state)
       if node.label?
         throw Error "Not implemented: block with label in generator"
-      for reduce subnode in node.nodes, acc = builder
+      for reduce subnode in node.nodes, acc = state
         generator-translate subnode, scope, acc, break-state, continue-state
 
-    Break: #(node, scope, builder, break-state)
+    Break: #(node, scope, state, break-state)
       if node.label?
         throw Error "Not implemented: break with label in a generator"
       if not break-state?
         throw Error "break found outside of a loop or switch"
 
-      builder.goto get-pos(node), break-state
-      builder
+      state.goto get-pos(node), break-state
+      state
     
-    Continue: #(node, scope, builder, break-state, continue-state)
+    Continue: #(node, scope, state, break-state, continue-state)
       if node.label?
         throw Error "Not implemented: break with label in a generator"
       if not continue-state?
         throw Error "continue found outside of a loop"
 
-      builder.goto get-pos(node), continue-state
-      builder
+      state.goto get-pos(node), continue-state
+      state
     
-    For: #(node, scope, mutable builder)
+    For: #(node, scope, mutable state)
       if node.label?
         throw Error "Not implemented: for with label in generator"
-      if node.init?
-        builder := generator-translate node.init, scope, builder
-      builder.goto get-pos(node), #-> test-branch.state
+      if node.init? and node.init not instanceof ParserNode.Nothing
+        state := generator-translate node.init, scope, state
+      state.goto get-pos(node), #-> test-branch
       
-      let test-branch = builder.branch()
-      let g-test = generator-translate-expression node.test, scope, test-branch.builder, builder.has-generator-node(node.test)
-      test-branch.builder.goto-if get-pos(node.test), #-> first!(g-test.t-node(), g-test.cleanup()), #-> body-branch.state, #-> post-branch.state
+      let test-branch = state.branch()
+      let g-test = generator-translate-expression node.test, scope, test-branch, state.has-generator-node(node.test)
+      test-branch.goto-if get-pos(node.test), #-> first!(g-test.t-node(), g-test.cleanup()), #-> body-branch, #-> post-branch
       
-      let body-branch = builder.branch()
-      generator-translate(node.body, scope, body-branch.builder, #-> post-branch.state, #-> step-branch.state).goto get-pos(node.body), #-> (step-branch or test-branch).state
+      let body-branch = state.branch()
+      generator-translate(node.body, scope, body-branch, #-> post-branch, #-> step-branch).goto get-pos(node.body), #-> step-branch or test-branch
       
       let mutable step-branch = null
-      if node.step?
-        step-branch := builder.branch()
-        generator-translate(node.step, scope, step-branch.builder).goto get-pos(node.step), #-> test-branch.state
+      if node.step? and node.step not instanceof ParserNode.Nothing
+        step-branch := state.branch()
+        generator-translate(node.step, scope, step-branch).goto get-pos(node.step), #-> test-branch
       
-      let post-branch = builder.branch()
-      post-branch.builder
+      let post-branch = state.branch()
+      post-branch
     
-    ForIn: #(node, scope, mutable builder)
+    ForIn: #(node, scope, mutable state)
       if node.label?
         throw Error "Not implemented: for-in with label in generator"
       let t-key = translate node.key, scope, \left-expression
-      let g-object = generator-translate-expression node.object, scope, builder, false // TODO: check whether or not this should be cached
-      builder := g-object.builder
+      let g-object = generator-translate-expression node.object, scope, state, false // TODO: check whether or not this should be cached
+      state := g-object.state
       let keys = scope.reserve-ident get-pos(node), \keys, Type.string.array()
       let get-key = memoize #
         let key = t-key()
@@ -902,7 +949,7 @@ let generator-translate = do
       let index = scope.reserve-ident get-pos(node), \i, Type.number
       let length = scope.reserve-ident get-pos(node), \len, Type.number
       scope.add-helper \__allkeys
-      builder := builder.add # -> ast.Block get-pos(node), [
+      state := state.add # -> ast.Block get-pos(node), [
         ast.Assign get-pos(node), keys,
           ast.Call get-pos(node),
             ast.Ident get-pos(node), \__allkeys
@@ -910,139 +957,140 @@ let generator-translate = do
         ast.Assign get-pos(node), index, 0
         ast.Assign get-pos(node), length, ast.Access(get-pos(node), keys, \length)
       ]
-      builder.goto get-pos(node), #-> test-branch.state
+      state.goto get-pos(node), #-> test-branch
       
-      let test-branch = builder.branch()
-      test-branch.builder.goto-if get-pos(node), #-> ast.Binary(get-pos(node), index, "<", length), #-> body-branch.state, #-> post-branch.state
+      let test-branch = state.branch()
+      test-branch.goto-if get-pos(node), #-> ast.Binary(get-pos(node), index, "<", length), #-> body-branch, #-> post-branch
       
-      let body-branch = builder.branch()
-      builder := body-branch.builder.add #-> ast.Assign get-pos(node), get-key(), ast.Access get-pos(node), keys, index
-      generator-translate(node.body, scope, builder, #-> post-branch.state, #-> step-branch.state).goto get-pos(node.body), #-> step-branch.state
+      let body-branch = test-branch.branch()
+      state := body-branch.add #-> ast.Assign get-pos(node), get-key(), ast.Access get-pos(node), keys, index
+      generator-translate(node.body, scope, state, #-> post-branch, #-> step-branch).goto get-pos(node.body), #-> step-branch
       
-      let step-branch = builder.branch()
-      step-branch.builder.add(#-> ast.Unary get-pos(node), "++", index).goto get-pos(node), #-> test-branch.state
+      let step-branch = body-branch.branch()
+      step-branch.add(#-> ast.Unary get-pos(node), "++", index).goto get-pos(node), #-> test-branch
       
-      let post-branch = builder.branch()
-      post-branch.builder
+      let post-branch = step-branch.branch()
+      post-branch
     
-    If: #(node, scope, mutable builder, break-state, continue-state)
-      let test = generator-translate-expression node.test, scope, builder, builder.has-generator-node(node.test)
-      builder := test.builder
+    If: #(node, scope, mutable state, break-state, continue-state)
+      let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
+      state := test.state
       
-      if builder.has-generator-node(node.when-true) or builder.has-generator-node(node.when-false)
-        builder.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch.state, #-> (when-false-branch or post-branch).state
-        let when-true-branch = builder.branch()
-        generator-translate(node.when-true, scope, when-true-branch.builder, break-state, continue-state).goto get-pos(node.when-true), #-> post-branch.state
-        let when-false-branch = if node.when-false and node.when-false not instanceof ParserNode.Nothing then builder.branch()
+      if state.has-generator-node(node.when-true) or state.has-generator-node(node.when-false)
+        state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch or post-branch, #-> when-false-branch or post-branch
+        let when-true-branch = if node.when-true and node.when-true not instanceof ParserNode.Nothing then state.branch()
+        if when-true-branch
+          generator-translate(node.when-true, scope, when-true-branch, break-state, continue-state).goto get-pos(node.when-true), #-> post-branch
+        let when-false-branch = if node.when-false and node.when-false not instanceof ParserNode.Nothing then state.branch()
         if when-false-branch
-          generator-translate(node.when-false, scope, when-false-branch.builder, break-state, continue-state).goto get-pos(node.when-false), #-> post-branch.state
-        let post-branch = builder.branch()
-        post-branch.builder
+          generator-translate(node.when-false, scope, when-false-branch, break-state, continue-state).goto get-pos(node.when-false), #-> post-branch
+        let post-branch = state.branch()
+        post-branch
       else
         let t-when-true = translate node.when-true, scope, \statement
         let t-when-false = translate node.when-false, scope, \statement
-        builder.add #-> ast.If get-pos(node),
+        state.add #-> ast.If get-pos(node),
           test.t-node()
           last!(test.cleanup(), t-when-true())
           t-when-false()
     
-    
-    Return: #(node, scope, builder)
+    Return: #(node, scope, state)
       if not node.node.is-const() or node.node.const-value() != void
         throw Error "Cannot use a valued return in a generator"
-      builder.goto get-pos(node), #-> builder.stop-state
-      builder
+      state.goto get-pos(node), #-> state.builder.stop
+      state
       
-    Switch: #(node, scope, builder, , continue-state)
+    Switch: #(node, scope, state, , continue-state)
       if node.label?
         throw Error "Not implemented: switch with label in generator"
-      let g-node = generator-translate-expression node.node, scope, builder, false // TODO: should this be true?
+      let g-node = generator-translate-expression node.node, scope, state, false // TODO: should this be true?
       let body-states = []
       let result-cases = []
-      g-node.builder.add #-> ast.Switch get-pos(node),
+      g-node.state.add #-> ast.Switch get-pos(node),
         g-node.t-node()
         for case_ in result-cases; case_()
         default-case()
+      g-node.state.add #-> ast.Break get-pos(node)
       for case_, i in node.cases
-        if builder.has-generator-node case_.node
+        if state.has-generator-node case_.node
           throw Error "Cannot use yield in the check of a switch's case"
         let t-case-node = translate case_.node, scope, \expression
-        let case-branch = g-node.builder.branch()
-        body-states[i] := case-branch.state
-        let g-case-body = generator-translate case_.body, scope, case-branch.builder, #-> post-branch.state, continue-state
+        let case-branch = g-node.state.branch()
+        body-states[i] := case-branch
+        let g-case-body = generator-translate case_.body, scope, case-branch, #-> post-branch, continue-state
         g-case-body.goto get-pos(case_.node), if case_.fallthrough
-          #-> body-states[i + 1] or post-branch.state
+          #-> body-states[i + 1] or post-branch
         else
-          #-> post-branch.state
-        let t-goto = case-branch.builder.make-goto get-pos(case_.node), #-> case-branch.state
+          #-> post-branch
+        let t-goto = case-branch.make-goto get-pos(case_.node), #-> case-branch
         result-cases.push #-> ast.Switch.Case get-pos(case_.node), t-case-node(), ast.Block get-pos(case_.node), [
           t-goto()
           ast.Break get-pos(case_.node)
         ]
       let default-case = if node.default-case?
-        let default-branch = g-node.builder.branch()
-        let g-default-body = generator-translate node.default-case, scope, default-branch.builder, #-> post-branch.state, continue-state
-        g-default-body.goto get-pos(node.default-case), #-> post-branch.state
-        default-branch.builder.make-goto get-pos(node.default-case), #-> default-branch.state
+        let default-branch = g-node.state.branch()
+        let g-default-body = generator-translate node.default-case, scope, default-branch, #-> post-branch, continue-state
+        g-default-body.goto get-pos(node.default-case), #-> post-branch
+        default-branch.make-goto get-pos(node.default-case), #-> default-branch
       else
-        g-node.builder.make-goto get-pos(node), #-> post-branch.state
-      let post-branch = builder.branch()
-      post-branch.builder
+        g-node.state.make-goto get-pos(node), #-> post-branch
+      let post-branch = state.branch()
+      post-branch
     
-    Throw: #(node, scope, builder, break-state, continue-state)
-      let g-node = generator-translate-expression node.node, scope, builder, false
-      g-node.builder.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
+    Throw: #(node, scope, state, break-state, continue-state)
+      let g-node = generator-translate-expression node.node, scope, state, false
+      g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
     
-    TmpWrapper: #(node, scope, builder, break-state, continue-state)
-      let result = generator-translate node.node, scope, builder, break-state, continue-state
+    TmpWrapper: #(node, scope, state, break-state, continue-state)
+      let result = generator-translate node.node, scope, state, break-state, continue-state
       for tmp in node.tmps by -1
         scope.release-tmp tmp
       result
     
-    TryCatch: #(node, scope, mutable builder, break-state, continue-state)
+    TryCatch: #(node, scope, mutable state, break-state, continue-state)
       if node.label?
         throw Error "Not implemented: try-catch with label in generator"
       
-      builder := builder.enter-try-catch get-pos(node)
-      builder := generator-translate node.try-body, scope, builder, break-state, continue-state
-      builder := builder.exit-try-catch get-pos(node.try-body), (translate node.catch-ident, scope, \left-expression, false), #-> post-branch.state
-      builder := generator-translate node.catch-body, scope, builder, break-state, continue-state
-      builder.goto get-pos(node), #-> post-branch.state
-      let post-branch = builder.branch()
-      post-branch.builder
+      state := state.enter-try-catch get-pos(node)
+      state := generator-translate node.try-body, scope, state, break-state, continue-state
+      state := state.exit-try-catch get-pos(node.try-body), (translate node.catch-ident, scope, \left-expression, false), #-> post-branch
+      state := generator-translate node.catch-body, scope, state, break-state, continue-state
+      state.goto get-pos(node), #-> post-branch
+      let post-branch = state.branch()
+      post-branch
     
-    TryFinally: #(node, scope, mutable builder, break-state, continue-state)
+    TryFinally: #(node, scope, mutable state, break-state, continue-state)
       if node.label?
         throw Error "Not implemented: try-finally with label in generator"
       
-      if builder.has-generator-node node.finally-body
+      if state.has-generator-node node.finally-body
         throw Error "Cannot use yield in a finally"
       
-      builder := builder.pending-finally get-pos(node), translate node.finally-body, scope, \top-statement
-      builder := generator-translate node.try-body, scope, builder, break-state, continue-state
-      builder.run-pending-finally get-pos(node)
+      state := state.pending-finally get-pos(node), translate node.finally-body, scope, \statement
+      state := generator-translate node.try-body, scope, state, break-state, continue-state
+      state.run-pending-finally get-pos(node)
     
-    Yield: #(node, scope, mutable builder)
-      let g-node = generator-translate-expression node.node, scope, builder, false
-      builder.yield get-pos(node), #-> first!(
+    Yield: #(node, scope, mutable state)
+      let g-node = generator-translate-expression node.node, scope, state, false
+      state.yield get-pos(node), #-> first!(
         g-node.t-node()
         g-node.cleanup())
     
-  #(node as ParserNode, scope as Scope, builder as GeneratorBuilder, break-state, continue-state)
-    if builder.has-generator-node node
+  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state)
+    if state.has-generator-node node
       let key = node.constructor.capped-name
       if statements ownskey key
-        let ret = statements[key](node, scope, builder, break-state, continue-state)
-        if ret not instanceof GeneratorBuilder
-          throw Error "Translated non-GeneratorBuilder from $(typeof! node): $(typeof! ret)"
+        let ret = statements[key](node, scope, state, break-state, continue-state)
+        if ret not instanceof GeneratorState
+          throw Error "Translated non-GeneratorState from $(typeof! node): $(typeof! ret)"
         ret
       else
-        let ret = generator-translate-expression node, scope, builder
-        ret.builder.add #-> first!(
+        let ret = generator-translate-expression node, scope, state
+        ret.state.add #-> first!(
           ret.t-node()
           ret.cleanup())
     else
-      builder.add translate node, scope, \statement, false
+      state.add translate node, scope, \statement, false
 
 let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-like, unassigned)
   let translated-items = []
@@ -1402,7 +1450,9 @@ let translators =
 
       let unassigned = {}
       let mutable body = if node.generator
-        generator-translate(node.body, inner-scope, GeneratorBuilder(get-pos(node), inner-scope)).create()
+        let builder = GeneratorBuilder(get-pos(node), inner-scope)
+        generator-translate(node.body, inner-scope, builder.start).goto(get-pos(node), #-> builder.stop)
+        builder.create()
       else
         translate(node.body, inner-scope, \top-statement, node.auto-return, unassigned)()
       inner-scope.release-tmps()

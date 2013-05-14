@@ -352,7 +352,7 @@ exports.Binary := class Binary extends Expression
           sb "."
     else if left.is-const() and is-void! left.const-value()
       sb "("
-      (if left instanceof Const then left else Const(@pos, void)).compile options, Level.inside-parentheses, false, sb
+      (if left instanceof Const then left else Const(left.pos, void)).compile options, Level.inside-parentheses, false, sb
       sb ")"
     else
       left.compile options, Level.call-or-access, line-start, sb
@@ -2189,7 +2189,7 @@ exports.TryFinally := class TryFinally extends Statement
   @from-JSON := #(line, column, file, label, try-body, ...finally-body) -> TryFinally make-pos(line, column, file), from-JSON(try-body), from-JSON(finally-body), if label then from-JSON(label) else null
 
 exports.Unary := class Unary extends Expression
-  def constructor(@pos as {}, @op as String, mutable node = Noop(line, column))
+  def constructor(@pos as {}, @op as String, mutable node = Noop(pos))
     if op not in KNOWN_OPERATORS
       throw Error "Unknown unary operator: $op"
     
