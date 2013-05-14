@@ -30090,8 +30090,8 @@
       }
       GeneratorBuilder = (function () {
         var _GeneratorBuilder_prototype;
-        function GeneratorBuilder(pos, scope, states, currentState, stateIdent, pendingFinalliesIdent, finallies, catches, currentCatch, hasGeneratorNode) {
-          var _this, sendScope;
+        function GeneratorBuilder(pos, scope, states, statesOrder, stateRedirects, stateIds, currentState, stopState, stateIdent, pendingFinalliesIdent, finallies, catches, currentCatch, hasGeneratorNode) {
+          var _o, _this, sendScope;
           _this = this instanceof GeneratorBuilder ? this : __create(_GeneratorBuilder_prototype);
           if (typeof pos !== "object" || pos === null) {
             throw TypeError("Expected pos to be an Object, got " + __typeof(pos));
@@ -30101,10 +30101,14 @@
             throw TypeError("Expected scope to be a " + __name(Scope) + ", got " + __typeof(scope));
           }
           _this.scope = scope;
-          if (currentState == null) {
-            currentState = 1;
+          if (stateRedirects == null) {
+            stateRedirects = {};
           }
-          _this.currentState = currentState;
+          _this.stateRedirects = stateRedirects;
+          if (stateIds == null) {
+            stateIds = {};
+          }
+          _this.stateIds = stateIds;
           if (finallies == null) {
             finallies = [];
           }
@@ -30122,15 +30126,21 @@
           }
           _this.hasGeneratorNode = hasGeneratorNode;
           scope.addHelper("StopIteration");
-          _this.states = states != null ? states
-            : [
-              [
-                function () {
-                  return ast.Throw(pos, ast.Ident(pos, "StopIteration"));
-                }
-              ],
-              []
-            ];
+          if (states != null) {
+            _this.states = states;
+            _this.statesOrder = statesOrder;
+            _this.currentState = currentState;
+            _this.stopState = stopState;
+          } else {
+            _this.statesOrder = [uid(0), uid(1)];
+            _this.states = (_o = {}, _o[_this.statesOrder[0]] = [
+              function () {
+                return ast.Throw(pos, ast.Ident(pos, "StopIteration"));
+              }
+            ], _o[_this.statesOrder[1]] = [], _o);
+            _this.currentState = _this.statesOrder[1];
+            _this.stopState = _this.statesOrder[0];
+          }
           _this.stateIdent = stateIdent != null ? stateIdent : scope.reserveIdent(pos, "state", Type.number);
           _this.pendingFinalliesIdent = pendingFinalliesIdent != null ? pendingFinalliesIdent : scope.reserveIdent(pos, "finallies", Type["undefined"]["function"]().array());
           sendScope = scope.clone(false);
@@ -30140,12 +30150,19 @@
         }
         _GeneratorBuilder_prototype = GeneratorBuilder.prototype;
         GeneratorBuilder.displayName = "GeneratorBuilder";
+        function uid(id) {
+          return __strnum(id) + "-" + __strnum(Math.random().toString(36).slice(2)) + "-" + __strnum(new Date().getTime());
+        }
         _GeneratorBuilder_prototype.clone = function (newState) {
           return GeneratorBuilder(
             this.pos,
             this.scope,
             this.states,
+            this.statesOrder,
+            this.stateRedirects,
+            this.stateIds,
             newState,
+            this.stopState,
             this.stateIdent,
             this.pendingFinalliesIdent,
             this.finallies,
@@ -30165,25 +30182,16 @@
             return tNode;
           }
         };
-        _GeneratorBuilder_prototype["yield"] = function (pos, tNode) {
-          var _this, branch;
-          _this = this;
-          if (typeof pos !== "object" || pos === null) {
-            throw TypeError("Expected pos to be an Object, got " + __typeof(pos));
+        _GeneratorBuilder_prototype._redirectState = function (state) {
+          var start;
+          if (typeof state !== "string") {
+            throw TypeError("Expected state to be a String, got " + __typeof(state));
           }
-          if (typeof tNode !== "function") {
-            throw TypeError("Expected tNode to be a Function, got " + __typeof(tNode));
+          start = state;
+          while (__owns.call(this.stateRedirects, state)) {
+            state = this.stateRedirects[state]();
           }
-          branch = this.branch();
-          this.states[this.currentState].push(
-            function () {
-              return ast.Assign(pos, _this.stateIdent, branch.state);
-            },
-            function () {
-              return ast.Return(pos, tNode());
-            }
-          );
-          return branch.builder;
+          return this.stateIds[state];
         };
         _GeneratorBuilder_prototype.makeGoto = function (pos, tState) {
           var _this;
@@ -30195,21 +30203,82 @@
             throw TypeError("Expected tState to be a Function, got " + __typeof(tState));
           }
           return function () {
-            return ast.Assign(pos, _this.stateIdent, tState());
+            var state;
+            state = tState();
+            if (typeof state === "string") {
+              state = ast.Const(pos, _this._redirectState(state));
+            }
+            return ast.Assign(pos, _this.stateIdent, state);
           };
         };
-        _GeneratorBuilder_prototype.goto = function (pos, tState) {
+        _GeneratorBuilder_prototype["yield"] = function (pos, tNode) {
+          var branch;
+          if (typeof pos !== "object" || pos === null) {
+            throw TypeError("Expected pos to be an Object, got " + __typeof(pos));
+          }
+          if (typeof tNode !== "function") {
+            throw TypeError("Expected tNode to be a Function, got " + __typeof(tNode));
+          }
+          branch = this.branch();
+          this.states[this.currentState].push(
+            this.makeGoto(pos, function () {
+              return branch.state;
+            }),
+            function () {
+              return ast.Return(pos, tNode());
+            }
+          );
+          return branch.builder;
+        };
+        _GeneratorBuilder_prototype.goto = function (pos, tState, dontRedirect) {
+          var _this, current;
+          _this = this;
           if (typeof pos !== "object" || pos === null) {
             throw TypeError("Expected pos to be an Object, got " + __typeof(pos));
           }
           if (typeof tState !== "function") {
             throw TypeError("Expected tState to be a Function, got " + __typeof(tState));
           }
-          this.states[this.currentState].push(
-            this.makeGoto(pos, tState),
+          current = this.states[this.currentState];
+          if (current.length === 0 && !dontRedirect) {
+            this.stateRedirects[this.currentState] = tState;
+          }
+          current.push(
+            this.makeGoto(pos, function () {
+              var state;
+              state = tState();
+              if (typeof state === "string") {
+                return _this._redirectState(state);
+              } else {
+                return state;
+              }
+            }),
             function () {
               return ast.Break(pos);
             }
+          );
+        };
+        _GeneratorBuilder_prototype.gotoIf = function (pos, tTest, tWhenTrue, tWhenFalse) {
+          var _this;
+          _this = this;
+          if (typeof pos !== "object" || pos === null) {
+            throw TypeError("Expected pos to be an Object, got " + __typeof(pos));
+          }
+          if (typeof tTest !== "function") {
+            throw TypeError("Expected tTest to be a Function, got " + __typeof(tTest));
+          }
+          if (typeof tWhenTrue !== "function") {
+            throw TypeError("Expected tWhenTrue to be a Function, got " + __typeof(tWhenTrue));
+          }
+          if (typeof tWhenFalse !== "function") {
+            throw TypeError("Expected tWhenFalse to be a Function, got " + __typeof(tWhenFalse));
+          }
+          this.goto(
+            pos,
+            function () {
+              return ast.IfExpression(pos, tTest(), _this._redirectState(tWhenTrue()), _this._redirectState(tWhenFalse()));
+            },
+            true
           );
         };
         _GeneratorBuilder_prototype.pendingFinally = function (pos, tFinallyBody) {
@@ -30261,15 +30330,14 @@
           return this;
         };
         _GeneratorBuilder_prototype.noop = function (pos) {
-          var _this, branch;
-          _this = this;
+          var branch;
           if (typeof pos !== "object" || pos === null) {
             throw TypeError("Expected pos to be an Object, got " + __typeof(pos));
           }
           if (this.states[this.currentState].length) {
             branch = this.branch();
-            this.states[this.currentState].push(function () {
-              return ast.Assign(pos, _this.stateIdent, branch.state);
+            this.goto(pos, function () {
+              return branch.state;
             });
             return branch.builder;
           } else {
@@ -30308,12 +30376,23 @@
         };
         _GeneratorBuilder_prototype.branch = function () {
           var _ref, state;
-          state = this.states.length;
+          state = uid(this.statesOrder.length);
           if (this.currentCatch.length) {
             (_ref = this.currentCatch)[__num(_ref.length) - 1].push(state);
           }
-          this.states.push([]);
+          this.statesOrder.push(state);
+          this.states[state] = [];
           return { state: state, builder: this.clone(state) };
+        };
+        _GeneratorBuilder_prototype._calculateStateIds = function () {
+          var _arr, _i, _len, id, state;
+          id = -1;
+          for (_arr = __toArray(this.statesOrder), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+            state = _arr[_i];
+            if (!__owns.call(this.stateRedirects, state)) {
+              this.stateIds[state] = ++id;
+            }
+          }
         };
         _GeneratorBuilder_prototype.create = function () {
           var _this, body, catches, close, err, f, innerScope, send, stateIdent;
@@ -30321,10 +30400,13 @@
           if (this.currentCatch.length) {
             throw Error("Cannot create a generator if there are stray catches");
           }
-          this.states[this.currentState].push(function () {
-            return ast.Assign(_this.pos, _this.stateIdent, 0);
+          this.goto(this.pos, function () {
+            return _this.stopState;
           });
-          body = [ast.Assign(this.pos, this.stateIdent, 1)];
+          this._calculateStateIds();
+          body = [
+            ast.Assign(this.pos, this.stateIdent, ast.Const(this.pos, this._redirectState(this.statesOrder[1])))
+          ];
           close = this.scope.reserveIdent(this.pos, "close", Type["undefined"]["function"]());
           this.scope.markAsFunction(close);
           if (this.finallies.length === 0) {
@@ -30334,7 +30416,7 @@
               close,
               [],
               [],
-              ast.Block(this.pos, [ast.Assign(this.pos, this.stateIdent, 0)])
+              ast.Block(this.pos, [ast.Assign(this.pos, this.stateIdent, this._redirectState(this.stopState))])
             ));
           } else {
             body.push(ast.Assign(this.pos, this.pendingFinalliesIdent, ast.Arr(this.pos)));
@@ -30354,7 +30436,7 @@
               [],
               innerScope.getVariables(),
               ast.Block(this.pos, [
-                ast.Assign(this.pos, this.stateIdent, 0),
+                ast.Assign(this.pos, this.stateIdent, this._redirectState(this.stopState)),
                 ast.Assign(this.pos, f, ast.Call(this.pos, ast.Access(this.pos, this.pendingFinalliesIdent, "pop"))),
                 ast.If(this.pos, f, ast.TryFinally(
                   this.pos,
@@ -30379,22 +30461,24 @@
                 this.pos,
                 stateIdent,
                 (function () {
-                  var _arr, _arr2, _arr3, _arr4, _i, _len, _len2, i, item, items, state;
-                  for (_arr = [], _arr2 = __toArray(_this.states), i = 0, _len = _arr2.length; i < _len; ++i) {
-                    state = _arr2[i];
-                    for (_arr3 = [], _arr4 = __toArray(state), _i = 0, _len2 = _arr4.length; _i < _len2; ++_i) {
-                      item = _arr4[_i];
-                      _arr3.push(item());
+                  var _arr, _arr2, _arr3, _arr4, _i, _i2, _len, _len2, items, state, tItem;
+                  for (_arr = [], _arr2 = __toArray(_this.statesOrder), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+                    state = _arr2[_i];
+                    if (!__owns.call(_this.stateRedirects, state)) {
+                      for (_arr3 = [], _arr4 = __toArray(_this.states[state]), _i2 = 0, _len2 = _arr4.length; _i2 < _len2; ++_i2) {
+                        tItem = _arr4[_i2];
+                        _arr3.push(tItem());
+                      }
+                      items = _arr3;
+                      if (items.length === 0) {
+                        throw Error("Found state with no jump in it");
+                      }
+                      _arr.push(ast.Switch.Case(
+                        items[0].pos,
+                        ast.Const(items[0].pos, _this.stateIds[state]),
+                        ast.Block(items[0].pos, __toArray(items).concat([ast.Break(items[items.length - 1].pos)]))
+                      ));
                     }
-                    items = _arr3;
-                    if (items.length === 0) {
-                      throw Error("Found state with no jump in it");
-                    }
-                    _arr.push(ast.Switch.Case(
-                      items[0].pos,
-                      ast.Const(items[0].pos, i),
-                      ast.Block(items[0].pos, __toArray(items).concat([ast.Break(items[items.length - 1].pos)]))
-                    ));
                   }
                   return _arr;
                 }()),
@@ -30422,13 +30506,15 @@
                       var _arr, _arr2, _i, _len, state;
                       for (_arr = [], _arr2 = __toArray(catchInfo.tryStates), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
                         state = _arr2[_i];
-                        _arr.push(ast.Binary(_this.pos, stateIdent, "===", state));
+                        if (!__owns.call(_this.stateRedirects, state)) {
+                          _arr.push(ast.Binary(_this.pos, stateIdent, "===", ast.Const(_this.pos, _this.stateIds[state])));
+                        }
                       }
                       return _arr;
                     }()))),
                     ast.Block(this.pos, [
                       ast.Assign(this.pos, errIdent, err),
-                      ast.Assign(this.pos, stateIdent, catchInfo.catchState)
+                      ast.Assign(this.pos, stateIdent, ast.Const(this.pos, this.stateIds[catchInfo.catchState]))
                     ]),
                     current
                   );
@@ -30913,9 +30999,16 @@
                 var gLeft, gRight, postBranch, tNode, whenTrueBranch;
                 gLeft = generatorTranslateExpression(node.left, scope, builder, assignTo || true);
                 tNode = memoize(gLeft.tNode);
-                gLeft.builder.goto(getPos(node), function () {
-                  return ast.If(getPos(node), tNode(), whenTrueBranch.state, postBranch.state);
-                });
+                gLeft.builder.gotoIf(
+                  getPos(node),
+                  tNode,
+                  function () {
+                    return whenTrueBranch.state;
+                  },
+                  function () {
+                    return postBranch.state;
+                  }
+                );
                 whenTrueBranch = gLeft.builder.branch();
                 gRight = generatorTranslateExpression(node.right, scope, whenTrueBranch.builder, tNode);
                 gRight.builder.goto(getPos(node), function () {
@@ -30935,9 +31028,16 @@
                 var gLeft, gRight, postBranch, tNode, whenFalseBranch;
                 gLeft = generatorTranslateExpression(node.left, scope, builder, assignTo || true);
                 tNode = memoize(gLeft.tNode);
-                gLeft.builder.goto(getPos(node), function () {
-                  return ast.If(getPos(node), tNode(), postBranch.state, whenFalseBranch.state);
-                });
+                gLeft.builder.gotoIf(
+                  getPos(node),
+                  tNode,
+                  function () {
+                    return postBranch.state;
+                  },
+                  function () {
+                    return whenFalseBranch.state;
+                  }
+                );
                 whenFalseBranch = gLeft.builder.branch();
                 gRight = generatorTranslateExpression(node.right, scope, whenFalseBranch.builder, tNode);
                 gRight.builder.goto(getPos(node), function () {
@@ -31107,40 +31207,46 @@
             });
           },
           If: function (node, scope, builder, assignTo) {
-            var gWhenFalse, gWhenTrue, postBranch, test, tTmp, tWhenFalse, tWhenTrue, whenFalseBranch, whenTrueBranch;
+            var cleanup, gWhenFalse, gWhenTrue, postBranch, test, tTmp, tWhenFalse, tWhenTrue, whenFalseBranch, whenTrueBranch;
             test = generatorTranslateExpression(node.test, scope, builder, builder.hasGeneratorNode(node.test));
             builder = test.builder;
             if (builder.hasGeneratorNode(node.whenTrue) || builder.hasGeneratorNode(node.whenFalse)) {
-              builder.goto(getPos(node), function () {
-                var _ref;
-                _ref = ast.IfExpression(getPos(node.test), test.tNode(), whenTrueBranch.state, whenFalseBranch.state);
-                test.cleanup();
-                return _ref;
-              });
+              builder.gotoIf(
+                getPos(node),
+                function () {
+                  var _ref;
+                  _ref = test.tNode();
+                  test.cleanup();
+                  return _ref;
+                },
+                function () {
+                  return whenTrueBranch.state;
+                },
+                function () {
+                  return whenFalseBranch.state;
+                }
+              );
               tTmp = makeTTmp(assignTo, scope, getPos(node));
               whenTrueBranch = builder.branch();
               gWhenTrue = generatorTranslateExpression(node.whenTrue, scope, whenTrueBranch, tTmp);
-              gWhenTrue.builder.add(function () {
-                gWhenTrue.cleanup();
-                return ast.Noop(getPos(node.whenTrue));
-              });
               gWhenTrue.builder.goto(getPos(node.whenTrue), function () {
                 return postBranch.state;
               });
               whenFalseBranch = builder.branch();
               gWhenFalse = generatorTranslateExpression(node.whenFalse, scope, whenFalseBranch, tTmp);
-              gWhenFalse.builder.add(function () {
-                gWhenFalse.cleanup();
-                return ast.Noop(getPos(node.whenFalse));
-              });
               gWhenFalse.builder.goto(getPos(node.whenFalse), function () {
                 return postBranch.state;
               });
               postBranch = builder.branch();
+              cleanup = makeCleanup(assignTo, scope, tTmp);
               return {
                 builder: postBranch.builder,
                 tNode: tTmp,
-                cleanup: makeCleanup(assignTo, scope, tTmp)
+                cleanup: function () {
+                  gWhenTrue.cleanup();
+                  gWhenFalse.cleanup();
+                  return cleanup();
+                }
               };
             } else {
               tWhenTrue = translate(node.whenTrue, scope, "expression");
@@ -31301,9 +31407,21 @@
             });
             testBranch = builder.branch();
             gTest = generatorTranslateExpression(node.test, scope, testBranch.builder, builder.hasGeneratorNode(node.test));
-            testBranch.builder.goto(getPos(node.test), function () {
-              return ast.If(getPos(node.test), gTest.tNode(), bodyBranch.state, postBranch.state);
-            });
+            testBranch.builder.gotoIf(
+              getPos(node.test),
+              function () {
+                var _ref;
+                _ref = gTest.tNode();
+                gTest.cleanup();
+                return _ref;
+              },
+              function () {
+                return bodyBranch.state;
+              },
+              function () {
+                return postBranch.state;
+              }
+            );
             bodyBranch = builder.branch();
             generatorTranslate(
               node.body,
@@ -31365,14 +31483,18 @@
               return testBranch.state;
             });
             testBranch = builder.branch();
-            testBranch.builder.goto(getPos(node), function () {
-              return ast.IfExpression(
-                getPos(node),
-                ast.Binary(getPos(node), index, "<", length),
-                bodyBranch.state,
-                postBranch.state
-              );
-            });
+            testBranch.builder.gotoIf(
+              getPos(node),
+              function () {
+                return ast.Binary(getPos(node), index, "<", length);
+              },
+              function () {
+                return bodyBranch.state;
+              },
+              function () {
+                return postBranch.state;
+              }
+            );
             bodyBranch = builder.branch();
             builder = bodyBranch.builder.add(function () {
               return ast.Assign(getPos(node), getKey(), ast.Access(getPos(node), keys, index));
@@ -31404,12 +31526,21 @@
             test = generatorTranslateExpression(node.test, scope, builder, builder.hasGeneratorNode(node.test));
             builder = test.builder;
             if (builder.hasGeneratorNode(node.whenTrue) || builder.hasGeneratorNode(node.whenFalse)) {
-              builder.goto(getPos(node), function () {
-                var _ref;
-                _ref = ast.IfExpression(getPos(node.test), test.tNode(), whenTrueBranch.state, (whenFalseBranch || postBranch).state);
-                test.cleanup();
-                return _ref;
-              });
+              builder.gotoIf(
+                getPos(node),
+                function () {
+                  var _ref;
+                  _ref = test.tNode();
+                  test.cleanup();
+                  return _ref;
+                },
+                function () {
+                  return whenTrueBranch.state;
+                },
+                function () {
+                  return (whenFalseBranch || postBranch).state;
+                }
+              );
               whenTrueBranch = builder.branch();
               generatorTranslate(
                 node.whenTrue,
@@ -31420,7 +31551,7 @@
               ).goto(getPos(node.whenTrue), function () {
                 return postBranch.state;
               });
-              if (node.whenFalse) {
+              if (node.whenFalse && !(node.whenFalse instanceof ParserNode.Nothing)) {
                 whenFalseBranch = builder.branch();
               }
               if (whenFalseBranch) {
@@ -31454,7 +31585,7 @@
               throw Error("Cannot use a valued return in a generator");
             }
             builder.goto(getPos(node), function () {
-              return 0;
+              return builder.stopState;
             });
             return builder;
           },
