@@ -278,7 +278,10 @@ class GeneratorState
     let branch = @branch()
     @nodes.push(
       @make-goto pos, #-> branch, false
-      #-> ast.Return pos, t-node())
+      #-> ast.Return pos, ast.Obj pos, [
+        ast.Obj.Pair pos, \done, ast.Const pos, false
+        ast.Obj.Pair pos, \value, t-node()
+      ])
     branch
   
   def get-redirect() as GeneratorState
@@ -347,7 +350,10 @@ class GeneratorBuilder
     @current-catch := []
     @redirects := Map()
     @start := GeneratorState(this)
-    @stop := GeneratorState(this).add #-> ast.Throw pos, ast.Ident pos, \StopIteration
+    @stop := GeneratorState(this).add #-> ast.Return pos, ast.Obj pos, [
+      ast.Obj.Pair pos, \done, ast.Const pos, true
+      ast.Obj.Pair pos, \value, ast.Const pos, void
+    ]
     @states-order := [@start]
     
     @state-ident := state-ident ? scope.reserve-ident pos, \state, Type.number

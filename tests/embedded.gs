@@ -165,13 +165,12 @@ async-test "yield expressions", #
   <% let iter = f()
      let mutable next-value = void
      while true:
-       try:
-         let item = iter.send(next-value) %>
-         <%= item.to-upper-case() %>
-      <% next-value := item.to-lower-case()
-       catch e == StopIteration:
+       let item = iter.send(next-value)
+       if item.done:
          break
-       end
+       end %>
+         <%= item.value.to-upper-case() %>
+    <% next-value := item.value.to-lower-case()
      end %>
   """, embedded: true, noindent: true)
 

@@ -3,13 +3,13 @@ let iterator-to-array(iterator, values = [])
   values.push void
   let arr = []
   while true
-    try
-      arr.push if iterator.send
-        iterator.send values.pop()
-      else
-        iterator.next()
-    catch e == StopIteration
+    let item = if iterator.send
+      iterator.send values.pop()
+    else
+      iterator.next()
+    if item.done
       return arr
+    arr.push item.value
 
 let order-list()
   let list = []
@@ -227,11 +227,11 @@ test "yield with try-finally", #
     yield "delta"
   
   let g = fun@(fun-this)
-  eq "alpha", g.next()
-  eq "bravo", g.next()
+  deep-equal { done: false, value: "alpha" }, g.next()
+  deep-equal { done: false, value: "bravo" }, g.next()
   throws g.next, #(e) -> e == obj
   ok cleanup.ran
-  throws g.next, #(e) -> e == StopIteration
+  deep-equal { done: true, value: void }, g.next()
 
 test "yield with switch", #
   let fun(get-value)*
@@ -315,7 +315,7 @@ test "yield as throw expression", #
   
   let generator = fun()
   array-eq [], order.list
-  eq \value, generator.send(void)
+  deep-equal { done: false, \value }, generator.send(void)
   array-eq [\value], order.list
   let obj = {}
   throws #-> generator.send(obj), #(e) -> e == obj

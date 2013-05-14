@@ -2058,11 +2058,6 @@ macro try
       $init
       $current
 
-define helper StopIteration = if GLOBAL.StopIteration?
-  GLOBAL.StopIteration
-else
-  __freeze {}
-
 define helper __array-to-iter = do
   let proto = {
     iterator: #-> this
@@ -2070,9 +2065,10 @@ define helper __array-to-iter = do
       let i = @index + 1
       let array = @array
       if i >= array.length
-        throw StopIteration
-      @index := i
-      array[i]
+        { done: true, value: void }
+      else
+        @index := i
+        { done: false, value: array[i] }
   }
   #(array as [])
     { extends proto
@@ -2096,6 +2092,7 @@ macro for
   syntax reducer as (\every | \some | \first | \filter)?, value as Identifier, index as (",", this as Identifier)?, "from", iterable as Logic, body as (BodyNoEnd | (";", this as Statement)), else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let init = []
     let iterator = @cache AST __iter($iterable), init, \iter, false
+    let item = @tmp \item, false
     let err = @tmp \e, true
     
     let step = []
@@ -2103,13 +2100,11 @@ macro for
       init.push AST let mutable $index = 0
       step.push ASTE $index ~+= 1
   
-    let capture-value = AST try
-      let $value = $iterator.next()
-    catch $err
-      if $err == StopIteration
+    let capture-value = AST
+      let $item = $iterator.next()
+      if $item.done
         break
-      else
-        throw $err
+      let $value = $item.value
   
     let post = []
     if else-body and not reducer and @position != \expression
@@ -2176,7 +2171,10 @@ macro for
     AST try
       $main
     finally
-      $iterator?.close?()
+      try
+        $iterator.close()
+      catch $err
+        void
 
   syntax "reduce", value as Identifier, index as (",", this as Identifier)?, "from", iterator as Logic, ",", current as Identifier, "=", current-start, body as (Body | (";", this as Statement))
     body := @mutate-last body or @noop(), #(node) -> (ASTE $current := $node)
@@ -2485,31 +2483,34 @@ define helper __async-iter = #(mutable limit as Number, iterator as {next: Funct
   let mutable index = -1
   let mutable iter-stopped = false
   let mutable close = #
-    close := null
-    iterator?.close?()
+    close := #->
+    try
+      iterator.close()
+    catch e
+      void
   let next()!
     while not completed and not broken? and slots-used ~< limit and not iter-stopped
       try
-        let value = iterator.next()
-      catch e == StopIteration
+        let item = iterator.next()
+      catch e
+        broken := true
+        break
+      
+      if item.done
         iter-stopped := true
         break
-      catch e
-        broken := e
-        break
+      
       slots-used ~+= 1
       sync := true
       try
-        on-value value, (index += 1), once!(on-value-callback)
+        on-value item.value, (index += 1), once!(on-value-callback)
       catch e
-        if close
-          close()
+        close()
         throw e
       sync := false
     if not completed and (broken? or slots-used == 0)
       completed := true
-      if close
-        close()
+      close()
       if broken?
         on-complete(broken)
       else
@@ -3128,27 +3129,29 @@ macro yield*
       let iterator = @cache ASTE __iter($node), init, \iter, false
       let err = @tmp \e, true
       let send = @tmp \send
-      let next = @tmp \next
-      let yield-next = @yield next
+      let item = @tmp \item
+      let yield-next = @yield ASTE $item.value
       let received = @tmp \tmp
       AST
         $init
         let mutable $received = void
         let mutable $send = true
+        
+        while true
+          let $item = if $send then $iterator.send($received) else $iterator.throw($received)
+          if $item.done
+            break
+          try
+            $received := $yield-next
+            $send := true
+          catch $err
+            $received := $err
+            $send := false
         try
-          while true
-            let $next = if $send then $iterator.send($received) else $iterator.throw $received
-            try
-              $received := $yield-next
-              $send := true
-            catch $err
-              $received := $err
-              $send := false
+          $iterator.close()
         catch $err
-          if $err != StopIteration
-            throw $err
-        finally
-          $iterator?.close?()
+          void
+        $item.value
 
 macro returning
   syntax node as Expression, rest as DedentedBody

@@ -1175,10 +1175,11 @@ let array-to-iterator(array)
     iterator: #-> this
     next: #
       if @index >= @array.length
-        throw StopIteration
-      let element = @array[@index]
-      @index += 1
-      element
+        { done: true, value: void }
+      else
+        let element = @array[@index]
+        @index += 1
+        { done: false, value: element }
     array
     index: 0
   }
