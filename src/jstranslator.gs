@@ -2,6 +2,7 @@ require! ast: './jsast'
 let AstNode = ast.Node
 require! Type: './types'
 let {Node: ParserNode, MacroHolder} = require('./parser')
+let {Cache} = require('./utils')
 
 let needs-caching(item)
   return item not instanceofsome [ast.Ident, ast.Const, ast.This, ast.Arguments]
@@ -154,7 +155,7 @@ let identity(x) -> x
 let make-auto-return(x) -> if x then wrap-return else identity
 
 class GeneratorBuilder
-  def constructor(@pos as {}, @scope as Scope, states, @current-state = 1, state-ident, pending-finallies-ident, @finallies = [], @catches = [], @current-catch = [])
+  def constructor(@pos as {}, @scope as Scope, states, @current-state = 1, state-ident, pending-finallies-ident, @finallies = [], @catches = [], @current-catch = [], @has-generator-node = make-has-generator-node())
     scope.add-helper \StopIteration
     @states := states ? [
       [#-> ast.Throw pos, ast.Ident pos, \StopIteration]
@@ -165,6 +166,9 @@ class GeneratorBuilder
     let send-scope = scope.clone(false)
     @received-ident := send-scope.reserve-ident pos, \received, Type.any
     send-scope.mark-as-param @received-ident
+  
+  def clone(new-state)
+    GeneratorBuilder(@pos, @scope, @states, new-state, @state-ident, @pending-finallies-ident, @finallies, @catches, @current-catch, @has-generator-node)
   
   def add(t-node)
     unless t-node instanceof GeneratorBuilder
@@ -244,7 +248,7 @@ class GeneratorBuilder
     @states.push []
     {
       state
-      builder: GeneratorBuilder(@pos, @scope, @states, state, @state-ident, @pending-finallies-ident, @finallies, @catches, @current-catch)
+      builder: @clone(state)
     }
   
   def create()
@@ -316,6 +320,80 @@ class GeneratorBuilder
       * ast.Obj.Pair @pos, \send, send
       * ast.Obj.Pair @pos, \throw, ast.Func @pos, null, [ast.Ident @pos, \e], [], ast.Throw @pos, ast.Ident @pos, \e
     ast.Block @pos, body
+  
+  let make-has-generator-node = #
+    let in-loop-cache = Cache<ParserNode, Boolean>()
+    let has-in-loop(node)
+      async <- in-loop-cache.get-or-add node
+      let mutable result = false
+      if node instanceofsome [ParserNode.Yield, ParserNode.Return]
+        result := true
+      else if node not instanceof ParserNode.Function
+        let FOUND = {}
+        try
+          node.walk #(n)
+            if has-in-loop n
+              throw FOUND
+            n
+        catch e
+          if e == FOUND
+            result := true
+          else
+            throw e
+      result
+
+    let in-switch-cache = Cache<ParserNode, Boolean>()
+    let has-in-switch(node)
+      async <- in-switch-cache.get-or-add node
+      returnif in-loop-cache.get node
+      if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue]
+        true
+      else if node not instanceof ParserNode.Function
+        let FOUND = {}
+        try
+          node.walk #(n)
+            if n instanceofsome [ParserNode.For, ParserNode.ForIn]
+              if has-in-loop n
+                throw FOUND
+            else
+              if has-in-switch n
+                throw FOUND
+            n
+        catch e
+          if e == FOUND
+            return true
+          else
+            throw e
+        false
+
+    let normal-cache = Cache<ParserNode, Boolean>()
+    let has-generator-node(node as ParserNode)
+      async <- normal-cache.get-or-add node
+      returnif in-loop-cache.get node
+      returnif in-switch-cache.get node
+      if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue, ParserNode.Break]
+        true
+      else if node not instanceof ParserNode.Function
+        let FOUND = {}
+        try
+          node.walk #(n)
+            if n instanceofsome [ParserNode.For, ParserNode.ForIn]
+              if has-in-loop n
+                throw FOUND
+            else if n instanceof ParserNode.Switch
+              if has-in-switch n
+                throw FOUND
+            else
+              if has-generator-node n
+                throw FOUND
+            n
+        catch e
+          if e == FOUND
+            return true
+          else
+            throw e
+        false
+    has-generator-node
 
 let flatten-spread-array(elements)
   let result = []
@@ -340,96 +418,6 @@ let make-pos(line as Number, column as Number, file as String|void)
 
 let get-pos(node as ParserNode)
   make-pos(node.line, node.column, node.file)
-
-class Cache
-  def constructor()
-    @weakmap := WeakMap()
-  
-  def get(key) -> @weakmap.get(key)
-  
-  def get-or-add(key, factory as ->)
-    let weakmap = @weakmap
-    let mutable value = weakmap.get(key)
-    if value == void
-      value := factory()
-      if value == void
-        throw Error "Cannot cache undefined"
-      weakmap.set(key, value)
-    value
-
-// TODO: flush the caches between translations
-let has-generator-node = do
-  let in-loop-cache = Cache()
-  let has-in-loop(node)
-    async <- in-loop-cache.get-or-add node
-    let mutable result = false
-    if node instanceofsome [ParserNode.Yield, ParserNode.Return]
-      result := true
-    else if node not instanceof ParserNode.Function
-      let FOUND = {}
-      try
-        node.walk #(n)
-          if has-in-loop n
-            throw FOUND
-          n
-      catch e
-        if e == FOUND
-          result := true
-        else
-          throw e
-    result
-  
-  let in-switch-cache = Cache()
-  let has-in-switch(node)
-    async <- in-switch-cache.get-or-add node
-    returnif in-loop-cache.get node
-    if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue]
-      true
-    else if node not instanceof ParserNode.Function
-      let FOUND = {}
-      try
-        node.walk #(n)
-          if n instanceofsome [ParserNode.For, ParserNode.ForIn]
-            if has-in-loop n
-              throw FOUND
-          else
-            if has-in-switch n
-              throw FOUND
-          n
-      catch e
-        if e == FOUND
-          return true
-        else
-          throw e
-      false
-  
-  let normal-cache = Cache()
-  #(node as ParserNode)
-    async <- normal-cache.get-or-add node
-    returnif in-loop-cache.get node
-    returnif in-switch-cache.get node
-    if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue, ParserNode.Break]
-      true
-    else if node not instanceof ParserNode.Function
-      let FOUND = {}
-      try
-        node.walk #(n)
-          if n instanceofsome [ParserNode.For, ParserNode.ForIn]
-            if has-in-loop n
-              throw FOUND
-          else if n instanceof ParserNode.Switch
-            if has-in-switch n
-              throw FOUND
-          else
-            if has-generator-node n
-              throw FOUND
-          n
-      catch e
-        if e == FOUND
-          return true
-        else
-          throw e
-      false
 
 let do-nothing() ->
 let generator-translate = do
@@ -509,7 +497,7 @@ let generator-translate = do
     
     let mutable t-array-start = null
     for element, i in elements
-      if t-array-start or has-generator-node element
+      if t-array-start or builder.has-generator-node element
         if not t-array-start?
           t-array-start := array-translate pos, elements[0 til i], scope, true, false
           builder := builder.add #-> ast.Assign pos, t-tmp(), t-array-start()
@@ -735,10 +723,10 @@ let generator-translate = do
       handle-assign assign-to, scope, g-code.builder, #-> ast.Eval get-pos(node), g-code.t-node(), g-code.cleanup
     
     If: #(node, scope, mutable builder, assign-to)
-      let test = generator-translate-expression node.test, scope, builder, has-generator-node(node.test)
+      let test = generator-translate-expression node.test, scope, builder, builder.has-generator-node(node.test)
       builder := test.builder
       
-      if has-generator-node(node.when-true) or has-generator-node(node.when-false)
+      if builder.has-generator-node(node.when-true) or builder.has-generator-node(node.when-false)
         // TODO: handle case when only one of when-true/when-false has generator nodes
         builder.goto get-pos(node), #-> first!(
           ast.IfExpression get-pos(node.test), test.t-node(), when-true-branch.state, when-false-branch.state
@@ -807,7 +795,7 @@ let generator-translate = do
   
   let generator-translate-expression(node as ParserNode, scope as Scope, builder as GeneratorBuilder, assign-to as Boolean|->)
     let key = node.constructor.capped-name
-    if has-generator-node node
+    if builder.has-generator-node node
       if expressions ownskey key
         expressions[key](node, scope, builder, assign-to)
       else
@@ -848,7 +836,7 @@ let generator-translate = do
       builder.goto get-pos(node), #-> test-branch.state
       
       let test-branch = builder.branch()
-      let g-test = generator-translate-expression node.test, scope, test-branch.builder, has-generator-node(node.test)
+      let g-test = generator-translate-expression node.test, scope, test-branch.builder, builder.has-generator-node(node.test)
       test-branch.builder.goto get-pos(node.test), #-> ast.If get-pos(node.test), g-test.t-node(), body-branch.state, post-branch.state
       
       let body-branch = builder.branch()
@@ -902,10 +890,10 @@ let generator-translate = do
       post-branch.builder
     
     If: #(node, scope, mutable builder, break-state, continue-state)
-      let test = generator-translate-expression node.test, scope, builder, has-generator-node(node.test)
+      let test = generator-translate-expression node.test, scope, builder, builder.has-generator-node(node.test)
       builder := test.builder
       
-      if has-generator-node(node.when-true) or has-generator-node(node.when-false)
+      if builder.has-generator-node(node.when-true) or builder.has-generator-node(node.when-false)
         builder.goto get-pos(node), #-> first!(
           ast.IfExpression get-pos(node.test), test.t-node(), when-true-branch.state, (when-false-branch or post-branch).state
           test.cleanup())
@@ -942,7 +930,7 @@ let generator-translate = do
         for case_ in result-cases; case_()
         default-case()
       for case_, i in node.cases
-        if has-generator-node case_.node
+        if builder.has-generator-node case_.node
           throw Error "Cannot use yield in the check of a switch's case"
         let t-case-node = translate case_.node, scope, \expression
         let case-branch = g-node.builder.branch()
@@ -993,7 +981,7 @@ let generator-translate = do
       if node.label?
         throw Error "Not implemented: try-finally with label in generator"
       
-      if has-generator-node node.finally-body
+      if builder.has-generator-node node.finally-body
         throw Error "Cannot use yield in a finally"
       
       builder := builder.pending-finally get-pos(node), translate node.finally-body, scope, \top-statement
@@ -1006,8 +994,8 @@ let generator-translate = do
         g-node.t-node()
         g-node.cleanup())
     
-  #(node, scope, builder, break-state, continue-state)
-    if has-generator-node node
+  #(node as ParserNode, scope as Scope, builder as GeneratorBuilder, break-state, continue-state)
+    if builder.has-generator-node node
       let key = node.constructor.capped-name
       if statements ownskey key
         let ret = statements[key](node, scope, builder, break-state, continue-state)

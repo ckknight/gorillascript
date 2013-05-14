@@ -14,9 +14,93 @@
     require['./utils'] = function () {
     var module = { exports: this };
     var exports = this;
-    (function () {
+    (function (GLOBAL) {
       "use strict";
-      var __num, __strnum, __typeof;
+      var __create, __genericFunc, __getInstanceof, __isArray, __isObject, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, Cache, WeakMap;
+      __create = typeof Object.create === "function" ? Object.create
+        : function (x) {
+          function F() {}
+          F.prototype = x;
+          return new F();
+        };
+      __genericFunc = function (numArgs, make) {
+        var any, cache, result;
+        cache = WeakMap();
+        any = {};
+        function generic() {
+          var _ref, current, i, item, type;
+          current = cache;
+          for (i = numArgs - 1; i >= 0; --i) {
+            if ((_ref = arguments[i]) != null) {
+              type = _ref;
+            } else {
+              type = any;
+            }
+            item = current.get(type);
+            if (item == null) {
+              item = i === 0 ? make.apply(this, arguments) : WeakMap();
+              current.set(type, item);
+            }
+            current = item;
+          }
+          return current;
+        }
+        result = generic();
+        result.generic = generic;
+        return result;
+      };
+      __getInstanceof = (function () {
+        function isAny() {
+          return true;
+        }
+        function isStr(x) {
+          return typeof x === "string";
+        }
+        function isNum(x) {
+          return typeof x === "number";
+        }
+        function isFunc(x) {
+          return typeof x === "function";
+        }
+        function isBool(x) {
+          return typeof x === "boolean";
+        }
+        return function (ctor) {
+          if (ctor == null) {
+            return isAny;
+          } else {
+            switch (ctor) {
+            case String: return isStr;
+            case Number: return isNum;
+            case Function: return isFunc;
+            case Boolean: return isBool;
+            case Array: return __isArray;
+            case Object: return __isObject;
+            default:
+              return function (_x) {
+                return _x instanceof ctor;
+              };
+            }
+          }
+        };
+      }());
+      __isArray = typeof Array.isArray === "function" ? Array.isArray
+        : (function () {
+          var _toString;
+          _toString = Object.prototype.toString;
+          return function (x) {
+            return _toString.call(x) === "[object Array]";
+          };
+        }());
+      __isObject = function (x) {
+        return typeof x === "object" && x !== null;
+      };
+      __name = function (func) {
+        if (typeof func !== "function") {
+          throw TypeError("Expected func to be a Function, got " + __typeof(func));
+        }
+        return func.displayName || func.name || "";
+      };
       __num = function (num) {
         if (typeof num !== "number") {
           throw TypeError("Expected a number, got " + __typeof(num));
@@ -24,6 +108,8 @@
           return num;
         }
       };
+      __owns = Object.prototype.hasOwnProperty;
+      __slice = Array.prototype.slice;
       __strnum = function (strnum) {
         var type;
         type = typeof strnum;
@@ -33,6 +119,17 @@
           return String(strnum);
         } else {
           throw TypeError("Expected a string or number, got " + __typeof(strnum));
+        }
+      };
+      __toArray = function (x) {
+        if (x == null) {
+          throw TypeError("Expected an object, got " + __typeof(x));
+        } else if (__isArray(x)) {
+          return x;
+        } else if (typeof x === "string") {
+          return x.split("");
+        } else {
+          return __slice.call(x);
         }
       };
       __typeof = (function () {
@@ -48,6 +145,115 @@
           }
         };
       }());
+      WeakMap = typeof GLOBAL.WeakMap === "function" ? GLOBAL.WeakMap
+        : (WeakMap = (function () {
+          var _WeakMap_prototype, defProp, isExtensible;
+          function WeakMap() {
+            var _this;
+            _this = this instanceof WeakMap ? this : __create(_WeakMap_prototype);
+            _this._keys = [];
+            _this._values = [];
+            _this._chilly = [];
+            _this._uid = createUid();
+            return _this;
+          }
+          _WeakMap_prototype = WeakMap.prototype;
+          WeakMap.displayName = "WeakMap";
+          function uidRand() {
+            return Math.random().toString(36).slice(2);
+          }
+          function createUid() {
+            return __strnum(uidRand()) + "-" + __strnum(new Date().getTime()) + "-" + __strnum(uidRand()) + "-" + __strnum(uidRand());
+          }
+          isExtensible = Object.isExtensible || function () {
+            return true;
+          };
+          function check(key) {
+            var chilly, uid;
+            uid = this._uid;
+            if (__owns.call(key, uid)) {
+              chilly = this._chilly;
+              if (chilly.indexOf(key) === -1) {
+                chilly.push(key);
+                this._keys.push(key);
+                this._values.push(key[uid]);
+              }
+            }
+          }
+          _WeakMap_prototype.get = function (key) {
+            var _ref, index;
+            if (Object(key) !== key) {
+              throw TypeError("Invalid value used as weak map key");
+            }
+            if (isExtensible(key)) {
+              if (__owns.call(key, _ref = this._uid)) {
+                return key[_ref];
+              }
+            } else {
+              check.call(this, key);
+              index = this._keys.indexOf(key);
+              if (index === -1) {
+                return;
+              } else {
+                return this._values[index];
+              }
+            }
+          };
+          _WeakMap_prototype.has = function (key) {
+            if (Object(key) !== key) {
+              throw TypeError("Invalid value used as weak map key");
+            }
+            if (isExtensible(key)) {
+              return __owns.call(key, this._uid);
+            } else {
+              check.call(this, key);
+              return this._keys.indexOf(key) !== -1;
+            }
+          };
+          if (typeof Object.defineProperty === "function") {
+            defProp = Object.defineProperty;
+          } else {
+            defProp = function (o, k, d) {
+              o[k] = d.value;
+            };
+          }
+          _WeakMap_prototype.set = function (key, value) {
+            var index, keys;
+            if (Object(key) !== key) {
+              throw TypeError("Invalid value used as weak map key");
+            }
+            if (isExtensible(key)) {
+              defProp(key, this._uid, { configurable: true, writable: true, enumerable: false, value: value });
+            } else {
+              check.call(this, key);
+              keys = this._keys;
+              index = keys.indexOf(key);
+              if (index === -1) {
+                index = keys.length;
+                keys[index] = key;
+              }
+              this._values[index] = value;
+            }
+          };
+          _WeakMap_prototype["delete"] = function (key) {
+            var index, keys;
+            if (Object(key) !== key) {
+              throw TypeError("Invalid value used as weak map key");
+            }
+            if (isExtensible(key)) {
+              delete key[this._uid];
+            } else {
+              check.call(this, key);
+              keys = this._keys;
+              index = keys.indexOf(key);
+              if (index !== -1) {
+                keys.splice(index, 1);
+                this._values.splice(index, 1);
+              }
+            }
+          };
+          return WeakMap;
+        }()));
       function stringRepeat(text, count) {
         if (__num(count) < 1) {
           return "";
@@ -66,7 +272,49 @@
       exports.padRight = function (text, len, padding) {
         return __strnum(text) + __strnum(stringRepeat(padding, __num(len) - __num(text.length)));
       };
-    }.call(this));
+      exports.Cache = Cache = __genericFunc(2, function (TKey, TValue) {
+        var _instanceof_TKey, _instanceof_TValue;
+        _instanceof_TKey = __getInstanceof(TKey);
+        _instanceof_TValue = __getInstanceof(TValue);
+        return (function () {
+          var _Cache_prototype;
+          function Cache() {
+            var _this;
+            _this = this instanceof Cache ? this : __create(_Cache_prototype);
+            _this.weakmap = WeakMap();
+            return _this;
+          }
+          _Cache_prototype = Cache.prototype;
+          Cache.displayName = "Cache<" + (TKey != null ? __name(TKey) : "") + ", " + (TValue != null ? __name(TValue) : "") + ">";
+          _Cache_prototype.get = function (key) {
+            if (!_instanceof_TKey(key)) {
+              throw TypeError("Expected key to be a " + __name(TKey) + ", got " + __typeof(key));
+            }
+            return this.weakmap.get(key);
+          };
+          _Cache_prototype.getOrAdd = function (key, factory) {
+            var value, weakmap;
+            if (!_instanceof_TKey(key)) {
+              throw TypeError("Expected key to be a " + __name(TKey) + ", got " + __typeof(key));
+            }
+            if (typeof factory !== "function") {
+              throw TypeError("Expected factory to be a Function, got " + __typeof(factory));
+            }
+            weakmap = this.weakmap;
+            value = weakmap.get(key);
+            if (value === void 0) {
+              value = factory(key);
+              if (!_instanceof_TValue(value)) {
+                throw Error("Expected factory result to be a " + __name(TValue) + ", got " + __typeof(value));
+              }
+              weakmap.set(key, value);
+            }
+            return value;
+          };
+          return Cache;
+        }());
+      });
+    }.call(this, typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : this));
     
     return module.exports;
   };
@@ -29376,9 +29624,9 @@
   require['./jstranslator'] = function () {
     var module = { exports: this };
     var exports = this;
-    (function (GLOBAL) {
+    (function () {
       "use strict";
-      var __cmp, __create, __import, __isArray, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, _ref, ast, AstNode, Cache, GeneratorBuilder, generatorTranslate, hasGeneratorNode, MacroHolder, ParserNode, Scope, translators, Type, WeakMap;
+      var __cmp, __create, __import, __isArray, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, _ref, ast, AstNode, Cache, GeneratorBuilder, generatorTranslate, MacroHolder, ParserNode, Scope, translators, Type;
       __cmp = function (left, right) {
         var type;
         if (left === right) {
@@ -29469,120 +29717,12 @@
           }
         };
       }());
-      WeakMap = typeof GLOBAL.WeakMap === "function" ? GLOBAL.WeakMap
-        : (WeakMap = (function () {
-          var _WeakMap_prototype, defProp, isExtensible;
-          function WeakMap() {
-            var _this;
-            _this = this instanceof WeakMap ? this : __create(_WeakMap_prototype);
-            _this._keys = [];
-            _this._values = [];
-            _this._chilly = [];
-            _this._uid = createUid();
-            return _this;
-          }
-          _WeakMap_prototype = WeakMap.prototype;
-          WeakMap.displayName = "WeakMap";
-          function uidRand() {
-            return Math.random().toString(36).slice(2);
-          }
-          function createUid() {
-            return __strnum(uidRand()) + "-" + __strnum(new Date().getTime()) + "-" + __strnum(uidRand()) + "-" + __strnum(uidRand());
-          }
-          isExtensible = Object.isExtensible || function () {
-            return true;
-          };
-          function check(key) {
-            var chilly, uid;
-            uid = this._uid;
-            if (__owns.call(key, uid)) {
-              chilly = this._chilly;
-              if (chilly.indexOf(key) === -1) {
-                chilly.push(key);
-                this._keys.push(key);
-                this._values.push(key[uid]);
-              }
-            }
-          }
-          _WeakMap_prototype.get = function (key) {
-            var _ref, index;
-            if (Object(key) !== key) {
-              throw TypeError("Invalid value used as weak map key");
-            }
-            if (isExtensible(key)) {
-              if (__owns.call(key, _ref = this._uid)) {
-                return key[_ref];
-              }
-            } else {
-              check.call(this, key);
-              index = this._keys.indexOf(key);
-              if (index === -1) {
-                return;
-              } else {
-                return this._values[index];
-              }
-            }
-          };
-          _WeakMap_prototype.has = function (key) {
-            if (Object(key) !== key) {
-              throw TypeError("Invalid value used as weak map key");
-            }
-            if (isExtensible(key)) {
-              return __owns.call(key, this._uid);
-            } else {
-              check.call(this, key);
-              return this._keys.indexOf(key) !== -1;
-            }
-          };
-          if (typeof Object.defineProperty === "function") {
-            defProp = Object.defineProperty;
-          } else {
-            defProp = function (o, k, d) {
-              o[k] = d.value;
-            };
-          }
-          _WeakMap_prototype.set = function (key, value) {
-            var index, keys;
-            if (Object(key) !== key) {
-              throw TypeError("Invalid value used as weak map key");
-            }
-            if (isExtensible(key)) {
-              defProp(key, this._uid, { configurable: true, writable: true, enumerable: false, value: value });
-            } else {
-              check.call(this, key);
-              keys = this._keys;
-              index = keys.indexOf(key);
-              if (index === -1) {
-                index = keys.length;
-                keys[index] = key;
-              }
-              this._values[index] = value;
-            }
-          };
-          _WeakMap_prototype["delete"] = function (key) {
-            var index, keys;
-            if (Object(key) !== key) {
-              throw TypeError("Invalid value used as weak map key");
-            }
-            if (isExtensible(key)) {
-              delete key[this._uid];
-            } else {
-              check.call(this, key);
-              keys = this._keys;
-              index = keys.indexOf(key);
-              if (index !== -1) {
-                keys.splice(index, 1);
-                this._values.splice(index, 1);
-              }
-            }
-          };
-          return WeakMap;
-        }()));
       ast = require("./jsast");
       AstNode = ast.Node;
       Type = require("./types");
       ParserNode = (_ref = require("./parser")).Node;
       MacroHolder = _ref.MacroHolder;
+      Cache = require("./utils").Cache;
       function needsCaching(item) {
         return !(item instanceof ast.Ident) && !(item instanceof ast.Const) && !(item instanceof ast.This) && !(item instanceof ast.Arguments);
       }
@@ -29950,7 +30090,7 @@
       }
       GeneratorBuilder = (function () {
         var _GeneratorBuilder_prototype;
-        function GeneratorBuilder(pos, scope, states, currentState, stateIdent, pendingFinalliesIdent, finallies, catches, currentCatch) {
+        function GeneratorBuilder(pos, scope, states, currentState, stateIdent, pendingFinalliesIdent, finallies, catches, currentCatch, hasGeneratorNode) {
           var _this, sendScope;
           _this = this instanceof GeneratorBuilder ? this : __create(_GeneratorBuilder_prototype);
           if (typeof pos !== "object" || pos === null) {
@@ -29977,6 +30117,10 @@
             currentCatch = [];
           }
           _this.currentCatch = currentCatch;
+          if (hasGeneratorNode == null) {
+            hasGeneratorNode = makeHasGeneratorNode();
+          }
+          _this.hasGeneratorNode = hasGeneratorNode;
           scope.addHelper("StopIteration");
           _this.states = states != null ? states
             : [
@@ -29996,6 +30140,20 @@
         }
         _GeneratorBuilder_prototype = GeneratorBuilder.prototype;
         GeneratorBuilder.displayName = "GeneratorBuilder";
+        _GeneratorBuilder_prototype.clone = function (newState) {
+          return GeneratorBuilder(
+            this.pos,
+            this.scope,
+            this.states,
+            newState,
+            this.stateIdent,
+            this.pendingFinalliesIdent,
+            this.finallies,
+            this.catches,
+            this.currentCatch,
+            this.hasGeneratorNode
+          );
+        };
         _GeneratorBuilder_prototype.add = function (tNode) {
           if (!(tNode instanceof GeneratorBuilder)) {
             if (typeof tNode !== "function") {
@@ -30155,20 +30313,7 @@
             (_ref = this.currentCatch)[__num(_ref.length) - 1].push(state);
           }
           this.states.push([]);
-          return {
-            state: state,
-            builder: GeneratorBuilder(
-              this.pos,
-              this.scope,
-              this.states,
-              state,
-              this.stateIdent,
-              this.pendingFinalliesIdent,
-              this.finallies,
-              this.catches,
-              this.currentCatch
-            )
-          };
+          return { state: state, builder: this.clone(state) };
         };
         _GeneratorBuilder_prototype.create = function () {
           var _this, body, catches, close, err, f, innerScope, send, stateIdent;
@@ -30321,6 +30466,131 @@
           ])));
           return ast.Block(this.pos, body);
         };
+        function makeHasGeneratorNode() {
+          var inLoopCache, inSwitchCache, normalCache;
+          inLoopCache = Cache.generic(ParserNode, Boolean)();
+          function hasInLoop(node) {
+            var _once;
+            return inLoopCache.getOrAdd(node, (_once = false, function () {
+              var FOUND, result;
+              if (_once) {
+                throw Error("Attempted to call function more than once");
+              } else {
+                _once = true;
+              }
+              result = false;
+              if (node instanceof ParserNode.Yield || node instanceof ParserNode.Return) {
+                result = true;
+              } else if (!(node instanceof ParserNode.Function)) {
+                FOUND = {};
+                try {
+                  node.walk(function (n) {
+                    if (hasInLoop(n)) {
+                      throw FOUND;
+                    }
+                    return n;
+                  });
+                } catch (e) {
+                  if (e === FOUND) {
+                    result = true;
+                  } else {
+                    throw e;
+                  }
+                }
+              }
+              return result;
+            }));
+          }
+          inSwitchCache = Cache.generic(ParserNode, Boolean)();
+          function hasInSwitch(node) {
+            var _once;
+            return inSwitchCache.getOrAdd(node, (_once = false, function () {
+              var _ref, FOUND;
+              if (_once) {
+                throw Error("Attempted to call function more than once");
+              } else {
+                _once = true;
+              }
+              if (_ref = inLoopCache.get(node)) {
+                return _ref;
+              }
+              if (node instanceof ParserNode.Yield || node instanceof ParserNode.Return || node instanceof ParserNode.Continue) {
+                return true;
+              } else if (!(node instanceof ParserNode.Function)) {
+                FOUND = {};
+                try {
+                  node.walk(function (n) {
+                    if (n instanceof ParserNode.For || n instanceof ParserNode.ForIn) {
+                      if (hasInLoop(n)) {
+                        throw FOUND;
+                      }
+                    } else if (hasInSwitch(n)) {
+                      throw FOUND;
+                    }
+                    return n;
+                  });
+                } catch (e) {
+                  if (e === FOUND) {
+                    return true;
+                  } else {
+                    throw e;
+                  }
+                }
+                return false;
+              }
+            }));
+          }
+          normalCache = Cache.generic(ParserNode, Boolean)();
+          function hasGeneratorNode(node) {
+            var _once;
+            if (!(node instanceof ParserNode)) {
+              throw TypeError("Expected node to be a " + __name(ParserNode) + ", got " + __typeof(node));
+            }
+            return normalCache.getOrAdd(node, (_once = false, function () {
+              var _ref, FOUND;
+              if (_once) {
+                throw Error("Attempted to call function more than once");
+              } else {
+                _once = true;
+              }
+              if (_ref = inLoopCache.get(node)) {
+                return _ref;
+              }
+              if (_ref = inSwitchCache.get(node)) {
+                return _ref;
+              }
+              if (node instanceof ParserNode.Yield || node instanceof ParserNode.Return || node instanceof ParserNode.Continue || node instanceof ParserNode.Break) {
+                return true;
+              } else if (!(node instanceof ParserNode.Function)) {
+                FOUND = {};
+                try {
+                  node.walk(function (n) {
+                    if (n instanceof ParserNode.For || n instanceof ParserNode.ForIn) {
+                      if (hasInLoop(n)) {
+                        throw FOUND;
+                      }
+                    } else if (n instanceof ParserNode.Switch) {
+                      if (hasInSwitch(n)) {
+                        throw FOUND;
+                      }
+                    } else if (hasGeneratorNode(n)) {
+                      throw FOUND;
+                    }
+                    return n;
+                  });
+                } catch (e) {
+                  if (e === FOUND) {
+                    return true;
+                  } else {
+                    throw e;
+                  }
+                }
+                return false;
+              }
+            }));
+          }
+          return hasGeneratorNode;
+        }
         return GeneratorBuilder;
       }());
       function flattenSpreadArray(elements) {
@@ -30367,161 +30637,6 @@
         }
         return makePos(node.line, node.column, node.file);
       }
-      Cache = (function () {
-        var _Cache_prototype;
-        function Cache() {
-          var _this;
-          _this = this instanceof Cache ? this : __create(_Cache_prototype);
-          _this.weakmap = WeakMap();
-          return _this;
-        }
-        _Cache_prototype = Cache.prototype;
-        Cache.displayName = "Cache";
-        _Cache_prototype.get = function (key) {
-          return this.weakmap.get(key);
-        };
-        _Cache_prototype.getOrAdd = function (key, factory) {
-          var value, weakmap;
-          if (typeof factory !== "function") {
-            throw TypeError("Expected factory to be a Function, got " + __typeof(factory));
-          }
-          weakmap = this.weakmap;
-          value = weakmap.get(key);
-          if (value === void 0) {
-            value = factory();
-            if (value === void 0) {
-              throw Error("Cannot cache undefined");
-            }
-            weakmap.set(key, value);
-          }
-          return value;
-        };
-        return Cache;
-      }());
-      hasGeneratorNode = (function () {
-        var inLoopCache, inSwitchCache, normalCache;
-        inLoopCache = Cache();
-        function hasInLoop(node) {
-          var _once;
-          return inLoopCache.getOrAdd(node, (_once = false, function () {
-            var FOUND, result;
-            if (_once) {
-              throw Error("Attempted to call function more than once");
-            } else {
-              _once = true;
-            }
-            result = false;
-            if (node instanceof ParserNode.Yield || node instanceof ParserNode.Return) {
-              result = true;
-            } else if (!(node instanceof ParserNode.Function)) {
-              FOUND = {};
-              try {
-                node.walk(function (n) {
-                  if (hasInLoop(n)) {
-                    throw FOUND;
-                  }
-                  return n;
-                });
-              } catch (e) {
-                if (e === FOUND) {
-                  result = true;
-                } else {
-                  throw e;
-                }
-              }
-            }
-            return result;
-          }));
-        }
-        inSwitchCache = Cache();
-        function hasInSwitch(node) {
-          var _once;
-          return inSwitchCache.getOrAdd(node, (_once = false, function () {
-            var _ref, FOUND;
-            if (_once) {
-              throw Error("Attempted to call function more than once");
-            } else {
-              _once = true;
-            }
-            if (_ref = inLoopCache.get(node)) {
-              return _ref;
-            }
-            if (node instanceof ParserNode.Yield || node instanceof ParserNode.Return || node instanceof ParserNode.Continue) {
-              return true;
-            } else if (!(node instanceof ParserNode.Function)) {
-              FOUND = {};
-              try {
-                node.walk(function (n) {
-                  if (n instanceof ParserNode.For || n instanceof ParserNode.ForIn) {
-                    if (hasInLoop(n)) {
-                      throw FOUND;
-                    }
-                  } else if (hasInSwitch(n)) {
-                    throw FOUND;
-                  }
-                  return n;
-                });
-              } catch (e) {
-                if (e === FOUND) {
-                  return true;
-                } else {
-                  throw e;
-                }
-              }
-              return false;
-            }
-          }));
-        }
-        normalCache = Cache();
-        return function (node) {
-          var _once;
-          if (!(node instanceof ParserNode)) {
-            throw TypeError("Expected node to be a " + __name(ParserNode) + ", got " + __typeof(node));
-          }
-          return normalCache.getOrAdd(node, (_once = false, function () {
-            var _ref, FOUND;
-            if (_once) {
-              throw Error("Attempted to call function more than once");
-            } else {
-              _once = true;
-            }
-            if (_ref = inLoopCache.get(node)) {
-              return _ref;
-            }
-            if (_ref = inSwitchCache.get(node)) {
-              return _ref;
-            }
-            if (node instanceof ParserNode.Yield || node instanceof ParserNode.Return || node instanceof ParserNode.Continue || node instanceof ParserNode.Break) {
-              return true;
-            } else if (!(node instanceof ParserNode.Function)) {
-              FOUND = {};
-              try {
-                node.walk(function (n) {
-                  if (n instanceof ParserNode.For || n instanceof ParserNode.ForIn) {
-                    if (hasInLoop(n)) {
-                      throw FOUND;
-                    }
-                  } else if (n instanceof ParserNode.Switch) {
-                    if (hasInSwitch(n)) {
-                      throw FOUND;
-                    }
-                  } else if (hasGeneratorNode(n)) {
-                    throw FOUND;
-                  }
-                  return n;
-                });
-              } catch (e) {
-                if (e === FOUND) {
-                  return true;
-                } else {
-                  throw e;
-                }
-              }
-              return false;
-            }
-          }));
-        };
-      }());
       function doNothing() {}
       generatorTranslate = (function () {
         var expressions, statements;
@@ -30661,7 +30776,7 @@
           tArrayStart = null;
           for (_arr = __toArray(elements), i = 0, _len = _arr.length, _f = function (element, i) {
             var expr;
-            if (tArrayStart || hasGeneratorNode(element)) {
+            if (tArrayStart || builder.hasGeneratorNode(element)) {
               if (tArrayStart == null) {
                 tArrayStart = arrayTranslate(
                   pos,
@@ -30993,9 +31108,9 @@
           },
           If: function (node, scope, builder, assignTo) {
             var gWhenFalse, gWhenTrue, postBranch, test, tTmp, tWhenFalse, tWhenTrue, whenFalseBranch, whenTrueBranch;
-            test = generatorTranslateExpression(node.test, scope, builder, hasGeneratorNode(node.test));
+            test = generatorTranslateExpression(node.test, scope, builder, builder.hasGeneratorNode(node.test));
             builder = test.builder;
-            if (hasGeneratorNode(node.whenTrue) || hasGeneratorNode(node.whenFalse)) {
+            if (builder.hasGeneratorNode(node.whenTrue) || builder.hasGeneratorNode(node.whenFalse)) {
               builder.goto(getPos(node), function () {
                 var _ref;
                 _ref = ast.IfExpression(getPos(node.test), test.tNode(), whenTrueBranch.state, whenFalseBranch.state);
@@ -31124,7 +31239,7 @@
             throw TypeError("Expected assignTo to be one of Boolean or Function, got " + __typeof(assignTo));
           }
           key = node.constructor.cappedName;
-          if (hasGeneratorNode(node)) {
+          if (builder.hasGeneratorNode(node)) {
             if (__owns.call(expressions, key)) {
               return expressions[key](node, scope, builder, assignTo);
             } else {
@@ -31185,7 +31300,7 @@
               return testBranch.state;
             });
             testBranch = builder.branch();
-            gTest = generatorTranslateExpression(node.test, scope, testBranch.builder, hasGeneratorNode(node.test));
+            gTest = generatorTranslateExpression(node.test, scope, testBranch.builder, builder.hasGeneratorNode(node.test));
             testBranch.builder.goto(getPos(node.test), function () {
               return ast.If(getPos(node.test), gTest.tNode(), bodyBranch.state, postBranch.state);
             });
@@ -31286,9 +31401,9 @@
           },
           If: function (node, scope, builder, breakState, continueState) {
             var postBranch, test, tWhenFalse, tWhenTrue, whenFalseBranch, whenTrueBranch;
-            test = generatorTranslateExpression(node.test, scope, builder, hasGeneratorNode(node.test));
+            test = generatorTranslateExpression(node.test, scope, builder, builder.hasGeneratorNode(node.test));
             builder = test.builder;
-            if (hasGeneratorNode(node.whenTrue) || hasGeneratorNode(node.whenFalse)) {
+            if (builder.hasGeneratorNode(node.whenTrue) || builder.hasGeneratorNode(node.whenFalse)) {
               builder.goto(getPos(node), function () {
                 var _ref;
                 _ref = ast.IfExpression(getPos(node.test), test.tNode(), whenTrueBranch.state, (whenFalseBranch || postBranch).state);
@@ -31368,7 +31483,7 @@
             });
             for (_arr = __toArray(node.cases), i = 0, _len = _arr.length, _f = function (case_, i) {
               var caseBranch, gCaseBody, tCaseNode, tGoto;
-              if (hasGeneratorNode(case_.node)) {
+              if (builder.hasGeneratorNode(case_.node)) {
                 throw Error("Cannot use yield in the check of a switch's case");
               }
               tCaseNode = translate(case_.node, scope, "expression");
@@ -31484,7 +31599,7 @@
             if (node.label != null) {
               throw Error("Not implemented: try-finally with label in generator");
             }
-            if (hasGeneratorNode(node.finallyBody)) {
+            if (builder.hasGeneratorNode(node.finallyBody)) {
               throw Error("Cannot use yield in a finally");
             }
             builder = builder.pendingFinally(getPos(node), translate(node.finallyBody, scope, "topStatement"));
@@ -31510,7 +31625,16 @@
         };
         return function (node, scope, builder, breakState, continueState) {
           var key, ret;
-          if (hasGeneratorNode(node)) {
+          if (!(node instanceof ParserNode)) {
+            throw TypeError("Expected node to be a " + __name(ParserNode) + ", got " + __typeof(node));
+          }
+          if (!(scope instanceof Scope)) {
+            throw TypeError("Expected scope to be a " + __name(Scope) + ", got " + __typeof(scope));
+          }
+          if (!(builder instanceof GeneratorBuilder)) {
+            throw TypeError("Expected builder to be a " + __name(GeneratorBuilder) + ", got " + __typeof(builder));
+          }
+          if (builder.hasGeneratorNode(node)) {
             key = node.constructor.cappedName;
             if (__owns.call(statements, key)) {
               ret = statements[key](
@@ -33108,7 +33232,7 @@
         macros.addHelper(ident.name, helper, type, dependencies);
         return { helper: helper, dependencies: dependencies };
       };
-    }.call(this, typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : this));
+    }.call(this));
     
     return module.exports;
   };
