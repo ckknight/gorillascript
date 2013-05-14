@@ -17,6 +17,7 @@ cli.set-usage "gorilla [OPTIONS] path/to/script.gs"
 
 let parse-options =
   ast:          ["a", "Display JavaScript AST nodes instead of compilation"]
+  bare:         ["b", "Compile without safety top-level closure wrapper"]
   compile:      ["c", "Compile to JavaScript and save as .js files"]
   output:       ["o", "Set the file/directory for compiled JavaScript", "path"]
   interactive:  ["i", "Run interactively with the REPL"]
@@ -48,6 +49,8 @@ if options.uglify
   opts.uglify := true
 if options.minify
   opts.minify := true
+if options.bare
+  opts.bare := true
 
 asyncif next, options["no-prelude"]
   opts.no-prelude := true
