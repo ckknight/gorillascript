@@ -1,116 +1,275 @@
+/* Basic & Fonts {{{*/
+a { text-decoration: none; }
+body {
+	background-color: #eee;
+	margin: 0;
+	padding: 0;
+}
+h1, h2, h3, h4, h5, h6, p, body {
+	font-family: Helvetica, arial, freesans, clean, sans-serif;
+}
+#try textarea, #try-error {
+	font-family: Consolas, Monaco, "Courier New", monospace;
+}
+#try-error { font-size: 12px; }
+pre {
+	border: 1px solid #ccc;
+	font-size: 12px;
+}
+.tabs a { font-size: 13px; }
+.logo { font-size: 26px; }
+header p, #toc-label, .logo #github, #toc li { font-size: 14px }
+section { margin-bottom: -0.9em; }
+section h2 { padding-top: 1.1em; }
+/*}}}*/
+
+/* Header {{{*/
+header {
+	background: #2b2b2b;
+	color: #fff;
+	padding: 0.5em 11%;
+}
+header p { margin-top: -1em; }
+.logo { font-weight: bolder; }
+.logo #github { margin-left: 1em; }
+.logo #github a { color: #37abc8; }
+/*}}}*/
+
+/* TOC {{{*/
 #toc {
-  display: none;
-  position: absolute;
-  background: #bbb;
-  margin: 0;
-  padding: 0;
+	position: fixed;
+	background-color: #2b2b2b;
+	margin: 0;
+	padding: 0;
+	width: 19em;
+	top: 0;
+	right: -18.8em;
+	height: 100%;
+	overflow-y: hidden;
+	transition-property: right;
+	transition-duration: 0.4s;
+	transition-delay: 0.1s;
+}
+
+#toc:hover {
+	right: 0;
+	overflow-x: hidden;
+	overflow-y: scroll;
+}
+
+#toc-label {
+	color: #fff;
+	background: #37abc8;
+	position: fixed;
+	right: 0;
+	width: 5.5em;
+	top: 3.2em;
+	padding: 0.3em 0 0.3em 1em;
+	transition-property: opacity;
+	transition-duration: 0.6s;
+	transition-delay: 0.3s;
+	opacity: 0.97;
+}
+
+#toc-label:hover {
+	opacity: 0.32;
 }
 
 #toc ul {
-  margin: 0;
-  padding: 0.5em;
+	margin: 0;
+	padding: 0;
+	border-left: 3px solid #37abc8;
+	transition-property: right;
+	transition-duration: 0.4s;
+	transition-delay: 0.1s;
 }
 
-#toc li {
-  display: block;
-  font-size: 12px;
+#toc li { display: block; }
+
+#toc li a {
+	display: block;
+	color: #37abc8;
+	border-bottom: 1px solid #4a4a4a;
+	padding: 0.6em 1em;
+	transition-property: border-bottom,background-color;
+	transition-duration: 0.4s;
+	transition-delay: 0.1s;
+}
+#toc li a:hover {
+	border-bottom: 2px solid #9a9a9a;
+	background-color: #4a4a4a;
 }
 
+/*}}}*/
+
+/* Try It Out {{{*/
+#try-bar {
+	bottom: 0;
+	margin: 0;
+	position: fixed;
+	width: 100%;
+	height: 35px;
+}
+
+#run-link.hide { display: none; }
+#try-link, #run-link {
+	display: inline-block;
+	background: #37abc8;
+	color: #fff;
+	margin: 0 0.6em 0 0;
+	padding: 0.5em;
+	width: 4.3em;
+	transition-property: background-color,color;
+	transition-duration: 0.3s;
+}
+
+#try-link:hover, #run-link:hover {
+	color: #37abc8;
+	background: #fff;
+}
+
+/* Try textareas {{{*/
 #try {
-  display: none;
-  position: absolute;
-  background: #bbb;
-  margin: 0;
-  padding: 0;
-  width: 940px;
+	display: none;
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 19.2em;
+	padding: 0;
+	background: #2b2b2b;
+	background: rgba(43, 43, 43, 0.85);
+	width: auto;
+	height: auto;
 }
 
-#try textarea {
-  width: 440px;
-  height: 400px;
-  display: inline-block;
-  color: white;
-  background: #224;
-  padding: 10px;
+#try .code {
+	cursor: text;
+	position: absolute;
+	top: 15px;
+	bottom: 15px;
+	left: 15px;
+	right: 15px;
+}
+
+#try-input-wrap {
+	width: 47%;
+	margin-left: 5px;
+	right: 50%;
+	float: left;
+	border-right: 1px solid #fff;
+}
+
+#try-input-wrap.error {
+	border-right: 1px solid #f19;
+}
+
+#try-input-wrap, #try-output-wrap {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	bottom: 15px;
+	height: auto;
+	margin-bottom: 0;
+}
+
+#try-input, #try-output {
+	background: #000;
+	background: rgba(0,0,0,0);
+	outline: none;
+	margin: 5px 0 20px;
+}
+
+#try-input, #try-output {
+	padding-left: 5px;
+	width: 95%;
+	height: 100%;
+	border: 0;
+	resize: none;
+	overflow-y: auto;
+}
+#try-input { color: #37abc8; }
+
+#try-output-wrap {
+	left: 50%;
+	width: 49%;
 }
 
 #try-output {
-  float: right;
+	left: 50%;
+	color: #def;
 }
+/*}}}*/
+/*}}}*/
 
-#container {
-  width: 940px;
-  margin-left: auto;
-  margin-right: auto;
+/* Code Tabs {{{*/
+.gs-code, .gs-tab, pre[class="language-gorillascript"] {
+	background-color: #eff;
 }
-
-body {
-  background-color: #eee;
-  margin: 0;
-  padding: 0;
+.js-code, .js-tab, pre[class="language-javascript"] {
+	background-color: #ffe;
 }
-
-h1, h2, h3, h4, h5, h6, p, body {
-  font-family: Helvetica, arial, freesans, clean, sans-serif;
-}
-
-pre {
-  border: 1px solid #ccc;
-  margin: 0 24px;
-  padding: 12px;
-  font-size: 12px;
-}
-
-.gs-code, .gs-tab {
-  background-color: #eff;
-}
-
-.js-code, .js-tab {
-  background-color: #ffe;
-}
-
-pre, code, #try textarea {
-  font-family: Consolas, Monaco, "Courier New", monospace;
-}
-
 .tabs {
-  padding: 0;
-  margin: 1em 24px 0;
-}
-.tabs a {
-  display: inline-block;
-  padding: 0 1em;
-  color: #33c;
-  text-decoration: none;
-  font-size: 12px;
+	padding: 0;
+	margin: 1em 1.6em 0;
 }
 .tabs li {
-  display: inline-block;
-  border: solid #ccc;
-  border-width: 1px 1px 0 1px;
+	display: inline-block;
+	line-height: normal;
 }
 
-#top-nav {
-  background: #bbb;
-  width: 940px;
-  margin: 0 auto;
+.tabs li a {
+	color: #fff;
+	background: #37abc8;
+	border: none;
+	display: inline-block;
+	padding: 3px 1em;
+	transition-property: background-color,color;
+	transition-duration: 0.3s;
+}
+.tabs li a:hover {
+	color: #37abc8;
+	background: #fff;
+}
+.tabs .active a {
+	color: #37abc8;
+	background: none;
+	border: solid #37abc8;
+	border-width: 1px 1px 0 1px;
+}
+/*}}}*/
+
+/* Main {{{*/
+#container {
+	width: auto;
+	margin: 0 11%;
+	padding-bottom: 4%;
 }
 
-#top-nav ul {
-  margin: 0;
-  padding: 0;
+#container p {
+	line-height: 1.6em;
+	margin: 0 1.6em;
 }
 
-#top-nav li {
-  display: inline-block;
+section ul li {
+	line-height: 1.9em;
 }
 
-#top-nav li.right {
-  float: right;
+#container section ul li code {
+	padding: 0.1em 0.4em;
 }
-
-#top-nav a {
-  padding: 1em;
-  color: #33c;
-  text-decoration: none;
+#container section p code {
+	padding: 0 0.4em;
 }
+#container section ul li code, #container section p code {
+	font-size: 16px;
+	background: #ddd;
+	color: #707070;
+}
+#container section h2 code {
+	font-size: 1.5em;
+	margin: 0 0.2em;
+	color: #505050;
+	border-bottom: 1px solid;
+}
+/*}}}*/
