@@ -59,6 +59,10 @@ pre[class*="language-"] {
 	opacity: .7;
 }
 
+.token.ident {
+  color: #533;
+}
+
 .token.property,
 .token.tag,
 .token.boolean,

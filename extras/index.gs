@@ -66,3 +66,8 @@ jQuery #($)
           Prism.highlightElement($js-code.find("code")[0])
         $js-code.show()
       false
+  let f = #
+    if not Prism.languages.gorillascript
+      return set-timeout f, 17_ms
+    Prism.highlight-all()
+  f()
