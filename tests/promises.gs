@@ -63,6 +63,94 @@ test "to-promise!", #
   
   set-timeout (#-> eq 3, done), 1000_ms
 
+test "to-promise! method call", #
+  let get-args(...args, callback)
+    eq obj, this
+    callback(null, args)
+  
+  let error(err, callback)
+    eq obj, this
+    callback(err)
+  
+  let obj = {get-args, error}
+  
+  let p = to-promise! obj.get-args(\alpha, \bravo, \charlie)
+  let mutable done = 0
+  p.then(
+    #(value)
+      done += 1
+      array-eq [\alpha, \bravo, \charlie], value
+    fail)
+  
+  let err = {}
+  let q = to-promise! obj.error(err)
+  q.then(
+    fail
+    #(value)
+      done += 2
+      eq value, err)
+  
+  set-timeout (#-> eq 3, done), 1000_ms
+
+test "to-promise! apply method call", #
+  let get-args(...args, callback)
+    eq other, this
+    callback(null, args)
+  
+  let error(err, callback)
+    eq other, this
+    callback(err)
+  
+  let obj = {get-args}
+  let other = {}
+  
+  let p = to-promise! obj.get-args@(other, \alpha, \bravo, \charlie)
+  let mutable done = 0
+  p.then(
+    #(value)
+      done += 1
+      array-eq [\alpha, \bravo, \charlie], value
+    fail)
+  
+  let err = {}
+  let q = to-promise! error@(other, err)
+  q.then(
+    fail
+    #(value)
+      done += 2
+      eq value, err)
+  
+  set-timeout (#-> eq 3, done), 1000_ms
+
+test "to-promise! new method call", #
+  let get-args(...args, callback)
+    ok this instanceof get-args
+    callback(null, args)
+  
+  let error(err, callback)
+    ok this instanceof error
+    callback(err)
+  
+  let obj = {get-args}
+  
+  let p = to-promise! new obj.get-args(\alpha, \bravo, \charlie)
+  let mutable done = 0
+  p.then(
+    #(value)
+      done += 1
+      array-eq [\alpha, \bravo, \charlie], value
+    fail)
+  
+  let err = {}
+  let q = to-promise! new error(err)
+  q.then(
+    fail
+    #(value)
+      done += 2
+      eq value, err)
+  
+  set-timeout (#-> eq 3, done), 1000_ms
+
 /*
 let promises-aplus-tests = try
   require "promises-aplus-tests"

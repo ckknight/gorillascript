@@ -794,7 +794,9 @@ let generator-translate = do
           else if is-new
             scope.add-helper \__new
             ast.Call get-pos(node),
-              ast.Ident get-pos(node), \__new
+              ast.Access get-pos(node),
+                ast.Ident get-pos(node), \__new
+                ast.Const get-pos(node), \apply
               [func, args]
           else if args instanceof ast.Arr
             ast.Call get-pos(node),
@@ -1274,7 +1276,9 @@ let translators =
         else if is-new
           scope.add-helper \__new
           auto-return ast.Call get-pos(node),
-            ast.Ident(get-pos(node), \__new)
+            ast.Access get-pos(node),
+              ast.Ident get-pos(node), \__new
+              ast.Const get-pos(node), \apply
             [func, arg-array]
         else if func instanceof ast.Binary and func.op == "."
           async set-parent, parent <- scope.maybe-cache func.left, Type.function

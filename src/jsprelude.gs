@@ -2271,8 +2271,10 @@ define operator unary allkeys!
 
 define helper __new = do
   let new-creators = []
-  #(Ctor, args)
-    let length = args.length
+  #
+    if not is-function! this
+      throw Error "Expected this to be a Function, got $(typeof! this)"
+    let length = arguments.length
     let mutable creator = new-creators[length]
     if not creator
       let func = ["return new C("]
@@ -2283,7 +2285,7 @@ define helper __new = do
       func.push ");"
       creator := Function("C", "a", func.join(""))
       new-creators[length] := creator
-    creator(Ctor, args)
+    creator(this, arguments)
 
 define helper __instanceofsome = #(value, array) as Boolean
   for some item in array by -1
@@ -3684,7 +3686,7 @@ define operator unary to-promise! with type: \promise
   let mutable args = @call-args(node)
   if @call-is-new(node)
     args := @array args
-    ASTE __to-promise __new, void, [$func, $args]
+    ASTE __to-promise __new, $func, $args
   else if @call-is-apply(node)
     if args.length == 0 or not @is-spread(args[0])
       let head = args[0]
@@ -3696,7 +3698,7 @@ define operator unary to-promise! with type: \promise
   else
     args := @array args
     if @is-access func
-      @maybe-cache parent, #(set-parent, parent)
+      @maybe-cache @parent(func), #(set-parent, parent)@
         let child = @child(func)
         ASTE __to-promise $set-parent[$child], $parent, $args
     else
