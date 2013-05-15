@@ -56284,28 +56284,34 @@ if (Prism.languages.markup) {
       return setTimeout(func, 0);
     };
   jQuery(function ($) {
-    var handleTry, hasTouch, inToc, inTocLabel;
+    var handleTry, hasTouch, inToc, inTocLabel, lastCompile;
     handleTry = (function () {
-      var compiling, interval, lastCompile;
+      var compiling, interval;
       compiling = false;
       function handle() {
-        var text;
+        var _once, text;
         if (compiling) {
           handleTry();
           return;
         }
         text = $("#try-input").val();
         compiling = true;
-        return GorillaScript.compile(text, function (err, result) {
+        return GorillaScript.compile(text, (_once = false, function (err, result) {
+          if (_once) {
+            throw Error("Attempted to call function more than once");
+          } else {
+            _once = true;
+          }
           compiling = false;
           if (err) {
             $("#try-input-wrap").addClass("error");
-            return $("#try-output").val("// Error: " + String(err) + "\n\n" + __strnum(lastCompile || ""));
+            lastCompile = "// Error: " + String(err);
           } else {
             $("#try-input-wrap").removeClass("error");
-            return $("#try-output").val(result.code);
+            lastCompile = result.code;
           }
-        });
+          return $("#try-output").val(lastCompile);
+        }));
       }
       return function () {
         if (interval != null) {
@@ -56314,6 +56320,16 @@ if (Prism.languages.markup) {
         return interval = setTimeout(handle, 250);
       };
     }());
+    function handleRun() {
+      if (lastCompile) {
+        try {
+          return Function(lastCompile)();
+        } catch (e) {
+          alert(String(e));
+          return;
+        }
+      }
+    }
     setInterval(
       (function () {
         var lastText;
@@ -56350,11 +56366,7 @@ if (Prism.languages.markup) {
       return false;
     }));
     $("a[href=#run]").click(safe(function () {
-      try {
-        eval(GorillaScript.compile($("#try-input").val(), { "eval": true }).code);
-      } catch (error) {
-        alert(error);
-      }
+      handleRun();
       return false;
     }));
     $("#irc-button").click(safe(function () {

@@ -1,26 +1,34 @@
 jQuery #($)
+  let mutable last-compile = void
   let handle-try = do
     let mutable compiling = false
-    let mutable last-compile = void
     let handle()
       if compiling
         handle-try()
         return
       let text = $("#try-input").val()
       compiling := true
-      GorillaScript.compile text, #(err, result)
-        compiling := false
-        if err
-          $("#try-input-wrap").add-class("error")
-          $("#try-output").val("// Error: $(String err)\n\n$(last-compile or '')")
-        else
-          $("#try-input-wrap").remove-class("error")
-          $("#try-output").val(result.code)
+      async err, result <- GorillaScript.compile text
+      compiling := false
+      if err
+        $("#try-input-wrap").add-class("error")
+        last-compile := "// Error: $(String err)"
+      else
+        $("#try-input-wrap").remove-class("error")
+        last-compile := result.code
+      $("#try-output").val(last-compile)
     let mutable interval = void
     #
       if interval?
         clear-timeout interval
       interval := set-timeout handle, 250
+  let handle-run()
+    if last-compile
+      try
+        Function(last-compile)()
+      catch e
+        alert String e
+        return
   set-interval (do
     let mutable last-text = ""
     #
@@ -41,10 +49,7 @@ jQuery #($)
     $("#run-link").toggle-class "hide"
     false
   $("a[href=#run]").click safe #
-    try
-      eval GorillaScript.compile($("#try-input").val(), eval: true).code
-    catch error
-      alert error
+    handle-run()
     false
   $("#irc-button").click safe #
     let url = $(this).data("url")
