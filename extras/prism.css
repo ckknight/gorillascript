@@ -76,6 +76,10 @@ pre[class*="language-"] {
 	color: #690;
 }
 
+.token.interpolation {
+  color: #360;
+}
+
 .token.operator,
 .token.entity,
 .token.url,
