@@ -3,7 +3,8 @@ Prism.languages.gorillascript := Prism.languages.extend \javascript, {
     \b(
       yield\*?|
       (throw|return)\??|
-      ((all)?keys|label|map|require|async)!
+      ((all)?keys|label|map|require|async)!|
+      (to-)?promise!
       )
     |
     \b(
