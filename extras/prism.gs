@@ -44,13 +44,20 @@ Prism.languages.gorillascript := Prism.languages.extend \javascript, {
     NaN|
     Infinity
   )\b"""g
-  string: r"""
-    r"(\\?.)*?"[gimy]*|
-    r'(\\?.)*?'[gimy]*|
-    "(\\?.)*?"|
-    '(\\?.)*?'|
-    \\\w[\w\d_]*(-\w[\w\d_]*)*\b
-  """g
+  string:
+    pattern: r"""
+      r"(\\?.)*?"[gimy]*|
+      r'(\\?.)*?'[gimy]*|
+      "(\\?.)*?"|
+      '(\\?.)*?'|
+      \\\w[\w\d_]*(-\w[\w\d_]*)*\b
+    """g
+    inside:
+      interpolation: r''' \$(
+        \w[\d\w]*(\-\w[\d\w]*)* |
+        \(.*?\)
+      )
+      '''g
   punctuation : r"[{}[\];(),.:]"g
   ident: r"""\b\w[\d\w]*(\-\w[\d\w]*)*(?!['"])\b"""g
 }

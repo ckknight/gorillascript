@@ -61,6 +61,9 @@
       <li><a href="#curry">Curried functions</a>
       <li><a href="#generic">Generics</a>
       <li><a href="#gnome">GNOME bindings</a>
+      <li><a href="#gork">Gork and Gorkfiles</a>
+      <li><a href="#browser">Browser support</a>
+      <li><a href="#irc">Chat with others (IRC)</a>
     </ul>
   </nav>
   <div id="try">
@@ -353,7 +356,7 @@ console.log f()
   <section id="string-interpolation">
     <h2>String interpolation</h2>
 
-    <p>Inside double-quoted strings <code>("like this")</code>, not single-quoted strings <code>('like this')</code>, one can specify string interpolations using the <code>$</code> symbol, followed by an identifier or a parenthetical expression.</p>
+    <p>Inside double-quoted strings (<code>"like this"</code>), not single-quoted strings (<code>'like this'</code>), one can specify string interpolations using the <code>$</code> symbol, followed by an identifier or a parenthetical expression.</p>
 
     <pre class="gs-code"><code class="language-gorillascript">let hello(name)
   "Hello, $name"
@@ -468,7 +471,7 @@ assert object.some-key == object[\some-key]
 assert "someKey" == \some-key
 </code></pre>
 
-    <p>GorillaScript includes all the escape sequences you may be familiar with in JavaScript, such as <code>\0</code>, <code>\t</code>, <code>\v</code>, and many more. You needn&#8217;t worry about some non-standard escape codes such as <code>\v</code>, as GorillaScript compiles to the lowest common denominator.</p>
+    <p>GorillaScript includes all the escape sequences you may be familiar with in JavaScript, such as <code>"\0"</code>, <code>"\t"</code>, <code>"\v"</code>, and many more. You needn&#8217;t worry about some non-standard escape codes such as <code>"\v"</code>, as GorillaScript compiles to the lowest common denominator.</p>
     
     <p>It also includes the <code>\u</code> unicode escape sequence which takes 4 hex characters trailing it and <code>\x</code> which takes 2 hex characters trailing it.</p>
     
@@ -478,6 +481,7 @@ assert "someKey" == \some-key
 let hex = "\xe9"
 let unicode = "\u1d25"
 let large-unicode = "\u{20bb7}"
+assert large-unicode.length == 2 // takes up 2 UTF-16 characters, one Unicode code point
 </code></pre>
   </section>
   
@@ -1388,7 +1392,7 @@ assert to-hex(255) == "ff"
     
     <p>If <code>Object.defineProperty</code> is not available, then it will try to sanely fallback, but it might not be successful. If specifying <code>value</code> instead of <code>get</code>/<code>set</code>, it will always work, but the <code>configurable</code>/<code>enumerable</code>/<code>writable</code> attributes are not guaranteed.</p>
 
-    <p><strong>Note: this might throw an <code>Exception</code> if <code>Object.defineProperty</code> is not defined</strong></p>
+    <p><strong>Note: this might throw an <code>Exception</code> at runtime if specifying <code>get</code>/<code>set</code> and the engine does not support getters/setters. If always using <code>value</code>, this will not fail, even if <code>Object.defineProperty</code> is not defined.</strong></p>
   </section>
 
   <section id="labels">
@@ -1509,12 +1513,12 @@ assert func(null) == null
     
     <p>GNOME now has JavaScript bindings with <a href="https://live.gnome.org/Gjs">Gjs</a> and GorillaScript supports this to the best of its ability.</p>
     
-    <p>As long as you have <code>gjs</code> installed locally, there are three ways to run Gjs with GorillaScript:</p>
+    <p>As long as you have <tt>gjs</tt> installed locally, there are three ways to run Gjs with GorillaScript:</p>
     
     <ul>
-      <li><p>REPL: If you run <code>gorilla --gjs</code> or <code>gjs-gorilla</code>, a REPL opens that pipes its JavaScript code to <code>gjs</code></p></li>
-      <li><p>Running a <code>.gs</code> file: If you run <code>gorilla --gjs myfile.gs</code> or <code>gjs-gorilla myfile.gs</code>, it will compile the code of <code>myfile.gs</code> and pipe its results to <code>gjs</code> all at once.</p></li>
-      <li><p>Compile and run with <code>gjs</code>. You can compile any <code>.gs</code> file as per usual with <code>gorilla -c</code> and run the result <code>.js</code> file with <code>gjs</code>. You'll want to do this before distributing any code anyway.</p></li>
+      <li><p>REPL: If you run <tt>gorilla --gjs</tt> or <tt>gjs-gorilla</tt>, a REPL opens that pipes its JavaScript code to <tt>gjs</tt></p></li>
+      <li><p>Running a <tt>.gs</tt> file: If you run <tt>gorilla --gjs myfile.gs</tt> or <tt>gjs-gorilla myfile.gs</tt>, it will compile the code of <tt>myfile.gs</tt> and pipe its results to <tt>gjs</tt> all at once.</p></li>
+      <li><p>Compile and run with <tt>gjs</tt>. You can compile any <tt>.gs</tt> file as per usual with <tt>gorilla -c</tt> and run the result <tt>.js</tt> file with <tt>gjs</tt>. You'll want to do this before distributing any code anyway.</p></li>
     </ul>
     
     <p>Aside from being written in GorillaScript rather than JavaScript, it will then function as any other Gjs script</p>
@@ -1546,7 +1550,64 @@ Gtk.main()
 
   </section>
   
+  <section id="gork">
+    <h2>Gork and Gorkfiles</h2>
+    
+    <p>GorillaScript includes a simple build system called gork similar to <a href="http://www.gnu.org/software/make/">Make</a>. Commands and options are defined in GorillaScript syntax and are invoked through <tt>gork [--option] [command]</tt>. To receive a list of all commands, simply run <tt>gork</tt>.</p>
+    
+    <pre class="gs-code no-convert"><code class="language-gorillascript">require! fs
+
+option "file", "f", "Build a specific file", "file"
+command "build", "Rebuild file", #(options, cb)
+  if not options.file
+    return cb Error "A file is required"
+  async! cb, filename-path &lt;- fs.realpath options.file
+  require! './builder'
+  async! cb, result &lt;- builder.build(filename-path)
+  output = options.output or "lib"
+  fs.write-file "$output/$(options.file.replace r'\.gs$', '.js')", result, cb
+
+command "compress", "Compress file", #(options, cb) ->
+  // this space intentionally left blank
+
+command "build:full", "Rebuild all files", #(options, cb)
+  async! cb &lt;- invoke "build"
+  async! cb &lt;- invoke "compress"
+  cb()
+</code></pre>
+
+    <p>As you can see, asynchrony is assumed. This is a powerful way to define simple command-line commands to run.</p>
+  </section>
+  
+  <section id="browser">
+    <h2>Browser support</h2>
+    
+    <p>Although not recommended for production code, there is a browser-specific version of the GorillaScript compiler as <tt>extras/gorillascript.js</tt>. Once this is included on your page, it will run any <code>&lt;script type="text/gorillascript"&gt;</code> tags, with or without <code>src="filename.gs"</code>. It compiles and runs each tag in-order.</p>
+    
+    <p>Caveat: this will not run synchronously like normal <code>&lt;script&gt;</code> tags, so it is recommended to wait for an <code>onload</code> event or something similar.</p>
+    
+    <p>Once <tt>extras/gorillascript.js</tt> is included, the global <code>GorillaScript</code> object will be available, allowing you to use <code>GorillaScript.compile("code", { options: "here" })</code> and several other commands.</p>
+    
+    <p>In fact, this is exactly how this page is designed. Most of the JavaScript (including in the code examples) is compiled on-the-fly, and the <a href="#try">Try it out</a> environment is handled in this very way.</p>
+    
+    <p>If <code>define</code> and <code>define.amd</code> are properly defined, they will be used instead of setting <code>window.Gorilla</code>, as a proper <a href="http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition">module definition</a></p>
+    
+    <p>Note: any compiled GorillaScript file should work in all browsers, including older browsers. Certain features like <a href="#properties">getters and setters</a> may not work in engines that do not support them, but this will cause a runtime exception on defining such properties rather than a compile-time error.</p>
+  </section>
+  
+  <section id="irc">
+    <h2>Chat with others (IRC)</h2>
+    
+    <p><a href="http://en.wikipedia.org/wiki/Internet_Relay_Chat"><abbr title="Internet Relay Chat">IRC</abbr></a> is a way to chat with other GorillaScript developers, likely including the author (depending on) and other contributors. Feel free to join us at <tt>#gorillascript</tt> on <tt>irc.freenode.net</tt>.</p>
+    
+    <p><button id="irc-button">Click to open <tt>#gorillascript</tt></button></p>
+  </section>
+  
 	</div>
+	<footer>
+		<p>GorillaScript is licensed under <a href="http://opensource.org/licenses/MIT">The MIT License</a></p>
+	</footer>
+  
   
   <script src="extras/gorillascript.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
