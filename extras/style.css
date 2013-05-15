@@ -258,25 +258,40 @@ footer {
 	margin: 0.5em 1.6em;
 }
 
-section ul li {
+section li {
 	line-height: 1.9em;
 }
 
-#container section ul li code {
+#container section li code {
 	padding: 0.1em 0.4em;
 }
 #container section p code {
 	padding: 0 0.4em;
 }
-#container section ul li code, #container section p code {
+#container section li code, #container section p code {
 	font-size: 16px;
 	background: #ddd;
 	color: #707070;
+}
+#container section li tt, #container section p tt {
+  font-size: 16px;
+  border: 1px solid #ddd;
+}
+#container section button tt {
+  font-size: 110%;
+  border: none;
 }
 #container section h2 code {
 	font-size: 1.5em;
 	margin: 0 0.2em;
 	color: #505050;
 	border-bottom: 1px solid;
+}
+/*}}}*/
+
+/*embedded IRC iframe{{{*/
+#irc-iframe {
+  width: 100%;
+  height: 400px;
 }
 /*}}}*/

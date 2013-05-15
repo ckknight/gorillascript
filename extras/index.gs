@@ -46,6 +46,9 @@ jQuery #($)
     catch error
       alert error
     false
+  $("#irc-button").click safe #
+    $(this).replace-with $('<iframe id="irc-iframe" src="http://webchat.freenode.net/?channels=gorillascript"></iframe>')
+    false
   $('.gs-code').each #
     let $this = $(this)
     if $this.has-class "no-convert"
