@@ -28,13 +28,19 @@ jQuery #($)
       if text != last-text
         last-text := text
         handle-try()), 17
-  $("a[href=#try]").click #
+  let safe(func) -> #
+    try
+      return func@ this, ...arguments
+    catch e
+      set-immediate #-> throw e
+    false
+  $("a[href=#try]").click safe #
     handle-try()
     let $try = $("#try")
     $try.slide-toggle()
     $("#run-link").toggle-class "hide"
     false
-  $("a[href=#run]").click #
+  $("a[href=#run]").click safe #
     try
       eval GorillaScript.compile($("#try-input").val(), eval: true).code
     catch error
@@ -48,7 +54,7 @@ jQuery #($)
     $this.replace-with $div
     $div.append $("<ul class='tabs'><li class='gs-tab active'><a href='#'>GorillaScript</a><li class='js-tab'><a href='#'>JavaScript</a></ul>")
     $div.append $this
-    $div.find(".tabs a").on "click", #
+    $div.find(".tabs a").on "click", safe #
       $div.find(".tabs li").remove-class "active"
       $(this).parent().add-class "active"
       if $(this).parent().has-class "gs-tab"
