@@ -21,6 +21,9 @@ pre {
 header p, #toc-label, .logo #github, #toc li { font-size: 14px }
 section { margin-bottom: -0.9em; }
 section h2 { padding-top: 1.1em; }
+header a, footer a {
+  color: #37abc8
+}
 /*}}}*/
 
 /* Header {{{*/
@@ -32,7 +35,6 @@ header {
 header p { margin-top: -1em; }
 .logo { font-weight: bolder; }
 .logo #github { margin-left: 1em; }
-.logo #github a { color: #37abc8; }
 /*}}}*/
 
 /* Footer {{{*/
