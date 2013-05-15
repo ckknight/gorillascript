@@ -8,7 +8,9 @@ Prism.languages.gorillascript := Prism.languages.extend \javascript, {
       )
     |
     \b(
-        as|break|continue|return|for|while|until|if|else|unless|switch|then|
+        as|break|continue|return|
+        (for|while|until)(\s+(first|every|some|filter|reduce))?|
+        if|else|unless|switch|then|
         case|default|catch|finally|try|
         return(if|ing|unless)?|
         new|class|extends|private|public|protected|def|super|require|
@@ -22,7 +24,7 @@ Prism.languages.gorillascript := Prism.languages.extend \javascript, {
   operator: r"""
     \b(
       (has|owns)key|
-      bit(and|or|not|lshift|u?rshift)|
+      bit(and|or|xor|not|lshift|u?rshift)|
       and|or|xor|min|max|instanceof(some)?|typeof\!?|is(nt)?(?!\-)|in|to|til|by|
       not|xor|delete
     )(?!\-)\b|
@@ -31,9 +33,9 @@ Prism.languages.gorillascript := Prism.languages.extend \javascript, {
       is-(array|boolean|function|null|number|object|string|undefined|void)!|
       post-(dec|inc)!
     )|
-    !~?=|(&lt;|&gt;)=?|={1,2}|:=|::|&amp;|~=|\-(>|(?![\w]))|
+    !~?=|={1,2}|:=|::|&amp;|~=|\-(>|(?![\w]))|
     ~?[\+\*\/%\^\\]=?|~?%%|\?=?|(&lt;){2,3}|(&gt;){2,3}|
-    &lt;=&gt;|\|&gt;|&lt;\||@|\.{3}|\-&gt;
+    &lt;=&gt;|\|&gt;|&lt;\||@|\.{3}|\-&gt;|(&lt;|&gt;)=?
     """g
   number: r"""\b-?(
     0x[\da-f_]+(\.[\da-f_]+)?|
@@ -68,4 +70,31 @@ Prism.languages.insert-before \gorillascript, \operator, {
     |
     \w[\d\w]*(\-\w[\d\w]*)*\s*:
   """g
+}
+Prism.languages.insert-before \gorillascript, \ident, {
+  primordial: r"""\b(
+    Object|
+    String|
+    Number|
+    Boolean|
+    Function|
+    Array|
+    Math|
+    JSON|
+    Date|
+    RegExp|
+    Error|
+    RangeError|
+    ReferenceError|
+    SyntaxError|
+    TypeError|
+    URIError|
+    escape|
+    unescape|
+    parse(Int|\-int|Float|\-float)|
+    is\-?NaN|
+    is(F|\-f)inite|
+    decode\-?URI((C|\-c)omponent)?|
+    encode\-?URI((C|\-c)omponent)?
+  )\b"""g
 }

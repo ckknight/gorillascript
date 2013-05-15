@@ -228,6 +228,10 @@ footer p { margin: auto; }
 .js-code, .js-tab, pre[class="language-javascript"] {
 	background-color: #ffe;
 }
+.gs-code, .js-code {
+  margin: 0 1.6em 1.6em;
+  padding: 1em;
+}
 .tabs {
 	padding: 0;
 	margin: 1em 1.6em 0;

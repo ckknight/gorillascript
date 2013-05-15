@@ -56218,19 +56218,88 @@ if (Prism.languages.markup) {
 (function () {
   "use strict";
   Prism.languages.gorillascript = Prism.languages.extend("javascript", {
-    keyword: /\b(yield\*?|(throw|return)\??|((all)?keys|label|map|require|async)!|(to-)?promise!)|\b(as|break|continue|return|for|while|until|if|else|unless|switch|then|case|default|catch|finally|try|return(if|ing|unless)?|new|class|extends|private|public|protected|def|super|require|async(if|for|unless|until|while)?|import|export|returnif|returning|returnunless|mutable|macro|const|static|var|do|of|let|enum|namespace|package|true|false|null|undefined|void|GLOBAL|this|prototype|arguments|from)(?!-)\b/g,
-    operator: /\b((has|owns)key|bit(and|or|not|lshift|u?rshift)|and|or|xor|min|max|instanceof(some)?|typeof\!?|is(nt)?(?!\-)|in|to|til|by|not|xor|delete)(?!\-)\b|\b((and|or|min|max)=|is-(array|boolean|function|null|number|object|string|undefined|void)!|post-(dec|inc)!)|!~?=|(&lt;|&gt;)=?|={1,2}|:=|::|&amp;|~=|\-(>|(?![\w]))|~?[\+\*\/%\^\\]=?|~?%%|\?=?|(&lt;){2,3}|(&gt;){2,3}|&lt;=&gt;|\|&gt;|&lt;\||@|\.{3}|\-&gt;/g,
+    keyword: /\b(yield\*?|(throw|return)\??|((all)?keys|label|map|require|async)!|(to-)?promise!)|\b(as|break|continue|return|(for|while|until)(\s+(first|every|some|filter|reduce))?|if|else|unless|switch|then|case|default|catch|finally|try|return(if|ing|unless)?|new|class|extends|private|public|protected|def|super|require|async(if|for|unless|until|while)?|import|export|returnif|returning|returnunless|mutable|macro|const|static|var|do|of|let|enum|namespace|package|true|false|null|undefined|void|GLOBAL|this|prototype|arguments|from)(?!-)\b/g,
+    operator: /\b((has|owns)key|bit(and|or|xor|not|lshift|u?rshift)|and|or|xor|min|max|instanceof(some)?|typeof\!?|is(nt)?(?!\-)|in|to|til|by|not|xor|delete)(?!\-)\b|\b((and|or|min|max)=|is-(array|boolean|function|null|number|object|string|undefined|void)!|post-(dec|inc)!)|!~?=|={1,2}|:=|::|&amp;|~=|\-(>|(?![\w]))|~?[\+\*\/%\^\\]=?|~?%%|\?=?|(&lt;){2,3}|(&gt;){2,3}|&lt;=&gt;|\|&gt;|&lt;\||@|\.{3}|\-&gt;|(&lt;|&gt;)=?/g,
     number: /\b-?(0x[\da-f_]+(\.[\da-f_]+)?|0b[01_]+(\.[\da-f_]+)?|0o[0-7_]+(\.[\da-f_]+)?|\d{1,2}r[\w\d_]+(\.[\w\d_]+)?|\d[_\d]*(\.[\d_]*)?(_[\w\d_]*)?|NaN|Infinity)\b/g,
     string: { pattern: /r"(\\?.)*?"[gimy]*|r'(\\?.)*?'[gimy]*|"(\\?.)*?"|'(\\?.)*?'|\\\w[\w\d_]*(-\w[\w\d_]*)*\b/g, inside: { interpolation: /\$(\w[\d\w]*(\-\w[\d\w]*)*|\(.*?\))/g } },
     punctuation: /[{}[\];(),.:]/g,
     ident: /\b\w[\d\w]*(\-\w[\d\w]*)*(?!['"])\b/g
   });
   Prism.languages.insertBefore("gorillascript", "operator", { property: /[\.@]\w[\d\w]*(\-\w[\d\w]*)*\b|\w[\d\w]*(\-\w[\d\w]*)*\s*:/g });
+  Prism.languages.insertBefore("gorillascript", "ident", { primordial: /\b(Object|String|Number|Boolean|Function|Array|Math|JSON|Date|RegExp|Error|RangeError|ReferenceError|SyntaxError|TypeError|URIError|escape|unescape|parse(Int|\-int|Float|\-float)|is\-?NaN|is(F|\-f)inite|decode\-?URI((C|\-c)omponent)?|encode\-?URI((C|\-c)omponent)?)\b/g });
 }.call(this));
 ;
 (function (GLOBAL) {
   "use strict";
-  var __isArray, __slice, __strnum, __toArray, __typeof, setImmediate;
+  var __async, __isArray, __num, __once, __slice, __strnum, __toArray, __typeof, setImmediate;
+  __async = function (limit, length, hasResult, onValue, onComplete) {
+    var broken, completed, index, result, slotsUsed, sync;
+    if (typeof limit !== "number") {
+      throw TypeError("Expected limit to be a Number, got " + __typeof(limit));
+    }
+    if (typeof length !== "number") {
+      throw TypeError("Expected length to be a Number, got " + __typeof(length));
+    }
+    if (hasResult == null) {
+      hasResult = false;
+    } else if (typeof hasResult !== "boolean") {
+      throw TypeError("Expected hasResult to be a Boolean, got " + __typeof(hasResult));
+    }
+    if (typeof onValue !== "function") {
+      throw TypeError("Expected onValue to be a Function, got " + __typeof(onValue));
+    }
+    if (typeof onComplete !== "function") {
+      throw TypeError("Expected onComplete to be a Function, got " + __typeof(onComplete));
+    }
+    if (hasResult) {
+      result = [];
+    } else {
+      result = null;
+    }
+    if (length <= 0) {
+      return onComplete(null, result);
+    }
+    if (limit < 1 || limit !== limit) {
+      limit = 1/0;
+    }
+    broken = null;
+    slotsUsed = 0;
+    sync = false;
+    completed = false;
+    function onValueCallback(err, value) {
+      if (completed) {
+        return;
+      }
+      --slotsUsed;
+      if (err != null && broken == null) {
+        broken = err;
+      }
+      if (hasResult && broken == null && arguments.length > 1) {
+        result.push(value);
+      }
+      if (!sync) {
+        next();
+      }
+    }
+    index = -1;
+    function next() {
+      while (!completed && broken == null && slotsUsed < limit && ++index < length) {
+        ++slotsUsed;
+        sync = true;
+        onValue(index, __once(onValueCallback));
+        sync = false;
+      }
+      if (!completed && (broken != null || slotsUsed === 0)) {
+        completed = true;
+        if (broken != null) {
+          onComplete(broken);
+        } else {
+          onComplete(null, result);
+        }
+      }
+    }
+    next();
+  };
   __isArray = typeof Array.isArray === "function" ? Array.isArray
     : (function () {
       var _toString;
@@ -56239,6 +56308,35 @@ if (Prism.languages.markup) {
         return _toString.call(x) === "[object Array]";
       };
     }());
+  __num = function (num) {
+    if (typeof num !== "number") {
+      throw TypeError("Expected a number, got " + __typeof(num));
+    } else {
+      return num;
+    }
+  };
+  __once = (function () {
+    function replacement() {
+      throw Error("Attempted to call function more than once");
+    }
+    function doNothing() {}
+    return function (func, silentFail) {
+      if (typeof func !== "function") {
+        throw TypeError("Expected func to be a Function, got " + __typeof(func));
+      }
+      if (silentFail == null) {
+        silentFail = false;
+      } else if (typeof silentFail !== "boolean") {
+        throw TypeError("Expected silentFail to be a Boolean, got " + __typeof(silentFail));
+      }
+      return function () {
+        var f;
+        f = func;
+        func = silentFail ? doNothing : replacement;
+        return f.apply(this, arguments);
+      };
+    };
+  }());
   __slice = Array.prototype.slice;
   __strnum = function (strnum) {
     var type;
@@ -56284,7 +56382,7 @@ if (Prism.languages.markup) {
       return setTimeout(func, 0);
     };
   jQuery(function ($) {
-    var handleTry, hasTouch, inToc, inTocLabel, lastCompile;
+    var handleTry, hasTouch, inToc, inTocLabel, lastCompile, sideBySide;
     handleTry = (function () {
       var compiling, interval;
       compiling = false;
@@ -56430,6 +56528,49 @@ if (Prism.languages.markup) {
       });
       return false;
     }));
+    sideBySide = (function () {
+      var pending, working;
+      pending = [];
+      working = false;
+      function flush() {
+        var $jsCode, _once, _ref, gsCode;
+        if (pending.length === 0 || working) {
+          return;
+        }
+        working = true;
+        gsCode = (_ref = pending.shift()).gsCode;
+        $jsCode = _ref.$jsCode;
+        return GorillaScript.compile(
+          gsCode,
+          { "return": true, bare: true },
+          (_once = false, function (err, result) {
+            var $code, _once2;
+            if (_once) {
+              throw Error("Attempted to call function more than once");
+            } else {
+              _once = true;
+            }
+            $code = $jsCode.find("code");
+            $code.text(err != null ? "// Error: " + String(err) : result.code);
+            return setImmediate((_once2 = false, function () {
+              if (_once2) {
+                throw Error("Attempted to call function more than once");
+              } else {
+                _once2 = true;
+              }
+              Prism.highlightElement($code[0]);
+              working = false;
+              return flush();
+            }));
+          })
+        );
+      }
+      return function (gsCode, $jsCode) {
+        $jsCode.find("code").text("// Compiling...");
+        pending.push({ gsCode: gsCode, $jsCode: $jsCode });
+        return flush();
+      };
+    }());
     $(".gs-code").each(function () {
       var $div, $this;
       $this = $(this);
@@ -56441,7 +56582,7 @@ if (Prism.languages.markup) {
       $div.append($("<ul class='tabs'><li class='gs-tab active'><a href='#'>GorillaScript</a><li class='js-tab'><a href='#'>JavaScript</a></ul>"));
       $div.append($this);
       return $div.find(".tabs a").on("click", safe(function () {
-        var $jsCode, gsCode, jsCode;
+        var $jsCode;
         $div.find(".tabs li").removeClass("active");
         $(this).parent().addClass("active");
         if ($(this).parent().hasClass("gs-tab")) {
@@ -56453,10 +56594,7 @@ if (Prism.languages.markup) {
           if ($jsCode.length === 0) {
             $jsCode = $("<pre class='js-code'><code class='language-javascript'></code></pre>");
             $div.append($jsCode);
-            gsCode = $this.find("code").text();
-            jsCode = GorillaScript.compile(gsCode, { "return": true, bare: true }).code;
-            $jsCode.find("code").text(jsCode);
-            Prism.highlightElement($jsCode.find("code")[0]);
+            sideBySide($this.find("code").text(), $jsCode);
           }
           $jsCode.show();
         }
@@ -56464,10 +56602,23 @@ if (Prism.languages.markup) {
       }));
     });
     function f() {
+      var $elements;
       if (!Prism.languages.gorillascript) {
         return setTimeout(f, 17);
       }
-      return Prism.highlightAll();
+      $elements = $('code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code');
+      return __async(
+        1,
+        __num($elements.length),
+        false,
+        function (_i, next) {
+          var element;
+          element = $elements[_i];
+          Prism.highlightElement(element);
+          return setImmediate(next);
+        },
+        function (_err) {}
+      );
     }
     return f();
   });

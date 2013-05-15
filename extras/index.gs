@@ -94,6 +94,32 @@ jQuery #($)
       $("#toc").toggle-class "hover"
       set-timeout handle-toc-unhover, 17_ms
     false
+  let side-by-side = do
+    let pending = []
+    let mutable working = false
+    let flush()
+      if pending.length == 0 or working
+        return
+      
+      working := true
+      
+      let {gs-code, $js-code} = pending.shift()
+      
+      async err, result <- GorillaScript.compile gs-code, return: true, bare: true
+      let $code = $js-code.find("code")
+      $code.text if err?
+        "// Error: $(String err)"
+      else
+        result.code
+      
+      async <- set-immediate()
+      Prism.highlightElement($code[0])
+      working := false
+      flush()
+    #(gs-code, $js-code)
+      $js-code.find("code").text "// Compiling..."
+      pending.push { gs-code, $js-code }
+      flush()
   $('.gs-code').each #
     let $this = $(this)
     if $this.has-class "no-convert"
@@ -114,14 +140,14 @@ jQuery #($)
         if $js-code.length == 0
           $js-code := $("<pre class='js-code'><code class='language-javascript'></code></pre>")
           $div.append $js-code
-          let gs-code = $this.find("code").text()
-          let js-code = GorillaScript.compile(gs-code, return: true, bare: true).code
-          $js-code.find("code").text(js-code)
-          Prism.highlightElement($js-code.find("code")[0])
+          side-by-side $this.find("code").text(), $js-code
         $js-code.show()
       false
   let f = #
     if not Prism.languages.gorillascript
       return set-timeout f, 17_ms
-    Prism.highlight-all()
+    let $elements = $('code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code')
+    asyncfor next, element in $elements
+      Prism.highlight-element element
+      set-immediate next
   f()

@@ -59,6 +59,10 @@ pre[class*="language-"] {
 	opacity: .7;
 }
 
+.token.primordial {
+  color: #068;
+}
+
 .token.ident {
   color: #533;
 }
@@ -86,7 +90,7 @@ pre[class*="language-"] {
 .language-css .token.string,
 .style .token.string {
 	color: #a67f59;
-	background: hsla(0,0%,100%,.5);
+	/*background: hsla(0,0%,100%,.5);*/
 }
 
 .token.atrule,
@@ -108,3 +112,4 @@ pre[class*="language-"] {
 .token.entity {
 	cursor: help;
 }
+
