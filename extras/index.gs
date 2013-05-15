@@ -47,7 +47,47 @@ jQuery #($)
       alert error
     false
   $("#irc-button").click safe #
-    $(this).replace-with $('<iframe id="irc-iframe" src="http://webchat.freenode.net/?channels=gorillascript"></iframe>')
+    let url = $(this).data("url")
+    $(this).replace-with $("<iframe id='irc-iframe' src='$url'></iframe>")
+    false
+  let mutable has-touch = window haskey 'ontouchstart'
+  let mutable in-toc-label = false
+  let mutable in-toc = false
+  let handle-toc-unhover()
+    if not in-toc and not in-toc-label and not has-touch
+      $("#toc").remove-class "hover"
+  $("#toc").remove-class "hover"
+  if not has-touch
+    $("#toc-label").add-class("no-touch").bind 'touchstart', safe #
+      has-touch := true
+      $(this).remove-class "no-touch"
+      true
+    $("#toc-label").hover(
+      safe #
+        if has-touch
+          return
+        in-toc-label := true
+        $("#toc").add-class "hover"
+      safe #
+        if has-touch
+          return
+        in-toc-label := false
+        set-timeout handle-toc-unhover, 17_ms)
+    $("#toc").hover(
+      safe #
+        if has-touch
+          return
+        in-toc := true
+        $("#toc").add-class "hover"
+      safe #
+        if has-touch
+          return
+        in-toc := false
+        set-timeout handle-toc-unhover, 17_ms)
+  $("#toc-label a").click safe #
+    set-immediate #
+      $("#toc").toggle-class "hover"
+      set-timeout handle-toc-unhover, 17_ms
     false
   $('.gs-code').each #
     let $this = $(this)

@@ -55826,4 +55826,637 @@
   } else {
     root.GorillaScript = GorillaScript;
   }
-}(this));
+}(this));;
+/**
+ * Prism: Lightweight, robust, elegant syntax highlighting
+ * MIT license http://www.opensource.org/licenses/mit-license.php/
+ * @author Lea Verou http://lea.verou.me
+ */
+
+(function(){
+
+// Private helper vars
+var lang = /\blang(?:uage)?-(?!\*)(\w+)\b/i;
+
+var _ = self.Prism = {
+	util: {
+		type: function (o) { 
+			return Object.prototype.toString.call(o).match(/\[object (\w+)\]/)[1];
+		},
+		
+		// Deep clone a language definition (e.g. to extend it)
+		clone: function (o) {
+			var type = _.util.type(o);
+
+			switch (type) {
+				case 'Object':
+					var clone = {};
+					
+					for (var key in o) {
+						if (o.hasOwnProperty(key)) {
+							clone[key] = _.util.clone(o[key]);
+						}
+					}
+					
+					return clone;
+					
+				case 'Array':
+					return o.slice();
+			}
+			
+			return o;
+		}
+	},
+	
+	languages: {
+		extend: function (id, redef) {
+			var lang = _.util.clone(_.languages[id]);
+			
+			for (var key in redef) {
+				lang[key] = redef[key];
+			}
+			
+			return lang;
+		},
+		
+		// Insert a token before another token in a language literal
+		insertBefore: function (inside, before, insert, root) {
+			root = root || _.languages;
+			var grammar = root[inside];
+			var ret = {};
+				
+			for (var token in grammar) {
+			
+				if (grammar.hasOwnProperty(token)) {
+					
+					if (token == before) {
+					
+						for (var newToken in insert) {
+						
+							if (insert.hasOwnProperty(newToken)) {
+								ret[newToken] = insert[newToken];
+							}
+						}
+					}
+					
+					ret[token] = grammar[token];
+				}
+			}
+			
+			return root[inside] = ret;
+		},
+		
+		// Traverse a language definition with Depth First Search
+		DFS: function(o, callback) {
+			for (var i in o) {
+				callback.call(o, i, o[i]);
+				
+				if (_.util.type(o) === 'Object') {
+					_.languages.DFS(o[i], callback);
+				}
+			}
+		}
+	},
+
+	highlightAll: function(async, callback) {
+		var elements = document.querySelectorAll('code[class*="language-"], [class*="language-"] code, code[class*="lang-"], [class*="lang-"] code');
+
+		for (var i=0, element; element = elements[i++];) {
+			_.highlightElement(element, async === true, callback);
+		}
+	},
+		
+	highlightElement: function(element, async, callback) {
+		// Find language
+		var language, grammar, parent = element;
+		
+		while (parent && !lang.test(parent.className)) {
+			parent = parent.parentNode;
+		}
+		
+		if (parent) {
+			language = (parent.className.match(lang) || [,''])[1];
+			grammar = _.languages[language];
+		}
+
+		if (!grammar) {
+			return;
+		}
+		
+		// Set language on the element, if not present
+		element.className = element.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language;
+		
+		// Set language on the parent, for styling
+		parent = element.parentNode;
+		
+		if (/pre/i.test(parent.nodeName)) {
+			parent.className = parent.className.replace(lang, '').replace(/\s+/g, ' ') + ' language-' + language; 
+		}
+
+		var code = element.textContent;
+		
+		if(!code) {
+			return;
+		}
+		
+		code = code.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+		           .replace(/>/g, '&gt;').replace(/\u00a0/g, ' ');
+		//console.time(code.slice(0,50));
+		
+		var env = {
+			element: element,
+			language: language,
+			grammar: grammar,
+			code: code
+		};
+		
+		_.hooks.run('before-highlight', env);
+		
+		if (async && self.Worker) {
+			var worker = new Worker(_.filename);	
+			
+			worker.onmessage = function(evt) {
+				env.highlightedCode = Token.stringify(JSON.parse(evt.data), language);
+				env.element.innerHTML = env.highlightedCode;
+				
+				callback && callback.call(env.element);
+				//console.timeEnd(code.slice(0,50));
+				_.hooks.run('after-highlight', env);
+			};
+			
+			worker.postMessage(JSON.stringify({
+				language: env.language,
+				code: env.code
+			}));
+		}
+		else {
+			env.highlightedCode = _.highlight(env.code, env.grammar, env.language)
+			env.element.innerHTML = env.highlightedCode;
+			
+			callback && callback.call(element);
+			
+			_.hooks.run('after-highlight', env);
+			//console.timeEnd(code.slice(0,50));
+		}
+	},
+	
+	highlight: function (text, grammar, language) {
+		return Token.stringify(_.tokenize(text, grammar), language);
+	},
+	
+	tokenize: function(text, grammar, language) {
+		var Token = _.Token;
+		
+		var strarr = [text];
+		
+		var rest = grammar.rest;
+		
+		if (rest) {
+			for (var token in rest) {
+				grammar[token] = rest[token];
+			}
+			
+			delete grammar.rest;
+		}
+								
+		tokenloop: for (var token in grammar) {
+			if(!grammar.hasOwnProperty(token) || !grammar[token]) {
+				continue;
+			}
+			
+			var pattern = grammar[token], 
+				inside = pattern.inside,
+				lookbehind = !!pattern.lookbehind || 0;
+			
+			pattern = pattern.pattern || pattern;
+			
+			for (var i=0; i<strarr.length; i++) { // Don’t cache length as it changes during the loop
+				
+				var str = strarr[i];
+				
+				if (strarr.length > text.length) {
+					// Something went terribly wrong, ABORT, ABORT!
+					break tokenloop;
+				}
+				
+				if (str instanceof Token) {
+					continue;
+				}
+				
+				pattern.lastIndex = 0;
+				
+				var match = pattern.exec(str);
+				
+				if (match) {
+					if(lookbehind) {
+						lookbehind = match[1].length;
+					}
+
+					var from = match.index - 1 + lookbehind,
+					    match = match[0].slice(lookbehind),
+					    len = match.length,
+					    to = from + len,
+						before = str.slice(0, from + 1),
+						after = str.slice(to + 1); 
+
+					var args = [i, 1];
+					
+					if (before) {
+						args.push(before);
+					}
+					
+					var wrapped = new Token(token, inside? _.tokenize(match, inside) : match);
+					
+					args.push(wrapped);
+					
+					if (after) {
+						args.push(after);
+					}
+					
+					Array.prototype.splice.apply(strarr, args);
+				}
+			}
+		}
+
+		return strarr;
+	},
+	
+	hooks: {
+		all: {},
+		
+		add: function (name, callback) {
+			var hooks = _.hooks.all;
+			
+			hooks[name] = hooks[name] || [];
+			
+			hooks[name].push(callback);
+		},
+		
+		run: function (name, env) {
+			var callbacks = _.hooks.all[name];
+			
+			if (!callbacks || !callbacks.length) {
+				return;
+			}
+			
+			for (var i=0, callback; callback = callbacks[i++];) {
+				callback(env);
+			}
+		}
+	}
+};
+
+var Token = _.Token = function(type, content) {
+	this.type = type;
+	this.content = content;
+};
+
+Token.stringify = function(o, language, parent) {
+	if (typeof o == 'string') {
+		return o;
+	}
+
+	if (Object.prototype.toString.call(o) == '[object Array]') {
+		return o.map(function(element) {
+			return Token.stringify(element, language, o);
+		}).join('');
+	}
+	
+	var env = {
+		type: o.type,
+		content: Token.stringify(o.content, language, parent),
+		tag: 'span',
+		classes: ['token', o.type],
+		attributes: {},
+		language: language,
+		parent: parent
+	};
+	
+	if (env.type == 'comment') {
+		env.attributes['spellcheck'] = 'true';
+	}
+	
+	_.hooks.run('wrap', env);
+	
+	var attributes = '';
+	
+	for (var name in env.attributes) {
+		attributes += name + '="' + (env.attributes[name] || '') + '"';
+	}
+	
+	return '<' + env.tag + ' class="' + env.classes.join(' ') + '" ' + attributes + '>' + env.content + '</' + env.tag + '>';
+	
+};
+
+if (!self.document) {
+	// In worker
+	self.addEventListener('message', function(evt) {
+		var message = JSON.parse(evt.data),
+		    lang = message.language,
+		    code = message.code;
+		
+		self.postMessage(JSON.stringify(_.tokenize(code, _.languages[lang])));
+		self.close();
+	}, false);
+	
+	return;
+}
+
+// Get current script and highlight
+var script = document.getElementsByTagName('script');
+
+script = script[script.length - 1];
+
+if (script) {
+	_.filename = script.src;
+	
+	if (document.addEventListener && !script.hasAttribute('data-manual')) {
+		document.addEventListener('DOMContentLoaded', _.highlightAll);
+	}
+}
+
+})();;
+Prism.languages.clike = {
+	'comment': {
+		pattern: /(^|[^\\])(\/\*[\w\W]*?\*\/|(^|[^:])\/\/.*?(\r?\n|$))/g,
+		lookbehind: true
+	},
+	'string': /("|')(\\?.)*?\1/g,
+	'keyword': /\b(if|else|while|do|for|return|in|instanceof|function|new|try|catch|finally|null|break|continue)\b/g,
+	'boolean': /\b(true|false)\b/g,
+	'number': /\b-?(0x)?\d*\.?[\da-f]+\b/g,
+	'operator': /[-+]{1,2}|!|=?&lt;|=?&gt;|={1,2}|(&amp;){1,2}|\|?\||\?|\*|\//g,
+	'ignore': /&(lt|gt|amp);/gi,
+	'punctuation': /[{}[\];(),.:]/g
+};;
+Prism.languages.javascript = Prism.languages.extend('clike', {
+	'keyword': /\b(var|let|if|else|while|do|for|return|in|instanceof|function|new|with|typeof|try|catch|finally|null|break|continue)\b/g,
+	'number': /\b(-?(0x)?\d*\.?[\da-f]+|NaN|-?Infinity)\b/g,
+});
+
+Prism.languages.insertBefore('javascript', 'keyword', {
+	'regex': {
+		pattern: /(^|[^/])\/(?!\/)(\[.+?]|\\.|[^/\r\n])+\/[gim]{0,3}(?=\s*($|[\r\n,.;})]))/g,
+		lookbehind: true
+	}
+});
+
+if (Prism.languages.markup) {
+	Prism.languages.insertBefore('markup', 'tag', {
+		'script': {
+			pattern: /(&lt;|<)script[\w\W]*?(>|&gt;)[\w\W]*?(&lt;|<)\/script(>|&gt;)/ig,
+			inside: {
+				'tag': {
+					pattern: /(&lt;|<)script[\w\W]*?(>|&gt;)|(&lt;|<)\/script(>|&gt;)/ig,
+					inside: Prism.languages.markup.tag.inside
+				},
+				rest: Prism.languages.javascript
+			}
+		}
+	});
+};;
+(function () {
+  "use strict";
+  Prism.languages.gorillascript = Prism.languages.extend("javascript", {
+    keyword: /\b(yield\*?|(throw|return)\??|((all)?keys|label|map|require|async)!|(to-)?promise!)|\b(as|break|continue|return|for|while|until|if|else|unless|switch|then|case|default|catch|finally|try|return(if|ing|unless)?|new|class|extends|private|public|protected|def|super|require|async(if|for|unless|until|while)?|import|export|returnif|returning|returnunless|mutable|macro|const|static|var|do|of|let|enum|namespace|package|true|false|null|undefined|void|GLOBAL|this|prototype|arguments|from)(?!-)\b/g,
+    operator: /\b((has|owns)key|bit(and|or|not|lshift|u?rshift)|and|or|xor|min|max|instanceof(some)?|typeof\!?|is(nt)?(?!\-)|in|to|til|by|not|xor|delete)(?!\-)\b|\b((and|or|min|max)=|is-(array|boolean|function|null|number|object|string|undefined|void)!|post-(dec|inc)!)|!~?=|(&lt;|&gt;)=?|={1,2}|:=|::|&amp;|~=|\-(>|(?![\w]))|~?[\+\*\/%\^\\]=?|~?%%|\?=?|(&lt;){2,3}|(&gt;){2,3}|&lt;=&gt;|\|&gt;|&lt;\||@|\.{3}|\-&gt;/g,
+    number: /\b-?(0x[\da-f_]+(\.[\da-f_]+)?|0b[01_]+(\.[\da-f_]+)?|0o[0-7_]+(\.[\da-f_]+)?|\d{1,2}r[\w\d_]+(\.[\w\d_]+)?|\d[_\d]*(\.[\d_]*)?(_[\w\d_]*)?|NaN|Infinity)\b/g,
+    string: { pattern: /r"(\\?.)*?"[gimy]*|r'(\\?.)*?'[gimy]*|"(\\?.)*?"|'(\\?.)*?'|\\\w[\w\d_]*(-\w[\w\d_]*)*\b/g, inside: { interpolation: /\$(\w[\d\w]*(\-\w[\d\w]*)*|\(.*?\))/g } },
+    punctuation: /[{}[\];(),.:]/g,
+    ident: /\b\w[\d\w]*(\-\w[\d\w]*)*(?!['"])\b/g
+  });
+  Prism.languages.insertBefore("gorillascript", "operator", { property: /[\.@]\w[\d\w]*(\-\w[\d\w]*)*\b|\w[\d\w]*(\-\w[\d\w]*)*\s*:/g });
+}.call(this));
+;
+(function (GLOBAL) {
+  "use strict";
+  var __isArray, __slice, __strnum, __toArray, __typeof, setImmediate;
+  __isArray = typeof Array.isArray === "function" ? Array.isArray
+    : (function () {
+      var _toString;
+      _toString = Object.prototype.toString;
+      return function (x) {
+        return _toString.call(x) === "[object Array]";
+      };
+    }());
+  __slice = Array.prototype.slice;
+  __strnum = function (strnum) {
+    var type;
+    type = typeof strnum;
+    if (type === "string") {
+      return strnum;
+    } else if (type === "number") {
+      return String(strnum);
+    } else {
+      throw TypeError("Expected a string or number, got " + __typeof(strnum));
+    }
+  };
+  __toArray = function (x) {
+    if (x == null) {
+      throw TypeError("Expected an object, got " + __typeof(x));
+    } else if (__isArray(x)) {
+      return x;
+    } else if (typeof x === "string") {
+      return x.split("");
+    } else {
+      return __slice.call(x);
+    }
+  };
+  __typeof = (function () {
+    var _toString;
+    _toString = Object.prototype.toString;
+    return function (o) {
+      if (o === void 0) {
+        return "Undefined";
+      } else if (o === null) {
+        return "Null";
+      } else {
+        return o.constructor && o.constructor.name || _toString.call(o).slice(8, -1);
+      }
+    };
+  }());
+  setImmediate = typeof GLOBAL.setImmediate === "function" ? GLOBAL.setImmediate
+    : typeof process !== "undefined" && typeof process.nextTick === "function" ? process.nextTick
+    : function (func) {
+      if (typeof func !== "function") {
+        throw TypeError("Expected func to be a Function, got " + __typeof(func));
+      }
+      return setTimeout(func, 0);
+    };
+  jQuery(function ($) {
+    var handleTry, hasTouch, inToc, inTocLabel;
+    handleTry = (function () {
+      var compiling, interval, lastCompile;
+      compiling = false;
+      function handle() {
+        var text;
+        if (compiling) {
+          handleTry();
+          return;
+        }
+        text = $("#try-input").val();
+        compiling = true;
+        return GorillaScript.compile(text, function (err, result) {
+          compiling = false;
+          if (err) {
+            $("#try-input-wrap").addClass("error");
+            return $("#try-output").val("// Error: " + String(err) + "\n\n" + __strnum(lastCompile || ""));
+          } else {
+            $("#try-input-wrap").removeClass("error");
+            return $("#try-output").val(result.code);
+          }
+        });
+      }
+      return function () {
+        if (interval != null) {
+          clearTimeout(interval);
+        }
+        return interval = setTimeout(handle, 250);
+      };
+    }());
+    setInterval(
+      (function () {
+        var lastText;
+        lastText = "";
+        return function () {
+          var text;
+          text = $("#try-input").val();
+          if (text !== lastText) {
+            lastText = text;
+            return handleTry();
+          }
+        };
+      }()),
+      17
+    );
+    function safe(func) {
+      return function () {
+        try {
+          return func.apply(this, arguments);
+        } catch (e) {
+          setImmediate(function () {
+            throw e;
+          });
+        }
+        return false;
+      };
+    }
+    $("a[href=#try]").click(safe(function () {
+      var $try;
+      handleTry();
+      $try = $("#try");
+      $try.slideToggle();
+      $("#run-link").toggleClass("hide");
+      return false;
+    }));
+    $("a[href=#run]").click(safe(function () {
+      try {
+        eval(GorillaScript.compile($("#try-input").val(), { "eval": true }).code);
+      } catch (error) {
+        alert(error);
+      }
+      return false;
+    }));
+    $("#irc-button").click(safe(function () {
+      var url;
+      url = $(this).data("url");
+      $(this).replaceWith($("<iframe id='irc-iframe' src='" + __strnum(url) + "'></iframe>"));
+      return false;
+    }));
+    hasTouch = "ontouchstart" in window;
+    inTocLabel = false;
+    inToc = false;
+    function handleTocUnhover() {
+      if (!inToc && !inTocLabel && !hasTouch) {
+        return $("#toc").removeClass("hover");
+      }
+    }
+    $("#toc").removeClass("hover");
+    if (!hasTouch) {
+      $("#toc-label").addClass("no-touch").bind("touchstart", safe(function () {
+        hasTouch = true;
+        $(this).removeClass("no-touch");
+        return true;
+      }));
+      $("#toc-label").hover(
+        safe(function () {
+          if (hasTouch) {
+            return;
+          }
+          inTocLabel = true;
+          return $("#toc").addClass("hover");
+        }),
+        safe(function () {
+          if (hasTouch) {
+            return;
+          }
+          inTocLabel = false;
+          return setTimeout(handleTocUnhover, 17);
+        })
+      );
+      $("#toc").hover(
+        safe(function () {
+          if (hasTouch) {
+            return;
+          }
+          inToc = true;
+          return $("#toc").addClass("hover");
+        }),
+        safe(function () {
+          if (hasTouch) {
+            return;
+          }
+          inToc = false;
+          return setTimeout(handleTocUnhover, 17);
+        })
+      );
+    }
+    $("#toc-label a").click(safe(function () {
+      setImmediate(function () {
+        $("#toc").toggleClass("hover");
+        return setTimeout(handleTocUnhover, 17);
+      });
+      return false;
+    }));
+    $(".gs-code").each(function () {
+      var $div, $this;
+      $this = $(this);
+      if ($this.hasClass("no-convert")) {
+        return;
+      }
+      $div = $("<div>");
+      $this.replaceWith($div);
+      $div.append($("<ul class='tabs'><li class='gs-tab active'><a href='#'>GorillaScript</a><li class='js-tab'><a href='#'>JavaScript</a></ul>"));
+      $div.append($this);
+      return $div.find(".tabs a").on("click", safe(function () {
+        var $jsCode, gsCode, jsCode;
+        $div.find(".tabs li").removeClass("active");
+        $(this).parent().addClass("active");
+        if ($(this).parent().hasClass("gs-tab")) {
+          $div.find(".js-code").hide();
+          $div.find(".gs-code").show();
+        } else {
+          $div.find(".gs-code").hide();
+          $jsCode = $div.find(".js-code");
+          if ($jsCode.length === 0) {
+            $jsCode = $("<pre class='js-code'><code class='language-javascript'></code></pre>");
+            $div.append($jsCode);
+            gsCode = $this.find("code").text();
+            jsCode = GorillaScript.compile(gsCode, { "return": true, bare: true }).code;
+            $jsCode.find("code").text(jsCode);
+            Prism.highlightElement($jsCode.find("code")[0]);
+          }
+          $jsCode.show();
+        }
+        return false;
+      }));
+    });
+    function f() {
+      if (!Prism.languages.gorillascript) {
+        return setTimeout(f, 17);
+      }
+      return Prism.highlightAll();
+    }
+    return f();
+  });
+}.call(this, typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : this));

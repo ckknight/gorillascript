@@ -65,27 +65,33 @@ footer p { margin: auto; }
 	transition-delay: 0.1s;
 }
 
-#toc:hover {
+#toc:hover, #toc.hover {
 	right: 0;
 	overflow-x: hidden;
 	overflow-y: scroll;
 }
 
 #toc-label {
-	color: #fff;
+  display: inline-block;
 	background: #37abc8;
 	position: fixed;
 	right: 0;
-	width: 5.5em;
 	top: 3.2em;
-	padding: 0.3em 0 0.3em 1em;
 	transition-property: opacity;
 	transition-duration: 0.6s;
 	transition-delay: 0.3s;
 	opacity: 0.97;
+	z-index: 100;
 }
 
-#toc-label:hover {
+#toc-label a {
+  color: white;
+  display: block;
+	width: 5.5em;
+	padding: 0.3em 0 0.3em 1em;
+}
+
+#toc-label.no-touch:hover {
 	opacity: 0.32;
 }
 
