@@ -1,26 +1,22 @@
 {
-  "name": "gorillascript",
-  "description": "GorillaScript is a compile-to-JavaScript language designed to empower the user while attempting to prevent some common errors.",
-  "version": "0.5.3",
+  "name": "gorillascript-docs",
+  "description": "GorillaScript documentation",
+  "version": "0.6.2",
+  "private": true,
   "author": {
     "name": "Cameron Kenneth Knight",
     "email": "ckknight@gmail.com"
   },
-  "keywords": ["compile", "language", "gorilla", "altjs"],
   "homepage": "http://ckknight.github.com/gorillascript/",
   "bugs": "https://github.com/ckknight/gorillascript/issues",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/ckknight/gorillascript"
-  },
-  "main": "index",
-  "bin": {
-    "gorilla" : "./bin/gorilla",
-    "gork": "./bin/gork"
+    "url": "git://github.com/ckknight/gorillascript#gh-pages"
   },
   "readmeFilename": "README",
-  "dependencies": {
-    "cli": "~0.4.4-2"
+  "devDependencies": {
+    "gorillascript": ">=0.6.2",
+    "uglify-js": ">=2.0.0"
   }
 }
