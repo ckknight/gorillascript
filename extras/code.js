@@ -56383,6 +56383,7 @@ if (Prism.languages.markup) {
     };
   jQuery(function ($) {
     var handleTry, hasTouch, inToc, inTocLabel, lastCompile, sideBySide;
+    $("#try-link").removeClass("hide");
     handleTry = (function () {
       var compiling, interval;
       compiling = false;

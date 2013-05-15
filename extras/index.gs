@@ -1,4 +1,5 @@
 jQuery #($)
+  $("#try-link").remove-class "hide"
   let mutable last-compile = void
   let handle-try = do
     let mutable compiling = false
