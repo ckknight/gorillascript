@@ -61,6 +61,7 @@
       <li><a href="#curry">Curried functions</a>
       <li><a href="#generic">Generics</a>
       <li><a href="#gnome">GNOME bindings</a>
+      <li><a href="#gork">Gork and Gorkfiles</a>
     </ul>
   </nav>
   <div id="try">
@@ -1544,6 +1545,35 @@ mwindow.show()
 Gtk.main()
 </code></pre>
 
+  </section>
+  
+  <section id="gork">
+    <h2>Gork and Gorkfiles</h2>
+    
+    <p>GorillaScript includes a simple build system called gork similar to <a href="http://www.gnu.org/software/make/">Make</a>. Commands and options are defined in GorillaScript syntax and are invoked through <code>gork [--option] [command]</code>. To receive a list of all commands, simply run <code>gork</code>.</p>
+    
+    <pre class="gs-code no-convert"><code class="language-gorillascript">require! fs
+
+option "file", "f", "Build a specific file", "file"
+command "build", "Rebuild file", #(options, cb)
+  if not options.file
+    return cb Error "A file is required"
+  async! cb, filename-path &lt;- fs.realpath options.file
+  require! './builder'
+  async! cb, result &lt;- builder.build(filename-path)
+  output = options.output or "lib"
+  fs.write-file "$output/$(options.file.replace r'\.gs$', '.js')", result, cb
+
+command "compress", "Compress file", #(options, cb) ->
+  // this space intentionally left blank
+
+command "build:full", "Rebuild all files", #(options, cb)
+  async! cb &lt;- invoke "build"
+  async! cb &lt;- invoke "compress"
+  cb()
+</code></pre>
+
+    <p>As you can see, asynchrony is assumed. This is a powerful way to define simple command-line commands to run.</p>
   </section>
 	</div>
 	<footer>
