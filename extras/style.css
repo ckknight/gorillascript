@@ -1,5 +1,8 @@
 /* Basic & Fonts {{{*/
-a { text-decoration: none; }
+a {
+	text-decoration: none;
+	color: #37abc8;
+}
 body {
 	background-color: #eee;
 	margin: 0;
@@ -43,6 +46,7 @@ footer {
   color: #fff;
   padding: 0.5em 11%;
 }
+footer p { margin: auto; }
 /*}}}*/
 
 /* TOC {{{*/
@@ -277,7 +281,8 @@ section li {
 }
 #container section li tt, #container section p tt {
   font-size: 16px;
-  border: 1px solid #ddd;
+  border: 1px solid #c0c0c0;
+	padding: 0 0.2em;
 }
 #container section button tt {
   font-size: 110%;
