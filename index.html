@@ -62,6 +62,7 @@
       <li><a href="#generic">Generics</a>
       <li><a href="#gnome">GNOME bindings</a>
       <li><a href="#gork">Gork and Gorkfiles</a>
+      <li><a href="#browser">Browser support</a>
     </ul>
   </nav>
   <div id="try">
@@ -1575,6 +1576,23 @@ command "build:full", "Rebuild all files", #(options, cb)
 
     <p>As you can see, asynchrony is assumed. This is a powerful way to define simple command-line commands to run.</p>
   </section>
+  
+  <section id="browser">
+    <h2>Browser support</h2>
+    
+    <p>Although not recommended for production code, there is a browser-specific version of the GorillaScript compiler as <code>extras/gorillascript.js</code>. Once this is included on your page, it will run any <code>&lt;script type="text/gorillascript"&gt;</code> tags, with or without <code>src="filename.gs"</code>. It compiles and runs each tag in-order.</p>
+    
+    <p>Caveat: this will not run synchronously like normal <code>&lt;script&gt;</code> tags, so it is recommended to wait for an <code>onload</code> event or something similar.</p>
+    
+    <p>Once <code>extras/gorillascript.js</code> is included, the global <code>GorillaScript</code> object will be available, allowing you to use <code>GorillaScript.compile("code", { options: "here" })</code> and several other commands.</p>
+    
+    <p>In fact, this is exactly how this page is designed. Most of the JavaScript (including in the code examples) is compiled on-the-fly, and the <a href="#try">Try it out</a> environment is handled in this very way.</p>
+    
+    <p>If <code>define and define.amd</code> are properly defined, they will be used instead of setting <code>window.Gorilla</code>, as a proper <a href="http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition">module definition</a></p>
+    
+    <p>Note: any compiled GorillaScript file should work in all browsers, including older browsers. Certain features like <a href="#properties">getters and setters</a> may not work in engines that do not support them, but this will cause a runtime exception on defining such properties rather than a compile-time error.</p>
+  </section>
+  
 	</div>
 	<footer>
 		<p>GorillaScript is licensed under <a href="http://opensource.org/licenses/MIT">The MIT License</a></p>
