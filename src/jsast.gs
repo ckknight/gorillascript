@@ -251,7 +251,7 @@ exports.Arr := class Arr extends Expression
   def compile-as-block(options, level, line-start, sb)
     BlockExpression(@pos, @elements).compile-as-block(options, level, line-start, sb)
   def compile-as-statement(options, line-start, sb)!
-    BlockStatement(@pos, @elements).compile(options, line-start, sb)
+    BlockStatement(@pos, @elements).compile(options, Level.block, line-start, sb)
   
   def should-compile-large()
     switch @elements.length

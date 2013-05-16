@@ -3587,9 +3587,19 @@ macro last!()
 define helper set-immediate = if is-function! GLOBAL.set-immediate
   GLOBAL.set-immediate
 else if not is-void! process and is-function! process.next-tick
-  process.next-tick
+  do
+    let next-tick = process.next-tick
+    #(func as ->, ...args)
+      if args.length
+        next-tick #!-> func(...args)
+      else
+        next-tick func
 else
-  #(func as ->) -> set-timeout(func, 0)
+  #(func as ->, ...args)
+    if args.length
+      set-timeout(#!-> func(...args), 0)
+    else
+      set-timeout(func, 0)
 
 define helper __defer = #
   let mutable is-error = false

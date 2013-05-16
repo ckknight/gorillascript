@@ -1,534 +1,497 @@
-async-test "async", #
-  let wait = @wait
-  let value = run-once("hello")
-  let mutable body-ran = false
-  let f()
-    let self = this
-    async err, x <- wait value
-    eq null, err
-    eq "hello", x
-    eq self, this
-    ok value.ran
-    body-ran := true
-  
-  f@ {}
-  ok not value.ran
-  @after #-> ok value.ran
-  @after #-> ok body-ran
+let now(...args, cb) -> cb ...args
+let soon(...args, cb) -> set-immediate cb, ...args
 
-async-test "async!", #
-  let wait = @wait
-  let f(get-value, callback)
-    let self = this
-    async! callback, x <- wait get-value
-    eq self, this
-    callback(null, x)
+describe "async statement", #
+  it "receives expected values", #(cb)
+    async x, y, z <- soon(\a, \b, \c)
+    expect(x).to.equal \a
+    expect(y).to.equal \b
+    expect(z).to.equal \c
+    cb()
   
-  let mutable runs = 0
-  f@ {}, run-once("hello"), #(err, value)
-    eq null, err
-    eq "hello", value
-    runs += 1
-  let error = {}
-  f@ {}, #-> throw error, #(e, value)
-    eq error, e
-    eq void, value
-    runs += 1
-  @after #-> eq 2, runs
+  it "preserves this", #(cb)
+    let f()
+      let self = this
+      async <- soon()
+      expect(this).to.equal self
+      cb()
+    f@ {}
 
-async-test "async! throw", #
-  let dont-wait = @dont-wait
-  let f(get-value, callback)
-    let self = this
-    async! throw, x <- dont-wait get-value
-    eq self, this
-    callback(null, x)
+describe "async! statement", #
+  it "calls the provided function if an existing argument is provided", #(cb)
+    let err = spy()
+    let handler(x)
+      expect(x).to.equal err
+      cb()
+    async! handler <- soon(err)
+    throw Error "never reached"
   
-  let mutable runs = 0
-  f@ {}, run-once("hello"), #(err, value)
-    eq null, err
-    eq "hello", value
-    runs += 1
+  it "does not call the provided function if an existing argument is not provided", #(cb)
+    let handler = stub()
+    async! handler <- soon null
+    expect(handler).to.not.be.called
+    cb()
   
-  let error = {}
-  try
-    f@ {}, #-> throw error, #(e, value)
-      fail()
-  catch e
-    eq error, e
-  @after #-> eq 1, runs
+  it "receives expected values", #(cb)
+    let handler = stub()
+    async! handler, x, y, z <- soon null, \a, \b, \c
+    expect(handler).to.not.be.called
+    expect(x).to.equal \a
+    expect(y).to.equal \b
+    expect(z).to.equal \c
+    cb()
+  
+  it "preserves this", #(cb)
+    let f()
+      let handler = stub()
+      let self = this
+      async! handler <- soon null
+      expect(handler).to.not.be.called
+      expect(this).to.equal self
+      cb()
+    f@ {}
+  
+  it "throws with async! throw", #(cb)
+    let err = Error()
+    let f()
+      async! throw <- now err
+      throw Error "never reached"
+    expect(f).to.throw(err)
+    cb()
 
-async-test "asyncfor", #
-  let wait = @wait
-  let mutable sum = 0
-  let mutable i = 0
-  let f()
-    let self = this
-    asyncfor next, ; i < 10; i += 1
-      let value = run-once(i)
-      async err, x <- wait value
-      eq null, err
-      ok value.ran
-      eq self, this
-      sum += x
-      next()
-    eq 45, sum
-    eq self, this
+describe "asyncfor", #
+  describe "C-style", #
+    it "can count up to 45", #(cb)
+      let mutable i = 0
+      let mutable sum = 0
+      asyncfor next, ; i < 10; i += 1
+        async <- soon()
+        sum += i
+        next()
+      expect(sum).to.equal 45
+      cb()
+    
+    it "preserves this", #(cb)
+      let f()
+        let self = this
+        let mutable i = 0
+        asyncfor next, ; i < 10; i += 1
+          expect(this).to.equal self
+          async <- soon()
+          expect(this).to.equal self
+          next()
+        cb()
+      f@ {}
+    
+    it "breaks when an error is passed to the callback", #(cb)
+      let mutable i = 0
+      let err = spy()
+      asyncfor e <- next, ; i < 10; i += 1
+        async <- soon()
+        if i == 3
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      expect(i).to.equal(3)
+      cb()
+    
+    it "breaks when an error is passed to the callback, if a result is expected", #(cb)
+      let mutable i = 0
+      let err = spy()
+      asyncfor e, result <- next, ; i < 10; i += 1
+        async <- soon()
+        if i == 3
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      expect(i).to.equal(3)
+      expect(result).to.not.exist
+      cb()
+    
+    it "produces an array if a result is expected", #(cb)
+      let mutable i = 0
+      asyncfor e, result <- next, ; i < 10; i += 1
+        async <- soon()
+        next null, i ^ 2
+      expect(e).to.not.exist
+      expect(result).to.eql [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
+      cb()
   
-  f@ {}    
-  eq 0, sum
-  @after #-> eq 45, sum
+  describe "in range", #
+    it "can count up to 45", #(cb)
+      let mutable sum = 0
+      asyncfor next, i in 0 til 10
+        async <- soon()
+        sum += i
+        next()
+      expect(sum).to.equal 45
+      cb()
 
-async-test "asyncfor with result", #
-  let wait = @wait
-  let f()
-    let self = this
+    it "preserves this", #(cb)
+      let f()
+        let self = this
+        asyncfor next, i in 0 til 10
+          expect(this).to.equal self
+          async <- soon()
+          expect(this).to.equal self
+          next()
+        cb()
+      f@ {}
+
+    it "breaks when an error is passed to the callback", #(cb)
+      let mutable maximum = 0
+      let err = spy()
+      asyncfor e <- next, i in 0 til 10
+        maximum := i
+        async <- soon()
+        if i == 3
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      expect(maximum).to.equal(3)
+      cb()
+
+    it "breaks when an error is passed to the callback, if a result is expected", #(cb)
+      let mutable maximum = 0
+      let err = spy()
+      asyncfor e, result <- next, i in 0 til 10
+        maximum := i
+        async <- soon()
+        if i == 3
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      expect(maximum).to.equal(3)
+      expect(result).to.not.exist
+      cb()
+
+    it "produces an array if a result is expected", #(cb)
+      asyncfor e, result <- next, i in 0 til 10
+        async <- soon()
+        next null, i ^ 2
+      expect(e).to.not.exist
+      expect(result).to.eql [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
+      cb()
+  
+  describe "in array", #
+    it "can sum the values", #(cb)
+      let mutable sum = 0
+      asyncfor next, i in [1, 2, 4, 8]
+        async <- soon()
+        sum += i
+        next()
+      expect(sum).to.equal 15
+      cb()
+
+    it "preserves this", #(cb)
+      let f()
+        let self = this
+        asyncfor next, i in [1, 2, 4, 8]
+          expect(this).to.equal self
+          async <- soon()
+          expect(this).to.equal self
+          next()
+        cb()
+      f@ {}
+
+    it "breaks when an error is passed to the callback", #(cb)
+      let mutable maximum = 0
+      let err = spy()
+      asyncfor e <- next, i in [1, 2, 4, 8]
+        maximum := i
+        async <- soon()
+        if i == 4
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      expect(maximum).to.equal(4)
+      cb()
+
+    it "breaks when an error is passed to the callback, if a result is expected", #(cb)
+      let mutable maximum = 0
+      let err = spy()
+      asyncfor e, result <- next, i in [1, 2, 4, 8]
+        maximum := i
+        async <- soon()
+        if i == 4
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      expect(maximum).to.equal(4)
+      expect(result).to.not.exist
+      cb()
+
+    it "produces an array if a result is expected", #(cb)
+      asyncfor e, result <- next, i in [1, 2, 4, 8]
+        async <- soon()
+        next null, i ^ 2
+      expect(e).to.not.exist
+      expect(result).to.eql [1, 4, 16, 64]
+      cb()
+  
+  describe "of object", #
+    it "can sum the values", #(cb)
+      let mutable sum = 0
+      asyncfor next, k, v of { a: 1, b: 2, c: 4, d: 8 }
+        async <- soon()
+        sum += v
+        next()
+      expect(sum).to.equal 15
+      cb()
+
+    it "preserves this", #(cb)
+      let f()
+        let self = this
+        asyncfor next, k, v of { a: 1, b: 2, c: 4, d: 8 }
+          expect(this).to.equal self
+          async <- soon()
+          expect(this).to.equal self
+          next()
+        cb()
+      f@ {}
+
+    it "breaks when an error is passed to the callback", #(cb)
+      let err = spy()
+      asyncfor e <- next, k, v of { a: 1, b: 2, c: 4, d: 8 }
+        async <- soon()
+        if v == 4
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      cb()
+
+    it "breaks when an error is passed to the callback, if a result is expected", #(cb)
+      let err = spy()
+      asyncfor e, result <- next, k, v of { a: 1, b: 2, c: 4, d: 8 }
+        async <- soon()
+        if v == 4
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      cb()
+
+    it "produces an array if a result is expected", #(cb)
+      asyncfor e, result <- next, k, v of { a: 1, b: 2, c: 4, d: 8 }
+        async <- soon()
+        next null, v ^ 2
+      expect(e).to.not.exist
+      expect(result.sort (<=>)).to.eql [1, 4, 16, 64]
+      cb()
+  
+  describe "from iterator", #
+    let array-to-iterator(array) -> {
+      iterator: #-> this
+      next: #
+        if @index >= @array.length
+          { done: true, value: void }
+        else
+          let element = @array[@index]
+          @index += 1
+          { done: false, value: element }
+      array
+      index: 0
+    }
+    
+    it "can sum the values", #(cb)
+      let mutable sum = 0
+      asyncfor next, i from array-to-iterator [1, 2, 4, 8]
+        async <- soon()
+        sum += i
+        next()
+      expect(sum).to.equal 15
+      cb()
+
+    it "preserves this", #(cb)
+      let f()
+        let self = this
+        asyncfor next, i from array-to-iterator [1, 2, 4, 8]
+          expect(this).to.equal self
+          async <- soon()
+          expect(this).to.equal self
+          next()
+        cb()
+      f@ {}
+
+    it "breaks when an error is passed to the callback", #(cb)
+      let mutable maximum = 0
+      let err = spy()
+      asyncfor e <- next, i from array-to-iterator [1, 2, 4, 8]
+        maximum := i
+        async <- soon()
+        if i == 4
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      expect(maximum).to.equal(4)
+      cb()
+
+    it "breaks when an error is passed to the callback, if a result is expected", #(cb)
+      let mutable maximum = 0
+      let err = spy()
+      asyncfor e, result <- next, i from array-to-iterator [1, 2, 4, 8]
+        maximum := i
+        async <- soon()
+        if i == 4
+          next(err)
+        else
+          next()
+      expect(e).to.equal(err)
+      expect(maximum).to.equal(4)
+      expect(result).to.not.exist
+      cb()
+
+    it "produces an array if a result is expected", #(cb)
+      asyncfor e, result <- next, i from array-to-iterator [1, 2, 4, 8]
+        async <- soon()
+        next null, i ^ 2
+      expect(e).to.not.exist
+      expect(result).to.eql [1, 4, 16, 64]
+      cb()
+
+describe "asyncwhile", #
+  it "can count up to 45", #(cb)
     let mutable i = 0
-    asyncfor e, result <- next, ; i < 10; i += 1
-      eq self, this
-      async err, x <- wait run-once(i ^ 2)
-      eq null, err
-      eq self, this
-      next(null, x)
-    eq null, e
-    array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
-    eq self, this
-  
-  f@ {}
-
-async-test "asyncfor with result, error in the middle", #
-  let mutable i = 0
-  let my-error = {}
-  asyncfor e, result <- next, ; i < 10; i += 1
-    async err, x <- @wait run-once(i ^ 2)
-    eq null, err
-    if i == 5
-      next(my-error)
-    else
-      next(null, x)
-  eq my-error, e
-  eq void, result
-
-async-test "asyncfor with no after-body", #
-  let mutable sum = 0
-  let mutable i = 0
-  if true
-    asyncfor next, ; i < 10; i += 1
-      let value = run-once(i)
-      async err, x <- @wait value
-      eq null, err
-      ok value.ran
-      sum += x
-      next()
-    eq 45, sum
-  eq 0, sum
-
-async-test "asyncfor range", #
-  let wait = @wait
-  let after = @after
-  let mutable sum = 0
-  let f()
-    let self = this
-    asyncfor next, i in 0 til 10
-      eq self, this
-      let value = run-once(i)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq i, x
-        ok value.ran
-        eq self, this
-        sum += x
-        next()
-      ok not value.ran
-      after #-> ok value.ran
-    eq 45, sum
-    eq self, this
-      
-  f@ {}
-  eq 0, sum
-  @after #-> eq 45, sum
-
-async-test "asyncfor range with result", #
-  let wait = @wait
-  let after = @after
-  let mutable sum = 0
-  let f()
-    let self = this
-    asyncfor e, result <- next, i in 0 til 10
-      eq self, this
-      let value = run-once(i)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq i, x
-        ok value.ran
-        eq self, this
-        sum += x
-        next(null, sum)
-      ok not value.ran
-      after #-> ok value.ran
-    eq null, e
-    array-eq [0, 1, 3, 6, 10, 15, 21, 28, 36, 45], result
-    eq self, this
-  
-  f@ {}  
-  eq 0, sum
-  after #-> eq 45, sum
-
-async-test "asyncfor in array", #
-  let wait = @wait
-  let after = @after
-  let mutable sum = 0
-  let f()
-    let self = this
-    asyncfor next, v in [1, 2, 4, 8]
-      eq self, this
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        eq self, this
-        sum += x
-        next()
-      ok not value.ran
-      after #-> ok value.ran
-    eq 15, sum
-    eq self, this
-  
-  f@ {}
-  eq 0, sum
-  after #-> eq 15, sum
-
-async-test "asyncfor in array with result", #  
-  let wait = @wait
-  let after = @after
-  let mutable sum = 0
-  let f()
-    let self = this
-    asyncfor e, result <- next, v in [1, 2, 4, 8]
-      eq self, this
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        eq self, this
-        sum += x
-        next(null, sum)
-      ok not value.ran
-      after #-> ok value.ran
-    eq null, e
-    array-eq [1, 3, 7, 15], result
-    eq self, this
-  
-  f@ {}
-  eq 0, sum
-  after #-> eq 15, sum
-
-async-test "asyncfor of object", #
-  let wait = @wait
-  let after = @after
-  let mutable sum = 0
-  let f()
-    let self = this
-    asyncfor next, k, v of { a: 1, b: 2, c: 4, d: 8 }
-      eq self, this
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        eq self, this
-        sum += x
-        next()
-      ok not value.ran
-      after #-> ok value.ran
-    eq 15, sum
-    eq self, this
-  
-  f@ {}
-  eq 0, sum
-  after #-> eq 15, sum
-
-async-test "asyncfor of object with result", #
-  let wait = @wait
-  let after = @after
-  let f()
-    let self = this
-    asyncfor e, result <- next, k, v of { a: 1, b: 2, c: 4, d: 8 }
-      eq self, this
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        eq self, this
-        next(null, x)
-      ok not value.ran
-      after #-> ok value.ran
-    eq null, e
-    array-eq [1, 2, 4, 8], result.sort()
-    eq self, this
-  
-  f@ {}
-
-async-test "asyncwhile", #
-  let wait = @wait
-  let after = @after
-  let mutable sum = 0
-  let f()
-    let self = this
-    let mutable i = 0
+    let mutable sum = 0
     asyncwhile next, i < 10, i += 1
-      eq self, this
-      let value = run-once(i)
-      async err, x <- wait value
-      eq null, err
-      ok value.ran
-      eq self, this
-      sum += x
+      async <- soon()
+      sum += i
       next()
-    eq 45, sum
-    eq self, this
+    expect(sum).to.equal 45
+    cb()
   
-  f@ {}
-  eq 0, sum
-  after #-> eq 45, sum
-
-async-test "asyncwhile with result", #
-  let wait = @wait
-  let f()
-    let self = this
+  it "preserves this", #(cb)
+    let f()
+      let self = this
+      let mutable i = 0
+      asyncwhile next, i < 10, i += 1
+        expect(this).to.equal self
+        async <- soon()
+        expect(this).to.equal self
+        next()
+      cb()
+    f@ {}
+  
+  it "breaks when an error is passed to the callback", #(cb)
+    let mutable i = 0
+    let err = spy()
+    asyncwhile e <- next, i < 10, i += 1
+      async <- soon()
+      if i == 3
+        next(err)
+      else
+        next()
+    expect(e).to.equal(err)
+    expect(i).to.equal(3)
+    cb()
+  
+  it "breaks when an error is passed to the callback, if a result is expected", #(cb)
+    let mutable i = 0
+    let err = spy()
+    asyncwhile e, result <- next, i < 10, i += 1
+      async <- soon()
+      if i == 3
+        next(err)
+      else
+        next()
+    expect(e).to.equal(err)
+    expect(i).to.equal(3)
+    expect(result).to.not.exist
+    cb()
+  
+  it "produces an array if a result is expected", #(cb)
     let mutable i = 0
     asyncwhile e, result <- next, i < 10, i += 1
-      eq self, this
-      async err, x <- wait run-once(i ^ 2)
-      eq null, err
-      eq self, this
-      next(null, x)
-    eq null, e
-    array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
-    eq self, this
+      async <- soon()
+      next null, i ^ 2
+    expect(e).to.not.exist
+    expect(result).to.eql [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
+    cb()
+
+describe "asyncif", #
+  describe "without else", #
+    it "runs the when-true clause", #(cb)
+      let run(check, callback)
+        let mutable in-true = false
+        asyncif next, check
+          async <- soon()
+          in-true := true
+          next()
+        callback(in-true)
+      async value <- run 1
+      expect(value).to.be.true
+      cb()
+    
+    it "skips the when-true clause", #(cb)
+      let run(check, callback)
+        let mutable in-true = false
+        asyncif next, check
+          async <- soon()
+          in-true := true
+          next()
+        callback(in-true)
+      async value <- run 0
+      expect(value).to.be.false
+      cb()
+    
+    it "preserves this inside and after", #(cb)
+      let run(check)
+        let self = this
+        asyncif next, check
+          expect(this).to.equal self
+          next()
+        expect(this).to.equal self
+        cb()
+      run@ {}, true
   
-  f@ {}
+  describe "with else", #
+    it "runs the when-true clause", #(cb)
+      let run(check, callback)
+        let mutable in-true = void
+        asyncif next, check
+          async <- soon()
+          in-true := true
+          next()
+        else
+          throw Error "Never reached"
+        callback(in-true)
+      async value <- run 1
+      expect(value).to.be.true
+      cb()
 
-async-test "asyncuntil", #
-  let wait = @wait
-  let mutable sum = 0
-  let f()
-    let self = this
-    let mutable i = 0
-    asyncuntil next, i >= 10, i += 1
-      eq self, this
-      let value = run-once(i)
-      async err, x <- wait value
-      eq null, err
-      ok value.ran
-      eq self, this
-      sum += x
-      next()
-    eq 45, sum
-    eq self, this
-  
-  f@ {}    
-  eq 0, sum
-  @after #-> eq 45, sum
+    it "runs the when-false clause", #(cb)
+      let run(check, callback)
+        let mutable in-true = void
+        asyncif next, check
+          throw Error "Never reached"
+        else
+          async <- soon()
+          in-true := false
+          next()
+        callback(in-true)
+      async value <- run 0
+      expect(value).to.be.false
+      cb()
 
-async-test "asyncuntil with result", #
-  let wait = @wait
-  let f()
-    let self = this
-    let mutable i = 0
-    asyncuntil e, result <- next, i >= 10, i += 1
-      eq self, this
-      async err, x <- wait run-once(i ^ 2)
-      eq null, err
-      eq self, this
-      next(null, x)
-    eq null, e
-    array-eq [0, 1, 4, 9, 16, 25, 36, 49, 64, 81], result
-    eq self, this
-  
-  f@ {}
-
-async-test "asyncif", #
-  let wait = @wait
-  let after = @after
-  let run(check)
-    let self = this
-    let value = run-once("hello")
-    let mutable later = false
-    if true
-      asyncif next, check
-        eq self, this
-        async err, x <- wait value
-        eq "hello", x
-        ok value.ran
-        eq self, this
-        next()
-      eq self, this
-      later := true
-    ok not value.ran
-    ok check xor later
-    after #
-      ok not (check xor value.ran)
-      ok later
-  run@ {}, true
-  run@ {}, false
-
-async-test "asyncif with else", #
-  let wait = @wait
-  let after = @after
-  let run(check)
-    let self = this
-    let value = run-once("hello")
-    let mutable later = false
-    if true
-      asyncif next, check
-        eq self, this
-        async err, x <- wait value
-        eq "hello", x
-        ok value.ran
-        eq self, this
-        next()
-      else  
-        eq self, this
-        next()
-      eq self, this
-      ok not (check xor value.ran)
-      later := true
-    ok not value.ran
-    ok check xor later
-    after #
-      ok not (check xor value.ran)
-      ok later
-  run@ {}, true
-  run@ {}, false
-
-async-test "asyncunless", #
-  let wait = @wait
-  let after = @after
-  let run(check)
-    let self = this
-    let value = run-once("hello")
-    let mutable later = false
-    if true
-      asyncunless next, check
-        eq self, this
-        async err, x <- wait value
-        eq "hello", x
-        ok value.ran
-        eq self, this
-        next()
-      eq self, this
-      ok check xor value.ran
-      later := true
-    ok not value.ran
-    ok not (check xor later)
-    after #
-      ok check xor value.ran
-      ok later
-  run@ {}, true
-  run@ {}, false
-
-async-test "asyncunless with else", #
-  let wait = @wait
-  let after = @after
-  let run(check)
-    let self = this
-    let value = run-once("hello")
-    let mutable later = false
-    if true
-      asyncunless next, check
-        eq self, this
-        async err, x <- wait value
-        eq "hello", x
-        ok value.ran
-        eq self, this
-        next()
-      else
-        eq self, this
-        next()
-      eq self, this
-      ok check xor value.ran
-      later := true
-    ok not value.ran
-    ok not (check xor later)
-    after #
-      ok check xor value.ran
-      ok later
-  run true
-  run false
-
-let array-to-iterator(array)
-  {
-    iterator: #-> this
-    next: #
-      if @index >= @array.length
-        { done: true, value: void }
-      else
-        let element = @array[@index]
-        @index += 1
-        { done: false, value: element }
-    array
-    index: 0
-  }
-
-async-test "asyncfor from iterator", #  
-  let wait = @wait
-  let after = @after
-  let mutable sum = 0
-  let f()
-    let self = this
-    asyncfor next, v from array-to-iterator [1, 2, 4, 8]
-      eq self, this
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        eq self, this
-        sum += x
-        next()
-      ok not value.ran
-      after #-> ok value.ran
-    eq 15, sum
-    eq self, this
-  
-  f@ {}
-  eq 0, sum
-  after #-> eq 15, sum
-
-async-test "asyncfor from iterator with result", #
-  let wait = @wait
-  let after = @after
-  let mutable sum = 0
-  let f()
-    let self = this
-    asyncfor e, result <- next, v from array-to-iterator [1, 2, 4, 8]
-      eq self, this
-      let value = run-once(v)
-      if true
-        async err, x <- wait value
-        eq null, err
-        eq v, x
-        ok value.ran
-        eq self, this
-        sum += x
-        next(null, sum)
-      ok not value.ran
-      after #-> ok value.ran
-    eq null, e
-    array-eq [1, 3, 7, 15], result
-    eq self, this
-  
-  f@ {}
-  eq 0, sum
-  after #-> eq 15, sum
+    it "preserves this inside and after", #(cb)
+      let run(check, callback)
+        let self = this
+        asyncif next, check
+          expect(this).to.equal self
+          next()
+        else
+          expect(this).to.equal self
+          next()
+        expect(this).to.equal self
+        callback()
+      async <- run@ {}, true
+      async <- run@ {}, false
+      cb()

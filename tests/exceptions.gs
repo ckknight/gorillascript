@@ -1,308 +1,317 @@
-test "throwing", #
-  let obj = {}
-  throws (#-> throw obj), #(e) -> e == obj
-
-test "throw as non-statement", #
-  let x = true
-  let obj = {}
-  throws (#-> x and throw obj), #(e) -> e == obj
-
-test "try-catch", #
-  let obj = {}
-  let mutable hit-catch = false
-  try
-    throw obj
-  catch e
-    eq obj, e
-    ok not hit-catch
-    hit-catch := true
-  ok hit-catch
-
-test "try-empty-catch", #
-  try
-    throw {}
-  catch e
-    void
-
-test "try-catch-else", #
-  let obj = {}
-  let mutable hit-catch = false
-  try
-    throw obj
-  catch e
-    eq obj, e
-    ok not hit-catch
-    hit-catch := true
-  else
-    fail()
-  ok hit-catch
+describe "throwing an exception", #
+  it "works as expected", #
+    let obj = {}
+    expect(#-> throw obj).throws(obj)
   
-  let do-nothing = #->
-  let mutable hit-else = false
-  try
-    do-nothing()
-  catch e
-    fail()
-  else
-    hit-else := true
-    success()
-  ok hit-else
+  it "works as an expression", #
+    let x = true
+    let obj = {}
+    expect(#-> x and throw obj).throws(obj)
 
-test "try-finally", #
-  let obj = {}
-  let mutable hit-finally = false
-  let fun()
+describe "try-catch", #
+  it "goes to the catch body if an error occurs", #
+    let obj = {}
+    let ran = stub()
     try
       throw obj
-    finally
-      ok not hit-finally
-      hit-finally := true
-  throws fun, #(e) -> e == obj
-  ok hit-finally
-
-test "try-empty-finally", #
-  try
+    catch e
+      expect(e).to.equal obj
+      ran()
+    expect(ran).to.be.called-once
+  
+  it "does not go to the catch body if an error does not occur", #
+    let ran = stub()
+    try
+      ran()
+    catch e
+      throw Error "Never reached"
+    expect(ran).to.be.called-once
+  
+  it "can have an empty catch", #
     try
       throw {}
-    finally
+    catch e
       void
-  catch e
-    void
 
-test "try-catch-finally", #
-  let obj = {}
-  let mutable hit-catch = false
-  let mutable hit-finally = false
-  try
-    throw obj
-  catch e
-    eq obj, e
-    ok not hit-catch
-    ok not hit-finally
-    hit-catch := true
-  finally
-    ok hit-catch
-    ok not hit-finally
-    hit-finally := true
-  ok hit-catch
-  ok hit-finally
+describe "try-catch-else", #
+  describe "if an error occurs", #
+    it "goes to the catch body, not else body", #
+      let obj = {}
+      let in-catch = stub()
+      let in-else = stub()
+      
+      try
+        throw obj
+      catch e
+        expect(e).to.equal obj
+        in-catch()
+      else
+        in-else()
+      expect(in-catch).to.be.called-once
+      expect(in-else).to.not.be.called
+      
+  describe "if an error does not occur", #
+    it "goes to the else body, not catch body", #
+      let obj = {}
+      let ran = stub()
+      let in-catch = stub()
+      let in-else = stub()
 
-test "try-catch-else-finally", #
-  let obj = {}
-  let mutable hit-catch = false
-  let mutable hit-else = false
-  let mutable hit-finally = false
-  try
-    throw obj
-  catch e
-    eq obj, e
-    ok not hit-catch
-    ok not hit-finally
-    hit-catch := true
-  else
-    hit-else := true
-    fail()
-  finally
-    ok hit-catch
-    ok not hit-else
-    ok not hit-finally
-    hit-finally := true
-  ok hit-catch
-  ok not hit-else
-  ok hit-finally
-  
-  let do-nothing = #->
-  hit-catch := false
-  hit-else := false
-  hit-finally := false
-  
-  try
-    do-nothing()
-  catch e
-    hit-catch := true
-    fail()
-  else
-    ok not hit-catch
-    ok not hit-else
-    hit-else := true
-  finally
-    ok not hit-catch
-    ok hit-else
-    ok not hit-finally
-    hit-finally := true
-  
-  ok not hit-catch
-  ok hit-else
-  ok hit-finally
+      try
+        ran()
+      catch e
+        in-catch()
+      else
+        in-else()
+      expect(in-catch).to.not.be.called
+      expect(in-else).to.be.called-once
 
-test "try-catch-as-type", #
+describe "try-finally", #
+  describe "if an error occurs", #
+    it "should hit the finally and throw the error", #
+      let err = Error()
+      let hit-finally = stub()
+      let after = stub()
+      expect(#
+        try
+          throw err
+        finally
+          hit-finally()
+        after()).throws(err)
+      expect(hit-finally).to.be.called-once
+      expect(after).to.not.be.called
+  
+  describe "if an error does not occur", #
+    it "should hit the finally", #
+      let err = Error()
+      let ran = stub()
+      let hit-finally = stub()
+      try
+        ran()
+      finally
+        hit-finally()
+      expect(ran).to.be.called-once
+      expect(hit-finally).to.be.called-once
+
+describe "try-catch-finally", #
+  describe "if an error occurs", #
+    it "should hit both the catch and the finally", #
+      let err = Error()
+      let in-catch = stub()
+      let in-finally = stub()
+      try
+        throw err
+      catch e
+        expect(e).to.equal err
+        in-catch()
+      finally
+        in-finally()
+      expect(in-catch).to.be.called-once
+      expect(in-finally).to.be.called-once
+  
+  describe "if an error does not occur", #
+    it "should ignore the catch and hit finally", #
+      let err = Error()
+      let ran = stub()
+      let in-finally = stub()
+      try
+        ran()
+      catch e
+        throw Error "never reached"
+      finally
+        in-finally()
+      expect(ran).to.be.called-once
+      expect(in-finally).to.be.called-once
+
+describe "try-catch-else-finally", #
+  describe "if an error occurs", #
+    it "should hit the catch and the finally, ignore the else", #
+      let err = Error()
+      let in-catch = stub()
+      let in-finally = stub()
+      try
+        throw err
+      catch e
+        expect(e).to.equal err
+        in-catch()
+      else
+        throw Error "never reached"
+      finally
+        in-finally()
+      expect(in-catch).to.be.called-once
+      expect(in-finally).to.be.called-once
+  
+  describe "if an error does not occur", #
+    it "should hit the else and the finally, ignore the catch", #
+      let ran = stub()
+      let in-else = stub()
+      let in-finally = stub()
+      try
+        ran()
+      catch e
+        throw Error "never reached"
+      else
+        in-else()
+      finally
+        in-finally()
+      expect(ran).to.be.called-once
+      expect(in-else).to.be.called-once
+      expect(in-finally).to.be.called-once
+
+describe "try-catch as type", #
   class MyError
-  
-  let f(err)
-    try
-      throw err
-    catch e as MyError
-      ["MyError", e]
-    catch e
-      ["other", e]
-  
-  let my-error = MyError()
-  array-eq ["MyError", my-error], f my-error
-  let other-error = Error()
-  array-eq ["other", other-error], f other-error
-
-test "try-catch-as-type, differing idents", #
-  class MyError
-  
-  let f(err)
-    try
-      throw err
-    catch e as MyError
-      ["MyError", e]
-    catch err
-      ["other", err]
-  
-  let my-error = MyError()
-  array-eq ["MyError", my-error], f my-error
-  let other-error = Error()
-  array-eq ["other", other-error], f other-error
-
-test "try-catch-as-type-without-base", #
-  class MyError
-  
-  let f(err)
-    try
-      throw err
-    catch e as MyError
-      "MyError"
-  eq "MyError", f MyError()
-  let obj = {}
-  throws #-> f(obj), #(e) -> e == obj
-
-test "try-multiple-catch-as-type", #
-  class AlphaError
-  class BravoError
-  
-  let f(err)
-    try
-      throw err
-    catch e as AlphaError
-      "alpha"
-    catch e as BravoError
-      "bravo"
-    catch e
-      "other"
-  
-  eq "alpha", f AlphaError()
-  eq "bravo", f BravoError()
-  eq "other", f Error()
-
-test "try-multiple-catch-as-type using union syntax", #
-  class AlphaError
-  class BravoError
-  
-  let f(err)
-    try
-      throw err
-    catch e as AlphaError|BravoError
-      "alpha or bravo"
-    catch e
-      "other"
-  
-  eq "alpha or bravo", f AlphaError()
-  eq "alpha or bravo", f BravoError()
-  eq "other", f Error()
-
-test "try-multiple-catch-as-type, differing error identifiers", #
-  class AlphaError
-    def constructor(@value) ->
-  class BravoError
-    def constructor(@value) ->
-  
-  let f(err)
-    try
-      throw err
-    catch e1 as AlphaError
-      "alpha: $(e1.value)"
-    catch e2 as BravoError
-      "bravo: $(e2.value)"
-    catch e3
-      e3
-  
-  eq "alpha: 1", f AlphaError(1)
-  eq "bravo: 2", f BravoError(2)
-  eq "other", f "other"
-
-test "try-catch-as-type-else", #
-  class AlphaError
-    def constructor(@value) ->
-  class BravoError
-    def constructor(@value) ->
-
-  let f(err)
-    try
-      throw? err
-    catch e1 as AlphaError
-      "alpha: $(e1.value)"
-    catch e2 as BravoError
-      "bravo: $(e2.value)"
-    catch e3
-      e3
-    else
-      return "no error"
-
-  eq "alpha: 1", f AlphaError(1)
-  eq "bravo: 2", f BravoError(2)
-  eq "other", f "other"
-  eq "no error", f()
-
-test "try-catch-as-type-else-finally", #
-  class AlphaError
-    def constructor(@value) ->
-  class BravoError
-    def constructor(@value) ->
-  
-  let f(err)
-    let mutable result = null
-    try
-      throw? err
-    catch e1 as AlphaError
-      result := "alpha: $(e1.value)"
-    catch e2 as BravoError
-      result := "bravo: $(e2.value)"
-    catch e3
-      result := e3
-    else
-      result := "no error"
-    finally
-      return ":$result"
-
-  eq ":alpha: 1", f AlphaError(1)
-  eq ":bravo: 2", f BravoError(2)
-  eq ":other", f "other"
-  eq ":no error", f()
-
-test "try-catch-==-type", #
-  class AlphaError
-    def constructor(@value) ->
-  let obj = {}
+  describe "with an untyped catch", #
+    describe "when the expected error is thrown", #
+      it "should hit the specific catch but ignore the other", #
+        let in-specific = stub()
+        let err = MyError()
+        try
+          throw err
+        catch e as MyError
+          expect(e).to.equal err
+          in-specific()
+        catch e
+          throw Error "never reached"
+        
+        expect(in-specific).to.be.called-once
     
+    describe "when an unexpected error is thrown", #
+      it "should hit the specific catch but ignore the other", #
+        let err = {}
+        let in-catch = stub()
+        try
+          throw err
+        catch e as MyError
+          throw Error "never reached"
+        catch e
+          expect(e).to.equal(err)
+          in-catch()
+        
+        expect(in-catch).to.be.called-once
+    
+    describe "when no error is thrown", #
+      it "should ignore both catches", #
+        let ran = stub()
+        try
+          ran()
+        catch e as MyError
+          throw Error "never reached"
+        catch e
+          throw Error "never reached"
+        expect(ran).to.be.called-once
+    
+    describe "with differing idents", #
+      it "should work fine", #
+        let err = Error()
+        let in-catch = stub()
+        try
+          throw err
+        catch e as MyError
+          throw Error "never reached"
+        catch e2
+          expect(e2).to.equal err
+          in-catch()
+        
+        expect(in-catch).to.be.called-once
+  
+  describe "without an untyped catch", #
+    describe "when the expected error is thrown", #
+      it "should hit the specific catch but ignore the other", #
+        let in-specific = stub()
+        let err = MyError()
+        try
+          throw err
+        catch e as MyError
+          expect(e).to.equal err
+          in-specific()
+
+        expect(in-specific).to.be.called-once
+
+    describe "when an unexpected error is thrown", #
+      it "should hit the specific catch but ignore the other", #
+        let err = {}
+        let in-catch = stub()
+        expect(#
+          try
+            throw err
+          catch e as MyError
+            throw Error "never reached").throws(err)
+
+    describe "when no error is thrown", #
+      it "should ignore both catches", #
+        let ran = stub()
+        try
+          ran()
+        catch e as MyError
+          throw Error "never reached"
+        expect(ran).to.be.called-once
+  
+  describe "multiple catch as types", #
+    class OtherError
+    let f(err)
+      try
+        throw err
+      catch e as MyError
+        \my-error
+      catch e as OtherError
+        \other-error
+      catch e
+        \unknown
+    
+    it "when the first error is thrown", #
+      expect(f(MyError())).to.equal \my-error
+    
+    it "when the second error is thrown", #
+      expect(f(OtherError())).to.equal \other-error
+    
+    it "when an unknown error is thrown", #
+      expect(f(Error())).to.equal \unknown
+  
+  describe "multiple catch as types using union syntax", #
+    class OtherError
+    let f(err)
+      try
+        throw err
+      catch e as MyError|OtherError
+        \my-error
+      catch e
+        \unknown
+    
+    it "when the first error is thrown", #
+      expect(f(MyError())).to.equal \my-error
+
+    it "when the second error is thrown", #
+      expect(f(OtherError())).to.equal \my-error
+
+    it "when an unknown error is thrown", #
+      expect(f(Error())).to.equal \unknown
+
+describe "try-catch == type", #
+  class MyError
+  let obj = {}
   let f(err)
-    let mutable result = null
+    let mutable result = ""
     try
       throw? err
-    catch e1 as AlphaError
-      result := "alpha: $(e1.value)"
+    catch e1 as MyError
+      result := \my-error
     catch e2 == obj
-      result := "obj"
-    catch e2
-      result := e2
+      result := \obj
+    catch e3
+      result := String e3
     else
-      result := "no error"
+      result := \none
     finally
       return ":$result"
   
-  eq ":alpha: 1", f AlphaError(1)
-  eq ":obj", f obj
-  eq ":other", f "other"
-  eq ":no error", f()
+  it "when the first error is thrown", #
+    expect(f(MyError())).to.equal ":myError"
+  
+  it "when the second error is thrown", #
+    expect(f(obj)).to.equal ":obj"
+  
+  it "when an unknown error is thrown", #
+    expect(f({ to-string: #-> \other })).to.equal ":other"
+  
+  it "when no error is thrown", #
+    expect(f()).to.equal ":none"

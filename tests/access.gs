@@ -1,236 +1,308 @@
-test "dot access", #
-  let x = { key: "value" }
-  eq "value", x.key
-  eq "value", { key: "value" }.key
+describe "dot access", #
+  it "can access on idents", #
+    let x = { key: "value" }
+    expect(x.key).to.equal "value"
   
-  x.other := "blah"
-  eq "blah", x.other
+  it "can access on literal objects", #
+    expect({ key: "value" }.key).to.equal "value"
   
-  let y = ["value"]
-  eq "value", y.0
-  eq "value", ["value"].0
+  it "can assign to an object", #
+    let x = {}
+    x.other := "blah"
+    expect(x.other).to.equal "blah"
   
-  y.0 := "blah"
-  eq "blah", y.0
-
-test "access on dashed name", #
-  let obj = {}
-  obj.dashed-name := "hello"
-  eq "hello", obj.dashed-name
-  eq "hello", obj.dashedName
-
-test "bracket access", #
-  let x = { key: "value" }
-  eq "value", x["key"]
-  eq "value", { key: "value" }["key"]
+  it "can be used on arrays", #
+    let y = ["value"]
+    expect(y.0).to.equal "value"
   
-  x["other"] := "blah"
-  eq "blah", x["other"]
+  it "can be used on literal arrays", #
+    expect(["value"].0).to.equal "value"
   
-  let y = ["value"]
-  eq "value", y[0]
-  eq "value", ["value"][0]
+  it "can be used to assign on arrays", #
+    let y = []
+    y.0 := "blah"
+    expect(y.0).to.equal "blah"
   
-  y[0] := "blah"
-  eq "blah", y[0]
-
-test "prototypal access", #
-  let x = { prototype: { key: "value" } }
-  eq "value", x::key
-  eq "value", { prototype: { key: "value" } }::key
+  it "can be used with a dashed-name", #
+    let obj = {}
+    obj.dashed-name := "hello"
+    expect(obj.dashed-name).to.equal "hello"
+    expect(obj.dashedName).to.equal "hello"
   
-  x::other := "blah"
-  eq "blah", x::other
-  eq "blah", x.prototype.other
+describe "bracket access", #
+  it "can access on idents", #
+    let x = { key: "value" }
+    expect(x["key"]).to.equal "value"
   
-  let y = { prototype: ["value"] }
-  eq "value", y::0
-  eq "value", { prototype: ["value"] }::0
+  it "can access on literal objects", #
+    expect({ key: "value" }["key"]).to.equal "value"
   
-  y::0 := "blah"
-  eq "blah", y::0
-  eq "blah", y.prototype.0
-
-test "prototypal bracket access", #
-  let x = { prototype: { key: "value" } }
-  eq "value", x::["key"]
-  eq "value", { prototype: { key: "value" } }::["key"]
+  it "can assign to an object", #
+    let x = {}
+    x["other"] := "blah"
+    expect(x["other"]).to.equal "blah"
   
-  x::other := "blah"
-  eq "blah", x::["other"]
-  eq "blah", x.prototype.other
+  it "can be used on arrays", #
+    let y = ["value"]
+    expect(y[0]).to.equal "value"
   
-  let y = { prototype: ["value"] }
-  eq "value", y::[0]
-  eq "value", { prototype: ["value"] }::[0]
+  it "can be used on literal arrays", #
+    expect(["value"][0]).to.equal "value"
   
-  y::[0] := "blah"
-  eq "blah", y::[0]
-  eq "blah", y.prototype[0]
+  it "can assign to arrays", #
+    let y = []
+    y[0] := "value"
+    expect(y[0]).to.equal "value"
 
-test "dot access on this", #
-  let get() -> this.key
-  let set(value) -> this.key := value
+describe "prototypal access", #
+  it "can access on idents", #
+    let x = { prototype: { key: "value" } }
+    expect(x::key).to.equal "value"
   
-  let obj = {}
-  eq undefined, get.call obj
-  set.call obj, "value"
-  eq "value", get.call obj
-
-test "bracket access on this", #
-  let get(key) -> this[key]
-  let set(key, value) -> this[key] := value
+  it "can access on literal objects", #
+    expect({ prototype: { key: "value" } }::key).to.equal "value"
   
-  let obj = {}
-  eq undefined, get.call obj, "key"
-  set.call obj, "key", "value"
-  eq "value", get.call obj, "key"
-
-test "prototypal access on this", #
-  let get() -> this::key
-  let set(value) -> this::key := value
+  it "can assign to an object", #
+    let x = { prototype: {} }
+    x::other := "value"
+    expect(x::other).to.equal "value"
+    expect(x.prototype.other).to.equal "value"
   
-  let obj = { prototype: {} }
-  eq undefined, get.call obj
-  set.call obj, "value"
-  eq "value", get.call obj
-
-test "prototypal bracket access on this", #
-  let get(key) -> this::[key]
-  let set(key, value) -> this::[key] := value
+  it "can access a prototype which is an array", #
+    let y = { prototype: ["value"] }
+    expect(y::0).to.equal "value"
   
-  let obj = { prototype: {} }
-  eq undefined, get.call obj, "key"
-  set.call obj, "key", "value"
-  eq "value", get.call obj, "key"
-
-test "@ access", #
-  let get() -> @key
-  let set(value) -> @key := value
+  it "can access a literal object with prototype which is an array", #
+    expect({ prototype: ["value"] }::0).to.equal "value"
   
-  let obj = {}
-  eq undefined, get.call obj
-  set.call obj, "value"
-  eq "value", get.call obj
+  it "can assign a to a prototype which is an array", #
+    let y = { prototype: [] }
+    y::0 := "value"
+    expect(y::0).to.equal "value"
+    expect(y.prototype.0).to.equal "value"
 
-test "@ dot access", #
-  let get() -> @.key
-  let set(value) -> @.key := value
+describe "prototypal bracket access", #
+  it "can access on idents", #
+    let x = { prototype: { key: "value" } }
+    expect(x::["key"]).to.equal "value"
   
-  let obj = {}
-  eq undefined, get.call obj
-  set.call obj, "value"
-  eq "value", get.call obj
-
-test "@ bracket access", #
-  let get(key) -> @[key]
-  let set(key, value) -> @[key] := value
+  it "can access on literal objects", #
+    expect({ prototype: { key: "value" } }::["key"]).to.equal "value"
   
-  let obj = {}
-  eq undefined, get.call obj, "key"
-  set.call obj, "key", "value"
-  eq "value", get.call obj, "key"
-
-test "prototypal access on @", #
-  let get() -> @::key
-  let set(value) -> @::key := value
+  it "can assign to an object", #
+    let x = { prototype: {} }
+    x::["other"] := "value"
+    expect(x::["other"]).to.equal "value"
+    expect(x.prototype.other).to.equal "value"
   
-  let obj = { prototype: {} }
-  eq undefined, get.call obj
-  set.call obj, "value"
-  eq "value", get.call obj
-
-test "prototypal bracket access on @", #
-  let get(key) -> @::[key]
-  let set(key, value) -> @::[key] := value
+  it "can access a prototype which is an array", #
+    let y = { prototype: ["value"] }
+    expect(y::[0]).to.equal "value"
   
-  let obj = { prototype: {} }
-  eq undefined, get.call obj, "key"
-  set.call obj, "key", "value"
-  eq "value", get.call obj, "key"
+  it "can access a literal object with prototype which is an array", #
+    expect({ prototype: ["value"] }::[0]).to.equal "value"
+  
+  it "can assign a to a prototype which is an array", #
+    let y = { prototype: [] }
+    y::[0] := "value"
+    expect(y::[0]).to.equal "value"
+    expect(y.prototype.0).to.equal "value"
 
-test "chained access", #
-  let str = 'abc'
-  let result = str
-    .split('')
-    .reverse()
-    .reverse()
-    .reverse()
-  array-eq ['c','b','a'], result
-  array-eq ['c','b','a'], str
-    .split('')
-    .reverse()
-    .reverse()
-    .reverse()
+describe "access on this", #
+  it "works with dot access", #
+    let get() -> this.key
+    let set(value) -> this.key := value
 
-/*
-test "access on undefined", -> do
-  throws -> Cotton.compile("""let x = 0
-  undefined.thing"""), (e) -> e.line == 2
-end
+    let obj = {}
+    expect(get.call obj).to.be.undefined
+    set.call obj, "value"
+    expect(get.call obj).to.equal "value"
+  
+  it "works with bracket access", #
+    let get(key) -> this[key]
+    let set(key, value) -> this[key] := value
 
-test "access on null", -> do
-  throws -> Cotton.compile("""let x = 0
-  null.thing"""), (e) -> e.line == 2
-end
-*/
+    let obj = {}
+    expect(get.call obj, "key").to.be.undefined
+    set.call obj, "key", "value"
+    expect(get.call obj, "key").to.equal "value"
 
-test "access with ownership", #
-  let x = { key: "value" }
-  eq "value", x!.key
-  let y = { extends x }
-  eq "value", y.key
-  eq void, y!.key
+  it "works with prototypal access", #
+    let get() -> this::key
+    let set(value) -> this::key := value
 
-test "access with ownership, with access after-the-fact", #
-  let x = { key: "value" }
-  eq "value", x!.key
-  let y = { extends x }
-  eq "value", y.key
-  eq void, y!.key.wont.be.checked
+    let obj = { prototype: {} }
+    expect(get.call obj).to.be.undefined
+    set.call obj, "value"
+    expect(get.call obj).to.equal "value"
+  
+  it "works with prototypal bracket access", #
+    let get(key) -> this::[key]
+    let set(key, value) -> this::[key] := value
 
-test "access with ownership, existential", #
-  let x = { key: "value" }
-  eq "value", x?!.key
-  let y = { extends x }
-  eq "value", y.key
-  eq void, y?!.key
-  let z = null
-  eq void, z?!.key
+    let obj = { prototype: {} }
+    expect(get.call obj, "key").to.be.undefined
+    set.call obj, "key", "value"
+    expect(get.call obj, "key").to.equal "value"
 
-test "access with * representing length", #
-  let array = [\a, \b, \c]
-  eq \c, array[* - 1]
-  eq \b, array[*-2]
-  let get-array = run-once array
-  eq \a, get-array()[* - 3]
+describe "@ access", #
+  it "works without a dot", #
+    let get() -> @key
+    let set(value) -> @key := value
 
-test "access with * followed by another access with *", #
-  let array = [\a, \b, [\c, \d]]
-  eq \d, array[* - 1][* - 1]
-  let get-array = run-once array
-  eq \d, get-array()[* - 1][* - 1]
+    let obj = {}
+    expect(get.call obj).to.be.undefined
+    set.call obj, "value"
+    expect(get.call obj).to.equal "value"
 
-test "* inside another index in an index", #
-  let alpha = [\a, \b, \c]
-  let bravo = [1, 2]
-  eq \c, alpha[bravo[* - 1]]
-  let get-alpha = run-once alpha
-  let get-bravo = run-once bravo
-  eq \c, get-alpha()[get-bravo()[* - 1]]
+  it "works with a dot", #
+    let get() -> @.key
+    let set(value) -> @.key := value
 
-test "* inside another index in an index with *", #
-  let alpha = [\a, \b, \c]
-  let bravo = [1, 2]
-  eq \b, alpha[* - bravo[* - 1]]
-  let get-alpha = run-once alpha
-  let get-bravo = run-once bravo
-  eq \b, get-alpha()[* - get-bravo()[* - 1]]
+    let obj = {}
+    expect(get.call obj).to.be.undefined
+    set.call obj, "value"
+    expect(get.call obj).to.equal "value"
 
-test "Assigning to an access with *", #
-  let array = []
-  array[*] := \a
-  array[*] := \b
-  array[* - 1] := \c
-  array[*] := \d
-  array-eq [\a, \c, \d], array
+  it "works with bracket access", #
+    let get(key) -> @[key]
+    let set(key, value) -> @[key] := value
+
+    let obj = {}
+    expect(get.call obj, "key").to.be.undefined
+    set.call obj, "key", "value"
+    expect(get.call obj, "key").to.equal "value"
+
+  it "works with prototypal access", #
+    let get() -> @::key
+    let set(value) -> @::key := value
+
+    let obj = { prototype: {} }
+    expect(get.call obj).to.be.undefined
+    set.call obj, "value"
+    expect(get.call obj).to.equal "value"
+
+  it "works with prototypal bracket access", #
+    let get(key) -> @::[key]
+    let set(key, value) -> @::[key] := value
+
+    let obj = { prototype: {} }
+    expect(get.call obj, "key").to.be.undefined
+    set.call obj, "key", "value"
+    expect(get.call obj, "key").to.equal "value"
+
+describe "chained access", #
+  it "works all one one line", #
+    let str = 'abc'
+    let result = str.split('').reverse().reverse().reverse()
+    expect(result).to.eql ['c','b','a']
+    expect(str.split('').reverse().reverse().reverse()).to.eql ['c','b','a']
+  
+  it "allows splitting across lines", #
+    let str = 'abc'
+    let result = str
+      .split('')
+      .reverse()
+      .reverse()
+      .reverse()
+    expect(result).to.eql ['c','b','a']
+    expect(str
+      .split('')
+      .reverse()
+      .reverse()
+      .reverse()).to.eql ['c','b','a']
+
+describe "access with ownership", #
+  it "works as expected", #
+    let x = { key: "value" }
+    expect(x!.key).to.equal "value"
+    let y = { extends x }
+    expect(y.key).to.equal "value"
+    expect(y!.key).to.be.undefined
+  
+  it "doesn't fail with access after-the-fact", #
+    let x = { key: "value" }
+    let y = { extends x }
+    expect(y.key).to.equal "value"
+    expect(y!.key.wont.be.checked).to.be.undefined
+  
+  it "works with existential check", #
+    let x = { key: "value" }
+    expect(x?!.key).to.equal "value"
+    let y = { extends x }
+    expect(y.key).to.equal "value"
+    expect(y?!.key).to.be.undefined
+    let z = null
+    expect(z?!.key).to.be.undefined
+
+describe "* represents length in bracket access", #
+  it "works with subtraction", #
+    let array = [\a, \b, \c]
+    expect(array[* - 1]).to.equal \c
+    expect(array[*-2]).to.equal \b
+    let get-array = stub().returns array
+    expect(get-array()[* - 3]).to.equal \a
+    expect(get-array).to.be.called-once
+  
+  it "works multiple times in a row", #
+    let array = [\a, \b, [\c, \d]]
+    expect(array[* - 1][* - 1]).to.equal \d
+    let get-array = stub().returns array
+    expect(get-array()[* - 1][* - 1]).to.equal \d
+    expect(get-array).to.be.called-once
+  
+  it "works within another index", #
+    let alpha = [\a, \b, \c]
+    let bravo = [1, 2]
+    expect(alpha[bravo[* - 1]]).to.equal \c
+    let get-alpha = stub().returns alpha
+    let get-bravo = stub().returns bravo
+    expect(get-alpha()[get-bravo()[* - 1]]).to.equal \c
+    expect(get-alpha).to.be.called-once
+    expect(get-bravo).to.be.called-once
+  
+  it "works within another index that also has *", #
+    let alpha = [\a, \b, \c]
+    let bravo = [1, 2]
+    expect(alpha[* - bravo[* - 1]]).to.equal \b
+    let get-alpha = stub().returns alpha
+    let get-bravo = stub().returns bravo
+    expect(get-alpha()[* - get-bravo()[* - 1]]).to.equal \b
+    expect(get-alpha).to.be.called-once
+    expect(get-bravo).to.be.called-once
+  
+  it "can be used for assignment", #
+    let array = []
+    array[*] := \a
+    array[*] := \b
+    array[* - 1] := \c
+    array[*] := \d
+    expect(array).to.eql [\a, \c, \d]
+
+describe "Binding access", #
+  it "works", #
+    let make-x() -> { key: #-> this }
+    let alpha = {}
+    let bravo = {}
+    let x = make-x@ alpha
+    expect(x.key@ bravo).to.equal bravo
+    expect(x.key()).to.equal x
+    let f = x@.key
+    expect(f()).to.equal x
+    expect(f@ bravo).to.equal x
+  
+  it "works with arguments", #
+    let make-x()
+      { key: #-> [this, ...arguments] }
+    let alpha = {}
+    let bravo = {}
+    let x = make-x@ alpha
+    expect(x.key@ bravo).to.eql [bravo]
+    expect(x.key@ bravo, alpha).to.eql [bravo, alpha]
+    expect(x.key()).to.eql [x]
+    expect(x.key alpha).to.eql [x, alpha]
+    let f = x@.key
+    expect(f()).to.eql [x]
+    expect(f alpha).to.eql [x, alpha]
+    expect(f@ bravo).to.eql [x]
+    expect(f@ bravo, alpha).to.eql [x, alpha]

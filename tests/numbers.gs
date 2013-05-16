@@ -1,125 +1,172 @@
-test "Hex", #
-  eq 255, 0xff
-  eq 0xa, 0x0000000A
-  eq 0X0, 0x0
-  eq 0xDEADBEEF, 0xdeadbeef
-
-test "Octal", #
-  eq 255, 0o377
-  eq 0o0, 0O0
-  eq 15, 0o0000000017
-
-test "Binary", #
-  eq 123456, 0b11110001001000000
-  eq 0B101, 0b101
-  eq 69, 0b000000001000101
-
-test "Radix", #
-  eq 69, 2r00000000001000101
-  eq 123456, 2r11110001001000000
-  eq 123456, 8r361100
-  eq 1395584131931951600, 36rAlphabetSoup
-
-test "Exponential", #
-  eq 1, 1e0
-  eq 10, 1e1
-  eq 1000000000, 1e9
-  eq 123456789, 1.23456789e8
-
-test "Decimal", #
-  eq 1234.5678, 12345678 / 10000
-  eq -5, 5 - 10
-  eq -1.5, 3.5 - 5
-  eq -0.5, 4.5 - 5
-
-test "Commented", #
-  eq 525600_minutes, 1_year * 365_days_per_year * 24_hours_per_day * 60_minutes_per_hour
-
-test "Underscore-separated", #
-  eq 1000000, 1_000_000
-  eq 0xDEAD_BEEF, 0xde_ad_be_ef
-  eq 0o1234_5670, 0o12_34_56_70
-  eq 2r0001_0010_0011_0100, 2r0001001000110100
-  eq 1000000, 1_0_0_0_0_0_0_ // ending with an underscore, which is ignored
-  eq 1234.5678, 1_234_._5678_
-
-test "Fractional hex", #
-  eq 1/16, 0x0.1
-  eq -3/16, -0x0.3
-  eq 0x1234 + 0x5678 / 0x10000, 0x1_234.56_78
-
-test "Fractional octal", #
-  eq 1/8, 0o0.1
-  eq -3/8, -0o0.3
-  eq 0o1234 + 0o567 / 0o1000, 0o1_234.56_7
-
-test "Fractional binary", #
-  eq 0.5, 0b0.1
-  eq 0.25, 0b0.01
-  eq 0.75, 0b0.11
-  eq 0b1010101 + 0b10101 / 0b1000000, 0b101_0101.0101_01
-
-test "Fractional radix", #
-  eq 0x1234 + 0x5678 / 0x10000, 16r1_234.56_78
-  eq 0o1234 + 0o567 / 0o1000, 8r1_234.56_7
-  eq 0b1010101 + 0b10101 / 0b1000000, 2r101_0101.0101_01
-  eq 36rAlphabet + 36rSoup / 36r10000, 36rAlphabet.Soup
-
-test "Numbers should be indexable", #
-  eq Number::to-string, 42.to-string
-  eq Number::to-string, 0x1234.to-string
-  eq Number::to-string, (42).to-string
-  eq Number::to-string, (-42).to-string
-  eq Number::to-string, 0xde_ad_be_ef.to-string
-  eq Number::to-string, 1000_ms.to-string
-  eq Number::to-string, 0b1000101.to-string
-  eq Number::to-string, 0o177.to-string
-  eq Number::to-string, 2r1000101.to-string
-  eq Number::to-string, Infinity.to-string
-  eq Number::to-string, (-Infinity).to-string
-  eq Number::to-string, NaN.to-string
-  eq Number::to-string, 42["toString"]
-  eq Number::to-string, 0x1234["toString"]
-  eq Number::to-string, (42)["toString"]
-  eq Number::to-string, (-42)["toString"]
-  eq Number::to-string, 0xde_ad_be_ef["toString"]
-  eq Number::to-string, 1000_ms["toString"]
-  eq Number::to-string, 0b1000101["toString"]
-  eq Number::to-string, 0o177["toString"]
-  eq Number::to-string, 2r1000101["toString"]
-  eq Number::to-string, Infinity["toString"]
-  eq Number::to-string, (-Infinity)["toString"]
-  eq Number::to-string, NaN["toString"]
-
-test "Negative zero stays negative", #
-  ok 1 / -0 == -Infinity
-  let x = -0
-  ok 1 / x == -Infinity
-
-test "Positive zero stays negative", #
-  ok 1 / 0 == Infinity
-  let x = 0
-  ok 1 / x == Infinity
-
-test "Passing a spread to a method of a literal number", #
-  let arr = [16]
+describe "Decimal numbers", #
+  it "can be represented in scientific notation", #
+    expect(1e0).to.equal 1
+    expect(1e1).to.equal 10
+    expect(10e-1).to.equal 1
+    expect(1e9).to.equal 1000000000
+    expect(1.23456789e8).to.equal 123456789
   
-  eq "1234", 4660.to-string ...arr
-  arr[0] := 10
-  eq "4660", 4660.to-string ...arr
+  it "can be represented by decimal notation", #
+    expect(1234.5678).to.equal 12345678 / 10000
+    expect(-5).to.equal 5 - 10
+    expect(-1.5).to.equal 3.5 - 5
+    expect(-0.5).to.equal 4.5 - 5
+  
+  it "can have a trailing comment", #
+    expect(525600_minutes).to.equal 1_year * 365_days_per_year * 24_hours_per_day * 60_minutes_per_hour
+  
+  it "can include ignored underscores", #
+    expect(1_000_000).to.equal 1000000
+    expect(1_0_0_0_0_0_0_).to.equal 1000000
+    expect(1_234_._5678_).to.equal 1234.5678
+  
+  it "should be indexable", #
+    expect(42.to-string).to.equal Number::to-string
+    expect((-42).to-string).to.equal Number::to-string
+    expect(1000_ms.to-string).to.equal Number::to-string
+    expect(42["toString"]).to.equal Number::to-string
+    expect((-42)["toString"]).to.equal Number::to-string
+    expect(1000_ms["toString"]).to.equal Number::to-string
+  
+  it "can have a method passed a spread parameter", #
+    let arr = [16]
+    
+    expect(4660.to-string ...arr).to.equal "1234"
+    arr[0] := 10
+    expect(4660.to-string ...arr).to.equal "4660"
 
+describe "Infinity", #
+  it "should not be finite", #
+    expect(is-finite Infinity).to.be.false
+  
+  it "should be 1 / 0", #
+    expect(Infinity).to.equal 1 / 0
+  
+  it "should be indexable", #
+    expect(Infinity.to-string).to.equal Number::to-string
+    expect((-Infinity).to-string).to.equal Number::to-string
+    expect(Infinity["toString"]).to.equal Number::to-string
+    expect((-Infinity)["toString"]).to.equal Number::to-string
 
-test "Numbers too large", #
-  throws #-> gorilla.compile("""let x = 0
-  let y = 1e1000"""), #(e) -> e.line == 2
-  throws #-> gorilla.compile("""let x = 0
-  let y = #{Number.MAX_VALUE.to-string(9)}"""), #(e) -> e.line == 2
-  throws #-> gorilla.compile("""let x = 0
-  let y = 0b#{Number.MAX_VALUE.to-string(2)}0"""), #(e) -> e.line == 2
-  throws #-> gorilla.compile("""let x = 0
-  let y = 0o#{Number.MAX_VALUE.to-string(8)}0"""), #(e) -> e.line == 2
-  throws #-> gorilla.compile("""let x = 0
-  let y = 0x#{Number.MAX_VALUE.to-string(16)}0"""), #(e) -> e.line == 2
-  throws #-> gorilla.compile("""let x = 0
-  let y = 36r#{Number.MAX_VALUE.to-string(36)}0"""), #(e) -> e.line == 2
+describe "NaN", #
+  it "should not be finite", #
+    expect(is-finite NaN).to.be.false
+  
+  it "should not equal itself", #
+    let x = NaN
+    expect(NaN == x).to.be.false
+  
+  it "is indexable", #
+    expect(NaN.to-string).to.equal Number::to-string
+    expect(NaN["toString"]).to.equal Number::to-string
 
+describe "Negative zero", #
+  it "should equal positive zero", #
+    expect(0 == -0).to.be.true
+  
+  it "should not be positive zero", #
+    expect(0 is -0).to.be.false
+  
+  it "should form -Infinity when the divisor of 1", #
+    expect(1 / -0).to.equal -Infinity
+    let x = -0
+    expect(1 / x).to.equal -Infinity
+
+describe "Positive zero", #
+  it "should form Infinity when the divisor of 1", #
+    expect(1 / 0).to.equal Infinity
+    let x = 0
+    expect(1 / x).to.equal Infinity
+
+describe "Hex numbers", #
+  it "has literal representation", #
+    expect(0xff).to.equal 255
+    expect(0x0000000A).to.equal 0xa
+    expect(0x0).to.equal 0
+    expect(0X0).to.equal 0
+    expect(0XDEADBEEF).to.equal 0xdeadbeef
+  
+  it "can include ignored underscores", #
+    expect(0xde_ad_be_ef).to.equal 0xDEAD_BEEF
+  
+  it "can have a fractional component", #
+    expect(0x0.1).to.equal 1 / 16
+    expect(-0x0.3).to.equal -3 / 16
+    expect(0x1_234.56_78).to.equal 0x1234 + 0x5678 / 0x10000
+  
+  it "should be indexable", #
+    expect(0x1234.to-string).to.equal Number::to-string
+    expect(0xde_ad_be_ef.to-string).to.equal Number::to-string
+    expect(0x1234["toString"]).to.equal Number::to-string
+    expect(0xde_ad_be_ef["toString"]).to.equal Number::to-string
+
+describe "Octal numbers", #
+  it "has literal representation", #
+    expect(0o377).to.equal 255
+    expect(0o0).to.equal 0
+    expect(0O0).to.equal 0
+    expect(0o0000000017).to.equal 15
+  
+  it "can include ignored underscores", #
+    expect(0o12_34_56_70).to.equal 0o1234_5670
+  
+  it "can have a fractional component", #
+    expect(0o0.1).to.equal 1 / 8
+    expect(-0o0.3).to.equal -3 / 8
+    expect(0o1_234.56_7).to.equal 0o1234 + 0o567 / 0o1000
+  
+  it "should be indexable", #
+    expect(0o177.to-string).to.equal Number::to-string
+    expect(0o177["toString"]).to.equal Number::to-string
+
+describe "Binary numbers", #
+  it "has literal representation", #
+    expect(0b11110001001000000).to.equal 123456
+    expect(0b0).to.equal 0
+    expect(0B0).to.equal 0
+    expect(0b00000001000101).to.equal 69
+  
+  it "can include ignored underscores", #
+    expect(0b0001_0010_0011_0100).to.equal 0b0001001000110100
+  
+  it "can have a fractional component", #  
+    expect(0b0.1).to.equal 0.5
+    expect(0b0.01).to.equal 0.25
+    expect(0b0.11).to.equal 0.75
+    expect(0b101_0101.0101_01).to.equal 0b1010101 + 0b10101 / 0b1000000
+  
+  it "should be indexable", #
+    expect(0b1000101.to-string).to.equal Number::to-string
+    expect(0b1000101["toString"]).to.equal Number::to-string
+
+describe "Arbitrary-radix numbers", #
+  it "has literal representation", #
+    expect(2r00000000001000101).to.equal 69
+    expect(2r11110001001000000).to.equal 123456
+    expect(8r361100).to.equal 123456
+    expect(36rAlphabetSoup).to.equal 1395584131931951600
+  
+  it "can include ignored underscores", #
+    expect(2r0001_0010_0011_0100).to.equal 0b0001001000110100
+  
+  it "can have a fractional component", #
+    expect(16r1_234.56_78).to.equal 0x1234 + 0x5678 / 0x10000
+    expect(8r1_234.56_7).to.equal 0o1234 + 0o567 / 0o1000
+    expect(2r101_0101.0101_01).to.equal 0b1010101 + 0b10101 / 0b1000000
+    expect(36rAlphabet.Soup).to.equal 36rAlphabet + 36rSoup / 36r10000
+    expect(32r1_234.56_78).to.equal 32r1234 + 32r5678 / 32r10000
+
+describe "Numbers too large", #
+  it "should error if a number too large is encountered", #
+    expect(#-> gorilla.compile """let x = 0
+    let y = 1e1000""").throws gorilla.ParserError, r"line #2"
+    expect(#-> gorilla.compile """let x = 0
+    let y = $(Number.MAX_VALUE.to-string(10))0""").throws gorilla.ParserError, r"line #2"
+    expect(#-> gorilla.compile """let x = 0
+    let y = 0b$(Number.MAX_VALUE.to-string(2))0""").throws gorilla.ParserError, r"line #2"
+    expect(#-> gorilla.compile """let x = 0
+    let y = 0o$(Number.MAX_VALUE.to-string(8))0""").throws gorilla.ParserError, r"line #2"
+    expect(#-> gorilla.compile """let x = 0
+    let y = 0x$(Number.MAX_VALUE.to-string(16))0""").throws gorilla.ParserError, r"line #2"
+    expect(#-> gorilla.compile """let x = 0
+    let y = 36r$(Number.MAX_VALUE.to-string(36))0""").throws gorilla.ParserError, r"line #2"

@@ -1,5 +1,5 @@
 let set-to-array(set, known-values = [])
-  ok set instanceof Set
+  expect(set).to.be.an.instanceof(Set)
   let values = []
   if is-function! set.values
     for value from set.values()
@@ -13,38 +13,44 @@ let set-to-array(set, known-values = [])
     for value in known-values
       if set.has value
         values.push value
-  values.sort (<=>)
+  values.sort #(a, b)
+    typeof a <=> typeof b or a <=> b
 
-test "empty", #
-  let set = %[]
-  array-eq [], set-to-array set, [\x]
+describe "single-line syntax", #
+  it "should handle empty case", #
+    let set = %[]
+    expect(set-to-array set, [\x]).to.be.empty
 
-test "simple, single-line", #
-  let set = %["alpha", "bravo", "charlie"]
+  it "should handle mixed values", #
+    let obj = {}
+    let set = %[1, "alpha", obj]
+    
+    expect(set-to-array set, [1, "alpha", obj, \x]).to.eql [1, obj, "alpha"]
 
-  array-eq ["alpha", "bravo", "charlie"], set-to-array set, [\alpha, \bravo, \charlie, \x]
+describe "multi-line syntax", #
+  it "should handle mixed commas", #
+    let set = %[
+      "alpha"
+      "bravo",
+      "charlie"
+    ]
+    expect(set-to-array set, [\alpha, \bravo, \charlie, \x]).to.eql ["alpha", "bravo", "charlie"]
+  
+  it "should handle matrix-style", #
+    let set = %[
+      1, 2, 3
+      4, 5, 6
+      7, 8, 9
+    ]
+    expect(set-to-array set, [1, 2, 3, 4, 5, 6, 7, 8, 9, \x]).to.eql [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-test "multi-line, mixed commas", #
-  let set = %[
-    "alpha"
-    "bravo",
-    "charlie"
-  ]
-  array-eq ["alpha", "bravo", "charlie"], set-to-array set, [\alpha, \bravo, \charlie, \x]
+describe "spread", #
+  it "should handle spread in set construction", #
+    let x = ["bravo", "charlie"]
+    let set = %["alpha", ...x, "delta"]
+    expect(set-to-array set, ["alpha", "bravo", "charlie", "delta", \x]).to.eql ["alpha", "bravo", "charlie", "delta"]
 
-test "multi-line, matrix-style", #
-  let set = %[
-    1, 2, 3
-    4, 5, 6
-    7, 8, 9
-  ]
-  array-eq [1, 2, 3, 4, 5, 6, 7, 8, 9], set-to-array set, [1, 2, 3, 4, 5, 6, 7, 8, 9, \x]
-
-test "spread in set construction", #
-  let x = ["bravo", "charlie"]
-  let set = %["alpha", ...x, "delta"]
-  array-eq ["alpha", "bravo", "charlie", "delta"], set-to-array set, ["alpha", "bravo", "charlie", "delta", \x]
-
-test "immediate access", #
-  ok %["alpha"].has("alpha")
-  ok not %["alpha"].has("bravo")
+describe "literal access", #
+  it "should handle access on its literal", #
+    expect(%["alpha"].has("alpha")).to.be.true
+    expect(%["alpha"].has("bravo")).to.be.false

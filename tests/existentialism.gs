@@ -1,283 +1,351 @@
-test "existential return", #
-  let fun(value)
-    return? value
-    "nope"
+describe "return?", #
+  describe "on an ident", #
+    let fun(value)
+      return? value
+      "none"
   
-  eq "alpha", fun "alpha"
-  array-eq [], fun []
-  let obj = {}
-  eq obj, fun obj
-  eq "nope", fun()
-  eq "nope", fun void
-  eq "nope", fun null
-  eq 0, fun 0
-  eq "", fun ""
-
-test "existential return only calls value once", #
-  let fun(callback)
-    return? callback()
-    "nope"
+    it "should return if the value exists", #
+      expect(fun true).to.be.true
+      expect(fun false).to.be.false
+      expect(fun 0).to.equal 0
   
-  eq "alpha", fun(run-once "alpha")
-  eq "nope", fun(run-once null)
-  eq "nope", fun(run-once void)
-
-test "existential member access", #
-  let get(obj) -> obj?.key
+    it "should not return if the value does not exist", #
+      expect(fun null).to.equal "none"
+      expect(fun void).to.equal "none"
   
-  eq void, get()
-  eq void, get(void)
-  eq void, get(null)
-  eq void, get({})
-  eq "value", get({key: "value"})
-
-test "existential member access only calculates object once", #
-  let get(obj) -> obj()?.key
-  
-  eq void, get(run-once void)
-  eq void, get(run-once null)
-  eq void, get(run-once {})
-  eq "value", get(run-once {key: "value"})
-
-test "existential member access only calculates key once", #
-  let get(obj, key) -> obj?[key()]
-  
-  eq void, get(void, run-once "key")
-  eq void, get(null, run-once "key")
-  eq void, get({}, run-once "key")
-  eq "value", get({key: "value"}, run-once "key")
-
-test "existential member access with trailing normal", #
-  let get(obj) -> obj?.alpha.bravo
-
-  eq void, get()
-  eq void, get(void)
-  eq void, get(null)
-  throws #-> get({}), TypeError
-  eq void, get({alpha: {}})
-  eq "charlie", get({alpha: { bravo: "charlie" }})
-
-test "existential member access with invocation", #
-  let get(obj) -> obj?.method()
-  
-  eq void, get()
-  eq void, get(void)
-  eq void, get(null)
-  throws #-> get({}), TypeError
-  throws #-> get({method: null}), TypeError
-  eq "result", get({method: #-> "result" })
-
-test "existential member access with trailing invocation", #
-  let get(obj) -> obj?.alpha.bravo()
-  
-  eq void, get()
-  eq void, get(void)
-  eq void, get(null)
-  throws #-> get({}), TypeError
-  throws #-> get({alpha: {}}), TypeError
-  eq "charlie", get({alpha: { bravo: #-> "charlie" }})
-
-test "existential function", #
-  let call(f) -> f?()
-  
-  eq void, call void
-  eq void, call null
-  eq void, call "hello"
-  eq void, call 1234
-  eq void, call #->
-  eq null, call #-> null
-  eq "hello", call #-> "hello"
-  eq 1234, call #-> 1234
-
-test "existential method", #
-  let call(x) -> x.f?()
-  
-  eq void, call {}
-  eq void, call {f:null}
-  eq void, call {f:"hello"}
-  eq void, call {f:1234}
-  eq void, call {f:#->}
-  eq null, call {f:#-> null}
-  eq "hello", call {f:#-> "hello"}
-  eq 1234, call {f:#-> 1234}
-  let obj = {f:#->this}
-  eq obj, call obj
-
-test "existential method with variable key", #
-  let call(x, k) -> x[k()]?()
-  
-  eq void, call {}, run-once "f"
-  eq void, call {f:null}, run-once "f"
-  eq void, call {f:"hello"}, run-once "f"
-  eq void, call {f:1234}, run-once "f"
-  eq void, call {f:#->}, run-once "f"
-  eq null, call {f:#-> null}, run-once "f"
-  eq "hello", call {f:#-> "hello"}, run-once "f"
-  eq 1234, call {f:#-> 1234}, run-once "f"
-  let obj = {f:#->this}
-  eq obj, call obj, run-once "f"
-
-test "deep existential access", #
-  let fun(a, b, c, d) -> a?[b()]?[c()]?[d()]?()
-  
-  eq "hello", fun({
-    x: {
-      y: {
-        z: #-> "hello"
-      }
-    }
-  }, runOnce(\x), runOnce(\y), runOnce(\z))
-  eq void, fun({
-    x: {
-      y: {
-        z: "hello"
-      }
-    }
-  }, runOnce(\x), runOnce(\y), runOnce(\z))
-  eq void, fun({
-    x: {
-      y: {
-        z: #-> "hello"
-      }
-    }
-  }, runOnce(\x), runOnce(\y), runOnce(\w))
-  eq void, fun({
-    x: {
-      y: {
-        z: #-> "hello"
-      }
-    }
-  }, runOnce(\x), runOnce(\w), fail)
-  eq void, fun({
-    x: {
-      y: {
-        z: #-> "hello"
-      }
-    }
-  }, runOnce(\w), fail, fail)
-  eq void, fun(null, fail, fail, fail)
-  eq void, fun(void, fail, fail, fail)
-
-test "existential new", #
-  let call(func) -> new func?()
-  
-  let Class()! ->
-  
-  eq void, call()
-  eq void, call void
-  eq void, call null
-  ok call(Class) instanceof Class
-  let obj = {}
-  eq obj, call #-> obj
-
-test "existential new member", #
-  let call(obj) -> new obj.func?()
-  
-  let obj = {func: #-> this}
-  let Class()! ->
-  
-  eq void, call {}
-  ok call({ func: Class }) instanceof Class
-  let other = {}
-  eq other, call { func: #-> other }
-
-test "existential new member only calculates key once", #
-  let call(obj, key) -> new obj[key()]?()
-  
-  let obj = {func: #-> this}
-  let Class()! ->
-  
-  eq void, call {}, run-once("key")
-  ok call({ func: Class }, run-once("func")) instanceof Class
-  let other = {}
-  eq other, call { func: #-> other }, run-once("func")
-
-test "existential new object", #
-  let call(obj) -> new obj?.func()
+  it "only execute expression once", #
+    let fun(callback)
+      return? callback()
+      "nope"
     
-  let Class()! ->
-  
-  eq void, call()
-  eq void, call void
-  eq void, call null
-  ok call({ func: Class }) instanceof Class
-  let obj = {}
-  eq obj, call { func: #-> obj }
+    let alpha = stub().returns "alpha"
+    expect(fun alpha).to.equal "alpha"
+    expect(alpha).to.be.called-once
+    let ret-null = stub().returns null
+    expect(fun ret-null).to.equal "nope"
+    expect(alpha).to.be.called-once
 
-test "existential new object only calculates key once", #
-  let call(obj, key) -> new obj?[key()]()
+describe "existential access", #
+  describe "on an ident", #
+    let get(obj) -> obj?.key
     
-  let Class()! ->
+    it "returns void if parent does not exist", #
+      expect(get()).to.be.undefined
+      expect(get(void)).to.be.undefined
+      expect(get(null)).to.be.undefined
+    
+    it "returns the key if the parent exists", #
+      expect(get({})).to.be.undefined
+      expect(get({key: "value"})).to.equal "value"
   
-  eq void, call void, run-once("key")
-  eq void, call null, run-once("key")
-  ok call({ func: Class }, run-once("func")) instanceof Class
-  let obj = {}
-  eq obj, call({ func: #-> obj }, run-once("func"))
+  describe "where parent is a call", #
+    let get(obj) -> obj()?.key
+    
+    it "only calculates parent once", #
+      let ret-void = stub().returns void
+      expect(get(ret-void)).to.be.undefined
+      expect(ret-void).to.be.called-once
+      
+      let ret-obj = stub().returns {key: "value"}
+      expect(get(ret-obj)).to.equal "value"
+      expect(ret-obj).to.be.called-once
+  
+  describe "where child is a call", #
+    let get(obj, key) -> obj?[key()]
+    
+    it "where parent exists, only calculates key once", #
+      let key = stub().returns \key
+      expect(get {key: "value"}, key).to.equal "value"
+      expect(key).to.be.called-once
+    
+    it "where parent does not exist, never calculates key", #
+      let key = stub().returns \key
+      expect(get null, key).to.be.undefined
+      expect(key).to.not.be.called
 
-test "existential prototype access", #
+  describe "with trailing normal access", #
+    let get(obj) -> obj?.alpha.bravo
+    
+    it "traverses the path if parent exists", #
+      expect(get {alpha: {bravo: "charlie"}}).to.equal "charlie"
+      expect(get {alpha: {}}).to.be.undefined
+      
+    it "returns void if the parent does not exist", #
+      expect(get()).to.be.undefined
+      expect(get void).to.be.undefined
+      expect(get null).to.be.undefined
+    
+    it "errors if the parent exists but the initial child does not", #
+      expect(#-> get({})).throws(TypeError)
+  
+  describe "where child is called as a method", #
+    let get(obj) -> obj?.method()
+    
+    it "return void if the parent does not exist", #
+      expect(get()).to.be.undefined
+      expect(get void).to.be.undefined
+      expect(get null).to.be.undefined
+    
+    it "calls the method if the parent exists", #
+      let obj = {
+        method: #
+          expect(this).to.equal obj
+          "value"
+      }
+      expect(get obj).to.equal "value"
+
+describe "existential invocation", #
+  describe "on an ident", #
+    let call(f) -> f?()
+    
+    it "returns void if func is not a function", #
+      expect(call()).to.be.undefined
+      expect(call null).to.be.undefined
+      expect(call void).to.be.undefined
+      expect(call {}).to.be.undefined
+      expect(call []).to.be.undefined
+      expect(call 0).to.be.undefined
+    
+    it "calls the func if it is a function", #
+      let fun = stub().returns "value"
+      expect(call(fun)).to.equal "value"
+      expect(fun).to.be.called-once
+  
+  describe "on a method", #
+    let call(x) -> x.f?()
+    
+    it "errors if the parent does not exist", #
+      expect(#-> call()).throws(TypeError)
+    
+    it "returns void if method is not a function", #
+      expect(call({})).to.be.undefined
+      expect(call({f: {}})).to.be.undefined
+    
+    it "calls the method if it is a function", #
+      let obj = {
+        f: #
+          expect(this).to.equal obj
+          "value"
+      }
+      expect(call(obj)).to.equal "value"
+  
+  describe "on a method with a callback as the key", #
+    let call(x, k) -> x[k()]?()
+    
+    it "errors if the parent does not exist", #
+      expect(#-> call(null, #-> \k)).throws(TypeError)
+    
+    it "returns void if method is not a function", #
+      expect(call({}, #-> \k)).to.be.undefined
+      expect(call({k: {}}, #-> \k)).to.be.undefined
+    
+    it "calls the method if it is a function", #
+      let obj = {
+        key: #
+          expect(this).to.equal obj
+          "value"
+      }
+      let get-key = stub().returns \key
+      expect(call(obj, get-key)).to.equal "value"
+      expect(get-key).to.be.called-once
+  
+  describe "called with new", #
+    describe "on an ident", #
+      let call(func) -> new func?()
+      
+      it "returns void if func is not a function", #
+        expect(call()).to.be.undefined
+        expect(call null).to.be.undefined
+        expect(call void).to.be.undefined
+        expect(call {}).to.be.undefined
+        expect(call []).to.be.undefined
+        expect(call 0).to.be.undefined
+
+      it "calls the func with new if it is a function", #
+        let ran = stub()
+        let Class()!
+          expect(this).to.be.instanceof(Class)
+          ran()
+        expect(call(Class)).to.be.instanceof(Class)
+        expect(ran).to.be.called-once
+    
+    describe "on a member", #
+      let call(obj) -> new obj.func?()
+      
+      it "errors if obj does not exist", #
+        expect(#-> call()).throws(TypeError)
+        expect(#-> call null).throws(TypeError)
+        expect(#-> call void).throws(TypeError)
+      
+      it "returns void if func is not a function", #
+        expect(call {}).to.be.undefined
+        expect(call {func: {}}).to.be.undefined
+
+      it "calls the func with new if it is a function", #
+        let ran = stub()
+        let Class()!
+          expect(this).to.be.instanceof(Class)
+          ran()
+        let obj = {func: Class}
+        expect(call(obj)).to.be.instanceof(Class)
+        expect(ran).to.be.called-once
+    
+    describe "on the parent of an access", #
+      let call(obj) -> new obj?.func()
+      
+      it "returns void if parent does not exist", #
+        expect(call()).to.be.undefined
+        expect(call null).to.be.undefined
+        expect(call void).to.be.undefined
+      
+      it "errors if parent exists and func is not a function", #
+        expect(#-> call({})).throws(TypeError)
+        expect(#-> call({func: {}})).throws(TypeError)
+      
+      it "calls the func with new if it is a function", #
+        let ran = stub()
+        let Class()!
+          expect(this).to.be.instanceof(Class)
+          ran()
+        let obj = {func: Class}
+        expect(call(obj)).to.be.instanceof(Class)
+        expect(ran).to.be.called-once
+
+describe "deep existential access", #
+  let fun(a, b, c, d) -> a()?[b()]?[c()]?[d()]?()
+  let handle(a, b, c, d)
+    let a-stub = stub().returns a
+    let b-stub = stub().returns b
+    let c-stub = stub().returns c
+    let d-stub = if not is-function! d then stub().returns d
+    let result = fun(a-stub, b-stub, c-stub, d-stub or d)
+    expect(a-stub).to.be.called-once
+    expect(b-stub).to.be.called-once
+    expect(c-stub).to.be.called-once
+    if d-stub
+      expect(d-stub).to.be.called-once
+    result
+  
+  it "works in the best-case", #
+    expect(handle {
+      x: {
+        y: {
+          z: #-> "hello"
+        }
+      }
+    }, \x, \y, \z).to.equal "hello"
+  
+  it "returns void if not a function", #
+    expect(handle {
+      x: {
+        y: {
+          z: "hello"
+        }
+      }
+    }, \x, \y, \z).to.be.undefined
+  
+  it "returns void if last key not found", #
+    expect(handle {
+      x: {
+        y: {
+          z: #-> "hello"
+        }
+      }
+    }, \x, \y, \w).to.be.undefined
+  
+  it "does not execute the last key if failed before then", #
+    expect(handle {
+      x: {
+        y: {
+          z: #-> "hello"
+        }
+      }
+    }, \x, \w, #-> throw Error("never reached")).to.be.undefined
+
+describe "existential prototype access", #
   let get(obj) -> obj?::key
   
-  eq void, get void
-  eq void, get {}
-  eq void, get #->
-  let f = #->
-  f::key := "blah"
-  eq "blah", get f
-
-test "existential check", #
-  let check(obj) -> obj?
-  let uncheck(obj) -> not obj?
+  it "returns void if object does not exist", #
+    expect(get()).to.be.undefined
+    expect(get null).to.be.undefined
+    expect(get void).to.be.undefined
   
-  eq true, check(0)
-  eq true, check("")
-  eq true, check(false)
-  eq false, check()
-  eq false, check(void)
-  eq false, check(null)
-  eq false, uncheck(0)
-  eq false, uncheck("")
-  eq false, uncheck(false)
-  eq true, uncheck()
-  eq true, uncheck(void)
-  eq true, uncheck(null)
+  it "returns void if object has a prototype that does not exist", #
+    expect(get {}).to.be.undefined
+    expect(get {prototype:null}).to.be.undefined
+    expect(get {prototype:void}).to.be.undefined
+  
+  it "returns the key if the object has a prototype which exists", #
+    expect(get {prototype:{}}).to.be.undefined
+    expect(get {prototype:{key:void}}).to.be.undefined
+    expect(get {prototype:{key:null}}).to.be.null
+    expect(get {prototype:{key:"hello"}}).to.equal "hello"
 
-test "existential or operator", #
+describe "postfix ? operator", #
+  let check(obj) -> obj?
+  
+  it "returns false if the object does not exist", #
+    expect(check()).to.be.false
+    expect(check null).to.be.false
+    expect(check void).to.be.false
+  
+  it "returns true if the object exists", #
+    expect(check 0).to.be.true
+    expect(check "").to.be.true
+    expect(check false).to.be.true
+    expect(check true).to.be.true
+    expect(check {}).to.be.true
+  
+  it "works on a potentially unknown global", #
+    expect(Math?).to.be.true
+    expect(NonexistentGlobal?).to.be.false
+    GLOBAL.NonexistentGlobal := true
+    expect(NonexistentGlobal?).to.be.true
+    delete GLOBAL.NonexistentGlobal
+
+describe "binary ? operator", #
   let exist(x, y) -> x() ? y()
   
-  eq "alpha", exist run-once("alpha"), fail
-  eq "", exist run-once(""), fail
-  eq 0, exist run-once(0), fail
-  eq false, exist run-once(false), fail
-  eq "bravo", exist run-once(void), run-once "bravo"
-  eq "bravo", exist run-once(null), run-once "bravo"
+  it "returns the left-hand-side if it exists, never executing right", #
+    let left = stub().returns "hello"
+    expect(exist left, #-> throw Error "never reached").to.equal "hello"
+    expect(left).to.be.called-once
   
-  let f(a) -> a
-  
-  eq f, f ? "hey"
-  eq f, f ?"hey"
-  //eq f, f?"hey"
-  eq "hey", f? "hey"
+  it "returns the right if the left does not exist", #
+    let left = stub().returns null
+    let obj = {}
+    let right = stub().returns obj
+    expect(exist left, right).to.equal obj
+    expect(left).to.be.called-once
+    expect(right).to.be.called-once
 
-test "existential or assign", #
+describe "?= assignment", #
   let exist-assign(mutable x, y) -> x ?= y()
   let exist-member-assign(x, y, z) -> x[y()] ?= z()
-
-  eq 0, exist-assign 0, fail
-  eq "", exist-assign "", fail
-  eq 1, exist-assign null, run-once 1
-  eq 1, exist-assign void, run-once 1
-
-  eq "value", exist-member-assign {}, run-once("key"), run-once "value"
-  eq "value", exist-member-assign {key:null}, run-once("key"), run-once "value"
-  eq "value", exist-member-assign {key:void}, run-once("key"), run-once "value"
-  eq "alpha", exist-member-assign {key:"alpha"}, run-once("key"), fail
-
-test "existential check on global", #
-  ok Math?
-  ok Number?
-  ok not NonexistentGlobal?
-
-test "existential access on global", #
-  eq Math.floor, Math?.floor
-  eq void, NonexistentGlobal?.doesntExist()
+  
+  describe "with ident", #
+    it "if the left exists, never execute the right", #
+      expect(exist-assign true, #-> throw Error "never reached").to.be.true
+      expect(exist-assign 0, #-> throw Error "never reached").to.equal 0
+    
+    it "if the left does not exist, assign it to the right", #
+      let obj = {}
+      let right = stub().returns obj
+      expect(exist-assign null, right).to.equal obj
+      expect(right).to.be.called-once
+  
+  describe "with access", #
+    it "if the left exists, return its value and do not execute the right", #
+      let key = stub().returns \key
+      let obj = {key: 0}
+      expect(exist-member-assign obj, key, #-> throw Error "never reached").to.equal 0
+      expect(key).to.be.called-once
+      expect(obj).to.eql {key: 0}
+    
+    it "if the left does not exist, execute the right and assign it", #
+      let key = stub().returns \key
+      let obj = {key: null}
+      let value = stub().returns "hello"
+      expect(exist-member-assign obj, key, value).to.equal "hello"
+      expect(key).to.be.called-once
+      expect(obj).to.eql {key: "hello"}

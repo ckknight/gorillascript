@@ -1,6 +1,7 @@
-test "License comments show up in result", #
-  ok gorilla.compile("""
-  /*!
-    This is my license
-  */
-  """).code.index-of("This is my license") != -1
+describe "License comments", #
+  it "should appear in result code", #
+    expect(gorilla.compile("""
+    /*!
+      This is my license
+    */
+    """).code).to.contain("This is my license")

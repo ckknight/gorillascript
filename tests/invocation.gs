@@ -1,141 +1,203 @@
 // normal invocation, before we start tests
-ok true
-ok not false
-ok(true)
-ok(not false)
-success()
+expect(true).to.be.ok
+expect(true).to.be.true
+expect(true).to.equal(true)
+expect(true).to.equal true
+expect(false).to.not.be.ok
+expect(false).to.be.false
+expect(false).to.equal(false)
+expect(false).to.equal false
 
-test "Normal invocation", #
-  ok true
-  ok not false
-  ok(true)
-  ok(not false)
-  success()
+let get-true() -> true
+let id(x) -> x
+let add(x, y) -> x + y
+let get-args() -> [].slice.call(arguments)
+let get-this-and-args() -> [this].concat([].slice.call(arguments))
+
+describe "function invocation", #
+  describe "with zero arguments", #
+    it "works with parentheses", #
+      let value = get-true()
+      expect(value).to.be.true
   
-  let id(x) -> x
+  describe "with one argument", #
+    it "works with parentheses", #
+      let obj = {}
+      let value = id(obj)
+      expect(value).to.equal obj
   
-  ok id true
-  ok id(true)
-  ok (id true)
-  ok(id true)
-  ok not id false
-  ok not id(false)
-  ok not (id false)
-  ok (not id false)
-  ok(not id false)
+    it "does not require parentheses", #
+      let obj = {}
+      let value = id obj
+      expect(value).to.equal obj
   
-  if id true
-    success()
+  describe "with two arguments", #
+    it "works with parentheses", #
+      let value = add(5, 6)
+      expect(value).to.equal 11
+    
+    it "does not require parentheses", #
+      let value = add 5, 6
+      expect(value).to.equal 11
   
-  if not id true
-    fail()
-
-test "Spread invocation", #
-  let f() -> [].slice.call(arguments)
+  describe "spread invocation", #
+    it "works with parentheses", #
+      expect(get-args()).to.eql []
+      expect(get-args(1, 2, 3)).to.eql [1, 2, 3]
+      let arr = [1, 2, 3]
+      expect(get-args(...arr)).to.eql [1, 2, 3]
   
-  array-eq [], f()
-  array-eq [1, 2, 3], f 1, 2, 3
-  array-eq [1, 2, 3], f(1, 2, 3)
-  let arr = [1, 2, 3]
-  array-eq arr, f(...arr)
-  array-eq arr, f ...arr
-
-test "Apply invocation", #
-  let obj = {}
-  let f() -> [this, [].slice.call(arguments)]
+    it "does not require parentheses", #
+      expect(get-args 1, 2, 3).to.eql [1, 2, 3]
+      let arr = [1, 2, 3]
+      expect(get-args ...arr).to.eql [1, 2, 3]
   
-  array-eq [obj, []], f@ obj
-  let arr = []
-  array-eq [obj, []], f@ obj, ...arr
-  arr.push 1, 2, 3
-  array-eq [obj, [1, 2, 3]], f@ obj, ...arr
-  arr.unshift obj
-  array-eq [obj, [1, 2, 3]], f@ ...arr
+  describe "multi-line", #
+    it "does not require commas if each argument is on its own line, with parentheses", #
+      expect(get-args(
+        1
+        2
+        3
+        4)).to.eql [1, 2, 3, 4]
+      
+      expect(get-args(1
+        2
+        3
+        4)).to.eql [1, 2, 3, 4]
+      
+      expect(get-args(1, 2
+        3, 4)).to.eql [1, 2, 3, 4]
+    
+    it "does not require commas if each argument is on its own line, no parentheses", #
+      expect(get-args 1,
+        2
+        3
+        4).to.eql [1, 2, 3, 4]
+      
+      expect(get-args 1, 2, 3,
+        4).to.eql [1, 2, 3, 4]
 
-test "invocation with multi-line arguments", #
-  let f(...args) -> args
+describe "function apply", #
+  describe "with zero arguments", #->
+    // TODO: compile GS, confirm it's an error, f@() is better as f@(void).
+    //it "fails" 
   
-  array-eq [1, 2, 3, 4], f(
-    1
-    2
-    3
-    4)
+  describe "with one argument", #
+    it "works with parentheses", #
+      let obj = spy()
+      let value = get-this-and-args@(obj)
+      expect(value).to.be.an(\array)
+        .with.length(1)
+        .and.have.property(0).that.equal(obj)
   
-  array-eq [1, 2, 3, 4], f(1
-    2
-    3
-    4)
+    it "does not require parentheses", #
+      let obj = spy()
+      let value = get-this-and-args@ obj
+      expect(value).to.be.an(\array)
+        .with.length(1)
+        .and.have.property(0).that.equal(obj)
   
-  array-eq [1, 2, 3, 4], f(1, 2
-    3, 4)
-
-test "invocation with multi-line arguments, unclosed", #
-  let f(...args) -> args
+  describe "with two arguments", #
+    it "works with parentheses", #
+      let obj = spy()
+      let value = get-this-and-args@(obj, \x)
+      expect(value).to.eql [obj, \x]
+    
+    it "does not require parentheses", #
+      let obj = spy()
+      let value = get-this-and-args@ obj, \x
+      expect(value).to.eql [obj, \x]
   
-  array-eq [1, 2, 3, 4], f 1,
-    2
-    3
-    4
+  describe "with spread invocation", #
+    describe "as the first argument", #
+      it "works with parentheses", #
+        let obj = spy()
+        let arr = [obj, 1, 2]
+        expect(get-this-and-args@(...arr, 3)).to.eql [obj, 1, 2, 3]
+
+      it "does not require parentheses", #
+        let obj = spy()
+        let arr = [obj, 1, 2]
+        expect(get-this-and-args@ ...arr, 3).to.eql [obj, 1, 2, 3]
+    
+    describe "as not the first argument", #
+      it "works with parentheses", #
+        let obj = spy()
+        let arr = [1, 2, 3]
+        expect(get-this-and-args@(obj, ...arr)).to.eql [obj, 1, 2, 3]
   
-  array-eq [1, 2, 3, 4], f 1, 2, 3,
-    4
+      it "does not require parentheses", #
+        let obj = spy()
+        let arr = [1, 2, 3]
+        expect(get-this-and-args@ obj, ...arr).to.eql [obj, 1, 2, 3]
 
-test "New on the result of a call", #
-  let f() -> Date
-  let now = new Date().get-time()
-  let weird-date = new (f()) now
-  eq now, weird-date.get-time()
+describe "new call", #
+  it "does not require parentheses, even for 0 arguments", #
+    let now = new Date
+    expect(now).to.be.an.instanceof(Date)
+  
+  it "allows chain after new call", #
+    let now = new Date().get-time()
+    expect(now).to.be.a(\number)
+  
+  it "works if the func is a call itself", #
+    let get-Date() -> Date
+    
+    expect(new (get-Date())).to.be.an.instanceof(Date)
+    expect(new (get-Date())().get-time()).to.be.a(\number)
+  
+  it "works if the func is a method call", #
+    let x = {
+      get-Date: #-> Date
+    }
+    let now = new Date().get-time()
+    let weird-date = new (x.get-Date()) now
+    expect(weird-date.get-time()).to.equal now
+  
+  it "works if the func is an access on a call", #
+    let x = #-> {
+      Date
+    }
+    let now = new Date().get-time()
+    let weird-date = new (x().Date) now
+    expect(weird-date.get-time()).to.equal now
+  
+  it "works if the func is an access on a literal array", #
+    let now = new Date().get-time()
+    let weird-date = new [Date][0] now
+    expect(weird-date.get-time()).to.equal now
+  
+  it "works if the func is an access on a sliced literal array", #
+    let now = new Date().get-time()
+    let weird-date = new [Date][0 til 1][0] now
+    expect(weird-date.get-time()).to.equal now
+  
+  describe "spread invocation", #
+    let Class()!
+      expect(this).to.be.an.instanceof(Class)
+      @args := [].slice.call(arguments)
+    
+    it "works with parentheses", #  
+      let arr = [1, 2, 3]
+      expect(new Class(...arr))
+        .to.have.property(\args).that.eql [1, 2, 3]
 
-test "New on the result of a method call", #
-  let g = {
-    f: #-> Date
-  }
-  let now = new Date().get-time()
-  let weird-date = new (g.f()) now
-  eq now, weird-date.get-time()
-
-test "New on the result of call with access", #
-  let f = #-> {
-    g: Date
-  }
-  let now = new Date().get-time()
-  let weird-date = new (f().g) now
-  eq now, weird-date.get-time()
-
-test "New on an array index", #
-  let now = new Date().get-time()
-  let weird-date = new [Date][0] now
-  eq now, weird-date.get-time()
-
-test "New on a sliced array index", #
-  let now = new Date().get-time()
-  let weird-date = new [Date][0 til 1][0] now
-  eq now, weird-date.get-time()
-
-test "Binding access", #
-  let make-x()
-    { key: #-> this }
-  let alpha = {}
-  let bravo = {}
-  let x = make-x@ alpha
-  eq bravo, x.key@ bravo
-  eq x, x.key()
-  let f = x@.key
-  eq x, f()
-  eq x, f@ bravo
-
-test "Binding access with arguments", #
-  let make-x()
-    { key: #-> [this, ...arguments] }
-  let alpha = {}
-  let bravo = {}
-  let x = make-x@ alpha
-  array-eq [bravo], x.key@ bravo
-  array-eq [bravo, alpha], x.key@ bravo, alpha
-  array-eq [x], x.key()
-  array-eq [x, alpha], x.key alpha
-  let f = x@.key
-  array-eq [x], f()
-  array-eq [x, alpha], f alpha
-  array-eq [x], f@ bravo
-  array-eq [x, alpha], f@ bravo, alpha
+    it "does not require parentheses", #
+      let arr = [1, 2, 3]
+      expect(new Class ...arr)
+        .to.have.property(\args).that.eql [1, 2, 3]
+    
+    it "can handle at least 200 arguments", #
+      let arr = []
+      for i in 0 til 200
+        arr.push i
+        expect(new Class ...arr)
+          .to.have.property(\args).that.eql arr
+    
+    it "works for builtins like Date", #
+      let date-values = [1987]
+      expect(new Date(...date-values)).to.be.an.instanceof(Date)
+      date-values.push 7
+      expect(new Date(...date-values)).to.be.an.instanceof(Date)
+      date-values.push 22
+      expect(new Date(...date-values)).to.be.an.instanceof(Date)

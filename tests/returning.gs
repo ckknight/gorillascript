@@ -1,33 +1,33 @@
-test "without any other statements", #
-  let obj = {}
-  let f()
-    returning obj
+describe "returning", #
+  it "returns without any other statements", #
+    let obj = {}
+    let f()
+      returning obj
   
-  eq obj, f()
-
-test "with trailing statements", #
-  let obj = {}
-  let f()
-    returning obj
-    true
-
-  eq obj, f()
-
-test "with a trailing return", #
-  let obj = {}
-  let f()
-    returning obj
-    return true
-
-  eq true, f()
-
-test "async statement", #
-  let obj = {}
-  let fake-async(cb)
-    cb()
-  let f()
-    returning obj
-    async <- fake-async()
-    true
-
-  eq obj, f()
+    expect(f()).to.equal obj
+  
+  it "returns a specific value given other statements", #
+    let obj = {}
+    let f()
+      returning obj
+      true
+    
+    expect(f()).to.equal obj
+  
+  it "is co-opted by a trailing return", #
+    let f()
+      returning false
+      return true
+    
+    expect(f()).to.be.true
+  
+  it "plays nicely with async statement", #
+    let obj = {}
+    let fake-async(cb)
+      cb()
+    let f()
+      returning obj
+      async <- fake-async()
+      true
+    
+    expect(f()).to.equal obj

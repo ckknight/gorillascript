@@ -3174,7 +3174,7 @@
           return BlockExpression(this.pos, this.elements).compileAsBlock(options, level, lineStart, sb);
         };
         _Arr_prototype.compileAsStatement = function (options, lineStart, sb) {
-          BlockStatement(this.pos, this.elements).compile(options, lineStart, sb);
+          BlockStatement(this.pos, this.elements).compile(options, Level.block, lineStart, sb);
         };
         _Arr_prototype.shouldCompileLarge = function () {
           switch (this.elements.length) {
@@ -8079,12 +8079,41 @@
         };
       }());
       setImmediate = typeof GLOBAL.setImmediate === "function" ? GLOBAL.setImmediate
-        : typeof process !== "undefined" && typeof process.nextTick === "function" ? process.nextTick
+        : typeof process !== "undefined" && typeof process.nextTick === "function"
+        ? (function () {
+          var nextTick;
+          nextTick = process.nextTick;
+          return function (func) {
+            var args;
+            if (typeof func !== "function") {
+              throw TypeError("Expected func to be a Function, got " + __typeof(func));
+            }
+            args = __slice.call(arguments, 1);
+            if (args.length) {
+              return nextTick(function () {
+                func.apply(void 0, __toArray(args));
+              });
+            } else {
+              return nextTick(func);
+            }
+          };
+        }())
         : function (func) {
+          var args;
           if (typeof func !== "function") {
             throw TypeError("Expected func to be a Function, got " + __typeof(func));
           }
-          return setTimeout(func, 0);
+          args = __slice.call(arguments, 1);
+          if (args.length) {
+            return setTimeout(
+              function () {
+                func.apply(void 0, __toArray(args));
+              },
+              0
+            );
+          } else {
+            return setTimeout(func, 0);
+          }
         };
       Type = require("./types");
       util = require("util");
@@ -11467,9 +11496,9 @@
               for (_arr = __toArray(flags), _i = 0, _len = _arr.length; _i < _len; ++_i) {
                 flag = _arr[_i];
                 if (__in(flag, seenFlags)) {
-                  o.error("Specified flag '" + __strnum(flag) + "' in regular expression more than once");
+                  o.error("Invalid regular expression: flag '" + __strnum(flag) + "' occurred more than once");
                 } else if (flag !== "g" && flag !== "i" && flag !== "m" && flag !== "y") {
-                  o.error("Unknown regular expression flag '" + __strnum(flag) + "'");
+                  o.error("Invalid regular expression: unknown flag '" + __strnum(flag) + "'");
                 }
                 seenFlags.push(flag);
               }
@@ -17928,13 +17957,19 @@
         function ParserError(message, text, line) {
           var _this, err;
           _this = this instanceof ParserError ? this : __create(_ParserError_prototype);
-          if (typeof message !== "string") {
+          if (message == null) {
+            message = "Unknown error";
+          } else if (typeof message !== "string") {
             throw TypeError("Expected message to be a String, got " + __typeof(message));
           }
-          if (typeof text !== "string") {
+          if (text == null) {
+            text = "";
+          } else if (typeof text !== "string") {
             throw TypeError("Expected text to be a String, got " + __typeof(text));
           }
-          if (typeof line !== "number") {
+          if (line == null) {
+            line = 0;
+          } else if (typeof line !== "number") {
             throw TypeError("Expected line to be a Number, got " + __typeof(line));
           }
           err = Error.call(_this, message + " at line #" + line);
@@ -17963,19 +17998,25 @@
         function MacroError(inner, text, line) {
           var _this, err, innerType;
           _this = this instanceof MacroError ? this : __create(_MacroError_prototype);
-          if (!(inner instanceof Error)) {
-            throw TypeError("Expected inner to be a " + __name(Error) + ", got " + __typeof(inner));
+          if (inner == null) {
+            inner = null;
+          } else if (!(inner instanceof Error)) {
+            throw TypeError("Expected inner to be one of " + (__name(Error) + " or null") + ", got " + __typeof(inner));
           }
-          if (typeof text !== "string") {
+          if (text == null) {
+            text = "";
+          } else if (typeof text !== "string") {
             throw TypeError("Expected text to be a String, got " + __typeof(text));
           }
-          if (typeof line !== "number") {
+          if (line == null) {
+            line = 0;
+          } else if (typeof line !== "number") {
             throw TypeError("Expected line to be a Number, got " + __typeof(line));
           }
           innerType = __typeof(inner);
           err = Error.call(_this, (innerType === "Error" ? "" : innerType + ": ") + String(inner != null ? inner.message : void 0) + " at line #" + line);
           _this.message = err.message;
-          if ("stack" in inner && typeof inner.stack === "string") {
+          if (inner != null && "stack" in inner && typeof inner.stack === "string") {
             _this.innerStack = inner.stack;
             _this.stack = "MacroError at #" + line + ": " + __strnum(inner.stack);
           } else if (typeof Error.captureStackTrace === "function") {
@@ -33958,7 +33999,9 @@
       fs = require("fs");
       path = require("path");
       DEFAULT_TRANSLATOR = "./jstranslator";
-      exports.version = "0.6.2";
+      exports.version = "0.6.3";
+      exports.ParserError = parser.ParserError;
+      exports.MacroError = parser.MacroError;
       if (require.extensions) {
         require.extensions[".gs"] = function (module, filename) {
           var compiled;
@@ -36390,13 +36433,13 @@
           id: 145
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(this.isFunc(node)&&!this.funcIsGenerator(node)){throw Error("Must be used with a generator function");}return __node("Call",3659,9,__node("Ident",3659,9,"__generatorToPromiser"),[__wrap(node,1109)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(this.isFunc(node)&&!this.funcIsGenerator(node)){throw Error("Must be used with a generator function");}return __node("Call",3669,9,__node("Ident",3669,9,"__generatorToPromiser"),[__wrap(node,1114)],false,false);};}.call(this));',
           params: [["ident", "node", "ident", "Expression"]],
           names: "promise!",
           id: 156
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,func,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;body=macroData.body;func=this.rewrap(this.func([],body,true,true,false,null,true),body);return __node("Call",3670,9,__node("Call",3670,9,__node("Ident",3670,9,"__generatorToPromiser"),[__wrap(func,1110)],false,false),[],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node){var body,func,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;body=macroData.body;func=this.rewrap(this.func([],body,true,true,false,null,true),body);return __node("Call",3680,9,__node("Call",3680,9,__node("Ident",3680,9,"__generatorToPromiser"),[__wrap(func,1115)],false,false),[],false,false);};}.call(this));',
           params: [["ident", "body", "ident", "GeneratorBody"]],
           names: "promise!",
           id: 157
@@ -36878,7 +36921,7 @@
           id: 153
         },
         {
-          code: 'return (function(){"use strict";var __slice;__slice=Array.prototype.slice;return function(macroData,__wrap,__node){var _this,args,func,head,node,op,tail;_this=this;op=macroData.op;node=macroData.node;if(!this.isCall(node)){throw Error("async call expression must be a call");}func=this.callFunc(node);args=this.callArgs(node);if(this.callIsNew(node)){args=this.array(args);return __node("Call",3689,9,__node("Ident",3689,9,"__toPromise"),[__node("Ident",3689,23,"__new"),__wrap(func,1115),__wrap(args,1115)],false,false);}else if(this.callIsApply(node)){if(args.length===0||!this.isSpread(args[0])){head=args[0];tail=this.array(__slice.call(args,1));return __node("Call",3694,11,__node("Ident",3694,11,"__toPromise"),[__wrap(func,1115),__wrap(head,1115),__wrap(tail,1115)],false,false);}else{return this.maybeCache(this.array(args),function(setArgs,args){return __node("Call",3697,13,__node("Ident",3697,13,"__toPromise"),[__wrap(func,1119),__node("Access",3697,33,__wrap(setArgs,1119),__node("Const",3697,44,0)),__node("Call",3697,47,__node("Access",3697,47,__wrap(args,1119),__node("Const",3697,54,"slice")),[__node("Const",3697,60,1)],false,false)],false,false);});}}else{args=this.array(args);if(this.isAccess(func)){return this.maybeCache(this.parent(func),function(setParent,parent){var child;child=_this.child(func);return __node("Call",3703,13,__node("Ident",3703,13,"__toPromise"),[__node("Access",3703,27,__wrap(setParent,1120),__wrap(child,1120)),__wrap(parent,1120),__wrap(args,1120)],false,false);});}else{return __node("Call",3705,11,__node("Ident",3705,11,"__toPromise"),[__wrap(func,1115),__node("Const",3705,31,void 0),__wrap(args,1115)],false,false);}}};}.call(this));',
+          code: 'return (function(){"use strict";var __slice;__slice=Array.prototype.slice;return function(macroData,__wrap,__node){var _this,args,func,head,node,op,tail;_this=this;op=macroData.op;node=macroData.node;if(!this.isCall(node)){throw Error("async call expression must be a call");}func=this.callFunc(node);args=this.callArgs(node);if(this.callIsNew(node)){args=this.array(args);return __node("Call",3699,9,__node("Ident",3699,9,"__toPromise"),[__node("Ident",3699,23,"__new"),__wrap(func,1120),__wrap(args,1120)],false,false);}else if(this.callIsApply(node)){if(args.length===0||!this.isSpread(args[0])){head=args[0];tail=this.array(__slice.call(args,1));return __node("Call",3704,11,__node("Ident",3704,11,"__toPromise"),[__wrap(func,1120),__wrap(head,1120),__wrap(tail,1120)],false,false);}else{return this.maybeCache(this.array(args),function(setArgs,args){return __node("Call",3707,13,__node("Ident",3707,13,"__toPromise"),[__wrap(func,1124),__node("Access",3707,33,__wrap(setArgs,1124),__node("Const",3707,44,0)),__node("Call",3707,47,__node("Access",3707,47,__wrap(args,1124),__node("Const",3707,54,"slice")),[__node("Const",3707,60,1)],false,false)],false,false);});}}else{args=this.array(args);if(this.isAccess(func)){return this.maybeCache(this.parent(func),function(setParent,parent){var child;child=_this.child(func);return __node("Call",3713,13,__node("Ident",3713,13,"__toPromise"),[__node("Access",3713,27,__wrap(setParent,1125),__wrap(child,1125)),__wrap(parent,1125),__wrap(args,1125)],false,false);});}else{return __node("Call",3715,11,__node("Ident",3715,11,"__toPromise"),[__wrap(func,1120),__node("Const",3715,31,void 0),__wrap(args,1120)],false,false);}}};}.call(this));',
           operators: "toPromise!",
           options: {type: "promise"},
           id: 158
@@ -54241,25 +54284,239 @@
               "function"
             ],
             [
-              "Binary",
-              3590,
+              "Call",
               3,
+              9,
               0,
-              ["Ident", 3590, 3, 0, "process"],
-              ".",
-              "Const",
-              3590,
-              11,
-              0,
-              "nextTick"
+              [
+                "Func",
+                3,
+                12,
+                0,
+                0,
+                [],
+                ["nextTick"],
+                [],
+                "BlockStatement",
+                3591,
+                1,
+                0,
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Ident", 3591, 8, 0, "nextTick"],
+                  "=",
+                  "Binary",
+                  3591,
+                  20,
+                  0,
+                  ["Ident", 3591, 20, 0, "process"],
+                  ".",
+                  "Const",
+                  3591,
+                  29,
+                  0,
+                  "nextTick"
+                ],
+                [
+                  "Return",
+                  1852,
+                  1,
+                  0,
+                  "Func",
+                  1852,
+                  1,
+                  0,
+                  0,
+                  [["Ident", 3592, 7, 0, "func"]],
+                  ["args"],
+                  [],
+                  "BlockStatement",
+                  1852,
+                  1,
+                  0,
+                  0,
+                  [
+                    "IfStatement",
+                    1,
+                    1,
+                    0,
+                    0,
+                    [
+                      "Binary",
+                      613,
+                      18,
+                      0,
+                      [
+                        "Unary",
+                        1,
+                        1,
+                        0,
+                        "typeof",
+                        "Ident",
+                        3592,
+                        7,
+                        0,
+                        "func"
+                      ],
+                      "!==",
+                      "Const",
+                      128,
+                      25,
+                      0,
+                      "function"
+                    ],
+                    [
+                      "Throw",
+                      1,
+                      1,
+                      0,
+                      "Call",
+                      1637,
+                      18,
+                      0,
+                      ["Ident", 1637, 18, 0, "TypeError"],
+                      0,
+                      [
+                        "Binary",
+                        1,
+                        1,
+                        0,
+                        ["Const", 1, 1, 0, "Expected func to be a Function, got "],
+                        "+",
+                        "Call",
+                        477,
+                        49,
+                        0,
+                        ["Ident", 477, 49, 0, "__typeof"],
+                        0,
+                        ["Ident", 3592, 7, 0, "func"]
+                      ]
+                    ]
+                  ],
+                  [
+                    "Binary",
+                    1,
+                    1,
+                    0,
+                    ["Ident", 3592, 22, 0, "args"],
+                    "=",
+                    "Call",
+                    1831,
+                    23,
+                    0,
+                    [
+                      "Binary",
+                      1831,
+                      23,
+                      0,
+                      ["Ident", 1831, 23, 0, "__slice"],
+                      ".",
+                      "Const",
+                      1831,
+                      23,
+                      0,
+                      "call"
+                    ],
+                    0,
+                    ["Arguments", 1831, 33, 0],
+                    ["Const", 0, 0, 0, 1]
+                  ],
+                  [
+                    "IfStatement",
+                    1,
+                    1,
+                    0,
+                    0,
+                    [
+                      "Binary",
+                      3593,
+                      9,
+                      0,
+                      ["Ident", 3593, 9, 0, "args"],
+                      ".",
+                      "Const",
+                      3593,
+                      15,
+                      0,
+                      "length"
+                    ],
+                    [
+                      "Return",
+                      3594,
+                      9,
+                      0,
+                      "Call",
+                      3594,
+                      9,
+                      0,
+                      ["Ident", 3594, 9, 0, "nextTick"],
+                      0,
+                      [
+                        "Func",
+                        3594,
+                        20,
+                        0,
+                        0,
+                        [],
+                        [],
+                        [],
+                        "Call",
+                        3594,
+                        23,
+                        0,
+                        [
+                          "Binary",
+                          3594,
+                          23,
+                          0,
+                          ["Ident", 3594, 23, 0, "func"],
+                          ".",
+                          "Const",
+                          3594,
+                          23,
+                          0,
+                          "apply"
+                        ],
+                        0,
+                        ["Const", 3594, 23, 0],
+                        [
+                          "Call",
+                          3594,
+                          32,
+                          0,
+                          ["Ident", 3594, 32, 0, "__toArray"],
+                          0,
+                          ["Ident", 3594, 32, 0, "args"]
+                        ]
+                      ]
+                    ],
+                    "Return",
+                    3596,
+                    9,
+                    0,
+                    "Call",
+                    3596,
+                    9,
+                    0,
+                    ["Ident", 3596, 9, 0, "nextTick"],
+                    0,
+                    ["Ident", 3596, 19, 0, "func"]
+                  ]
+                ]
+              ],
+              0
             ],
             "Func",
             1852,
             1,
             0,
             0,
-            [["Ident", 3592, 5, 0, "func"]],
-            [],
+            [["Ident", 3598, 5, 0, "func"]],
+            ["args"],
             [],
             "BlockStatement",
             1852,
@@ -54284,7 +54541,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  3592,
+                  3598,
                   5,
                   0,
                   "func"
@@ -54320,32 +54577,129 @@
                   0,
                   ["Ident", 477, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 3592, 5, 0, "func"]
+                  ["Ident", 3598, 5, 0, "func"]
                 ]
               ]
             ],
             [
+              "Binary",
+              1,
+              1,
+              0,
+              ["Ident", 3598, 20, 0, "args"],
+              "=",
+              "Call",
+              1831,
+              23,
+              0,
+              [
+                "Binary",
+                1831,
+                23,
+                0,
+                ["Ident", 1831, 23, 0, "__slice"],
+                ".",
+                "Const",
+                1831,
+                23,
+                0,
+                "call"
+              ],
+              0,
+              ["Arguments", 1831, 33, 0],
+              ["Const", 0, 0, 0, 1]
+            ],
+            [
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                3599,
+                7,
+                0,
+                ["Ident", 3599, 7, 0, "args"],
+                ".",
+                "Const",
+                3599,
+                13,
+                0,
+                "length"
+              ],
+              [
+                "Return",
+                3600,
+                7,
+                0,
+                "Call",
+                3600,
+                7,
+                0,
+                ["Ident", 3600, 7, 0, "setTimeout"],
+                0,
+                [
+                  "Func",
+                  3600,
+                  20,
+                  0,
+                  0,
+                  [],
+                  [],
+                  [],
+                  "Call",
+                  3600,
+                  23,
+                  0,
+                  [
+                    "Binary",
+                    3600,
+                    23,
+                    0,
+                    ["Ident", 3600, 23, 0, "func"],
+                    ".",
+                    "Const",
+                    3600,
+                    23,
+                    0,
+                    "apply"
+                  ],
+                  0,
+                  ["Const", 3600, 23, 0],
+                  [
+                    "Call",
+                    3600,
+                    32,
+                    0,
+                    ["Ident", 3600, 32, 0, "__toArray"],
+                    0,
+                    ["Ident", 3600, 32, 0, "args"]
+                  ]
+                ],
+                ["Const", 3600, 39, 0, 0]
+              ],
               "Return",
-              3592,
-              19,
+              3602,
+              7,
               0,
               "Call",
-              3592,
-              19,
+              3602,
+              7,
               0,
-              ["Ident", 3592, 19, 0, "setTimeout"],
+              ["Ident", 3602, 7, 0, "setTimeout"],
               0,
-              ["Ident", 3592, 32, 0, "func"],
-              ["Const", 3592, 38, 0, 0]
+              ["Ident", 3602, 19, 0, "func"],
+              ["Const", 3602, 25, 0, 0]
             ]
           ],
           type: "any",
-          dependencies: ["__typeof", "GLOBAL", "setImmediate"]
+          dependencies: ["__slice", "__toArray", "__typeof", "GLOBAL", "setImmediate"]
         },
         __defer: {
           helper: [
             "Func",
-            3594,
+            3604,
             26,
             0,
             0,
@@ -54353,7 +54707,7 @@
             ["deferred", "isError", "value"],
             [],
             "BlockStatement",
-            3595,
+            3605,
             1,
             0,
             0,
@@ -54362,10 +54716,10 @@
               1,
               1,
               0,
-              ["Ident", 3595, 14, 0, "isError"],
+              ["Ident", 3605, 14, 0, "isError"],
               "=",
               "Const",
-              3595,
+              3605,
               25,
               0,
               false
@@ -54375,10 +54729,10 @@
               1,
               1,
               0,
-              ["Ident", 3596, 14, 0, "value"],
+              ["Ident", 3606, 14, 0, "value"],
               "=",
               "Const",
-              3596,
+              3606,
               22,
               0,
               null
@@ -54388,10 +54742,10 @@
               1,
               1,
               0,
-              ["Ident", 3598, 14, 0, "deferred"],
+              ["Ident", 3608, 14, 0, "deferred"],
               "=",
               "Arr",
-              3598,
+              3608,
               39,
               0
             ],
@@ -54400,10 +54754,10 @@
               1,
               1,
               0,
-              ["Ident", 3599, 6, 0, "complete"],
+              ["Ident", 3609, 6, 0, "complete"],
               [
-                ["Ident", 3599, 16, 0, "newIsError"],
-                ["Ident", 3599, 29, 0, "newValue"]
+                ["Ident", 3609, 16, 0, "newIsError"],
+                ["Ident", 3609, 29, 0, "newValue"]
               ],
               ["funcs"],
               [],
@@ -54411,10 +54765,10 @@
               1,
               1,
               0,
-              ["Ident", 3600, 7, 0, "deferred"],
+              ["Ident", 3610, 7, 0, "deferred"],
               [
                 "BlockExpression",
-                3601,
+                3611,
                 1,
                 0,
                 [
@@ -54422,10 +54776,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3601, 10, 0, "funcs"],
+                  ["Ident", 3611, 10, 0, "funcs"],
                   "=",
                   "Ident",
-                  3601,
+                  3611,
                   27,
                   0,
                   "deferred"
@@ -54435,10 +54789,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3602, 7, 0, "deferred"],
+                  ["Ident", 3612, 7, 0, "deferred"],
                   "=",
                   "Const",
-                  3602,
+                  3612,
                   18,
                   0,
                   null
@@ -54448,10 +54802,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3603, 7, 0, "isError"],
+                  ["Ident", 3613, 7, 0, "isError"],
                   "=",
                   "Ident",
-                  3603,
+                  3613,
                   18,
                   0,
                   "newIsError"
@@ -54461,10 +54815,10 @@
                   1,
                   1,
                   0,
-                  ["Ident", 3604, 7, 0, "value"],
+                  ["Ident", 3614, 7, 0, "value"],
                   "=",
                   "Ident",
-                  3604,
+                  3614,
                   15,
                   0,
                   "newValue"
@@ -54476,27 +54830,27 @@
                   0,
                   [
                     "Binary",
-                    3605,
+                    3615,
                     9,
                     0,
-                    ["Ident", 3605, 9, 0, "funcs"],
+                    ["Ident", 3615, 9, 0, "funcs"],
                     ".",
                     "Const",
-                    3605,
+                    3615,
                     16,
                     0,
                     "length"
                   ],
                   [
                     "Call",
-                    3606,
+                    3616,
                     9,
                     0,
-                    ["Ident", 3606, 9, 0, "setImmediate"],
+                    ["Ident", 3616, 9, 0, "setImmediate"],
                     0,
                     [
                       "Func",
-                      3606,
+                      3616,
                       24,
                       0,
                       0,
@@ -54518,10 +54872,10 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3607, 14, 0, "i"],
+                          ["Ident", 3617, 14, 0, "i"],
                           "=",
                           "Const",
-                          3607,
+                          3617,
                           20,
                           0,
                           0
@@ -54534,13 +54888,13 @@
                           ["Ident", 1, 1, 0, "_end"],
                           "=",
                           "Binary",
-                          3607,
+                          3617,
                           25,
                           0,
-                          ["Ident", 3607, 25, 0, "funcs"],
+                          ["Ident", 3617, 25, 0, "funcs"],
                           ".",
                           "Const",
-                          3607,
+                          3617,
                           32,
                           0,
                           "length"
@@ -54551,7 +54905,7 @@
                         1,
                         1,
                         0,
-                        ["Ident", 3607, 14, 0, "i"],
+                        ["Ident", 3617, 14, 0, "i"],
                         "<",
                         "Ident",
                         1,
@@ -54566,24 +54920,24 @@
                         0,
                         "++",
                         "Ident",
-                        3607,
+                        3617,
                         14,
                         0,
                         "i"
                       ],
                       "Call",
-                      3608,
+                      3618,
                       13,
                       0,
                       [
                         "Binary",
-                        3608,
+                        3618,
                         13,
                         0,
-                        ["Ident", 3608, 13, 0, "funcs"],
+                        ["Ident", 3618, 13, 0, "funcs"],
                         ".",
                         "Ident",
-                        3608,
+                        3618,
                         19,
                         0,
                         "i"
@@ -54596,40 +54950,40 @@
             ],
             [
               "Return",
-              116929,
-              117651,
+              117152,
+              117874,
               0,
               "Obj",
-              116929,
-              117651,
+              117152,
+              117874,
               0,
-              3611,
+              3621,
               5,
               null,
               "promise",
               [
                 "Obj",
-                116943,
-                117553,
+                117166,
+                117776,
                 0,
-                3612,
+                3622,
                 7,
                 null,
                 "then",
                 [
                   "Func",
-                  3612,
+                  3622,
                   14,
                   0,
                   0,
                   [
-                    ["Ident", 3612, 15, 0, "onFulfilled"],
-                    ["Ident", 3612, 28, 0, "onRejected"]
+                    ["Ident", 3622, 15, 0, "onFulfilled"],
+                    ["Ident", 3622, 28, 0, "onRejected"]
                   ],
                   ["_ref", "fulfill", "promise", "reject"],
                   [],
                   "BlockStatement",
-                  3613,
+                  3623,
                   1,
                   0,
                   0,
@@ -54638,7 +54992,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3613, 14, 0, "promise"],
+                    ["Ident", 3623, 14, 0, "promise"],
                     "=",
                     "Binary",
                     231,
@@ -54652,10 +55006,10 @@
                       ["Ident", 1, 1, 0, "_ref"],
                       "=",
                       "Call",
-                      3613,
+                      3623,
                       41,
                       0,
-                      ["Ident", 3613, 41, 0, "__defer"],
+                      ["Ident", 3623, 41, 0, "__defer"],
                       0
                     ],
                     ".",
@@ -54670,7 +55024,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3613, 22, 0, "fulfill"],
+                    ["Ident", 3623, 22, 0, "fulfill"],
                     "=",
                     "Binary",
                     231,
@@ -54689,7 +55043,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3613, 31, 0, "reject"],
+                    ["Ident", 3623, 31, 0, "reject"],
                     "=",
                     "Binary",
                     231,
@@ -54708,7 +55062,7 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3614, 12, 0, "step"],
+                    ["Ident", 3624, 12, 0, "step"],
                     [],
                     ["f", "result"],
                     [],
@@ -54719,7 +55073,7 @@
                     0,
                     [
                       "BlockStatement",
-                      3615,
+                      3625,
                       1,
                       0,
                       0,
@@ -54729,16 +55083,16 @@
                         1,
                         0,
                         0,
-                        ["Ident", 3615, 21, 0, "isError"],
+                        ["Ident", 3625, 21, 0, "isError"],
                         [
                           "Binary",
                           1,
                           1,
                           0,
-                          ["Ident", 3615, 14, 0, "f"],
+                          ["Ident", 3625, 14, 0, "f"],
                           "=",
                           "Ident",
-                          3615,
+                          3625,
                           35,
                           0,
                           "onRejected"
@@ -54747,10 +55101,10 @@
                         1,
                         1,
                         0,
-                        ["Ident", 3615, 14, 0, "f"],
+                        ["Ident", 3625, 14, 0, "f"],
                         "=",
                         "Ident",
-                        3615,
+                        3625,
                         52,
                         0,
                         "onFulfilled"
@@ -54773,7 +55127,7 @@
                             0,
                             "typeof",
                             "Ident",
-                            3616,
+                            3626,
                             26,
                             0,
                             "f"
@@ -54787,7 +55141,7 @@
                         ],
                         [
                           "BlockStatement",
-                          3617,
+                          3627,
                           1,
                           0,
                           0,
@@ -54796,15 +55150,15 @@
                             1,
                             1,
                             0,
-                            ["Ident", 3617, 16, 0, "result"],
+                            ["Ident", 3627, 16, 0, "result"],
                             "=",
                             "Call",
-                            3617,
+                            3627,
                             25,
                             0,
-                            ["Ident", 3617, 25, 0, "f"],
+                            ["Ident", 3627, 25, 0, "f"],
                             0,
-                            ["Ident", 3617, 28, 0, "value"]
+                            ["Ident", 3627, 28, 0, "value"]
                           ],
                           [
                             "IfStatement",
@@ -54817,7 +55171,7 @@
                               1,
                               1,
                               0,
-                              ["Ident", 3618, 15, 0, "result"],
+                              ["Ident", 3628, 15, 0, "result"],
                               "&&",
                               "Binary",
                               1,
@@ -54830,13 +55184,13 @@
                                 0,
                                 "typeof",
                                 "Binary",
-                                3618,
+                                3628,
                                 39,
                                 0,
-                                ["Ident", 3618, 39, 0, "result"],
+                                ["Ident", 3628, 39, 0, "result"],
                                 ".",
                                 "Const",
-                                3618,
+                                3628,
                                 47,
                                 0,
                                 "then"
@@ -54850,37 +55204,37 @@
                             ],
                             [
                               "Call",
-                              3619,
+                              3629,
                               15,
                               0,
                               [
                                 "Binary",
-                                3619,
+                                3629,
                                 15,
                                 0,
-                                ["Ident", 3619, 15, 0, "result"],
+                                ["Ident", 3629, 15, 0, "result"],
                                 ".",
                                 "Const",
-                                3619,
+                                3629,
                                 22,
                                 0,
                                 "then"
                               ],
                               0,
-                              ["Ident", 3619, 27, 0, "fulfill"],
-                              ["Ident", 3619, 35, 0, "reject"]
+                              ["Ident", 3629, 27, 0, "fulfill"],
+                              ["Ident", 3629, 35, 0, "reject"]
                             ],
                             "Call",
-                            3621,
+                            3631,
                             15,
                             0,
-                            ["Ident", 3621, 15, 0, "fulfill"],
+                            ["Ident", 3631, 15, 0, "fulfill"],
                             0,
-                            ["Ident", 3621, 23, 0, "result"]
+                            ["Ident", 3631, 23, 0, "result"]
                           ]
                         ],
                         "Call",
-                        3623,
+                        3633,
                         13,
                         0,
                         [
@@ -54888,26 +55242,26 @@
                           1,
                           1,
                           0,
-                          ["Ident", 3623, 16, 0, "isError"],
-                          ["Ident", 3623, 30, 0, "reject"],
+                          ["Ident", 3633, 16, 0, "isError"],
+                          ["Ident", 3633, 30, 0, "reject"],
                           "Ident",
-                          3623,
+                          3633,
                           42,
                           0,
                           "fulfill"
                         ],
                         0,
-                        ["Ident", 3623, 52, 0, "value"]
+                        ["Ident", 3633, 52, 0, "value"]
                       ]
                     ],
-                    ["Ident", 3624, 14, 0, "e"],
+                    ["Ident", 3634, 14, 0, "e"],
                     "Call",
-                    3625,
+                    3635,
                     11,
                     0,
-                    ["Ident", 3625, 11, 0, "reject"],
+                    ["Ident", 3635, 11, 0, "reject"],
                     0,
-                    ["Ident", 3625, 18, 0, "e"]
+                    ["Ident", 3635, 18, 0, "e"]
                   ],
                   [
                     "IfStatement",
@@ -54915,92 +55269,92 @@
                     1,
                     0,
                     0,
-                    ["Ident", 3627, 11, 0, "deferred"],
+                    ["Ident", 3637, 11, 0, "deferred"],
                     [
                       "Call",
-                      3628,
+                      3638,
                       11,
                       0,
                       [
                         "Binary",
-                        3628,
+                        3638,
                         11,
                         0,
-                        ["Ident", 3628, 11, 0, "deferred"],
+                        ["Ident", 3638, 11, 0, "deferred"],
                         ".",
                         "Const",
-                        3628,
+                        3638,
                         20,
                         0,
                         "push"
                       ],
                       0,
-                      ["Ident", 3628, 25, 0, "step"]
+                      ["Ident", 3638, 25, 0, "step"]
                     ],
                     "Call",
-                    3630,
+                    3640,
                     11,
                     0,
-                    ["Ident", 3630, 11, 0, "setImmediate"],
+                    ["Ident", 3640, 11, 0, "setImmediate"],
                     0,
-                    ["Ident", 3630, 25, 0, "step"]
+                    ["Ident", 3640, 25, 0, "step"]
                   ],
                   [
                     "Return",
-                    3631,
+                    3641,
                     9,
                     0,
                     "Ident",
-                    3631,
+                    3641,
                     9,
                     0,
                     "promise"
                   ]
                 ]
               ],
-              3633,
+              3643,
               5,
               null,
               "fulfill",
               [
                 "Func",
-                3633,
+                3643,
                 15,
                 0,
                 0,
-                [["Ident", 3633, 16, 0, "value"]],
+                [["Ident", 3643, 16, 0, "value"]],
                 [],
                 [],
                 "Call",
-                3633,
+                3643,
                 26,
                 0,
-                ["Ident", 3633, 26, 0, "complete"],
+                ["Ident", 3643, 26, 0, "complete"],
                 0,
-                ["Const", 3633, 36, 0, false],
-                ["Ident", 3633, 42, 0, "value"]
+                ["Const", 3643, 36, 0, false],
+                ["Ident", 3643, 42, 0, "value"]
               ],
-              3634,
+              3644,
               5,
               null,
               "reject",
               [
                 "Func",
-                3634,
+                3644,
                 14,
                 0,
                 0,
-                [["Ident", 3634, 15, 0, "value"]],
+                [["Ident", 3644, 15, 0, "value"]],
                 [],
                 [],
                 "Call",
-                3634,
+                3644,
                 25,
                 0,
-                ["Ident", 3634, 25, 0, "complete"],
+                ["Ident", 3644, 25, 0, "complete"],
                 0,
-                ["Const", 3634, 35, 0, true],
-                ["Ident", 3634, 40, 0, "value"]
+                ["Const", 3644, 35, 0, true],
+                ["Ident", 3644, 40, 0, "value"]
               ]
             ]
           ],
@@ -55025,7 +55379,7 @@
             1,
             0,
             0,
-            [["Ident", 3637, 43, 0, "factory"]],
+            [["Ident", 3647, 43, 0, "factory"]],
             [],
             [],
             "BlockStatement",
@@ -55051,7 +55405,7 @@
                   0,
                   "typeof",
                   "Ident",
-                  3637,
+                  3647,
                   43,
                   0,
                   "factory"
@@ -55087,17 +55441,17 @@
                   0,
                   ["Ident", 477, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 3637, 43, 0, "factory"]
+                  ["Ident", 3647, 43, 0, "factory"]
                 ]
               ]
             ],
             [
               "Return",
-              3637,
+              3647,
               62,
               0,
               "Func",
-              3637,
+              3647,
               62,
               0,
               0,
@@ -55105,7 +55459,7 @@
               ["generator"],
               [],
               "BlockStatement",
-              3638,
+              3648,
               1,
               0,
               0,
@@ -55114,43 +55468,43 @@
                 1,
                 1,
                 0,
-                ["Ident", 3638, 6, 0, "generator"],
+                ["Ident", 3648, 6, 0, "generator"],
                 "=",
                 "Call",
-                3638,
+                3648,
                 18,
                 0,
                 [
                   "Binary",
-                  3638,
+                  3648,
                   18,
                   0,
-                  ["Ident", 3638, 18, 0, "factory"],
+                  ["Ident", 3648, 18, 0, "factory"],
                   ".",
                   "Const",
-                  3638,
+                  3648,
                   18,
                   0,
                   "apply"
                 ],
                 0,
-                ["This", 3638, 28, 0],
-                ["Arguments", 3638, 37, 0]
+                ["This", 3648, 28, 0],
+                ["Arguments", 3648, 37, 0]
               ],
               [
                 "Func",
                 1,
                 1,
                 0,
-                ["Ident", 3639, 6, 0, "continuer"],
+                ["Ident", 3649, 6, 0, "continuer"],
                 [
-                  ["Ident", 3639, 17, 0, "verb"],
-                  ["Ident", 3639, 22, 0, "arg"]
+                  ["Ident", 3649, 17, 0, "verb"],
+                  ["Ident", 3649, 22, 0, "arg"]
                 ],
                 ["defer", "item"],
                 [],
                 "BlockStatement",
-                3640,
+                3650,
                 1,
                 0,
                 0,
@@ -55165,31 +55519,31 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3641, 10, 0, "item"],
+                    ["Ident", 3651, 10, 0, "item"],
                     "=",
                     "Call",
-                    3641,
+                    3651,
                     17,
                     0,
                     [
                       "Binary",
-                      3641,
+                      3651,
                       17,
                       0,
-                      ["Ident", 3641, 17, 0, "generator"],
+                      ["Ident", 3651, 17, 0, "generator"],
                       ".",
                       "Ident",
-                      3641,
+                      3651,
                       28,
                       0,
                       "verb"
                     ],
                     0,
-                    ["Ident", 3641, 34, 0, "arg"]
+                    ["Ident", 3651, 34, 0, "arg"]
                   ],
-                  ["Ident", 3642, 10, 0, "e"],
+                  ["Ident", 3652, 10, 0, "e"],
                   "BlockStatement",
-                  3643,
+                  3653,
                   1,
                   0,
                   0,
@@ -55198,35 +55552,35 @@
                     1,
                     1,
                     0,
-                    ["Ident", 3643, 10, 0, "defer"],
+                    ["Ident", 3653, 10, 0, "defer"],
                     "=",
                     "Call",
-                    3643,
+                    3653,
                     18,
                     0,
-                    ["Ident", 3643, 18, 0, "__defer"],
+                    ["Ident", 3653, 18, 0, "__defer"],
                     0
                   ],
                   [
                     "Call",
-                    3644,
+                    3654,
                     7,
                     0,
                     [
                       "Binary",
-                      3644,
+                      3654,
                       7,
                       0,
-                      ["Ident", 3644, 7, 0, "defer"],
+                      ["Ident", 3654, 7, 0, "defer"],
                       ".",
                       "Const",
-                      3644,
+                      3654,
                       13,
                       0,
                       "reject"
                     ],
                     0,
-                    ["Ident", 3644, 20, 0, "e"]
+                    ["Ident", 3654, 20, 0, "e"]
                   ],
                   [
                     "Return",
@@ -55234,13 +55588,13 @@
                     1,
                     0,
                     "Binary",
-                    3645,
+                    3655,
                     13,
                     0,
-                    ["Ident", 3645, 13, 0, "defer"],
+                    ["Ident", 3655, 13, 0, "defer"],
                     ".",
                     "Const",
-                    3645,
+                    3655,
                     20,
                     0,
                     "promise"
@@ -55254,70 +55608,70 @@
                   0,
                   [
                     "Binary",
-                    3646,
+                    3656,
                     7,
                     0,
-                    ["Ident", 3646, 7, 0, "item"],
+                    ["Ident", 3656, 7, 0, "item"],
                     ".",
                     "Const",
-                    3646,
+                    3656,
                     13,
                     0,
                     "done"
                   ],
                   [
                     "Return",
-                    3647,
+                    3657,
                     7,
                     0,
                     "Binary",
-                    3647,
+                    3657,
                     7,
                     0,
-                    ["Ident", 3647, 7, 0, "item"],
+                    ["Ident", 3657, 7, 0, "item"],
                     ".",
                     "Const",
-                    3647,
+                    3657,
                     12,
                     0,
                     "value"
                   ],
                   "Return",
-                  3649,
+                  3659,
                   7,
                   0,
                   "Call",
-                  3649,
+                  3659,
                   7,
                   0,
                   [
                     "Binary",
-                    3649,
+                    3659,
                     7,
                     0,
                     [
                       "Binary",
-                      3649,
+                      3659,
                       7,
                       0,
-                      ["Ident", 3649, 7, 0, "item"],
+                      ["Ident", 3659, 7, 0, "item"],
                       ".",
                       "Const",
-                      3649,
+                      3659,
                       12,
                       0,
                       "value"
                     ],
                     ".",
                     "Const",
-                    3649,
+                    3659,
                     18,
                     0,
                     "then"
                   ],
                   0,
-                  ["Ident", 3649, 23, 0, "callback"],
-                  ["Ident", 3649, 32, 0, "errback"]
+                  ["Ident", 3659, 23, 0, "callback"],
+                  ["Ident", 3659, 32, 0, "errback"]
                 ]
               ],
               [
@@ -55325,57 +55679,57 @@
                 1,
                 1,
                 0,
-                ["Ident", 3650, 6, 0, "callback"],
-                [["Ident", 3650, 16, 0, "value"]],
+                ["Ident", 3660, 6, 0, "callback"],
+                [["Ident", 3660, 16, 0, "value"]],
                 [],
                 [],
                 "Return",
-                3650,
+                3660,
                 25,
                 0,
                 "Call",
-                3650,
+                3660,
                 25,
                 0,
-                ["Ident", 3650, 25, 0, "continuer"],
+                ["Ident", 3660, 25, 0, "continuer"],
                 0,
-                ["Const", 3650, 37, 0, "send"],
-                ["Ident", 3650, 42, 0, "value"]
+                ["Const", 3660, 37, 0, "send"],
+                ["Ident", 3660, 42, 0, "value"]
               ],
               [
                 "Func",
                 1,
                 1,
                 0,
-                ["Ident", 3651, 6, 0, "errback"],
-                [["Ident", 3651, 15, 0, "value"]],
+                ["Ident", 3661, 6, 0, "errback"],
+                [["Ident", 3661, 15, 0, "value"]],
                 [],
                 [],
                 "Return",
-                3651,
+                3661,
                 24,
                 0,
                 "Call",
-                3651,
+                3661,
                 24,
                 0,
-                ["Ident", 3651, 24, 0, "continuer"],
+                ["Ident", 3661, 24, 0, "continuer"],
                 0,
-                ["Const", 3651, 36, 0, "throw"],
-                ["Ident", 3651, 42, 0, "value"]
+                ["Const", 3661, 36, 0, "throw"],
+                ["Ident", 3661, 42, 0, "value"]
               ],
               [
                 "Return",
-                3652,
+                3662,
                 3,
                 0,
                 "Call",
-                3652,
+                3662,
                 3,
                 0,
-                ["Ident", 3652, 3, 0, "callback"],
+                ["Ident", 3662, 3, 0, "callback"],
                 0,
-                ["Const", 3652, 12, 0]
+                ["Const", 3662, 12, 0]
               ]
             ]
           ],
@@ -55385,19 +55739,19 @@
         __toPromise: {
           helper: [
             "Func",
-            3672,
+            3682,
             31,
             0,
             0,
             [
-              ["Ident", 3672, 32, 0, "func"],
-              ["Ident", 3672, 37, 0, "context"],
-              ["Ident", 3672, 46, 0, "args"]
+              ["Ident", 3682, 32, 0, "func"],
+              ["Ident", 3682, 37, 0, "context"],
+              ["Ident", 3682, 46, 0, "args"]
             ],
             ["d"],
             [],
             "BlockStatement",
-            3673,
+            3683,
             1,
             0,
             0,
@@ -55406,57 +55760,57 @@
               1,
               1,
               0,
-              ["Ident", 3673, 6, 0, "d"],
+              ["Ident", 3683, 6, 0, "d"],
               "=",
               "Call",
-              3673,
+              3683,
               10,
               0,
-              ["Ident", 3673, 10, 0, "__defer"],
+              ["Ident", 3683, 10, 0, "__defer"],
               0
             ],
             [
               "Call",
-              3674,
+              3684,
               3,
               0,
               [
                 "Binary",
-                3674,
+                3684,
                 3,
                 0,
-                ["Ident", 3674, 3, 0, "func"],
+                ["Ident", 3684, 3, 0, "func"],
                 ".",
                 "Const",
-                3674,
+                3684,
                 3,
                 0,
                 "apply"
               ],
               0,
-              ["Ident", 3674, 9, 0, "context"],
+              ["Ident", 3684, 9, 0, "context"],
               [
                 "Call",
-                3674,
+                3684,
                 3,
                 0,
                 [
                   "Binary",
-                  3674,
+                  3684,
                   3,
                   0,
                   [
                     "Call",
-                    3674,
+                    3684,
                     21,
                     0,
-                    ["Ident", 3674, 21, 0, "__toArray"],
+                    ["Ident", 3684, 21, 0, "__toArray"],
                     0,
-                    ["Ident", 3674, 21, 0, "args"]
+                    ["Ident", 3684, 21, 0, "args"]
                   ],
                   ".",
                   "Const",
-                  3674,
+                  3684,
                   3,
                   0,
                   "concat"
@@ -55464,18 +55818,18 @@
                 0,
                 [
                   "Arr",
-                  3674,
+                  3684,
                   28,
                   0,
                   [
                     "Func",
-                    3674,
+                    3684,
                     28,
                     0,
                     0,
                     [
-                      ["Ident", 3674, 29, 0, "err"],
-                      ["Ident", 3674, 33, 0, "value"]
+                      ["Ident", 3684, 29, 0, "err"],
+                      ["Ident", 3684, 33, 0, "value"]
                     ],
                     [],
                     [],
@@ -55488,7 +55842,7 @@
                       1,
                       1,
                       0,
-                      ["Ident", 3675, 7, 0, "err"],
+                      ["Ident", 3685, 7, 0, "err"],
                       "!=",
                       "Const",
                       104,
@@ -55498,61 +55852,61 @@
                     ],
                     [
                       "Call",
-                      3676,
+                      3686,
                       7,
                       0,
                       [
                         "Binary",
-                        3676,
+                        3686,
                         7,
                         0,
-                        ["Ident", 3676, 7, 0, "d"],
+                        ["Ident", 3686, 7, 0, "d"],
                         ".",
                         "Const",
-                        3676,
+                        3686,
                         9,
                         0,
                         "reject"
                       ],
                       0,
-                      ["Ident", 3676, 16, 0, "err"]
+                      ["Ident", 3686, 16, 0, "err"]
                     ],
                     "Call",
-                    3678,
+                    3688,
                     7,
                     0,
                     [
                       "Binary",
-                      3678,
+                      3688,
                       7,
                       0,
-                      ["Ident", 3678, 7, 0, "d"],
+                      ["Ident", 3688, 7, 0, "d"],
                       ".",
                       "Const",
-                      3678,
+                      3688,
                       9,
                       0,
                       "fulfill"
                     ],
                     0,
-                    ["Ident", 3678, 17, 0, "value"]
+                    ["Ident", 3688, 17, 0, "value"]
                   ]
                 ]
               ]
             ],
             [
               "Return",
-              3679,
+              3689,
               3,
               0,
               "Binary",
-              3679,
+              3689,
               3,
               0,
-              ["Ident", 3679, 3, 0, "d"],
+              ["Ident", 3689, 3, 0, "d"],
               ".",
               "Const",
-              3679,
+              3689,
               5,
               0,
               "promise"

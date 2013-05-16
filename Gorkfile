@@ -8,6 +8,7 @@ option \uglify, "u", "Use UglifyJS2 to minify the result"
 option \minify, null, "Minimize the use of unnecessary whitespace"
 option \file, "f", "Build a specific file", "file"
 option \prefix, null, "Path to install to (/usr/local by default)"
+option \reporter, null, "Reporter to use with tests", "string"
 //option \js, null, "Compile to JavaScript (default)"
 
 let get-lang(options) -> "js"
@@ -107,10 +108,13 @@ command \build, "Build GorillaScript from source", #(options, cb)
 
 command "build:full", "Build GorillaScript twice and run tests", #(options, cb)
   delete options.file
+  console.log "running build"
   async! cb <- invoke \build
+  console.log "running build (again)"
   async! cb <- invoke \build
+  console.log "running build:browser"
   async! cb <- invoke "build:browser"
-  invoke \test, cb
+  invoke "test:full", cb
 
 command "build:browser", "Merge GorillaScript for use in the browser", #(options, cb)
   async! cb, filename-path <- fs.realpath __filename
@@ -181,7 +185,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
   async! cb <- fs.write-file path.join(path.join(path.dirname(filename-path), "extras"), "gorillascript.js"), code, "utf8"
   cb()
 
-command \test, "Run the GorillaScript test suite", #(options, cb)
+command "test", "Run the GorillaScript test suite", #(options, cb)
   async! cb, filename-path <- fs.realpath __filename
   let tests-path = path.join(path.dirname(filename-path), "tests")
   async! cb, mutable files <- fs.readdir tests-path
@@ -200,176 +204,74 @@ command \test, "Run the GorillaScript test suite", #(options, cb)
   if files.length == 0
     return cb("No files to test")
   
-  require! assert
-  
-  let sandbox = {}
-  
-  let mutable passed-tests = 0
-  let add-sandbox(name, func)
-    sandbox[name] := #(...args)
-      let result = func ...args
-      passed-tests += 1
-      result
-
-  for k of assert
-    add-sandbox k, assert[k]
-
-  let fail = assert.fail
-  let success = add-sandbox \success, #->
-  sandbox.eq := sandbox.strict-equal
-  sandbox.run-once := #(value)
-    let f = #
-      if f.ran
-        fail "called more than once"
-      f.ran := true
-      value
-    f.ran := false
-    f
-
-  sandbox.gorilla := gorilla
-
-  let mutable current-file = null
-  let mutable num-failures = 0
-  let add-failure(filename, error)!
-    num-failures += 1
-    if filename
-      console.log filename
-    if error.description
-      console.log "  $(error.description)"
-    if error.stack
-      console.log error.stack
-    else
-      console.log String(error)
-    if error.source
-      console.log error.source
-
-  sandbox.test := #(description, fn)!
-    try
-      fn.test := {
-        description
-        current-file
-      }
-      fn@ fn
-    catch e
-      try
-        e.description := description
-        e.source := fn.to-string()
-      catch x
-        void
-      add-failure fn.test.filename, e
-
-  let waiters = [[], []]
-  let handle-waiters()
-    let mutable found = true
-    while found
-      found := false
-      for type in waiters
-        if type.length
-          found := true
-          type.splice((Math.random() * type.length) \ 1, 1)[0]()
-          break
-  sandbox.async-test := #(description, fn)!
-    fn.wait := #(get-value as ->, cb as ->)!
-      waiters[0].push #-> fn.dont-wait(get-value, cb)
-    fn.after := #(get-value as ->, cb as (null|Function))!
-      waiters[1].push #-> fn.dont-wait(get-value, cb or #->)
-    fn.dont-wait := #(get-value as ->, cb as ->)!
-      let mutable result = void
-      try
-        result := get-value()
-      catch e
-        cb(e)
-      else
-        try
-          cb(null, result)
-        catch e
-          e.description := description
-          e.source := fn.to-string()
-          add-failure fn.test.current-file, e
-    sandbox.test description, fn
-
-  let array-equal = #(a, b)
-    if is-array! a
-      unless is-array! b and a.length == b.length
-        false
-      else
-        for every item, i in a
-          array-equal item, b[i]
-    else
-      a is b
-
-  sandbox.array-eq := #(a, b, msg)
-    if not array-equal a, b
-      let {inspect} = require('util')
-      fail "$(JSON.stringify(a) or 'undefined') != $(JSON.stringify(b) or 'undefined')$(if msg then ': ' & msg else '')"
-    else
-      success()
-  
-  let inputs = {}
-  asyncfor(0) err <- next, file, i in files
-    unless r'\.gs$'i.test(file)
-      return next()
-    let filename = path.join tests-path, file
-    async! next, code <- fs.read-file filename, "utf-8"
-    inputs[file] := {code, filename}
-    next()
+  let sandbox = {
+    gorilla
+  }
   
   let longest-name-len = for reduce file in files, current = 0; current max file.length
   
   async! cb <- gorilla.init(lang: get-lang(options))
   
   output string-repeat(" ", longest-name-len)
-  output "     parse     macro     reduce    translate compile $(if options.uglify then '  uglify  ' else '')  eval    |       total\n"
+  output "     parse     macro     reduce    translate compile |  total\n"
   
   let mutable total-time = 0
   let totals = {}
-  asyncfor err <- next, file in files
-    if inputs not ownskey file
-      return next(new Error("Missing file input for $file"))
-    let {code, filename} = inputs[file]
-
+  let compilations = {}
+  asyncfor next, file in files
+    let filename = path.join tests-path, file
+    async! cb, code <- fs.read-file filename, "utf8"
+    
     let basename = path.basename filename
     output "$(pad-right basename & ':', longest-name-len + 1, ' ') "
     let start = Date.now()
     let mutable failure = false
     let start-time = Date.now()
-    current-file := filename
     let progress = #(name, time)
       totals[name] := (totals[name] or 0) + time
       output "  $(pad-left ((time / 1000_ms).to-fixed 3), 6, ' ') s"
-    async err, result <- gorilla.eval code.to-string(), { extends options, filename, sandbox, include-globals: true, no-prelude: options["no-prelude"], progress }
-    if err?
-      output "\n"
-      failure := true
-      add-failure basename, err
-
-    handle-waiters()
+    async err, result <- gorilla.compile code.to-string(), { extends options, filename, include-globals: true, no-prelude: options["no-prelude"], progress }
+    throw? err // TODO: better handling
+    
+    compilations[file] := Function(result.code)
 
     let end-time = Date.now()
     total-time += end-time - start-time
 
-    output " | $(if failure then 'fail' else 'pass') $(pad-left ((end-time - start-time) / 1000_ms).to-fixed(3), 6, ' ') s\n"
+    output " | $(pad-left ((end-time - start-time) / 1000_ms).to-fixed(3), 6, ' ') s\n"
     gc?()
     next()
-  throw? err
-  if files.length > 1
-    output string-repeat "-", longest-name-len + 63
-    if options.uglify
-      output string-repeat "-", 10
-    output "+"
-    output string-repeat "-", 14
-    output "\n"
-    output pad-right "total: ", longest-name-len + 2, ' '
-    for part in [\parse, \macro-expand, \reduce, \translate, \compile, ...if options.uglify then [\uglify] else [], \eval]
-      output "  $(pad-left ((totals[part] / 1000_ms).to-fixed 3), 6, ' ') s"
-    output " | "
-    output if num-failures == 0 then "pass" else "fail"
-    output " $(pad-left ((total-time / 1000_ms).to-fixed 3), 6, ' ') s\n"
+  
+  GLOBAL.gorilla := gorilla
+  GLOBAL.require := require
+  let mocha = new (require('mocha'))({reporter: options.reporter or "dot"})
+  require! chai
+  GLOBAL.expect := chai.expect
+  require! sinon
+  GLOBAL.sinon := sinon
+  GLOBAL.spy := sinon.spy
+  GLOBAL.stub := sinon.stub
+  GLOBAL.mock := sinon.mock
+  chai.use require("sinon-chai")
+  let suite = mocha.suite
+  for k, v of compilations
+    suite.emit 'pre-require', GLOBAL, k, mocha
+    suite.emit 'require', v@(GLOBAL), k, mocha
+    suite.emit 'post-require', GLOBAL, k, mocha
+  mocha.run #(count)
+    if count
+      cb Error("failed $(count) tests")
+    else
+      cb null
 
-  let message = "passed $passed-tests tests"
-  if num-failures == 0
-    console.log message
-    cb(null)
-  else
-    console.log "failed $num-failures"
-    set-timeout (# -> process.exit(1)), 100
+command "test:promise", "Test for compliance with Promises/A+", #(options, cb)
+  let promises-aplus-tests = require "promises-aplus-tests"
+  
+  promises-aplus-tests {pending: __defer}, {reporter: options.reporter or "dot"}, cb
+
+command "test:full", "Run all tests", #(options, cb)  
+  console.log "running test:promise"
+  async! cb <- invoke "test:promise"
+  console.log "running test"
+  async! cb <- invoke \test
+  cb()

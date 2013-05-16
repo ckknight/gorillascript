@@ -1,40 +1,41 @@
-test "with statement", #
-  let obj = {}
-  with obj
-    eq this, obj
+describe "with statement", #
+  it "replaces this", #
+    let obj = {}
+    with obj
+      expect(this).to.equal obj
+  
+  it "can be nested", #
+    let obj = {}
+    let other = {}
+    with obj
+      expect(this).to.equal obj
+      with other
+        expect(this).to.equal other
+      expect(this).to.equal obj
+  
+  it "can have a class whose name includes this", #
+    let obj = {}
+    with obj  
+      expect(this).to.equal obj
+      let c = class this.Class
+        def alpha() -> "bravo"
+      expect(this).to.equal obj
+      expect(obj.Class).to.equal c
+    expect(new obj.Class().alpha()).to.equal "bravo"
+  
+  it "can have an enum whose name includes this", #
+    let obj = {}
+    with obj
+      expect(this).to.equal obj
+      let e = enum this.Enum
+        def Alpha
+        def Bravo
+        def Charlie
 
-test "nested with statements", #
-  let obj = {}
-  let other = {}
-  with obj
-    eq this, obj
-    with other
-      eq this, other
-    eq this, obj
-
-test "class nested in with", #
-  let obj = {}
-  with obj
-    eq this, obj
-    let c = class this.Class
-      def alpha() -> "bravo"
-    eq this, obj
-    eq c, obj.Class
-  eq "bravo", new obj.Class().alpha()
-
-test "enum nested in with", #
-  let obj = {}
-  with obj
-    eq this, obj
-    let e = enum this.Enum
-      def Alpha
-      def Bravo
-      def Charlie
-      
-      this.thing := #-> "blah"
-    eq this, obj
-    eq e, obj.Enum
-  eq 1, obj.Enum.Alpha
-  eq 2, obj.Enum.Bravo
-  eq 3, obj.Enum.Charlie
-  eq "blah", obj.Enum.thing()
+        this.thing := #-> "blah"
+      expect(this).to.equal obj
+      expect(obj.Enum).to.equal e
+    expect(obj.Enum.Alpha).to.equal 1
+    expect(obj.Enum.Bravo).to.equal 2
+    expect(obj.Enum.Charlie).to.equal 3
+    expect(obj.Enum.thing()).to.equal "blah"

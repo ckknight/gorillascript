@@ -1,10 +1,12 @@
-test "Literals", #
-  eq not 0, true
-  eq not 1, false
-
-test "Indexing", #
-  eq Boolean::to-string, true.to-string
-  eq Boolean::to-string, false.to-string
+describe "literals", #
+  it "include true", #
+    expect(true).to.be.true
   
-  eq Boolean::to-string, true["toString"]
-  eq Boolean::to-string, false["toString"]
+  it "include false", #
+    expect(false).to.be.false
+  
+  it "can be directly indexed", #
+    expect(true.to-string).to.equal Boolean::to-string
+    expect(false.to-string).to.equal Boolean::to-string
+    expect(true[\to-string]).to.equal Boolean::to-string
+    expect(false[\to-string]).to.equal Boolean::to-string

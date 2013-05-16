@@ -1,108 +1,98 @@
-test "basic regular expression literals", #
-  ok r"a" instanceof RegExp
-  ok r'a' instanceof RegExp
-  ok "a".match(r"a")
-  ok "a".match r"a"
-  ok "a".match(r"a"g)
-  ok "a".match r"a"g
-  ok r"a".test("a")
-  ok r"a".test "a"
-  ok r"a"g.test("a")
-  ok r"a"g.test "a"
-
-test "regular expressions should be indexable", #
-  eq "0", r"0".source
-  eq "0", r"$(0)".source
-  eq "0", r'0'.source
-  eq '$(0)', r'$(0)'.source
-  eq "0", r"0"["source"]
-  eq "0", r"$(0)"["source"]
-  eq "0", r'0'["source"]
-  eq '$(0)', r'$(0)'["source"]
+describe "regular expressions", #
+  it "can be single-quoted", #
+    expect(r'a').to.be.an.instanceof(RegExp)
+    expect("a".match(r'a')).to.be.an('array')
+    expect("a".match(r'a'g)).to.be.an('array')
+    expect(r'a'.test("a")).to.be.true
+    expect(r'a'g.test("a")).to.be.true
   
-  ok r"asdf"g.global
-  ok not r"asdf"g.ignore-case
-  ok not r"asdf"g.multiline
-  ok not r"asdf"i.global
-  ok r"asdf"i.ignore-case
-  ok not r"asdf"i.multiline
-  ok not r"asdf"m.global
-  ok not r"asdf"m.ignore-case
-  ok r"asdf"m.multiline
-  ok not r"asdf".global
-  ok not r"asdf".ignore-case
-  ok not r"asdf".multiline
-  ok r"asdf"gim.global
-  ok r"asdf"gim.ignore-case
-  ok r"asdf"gim.multiline
-
-test "regular expressions have expected flags", #
-  let check(regex, ...flags)
-    for flag in [\global, \ignore-case, \multiline]
-      if flag in flags
-        ok regex[flag]
-      else
-        ok not regex[flag]
+  it "can be double-quoted", #
+    expect(r"a").to.be.an.instanceof(RegExp)
+    expect("a".match(r"a")).to.be.an('array')
+    expect("a".match(r"a"g)).to.be.an('array')
+    expect(r"a".test("a")).to.be.true
+    expect(r"a"g.test("a")).to.be.true
   
-  check(r"asdf"g, \global)
-  check(r"asdf"i, \ignore-case)
-  check(r"asdf"m, \multiline)
-  check(r"asdf"gim, \global, \ignore-case, \multiline)
-
-test "slashes are allowed in regexes", #
-  ok r'^a/b$'.test "a/b"
-  ok r"^a/b\$".test "a/b"
-  ok r"^a\/b\$".test "a/b"
-  ok r"^a\\/b\$".test "a\\/b"
-  ok r"^a\\\/b\$".test "a\\/b"
-
-test "regexes will escape backspaces", #
-  eq "\\\\", r"\\".source
-
-test "a triple-quoted regex will ignore whitespace and allow comments", #
-  eq r"Ihavenowhitespace".source, r"""
-  I
-    have # and this is a comment
-      no # and another comment
-        whitespace""".source
+  it "should be indexable", #
+    expect(r"0".source).to.equal "0"
+    expect(r"$(0)".source).to.equal "0"
+    expect(r'0'.source).to.equal "0"
+    expect(r'$(0)'.source).to.equal '$(0)'
+    expect(r"0"[\source]).to.equal "0"
+    expect(r"$(0)"[\source]).to.equal "0"
+    expect(r'0'[\source]).to.equal "0"
+    expect(r'$(0)'[\source]).to.equal '$(0)'
   
-  eq r'Ihavenowhitespace'.source, r'''
-  I
-    have # and this is a comment
-      no # and another comment
-        whitespace'''.source
-
-test "a triple-quoted regex can have interpolation", #
-  let value = "bravo"
-  eq r"alphabravocharlie".source, r"""
-  alpha
-  $value # previously, that was a value.
-  charlie
-  """.source
-test "a single-triple-quoted regex doesn't have interpolation", #
-  let value = "bravo"
-  eq r'alpha$valuecharlie'.source, r'''
-  alpha
-  $value # won't be converted
-  charlie
-  '''.source
-
-test "and empty regex will compile to an empty, non-capturing group", #
-  let regex = r""
+  it "should have expected flags set", #
+    expect(r"asdf"g.global).to.be.true
+    expect(r"asdf"g.ignore-case).to.be.false
+    expect(r"asdf"g.multiline).to.be.false
+    expect(r"asdf"i.global).to.be.false
+    expect(r"asdf"i.ignore-case).to.be.true
+    expect(r"asdf"i.multiline).to.be.false
+    expect(r"asdf"m.global).to.be.false
+    expect(r"asdf"m.ignore-case).to.be.false
+    expect(r"asdf"m.multiline).to.be.true
+    expect(r"asdf"gim.global).to.be.true
+    expect(r"asdf"gim.ignore-case).to.be.true
+    expect(r"asdf"gim.multiline).to.be.true
   
-  let match = regex.exec "test"
-  ok match
-  eq "", match[0]
-
-test "Bad regex will throw a proper exception", #
-  throws #-> gorilla.compile("""let x = 0
-  let y = r'+'"""), #(e) -> e.line == 2
+  it "should allow slashes", #
+    expect(r'^a/b$'.test "a/b").to.be.true
+    expect(r"^a/b\$".test "a/b").to.be.true
+    expect(r"^a\/b\$".test "a/b").to.be.true
+    expect(r"^a\\/b\$".test "a\\/b").to.be.true
+    expect(r"^a\\\/b\$".test "a\\/b").to.be.true
   
-  throws #-> gorilla.compile("""let x = 0
-  let y = r'x'gg"""), #(e) -> e.line == 2
+  it "will properly escape backslashes", #
+    expect(r"\\".source).to.equal "\\\\"
   
-  throws #-> gorilla.compile("""let x = 0
-  let y = r'x'q"""), #(e) -> e.line == 2
-
-test "Sticky flag will compile", #
-  gorilla.compile("let y = r'x'y")
+  it "will ignore whitespace and comments in triple-quoted string", #
+    expect(r"""
+    I
+      have # and this is a comment
+        no # and another comment
+          whitespace""".source).to.equal "Ihavenowhitespace"
+  
+    expect(r'''
+    I
+      have # and this is a comment
+        no # and another comment
+          whitespace'''.source).to.equal "Ihavenowhitespace"
+  
+  it "can have interpolation when triple-double-quoted", #
+    let value = "bravo"
+    expect(r"""
+    alpha
+    $value # previously, that was a value.
+    charlie
+    """.source).to.equal "alphabravocharlie"
+  
+  it "doesn't interpolate when triple-single-quoted", #
+    let value = "bravo"
+    expect(r'''
+    alpha
+    $value # previously, that was a value.
+    charlie
+    '''.source).to.equal 'alpha$valuecharlie'
+  
+  it "allows for empty regex", #
+    let regex = r""
+    
+    let match = regex.exec "test"
+    expect(regex.exec "test")
+      .to.be.ok
+      .and.have.property(0).that.equal ""
+  
+  it "throws an exception if the regex is improper", #
+    expect(#-> gorilla.compile """let x = 0
+    let y = r'+'""").throws(gorilla.ParserError, r'Invalid regular expression.*?line #2')
+    
+    expect(#-> gorilla.compile """let x = 0
+    let y = r'x'gg""").throws(gorilla.ParserError, r'Invalid regular expression.*?line #2')
+    
+    expect(#-> gorilla.compile """let x = 0
+    let y = r'x'q""").throws(gorilla.ParserError, r'Invalid regular expression.*?line #2')
+  
+  it "allows the sticky flag", #
+    expect(gorilla.compile("let y = r'x'y")).to.be.ok

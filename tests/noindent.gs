@@ -1,316 +1,313 @@
-test "normal operations", #
-  eq 16, gorilla.eval("""
-  let mutable a = 0
-  let b = 2
-  a += b
-  a *= b
-  a ^= b
-  a
-  """, noindent: true)
-
-test "normal operations, odd indentation", #
-  eq 16, gorilla.eval("""
-  let mutable a = 0
+describe "compilation without indentation", #
+  it "works with a series of statements that wouldn't be indented", #
+    expect(gorilla.eval """
+    let mutable a = 0
     let b = 2
-  a += b
-      a *= b
-  a ^= b
+    a += b
+    a *= b
+    a ^= b
     a
-  """, noindent: true)
-
-test "function declaration", #
-  eq "hello", gorilla.eval("""
-  let f():
-  "hello"
-  end
-  f()
-  """, noindent: true)
-
-test "function declaration, single-line", #
-  eq "hello", gorilla.eval("""
-  let f() -> "hello"
-  f()
-  """, noindent: true)
-
-test "anonymous function", #
-  eq "hello", gorilla.eval("""
-  let call(f) -> f()
-  call #:
-  "hello"
-  end
-  """, noindent: true)
-
-test "anonymous function, single-line", #
-  eq "hello", gorilla.eval("""
-  let call(f) -> f()
-  call #-> "hello"
-  """, noindent: true)
-
-test "do block", #
-  eq "hello", gorilla.eval("""
-  do :
-  "hello"
-  end
-  """, noindent: true)
-
-test "if expression", #
-  eq "yes", gorilla.eval("""
-  let x = 5
-  if x == 5 then "yes"
-  """, noindent: true)
+    """, noindent: true).to.equal 16
   
-  eq "no", gorilla.eval("""
-  let x = 6
-  if x == 5 then "yes" else "no"
-  """, noindent: true)
-
-test "if statement", #
-  eq "yes", gorilla.eval("""
-  let x = 5
-  if x == 5:
-  "yes"
-  end
-  """, noindent: true)
-
-test "if-else statement", #
-  eq "no", gorilla.eval("""
-  let x = 5
-  if x == 6:
-  "yes"
-  else:
-  "no"
-  end
-  """, noindent: true)
-
-test "C-style for loop", #
-  eq 45, gorilla.eval("""
-  let mutable i = 0
-  let mutable sum = 0
-  for ; i < 10; i += 1:
-  sum += i
-  end
-  sum
-  """, noindent: true)
-
-test "while loop", #
-  eq 45, gorilla.eval("""
-  let mutable i = 0
-  let mutable sum = 0
-  while i < 10, i += 1:
-  sum += i
-  end
-  sum
-  """, noindent: true)
-
-test "for-in loop", #
-  eq 6, gorilla.eval("""
-  let mutable sum = 0
-  for x in [1, 2, 3]:
-  sum += x
-  end
-  sum
-  """, noindent: true)
-
-test "for-in loop, single-line", #
-  eq 6, gorilla.eval("""
-  let mutable sum = 0
-  for x in [1, 2, 3]; sum += x; end
-  sum
-  """, noindent: true)
-
-test "for-in-else loop", #
-  eq 6, gorilla.eval("""
-  let mutable sum = 0
-  let arr = [1, 2, 3]
-  for x in arr:
-  sum += x
-  else:
-  throw Error()
-  end
-  sum
-  """, noindent: true)
+  it "works with a series of statements with improper indentation", #
+    expect(gorilla.eval """
+    let mutable a = 0
+      let b = 2
+    a += b
+        a *= b
+    a ^= b
+      a
+    """, noindent: true).to.equal 16
   
-  eq "none", gorilla.eval("""
-  let mutable sum = 0
-  let arr = []
-  for x in arr:
-  sum += x
-  else:
-  return "none"
-  end
-  sum
-  """, noindent: true)
-
-test "for-from loop", #
-  eq 6, gorilla.eval("""
-  let mutable sum = 0
-  for x from [1, 2, 3]:
-  sum += x
-  end
-  sum
-  """, noindent: true)
-
-test "for-from loop, single-line", #
-  eq 6, gorilla.eval("""
-  let mutable sum = 0
-  for x from [1, 2, 3]; sum += x; end
-  sum
-  """, noindent: true)
-
-test "for-from-else loop", #
-  eq 6, gorilla.eval("""
-  let mutable sum = 0
-  let arr = [1, 2, 3]
-  for x from arr:
-  sum += x
-  else:
-  throw Error()
-  end
-  sum
-  """, noindent: true)
+  it "allows function declarations", #
+    expect(gorilla.eval """
+    let f():
+    "hello"
+    end
+    f()
+    """, noindent: true).to.equal "hello"
   
-  eq "none", gorilla.eval("""
-  let mutable sum = 0
-  let arr = []
-  for x from arr:
-  sum += x
-  else:
-  return "none"
-  end
-  sum
-  """, noindent: true)
-
-test "try", #
-  eq "caught", gorilla.eval("""
-  let o = {}
-  try:
-  throw o
-  catch e:
-  "caught"
-  else:
-  return "nope"
-  end
-  """, noindent: true)
-
-  eq "nope", gorilla.eval("""
-  let o = {}
-  try:
-  o.blah := true
-  catch e:
-  "caught"
-  else:
-  return "nope"
-  end
-  """, noindent: true)
-
-test "switch", #
-  eq "charlie", gorilla.eval("""
-  let x = 4
-  switch x
-  case 0, 1:
-    "alpha"
-  case 2, 3; "bravo"
-  case 4; "charlie"
-  end
-  """, noindent: true)
+  it "allows for a single-line function declaration", #
+    expect(gorilla.eval """
+    let f() -> "hello"
+    f()
+    """, noindent: true).to.equal "hello"
   
-  eq "delta", gorilla.eval("""
-  let x = 5
-  switch x
-  case 0, 1:
-    "alpha"
-  case 2, 3; "bravo"
-  case 4; "charlie"
-  default:
-    "delta"
-  end
-  """, noindent: true)
-
-test "topicless switch", #
-  eq "charlie", gorilla.eval("""
-  let x = 2
-  switch
-  case x == 0:
-    "alpha"
-  case x == 1; "bravo"
-  case x == 2; "charlie"
-  end
-  """, noindent: true)
+  it "allows for anonymous functions to be used in expressions", #
+    expect(gorilla.eval """
+    let call(f) -> f()
+    call #:
+    "hello"
+    end
+    """, noindent: true).to.equal "hello"
   
-  eq "delta", gorilla.eval("""
-  let x = 3
-  switch x
-  case x == 0:
-    "alpha"
-  case x == 1; "bravo"
-  case x == 2; "charlie"
-  default:
-    "delta"
-  end
-  """, noindent: true)
-
-test "macros", #
-  eq 10, gorilla.eval('''
-  macro double(value):
-  ASTE $value * 2
-  end
-  double 5
-  ''', noindent: true)
+  it "allows for do blocks", #
+    expect(gorilla.eval """
+    do:
+    "hello"
+    end
+    """, noindent: true).to.equal "hello"
   
-  eq "BOOM!", gorilla.eval('''
-  macro boom:
-  syntax "goes", "the", "dynamite":
-  ASTE "BOOM!"
-  end
-  end
-  boom goes the dynamite
-  ''', noindent: true)
+  it "allows if expressions", #
+    expect(gorilla.eval """
+    let same(q) -> q
+    let x = 5
+    same(if x == 5 then "yes" else "no")
+    """, noindent: true).to.equal "yes"
+    
+    expect(gorilla.eval """
+    let same(q) -> q
+    let x = 6
+    same(if x == 5 then "yes" else "no")
+    """, noindent: true).to.equal "no"
+  
+  it "allows if statements", #
+    expect(gorilla.eval """
+    let x = 5
+    if x == 5:
+    "yes"
+    end
+    """, noindent: true).to.equal "yes"
+  
+  it "allows if-else statements", #
+    expect(gorilla.eval """
+    let x = 5
+    if x == 6:
+    "yes"
+    else:
+    "no"
+    end
+    """, noindent: true).to.equal "no"
 
-test "array literal", #
-  eq 5, gorilla.eval("""
-  let arr = [1
-  2, 3
-        4
-  5]
-  arr.length""", noindent: true)
+  it "allows for C-style for loops", #
+    expect(gorilla.eval """
+    let mutable i = 0
+    let mutable sum = 0
+    for ; i < 10; i += 1:
+    sum += i
+    end
+    sum
+    """, noindent: true).to.equal 45
+  
+  it "allows while loops", #
+    expect(gorilla.eval """
+    let mutable i = 0
+    let mutable sum = 0
+    while i < 10, i += 1:
+    sum += i
+    end
+    sum
+    """, noindent: true).to.equal 45
+  
+  it "allows for-in loops", #
+    expect(gorilla.eval """
+    let mutable sum = 0
+    for x in [1, 2, 3]:
+    sum += x
+    end
+    sum
+    """, noindent: true).to.equal 6
+  
+  it "allows single-line for-in loops", #
+    expect(gorilla.eval """
+    let mutable sum = 0
+    for x in [1, 2, 3]; sum += x; end
+    sum
+    """, noindent: true).to.equal 6
 
-test "object literal", #
-  eq 4, gorilla.eval("""
-  let obj = { a: 1
-    b: 2
-  c: 3
-        d: 4
-    e: 5
-  }
-  obj.d""", noindent: true)
+  it "allows for-in-else loops", #
+    expect(gorilla.eval """
+    let mutable sum = 0
+    let arr = [1, 2, 3]
+    for x in arr:
+    sum += x
+    else:
+    throw Error()
+    end
+    sum
+    """, noindent: true).to.equal 6
+  
+    expect(gorilla.eval """
+    let mutable sum = 0
+    let arr = []
+    for x in arr:
+    sum += x
+    else:
+    return "none"
+    end
+    sum
+    """, noindent: true).to.equal "none"
 
-test "unclosed object literal", #
-  eq 2, gorilla.eval("""
-  let obj = a: 1, b: 2, c: 3
-  obj.b""", noindent: true)
+  it "allows for-from loops", #
+    expect(gorilla.eval """
+    let mutable sum = 0
+    for x from [1, 2, 3]:
+    sum += x
+    end
+    sum
+    """, noindent: true).to.equal 6
 
-test "do block in do block", #
-  eq 3, gorilla.eval("""
-  let a = 1
-  do:
-  let b = 2
-  do:
-  a + b
-  end
-  end""", noindent: true)
+  it "allows for-from loops, single-line", #
+    expect(gorilla.eval """
+    let mutable sum = 0
+    for x from [1, 2, 3]; sum += x; end
+    sum
+    """, noindent: true).to.equal 6
 
-test "async", #
-  eq "hello", gorilla.eval("""
-  let f(cb) -> cb "hello"
-  async x <- f()
-  x
-  """, noindent: true)
+  it "allows for-from-else loops", #
+    expect(gorilla.eval """
+    let mutable sum = 0
+    let arr = [1, 2, 3]
+    for x from arr:
+    sum += x
+    else:
+    throw Error()
+    end
+    sum
+    """, noindent: true).to.equal 6
+  
+    expect(gorilla.eval """
+    let mutable sum = 0
+    let arr = []
+    for x from arr:
+    sum += x
+    else:
+    return "none"
+    end
+    sum
+    """, noindent: true).to.equal "none"
 
-test "async in a do block", #
-  eq "hello", gorilla.eval("""
-  let f(cb) -> cb "hello"
-  do:
-  async x <- f()
-  x
-  end
-  """, noindent: true)
+  it "allows try statements", #
+    expect(gorilla.eval """
+    let o = {}
+    try:
+    throw o
+    catch e:
+    "caught"
+    else:
+    return "nope"
+    end
+    """, noindent: true).to.equal "caught"
+
+    expect(gorilla.eval """
+    let o = {}
+    try:
+    o.blah := true
+    catch e:
+    "caught"
+    else:
+    return "nope"
+    end
+    """, noindent: true).to.equal "nope"
+
+  it "allows switch statements", #
+    expect(gorilla.eval """
+    let x = 4
+    switch x
+    case 0, 1:
+      "alpha"
+    case 2, 3; "bravo"
+    case 4; "charlie"
+    end
+    """, noindent: true).to.equal "charlie"
+  
+    expect(gorilla.eval """
+    let x = 5
+    switch x
+    case 0, 1:
+      "alpha"
+    case 2, 3; "bravo"
+    case 4; "charlie"
+    default:
+      "delta"
+    end
+    """, noindent: true).to.equal "delta"
+
+  it "allows topicless switch statements", #
+    expect(gorilla.eval """
+    let x = 2
+    switch
+    case x == 0:
+      "alpha"
+    case x == 1; "bravo"
+    case x == 2; "charlie"
+    end
+    """, noindent: true).to.equal "charlie"
+  
+    expect(gorilla.eval """
+    let x = 3
+    switch x
+    case x == 0:
+      "alpha"
+    case x == 1; "bravo"
+    case x == 2; "charlie"
+    default:
+      "delta"
+    end
+    """, noindent: true).to.equal "delta"
+
+  it "allows macros", #
+    expect(gorilla.eval '''
+    macro double(value):
+    ASTE $value * 2
+    end
+    double 5
+    ''', noindent: true).to.equal 10
+  
+    expect(gorilla.eval '''
+    macro boom:
+    syntax "goes", "the", "dynamite":
+    ASTE "BOOM!"
+    end
+    end
+    boom goes the dynamite
+    ''', noindent: true).to.equal "BOOM!"
+
+  it "allows improperly indented array literals", #
+    expect(gorilla.eval """
+    let arr = [1
+    2, 3
+          4
+    5]
+    arr.length""", noindent: true).to.equal 5
+
+  it "allows improperly indented object literals", #
+    expect(gorilla.eval """
+    let obj = { a: 1
+      b: 2
+    c: 3
+          d: 4
+      e: 5
+    }
+    obj.d""", noindent: true).to.equal 4
+
+  it "allows unclosed object literals", #
+    expect(gorilla.eval """
+    let obj = a: 1, b: 2, c: 3
+    obj.b""", noindent: true).to.equal 2
+
+  it "allows do blocks in do blocks", #
+    expect(gorilla.eval """
+    let a = 1
+    do:
+    let b = 2
+    do:
+    a + b
+    end
+    end""", noindent: true).to.equal 3
+
+  it "allows async macro use", #
+    expect(gorilla.eval """
+    let f(cb) -> cb "hello"
+    async x <- f()
+    x
+    """, noindent: true).to.equal "hello"
+
+  it "allows async macro use in a do block", #
+    expect(gorilla.eval """
+    let f(cb) -> cb "hello"
+    do:
+    async x <- f()
+    x
+    end
+    """, noindent: true).to.equal "hello"

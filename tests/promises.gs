@@ -1,162 +1,186 @@
-test "generator-to-promise", #
-  let make-promise = promise! #*
-    let d = __defer()
-    d.fulfill(\bravo)
-    let alpha = yield d.promise
-    eq \bravo, alpha
-    let charlie = __defer()
-    set-timeout (#-> charlie.fulfill \delta), 5_ms
-    let echo = yield charlie.promise
-    eq \delta, echo
-    return \foxtrot
+describe "promise!", #
+  it "can create a promise factory", #(cb)
+    let make-promise = promise! #*
+      let d = __defer()
+      d.fulfill(\bravo)
+      let alpha = yield d.promise
+      expect(alpha).to.equal \bravo
+      let charlie = __defer()
+      set-immediate #-> charlie.fulfill \delta
+      let echo = yield charlie.promise
+      expect(echo).to.equal \delta
+      return \foxtrot
+    
+    make-promise().then #(value)
+      expect(value).to.equal \foxtrot
+      cb()
   
-  let mutable done = false
-  make-promise().then (#(value)
-    done := true
-    eq \foxtrot, value), #
-    fail()
-  
-  set-timeout (#-> ok done), 1000_ms
+  it "can create a one-off promise", #(cb)
+    let promise = promise!
+      let d = __defer()
+      d.fulfill(\bravo)
+      let alpha = yield d.promise
+      expect(alpha).to.equal \bravo
+      let charlie = __defer()
+      set-immediate #-> charlie.fulfill \delta
+      let echo = yield charlie.promise
+      expect(echo).to.equal \delta
+      return \foxtrot
 
-test "generator-to-promise as body", #
-  let promise = promise!
-    let d = __defer()
-    d.fulfill(\bravo)
-    let alpha = yield d.promise
-    eq \bravo, alpha
-    let charlie = __defer()
-    set-timeout (#-> charlie.fulfill \delta), 5_ms
-    let echo = yield charlie.promise
-    eq \delta, echo
-    return \foxtrot
+    promise.then #(value)
+      expect(value).to.equal \foxtrot
+      cb()
 
-  let mutable done = false
-  promise.then (#(value)
-    done := true
-    eq \foxtrot, value), #
-    fail()
+describe "to-promise!", #
+  describe "with a standard function call", #
+    let get-args(...args, callback)
+      callback(null, args)
+    let error(err, callback)
+      callback(err)
+    
+    describe "without a spread", #
+      it "works with the resolved state", #(cb)
+        let p = to-promise! get-args(\alpha, \bravo, \charlie)
+        p.then #(value)
+          expect(value).to.eql [\alpha, \bravo, \charlie]
+          cb()
+    
+      it "works with the rejected state", #(cb)
+        let err = {}
+        let p = to-promise! error(err)
+        p.then null, #(reason)
+          expect(reason).to.equal err
+          cb()
+    
+    describe "with a spread", #
+      it "works with the resolved state", #(cb)
+        let args = [\alpha, \bravo]
+        let p = to-promise! get-args(...args, \charlie)
+        p.then #(value)
+          expect(value).to.eql [\alpha, \bravo, \charlie]
+          cb()
+    
+      it "works with the rejected state", #(cb)
+        let err = {}
+        let args = [err]
+        let p = to-promise! error(...args)
+        p.then null, #(reason)
+          expect(reason).to.equal err
+          cb()
+  
+  describe "with a method call", #
+    let obj = {
+      get-args: #(...args, callback)
+        expect(this).to.equal obj
+        callback(null, args)
+      error: #(err, callback)
+        expect(this).to.equal obj
+        callback(err)
+    }
+    
+    describe "without a spread", #
+      it "works with the resolved state", #(cb)
+        let p = to-promise! obj.get-args(\alpha, \bravo, \charlie)
+        p.then #(value)
+          expect(value).to.eql [\alpha, \bravo, \charlie]
+          cb()
 
-  set-timeout (#-> ok done), 1000_ms
+      it "works with the rejected state", #(cb)
+        let err = {}
+        let p = to-promise! obj.error(err)
+        p.then null, #(reason)
+          expect(reason).to.equal err
+          cb()
+    
+    describe "with a spread", #
+      it "works with the resolved state", #(cb)
+        let args = [\alpha, \bravo]
+        let p = to-promise! obj.get-args(...args, \charlie)
+        p.then #(value)
+          expect(value).to.eql [\alpha, \bravo, \charlie]
+          cb()
 
-test "to-promise!", #
-  let get-args(...args, callback)
-    callback(null, args)
+      it "works with the rejected state", #(cb)
+        let err = {}
+        let args = [err]
+        let p = to-promise! obj.error(...args)
+        p.then null, #(reason)
+          expect(reason).to.equal err
+          cb()
   
-  let error(err, callback)
-    callback(err)
-  
-  let p = to-promise! get-args(\alpha, \bravo, \charlie)
-  let mutable done = 0
-  p.then(
-    #(value)
-      done += 1
-      array-eq [\alpha, \bravo, \charlie], value
-    fail)
-  
-  let err = {}
-  let q = to-promise! error(err)
-  q.then(
-    fail
-    #(value)
-      done += 2
-      eq value, err)
-  
-  set-timeout (#-> eq 3, done), 1000_ms
+  describe "with an apply call", #
+    let obj = {}
+    let get-args = #(...args, callback)
+      expect(this).to.equal obj
+      callback(null, args)
+    let error = #(err, callback)
+      expect(this).to.equal obj
+      callback(err)
+    
+    describe "without a spread", #
+      it "works with the resolved state", #(cb)
+        let p = to-promise! get-args@(obj, \alpha, \bravo, \charlie)
+        p.then #(value)
+          expect(value).to.eql [\alpha, \bravo, \charlie]
+          cb()
 
-test "to-promise! method call", #
-  let get-args(...args, callback)
-    eq obj, this
-    callback(null, args)
-  
-  let error(err, callback)
-    eq obj, this
-    callback(err)
-  
-  let obj = {get-args, error}
-  
-  let p = to-promise! obj.get-args(\alpha, \bravo, \charlie)
-  let mutable done = 0
-  p.then(
-    #(value)
-      done += 1
-      array-eq [\alpha, \bravo, \charlie], value
-    fail)
-  
-  let err = {}
-  let q = to-promise! obj.error(err)
-  q.then(
-    fail
-    #(value)
-      done += 2
-      eq value, err)
-  
-  set-timeout (#-> eq 3, done), 1000_ms
+      it "works with the rejected state", #(cb)
+        let err = {}
+        let p = to-promise! error@(obj, err)
+        p.then null, #(reason)
+          expect(reason).to.equal err
+          cb()
+    
+    describe "with a spread", #
+      it "works with the resolved state", #(cb)
+        let args = [obj, \alpha, \bravo]
+        let p = to-promise! get-args@(...args, \charlie)
+        p.then #(value)
+          expect(value).to.eql [\alpha, \bravo, \charlie]
+          cb()
 
-test "to-promise! apply method call", #
-  let get-args(...args, callback)
-    eq other, this
-    callback(null, args)
+      it "works with the rejected state", #(cb)
+        let err = {}
+        let args = [obj, err]
+        let p = to-promise! error@(...args)
+        p.then null, #(reason)
+          expect(reason).to.equal err
+          cb()
   
-  let error(err, callback)
-    eq other, this
-    callback(err)
-  
-  let obj = {get-args}
-  let other = {}
-  
-  let p = to-promise! obj.get-args@(other, \alpha, \bravo, \charlie)
-  let mutable done = 0
-  p.then(
-    #(value)
-      done += 1
-      array-eq [\alpha, \bravo, \charlie], value
-    fail)
-  
-  let err = {}
-  let q = to-promise! error@(other, err)
-  q.then(
-    fail
-    #(value)
-      done += 2
-      eq value, err)
-  
-  set-timeout (#-> eq 3, done), 1000_ms
+  describe "with a new call", #
+    let get-args = #(...args, callback)
+      expect(this).to.be.an.instanceof(get-args)
+      callback(null, args)
+    let error = #(err, callback)
+      expect(this).to.be.an.instanceof(error)
+      callback(err)
+    
+    describe "without a spread", #
+      it "works with the resolved state", #(cb)
+        let p = to-promise! new get-args(\alpha, \bravo, \charlie)
+        p.then #(value)
+          expect(value).to.eql [\alpha, \bravo, \charlie]
+          cb()
 
-test "to-promise! new method call", #
-  let get-args(...args, callback)
-    ok this instanceof get-args
-    callback(null, args)
-  
-  let error(err, callback)
-    ok this instanceof error
-    callback(err)
-  
-  let obj = {get-args}
-  
-  let p = to-promise! new obj.get-args(\alpha, \bravo, \charlie)
-  let mutable done = 0
-  p.then(
-    #(value)
-      done += 1
-      array-eq [\alpha, \bravo, \charlie], value
-    fail)
-  
-  let err = {}
-  let q = to-promise! new error(err)
-  q.then(
-    fail
-    #(value)
-      done += 2
-      eq value, err)
-  
-  set-timeout (#-> eq 3, done), 1000_ms
+      it "works with the rejected state", #(cb)
+        let err = {}
+        let p = to-promise! new error(err)
+        p.then null, #(reason)
+          expect(reason).to.equal err
+          cb()
+    
+    describe "with a spread", #
+      it "works with the resolved state", #(cb)
+        let args = [\alpha, \bravo]
+        let p = to-promise! new get-args(...args, \charlie)
+        p.then #(value)
+          expect(value).to.eql [\alpha, \bravo, \charlie]
+          cb()
 
-/*
-let promises-aplus-tests = try
-  require "promises-aplus-tests"
-catch e
-  require "../node_modules/promises-aplus-tests"
-
-promises-aplus-tests {pending: __defer}, #(err)
-  throw? err
-*/
+      it "works with the rejected state", #(cb)
+        let err = {}
+        let args = [err]
+        let p = to-promise! new error(...args)
+        p.then null, #(reason)
+          expect(reason).to.equal err
+          cb()

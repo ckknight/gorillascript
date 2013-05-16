@@ -1,354 +1,379 @@
-test "Double-quoted", #
-  let word = "hello"
-  eq 5, word.length
-  eq "olleh", word.split("").reverse().join("")
-  eq 0, "".length
+let reverse(x as String) -> x.split("").reverse().join("")
+let num-words(x as String) -> x.trim().split(r"\s+").length
 
-test "Single-quoted", #
-  let word = 'hello'
-  eq 5, word.length
-  eq 'olleh', word.split('').reverse().join('')
-  eq 0, ''.length
-
-test "Triple-double-quoted", #
-  let paragraph = """
-  Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-  tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
-  veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
-  commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
-  velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat
-  cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id
-  est laborum.
-  """
-  eq "L", paragraph.char-at(0)
-  eq ".", paragraph.char-at(paragraph.length - 1)
-  eq 69, paragraph.split(RegExp("\\s+")).length
-  eq 'Hello, "friend".', """Hello, "friend"."""
+describe "Double-quoted strings", #
+  it "can be empty", #
+    expect("").to.be.a(\string).and.be.empty
   
-  let phrase = """
-  Hello, friend!
-  I am well today.
-  """
-  eq "Hello, friend!\nI am well today.", phrase
+  it "has an expected length", #
+    expect("hello").to.be.a(\string).to.have.length 5
   
-  eq "\nAlpha\n\nBravo\nCharlie\n\nDelta\n", """
-
-  Alpha
+  it "is the expected reverse value", #
+    expect(reverse "hello").to.equal "olleh"
+  
+  it "retains // comments", #
+    let value = "hello // there"
+    expect(value).to.be.a(\string).and.have.length(14)
+    expect(reverse value).to.equal "ereht // olleh"
+  
+  it "retains /* */ comments", #
+    let value = "hello /* there */ friend"
+    expect(value).to.be.a(\string).and.have.length(24)
+    expect(reverse value).to.equal "dneirf /* ereht */ olleh"
+  
+  it "can have interpolation", #
+    let value = 5
+    expect("value: $(value)").to.equal "value: 5"
+    expect("value: $value").to.equal "value: 5"
     
-  Bravo   
-  Charlie
-
-  Delta   
-    
-  """
+    expect("$(value)").to.equal "5"
+    expect("$value").to.equal "5"
+    expect("$(' ')").to.equal " "
+    expect("$('')").to.equal ""
+    expect("$( )").to.equal ""
+    expect("\$(value)").to.equal '$(value)'
+    expect("\$value").to.equal '$value'
+    expect("start \$(value)").to.equal 'start $(value)'
+    expect("start \$value").to.equal 'start $value'
+    expect("start \$(value) end").to.equal 'start $(value) end'
+    expect("start \$value end").to.equal 'start $value end'
+    expect("start $(value) end").to.equal 'start 5 end'
+    expect("start $value end").to.equal 'start 5 end'
+    expect("\$(value) end").to.equal '$(value) end'
+    expect("\$value end").to.equal '$value end'
+    expect("$(value)$(value * value)").to.equal "525"
+    expect("$value * $value = $(value ^ 2)").to.equal "5 * 5 = 25"
+    expect("value:\n$(value)").to.equal "value:\n5"
+    expect("value:\n$value").to.equal "value:\n5"
+    let a = 1
+    let b = 2
+    expect("$(a)$(b)").to.equal "12"
+    expect("$(a)$(b)c").to.equal "12c"
+    expect("c$(a)$(b)").to.equal "c12"
+    expect("c$(a)$(b)c").to.equal "c12c"
   
-  eq "Alpha\n  Bravo\n    Charlie\n  Delta\nEcho", """
-  Alpha
+  it "can be indexed", #
+    expect("hello".to-string).to.equal String::to-string
+    expect("hello"[\to-string]).to.equal String::to-string
+
+describe "Single-quoted strings", #
+  it "can be empty", #
+    expect('').to.be.a(\string).and.to.be.empty
+
+  it "has an expected length", #
+    expect('hello').to.be.a(\string).and.to.have.length 5
+
+  it "is the expected reverse value", #
+    expect(reverse 'hello').to.equal 'olleh'
+  
+  it "retains // comments", #
+    let value = 'hello // there'
+    expect(value).to.be.a(\string).and.have.length(14)
+    expect(reverse value).to.equal "ereht // olleh"
+  
+  it "retains /* */ comments", #
+    let value = 'hello /* there */ friend'
+    expect(value).to.be.a(\string).and.have.length(24)
+    expect(reverse value).to.equal "dneirf /* ereht */ olleh"
+  
+  it "ignores interpolation", #
+    expect(reverse '$(value)').to.equal ')eulav($'
+    expect(reverse '$value').to.equal 'eulav$'
+  
+  it "can be indexed", #
+    expect('hello'.to-string).to.equal String::to-string
+    expect('hello'[\to-string]).to.equal String::to-string
+
+describe "Triple-double-quoted strings", #  
+  it "can be empty", #
+    expect("""""").to.be.a(\string).and.be.empty
+
+  describe "Lorem ipsum", #
+    let paragraph = """
+    Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
+    tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
+    veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+    commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
+    velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat
+    cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id
+    est laborum.
+    """
+  
+    it "ignores the first line of whitespace", #
+      expect(paragraph).to.match r"^Lorem "
+  
+    it "ignores the last line of whitespace", #
+      expect(paragraph).to.match r" laborum\.\$"
+  
+    it "has the expected amount of words", #
+      expect(num-words paragraph).to.equal 69
+  
+  it "can contain double quotes", #
+    expect("""Hello, "friend".""").to.equal 'Hello, "friend".'
+  
+  it "converts any newlines to \\n", #
+    expect("""
+    Hello, friend!
+    I am well today.
+    """).to.equal "Hello, friend!\nI am well today."
+    
+    expect(gorilla.eval '"""alpha\r\nbravo"""').to.equal "alpha\nbravo"
+  
+  it "only ignores one line of whitespace on start and end", #
+    expect("""
+
+    Alpha
+
+    Bravo   
+    Charlie
+
+    Delta   
+
+    """).to.equal "\nAlpha\n\nBravo\nCharlie\n\nDelta\n"
+  
+  it "retains indentation", #
+    expect("""
+    Alpha
+      Bravo
+        Charlie
+      Delta
+    Echo
+    """).to.equal "Alpha\n  Bravo\n    Charlie\n  Delta\nEcho"
+  
+  it "can end quote on same line as text", #
+    expect("""
+    Alpha
     Bravo
-      Charlie
-    Delta
-  Echo
-  """
+    Charlie""").to.equal "Alpha\nBravo\nCharlie"
   
-  eq "Alpha\nBravo\nCharlie", """
-  Alpha
-  Bravo
-  Charlie"""
-  
-  eq "Alpha\nBravo\nCharlie", """Alpha
-  Bravo
-  Charlie
-  """
-  
-  eq 0, """""".length
-  eq "", """"""
-
-test "Triple-single-quoted", #
-  let paragraph = '''
-  Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
-  tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
-  veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
-  commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
-  velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat
-  cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id
-  est laborum.
-  '''
-  
-  eq "L", paragraph.char-at(0)
-  eq ".", paragraph.char-at(paragraph.length - 1)
-  eq 69, paragraph.split(RegExp("\\s+")).length
-  eq "Hello, 'friend'.", '''Hello, 'friend'.'''
-  
-  let phrase = '''
-  Hello, friend!
-  I am well today.
-  '''
-  eq 'Hello, friend!\nI am well today.', phrase
-  
-  eq '\nAlpha\n\nBravo\nCharlie\n\nDelta\n', '''
-
-  Alpha 
-    
-  Bravo   
-  Charlie  
-
-  Delta 
-      
-  '''
-  
-  eq 'Alpha\n  Bravo\n    Charlie\n  Delta\nEcho', '''
-  Alpha
+  it "can start text immediately after quote", #
+    expect("""Alpha
     Bravo
-      Charlie
-    Delta
-  Echo
-  '''
-  
-  eq 'Alpha\nBravo\nCharlie', '''
-  Alpha
-  Bravo
-  Charlie'''
-  
-  eq 'Alpha\nBravo\nCharlie', '''Alpha
-  Bravo
-  Charlie
-  '''
-  
-  eq 0, ''''''.length
-  eq '', ''''''
+    Charlie
+    """).to.equal "Alpha\nBravo\nCharlie"
 
-test "Comments still persist in strings", #
-  let alpha = "// hello"
-  eq 8, alpha.length
-  eq "olleh //", alpha.split("").reverse().join("")
+  it "retains // comments", #
+    let value = """hello // there"""
+    expect(value).to.be.a(\string).and.have.length(14)
+    expect(reverse value).to.equal "ereht // olleh"
   
-  let bravo = '// there'
-  eq 8, bravo.length
-  eq "ereht //", bravo.split("").reverse().join("")
+  it "retains /* */ comments", #
+    let value = """hello /* there */ friend"""
+    expect(value).to.be.a(\string).and.have.length(24)
+    expect(reverse value).to.equal "dneirf /* ereht */ olleh"
   
-  let charlie = "/* ladies */"
-  eq 12, charlie.length
-  eq "/* seidal */", charlie.split("").reverse().join("")
+  it "can have interpolation", #
+    let value = 5
+    expect("""value: $(value)""").to.equal "value: 5"
+    expect("""value: $value""").to.equal "value: 5"
   
-  let delta = '/* and */'
-  eq 9, delta.length
-  eq "/* dna */", delta.split("").reverse().join("")
-  
-  let echo = """// gentlemen"""
-  eq 12, echo.length
-  eq "nemeltneg //", echo.split("").reverse().join("")
-  
-  let foxtrot = '''// how'''
-  eq 6, foxtrot.length
-  eq "woh //", foxtrot.split("").reverse().join("")
-  
-  let golf = """/* are */"""
-  eq 9, golf.length
-  eq "/* era */", golf.split("").reverse().join("")
-  
-  let hotel = '''/* you? */'''
-  eq 10, hotel.length
-  eq "/* ?uoy */", hotel.split("").reverse().join("")
+  it "can be indexed", #
+    expect("""hello""".to-string).to.equal String::to-string
+    expect("""hello"""[\to-string]).to.equal String::to-string
 
-test "Interpolation", #
-  let value = 5
-  eq "value: 5", "value: $(value)"
-  eq 'value: 5', "value: $value"
-  eq "value: 5", """value: $(value)"""
-  eq "value: 5", """value: $value"""
-  eq "5", "$(value)"
-  eq "5", "$value"
-  eq " ", "$(' ')"
-  eq "", "$('')"
-  eq "", "$( )"
-  eq "(", """$("(")"""
-  eq ")", """$(")")"""
-  eq "(", "$('(')"
-  eq ")", "$(')')"
-  eq '$(value)', "\$(value)"
-  eq '$value', "\$value"
-  eq 'alpha $(value)', "alpha \$(value)"
-  eq 'alpha $value', "alpha \$value"
-  eq 'alpha $(value) bravo', "alpha \$(value) bravo"
-  eq 'alpha $value bravo', "alpha \$value bravo"
-  eq 'alpha 5 bravo', "alpha $(value) bravo"
-  eq 'alpha 5 bravo', "alpha $value bravo"
-  eq '$(value) bravo', "\$(value) bravo"
-  eq '$value bravo', "\$value bravo"
-  eq "525", "$(value)$(value * value)"
-  eq "5 * 5 = 25", "$value * $value = $(value ^ 2)"
-  eq "value:\n5", "value:\n$(value)"
-  eq "value:\n5", "value:\n$value"
-  let a = 1
-  let b = 2
-  eq "12", "$(a)$(b)"
-  eq "12c", "$(a)$(b)c"
-  eq "c12", "c$(a)$(b)"
-  eq "c12c", "c$(a)$(b)c"
+describe "Triple-single-quoted strings", #  
+  it "can be empty", #
+    expect('''''').to.be.a(\string).and.be.empty
 
-test "Escape codes", #
-  eq 'Hello, "friend"', "Hello, \"friend\""
-  eq "Hello, 'friend'", 'Hello, \'friend\''
-  eq "\b", String.from-char-code(8)
-  eq "\f", String.from-char-code(12)
-  eq "\n", String.from-char-code(10)
-  eq "\r", String.from-char-code(13)
-  eq "\t", String.from-char-code(9)
-  eq "\v", String.from-char-code(11)
-  eq "\\", String.from-char-code(92)
-  eq "\x0f", String.from-char-code(15)
-  eq "\xff", String.from-char-code(255)
-  eq "\u0000", String.from-char-code(0)
-  eq "\u000f", String.from-char-code(15)
-  eq "\u00ff", String.from-char-code(255)
-  eq "\u0fff", String.from-char-code(4095)
-  eq "\uffff", String.from-char-code(65535)
-  eq "\0", String.from-char-code(0)
-  eq "\1", String.from-char-code(1)
-  eq "\2", String.from-char-code(2)
-  eq "\3", String.from-char-code(3)
-  eq "\4", String.from-char-code(4)
-  eq "\5", String.from-char-code(5)
-  eq "\6", String.from-char-code(6)
-  eq "\7", String.from-char-code(7)
-  eq "\u{0}", "\u0000"
-  eq "\u{00}", "\u0000"
-  eq "\u{000}", "\u0000"
-  eq "\u{0000}", "\u0000"
-  eq "\u{00000}", "\u0000"
-  eq "\u{000000}", "\u0000"
-  eq "\u{f}", "\u000f"
-  eq "\u{0f}", "\u000f"
-  eq "\u{00f}", "\u000f"
-  eq "\u{000f}", "\u000f"
-  eq "\u{0000f}", "\u000f"
-  eq "\u{00000f}", "\u000f"
-  eq "\u{ff}", "\u00ff"
-  eq "\u{0ff}", "\u00ff"
-  eq "\u{00ff}", "\u00ff"
-  eq "\u{000ff}", "\u00ff"
-  eq "\u{0000ff}", "\u00ff"
-  eq "\u{fff}", "\u0fff"
-  eq "\u{0fff}", "\u0fff"
-  eq "\u{00fff}", "\u0fff"
-  eq "\u{000fff}", "\u0fff"
-  eq "\u{ffff}", "\uffff"
-  eq "\u{0ffff}", "\uffff"
-  eq "\u{00ffff}", "\uffff"
-  eq 1, "\u{00ffff}".length
-  eq 2, "\u{010000}".length
-  eq 2, "\u{10ffff}".length
-  throws #-> gorilla.compile('''let x = 0
-  let y = "\\u{110000}"'''), #(e) -> e.line == 2
-  eq 2, "\u{20bb7}".length
-  eq "\ud842\udfb7", "\u{20bb7}"
-
-test "Array strings", #
-  array-eq [], %""
-  array-eq ["hello"], %"hello"
-  let x = 5
-  array-eq ["hello", x], %"hello$x"
-  let obj = {}
-  array-eq ["", obj], %"$obj"
-  array-eq ["alpha ", obj, " bravo"], %"alpha $obj bravo"
-  let other = {}
-  array-eq ["alpha ", obj, " bravo ", other, " charlie"], %"alpha $obj bravo $other charlie"
-  array-eq ["", obj, " inner ", other], %"$obj inner $other"
-  array-eq ["", obj, "", other], %"$(obj)$(other)"
+  describe "Lorem ipsum", #
+    let paragraph = '''
+    Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod
+    tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim
+    veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea
+    commodo consequat. Duis aute irure dolor in reprehenderit in voluptate
+    velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat
+    cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id
+    est laborum.
+    '''
   
-  array-eq [], %""""""
-  array-eq ["Alpha\n  ", obj, "\n    Charlie\n  ", other, "\nEcho"], %"""
-  Alpha
-    $obj
-      Charlie
-    $other
-  Echo
-  """
-  array-eq ["", obj, "\n  inner\n", other], %"""
-  $obj
-    inner
-  $other
-  """
-  array-eq ["", obj, "", other], %"""$(obj)$(other)"""
-
-test "Array strings escaping", #
-  class SafeHTML
-    def constructor(text as String)
-      @text := text
-    def to-string() -> @text
-  let to-HTML = do
-    let escapes = {
-      "&": "&amp;"
-      "<": "&lt;"
-      ">": "&gt;"
-      '"': "&quot;"
-      "'": "&#39;"
-    }
-    let replacer(x) -> escapes[x]
-    let regex = r"[&<>""']"g
-    let escape(text) -> text.replace(regex, replacer)
-    #(arr)
-      (for x, i in arr
-        if i %% 2 or x instanceof SafeHTML
-          x
-        else
-          escape String(x)).join ""
+    it "ignores the first line of whitespace", #
+      expect(paragraph).to.match r"^Lorem "
   
-  eq "<h1>normal</h1>", to-HTML %"<h1>normal</h1>"
-  let evil-name = "<\"bob\" the 'great' & powerful>"
-  eq "&lt;&quot;bob&quot; the &#39;great&#39; &amp; powerful&gt;", to-HTML %"$evil-name"
-  eq "<span>&lt;&quot;bob&quot; the &#39;great&#39; &amp; powerful&gt;</span>", to-HTML %"<span>$evil-name</span>"
-  eq "<span><\"bob\" the 'great' & powerful></span>", to-HTML %"<span>$(SafeHTML evil-name)</span>"
+    it "ignores the last line of whitespace", #
+      expect(paragraph).to.match r" laborum\.\$"
+  
+    it "has the expected amount of words", #
+      expect(num-words paragraph).to.equal 69
+  
+  it "can contain double quotes", #
+    expect('''Hello, "friend".''').to.equal 'Hello, "friend".'
+  
+  it "converts any newlines to \\n", #
+    expect('''
+    Hello, friend!
+    I am well today.
+    ''').to.equal "Hello, friend!\nI am well today."
 
-/*
-test "Raw strings", #
-  eq "", @""
-  eq "simple", @"simple"
-  eq "con\"cat", @"con""cat"
-  eq "\\b\\f\\n\\r\\t\\v\\\\\\xff\\u00ff\\0\\1\\2\\3\\4\\5\\6\\7", @"\b\f\n\r\t\v\\\xff\u00ff\0\1\2\3\4\5\6\7"
-  eq "\\\\", @"\\"
-  eq "c:\\program files", @"c:\program files"
-*/
-test "Indexing", #
-  eq String::to-string, "".to-string
-  eq String::to-string, ''.to-string
-  eq String::to-string, """""".to-string
-  eq String::to-string, ''''''.to-string
-  /*
-  eq String::to-string, @"".to-string
-  eq String::to-string, @''.to-string
-  eq String::to-string, @"""""".to-string
-  eq String::to-string, @''''''.to-string
-  */
-  eq String::to-string, ""["toString"]
-  eq String::to-string, ''["toString"]
-  eq String::to-string, """"""["toString"]
-  eq String::to-string, ''''''["toString"]
-  eq String::to-string, ""[\to-string]
-  eq String::to-string, ''[\to-string]
-  eq String::to-string, """"""[\to-string]
-  eq String::to-string, ''''''[\to-string]
-  /*
-  eq String::to-string, @""["toString"]
-  eq String::to-string, @''["toString"]
-  eq String::to-string, @""""""["toString"]
-  eq String::to-string, @''''''["toString"]
-  */
+    expect(gorilla.eval "'''alpha\r\nbravo'''").to.equal "alpha\nbravo"
+  
+  it "only ignores one line of whitespace on start and end", #
+    expect('''
 
-/*
-test "Newlines", -> do
-  eq "alpha\nbravo", eval(Cotton.compile('"""alpha\r\nbravo"""', bare: true))
-end
-*/
+    Alpha
 
-test "Backslash strings", #
-  eq "hello", \hello
-  eq "helloThere", \hello-there
-  eq "helloThereEveryone", \hello-there-everyone
-  eq "null", \null
-  eq "undefined", \undefined
-  eq "void", \void
-  eq "true", \true
-  eq "false", \false
-  eq "nullOrUndefined", \null-or-undefined
-  eq "trailingNum1", \trailing-num-1
+    Bravo   
+    Charlie
+
+    Delta   
+
+    ''').to.equal "\nAlpha\n\nBravo\nCharlie\n\nDelta\n"
+  
+  it "retains indentation", #
+    expect('''
+    Alpha
+      Bravo
+        Charlie
+      Delta
+    Echo
+    ''').to.equal "Alpha\n  Bravo\n    Charlie\n  Delta\nEcho"
+  
+  it "can end quote on same line as text", #
+    expect('''
+    Alpha
+    Bravo
+    Charlie''').to.equal "Alpha\nBravo\nCharlie"
+  
+  it "can start text immediately after quote", #
+    expect('''Alpha
+    Bravo
+    Charlie
+    ''').to.equal "Alpha\nBravo\nCharlie"
+  
+  it "retains // comments", #
+    let value = '''hello // there'''
+    expect(value).to.be.a(\string).and.have.length(14)
+    expect(reverse value).to.equal "ereht // olleh"
+  
+  it "retains /* */ comments", #
+    let value = '''hello /* there */ friend'''
+    expect(value).to.be.a(\string).and.have.length(24)
+    expect(reverse value).to.equal "dneirf /* ereht */ olleh"
+  
+  it "ignores interpolation", #
+    expect(reverse '''$(value)''').to.equal ')eulav($'
+    expect(reverse '''$value''').to.equal 'eulav$'
+  
+  it "can be indexed", #
+    expect('''hello'''.to-string).to.equal String::to-string
+    expect('''hello'''[\to-string]).to.equal String::to-string
+  
+describe "Escape codes", #
+  let C = String.from-char-code
+  
+  it "handle escaping the quote used to create the string", #
+    expect("Hello, \"friend\"").to.equal 'Hello, "friend"'
+    expect('Hello, \'friend\'').to.equal "Hello, 'friend'"
+  
+  it "can be 2-octet hex escapes", #
+    expect("\x00").to.equal C(0x00)
+    expect("\x0f").to.equal C(0x0f)
+    expect("\xff").to.equal C(0xff)
+    expect("0\xff0").to.equal "0" & C(0xff) & "0"
+  
+  it "can be 4-octet hex escapes", #
+    expect("\u0000").to.equal C(0x0000)
+    expect("\u000f").to.equal C(0x000f)
+    expect("\u00ff").to.equal C(0x00ff)
+    expect("\u0fff").to.equal C(0x0fff)
+    expect("\uffff").to.equal C(0xffff)
+    expect("0\uffff0").to.equal "0" & C(0xffff) & "0"
+  
+  it "can be 1 to 6-octet hex escapes", #
+    expect("\u{0}").to.equal C(0x0000)
+    expect("\u{00}").to.equal C(0x0000)
+    expect("\u{000}").to.equal C(0x0000)
+    expect("\u{0000}").to.equal C(0x0000)
+    expect("\u{00000}").to.equal C(0x0000)
+    expect("\u{000000}").to.equal C(0x0000)
+    expect("\u{f}").to.equal C(0x000f)
+    expect("\u{0f}").to.equal C(0x000f)
+    expect("\u{00f}").to.equal C(0x000f)
+    expect("\u{000f}").to.equal C(0x000f)
+    expect("\u{0000f}").to.equal C(0x000f)
+    expect("\u{00000f}").to.equal C(0x000f)
+    expect("\u{ff}").to.equal C(0x00ff)
+    expect("\u{0ff}").to.equal C(0x00ff)
+    expect("\u{00ff}").to.equal C(0x00ff)
+    expect("\u{000ff}").to.equal C(0x00ff)
+    expect("\u{0000ff}").to.equal C(0x00ff)
+    expect("\u{fff}").to.equal C(0x0fff)
+    expect("\u{0fff}").to.equal C(0x0fff)
+    expect("\u{00fff}").to.equal C(0x0fff)
+    expect("\u{000fff}").to.equal C(0x0fff)
+    expect("\u{ffff}").to.equal C(0xffff)
+    expect("\u{0ffff}").to.equal C(0xffff)
+    expect("\u{00ffff}").to.equal C(0xffff)
+    expect("\u{00ffff}").to.have.length 1
+    expect("\u{010000}").to.have.length 2
+    expect("\u{10ffff}").to.have.length 2
+    expect(#-> gorilla.compile('''let x = 0
+    let y = "\\u{110000}"''')).throws(gorilla.ParserError, r"Unicode escape sequence too large.*?line #2")
+    expect("\u{20bb7}").to.have.length 2
+    expect("\u{20bb7}").to.equal "\ud842\udfb7"
+  
+  it "implements all ECMAScript 5.1 standard single-char escape codes", #
+    expect("\b").to.equal C(0x0008)
+    expect("\t").to.equal C(0x0009)
+    expect("\n").to.equal C(0x000a)
+    expect("\v").to.equal C(0x000b)
+    expect("\f").to.equal C(0x000c)
+    expect("\r").to.equal C(0x000d)
+    expect("\"").to.equal C(0x0022)
+    expect("\'").to.equal C(0x0027)
+    expect('\"').to.equal C(0x0022)
+    expect('\'').to.equal C(0x0027)
+    expect("\\").to.equal C(0x005c)
+    expect('\\').to.equal C(0x005c)
+  
+  it "implements \\0", #
+    expect("\0").to.equal C(0x0000)
+
+describe "Backslash strings", #
+  it "can be keywords", #
+    expect(\null).to.equal "null"
+    expect(\void).to.equal "void"
+    expect(\undefined).to.equal "undefined"
+  
+  it "converts to camelCase", #
+    expect(\hello-there).to.equal "helloThere"
+    expect(\hello-there-everyone).to.equal "helloThereEveryone"
+  
+  it "can have trailing digits", #
+    expect(\trailing-1).to.equal "trailing1"
+    expect(\trailing-1234).to.equal "trailing1234"
+  
+  it "can contain digits", #
+    expect(\start-1234-end).to.equal "start1234End"
+  
+  it "can be indexed", #
+    expect(\hello.to-string).to.equal String::to-string
+    expect(\hello[\to-string]).to.equal String::to-string
+
+describe "Array strings", #
+  it "can be empty", #
+    expect(%"").to.be.an(\array).and.be.empty
+  
+  it "should be a single-valued array with no interpolation", #
+    expect(%"hello").to.eql ["hello"]
+  
+  it "should include interpolations verbatim as their own values", #
+    let x = spy()
+    expect(%"hello$x").to.eql ["hello", x]
+    expect(%"hello $x friend").to.eql ["hello ", x, " friend"]
+  
+  it "should only place interpolations at odd indices", #
+    let x = spy()
+    let y = spy()
+    expect(%"$(x)$(y)").to.eql ["", x, "", y]
+  
+  it "should allow triple-quoted strings", #
+    expect(%"""""").to.eql []
+    let obj = spy()
+    let other = spy()
+    expect(%"""
+    Alpha
+      $obj
+        Charlie
+      $other
+    Echo
+    """).to.eql ["Alpha\n  ", obj, "\n    Charlie\n  ", other, "\nEcho"]

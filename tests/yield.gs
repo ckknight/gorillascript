@@ -1,4 +1,4 @@
-let iterator-to-array(iterator, values = [])
+let to-array(iterator, values = [])
   values.reverse()
   values.push void
   let arr = []
@@ -22,49 +22,62 @@ let order-list()
   f.list := list
   f
 
-test "single-value yield on single-line", #
-  let fun(value)* -> yield value
+describe "single-value yield", #
+  describe "yielding value", #
+    let fun(value)* -> yield value
   
-  array-eq ["alpha"], iterator-to-array(fun("alpha"))
-  array-eq ["bravo"], iterator-to-array(fun("bravo"))
-  array-eq ["charlie"], iterator-to-array(fun("charlie"))
-  let iter = fun("delta")
-  deep-equal { done: false, value: "delta" }, iter.next()
-  for i in 0 til 10
-    deep-equal { done: true, value: void }, iter.next()
-
-test "single-value yield this on single-line", #
-  let fun()* -> yield this
+    it "produces as single result", #
+      expect(to-array fun("alpha")).to.eql ["alpha"]
+      expect(to-array fun("bravo")).to.eql ["bravo"]
   
-  let obj = {}
-  array-eq [obj], iterator-to-array(fun@(obj))
-
-test "single-value bound yield this on single-line", #
-  let get-iter()
-    let fun()@* -> yield this
+    it "on complete, always returns done", #
+      let iter = fun("value")
+      expect(iter.next()).to.eql { -done, value: "value" }
+      for i in 0 til 10
+        expect(iter.next()).to.eql { +done, value: void }
   
-  let obj = {}
-  array-eq [obj], iterator-to-array(get-iter@(obj)())
+  describe "yielding this", #
+    let fun()* -> yield this
+    
+    it "produces as single result", #
+      let obj = {}
+      expect(to-array fun@(obj)).to.eql [obj]
+  
+  describe "yielding bound this", #
+    let get-iter()
+      let fun()@* -> yield this
+    
+    it "produces as single result", #
+      let obj = {}
+      expect(to-array get-iter@(obj)@({})).to.eql [obj]
 
-test "multi-valued yield", #
+describe "multi-valued yield", #
   let fun()*
     yield "alpha"
     yield "bravo"
     yield "charlie"
   
-  array-eq ["alpha", "bravo", "charlie"], iterator-to-array(fun())
+  it "yields expected items", #
+    expect(to-array fun()).to.eql ["alpha", "bravo", "charlie"]
+  
+  it "on complete, always returns done", #
+    let iter = fun()
+    to-array iter
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
 
-test "yield with conditional", #
+describe "yield with conditional", #
   let fun(value)*
     yield "alpha"
     if value
       yield "bravo"
     yield "charlie"
   
-  array-eq ["alpha", "bravo", "charlie"], iterator-to-array(fun(true))
-  array-eq ["alpha", "charlie"], iterator-to-array(fun(false))
+  it "yields expected items", #
+    expect(to-array fun(true)).to.eql ["alpha", "bravo", "charlie"]
+    expect(to-array fun(false)).to.eql ["alpha", "charlie"]
 
-test "yield with variables", #
+describe "yield with variables", #
   let fun()*
     let mutable i = 0
     yield i
@@ -73,9 +86,10 @@ test "yield with variables", #
     i += 1
     yield i
   
-  array-eq [0, 1, 2], iterator-to-array(fun())
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2]
 
-test "yield with conditional that has no inner yields", #
+describe "yield with conditional that has no inner yields", #
   let fun(value)*
     yield "alpha"
     let mutable next = void
@@ -85,10 +99,11 @@ test "yield with conditional that has no inner yields", #
       next := "charlie"
     yield next
 
-  array-eq ["alpha", "bravo"], iterator-to-array(fun(true))
-  array-eq ["alpha", "charlie"], iterator-to-array(fun(false))
+  it "yields expected items", #
+    expect(to-array fun(true)).to.eql ["alpha", "bravo"]
+    expect(to-array fun(false)).to.eql ["alpha", "charlie"]
 
-test "yield with while", #
+describe "yield with while", #
   let fun()*
     yield 0
     let mutable i = 1
@@ -97,9 +112,10 @@ test "yield with while", #
       i += 1
     yield 10
   
-  array-eq [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], iterator-to-array(fun())
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-test "yield with while and increment", #
+describe "yield with while and increment", #
   let fun()*
     yield 0
     let mutable i = 1
@@ -107,9 +123,10 @@ test "yield with while and increment", #
       yield i
     yield 10
   
-  array-eq [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], iterator-to-array(fun())
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-test "yield with while and break", #
+describe "yield with while and break", #
   let fun()*
     yield 0
     let mutable i = 1
@@ -120,11 +137,12 @@ test "yield with while and break", #
       i += 1
     yield 10
   
-  array-eq [0, 1, 2, 3, 4, 5, 10], iterator-to-array(fun())
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 5, 10]
 
-test "yield with while and break that has no inner yields", #
+describe "yield with while and break that has no inner yields", #
   let fun(value)*
-    yield "alpha"
+    yield 0
     let mutable i = 1
     while i < 10
       if i > 5
@@ -132,9 +150,10 @@ test "yield with while and break that has no inner yields", #
       i += 1
     yield i
 
-  array-eq ["alpha", 6], iterator-to-array(fun())
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 6]
 
-test "yield with while and increment and continue", #
+describe "yield with while and increment and continue", #
   let fun()*
     yield 0
     let mutable i = 1
@@ -145,62 +164,68 @@ test "yield with while and increment and continue", #
       yield i
     yield 10
   
-  array-eq [0, 1, 2, 3, 4, 7, 8, 9, 10], iterator-to-array(fun())
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 7, 8, 9, 10]
 
-test "yield with for-in", #
+describe "yield with for-in", #
   let fun(arr)*
     yield "start"
     for x in arr
       yield x
     yield "end"
   
-  array-eq ["start", "a", "b", "c", "d", "e", "end"], iterator-to-array(fun(["a", "b", "c", "d", "e"]))
+  it "yields expected items", #
+    expect(to-array fun(["a", "b", "c", "d", "e"])).to.eql ["start", "a", "b", "c", "d", "e", "end"]
 
-test "yield with for-range", #
+describe "yield with for-range", #
   let fun(start, finish)*
     yield start
     for i in start + 1 til finish
       yield i
     yield finish
   
-  array-eq [1, 2, 3, 4, 5, 6], iterator-to-array(fun(1, 6))
+  it "yields expected items", #
+    expect(to-array fun(1, 6)).to.eql [1, 2, 3, 4, 5, 6]
 
-test "yield with for-of", #
+describe "yield with for-of", #
   let fun(obj)*
     yield ["start", 0]
     for k, v of obj
       yield [k, v]
     yield ["end", 1]
   
-  array-eq [["alpha", "bravo"], ["charlie", "delta"], ["echo", "foxtrot"], ["end", 1], ["start", 0]], iterator-to-array(fun({ alpha: "bravo", charlie: "delta", echo: "foxtrot" })).sort #(a, b) -> a[0] <=> b[0]
+  it "yields expected items", #
+    expect(to-array(fun({ alpha: "bravo", charlie: "delta", echo: "foxtrot" })).sort #(a, b) -> a[0] <=> b[0]).to.eql [["alpha", "bravo"], ["charlie", "delta"], ["echo", "foxtrot"], ["end", 1], ["start", 0]]
 
-test "yield with for-of with inheritance", #
+describe "yield with for-of with inheritance", #
   let fun(obj)*
     yield ["start", 0]
     for k, v of obj
       yield [k, v]
     yield ["end", 1]
   
-  let Class()!
-    @alpha := "bravo"
-  Class::charlie := "delta"
+  it "yields expected items", #
+    let Class()!
+      @alpha := "bravo"
+    Class::charlie := "delta"
   
-  array-eq [["alpha", "bravo"], ["end", 1], ["start", 0]], iterator-to-array(fun(new Class)).sort #(a, b) -> a[0] <=> b[0]
+    expect(to-array(fun(new Class)).sort #(a, b) -> a[0] <=> b[0]).to.eql [["alpha", "bravo"], ["end", 1], ["start", 0]]
 
-test "yield with for-ofall with inheritance", #
+describe "yield with for-ofall with inheritance", #
   let fun(obj)*
     yield ["start", 0]
     for k, v ofall obj
       yield [k, v]
     yield ["end", 1]
   
-  let Class()!
-    @alpha := "bravo"
-  Class::charlie := "delta"
+  it "yields expected items", #
+    let Class()!
+      @alpha := "bravo"
+    Class::charlie := "delta"
   
-  array-eq [["alpha", "bravo"], ["charlie", "delta"], ["end", 1], ["start", 0]], iterator-to-array(fun(new Class)).sort #(a, b) -> a[0] <=> b[0]
+    expect(to-array(fun(new Class)).sort #(a, b) -> a[0] <=> b[0]).to.eql [["alpha", "bravo"], ["charlie", "delta"], ["end", 1], ["start", 0]]
 
-test "yield with try-catch", #  
+describe "yield with try-catch", #  
   let obj = {}
   let fun(value)*
     yield "alpha"
@@ -210,37 +235,43 @@ test "yield with try-catch", #
         throw obj
       yield "charlie"
     catch e
-      eq obj, e
+      expect(e).to.equal obj
       yield "delta"
     yield "echo"
-  array-eq ["alpha", "bravo", "delta", "echo"], iterator-to-array fun(true)
-  array-eq ["alpha", "bravo", "charlie", "echo"], iterator-to-array fun(false)
+    
+  it "yields expected items", #
+    expect(to-array fun(true)).to.eql ["alpha", "bravo", "delta", "echo"]
+    expect(to-array fun(false)).to.eql ["alpha", "bravo", "charlie", "echo"]
 
-test "yield with try-finally", #
-  let cleanup = runOnce void
-  let obj = {}
+describe "yield with try-finally", #
+  let obj = Error()
   let fun-this = {}
-  let fun()*
-    eq this, fun-this
+  let fun(cleanup)*
+    expect(this).to.equal(fun-this)
     yield "alpha"
     try
-      eq this, fun-this
+      expect(this).to.equal(fun-this)
       yield "bravo"
       throw obj
       yield "charlie"
     finally
-      eq this, fun-this
+      expect(this).to.equal(fun-this)
       cleanup()
     yield "delta"
-  
-  let g = fun@(fun-this)
-  deep-equal { done: false, value: "alpha" }, g.next()
-  deep-equal { done: false, value: "bravo" }, g.next()
-  throws g.next, #(e) -> e == obj
-  ok cleanup.ran
-  deep-equal { done: true, value: void }, g.next()
+    
+  it "yields expected items and calls cleanup at expected time", #
+    let cleanup = stub()
+    let g = fun@(fun-this, cleanup)
+    expect(g.next()).to.eql { -done, value: "alpha" }
+    expect(g.next()).to.eql { -done, value: "bravo" }
+    expect(cleanup).to.not.be.called
+    expect(#-> g.next()).throws(obj)
+    expect(cleanup).to.be.called-once
+    for i in 0 til 10
+      expect(g.next()).to.eql { +done, value: void }
+    expect(cleanup).to.be.called-once
 
-test "yield with switch", #
+describe "yield with switch", #
   let fun(get-value)*
     switch get-value()
     case 0; yield 0
@@ -257,13 +288,19 @@ test "yield with switch", #
       yield 6
       yield 7
   
-  array-eq [0], iterator-to-array fun(run-once 0)
-  array-eq [1, 2], iterator-to-array fun(run-once 1)
-  array-eq [3, 4, 5], iterator-to-array fun(run-once 2)
-  array-eq [4, 5], iterator-to-array fun(run-once 3)
-  array-eq [6, 7], iterator-to-array fun(run-once 4)
+  it "yields expected items", #
+    let run(value)
+      let get-value = stub().returns value
+      let result = fun(get-value)
+      expect(get-value).to.be.called-once
+      result
+    expect(to-array run(0)).to.eql [0]
+    expect(to-array run(1)).to.eql [1, 2]
+    expect(to-array run(2)).to.eql [3, 4, 5]
+    expect(to-array run(3)).to.eql [4, 5]
+    expect(to-array run(4)).to.eql [6, 7]
 
-test "yield with for-from", #
+describe "yield with for-from", #
   let range(start, finish)*
     for i in start til finish
       yield i
@@ -273,10 +310,11 @@ test "yield with for-from", #
     for item from range(1, 10)
       yield item
     yield 10
+  
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-  array-eq [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], iterator-to-array fun()
-
-test "yield* iterator", #
+describe "yield* iterator", #
   let range(start, finish)*
     for i in start til finish
       yield i
@@ -286,9 +324,10 @@ test "yield* iterator", #
     yield* range(1, 10)
     yield 10
 
-  array-eq [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], iterator-to-array fun()
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-test "yield* array", #
+describe "yield* array", #
   let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9]
   
   let fun()*
@@ -296,239 +335,260 @@ test "yield* array", #
     yield* arr
     yield 10
 
-  array-eq [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], iterator-to-array fun()
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-test "yield in let statement", #
+describe "yield in let statement", #
   let fun()*
     let x = yield 1
     yield x
 
-  array-eq [1, 2], iterator-to-array fun(), [2]
+  it "yields expected items", #
+    expect(to-array fun(), [2]).to.eql [1, 2]
 
-test "yield in assign statement", #
-  let order = order-list()
-  let obj = {}
-  let fun()*
-    obj[order(\key)] := yield order(\value)
-    array-eq [\key, \value], order.list
-    yield obj.key
+describe "yield in assign statement", #
+  it "yields expected items", #
+    let order = order-list()
+    let obj = {}
+    let fun()*
+      obj[order(\key)] := yield order(\value)
+      expect(order.list).to.eql [\key, \value]
+      yield obj.key
+
+    expect(to-array fun(), [\alpha]).to.eql [\value, \alpha]
+
+describe "yield as throw expression", #
+  it "yields expected items", #
+    let order = order-list()
+    let fun()*
+      throw yield order(\value)
+
+    let generator = fun()
+    expect(order.list).to.eql []
+    expect(generator.send(void)).to.eql { -done, \value }
+    expect(order.list).to.eql [\value]
+    let obj = Error()
+    expect(#-> generator.send(obj)).throws(obj)
+    expect(order.list).to.eql [\value]
+    for i in 0 til 10
+      expect(generator.send(void)).to.eql { +done, value: void }
+
+describe "yield in call statement", #
+  it "yields expected items", #
+    let order = order-list()
+    let ran = stub()
+    let func(...args)
+      expect(args).to.eql [\alpha, \echo, \charlie]
+      ran()
+    let fun()*
+      order(func)(order(\alpha), yield order(\bravo), order(\charlie))
+      expect(order.list).to.eql [func, \alpha, \bravo, \charlie]
+      yield \delta
+
+    expect(to-array fun(), [\echo]).to.eql [\bravo, \delta]
+    expect(ran).to.be.called-once
+
+describe "yield in call statement, yield as func", #
+  it "yields expected items", #
+    let order = order-list()
+    let obj = {}
+    let ran = stub()
+    let func(...args)!
+      expect(args).to.eql [\bravo, \charlie, \delta]
+      ran()
+    let fun()*
+      order(yield \alpha)(order(\bravo), order(\charlie), order(\delta))
+      expect(order.list).to.eql [func, \bravo, \charlie, \delta]
+      yield \delta
   
-  array-eq [\value, \alpha], iterator-to-array fun(), [\alpha]
+    expect(to-array fun(), [func]).to.eql [\alpha, \delta]
+    expect(ran).to.be.called-once
 
-test "yield as throw expression", #
-  let order = order-list()
-  let fun()*
-    throw yield order(\value)
+describe "yield in call expression", #
+  it "yields expected items", #
+    let order = order-list()
+    let obj = {}
+    let get-args(...args) -> args
+    let fun()*
+      let value = order(get-args)(order(\alpha), yield order(\bravo), order(\charlie))
+      expect(order.list).to.eql [get-args, \alpha, \bravo, \charlie]
+      expect(value).to.eql [\alpha, \echo, \charlie]
+      yield \delta
   
-  let generator = fun()
-  array-eq [], order.list
-  deep-equal { done: false, \value }, generator.send(void)
-  array-eq [\value], order.list
-  let obj = {}
-  throws #-> generator.send(obj), #(e) -> e == obj
-  array-eq [\value], order.list
+    expect(to-array fun(), [\echo]).to.eql [\bravo, \delta]
 
-test "yield in call statement", #
-  let order = order-list()
-  let obj = {}
-  let mutable func-called = false
-  let func()!
-    func-called := true
-  let fun()*
-    order(func)(order(\alpha), yield order(\bravo), order(\charlie))
-    ok func-called
-    array-eq [func, \alpha, \bravo, \charlie], order.list
-    yield \delta
+describe "multiple yields in call expression", #
+  it "yields expected items", #
+    let order = order-list()
+    let obj = {}
+    let get-args(...args) -> args
+    let fun()*
+      let value = order(get-args)(order(\alpha), yield order(\bravo), yield order(\charlie), order(\delta))
+      expect(order.list).to.eql [get-args, \alpha, \bravo, \charlie, \delta]
+      expect(value).to.eql [\alpha, \foxtrot, \golf, \delta]
+      yield \echo
   
-  array-eq [\bravo, \delta], iterator-to-array fun(), [\echo]
+    expect(to-array fun(), [\foxtrot, \golf]).to.eql [\bravo, \charlie, \echo]
 
-test "yield in call statement, yield as func", #
-  let order = order-list()
-  let obj = {}
-  let mutable func-called = false
-  let func(...args)!
-    func-called := true
-    array-eq [\bravo, \charlie, \delta], args
-  let fun()*
-    order(yield \alpha)(order(\bravo), order(\charlie), order(\delta))
-    ok func-called
-    array-eq [func, \bravo, \charlie, \delta], order.list
-    yield \delta
+describe "yield in access", #
+  it "yields expected items", #
+    let fun()*
+      let value = (yield \alpha)[yield \bravo]
+      yield value
   
-  array-eq [\alpha, \delta], iterator-to-array fun(), [func]
+    expect(to-array fun(), [{charlie: \delta}, \charlie]).to.eql [\alpha, \bravo, \delta]
 
-test "yield in call expression", #
-  let order = order-list()
-  let obj = {}
-  let to-array(...args) -> args
-  let fun()*
-    let value = order(to-array)(order(\alpha), yield order(\bravo), order(\charlie))
-    array-eq [to-array, \alpha, \bravo, \charlie], order.list
-    array-eq [\alpha, \echo, \charlie], value
-    yield \delta
+describe "yield in array", #
+  it "yields expected items", #
+    let fun()*
+      let value = [\alpha, yield \bravo, \charlie, yield \delta, \echo]
+      yield value
   
-  array-eq [\bravo, \delta], iterator-to-array fun(), [\echo]
+    expect(to-array fun(), [\foxtrot, \golf]).to.eql [\bravo, \delta, [\alpha, \foxtrot, \charlie, \golf, \echo]]
 
-test "multiple yields in call expression", #
-  let order = order-list()
-  let obj = {}
-  let to-array(...args) -> args
-  let fun()*
-    let value = order(to-array)(order(\alpha), yield order(\bravo), yield order(\charlie), order(\delta))
-    array-eq [to-array, \alpha, \bravo, \charlie, \delta], order.list
-    array-eq [\alpha, \foxtrot, \golf, \delta], value
-    yield \echo
+describe "yield in array with spread", #
+  it "yields expected items", #
+    let arr-1 = [\alpha, \bravo]
+    let arr-2 = [\charlie, \delta]
+    let fun()*
+      let value = [\echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel]
+      yield value
   
-  array-eq [\bravo, \charlie, \echo], iterator-to-array fun(), [\foxtrot, \golf]
+    expect(to-array fun(), [\india, [\juliet, \kilo]]).to.eql [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]]
 
-test "yield in access", #
-  let fun()*
-    let value = (yield \alpha)[yield \bravo]
-    yield value
+describe "yield in binary expression", #
+  it "yields expected items", #
+    let fun()*
+      let value = (yield 1) + (yield 2) + (yield 3)
+      yield value
   
-  array-eq [\alpha, \bravo, \delta], iterator-to-array fun(), [{charlie: \delta}, \charlie]
+    expect(to-array fun(), [4, 5, 6]).to.eql [1, 2, 3, 15]
 
-test "yield in array", #
-  let fun()*
-    let value = [\alpha, yield \bravo, \charlie, yield \delta, \echo]
-    yield value
+describe "yield in binary and", #
+  it "yields expected items", #
+    let fun()*
+      let value = (yield 1) and (yield 2) and (yield 3)
+      yield value
   
-  array-eq [\bravo, \delta, [\alpha, \foxtrot, \charlie, \golf, \echo]], iterator-to-array fun(), [\foxtrot, \golf]
+    expect(to-array fun(), [true, true, true]).to.eql [1, 2, 3, true]
+    expect(to-array fun(), [true, true, false]).to.eql [1, 2, 3, false]
+    expect(to-array fun(), [true, false]).to.eql [1, 2, false]
+    expect(to-array fun(), [false]).to.eql [1, false]
 
-test "yield in array with spread", #
-  let arr-1 = [\alpha, \bravo]
-  let arr-2 = [\charlie, \delta]
-  let fun()*
-    let value = [\echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel]
-    yield value
+describe "yield in binary or", #
+  it "yields expected items", #
+    let fun()*
+      let value = (yield 1) or (yield 2) or (yield 3)
+      yield value
   
-  array-eq [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]], iterator-to-array fun(), [\india, [\juliet, \kilo]]
+    expect(to-array fun(), [false, false, false]).to.eql [1, 2, 3, false]
+    expect(to-array fun(), [false, false, true]).to.eql [1, 2, 3, true]
+    expect(to-array fun(), [false, true]).to.eql [1, 2, true]
+    expect(to-array fun(), [true]).to.eql [1, true]
 
-test "yield in binary expression", #
-  let fun()*
-    let value = (yield 1) + (yield 2) + (yield 3)
-    yield value
+describe "yield in call expression with spread", #
+  it "yields expected items", #
+    let obj = {}
+    let get-args(...args)
+      args
+    let arr-1 = [\alpha, \bravo]
+    let arr-2 = [\charlie, \delta]
+    let fun()*
+      let value = get-args(\echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
+      yield value
+
+    expect(to-array fun(), [\india, [\juliet, \kilo]]).to.eql [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]]
+
+describe "yield in new call expression", #
+  it "yields expected items", #
+    let MyType(...args)!
+      expect(this).to.be.an.instanceof(MyType)
+      @args := args
+    let arr-1 = [\alpha, \bravo]
+    let arr-2 = [\charlie, \delta]
+    let fun()*
+      let value = new MyType(\echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
+      expect(value).to.be.an.instanceof(MyType)
+      yield value.args
+
+    expect(to-array fun(), [\india, [\juliet, \kilo]]).to.eql [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]]
+
+describe "yield in apply call expression", #
+  it "yields expected items", #
+    let obj = {}
+    let get-args(...args)
+      expect(this).to.equal obj
+      args
+    let arr-1 = [\alpha, \bravo]
+    let arr-2 = [\charlie, \delta]
+    let fun()*
+      let value = get-args@(obj, \echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
+      yield value
   
-  array-eq [1, 2, 3, 15], iterator-to-array fun(), [4, 5, 6]
+    expect(to-array fun(), [\india, [\juliet, \kilo]]).to.eql [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]]
 
-test "yield in binary and", #
-  let fun()*
-    let value = (yield 1) and (yield 2) and (yield 3)
-    yield value
-  
-  array-eq [1, 2, 3, true], iterator-to-array fun(), [true, true, true]
-  array-eq [1, 2, 3, false], iterator-to-array fun(), [true, true, false]
-  array-eq [1, 2, false], iterator-to-array fun(), [true, false]
-  array-eq [1, false], iterator-to-array fun(), [false]
-
-test "yield in binary or", #
-  let fun()*
-    let value = (yield 1) or (yield 2) or (yield 3)
-    yield value
-  
-  array-eq [1, 2, 3, false], iterator-to-array fun(), [false, false, false]
-  array-eq [1, 2, 3, true], iterator-to-array fun(), [false, false, true]
-  array-eq [1, 2, true], iterator-to-array fun(), [false, true]
-  array-eq [1, true], iterator-to-array fun(), [true]
-
-test "yield in call expression with spread", #
-  let obj = {}
-  let to-array(...args) -> args
-  let arr-1 = [\alpha, \bravo]
-  let arr-2 = [\charlie, \delta]
-  let fun()*
-    let value = to-array(\echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
-    yield value
-
-  array-eq [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]], iterator-to-array fun(), [\india, [\juliet, \kilo]]
-
-test "yield in new call expression", #
-  let MyType(...args)!
-    ok this instanceof MyType
-    @args := args
-  let arr-1 = [\alpha, \bravo]
-  let arr-2 = [\charlie, \delta]
-  let fun()*
-    let value = new MyType(\echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
-    ok value instanceof MyType
-    yield value.args
-
-  array-eq [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]], iterator-to-array fun(), [\india, [\juliet, \kilo]]
-
-test "yield in apply call expression", #
-  let obj = {}
-  let to-array(...args)
-    eq obj, this
-    args
-  let arr-1 = [\alpha, \bravo]
-  let arr-2 = [\charlie, \delta]
-  let fun()*
-    let value = to-array@(obj, \echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
-    yield value
-  
-  array-eq [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]], iterator-to-array fun(), [\india, [\juliet, \kilo]]
-
-test "yield in eval", #
+describe "yield in eval", #
   let fun()*
     let x = yield \alpha
     let y = eval yield \bravo
     yield y
   
-  array-eq [\alpha, \bravo, \charlie], iterator-to-array fun(), [\charlie, \x]
+  it "yields expected items", #
+    expect(to-array fun(), [\charlie, \x]).to.eql [\alpha, \bravo, \charlie]
 
-test "yield in unary expression", #
+describe "yield in unary expression", #
   let fun()*
     let value = not (yield \alpha)
     yield value
 
-  array-eq [\alpha, true], iterator-to-array fun(), [false]
+  it "yields expected items", #
+    expect(to-array fun(), [false]).to.eql [\alpha, true]
 
-test "yield in string interpolation", #
+describe "yield in string interpolation", #
   let fun()*
     let value = "$(yield \alpha) $(yield \bravo)"
     yield value
 
-  array-eq [\alpha, \bravo, "charlie delta"], iterator-to-array fun(), [\charlie, \delta]
+  it "yields expected items", #
+    expect(to-array fun(), [\charlie, \delta]).to.eql [\alpha, \bravo, "charlie delta"]
 
-test "yield in regexp interpolation", #
+describe "yield in regexp interpolation", #
   let fun()*
     let value = r"$(yield \alpha) $(yield \bravo)"g
     yield value
 
-  let arr = iterator-to-array fun(), [\charlie, \delta]
-  eq 3, arr.length
-  eq \alpha, arr[0]
-  eq \bravo, arr[1]
-  ok arr[2] instanceof RegExp
-  eq "charlie delta", arr[2].source
-  ok arr[2].global
+  it "yields expected items", #
+    let arr = to-array fun(), [\charlie, \delta]
+    expect(arr).to.eql [\alpha, \bravo, r"charlie delta"g]
 
-test "return in generator", #
+describe "return in generator", #
   let fun(return-early)*
     yield \alpha
     if return-early
       return
     yield \bravo
   
-  array-eq [\alpha], iterator-to-array fun(true)
-  array-eq [\alpha, \bravo], iterator-to-array fun(false)
+  it "yields expected items", #
+    expect(to-array fun(true)).to.eql [\alpha]
+    expect(to-array fun(false)).to.eql [\alpha, \bravo]
 
-test "return with value in generator", #
+describe "return with value in generator", #
   let fun(value)*
     yield \alpha
     return? value
     yield \bravo
   
-  let mutable iter = fun(\charlie)
-  deep-equal { arr: [\alpha], value: \charlie }, iterator-to-array iter
-  for i in 0 til 10
-    deep-equal { done: true, value: void }, iter.next()
-  iter := fun()
-  deep-equal [\alpha, \bravo], iterator-to-array iter
-  for i in 0 til 10
-    deep-equal { done: true, value: void }, iter.next()
+  it "yields expected items", #
+    let mutable iter = fun(\charlie)
+    expect(to-array iter).to.eql { arr: [\alpha], value: \charlie }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    iter := fun()
+    expect(to-array iter).to.eql [\alpha, \bravo]
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
 
-test "yield with an uncaught error returns that it's done after error", #
+describe "yield with an uncaught error returns that it's done after error", #
   let fun(obj)*
     yield \alpha
     throw obj
@@ -536,9 +596,10 @@ test "yield with an uncaught error returns that it's done after error", #
     yield \bravo
     fail()
   
-  let err = {}
-  let iter = fun(err)
-  deep-equal { done: false, value: \alpha }, iter.next()
-  throws #-> iter.next(), #(e) -> e == err
-  for i in 0 til 10
-    deep-equal { done: true, value: void }, iter.next()
+  it "yields expected items", #
+    let err = Error()
+    let iter = fun(err)
+    expect(iter.next()).to.eql { -done, value: \alpha }
+    expect(#-> iter.next()).throws(err)
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }

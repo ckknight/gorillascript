@@ -1,235 +1,233 @@
-test "array parameter", #
-  let fun([a, b]) -> [a, b]
+describe "function parameter destructuring", #
+  describe "array parameter", #
+    it "works", #
+      let fun([a, b]) -> [a, b]
+    
+      expect(fun)
+        .to.be.a(\function)
+        .and.have.length(1)
+    
+      expect(fun []).to.eql [void, void]
+      expect(fun [\a]).to.eql [\a, void]
+      expect(fun [\a, \b]).to.eql [\a, \b]
+      expect(fun [\a, \b, \c]).to.eql [\a, \b]
+      expect(fun [\a, \b], \c).to.eql [\a, \b]
+      expect(fun [\a, \b], \c).to.eql [\a, \b]
+      expect(fun [\a, \b], \c).to.eql [\a, \b]
+      expect(fun [\a], \b, \c).to.eql [\a, void]
   
-  eq \function, typeof fun
-  eq 1, fun.length
-  array-eq [void, void], fun([])
-  array-eq ["a", void], fun(["a"])
-  array-eq ["a", "b"], fun(["a", "b"])
-  array-eq ["a", "b"], fun(["a", "b", "c"])
-  array-eq ["a", "b"], fun(["a", "b"], "c")
-  array-eq ["a", void], fun(["a"], "b", "c")
+    it "allows for spread", #
+      let fun([a, ...b]) -> [a, b]
+    
+      expect(fun []).to.eql [void, []]
+      expect(fun [\a]).to.eql [\a, []]
+      expect(fun [\a, \b]).to.eql [\a, [\b]]
+      expect(fun [\a, \b, \c]).to.eql [\a, [\b, \c]]
+  
+    it "allows for spread in middle", #
+      let fun([a, ...b, c]) -> [a, b, c]
+  
+      expect(fun []).to.eql [void, [], void]
+      expect(fun [\a]).to.eql [\a, [], void]
+      expect(fun [\a, \b]).to.eql [\a, [], \b]
+      expect(fun [\a, \b, \c]).to.eql [\a, [\b], \c]
+      expect(fun [\a, \b, \c, \d]).to.eql [\a, [\b, \c], \d]
+  
+    it "allows for this-params", #
+      let fun([@a, @b]) -> [a, b]
+  
+      let obj = {}
+      expect(fun@ obj, [\a, \b]).to.eql [\a, \b]
+      expect(obj).to.eql {a: \a, b: \b}
+    
+    it "it allows for deep destructure with this parameters", #
+      let func([@alpha, [@bravo, [@charlie]]]) ->
 
-test "array parameter destructure with spread", #
-  let fun([a, ...b]) -> [a, b]
+      let obj = {}
+      func@ obj, [\delta, [\echo, [\foxtrot]]]
+      expect(obj).to.eql {alpha: \delta, bravo: \echo, charlie: \foxtrot}
   
-  array-eq [void, []], fun([])
-  array-eq ["a", []], fun(["a"])
-  array-eq ["a", ["b"]], fun(["a", "b"])
-  array-eq ["a", ["b", "c"]], fun(["a", "b", "c"])
+  describe "object parameter", #
+    it "works", #
+      let fun({a, b}) -> [a, b]
+      expect(fun)
+        .to.be.a(\function)
+        .and.have.property(\length).that.equals 1
+      
+      expect(fun {}).to.eql [void, void]
+      expect(fun {\a}).to.eql [\a, void]
+      expect(fun {\a, \b}).to.eql [\a, \b]
+      expect(fun {\a, \b, \c}).to.eql [\a, \b]
+      expect(fun {\a, \b}, \c).to.eql [\a, \b]
+      expect(fun {\a}, \b, \c).to.eql [\a, void]
+    
+    it "allows for this-params", #
+      let fun({@a, @b}) -> [a, b]
+  
+      let obj = {}
+      expect(fun@ obj, {a: \a, b: \b}).to.eql [\a, \b]
+      expect(obj).to.eql {a: \a, b: \b}
+    
+    it "allows for deep object destructure with this params", #
+      let func({@alpha, bravo: { @charlie, delta: { @echo }}}) ->
 
+      let obj = {}
+      func@ obj, { alpha: "foxtrot", bravo: { charlie: "golf", delta: { echo: "hotel" } } }
+      expect(obj).to.eql {alpha: "foxtrot", charlie: "golf", echo: "hotel"}
+  
+  it "allows for mixed object and array destructures", #
+    let func({@alpha, bravo: [@charlie, { @delta }]}) ->
 
-test "array parameter destructure with spread in middle", #
-  let fun([a, ...b, c]) -> [a, b, c]
-  
-  array-eq [void, [], void], fun([])
-  array-eq ["a", [], void], fun(["a"])
-  array-eq ["a", [], "b"], fun(["a", "b"])
-  array-eq ["a", ["b"], "c"], fun(["a", "b", "c"])
-  array-eq ["a", ["b", "c"], "d"], fun(["a", "b", "c", "d"])
+    let obj = {}
+    func@ obj, { alpha: "echo", bravo: ["foxtrot", { delta: "golf" }] }  
+    expect(obj).to.eql {alpha: "echo", charlie: "foxtrot", delta: "golf"}
 
-test "array parameter with this params", #
-  let fun([@a, @b]) -> [a, b]
+describe "let destructuring", #
+  describe "array", #
+    it "works with an ident", #
+      let arr = [\a, \b, \c]
   
-  let obj = {}
-  eq \function, typeof fun
-  eq 1, fun.length
-  array-eq ["a", "b"], fun@ obj, ["a", "b"]
-  eq "a", obj.a
-  eq "b", obj.b
+      let [a, b, c] = arr
+      expect(a).to.equal \a
+      expect(b).to.equal \b
+      expect(c).to.equal \c
+    
+    it "works with a function call", #
+      let f = stub().returns [\a, \b, \c]
+      
+      let [a, b, c] = f()
+      expect(a).to.equal \a
+      expect(b).to.equal \b
+      expect(c).to.equal \c
+      expect(f).to.be.called-once
+    
+    it "works with a literal array", #
+      let [a, b, c] = [\a, \b, \c]
+      
+      expect(a).to.equal \a
+      expect(b).to.equal \b
+      expect(c).to.equal \c
+    
+    it "works with a single element", #
+      let f = stub().returns [\a, \b, \c]
+      
+      let [a] = f()
+      expect(a).to.equal \a
+      expect(f).to.be.called-once
+    
+    it "allows ignored values", #
+      let [, x] = [5, 6]
+      expect(x).to.equal 6
 
-test "object parameter", #
-  let fun({a, b}) -> [a, b]
-  
-  eq \function, typeof fun
-  eq 1, fun.length
-  array-eq [void, void], fun({})
-  array-eq ["a", void], fun({"a"})
-  array-eq ["a", "b"], fun({"a", "b"})
-  array-eq ["a", "b"], fun({"a", "b", "c"})
-  array-eq ["a", "b"], fun({"a", "b"}, "c")
-  array-eq ["a", void], fun({"a"}, "b", "c")
+    it "allows ignored values in the middle", #
+      let [x, , y] = [5, 6, 7]
+      expect(x).to.equal 5
+      expect(y).to.equal 7
 
-test "object parameter with this params", #
-  let fun({@a, @b}) -> [a, b]
+  describe "object", #
+    it "works with an ident", #
+      let obj = {a: \b, c: \d, e: \f}
   
-  let obj = {}
-  eq \function, typeof fun
-  eq 1, fun.length
-  array-eq ["a", "b"], fun@ obj, {"a", "b"}
-  eq "a", obj.a
-  eq "b", obj.b
+      let {a, c, e} = obj
+      
+      expect(a).to.equal \b
+      expect(c).to.equal \d
+      expect(e).to.equal \f
+    
+    it "works with an ident and named keys", #
+      let obj = {a: \b, c: \d, e: \f}
 
-test "deep array destructure in function parameter, this parameters", #
-  let func([@alpha, [@bravo, [@charlie]]]) ->
+      let {a: b, c: d, e: f} = obj
 
-  let obj = {}
-  func@ obj, ["delta", ["echo", ["foxtrot"]]]
-  eq "delta", obj.alpha
-  eq "echo", obj.bravo
-  eq "foxtrot", obj.charlie
+      expect(b).to.equal \b
+      expect(d).to.equal \d
+      expect(f).to.equal \f
+    
+    it "works with a call", #
+      let fun = stub().returns {a: \b, c: \d, e: \f}
+  
+      let {a, c, e} = fun()
+      
+      expect(a).to.equal \b
+      expect(c).to.equal \d
+      expect(e).to.equal \f
+      expect(fun).to.be.called-once
+    
+    it "works with a call and named keys", #
+      let fun = stub().returns {a: \b, c: \d, e: \f}
 
-test "deep object destructure in function parameter, this parameters", #
-  let func({@alpha, bravo: { @charlie, delta: { @echo }}}) ->
+      let {a: b, c: d, e: f} = fun()
 
-  let obj = {}
-  func.call(obj, { alpha: "foxtrot", bravo: { charlie: "golf", delta: { echo: "hotel" } } })
-  eq "foxtrot", obj.alpha
-  eq "golf", obj.charlie
-  eq "hotel", obj.echo
+      expect(b).to.equal \b
+      expect(d).to.equal \d
+      expect(f).to.equal \f
+      expect(fun).to.be.called-once
+    
+    it "works with literal object", #
+      let {a, c, e} = {a: \b, c: \d, e: \f}
+  
+      expect(a).to.equal \b
+      expect(c).to.equal \d
+      expect(e).to.equal \f
 
-test "mixed object and array destructure in function parameters, this parameters", #
-  let func({@alpha, bravo: [@charlie, { @delta }]}) ->
+    it "works with literal object and named keys", #
+      let {a: b, c: d, e: f} = {a: \b, c: \d, e: \f}
+  
+      expect(b).to.equal \b
+      expect(d).to.equal \d
+      expect(f).to.equal \f
+    
+    it "works with a single element", #
+      let fun = stub().returns {a: \b, c: \d, e: \f}
+      let {a} = fun()
+      expect(a).to.equal \b
+      expect(fun).to.be.called-once
+    
+    it "works with a single element and named key", #
+      let fun = stub().returns {a: \b, c: \d, e: \f}
+      let {a: b} = fun()
+      expect(b).to.equal \b
+      expect(fun).to.be.called-once
 
-  let obj = {}
-  func@ obj, { alpha: "echo", bravo: ["foxtrot", { delta: "golf" }] }
-  eq "echo", obj.alpha
-  eq "foxtrot", obj.charlie
-  eq "golf", obj.delta
+describe "for loop destructuring", #
+  describe "in array", #
+    it "works", #
+      let arr = [[\a, \b], [\c, \d], [\e, \f]]
+      let result = []
+      for [x, y] in arr
+        result.push x
+        result.push y
+    
+      expect(result).to.eql [\a, \b, \c, \d, \e, \f]
+    
+    it "block-scopes the variables", #
+      let arr = [[\a, \b], [\c, \d], [\e, \f]]
+      let result = []
+      for [x, y] in arr
+        result.push #-> x
+        result.push #-> y
+      
+      expect(for f in result; f()).to.eql [\a, \b, \c, \d, \e, \f]
+  
+  describe "of object", #
+    it "works", #
+      let obj = { x: [\a, \b], y: [\c, \d], z: [\e, \f] }
 
-test "let destructure", #
-  let arr = ["a", "b", "c"]
-  
-  let [a, b, c] = arr
-  
-  eq "a", a
-  eq "b", b
-  eq "c", c
+      let result = []
+      for k, [x, y] of obj
+        result.push k
+        result.push x
+        result.push y
+      
+      expect(result.sort()).to.eql [\a, \b, \c, \d, \e, \f, \x, \y, \z]
+    
+    it "block-scopes the variables", #
+      let obj = { x: [\a, \b], y: [\c, \d], z: [\e, \f] }
 
-test "let destructure with call", #
-  let f = run-once ["a", "b", "c"]
-  
-  let [a, b, c] = f()
-  
-  eq "a", a
-  eq "b", b
-  eq "c", c
-
-test "let destructure with literal array", #
-  let [a, b, c] = ["a", "b", "c"]
-  
-  eq "a", a
-  eq "b", b
-  eq "c", c
-
-test "let destructure with a single element", #
-  let f = run-once ["a", "b", "c"]
-  
-  let [a] = f()
-  
-  eq "a", a
-
-test "let object destructure", #
-  let obj = {a: "b", c: "d", e: "f"}
-  
-  let {a, c, e} = obj
-  
-  eq "b", a
-  eq "d", c
-  eq "f", e
-
-test "let object destructure with named keys", #
-  let obj = {a: "b", c: "d", e: "f"}
-  
-  let {a: b, c: d, e: f} = obj
-  
-  eq "b", b
-  eq "d", d
-  eq "f", f
-
-test "let object destructure with call", #
-  let fun = run-once {a: "b", c: "d", e: "f"}
-  
-  let {a, c, e} = fun()
-  
-  eq "b", a
-  eq "d", c
-  eq "f", e
-
-test "let object destructure with call and named keys", #
-  let fun = run-once {a: "b", c: "d", e: "f"}
-  
-  let {a: b, c: d, e: f} = fun()
-  
-  eq "b", b
-  eq "d", d
-  eq "f", f
-
-test "let object destructure with literal object", #
-  let {a, c, e} = {a: "b", c: "d", e: "f"}
-  
-  eq "b", a
-  eq "d", c
-  eq "f", e
-
-test "let object destructure with literal object and named keys", #
-  let {a: b, c: d, e: f} = {a: "b", c: "d", e: "f"}
-  
-  eq "b", b
-  eq "d", d
-  eq "f", f
-
-test "let object destructure with a single element", #
-  let fun = run-once {a: "b", c: "d", e: "f"}
-  
-  let {a} = fun()
-  
-  eq "b", a
-
-test "let object destructure with a single element and named key", #
-  let fun = run-once {a: "b", c: "d", e: "f"}
-  
-  let {a: b} = fun()
-  
-  eq "b", b
-
-test "for loop in array with destructuring", #
-  let arr = [["a", "b"], ["c", "d"], ["e", "f"]]
-  
-  let result = []
-  for [x, y] in arr
-    result.push x
-    result.push y
-  
-  array-eq ["a", "b", "c", "d", "e", "f"], result
-
-test "for loop in array with destructuring and functions", #
-  let arr = [["a", "b"], ["c", "d"], ["e", "f"]]
-  
-  let result = []
-  for [x, y] in arr
-    result.push #-> x
-    result.push #-> y
-  
-  array-eq ["a", "b", "c", "d", "e", "f"], for f in result; f()
-
-test "for loop of object with destructuring", #
-  let obj = { x: ["a", "b"], y: ["c", "d"], z: ["e", "f"] }
-  
-  let result = []
-  for k, [x, y] of obj
-    result.push k
-    result.push x
-    result.push y
-  
-  array-eq ["a", "b", "c", "d", "e", "f", "x", "y", "z"], result.sort()
-
-test "for loop of object with destructuring and functions", #
-  let obj = { x: ["a", "b"], y: ["c", "d"], z: ["e", "f"] }
-
-  let result = []
-  for k, [x, y] of obj
-    result.push #-> k
-    result.push #-> x
-    result.push #-> y
-
-  array-eq ["a", "b", "c", "d", "e", "f", "x", "y", "z"], (for f in result; f()).sort()
-
-test "let destructuring with ignore", #
-  let [, x] = [5, 6]
-  eq 6, x
-
-test "let destructuring with ignore in middle", #
-  let [x, , y] = [5, 6, 7]
-  eq 5, x
-  eq 7, y
+      let result = []
+      for k, [x, y] of obj
+        result.push #-> k
+        result.push #-> x
+        result.push #-> y
+      
+      expect((for f in result; f()).sort()).to.eql [\a, \b, \c, \d, \e, \f, \x, \y, \z]

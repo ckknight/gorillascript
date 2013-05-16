@@ -20,10 +20,9 @@ macro myfor
       myfor $init; $ident ~< $end; $ident ~+= 1
         $body
 
-macro poo()
-  AST "poo"
-
-macro one-of(thing)
+macro make-array(thing)
+  if not @is-array(thing)
+    throw Error "Expected an array"
   let parts = []
   let elements = @elements(thing)
   let len = elements.length
@@ -32,8 +31,6 @@ macro one-of(thing)
     parts.push AST $item
   
   @array parts
-
-one-of [5, 6]
 
 macro square(value)
   let f = @tmp \f
@@ -44,6 +41,7 @@ macro square(value)
     let $tmp = $value
     $f()
 
-test "scope for tmp variables works properly given differing function scopes", #
-  eq 0, square(0)
-  eq 25, square(5)
+describe "scope of tmp variables", #
+  it "should work given differing function scopes", #
+    expect(square 0).to.equal 0
+    expect(square 5).to.equal 25

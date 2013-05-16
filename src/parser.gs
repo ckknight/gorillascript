@@ -2461,9 +2461,9 @@ namedlet RegexLiteral = with-space! one-of! [
   let seen-flags = []
   for flag in flags
     if flag in seen-flags
-      o.error "Specified flag '$(flag)' in regular expression more than once"
+      o.error "Invalid regular expression: flag '$(flag)' occurred more than once"
     else if flag not in [\g, \i, \m, \y]
-      o.error "Unknown regular expression flag '$(flag)'"
+      o.error "Invalid regular expression: unknown flag '$(flag)'"
     seen-flags.push flag
   o.regexp i, text, flags
 
@@ -4889,7 +4889,7 @@ namedlet EmbeddedRoot = #(o, callback)
     result
 
 class ParserError extends Error
-  def constructor(message as String, text as String, line as Number)
+  def constructor(message as String = "Unknown error", text as String = "", line as Number = 0)
     let err = super("$message at line #$line")
     @message := err.message
     if is-function! Error.capture-stack-trace
@@ -4901,11 +4901,11 @@ class ParserError extends Error
   def name = @name
 
 class MacroError extends Error
-  def constructor(inner as Error, text as String, line as Number)
+  def constructor(inner as Error|null, text as String = "", line as Number = 0)
     let inner-type = typeof! inner
     let err = super("$(if inner-type == \Error then '' else inner-type & ': ')$(String inner?.message) at line #$line")
     @message := err.message
-    if inner haskey \stack and is-string! inner.stack
+    if inner? and inner haskey \stack and is-string! inner.stack
       @inner-stack := inner.stack
       @stack := "MacroError at #$line: " & inner.stack
     else if typeof Error.capture-stack-trace == \function

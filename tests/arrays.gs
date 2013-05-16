@@ -1,363 +1,394 @@
-test "empty", #
-  let arr = []
-  ok is-array! arr
-  eq 0, arr.length
+describe "single-line arrays", #
+  it "allows an empty array", #
+    let arr = []
+    expect(arr)
+      .to.be.an(\array)
+      .to.be.empty
+    expect(Object.prototype.to-string.call(arr) == "[object Array]")
+  
+  it "allows for single-line arrays", #
+    let arr = ["alpha", "bravo", "charlie"]
+    expect(arr)
+      .to.be.an(\array)
+      .to.have.length(3)
+      .to.have.property(0)
+        .that.equals("alpha")
+    expect(arr)
+      .to.have.property(1)
+        .that.equals("bravo")
+    expect(arr)
+      .to.have.property(2)
+        .that.equals("charlie")
+  
+  /*
+  it "fails on single-line array missing commas", #
+    expect(#-> gorilla.compile """let x = 0
+    let y = ["alpha" "bravo" "charlie"]""").to.throw gorilla.ParserError
+  */
+  
+  it "ignores trailing comma", #
+    let arr = ["alpha", "bravo", "charlie",]
+    expect(arr)
+      .to.have.length(3)
+      .to.eql ["alpha", "bravo", "charlie"]
 
-test "simple, single-line", #
+describe "multi-line arrays", #
+  it "works with commas", #
+    let arr = [
+      "alpha",
+      "bravo",
+      "charlie"
+    ]
+    expect(arr).to.eql ["alpha", "bravo", "charlie"]
+  
+  it "works without commas", #
+    let arr = [
+      "alpha"
+      "bravo"
+      "charlie"
+    ]
+    expect(arr).to.eql ["alpha", "bravo", "charlie"]
+
+  it "works with mixed commas", #
+    let arr = [
+      "alpha"
+      "bravo",
+      "charlie"
+    ]
+    expect(arr).to.eql ["alpha", "bravo", "charlie"]
+  
+  it "works with multiple elements on one line", #
+    let arr = [
+      1, 2, 3
+      4, 5, 6
+      7, 8, 9
+    ]
+    expect(arr).to.eql [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  
+  it "works with objects", #
+    let arr = [
+      { a: 1 }
+      { b: 2 }
+      { c: 3 }
+    ]
+    expect(arr).to.eql [{a: 1}, {b: 2}, {c: 3}]
+
+describe "spread", #
   let arr = ["alpha", "bravo", "charlie"]
+  it "works at the beginning of an array", #
+    expect([...arr, "delta"]).to.eql ["alpha", "bravo", "charlie", "delta"]
   
-  eq 3, arr.length
-  eq "alpha", arr[0]
-  eq "bravo", arr[1]
-  eq "charlie", arr[2]
+  it "works at the end of an array", #
+    expect(["delta", ...arr]).to.eql ["delta", "alpha", "bravo", "charlie"]
+  
+  it "works in the middle of an array", #
+    expect(["delta", ...arr, "echo"]).to.eql ["delta", "alpha", "bravo", "charlie", "echo"]
+  
+  it "works with a literal array being spread", #
+    expect([...[arr], "delta"]).to.eql [["alpha", "bravo", "charlie"], "delta"]
+    expect(["delta", ...[arr]]).to.eql ["delta", ["alpha", "bravo", "charlie"]]
+    expect(["delta", ...[arr], "echo"]).to.eql ["delta", ["alpha", "bravo", "charlie"], "echo"]
+  
+  it "works with an array of arrays being spread", #
+    let arr2 = [arr]
+    expect([...arr2, "delta"]).to.eql [["alpha", "bravo", "charlie"], "delta"]
+    expect(["delta", ...arr2]).to.eql ["delta", ["alpha", "bravo", "charlie"]]
+    expect(["delta", ...arr2, "echo"]).to.eql ["delta", ["alpha", "bravo", "charlie"], "echo"]
+  
+  it "does not create an array that is reference equal if the only item", #
+    expect([...arr])
+      .to.eql(arr)
+      .to.not.equal(arr)
+  
+  it "works with multiple array spreads", #
+    let alpha = [1, 2, 3]
+    let bravo = [4, 5, 6]
+    
+    expect([...alpha, ...bravo]).to.eql [1, 2, 3, 4, 5, 6]
+    expect([...bravo, ...alpha]).to.eql [4, 5, 6, 1, 2, 3]
+    expect(["charlie", ...alpha, ...bravo]).to.eql ["charlie", 1, 2, 3, 4, 5, 6]
+    expect(["charlie", ...alpha, "delta", ...bravo]).to.eql ["charlie", 1, 2, 3, "delta", 4, 5, 6]
+    expect(["charlie", ...alpha, "delta", ...bravo, "echo"]).to.eql ["charlie", 1, 2, 3, "delta", 4, 5, 6, "echo"]
+    expect([...alpha, "delta", ...bravo]).to.eql [1, 2, 3, "delta", 4, 5, 6]
+    expect([...alpha, "delta", ...bravo, "echo"]).to.eql [1, 2, 3, "delta", 4, 5, 6, "echo"]
+    expect([...alpha, ...bravo, "echo"]).to.eql [1, 2, 3, 4, 5, 6, "echo"]
+
+describe "array containment", #
+  it "works on an ident", #
+    let array = ["alpha", "bravo", "charlie"]
+    expect("alpha" in array).to.be.true
+    expect("bravo" in array).to.be.true
+    expect("charlie" in array).to.be.true
+    expect("delta" in array).to.be.false
+    expect("delta" not in array).to.be.true
+  
+  it "works on a literal array", #
+    expect("alpha" in ["alpha", "bravo", "charlie"]).to.be.true
+    expect("bravo" in ["alpha", "bravo", "charlie"]).to.be.true
+    expect("charlie" in ["alpha", "bravo", "charlie"]).to.be.true
+    expect("delta" in ["alpha", "bravo", "charlie"]).to.be.false
+    expect("delta" not in ["alpha", "bravo", "charlie"]).to.be.true
+
+  it "does not calculate key more than once", #
+    let get-key = stub().returns "charlie"
+    let array = ["alpha", "bravo", "charlie"]
+    expect(get-key() in array).to.be.true
+    expect(get-key).to.be.called-once
+
+  it "does not calculate key more than once with literal array", #
+    let get-key = stub().returns "charlie"
+    expect(get-key() in ["alpha", "bravo", "charlie"]).to.be.true
+    expect(get-key).to.be.called-once
+
+  it "calculates key once with empty literal array", #
+    let get-key = stub().returns "charlie"
+    expect(get-key() in []).to.be.true
+    expect(get-key).to.be.called-once
+  
+  it "does not calculate array more than once", #
+    let get-array = stub().returns ["alpha", "bravo", "charlie"]
+    expect("charlie" in get-array()).to.be.true
+    expect(get-array).to.be.called-once
 
 /*
-test "single-line, missing commas", #
-  throws #-> gorilla.compile("""let x = 0
-  ["alpha" "bravo" "charlie"]"""), #(e) -> e.line == 2
-*/
-test "trailing comma", #
-  let arr = ["alpha", "bravo", "charlie",]
-  eq 3, arr.length
-  eq "alpha", arr[0]
-  eq "bravo", arr[1]
-  eq "charlie", arr[2]
-
-test "multi-line, with commas", #
-  let arr = [
-    "alpha",
-    "bravo",
-    "charlie"
-  ]
-  array-eq ["alpha", "bravo", "charlie"], arr
-
-test "multi-line, no commas", #
-  let arr = [
-    "alpha"
-    "bravo"
-    "charlie"
-  ]
-  array-eq ["alpha", "bravo", "charlie"], arr
-
-test "multi-line, mixed commas", #
-  let arr = [
-    "alpha"
-    "bravo",
-    "charlie"
-  ]
-  array-eq ["alpha", "bravo", "charlie"], arr
-
-test "multi-line, matrix-style", #
-  let arr = [
-    1, 2, 3
-    4, 5, 6
-    7, 8, 9
-  ]
-  array-eq [1, 2, 3, 4, 5, 6, 7, 8, 9], arr
-
-test "objects in multi-line array", #
-  let arr = [
-    { a: 1 }
-    { b: 2 }
-    { c: 3 }
-  ]
-  eq 3, arr.length
-  eq 1, arr[0].a
-  eq 2, arr[1].b
-  eq 3, arr[2].c
-
-test "array spreads", #
-  let arr = ["alpha", "bravo", "charlie"]
-  
-  array-eq ["alpha", "bravo", "charlie", "delta"], [...arr, "delta"]
-  array-eq ["delta", "alpha", "bravo", "charlie"], ["delta", ...arr]
-  array-eq [["alpha", "bravo", "charlie"], "delta"], [...[arr], "delta"]
-  array-eq ["delta", ["alpha", "bravo", "charlie"]], ["delta", ...[arr]]
-  let arr2 = [arr]
-  array-eq [["alpha", "bravo", "charlie"], "delta"], [...arr2, "delta"]
-  array-eq ["delta", ["alpha", "bravo", "charlie"]], ["delta", ...arr2]
-  
-  array-eq arr, [...arr]
-  ok arr != [...arr]
-
-test "multiple array spreads", #
-  let alpha = [1, 2, 3]
-  let bravo = [4, 5, 6]
-  
-  array-eq [1, 2, 3, 4, 5, 6], [...alpha, ...bravo]
-  array-eq [4, 5, 6, 1, 2, 3], [...bravo, ...alpha]
-  array-eq ["charlie", 1, 2, 3, 4, 5, 6], ["charlie", ...alpha, ...bravo]
-  array-eq ["charlie", 1, 2, 3, "delta", 4, 5, 6], ["charlie", ...alpha, "delta", ...bravo]
-  array-eq ["charlie", 1, 2, 3, "delta", 4, 5, 6, "echo"], ["charlie", ...alpha, "delta", ...bravo, "echo"]
-  array-eq [1, 2, 3, "delta", 4, 5, 6], [...alpha, "delta", ...bravo]
-  array-eq [1, 2, 3, "delta", 4, 5, 6, "echo"], [...alpha, "delta", ...bravo, "echo"]
-  array-eq [1, 2, 3, 4, 5, 6, "echo"], [...alpha, ...bravo, "echo"]
-
-test "immediate index", #
-  eq "alpha", ["alpha"][0]
-  eq Array::slice, [].slice
-
-test "array containment", #
-  let array = ["alpha", "bravo", "charlie"]
-  ok "alpha" in array
-  ok "bravo" in array
-  ok "charlie" in array
-  ok not ("delta" in array)
-  ok "delta" not in array
-
-test "array containment with literal array", #
-  ok "alpha" in ["alpha", "bravo", "charlie"]
-  ok "bravo" in ["alpha", "bravo", "charlie"]
-  ok "charlie" in ["alpha", "bravo", "charlie"]
-  ok not ("delta" in ["alpha", "bravo", "charlie"])
-  ok "delta" not in ["alpha", "bravo", "charlie"]
-
-test "array containment does not calculate key more than once", #
-  let get-key = run-once "charlie"
-  
-  let array = ["alpha", "bravo", "charlie"]
-  ok get-key() in array
-  ok get-key.ran
-
-test "array containment does not calculate key more than once with literal array", #
-  let get-key = run-once "charlie"
-  
-  ok get-key() in ["alpha", "bravo", "charlie"]
-  ok get-key.ran
-
-test "array containment calculates key at least once with literal array, even if empty", #
-  let get-key = run-once "charlie"
-  
-  ok get-key() not in []
-  ok get-key.ran
-
-test "array containment does not calculate array more than once", #
-  let get-array = run-once ["alpha", "bravo", "charlie"]
-
-  ok "charlie" in get-array()
-
-/*
-test "array with holes", #
-  array-eq ["alpha", undefined, "bravo"], ["alpha",,"bravo"]
-  array-eq ["alpha", undefined, undefined, "bravo"], ["alpha",,,"bravo"]
-  array-eq ["alpha", undefined, undefined, undefined, "bravo"], ["alpha",,,,"bravo"]
-  array-eq ["alpha", undefined, undefined, undefined, "bravo"], ["alpha",,,,"bravo",]
-  array-eq ["alpha", undefined, undefined, undefined, "bravo", undefined], ["alpha",,,,"bravo",,]
-  array-eq [undefined, "alpha", undefined, undefined, undefined, "bravo", undefined], [,"alpha",,,,"bravo",,]
-  array-eq [undefined, undefined, "alpha", undefined, undefined, undefined, "bravo", undefined], [,,"alpha",,,,"bravo",,]
-  array-eq [undefined], [,]
-  array-eq [undefined, undefined], [,,]
+it "array with holes", #
+  expect(["alpha",,"bravo"]).to.eql ["alpha", undefined, "bravo"]
+  expect(["alpha",,,"bravo"]).to.eql ["alpha", undefined, undefined, "bravo"]
+  expect(["alpha",,,,"bravo"]).to.eql ["alpha", undefined, undefined, undefined, "bravo"]
+  expect(["alpha",,,,"bravo",]).to.eql ["alpha", undefined, undefined, undefined, "bravo"]
+  expect(["alpha",,,,"bravo",,]).to.eql ["alpha", undefined, undefined, undefined, "bravo", undefined]
+  expect([,"alpha",,,,"bravo",,]).to.eql [undefined, "alpha", undefined, undefined, undefined, "bravo", undefined]
+  expect([,,"alpha",,,,"bravo",,]).to.eql [undefined, undefined, "alpha", undefined, undefined, undefined, "bravo", undefined]
+  expect([,]).to.eql [undefined]
+  expect([,,]).to.eql [undefined, undefined]
 */
 
-test "multiple access", #
-  let array = ["alpha", "bravo", "charlie", "delta", "echo"]
+describe "multiple access", #
+  it "returns an array", #
+    let array = ["alpha", "bravo", "charlie", "delta", "echo"]
+    expect(array[0, 2, 4]).to.eql ["alpha", "charlie", "echo"]
   
-  array-eq ["alpha", "charlie", "echo"], array[0, 2, 4]
+  it "only accesses object once", #
+    let get-array = stub().returns ["alpha", "bravo", "charlie", "delta", "echo"]
+    expect(get-array()[0, 2, 4]).to.eql ["alpha", "charlie", "echo"]
+    expect(get-array).to.be.called-once
+  
+  /*
+  it "multiple assignment", #
+    let array = ["alpha", "bravo", "charlie", "delta", "echo"]
 
-test "multiple access only accesses object once", #
-  let array = run-once ["alpha", "bravo", "charlie", "delta", "echo"]
-  
-  array-eq ["alpha", "charlie", "echo"], array()[0, 2, 4]
+    array[0, 2, 4] := ["foxtrot", "golf", "hotel"]
+    expect(array).to.eql ["foxtrot", "bravo", "golf", "delta", "hotel"]
 
-/*
-test "multiple assignment", #
-  let array = ["alpha", "bravo", "charlie", "delta", "echo"]
-  
-  array[0, 2, 4] := ["foxtrot", "golf", "hotel"]
-  array-eq ["foxtrot", "bravo", "golf", "delta", "hotel"], array
-  
-  let x = array[1, 3] := ["india", "juliet"]
-  array-eq ["foxtrot", "india", "golf", "juliet", "hotel"], array
-  array-eq ["india", "juliet"], x
-*/
+    let x = array[1, 3] := ["india", "juliet"]
+    expect(array).to.eql ["foxtrot", "india", "golf", "juliet", "hotel"]
+    expect(x).to.eql ["india", "juliet"]
+  */
 
-test "slicing", #
+describe "slicing", #
   let array = ["a", "b", "c", "d", "e"]
   
-  array-eq array, array[0 to -1]
-  ok array != array[0 to -1]
+  it "returns a similar array when slicing from 0 to -1", #
+    expect(array[0 to -1])
+      .to.eql(array)
+      .to.be.not.equal(array)
   
-  array-eq ["b", "c", "d", "e"], array[1 to -1]
-  array-eq ["e"], array[-1 to -1]
-  array-eq ["c", "d", "e"], array[2 to -1]
-  array-eq ["a", "b", "c"], array[0 to 2]
-  array-eq ["a", "b", "c"], array[0 til 3]
-  array-eq ["a", "b", "c", "d"], array[0 til -1]
-  array-eq ["b", "c", "d"], array[1 to 3]
-  array-eq ["b", "c", "d"], array[1 til 4]
-  array-eq ["e"], array[4 to -1]
-  array-eq [], array[5 to -1]
-  array-eq ["d", "e"], array[-2 to -1]
-  array-eq [], array[4 to 3]
-  array-eq [], array[4 til 4]
+  it "works as expected", #
+    expect(array[1 to -1]).to.eql ["b", "c", "d", "e"]
+    expect(array[-1 to -1]).to.eql ["e"]
+    expect(array[2 to -1]).to.eql ["c", "d", "e"]
+    expect(array[0 to 2]).to.eql ["a", "b", "c"]
+    expect(array[0 til 3]).to.eql ["a", "b", "c"]
+    expect(array[0 til -1]).to.eql ["a", "b", "c", "d"]
+    expect(array[1 to 3]).to.eql ["b", "c", "d"]
+    expect(array[1 til 4]).to.eql ["b", "c", "d"]
+    expect(array[4 to -1]).to.eql ["e"]
+    expect(array[5 to -1]).to.eql []
+    expect(array[-2 to -1]).to.eql ["d", "e"]
+    expect(array[4 to 3]).to.eql []
+    expect(array[4 til 4]).to.eql []
   
-  let slice(get-array, get-left, get-right, inclusive)
-    if inclusive
-      get-array()[get-left() to get-right()]
-    else
-      get-array()[get-left() til get-right()]
+  it "only accesses array, left, and right once each", #
+    let slice(get-array, get-left, get-right, inclusive)
+      let result = if inclusive
+        get-array()[get-left() to get-right()]
+      else
+        get-array()[get-left() til get-right()]
+      expect(get-array).to.be.called-once
+      expect(get-left).to.be.called-once
+      expect(get-right).to.be.called-once
+      result
+    
+    expect(slice stub().returns(array), stub().returns(0), stub().returns(-1), true)
+      .to.eql(array)
+      .to.be.not.equal(array)
+    expect(slice stub().returns(array), stub().returns(1), stub().returns(-1), true).to.eql ["b", "c", "d", "e"]
+    expect(slice stub().returns(array), stub().returns(-1), stub().returns(-1), true).to.eql ["e"]
+    expect(slice stub().returns(array), stub().returns(2), stub().returns(-1), true).to.eql ["c", "d", "e"]
+    expect(slice stub().returns(array), stub().returns(0), stub().returns(2), true).to.eql ["a", "b", "c"]
+    expect(slice stub().returns(array), stub().returns(0), stub().returns(3), false).to.eql ["a", "b", "c"]
+    expect(slice stub().returns(array), stub().returns(0), stub().returns(-1), false).to.eql ["a", "b", "c", "d"]
+    expect(slice stub().returns(array), stub().returns(1), stub().returns(3), true).to.eql ["b", "c", "d"]
+    expect(slice stub().returns(array), stub().returns(1), stub().returns(4), false).to.eql ["b", "c", "d"]
+    expect(slice stub().returns(array), stub().returns(4), stub().returns(-1), true).to.eql ["e"]
+    expect(slice stub().returns(array), stub().returns(5), stub().returns(-1), true).to.eql []
+    expect(slice stub().returns(array), stub().returns(-2), stub().returns(-1), true).to.eql ["d", "e"]
+    expect(slice stub().returns(array), stub().returns(4), stub().returns(3), true).to.eql []
+    expect(slice stub().returns(array), stub().returns(4), stub().returns(4), false).to.eql []
   
-  array-eq array, slice run-once(array), run-once(0), run-once(-1), true
-  ok array != slice run-once(array), run-once(0), run-once(-1), true
-  array-eq ["b", "c", "d", "e"], slice run-once(array), run-once(1), run-once(-1), true
-  array-eq ["e"], slice run-once(array), run-once(-1), run-once(-1), true
-  array-eq ["c", "d", "e"], slice run-once(array), run-once(2), run-once(-1), true
-  array-eq ["a", "b", "c"], slice run-once(array), run-once(0), run-once(2), true
-  array-eq ["a", "b", "c"], slice run-once(array), run-once(0), run-once(3), false
-  array-eq ["a", "b", "c", "d"], slice run-once(array), run-once(0), run-once(-1), false
-  array-eq ["b", "c", "d"], slice run-once(array), run-once(1), run-once(3), true
-  array-eq ["b", "c", "d"], slice run-once(array), run-once(1), run-once(4), false
-  array-eq ["e"], slice run-once(array), run-once(4), run-once(-1), true
-  array-eq [], slice run-once(array), run-once(5), run-once(-1), true
-  array-eq ["d", "e"], slice run-once(array), run-once(-2), run-once(-1), true
-  array-eq [], slice run-once(array), run-once(4), run-once(3), true
-  array-eq [], slice run-once(array), run-once(4), run-once(4), false
-
-test "slicing with step", #
-  let array = ["a", "b", "c", "d", "e"]
+  it "works with a specified step", #
+    expect(array[0 to -1 by 1])
+      .to.eql(array)
+      .to.be.not.equal(array)
+    
+    expect(array[-1 to 0 by -1]).to.eql ["e", "d", "c", "b", "a"]
+    expect(array[-1 to 0 by -2]).to.eql ["e", "c", "a"]
+    expect(array[0 to -1 by 2]).to.eql ["a", "c", "e"]
+    expect(array[1 to -1 by 1]).to.eql ["b", "c", "d", "e"]
+    expect(array[-1 to 1 by -1]).to.eql ["e", "d", "c", "b"]
+    expect(array[-1 to 1 by -2]).to.eql ["e", "c"]
+    expect(array[-1 to -1 by 100]).to.eql ["e"]
+    expect(array[2 to -1 by 2]).to.eql ["c", "e"]
+    expect(array[-1 to 2 by -2]).to.eql ["e", "c"]
+    expect(array[0 to 2 by 2]).to.eql ["a", "c"]
+    expect(array[2 to 0 by -2]).to.eql ["c", "a"]
+    expect(array[0 til -1 by 3]).to.eql ["a", "d"]
+    expect(array[1 to 3 by 2]).to.eql ["b", "d"]
+    expect(array[1 til 4 by 2]).to.eql ["b", "d"]
+    expect(array[3 to 1 by -2]).to.eql ["d", "b"]
+    expect(array[3 til 0 by -2]).to.eql ["d", "b"]
+    expect(array[4 to -1 by 1]).to.eql ["e"]
+    expect(array[5 to -1 by 1]).to.eql []
+    expect(array[-3 to -1 by 2]).to.eql ["c", "e"]
+    expect(array[4 to 3 by 1]).to.eql []
+    expect(array[4 til 4 by 1]).to.eql []
+    expect(array[4 to -1 by -1]).to.eql ["e"]
+    expect(array[5 to -1 by -1]).to.eql ["e"]
+    expect(array[-1 to -3 by -2]).to.eql ["e", "c"]
+    expect(array[3 to 4 by -1]).to.eql []
+    expect(array[4 til 4 by -1]).to.eql []
   
-  array-eq array, array[0 to -1 by 1]
-  ok array != array[0 to -1 by 1]
-  
-  array-eq ["e", "d", "c", "b", "a"], array[-1 to 0 by -1]
-  array-eq ["e", "c", "a"], array[-1 to 0 by -2]
-  array-eq ["a", "c", "e"], array[0 to -1 by 2]
-  array-eq ["b", "c", "d", "e"], array[1 to -1 by 1]
-  array-eq ["e", "d", "c", "b"], array[-1 to 1 by -1]
-  array-eq ["e", "c"], array[-1 to 1 by -2]
-  array-eq ["e"], array[-1 to -1 by 100]
-  array-eq ["c", "e"], array[2 to -1 by 2]
-  array-eq ["e", "c"], array[-1 to 2 by -2]
-  array-eq ["a", "c"], array[0 to 2 by 2]
-  array-eq ["c", "a"], array[2 to 0 by -2]
-  array-eq ["a", "d"], array[0 til -1 by 3]
-  array-eq ["b", "d"], array[1 to 3 by 2]
-  array-eq ["b", "d"], array[1 til 4 by 2]
-  array-eq ["d", "b"], array[3 to 1 by -2]
-  array-eq ["d", "b"], array[3 til 0 by -2]
-  array-eq ["e"], array[4 to -1 by 1]
-  array-eq [], array[5 to -1 by 1]
-  array-eq ["c", "e"], array[-3 to -1 by 2]
-  array-eq [], array[4 to 3 by 1]
-  array-eq [], array[4 til 4 by 1]
-  array-eq ["e"], array[4 to -1 by -1]
-  array-eq ["e"], array[5 to -1 by -1]
-  array-eq ["e", "c"], array[-1 to -3 by -2]
-  array-eq [], array[3 to 4 by -1]
-  array-eq [], array[4 til 4 by -1]
-  
-  let slice(get-array, get-left, get-right, get-step, inclusive)
-    if inclusive
-      get-array()[get-left() to get-right() by get-step()]
-    else
-      get-array()[get-left() til get-right() by get-step()]
-  
-  array-eq array, slice run-once(array), run-once(0), run-once(-1), run-once(1), true
-  ok array != slice run-once(array), run-once(0), run-once(-1), run-once(1), true
-  array-eq ["e", "d", "c", "b", "a"], slice run-once(array), run-once(-1), run-once(0), run-once(-1), true
-  array-eq ["e", "c", "a"], slice run-once(array), run-once(-1), run-once(0), run-once(-2), true
-  array-eq ["a", "c", "e"], slice run-once(array), run-once(0), run-once(-1), run-once(2), true
-  array-eq ["b", "c", "d", "e"], slice run-once(array), run-once(1), run-once(-1), run-once(1), true
-  array-eq ["e", "d", "c", "b"], slice run-once(array), run-once(-1), run-once(1), run-once(-1), true
-  array-eq ["e", "c"], slice run-once(array), run-once(-1), run-once(1), run-once(-2), true
-  array-eq ["e"], slice run-once(array), run-once(-1), run-once(-1), run-once(100), true
-  array-eq ["c", "e"], slice run-once(array), run-once(2), run-once(-1), run-once(2), true
-  array-eq ["e", "c"], slice run-once(array), run-once(-1), run-once(2), run-once(-2), true
-  array-eq ["a", "c"], slice run-once(array), run-once(0), run-once(2), run-once(2), true
-  array-eq ["c", "a"], slice run-once(array), run-once(2), run-once(0), run-once(-2), true
-  array-eq ["a", "d"], slice run-once(array), run-once(0), run-once(-1), run-once(3), false
-  array-eq ["b", "d"], slice run-once(array), run-once(1), run-once(3), run-once(2), true
-  array-eq ["b", "d"], slice run-once(array), run-once(1), run-once(4), run-once(2), false
-  array-eq ["d", "b"], slice run-once(array), run-once(3), run-once(1), run-once(-2), true
-  array-eq ["d", "b"], slice run-once(array), run-once(3), run-once(0), run-once(-2), false
+  it "only accesses array, left, right, and step once", #
+    let slice(get-array, get-left, get-right, get-step, inclusive)
+      let result = if inclusive
+        get-array()[get-left() to get-right() by get-step()]
+      else
+        get-array()[get-left() til get-right() by get-step()]
+      expect(get-array).to.be.called-once
+      expect(get-left).to.be.called-once
+      expect(get-right).to.be.called-once
+      result
+    
+    expect(slice stub().returns(array), stub().returns(0), stub().returns(-1), stub().returns(1), true)
+      .to.eql(array)
+      .to.be.not.equal(array)
+    expect(slice stub().returns(array), stub().returns(-1), stub().returns(0), stub().returns(-1), true).to.eql ["e", "d", "c", "b", "a"]
+    expect(slice stub().returns(array), stub().returns(-1), stub().returns(0), stub().returns(-2), true).to.eql ["e", "c", "a"]
+    expect(slice stub().returns(array), stub().returns(0), stub().returns(-1), stub().returns(2), true).to.eql ["a", "c", "e"]
+    expect(slice stub().returns(array), stub().returns(1), stub().returns(-1), stub().returns(1), true).to.eql ["b", "c", "d", "e"]
+    expect(slice stub().returns(array), stub().returns(-1), stub().returns(1), stub().returns(-1), true).to.eql ["e", "d", "c", "b"]
+    expect(slice stub().returns(array), stub().returns(-1), stub().returns(1), stub().returns(-2), true).to.eql ["e", "c"]
+    expect(slice stub().returns(array), stub().returns(-1), stub().returns(-1), stub().returns(100), true).to.eql ["e"]
+    expect(slice stub().returns(array), stub().returns(2), stub().returns(-1), stub().returns(2), true).to.eql ["c", "e"]
+    expect(slice stub().returns(array), stub().returns(-1), stub().returns(2), stub().returns(-2), true).to.eql ["e", "c"]
+    expect(slice stub().returns(array), stub().returns(0), stub().returns(2), stub().returns(2), true).to.eql ["a", "c"]
+    expect(slice stub().returns(array), stub().returns(2), stub().returns(0), stub().returns(-2), true).to.eql ["c", "a"]
+    expect(slice stub().returns(array), stub().returns(0), stub().returns(-1), stub().returns(3), false).to.eql ["a", "d"]
+    expect(slice stub().returns(array), stub().returns(1), stub().returns(3), stub().returns(2), true).to.eql ["b", "d"]
+    expect(slice stub().returns(array), stub().returns(1), stub().returns(4), stub().returns(2), false).to.eql ["b", "d"]
+    expect(slice stub().returns(array), stub().returns(3), stub().returns(1), stub().returns(-2), true).to.eql ["d", "b"]
+    expect(slice stub().returns(array), stub().returns(3), stub().returns(0), stub().returns(-2), false).to.eql ["d", "b"]
 /*
-test "splicing", #
-  let array = []
-  
-  array[:] := ["a", "b", "c"]
-  array-eq ["a", "b", "c"], array
-  
-  array[:] := ["d", "e", "f"]
-  array-eq ["d", "e", "f"], array
-  
-  array[1:] := ["g", "h"]
-  array-eq ["d", "g", "h"], array
-  
-  array[:1] := ["i", "j"]
-  array-eq ["i", "j", "g", "h"], array
-  
-  let result = array[2:] := ["k", "l"]
-  array-eq ["i", "j", "k", "l"], array
-  array-eq ["k", "l"], result
-  
-  array[2:2] := ["m", "n"]
-  array-eq ["i", "j", "m", "n", "k", "l"], array
-  
-  array[-1:] := ["o", "p"]
-  array-eq ["i", "j", "m", "n", "k", "o", "p"], array
-  
-  array[-2:-1] := ["q", "r"]
-  array-eq ["i", "j", "m", "n", "k", "q", "r", "p"], array
-  
-  array[1:-1] := ["s", "t"]
-  array-eq ["i", "s", "t", "p"], array
-  
-  array[:-1] := ["u", "v"]
-  array-eq ["u", "v", "p"], array
+describe "splicing", #
+  it "doesn't work currently", #
+    let array = []
+
+    array[:] := ["a", "b", "c"]
+    expect(array).to.eql ["a", "b", "c"]
+
+    array[:] := ["d", "e", "f"]
+    expect(array).to.eql ["d", "e", "f"]
+
+    array[1:] := ["g", "h"]
+    expect(array).to.eql ["d", "g", "h"]
+
+    array[:1] := ["i", "j"]
+    expect(array).to.eql ["i", "j", "g", "h"]
+
+    let result = array[2:] := ["k", "l"]
+    expect(array).to.eql ["i", "j", "k", "l"]
+    expect(result).to.eql ["k", "l"]
+
+    array[2:2] := ["m", "n"]
+    expect(array).to.eql ["i", "j", "m", "n", "k", "l"]
+
+    array[-1:] := ["o", "p"]
+    expect(array).to.eql ["i", "j", "m", "n", "k", "o", "p"]
+
+    array[-2:-1] := ["q", "r"]
+    expect(array).to.eql ["i", "j", "m", "n", "k", "q", "r", "p"]
+
+    array[1:-1] := ["s", "t"]
+    expect(array).to.eql ["i", "s", "t", "p"]
+
+    array[:-1] := ["u", "v"]
+    expect(array).to.eql ["u", "v", "p"]
 */
-test "unclosed array syntax, multi-line", #
-  let arr =
-    * 1
-    * 2
-    * 3
-    * 4
-  
-  array-eq [1, 2, 3, 4], arr
 
-test "unclosed array syntax, single item", #
-  let arr =
-    * 1
-  
-  array-eq [1], arr
-
-test "unclosed array syntax in invocation, multi-line", #
-  let f(a) -> a
-  let arr = f
-    * 1
-    * 2
-    * 3
-    * 4
-  
-  array-eq [1, 2, 3, 4], arr
-
-test "unclosed array syntax in invocation with leading args, multi-line", #
-  let f(a, b, o) -> [a, b, o]
-  let arr = f 1, 2,
-    * 3
-    * 4
-  
-  array-eq [1, 2, [3, 4]], arr
-
-test "unclosed array syntax as function return", #
-  let f()
-    * 1
-    * 2
-    * 3
-    * 4
-  let arr = f()
-  array-eq [1, 2, 3, 4], arr
-
-test "multi-level unclosed array syntax", #
-  let x =
-    * 1
-    * 2
-    *
+describe "unclosed array syntax", #
+  it "works when assigned", #
+    let arr =
+      * 1
+      * 2
       * 3
       * 4
-    * * 5
-      * * 6
-        * 7
-      * 8
-    * 9
+
+    expect(arr).to.eql [1, 2, 3, 4]
+
+  it "works with only a single item", #
+    let arr =
+      * 1
+
+    expect(arr).to.eql [1]
   
-  array-eq [1, 2, [3, 4], [5, [6, 7], 8], 9], x
+  it "works in an invocation", #
+    let f(a) -> a
+    let arr = f
+      * 1
+      * 2
+      * 3
+      * 4
+
+    expect(arr).to.eql [1, 2, 3, 4]
+
+  it "works in an invocation with leading arguments", #
+    let f(a, b, o) -> [a, b, o]
+    let arr = f 1, 2,
+      * 3
+      * 4
+
+    expect(arr).to.eql [1, 2, [3, 4]]
+  
+  it "acts as the function return if the last expression", #
+    let f()
+      * 1
+      * 2
+      * 3
+      * 4
+    expect(f()).to.eql [1, 2, 3, 4]
+  
+  it "allows for multiple levels", #
+    let x =
+      * 1
+      * 2
+      *
+        * 3
+        * 4
+      * * 5
+        * * 6
+          * 7
+        * 8
+      * 9
+
+    expect(x).to.eql [1, 2, [3, 4], [5, [6, 7], 8], 9]
+  

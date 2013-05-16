@@ -1,273 +1,278 @@
-test "simple switch expression", #
-  let run(num)
-    switch num
-    // comment
-    case 1; "one"
-    case 2
-      "two"
-    // another comment, why not?
-    case "a"
-      "eh"
-  
-  eq "one", run 1
-  eq "two", run 2
-  eq "eh", run "a"
-  eq void, run "other"
-
-test "switch expression with fallthrough", #
-  let run(num)
-    switch num
-    case 1; "one"
-    case 2
-      fallthrough
-    case 3
-      "two or three"
-    case "a"
-      "eh"
-  
-  eq "one", run 1
-  eq "two or three", run 2
-  eq "two or three", run 3
-  eq "eh", run "a"
-  eq void, run "other"
-
-test "switch expression with fallthrough and body", #
-  let run(num)
-    let mutable found-two = false
-    switch num
-    case 1; "one"
-    case 2
-      found-two := true
-      fallthrough
-    case 3
-      if found-two
+describe "switch", #
+  it "works as the return value if the last statement", #
+    let run(num)
+      switch num
+      // comment
+      case 1; "one"
+      case 2
         "two"
-      else
-        "three"
-    case "a"
-      "eh"
+      // another comment, why not?
+      case "a"
+        "eh"
+    
+    expect(run 1).to.equal "one"
+    expect(run 2).to.equal "two"
+    expect(run "a").to.equal "eh"
+    expect(run "other").to.be.undefined
   
-  eq "one", run 1
-  eq "two", run 2
-  eq "three", run 3
-  eq "eh", run "a"
-  eq void, run "other"
-
-test "simple switch expression with default", #
-  let run(num)
-    switch num
-    case 1; "one"
-    case 2
-      "two"
-    case "a"
-      "eh"
-    default
-      "unknown"
+  it "fallsthrough to the next case if fallthrough is detected", #
+    let run(num)
+      switch num
+      case 1; "one"
+      case 2
+        fallthrough
+      case 3
+        "two or three"
+      case "a"
+        "eh"
   
-  eq "one", run 1
-  eq "two", run 2
-  eq "eh", run "a"
-  eq "unknown", run "other"
-
-test "switch expression with multi-valued case", #
-  let run(num)
-    switch num
-    case 1, 2, 3; "one, two, or three"
-    case 4, 5, 6
-      "four, five, or six"
-    default; "other"
-
-  eq "one, two, or three", run 1
-  eq "one, two, or three", run 2
-  eq "one, two, or three", run 3
-
-  eq "four, five, or six", run 4
-  eq "four, five, or six", run 5
-  eq "four, five, or six", run 6
-
-  eq "other", run 0
-
-test "switch expression as assignment", #
-  let run(num)
-    let result = switch num
-    case 1; "one"
-    case 2
-      "two"
-    result
-
-  eq "one", run 1
-  eq "two", run 2
-  eq undefined, run 3
-
-test "switch expression allows non-const case checks, stops on first success", #
-  let f = runOnce 1
-  switch 1
-  case f()
-    success()
-    fallthrough
-  case f()
-    success()
-  case f()
-    fail()
-  case f()
-    fail()
-  case f(), f(), f(), f()
-    fail()
-
-test "Switch should not fallthrough in a case where a return is present but not guaranteed", #
-  let mutable value = 1
-  switch true
-  case true
-    if not value
-      return 5
-  default
-    value := 2
-  eq 1, value
-
-test "Switch should have this and arguments available in the cases when an implicit closure is made", #
-  let fun(value)
-    let result = switch value
-    case "this"
-      this
-    //case "arguments"
-    //  arguments
-    result
-
-  let obj = {}
-  eq obj, fun.call(obj, "this")
-  //arrayEq ["arguments"], fun("arguments")[:]
-  //arrayEq ["arguments", "alpha", "bravo", "charlie"], fun("arguments", "alpha", "bravo", "charlie")[:]
-
-test "Switch should have this and arguments available in the case checks when an implicit closure is made", #
-  let fun(value)
-    let result = switch value
-    case this.value
-      "this"
-    //case arguments[1]
-    //  "arguments"
-    default
-      "other"
-    result
-
-  eq "this", fun.call({value: "alpha"}, "alpha")
-  //eq "arguments", fun.call({}, "bravo", "bravo")
-  eq "other", fun.call({}, "bravo", "charlie")
-
-test "Switch should have this available in the value check when an implicit closure is made", #
-  let fun()
-    let result = switch this.value
-    case 1
-      "one"
-    case 2
-      "two"
-    result
-
-  eq "one", fun.call({ value: 1 })
-  eq "two", fun.call({ value: 2 })
-
-/*
-test "Switch should have arguments available in the value check when an implicit closure is made", #
-  let fun()
-    let result = switch arguments[0]
-    case 1
-      "one"
-    case 2
-      "two"
-    result
-
-  eq "one", fun(1)
-  eq "two", fun(2)
-*/
-
-/*
-test "Switch should break out of a while loop using break", #
-  let mutable i = 0
-  while i < 100, i += 1
-    switch i
-    case 10
-      break
-  eq 10, i
-*/
-
-test "break inside of a loop inside of a switch should break the loop", #
-  let fun(value)
-    switch value
-    case 1
-      let mutable i = 0
-      while i < 100, i += 1
-        if i == 10
-          break
-      i
-
-  eq 10, fun(1)
-
-test "topicless switch expression", #
-  let run(num)
-    switch
-    // comment
-    case num == 1; "one"
-    case num == 2
-      "two"
-    // another comment, why not?
-    case num == "a"
-      "eh"
-
-  eq "one", run 1
-  eq "two", run 2
-  eq "eh", run "a"
-  eq void, run "other"
-
-test "topicless switch expression with fallthrough", #
-  let run(num)
-    switch
-    case num == 1; "one"
-    case num == 2
-      fallthrough
-    case num == 3
-      "two or three"
-    case num == "a"
-      "eh"
-
-  eq "one", run 1
-  eq "two or three", run 2
-  eq "two or three", run 3
-  eq "eh", run "a"
-  eq void, run "other"
-
-test "topicless switch expression with fallthrough and body", #
-  let run(num)
-    let mutable found-two = false
-    switch
-    case num == 1; "one"
-    case num == 2
-      found-two := true
-      fallthrough
-    case num == 3
-      if found-two
+    expect(run 1).to.equal "one"
+    expect(run 2).to.equal "two or three"
+    expect(run 3).to.equal "two or three"
+    expect(run "a").to.equal "eh"
+    expect(run "other").to.be.undefined
+  
+  it "will execute code before falling through", #
+    let run(num)
+      let mutable found-two = false
+      switch num
+      case 1; "one"
+      case 2
+        found-two := true
+        fallthrough
+      case 3
+        if found-two
+          "two"
+        else
+          "three"
+      case "a"
+        "eh"
+  
+    expect(run 1).to.equal "one"
+    expect(run 2).to.equal "two"
+    expect(run 3).to.equal "three"
+    expect(run "a").to.equal "eh"
+    expect(run "other").to.be.undefined
+  
+  it "will execute the default block if no case reached", #
+    let run(num)
+      switch num
+      case 1; "one"
+      case 2
         "two"
-      else
-        "three"
-    case num == "a"
-      "eh"
+      case "a"
+        "eh"
+      default
+        "unknown"
+  
+    expect(run 1).to.equal "one"
+    expect(run 2).to.equal "two"
+    expect(run "a").to.equal "eh"
+    expect(run "other").to.equal "unknown"
 
-  eq "one", run 1
-  eq "two", run 2
-  eq "three", run 3
-  eq "eh", run "a"
-  eq void, run "other"
+  it "can support multiple case values at once", #
+    let run(num)
+      switch num
+      case 1, 2, 3; "one, two, or three"
+      case 4, 5, 6
+        "four, five, or six"
+      default; "other"
 
-test "topicless switch expression with default", #
-  let run(num)
-    switch
-    case num == 1; "one"
-    case num == 2
-      "two"
-    case num == "a"
-      "eh"
+    expect(run 1).to.equal "one, two, or three"
+    expect(run 2).to.equal "one, two, or three"
+    expect(run 3).to.equal "one, two, or three"
+
+    expect(run 4).to.equal "four, five, or six"
+    expect(run 5).to.equal "four, five, or six"
+    expect(run 6).to.equal "four, five, or six"
+
+    expect(run 0).to.equal "other"
+
+  it "can be used as an expression", #
+    let run(num)
+      let result = switch num
+      case 1; "one"
+      case 2
+        "two"
+      result
+
+    expect(run 1).to.equal "one"
+    expect(run 2).to.equal "two"
+    expect(run 3).to.equal undefined
+
+  it "allows non-const case nodes, stopping on the first equal value", #
+    let f = stub().returns 1
+    let ran = stub()
+    switch 1
+    case f()
+      ran()
+      fallthrough
+    case f()
+      ran()
+    case f()
+      throw Error "never reached"
+    case f()
+      throw Error "never reached"
+    case f(), f(), f(), f()
+      throw Error "never reached"
+    expect(f).to.be.called-once
+    expect(ran).to.be.called-twice
+
+  it "should not fallthrough in a case where a return is present but not guaranteed", #
+    let mutable value = 1
+    switch true
+    case true
+      if not value
+        return 5
     default
-      "unknown"
+      value := 2
+    expect(value).to.equal 1
 
-  eq "one", run 1
-  eq "two", run 2
-  eq "eh", run "a"
-  eq "unknown", run "other"
+  it "should have this and arguments available in the cases when an implicit closure is made", #
+    let fun(value)
+      let result = switch value
+      case "this"
+        this
+      //case "arguments"
+      //  arguments
+      result
+
+    let obj = {}
+    expect(fun.call(obj, "this")).to.equal obj
+    //arrayEq ["arguments"], fun("arguments")[:]
+    //arrayEq ["arguments", "alpha", "bravo", "charlie"], fun("arguments", "alpha", "bravo", "charlie")[:]
+  
+  it "should have this and arguments available in the case checks when an implicit closure is made", #
+    let fun(value)
+      let result = switch value
+      case this.value
+        "this"
+      //case arguments[1]
+      //  "arguments"
+      default
+        "other"
+      result
+
+    expect(fun.call({value: "alpha"}, "alpha")).to.equal "this"
+    //expect(fun.call({}, "bravo", "bravo")).to.equal "arguments"
+    expect(fun.call({}, "bravo", "charlie")).to.equal "other"
+
+  it "should have this available in the value check when an implicit closure is made", #
+    let fun()
+      let result = switch this.value
+      case 1
+        "one"
+      case 2
+        "two"
+      result
+
+    expect(fun.call({ value: 1 })).to.equal "one"
+    expect(fun.call({ value: 2 })).to.equal "two"
+
+  /*
+  it "should have arguments available in the value check when an implicit closure is made", #
+    let fun()
+      let result = switch arguments[0]
+      case 1
+        "one"
+      case 2
+        "two"
+      result
+
+    expect(fun(1)).to.equal "one"
+    expect(fun(2)).to.equal "two"
+  */
+
+  /*
+  it "should break out of a while loop using break", #
+    let mutable i = 0
+    while i < 100, i += 1
+      switch i
+      case 10
+        break
+    expect(i).to.equal 10
+  */
+
+  it "should not allow inner loops to break out of the switch without labels", #
+    let fun(value)
+      switch value
+      case 1
+        let mutable i = 0
+        while i < 100, i += 1
+          if i == 10
+            break
+        i
+
+    expect(fun(1)).to.equal 10
+
+describe "topicless switch", #
+  it "works", #
+    let run(num)
+      switch
+      // comment
+      case num == 1; "one"
+      case num == 2
+        "two"
+      // another comment, why not?
+      case num == "a"
+        "eh"
+
+    expect(run 1).to.equal "one"
+    expect(run 2).to.equal "two"
+    expect(run "a").to.equal "eh"
+    expect(run "other").to.be.undefined
+
+  it "works with fallthrough", #
+    let run(num)
+      switch
+      case num == 1; "one"
+      case num == 2
+        fallthrough
+      case num == 3
+        "two or three"
+      case num == "a"
+        "eh"
+
+    expect(run 1).to.equal "one"
+    expect(run 2).to.equal "two or three"
+    expect(run 3).to.equal "two or three"
+    expect(run "a").to.equal "eh"
+    expect(run "other").to.be.undefined
+
+  it "works with fallthrough and body", #
+    let run(num)
+      let mutable found-two = false
+      switch
+      case num == 1; "one"
+      case num == 2
+        found-two := true
+        fallthrough
+      case num == 3
+        if found-two
+          "two"
+        else
+          "three"
+      case num == "a"
+        "eh"
+
+    expect(run 1).to.equal "one"
+    expect(run 2).to.equal "two"
+    expect(run 3).to.equal "three"
+    expect(run "a").to.equal "eh"
+    expect(run "other").to.be.undefined
+
+  it "works with default case", #
+    let run(num)
+      switch
+      case num == 1; "one"
+      case num == 2
+        "two"
+      case num == "a"
+        "eh"
+      default
+        "unknown"
+
+    expect(run 1).to.equal "one"
+    expect(run 2).to.equal "two"
+    expect(run "a").to.equal "eh"
+    expect(run "other").to.equal "unknown"
