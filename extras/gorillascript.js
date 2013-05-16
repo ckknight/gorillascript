@@ -30427,7 +30427,7 @@
         }
       }
       function makeHasGeneratorNode() {
-        var inLoopCache, inSwitchCache, normalCache;
+        var inLoopCache, inSwitchCache, normalCache, returnFreeCache;
         inLoopCache = Cache.generic(ParserNode, Boolean)();
         function hasInLoop(node) {
           var _once;
@@ -30500,18 +30500,27 @@
             return false;
           }));
         }
+        returnFreeCache = Cache.generic(ParserNode, Boolean)();
         normalCache = Cache.generic(ParserNode, Boolean)();
-        function hasGeneratorNode(node) {
+        function hasGeneratorNode(node, allowReturn) {
           var _once;
           if (!(node instanceof ParserNode)) {
             throw TypeError("Expected node to be a " + __name(ParserNode) + ", got " + __typeof(node));
           }
-          return normalCache.getOrAdd(node, (_once = false, function (node) {
+          if (allowReturn == null) {
+            allowReturn = false;
+          } else if (typeof allowReturn !== "boolean") {
+            throw TypeError("Expected allowReturn to be a Boolean, got " + __typeof(allowReturn));
+          }
+          return (allowReturn ? returnFreeCache : normalCache).getOrAdd(node, (_once = false, function (node) {
             var _ref, FOUND;
             if (_once) {
               throw Error("Attempted to call function more than once");
             } else {
               _once = true;
+            }
+            if (!allowReturn && (_ref = returnFreeCache.get(node))) {
+              return _ref;
             }
             if (_ref = inLoopCache.get(node)) {
               return _ref;
@@ -30519,7 +30528,7 @@
             if (_ref = inSwitchCache.get(node)) {
               return _ref;
             }
-            if (node instanceof ParserNode.Yield || node instanceof ParserNode.Return || node instanceof ParserNode.Continue || node instanceof ParserNode.Break) {
+            if (node instanceof ParserNode.Yield || node instanceof ParserNode.Continue || node instanceof ParserNode.Break || !allowReturn && node instanceof ParserNode.Return) {
               return true;
             } else if (!(node instanceof ParserNode.Function)) {
               FOUND = {};
@@ -30533,7 +30542,7 @@
                     if (hasInSwitch(n)) {
                       throw FOUND;
                     }
-                  } else if (hasGeneratorNode(n)) {
+                  } else if (hasGeneratorNode(n, allowReturn)) {
                     throw FOUND;
                   }
                   return n;
@@ -30836,7 +30845,7 @@
       }());
       GeneratorBuilder = (function () {
         var _GeneratorBuilder_prototype;
-        function GeneratorBuilder(pos, scope) {
+        function GeneratorBuilder(pos, scope, hasGeneratorNode) {
           var _this, sendScope;
           _this = this instanceof GeneratorBuilder ? this : __create(_GeneratorBuilder_prototype);
           if (typeof pos !== "object" || pos === null) {
@@ -30847,6 +30856,10 @@
             throw TypeError("Expected scope to be a " + __name(Scope) + ", got " + __typeof(scope));
           }
           _this.scope = scope;
+          if (typeof hasGeneratorNode !== "function") {
+            throw TypeError("Expected hasGeneratorNode to be a Function, got " + __typeof(hasGeneratorNode));
+          }
+          _this.hasGeneratorNode = hasGeneratorNode;
           _this.currentCatch = [];
           _this.redirects = Map();
           _this.start = GeneratorState(_this);
@@ -30864,7 +30877,6 @@
           sendScope.markAsParam(_this.receivedIdent);
           _this.finallies = [];
           _this.catches = [];
-          _this.hasGeneratorNode = makeHasGeneratorNode();
           return _this;
         }
         _GeneratorBuilder_prototype = GeneratorBuilder.prototype;
@@ -32903,7 +32915,7 @@
           }());
           return function (node, scope, location, autoReturn) {
             return function () {
-              var _arr, body, builder, fakeThis, i, initializers, innerScope, len, p, param, paramIdents, realInnerScope, unassigned;
+              var _arr, body, builder, fakeThis, func, hasGeneratorNode, i, initializers, innerScope, isSimpleGenerator, len, p, param, paramIdents, realInnerScope, unassigned;
               innerScope = scope.clone(!!node.bound);
               realInnerScope = innerScope;
               if (node.generator && !innerScope.bound) {
@@ -32921,8 +32933,10 @@
                 initializers.push.apply(initializers, __toArray(param.init));
               }
               unassigned = {};
-              if (node.generator) {
-                builder = GeneratorBuilder(getPos(node), innerScope);
+              hasGeneratorNode = makeHasGeneratorNode();
+              isSimpleGenerator = node.generator && !hasGeneratorNode(node.body, true);
+              if (node.generator && !isSimpleGenerator) {
+                builder = GeneratorBuilder(getPos(node), innerScope, hasGeneratorNode);
                 generatorTranslate(node.body, innerScope, builder.start).goto(getPos(node), function () {
                   return builder.stop;
                 });
@@ -32932,7 +32946,7 @@
                   node.body,
                   innerScope,
                   "topStatement",
-                  node.autoReturn,
+                  !isSimpleGenerator && node.autoReturn,
                   unassigned
                 )();
               }
@@ -32970,14 +32984,24 @@
               if (node.curry) {
                 throw Error("Expected node to already be curried");
               }
-              return autoReturn(ast.Func(
+              func = ast.Func(
                 getPos(node),
                 null,
                 paramIdents,
                 innerScope.getVariables(),
                 body,
                 []
-              ));
+              );
+              if (isSimpleGenerator) {
+                scope.addHelper("__generator");
+                return autoReturn(ast.Call(
+                  getPos(node),
+                  ast.Ident(getPos(node), "__generator"),
+                  [func]
+                ));
+              } else {
+                return autoReturn(func);
+              }
             };
           };
         }()),
@@ -33999,7 +34023,7 @@
       fs = require("fs");
       path = require("path");
       DEFAULT_TRANSLATOR = "./jstranslator";
-      exports.version = "0.6.3";
+      exports.version = "0.6.4";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -55914,6 +55938,314 @@
           ],
           type: "function",
           dependencies: ["__defer", "__toArray", "__toPromise"]
+        },
+        __generator: {
+          helper: [
+            "Func",
+            3717,
+            30,
+            0,
+            0,
+            [["Ident", 3717, 31, 0, "func"]],
+            [],
+            [],
+            "Return",
+            3717,
+            41,
+            0,
+            "Func",
+            3717,
+            41,
+            0,
+            0,
+            [],
+            ["_this", "data"],
+            [],
+            "BlockStatement",
+            3718,
+            1,
+            0,
+            0,
+            [
+              "Binary",
+              3718,
+              1,
+              0,
+              ["Ident", 3718, 1, 0, "_this"],
+              "=",
+              "This",
+              3718,
+              1,
+              0
+            ],
+            [
+              "Binary",
+              1,
+              1,
+              0,
+              ["Ident", 3718, 14, 0, "data"],
+              "=",
+              "Arr",
+              3718,
+              32,
+              0,
+              ["This", 3718, 34, 0],
+              [
+                "Call",
+                3718,
+                39,
+                0,
+                [
+                  "Binary",
+                  3718,
+                  39,
+                  0,
+                  ["Ident", 3718, 39, 0, "__slice"],
+                  ".",
+                  "Const",
+                  3718,
+                  48,
+                  0,
+                  "call"
+                ],
+                0,
+                ["Arguments", 3718, 53, 0]
+              ]
+            ],
+            [
+              "Return",
+              119891,
+              120137,
+              0,
+              "Obj",
+              119891,
+              120137,
+              0,
+              3720,
+              5,
+              null,
+              "iterator",
+              [
+                "Func",
+                3720,
+                13,
+                0,
+                0,
+                [],
+                [],
+                [],
+                "Return",
+                3720,
+                18,
+                0,
+                "This",
+                3720,
+                18,
+                0
+              ],
+              3721,
+              5,
+              null,
+              "send",
+              [
+                "Func",
+                3721,
+                9,
+                0,
+                0,
+                [],
+                ["tmp"],
+                [],
+                "Return",
+                119934,
+                120092,
+                0,
+                "Obj",
+                119934,
+                120092,
+                0,
+                3723,
+                10,
+                null,
+                "done",
+                ["Const", 3723, 9, 0, true],
+                3724,
+                9,
+                null,
+                "value",
+                [
+                  "IfExpression",
+                  1,
+                  1,
+                  0,
+                  ["Ident", 3724, 18, 0, "data"],
+                  [
+                    "BlockExpression",
+                    3725,
+                    1,
+                    0,
+                    [
+                      "Binary",
+                      1,
+                      1,
+                      0,
+                      ["Ident", 3725, 14, 0, "tmp"],
+                      "=",
+                      "Ident",
+                      3725,
+                      20,
+                      0,
+                      "data"
+                    ],
+                    [
+                      "Binary",
+                      1,
+                      1,
+                      0,
+                      ["Ident", 3726, 11, 0, "data"],
+                      "=",
+                      "Const",
+                      3726,
+                      18,
+                      0,
+                      null
+                    ],
+                    [
+                      "Call",
+                      3727,
+                      11,
+                      0,
+                      [
+                        "Binary",
+                        3727,
+                        11,
+                        0,
+                        ["Ident", 3727, 11, 0, "func"],
+                        ".",
+                        "Const",
+                        3727,
+                        16,
+                        0,
+                        "apply"
+                      ],
+                      0,
+                      [
+                        "Binary",
+                        3727,
+                        22,
+                        0,
+                        ["Ident", 3727, 22, 0, "tmp"],
+                        ".",
+                        "Const",
+                        3727,
+                        26,
+                        0,
+                        0
+                      ],
+                      [
+                        "Binary",
+                        3727,
+                        29,
+                        0,
+                        ["Ident", 3727, 29, 0, "tmp"],
+                        ".",
+                        "Const",
+                        3727,
+                        34,
+                        0,
+                        1
+                      ]
+                    ]
+                  ],
+                  "Const",
+                  3729,
+                  11,
+                  0
+                ]
+              ],
+              3731,
+              5,
+              null,
+              "next",
+              [
+                "Func",
+                3731,
+                9,
+                0,
+                0,
+                [],
+                [],
+                [],
+                "Return",
+                3731,
+                14,
+                0,
+                "Call",
+                3731,
+                14,
+                0,
+                [
+                  "Binary",
+                  3731,
+                  14,
+                  0,
+                  ["This", 3731, 14, 0],
+                  ".",
+                  "Const",
+                  3731,
+                  16,
+                  0,
+                  "send"
+                ],
+                0
+              ],
+              3732,
+              5,
+              null,
+              "throw",
+              [
+                "Func",
+                3732,
+                13,
+                0,
+                0,
+                [["Ident", 3732, 13, 0, "x"]],
+                [],
+                [],
+                "Throw",
+                1,
+                1,
+                0,
+                "Ident",
+                3732,
+                13,
+                0,
+                "x"
+              ]
+            ]
+          ],
+          type: {
+            type: "generic",
+            base: "functionBase",
+            args: [{
+              type: "generic",
+              base: "functionBase",
+              args: [{
+                type: "object",
+                pairs: {
+                  iterator: "function",
+                  next: "function",
+                  send: {
+                    type: "generic",
+                    base: "functionBase",
+                    args: [{type: "object", pairs: {done: "boolean"}}]
+                  },
+                  "throw": {type: "generic", base: "functionBase", args: ["none"]}
+                }
+              }]
+            }]
+          },
+          dependencies: ["__generator", "__slice"]
         }
       },
       assignOperator: [

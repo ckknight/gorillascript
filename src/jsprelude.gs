@@ -3713,3 +3713,21 @@ define operator unary to-promise! with type: \promise
         ASTE __to-promise $set-parent[$child], $parent, $args
     else
       ASTE __to-promise $func, void, $args
+
+define helper __generator = #(func) -> #
+  let mutable data as []|null = [this, __slice.call(arguments)]
+  {
+    iterator() -> this
+    send()@
+      {
+        +done
+        value: if data
+          let tmp = data
+          data := null
+          func.apply tmp[0], tmp[1]
+        else
+          void
+      }
+    next() -> @send()
+    throw: (throw)
+  }

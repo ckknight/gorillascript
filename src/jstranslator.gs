@@ -198,13 +198,16 @@ let make-has-generator-node = #
         else
           throw e
     false
-
+  
+  let return-free-cache = Cache<ParserNode, Boolean>()
   let normal-cache = Cache<ParserNode, Boolean>()
-  let has-generator-node(node as ParserNode)
-    async node <- normal-cache.get-or-add node
+  let has-generator-node(node as ParserNode, allow-return as Boolean)
+    async node <- (if allow-return then return-free-cache else normal-cache).get-or-add node
+    if not allow-return
+      returnif return-free-cache.get node
     returnif in-loop-cache.get node
     returnif in-switch-cache.get node
-    if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue, ParserNode.Break]
+    if node instanceofsome [ParserNode.Yield, ParserNode.Continue, ParserNode.Break] or (not allow-return and node instanceof ParserNode.Return)
       return true
     else if node not instanceof ParserNode.Function
       let FOUND = {}
@@ -217,7 +220,7 @@ let make-has-generator-node = #
             if has-in-switch n
               throw FOUND
           else
-            if has-generator-node n
+            if has-generator-node n, allow-return
               throw FOUND
           n
       catch e
@@ -356,7 +359,7 @@ class GeneratorState
     fresh
 
 class GeneratorBuilder
-  def constructor(@pos as {}, @scope as Scope)
+  def constructor(@pos as {}, @scope as Scope, @has-generator-node as ->)
     @current-catch := []
     @redirects := Map()
     @start := GeneratorState(this)
@@ -374,7 +377,6 @@ class GeneratorBuilder
     
     @finallies := []
     @catches := []
-    @has-generator-node := make-has-generator-node()
   
   def add-redirect(from-state as GeneratorState, to-state as ->)!
     @redirects.set from-state, to-state
@@ -1482,12 +1484,14 @@ let translators =
         initializers.push ...param.init
 
       let unassigned = {}
-      let mutable body = if node.generator
-        let builder = GeneratorBuilder(get-pos(node), inner-scope)
+      let has-generator-node = make-has-generator-node()
+      let is-simple-generator = node.generator and not has-generator-node(node.body, true)
+      let mutable body = if node.generator and not is-simple-generator
+        let builder = GeneratorBuilder get-pos(node), inner-scope, has-generator-node
         generator-translate(node.body, inner-scope, builder.start).goto(get-pos(node), #-> builder.stop)
         builder.create()
       else
-        translate(node.body, inner-scope, \top-statement, node.auto-return, unassigned)()
+        translate(node.body, inner-scope, \top-statement, not is-simple-generator and node.auto-return, unassigned)()
       inner-scope.release-tmps()
       body := ast.Block get-pos(node.body), [...initializers, body]
       if inner-scope.used-this or node.bound instanceof ParserNode
@@ -1509,7 +1513,14 @@ let translators =
               * body
       if node.curry
         throw Error "Expected node to already be curried"
-      auto-return ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
+      let func = ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
+      if is-simple-generator
+        scope.add-helper \__generator
+        auto-return ast.Call get-pos(node),
+          ast.Ident get-pos(node), \__generator
+          [func]
+      else
+        auto-return func
 
   Ident: do
     let PRIMORDIAL_GLOBALS = {

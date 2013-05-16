@@ -603,3 +603,57 @@ describe "yield with an uncaught error returns that it's done after error", #
     expect(#-> iter.next()).throws(err)
     for i in 0 til 10
       expect(iter.next()).to.eql { +done, value: void }
+
+describe "a generator without yield statements", #
+  it "has no items", #
+    let ran = stub()
+    let fun()*
+      ran()
+    
+    let iter = fun()
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    expect(ran).to.be.called-once
+  
+  it "is not executed until the first .next call", #
+    let ran = stub()
+    let fun()*
+      ran()
+    
+    let iter = fun()
+    expect(ran).to.not.be.called
+    iter.next()
+    expect(ran).to.be.called-once
+  
+  it "has a result if value is returned", #
+    let ran = stub()
+    let fun()*
+      ran()
+      return "hello"
+    
+    let iter = fun()
+    expect(iter.next()).to.eql { +done, value: "hello" }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    expect(ran).to.be.called-once
+  
+  it "has the expected this value", #
+    let obj = {}
+    let ran = stub()
+    let fun()*
+      ran()
+      expect(this).to.equal obj
+    
+    let iter = fun@(obj)
+    iter.next()
+    expect(ran).to.be.called-once
+  
+  it "receives expected arguments", #
+    let ran = stub()
+    let fun(...args)*
+      ran()
+      expect(args).to.eql [\alpha, \bravo, \charlie]
+    
+    let iter = fun(\alpha, \bravo, \charlie)
+    iter.next()
+    expect(ran).to.be.called-once
