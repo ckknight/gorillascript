@@ -32,6 +32,12 @@ describe "try-catch", #
       throw {}
     catch e
       void
+  
+  it "does not require a catch ident", #
+    try
+      throw {}
+    catch
+      void
 
 describe "try-catch-else", #
   describe "if an error occurs", #

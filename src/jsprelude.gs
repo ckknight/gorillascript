@@ -1960,7 +1960,7 @@ define operator binary instanceofsome with precedence: 6, maximum: 1, invertible
     ASTE __instanceofsome($left, $right)
 
 macro try
-  syntax try-body as (BodyNoEnd | (";", this as Statement)), typed-catches as ("\n", "catch", ident as Identifier, check as ((type as "as", value as Type)|(type as "==", value as Expression)), body as (BodyNoEnd | (";", this as Statement)))*, catch-part as ("\n", "catch", ident as Identifier, body as (BodyNoEnd | (";", this as Statement)))?, else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (BodyNoEnd | (";", this as Statement)))?, "end"
+  syntax try-body as (BodyNoEnd | (";", this as Statement)), typed-catches as ("\n", "catch", ident as Identifier, check as ((type as "as", value as Type)|(type as "==", value as Expression)), body as (BodyNoEnd | (";", this as Statement)))*, catch-part as ("\n", "catch", ident as Identifier?, body as (BodyNoEnd | (";", this as Statement)))?, else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let has-else = not not else-body
     if not catch-part and has-else and not finally-body
       throw Error("Must provide at least a catch, else, or finally to a try block")
@@ -2018,7 +2018,7 @@ macro try
 
     let mutable current = try-body
     if catch-body
-      current := @try-catch(current, catch-ident, catch-body)
+      current := @try-catch(current, catch-ident or @tmp(\err), catch-body)
     if has-else
       current := @try-finally current, AST
         if $run-else
