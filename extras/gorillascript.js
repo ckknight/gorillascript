@@ -7806,7 +7806,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __bind, __cmp, __create, __curry, __import, __in, __isArray, __keys, __lt, __lte, __name, __num, __once, __owns, __slice, __str, __strnum, __toArray, __typeof, _allowEmbeddedText, _asterixAsArrayLength, _Block, _FunctionBody, _inAst, _inEvilAst, _inFunctionTypeParams, _inGenerator, _inMacro, _Name, _NameOrSymbol, _position, _preventUnclosedObjectLiteral, _Space, _Symbol, AccessMultiNode, AccessNode, Advance, AnyArrayLiteral, AnyChar, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, Assignment, AssignmentAsExpression, AssignNode, Ast, Asterix, asterixAsArrayLength, AstExpression, AstExpressionToken, AsToken, AstStatement, AstToken, AtSign, Backslash, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, BracketedObjectKey, BreakNode, CallNode, Caret, CheckIndent, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaOrNewline, CommaOrNewlineWithCheckIndent, CommentNode, ComplexAssignable, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CustomBinaryOperator, CustomOperatorCloseParenthesis, CustomPostfixUnary, CustomPrefixUnary, DebuggerNode, DecimalDigit, DecimalNumber, DeclareEqualSymbol, DedentedBody, DefineHelper, DefineHelperStart, DefineMacro, DefineOperator, DefineOperatorStart, DefineSyntax, DefineSyntaxStart, DefNode, disallowEmbeddedText, DollarSign, DoubleColon, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedComment, EmbeddedLiteralText, EmbeddedLiteralTextInner, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedReadLiteralText, EmbeddedRoot, EmbeddedRootGenerator, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, End, EndNoIndent, EndToken, Eof, EqualChar, Eval, EvalNode, EvalToken, Expression, ExpressionAsStatement, ExpressionOrAssignment, FailureManager, FalseLiteral, ForInNode, ForNode, freeze, fromCharCode, FunctionBody, FunctionDeclaration, FunctionFlag, FunctionFlags, FunctionLiteral, FunctionNode, FunctionType, generateCacheKey, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, GenericDefinitionPart, GenericPart, getEmbeddedRule, getReservedIdents, GetSetToken, getTmpId, getUseCustomBinaryOperator, HashSign, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrAccessPart, IdentifierOrAccessStart, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierParameter, IdentNode, IfNode, inAst, IndentationRequired, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, Index, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inspect, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThanSign, Letter, LicenseComment, Line, LinePart, Literal, Logic, LowerR, LowerU, LowerX, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, MacroToken, MapKeyValuePair, MapLiteral, MapLiteralToken, MaybeAdvance, MaybeAsType, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointNoSpace, MaybeExistentialSymbolNoSpace, MaybeNotToken, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, Minus, Name, NameChar, NamePart, NameStart, NaNLiteral, Newline, NewlineWithCheckIndent, nextTick, Node, nodeToType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NOTHING, Nothing, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectKeyNotColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, ParserError, PercentSign, PercentSignDoubleQuote, PercentSignTripleDoubleQuote, Period, Pipe, Plus, PlusOrMinus, PopIndent, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyObjectKeyColon, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, PushFakeIndent, PushIndent, RadixNumber, RegexComment, RegexDoubleToken, RegexFlags, RegexLiteral, RegexpNode, RegexSingleToken, RegexTripleDoubleToken, RegexTripleSingleToken, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, setImmediate, SetLiteral, SetLiteralToken, Shebang, SHORT_CIRCUIT, SimpleAssignable, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpreadNode, SpreadOrExpression, Stack, State, Statement, StringIndent, StringInterpolation, StringLiteral, SuperInvocation, SuperNode, SuperToken, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, SyntaxToken, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, Underscore, UnicodeEscapeSequence, UseMacro, util, VarNode, VoidLiteral, YieldNode, Zero;
+      var __async, __bind, __cmp, __create, __curry, __import, __in, __isArray, __keys, __lt, __lte, __name, __num, __once, __owns, __slice, __str, __strnum, __toArray, __typeof, _allowEmbeddedText, _asterixAsArrayLength, _Block, _FunctionBody, _inAst, _indent, _inEvilAst, _inFunctionTypeParams, _inGenerator, _inMacro, _Name, _NameOrSymbol, _position, _preventUnclosedObjectLiteral, _Space, _Symbol, AccessMultiNode, AccessNode, Advance, AnyArrayLiteral, AnyChar, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, Assignment, AssignmentAsExpression, AssignNode, Ast, Asterix, asterixAsArrayLength, AstExpression, AstExpressionToken, AsToken, AstStatement, AstToken, AtSign, Backslash, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, BracketedObjectKey, BreakNode, CallNode, Caret, CheckIndent, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaOrNewline, CommaOrNewlineWithCheckIndent, CommentNode, ComplexAssignable, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CustomBinaryOperator, CustomOperatorCloseParenthesis, CustomPostfixUnary, CustomPrefixUnary, DebuggerNode, DecimalDigit, DecimalNumber, DeclareEqualSymbol, DedentedBody, DefineHelper, DefineHelperStart, DefineMacro, DefineOperator, DefineOperatorStart, DefineSyntax, DefineSyntaxStart, DefNode, disallowEmbeddedText, DollarSign, DoubleColon, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedComment, EmbeddedLiteralText, EmbeddedLiteralTextInner, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedReadLiteralText, EmbeddedRoot, EmbeddedRootGenerator, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, End, EndNoIndent, EndToken, Eof, EqualChar, Eval, EvalNode, EvalToken, Expression, ExpressionAsStatement, ExpressionOrAssignment, FailureManager, FalseLiteral, ForInNode, ForNode, freeze, fromCharCode, FunctionBody, FunctionDeclaration, FunctionFlag, FunctionFlags, FunctionLiteral, FunctionNode, FunctionType, generateCacheKey, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, GenericDefinitionPart, GenericPart, getEmbeddedRule, getReservedIdents, GetSetToken, getTmpId, getUseCustomBinaryOperator, HashSign, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrAccessPart, IdentifierOrAccessStart, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierParameter, IdentNode, IfNode, inAst, IndentationRequired, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, Index, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inspect, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThanSign, Letter, LicenseComment, Line, LinePart, Literal, Logic, LowerR, LowerU, LowerX, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, MacroToken, MapKeyValuePair, MapLiteral, MapLiteralToken, MaybeAdvance, MaybeAsType, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointNoSpace, MaybeExistentialSymbolNoSpace, MaybeNotToken, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, Minus, Name, NameChar, NamePart, NameStart, NaNLiteral, Newline, NewlineWithCheckIndent, nextTick, Node, nodeToType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NOTHING, Nothing, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectKeyNotColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, ParserError, PercentSign, PercentSignDoubleQuote, PercentSignTripleDoubleQuote, Period, Pipe, Plus, PlusOrMinus, PopIndent, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyObjectKeyColon, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, PushFakeIndent, PushIndent, RadixNumber, RegexComment, RegexDoubleToken, RegexFlags, RegexLiteral, RegexpNode, RegexSingleToken, RegexTripleDoubleToken, RegexTripleSingleToken, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, setImmediate, SetLiteral, SetLiteralToken, Shebang, SHORT_CIRCUIT, SimpleAssignable, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpreadNode, SpreadOrExpression, Stack, State, Statement, StringIndent, StringInterpolation, StringLiteral, SuperInvocation, SuperNode, SuperToken, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, SyntaxToken, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, Underscore, UnicodeEscapeSequence, UseMacro, util, VarNode, VoidLiteral, YieldNode, Zero;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -8202,6 +8202,63 @@
           return ++id;
         };
       }());
+      Stack = (function () {
+        var _Stack_prototype;
+        function Stack(initial, data) {
+          var _this;
+          _this = this instanceof Stack ? this : __create(_Stack_prototype);
+          if (data == null) {
+            data = [];
+          }
+          _this.id = Stack.currentId = __num(Stack.currentId) + 1;
+          _this.initial = initial;
+          return _this;
+        }
+        _Stack_prototype = Stack.prototype;
+        Stack.displayName = "Stack";
+        Stack.currentId = -1;
+        _Stack_prototype.data = function (o) {
+          var _ref, _ref2, _ref3;
+          if (!(o instanceof State)) {
+            throw TypeError("Expected o to be a " + __name(State) + ", got " + __typeof(o));
+          }
+          if ((_ref = (_ref2 = o.stacks)[_ref3 = this.id]) == null) {
+            return _ref2[_ref3] = [];
+          } else {
+            return _ref;
+          }
+        };
+        _Stack_prototype.count = function (o) {
+          return this.data(o).length;
+        };
+        _Stack_prototype.push = function (o, value) {
+          return this.data(o).push(value);
+        };
+        _Stack_prototype.pop = function (o) {
+          var data, len;
+          data = this.data(o);
+          len = data.length;
+          if (len === 0) {
+            throw Error("Cannot pop");
+          }
+          return data.pop();
+        };
+        _Stack_prototype.canPop = function (o) {
+          return __num(this.data(o).length) > 0;
+        };
+        _Stack_prototype.peek = function (o) {
+          var data, len;
+          data = this.data(o);
+          len = data.length;
+          if (len === 0) {
+            return this.initial;
+          } else {
+            return data[__num(len) - 1];
+          }
+        };
+        return Stack;
+      }());
+      _indent = Stack(1);
       function cache(rule, dontCache) {
         var cacheKey;
         if (typeof rule !== "function") {
@@ -8220,7 +8277,7 @@
             var _ref, _ref2, cache, indent, indentCache, index, inner, item, result;
             cache = o.cache;
             index = o.index;
-            indent = o.indent.peek();
+            indent = _indent.peek(o);
             if ((_ref = cache[_ref2 = indent - 1]) != null) {
               indentCache = _ref;
             } else {
@@ -8238,8 +8295,8 @@
               return item[3];
             } else {
               result = rule(o);
-              if (o.indent.peek() !== indent) {
-                throw Error("Changed indent during cache process: from " + __strnum(indent) + " to " + __strnum(o.indent.peek()));
+              if (_indent.peek(o) !== indent) {
+                throw Error("Changed indent during cache process: from " + __strnum(indent) + " to " + __strnum(_indent.peek(o)));
               }
               inner[cacheKey] = [index, o.index, o.line, result];
               return result;
@@ -8304,7 +8361,7 @@
           name.push(")");
         }
         name = name.join("");
-        return (function () {
+        return retainIndent((function () {
           var _rule;
           _rule = named(name, function (o) {
             var _len, clone, i, item, key, result, rule;
@@ -8343,7 +8400,7 @@
               return result;
             }
           });
-        }());
+        }()));
       }
       function ruleEqual(rule, text, mutator) {
         var failureMessage;
@@ -8482,60 +8539,16 @@
           var i, result;
           ++id;
           i = id;
-          console.log(i + "-" + __strnum(name) + " starting at line #" + __strnum(o.line) + ", index " + __strnum(o.index) + ", indent " + __strnum(o.indent.peek()) + " : " + __str(JSON.stringify(o.data.substr(o.index, 10))));
+          console.log(i + "-" + __strnum(name) + " starting at line #" + __strnum(o.line) + ", index " + __strnum(o.index) + ", indent " + __strnum(_indent.peek(o)) + " : " + __str(JSON.stringify(o.data.substr(o.index, 10))));
           result = func(o);
           if (!result) {
-            console.log(i + "-" + __strnum(name) + " failure at line #" + __strnum(o.line) + ", index " + __strnum(o.index) + ", indent " + __strnum(o.indent.peek()));
+            console.log(i + "-" + __strnum(name) + " failure at line #" + __strnum(o.line) + ", index " + __strnum(o.index) + ", indent " + __strnum(_indent.peek(o)));
           } else {
-            console.log(i + "-" + __strnum(name) + " success at line #" + __strnum(o.line) + ", index " + __strnum(o.index) + ", indent " + __strnum(o.indent.peek()), result);
+            console.log(i + "-" + __strnum(name) + " success at line #" + __strnum(o.line) + ", index " + __strnum(o.index) + ", indent " + __strnum(_indent.peek(o)), result);
           }
           return result;
         });
       }
-      Stack = (function () {
-        var _Stack_prototype;
-        function Stack(initial, data) {
-          var _this;
-          _this = this instanceof Stack ? this : __create(_Stack_prototype);
-          if (data == null) {
-            data = [];
-          }
-          _this.initial = initial;
-          _this.data = data;
-          return _this;
-        }
-        _Stack_prototype = Stack.prototype;
-        Stack.displayName = "Stack";
-        _Stack_prototype.push = function (value) {
-          return this.data.push(value);
-        };
-        _Stack_prototype.pop = function () {
-          var data, len;
-          data = this.data;
-          len = data.length;
-          if (len === 0) {
-            throw Error("Cannot pop");
-          }
-          return data.pop();
-        };
-        _Stack_prototype.canPop = function () {
-          return __num(this.data.length) > 0;
-        };
-        _Stack_prototype.peek = function () {
-          var data, len;
-          data = this.data;
-          len = data.length;
-          if (len === 0) {
-            return this.initial;
-          } else {
-            return data[__num(len) - 1];
-          }
-        };
-        _Stack_prototype.clone = function () {
-          return Stack(this.initial, this.data.slice());
-        };
-        return Stack;
-      }());
       function makeAlterStack(stack, value) {
         if (!(stack instanceof Stack)) {
           throw TypeError("Expected stack to be a " + __name(Stack) + ", got " + __typeof(stack));
@@ -8545,11 +8558,11 @@
             throw TypeError("Expected func to be a Function, got " + __typeof(func));
           }
           return named(func.parserName, function (o) {
-            stack.push(value);
+            stack.push(o, value);
             try {
               return func(o);
             } finally {
-              stack.pop();
+              stack.pop(o);
             }
           });
         };
@@ -8832,13 +8845,26 @@
         var clone, indent;
         clone = o.clone();
         indent = CountIndent(clone);
-        if (indent === clone.indent.peek() || o.options.noindent) {
+        if (o.options.noindent || indent === _indent.peek(o)) {
           o.update(clone);
           return true;
         } else {
           return false;
         }
       }));
+      function retainIndent(rule) {
+        return function (o) {
+          var count;
+          count = _indent.count(o);
+          try {
+            return rule(o);
+          } finally {
+            while (!__lte(_indent.count(o), count)) {
+              _indent.pop(o);
+            }
+          }
+        };
+      }
       Advance = named("Advance", function (o) {
         var clone, indent;
         if (o.options.noindent) {
@@ -8846,8 +8872,8 @@
         }
         clone = o.clone();
         indent = CountIndent(clone);
-        if (!__lte(indent, clone.indent.peek())) {
-          o.indent.push(indent);
+        if (!__lte(indent, _indent.peek(o))) {
+          _indent.push(o, indent);
           return true;
         } else {
           return false;
@@ -8860,7 +8886,7 @@
         }
         clone = o.clone();
         indent = CountIndent(clone);
-        o.indent.push(indent);
+        _indent.push(o, indent);
         return true;
       });
       PushIndent = named("PushIndent", (function () {
@@ -8868,7 +8894,7 @@
           if (o.options.noindent) {
             return true;
           }
-          o.indent.push(indent);
+          _indent.push(o, indent);
           return true;
         }
         return named(CountIndent != null && CountIndent.parserName || "CountIndent", function (o) {
@@ -8893,7 +8919,7 @@
               if (o.options.noindent) {
                 return true;
               }
-              o.indent.push(__num(o.indent.peek()) + __num(n));
+              _indent.push(o, __num(_indent.peek(o)) + __num(n));
               return true;
             });
           } else {
@@ -8905,8 +8931,8 @@
         if (o.options.noindent) {
           return true;
         }
-        if (o.indent.canPop()) {
-          o.indent.pop();
+        if (_indent.canPop(o)) {
+          _indent.pop(o);
           return true;
         } else {
           return o.error("Unexpected dedent");
@@ -10646,7 +10672,7 @@
         var c, clone, count, currentIndent;
         clone = o.clone();
         count = 1;
-        currentIndent = clone.indent.peek();
+        currentIndent = _indent.peek(o);
         while (count < __num(currentIndent)) {
           c = SpaceChar(clone);
           if (!c) {
@@ -10831,7 +10857,7 @@
             }());
             _rule2 = (function () {
               var _rule3;
-              _rule3 = (function () {
+              _rule3 = retainIndent((function () {
                 var _rule4, _rule5;
                 _rule4 = (function () {
                   var _rule6;
@@ -10897,7 +10923,7 @@
                   _result = void 0;
                   return MaybeAdvance(clone) && (_result = _rule4(clone)) && _rule5(clone) && PopIndent(clone) && (o.update(clone), _result);
                 };
-              }());
+              }()));
               function _missing() {
                 return [];
               }
@@ -10990,7 +11016,7 @@
           }());
           _rule2 = (function () {
             var _rule3;
-            _rule3 = (function () {
+            _rule3 = retainIndent((function () {
               var _rule4, _rule5;
               _rule4 = (function () {
                 var _rule6;
@@ -11056,7 +11082,7 @@
                 _result = void 0;
                 return MaybeAdvance(clone) && (_result = _rule4(clone)) && _rule5(clone) && PopIndent(clone) && (o.update(clone), _result);
               };
-            }());
+            }()));
             function _missing() {
               return [];
             }
@@ -11647,7 +11673,7 @@
         var _rule;
         _rule = (function () {
           function _rule3(o) {
-            return _inAst.peek();
+            return _inAst.peek(o);
           }
           return (function () {
             function _rule4(o) {
@@ -12140,7 +12166,7 @@
         }());
         _rule2 = (function () {
           var _rule3;
-          _rule3 = (function () {
+          _rule3 = retainIndent((function () {
             var _rule4;
             _rule4 = (function () {
               var _rule5;
@@ -12203,7 +12229,7 @@
               _result = void 0;
               return SomeEmptyLines(clone) && MaybeAdvance(clone) && (_result = _rule4(clone)) && EmptyLines(clone) && MaybeCommaOrNewline(clone) && PopIndent(clone) && (o.update(clone), _result);
             };
-          }());
+          }()));
           function _missing() {
             return [];
           }
@@ -13014,7 +13040,7 @@
         }());
         _rule3 = (function () {
           var _rule4;
-          _rule4 = (function () {
+          _rule4 = retainIndent((function () {
             var _rule5;
             _rule5 = (function () {
               var _rule6;
@@ -13077,7 +13103,7 @@
               _result = void 0;
               return SomeEmptyLines(clone) && MaybeAdvance(clone) && (_result = _rule5(clone)) && EmptyLines(clone) && MaybeCommaOrNewline(clone) && PopIndent(clone) && (o.update(clone), _result);
             };
-          }());
+          }()));
           function _missing() {
             return [];
           }
@@ -13178,7 +13204,7 @@
           }());
           _rule2 = (function () {
             var _rule3;
-            _rule3 = (function () {
+            _rule3 = retainIndent((function () {
               var _rule4;
               _rule4 = (function () {
                 var _rule5;
@@ -13241,7 +13267,7 @@
                 _result = void 0;
                 return SomeEmptyLines(clone) && MaybeAdvance(clone) && (_result = _rule4(clone)) && EmptyLines(clone) && MaybeCommaOrNewline(clone) && PopIndent(clone) && (o.update(clone), _result);
               };
-            }());
+            }()));
             function _missing() {
               return [];
             }
@@ -13301,12 +13327,12 @@
           }
         });
       }()));
-      BodyWithIndent = named("BodyWithIndent", function (o) {
+      BodyWithIndent = named("BodyWithIndent", retainIndent(function (o) {
         var _result, clone;
         clone = o.clone();
         _result = void 0;
         return Space(clone) && Newline(clone) && EmptyLines(clone) && Advance(clone) && (_result = Block(clone)) && PopIndent(clone) && (o.update(clone), _result);
-      });
+      }));
       EndToken = cache(named("EndToken", word("end")));
       EndNoIndent = named("EndNoIndent", (function () {
         var _rule;
@@ -13327,11 +13353,11 @@
           return ColonNewline(o.clone()) || o.options.embedded && (ColonEmbeddedClose(o.clone()) || ColonEmbeddedCloseWrite(o.clone()));
         }
         function _rule2(o) {
-          o.indent.push(__num(o.indent.peek()) + 1);
+          _indent.push(o, __num(_indent.peek(o)) + 1);
           try {
             return Block(o);
           } finally {
-            o.indent.pop();
+            _indent.pop(o);
           }
         }
         return function (o) {
@@ -13654,7 +13680,7 @@
       NonUnionType = named("NonUnionType", (function () {
         var _rule2, _rule3;
         function _rule(o) {
-          if (!_inFunctionTypeParams.peek()) {
+          if (!_inFunctionTypeParams.peek(o)) {
             return FunctionType(o);
           }
         }
@@ -14530,9 +14556,9 @@
         _backend = (function () {
           var _rule2;
           function _rule(o) {
-            if (!_inMacro.peek()) {
+            if (!_inMacro.peek(o)) {
               return o.error("Can only use AST inside a macro");
-            } else if (_inAst.peek()) {
+            } else if (_inAst.peek(o)) {
               return o.error("Cannot use AST inside an AST");
             } else {
               return true;
@@ -14576,9 +14602,9 @@
         _backend = (function () {
           var _rule2;
           function _rule(o) {
-            if (!_inMacro.peek()) {
+            if (!_inMacro.peek(o)) {
               return o.error("Can only use AST inside a macro");
-            } else if (_inAst.peek()) {
+            } else if (_inAst.peek(o)) {
               return o.error("Cannot use AST inside an AST");
             } else {
               return true;
@@ -15134,7 +15160,7 @@
               return true;
             }
           }
-          _rule4 = (function () {
+          _rule4 = retainIndent((function () {
             var _rule6;
             function _rule5(o) {
               if (o.options.noindent) {
@@ -15167,7 +15193,7 @@
               _result = {};
               return _rule5(clone) && (_result.head = MacroSyntax(clone)) && (_result.tail = _rule6(clone)) && PopIndent(clone) && (o.update(clone), _result);
             };
-          }());
+          }()));
           return (function () {
             function _rule5(o) {
               var _result, clone;
@@ -15886,21 +15912,28 @@
         }());
       }()));
       IndentedUnclosedObjectLiteral = named("IndentedUnclosedObjectLiteral", (function () {
+        var _rule2;
         function _rule(o) {
-          return !_preventUnclosedObjectLiteral.peek();
+          return !_preventUnclosedObjectLiteral.peek(o);
         }
+        _rule2 = retainIndent(function (o) {
+          var _result, clone;
+          clone = o.clone();
+          _result = void 0;
+          return Advance(clone) && CheckIndent(clone) && (_result = IndentedUnclosedObjectLiteralInner(clone)) && PopIndent(clone) && (o.update(clone), _result);
+        });
         return function (o) {
           var _result, clone;
           clone = o.clone();
           _result = void 0;
-          return _rule(clone) && IndentationRequired(clone) && Space(clone) && Newline(clone) && EmptyLines(clone) && Advance(clone) && CheckIndent(clone) && (_result = IndentedUnclosedObjectLiteralInner(clone)) && PopIndent(clone) && (o.update(clone), _result);
+          return _rule(clone) && IndentationRequired(clone) && Space(clone) && Newline(clone) && EmptyLines(clone) && (_result = _rule2(clone)) && (o.update(clone), _result);
         };
       }()));
       UnclosedArrayLiteralElement = named("UnclosedArrayLiteralElement", (function () {
         var _rule;
         _rule = (function () {
           var _rule2;
-          _rule2 = (function () {
+          _rule2 = retainIndent((function () {
             var _rule3;
             _rule3 = PushFakeIndent(2);
             function _rule4(o) {
@@ -15912,7 +15945,7 @@
               _result = void 0;
               return _rule3(clone) && (_result = _rule4(clone)) && PopIndent(clone) && (o.update(clone), _result);
             };
-          }());
+          }()));
           return function (o) {
             return _rule2(o) || SpreadOrExpression(o);
           };
@@ -15968,21 +16001,28 @@
         }());
       }()));
       IndentedUnclosedArrayLiteral = named("IndentedUnclosedArrayLiteral", (function () {
+        var _rule2;
         function _rule(o) {
-          return !_preventUnclosedObjectLiteral.peek();
+          return !_preventUnclosedObjectLiteral.peek(o);
         }
+        _rule2 = retainIndent(function (o) {
+          var _result, clone;
+          clone = o.clone();
+          _result = void 0;
+          return Advance(clone) && CheckIndent(clone) && (_result = IndentedUnclosedArrayLiteralInner(clone)) && PopIndent(clone) && (o.update(clone), _result);
+        });
         return function (o) {
           var _result, clone;
           clone = o.clone();
           _result = void 0;
-          return _rule(clone) && IndentationRequired(clone) && Space(clone) && Newline(clone) && EmptyLines(clone) && Advance(clone) && CheckIndent(clone) && (_result = IndentedUnclosedArrayLiteralInner(clone)) && PopIndent(clone) && (o.update(clone), _result);
+          return _rule(clone) && IndentationRequired(clone) && Space(clone) && Newline(clone) && EmptyLines(clone) && (_result = _rule2(clone)) && (o.update(clone), _result);
         };
       }()));
       CURRENT_ARRAY_LENGTH_NAME = "__currentArrayLength";
       PrimaryExpression = cache(named("PrimaryExpression", (function () {
         function _rule(o) {
           var i;
-          if (_asterixAsArrayLength.peek()) {
+          if (_asterixAsArrayLength.peek(o)) {
             i = o.index;
             if (Asterix(o)) {
               return o.ident(i, CURRENT_ARRAY_LENGTH_NAME);
@@ -16052,7 +16092,7 @@
         }());
         _rule2 = (function () {
           var _rule3;
-          _rule3 = (function () {
+          _rule3 = retainIndent((function () {
             var _rule4;
             _rule4 = (function () {
               var _rule5;
@@ -16115,7 +16155,7 @@
               _result = void 0;
               return SomeEmptyLines(clone) && MaybeAdvance(clone) && (_result = _rule4(clone)) && EmptyLines(clone) && MaybeCommaOrNewline(clone) && PopIndent(clone) && (o.update(clone), _result);
             };
-          }());
+          }()));
           function _missing() {
             return [];
           }
@@ -16220,30 +16260,39 @@
           var _rule4, _rule5;
           _rule4 = (function () {
             var _rule6;
-            _rule6 = (function () {
-              function _rule7(o) {
+            _rule6 = retainIndent((function () {
+              var _rule7;
+              _rule7 = (function () {
+                function _rule8(o) {
+                  var _result, clone;
+                  clone = o.clone();
+                  _result = void 0;
+                  return CommaOrNewlineWithCheckIndent(clone) && (_result = SpreadOrExpression(clone)) && (o.update(clone), _result);
+                }
+                return named(__strnum(_rule8 != null && _rule8.parserName || "<unknown>") + "*", function (o) {
+                  var clone, item, result;
+                  clone = o.clone();
+                  result = [];
+                  while (item = _rule8(clone)) {
+                    result.push(item);
+                  }
+                  o.update(clone);
+                  return result;
+                });
+              }());
+              return function (o) {
                 var _result, clone;
                 clone = o.clone();
-                _result = void 0;
-                return CommaOrNewlineWithCheckIndent(clone) && (_result = SpreadOrExpression(clone)) && (o.update(clone), _result);
-              }
-              return named(__strnum(_rule7 != null && _rule7.parserName || "<unknown>") + "*", function (o) {
-                var clone, item, result;
-                clone = o.clone();
-                result = [];
-                while (item = _rule7(clone)) {
-                  result.push(item);
-                }
-                o.update(clone);
-                return result;
-              });
-            }());
+                _result = {};
+                return Advance(clone) && CheckIndent(clone) && (_result.head = SpreadOrExpression(clone)) && (_result.tail = _rule7(clone)) && MaybeComma(clone) && PopIndent(clone) && (o.update(clone), _result);
+              };
+            }()));
             return (function () {
               function _rule7(o) {
                 var _result, clone;
                 clone = o.clone();
-                _result = {};
-                return IndentationRequired(clone) && Comma(clone) && SomeEmptyLines(clone) && Advance(clone) && CheckIndent(clone) && (_result.head = SpreadOrExpression(clone)) && (_result.tail = _rule6(clone)) && MaybeComma(clone) && PopIndent(clone) && (o.update(clone), _result);
+                _result = void 0;
+                return IndentationRequired(clone) && Comma(clone) && SomeEmptyLines(clone) && (_result = _rule6(clone)) && (o.update(clone), _result);
               }
               function _mutator(x) {
                 return [x.head].concat(__toArray(x.tail));
@@ -17190,14 +17239,14 @@
       InvocationOrAccess = named("InvocationOrAccess", (function () {
         function _rule(o) {
           var args, clone, i;
-          if (_inAst.peek()) {
+          if (_inAst.peek(o)) {
             i = o.index;
             clone = o.clone();
             Space(clone);
             if (!DollarSign(clone)) {
               return false;
             }
-            _inAst.push(false);
+            _inAst.push(o, false);
             try {
               args = InvocationArguments(clone);
               if (!args) {
@@ -17210,7 +17259,7 @@
                 args
               );
             } finally {
-              _inAst.pop();
+              _inAst.pop(o);
             }
           }
         }
@@ -17768,7 +17817,7 @@
       EmbeddedLiteralText = cache(named("EmbeddedLiteralText", (function () {
         var _rule2;
         function _rule(o) {
-          return o.options.embedded && _allowEmbeddedText.peek() && __lt(o.index, o.data.length);
+          return o.options.embedded && _allowEmbeddedText.peek(o) && __lt(o.index, o.data.length);
         }
         _rule2 = (function () {
           var _rule3;
@@ -17959,7 +18008,7 @@
           o.options.filename,
           node,
           true,
-          _inGenerator.peek()
+          _inGenerator.peek(o)
         );
         o.clearCache();
         if (callback != null) {
@@ -17970,7 +18019,7 @@
       });
       EmbeddedRootGenerator = named("EmbeddedRootGenerator", function (o, callback) {
         var _once;
-        _inGenerator.push(true);
+        _inGenerator.push(o, true);
         if (callback != null) {
           return EmbeddedRoot(o, (_once = false, function (err, result) {
             if (_once) {
@@ -17978,14 +18027,14 @@
             } else {
               _once = true;
             }
-            _inGenerator.pop();
+            _inGenerator.pop(o);
             return callback(err, result);
           }));
         } else {
           try {
             return EmbeddedRoot(o);
           } finally {
-            _inGenerator.pop();
+            _inGenerator.pop(o);
           }
         }
       });
@@ -20548,7 +20597,7 @@
       }());
       State = (function () {
         var _State_prototype, ASSIGN_OPERATOR, BINARY_OPERATOR, DEFINE_SYNTAX, deserializeParams, deserializeParamType, macroDeserializers, macroSyntaxConstLiterals, macroSyntaxTypes, UNARY_OPERATOR;
-        function State(data, macros, options, index, line, lineInfo, failures, cache, indent, currentMacro, preventFailures, knownScopes, scope) {
+        function State(data, macros, options, index, line, lineInfo, failures, cache, currentMacro, preventFailures, knownScopes, stacks, scope) {
           var _this;
           _this = this instanceof State ? this : __create(_State_prototype);
           _this.data = data;
@@ -20581,10 +20630,6 @@
             cache = [];
           }
           _this.cache = cache;
-          if (indent == null) {
-            indent = Stack(1);
-          }
-          _this.indent = indent;
           if (currentMacro == null) {
             currentMacro = null;
           }
@@ -20597,6 +20642,10 @@
             knownScopes = [];
           }
           _this.knownScopes = knownScopes;
+          if (stacks == null) {
+            stacks = [];
+          }
+          _this.stacks = stacks;
           if (!scope) {
             _this.scope = Scope(knownScopes.length);
             knownScopes.push(_this.scope);
@@ -20626,10 +20675,10 @@
             this.lineInfo,
             this.failures,
             this.cache,
-            this.indent.clone(),
             this.currentMacro,
             this.preventFailures,
             this.knownScopes,
+            this.stacks,
             scope || this.scope
           );
         };
@@ -20706,7 +20755,6 @@
         _State_prototype.update = function (clone) {
           this.index = clone.index;
           this.line = clone.line;
-          this.indent = clone.indent.clone();
           this.macros = clone.macros;
         };
         _State_prototype.fail = function (message) {
@@ -21777,15 +21825,15 @@
           rule = handleParams.call(this, params);
           macros = this.macros;
           function mutator(x, o, i, line) {
-            if (_inAst.peek() || !o.expandingMacros) {
+            if (_inAst.peek(o) || !o.expandingMacros) {
               return o.macroAccess(
                 i,
                 macroId,
                 line,
                 removeNoops(x),
-                _position.peek(),
-                _inGenerator.peek(),
-                _inEvilAst.peek()
+                _position.peek(o),
+                _inGenerator.peek(o),
+                _inEvilAst.peek(o)
               );
             } else {
               throw Error("Cannot use macro until fully defined");
@@ -21831,29 +21879,29 @@
           macros = this.macros;
           function mutator(x, o, i, line, scopeId) {
             var clone, macroHelper, result, tmps, walker;
-            if (_inAst.peek() || !o.expandingMacros) {
+            if (_inAst.peek(o) || !o.expandingMacros) {
               return o.macroAccess(
                 i,
                 macroId,
                 line,
                 removeNoops(x),
-                _position.peek(),
-                _inGenerator.peek(),
-                _inEvilAst.peek()
+                _position.peek(o),
+                _inGenerator.peek(o),
+                _inEvilAst.peek(o)
               );
             } else {
               clone = o.clone(o.getScope(scopeId));
               macroHelper = MacroHelper(
                 clone,
                 i,
-                _position.peek(),
-                _inGenerator.peek(),
-                _inEvilAst.peek()
+                _position.peek(o),
+                _inGenerator.peek(o),
+                _inEvilAst.peek(o)
               );
               if (type === "assignOperator" && macroHelper.isIdent(x.left)) {
                 if (!macroHelper.hasVariable(x.left)) {
                   throw MacroError(Error("Trying to assign with " + __strnum(x.op) + " to unknown variable: " + __strnum(macroHelper.name(x.left))), o.data, line);
-                } else if (!macroHelper.isVariableMutable(x.left) && !_inEvilAst.peek()) {
+                } else if (!macroHelper.isVariableMutable(x.left) && !_inEvilAst.peek(o)) {
                   throw MacroError(Error("Trying to assign with " + __strnum(x.op) + " to immutable variable: " + __strnum(macroHelper.name(x.left))), o.data, line);
                 }
               }
@@ -22129,9 +22177,9 @@
           if (node._macroExpanded != null) {
             return node._macroExpanded;
           } else if (node instanceof MacroAccessNode) {
-            _position.push(node.position);
-            _inGenerator.push(node.inGenerator);
-            _inEvilAst.push(node.inEvilAst);
+            _position.push(this, node.position);
+            _inGenerator.push(this, node.inGenerator);
+            _inEvilAst.push(this, node.inEvilAst);
             oldExpandingMacros = this.expandingMacros;
             this.expandingMacros = true;
             result = (function () {
@@ -22149,9 +22197,9 @@
                 }
                 throw e;
               } finally {
-                _position.pop();
-                _inGenerator.pop();
-                _inEvilAst.pop();
+                _position.pop(_this);
+                _inGenerator.pop(_this);
+                _inEvilAst.pop(_this);
                 _this.expandingMacros = oldExpandingMacros;
               }
             }());

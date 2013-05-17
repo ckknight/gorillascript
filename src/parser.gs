@@ -42,6 +42,34 @@ let get-tmp-id = do
   let mutable id = -1
   #-> id += 1
 
+class Stack
+  @current-id := -1
+  def constructor(initial, data = [])
+    @id := (Stack.current-id += 1)
+    @initial := initial
+  
+  def data(o as State) -> o.stacks[@id] ?= []
+  
+  def count(o) -> @data(o).length
+  def push(o, value) -> @data(o).push value
+  def pop(o)
+    let data = @data(o)
+    let len = data.length
+    if len == 0
+      throw Error "Cannot pop"
+    data.pop()
+  
+  def can-pop(o) -> @data(o).length > 0
+  
+  def peek(o)
+    let data = @data(o)
+    let len = data.length
+    if len == 0
+      @initial
+    else
+      data[len - 1]
+let _indent = Stack(1)
+
 let cache(rule as ->, dont-cache as Boolean) as (->)
   if dont-cache
     rule
@@ -49,7 +77,7 @@ let cache(rule as ->, dont-cache as Boolean) as (->)
     let cache-key = generate-cache-key()
     named rule.parser-name, #(o)
       let {cache, index} = o
-      let indent = o.indent.peek()
+      let indent = _indent.peek(o)
       let indent-cache = (cache[indent ~- 1] ?= [])
       // 16 was the best cache number I could find after running performance benchmarks
       let inner = (indent-cache[index ~% 16] ?= [])
@@ -60,8 +88,8 @@ let cache(rule as ->, dont-cache as Boolean) as (->)
         item[3]
       else
         let result = rule o
-        if o.indent.peek() != indent
-          throw Error "Changed indent during cache process: from $indent to $(o.indent.peek())"
+        if _indent.peek(o) != indent
+          throw Error "Changed indent during cache process: from $indent to $(_indent.peek(o))"
         inner[cache-key] := [index, o.index, o.line, result]
         result
 
@@ -198,7 +226,7 @@ let sequential(array as [], mutator, dont-cache as Boolean) as (->)
     name.push ")"
   name := name.join ""
   
-  return mutate! named(name, #(o)
+  retain-indent mutate! named(name, #(o)
     let clone = o.clone()
     let mutable result = {}
     for rule, i in rules
@@ -653,12 +681,12 @@ let wrap(func as ->, name = get-func-name(func)) as (->)
   named func.parser-name, #(o)
     id += 1
     let i = id
-    console.log "$(i)-$(name) starting at line #$(o.line), index $(o.index), indent $(o.indent.peek()) : $(JSON.stringify o.data.substr(o.index, 10))"
+    console.log "$(i)-$(name) starting at line #$(o.line), index $(o.index), indent $(_indent.peek(o)) : $(JSON.stringify o.data.substr(o.index, 10))"
     let result = func o
     if not result
-      console.log "$(i)-$(name) failure at line #$(o.line), index $(o.index), indent $(o.indent.peek())"
+      console.log "$(i)-$(name) failure at line #$(o.line), index $(o.index), indent $(_indent.peek(o))"
     else
-      console.log "$(i)-$(name) success at line #$(o.line), index $(o.index), indent $(o.indent.peek())", result
+      console.log "$(i)-$(name) success at line #$(o.line), index $(o.index), indent $(_indent.peek(o))", result
     result
 
 macro define
@@ -675,38 +703,13 @@ macro namedlet
       value := @call-args(value)[1]
     AST let $name = named $name-str, $value
 
-class Stack
-  def constructor(initial, data = [])
-    @initial := initial
-    @data := data
-  
-  def push(value) -> @data.push value
-  def pop()
-    let data = @data
-    let len = data.length
-    if len == 0
-      throw Error "Cannot pop"
-    data.pop()
-  
-  def can-pop() -> @data.length > 0
-  
-  def peek()
-    let data = @data
-    let len = data.length
-    if len == 0
-      @initial
-    else
-      data[len - 1]
-  
-  def clone() -> Stack @initial, @data.slice()
-
 let make-alter-stack(stack as Stack, value) as (->)
   #(func as ->) -> named func.parser-name, #(o)
-    stack.push value
+    stack.push o, value
     try
       return func(o)
     finally
-      stack.pop()
+      stack.pop o
 
 let _position = Stack \statement
 let in-statement = make-alter-stack _position, \statement
@@ -896,20 +899,28 @@ define IndentationRequired = #(o)
 define CheckIndent = #(o)
   let clone = o.clone()
   let indent = CountIndent clone
-  if indent == clone.indent.peek() or o.options.noindent
+  if o.options.noindent or indent == _indent.peek(o)
     o.update clone
     true
   else
     false
+
+let retain-indent(rule) -> #(o)
+  let count = _indent.count(o)
+  try
+    return rule o
+  finally
+    while _indent.count(o) > count
+      _indent.pop(o)
 
 let Advance = named \Advance, #(o)
   if o.options.noindent
     throw Error "Can't use Advance if in noindent mode"
   let clone = o.clone()
   let indent = CountIndent clone
-  if indent > clone.indent.peek()
+  if indent > _indent.peek(o)
     // don't update o, we don't want to move the index
-    o.indent.push indent
+    _indent.push o, indent
     true
   else
     false
@@ -919,13 +930,13 @@ let MaybeAdvance = named \MaybeAdvance, #(o)
     return true
   let clone = o.clone()
   let indent = CountIndent clone
-  o.indent.push indent
+  _indent.push o, indent
   true
 
 let PushIndent = named \PushIndent, mutate! CountIndent, (#(indent, o)
   if o.options.noindent
     return true
-  o.indent.push indent
+  _indent.push o, indent
   true), true
 
 let PushFakeIndent = do
@@ -933,14 +944,14 @@ let PushFakeIndent = do
   #(n) -> cache[n] ?= named "PushFakeIndent($n)", #(o)
     if o.options.noindent
       return true
-    o.indent.push o.indent.peek() + n
+    _indent.push o, _indent.peek(o) + n
     true
 
 let PopIndent = named \PopIndent, #(o)
   if o.options.noindent
     return true
-  if o.indent.can-pop()
-    o.indent.pop()
+  if _indent.can-pop o
+    _indent.pop o
     true
   else
     o.error "Unexpected dedent"
@@ -2220,7 +2231,7 @@ namedlet DoubleStringArrayLiteral = short-circuit! PercentSignDoubleQuote, seque
 namedlet StringIndent = #(o)
   let clone = o.clone()
   let mutable count = 1
-  let current-indent = clone.indent.peek()
+  let current-indent = _indent.peek(o)
   while count < current-indent
     let c = SpaceChar(clone)
     if not c
@@ -2301,7 +2312,7 @@ let make-triple-string(quote, line)
       _Space
       [\this, Newline]
     ]]
-    [\rest, maybe! (sequential! [
+    [\rest, maybe! (retain-indent sequential! [
       MaybeAdvance
       [\this, maybe! (sequential! [
         StringIndent
@@ -2337,7 +2348,7 @@ namedlet TripleDoubleStringArrayLiteral = short-circuit! PercentSignTripleDouble
     _Space
     [\this, Newline]
   ]]
-  [\rest, maybe! (sequential! [
+  [\rest, maybe! (retain-indent sequential! [
     MaybeAdvance
     [\this, maybe! (sequential! [
       StringIndent
@@ -2579,7 +2590,7 @@ let get-reserved-idents = do
       RESERVED_IDENTS
 define Identifier = one-of! [
   sequential! [
-    #(o) -> _in-ast.peek()
+    #(o) -> _in-ast.peek(o)
     Space
     DollarSign
     NoSpace
@@ -2775,7 +2786,7 @@ namedlet ArrayLiteral = prevent-unclosed-object-literal sequential! [
     ]]
     MaybeComma
   ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (sequential! [
+  [\rest, maybe! (retain-indent sequential! [
     SomeEmptyLines
     MaybeAdvance
     [\this, maybe! (sequential! [
@@ -3045,7 +3056,7 @@ namedlet ObjectLiteral = sequential! [
     ]]
     MaybeComma
   ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (sequential! [
+  [\rest, maybe! (retain-indent sequential! [
     SomeEmptyLines
     MaybeAdvance
     [\this, maybe! (sequential! [
@@ -3078,7 +3089,7 @@ namedlet MapLiteral = short-circuit! MapLiteralToken, sequential! [
     ]]
     MaybeComma
   ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (sequential! [
+  [\rest, maybe! (retain-indent sequential! [
     SomeEmptyLines
     MaybeAdvance
     [\this, maybe! (sequential! [
@@ -3103,7 +3114,7 @@ namedlet MapLiteral = short-circuit! MapLiteralToken, sequential! [
     node: o.object i, [...x.first, ...x.rest]
   }, o, i, line
 
-namedlet BodyWithIndent = sequential! [
+namedlet BodyWithIndent = retain-indent sequential! [
   Space
   Newline
   EmptyLines
@@ -3126,11 +3137,11 @@ namedlet BodyNoIndentNoEnd = sequential! [
   Colon
   EmptyLines
   [\this, #(o)
-    o.indent.push(o.indent.peek() + 1)
+    _indent.push(o, _indent.peek(o) + 1)
     try
       return Block(o)
     finally
-      o.indent.pop()]
+      _indent.pop(o)]
 ]
 
 namedlet BodyNoIndent = sequential! [
@@ -3250,7 +3261,7 @@ namedlet FunctionType = sequential! [
 
 namedlet NonUnionType = one-of! [
   #(o)
-    if not _in-function-type-params.peek()
+    if not _in-function-type-params.peek(o)
       FunctionType(o)
   sequential! [
     OpenParenthesis
@@ -3565,9 +3576,9 @@ namedlet ExpressionOrAssignment = oneOf! [
 define AstExpressionToken = word \ASTE
 namedlet AstExpression = short-circuit! AstExpressionToken, sequential! [
   #(o)
-    if not _in-macro.peek()
+    if not _in-macro.peek(o)
       o.error "Can only use AST inside a macro"
-    else if _in-ast.peek()
+    else if _in-ast.peek(o)
       o.error "Cannot use AST inside an AST"
     else
       true
@@ -3584,9 +3595,9 @@ namedlet AstExpression = short-circuit! AstExpressionToken, sequential! [
 define AstToken = word \AST
 namedlet AstStatement = short-circuit! AstToken, sequential! [
   #(o)
-    if not _in-macro.peek()
+    if not _in-macro.peek(o)
       o.error "Can only use AST inside a macro"
-    else if _in-ast.peek()
+    else if _in-ast.peek(o)
       o.error "Cannot use AST inside an AST"
     else
       true
@@ -3753,7 +3764,7 @@ namedlet MacroBody = one-of! [
     Space
     Newline
     EmptyLines
-    [\this, sequential! [
+    [\this, retain-indent sequential! [
       #(o)
         if o.options.noindent
           MaybeAdvance(o)
@@ -3988,22 +3999,24 @@ namedlet IndentedUnclosedObjectLiteralInner = sequential! [
 ], #(x, o, i) -> o.object i, [x.head, ...x.tail]
 
 namedlet IndentedUnclosedObjectLiteral = sequential! [
-  #(o) -> not _prevent-unclosed-object-literal.peek()
+  #(o) -> not _prevent-unclosed-object-literal.peek(o)
   IndentationRequired
   Space
   Newline
   EmptyLines
-  Advance
-  CheckIndent
-  [\this, IndentedUnclosedObjectLiteralInner]
-  PopIndent
+  [\this, retain-indent sequential! [
+    Advance
+    CheckIndent
+    [\this, IndentedUnclosedObjectLiteralInner]
+    PopIndent
+  ]]
 ]
 
 namedlet UnclosedArrayLiteralElement = sequential! [
   Asterix
   Space
   [\this, one-of! [
-    sequential! [
+    retain-indent sequential! [
       PushFakeIndent(2)
       [\this, one-of! [
         IndentedUnclosedObjectLiteralInner
@@ -4024,15 +4037,17 @@ namedlet IndentedUnclosedArrayLiteralInner = sequential! [
   ]]
 ], #(x, o, i) -> o.array i, [x.head, ...x.tail]
 namedlet IndentedUnclosedArrayLiteral = sequential! [
-  #(o) -> not _prevent-unclosed-object-literal.peek()
+  #(o) -> not _prevent-unclosed-object-literal.peek(o)
   IndentationRequired
   Space
   Newline
   EmptyLines
-  Advance
-  CheckIndent
-  [\this, IndentedUnclosedArrayLiteralInner]
-  PopIndent
+  [\this, retain-indent sequential! [
+    Advance
+    CheckIndent
+    [\this, IndentedUnclosedArrayLiteralInner]
+    PopIndent
+  ]]
 ]
 
 let CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
@@ -4050,7 +4065,7 @@ define PrimaryExpression = one-of! [
   UseMacro
   Identifier
   #(o)
-    if _asterix-as-array-length.peek()
+    if _asterix-as-array-length.peek(o)
       let i = o.index
       if Asterix(o)
         o.ident i, CURRENT_ARRAY_LENGTH_NAME
@@ -4070,7 +4085,7 @@ namedlet ClosedArguments = sequential! [
     ]]
     MaybeComma
   ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (sequential! [
+  [\rest, maybe! (retain-indent sequential! [
     SomeEmptyLines
     MaybeAdvance
     [\this, maybe! (sequential! [
@@ -4108,15 +4123,17 @@ namedlet UnclosedArguments = sequential! [
       IndentationRequired
       Comma
       SomeEmptyLines
-      Advance
-      CheckIndent
-      [\head, SpreadOrExpression]
-      [\tail, zero-or-more! sequential! [
-        CommaOrNewlineWithCheckIndent
-        [\this, SpreadOrExpression]
+      [\this, retain-indent sequential! [
+        Advance
+        CheckIndent
+        [\head, SpreadOrExpression]
+        [\tail, zero-or-more! sequential! [
+          CommaOrNewlineWithCheckIndent
+          [\this, SpreadOrExpression]
+        ]]
+        MaybeComma
+        PopIndent
       ]]
-      MaybeComma
-      PopIndent
     ], #(x) -> [x.head, ...x.tail]
     mutate! MaybeComma, #-> []
   ]]
@@ -4460,13 +4477,13 @@ namedlet Eval = short-circuit! EvalToken, sequential! [
 
 namedlet InvocationOrAccess = one-of! [
   #(o)
-    if _in-ast.peek()
+    if _in-ast.peek(o)
       let i = o.index
       let clone = o.clone()
       Space(clone)
       if not DollarSign clone
         return false
-      _in-ast.push false
+      _in-ast.push o, false
       try
         let args = InvocationArguments clone
         if not args
@@ -4475,7 +4492,7 @@ namedlet InvocationOrAccess = one-of! [
         o.update(clone)
         o.call(i, o.ident(i, \$), args)
       finally
-        _in-ast.pop()
+        _in-ast.pop(o)
   BasicInvocationOrAccess
   SuperInvocation
   Eval
@@ -4774,7 +4791,7 @@ define EmbeddedLiteralTextInnerPartWithBlock = one-of! [
 define EmbeddedLiteralTextInnerWithBlock = zero-or-more! EmbeddedLiteralTextInnerPartWithBlock, #(x, o, i) -> o.block i, x
 
 define EmbeddedLiteralText = sequential! [
-  #(o) -> o.options.embedded and _allow-embedded-text.peek() and o.index < o.data.length
+  #(o) -> o.options.embedded and _allow-embedded-text.peek(o) and o.index < o.data.length
   EmbeddedClose
   [\this, EmbeddedLiteralTextInner]
   one-of! [
@@ -4881,7 +4898,7 @@ namedlet EmbeddedRoot = #(o, callback)
   BOM(o)
   Shebang(o)
   let node = EmbeddedLiteralTextInnerWithBlock(o)
-  let result = o.root start-index, o.options.filename, node, true, _in-generator.peek()
+  let result = o.root start-index, o.options.filename, node, true, _in-generator.peek(o)
   o.clear-cache()
   if callback?
     callback null, result
@@ -4889,16 +4906,16 @@ namedlet EmbeddedRoot = #(o, callback)
     result
 
 namedlet EmbeddedRootGenerator = #(o, callback)
-  _in-generator.push true
+  _in-generator.push o, true
   if callback?
     async err, result <- EmbeddedRoot o
-    _in-generator.pop()
+    _in-generator.pop(o)
     callback err, result
   else
     try
       return EmbeddedRoot(o)
     finally
-      _in-generator.pop()
+      _in-generator.pop(o)
 
 class ParserError extends Error
   def constructor(message as String = "Unknown error", text as String = "", line as Number = 0)
@@ -6185,7 +6202,7 @@ class Scope
       Type.any
 
 class State
-  def constructor(@data, @macros as MacroHolder = MacroHolder(), @options = {}, @index = 0, @line = 1, @line-info, @failures as FailureManager = FailureManager(), @cache = [], @indent = Stack(1), @current-macro = null, @prevent-failures = 0, @known-scopes = [], scope)
+  def constructor(@data, @macros as MacroHolder = MacroHolder(), @options = {}, @index = 0, @line = 1, @line-info, @failures as FailureManager = FailureManager(), @cache = [], @current-macro = null, @prevent-failures = 0, @known-scopes = [], @stacks = [], scope)
     if not scope
       @scope := Scope(known-scopes.length)
       known-scopes.push @scope
@@ -6195,7 +6212,7 @@ class State
     if not line-info
       @calculate-line-info()
   
-  def clone(scope as Scope|void) -> State @data, @macros, @options, @index, @line, @line-info, @failures, @cache, @indent.clone(), @current-macro, @prevent-failures, @known-scopes, scope or @scope
+  def clone(scope as Scope|void) -> State @data, @macros, @options, @index, @line, @line-info, @failures, @cache, @current-macro, @prevent-failures, @known-scopes, @stacks, scope or @scope
   
   def clear-cache()! -> @cache.length := 0
   
@@ -6244,7 +6261,6 @@ class State
   def update(clone)!
     @index := clone.index
     @line := clone.line
-    @indent := clone.indent.clone()
     @macros := clone.macros
   
   def fail(message)!
@@ -6814,8 +6830,8 @@ class State
     
     let macros = @macros
     let mutator = #(x, o, i, line)
-      if _in-ast.peek() or not o.expanding-macros
-        o.macro-access i, macro-id, line, remove-noops(x), _position.peek(), _in-generator.peek(), _in-evil-ast.peek()
+      if _in-ast.peek(o) or not o.expanding-macros
+        o.macro-access i, macro-id, line, remove-noops(x), _position.peek(o), _in-generator.peek(o), _in-evil-ast.peek(o)
       else
         throw Error "Cannot use macro until fully defined"
     for m in macros.get-or-add-by-names @current-macro
@@ -6828,15 +6844,15 @@ class State
     let macros = @macros
     
     let mutator = #(x, o, i, line, scope-id)@
-      if _in-ast.peek() or not o.expanding-macros
-        o.macro-access i, macro-id, line, remove-noops(x), _position.peek(), _in-generator.peek(), _in-evil-ast.peek()
+      if _in-ast.peek(o) or not o.expanding-macros
+        o.macro-access i, macro-id, line, remove-noops(x), _position.peek(o), _in-generator.peek(o), _in-evil-ast.peek(o)
       else
         let clone = o.clone(o.get-scope(scope-id))
-        let macro-helper = MacroHelper clone, i, _position.peek(), _in-generator.peek(), _in-evil-ast.peek()
+        let macro-helper = MacroHelper clone, i, _position.peek(o), _in-generator.peek(o), _in-evil-ast.peek(o)
         if type == \assign-operator and macro-helper.is-ident(x.left)
           if not macro-helper.has-variable(x.left)
             throw MacroError Error("Trying to assign with $(x.op) to unknown variable: $(macro-helper.name x.left)"), o.data, line
-          else if not macro-helper.is-variable-mutable(x.left) and not _in-evil-ast.peek()
+          else if not macro-helper.is-variable-mutable(x.left) and not _in-evil-ast.peek(o)
             throw MacroError Error("Trying to assign with $(x.op) to immutable variable: $(macro-helper.name x.left)"), o.data, line
         let mutable result = try
           handler@ macro-helper, remove-noops(x), macro-helper@.wrap, macro-helper@.node
@@ -6932,9 +6948,9 @@ class State
     if node._macro-expanded?
       return node._macro-expanded
     else if node instanceof MacroAccessNode
-      _position.push node.position
-      _in-generator.push node.in-generator
-      _in-evil-ast.push node.in-evil-ast
+      _position.push this, node.position
+      _in-generator.push this, node.in-generator
+      _in-evil-ast.push this, node.in-evil-ast
       let old-expanding-macros = @expanding-macros
       @expanding-macros := true
       let result = try
@@ -6945,9 +6961,9 @@ class State
           e.set-line node.call-line
         throw e
       finally
-        _position.pop()
-        _in-generator.pop()
-        _in-evil-ast.pop()
+        _position.pop this
+        _in-generator.pop this
+        _in-evil-ast.pop this
         @expanding-macros := old-expanding-macros
       node._macro-expanded := if result instanceof MacroAccessNode
         // I know this somewhat violates the expanding only once assumption, but it makes
