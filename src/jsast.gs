@@ -396,7 +396,7 @@ exports.Binary := class Binary extends Expression
       options.sourcemap.pop-file()
   
   def compile-as-block(options, level, line-start, sb)!
-    if ASSIGNMENT_OPS ownskey @op or @op in ["&&", "||"]
+    if ASSIGNMENT_OPS ownskey @op or @op in [".", "&&", "||"]
       super.compile-as-block(options, level, line-start, sb)
     else
       BlockExpression(@pos, [@left, @right]).compile-as-block(options, level, line-start, sb)
@@ -410,6 +410,13 @@ exports.Binary := class Binary extends Expression
           .compile-as-statement(options, line-start, sb)
       else
         super.compile-as-statement(options, line-start, sb)
+    else if @op == "&&"
+      IfStatement(@pos, @left, @right).compile-as-statement(options, line-start, sb)
+    else if @op == "||"
+      // TODO: invert rather than add the ! operator
+      IfStatement(@pos, ast.Unary(@pos, "!", @left), @right).compile-as-statement(options, line-start, sb)
+    else if op == "."
+      super.compile-as-statement(options, line-start, sb)
     else
       BlockStatement(@pos, [@left, @right]).compile-as-statement(options, line-start, sb)
   
@@ -484,7 +491,7 @@ exports.Binary := class Binary extends Expression
     @_is-small ?= @left.is-small() and @right.is-small()
   
   def is-noop()
-    @_is-noop ?= ASSIGNMENT_OPS not ownskey @op and @left.is-noop() and @right.is-noop()
+    @_is-noop ?= ASSIGNMENT_OPS not ownskey @op and @op != "." and @left.is-noop() and @right.is-noop()
   
   def walk(walker)
     let mutable changed = false

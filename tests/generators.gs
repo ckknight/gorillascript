@@ -287,18 +287,20 @@ describe "yield with switch", #
     default
       yield 6
       yield 7
-  
+
   it "yields expected items", #
     let run(value)
       let get-value = stub().returns value
-      let result = fun(get-value)
+      let iter = fun(get-value)
+      expect(get-value).to.not.be.called
+      let result = to-array iter
       expect(get-value).to.be.called-once
       result
-    expect(to-array run(0)).to.eql [0]
-    expect(to-array run(1)).to.eql [1, 2]
-    expect(to-array run(2)).to.eql [3, 4, 5]
-    expect(to-array run(3)).to.eql [4, 5]
-    expect(to-array run(4)).to.eql [6, 7]
+    expect(run(0)).to.eql [0]
+    expect(run(1)).to.eql [1, 2]
+    expect(run(2)).to.eql [3, 4, 5]
+    expect(run(3)).to.eql [4, 5]
+    expect(run(4)).to.eql [6, 7]
 
 describe "yield with for-from", #
   let range(start, finish)*

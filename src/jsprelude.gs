@@ -282,23 +282,11 @@ macro returnunless
 
 define operator assign and=
   @maybe-cache-access left, #(set-left, left)@
-    if @position == \expression
-      ASTE $set-left and ($left := $right)
-    else
-      AST if $set-left
-        $left := $right
-      else
-        $left
+    ASTE $set-left and ($left := $right)
 
 define operator assign or=
   @maybe-cache-access left, #(set-left, left)@
-    if @position == \expression
-      ASTE $set-left or ($left := $right)
-    else
-      AST if not $set-left
-        $left := $right
-      else
-        $left
+    ASTE $set-left or ($left := $right)
 
 // let's define the unstrict operators first
 define operator binary ~*, ~/, ~%, ~\ with precedence: 11, type: \number
@@ -745,35 +733,27 @@ define operator binary ? with precedence: 1
 
 define operator assign ~min=
   @maybe-cache-access left, #(set-left, left)@
-    @maybe-cache right, #(set-right, right)@
-      ASTE if $set-left ~> $set-right
-        $left := $right
-      else
-        $left
+    @maybe-cache set-left, #(set-left, left-value)@
+      @maybe-cache right, #(set-right, right)@
+        ASTE if $set-left ~> $set-right then ($left := $right) else $left-value
 
 define operator assign ~max=
   @maybe-cache-access left, #(set-left, left)@
-    @maybe-cache right, #(set-right, right)@
-      ASTE if $set-left ~< $set-right
-        $left := $right
-      else
-        $left
+    @maybe-cache set-left, #(set-left, left-value)@
+      @maybe-cache right, #(set-right, right)@
+        ASTE if $set-left ~< $set-right then ($left := $right) else $left-value
 
 define operator assign min=
   @maybe-cache-access left, #(set-left, left)@
-    @maybe-cache right, #(set-right, right)@
-      ASTE if $set-left > $set-right
-        $left := $right
-      else
-        $left
+    @maybe-cache set-left, #(set-left, left-value)@
+      @maybe-cache right, #(set-right, right)@
+        ASTE if $set-left > $set-right then ($left := $right) else $left-value
 
 define operator assign max=
   @maybe-cache-access left, #(set-left, left)@
-    @maybe-cache right, #(set-right, right)@
-      ASTE if $set-left < $set-right
-        $left := $right
-      else
-        $left
+    @maybe-cache set-left, #(set-left, left-value)@
+      @maybe-cache right, #(set-right, right)@
+        ASTE if $set-left < $set-right then ($left := $right) else $left-value
 
 define operator assign xor=
   @maybe-cache-access left, #(set-left, left)@

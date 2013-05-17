@@ -142,7 +142,7 @@ describe "array containment", #
 
   it "calculates key once with empty literal array", #
     let get-key = stub().returns "charlie"
-    expect(get-key() in []).to.be.true
+    expect(get-key() in []).to.be.false
     expect(get-key).to.be.called-once
   
   it "does not calculate array more than once", #

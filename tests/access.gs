@@ -306,3 +306,22 @@ describe "Binding access", #
     expect(f alpha).to.eql [x, alpha]
     expect(f@ bravo).to.eql [x]
     expect(f@ bravo, alpha).to.eql [x, alpha]
+
+describe "Access as a statement", #
+  it "should not be optimized away, in case of getters", #
+    try
+      let mutable called = false
+      let o = {
+        get x: #-> called := true
+      }
+      if o.x != true
+        return
+    catch e
+      void
+  
+    let ran = stub().returns "hello"
+    let obj = {
+      get value: #-> ran()
+    }
+    obj.value
+    expect(ran).to.be.called-once

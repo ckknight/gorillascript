@@ -26,7 +26,7 @@ describe "classes", #
     let Class = class
       def constructor() ->
   
-    expect(Class).to.be.true
+    expect(Class).to.be.a \function
     expect(new Class()).to.be.an.instanceof(Class)
 
   it "simple class, simple constructor", #
@@ -35,7 +35,7 @@ describe "classes", #
       def constructor()
         hit-constructor := true
   
-    expect(Class).to.be.true
+    expect(Class).to.be.a \function
     expect(hit-constructor).to.be.false
     expect(new Class()).to.be.an.instanceof(Class)
     expect(hit-constructor).to.be.true
