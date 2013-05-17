@@ -659,3 +659,33 @@ describe "a generator without yield statements", #
     let iter = fun(\alpha, \bravo, \charlie)
     iter.next()
     expect(ran).to.be.called-once
+
+describe "yield without a value", #
+  it "should be the same as yield void", #
+    let start = stub()
+    let middle = stub()
+    let finish = stub()
+    let fun()*
+      start()
+      yield
+      middle()
+      let x = yield
+      finish()
+      return x
+    
+    let iter = fun()
+    expect(start).to.not.be.called
+    expect(iter.next()).to.be.eql { -done, value: void }
+    expect(start).to.be.called
+
+    expect(middle).to.not.be.called
+    expect(iter.next()).to.be.eql { -done, value: void }
+    expect(middle).to.be.called
+
+    expect(finish).to.not.be.called
+    expect(iter.send("hello")).to.be.eql { +done, value: "hello" }
+    
+    expect(start).to.be.called-once
+    expect(middle).to.be.called-once
+    expect(finish).to.be.called-once
+    

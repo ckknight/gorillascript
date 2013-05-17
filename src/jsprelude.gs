@@ -3075,19 +3075,15 @@ macro namespace
       result
 
 macro yield
-  syntax node as Expression
+  syntax node as Expression?
     if not @in-generator
       throw Error "Can only use yield in a generator function"
-    if @position == \expression and false
-      throw Error "yield can only be used in a statement position"
     @mutate-last node or @noop(), (#(n)@ -> @yield n), true
 
 macro yield*
   syntax node as Expression
     if not @in-generator
       throw Error "Can only use yield* in a generator function"
-    if @position == \expression
-      throw Error "yield* can only be used in a statement position"
     let init = []
     if @is-type node, \array-like
       let index = @tmp \i, false, \number
