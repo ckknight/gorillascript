@@ -32,6 +32,8 @@ let parse-options =
   "no-prelude": [false, "Do not include the standard prelude"]
   //js:           [false, "Compile to JavaScript (default)"]
   watch:        ["w", "Watch for changes and compile as-needed"]
+  embedded:     [false, "Compile as embedded GorillaScript"]
+  "embedded-generator": [false, "Compile as a generator-based embedded GorillaScript"]
 
 if has-gjs
   parse-options <<<
@@ -125,6 +127,13 @@ else if options.watch and options.sourcemap
 else if filenames.length
   let sourcemap = if options.sourcemap then require("./sourcemap")(options.output, ".")
   opts.sourcemap := sourcemap
+  
+  if options["embedded-generator"]
+    opts.embedded-generator := true
+    options.embedded := true
+  if options.embedded
+    opts.embedded := true
+    opts.noindent := true
   
   let input = {}
   asyncfor(0) err <- next, filename in filenames

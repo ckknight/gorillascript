@@ -5,7 +5,7 @@ require! path
 
 let DEFAULT_TRANSLATOR = './jstranslator'
 
-exports.version := "0.6.5"
+exports.version := "0.6.6"
 exports <<< {parser.ParserError, parser.MacroError}
 
 // TODO: Remove register-extension when fully deprecated.

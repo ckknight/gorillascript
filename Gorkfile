@@ -256,7 +256,7 @@ command "test", "Run the GorillaScript test suite", #(options, cb)
   let suite = mocha.suite
   for k, v of compilations
     suite.emit 'pre-require', GLOBAL, k, mocha
-    suite.emit 'require', v@(GLOBAL), k, mocha
+    suite.emit 'require', describe("$k:", #-> v@(GLOBAL)), k, mocha
     suite.emit 'post-require', GLOBAL, k, mocha
   mocha.run #(count)
     if count

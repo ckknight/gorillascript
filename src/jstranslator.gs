@@ -1467,7 +1467,7 @@ let translators =
         unless translate-types ownskey node.constructor.capped-name
           throw Error "Unknown type to translate: $(String node.constructor.capped-name)"
         translate-types[node.constructor.capped-name](node, scope)
-
+    
     #(node, scope, location, auto-return) -> #
       let mutable inner-scope = scope.clone(not not node.bound)
       let real-inner-scope = inner-scope
@@ -1484,14 +1484,7 @@ let translators =
         initializers.push ...param.init
 
       let unassigned = {}
-      let has-generator-node = make-has-generator-node()
-      let is-simple-generator = node.generator and not has-generator-node(node.body, true)
-      let mutable body = if node.generator and not is-simple-generator
-        let builder = GeneratorBuilder get-pos(node), inner-scope, has-generator-node
-        generator-translate(node.body, inner-scope, builder.start).goto(get-pos(node), #-> builder.stop)
-        builder.create()
-      else
-        translate(node.body, inner-scope, \top-statement, not is-simple-generator and node.auto-return, unassigned)()
+      let {mutable body, wrap} = translate-function-body(get-pos(node), node.generator, node.auto-return, inner-scope, node.body, unassigned)
       inner-scope.release-tmps()
       body := ast.Block get-pos(node.body), [...initializers, body]
       if inner-scope.used-this or node.bound instanceof ParserNode
@@ -1513,14 +1506,7 @@ let translators =
               * body
       if node.curry
         throw Error "Expected node to already be curried"
-      let func = ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
-      if is-simple-generator
-        scope.add-helper \__generator
-        auto-return ast.Call get-pos(node),
-          ast.Ident get-pos(node), \__generator
-          [func]
-      else
-        auto-return func
+      auto-return wrap ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
 
   Ident: do
     let PRIMORDIAL_GLOBALS = {
@@ -1800,7 +1786,32 @@ let translate-array(nodes as [], scope as Scope, location as String, auto-return
   return for node, i, len in nodes
     translate nodes[i], scope, location, i == len - 1 and auto-return, unassigned
 
-let translate-root(mutable roots as Object, scope as Scope)
+let translate-function-body(pos, is-generator, auto-return, scope, body, unassigned = {})
+  let mutable is-simple-generator = false
+  if is-generator
+    let has-generator-node = make-has-generator-node()
+    is-simple-generator := not has-generator-node(body, true)
+    if not is-simple-generator
+      let builder = GeneratorBuilder pos, scope, has-generator-node
+      generator-translate(body, scope, builder.start).goto(pos, #-> builder.stop)
+      return {
+        wrap: #(x) -> x
+        body: builder.create()
+      }
+  
+  {
+    wrap: if is-simple-generator
+      scope.add-helper \__generator
+      #(x)
+        ast.Call pos,
+          ast.Ident pos, \__generator
+          [x]
+    else
+      #(x) -> x
+    body: translate(body, scope, \top-statement, not is-simple-generator and auto-return, unassigned)()
+  }
+
+let translate-root(mutable roots as Object, mutable scope as Scope)
   if not is-array! roots
     roots := [roots]
   if roots.length == 0
@@ -1827,24 +1838,29 @@ let translate-root(mutable roots as Object, scope as Scope)
       scope.add-variable ident
       scope.mark-as-param ident
   
-  let mutable body = if roots.length == 1
+  let {wrap, mutable body} = if roots.length == 1
     if roots[0] not instanceof ParserNode.Root
       throw Error "Cannot translate non-Root object"
-    ast.Block get-pos(roots[0]),
-      [translate(roots[0].body, scope, \top-statement, scope.options.return or scope.options.eval, [])()]
+    
+    if roots[0].is-generator
+      scope := scope.clone(true)
+    translate-function-body(get-pos(roots[0]), roots[0].is-generator, scope.options.return or scope.options.eval, scope, roots[0].body)
   else
-    ast.Block no-pos,
-      for root in roots
-        if root not instanceof ParserNode.Root
-          throw Error "Cannot translate non-Root object"
-        let inner-scope = scope.clone(true)
-        let {comments, body: root-body} = split-comments translate(root.body, inner-scope, \top-statement, scope.options.return or scope.options.eval, [])()
-        let root-pos = get-pos(root)
-        ast.Block root-pos, [
-          ...comments
-          ast.Call root-pos,
-            ast.Func root-pos, null, [], inner-scope.get-variables(), root-body
-        ]
+    {
+      wrap: #(x) -> x
+      body: ast.Block no-pos,
+        for root in roots
+          if root not instanceof ParserNode.Root
+            throw Error "Cannot translate non-Root object"
+          let inner-scope = scope.clone(true)
+          let {comments, body: root-body} = split-comments translate(root.body, inner-scope, \top-statement, scope.options.return or scope.options.eval, [])()
+          let root-pos = get-pos(root)
+          ast.Block root-pos, [
+            ...comments
+            ast.Call root-pos,
+              ast.Func root-pos, null, [], inner-scope.get-variables(), root-body
+          ]
+    }
   
   let init = []
   if scope.has-bound and scope.used-this
@@ -1896,7 +1912,7 @@ let translate-root(mutable roots as Object, scope as Scope)
     uncommented-body := ast.Block body.pos,
       [
         ast.Return body.pos,
-          ast.Func body.pos,
+          wrap ast.Func body.pos,
             null
             [
               ast.Ident body.pos, \write

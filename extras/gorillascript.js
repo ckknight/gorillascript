@@ -7806,7 +7806,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __bind, __cmp, __create, __curry, __import, __in, __isArray, __keys, __lt, __lte, __name, __num, __once, __owns, __slice, __str, __strnum, __toArray, __typeof, _allowEmbeddedText, _asterixAsArrayLength, _Block, _FunctionBody, _inAst, _inEvilAst, _inFunctionTypeParams, _inGenerator, _inMacro, _Name, _NameOrSymbol, _position, _preventUnclosedObjectLiteral, _Space, _Symbol, AccessMultiNode, AccessNode, Advance, AnyArrayLiteral, AnyChar, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, Assignment, AssignmentAsExpression, AssignNode, Ast, Asterix, asterixAsArrayLength, AstExpression, AstExpressionToken, AsToken, AstStatement, AstToken, AtSign, Backslash, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, BracketedObjectKey, BreakNode, CallNode, Caret, CheckIndent, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaOrNewline, CommaOrNewlineWithCheckIndent, CommentNode, ComplexAssignable, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CustomBinaryOperator, CustomOperatorCloseParenthesis, CustomPostfixUnary, CustomPrefixUnary, DebuggerNode, DecimalDigit, DecimalNumber, DeclareEqualSymbol, DedentedBody, DefineHelper, DefineHelperStart, DefineMacro, DefineOperator, DefineOperatorStart, DefineSyntax, DefineSyntaxStart, DefNode, disallowEmbeddedText, DollarSign, DoubleColon, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedComment, EmbeddedLiteralText, EmbeddedLiteralTextInner, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedReadLiteralText, EmbeddedRoot, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, End, EndNoIndent, EndToken, Eof, EqualChar, Eval, EvalNode, EvalToken, Expression, ExpressionAsStatement, ExpressionOrAssignment, FailureManager, FalseLiteral, ForInNode, ForNode, freeze, fromCharCode, FunctionBody, FunctionDeclaration, FunctionFlag, FunctionFlags, FunctionLiteral, FunctionNode, FunctionType, generateCacheKey, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, GenericDefinitionPart, GenericPart, getEmbeddedRule, getReservedIdents, GetSetToken, getTmpId, getUseCustomBinaryOperator, HashSign, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrAccessPart, IdentifierOrAccessStart, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierParameter, IdentNode, IfNode, inAst, IndentationRequired, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, Index, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inspect, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThanSign, Letter, LicenseComment, Line, LinePart, Literal, Logic, LowerR, LowerU, LowerX, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, MacroToken, MapKeyValuePair, MapLiteral, MapLiteralToken, MaybeAdvance, MaybeAsType, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointNoSpace, MaybeExistentialSymbolNoSpace, MaybeNotToken, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, Minus, Name, NameChar, NamePart, NameStart, NaNLiteral, Newline, NewlineWithCheckIndent, nextTick, Node, nodeToType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, Nothing, NOTHING, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectKeyNotColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, ParserError, PercentSign, PercentSignDoubleQuote, PercentSignTripleDoubleQuote, Period, Pipe, Plus, PlusOrMinus, PopIndent, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyObjectKeyColon, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, PushFakeIndent, PushIndent, RadixNumber, RegexComment, RegexDoubleToken, RegexFlags, RegexLiteral, RegexpNode, RegexSingleToken, RegexTripleDoubleToken, RegexTripleSingleToken, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, setImmediate, SetLiteral, SetLiteralToken, Shebang, SHORT_CIRCUIT, SimpleAssignable, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpreadNode, SpreadOrExpression, Stack, State, Statement, StringIndent, StringInterpolation, StringLiteral, SuperInvocation, SuperNode, SuperToken, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, SyntaxToken, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, Underscore, UnicodeEscapeSequence, UseMacro, util, VarNode, VoidLiteral, YieldNode, Zero;
+      var __async, __bind, __cmp, __create, __curry, __import, __in, __isArray, __keys, __lt, __lte, __name, __num, __once, __owns, __slice, __str, __strnum, __toArray, __typeof, _allowEmbeddedText, _asterixAsArrayLength, _Block, _FunctionBody, _inAst, _inEvilAst, _inFunctionTypeParams, _inGenerator, _inMacro, _Name, _NameOrSymbol, _position, _preventUnclosedObjectLiteral, _Space, _Symbol, AccessMultiNode, AccessNode, Advance, AnyArrayLiteral, AnyChar, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, Assignment, AssignmentAsExpression, AssignNode, Ast, Asterix, asterixAsArrayLength, AstExpression, AstExpressionToken, AsToken, AstStatement, AstToken, AtSign, Backslash, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, BracketedObjectKey, BreakNode, CallNode, Caret, CheckIndent, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaOrNewline, CommaOrNewlineWithCheckIndent, CommentNode, ComplexAssignable, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CustomBinaryOperator, CustomOperatorCloseParenthesis, CustomPostfixUnary, CustomPrefixUnary, DebuggerNode, DecimalDigit, DecimalNumber, DeclareEqualSymbol, DedentedBody, DefineHelper, DefineHelperStart, DefineMacro, DefineOperator, DefineOperatorStart, DefineSyntax, DefineSyntaxStart, DefNode, disallowEmbeddedText, DollarSign, DoubleColon, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedComment, EmbeddedLiteralText, EmbeddedLiteralTextInner, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedReadLiteralText, EmbeddedRoot, EmbeddedRootGenerator, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, End, EndNoIndent, EndToken, Eof, EqualChar, Eval, EvalNode, EvalToken, Expression, ExpressionAsStatement, ExpressionOrAssignment, FailureManager, FalseLiteral, ForInNode, ForNode, freeze, fromCharCode, FunctionBody, FunctionDeclaration, FunctionFlag, FunctionFlags, FunctionLiteral, FunctionNode, FunctionType, generateCacheKey, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, GenericDefinitionPart, GenericPart, getEmbeddedRule, getReservedIdents, GetSetToken, getTmpId, getUseCustomBinaryOperator, HashSign, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrAccessPart, IdentifierOrAccessStart, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierParameter, IdentNode, IfNode, inAst, IndentationRequired, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, Index, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inspect, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThanSign, Letter, LicenseComment, Line, LinePart, Literal, Logic, LowerR, LowerU, LowerX, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, MacroToken, MapKeyValuePair, MapLiteral, MapLiteralToken, MaybeAdvance, MaybeAsType, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointNoSpace, MaybeExistentialSymbolNoSpace, MaybeNotToken, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, Minus, Name, NameChar, NamePart, NameStart, NaNLiteral, Newline, NewlineWithCheckIndent, nextTick, Node, nodeToType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NOTHING, Nothing, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectKeyNotColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, ParserError, PercentSign, PercentSignDoubleQuote, PercentSignTripleDoubleQuote, Period, Pipe, Plus, PlusOrMinus, PopIndent, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyObjectKeyColon, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, PushFakeIndent, PushIndent, RadixNumber, RegexComment, RegexDoubleToken, RegexFlags, RegexLiteral, RegexpNode, RegexSingleToken, RegexTripleDoubleToken, RegexTripleSingleToken, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, setImmediate, SetLiteral, SetLiteralToken, Shebang, SHORT_CIRCUIT, SimpleAssignable, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpreadNode, SpreadOrExpression, Stack, State, Statement, StringIndent, StringInterpolation, StringLiteral, SuperInvocation, SuperNode, SuperToken, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, SyntaxToken, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, Underscore, UnicodeEscapeSequence, UseMacro, util, VarNode, VoidLiteral, YieldNode, Zero;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -17954,12 +17954,39 @@
         BOM(o);
         Shebang(o);
         node = EmbeddedLiteralTextInnerWithBlock(o);
-        result = o.root(startIndex, o.options.filename, node, true);
+        result = o.root(
+          startIndex,
+          o.options.filename,
+          node,
+          true,
+          _inGenerator.peek()
+        );
         o.clearCache();
         if (callback != null) {
           return callback(null, result);
         } else {
           return result;
+        }
+      });
+      EmbeddedRootGenerator = named("EmbeddedRootGenerator", function (o, callback) {
+        var _once;
+        _inGenerator.push(true);
+        if (callback != null) {
+          return EmbeddedRoot(o, (_once = false, function (err, result) {
+            if (_once) {
+              throw Error("Attempted to call function more than once");
+            } else {
+              _once = true;
+            }
+            _inGenerator.pop();
+            return callback(err, result);
+          }));
+        } else {
+          try {
+            return EmbeddedRoot(o);
+          } finally {
+            _inGenerator.pop();
+          }
         }
       });
       ParserError = (function (Error) {
@@ -26948,7 +26975,7 @@
       }(Node));
       Node.Root = RootNode = (function (Node) {
         var _Node_prototype, _RootNode_prototype;
-        function RootNode(line, column, scopeId, file, body, isEmbedded) {
+        function RootNode(line, column, scopeId, file, body, isEmbedded, isGenerator) {
           var _this;
           _this = this instanceof RootNode ? this : __create(_RootNode_prototype);
           if (typeof line !== "number") {
@@ -26973,6 +27000,11 @@
           } else if (typeof isEmbedded !== "boolean") {
             throw TypeError("Expected isEmbedded to be a Boolean, got " + __typeof(isEmbedded));
           }
+          if (isGenerator == null) {
+            isGenerator = false;
+          } else if (typeof isGenerator !== "boolean") {
+            throw TypeError("Expected isGenerator to be a Boolean, got " + __typeof(isGenerator));
+          }
           _this.line = line;
           _this.column = column;
           _this.scopeId = scopeId;
@@ -26982,6 +27014,7 @@
           _this.file = file;
           _this.body = body;
           _this.isEmbedded = isEmbedded;
+          _this.isGenerator = isGenerator;
           return _this;
         }
         _Node_prototype = Node.prototype;
@@ -26992,7 +27025,7 @@
           Node.extended(RootNode);
         }
         RootNode.cappedName = "Root";
-        RootNode.argNames = ["file", "body", "isEmbedded"];
+        RootNode.argNames = ["file", "body", "isEmbedded", "isGenerator"];
         State.addNodeFactory("root", RootNode);
         _RootNode_prototype.isStatement = function () {
           return true;
@@ -27005,7 +27038,8 @@
             this.column,
             this.file,
             this.body,
-            this.isEmbedded
+            this.isEmbedded,
+            this.isGenerator
           );
         };
         _RootNode_prototype.walk = function (f) {
@@ -27018,7 +27052,8 @@
               this.scopeId,
               this.file,
               body,
-              this.isEmbedded
+              this.isEmbedded,
+              this.isGenerator
             );
           } else {
             return this;
@@ -27043,7 +27078,8 @@
                 _this.scopeId,
                 _this.file,
                 body,
-                _this.isEmbedded
+                _this.isEmbedded,
+                _this.isGenerator
               )
               : _this);
           }));
@@ -29541,7 +29577,9 @@
           macros != null ? macros.clone() : void 0,
           options
         );
-        if (o.options.embedded) {
+        if (o.options.embeddedGenerator) {
+          rootRule = EmbeddedRootGenerator;
+        } else if (o.options.embedded) {
           rootRule = EmbeddedRoot;
         } else {
           rootRule = Root;
@@ -32926,7 +32964,7 @@
           }());
           return function (node, scope, location, autoReturn) {
             return function () {
-              var _arr, body, builder, fakeThis, func, hasGeneratorNode, i, initializers, innerScope, isSimpleGenerator, len, p, param, paramIdents, realInnerScope, unassigned;
+              var _arr, _ref, body, fakeThis, i, initializers, innerScope, len, p, param, paramIdents, realInnerScope, unassigned, wrap;
               innerScope = scope.clone(!!node.bound);
               realInnerScope = innerScope;
               if (node.generator && !innerScope.bound) {
@@ -32944,23 +32982,15 @@
                 initializers.push.apply(initializers, __toArray(param.init));
               }
               unassigned = {};
-              hasGeneratorNode = makeHasGeneratorNode();
-              isSimpleGenerator = node.generator && !hasGeneratorNode(node.body, true);
-              if (node.generator && !isSimpleGenerator) {
-                builder = GeneratorBuilder(getPos(node), innerScope, hasGeneratorNode);
-                generatorTranslate(node.body, innerScope, builder.start).goto(getPos(node), function () {
-                  return builder.stop;
-                });
-                body = builder.create();
-              } else {
-                body = translate(
-                  node.body,
-                  innerScope,
-                  "topStatement",
-                  !isSimpleGenerator && node.autoReturn,
-                  unassigned
-                )();
-              }
+              body = (_ref = translateFunctionBody(
+                getPos(node),
+                node.generator,
+                node.autoReturn,
+                innerScope,
+                node.body,
+                unassigned
+              )).body;
+              wrap = _ref.wrap;
               innerScope.releaseTmps();
               body = ast.Block(getPos(node.body), __toArray(initializers).concat([body]));
               if (innerScope.usedThis || node.bound instanceof ParserNode) {
@@ -32995,24 +33025,14 @@
               if (node.curry) {
                 throw Error("Expected node to already be curried");
               }
-              func = ast.Func(
+              return autoReturn(wrap(ast.Func(
                 getPos(node),
                 null,
                 paramIdents,
                 innerScope.getVariables(),
                 body,
                 []
-              );
-              if (isSimpleGenerator) {
-                scope.addHelper("__generator");
-                return autoReturn(ast.Call(
-                  getPos(node),
-                  ast.Ident(getPos(node), "__generator"),
-                  [func]
-                ));
-              } else {
-                return autoReturn(func);
-              }
+              )));
             };
           };
         }()),
@@ -33558,8 +33578,51 @@
         }
         return _arr;
       }
+      function translateFunctionBody(pos, isGenerator, autoReturn, scope, body, unassigned) {
+        var builder, hasGeneratorNode, isSimpleGenerator;
+        if (unassigned == null) {
+          unassigned = {};
+        }
+        isSimpleGenerator = false;
+        if (isGenerator) {
+          hasGeneratorNode = makeHasGeneratorNode();
+          isSimpleGenerator = !hasGeneratorNode(body, true);
+          if (!isSimpleGenerator) {
+            builder = GeneratorBuilder(pos, scope, hasGeneratorNode);
+            generatorTranslate(body, scope, builder.start).goto(pos, function () {
+              return builder.stop;
+            });
+            return {
+              wrap: function (x) {
+                return x;
+              },
+              body: builder.create()
+            };
+          }
+        }
+        return {
+          wrap: isSimpleGenerator
+            ? (scope.addHelper("__generator"), function (x) {
+              return ast.Call(
+                pos,
+                ast.Ident(pos, "__generator"),
+                [x]
+              );
+            })
+            : function (x) {
+              return x;
+            },
+          body: translate(
+            body,
+            scope,
+            "topStatement",
+            !isSimpleGenerator && autoReturn,
+            unassigned
+          )()
+        };
+      }
       function translateRoot(roots, scope) {
-        var _arr, _i, _len, _ref, bareInit, body, callFunc, comments, fakeThis, helper, ident, init, name, noPos, uncommentedBody, walker;
+        var _arr, _i, _len, _ref, bareInit, body, callFunc, comments, fakeThis, helper, ident, init, name, noPos, uncommentedBody, walker, wrap;
         if (typeof roots !== "object" || roots === null) {
           throw TypeError("Expected roots to be an Object, got " + __typeof(roots));
         }
@@ -33605,50 +33668,57 @@
             scope.markAsParam(ident);
           }
         }
-        if (roots.length === 1) {
-          if (!(roots[0] instanceof ParserNode.Root)) {
-            throw Error("Cannot translate non-Root object");
-          }
-          body = ast.Block(getPos(roots[0]), [
-            translate(
-              roots[0].body,
-              scope,
-              "topStatement",
-              scope.options["return"] || scope.options["eval"],
-              []
-            )()
-          ]);
-        } else {
-          body = ast.Block(noPos, (function () {
-            var _arr, _arr2, _i, _len, _ref, comments, innerScope, root, rootBody, rootPos;
-            for (_arr = [], _arr2 = __toArray(roots), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
-              root = _arr2[_i];
-              if (!(root instanceof ParserNode.Root)) {
-                throw Error("Cannot translate non-Root object");
-              }
-              innerScope = scope.clone(true);
-              comments = (_ref = splitComments(translate(
-                root.body,
-                innerScope,
-                "topStatement",
-                scope.options["return"] || scope.options["eval"],
-                []
-              )())).comments;
-              rootBody = _ref.body;
-              rootPos = getPos(root);
-              _arr.push(ast.Block(rootPos, __toArray(comments).concat([
-                ast.Call(rootPos, ast.Func(
-                  rootPos,
-                  null,
-                  [],
-                  innerScope.getVariables(),
-                  rootBody
-                ))
-              ])));
+        wrap = (_ref = roots.length === 1
+          ? (function () {
+            if (!(roots[0] instanceof ParserNode.Root)) {
+              throw Error("Cannot translate non-Root object");
             }
-            return _arr;
-          }()));
-        }
+            if (roots[0].isGenerator) {
+              scope = scope.clone(true);
+            }
+            return translateFunctionBody(
+              getPos(roots[0]),
+              roots[0].isGenerator,
+              scope.options["return"] || scope.options["eval"],
+              scope,
+              roots[0].body
+            );
+          }())
+          : {
+            wrap: function (x) {
+              return x;
+            },
+            body: ast.Block(noPos, (function () {
+              var _arr, _arr2, _i, _len, _ref, comments, innerScope, root, rootBody, rootPos;
+              for (_arr = [], _arr2 = __toArray(roots), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+                root = _arr2[_i];
+                if (!(root instanceof ParserNode.Root)) {
+                  throw Error("Cannot translate non-Root object");
+                }
+                innerScope = scope.clone(true);
+                comments = (_ref = splitComments(translate(
+                  root.body,
+                  innerScope,
+                  "topStatement",
+                  scope.options["return"] || scope.options["eval"],
+                  []
+                )())).comments;
+                rootBody = _ref.body;
+                rootPos = getPos(root);
+                _arr.push(ast.Block(rootPos, __toArray(comments).concat([
+                  ast.Call(rootPos, ast.Func(
+                    rootPos,
+                    null,
+                    [],
+                    innerScope.getVariables(),
+                    rootBody
+                  ))
+                ])));
+              }
+              return _arr;
+            }()))
+          }).wrap;
+        body = _ref.body;
         init = [];
         if (scope.hasBound && scope.usedThis) {
           fakeThis = ast.Ident(body.pos, "_this");
@@ -33719,7 +33789,7 @@
         uncommentedBody = _ref.body;
         if (scope.options.embedded) {
           uncommentedBody = ast.Block(body.pos, [
-            ast.Return(body.pos, ast.Func(
+            ast.Return(body.pos, wrap(ast.Func(
               body.pos,
               null,
               [
@@ -33744,7 +33814,7 @@
                 ),
                 uncommentedBody
               ])
-            ))
+            )))
           ]);
         }
         if (scope.options.bare) {
@@ -34034,7 +34104,7 @@
       fs = require("fs");
       path = require("path");
       DEFAULT_TRANSLATOR = "./jstranslator";
-      exports.version = "0.6.5";
+      exports.version = "0.6.6";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {

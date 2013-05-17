@@ -4881,12 +4881,24 @@ namedlet EmbeddedRoot = #(o, callback)
   BOM(o)
   Shebang(o)
   let node = EmbeddedLiteralTextInnerWithBlock(o)
-  let result = o.root start-index, o.options.filename, node, true
+  let result = o.root start-index, o.options.filename, node, true, _in-generator.peek()
   o.clear-cache()
   if callback?
     callback null, result
   else
     result
+
+namedlet EmbeddedRootGenerator = #(o, callback)
+  _in-generator.push true
+  if callback?
+    async err, result <- EmbeddedRoot o
+    _in-generator.pop()
+    callback err, result
+  else
+    try
+      return EmbeddedRoot(o)
+    finally
+      _in-generator.pop()
 
 class ParserError extends Error
   def constructor(message as String = "Unknown error", text as String = "", line as Number = 0)
@@ -8014,7 +8026,7 @@ node-class ReturnNode(node as Node = ConstNode(line, column, scope-id, void))
       ReturnNode @line, @column, @scope-id, node
     else
       this
-node-class RootNode(file as String|void, body as Node, is-embedded as Boolean)
+node-class RootNode(file as String|void, body as Node, is-embedded as Boolean, is-generator as Boolean)
   def is-statement() -> true
 node-class SpreadNode(node as Node)
   def _reduce(o)
@@ -8307,7 +8319,9 @@ let build-error-message(errors, last-token)
 let parse(text as String, macros as MacroHolder|null, options as {} = {}, callback as Function|null)
   let o = State text, macros?.clone(), options
   
-  let root-rule = if o.options.embedded
+  let root-rule = if o.options.embedded-generator
+    EmbeddedRootGenerator
+  else if o.options.embedded
     EmbeddedRoot
   else
     Root

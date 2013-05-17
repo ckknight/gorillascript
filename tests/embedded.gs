@@ -196,3 +196,27 @@ describe "embedded compilation", #
 
     template write, {}
     expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "[ ALPHA alpha ] [ BRAVO bravo ]"
+
+  it "as a generator, should allow yield in the main body", #
+    let template = gorilla.eval """
+    Hello, <%= yield "name" %>. How are you today?
+    """, embedded: true, noindent: true, embedded-generator: true
+    
+    let text = []
+    let write(x)!
+      text.push String x
+    
+    let iter = template write, {}
+    expect(iter).to.have.property(\iterator).that.is.a \function
+    expect(iter).to.have.property(\next).that.is.a \function
+    expect(iter).to.have.property(\send).that.is.a \function
+    expect(iter).to.have.property(\throw).that.is.a \function
+    expect(text).to.be.empty
+    
+    expect(iter.send void).to.eql { -done, value: "name" }
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello,"
+    expect(iter.send "world").to.eql { +done, value: void }
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world. How are you today?"
+    for i in 0 til 10
+      expect(iter.send void).to.eql { +done, value: void }
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world. How are you today?"
