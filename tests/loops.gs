@@ -805,7 +805,7 @@ describe "loops", #
     for some x in 1 til 10
       true
     else
-      throw Error()""").throws gorilla.MacroError, r"line #2" // TODO: change to line #4
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-every in range", #
     let mutable i = 0
@@ -819,10 +819,10 @@ describe "loops", #
       x <= 10).to.be.true
   
     expect(#-> gorilla.compile """let y = 0
-    for some x in 1 til 10
+    for every x in 1 til 10
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-first in range", #
     expect(for first x in 1 til 10
@@ -844,17 +844,17 @@ describe "loops", #
     for filter i in 1 til 10
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-reduce in range", #
     expect(for reduce i in 1 til 10, sum = 0
       sum + i).to.equal 45
-  
+    
     expect(#-> gorilla.compile """let y = 0
     for reduce i in 1 til 10, sum = 0
       sum + i
     else
-      throw Error()"""), gorilla.MacroError, r"line #4"
+      throw Error()""").throws gorilla.ParserError, r"4:1"
 
   it "For-some in array", #
     expect(for some x in [#-> 1, #-> 2, fail]
@@ -867,7 +867,7 @@ describe "loops", #
     for some x in [1, 2]
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-every in array", #
     expect(for every x in [#-> 1, #-> 2, fail]
@@ -880,7 +880,7 @@ describe "loops", #
     for every x in [1, 2]
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-first in array", #
     expect(for first x in [#-> 1, #-> 2, fail]
@@ -904,7 +904,7 @@ describe "loops", #
     for filter x in [1, 4, 9, 16, 25, 36]
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-reduce in array", #
     expect(for reduce i in [1, 2, 3, 4], sum = 0
@@ -914,7 +914,7 @@ describe "loops", #
     for reduce i in [1, 2, 3, 4], sum = 0
       sum + i
     else
-      throw Error()"""), gorilla.MacroError, r"line #4"
+      throw Error()""").throws gorilla.ParserError, r"4:1"
 
   it "For-some of object", #
     expect(for some k, v of {a:1, b:2, c:3}
@@ -927,7 +927,7 @@ describe "loops", #
     for some k, v of {a:1, b:2, c:3}
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-every of object", #
     expect(for every k, v of {a:1, b:2, c:3}
@@ -940,7 +940,7 @@ describe "loops", #
     for every k, v of {a:1, b:2, c:3}
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-first of object", #
     expect(for first k, v of {a:1, b:2, c:3}
@@ -961,7 +961,7 @@ describe "loops", #
     for reduce k, v of {a:1, b:2, c:3}, sum = 0
       sum + v
     else
-      throw Error()"""), gorilla.MacroError, r"line #4"
+      throw Error()""").throws gorilla.ParserError, r"4:1"
 
   it "While-some", #
     let mutable i = 0
@@ -978,7 +978,7 @@ describe "loops", #
     while some i < 10, i += 1
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "While-every", #
     let mutable i = 0
@@ -995,7 +995,7 @@ describe "loops", #
     while every i < 10, i += 1
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "While-first", #
     let mutable i = 0
@@ -1020,7 +1020,7 @@ describe "loops", #
     while reduce i < 10, i += 1, sum = 0
       sum + i
     else
-      throw Error()"""), gorilla.MacroError, r"line #4"
+      throw Error()""").throws gorilla.ParserError, r"4:1"
 
   /*
   it "Repeat-while-some", #
@@ -1218,7 +1218,7 @@ describe "loops", #
     for some x from array-to-iterator [1, 2]
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-every in iteration loop", #
     expect(for every x from array-to-iterator [#-> 1, #-> 2, fail]
@@ -1231,7 +1231,7 @@ describe "loops", #
     for every x from array-to-iterator [1, 2]
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-first in iteration loop", #
     expect(for first x from array-to-iterator [#-> 1, #-> 2, fail]
@@ -1255,7 +1255,7 @@ describe "loops", #
     for filter x from array-to-iterator [1, 4, 9, 16, 25, 36]
       true
     else
-      throw Error()"""), gorilla.MacroError, r"line #2"
+      throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
 
   it "For-reduce in iteration loop", #
     expect(for reduce i from array-to-iterator([1, 2, 3, 4]), sum = 0
@@ -1265,7 +1265,7 @@ describe "loops", #
     for reduce i from array-to-iterator([1, 2, 3, 4]), sum = 0
       sum + i
     else
-      throw Error()"""), gorilla.MacroError, r"line #4"
+      throw Error()""").throws gorilla.ParserError, r"4:1"
 
   it "C-style for loop", #
     let mutable i = 0

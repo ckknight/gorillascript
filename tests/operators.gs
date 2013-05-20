@@ -1144,11 +1144,11 @@ describe "Simple operators", #
 
   it "Assigning an unknown variable is an error", #
     expect(#-> gorilla.compile """let x = 0
-    y := 5""").throws gorilla.MacroError, r"line #2"
+    y := 5""").throws gorilla.MacroError, r"Trying to assign with := to unknown variable 'y'.*?2:\d+"
 
   it "Assigning an immutable variable is an error", #
     expect(#-> gorilla.compile """let x = 0
-    x := 5""").throws gorilla.MacroError, r"line #2"
+    x := 5""").throws gorilla.MacroError, r"Trying to assign with := to immutable variable 'x'.*?2:\d+"
 
   it "Compose operators", #
     let double(x) -> x * 2

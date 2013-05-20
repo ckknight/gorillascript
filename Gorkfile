@@ -1,5 +1,4 @@
 require! fs
-require! './lib/gorilla'
 require! path
 let {exec} = require 'child_process'
 let {string-repeat, pad-left, pad-right} = require './lib/utils'
@@ -48,6 +47,7 @@ command \build, "Build GorillaScript from source", #(options, cb)
   if files.length == 0
     return cb("No files to build")
   
+  let gorilla = require('./lib/gorilla')
   async! cb <- gorilla.init(lang: get-lang(options))
   
   files.sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
@@ -64,6 +64,7 @@ command \build, "Build GorillaScript from source", #(options, cb)
   let totals = {}
   let mutable total-time = 0
   let results = {}
+  let gorilla = require('./lib/gorilla')
   asyncfor err <- next, file in files
     let code = inputs[file]
     output "$(pad-right file & ':', longest-name-len + 1, ' ') "
@@ -132,6 +133,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
       """
     next()
   
+  let gorilla = require('./lib/gorilla')
   async! cb, mutable serialized-prelude <- gorilla.get-serialized-prelude("js")
   let mutable deserialized-prelude = JSON.parse serialized-prelude
   if options.uglify
@@ -204,6 +206,7 @@ command "test", "Run the GorillaScript test suite", #(options, cb)
   if files.length == 0
     return cb("No files to test")
   
+  let gorilla = require('./lib/gorilla')
   let sandbox = {
     gorilla
   }
@@ -241,6 +244,13 @@ command "test", "Run the GorillaScript test suite", #(options, cb)
     output " | $(pad-left ((end-time - start-time) / 1000_ms).to-fixed(3), 6, ' ') s\n"
     gc?()
     next()
+  if files.length > 1
+    output string-repeat("-", longest-name-len + 53)
+    output "+---------\n"
+    output "$(pad-right 'total:', longest-name-len + 1, ' ') "
+    for part in [\parse, \macro-expand, \reduce, \translate, \compile]
+      output "  $(pad-left (((totals[part] or 0) / 1000_ms).to-fixed 3), 6, ' ') s"
+    output " | $(pad-left (total-time / 1000_ms).to-fixed(3), 6, ' ') s"
   
   GLOBAL.gorilla := gorilla
   GLOBAL.require := require

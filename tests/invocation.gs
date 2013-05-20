@@ -65,7 +65,15 @@ describe "function invocation", #
         3
         4)).to.eql [1, 2, 3, 4]
       
+      expect(get-args(1,
+        2
+        3
+        4)).to.eql [1, 2, 3, 4]
+      
       expect(get-args(1, 2
+        3, 4)).to.eql [1, 2, 3, 4]
+      
+      expect(get-args(1, 2,
         3, 4)).to.eql [1, 2, 3, 4]
     
     it "does not require commas if each argument is on its own line, no parentheses", #

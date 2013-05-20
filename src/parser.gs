@@ -1,18 +1,17 @@
+require! Node: './parser-nodes'
+require! Scope: './parser-scope'
+require! MacroHelper: './parser-macrohelper'
+require! MacroHolder: './parser-macroholder'
 require! Type: './types'
-require! util
-let inspect = util?.inspect
+let {string-repeat} = require('./utils')
+let {add-param-to-scope} = require('./parser-utils')
+let {quote, unique} = require './utils'
 
-let freeze = if is-function! Object.freeze then Object.freeze else #(o) -> o
+let CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 
-let next-tick = if is-function! set-immediate
-  set-immediate
-else if not is-void! process and is-function! process.next-tick
-  process.next-tick
-else
-  #(f) -> set-timeout(f, 0)
-
-let SHORT_CIRCUIT = freeze { to-string: #-> "short-circuit" }
-let NOTHING = freeze { to-string: #-> "" }
+macro DEBUG
+  syntax ""
+    ASTE true
 
 let EMBED_OPEN_DEFAULT = "<%"
 let EMBED_CLOSE_DEFAULT = "%>"
@@ -21,179 +20,468 @@ let EMBED_CLOSE_WRITE_DEFAULT = "%>"
 let EMBED_OPEN_COMMENT_DEFAULT = "<%--"
 let EMBED_CLOSE_COMMENT_DEFAULT = "--%>"
 
-let generate-cache-key = do
-  let mutable id = -1
-  #-> id += 1
+let AccessNode = Node.Access
+let AccessMultiNode = Node.AccessMulti
+let ArgsNode = Node.Args
+let ArrayNode = Node.Array
+let AssignNode = Node.Assign
+let BinaryNode = Node.Binary
+let BlockNode = Node.Block
+let BreakNode = Node.Break
+let CallNode = Node.Call
+let CommentNode = Node.Comment
+let ConstNode = Node.Const
+let ContinueNode = Node.Continue
+let DebuggerNode = Node.Debugger
+let DefNode = Node.Def
+let EmbedWriteNode = Node.EmbedWrite
+let EvalNode = Node.Eval
+let ForNode = Node.For
+let ForInNode = Node.ForIn
+let FunctionNode = Node.Function
+let IdentNode = Node.Ident
+let IfNode = Node.If
+let MacroAccessNode = Node.MacroAccess
+let NothingNode = Node.Nothing
+let ObjectNode = Node.Object
+let ParamNode = Node.Param
+let RegexpNode = Node.Regexp
+let ReturnNode = Node.Return
+let RootNode = Node.Root
+let SpreadNode = Node.Spread
+let SuperNode = Node.Super
+let SwitchNode = Node.Switch
+let SyntaxChoiceNode = Node.SyntaxChoice
+let SyntaxManyNode = Node.SyntaxMany
+let SyntaxParamNode = Node.SyntaxParam
+let SyntaxSequenceNode = Node.SyntaxSequence
+let ThisNode = Node.This
+let ThrowNode = Node.Throw
+let TmpNode = Node.Tmp
+let TmpWrapperNode = Node.TmpWrapper
+let TryCatchNode = Node.TryCatch
+let TryFinallyNode = Node.TryFinally
+let TypeFunctionNode = Node.TypeFunction
+let TypeGenericNode = Node.TypeGeneric
+let TypeObjectNode = Node.TypeObject
+let TypeUnionNode = Node.TypeUnion
+let UnaryNode = Node.Unary
+let VarNode = Node.Var
+let YieldNode = Node.Yield
 
-let assert(value)
-  if not value
-    throw Error "Assertion failed: $(String value)"
-  value
-
-let named(name as null|String, func as ->) as (->)
-  if name
-    func.parser-name := name
-  func
-
-let identity(x) -> x
-let ret-this() -> this
-
-let get-tmp-id = do
-  let mutable id = -1
-  #-> id += 1
-
-class Stack
-  @current-id := -1
-  def constructor(initial, data = [])
-    @id := (Stack.current-id += 1)
-    @initial := initial
-  
-  def data(o as State) -> o.stacks[@id] ?= []
-  
-  def count(o) -> @data(o).length
-  def push(o, value) -> @data(o).push value
-  def pop(o)
-    let data = @data(o)
-    let len = data.length
-    if len == 0
-      throw Error "Cannot pop"
-    data.pop()
-  
-  def can-pop(o) -> @data(o).length > 0
-  
-  def peek(o)
-    let data = @data(o)
-    let len = data.length
-    if len == 0
-      @initial
+class ParserError extends Error
+  def constructor(mutable message as String = "", parser as Parser|null, @index as Number = 0)
+    if DEBUG and message and not parser
+      throw TypeError("Expected parser to be a Parser, got $(typeof! parser)")
+    if parser
+      @source := parser.source
+      @filename := parser.options.filename
+      let pos = parser.get-position(index)
+      @line := pos.line
+      @column := pos.column
+      @message := message & " at $(if @filename then @filename & ':' else '')$(@line):$(@column)"
     else
-      data[len - 1]
-let _indent = Stack(1)
+      @line := 0
+      @column := 0
+    let err = super(@message)
+    if is-function! Error.capture-stack-trace
+      Error.capture-stack-trace this, ParserError
+    else if err haskey \stack
+      @stack := err.stack
+  def name = @name
 
-let cache(rule as ->, dont-cache as Boolean) as (->)
-  if dont-cache
-    rule
-  else
-    let cache-key = generate-cache-key()
-    named rule.parser-name, #(o)
-      let {cache, index} = o
-      let indent = _indent.peek(o)
-      let indent-cache = (cache[indent ~- 1] ?= [])
-      // 16 was the best cache number I could find after running performance benchmarks
-      let inner = (indent-cache[index ~% 16] ?= [])
-      let item = inner[cache-key]
-      if item and item[0] == index
-        o.index := item[1]
-        o.line := item[2]
-        item[3]
+class MacroError extends Error
+  def constructor(inner as Error|String = "", parser as Parser|null, @index as Number = 0)
+    if DEBUG and inner and not parser
+      throw TypeError("Expected parser to be a Parser, got $(typeof! parser)")
+    if parser
+      @source := parser.source
+      @filename := parser.options.filename
+      let pos = parser.get-position(index)
+      @line := pos.line
+      @column := pos.column
+      let msg = []
+      if inner instanceof Error
+        if typeof! inner != "Error"
+          msg.push typeof! inner
+          msg.push ": "
+        msg.push String inner.message
       else
-        let result = rule o
-        if _indent.peek(o) != indent
-          throw Error "Changed indent during cache process: from $indent to $(_indent.peek(o))"
-        inner[cache-key] := [index, o.index, o.line, result]
-        result
-
-macro with-message!(message, rule)
-  let init = []
-  message := @cache message, init, \message, true
-  rule := @cache rule, init, \rule, true
-  AST do
-    $init
-    #(o)
-      let clone = o.clone()
-      clone.prevent-fail()
-      let result = $rule clone
-      clone.unprevent-fail()
-      if result
-        o.update clone
-        result
-      else
-        o.fail $message
-        false
+        msg.push String inner
+      msg.push " at "
+      if @filename
+        msg.push String @filename
+        msg.push ":"
+      @_message := msg.join("")
+      msg.push @line
+      msg.push ":"
+      msg.push @column
+      @message := msg.join("")
+    else
+      @line := 0
+      @column := 0
+      @_message := ""
+      @message := ""
+    let err = super(@message)
+    if is-function! Error.capture-stack-trace
+      Error.capture-stack-trace this, MacroError
+    else if err haskey \stack
+      @stack := err.stack
+    if inner instanceof Error
+      @inner := inner
+  def name = @name
+  def set-position(line as Number, column as Number)!
+    if true
+      // FIXME: disabling this for now
+      return
+    @line := line
+    @column := column
+    @message := "$(@_message)$line:$column"
 
 macro C(string, index)
   index ?= AST 0
-  AST $string.char-code-at($index)
+  AST $string.char-code-at $index
 
-macro mutate!(rule, mutator)
-  if mutator? and (not @is-const(mutator) or not is-void! @value(mutator))
-    let init = []
-    rule := @cache rule, init, \rule, true
-    mutator := @cache mutator, init, \mutator, true
-    let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
-    let mutator-is-true = @is-const(mutator) and @value(mutator) == true
-    let result = AST named($rule?.parser-name or $unknown-name, #(o)
-      if $mutator-is-true
-        not not $rule o
+class Box
+  def constructor(@index as Number, @value)
+    if index not %% 1 or index < 0
+      throw RangeError "Expected index to be a non-negative integer, got $index"
+
+let unused-caches = Map()
+
+let cache = do
+  let mutable id = -1
+  #(rule as ->)
+    if DEBUG and arguments.length > 1
+      throw Error "Expected only one argument"
+    let cache-key = (id += 1)
+    let stack = Error().stack
+    let f(parser, index)
+      let cache = parser.cache
+      let indent = parser.indent.peek()
+      let indent-cache = (cache[indent] ?= [])
+      // 16 was the best cache number I could find after running performance benchmarks
+      let inner = (indent-cache[index ~% 16] ?= [])
+      let item = inner[cache-key]
+      if item and item.start == index
+        unused-caches.delete f
+        item.result
       else
-        let {index, line} = o
-        let result = $rule o
-        if not result
-          false
-        else
-          if is-function! $mutator
-            $mutator result, o, index, line
-          else if not is-void! $mutator
-            $mutator
+        let result = rule parser, index
+        if DEBUG
+          if parser.indent.peek() != indent
+            throw Error "Changed indent during cache process: from $indent to $(_indent.peek(o))"
+          else if result and result not instanceof Box
+            throw Error "Expected result to be a Box, got $(typeof! result)"
+        inner[cache-key] := {
+          start: index
+          result
+        }
+        result
+    unused-caches.set f, stack
+    f
+
+macro define
+  syntax name as Identifier, value as (("=", this as Expression)|FunctionDeclaration)
+    AST let $name = cache $value
+
+macro redefine
+  syntax name as Identifier, value as (("=", this as Expression)|FunctionDeclaration)
+    AST $name := cache $value
+
+let identity(x) -> x
+let make-return(x) -> #-> x
+
+let wrap = if DEBUG
+  let mutable wrap-indent = -1
+  #(name as String, func as ->)
+    let inspect = require('util').inspect
+    #(parser, index)
+      wrap-indent += 1
+      let indent-text = string-repeat(" ", wrap-indent)
+      try
+        let pos = parser.get-position(index)
+        console.log "$(indent-text)$name: begin at $(pos.line):$(pos.column): $(inspect parser.source.substring(index, index ~+ 20))"
+        try
+          let result = func parser, index
+          if result
+            let new-pos = parser.get-position(result.index)
+            console.log "$(indent-text)$name: done  at $(pos.line):$(pos.column) -> $(new-pos.line):$(new-pos.column), $(inspect result.value)"
           else
-            result)
-    if init.length
-      AST do
-        $init
-        $result
+            console.log "$(indent-text)$name: fail  at $(pos.line):$(pos.column)"
+          return result
+        catch e
+          console.log "$(indent-text)$name: ERROR $(pos.line):$(pos.column) !!! $(String e)"
+          throw e
+      finally
+        wrap-indent -= 1
+else
+  #(name as String, func as ->) -> func
+
+macro wrap!(name, rule)
+  if @is-ident name
+    rule := name
+    name := @Const @name rule
+  ASTE if DEBUG then wrap($name, $rule) else $rule
+
+let from-char-code = do
+  let f = String.from-char-code
+  #(char-code) as String
+    if char-code ~> 0xFFFF
+      f(((char-code ~- 0x10000) ~bitrshift 10) ~+ 0xD800) ~& f(((char-code ~- 0x10000) ~% 0x400) ~+ 0xDC00)
     else
-      result
-  else
-    rule
+      f char-code
+let process-char-codes(codes as [], array = [], start = 0) as [String]
+  for code in codes[start to -1]
+    array.push from-char-code code
+  array
 
-macro check!(rule, mutator)
-  let init = []
-  rule := @cache rule, init, \rule, true
-  let result = AST mutate! (#(o) -> $rule o.clone()), $mutator
-  if init.length
-    AST do
-      $init
-      $result
-  else
-    result
+let codes-to-string(codes as []) as String
+  process-char-codes(codes).join ""
 
-macro one-of!(array, mutator)
-  if not @is-array(array)
-    throw Error "Expected a literal array"
+let make-alter-stack<T>(name as String, value as T) -> #(rule as ->) -> #(parser, index)
+  let stack as Stack<T> = parser[name]
+  stack.push value
+  try
+    return rule(parser, index)
+  finally
+    stack.pop()
+
+let chars-to-fake-set(array) as {}
+  let obj = { extends null }
+  for item in array
+    if is-number! item
+      obj[item] := true
+    else
+      for c in item[0] to item[1]
+        obj[c] := true
+  obj
+
+let stack-wrap(func as ->)
+  func.stack := Error().stack
+  func
+macro stack-wrap!(func)
+  @mutate-last func or @noop(), (#(n)@ -> ASTE stack-wrap($n)), true
+
+let character(name as String, expected as Number) -> stack-wrap! #(parser, index as Number)
+  if C(parser.source, index) == expected
+    Box index ~+ 1, expected
+  else
+    parser.fail name, index
+
+let characters(name as String, expected as {}) -> stack-wrap! #(parser, index as Number)
+  let c = C(parser.source, index)
+  if expected[c]
+    Box index ~+ 1, c
+  else
+    parser.fail name, index
+
+let mutate(mutable mutator, rule as ->)^
+  if DEBUG and arguments.length > 2
+    throw Error "Expected only two arguments"
+  if mutator == identity
+    return rule
+  if not is-function! mutator
+    mutator := make-return mutator
+  let f(parser, index as Number)
+    let result = rule parser, index
+    if result
+      if DEBUG and result not instanceof Box
+        throw TypeError "Expected result to be a Box, got $(typeof! result)"
+      Box result.index, mutator result.value, parser, index, result.index
+  f.rule := rule
+  f.mutator := mutator
+  stack-wrap! f
+let bool(rule as ->)
+  if DEBUG and arguments.length > 1
+    throw Error "Expected only two arguments"
+  if is-function! rule.mutator and is-function! rule.rule
+    bool rule.rule
+  else
+    mutate #(x) -> not not x, rule
+
+let multiple<T>(mutable rule as ->, mutable minimum as Number = 0, mutable maximum as Number = Infinity, ignore-value as Boolean)
+  if DEBUG and arguments.length > 5
+    throw Error "Expected only five arguments"
+  if minimum not %% 1 or minimum < 0
+    throw RangeError "Expected minimum to be a non-negative integer, got $minimum"
+  if (maximum != Infinity and maximum not %% 1) or maximum < minimum
+    throw RangeError "Expected maximum to be Infinity or an integer of at least $minimum, got $maximum"
   
-  let elements = @elements(array)
-  switch elements.length
+  let mutable mutator = identity
+  if is-function! rule.mutator and is-function! rule.rule and false
+    mutator := rule.mutator
+    rule := rule.rule
+  
+  stack-wrap! if ignore-value
+    #(parser, mutable index as Number)
+      let mutable count = 0
+      while count < maximum
+        let item = rule parser, index
+        if not item
+          if count < minimum
+            return
+          else
+            break
+        if DEBUG
+          if item not instanceof Box
+            throw TypeError "Expected item to be a Box, got $(typeof! item)"
+          if item.value not instanceof T
+            throw TypeError "Expected item.value to be a $(__name T), got $(typeof! item.value)"
+        count += 1
+        let new-index = item.index
+        if new-index == index
+          throw Error "Infinite loop detected"
+        else
+          index := new-index
+      Box index, count
+  else if mutator == identity
+    #(parser, mutable index as Number)
+      let result = []
+      let mutable count = 0
+      while count < maximum
+        let item = rule parser, index
+        if not item
+          if count < minimum
+            return
+          else
+            break
+        if DEBUG
+          if item not instanceof Box
+            throw TypeError "Expected item to be a Box, got $(typeof! item)"
+          if item.value not instanceof T
+            throw TypeError "Expected item.value to be a $(__name T), got $(typeof! item.value)"
+        result[count] := item.value
+        count += 1
+        let new-index = item.index
+        if new-index == index
+          throw Error "Infinite loop detected"
+        else
+          index := new-index
+      Box index, result
+  else
+    mutate(
+      #(items, parser, index)
+        return for item in items
+          mutator item.value, parser, item.start-index, item.end-index
+      #(parser, mutable index as Number)
+        let result = []
+        let mutable count = 0
+        while count < maximum
+          let item = rule parser, index
+          if not item
+            if count < minimum
+              return
+            else
+              break
+          if DEBUG
+            if item not instanceof Box
+              throw TypeError "Expected item to be a Box, got $(typeof! item)"
+            if item.value not instanceof T
+              throw TypeError "Expected item.value to be a $(__name T), got $(typeof! item.value)"
+          let new-index = item.index
+          if new-index == index
+            throw Error "Infinite loop detected"
+          else
+            index := new-index
+          result[count] := {
+            start-index: index
+            end-index: new-index
+            item.value
+          }
+          count += 1
+        Box index, result)
+
+let zero-or-more<T>(rule, ignore-value) -> multiple<T> rule, 0, Infinity, ignore-value
+let one-or-more<T>(rule, ignore-value) -> multiple<T> rule, 1, Infinity, ignore-value
+
+let maybe(rule as ->, mutable default-value)
+  if DEBUG and arguments.length > 2
+    throw Error "Expected only two arguments"
+  let MISSING = {}
+  if is-function! rule.mutator and is-function! rule.rule and false
+    let subrule = rule.rule
+    let mutator = rule.mutator
+    mutate(
+      if is-function! default-value
+        #(value, parser, start-index, end-index)
+          if value == MISSING
+            default-value parser, start-index
+          else
+            mutator value, parser, start-index, end-index
+      else
+        #(value, parser, start-index, end-index)
+          if value == MISSING
+            default-value
+          else
+            mutator value, parser, start-index, end-index
+      stack-wrap! #(parser, index as Number) -> subrule(parser, index) or Box index, MISSING)
+  else
+    if is-function! default-value
+      mutate(
+        #(value, parser, start-index, end-index)
+          if value == MISSING
+            default-value parser, start-index
+          else
+            value
+        stack-wrap! #(parser, index as Number) -> rule(parser, index) or Box index, MISSING)
+    else
+      stack-wrap! #(parser, index as Number) -> rule(parser, index) or Box index, default-value
+
+let one-of<T>(...rules as [Function])
+  switch rules.length
   case 0
-    throw Error "Cannot provide an empty array"
+    throw Error "Expected rules to be non-empty"
   case 1
-    AST mutate! $(elements[0]), $mutator
+    rules[0]
   default
-    let init = []
-    let mutable checks = AST false
-    for mutable rule, i, len in elements
-      if @is-const(rule)
-        unless is-string! @value(rule)
-          throw Error "Can only handle constant string literals"
-        rule := AST word-or-symbol $rule
-      rule := @cache rule, init, \rule, true
-      checks := AST $checks or $rule o
-    let ret = AST mutate! (#(o) -> $checks), $mutator
-    if init.length
-      AST do
-        $init
-        $ret
-    else
-      ret
+    let expanded-rules = []
+    for rule in rules
+      if rule.one-of
+        for subrule in rule.one-of
+          expanded-rules.push subrule
+      else
+        expanded-rules.push rule
+    let func(parser, index as Number)!
+      for rule, i in expanded-rules
+        let result = rule parser, index
+        if result
+          if DEBUG
+            if result not instanceof Box
+              throw TypeError "Expected rules[$i] to return a Box, got $(typeof! result)"
+            if result.value not instanceof T
+              throw TypeError "Expected rules[$i]'s return value to be a $(__name T), got $(typeof! result.value)"
+          return result
+    func.one-of := expanded-rules
+    stack-wrap! func
 
-let sequential(array as [], mutator, dont-cache as Boolean) as (->)
-  if array.length == 0
-    throw Error "Cannot provide an empty array"
-  
-  let mutable name = []
+let zero-or-more-of<T>(...rules) -> zero-or-more<T> one-of<T> ...rules
+let one-or-more-of<T>(...rules) -> one-or-more<T> one-of<T> ...rules
+
+let check(mutable rule as ->)
+  if is-function! rule.mutator and is-function! rule.rule and false
+    rule := rule.rule
+  #(parser, index as Number)
+    let result = rule parser, index
+    if result
+      if DEBUG and result not instanceof Box
+        throw TypeError "Expected result to be a Box, got $(typeof! result)"
+      Box index
+
+let SHORT_CIRCUIT = {}
+let sequential<T>(...items) as (->)
+  if items.length == 0
+    throw Error "Expected items to be non-empty"
+
   let rules = []
   let mapping = []
-  let mutable should-wrap-name = false
-  for item, i in array
+  let keys = []
+  let mutations = []
+  let mutable this-index = -1
+  let mutable has-other = false
+  let mutable short-circuit-index = Infinity
+  let mutable has-mutations = false
+  for item, i in items
     let mutable key = void
     let mutable rule = void
     if is-array! item
@@ -204,294 +492,273 @@ let sequential(array as [], mutator, dont-cache as Boolean) as (->)
       unless is-function! item[1]
         throw TypeError "Array in index #$i has an improper rule: $(typeof! item[1])"
       key := item[0]
+      if key in keys
+        throw Error "Can only have one $(JSON.stringify key) key in sequential"
+      keys.push key
       rule := item[1]
+      if key == \this
+        this-index := rules.length
+      else
+        has-other := true
     else if is-function! item
       rule := item
+    else if item == SHORT_CIRCUIT
+      if short-circuit-index != Infinity
+        throw Error "Can only have one SHORT_CIRCUIT per sequential"
+      short-circuit-index := i
+      continue
     else
       throw TypeError "Found a non-array, non-function in index #$i: $(typeof! item)"
-    
-    rules.push rule
+  
+    if key and is-function! rule.mutator and is-function! rule.rule and false
+      has-mutations := true
+      mutations.push rule.mutator
+      rules.push rule.rule
+    else
+      mutations.push null
+      rules.push rule
     mapping.push key
-    let rule-name = rule.parser-name or "<unknown>"
-    if i > 0 and name[* - 1].slice(-1) == '"' and C(rule-name, 0) == C('"') and rule-name.slice(-1) == '"'
-      name[* - 1] := name[* - 1].substring 0, name[* - 1].length - 1
-      name.push rule-name.substring(1)
-    else
-      if i > 0
-        name.push " "
-        should-wrap-name := true
-      name.push rule-name
-  if should-wrap-name
-    name.splice 0, 0, "("
-    name.push ")"
-  name := name.join ""
-  
-  retain-indent mutate! named(name, #(o)
-    let clone = o.clone()
-    let mutable result = {}
-    for rule, i in rules
-      let item = rule clone
-      if not item
-        return false
-      
-      let key = mapping[i]
-      if key
-        if key == \this
-          result := item
-        else
-          result[key] := item
-    o.update clone
-    result), mutator, dont-cache
 
-macro sequential!(array, mutator)
-  if not @is-array(array)
-    throw Error "Expected a literal array"
-  
-  let init = []
-  let code = []
-  
-  let mutable has-result = false
-  let mutable has-this = false
-  let result = @tmp \result
-  let checks = for item, i in @elements(array)
-    if @is-array(item)
-      let parts = @elements(item)
-      if parts.length != 2
-        throw TypeError "Found an array with $(parts.length) length at index #$i"
-      else if not @is-const(parts[0]) or not is-string! @value(parts[0])
-        throw TypeError "Array in index #$i has an improper key"
-      
-      has-result := true
-      let key = parts[0]
-      let rule = @cache parts[1], init, \rule, true
-      if @value(key) == \this
-        has-this := true
-        AST $result := $rule clone
-      else
-        AST $result[$key] := $rule clone
-    else
-      let rule = @cache item, init, \rule, true
-      AST $rule clone
-  let code = for reduce check in checks, current = AST true
-    AST $current and $check
-  
-  let has-mutator = mutator and not (@is-const(mutator) and is-void! @value(mutator))
-  
-  let ret = if has-result
-    let inner = AST
-      o.update clone
-      $result
-    AST mutate! (#(o)
-      let clone = o.clone()
-      let mutable $result = if $has-this then void else {}
-      $code and $inner), $mutator
-  else
-    let has-const-mutator = has-mutator and @is-const(mutator)
-    let inner = AST
-      o.update clone
-      if $has-const-mutator
-        $mutator
-      else
-        true
-    if has-const-mutator
-      mutator := void
-    AST mutate! (#(o)
-      let clone = o.clone()
-      $code and $inner), $mutator
-  if init.length
-    AST do
-      $init
-      $ret
-  else
-    ret
+  stack-wrap! if this-index != -1
+    if has-other
+      throw Error "Cannot specify both the 'this' key and another key"
+    if not has-mutations
+      #(parser, mutable index as Number)
+        let mutable result = void
+        for rule, i in rules
+          let item = rule parser, index
+          if not item
+            if i < short-circuit-index
+              return
+            else
+              throw SHORT_CIRCUIT
+          if DEBUG and item not instanceof Box
+            throw TypeError "Expected item to be a Box, got $(typeof! item)"
 
-macro maybe!(rule, missing-value, found-value)
-  if (@is-const(missing-value) and not @value(missing-value)) or not missing-value
-    throw Error "Expected a truthy missing-value, got $(String @value(missing-value))"
-  let init = []
-  rule := @cache rule, init, \rule, true
-  missing-value := @cache missing-value, init, \missing, true
-  found-value := if found-value then @cache found-value, init, \found, true
-  
-  let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
-  let calculated-name = ASTE ($rule?.parser-name or $unknown-name) & "?"
-  
-  let result = if not found-value or (@is-const(found-value) and is-void! @value(found-value))
-    if @is-const(missing-value)
-      AST named $calculated-name, #(o)
-        $rule(o) or $missing-value
+          index := item.index
+          if i == this-index
+            result := item.value
+        if DEBUG and result not instanceof T
+          throw TypeError "Expected result to be a $(__name T), got $(typeof! result)"
+        Box index, result
     else
-      AST named $calculated-name, #(o)
-        let {index, line} = o
-        $rule(o) or if is-function! $missing-value
-          $missing-value void, o, index, line
-        else
-          $missing-value
-  else
-    AST named $calculated-name, #(o)
-      let {index, line} = o
-      let result = $rule o
-      if not result
-        if is-function! $missing-value
-          $missing-value void, o, index, line
-        else
-          $missing-value
-      else
-        if not is-void! $found-value
-          if is-function! $found-value
-            $found-value result, o, index, line
-          else
-            $found-value
-        else
+      let mutator = mutations[this-index]
+      mutate(
+        #(item, parser, index)
+          mutator item.value, parser, item.start-index, item.end-index
+        #(parser, mutable index as Number)
+          let mutable result = void
+          let mutable value-index = 0
+          for rule, i in rules
+            let item = rule parser, index
+            if not item
+              if i < short-circuit-index
+                return
+              else
+                throw SHORT_CIRCUIT
+            if DEBUG and item not instanceof Box
+              throw TypeError "Expected item to be a Box, got $(typeof! item)"
+
+            if i == this-index
+              result := {
+                item.value
+                start-index: index
+                end-index: item.index
+              }
+            index := item.index
+          if DEBUG and result not instanceof T
+            throw TypeError "Expected result to be a $(__name T), got $(typeof! result)"
+          Box index, result)
+  else if has-other
+    if has-mutations
+      mutate(
+        #(value, parser, index)
+          let result = {}
+          for key, i in keys
+            if key
+              let item = value[key]
+              let mutator = mutations[i]
+              if mutator
+                result[key] := mutator item.value, parser, item.start-index, item.end-index
+              else
+                result[key] := item.value
           result
-  if init.length
-    AST do
-      $init
-      $result
-  else
-    result
+        #(parser, mutable index as Number)
+          let mutable result = {}
+          let indexes = {}
+          for rule, i in rules
+            let item = rule parser, index
+            if not item
+              if i < short-circuit-index
+                return
+              else
+                throw SHORT_CIRCUIT
 
-macro except!(rule)
-  if @is-array(rule)
-    rule := AST one-of! $rule
-  let init = []
-  rule := @cache rule, init, \rule, true
-  
-  let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
-  let result = AST named("!" & ($rule?.parser-name or $unknown-name), #(o)
-    not $rule o.clone())
-  if init.length
-    AST do
-      $init
-      $result
-  else
-    result
-
-macro any-except!(rule, mutator)
-  if @is-array(rule)
-    rule := AST one-of! $rule
-  let init = []
-  rule := @cache rule, init, \rule, true
-
-  let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
-  let result = AST named "!" & ($rule?.parser-name or $unknown-name), #(o)
-    not $rule(o.clone()) and AnyChar(o)
-  
-  let mutated = AST mutate! $result, $mutator
-  
-  if init.length
-    AST do
-      $init
-      $mutated
-  else
-    mutated
-
-macro short-circuit!(expected, backend)
-  let init = []
-  expected := @cache expected, init, \expected, true
-  backend := @cache backend, init, \backend, true
-  
-  let unknown-name = if @is-ident(backend) then @name(backend) else "<unknown>"
-  let result = AST named($backend?.parser-name or $unknown-name, #(o)
-    if not $expected(o.clone())
-      false
+            if DEBUG and item not instanceof Box
+              throw TypeError "Expected item to be a Box, got $(typeof! item)"
+            let key = mapping[i]
+            if key
+              result[key] := {
+                item.value
+                start-index: index
+                end-index: item.index
+              }
+            index := item.index
+          Box index, result)          
     else
-      let result = $backend(o)
-      if not result
-        throw SHORT_CIRCUIT
-      result)
-  if init.length
-    AST do
-      $init
-      $result
+      #(parser, mutable index as Number)
+        let mutable value = {}
+        let mutable i = 0
+        let mutable length = rules.length
+        while i ~< length, i += 1
+          let rule = rules[i]
+          let item = rule parser, index
+          if not item
+            if i < short-circuit-index
+              return
+            else
+              throw SHORT_CIRCUIT
+      
+          if DEBUG and item not instanceof Box
+            throw TypeError "Expected item to be a Box, got $(typeof! item)"
+          index := item.index
+          let key = mapping[i]
+          if key
+            value[key] := item.value
+        Box index, value
   else
-    result
+    if has-mutations
+      throw Error "Cannot use a mutator on a sequential without keys"
+    #(parser, mutable index as Number)
+      for rule, i in rules
+        let item = rule parser, index
+        if not item
+          if i < short-circuit-index
+            return
+          else
+            throw SHORT_CIRCUIT
+      
+        if DEBUG and item not instanceof Box
+          throw TypeError "Expected item to be a Box, got $(typeof! item)"
+        index := item.index
+      Box index
 
-macro calculate-multiple-name!(name, min-count, max-count)
-  if not @is-const(min-count) or not is-number! @value(min-count)
-    throw Error "Expected min-count to be a const number"
-  if not @is-const(max-count) or not is-number! @value(max-count)
-    throw Error "Expected max-count to be a const number"
-  
-  if @value(min-count) == 0
-    if @value(max-count) == 0
-      return AST "$($name)*"
-    else if @value(max-count) == 1
-      return AST "$($name)?"
-  else if @value(min-count) == 1
-    if @value(max-count) == 0
-      return AST "$($name)+"
-    else if @value(max-count) == 1
-      return name
-  let ending = if @value(min-count) == @value(max-count)
-    "{$(@value min-count)}"
-  else
-    "{$(@value min-count),$(@value max-count)}"
-  AST "$($name)$($ending)"
+let cons<T>(head-rule as ->, tail-rule as ->)
+  if DEBUG and arguments.length > 2
+    throw Error "Expected only two arguments"
+  stack-wrap! #(parser, mutable index as Number)
+    let head = head-rule parser, index
+    if not head
+      return
+    if DEBUG
+      if head not instanceof Box
+        throw TypeError "Expected head to be a Box, got $(typeof! head)"
+      else if head.value not instanceof T
+        throw TypeError "Expected head.value to be a $(__name T), got $(typeof! head.value)"
+    let tail = tail-rule parser, head.index
+    if not tail
+      return
+    if DEBUG
+      if tail not instanceof Box
+        throw TypeError "Expected tail to be a Box, got $(typeof! tail)"
+      if not is-array! tail.value
+        throw TypeError "Expected tail.value to be a Box, got $(typeof! tail.value)"
+      for item, i in tail.value by -1
+        if item not instanceof T
+          throw TypeError "Expected tail.value[$i] to be a $(__name T), got $(typeof! item)"
+    Box tail.index, [head.value].concat(tail.value)
 
-macro multiple!(min-count, max-count, rule, mutator, name)
-  if not @is-const(min-count) or not is-number! @value(min-count)
-    throw Error "Expected min-count to be a const number"
-  if not @is-const(max-count) or not is-number! @value(max-count)
-    throw Error "Expected min-count to be a const number"
-  
-  if @value(min-count) == 0 and @value(max-count) == 1
-    AST maybe! mutate!($rule, #(x) -> [x], true), #-> [], $mutator
-  else if @value(min-count) == 1 and @value(max-count) == 1
-    AST mutate! mutate!($rule, #(x) -> [x], true), $mutator
-  else
-    let init = []
-    rule := @cache rule, init, \rule, true
-    let unknown-name = if @is-ident(rule) then @name(rule) else "<unknown>"
-    let calculated-name = ASTE calculate-multiple-name!($rule?.parser-name or $name or $unknown-name, $min-count, $max-count)
-    let result = if @is-const(mutator) and @value(mutator) and @is-const(min-count) and @value(min-count) == 0 and @is-const(max-count) and @value(max-count) == 0
-      AST named($calculated-name, #(o)
-        while $rule o
-          void
-        $mutator)
-    else if @is-const(mutator) and @value(mutator) and @is-const(min-count) and @value(min-count) == 1 and @is-const(max-count) and @value(max-count) == 0
-      AST named($calculated-name, #(o)
-        if not $rule o
-          false
-        else
-          while $rule o
-            void
-          $mutator)
-    else if @is-const(mutator) and @value(mutator)
-      AST named($calculated-name, #(o)
-        let clone = o.clone()
-        let result-length = 0
-        while (not $max-count or result-length < $max-count) and $rule clone
-          result-length += 1
-        if $min-count and result-length < $min-count
-          false
-        else
-          o.update clone
-          $mutator)
-    else
-      AST mutate! named($calculated-name, #(o)
-        let clone = o.clone()
-        let result = []
-        let mutable item = void
-        while (not $max-count or result.length < $max-count) and (item := $rule clone)
-          result.push item
-        if $min-count and result.length < $min-count
-          false
-        else
-          o.update clone
-          result), $mutator
-    if init.length
-      AST do
-        $init
-        $result
-    else
-      result
+let concat<T>(left-rule as ->, right-rule as ->)
+  if DEBUG and arguments.length > 2
+    throw Error "Expected only two arguments"
+  stack-wrap! #(parser, mutable index as Number)
+    let left = left-rule parser, index
+    if not left
+      return
+    if DEBUG
+      if left not instanceof Box
+        throw TypeError "Expected left to be a Box, got $(typeof! left)"
+      if not is-array! left.value
+        throw TypeError "Expected left.value to be a Box, got $(typeof! left.value)"
+      for item, i in left.value by -1
+        if item not instanceof T
+          throw TypeError "Expected left.value[$i] to be a $(__name T), got $(typeof! item)"
+    let right = right-rule parser, left.index
+    if not right
+      return
+    if DEBUG
+      if right not instanceof Box
+        throw TypeError "Expected right to be a Box, got $(typeof! right)"
+      if not is-array! right.value
+        throw TypeError "Expected right.value to be a Box, got $(typeof! right.value)"
+      for item, i in right.value by -1
+        if item not instanceof T
+          throw TypeError "Expected right.value[$i] to be a $(__name T), got $(typeof! item)"
+    Box right.index, left.value.concat(right.value)
 
-macro zero-or-more!(rule, mutator) -> AST multiple! 0, 0, $rule, $mutator
-macro one-or-more!(rule, mutator) -> AST multiple! 1, 0, $rule, $mutator
+let nothing-rule(parser, index) -> Box index
+let separated-list<T>(item-rule as ->, separator-rule as -> = nothing-rule, tail-rule as -> = item-rule)
+  if DEBUG and arguments.length > 3
+    throw Error "Expected only three arguments"
+  stack-wrap! #(parser, mutable index as Number)
+    let head = item-rule parser, index
+    if not head
+      return
+    if DEBUG
+      if head not instanceof Box
+        throw TypeError "Expected head to be a Box, got $(typeof! head)"
+      else if head.value not instanceof T
+        throw TypeError "Expected head.value to be a $(__name T), got $(typeof! head.value)"
+    let mutable current-index = head.index
+    let result = [head.value]
+    let mutable i = 0
+    while true, i += 1
+      let separator = separator-rule parser, current-index
+      if not separator
+        break
+      if DEBUG and separator not instanceof Box
+        throw TypeError "Expected separator to be a Box, got $(typeof! separator)"
+      let item = tail-rule parser, separator.index
+      if not item
+        break
+      if DEBUG
+        if item not instanceof Box
+          throw TypeError "Expected item to be a Box, got $(typeof! item)"
+        else if item.value not instanceof T
+          throw TypeError "Expected head.value to be a $(__name T), got $(typeof! item.value)"
+      let new-index = item.index
+      if new-index == current-index
+        throw Error "Infinite loop detected"
+      else
+        current-index := new-index
+      result.push item.value
+    Box current-index, result
 
-macro zero-or-more-of!(array, mutator) -> AST zero-or-more! (one-of! $array), $mutator
-macro one-or-more-of!(array, mutator) -> AST one-or-more! (one-of! $array), $mutator
+let except(mutable rule as ->)
+  if DEBUG and arguments.length > 1
+    throw Error "Expected only one argument"
+  if is-function! rule.mutator and is-function! rule.rule and false
+    rule := rule.rule
+  stack-wrap! #(parser, index as Number)
+    if not rule parser, index
+      Box index
+
+let any-except(mutable rule as ->)
+  if DEBUG and arguments.length > 1
+    throw Error "Expected only one argument"
+  if is-function! rule.mutator and is-function! rule.rule and false
+    rule := rule.rule
+  stack-wrap! #(parser, index as Number)
+    if not rule parser, index
+      AnyChar parser, index
+
+if not DEBUG
+  multiple.generic := #-> multiple
+  one-of.generic := #-> one-of
+  sequential.generic := #-> sequential
+  cons.generic := #-> cons
+  concat.generic := #-> concat
+  separated-list.generic := #-> concat
 
 macro character!(chars, name)
   if @is-const(chars)
@@ -568,37 +835,12 @@ macro character!(chars, name)
     start: current-start
     end: current-end
   
-  let mutable current = AST false
-  let mutable uncommon-current = AST false
-  let mutable has-uncommon = false
-  for chunk in chunks
-    let {start, end} = chunk
-    let test = if start == end
-      AST c == $start
-    else if end == start + 1
-      AST c == $start or c == $end
-    else
-      AST c ~>= $start and c ~<= $end
-    if start >= 128
-      uncommon-current := AST $uncommon-current or $test
-      has-uncommon := true
-    else
-      current := AST $current or $test
-  if has-uncommon
-    current := AST if c ~< 128 then $current else $uncommon-current
   if chunks.length == 1 and chunks[0].start == chunks[0].end
     let code = chunks[0].start
     if not name
       let ch = String.from-char-code chunks[0].start
       name := if ch == '"' then "'\"'" else (JSON.stringify ch)
-    AST
-      #(o)
-        if C(o.data, o.index) == $code
-          o.index += 1
-          $code
-        else
-          o.fail $name
-          false
+    ASTE character $name, $code
   else
     if not name
       name := ["["]
@@ -616,121 +858,19 @@ macro character!(chars, name)
           name.push end
       name.push "]"
       name := name.join ""
-    AST
-      #(o)
-        let c = C(o.data, o.index)
-        if $current
-          o.index += 1
-          c
-        else
-          o.fail $name
-          false
-
-let rule-equal(rule, text, mutator) as (->)
-  let failure-message = JSON.stringify(text)
-  return with-message! failure-message, mutate! named(failure-message, #(o)
-    let clone = o.clone()
-    let result = rule clone
-    if result == text
-      o.update clone
-      result
-    else
-      o.fail failure-message
-      false), mutator
-
-let word(text, mutator) as (->)
-  rule-equal Name, text, mutator
-
-let symbol(text, mutator) as (->)
-  rule-equal Symbol, text, mutator
-
-let word-or-symbol(text, mutator) as (->)
-  let parts = [Space]
-  parts.push ...(for part, i in text.split r"([a-z]+)"ig
-    if part
-      if i %% 2
-        rule-equal _Symbol, part
+    let mutable array = []
+    for chunk in chunks
+      if chunk.start == chunk.end
+        array.push @const chunk.start
+      else if chunk.start == chunk.end - 1
+        array.push @const chunk.start
+        array.push @const chunk.end
       else
-        rule-equal _Name, part)
-  
-  sequential parts, mutator or text
+        array.push @array [@const(chunk.start), @const(chunk.end)]
+    array := @array array
+    ASTE characters $name, chars-to-fake-set($array)
 
-let macro-name(text, mutator) as (->)
-  let failure-message = JSON.stringify(text)
-  mutate! named(failure-message, #(o)
-    let clone = o.clone()
-    let result = MacroName(clone)
-    if result == text
-      o.update clone
-      result
-    else
-      o.fail failure-message
-      false), mutator
-
-let get-func-name(func as ->) as String
-  if func.display-name
-    func.display-name
-  else if func.name
-    func.name
-  else
-    let match = RegExp("^function\\s*(.*?)").exec func.to-string()
-    (match and match[1]) or func.parser-name or "(anonymous)"
-
-let wrap(func as ->, name = get-func-name(func)) as (->)
-  let mutable id = -1
-  named func.parser-name, #(o)
-    id += 1
-    let i = id
-    console.log "$(i)-$(name) starting at line #$(o.line), index $(o.index), indent $(_indent.peek(o)) : $(JSON.stringify o.data.substr(o.index, 10))"
-    let result = func o
-    if not result
-      console.log "$(i)-$(name) failure at line #$(o.line), index $(o.index), indent $(_indent.peek(o))"
-    else
-      console.log "$(i)-$(name) success at line #$(o.line), index $(o.index), indent $(_indent.peek(o))", result
-    result
-
-macro define
-  syntax name as Identifier, "=", value
-    let name-str = @name(name)
-    if @is-call(value) and @is-ident(@call-func(value)) and @name(@call-func(value)) == \named
-      value := @call-args(value)[1]
-    AST let $name = cache named $name-str, $value
-
-macro namedlet
-  syntax name as Identifier, "=", value
-    let name-str = @name(name)
-    if @is-call(value) and @is-ident(@call-func(value)) and @name(@call-func(value)) == \named
-      value := @call-args(value)[1]
-    AST let $name = named $name-str, $value
-
-let make-alter-stack(stack as Stack, value) as (->)
-  #(func as ->) -> named func.parser-name, #(o)
-    stack.push o, value
-    try
-      return func(o)
-    finally
-      stack.pop o
-
-let _position = Stack \statement
-let in-statement = make-alter-stack _position, \statement
-let in-expression = make-alter-stack _position, \expression
-
-let _in-macro = Stack false
-let in-macro = make-alter-stack _in-macro, true
-
-let _in-ast = Stack false
-let in-ast = make-alter-stack _in-ast, true
-
-let _in-evil-ast = Stack false
-let in-evil-ast = make-alter-stack _in-evil-ast, true
-
-let _prevent-unclosed-object-literal = Stack false
-let prevent-unclosed-object-literal = make-alter-stack _prevent-unclosed-object-literal, true
-
-let _asterix-as-array-length = Stack false
-let asterix-as-array-length = make-alter-stack _asterix-as-array-length, true
-
-define SpaceChar = character! [
+let SpaceChar = character! [
   " \t\v\f"
   160
   5760
@@ -741,236 +881,19 @@ define SpaceChar = character! [
   12288
   65263
 ], "space"
-namedlet _Space = zero-or-more! SpaceChar, true
-define Newline = #(o)
-  let {data, mutable index} = o
-  let c = C(data, index)
-  if c in [C("\r"), C("\n"), 8232, 8233]
-    index ~+= 1
-    if c == C("\r") and C(data, index) == C("\n")
-      index ~+= 1
-    o.index := index
-    o.line ~+= 1
-    true
-  else
-    o.fail "newline"
-    false
+define SpaceChars = zero-or-more(SpaceChar, true)
 
-namedlet Eof = #(o) -> o.index ~>= o.data.length
-namedlet CheckStop = do
-  namedlet Stop = one-of! [Newline, Eof, EmbeddedClose, EmbeddedCloseWrite]
-  check! Stop
-
-let _NewlineWithCheckIndent = sequential! [
-  Newline
-  EmptyLines
-  CheckIndent
-]
-
-define NewlineWithCheckIndent = #(o)
-  if o.options.noindent
-    EmptyLines(o)
-  else
-    _NewlineWithCheckIndent(o)
-
-define MaybeComment = do
-  namedlet SingleLineComment = #(o)
-    let {data, mutable index} = o
-    if C(data, index) == C("/") and C(data, index ~+ 1) == C("/")
-      let len = data.length
-      index += 2
-      while true, index ~+= 1
-        if index ~>= len or C(data, index) in [C("\r"), C("\n")]
-          o.index := index
-          return true
-    else
-      false
-
-  namedlet MultiLineComment = #(o)
-    let {data, mutable index} = o
-    if C(data, index) == C("/") and C(data, index ~+ 1) == C("*") and C(data, index ~+ 2) != C("!")
-      let len = data.length
-      index += 2
-      while true, index ~+= 1
-        if index ~>= len
-          o.error "Multi-line comment never ends"
-        else
-          let ch = C(data, index)
-          if ch == C("*") and C(data, index ~+ 1) == C("/")
-            o.index := index ~+ 2
-            Space o
-            return true
-          else if ch in [C("\r"), C("\n"), 8232, 8233]
-            if ch == C("\r") and C(data, index ~+ 1) == C("\n")
-              index ~+= 1
-            o.line ~+= 1
-    else
-      false
-  
-  maybe! (one-of! [SingleLineComment, MultiLineComment]), true
-
-let from-char-code = do
-  let f = String.from-char-code
-  #(x)
-    if x == -1
-      "\u0000"
-    else if x > 0xFFFF
-      f(((x - 0x10000) bitrshift 10) + 0xD800) ~& f(((x - 0x10000) % 0x400) + 0xDC00)
-    else
-      f x
-let process-char-codes(codes, array = [])
-  for v in codes
-    array.push from-char-code(v)
-  array
-
-define LicenseComment = sequential! [
-  _Space
-  [\this, #(o)
-    let {data, mutable index} = o
-    if C(data, index) == C("/") and C(data, index ~+ 1) == C("*") and C(data, index ~+ 2) == C("!")
-      let mutable line = [C("/"), C("*"), C("!")]
-      let lines = [line]
-      let len = data.length
-      let start-index = index
-      index += 3
-      while true, index ~+= 1
-        if index ~>= len
-          o.error "Multi-line license comment never ends"
-        else
-          let ch = C(data, index)
-          if ch == C("*") and C(data, index ~+ 1) == C("/")
-            o.index := index ~+ 2
-            line.push C("*"), C("/")
-            let result = []
-            for l, i in lines
-              if i > 0
-                result.push "\n"
-              process-char-codes l, result
-            return o.comment start-index, result.join ""
-          else if ch in [C("\r"), C("\n"), 8232, 8233]
-            if ch == C("\r") and C(data, index ~+ 1) == C("\n")
-              index ~+= 1
-            o.line ~+= 1
-            lines.push (line := [])
-            o.index := index ~+ 1
-            if not StringIndent(o)
-              o.error "Improper indent in multi-line license comment"
-            index := o.index ~- 1
-          else
-            line.push ch
-    else
-      false]
-  Space
-]
-
-define Space = sequential! [
-  _Space
-  MaybeComment
-], true
-
-macro with-space!(rule)
-  AST sequential! [
-    Space
-    [\this, $rule]
-  ]
-
-define NoSpace = except! SpaceChar
-
-define EmptyLine = with-space! Newline
-define EmptyLines = zero-or-more! EmptyLine, true
-define SomeEmptyLines = one-or-more! EmptyLine, true
-
-define NoSpaceNewline = except! EmptyLine
-
-let INDENTS =
-  [C "\t"]: 4
-  [C " "]: 1
-define CountIndent = zero-or-more! SpaceChar, #(x)
-  let mutable count = 1
-  for c in x by -1
-    if INDENTS not ownskey c
-      throw Error "Unexpected indent char: $(JSON.stringify c)"
-    count += INDENTS[c]
-  count
-
-define IndentationRequired = #(o)
-  not o.options.noindent
-
-define CheckIndent = #(o)
-  let clone = o.clone()
-  let indent = CountIndent clone
-  if o.options.noindent or indent == _indent.peek(o)
-    o.update clone
-    true
-  else
-    false
-
-let retain-indent(rule) -> #(o)
-  let count = _indent.count(o)
-  try
-    return rule o
-  finally
-    while _indent.count(o) > count
-      _indent.pop(o)
-
-let Advance = named \Advance, #(o)
-  if o.options.noindent
-    throw Error "Can't use Advance if in noindent mode"
-  let clone = o.clone()
-  let indent = CountIndent clone
-  if indent > _indent.peek(o)
-    // don't update o, we don't want to move the index
-    _indent.push o, indent
-    true
-  else
-    false
-
-let MaybeAdvance = named \MaybeAdvance, #(o)
-  if o.options.noindent
-    return true
-  let clone = o.clone()
-  let indent = CountIndent clone
-  _indent.push o, indent
-  true
-
-let PushIndent = named \PushIndent, mutate! CountIndent, (#(indent, o)
-  if o.options.noindent
-    return true
-  _indent.push o, indent
-  true), true
-
-let PushFakeIndent = do
-  let cache = []
-  #(n) -> cache[n] ?= named "PushFakeIndent($n)", #(o)
-    if o.options.noindent
-      return true
-    _indent.push o, _indent.peek(o) + n
-    true
-
-let PopIndent = named \PopIndent, #(o)
-  if o.options.noindent
-    return true
-  if _indent.can-pop o
-    _indent.pop o
-    true
-  else
-    o.error "Unexpected dedent"
-
-define Zero = character! "0"
-define DecimalDigit = character! [["0", "9"]]
-define Period = character! "."
-define ColonChar = character! ":"
-define Pipe = with-space! character! "|"
-define DoubleColon = sequential! [ColonChar, ColonChar], "::"
-define EqualChar = character! "="
-define ColonEqual = with-space! sequential! [
-  ColonChar
-  EqualChar
-], ":="
-namedlet Minus = character! "-"
-namedlet Plus = character! "+"
-namedlet PlusOrMinus = character! "+-"
-namedlet Letter = character! [
+let Zero = character! "0"
+let DecimalDigit = character! "0123456789"
+let Period = character! "."
+let ColonChar = character! ":"
+define DoubleColonChar = sequential(ColonChar, ColonChar) |> mutate "::"
+let PipeChar = character! "|"
+let EqualChar = character! "="
+let MinusChar = character! "-"
+let PlusChar = character! "+"
+let PlusOrMinusChar = character! "+-"
+let Letter = character! [
   ["a", "z"]
   ["A", "Z"]
   170
@@ -1326,7 +1249,7 @@ namedlet Letter = character! [
   [65490, 65495]
   [65498, 65500]
 ], "letter"
-namedlet NumberChar = character! [
+let NumberChar = character! [
   ["0", "9"]
   [178, 179]
   185
@@ -1390,12 +1313,13 @@ namedlet NumberChar = character! [
   [44016, 44025]
   [65296, 65305]
 ], "number"
-define Underscore = character! "_"
-define DollarSign = character! '$'
-define AtSign = character! "@"
-define HashSign = with-space! character! "#"
-define PercentSign = character! "%"
-define SymbolChar = character! [
+let Underscore = character! "_"
+let DollarSignChar = character! '$'
+let AtSignChar = character! "@"
+let HashSignChar = character! "#"
+let PercentSignChar = character! "%"
+let EqualSignChar = character! "="
+let SymbolChar = character! [
   "!#%&*+-/<=>?\\^`|~"
   "\u007f"
   [128, 159]
@@ -1797,733 +1721,299 @@ define SymbolChar = character! [
   [65496, 65497]
   [65501, 65535]
 ], "symbolic"
-define DoubleQuote = character! '"'
-define SingleQuote = character! "'"
-define TripleDoubleQuote = sequential! [DoubleQuote, DoubleQuote, DoubleQuote], '"""'
-define TripleSingleQuote = sequential! [SingleQuote, SingleQuote, SingleQuote], "'''"
-define SemicolonChar = character! ";"
-define Semicolon = with-space! SemicolonChar
-define Semicolons = one-or-more! Semicolon
-namedlet Asterix = character! "*"
-namedlet Caret = character! "^"
-define OpenParenthesis = with-space! character! "("
-define CloseParenthesis = with-space! character! ")"
-define OpenSquareBracketChar = character! "["
-define OpenSquareBracket = with-space! OpenSquareBracketChar
-define CloseSquareBracket = with-space! character! "]"
-define OpenCurlyBraceChar = character! "{"
-define OpenCurlyBrace = with-space! OpenCurlyBraceChar
-define CloseCurlyBraceChar = character! "}"
-define CloseCurlyBrace = with-space! CloseCurlyBraceChar
-define Backslash = character! "\\"
-define Comma = with-space! character! ","
-define LessThanSign = character! "<"
-define MaybeComma = maybe! Comma, true
-define CommaOrNewline = one-of! [
-  sequential! [
+let DoubleQuote = character! '"'
+let SingleQuote = character! "'"
+define TripleDoubleQuote = multiple DoubleQuote, 3, 3, true
+define TripleSingleQuote = multiple SingleQuote, 3, 3, true
+let SemicolonChar = character! ";"
+let AsterixChar = character! "*"
+let CaretChar = character! "^"
+let OpenSquareBracketChar = character! "["
+let OpenCurlyBraceChar = character! "{"
+let CloseCurlyBraceChar = character! "}"
+let BackslashChar = character! "\\"
+let CommaChar = character! ","
+
+let AnyChar(parser, mutable index)
+  let source = parser.source
+  if index ~>= source.length
+    parser.fail "any", index
+  else
+    let mutable c = C(source, index)
+    if c == C("\r") and C(source, index ~+ 1) == C("\n")
+      index ~+= 1
+      c := C("\n")
+    Box index ~+ 1, c
+
+let Newline(parser, mutable index)
+  let source = parser.source
+  let mutable c = C(source, index)
+  if c == C("\r")
+    if C(source, index ~+ 1) == C("\n")
+      index ~+= 1
+      c := C("\n")
+  else if c not in [C("\n"), 0x2028, 0x2029]
+    return
+  Box index ~+ 1, c
+
+let Eof(parser, index) -> if index ~>= parser.source.length then Box index
+define CheckStop = one-of(
+  Newline
+  Eof
+  #(parser, index)
+    EmbeddedClose(parser, index) or EmbeddedCloseWrite(parser, index))
+
+define MaybeComment = do
+  let SingleLineComment(parser, mutable index)
+    let source = parser.source
+    if C(source, index) == C("/") and C(source, index ~+ 1) == C("/")
+      let len = source.length
+      index ~+= 2
+      while true, index ~+= 1
+        if index ~>= len or C(source, index) in [C("\r"), C("\n"), 0x2028, 0x2029]
+          return Box index
+  
+  let MultiLineComment(parser, mutable index)
+    let source = parser.source
+    let start-index = index
+    if C(source, index) == C("/") and C(source, index ~+ 1) == C("*") and C(source, index ~+ 2) != C("!")
+      let len = source.length
+      index ~+= 2
+      while true, index ~+= 1
+        if index ~>= len
+          throw ParserError "Multi-line comment never ends", parser, start-index
+        if C(source, index) == C("*") and C(source, index ~+ 1) == C("/")
+          return Space parser, index ~+ 2
+  
+  maybe one-of SingleLineComment, MultiLineComment
+
+define Space = sequential SpaceChars, MaybeComment
+
+let with-space(rule as ->) -> sequential Space, [\this, rule]
+
+define NoSpace = except SpaceChar
+define EmptyLine = with-space Newline
+define EmptyLines = zero-or-more EmptyLine, true
+define SomeEmptyLines = one-or-more EmptyLine, true
+define NoSpaceNewline = except EmptyLine
+
+define OpenParenthesis = with-space character! "("
+define CloseParenthesis = with-space character! ")"
+define OpenSquareBracket = with-space OpenSquareBracketChar
+define CloseSquareBracket = with-space character! "]"
+define OpenCurlyBrace = with-space OpenCurlyBraceChar
+define CloseCurlyBrace = with-space CloseCurlyBraceChar
+
+define EqualSign = with-space EqualSignChar
+define PercentSign = with-space PercentSignChar
+define DollarSign = with-space DollarSignChar
+
+define Comma = with-space CommaChar
+define MaybeComma = maybe Comma
+define CommaOrNewline = one-of(
+  sequential(
     [\this, Comma]
-    EmptyLines
-  ]
+    EmptyLines)
+  SomeEmptyLines)
+define MaybeCommaOrNewline = maybe CommaOrNewline
+
+define _SomeEmptyLinesWithCheckIndent = sequential(
   SomeEmptyLines
-]
-namedlet SomeEmptyLinesWithCheckIndent = sequential! [
-  SomeEmptyLines
-  CheckIndent
-]
-namedlet CommaOrNewlineWithCheckIndent = one-of! [
-  sequential! [
+  CheckIndent)
+
+define SomeEmptyLinesWithCheckIndent = #(parser, index)
+  if parser.options.noindent
+    EmptyLines parser, index
+  else
+    _SomeEmptyLinesWithCheckIndent parser, index
+
+define CommaOrSomeEmptyLinesWithCheckIndent = one-of(
+  sequential(
     Comma
-    maybe! SomeEmptyLinesWithCheckIndent, true
-  ]
-  SomeEmptyLinesWithCheckIndent
-]
-namedlet MaybeCommaOrNewline = maybe! CommaOrNewline, true
+    maybe SomeEmptyLinesWithCheckIndent)
+  SomeEmptyLinesWithCheckIndent)
 
-namedlet NameStart = one-of! [Letter, Underscore, DollarSign]
-namedlet NameChar = one-of! [NameStart, NumberChar]
-namedlet NamePart = one-or-more! NameChar
-define _Name = do
-  sequential! [
-    [\head, sequential! [
-      [\head, NameStart]
-      [\tail, zero-or-more! NameChar]
-    ]]
-    [\tail, zero-or-more! sequential! [
-      Minus
-      [\this, NamePart]
-    ]]
-  ], #(x)
-    let parts = [from-char-code x.head.head]
-    process-char-codes x.head.tail, parts
-    for part in x.tail
-      parts.push from-char-code(part[0]).to-upper-case()
-      process-char-codes part[1 to -1], parts
-    parts.join ""
+define ExclamationPointChar = character! "!"
+define MaybeExclamationPointChar = maybe ExclamationPointChar
+define MaybeAtSignChar = maybe AtSignChar
 
-define Name = with-message! "name", with-space! _Name
+define Colon = sequential(
+  Space
+  [\this, ColonChar]
+  except ColonChar)
 
-define _Symbol = one-or-more! SymbolChar, #(x) -> process-char-codes(x).join ""
+define ColonNewline = sequential(
+  Colon
+  Space
+  [\this, Newline])
 
-define Symbol = with-message! "symbol", with-space! _Symbol
+define NotColon = except Colon
+define NotColonUnlessNoIndentAndNewline(parser, index)
+  let options = parser.options
+  if options.noindent
+    if ColonNewline parser, index
+      return Box index
+    else if options.embedded
+      if ColonEmbeddedClose(parser, index) or ColonEmbeddedCloseWrite(parser, index)
+        return Box index
+  NotColon parser, index
 
-let _NameOrSymbol = one-or-more-of! [
-  _Name
-  _Symbol
-  ColonEqual
-], #(x) -> x.join ""
-let NameOrSymbol = with-space! _NameOrSymbol
+define NameStart = one-of Letter, Underscore, DollarSignChar
+define NameChar = one-of NameStart, NumberChar
+define NamePart = one-or-more NameChar
 
-namedlet AnyChar = #(o)
-  let {data, index} = o
-  if index >= data.length
-    o.fail "any"
-    false
-  else  
-    let c = C(data, index)
-    o.index ~+= 1
-    if c in [C("\r"), C("\n"), 8232, 8233]
-      o.line ~+= 1
-      if c == C("\r") and C(data, index + 1) == C("\n")
-        o.index ~+= 1
-    c or -1
+define Nothing(parser, index) -> Box index, parser.Nothing index
+// these will be redefined later, which is why they're calling themselves (their future versions)
+let mutable Expression = #(parser, index) -> Expression(parser, index)
+let mutable Statement = #(parser, index) -> Statement(parser, index)
+let mutable Body = #(parser, index) -> Body(parser, index)
+let mutable BodyNoEnd = #(parser, index) -> BodyNoEnd(parser, index)
+let mutable Logic = #(parser, index) -> Logic(parser, index)
 
-define ThisLiteral = word \this, #(x, o, i) -> o.this i
+define End(parser, index)
+  if parser.options.noindent
+    EndNoIndent parser, index
+  else
+    Box index
 
-define ThisShorthandLiteral = sequential! [Space, AtSign], #(x, o, i) -> o.this i
+define _Name = separated-list(
+  cons NameStart, zero-or-more NameChar
+  MinusChar
+  NamePart) |> mutate #(items)
+  let parts = process-char-codes items[0]
+  for item in items[1 to -1]
+    parts.push from-char-code(item[0]).to-upper-case()
+    process-char-codes item, parts, 1
+  parts.join ""
 
-define ThisOrShorthandLiteral = one-of! [ThisLiteral, ThisShorthandLiteral]
-namedlet ThisOrShorthandLiteralPeriod = one-of! [
-  sequential! [
-    [\this, ThisLiteral]
-    Period
-  ]
-  sequential! [
-    [\this, ThisShorthandLiteral]
-    maybe! Period, true
-  ]
-]
+define Name = with-space _Name
 
-let make-digits-rule(digit)
-  let digits = one-or-more! digit
-  sequential! [
-    [\head, digits]
-    [\tail, zero-or-more! sequential! [
-      one-or-more! Underscore
-      [\this, digits]
-    ]]
-  ], #(x)
-    let parts = process-char-codes x.head
-    for part in x.tail
-      process-char-codes part, parts
-    parts.join ""
+define _Symbol = one-or-more(SymbolChar) |> mutate codes-to-string
 
-define MaybeUnderscores = zero-or-more! Underscore, true
+define Symbol = with-space _Symbol
 
-define DecimalNumber = do
-  namedlet DecimalDigits = make-digits-rule DecimalDigit
+define ColonEqual = with-space sequential(ColonChar, EqualSignChar) |> mutate ":="
+define NameOrSymbol = with-space one-of(
+  with-space(one-or-more-of(_Name, _Symbol)) |> mutate #(parts) -> parts.join ""
+  ColonEqual)
+
+define MacroName = with-space sequential(
+  [\this, NameOrSymbol]
+  NotColonUnlessNoIndentAndNewline)
+define MacroNames = separated-list<String> MacroName, Comma
+
+define UseMacro(parser, index)
+  let name = MacroName parser, index
+  if not name
+    return
   
-  sequential! [
-    [\integer, DecimalDigits]
-    [\decimal, maybe! (sequential! [
-      MaybeUnderscores
-      Period
-      MaybeUnderscores
-      [\this, DecimalDigits]
-    ], #(x) -> "." & x), NOTHING]
-    [\scientific, maybe! (sequential! [
-      [\e, character! "eE"]
-      [\op, maybe! PlusOrMinus, NOTHING]
-      [\digits, DecimalDigits]
-    ], #(x) -> from-char-code(x.e) & (if x.op != NOTHING then from-char-code(x.op) else "") & x.digits), NOTHING]
-    maybe! (sequential! [
-      Underscore
-      maybe! NamePart, true
-    ]), true
-  ], #(x, o, i)
-    let {mutable decimal, mutable scientific} = x
-    if decimal == NOTHING
-      decimal := ""
-    if scientific == NOTHING
-      scientific := ""
-    let text = x.integer & decimal & scientific
-    let value = Number(text)
-    if not is-finite value
-      o.error "Unable to parse number: $text"
-    o.const i, value
-
-let make-radix-number(radix, separator, digit)
-  let digits = make-digits-rule digit
-  sequential! [
-    Zero
-    [\separator, separator]
-    [\integer, digits]
-    [\decimal, maybe! (sequential! [
-      MaybeUnderscores
-      Period
-      MaybeUnderscores
-      [\this, digits]
-    ]), NOTHING]
-    MaybeUnderscores
-  ], #(x, o, i)
-    let {integer, mutable decimal} = x
-    if decimal == NOTHING
-      decimal := ""
-    let mutable value = parse-int integer, radix
-    if not is-finite value
-      let decimal-text = if decimal then ".$decimal" else ""
-      o.error "Unable to parse number: 0$(from-char-code x.separator)$(integer)$decimal-text"
-    if decimal
-      while true
-        let decimal-num = parse-int decimal, radix
-        if is-finite(decimal-num)
-          value += decimal-num / radix ^ decimal.length
-          break
-        else
-          decimal := decimal.slice(0, -1)
-    o.const i, value
-
-namedlet HexDigit = character! [["0", "9"], ["a", "f"], ["A", "F"]]
-namedlet HexNumber = make-radix-number 16, character!("xX"), HexDigit
-namedlet OctalDigit = character! [["0", "7"]]
-namedlet OctalNumber = make-radix-number 8, character!("oO"), OctalDigit
-namedlet BinaryDigit = character! "01"
-namedlet BinaryNumber = make-radix-number 2, character!("bB"), BinaryDigit
-
-namedlet RadixNumber = do
-  let GetDigits = do
-    let digit-cache = []
-    #(radix) -> digit-cache[radix] ?= do
-      let digit = switch radix
-      case 2; BinaryDigit
-      case 8; OctalDigit
-      case 10; DecimalDigit
-      case 16; HexDigit
-      default
-        let chars = []
-        for i in 0 til radix max 10
-          chars[i + C("0")] := true
-        for i in 0 til (radix max 36) - 10
-          chars[i + C("a")] := true
-          chars[i + C("A")] := true
-        #(o)
-          let c = C(o.data, o.index)
-          if chars[c]
-            o.index += 1
-            c
-          else
-            false
-      make-digits-rule digit
+  let m = parser.get-macro-by-name name.value
+  if not m
+    return
   
-  let Radix = multiple! 1, 2, DecimalDigit
-  #(o)
-    let start-index = o.index
-    let clone = o.clone()
-    let mutable radix = Radix(clone)
-    if not radix
-      return false
-    radix := process-char-codes(radix).join ""
-    
-    if not LowerR(clone)
-      return false
-    
-    let radix-num = Number(radix)
-    if not is-finite radix-num
-      o.error "Unable to parse radix: $radix"
-    else if radix-num < 2 or radix-num > 36
-      o.error "Radix must be at least 2 and at most 36, not $radix-num"
-    
-    let digits = GetDigits(radix-num)
-    let integer = digits(clone)
-    if not integer
-      return false
-    let mutable value = parse-int integer, radix-num
-    if not is-finite value
-      o.error "Unable to parse number: $(radix-num)r$(integer)"
-    
-    MaybeUnderscores(clone)
-    
-    let sub-clone = clone.clone()
-    if Period(sub-clone)
-      MaybeUnderscores(sub-clone)
-      let mutable decimal = digits(sub-clone)
-      if decimal
-        clone.update sub-clone
-        while true
-          let decimal-num = parse-int decimal, radix-num
-          if decimal-num is NaN
-            o.error "Unable to parse number: $(radix-num)r$integer.$decimal"
-          else if is-finite(decimal-num)
-            value += decimal-num / radix-num ^ decimal.length
-            break
-          else
-            decimal := decimal.slice(0, -1)
-    MaybeUnderscores(clone)
-    o.update clone
-    o.const start-index, value
+  let result = m parser, index
+  if not result
+    throw SHORT_CIRCUIT
+  result
 
-define NumberLiteral = with-space! one-of! [
-  HexNumber
-  OctalNumber
-  BinaryNumber
-  RadixNumber
-  DecimalNumber
-]
-
-let make-const-literal(name, value)
-  word name, #(x, o, i)
-    o.const i, value
-
-define NullLiteral = make-const-literal \null, null
-define VoidLiteral = one-of! [
-  make-const-literal \undefined, void
-  make-const-literal \void, void
-]
-namedlet InfinityLiteral = make-const-literal \Infinity, Infinity
-namedlet NaNLiteral = make-const-literal "NaN", NaN
-namedlet TrueLiteral = make-const-literal \true, true
-namedlet FalseLiteral = make-const-literal \false, false
-
-namedlet SimpleConstantLiteral = one-of! [
-  NullLiteral
-  VoidLiteral
-  InfinityLiteral
-  NaNLiteral
-  TrueLiteral
-  FalseLiteral
-]
-
-define LowerX = character! "x"
-namedlet HexEscapeSequence = short-circuit! LowerX, sequential! [
-  LowerX
-  [\this, multiple! 2, 2, HexDigit]
-], #(x) -> parse-int(process-char-codes(x).join(""), 16) or -1
-
-define LowerU = character! "u"
-namedlet UnicodeEscapeSequence = short-circuit! LowerU, sequential! [
-  LowerU
-  [\this, one-of! [
-    mutate! (multiple! 4, 4, HexDigit), #(x) -> parse-int(process-char-codes(x).join(""), 16) or -1
-    sequential! [
-      OpenCurlyBraceChar
-      [\this, multiple! 1, 6, HexDigit]
-      CloseCurlyBraceChar
-    ], #(x, o, i)
-      let inner = process-char-codes(x).join("")
-      let result = parse-int(inner, 16) or -1
-      if result > 0x10FFFF
-        o.error "Unicode escape sequence too large: \\u{$inner}"
-      else
-        result
-  ]]
-]
-
-namedlet SingleEscapeCharacter = do
-  let ESCAPED_CHARACTERS =
-    [C "b"]: C "\b"
-    [C "f"]: C "\f"
-    [C "r"]: C "\r"
-    [C "n"]: C "\n"
-    [C "t"]: C "\t"
-    [C "v"]: C "\v"
-    [C "0"]: -1 // to be non-falsy
-    [C "1"]: 1
-    [C "2"]: 2
-    [C "3"]: 3
-    [C "4"]: 4
-    [C "5"]: 5
-    [C "6"]: 6
-    [C "7"]: 7
-  
-  mutate! AnyChar, #(c)
-    if ESCAPED_CHARACTERS ownskey c
-      ESCAPED_CHARACTERS[c]
+let rule-equal(rule as ->, text as String)
+  let failure-message = JSON.stringify text
+  #(parser, index)
+    let result = rule parser, index
+    if result and result.value == text
+      result
     else
-      c
+      parser.fail failure-message, index
 
-namedlet BackslashEscapeSequence = sequential! [
-  Backslash
-  [\this, one-of! [
-    HexEscapeSequence
-    UnicodeEscapeSequence
-    SingleEscapeCharacter
-  ]]
-]
+let word(text as String) -> rule-equal Name, text
+let symbol(text as String) -> rule-equal Symbol, text
+let macro-name(text as String) -> rule-equal MacroName, text
 
-namedlet Nothing = #(o) -> o.nothing o.index
-
-namedlet StringInterpolation = short-circuit! DollarSign, sequential! [
-  DollarSign
-  NoSpace
-  [\this, one-of! [
-    Identifier
-    sequential! [
-      OpenParenthesis
-      [\this, one-of! [
-        Expression
-        Nothing
-      ]]
-      CloseParenthesis
-    ]
-  ]]
-]
-
-namedlet SingleStringLiteral = short-circuit! SingleQuote, sequential! [
-  SingleQuote
-  [\this, zero-or-more-of! [
-    BackslashEscapeSequence
-    any-except! [
-      SingleQuote
-      Newline
-    ]
-  ]]
-  SingleQuote
-], #(x, o, i) -> o.const i, process-char-codes(x).join ""
-
-namedlet DoubleStringLiteralInner = zero-or-more-of! [
-  mutate! BackslashEscapeSequence
-  StringInterpolation
-  any-except! [
-    DoubleQuote
-    Newline
-  ]
-]
-
-let double-string-literal-handler = #(x, o, i)
-  let string-parts = []
-  let mutable current-literal = []
-  for part in x
-    if is-number! part
-      current-literal.push part
-    else if part not instanceof NothingNode
-      string-parts.push o.const i, process-char-codes(current-literal).join ""
-      current-literal := []
-      string-parts.push part
-  if current-literal.length > 0
-    string-parts.push o.const i, process-char-codes(current-literal).join ""
-  string-parts
-
-namedlet DoubleStringLiteral = short-circuit! DoubleQuote, sequential! [
-  DoubleQuote
-  [\this, DoubleStringLiteralInner]
-  DoubleQuote
-], #(x, o, i)
-  let string-parts = for part in double-string-literal-handler x, o, i
-    if not part.is-const() or part.const-value() != ""
-      part
+let word-or-symbol(text as String)
+  let parts = [Space]
+  for part, i in text.split r"([a-z]+)"ig
+    if part
+      parts.push rule-equal if i %% 2 then _Symbol else _Name, part
   
-  if string-parts.length == 0
-    o.const i, ""
-  else if string-parts.length == 1 and string-parts[0].is-const() and is-string! string-parts[0].const-value()
-    string-parts[0]
-  else
-    o.string i, string-parts
+  sequential(...parts) |> mutate text
 
-define PercentSignDoubleQuote = sequential! [PercentSign, DoubleQuote]
-namedlet DoubleStringArrayLiteral = short-circuit! PercentSignDoubleQuote, sequential! [
-  PercentSignDoubleQuote
-  [\this, DoubleStringLiteralInner]
-  DoubleQuote
-], #(x, o, i)
-  let string-parts = double-string-literal-handler x, o, i
-  
-  o.array i, string-parts
-
-namedlet StringIndent = #(o)
-  let clone = o.clone()
-  let mutable count = 1
-  let current-indent = _indent.peek(o)
-  while count < current-indent
-    let c = SpaceChar(clone)
-    if not c
-      break
-    if INDENTS not ownskey c
+let INDENTS = { extends null
+  [C "\t"]: 4
+  [C " "]: 1
+}
+let CountIndent = zero-or-more(SpaceChar) |> mutate #(spaces)
+  let mutable count = 0
+  for c in spaces by -1
+    let indent = INDENTS[c]
+    if not indent
       throw Error "Unexpected indent char: $(JSON.stringify c)"
-    count += INDENTS[c]
-  if count > current-indent
-    o.error "Mixed tabs and spaces in string literal"
-  else if count < current-indent and not Newline(clone.clone())
-    false
-  else
-    o.update clone
+    count += indent
+  count
+
+let IndentationRequired(parser, index)
+  if not parser.options.noindent
+    Box index
+
+let CheckIndent(parser, index)
+  let count = CountIndent parser, index
+  if parser.options.noindent or count.value == parser.indent.peek()
     count
 
-namedlet TripleSingleStringLine = zero-or-more-of! [
-  BackslashEscapeSequence
-  any-except! [
-    TripleSingleQuote
-    Newline
-  ]
-], #(x) -> [process-char-codes(x).join("").replace(r"[\t ]+\$", "")]
-namedlet TripleDoubleStringLine = zero-or-more-of! [
-  mutate! BackslashEscapeSequence
-  StringInterpolation
-  any-except! [
-    TripleDoubleQuote
-    Newline
-  ]
-], #(x)
-  let string-parts = []
-  let mutable current-literal = []
-  for part in x
-    if is-number! part
-      current-literal.push part
-    else if part not instanceof NothingNode
-      string-parts.push process-char-codes(current-literal).join ""
-      current-literal := []
-      string-parts.push part
-  if current-literal.length > 0
-    string-parts.push process-char-codes(current-literal).join("").replace(r"[\t ]+\$", "")
+let Advance(parser, index)
+  if parser.options.noindent
+    throw Error "Can't use Advance if in noindent mode"
   
-  string-parts
+  let count = CountIndent parser, index
+  let count-value = count.value
+  let {indent} = parser
+  if count-value > indent.peek()
+    indent.push count-value
+    Box index, count-value
 
-let triple-string-handler(x, o, i)
-  let lines = [x.first]
-  if lines[0].length == 0 or (lines[0].length == 1 and lines[0][0] == "")
-    lines.shift()
-  for j in 1 til x.empty-lines.length
-    lines.push [""]
-  lines.push ...x.rest
-  let mutable len = lines.length
-  if len > 0 and (lines[len - 1].length == 0 or (lines[len - 1].length == 1 and lines[len - 1][0] == ""))
-    lines.pop()
-    len -= 1
-  
-  let string-parts = []
-  for line, j in lines
-    if j > 0
-      string-parts.push "\n"
-    string-parts.push ...line
-  
-  for j in string-parts.length - 2 to 0 by -1
-    if is-string! string-parts[j] and is-string! string-parts[j + 1]
-      string-parts.splice(j, 2, string-parts[j] ~& string-parts[j + 1])
-  
-  for part, j in string-parts
-    if is-string! part
-      string-parts[j] := o.const i, part
-  
-  string-parts
+let MaybeAdvance(parser, index)
+  let count = CountIndent parser, index
+  parser.indent.push count.value
+  Box index, count.value
 
-let make-triple-string(quote, line)
-  short-circuit! quote, sequential! [
-    quote
-    [\first, line]
-    [\empty-lines, zero-or-more! sequential! [
-      _Space
-      [\this, Newline]
-    ]]
-    [\rest, maybe! (retain-indent sequential! [
-      MaybeAdvance
-      [\this, maybe! (sequential! [
-        StringIndent
-        [\head, line]
-        [\tail, zero-or-more! sequential! [
-          Newline
-          StringIndent
-          [\this, line]
-        ]]
-      ], #(x) -> [x.head, ...x.tail]), #-> []]
-      maybe! Newline, true
-      PopIndent
-    ]), #-> []]
-    quote
-  ], #(x, o, i)
-    let string-parts = for part in triple-string-handler x, o, i
-      if not part.is-const() or part.const-value() != ""
-        part
-    
-    if string-parts.length == 0
-      o.const i, ""
-    else if string-parts.length == 1 and string-parts[0].is-const() and is-string! string-parts[0].const-value()
-      string-parts[0]
-    else
-      o.string i, string-parts
-namedlet TripleSingleStringLiteral = make-triple-string TripleSingleQuote, TripleSingleStringLine
-namedlet TripleDoubleStringLiteral = make-triple-string TripleDoubleQuote, TripleDoubleStringLine
-define PercentSignTripleDoubleQuote = sequential! [PercentSign, TripleDoubleQuote]
-namedlet TripleDoubleStringArrayLiteral = short-circuit! PercentSignTripleDoubleQuote, sequential! [
-  PercentSignTripleDoubleQuote
-  [\first, TripleDoubleStringLine]
-  [\empty-lines, zero-or-more! sequential! [
-    _Space
-    [\this, Newline]
-  ]]
-  [\rest, maybe! (retain-indent sequential! [
-    MaybeAdvance
-    [\this, maybe! (sequential! [
-      StringIndent
-      [\head, TripleDoubleStringLine]
-      [\tail, zero-or-more! sequential! [
-        Newline
-        StringIndent
-        [\this, TripleDoubleStringLine]
-      ]]
-    ], #(x) -> [x.head, ...x.tail]), #-> []]
-    maybe! Newline, true
-    PopIndent
-  ]), #-> []]
-  TripleDoubleQuote
-], #(x, o, i)
-  let string-parts = triple-string-handler x, o, i
-  
-  o.array i, string-parts
+let PushFakeIndent(n as Number) -> #(parser, index)
+  let {indent} = parser
+  indent.push indent.peek() ~+ n
+  Box index, 0
 
-define LowerR = character! "r"
-define RegexTripleSingleToken = sequential! [LowerR, TripleSingleQuote]
-define RegexTripleDoubleToken = sequential! [LowerR, TripleDoubleQuote]
-define RegexSingleToken = sequential! [LowerR, SingleQuote]
-define RegexDoubleToken = sequential! [LowerR, DoubleQuote]
-namedlet RegexFlags = maybe! NamePart, #-> []
-namedlet RegexComment = sequential! [
-  HashSign
-  zero-or-more! any-except! Newline
-], NOTHING
-namedlet RegexLiteral = with-space! one-of! [
-  short-circuit! RegexTripleDoubleToken, sequential! [
-    RegexTripleDoubleToken
-    [\text, zero-or-more-of! [
-      sequential! [
-        Backslash
-        DollarSign
-      ], C('$')
-      mutate! SpaceChar, NOTHING
-      mutate! Newline, NOTHING
-      RegexComment
-      StringInterpolation
-      any-except! TripleDoubleQuote
-    ]]
-    TripleDoubleQuote
-    [\flags, RegexFlags]
-  ]
-  short-circuit! RegexTripleSingleToken, sequential! [
-    RegexTripleSingleToken
-    [\text, zero-or-more-of! [
-      mutate! SpaceChar, NOTHING
-      mutate! Newline, NOTHING
-      RegexComment
-      any-except! TripleSingleQuote
-    ]]
-    TripleSingleQuote
-    [\flags, RegexFlags]
-  ]
-  short-circuit! RegexDoubleToken, sequential! [
-    RegexDoubleToken
-    [\text, zero-or-more-of! [
-      sequential! [
-        DoubleQuote
-        DoubleQuote
-      ], C('"')
-      sequential! [
-        Backslash
-        DollarSign
-      ], C('$')
-      any-except! [
-        DoubleQuote
-        Newline
-        DollarSign
-      ]
-      StringInterpolation
-    ]]
-    DoubleQuote
-    [\flags, RegexFlags]
-  ]
-  short-circuit! RegexSingleToken, sequential! [
-    RegexSingleToken
-    [\text, zero-or-more-of! [
-      sequential! [
-        SingleQuote
-        SingleQuote
-      ], C("'")
-      any-except! [
-        SingleQuote
-        Newline
-      ]
-    ]]
-    SingleQuote
-    [\flags, RegexFlags]
-  ]
-], #(x, o, i)
-  let string-parts = []
-  let mutable current-literal = []
-  for part in x.text
-    if is-number! part
-      current-literal.push part
-    else if part != NOTHING and part not instanceof NothingNode
-      if current-literal.length > 0
-        string-parts.push o.const i, process-char-codes(current-literal).join ""
-        current-literal := []
-      string-parts.push part
-  if current-literal.length > 0
-    string-parts.push o.const i, process-char-codes(current-literal).join ""
-
-  let flags = process-char-codes(x.flags).join ""
-
-  let text = if string-parts.length == 0
-    o.const i, ""
-  else if string-parts.length == 1 and string-parts[0].is-const() and is-string! string-parts[0].const-value()
-    string-parts[0]
+let PopIndent(parser, index)
+  let {indent} = parser
+  if indent.can-pop()
+    indent.pop()
+    Box index
   else
-    o.string i, string-parts
-  if text.is-const()
-    try
-      RegExp(String(text.const-value()))
-    catch e
-      o.error e.message
-  let seen-flags = []
-  for flag in flags
-    if flag in seen-flags
-      o.error "Invalid regular expression: flag '$(flag)' occurred more than once"
-    else if flag not in [\g, \i, \m, \y]
-      o.error "Invalid regular expression: unknown flag '$(flag)'"
-    seen-flags.push flag
-  o.regexp i, text, flags
+    throw ParserError "Unexpected dedent", parser, index
 
-namedlet BackslashStringLiteral = sequential! [
-  Backslash
-  NoSpace
-  [\this, IdentifierNameConst]
-]
+let retain-indent(rule as ->) -> #(parser, index)
+  let indent = parser.indent
+  let count = indent.count()
+  try
+    return rule parser, index
+  finally
+    for i in count til indent.count()
+      indent.pop()
 
-define StringLiteral = with-space! one-of! [
-  BackslashStringLiteral
-  TripleSingleStringLiteral
-  TripleDoubleStringLiteral
-  TripleDoubleStringArrayLiteral
-  SingleStringLiteral
-  DoubleStringLiteral
-  DoubleStringArrayLiteral
-  /*
-  RawTripleSingleStringLiteral
-  RawTripleDoubleStringLiteral
-  RawSingleStringLiteral
-  RawDoubleStringLiteral
-  */
-]
+define ThisLiteral = word("this") |> mutate #(, parser, index)
+  parser.This index
 
-define ConstantLiteral = one-of! [
-  SimpleConstantLiteral
-  NumberLiteral
-  StringLiteral
-  RegexLiteral
-]
+define ThisShorthandLiteral = with-space(AtSignChar) |> mutate #(, parser, index)
+  parser.This index
 
-define ArgumentsLiteral = word \arguments, #(x, o, i) -> o.args i
+define ArgumentsLiteral = word("arguments") |> mutate #(, parser, index)
+  parser.Args index
 
-namedlet Literal = one-of! [
-  ThisOrShorthandLiteral
-  ArgumentsLiteral
-  ConstantLiteral
-]
-
-namedlet IdentifierNameConst = #(o)
-  let {index} = o
-  let result = Name o
-  if result
-    o.const index, result
-  else
-    false
-
-define IdentifierNameConstOrNumberLiteral = one-of! [IdentifierNameConst, NumberLiteral]
+define ThisOrShorthandLiteral = one-of<ThisNode>(ThisLiteral, ThisShorthandLiteral)
+define ThisOrShorthandLiteralPeriod = one-of<ThisNode>(
+  sequential(
+    [\this, ThisLiteral]
+    Period)
+  sequential(
+    [\this, ThisShorthandLiteral]
+    maybe Period))
 
 let get-reserved-idents = do
   let RESERVED_IDENTS = [
@@ -2583,1476 +2073,1498 @@ let get-reserved-idents = do
     \yield
   ]
   let RESERVED_IDENTS_NOINDENT = [...RESERVED_IDENTS, \end].sort()
-  #(options = {})
-    if options.noindent
+  #(options)
+    if options and options.noindent
       RESERVED_IDENTS_NOINDENT
     else
       RESERVED_IDENTS
-define Identifier = one-of! [
-  sequential! [
-    #(o) -> _in-ast.peek(o)
-    Space
+
+define MaybeSpreadToken = maybe with-space sequential(Period, Period, Period) |> mutate "..."
+
+define SpreadOrExpression = sequential(
+  [\spread, MaybeSpreadToken]
+  [\node, Expression]) |> mutate #({spread, node}, parser, index)
+  if spread == "..."
+    parser.Spread index, node
+  else
+    node
+
+define ClosedArguments = sequential(
+  NoSpace
+  OpenParenthesis
+  Space
+  [\this, concat<Node>(
+    maybe(sequential(
+      [\this, separated-list<Node>(
+        SpreadOrExpression
+        Comma)]
+      MaybeComma), #-> [])
+    maybe(retain-indent(sequential<Array>(
+      SomeEmptyLines
+      MaybeAdvance
+      [\this, maybe(sequential(
+        CheckIndent
+        [\this, separated-list<Node>(
+          SpreadOrExpression
+          CommaOrSomeEmptyLinesWithCheckIndent)]), #-> [])]
+      EmptyLines
+      MaybeCommaOrNewline
+      PopIndent)), #-> []))]
+  CloseParenthesis)
+
+define UnclosedArguments = sequential(
+  one-of(
+    sequential(
+      SpaceChar
+      Space)
+    check Newline)
+  [\this, concat<Node>(
+    separated-list<Node>(
+      SpreadOrExpression
+      Comma)
+    one-of<Array>(
+      sequential(
+        IndentationRequired
+        Comma
+        SomeEmptyLines
+        [\this, retain-indent sequential(
+          Advance
+          CheckIndent
+          [\this, separated-list<Node>(
+            SpreadOrExpression
+            CommaOrSomeEmptyLinesWithCheckIndent)]
+          MaybeComma
+          PopIndent
+        )])
+      MaybeComma |> mutate #-> []))])
+
+define InvocationArguments = one-of(ClosedArguments, UnclosedArguments)
+define Identifier = one-of(
+  sequential(
+    #(parser, index) -> if parser.in-ast.peek() then Box index
     DollarSign
     NoSpace
-    [\this, InvocationArguments]
-  ], #(x, o, i) -> o.call i, o.ident(i, '$'), x
-  #(o)
-    let {index} = o
-    let clone = o.clone()
-    let result = Name clone
-    if not result or result in get-reserved-idents(o.options) or o.macros.has-macro-or-operator result
-      o.fail "identifier"
-      false
+    [\this, InvocationArguments]) |> mutate #(args, parser, index)
+    parser.Call index,
+      parser.Ident index, '$'
+      args
+  #(parser, index)
+    let name = Name parser, index
+    if not name or name.value in get-reserved-idents(parser.options) or parser.has-macro-or-operator name.value
+      parser.fail "identifier", index
     else
-      o.update clone
-      o.ident index, result
-]
+      Box name.index, parser.Ident index, name.value)
 
-define MaybeNotToken = maybe! word(\not), true
+let make-digits-rule(digit as ->)
+  cache separated-list(
+    one-or-more digit
+    one-or-more Underscore, true) |> mutate #(parts)
+    let result = []
+    for part in parts
+      process-char-codes part, result
+    result.join ""
 
-define MaybeExistentialSymbolNoSpace = maybe! (sequential! [
+define MaybeUnderscores = zero-or-more Underscore, true
+
+let parse-radix-number(mutable integer as String, mutable fraction as String, radix as Number, mutable exponent as Number = 0)
+  if exponent not %% 1
+    throw RangeError("Expected exponent to be an integer, got $exponent")
+  while exponent > 0
+    integer &= fraction.char-at(0) or "0"
+    fraction := fraction.substring(1)
+    exponent -= 1
+  while exponent < 0
+    fraction := integer.slice(-1) & fraction
+    integer := integer.slice(0, -1)
+    exponent += 1
+  let mutable current-value = 0
+  for c in integer
+    current-value := current-value * radix + parse-int c, radix
+  if fraction
+    for c, i in fraction
+      current-value += parse-int(c, radix) / radix ^ (i + 1)
+  current-value
+
+define DecimalNumber = do
+  let DecimalDigits = make-digits-rule DecimalDigit
+  
+  sequential(
+    [\integer, DecimalDigits]
+    [\fraction, maybe sequential(
+      MaybeUnderscores
+      Period
+      MaybeUnderscores
+      [\this, DecimalDigits]), ""]
+    [\exponent, maybe (sequential(
+      character! "eE"
+      [\sign, maybe(PlusOrMinusChar)]
+      [\digits, DecimalDigits]) |> mutate #({e, sign, digits})
+        (if sign then from-char-code(sign) else "") & digits), ""]
+    maybe sequential(
+      Underscore
+      maybe NamePart)) |> mutate #({integer, mutable fraction, mutable exponent}, parser, index, end-index)
+    let value = parse-radix-number(integer, fraction, 10, if exponent then parse-int(exponent, 10) else 0)
+    if not is-finite(value)
+      throw ParserError "Unable to parse number $(quote parser.source.substring(index, end-index))", parser, index
+    parser.Const index, value
+
+let make-radix-number(radix as Number, separator as ->, digit as ->)
+  let digits = make-digits-rule digit
+  sequential(
+    Zero
+    [\separator, separator]
+    SHORT_CIRCUIT
+    [\integer, digits]
+    [\fraction, maybe sequential(
+      MaybeUnderscores
+      Period
+      MaybeUnderscores
+      [\this, digits]), ""]
+    MaybeUnderscores) |> mutate #({separator, integer, fraction}, parser, index, end-index)
+    let value = parse-radix-number(integer, fraction, radix)
+    if not is-finite value
+      throw ParserError "Unable to parse number $(quote parser.source.substring(index, end-index))", parser, index
+    parser.Const index, value
+
+let HexDigit = character! "0123456789abcdefABCDEF"
+define HexNumber = make-radix-number 16, character!("xX"), HexDigit
+let OctalDigit = character! "01234567"
+define OctalNumber = make-radix-number 8, character!("oO"), HexDigit
+let BinaryDigit = character! "01"
+define BinaryNumber = make-radix-number 2, character!("bB"), HexDigit
+
+define RadixNumber = do
+  let digits-cache = []
+  let get-digits-rule(radix) -> digits-cache[radix] ?= do
+    let digit = switch radix
+    case 2; BinaryDigit
+    case 8; OctalDigit
+    case 10; DecimalDigit
+    case 16; HexDigit
+    default
+      let set = { extends null }
+      for i in 0 til radix max 10
+        set[i + C("0")] := true
+      for i in 0 til (radix max 36) - 10
+        set[i + C("A")] := true
+        set[i + C("a")] := true
+      let name = ["[0-"]
+      name.push String.from-char-code (radix max 9) + C("0")
+      if radix >= 10
+        let letter-end = (radix max 36) - 10
+        name.push "A-"
+        name.push String.from-char-code letter-end + C("A")
+        name.push "a-"
+        name.push String.from-char-code letter-end + C("a")
+      name.push "]"
+      characters name.join(""), set
+    make-digits-rule digit
+  
+  let Radix = multiple DecimalDigit, 1, 2
+  let R = character!("rR")
+  #(parser, index)
+    let radix = Radix parser, index
+    if not radix
+      return
+    let radix-value = codes-to-string(radix.value)
+    
+    let separator = R parser, radix.index
+    if not separator
+      return
+    
+    let radix-num = parse-int radix-value, 10
+    if not is-finite radix-num
+      throw ParserError "Unable to parse radix $(quote radix-value)", parser, index
+    else if radix-num < 2
+      throw ParserError "Radix must be at least 2, got $radix-num", parser, index
+    else if radix-num > 36
+      throw ParserError "Radix must be at most 36, got $radix-num", parser, index
+    
+    let digits-rule = get-digits-rule radix-num
+    let integer = digits-rule parser, separator.index
+    if not integer
+      parser.fail "integer after radix", separator.index
+      throw SHORT_CIRCUIT
+    
+    let mutable current-index = MaybeUnderscores(parser, integer.index).index
+    let period = Period parser, current-index
+    let mutable value = void
+    if period
+      let fraction = digits-rule parser, MaybeUnderscores(parser, period.index).index
+      if fraction
+        value := parse-radix-number(integer.value, fraction.value, radix-num)
+        current-index := fraction.index
+    if not value?
+      value := parse-radix-number(integer.value, "", radix-num)
+    if not is-finite value
+      throw ParserError "Unable to parse number $(quote parser.source.substring(index, current-index))", parser, index
+    let trailing = MaybeUnderscores(parser, current-index)
+    Box trailing.index, parser.Const index, value
+
+define NumberLiteral = with-space one-of(
+  HexNumber
+  OctalNumber
+  BinaryNumber
+  RadixNumber
+  DecimalNumber)
+
+define IdentifierNameConst(parser, index)
+  let name = Name parser, index
+  if name
+    Box name.index, parser.Const index, name.value
+
+define IdentifierNameConstOrNumberLiteral = one-of(IdentifierNameConst, NumberLiteral)
+
+let make-const-literal(name as String, value)
+  word(name) |> mutate #(, parser, index)
+    parser.Const index, value
+
+define NullLiteral = make-const-literal "null", null
+define VoidLiteral = one-of(
+  make-const-literal "undefined", void
+  make-const-literal "void", void)
+define InfinityLiteral = make-const-literal "Infinity", Infinity
+define NaNLiteral = make-const-literal "NaN", NaN
+define TrueLiteral = make-const-literal "true", true
+define FalseLiteral = make-const-literal "false", false
+
+define SimpleConstantLiteral = one-of(
+  NullLiteral
+  VoidLiteral
+  InfinityLiteral
+  NaNLiteral
+  TrueLiteral
+  FalseLiteral)
+
+define HexEscapeSequence = sequential(
+  character! "x"
+  SHORT_CIRCUIT
+  [\this, multiple HexDigit, 2, 2]) |> mutate #(digits)
+  parse-int(codes-to-string(digits), 16)
+
+define UnicodeEscapeSequence = sequential(
+  character! "u"
+  SHORT_CIRCUIT
+  [\this, one-of(
+    multiple(HexDigit, 4, 4) |> mutate #(digits)
+      parse-int(codes-to-string(digits), 16)
+    sequential(
+      OpenCurlyBraceChar
+      [\this, multiple(HexDigit, 1, 6)]
+      CloseCurlyBraceChar) |> mutate #(digits, parser, index)
+      let inner = codes-to-string(digits)
+      let value = parse-int(inner, 16)
+      if value > 0x10FFFF
+        throw ParserError "Unicode escape sequence too large: '\\u{$inner}'", parser, index
+      value)])
+
+define SingleEscapeCharacter = do
+  let ESCAPED_CHARACTERS = { extends null
+    [C "b"]: C "\b"
+    [C "f"]: C "\f"
+    [C "r"]: C "\r"
+    [C "n"]: C "\n"
+    [C "t"]: C "\t"
+    [C "v"]: C "\v"
+  }
+  one-of(
+    Zero |> mutate 0
+    AnyChar |> mutate #(c) -> ESCAPED_CHARACTERS[c] or c)
+
+define BackslashEscapeSequence = sequential(
+  BackslashChar
+  SHORT_CIRCUIT
+  [\this, one-of(
+    HexEscapeSequence
+    UnicodeEscapeSequence
+    SingleEscapeCharacter)])
+
+let in-expression = make-alter-stack<String> \position, \expression
+let in-statement = make-alter-stack<String> \position, \statement
+define AssignmentAsExpression = in-expression #(parser, index) -> Assignment parser, index
+define ExpressionOrAssignment = one-of(AssignmentAsExpression, Expression)
+
+define StringInterpolation = sequential(
+  DollarSignChar
   NoSpace
-  character! "?"
-], "?"), true
+  SHORT_CIRCUIT
+  [\this, one-of(
+    Identifier
+    sequential(
+      OpenParenthesis
+      [\this, one-of(
+        Expression
+        Nothing)]
+      CloseParenthesis))])
 
-let mutate-function(func, o, index, line)
-  let mutate-function-macro = o.macros.get-by-label(\mutate-function)
-  if not mutate-function-macro
-    func
+define SingleStringLiteral = sequential(
+  SingleQuote
+  SHORT_CIRCUIT
+  [\this, zero-or-more-of(
+    BackslashEscapeSequence
+    any-except one-of(
+      SingleQuote
+      Newline))]
+  SingleQuote) |> mutate #(codes, parser, index)
+  parser.Const index, codes-to-string(codes)
+
+define DoubleStringLiteralInner = zero-or-more-of(
+  BackslashEscapeSequence
+  StringInterpolation
+  any-except one-of(
+    DoubleQuote
+    Newline))
+
+let double-string-literal-handler = #(parts, parser, index)
+  let string-parts = []
+  let mutable current-literal = []
+  for part in parts
+    if is-number! part
+      current-literal.push part
+    else if part not instanceof NothingNode
+      string-parts.push parser.Const index, codes-to-string(current-literal)
+      current-literal := []
+      string-parts.push part
+  if current-literal.length > 0
+    string-parts.push parser.Const index, codes-to-string(current-literal)
+  string-parts
+
+define DoubleStringLiteral = sequential(
+  DoubleQuote
+  SHORT_CIRCUIT
+  [\this, DoubleStringLiteralInner]
+  DoubleQuote) |> mutate #(parts, parser, index)
+  let string-parts = for part in double-string-literal-handler parts, parser, index
+    if not part.is-const-value("")
+      part
+  
+  if string-parts.length == 0
+    parser.Const index, ""
+  else if string-parts.length == 1 and string-parts[0].is-const-type(\string)
+    string-parts[0]
   else
-    mutate-function-macro.func {
-      op: ""
-      node: func
-    }, o, index, line
+    // TODO: maybe handle the concatenation here by using the & macro
+    parser.string index, string-parts
 
-namedlet CustomOperatorCloseParenthesis = do
-  let handle-unary-operator(operator, o, i, line)
-    let clone = o.clone(o.clone-scope())
-    let op = operator.rule clone
-    if op and CloseParenthesis(clone)
-      o.update clone
-      let node = clone.ident i, \x
-      clone.scope.add node, false, Type.any
-      mutate-function o.function(i
-        [clone.param i, node]
-        operator.func {
-          op
-          node
-        }, clone, i, line
-        true
-        false), o, i, line
-  #(o)
-    let i = o.index
-    let line = o.line
-    for operators in o.macros.binary-operators
-      if operators
-        for operator in operators by -1
-          let clone = o.clone(o.clone-scope())
-          let mutable inverted = false
-          if operator.invertible
-            inverted := MaybeNotToken clone
-            if not inverted
-              continue
-          let op = operator.rule clone
-          if op and CloseParenthesis(clone)
-            let left = o.ident i, \x
-            let right = o.ident i, \y
-            clone.scope.add left, false, Type.any
-            clone.scope.add right, false, Type.any
-            let result = o.function(i
-              [
-                clone.param i, left
-                clone.param i, right
-              ]
-              operator.func {
-                left
-                inverted: inverted == "not"
-                op
-                right
-              }, clone, i, line
-              true
-              false
-              true)
-            o.update clone
-            return mutate-function result, o, i, line
-    for operator in o.macros.prefix-unary-operators by -1
-      return? handle-unary-operator operator, o, i, line
-    for operator in o.macros.postfix-unary-operators by -1
-      return? handle-unary-operator operator, o, i, line
-    false
+define DoubleStringArrayLiteral = sequential(
+  PercentSignChar
+  DoubleQuote
+  SHORT_CIRCUIT
+  [\this, DoubleStringLiteralInner]
+  DoubleQuote) |> mutate #(parts, parser, index)
+  let string-parts = double-string-literal-handler parts, parser, index
+  parser.Array index, string-parts
 
-namedlet CustomBinaryOperator = #(o)
-  let i = o.index
-  for operators in o.macros.binary-operators
-    if operators
-      for operator in operators by -1
-        let clone = o.clone()
-        let mutable inverted = false
-        if operator.invertible
-          inverted := MaybeNotToken clone
-          if not inverted
-            continue
-        let op = operator.rule clone
-        if op
-          o.update clone
-          return {
-            op
-            operator
-            inverted: inverted == "not"
-          }
-  false
+define StringIndent(parser, index)
+  let mutable count = 0
+  let current-indent = parser.indent.peek()
+  let mutable current-index = index
+  while count < current-indent
+    let c = SpaceChar parser, current-index
+    if not c
+      break
+    current-index := c.index
+    let indent-value = INDENTS[c.value]
+    if not indent-value
+      throw Error "Unexpected indent char: $(JSON.stringify c.value)"
+    count ~+= indent-value
+  if count > current-indent
+    throw ParserError "Mixed tabs and spaces in string literal", parser, current-index
+  else if count == current-indent or Newline(parser, current-index)
+    Box current-index, count
 
-namedlet Parenthetical = sequential! [
-  OpenParenthesis
-  [\this, one-of! [
-    sequential! [
-      [\this, AssignmentAsExpression]
-      CloseParenthesis
-    ]
-    sequential! [
-      [\left, Expression]
-      [\operator, maybe! CustomBinaryOperator, NOTHING]
-      CloseParenthesis
-    ], #({left, operator}, o, i, line)
-      if operator == NOTHING
-        left
-      else
-        let clone = o.clone(o.clone-scope())
-        let right = o.tmp i, get-tmp-id(), \x
-        clone.scope.add right, false, Type.any
-        mutate-function o.function(i
-          [clone.param i, right]
-          operator.operator.func {
-            left: left.rescope(clone.scope.id, clone)
-            operator.inverted
-            operator.op
-            right
-          }, clone, i, line
-          true
-          false), o, i, line
-    CustomOperatorCloseParenthesis
-    sequential! [
-      [\operator, CustomBinaryOperator]
-      [\right, Expression]
-      CloseParenthesis
-    ], #({right, operator: {op, operator, inverted}}, o, i, line)
-      let clone = o.clone(o.clone-scope())
-      let left = o.tmp i, get-tmp-id(), \x
-      clone.scope.add left, false, Type.any
-      mutate-function o.function(i
-        [clone.param i, left]
-        operator.func {
-          left
-          inverted
-          op
-          right: right.rescope(clone.scope.id, clone)
-        }, clone, i, line
-        true
-        false), o, i, line
-    sequential! [
-      [\this, one-or-more! InvocationOrAccessPart]
-      CloseParenthesis
-    ], #(x, o, i, line)
-      let clone = o.clone(o.clone-scope())
-      let left = o.tmp i, get-tmp-id(), \x
-      clone.scope.add left, false, Type.any
-      mutate-function o.function(i
-        [clone.param i, left]
-        convert-invocation-or-access(false, { type: \normal, -existential, node: left, generic: [] }, x, o, i).rescope(clone.scope.id, clone)
-        true
-        false), o, i, line
-  ]]
-]
+let trim-right = if is-function! String::trim-right
+  #(x) -> x.trim-right()
+else
+  #(x) -> x.replace r'\s+$', ""
 
-namedlet MaybeSpreadToken = maybe! (sequential! [Space, Period, Period, Period], "..."), true
+define TripleSingleStringLine = zero-or-more-of(
+  BackslashEscapeSequence
+  any-except one-of(
+    TripleSingleQuote
+    Newline)) |> mutate #(codes) -> [trim-right codes-to-string(codes)]
+define TripleDoubleStringLine = zero-or-more-of(
+  BackslashEscapeSequence
+  StringInterpolation
+  any-except one-of(
+    TripleDoubleQuote
+    Newline)) |> mutate #(parts)
+  let string-parts = []
+  let mutable current-literal = []
+  for part in parts
+    if is-number! part
+      current-literal.push part
+    else if part not instanceof NothingNode
+      if current-literal.length > 0
+        string-parts.push codes-to-string(current-literal)
+        current-literal := []
+      string-parts.push part
+  if current-literal.length > 0
+    string-parts.push trim-right codes-to-string(current-literal)
+  
+  string-parts
 
-namedlet SpreadOrExpression = sequential! [
-  [\spread, MaybeSpreadToken]
-  [\node, Expression]
-], #(x, o, i)
-  if x.spread == "..."
-    o.spread i, x.node.do-wrap(o)
-  else
-    x.node
+let triple-string-handler(x, parser, index)
+  let lines = [x.first]
+  if lines[0].length == 0 or (lines[0].length == 1 and lines[0][0] == "")
+    lines.shift()
+  for j in 1 til x.num-empty-lines
+    lines.push [""]
+  lines.push ...x.rest
+  let mutable len = lines.length
+  if len > 0 and (lines[len - 1].length == 0 or (lines[len - 1].length == 1 and lines[len - 1][0] == ""))
+    lines.pop()
+    len -= 1
+  
+  let string-parts = []
+  for line, j in lines
+    if j > 0
+      string-parts.push "\n"
+    string-parts.push ...line
+  
+  for i in string-parts.length - 2 to 0 by -1
+    if is-string! string-parts[i] and is-string! string-parts[i + 1]
+      string-parts.splice(i, 2, string-parts[i] ~& string-parts[i + 1])
+  
+  for part, i in string-parts
+    if is-string! part
+      string-parts[i] := parser.Const index, part
+  
+  string-parts
 
-namedlet ArrayLiteral = prevent-unclosed-object-literal sequential! [
-  OpenSquareBracket
-  Space
-  [\first, maybe! (sequential! [
-    [\head, SpreadOrExpression],
-    [\tail, zero-or-more! sequential! [
-      Comma
-      [\this, SpreadOrExpression]
-    ]]
-    MaybeComma
-  ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (retain-indent sequential! [
-    SomeEmptyLines
+let make-triple-string(quote as ->, line as ->) -> sequential(
+  quote
+  SHORT_CIRCUIT
+  [\first, line]
+  [\num-empty-lines, zero-or-more(sequential(
+    Space
+    [\this, Newline]), true)]
+  [\rest, maybe retain-indent(sequential(
     MaybeAdvance
-    [\this, maybe! (sequential! [
-      CheckIndent
-      [\head, SpreadOrExpression]
-      [\tail, zero-or-more! sequential! [
-        CommaOrNewlineWithCheckIndent
-        [\this, SpreadOrExpression]
-      ]]
-    ], #(x) -> [x.head, ...x.tail]), #-> []]
-    EmptyLines
-    MaybeCommaOrNewline
-    PopIndent
-  ]), #-> []]
-  CloseSquareBracket
-], #(x, o, i)
-  o.array i, [...x.first, ...x.rest]
+    [\this, maybe separated-list(
+      sequential(
+        StringIndent
+        [\this, line])
+      Newline), #-> []]
+    maybe Newline
+    PopIndent)), #-> []]
+  quote) |> mutate #(parts, parser, index)
+    let string-parts = for part in triple-string-handler parts, parser, index
+      if not part.is-const-value("")
+        part
+    
+    if string-parts.length == 0
+      parser.Const index, ""
+    else if string-parts.length == 1 and string-parts[0].is-const-type(\string)
+      string-parts[0]
+    else
+      // TODO: maybe handle the concatenation here by using the & macro
+      parser.string index, string-parts
 
-define SetLiteralToken = sequential! [Space, PercentSign, OpenSquareBracketChar]
-namedlet SetLiteral = short-circuit! SetLiteralToken, sequential! [
-  Space
-  PercentSign
-  [\this, ArrayLiteral]
-], #(x, o, i, line)
-  let construct-set = o.macros.get-by-label(\construct-set)
-  if not construct-set
-    throw Error "Cannot use literal set until the construct-set macro has been defined"
-  construct-set.func {
-    op: ""
-    node: x
-  }, o, i, line
+define TripleSingleStringLiteral = make-triple-string TripleSingleQuote, TripleSingleStringLine
+define TripleDoubleStringLiteral = make-triple-string TripleDoubleQuote, TripleDoubleStringLine
+define TripleDoubleStringArrayLiteral = sequential(
+  PercentSignChar
+  TripleDoubleQuote
+  SHORT_CIRCUIT
+  [\first, TripleDoubleStringLine]
+  [\num-empty-lines, zero-or-more(sequential(
+    Space
+    [\this, Newline]), true)]
+  [\rest, maybe retain-indent(sequential(
+    MaybeAdvance
+    [\this, maybe sequential(
+      StringIndent
+      [\this, separated-list(
+        TripleDoubleStringLine
+        sequential(Newline, StringIndent))]), #-> []]
+    maybe Newline
+    PopIndent)), #-> []]
+  TripleDoubleQuote) |> mutate #(parts, parser, index)
+  let string-parts = triple-string-handler parts, parser, index
+  
+  parser.Array index, string-parts
 
-namedlet BracketedObjectKey = sequential! [
-  OpenSquareBracket
-  [\this, ExpressionOrAssignment]
-  CloseSquareBracket
-]
+define BackslashStringLiteral = sequential(
+  BackslashChar
+  NoSpace
+  [\this, IdentifierNameConst])
 
-namedlet ConstObjectKey = one-of! [
+define StringLiteral = with-space(one-of(
+  BackslashStringLiteral
+  TripleSingleStringLiteral
+  TripleDoubleStringLiteral
+  TripleDoubleStringArrayLiteral
+  SingleStringLiteral
+  DoubleStringLiteral
+  DoubleStringArrayLiteral))
+
+define RegexLiteral = do
+  let LowerR = character! "r"
+  let RegexFlags = zero-or-more(NameChar) |> mutate codes-to-string
+  let NOTHING = {}
+  let RegexComment = sequential(
+    HashSignChar
+    zero-or-more any-except(Newline), true) |> mutate NOTHING
+  let RegexSpace = one-of(SpaceChar, Newline) |> mutate NOTHING
+  with-space sequential(
+    LowerR
+    [\text, one-of(
+      sequential(
+        TripleDoubleQuote
+        SHORT_CIRCUIT
+        [\this, zero-or-more-of(
+          sequential(BackslashChar, DollarSignChar) |> mutate C('$')
+          RegexSpace
+          RegexComment
+          StringInterpolation
+          any-except TripleDoubleQuote)]
+        TripleDoubleQuote)
+      sequential(
+        TripleSingleQuote
+        SHORT_CIRCUIT
+        [\this, zero-or-more-of(
+          RegexSpace
+          RegexComment
+          any-except TripleSingleQuote)]
+        TripleSingleQuote)
+      sequential(
+        DoubleQuote
+        SHORT_CIRCUIT
+        [\this, zero-or-more-of(
+          sequential(DoubleQuote, DoubleQuote) |> mutate C('"')
+          sequential(BackslashChar, DollarSignChar) |> mutate C('$')
+          StringInterpolation
+          any-except one-of(
+            DoubleQuote
+            Newline
+            DollarSignChar))]
+        DoubleQuote)
+      sequential(
+        SingleQuote
+        SHORT_CIRCUIT
+        [\this, zero-or-more-of(
+          sequential(SingleQuote, SingleQuote) |> mutate C("'")
+          any-except one-of(
+            SingleQuote
+            Newline))]
+        SingleQuote))]
+    [\flags, RegexFlags]) |> mutate #({text, flags}, parser, index)
+    let string-parts = []
+    let mutable current-literal = []
+    for part in text
+      if is-number! part
+        current-literal.push part
+      else if part != NOTHING and part not instanceof NothingNode
+        if current-literal.length > 0
+          string-parts.push parser.Const index, codes-to-string(current-literal)
+          current-literal := []
+        string-parts.push part
+    if current-literal.length > 0
+      string-parts.push parser.Const index, codes-to-string(current-literal)
+
+    let text = if string-parts.length == 0
+      parser.Const index, ""
+    else if string-parts.length == 1 and string-parts[0].is-const-type(\string)
+      string-parts[0]
+    else
+      parser.string index, string-parts
+    if text.is-const()
+      try
+        RegExp(String(text.const-value()))
+      catch e
+        throw ParserError e.message, parser, index
+    let seen-flags = []
+    for flag in flags
+      if flag in seen-flags
+        throw ParserError "Invalid regular expression: flag $(quote flag) occurred more than once", parser, index
+      else if flag not in [\g, \i, \m, \y]
+        throw ParserError "Invalid regular expression: unknown flag $(quote flag)", parser, index
+      seen-flags.push flag
+    parser.Regexp index, text, flags
+
+define ConstantLiteral = one-of(
+  SimpleConstantLiteral
+  NumberLiteral
   StringLiteral
-  mutate! NumberLiteral, #(x, o, i) -> o.const i, String(x.value)
-  IdentifierNameConst
-]
+  RegexLiteral)
 
-define ObjectKey = one-of! [
-  BracketedObjectKey
-  ConstObjectKey
-]
+define Literal = one-of(
+  ThisOrShorthandLiteral
+  ArgumentsLiteral
+  ConstantLiteral)
 
-define Colon = sequential! [
+define MaybeNotToken = maybe word("not")
+
+define MaybeQuestionMarkChar = maybe character! "?"
+
+define GeneratorBody = make-alter-stack<Boolean>(\in-generator, true)(Body)
+define GeneratorBodyNoEnd = make-alter-stack<Boolean>(\in-generator, true)(BodyNoEnd)
+
+let LessThanChar = character! "<"
+define LessThan = with-space LessThanChar
+let GreaterThanChar = character! ">"
+define GreaterThan = with-space GreaterThanChar
+
+define FunctionGlyph = sequential(
   Space
-  [\this, ColonChar]
-  except! ColonChar
-]
+  MinusChar
+  GreaterThanChar)
+define _FunctionBody = one-of<Node>(
+  sequential(
+    FunctionGlyph
+    [\this, one-of Statement, Nothing])
+  Body)
 
-define ColonNewline = sequential! [
-  Colon
-  Space
-  [\this, Newline]
-]
+define FunctionBody = make-alter-stack<Boolean>(\in-generator, false)(_FunctionBody)
+define GeneratorFunctionBody = make-alter-stack<Boolean>(\in-generator, true)(_FunctionBody)
 
-define NotColon = except! Colon
-define NotColonUnlessNoIndentAndNewline = #(o)
-  if o.options.noindent
-    if ColonNewline(o.clone())
-      true
-    else if o.options.embedded
-      ColonEmbeddedClose(o.clone()) or ColonEmbeddedCloseWrite(o.clone()) or NotColon(o)
-    else
-      NotColon(o)
-  else
-    NotColon(o)
-
-define ObjectKeyColon = with-message! 'key ":"', sequential! [
-  [\this, ObjectKey]
-  Colon
-  except! EqualChar
-  #(o)
-    if o.options.noindent
-      let clone = o.clone()
-      if Space(clone) and Newline(clone)
-        return false
-      else if o.options.embedded
-        return not EmbeddedClose(o.clone()) and not EmbeddedCloseWrite(o.clone())
-    true
-]
-
-define ObjectKeyNotColon = sequential! [
-  [\this, ObjectKey]
-  NotColon
-]
-
-namedlet NoNewlineIfNoIndent = #(o)
-  if o.options.noindent
-    NoSpaceNewline(o)
-  else
-    true
-
-namedlet DualObjectKey = sequential! [
-  [\key, ObjectKeyColon]
-  NoNewlineIfNoIndent
-  [\value, Expression]
-]
-
-define GetSetToken = one-of! [
-  word \get
-  word \set
-]
-define PropertyObjectKeyColon = sequential! [
-  [\property, one-of! [
-    word \property
-    GetSetToken
-  ]]
-  Space
-  [\key, ObjectKeyColon]
-]
-namedlet PropertyDualObjectKey = short-circuit! PropertyObjectKeyColon, sequential! [
-  [\property-key, PropertyObjectKeyColon]
-  NoNewlineIfNoIndent
-  [\value, Expression]
-], #(x) -> { x.property-key.key, x.value, property: x.property-key.property }
-
-namedlet MethodDeclaration = sequential! [
-  [\property, maybe! (sequential! [
-    [\this, GetSetToken]
-    Space
-  ]), NOTHING]
-  [\key, ObjectKeyNotColon]
-  [\value, FunctionDeclaration]
-], #(x) -> { x.key, x.value, property: if x.property != NOTHING then x.property }
-
-namedlet PropertyOrDualObjectKey = one-of! [
-  PropertyDualObjectKey
-  DualObjectKey
-]
-
-namedlet PropertyOrDualObjectKeyOrMethodDeclaration = one-of! [
-  PropertyOrDualObjectKey
-  MethodDeclaration
-]
-
-namedlet IdentifierOrSimpleAccessStart = one-of! [
+define IdentifierOrSimpleAccessStart = one-of(
   Identifier
-  sequential! [
+  sequential(
     [\parent, ThisOrShorthandLiteralPeriod]
-    [\child, IdentifierNameConstOrNumberLiteral]
-  ], #(x, o, i) -> o.access i, x.parent, x.child
-  sequential! [
+    [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #({parent, child}, parser, index)
+      parser.Access index, parent, child
+  sequential(
     [\parent, ThisOrShorthandLiteral]
-    DoubleColon
-    [\child, IdentifierNameConstOrNumberLiteral]
-  ], #(x, o, i)
-    o.access i, (o.access i, x.parent, o.const i, \prototype), x.child
-  sequential! [
+    DoubleColonChar
+    [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #({parent, child}, parser, index)
+      parser.Access index,
+        parser.Access index,
+          parent
+          parser.Const index, \prototype
+        child
+  sequential(
     [\parent, ThisOrShorthandLiteral]
-    [\is-proto, maybe! DoubleColon, NOTHING]
+    [\is-proto, maybe DoubleColonChar]
     OpenSquareBracketChar
     [\child, Expression]
-    CloseSquareBracket
-  ], #(x, o, i)
-    let {mutable parent} = x
-    if x.is-proto != NOTHING
-      parent := o.access i, parent, o.const i, \prototype
-    o.access i, parent, x.child
-]
-
-namedlet IdentifierOrSimpleAccessPart = one-of! [
-  sequential! [
-    [\type, one-of! [Period, DoubleColon]]
-    [\child, IdentifierNameConstOrNumberLiteral]
-  ], #(x, o, i)
-    let is-proto = x.type == "::"
-    let {child} = x
-    #(parent) -> o.access(i
-      if is-proto then o.access i, parent, o.const i, \prototype else parent
-      child)
-  sequential! [
-    [\type, maybe! DoubleColon, NOTHING]
+    CloseSquareBracket) |> mutate #({parent, is-proto, child}, parser, index)
+      parser.Access index,
+        if is-proto
+          parser.Access index,
+            parent
+            parser.Const index, \prototype
+        else
+          parent
+        child)
+define PeriodOrDoubleColonChar = one-of(Period, DoubleColonChar)
+define IdentifierOrSimpleAccessPart = one-of(
+  sequential(
+    [\type, PeriodOrDoubleColonChar]
+    [\child, IdentifierNameConstOrNumberLiteral])
+  sequential(
+    [\type, maybe DoubleColonChar]
     OpenSquareBracketChar
     [\child, Expression]
-    CloseSquareBracket
-  ], #(x, o, i)
-    let is-proto = x.type != NOTHING
-    let {child} = x
-    #(parent) -> o.access(i
-      if is-proto then o.access i, parent, o.const i, \prototype else parent
+    CloseSquareBracket)) |> mutate #({type, child}, parser, child-index)
+  let is-proto = type == "::"
+  #(parent, parser, index)
+    parser.Access(index
+      if is-proto
+        parser.Access index, parent, parser.Const child-index, \prototype
+      else
+        parent
       child)
-]
 
-define IdentifierOrSimpleAccess = sequential! [
+define IdentifierOrSimpleAccess = sequential(
   [\head, IdentifierOrSimpleAccessStart]
-  [\tail, zero-or-more! IdentifierOrSimpleAccessPart]
-], #(x, o, i)
-  for reduce creator in x.tail, current = x.head
-    creator current
+  [\tail, zero-or-more IdentifierOrSimpleAccessPart]) |> mutate #(parts, parser, index)
+  for reduce creator in parts.tail, acc = parts.head
+    creator acc, parser, index
 
-namedlet SingularObjectKey = one-of! [
-  sequential! [
-    [\this, IdentifierOrSimpleAccess]
-    NotColon
-  ], #(ident, o, i)
-    let key = if ident instanceof AccessNode
-      ident.child
-    else if ident instanceof IdentNode
-      o.const i, ident.name
-    else
-      o.error "Unknown ident type: $(typeof! ident)"
-    { key, value: ident }
-  sequential! [
-    [\this, ConstantLiteral]
-    NotColon
-  ], #(node, o, i)
-    let key = if node.is-const() and not is-string! node.const-value()
-      o.const i, String(node.const-value())
-    else
-      node
-    { key, value: node }
-  sequential! [
-    [\this, ThisLiteral]
-    NotColon
-  ], #(node, o, i)
-    key: o.const i, \this
-    value: node
-  sequential! [
-    [\this, ArgumentsLiteral]
-    NotColon
-  ], #(node, o, i)
-    key: o.const i, \arguments
-    value: node
-  sequential! [
-    [\this, BracketedObjectKey]
-    NotColon
-  ], #(node) -> { key: node, value: node }
-]
+define IdentifierOrAccess(parser, index)
+  let node = InvocationOrAccess parser, index
+  if not node
+    return
+  let value = node.value
+  if value instanceof IdentNode or value instanceof AccessNode
+    node
 
-define KeyValuePair = one-of! [
-  PropertyOrDualObjectKeyOrMethodDeclaration
-  sequential! [
-    Space
-    [\bool, maybe! PlusOrMinus, NOTHING]
-    [\pair, SingularObjectKey]
-  ], #(x, o, i)
-    if x.bool != NOTHING
-      { x.pair.key, value: o.const(i, x.bool == C("+")), x.pair.property }
-    else
-      x.pair
-]
+let in-function-type-params = make-alter-stack<Boolean> \in-function-type-params, true
+let not-in-function-type-params = make-alter-stack<Boolean> \in-function-type-params, false
 
-namedlet ObjectLiteral = sequential! [
-  OpenCurlyBrace
-  Space
-  [\prototype, maybe! (sequential! [
-    word \extends
-    [\this, prevent-unclosed-object-literal #(o) -> Logic o]
-    Space
-    one-of! [
-      Comma
-      check! Newline
-      check! CloseCurlyBrace
-    ]
-  ]), NOTHING]
-  [\first, maybe! (sequential! [
-    [\head, KeyValuePair],
-    [\tail, zero-or-more! sequential! [
-      Comma
-      [\this, KeyValuePair]
-    ]]
-    MaybeComma
-  ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (retain-indent sequential! [
-    SomeEmptyLines
-    MaybeAdvance
-    [\this, maybe! (sequential! [
-      CheckIndent
-      [\head, KeyValuePair]
-      [\tail, zero-or-more! sequential! [
-        CommaOrNewlineWithCheckIndent
-        [\this, KeyValuePair]
-      ]]
-    ], #(x) -> [x.head, ...x.tail]), #-> []]
-    EmptyLines
-    MaybeCommaOrNewline
-    PopIndent
-  ]), #-> []]
-  CloseCurlyBrace
-], #(x, o, i)
-  o.object i, [...x.first, ...x.rest], if x.prototype != NOTHING then x.prototype
+// redeclared later
+let mutable TypeReference = #(parser, index) -> TypeReference(parser, index)
 
-let MapKeyValuePair = DualObjectKey
-
-define MapLiteralToken = sequential! [Space, PercentSign, OpenCurlyBraceChar]
-namedlet MapLiteral = short-circuit! MapLiteralToken, sequential! [
-  MapLiteralToken
-  Space
-  [\first, maybe! (sequential! [
-    [\head, MapKeyValuePair],
-    [\tail, zero-or-more! sequential! [
-      Comma
-      [\this, MapKeyValuePair]
-    ]]
-    MaybeComma
-  ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (retain-indent sequential! [
-    SomeEmptyLines
-    MaybeAdvance
-    [\this, maybe! (sequential! [
-      CheckIndent
-      [\head, MapKeyValuePair]
-      [\tail, zero-or-more! sequential! [
-        CommaOrNewlineWithCheckIndent
-        [\this, MapKeyValuePair]
-      ]]
-    ], #(x) -> [x.head, ...x.tail]), #-> []]
-    EmptyLines
-    MaybeCommaOrNewline
-    PopIndent
-  ]), #-> []]
-  CloseCurlyBrace
-], #(x, o, i, line)
-  let construct-map = o.macros.get-by-label(\construct-map)
-  if not construct-map
-    throw Error "Cannot use literal map until the construct-map macro has been defined"
-  construct-map.func {
-    op: ""
-    node: o.object i, [...x.first, ...x.rest]
-  }, o, i, line
-
-namedlet BodyWithIndent = retain-indent sequential! [
-  Space
-  Newline
-  EmptyLines
-  Advance
-  [\this, Block]
-  PopIndent
-]
-
-define EndToken = word \end
-
-namedlet EndNoIndent = sequential! [
-  EmptyLines
-  Space
-  maybe! Semicolons, NOTHING
-  EndToken
-]
-
-namedlet BodyNoIndentNoEnd = sequential! [
-  #(o) -> ColonNewline(o.clone()) or (o.options.embedded and (ColonEmbeddedClose(o.clone()) or ColonEmbeddedCloseWrite(o.clone())))
-  Colon
-  EmptyLines
-  [\this, #(o)
-    _indent.push(o, _indent.peek(o) + 1)
-    try
-      return Block(o)
-    finally
-      _indent.pop(o)]
-]
-
-namedlet BodyNoIndent = sequential! [
-  [\this, BodyNoIndentNoEnd]
-  EndNoIndent
-]
-
-namedlet End = #(o)
-  if o.options.noindent
-    EndNoIndent(o)
-  else
-    true
-
-namedlet Body = #(o)
-  if o.options.noindent
-    BodyNoIndent(o)
-  else
-    BodyWithIndent(o)
-
-namedlet BodyNoEnd = #(o)
-  if o.options.noindent
-    BodyNoIndentNoEnd(o)
-  else
-    BodyWithIndent(o)
-
-namedlet DedentedBody = sequential! [
-  Space
-  [\this, oneOf! [
-    sequential! [
-      Newline
-      EmptyLines
-      [\this, Block]
-    ]
-    sequential! [
-      #(o) -> o.options.embedded
-      check! EmbeddedClose
-      EmptyLines
-      [\this, Block]
-    ]
-    Nothing
-  ]]
-]
-
-namedlet DeclareEqualSymbol = with-space! character! "="
-
-define ArrayType = sequential! [
+define ArrayType = sequential(
   OpenSquareBracket
-  [\this, maybe! TypeReference, NOTHING]
-  CloseSquareBracket
-], #(x, o, i)
-  let array-ident = o.ident i, \Array
-  if x == NOTHING
-    array-ident
+  [\this, maybe TypeReference]
+  CloseSquareBracket) |> mutate #(subtype, parser, index)
+  let array-ident = parser.Ident index, \Array
+  if subtype
+    parser.TypeGeneric index, array-ident, [subtype]
   else
-    o.type-generic i, array-ident, [x]
+    array-ident
 
-namedlet ObjectTypePair = sequential! [
-  [\key, ConstObjectKey]
+define ObjectTypePair = sequential(
+  [\key, #(parser, index) -> ConstObjectKey parser, index]
   Colon
-  [\value, TypeReference]
-]
-define ObjectType = sequential! [
+  [\value, TypeReference])
+
+define ObjectType = sequential(
   OpenCurlyBrace
-  [\this, maybe! (sequential! [
-    [\head, ObjectTypePair]
-    [\tail, zero-or-more! sequential! [
-      CommaOrNewline
-      [\this, ObjectTypePair]
-    ]]
-    MaybeComma
-  ], #(x) -> [x.head, ...x.tail]), #-> []]
-  CloseCurlyBrace
-], #(x, o, i)
-  if x.length == 0
-    o.ident i, \Object
+  [\this, maybe (separated-list ObjectTypePair, CommaOrNewline), #-> []]
+  MaybeComma
+  CloseCurlyBrace) |> mutate #(pairs, parser, index)
+  if pairs.length == 0
+    parser.Ident index, \Object
   else
     let keys = []
-    for {key} in x
-      if key not instanceof ConstNode
-        o.error "Expected a constant key, got $(typeof! key)"
+    for {key} in pairs
+      if not key.is-const()
+        throw ParserError "Expected a constant key, got $(typeof! key)", parser, key.index
       else
-        let key-value = String key.value
+        let key-value = String key.const-value()
         if key-value in keys
-          o.error "Duplicate object key: $key-value"
+          throw ParserError "Duplicate object key: $(quote key-value)", parser, key.index
         keys.push key-value
-    o.type-object i, x
+    parser.TypeObject index, pairs
 
-let _in-function-type-params = Stack false
-let in-function-type-params = make-alter-stack _in-function-type-params, true
-let not-in-function-type-params = make-alter-stack _in-function-type-params, false
-namedlet FunctionType = sequential! [
-  one-of! [
-    sequential! [
+let FunctionType = sequential(
+  one-of(
+    sequential(
       OpenParenthesis
-      TypeReference
-      zero-or-more! sequential! [
-        CommaOrNewline
-        TypeReference
-      ]
+      separated-list(TypeReference, CommaOrNewline)
       CloseParenthesis
-    ]
-    in-function-type-params #(o) -> TypeReference o
-    Nothing
-  ]
-  sequential! [
-    Space
-    Minus
-    character! ">"
-  ]
-  [\this, maybe! TypeReference, NOTHING]
-], #(x, o, i)
-  let function-ident = o.ident i, \Function
-  if x == NOTHING
-    function-ident
+    )
+    in-function-type-params TypeReference
+    Nothing)
+  FunctionGlyph
+  [\this, maybe TypeReference]) |> mutate #(return-type, parser, index)
+  let function-ident = parser.Ident index, \Function
+  if return-type
+    parser.TypeGeneric index, function-ident, [return-type]
   else
-    o.type-generic i, function-ident, [x]
+    function-ident
 
-namedlet NonUnionType = one-of! [
-  #(o)
-    if not _in-function-type-params.peek(o)
-      FunctionType(o)
-  sequential! [
+let NonUnionType = one-of(
+  #(parser, index) -> if not parser.in-function-type-params.peek()
+    FunctionType parser, index
+  sequential(
     OpenParenthesis
-    [\this, not-in-function-type-params #(o) -> TypeReference o]
-    CloseParenthesis
-  ]
+    [\this, not-in-function-type-params #(parser, index) -> TypeReference parser, index]
+    CloseParenthesis)
   ArrayType
   ObjectType
-  sequential! [
-    [\base, IdentifierOrSimpleAccess]
-    [\args, maybe! (short-circuit! LessThanSign, sequential! [
-      LessThanSign
-      [\head, TypeReference]
-      [\tail, zero-or-more! sequential! [
-        Comma
-        [\this, TypeReference]
-      ]]
-      Space
-      character! ">"
-    ], #(x) -> [x.head, ...x.tail]), #-> []]
-  ], #(x, o, i)
-    if x.args.length == 0
-      x.base
-    else
-      o.type-generic i, x.base, x.args
   VoidLiteral
   NullLiteral
-]
+  sequential(
+    [\base, IdentifierOrSimpleAccess]
+    [\args, maybe sequential(
+      character! "<"
+      SHORT_CIRCUIT
+      [\this, separated-list(
+        #(parser, index) -> TypeReference parser, index
+        Comma)]
+      Space
+      character! ">"
+    ), #-> []]) |> mutate #({base, args}, parser, index)
+    if not args.length
+      base
+    else
+      parser.TypeGeneric index, base, args)
 
-define TypeReference = sequential! [
-  [\head, NonUnionType]
-  [\tail, zero-or-more! sequential! [
-    Pipe
-    [\this, NonUnionType]
-  ]]
-], #(x, o, i)
-  let types = [x.head, ...x.tail]
-  if types.length == 1
-    types[0]
-  else
-    for type, j in types by -1
+define Pipe = with-space PipeChar
+redefine TypeReference = separated-list(
+  NonUnionType
+  Pipe) |> mutate #(mutable types, parser, index)
+    types := types.slice()
+    for type, i in types by -1
       if type instanceof TypeUnionNode
-        types.splice j, 1, ...type.types
+        types.splice i, 1, ...type.types
     if types.length == 1
       types[0]
     else
-      o.type-union i, types
+      parser.TypeUnion index, types
 
-define AsToken = word \as
-namedlet MaybeAsType = maybe! (short-circuit! AsToken, sequential! [
-  AsToken
-  [\this, TypeReference]
-]), NOTHING
+define MaybeAsType = maybe sequential(
+  word "as"
+  SHORT_CIRCUIT
+  [\this, TypeReference])
 
-namedlet IdentifierParameter = sequential! [
-  [\is-mutable, maybe! word(\mutable), true]
-  [\spread, MaybeSpreadToken]
-  [\parent, maybe! ThisOrShorthandLiteralPeriod, NOTHING]
-  [\ident, Identifier]
-  [\as-type, MaybeAsType]
-  [\default-value, maybe! (sequential! [
-    DeclareEqualSymbol
-    [\this, Expression]
-  ]), NOTHING]
-], #(x, o, i)
-  let name = if x.parent != NOTHING
-    o.access i, x.parent, o.const i, x.ident.name
+define BracketedObjectKey = sequential(
+  OpenSquareBracket
+  [\this, ExpressionOrAssignment]
+  CloseSquareBracket)
+
+define ConstObjectKey = one-of(
+  StringLiteral
+  NumberLiteral |> mutate #(node, parser, index)
+    parser.Const index, String(node.const-value())
+  IdentifierNameConst)
+
+define ObjectKey = one-of(BracketedObjectKey, ConstObjectKey)
+define ObjectKeyColon = sequential(
+  [\this, ObjectKey]
+  Colon
+  except EqualChar
+  #(parser, index)
+    if parser.options.noindent
+      if EmptyLine parser, index
+        return
+      else if parser.options.embedded
+        if EmbeddedClose(parser, index) or EmbeddedCloseWrite(parser, index) or EmbeddedCloseComment(parser, index)
+          return
+    Box index)
+
+let mutate-function(node as Node, parser, index)
+  let mutate-function-macro = parser.get-macro-by-label \mutate-function
+  if not mutate-function-macro
+    node
   else
-    x.ident
-  if x.spread == "..." and x.default-value != NOTHING
-    o.error "Cannot specify a default value for a spread parameter"
-  o.param(i
-    name
-    if x.default-value != NOTHING then x.default-value else void
-    x.spread == "..."
-    x.is-mutable == \mutable
-    if x.as-type != NOTHING then x.as-type else void)
+    mutate-function-macro.func {
+      op: ""
+      node
+    }, parser, index
 
-namedlet Parameter = one-of! [
-  IdentifierParameter
-  ArrayParameter
-  ObjectParameter
-]
-
-namedlet ParameterOrNothing = one-of! [
-  Parameter
-  Nothing
-]
-
-let validate-spread-parameters(params, o)
+let validate-spread-parameters(params, parser)
   let mutable spread-count = 0
-  for param in params by -1
+  for param in params
     if param instanceof ParamNode and param.spread
       spread-count += 1
       if spread-count > 1
-        o.error "Cannot have more than one spread parameter"
+        throw ParserError "Cannot have more than one spread parameter", parser, parser.index-from-position(param.line, param.column)
   params
 
 let remove-trailing-nothings(array as [])
-  while array.length and array[* - 1] instanceof NothingNode
+  while array.length
+    let last = array[* - 1]
+    if last not instanceof NothingNode
+      break
     array.pop()
   array
 
-namedlet ArrayParameter = sequential! [
+define IdentifierOrThisAccess = one-of(
+  Identifier
+  sequential(
+    [\parent, ThisOrShorthandLiteralPeriod]
+    [\child, IdentifierNameConst]) |> mutate #({parent, child}, parser, index)
+    parser.Access index, parent, child)
+
+define IdentifierParameter = sequential(
+  [\is-mutable, bool maybe word "mutable"]
+  [\spread, bool MaybeSpreadToken]
+  [\ident, IdentifierOrThisAccess]
+  [\as-type, MaybeAsType]
+  [\default-value, maybe sequential(
+    EqualSign
+    [\this, Expression])]) |> mutate #({is-mutable, spread, ident, as-type, default-value}, parser, index)
+  if spread and default-value
+    throw ParserError "Cannot specify a default value for a spread parameter", parser, index
+  parser.Param index,
+    ident
+    default-value
+    spread
+    is-mutable
+    as-type
+
+// redefined later
+let mutable Parameter = #(parser, index) -> Parameter parser, index
+
+define ArrayParameter = sequential(
   OpenSquareBracket
   EmptyLines
-  [\this, maybe! (sequential! [
-    [\head, ParameterOrNothing]
-    [\tail, zero-or-more! sequential! [
-      CommaOrNewline
-      [\this, ParameterOrNothing]
-    ]]
-  ], #(x) -> remove-trailing-nothings [x.head, ...x.tail]), #-> []]
+  [\this, #(parser, index) -> Parameters parser, index]
   EmptyLines
-  MaybeCommaOrNewline
-  CloseSquareBracket
-], #(x, o, i) -> o.array-param i, validate-spread-parameters(x, o)
+  CloseSquareBracket) |> mutate #(params, parser, index)
+  parser.Array index, params
 
-namedlet ParamDualObjectKey = sequential! [
+define ParamDualObjectKey = sequential(
   [\key, ObjectKeyColon]
-  [\value, Parameter]
-]
+  [\value, Parameter])
 
-namedlet ParamSingularObjectKey = sequential! [
+define ParamSingularObjectKey = sequential(
   [\this, IdentifierParameter]
-  NotColon
-], #(param, o, i)
+  NotColon) |> mutate #(param, parser, index)
   let {ident} = param
   let key = if ident instanceof IdentNode
-    o.const i, ident.name
+    parser.Const index, ident.name
   else if ident instanceof AccessNode
     ident.child
   else
-    throw Error "Unknown object key type: $(typeof! ident)"
+    throw Error "Unknown object key type: $(param.type)"
   { key, value: param }
 
-namedlet KvpParameter = one-of! [
-  ParamDualObjectKey
-  ParamSingularObjectKey
-]
+define KvpParameter = maybe one-of(ParamDualObjectKey, ParamSingularObjectKey)
 
-namedlet ObjectParameter = sequential! [
+define ObjectParameter = sequential(
   OpenCurlyBrace
   EmptyLines
-  [\this, maybe! (sequential! [
-    [\head, KvpParameter]
-    [\tail, zero-or-more! sequential! [
-      CommaOrNewline
-      [\this, KvpParameter]
-    ]]
-  ], #(x) -> [x.head, ...x.tail]), #-> []]
+  [\this, separated-list(KvpParameter, CommaOrNewline)]
   EmptyLines
-  MaybeCommaOrNewline
-  CloseCurlyBrace
-], #(x, o, i) -> o.object-param i, x
+  CloseCurlyBrace) |> mutate #(params, parser, index)
+  parser.object index, (for filter param in params; param)
 
-namedlet Parameters = sequential! [
-  [\head, ParameterOrNothing]
-  [\tail, zero-or-more! sequential! [
-    CommaOrNewline
-    [\this, ParameterOrNothing]
-  ]]
-], #(x, o, i) -> validate-spread-parameters remove-trailing-nothings([x.head, ...x.tail]), o
+redefine Parameter = one-of(
+  IdentifierParameter
+  ArrayParameter
+  ObjectParameter)
 
-namedlet ParameterSequence = sequential! [
+define ParameterOrNothing = one-of(Parameter, Nothing)
+define Parameters = separated-list(
+  ParameterOrNothing
+  CommaOrNewline) |> mutate #(params, parser, index)
+    validate-spread-parameters remove-trailing-nothings(params), parser
+
+define ParameterSequence = sequential(
   OpenParenthesis
+  SHORT_CIRCUIT
   EmptyLines
-  [\this, maybe! Parameters, #-> []]
+  [\this, Parameters]
   EmptyLines
-  MaybeCommaOrNewline
-  CloseParenthesis
-], do
-  let check(names, duplicates, param)!
+  CloseParenthesis) |> mutate do
+  let check-param(param as Node, parser, names as [])!
     if param instanceof ParamNode
-      let name = if param.ident instanceof IdentNode
-        param.ident.name
-      else if param.ident instanceof AccessNode
-        if param.ident.child not instanceof ConstNode or not is-string! param.ident.child.value
-          throw Error "Expected constant access: $(typeof! param.ident.child)"
-        param.ident.child.value
+      let ident = param.ident
+      let name = if ident instanceof IdentNode
+        ident.name
+      else if ident instanceof AccessNode
+        let child = ident.child
+        if not child.is-const-type(\string)
+          throw Error "Expected constant access"
+        child.const-value()
       else
-        throw Error "Unknown param ident: $(typeof! param.ident)"
+        throw Error "Unknown param ident type: $(typeof! param)"
       if name in names
-        if name not in duplicates
-          duplicates.push name
+        throw ParserError "Duplicate parameter name: $(quote name)", parser, parser.index-from-position(ident.line, ident.column)
       else
         names.push name
     else if param instanceof ArrayNode
-      for element in param.elements by -1
-        check(names, duplicates, element)
+      for element in param.elements
+        check-param element, parser, names
     else if param instanceof ObjectNode
-      for pair in param.pairs by -1
-        check(names, duplicates, pair.value)
-    else if param not instanceof NothingNode
-      throw Error "Unknown param node: $(typeof! param)"
-  #(x, o, i)
+      for pair in param.pairs
+        check-param pair.value, parser, names
+    else if not param instanceof NothingNode
+      throw Error "Unknown param type: $(typeof! param)"
+  #(params, parser, index)
     let names = []
-    let duplicates = []
-    for param in x by -1
-      check(names, duplicates, param)
-    if duplicates.length
-      o.error "Duplicate parameter name: $(duplicates.sort().join ', ')"
-    x
+    for param in params
+      check-param(param, parser, names)
+    params
 
-let add-param-to-scope(o, param, force-mutable)!
-  if param instanceof ParamNode
-    if param.ident instanceofsome [IdentNode, TmpNode]
-      o.scope.add param.ident, force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
-    else if param.ident instanceof AccessNode
-      if param.ident.child not instanceof ConstNode or not is-string! param.ident.child.value
-        throw Error "Expected constant access: $(typeof! param.ident.child)"
-      o.scope.add IdentNode(param.line, param.column, param.scope-id, param.ident.child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
-    else
-      throw Error "Unknown param ident: $(typeof! param.ident)"
-  else if param instanceof ArrayNode
-    for element in param.elements by -1
-      add-param-to-scope o, element, force-mutable
-  else if param instanceof ObjectNode
-    for pair in param.pairs by -1
-      add-param-to-scope o, pair.value, force-mutable
-  else if param not instanceof NothingNode
-    throw Error "Unknown param node type: $(typeof! param)"
+define FunctionDeclaration = do
+  let FunctionFlag = one-of(
+    ExclamationPointChar
+    AtSignChar
+    AsterixChar
+    CaretChar)
 
-namedlet FunctionFlag = one-of! [
-  character! "!"
-  AtSign
-  Asterix
-  Caret
-]
-
-namedlet FunctionFlags = zero-or-more! FunctionFlag, #(x, o, i)
-  let flags = { +auto-return, -bound, -generator, -curry }
-  let unique-chars = []
-  for c in x
-    if c in unique-chars
-      o.error "Function flag $(from-char-code c) specified more than once"
-    else
-      unique-chars.push c
-      switch c
-      case C("!")
-        flags.auto-return := false
-      case C("@")
-        flags.bound := true
-      case C("*")
-        flags.generator := true
-      case C("^")
-        flags.curry := true
-  flags
-
-let _in-generator = Stack false
-namedlet _FunctionBody = one-of! [
-  sequential! [
-    symbol "->"
-    [\this, maybe! Statement, #(x, o, i) -> o.nothing i]
-  ]
-  Body
-]
-
-namedlet GeneratorBody = make-alter-stack(_in-generator, true)(Body)
-namedlet GeneratorBodyNoEnd = make-alter-stack(_in-generator, true)(BodyNoEnd)
-
-namedlet FunctionBody = make-alter-stack(_in-generator, false)(_FunctionBody)
-namedlet GeneratorFunctionBody = make-alter-stack(_in-generator, true)(_FunctionBody)
-namedlet FunctionDeclaration = do
-  let params-rule = maybe! ParameterSequence, #-> []
-  let rest-rule = sequential! [
-    [\flags, FunctionFlags]
-    [\as-type, in-function-type-params MaybeAsType]
-  ]
-  let body-rule = #(generator)
+  let FunctionFlags = zero-or-more(FunctionFlag) |> mutate #(codes, parser, index)
+    let flags = { +auto-return, -bound, -generator, -curry }
+    let unique-chars = []
+    for c in codes
+      if c in unique-chars
+        throw ParserError "Function flag $(quote from-char-code c) specified more than once", parser, index
+      else
+        unique-chars.push c
+        switch c
+        case C("!")
+          flags.auto-return := false
+        case C("@")
+          flags.bound := true
+        case C("*")
+          flags.generator := true
+        case C("^")
+          flags.curry := true
+        default
+          throw Error "Unknown function flag: $(quote from-char-code c)"
+    if not flags.auto-return and flags.generator
+      throw ParserError "A function cannot be both non-returning (!) and a generator (*)", parser, index
+    flags
+  let GenericDefinitionPart = maybe sequential(
+    LessThanChar
+    [\this, separated-list Identifier, Comma]
+    GreaterThan), #-> []
+  
+  let params-rule = maybe ParameterSequence, #-> []
+  let as-type-rule = in-function-type-params MaybeAsType
+  let get-body-rule = #(generator)
     if generator
       GeneratorFunctionBody
     else
       FunctionBody
-  #(o)
-    let index = o.index
-    let line = o.line
-    let clone = o.clone(o.clone-scope())
-    let generic = GenericDefinitionPart clone
-    if not generic
-      return false
-    let params = params-rule clone
-    if not params
-      return false
-    for param in params by -1
-      add-param-to-scope clone, param
-    let rest = rest-rule clone
-    if not rest
-      return false
-    let {flags, as-type} = rest
-    if not flags.auto-return and flags.generator
-      o.error "A function cannot be both non-returning (!) and a generator (*)"
-    let body = body-rule(flags.generator)(clone)
+  #(parser, index)
+    let generic = GenericDefinitionPart parser, index
+    let scope = parser.push-scope(true)
+    let params = params-rule parser, generic.index
+    for param in params.value by -1
+      add-param-to-scope scope, param
+    let flags = FunctionFlags parser, params.index
+    let flags-value = flags.value
+    let as-type = as-type-rule parser, flags.index
+    let body = get-body-rule(flags.value.generator)(parser, as-type.index)
     if not body
-      return false
-    o.update clone
-    let func = o.function index, params, body, flags.auto-return, flags.bound, flags.curry, if as-type != NOTHING then as-type, flags.generator, generic
-    mutate-function func, o, index, line
+      parser.pop-scope()
+      return
+    let func = parser.Function index,
+      params.value
+      body.value
+      flags-value.auto-return
+      flags-value.bound
+      flags-value.curry
+      as-type.value
+      flags-value.generator
+      generic.value
+    let result = mutate-function func, parser, index
+    parser.pop-scope()
+    Box body.index, result
 
-namedlet FunctionLiteral = short-circuit! HashSign, sequential! [
-  HashSign
-  [\this, FunctionDeclaration]
-]
+define FunctionLiteral = sequential(
+  Space
+  HashSignChar
+  [\this, FunctionDeclaration])
 
-define AssignmentAsExpression = in-expression #(o) -> Assignment(o)
-
-namedlet ExpressionOrAssignment = oneOf! [
-  AssignmentAsExpression
-  Expression
-]
-
-define AstExpressionToken = word \ASTE
-namedlet AstExpression = short-circuit! AstExpressionToken, sequential! [
-  #(o)
-    if not _in-macro.peek(o)
-      o.error "Can only use AST inside a macro"
-    else if _in-ast.peek(o)
-      o.error "Cannot use AST inside an AST"
-    else
-      true
-  AstExpressionToken
-  [\this, do
-    let rule = in-ast ExpressionOrAssignment
-    let evil-rule = in-evil-ast rule
-    #(o)
-      if MaybeExclamationPointNoSpace(o) == "!"
-        evil-rule o
-      else
-        rule o]
-]
-define AstToken = word \AST
-namedlet AstStatement = short-circuit! AstToken, sequential! [
-  #(o)
-    if not _in-macro.peek(o)
-      o.error "Can only use AST inside a macro"
-    else if _in-ast.peek(o)
-      o.error "Cannot use AST inside an AST"
-    else
-      true
-  AstToken
-  [\this, do
-    let rule = in-ast one-of! [
-      Body
-      Statement
-      Nothing
-    ]
-    let evil-rule = in-evil-ast rule
-    #(o)
-      if MaybeExclamationPointNoSpace(o) == "!"
-        evil-rule o
-      else
-        rule o]
-]
-namedlet Ast = oneOf! [
-  AstExpression
-  AstStatement
-], #(x, o, i)
-  let position = o.get-position(i)
-  MacroHelper.constify-object x, position.line, position.column, o.scope.id
-
-define MacroName = with-message! 'macro-name', with-space! sequential! [
-  [\this, one-or-more-of! [
-    _Symbol
-    _Name
-  ], #(x) -> x.join ""]
-  NotColonUnlessNoIndentAndNewline
-]
-
-namedlet MacroNames = sequential! [
-  [\head, MacroName]
-  [\tail, zero-or-more! sequential! [
-    Comma
-    [\this, MacroName]
-  ]]
-], #(x, o, i) -> [x.head, ...x.tail]
-
-namedlet UseMacro = #(o)
-  let clone = o.clone()
-  let {macros} = clone
-  let name = MacroName clone
-  if name
-    let m = macros.get-by-name(name)
-    if m
-      return m o
-  false
-
-namedlet MacroSyntaxParameterType = sequential! [
-  [\type, one-of! [
-    Identifier
-    StringLiteral
-    sequential! [
-      OpenParenthesis
-      EmptyLines
-      [\this, MacroSyntaxParameters]
+let prevent-unclosed-object-literal = make-alter-stack<Boolean> \prevent-unclosed-object-literal, true
+define ArrayLiteral = prevent-unclosed-object-literal sequential(
+  OpenSquareBracket
+  Space
+  [\this, concat(
+    maybe sequential(
+      [\this, separated-list(
+        SpreadOrExpression
+        Comma)]
+      MaybeComma), #-> []
+    maybe(retain-indent(sequential(
+      SomeEmptyLines
+      MaybeAdvance
+      [\this, maybe(sequential(
+        CheckIndent
+        [\this, separated-list(
+          SpreadOrExpression
+          CommaOrSomeEmptyLinesWithCheckIndent)]), #-> [])]
       EmptyLines
       MaybeCommaOrNewline
-      CloseParenthesis
-    ], #(x, o, i) -> o.syntax-sequence i, x
-    sequential! [
-      OpenParenthesis
-      EmptyLines
-      [\this, MacroSyntaxChoiceParameters]
-      EmptyLines
-      CloseParenthesis
-    ], #(x, o, i) -> o.syntax-choice i, x
-  ]]
-  [\multiplier, maybe! (one-of! [
-    symbol "?"
-    symbol "*"
-    symbol "+"
-  ]), NOTHING]
-], #(x, o, i)
-  if x.multiplier == NOTHING
-    x.type
+      )), #-> []))]
+  CloseSquareBracket) |> mutate #(items, parser, index)
+  parser.Array index, items
+
+define SetLiteral = sequential(
+  PercentSign
+  check OpenSquareBracketChar
+  SHORT_CIRCUIT
+  [\this, ArrayLiteral]) |> mutate #(value, parser, index)
+  let construct-set = parser.get-macro-by-label(\construct-set)
+  if not construct-set
+    throw Error "Cannot use literal set until the construct-set macro has been defined"
+  construct-set.func {
+    op: ""
+    node: value
+  }, parser, index
+
+define NoNewlineIfNoIndent(parser, index)
+  if parser.options.noindent
+    NoSpaceNewline parser, index
   else
-    o.syntax-many i, x.type, x.multiplier
+    Box index
 
-namedlet MacroSyntaxParameter = one-of! [
-  StringLiteral
-  sequential! [
-    [\ident, one-of! [
-      ThisOrShorthandLiteral
-      Identifier
-    ]]
-    [\type, maybe! (sequential! [
-      AsToken
-      [\this, MacroSyntaxParameterType]
-    ]), NOTHING]
-  ], #(x, o, i) -> o.syntax-param i, x.ident, if x.type != NOTHING then x.type else void
-]
+define DualObjectKey = sequential(
+  [\key, ObjectKeyColon]
+  NoNewlineIfNoIndent
+  [\value, Expression])
 
-namedlet MacroSyntaxParameters = sequential! [
-  [\head, MacroSyntaxParameter]
-  [\tail, zero-or-more! sequential! [
-    Comma
-    [\this, MacroSyntaxParameter]
-  ]]
-], #(x) -> [x.head, ...x.tail]
+define GetSetToken = one-of word("get"), word("set")
 
-namedlet MacroSyntaxChoiceParameters = sequential! [
-  [\head, MacroSyntaxParameterType]
-  [\tail, zero-or-more! sequential! [
-    Pipe
-    [\this, MacroSyntaxParameterType]
-  ]]
-], #(x) -> [x.head, ...x.tail]
-
-namedlet MacroOptions = maybe! (sequential! [
-  word \with
-  [\this, UnclosedObjectLiteral]
-], #(x, o)
-  let options = {}
-  for {key, value} in x.pairs
-    unless key.is-const()
-      o.error "Cannot have non-const keys in the options"
-    unless value.is-const()
-      o.error "Cannot have non-const value in the options"
-    options[key.const-value()] := value.const-value()
-  options), #-> {}
-
-let add-macro-syntax-parameters-to-scope(params, o)!
-  for param in params
-    if param instanceof SyntaxParamNode
-      let {ident} = param
-      if ident instanceof IdentNode
-        o.scope.add ident, true, Type.any
-
-define SyntaxToken = word \syntax
-namedlet MacroSyntax = sequential! [
-  CheckIndent
-  [\this, short-circuit! SyntaxToken, sequential! [
-    SyntaxToken
-    [\this, #(o)
-      let i = o.index
-      let clone = o.clone(o.clone-scope())
-      let params = MacroSyntaxParameters clone
-      if not params
-        throw SHORT_CIRCUIT
-      let options = MacroOptions clone
-      clone.start-macro-syntax i, params, options
-      add-macro-syntax-parameters-to-scope params, clone
-      clone.scope.add clone.ident(i, \macro-name), true, Type.string
-      let body = FunctionBody clone
-      if not body
-        throw SHORT_CIRCUIT
-      clone.macro-syntax i, \syntax, params, options, body
-      o.update clone
-      true]]]
+define PropertyDualObjectKey = sequential(
+  [\property, one-of(
+    word("property")
+    GetSetToken)]
   Space
-  CheckStop
-]
-
-namedlet MacroBody = one-of! [
-  sequential! [
-    #(o)
-      if o.options.noindent
-        Colon(o)
-      else
-        true
-    Space
-    Newline
-    EmptyLines
-    [\this, retain-indent sequential! [
-      #(o)
-        if o.options.noindent
-          MaybeAdvance(o)
-        else
-          Advance(o)
-      [\head, MacroSyntax]
-      [\tail, zero-or-more! sequential! [
-        Newline
-        EmptyLines
-        [\this, MacroSyntax]
-      ]]
-      PopIndent
-    ]]
-    End
-  ], #(x) -> true
-  #(o)
-    let i = o.index
-    let clone = o.clone(o.clone-scope())
-    let params = ParameterSequence clone
-    if not params
-      return false
-    for param in params by -1
-      add-param-to-scope clone, param, true
-    let options = MacroOptions clone
-    let body = FunctionBody clone
-    if not body
-      return false
-    clone.macro-syntax i, \call, params, options, body
-    o.update clone
-    true
-]
-
-define MacroToken = word \macro
-namedlet DefineMacro = in-macro short-circuit! MacroToken, sequential! [
-  MacroToken
-  named "(identifier MacroBody)", #(o)
-    let names = MacroNames o
-    if names
-      o.enter-macro names, #
-        MacroBody o
-    else
-      false
-], #(x, o, i) -> o.nothing i
-
-define DefineSyntaxStart = sequential! [word(\define), word(\syntax)]
-namedlet DefineSyntax = short-circuit! DefineSyntaxStart, sequential! [
-  DefineSyntaxStart
-  [\name, Identifier]
-  DeclareEqualSymbol
-  [\value, MacroSyntaxParameters]
-], #(x, o, i)
-  let clone = o.clone(o.clone-scope())
-  add-macro-syntax-parameters-to-scope x.value, clone
-  let body = FunctionBody(clone)
-  o.update clone
-  o.define-syntax i, x.name.name, x.value, body or void
-
-define DefineHelperStart = sequential! [word(\define), word(\helper)]
-namedlet DefineHelper = short-circuit! DefineHelperStart, sequential! [
-  DefineHelperStart
-  [\name, Identifier]
-  DeclareEqualSymbol
+  [\key, ObjectKeyColon]
+  NoNewlineIfNoIndent
+  SHORT_CIRCUIT
   [\value, Expression]
-], #(x, o, i) -> o.define-helper i, x.name, x.value
+)
 
-define DefineOperatorStart = sequential! [word(\define), word(\operator)]
-namedlet DefineOperator = short-circuit! DefineOperatorStart, in-macro do
-  let main-rule = sequential! [
-    DefineOperatorStart
-    [\type, one-of! [
-      \binary
-      \assign
-      \unary
-    ]]
-    [\head, NameOrSymbol]
-    [\tail, zero-or-more! sequential! [
+define PropertyOrDualObjectKey = one-of(PropertyDualObjectKey, DualObjectKey)
+
+define ObjectKeyNotColon = sequential(
+  [\this, ObjectKey]
+  NotColon
+)
+
+define MethodDeclaration = sequential(
+  [\property, maybe GetSetToken]
+  [\key, ObjectKeyNotColon]
+  [\value, FunctionDeclaration])
+
+define PropertyOrDualObjectKeyOrMethodDeclaration = one-of(PropertyOrDualObjectKey, MethodDeclaration)
+
+define UnclosedObjectLiteral = separated-list(
+  PropertyOrDualObjectKey
+  Comma) |> mutate #(pairs, parser, index)
+  parser.object index, pairs
+
+define SingularObjectKey = one-of(
+  sequential(
+    [\this, IdentifierOrAccess]
+    NotColon) |> mutate #(ident, parser, index)
+    let key = if ident instanceof AccessNode
+      ident.child
+    else if ident instanceof IdentNode
+      parser.Const index, ident.name
+    else
+      throw ParserError "Unknown ident type: $(typeof! ident)", parser, index
+    { key, value: ident }
+  sequential(
+    [\this, ConstantLiteral]
+    NotColon) |> mutate #(node, parser, index)
+    let key = if node.is-const() and not node.is-const-type(\string)
+      parser.Const index, String(node.value)
+    else
+      node
+    { key, value: node }
+  sequential(
+    [\this, ThisLiteral]
+    NotColon) |> mutate #(node, parser, index)
+    key: parser.Const index, \this
+    value: node
+  sequential(
+    [\this, ArgumentsLiteral]
+    NotColon) |> mutate #(node, parser, index)
+    key: parser.Const index, \arguments
+    value: node
+  sequential(
+    [\this, BracketedObjectKey]
+    NotColon) |> mutate #(node, parser, index)
+    key: node
+    value: node)
+define KeyValuePair = one-of(
+  PropertyOrDualObjectKeyOrMethodDeclaration
+  sequential(
+    Space
+    [\flag, maybe PlusOrMinusChar]
+    [\key, SingularObjectKey]) |> mutate #({flag, key}, parser, index)
+    if flag
+      { key.key, value: parser.Const index, flag == C("+") }
+    else
+      key
+  sequential(
+    Space
+    [\bool, PlusOrMinusChar]
+    [\key, IdentifierNameConst]) |> mutate #({bool, key}, parser, index)
+    { key, value: parser.Const index, bool == C("+") })
+
+define ObjectLiteral = sequential(
+  OpenCurlyBrace
+  Space
+  [\prototype, maybe sequential(
+    word "extends"
+    [\this, prevent-unclosed-object-literal Logic]
+    Space
+    one-of(
       Comma
-      [\this, NameOrSymbol]
-    ]]
-    [\options, MacroOptions]
-  ]
-  let node-type = Type.object.union(Type.undefined)
-  #(o)
-    let i = o.index
-    let x = main-rule o
-    if not x
-      throw SHORT_CIRCUIT
-    let clone = o.clone(o.clone-scope())
-    switch x.type
-    case \binary, \assign
-      clone.scope.add clone.ident(i, \left), true, node-type
-      clone.scope.add clone.ident(i, \op), true, Type.string
-      clone.scope.add clone.ident(i, \right), true, node-type
-    case \unary
-      clone.scope.add clone.ident(i, \op), true, Type.string
-      clone.scope.add clone.ident(i, \node), true, node-type
-    let body = FunctionBody clone
-    if not body
-      throw SHORT_CIRCUIT
-    let ops = [x.head, ...x.tail]
-    let ret = switch x.type
-    case \binary; clone.define-binary-operator i, ops, x.options, body
-    case \assign; clone.define-assign-operator i, ops, x.options, body
-    case \unary; clone.define-unary-operator i, ops, x.options, body
-    default; throw Error()
-    o.update clone
-    ret
+      check Newline
+      check CloseCurlyBrace))]
+  [\pairs, concat(
+    maybe sequential(
+      [\this, separated-list(KeyValuePair, Comma)]
+      MaybeComma), #-> []
+    maybe (retain-indent sequential(
+      SomeEmptyLines
+      MaybeAdvance
+      [\this, maybe sequential(
+        CheckIndent
+        [\this, separated-list(KeyValuePair, CommaOrSomeEmptyLinesWithCheckIndent)]), #-> []]
+      PopIndent)), #-> [])]
+  EmptyLines
+  MaybeCommaOrNewline
+  EmptyLines
+  CloseCurlyBrace) |> mutate #(x, parser, index)
+  parser.object index, x.pairs, x.prototype
 
-define Index = do
-  namedlet ExpressionWithAsterixAsArrayLength = asterix-as-array-length #(o) -> Expression(o)
-  sequential! [
-    [\head, ExpressionWithAsterixAsArrayLength]
-    [\tail, zero-or-more! sequential! [
-      CommaOrNewline
-      [\this, ExpressionWithAsterixAsArrayLength]
-    ]]
-  ], #(x)
-    if x.tail.length > 0
-      type: \multi
-      elements: [x.head, ...x.tail]
-    else
-      type: \single
-      node: x.head
+define MapLiteral = sequential(
+  PercentSign
+  OpenCurlyBraceChar
+  SHORT_CIRCUIT
+  Space
+  [\this, concat(
+    maybe sequential(
+      [\this, separated-list(DualObjectKey, Comma)]
+      MaybeComma), #-> []
+    maybe (retain-indent sequential(
+      SomeEmptyLines
+      MaybeAdvance
+      [\this, maybe sequential(
+        CheckIndent
+        [\this, separated-list(DualObjectKey, CommaOrSomeEmptyLinesWithCheckIndent)]), #-> []]
+      PopIndent)), #-> [])]
+  EmptyLines
+  MaybeCommaOrNewline
+  EmptyLines
+  CloseCurlyBrace) |> mutate #(pairs, parser, index)
+  let construct-map = parser.macros.get-by-label(\construct-map)
+  if not construct-map
+    throw Error "Cannot use literal map until the construct-map macro has been defined"
+  construct-map.func {
+    op: ""
+    node: parser.object index, pairs
+  }, parser, index
 
-namedlet IdentifierOrAccessStart = one-of! [
-  Identifier
-  sequential! [
-    [\parent, ThisOrShorthandLiteralPeriod]
-    [\child, IdentifierNameConstOrNumberLiteral]
-  ], #(x, o, i) -> o.access i, x.parent, x.child
-  sequential! [
-    [\parent, ThisOrShorthandLiteral]
-    DoubleColon
-    [\child, IdentifierNameConstOrNumberLiteral]
-  ], #(x, o, i) -> o.access(i
-    o.access i, x.parent, o.const i, \prototype
-    x.child)
-  sequential! [
-    [\parent, ThisOrShorthandLiteral]
-    [\is-proto, maybe! DoubleColon, NOTHING]
-    OpenSquareBracketChar
-    [\child, Index]
-    CloseSquareBracket
-  ], #(x, o, i)
-    let {mutable parent} = x
-    if x.is-proto != NOTHING
-      parent := o.access i, parent, o.const i, \prototype
-    if x.child.type == \single
-      o.access i, parent, x.child.node
-    else if x.child.type == \multi
-      o.access-multi i, parent, x.child.elements
-    else
-      throw Error()
-]
+define Assignment(parser, index)
+  let left = IdentifierOrAccess parser, index
+  if not left
+    return
+  for operator in parser.assign-operators() by -1
+    let {rule} = operator
+    let op = rule parser, left.index
+    if not op
+      continue
+    let right = ExpressionOrAssignment parser, op.index
+    if not right
+      continue
+    return Box right.index, operator.func {
+      left: left.value
+      op: op.value
+      right: right.value
+    }, parser, index
 
-namedlet IdentifierOrAccessPart = one-of! [
-  sequential! [
-    [\type, one-of! [Period, DoubleColon]]
-    [\child, IdentifierNameConstOrNumberLiteral]
-  ], #(x, o, i) -> #(mutable parent)
-    if x.type == "::"
-      parent := o.access i, parent, o.const i, \prototype
-    o.access i, parent, x.child
-  sequential! [
-    [\type, maybe! DoubleColon, NOTHING]
-    OpenSquareBracketChar
-    [\child, Index]
-    CloseSquareBracket
-  ], #(x, o, i) -> #(mutable parent)
-    if x.type != NOTHING
-      parent := o.access i, parent, o.const i, \prototype
-    if x.child.type == \single
-      o.access i, parent, x.child.node
-    else if x.child.type == \multi
-      o.access-multi i, parent, x.child.elements
-    else
-      throw Error()
-]
-
-define IdentifierOrAccess = sequential! [
-  [\head, IdentifierOrAccessStart]
-  [\tail, zero-or-more! IdentifierOrAccessPart]
-], #(x, o, i)
-  for reduce part in x.tail, current = x.head
-    part(current)
-
-namedlet SimpleAssignable = IdentifierOrAccess
-
-namedlet ComplexAssignable = one-of! [
-  SimpleAssignable
-  //ArrayAssignable
-  //ObjectAssignable
-]
-
-define Assignment = #(o)
-  let start-index = o.index
-  let line = o.line
-  let clone = o.clone()
-  let left = SimpleAssignable clone
-  if left
-    for operator in o.macros.assign-operators by -1
-      let sub-clone = clone.clone()
-      let {rule} = operator
-      let op = rule sub-clone
-      if not op
-        continue
-      let right = ExpressionOrAssignment sub-clone
-      if not right
-        continue
-      o.update sub-clone
-      return operator.func {
+define CustomOperatorCloseParenthesis = do
+  let handle-unary-operator(operator, parser, index)
+    let op = operator.rule parser, index
+    if not op
+      return
+    let close = CloseParenthesis parser, op.index
+    if not close
+      return
+    
+    let node = parser.Ident index, \x
+    let scope = parser.push-scope(true)
+    scope.add node, false, Type.any
+    let result = mutate-function parser.Function(index,
+      [parser.Param index, node]
+      operator.func {
+        op: op.value
+        node
+      }, parser, index
+      true), parser, index
+    parser.pop-scope()
+    Box close.index, result
+  let handle-binary-operator(operator, parser, mutable index)
+    let mutable inverted = false
+    if operator.invertible
+      let invert = MaybeNotToken(parser, index)
+      if invert.value
+        inverted := true
+      index := invert.index
+    let op = operator.rule parser, index
+    if not op
+      return
+    let close = CloseParenthesis parser, op.index
+    if not close
+      return
+    
+    let left = parser.Ident index, \x
+    let right = parser.Ident index, \y
+    let scope = parser.push-scope(true)
+    scope.add left, false, Type.any
+    scope.add right, false, Type.any
+    let result = mutate-function parser.Function(index,
+      [
+        parser.Param index, left
+        parser.Param index, right
+      ]
+      operator.func {
         left
-        op
+        inverted
+        op: op.value
         right
-      }, o, start-index, line
-  false
+      }, parser, index
+      true
+      false
+      true), parser, index
+    parser.pop-scope()
+    Box close.index, result
+  #(parser, index)!
+    for operator in parser.all-binary-operators() by -1
+      return? handle-binary-operator operator, parser, index
+    for operator in parser.prefix-unary-operators() by -1
+      return? handle-unary-operator operator, parser, index
+    for operator in parser.postfix-unary-operators() by -1
+      return? handle-unary-operator operator, parser, index
 
-namedlet UnclosedObjectLiteral = sequential! [
-  [\head, PropertyOrDualObjectKey]
-  [\tail, zero-or-more! sequential! [
-    Comma
-    [\this, PropertyOrDualObjectKey]
-  ]]
-], #(x, o, i) -> o.object i, [x.head, ...x.tail]
+define CustomBinaryOperator(parser, index)
+  for operator in parser.all-binary-operators() by -1
+    let mutable inverted = false
+    let mutable current-index = index
+    if operator.invertible
+      let invert = MaybeNotToken parser, index
+      if invert.value
+        inverted := true
+      current-index := invert.index
+    let op = operator.rule parser, current-index
+    if not op
+      continue
+    
+    return Box op.index, {
+      op: op.value
+      operator
+      inverted
+    }
 
-namedlet IndentedUnclosedObjectLiteralInner = sequential! [
-  [\head, PropertyOrDualObjectKey]
-  [\tail, zero-or-more! sequential! [
-    CommaOrNewlineWithCheckIndent
-    [\this, PropertyOrDualObjectKey]
-  ]]
-], #(x, o, i) -> o.object i, [x.head, ...x.tail]
+define Parenthetical = sequential(
+  OpenParenthesis
+  [\this, one-of<Node>(
+    sequential(
+      [\this, AssignmentAsExpression]
+      CloseParenthesis)
+    sequential(
+      [\left, Expression]
+      [\operator, maybe CustomBinaryOperator]
+      CloseParenthesis) |> mutate #({left, operator}, parser, index)
+        if not operator
+          return left
+        let scope = parser.push-scope(true)
+        let right = parser.make-tmp index, \x
+        let result = mutate-function parser.Function(index,
+          [parser.Param index, right]
+          operator.operator.func {
+            left: left.rescope(scope)
+            operator.inverted
+            operator.op
+            right
+          }, parser, index
+          true), parser, index
+        parser.pop-scope()
+        result
+    CustomOperatorCloseParenthesis
+    sequential(
+      [\operator, CustomBinaryOperator]
+      [\right, Expression]
+      CloseParenthesis) |> mutate #({right, operator: {op, operator, inverted}}, parser, index)
+        let scope = parser.push-scope(true)
+        let left = parser.make-tmp index, \x
+        let result = mutate-function parser.Function(index,
+          [parser.Param index, left]
+          operator.func {
+            left
+            inverted
+            op
+            right: right.rescope scope
+          }, parser, index
+          true), parser, index
+        parser.pop-scope()
+        result
+    sequential(
+      [\this, one-or-more #(parser, index) -> InvocationOrAccessPart parser, index]
+      CloseParenthesis) |> mutate #(tail, parser, index)
+        let scope = parser.push-scope(true)
+        let left = parser.make-tmp index, \o
+        let result = mutate-function parser.Function(index,
+          [parser.Param index, left]
+          convert-invocation-or-access(false, {
+            type: \normal
+            -existential
+            node: left
+          }, tail, parser, index).rescope scope
+          true
+          false), parser, index
+        parser.pop-scope()
+        result)])
 
-namedlet IndentedUnclosedObjectLiteral = sequential! [
-  #(o) -> not _prevent-unclosed-object-literal.peek(o)
+define CurrentArrayLength = #(parser, index)
+  if parser.asterix-as-array-length.peek()
+    let asterix = AsterixChar parser, index
+    if asterix
+      Box asterix.index, parser.Ident index, CURRENT_ARRAY_LENGTH_NAME
+
+define IndentedUnclosedObjectLiteralInner = separated-list(
+  PropertyOrDualObjectKey
+  CommaOrSomeEmptyLinesWithCheckIndent) |> mutate #(pairs, parser, index)
+  parser.object index, pairs
+
+define UnclosedObjectLiteralsAllowed(parser, index) -> if not parser.prevent-unclosed-object-literal.peek() then Box index
+
+define IndentedUnclosedObjectLiteral = sequential(
+  UnclosedObjectLiteralsAllowed
   IndentationRequired
   Space
   Newline
   EmptyLines
-  [\this, retain-indent sequential! [
+  [\this, retain-indent sequential(
     Advance
     CheckIndent
     [\this, IndentedUnclosedObjectLiteralInner]
-    PopIndent
-  ]]
-]
+    PopIndent)])
 
-namedlet UnclosedArrayLiteralElement = sequential! [
-  Asterix
+define UnclosedArrayLiteralElement = sequential(
+  AsterixChar
   Space
-  [\this, one-of! [
-    retain-indent sequential! [
+  [\this, one-of(
+    retain-indent sequential(
       PushFakeIndent(2)
-      [\this, one-of! [
+      [\this, one-of(
         IndentedUnclosedObjectLiteralInner
-        IndentedUnclosedArrayLiteralInner
-        SpreadOrExpression
-      ]]
-      PopIndent
-    ]
-    SpreadOrExpression
-  ]]
-]
-namedlet IndentedUnclosedArrayLiteralInner = sequential! [
-  [\head, UnclosedArrayLiteralElement]
-  [\tail, zero-or-more! sequential! [
-    MaybeComma
-    SomeEmptyLinesWithCheckIndent
-    [\this, UnclosedArrayLiteralElement]
-  ]]
-], #(x, o, i) -> o.array i, [x.head, ...x.tail]
-namedlet IndentedUnclosedArrayLiteral = sequential! [
-  #(o) -> not _prevent-unclosed-object-literal.peek(o)
+        #(parser, index) -> IndentedUnclosedArrayLiteralInner parser, index
+        SpreadOrExpression)])
+    SpreadOrExpression)])
+
+define IndentedUnclosedArrayLiteralInner = separated-list(
+  UnclosedArrayLiteralElement
+  sequential(MaybeComma, SomeEmptyLinesWithCheckIndent)) |> mutate #(items, parser, index)
+  parser.Array index, items
+
+define IndentedUnclosedArrayLiteral = sequential(
+  UnclosedObjectLiteralsAllowed
   IndentationRequired
   Space
   Newline
   EmptyLines
-  [\this, retain-indent sequential! [
+  [\this, retain-indent sequential(
     Advance
     CheckIndent
     [\this, IndentedUnclosedArrayLiteralInner]
-    PopIndent
-  ]]
-]
+    PopIndent)])
 
-let CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
+let in-ast = make-alter-stack<Boolean> \in-ast, true
+let in-evil-ast = make-alter-stack<Boolean> \in-evil-ast, true
 
-define PrimaryExpression = one-of! [
+define AstExpression = sequential(
+  word "ASTE"
+  SHORT_CIRCUIT
+  #(parser, index)
+    if not parser.in-macro.peek()
+      throw ParserError "Can only use ASTE inside of a macro", parser, index
+    else if parser.in-ast.peek()
+      throw ParserError "Can only use ASTE inside of another AST", parser, index
+    else
+      Box index
+  [\this, do
+    let rule = in-ast ExpressionOrAssignment
+    let evil-rule = in-evil-ast rule
+    #(parser, index)
+      let is-evil = ExclamationPointChar parser, index
+      if is-evil
+        evil-rule parser, is-evil.index
+      else
+        rule parser, index])
+
+define AstStatement = sequential(
+  word "AST"
+  SHORT_CIRCUIT
+  #(parser, index)
+    if not parser.in-macro.peek()
+      throw ParserError "Can only use AST inside of a macro", parser, index
+    else if parser.in-ast.peek()
+      throw ParserError "Can only use AST inside of another AST", parser, index
+    else
+      Box index
+  [\this, do
+    let rule = in-ast one-of(Body, Statement)
+    let evil-rule = in-evil-ast rule
+    #(parser, index)
+      let is-evil = ExclamationPointChar parser, index
+      if is-evil
+        evil-rule parser, is-evil.index
+      else
+        rule parser, index])
+
+define Ast = one-of(AstExpression, AstStatement) |> mutate #(node, parser, index)
+  let position = parser.get-position(index)
+  MacroHelper.constify-object node, position.line, position.column, parser.scope.peek()
+
+define PrimaryExpression = one-of<Node>(
   UnclosedObjectLiteral
   Literal
   ArrayLiteral
@@ -4064,237 +3576,79 @@ define PrimaryExpression = one-of! [
   FunctionLiteral
   UseMacro
   Identifier
-  #(o)
-    if _asterix-as-array-length.peek(o)
-      let i = o.index
-      if Asterix(o)
-        o.ident i, CURRENT_ARRAY_LENGTH_NAME
+  CurrentArrayLength
   IndentedUnclosedObjectLiteral
-  IndentedUnclosedArrayLiteral
-]
+  IndentedUnclosedArrayLiteral)
 
-namedlet ClosedArguments = sequential! [
-  NoSpace
-  OpenParenthesis
-  Space
-  [\first, maybe! (sequential! [
-    [\head, SpreadOrExpression],
-    [\tail, zero-or-more! sequential! [
-      Comma
-      [\this, SpreadOrExpression]
-    ]]
-    MaybeComma
-  ], #(x) -> [x.head, ...x.tail]), #-> []]
-  [\rest, maybe! (retain-indent sequential! [
-    SomeEmptyLines
-    MaybeAdvance
-    [\this, maybe! (sequential! [
-      CheckIndent
-      [\head, SpreadOrExpression]
-      [\tail, zero-or-more! sequential! [
-        CommaOrNewlineWithCheckIndent
-        [\this, SpreadOrExpression]
-      ]]
-    ], #(x) -> [x.head, ...x.tail]), #-> []]
-    EmptyLines
-    MaybeCommaOrNewline
-    PopIndent
-  ]), #-> []]
-  CloseParenthesis
-], #(x, o, i) -> [...x.first, ...x.rest]
-
-namedlet UnclosedArguments = sequential! [
-  one-of! [
-    sequential! [
-      one-or-more! SpaceChar, true
-      MaybeComment
-    ], true
-    CheckStop
-  ]
-  [\first, sequential! [
-    [\head, SpreadOrExpression],
-    [\tail, zero-or-more! sequential! [
-      Comma
-      [\this, SpreadOrExpression]
-    ]]
-  ], #(x) -> [x.head, ...x.tail]]
-  [\rest, one-of! [
-    sequential! [
-      IndentationRequired
-      Comma
-      SomeEmptyLines
-      [\this, retain-indent sequential! [
-        Advance
-        CheckIndent
-        [\head, SpreadOrExpression]
-        [\tail, zero-or-more! sequential! [
-          CommaOrNewlineWithCheckIndent
-          [\this, SpreadOrExpression]
-        ]]
-        MaybeComma
-        PopIndent
-      ]]
-    ], #(x) -> [x.head, ...x.tail]
-    mutate! MaybeComma, #-> []
-  ]]
-], #(x, o, i) -> [...x.first, ...x.rest]
-
-define InvocationArguments = one-of! [ClosedArguments, UnclosedArguments]
-
-define GenericPart = maybe! (sequential! [
-  LessThanSign
-  [\head, BasicInvocationOrAccess]
-  [\tail, zero-or-more! sequential! [
-    Comma
-    [\this, BasicInvocationOrAccess]
-  ]]
-  character! ">"
-], #(x) -> [x.head, ...x.tail]), #-> []
-
-define GenericDefinitionPart = maybe! (sequential! [
-  LessThanSign
-  [\head, Identifier]
-  [\tail, zero-or-more! sequential! [
-    Comma
-    [\this, Identifier]
-  ]]
-  character! ">"
-], #(x) -> [x.head, ...x.tail]), #-> []
-
-define MaybeExclamationPointNoSpace = maybe! (sequential! [
-  NoSpace
-  character! "!"
-], "!"), true
-namedlet InvocationOrAccessPart = one-of! [
-  sequential! [
-    [\existential, MaybeExistentialSymbolNoSpace]
-    [\owns, MaybeExclamationPointNoSpace]
-    [\bind, maybe! AtSign, NOTHING]
-    EmptyLines
-    Space
-    [\type, one-of! [Period, DoubleColon]]
-    [\child, IdentifierNameConstOrNumberLiteral]
-    [\generic, GenericPart]
-  ], #(x) -> {
-    type: if x.type == "::" then \proto-access else \access
-    x.child
-    existential: x.existential == "?"
-    owns: x.owns == "!"
-    bind: x.bind != NOTHING
-    x.generic
-  }
-  sequential! [
-    [\existential, MaybeExistentialSymbolNoSpace]
-    [\owns, MaybeExclamationPointNoSpace]
-    [\bind, maybe! AtSign, NOTHING]
-    [\type, maybe! DoubleColon, \access-index, \proto-access-index]
-    OpenSquareBracketChar
-    [\child, Index]
-    CloseSquareBracket
-    [\generic, GenericPart]
-  ], #(x, o, i)
-    if x.child.type == \single
-      {
-        type: if x.type == \access-index then \access else \proto-access
-        child: x.child.node
-        existential: x.existential == "?"
-        owns: x.owns == "!"
-        bind: x.bind != NOTHING
-        x.generic
-      }
-    else
-      if x.owns == "!"
-        o.error "Cannot use ! when using a multiple or slicing index"
-      if x.bind != NOTHING
-        o.error "Cannot use @ when using a multiple or slicing index"
-      if x.generic.length > 0
-        o.error "Cannot use <> when using a multiple or slicing index"
-      {
-        x.type
-        x.child
-        existential: x.existential == "?"
-      }
-  sequential! [
-    [\existential, MaybeExistentialSymbolNoSpace]
-    [\is-apply, maybe! AtSign, NOTHING]
-    [\args, InvocationArguments]
-  ], #(x) -> {
-    type: \call
-    x.args
-    existential: x.existential == "?"
-    -is-new
-    is-apply: x.is-apply != NOTHING
-  }
-]
 let convert-invocation-or-access = do
   let link-types =
     access: do
       let index-types =
-        multi: #(o, i, child) -> #(mutable parent)
+        multi: #(parser, index, child) -> #(mutable parent)
           let mutable set-parent = parent
           let tmp-ids = []
           if parent.cacheable
-            let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type(o))
+            let tmp = parser.make-tmp index, \ref, parent.type(parser)
             tmp-ids.push tmp.id
-            set-parent := o.assign(i, tmp, "=", parent.do-wrap(o))
+            set-parent := parser.Assign(index, tmp, "=", parent.do-wrap(parser))
             parent := tmp
-          let result = o.array(i, for element, j in child.elements
-            o.access(i, if j == 0 then set-parent else parent, element))
+          let result = parser.Array(index, for element, i in child.elements
+            parser.Access(index, if i == 0 then set-parent else parent, element))
           if tmp-ids.length
-            o.tmp-wrapper(i, result, tmp-ids)
+            parser.TmpWrapper(index, result, tmp-ids)
           else
             result
-      #(o, i, mutable head, link, j, links)
+      #(parser, index, mutable head, link, link-index, links)
         let bind-access = if link.bind
-          #(parent, child) -> o.call i, o.ident(i, \__bind), [parent, child]
+          #(parent, child) -> parser.Call index, parser.Ident(index, \__bind), [parent, child]
         else
-          #(parent, child) -> o.access i, parent, child
+          #(parent, child) -> parser.Access index, parent, child
         if link.owns
           let tmp-ids = []
           let mutable set-head = head
           if head.cacheable
-            let tmp = o.tmp(i, get-tmp-id(), \ref, head.type(o))
+            let tmp = parser.make-tmp index, \ref, head.type(parser)
             tmp-ids.push tmp.id
-            set-head := o.assign(i, tmp, "=", head.do-wrap(o))
+            set-head := parser.Assign(index, tmp, "=", head.do-wrap(parser))
             head := tmp
           let mutable child = link.child
           let mutable set-child = child
           if child.cacheable
-            let tmp = o.tmp(i, get-tmp-id(), \ref, child.type(o))
+            let tmp = parser.make-tmp index, \ref, child.type(parser)
             tmp-ids.push tmp.id
-            set-child := o.assign(i, tmp, "=", child.do-wrap(o))
+            set-child := parser.Assign(index, tmp, "=", child.do-wrap(parser))
             child := tmp
           
-          let result = o.if(i
+          let result = parser.If(index
             do
-              let ownership-op = o.macros.get-by-label(\ownership)
+              let ownership-op = parser.get-macro-by-label(\ownership)
               if not ownership-op
                 throw Error "Cannot use ownership access until the ownership operator has been defined"
               if link.existential
-                let existential-op = o.macros.get-by-label(\existential)
+                let existential-op = parser.get-macro-by-label(\existential)
                 if not existential-op
                   throw Error "Cannot use existential access until the existential operator has been defined"
               
-                o.binary(i
+                parser.Binary(index
                   existential-op.func {
                     op: ""
                     node: set-head
-                  }, o, i, o.line
+                  }, parser, index
                   "&&"
                   ownership-op.func {
                     left: head
                     op: ""
                     right: set-child
-                  }, o, i, o.line)
+                  }, parser, index)
               else
                 ownership-op.func {
                   left: set-head
                   op: ""
                   right: set-child
-                }, o, i, o.line
-            convert-call-chain(o, i, bind-access(head, child), j + 1, links))
+                }, parser, index
+            convert-call-chain(parser, index, bind-access(head, child), link-index + 1, links))
           if tmp-ids.length
-            o.tmp-wrapper(i, result, tmp-ids)
+            parser.TmpWrapper(index, result, tmp-ids)
           else
             result
         else
@@ -4304,1932 +3658,1098 @@ let convert-invocation-or-access = do
           case \access-index
             unless index-types ownskey link.child.type
               throw Error "Unknown index type: $(link.child.type)"
-            index-types[link.child.type](o, i, link.child)
+            index-types[link.child.type](parser, index, link.child)
           default
             throw Error "Unknown link type: $(link.type)"
           if link.existential
             let tmp-ids = []
             let mutable set-head = head
             if head.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref, head.type(o))
+              let tmp = parser.make-tmp index, \ref, head.type(parser)
               tmp-ids.push tmp.id
-              set-head := o.assign(i, tmp, "=", head.do-wrap(o))
+              set-head := parser.Assign(index, tmp, "=", head.do-wrap(parser))
               head := tmp
-            let existential-op = o.macros.get-by-label(\existential)
+            let existential-op = parser.get-macro-by-label(\existential)
             if not existential-op
               throw Error "Cannot use existential access until the existential operator has been defined"
-            let result = o.if(i
+            let result = parser.If(index
               existential-op.func {
                 op: ""
                 node: set-head
-              }, o, i, o.line
-              convert-call-chain(o, i, make-access(head), j + 1, links))
+              }, parser, index
+              convert-call-chain(parser, index, make-access(head), link-index + 1, links))
             if tmp-ids.length
-              o.tmp-wrapper(i, result, tmp-ids)
+              parser.TmpWrapper(index, result, tmp-ids)
             else
               result
           else
-            convert-call-chain(o, i, make-access(head), j + 1, links)
-    call: do
-      #(o, i, mutable head, link, j, links)
-        unless link.existential
-          convert-call-chain(o, i, o.call(i, head, link.args, link.is-new, link.is-apply), j + 1, links)
+            convert-call-chain(parser, index, make-access(head), link-index + 1, links)
+    call: #(parser, index, mutable head, link, link-index, links)
+      unless link.existential
+        convert-call-chain(parser, index, parser.Call(index, head, link.args, link.is-new, link.is-apply), link-index + 1, links)
+      else
+        let tmp-ids = []
+        let mutable set-head = head
+        if head instanceof AccessNode and not link.is-apply and not link.is-new
+          let {mutable parent, mutable child} = head
+          let mutable set-parent = parent
+          let mutable set-child = child
+          if parent.cacheable
+            let tmp = parser.make-tmp index, \ref, parent.type(parser)
+            tmp-ids.push tmp.id
+            set-parent := parser.Assign(index, tmp, "=", parent.do-wrap(parser))
+            parent := tmp
+          if child.cacheable
+            let tmp = parser.make-tmp index, \ref, child.type(parser)
+            tmp-ids.push tmp.id
+            set-child := parser.Assign(index, tmp, "=", child.do-wrap(parser))
+            child := tmp
+          if parent != set-parent or child != set-child
+            set-head := parser.Access(index, set-parent, set-child)
+            head := parser.Access(index, parent, child)
         else
-          let tmp-ids = []
-          let mutable set-head = head
-          if head instanceof AccessNode and not link.is-apply and not link.is-new
-            let {mutable parent, mutable child} = head
-            let mutable set-parent = parent
-            let mutable set-child = child
-            if parent.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref, parent.type(o))
-              tmp-ids.push tmp.id
-              set-parent := o.assign(i, tmp, "=", parent.do-wrap(o))
-              parent := tmp
-            if child.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref, child.type(o))
-              tmp-ids.push tmp.id
-              set-child := o.assign(i, tmp, "=", child.do-wrap(o))
-              child := tmp
-            if parent != set-parent or child != set-child
-              set-head := o.access(i, set-parent, set-child)
-              head := o.access(i, parent, child)
-          else
-            if head.cacheable
-              let tmp = o.tmp(i, get-tmp-id(), \ref, head.type(o))
-              tmp-ids.push tmp.id
-              set-head := o.assign(i, tmp, "=", head.do-wrap(o))
-              head := tmp
-          let result = o.if(i
-            o.binary(i
-              o.unary(i, \typeof, set-head)
-              "==="
-              o.const(i, \function))
-            convert-call-chain(o, i, o.call(i, head, link.args, link.is-new, link.is-apply), j + 1, links))
-          if tmp-ids.length
-            o.tmp-wrapper(i, result, tmp-ids)
-          else
-            result
+          if head.cacheable
+            let tmp = parser.make-tmp index, \ref, head.type(parser)
+            tmp-ids.push tmp.id
+            set-head := parser.Assign(index, tmp, "=", head.do-wrap(parser))
+            head := tmp
+        let result = parser.If(index
+          parser.Binary(index
+            parser.Unary(index, \typeof, set-head)
+            "==="
+            parser.Const(index, \function))
+          convert-call-chain(parser, index, parser.Call(index, head, link.args, link.is-new, link.is-apply), link-index + 1, links))
+        if tmp-ids.length
+          parser.TmpWrapper(index, result, tmp-ids)
+        else
+          result
   link-types.access-index := link-types.access
   
-  let convert-call-chain(o, i, head, j, links)
-    if j >= links.length
+  let convert-call-chain(parser, index, head, link-index, links)
+    if link-index >= links.length
       head
     else
-      let link = links[j]
+      let link = links[link-index]
       unless link-types ownskey link.type
         throw Error "Unknown call-chain link: $(link.type)"
       
-      link-types[link.type](o, i, head, link, j, links)
-  #(mutable is-new, head, tail, o, i)
-    if tail.length == 0 and not is-new and head.type == \normal and (not head.generic or head.generic.length == 0)
+      link-types[link.type](parser, index, head, link, link-index, links)
+  #(mutable is-new, head, tail, parser, index)
+    if tail.length == 0 and not is-new and head.type == \normal
       return head.node
     
     let links = []
     if head.type == \this-access
       links.push { type: \access, head.child, head.existential }
     
-    if head.generic and head.generic.length != 0
-      links.push { type: \access, child: o.const(i, \generic), -existential }
-      links.push { type: \call, args: head.generic, -existential }
-    
     for part in tail
       switch part.type
       case \proto-access, \proto-access-index
-        links.push { type: \access, child: o.const(i, \prototype), part.existential }
+        links.push { type: \access, child: parser.Const(index, \prototype), part.existential }
         links.push {} <<< part <<< { type: if part.type == \proto-access then \access else \access-index }
-        if part.generic and part.generic.length != 0
-          links.push { type: \access, child: o.const(i, \generic), -existential }
-          links.push { type: \call, args: part.generic, -existential }
       case \access, \access-index
         links.push part
-        if part.generic and part.generic.length != 0
-          links.push { type: \access, child: o.const(i, \generic), -existential }
-          links.push { type: \call, args: part.generic, -existential }
       case \call
         if is-new and part.is-apply
-          o.error "Cannot call with both new and @ at the same time"
+          throw ParserError "Cannot call with both new and @ at the same time", parser, index
         links.push {} <<< part <<< { is-new }
         is-new := false
+      case \generic
+        links.push { type: \access, child: parser.Const(index, \generic), -existential }
+        links.push { type: \call, args: part.args, -existential }
       default
-        o.error "Unknown link type: $(part.type)"
+        throw Error "Unknown link type: $(part.type)"
   
     if is-new
       links.push { type: \call, args: [], -existential, +is-new, -is-apply }
     
-    convert-call-chain o, i, head.node, 0, links
+    convert-call-chain parser, index, head.node, 0, links
 
-namedlet BasicInvocationOrAccess = sequential! [
-  [\is-new, maybe! word(\new), NOTHING]
-  [\head, one-of! [
-    sequential! [
-      [\node, ThisShorthandLiteral]
-      [\existential, MaybeExistentialSymbolNoSpace]
-      [\owns, MaybeExclamationPointNoSpace]
-      [\bind, maybe! AtSign, NOTHING]
-      [\child, IdentifierNameConstOrNumberLiteral]
-    ], #(x, o, i) -> {
-      type: \this-access
-      x.node
+define Index = do
+  let asterix-as-array-length = make-alter-stack<Boolean> \asterix-as-array-length, true
+  let ExpressionWithAsterixAsArrayLength = asterix-as-array-length Expression
+  separated-list(
+    ExpressionWithAsterixAsArrayLength
+    CommaOrNewline) |> mutate #(nodes)
+    if nodes.length > 1
+      type: \multi
+      elements: nodes
+    else
+      type: \single
+      node: nodes[0]
+
+define InvocationOrAccessPart = one-of(
+  sequential(
+    LessThanChar
+    [\this, separated-list(
+      #(parser, index) -> BasicInvocationOrAccess(parser, index)
+      Comma)]
+    GreaterThan) |> mutate #(args) -> {
+    type: \generic
+    args
+  }
+  sequential(
+    [\existential, MaybeQuestionMarkChar]
+    [\owns, MaybeExclamationPointChar]
+    [\bind, MaybeAtSignChar]
+    EmptyLines
+    Space
+    [\type, PeriodOrDoubleColonChar]
+    [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x) -> {
+      type: if x.type == "::" then \proto-access else \access
       x.child
-      existential: x.existential == "?"
-      owns: x.owns == "!"
-      bind: x.bind != NOTHING
+      x.existential
+      x.owns
+      x.bind
     }
-    mutate! PrimaryExpression, #(x) -> {
-      type: \normal
-      node: x
-    }
-  ]]
-  [\generic, GenericPart]
-  [\tail, zero-or-more! InvocationOrAccessPart]
-], #({is-new, head, generic, tail}, o, i)
-  convert-invocation-or-access(is-new != NOTHING, {} <<< head <<< {generic}, tail, o, i)
+  sequential(
+    [\existential, MaybeQuestionMarkChar]
+    [\owns, MaybeExclamationPointChar]
+    [\bind, MaybeAtSignChar]
+    [\type, maybe DoubleColonChar]
+    OpenSquareBracketChar
+    [\child, Index]
+    CloseSquareBracket) |> mutate #(x, parser, index)
+    if x.child.type == \single
+      {
+        type: if x.type == "::" then \proto-access else \access
+        child: x.child.node
+        x.existential
+        x.owns
+        x.bind
+      }
+    else
+      if x.owns
+        throw ParserError "Cannot use ! when using a multiple or slicing index", parser, index
+      else if x.bind
+        throw ParserError "Cannot use @ when using a multiple or slicing index", parser, index
+      {
+        type: if x.type == "::" then \proto-access-index else \access-index
+        x.child
+        x.existential
+      }
+  sequential(
+    [\existential, bool MaybeQuestionMarkChar]
+    [\is-apply, bool MaybeAtSignChar]
+    [\args, InvocationArguments]) |> mutate #(x) -> {
+      type: \call
+      x.args
+      x.existential
+      -is-new
+      x.is-apply
+    })
 
-define SuperToken = word "super"
-namedlet SuperInvocation = short-circuit! SuperToken, sequential! [
-  SuperToken
-  ["child", maybe! (oneOf! [
-    sequential! [
+define BasicInvocationOrAccess = sequential(
+  [\is-new, bool maybe word("new")]
+  [\head, one-of(
+    sequential(
+      [\node, ThisShorthandLiteral]
+      [\existential, MaybeQuestionMarkChar]
+      [\owns, MaybeExclamationPointChar]
+      [\bind, MaybeAtSignChar]
+      [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x, parser, index) -> { type: \this-access } <<< x
+    PrimaryExpression |> mutate #(node as Node) -> { type: \normal, node })]
+  [\tail, zero-or-more InvocationOrAccessPart]) |> mutate #({is-new, head, tail}, parser, index)
+  convert-invocation-or-access is-new, {} <<< head, tail, parser, index
+
+define SuperInvocation = sequential(
+  word "super"
+  SHORT_CIRCUIT
+  [\child, maybe one-of(
+    sequential(
       EmptyLines
       Space
       Period
-      [\this, IdentifierNameConstOrNumberLiteral]
-    ]
-    sequential! [
+      [\this, IdentifierNameConstOrNumberLiteral])
+    sequential(
       OpenSquareBracketChar
       [\this, Expression]
-      CloseSquareBracket
-    ]
-  ]), NOTHING]
-  ["args", InvocationArguments]
-], #(x, o, i)
-  o.super i, if x.child != NOTHING then x.child else void, x.args
+      CloseSquareBracket))]
+  [\args, InvocationArguments]) |> mutate #({child, args}, parser, index)
+  parser.Super index, child, args
 
-define EvalToken = word \eval
-namedlet Eval = short-circuit! EvalToken, sequential! [
-  EvalToken
-  [\this, InvocationArguments]
-], #(args, o, i)
+define Eval = sequential(
+  word \eval
+  SHORT_CIRCUIT
+  [\this, InvocationArguments]) |> mutate #(args, parser, index)
   if args.length != 1
-    o.error("Expected only one argument to eval")
-  o.eval i, args[0]
+    throw ParserError "Expected only one argument to eval, got $(args.length)", parser, index
+  parser.Eval index, args[0]
 
-namedlet InvocationOrAccess = one-of! [
-  #(o)
-    if _in-ast.peek(o)
-      let i = o.index
-      let clone = o.clone()
-      Space(clone)
-      if not DollarSign clone
-        return false
-      _in-ast.push o, false
-      try
-        let args = InvocationArguments clone
-        if not args
-          return false
-        
-        o.update(clone)
-        o.call(i, o.ident(i, \$), args)
-      finally
-        _in-ast.pop(o)
+define InvocationOrAccess = one-of(
+  #(parser, index)
+    let in-ast = parser.in-ast
+    if not in-ast.peek()
+      return
+    let dollar = DollarSign parser, Space(parser, index).index
+    if not dollar
+      return
+    in-ast.push false
+    try
+      let args = InvocationArguments parser, dollar.index
+      if not args
+        return
+      
+      Box args.index, parser.Call index,
+        parser.Ident index, \$
+        args.value
+    finally
+      in-ast.pop()
   BasicInvocationOrAccess
   SuperInvocation
-  Eval
-]
+  Eval)
 
-namedlet CustomPostfixUnary = #(o)
-  let start-index = o.index
-  let line = o.line
-  let node = InvocationOrAccess o
+define PostfixUnaryOperation(parser, index)
+  let mutable node = InvocationOrAccess parser, index
   if not node
-    false
-  else
-    for operator in o.macros.postfix-unary-operators by -1
-      let clone = o.clone()
+    return
+  
+  let mutable found = true
+  while found
+    found := false
+    for operator in parser.postfix-unary-operators() by -1
       let {rule} = operator
-      let op = rule clone
+      let op = rule parser, node.index
       if not op
         continue
-      o.update clone
-      return operator.func {
-        op
-        node
-      }, o, start-index, line
-    node
+      node := Box op.index, operator.func {
+        op: op.value
+        node: node.value
+      }, parser, index
+      found := true
+      break
+  node
 
-namedlet CustomPrefixUnary = #(o)
-  let start-index = o.index
-  let line = o.line
-  for operator in o.macros.prefix-unary-operators by -1
-    let clone = o.clone()
+define PrefixUnaryOperation(parser, index)
+  for operator in parser.prefix-unary-operators() by -1
     let {rule} = operator
-    let op = rule clone
+    let op = rule parser, index
     if not op
       continue
-    let node = CustomPrefixUnary clone
+    let node = PrefixUnaryOperation parser, op.index
     if not node
       continue
-    o.update clone
-    return operator.func {
-      op
-      node
-    }, o, start-index, line
-  CustomPostfixUnary o
+    
+    return Box node.index, operator.func {
+      op: op.value
+      node: node.value
+    }, parser, index
+  PostfixUnaryOperation parser, index
 
-let get-use-custom-binary-operator = do
+let BinaryOperationByPrecedence = do
   let precedence-cache = []
-  #(precedence) -> precedence-cache[precedence] ?= cache #(o)
-    let start-index = o.index
-    let line = o.line
-    let {binary-operators} = o.macros
-    if binary-operators.length < precedence
-      CustomPrefixUnary o
-    else
-      let next-rule = get-use-custom-binary-operator(precedence + 1)
-      let head = next-rule o
-      if not head
-        false
-      else
-        let operators = binary-operators[precedence]
-        if operators
-          for operator in operators by -1
-            let {rule} = operator
-            let tail = []
-            while true
-              let clone = o.clone()
-              let mutable inverted = false
-              if operator.invertible
-                inverted := MaybeNotToken clone
-                if not inverted
-                  break
-              let op = rule clone
-              if not op
-                break
-              let node = next-rule clone
-              if not node
-                break
-              o.update clone
-              tail.push { inverted: inverted == "not", op, node }
-              if operator.maximum and tail.length >= operator.maximum
-                break
-            if tail.length
-              return if not operator.right-to-left
-                for reduce part in tail, left = head
-                  operator.func {
-                    left
-                    part.inverted
-                    part.op
-                    right: part.node
-                  }, o, start-index, line
-              else
-                for reduce part, j in tail by -1, right = tail[* - 1].node
-                  operator.func {
-                    left: if j == 0 then head else tail[j - 1].node
-                    part.inverted
-                    part.op
-                    right
-                  }, o, start-index, line
-        head
+  #(precedence) -> precedence-cache[precedence] or= cache #(parser, index)
+    let operators = parser.binary-operators(precedence)
+    if not operators
+      return PrefixUnaryOperation parser, index
+    
+    let next-rule = BinaryOperationByPrecedence precedence ~+ 1
+    let head = next-rule parser, index
+    if not head
+      return
+    
+    for operator in operators by -1
+      let {rule} = operator
+      let tail = []
+      let mutable current-index = head.index
+      while true
+        let mutable inverted = false
+        if operator.invertible
+          let invert = MaybeNotToken parser, current-index
+          if invert.value
+            inverted := true
+          current-index := invert.index
+        
+        let op = rule parser, current-index
+        if not op
+          break
+        
+        let node = next-rule parser, op.index
+        if not node
+          break
+        
+        current-index := node.index
+        tail.push { inverted, op: op.value, node: node.value }
+        if operator.maximum and tail.length >= operator.maximum
+          break
+      
+      if tail.length
+        let result = if not operator.right-to-left
+          for reduce part in tail, left = head.value
+            operator.func {
+              left
+              part.inverted
+              part.op
+              right: part.node
+            }, parser, index
+        else
+          for reduce part, j in tail by -1, right = tail[* - 1].node
+            operator.func {
+              left: if j == 0 then head.value else tail[j - 1].node
+              part.inverted
+              part.op
+              right
+            }, parser, index
+        return Box current-index, result
+    head
 
-let Logic = named("Logic", get-use-custom-binary-operator(0))
-namedlet ExpressionAsStatement = one-of! [
+redefine Logic = BinaryOperationByPrecedence(0)
+define ExpressionAsStatement = one-of(
   UseMacro
-  Logic
-]
-define Expression = in-expression ExpressionAsStatement 
+  Logic)
+redefine Expression = in-expression ExpressionAsStatement
 
-namedlet Statement = sequential! [
-  [\this, in-statement one-of! [
+define LicenseComment = sequential(
+  SpaceChars
+  [\this, #(parser, index)
+    let source = parser.source
+    unless C(source, index) == C("/") and C(source, index ~+ 1) == C("*") and C(source, index ~+ 2) == C("!")
+      return
+    
+    let mutable line = [C("/"), C("*"), C("!")]
+    let lines = [line]
+    let len = source.length
+    let mutable current-index = index ~+ 3
+    while true, current-index += 1
+      if current-index ~>= len
+        throw ParserError "Multi-line license comment never ends", parser, index
+      let ch = C(source, current-index)
+      if ch == C("*") and C(source, current-index ~+ 1) == C("/")
+        line.push C("*"), C("/")
+        let result = []
+        for l, i in lines
+          if i > 0
+            result.push "\n"
+          process-char-codes l, result
+        return Box current-index + 2, parser.Comment index, result.join ""
+      else if ch in [C("\r"), C("\n"), 8232, 8233]
+        if ch == C("\r") and C(data, current-index ~+ 1) == C("\n")
+          current-index ~+= 1
+        lines.push (line := [])
+        let indent = StringIndent(parser, current-index ~+ 1)
+        if not indent
+          throw ParserError "Improper indent in multi-line license comment", parser, current-index ~+ 1
+        current-index := indent.index ~- 1
+      else
+        line.push ch]
+  Space)
+
+define MacroSyntaxParameterType = sequential(
+  [\type, one-of(
+    Identifier
+    StringLiteral
+    sequential(
+      OpenParenthesis
+      EmptyLines
+      [\this, #(parser, index) -> MacroSyntaxParameters parser, index]
+      EmptyLines
+      MaybeCommaOrNewline
+      CloseParenthesis) |> mutate #(value, parser, index) -> parser.SyntaxSequence index, value
+    sequential(
+      OpenParenthesis
+      EmptyLines
+      [\this, #(parser, index) -> MacroSyntaxChoiceParameters parser, index]
+      EmptyLines
+      CloseParenthesis) |> mutate #(value, parser, index) -> parser.SyntaxChoice index, value)]
+  [\multiplier, maybe one-of(
+    symbol "?"
+    symbol "*"
+    symbol "+")]) |> mutate #({type, multiplier}, parser, index)
+  if multiplier
+    parser.SyntaxMany index, type, multiplier
+  else
+    type
+
+define MacroSyntaxParameter = one-of(
+  StringLiteral
+  sequential(
+    [\ident, one-of(ThisOrShorthandLiteral, Identifier)]
+    [\type, maybe sequential(
+      word "as"
+      [\this, MacroSyntaxParameterType])]) |> mutate #({ident, type}, parser, index)
+    parser.SyntaxParam index, ident, type)
+
+define MacroSyntaxParameters = separated-list(MacroSyntaxParameter, Comma)
+
+define MacroSyntaxChoiceParameters = separated-list(MacroSyntaxParameterType, Pipe)
+
+define MacroOptions = maybe (sequential(
+  word "with"
+  [\this, UnclosedObjectLiteral]) |> mutate #(object, parser, index)
+  if not object.is-literal()
+    throw ParserError "Macro options must be a literal object without any logic, invocation, or anything else", parser, index
+  object.literal-value()), #-> {}
+
+let add-macro-syntax-parameters-to-scope(params, scope)!
+  for param in params
+    if param instanceof SyntaxParamNode
+      let {ident} = param
+      if ident instanceof IdentNode
+        scope.add ident, true, Type.any
+
+define MacroSyntax = sequential(
+  CheckIndent
+  word "syntax"
+  SHORT_CIRCUIT
+  #(parser, index)
+    let scope = parser.push-scope(true)
+    let params = MacroSyntaxParameters parser, index
+    if not params
+      throw SHORT_CIRCUIT
+    let options = MacroOptions parser, params.index
+    parser.start-macro-syntax index, params.value, options.value
+    add-macro-syntax-parameters-to-scope params, scope
+    scope.add parser.Ident(index, \macro-name), true, Type.string
+    let body = FunctionBody parser, options.index
+    if not body
+      throw SHORT_CIRCUIT
+    parser.macro-syntax index, \syntax, params.value, options.value, body.value
+    parser.pop-scope()
+    Box body.index
+  Space
+  CheckStop)
+
+define MacroBody = one-of(
+  sequential(
+    #(parser, index) -> if parser.options.noindent then Colon(parser, index) else Box index
+    Space
+    Newline
+    EmptyLines
+    retain-indent sequential(
+      #(parser, index) -> if parser.options.noindent
+        MaybeAdvance parser, index
+      else
+        Advance parser, index
+      separated-list(
+        MacroSyntax
+        SomeEmptyLines)
+      PopIndent)
+    End)
+  #(parser, index)
+    let scope = parser.push-scope(true)
+    let params = ParameterSequence parser, index
+    if not params
+      throw SHORT_CIRCUIT
+    for param in params.value by -1
+      add-param-to-scope scope, param, true
+    let options = MacroOptions parser, params.index
+    let body = FunctionBody parser, options.index
+    if not body
+      throw SHORT_CIRCUIT
+    parser.macro-syntax index, \call, params.value, options.value, body.value
+    parser.pop-scope()
+    Box body.index, parser.Nothing index)
+
+let in-macro = make-alter-stack<Boolean> \in-macro, true
+define _DefineMacro = sequential(
+  word "macro"
+  [\this, in-macro #(parser, index)
+    let names = MacroNames parser, index
+    if not names
+      return
+    parser.enter-macro index, names.value
+    let body = MacroBody parser, names.index
+    parser.exit-macro()
+    Box body.index, parser.Nothing index])
+
+define DefineSyntax = do
+  let top-rule = sequential(
+    word "define"
+    word "syntax"
+    SHORT_CIRCUIT
+    [\name, Identifier]
+    EqualSign
+    [\value, MacroSyntaxParameters])
+  in-macro #(parser, index)
+    let top = top-rule parser, index
+    if not top
+      return
+    let body = FunctionBody parser, top.index
+    parser.define-syntax index, top.value.name.name, top.value.value, body?.value
+    Box (if body then body.index else top.index), parser.Nothing index
+
+define DefineHelper = sequential(
+  word "define"
+  word "helper"
+  SHORT_CIRCUIT
+  [\name, Identifier]
+  [\value, one-of(
+    sequential(
+      EqualSign
+      [\this, Expression])
+    FunctionDeclaration)]) |> mutate #({name, value}, parser, index)
+  parser.define-helper index, name, value
+  parser.Nothing index
+
+define DefineOperator = do
+  let main-rule = sequential(
+    word "define"
+    word "operator"
+    SHORT_CIRCUIT
+    [\type, one-of(
+      word "binary"
+      word "assign"
+      word "unary")]
+    [\ops, separated-list(NameOrSymbol, Comma)]
+    [\options, MacroOptions])
+  in-macro #(parser, index)
+    let x = main-rule parser, index
+    if not x
+      return
+    let {type, ops, options} = x.value
+    let scope = parser.push-scope(true)
+    switch type
+    case \binary, \assign
+      scope.add parser.Ident(index, \left), true, Type.any
+      scope.add parser.Ident(index, \op), true, Type.string
+      scope.add parser.Ident(index, \right), true, Type.any
+    case \unary
+      scope.add parser.Ident(index, \op), true, Type.string
+      scope.add parser.Ident(index, \node), true, Type.any
+    let body = FunctionBody parser, x.index
+    if not body
+      throw SHORT_CIRCUIT
+    let ret = switch type
+    case \binary; parser.define-binary-operator index, ops, options, body.value
+    case \assign; parser.define-assign-operator index, ops, options, body.value
+    case \unary; parser.define-unary-operator index, ops, options, body.value
+    default; throw Error()
+    parser.pop-scope()
+    Box body.index, parser.Nothing index
+
+define DefineMacro = one-of<NothingNode>(_DefineMacro, DefineSyntax, DefineHelper, DefineOperator)
+
+redefine Statement = sequential(
+  [\this, in-statement one-of<Node>(
     LicenseComment
     DefineMacro
-    DefineHelper
-    DefineOperator
-    DefineSyntax
     Assignment
-    ExpressionAsStatement
-  ]]
-  Space
-  // TODO: have statement decorators?
-]
+    ExpressionAsStatement)]
+  Space) // TODO: have statement decorators?
 
-namedlet LinePart = one-of! [
-  Statement
-  EmbeddedLiteralText
-]
-
-define Line = do
-  let SemicolonsStatement = sequential! [
-    Semicolons
-    [\this, Statement]
-  ]
-  #(o)
-    let clone = o.clone()
-    if not CheckIndent(clone)
-      return false
-    let parts = []
-    let mutable need-semicolon = false
-    while true
-      let mutable ret = EmbeddedLiteralText(clone)
-      if ret
-        need-semicolon := false
-        parts.push ret
-      else
-        ret := if need-semicolon
-          SemicolonsStatement(clone)
-        else
-          Statement(clone)
-        if ret
-          need-semicolon := true
-          parts.push ret
-        else
-          break
-    if parts.length > 0
-      Semicolons(clone)
-      o.update clone
-      parts
-    else
-      false
-
-let _Block = do
-  let mutator = #(lines, o, i)
-    let nodes = []
-    for item in lines
-      if item instanceof BlockNode and not item.label?
-        nodes.push ...item.nodes
-      else if item not instanceof NothingNode
-        nodes.push item
-    switch nodes.length
-    case 0; o.nothing i
-    case 1; nodes[0]
-    default; o.block i, nodes
+let unpretty-text(text as String)
+  text.replace r"\s+"g, " "
+define EmbeddedReadLiteralText(parser, index)
+  let source = parser.source
+  let len = source.length
+  let mutable current-index as Number = index
+  let codes = []
+  while current-index ~< len, current-index += 1
+    if EmbeddedOpen(parser, current-index) or EmbeddedOpenWrite(parser, current-index) or EmbeddedOpenComment(parser, current-index)
+      break
   
-  let run-sync = sequential! [
-    [\head, Line]
-    [\tail, zero-or-more! sequential! [
-      Newline
-      EmptyLines
-      [\this, Line]
-    ]]
-  ], #(x, o, i)
-    let lines = [...x.head]
-    for line in x.tail
-      lines.push ...line
-    mutator(lines, o, i)
-  
-  let run-async = #(o, callback)
-    let i = o.index
-    let mutable head = void
-    try
-      head := Line(o)
-    catch e
-      return callback e
-    if not head
-      return callback null, head
-    let lines = [...head]
-    let next()
-      try
-        let start-time = new Date().get-time()
-        while true
-          if new Date().get-time() - start-time > 5_ms
-            return next-tick next
-          let clone = o.clone()
-          if not Newline(clone) or not EmptyLines(clone)
-            break
-          let line = Line(clone)
-          if not line
-            break
-          o.update clone
-          lines.push ...line
-      catch e
-        return callback e
-      callback null, mutator(lines, o, i)
-    next()
-  
-  #(o, callback)
-    if callback?
-      run-async(o, callback)
-    else
-      run-sync(o)
+    let mutable c = C(source, current-index)
+    if c == C("\r") and C(source, current-index + 1) == C("\n")
+      c := C("\n")
+      current-index += 1
+    codes.push c
+  if current-index == index
+    return
+  let mutable text = codes-to-string(codes)
+  if parser.options.embedded-unpretty
+    text := unpretty-text(text)
+  Box current-index, parser.EmbedWrite index, parser.Const(index, text), false
 
-namedlet Block = one-of! [
-  sequential! [
-    CheckIndent
-    [\this, IndentedUnclosedObjectLiteralInner]
-  ]
-  sequential! [
-    CheckIndent
-    [\this, IndentedUnclosedArrayLiteralInner]
-  ]
-  _Block
-]
-
-let BOM = maybe! (character! "\uFEFF"), true
-
-let Shebang = maybe! (sequential! [
-  character! "#"
-  character! "!"
-  zero-or-more! any-except! Newline
-  maybe! Newline, true
-], true), true
-
-let Root = #(o, callback)
-  o.clear-cache()
-  let i = o.index
-  BOM(o)
-  Shebang(o)
-  EmptyLines(o)
-  asyncif block <- next, callback?
-    async err, block <- _Block o
-    if err?
-      o.clear-cache()
-      return callback(err)
-    next block
-  else
-    next _Block o
-  let mutable x = block or o.nothing(i)
-  EmptyLines(o)
-  Space(o)
-  let result = o.root i, o.options.filename, x
-  o.clear-cache()
-  if callback?
-    callback null, result
-  else
-    result
-
-let _allow-embedded-text = Stack true
-let disallow-embedded-text = make-alter-stack _allow-embedded-text, false
-
-namedlet EmbeddedWriteExpression = disallow-embedded-text sequential! [
-  except! EmbeddedOpenComment
-  EmbeddedOpenWrite
-  [\this, Expression]
-  EmbeddedCloseWrite
-], #(x, o, i) -> o.embed-write i, x, true
-
-namedlet EmbeddedBlock = sequential! [
-  except! EmbeddedOpenWrite
-  except! EmbeddedOpenComment
-  EmbeddedOpen
-  [\this, _Block]
-  EmbeddedClose
-]
-
-define EmbeddedLiteralTextInnerPart = one-of! [
-  EmbeddedComment
-  EmbeddedReadLiteralText
-  EmbeddedWriteExpression
-]
-
-define EmbeddedLiteralTextInner = zero-or-more! EmbeddedLiteralTextInnerPart, #(x, o, i) -> o.block i, x
-
-define EmbeddedLiteralTextInnerPartWithBlock = one-of! [
-  EmbeddedLiteralTextInnerPart
-  EmbeddedBlock
-]
-
-define EmbeddedLiteralTextInnerWithBlock = zero-or-more! EmbeddedLiteralTextInnerPartWithBlock, #(x, o, i) -> o.block i, x
-
-define EmbeddedLiteralText = sequential! [
-  #(o) -> o.options.embedded and _allow-embedded-text.peek(o) and o.index < o.data.length
-  EmbeddedClose
-  [\this, EmbeddedLiteralTextInner]
-  one-of! [
-    Eof
-    sequential! [
-      except! EmbeddedOpenComment
-      except! EmbeddedOpenWrite
-      EmbeddedOpen
-    ]
-  ]
-]
-
-let get-embedded-rule = do
-  let make-embedded-rule(text as String)
+let make-embedded-rule = do
+  let make(text as String)
     let len = text.length
     let codes = for i in 0 til len; C(text, i)
-    #(o)
-      let i = o.index
-      let data = o.data
-      for j in 0 til len
-        if C(data, i + j) != codes[j]
-          return false
-      o.index := i + len
-      text
-  let rules = {}
-  #(text as String)
-    if rules ownskey text
-      rules[text]
-    else
-      rules[text] := make-embedded-rule text
-let make-embedded-rule(key, default-value) -> #(o)
-  let mutable text = o.options[key]
-  if not is-string! text
-    text := default-value
-  get-embedded-rule(text)(o)
+    #(parser, index)
+      let source = parser.source
+      for i in 0 til len
+        if C(source, index + i) != codes[i]
+          return
+      Box index ~+ len, text
+  let rules = { extends null }
+  let get-embedded-rule(text) -> rules[text] or= make text
+  #(key as String, default-value) -> #(parser, index)
+    let mutable text = parser.options[key]
+    if not is-string! text
+      text := default-value
+    get-embedded-rule(text)(parser, index)
 define EmbeddedOpenComment = make-embedded-rule \embedded-open-comment, EMBED_OPEN_COMMENT_DEFAULT
 define EmbeddedCloseComment = make-embedded-rule \embedded-close-comment, EMBED_CLOSE_COMMENT_DEFAULT
 
-define EmbeddedComment = #(o)
-  let start-index = o.index
-  if EmbeddedOpenComment(o)
-    let len = o.data.length
-    while o.index ~< len
-      if EmbeddedCloseComment(o) or not AnyChar(o)
-        break
-    o.nothing start-index
-  else
-    false
+define EmbeddedComment(parser, index)
+  let open = EmbeddedOpenComment parser, index
+  if not open
+    return
+  let mutable current-index = open.index
+  let len = parser.source.length
+  while current-index ~< len
+    let close = EmbeddedCloseComment parser, current-index
+    if close
+      current-index := close.index
+      break
+    
+    let any = AnyChar parser, current-index
+    if not any
+      break
+    if current-index == any.index
+      throw Error "Infinite loop detected"
+    current-index := any.index
+  Box current-index, parser.Nothing index
 
 define EmbeddedOpen = make-embedded-rule \embedded-open, EMBED_OPEN_DEFAULT
-define EmbeddedClose = sequential! [
+define EmbeddedClose = sequential(
   EmptyLines
   Space
-  [\this, one-of! [
+  one-of(
     Eof
-    make-embedded-rule \embedded-close, EMBED_CLOSE_DEFAULT
-  ]]
-]
+    make-embedded-rule \embedded-close, EMBED_CLOSE_DEFAULT))
+
 define EmbeddedOpenWrite = make-embedded-rule \embedded-open-write, EMBED_OPEN_WRITE_DEFAULT
-define EmbeddedCloseWrite = sequential! [
+define EmbeddedCloseWrite = sequential(
   EmptyLines
   Space
-  [\this, one-of! [
+  one-of(
     Eof
-    make-embedded-rule \embedded-close-write, EMBED_CLOSE_WRITE_DEFAULT
-  ]]
-]
+    make-embedded-rule \embedded-close-write, EMBED_CLOSE_WRITE_DEFAULT))
 
-define ColonEmbeddedClose = sequential! [
+define ColonEmbeddedClose = sequential(Colon, EmbeddedClose)
+define ColonEmbeddedCloseWrite = sequential(Colon, EmbeddedCloseWrite)
+
+define NotEmbeddedOpenComment = except EmbeddedOpenComment
+define NotEmbeddedOpenWrite = except EmbeddedOpenWrite
+
+let disallow-embedded-text = make-alter-stack<Boolean> \allow-embedded-text, false
+
+define EmbeddedWriteExpression = disallow-embedded-text sequential(
+  NotEmbeddedOpenComment
+  EmbeddedOpenWrite
+  [\this, Expression]
+  EmbeddedCloseWrite) |> mutate #(node, parser, index)
+  parser.EmbedWrite index, node, true
+
+define EmbeddedLiteralTextInnerPart = one-of(
+  EmbeddedComment
+  EmbeddedWriteExpression
+  EmbeddedReadLiteralText)
+
+define EmbeddedLiteralTextInner = zero-or-more(EmbeddedLiteralTextInnerPart) |> mutate #(nodes, parser, index)
+  parser.Block index, nodes
+
+define EmbeddedLiteralText = sequential(
+  #(parser, index) -> if parser.options.embedded and parser.allow-embedded-text.peek() and index ~< parser.source.length then Box index
+  EmbeddedClose
+  [\this, EmbeddedLiteralTextInner]
+  one-of(
+    Eof
+    sequential(
+      NotEmbeddedOpenComment
+      NotEmbeddedOpenWrite
+      EmbeddedOpen)))
+
+define Semicolon = with-space SemicolonChar
+define Semicolons = zero-or-more Semicolon, true
+define Line = do
+  let SemicolonsStatement = sequential(
+    Semicolons
+    [\this, Statement])
+  
+  #(parser, index)
+    let indent = CheckIndent(parser, index)
+    if not indent
+      return
+    let mutable current-index = index
+    let parts = []
+    let mutable need-semicolon = false
+    while true
+      let mutable ret = EmbeddedLiteralText parser, current-index
+      if ret
+        if DEBUG and ret.value not instanceof Node
+          throw TypeError "Expected EmbeddedLiteralText to return a Node, got $(typeof! ret.value)"
+        need-semicolon := false
+        parts.push ret.value
+        current-index := ret.index
+      else
+        ret := if need-semicolon
+          SemicolonsStatement parser, current-index
+        else
+          Statement parser, current-index
+        if ret
+          if DEBUG and ret.value not instanceof Node
+            throw TypeError "Expected $(if need-semicolon then 'Semicolons' else '')Statement to return a Node, got $(typeof! ret.value)"
+          need-semicolon := true
+          parts.push ret.value
+          current-index := ret.index
+        else
+          break
+    if parts.length == 0
+      return
+    let end-semis = Semicolons parser, current-index
+    if end-semis
+      current-index := end-semis.index
+    Box current-index, parts
+
+let _Block-mutator(lines, parser, index)
+  let nodes = []
+  for item, i in lines
+    for part, j in item
+      if DEBUG and part not instanceof Node
+        throw TypeError "Expected lines[$i][$j] to be a Node, got $(typeof! part)"
+      else if part instanceof BlockNode and not item.label?
+        nodes.push ...part.nodes
+      else if part not instanceof NothingNode
+        nodes.push part
+  switch nodes.length
+  case 0; parser.Nothing index
+  case 1; nodes[0]
+  default; parser.Block index, nodes
+
+let _BlockWithClearCache = do
+  let sync-rule = mutate _Block-mutator, #(parser, index)
+    parser.clear-cache()
+    let head = Line parser, index
+    if not head
+      return
+    let result = [head.value]
+    let mutable current-index = head.index
+    while true
+      parser.clear-cache()
+      let separator = SomeEmptyLines parser, current-index
+      if not separator
+        break
+      let item = Line parser, separator.index
+      if not item
+        break
+      current-index := item.index
+      result.push item.value
+    parser.clear-cache()
+    Box current-index, result
+  #(parser, index, callback)
+    if not callback?
+      return sync-rule parser, index
+    parser.clear-cache()
+    let mutable head = void
+    try
+      head := Line parser, index
+    catch e
+      return callback e
+    if not head
+      return callback null
+    parser.clear-cache()
+    let result = [head.value]
+    let mutable current-index = head.index
+    let next()
+      parser.clear-cache()
+      let mutable separator = void
+      try
+        separator := SomeEmptyLines parser, current-index
+      catch e
+        return callback e
+      if not separator
+        return done()
+      let mutable item = void
+      try
+        item := Line parser, separator.index
+      catch e
+        return callback e
+      if not item
+        return done()
+      current-index := item.index
+      result.push item.value
+      set-immediate next
+    let done()
+      parser.clear-cache()
+      callback null, Box current-index, _Block-mutator result, parser, index
+    set-immediate next
+
+define _Block = mutate _Block-mutator, separated-list(
+  Line
+  SomeEmptyLines)
+
+define Block = one-of(
+  sequential(
+    CheckIndent
+    [\this, one-of<Node>(IndentedUnclosedObjectLiteralInner, IndentedUnclosedArrayLiteralInner)])
+  _Block)
+
+define EmbeddedBlock = sequential(
+  NotEmbeddedOpenWrite
+  NotEmbeddedOpenComment
+  EmbeddedOpen
+  [\this, _Block]
+  EmbeddedClose)
+
+define EmbeddedLiteralTextInnerPartWithBlock = one-of(EmbeddedLiteralTextInnerPart, EmbeddedBlock)
+
+define EmbeddedLiteralTextInnerWithBlock = zero-or-more(EmbeddedLiteralTextInnerPartWithBlock) |> mutate #(nodes, parser, index)
+  parser.Block index, nodes
+
+let EmbeddedLiteralTextInnerWithBlockWithClearCache = do
+  let sync-rule(parser, index)
+    let nodes = []
+    let mutable current-index = index
+    while true
+      parser.clear-cache()
+      let item = EmbeddedLiteralTextInnerPartWithBlock parser, current-index
+      if not item
+        break
+      nodes.push item.value
+      if current-index == item.index
+        throw Error "Infinite loop detected"
+      current-index := item.index
+    parser.clear-cache()
+    Box current-index, parser.Block index, nodes
+  #(parser, index, callback)
+    if not callback?
+      return sync-rule parser, index
+    let nodes = []
+    let mutable current-index = index
+    let next()
+      parser.clear-cache()
+      let mutable item = void
+      try
+        item := EmbeddedLiteralTextInnerPartWithBlock parser, current-index
+      catch e
+        return callback e
+      if not item
+        return done()
+      nodes.push item.value
+      if current-index == item.index
+        return callback Error "Infinite loop detected"
+      current-index := item.index
+      parser.clear-cache()
+      set-immediate next
+    let done()
+      parser.clear-cache()
+      callback null, Box current-index, parser.Block index, nodes
+    next()
+
+define EndNoIndent = sequential(
+  EmptyLines
+  Space
+  maybe Semicolons
+  word "end")
+
+define BodyWithIndent = retain-indent sequential(
+  Space
+  Newline
+  EmptyLines
+  Advance
+  [\this, Block]
+  PopIndent)
+
+define BodyNoIndentNoEnd = sequential(
+  #(parser, index)
+    if ColonNewline(parser, index) or (parser.options.embedded and (ColonEmbeddedClose(parser, index) or ColonEmbeddedCloseWrite(parser, index)))
+      Box index
   Colon
-  [\this, EmbeddedClose]
-]
-define ColonEmbeddedCloseWrite = sequential! [
-  Colon
-  [\this, EmbeddedCloseWrite]
-]
-let unpretty-text(text as String)
-  text.replace r"\s+"g, " "
-define EmbeddedReadLiteralText = #(o)
-  let {data, mutable index} = o
-  let start-index = index
-  let len = data.length
-  while index ~< len, index ~+= 1
-    o.index := index
-    if EmbeddedOpen(o.clone()) or EmbeddedOpenWrite(o.clone()) or EmbeddedOpenComment(o.clone())
-      break
-    let ch = C(data, index)
-    if ch in [C("\r"), C("\n"), 8232, 8233]
-      if ch == C("\r") and C(data, index ~+ 1) == C("\n")
-        index ~+= 1
-      o.line ~+= 1
-  o.index := index
-  if index == start-index
-    false
-  else
-    let mutable text = data.substring(start-index, index)
-    if o.options.embedded-unpretty
-      text := unpretty-text(text)
-    o.embed-write start-index, o.const(index, text), false
+  EmptyLines
+  [\this, #(parser, index)
+    let indent = parser.indent
+    indent.push indent.peek() ~+ 1
+    try
+      Block parser, index
+    finally
+      indent.pop()])
 
-namedlet EmbeddedRoot = #(o, callback)
-  o.clear-cache()
-  let start-index = o.index
-  BOM(o)
-  Shebang(o)
-  let node = EmbeddedLiteralTextInnerWithBlock(o)
-  let result = o.root start-index, o.options.filename, node, true, _in-generator.peek(o)
-  o.clear-cache()
-  if callback?
-    callback null, result
-  else
-    result
+define BodyNoIndent = sequential(
+  [\this, BodyNoIndentNoEnd]
+  EndNoIndent)
 
-namedlet EmbeddedRootGenerator = #(o, callback)
-  _in-generator.push o, true
+redefine Body = #(parser, index)
+  let scope = parser.push-scope(true)
+  let ret = if parser.options.noindent
+    BodyNoIndent parser, index
+  else
+    BodyWithIndent parser, index
+  parser.pop-scope()
+  ret
+
+redefine BodyNoEnd = #(parser, index)
+  let scope = parser.push-scope(true)
+  let ret = if parser.options.noindent
+    BodyNoIndentNoEnd parser, index
+  else
+    BodyWithIndent parser, index
+  parser.pop-scope()
+  ret
+
+let BOM = maybe character! "\uFEFF"
+
+let Shebang = maybe sequential(
+  HashSignChar
+  ExclamationPointChar
+  zero-or-more any-except Newline)
+
+let Root(parser as Parser, callback as ->|null)
+  let bom = BOM parser, 0
+  let shebang = Shebang parser, bom.index
+  let empty = EmptyLines parser, shebang.index
+  parser.clear-cache()
   if callback?
-    async err, result <- EmbeddedRoot o
-    _in-generator.pop(o)
+    async err, root <- _BlockWithClearCache parser, empty.index
+    if err?
+      parser.clear-cache()
+      return callback err
+    if not root
+      return callback null, null
+    let empty-again = EmptyLines parser, root.index
+    let end-space = Space parser, empty-again.index
+    parser.clear-cache()
+    callback null, Box end-space.index, parser.Root empty.index, parser.options.filename, root.value
+  else
+    try
+      let root = _BlockWithClearCache parser, 0
+      if not root
+        return
+      let empty-again = EmptyLines parser, root.index
+      let end-space = Space parser, empty-again.index
+      Box end-space.index, parser.Root 0, parser.options.filename, root.value
+    finally
+      parser.clear-cache()
+
+let EmbeddedRoot(parser as Parser, callback as ->|null)
+  let bom = BOM parser, 0
+  let shebang = Shebang parser, bom.index
+  parser.clear-cache()
+  if callback?
+    async err, root <- EmbeddedLiteralTextInnerWithBlockWithClearCache parser, shebang.index
+    parser.clear-cache()
+    if err?
+      return callback err
+    callback null, Box root.index, parser.Root 0, parser.options.filename, root.value, true, parser.in-generator.peek()
+  else
+    try
+      let root = EmbeddedLiteralTextInnerWithBlockWithClearCache parser, shebang.index
+      if not root
+        return
+      Box root.index, parser.Root 0, parser.options.filename, root.value, true, parser.in-generator.peek()
+    finally
+      parser.clear-cache()
+
+let EmbeddedRootGenerator(parser as Parser, callback as ->|null)
+  parser.in-generator.push true
+  if callback?
+    async err, result <- EmbeddedRoot parser
+    parser.in-generator.pop()
     callback err, result
   else
     try
-      return EmbeddedRoot(o)
+      return EmbeddedRoot parser
     finally
-      _in-generator.pop(o)
+      parser.in-generator.pop()
 
-class ParserError extends Error
-  def constructor(message as String = "Unknown error", text as String = "", line as Number = 0)
-    let err = super("$message at line #$line")
-    @message := err.message
-    if is-function! Error.capture-stack-trace
-      Error.capture-stack-trace this, ParserError
-    else if err haskey \stack
-      @stack := err.stack
-    @text := text
-    @line := line
-  def name = @name
-
-class MacroError extends Error
-  def constructor(inner as Error|null, text as String = "", line as Number = 0)
-    let inner-type = typeof! inner
-    let err = super("$(if inner-type == \Error then '' else inner-type & ': ')$(String inner?.message) at line #$line")
-    @message := err.message
-    if inner? and inner haskey \stack and is-string! inner.stack
-      @inner-stack := inner.stack
-      @stack := "MacroError at #$line: " & inner.stack
-    else if typeof Error.capture-stack-trace == \function
-      Error.capture-stack-trace this, MacroError
-    else if err haskey \stack
-      @stack := err.stack
-    @inner := inner
-    @text := text
-    @line := line
-  def name = @name
-  def set-line(line)!
-    @line := line
-    if @inner-stack?
-      @stack := "MacroError at #$line: " & @inner-stack
-
-let map(array, func, arg)
-  let result = []
-  let mutable changed = false
-  for item in array
-    let new-item = func item, arg
-    result.push new-item
-    if item != new-item
-      changed := true
-  if changed
-    result
-  else
-    array
-
-let map-async(array, func, ...args, callback)
-  let mutable changed = false
-  asyncfor err, result <- next, item in array
-    async! next, new-item <- func item, ...args
-    if item != new-item
-      changed := true
-    next null, new-item
-  if err?
-    callback err
-  else
-    callback null, if changed
-      result
-    else
-      array
-
-class FailureManager
-  def constructor()
-    @messages := []
-    @index := 0
-    @line := 0
-  
-  def add(message, index, line)!
-    if index > @index
-      @messages := []
-      @index := index
-    @line max= line
-    if index >= @index
-      @messages.push message
-
-let node-to-type = do
-  let ident-to-type = {
-    Boolean: Type.boolean
-    String: Type.string
-    Number: Type.number
-    Array: Type.array
-    Object: Type.object
-    Function: Type.function
-    RegExp: Type.regexp
-    Date: Type.date
-    Error: Type.error
-    RangeError: Type.error
-    ReferenceError: Type.error
-    SyntaxError: Type.error
-    TypeError: Type.error
-    URIError: Type.error
-  }
-  #(node as Node)
-    if node instanceof IdentNode
-      ident-to-type![node.name] or Type.any // TODO: possibly store types on scope
-    else if node instanceof ConstNode
-      if is-null! node.value
-        Type.null
-      else if is-void! node.value
-        Type.undefined
-      else
-        // shouldn't really occur
-        Type.any
-    else if node instanceof TypeGenericNode
-      let basetype = node-to-type(node.basetype)
-      let args = for arg in node.args; node-to-type(arg)
-      if basetype in [Type.array, Type.function]
-        Type.generic basetype.base, ...args
-      else if basetype != Type.any
-        Type.generic basetype, ...args
-      else
-        Type.any
-    else if node instanceof TypeUnionNode
-      for reduce type in node.types by -1, current = Type.none
-        current.union(node-to-type(type))
-    else if node instanceof TypeObjectNode
-      let data = {}
-      for {key, value} in node.pairs
-        if key instanceof ConstNode
-          data[key.value] := node-to-type(value)
-      Type.make-object data
-    else
-      // shouldn't really occur
-      Type.any
-class MacroHelper
-  def constructor(@state as State, @index, @position, @in-generator, @in-evil-ast)
-    @unsaved-tmps := []
-    @saved-tmps := []
-  
-  def do-wrap(node)
-    if node instanceof Node
-      node.do-wrap(@state)
-    else
-      node
-  
-  def let(ident as TmpNode|IdentNode, is-mutable as Boolean, mutable type as Type = Type.any)
-    if ident instanceof IdentNode and is-mutable and type.is-subset-of(Type.undefined-or-null)
-      type := Type.any
-    @state.scope.add(ident, is-mutable, type)
-  
-  def has-variable(ident as TmpNode|IdentNode)
-    @state.scope.has(ident)
-  
-  def is-variable-mutable(ident as TmpNode|IdentNode)
-    @state.scope.is-mutable(ident)
-  
-  def var(ident as IdentNode|TmpNode, is-mutable as Boolean) -> @state.var @index, ident, is-mutable
-  def def(key as Node = NothingNode(0, 0, @state.scope.id), value as Node|void) -> @state.def @index, key, @do-wrap(value)
-  def noop() -> @state.nothing @index
-  def block(nodes as [Node], label as IdentNode|TmpNode|null) -> @state.block(@index, nodes, label).reduce(@state)
-  def if(test as Node = NothingNode(0, 0, @state.scope.id), when-true as Node = NothingNode(0, 0, @state.scope.id), when-false as Node|null, label as IdentNode|TmpNode|null) -> @state.if(@index, @do-wrap(test), when-true, when-false, label).reduce(@state)
-  def switch(node as Node = NothingNode(0, 0, @state.scope.id), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null) -> @state.switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case, label).reduce(@state)
-  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, 0, @state.scope.id), label as IdentNode|TmpNode|null) -> @state.for(@index, @do-wrap(init), @do-wrap(test), @do-wrap(step), body, label).reduce(@state)
-  def for-in(key as IdentNode, object as Node = NothingNode(0, 0), body as Node = NothingNode(0, 0, @state.scope.id), label as IdentNode|TmpNode|null) -> @state.for-in(@index, key, @do-wrap(object), body, label).reduce(@state)
-  def try-catch(try-body as Node = NothingNode(0, 0, @state.scope.id), catch-ident as Node = NothingNode(0, 0, @state.scope.id), catch-body as Node = NothingNode(0, 0, @state.scope.id), label as IdentNode|TmpNode|null) -> @state.try-catch(@index, try-body, catch-ident, catch-body, label).reduce(@state)
-  def try-finally(try-body as Node = NothingNode(0, 0, @state.scope.id), finally-body as Node = NothingNode(0, 0, @state.scope.id), label as IdentNode|TmpNode|null) -> @state.try-finally(@index, try-body, finally-body, label).reduce(@state)
-  def assign(left as Node = NothingNode(0, 0, @state.scope.id), op as String, right as Node = NothingNode(0, 0, @state.scope.id)) -> @state.assign(@index, left, op, @do-wrap(right)).reduce(@state)
-  def binary(left as Node = NothingNode(0, 0, @state.scope.id), op as String, right as Node = NothingNode(0, 0, @state.scope.id)) -> @state.binary(@index, @do-wrap(left), op, @do-wrap(right)).reduce(@state)
-  def binary-chain(op as String, nodes as [Node])
-    if nodes.length == 0
-      throw Error "Expected nodes to at least have a length of 1"
-    let result = for reduce right in nodes[1 to -1], left = @do-wrap(nodes[0])
-      @state.binary(@index, left, op, @do-wrap(right))
-    result.reduce(@state)
-  def unary(op as String, node as Node = NothingNode(0, 0, @state.scope.id)) -> @state.unary(@index, op, @do-wrap(node)).reduce(@state)
-  def throw(node as Node = NothingNode(0, 0, @state.scope.id)) -> @state.throw(@index, @do-wrap(node)).reduce(@state)
-  def return(node as Node|void) -> @state.return(@index, @do-wrap(node)).reduce(@state)
-  def yield(node as Node = NothingNode(0, 0, @state.scope.id)) -> @state.yield(@index, @do-wrap(node)).reduce(@state)
-  def debugger() -> @state.debugger(@index)
-  def break(label as IdentNode|TmpNode|null) -> @state.break(@index, label)
-  def continue(label as IdentNode|TmpNode|null) -> @state.continue(@index, label)
-  def spread(node as Node) -> @state.spread(@index, node)
-  
-  def real(mutable node)
-    node := @macro-expand-1(node)
-    if node instanceof TmpWrapperNode
-      node.node
-    else
-      node
-  
-  def rewrap(new-node, mutable old-node)
-    old-node := @macro-expand-1(old-node)
-    if old-node instanceof TmpWrapperNode
-      if new-node instanceof TmpWrapperNode
-        TmpWrapperNode new-node.line, new-node.column, new-node.scope-id, new-node, old-node.tmps.concat(new-node.tmps)
-      else
-        TmpWrapperNode new-node.line, new-node.column, new-node.scope-id, new-node, old-node.tmps.slice()
-    else
-      new-node
-  
-  def eq(mutable alpha, mutable bravo)
-    alpha := @real alpha
-    bravo := @real bravo
-    if alpha instanceof ConstNode
-      bravo instanceof ConstNode and alpha.value == bravo.value
-    else if alpha instanceof IdentNode
-      bravo instanceof IdentNode and alpha.name == bravo.name
-    else
-      false
-  
-  def is-labeled-block(mutable node)
-    node := @real(node)
-    if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryCatchFinallyNode]
-      node.label?
-    else
-      false
-  
-  def is-break(node) -> @real(node) instanceof BreakNode
-  def is-continue(node) -> @real(node) instanceof ContinueNode
-  def label(mutable node)
-    node := @real(node)
-    if node instanceofsome [BreakNode, ContinueNode, BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryCatchFinallyNode]
-      node.label
-    else
-      null
-  def with-label(node, label as IdentNode|TmpNode|null)
-    node.with-label label, @state
-  
-  def macro-expand-1(node)
-    if node instanceof Node
-      let expanded = @state.macro-expand-1(node)
-      if expanded instanceof Node
-        expanded.reduce(@state)
-      else
-        expanded
-    else
-      node
-  
-  def macro-expand-all(node)
-    if node instanceof Node
-      let expanded = @state.macro-expand-all(node)
-      if expanded instanceof Node
-        expanded.reduce(@state)
-      else
-        expanded
-    else
-      node
-  
-  def tmp(name as String = \ref, save as Boolean, mutable type)
-    let id = get-tmp-id()
-    (if save then @saved-tmps else @unsaved-tmps).push id
-    if not type?
-      type := Type.any
-    else if is-string! type
-      if Type![type] not instanceof Type
-        throw Error "$type is not a known type name"
-      type := Type![type]
-    else if type not instanceof Type
-      throw Error "Must provide a Type or a string for type, got $(typeof! type)"
-      
-    @state.tmp @index, id, name, type
-  
-  def get-tmps()
-    unsaved: @unsaved-tmps.slice()
-    saved: @saved-tmps.slice()
-  
-  def is-const(node) -> is-void! node or (node instanceof Node and @real(node).is-const())
-  def value(node)
-    if is-void! node
-      void
-    else if node instanceof Node
-      let expanded = @real(node)
-      if expanded.is-const()
-        expanded.const-value()
-  def const(value)
-    @state.const @index, value
-  
-  def is-spread(node) -> @real(node) instanceof SpreadNode
-  def spread-subnode(mutable node)
-    node := @real(node)
-    if node instanceof SpreadNode
-      node.node
-  
-  def is-node(node) -> node instanceof Node
-  def is-ident(node) -> @real(node) instanceof IdentNode
-  def is-tmp(node) -> @real(node) instanceof TmpNode
-  def is-ident-or-tmp(node) -> @real(node) instanceofsome [IdentNode, TmpNode]
-  def name(mutable node)
-    node := @real(node)
-    if @is-ident node
-      node.name
-  def ident(name as String)
-    // TODO: don't assume JS
-    if require('./jsutils').is-acceptable-ident(name, true)
-      @state.ident @index, name
-  
-  def is-call(node) -> @real(node) instanceof CallNode
-  
-  def call-func(mutable node)
-    node := @real(node)
-    if node instanceof CallNode
-      node.func
-  
-  def call-args(mutable node)
-    node := @real(node)
-    if node instanceof CallNode
-      node.args
-  
-  def is-super(node) -> @real(node) instanceof SuperNode
-  
-  def super-child(mutable node)
-    node := @real(node)
-    if @is-super(node)
-      node.child
-  
-  def super-args(mutable node)
-    node := @real(node)
-    if @is-super(node)
-      node.args
-  
-  def call-is-new(mutable node)
-    node := @real(node)
-    if node instanceof CallNode
-      not not node.is-new
-    else
-      false
-  
-  def call-is-apply(mutable node)
-    node := @real(node)
-    if node instanceof CallNode
-      not not node.is-apply
-    else
-      false
-  
-  def call(func as Node, args as [Node] = [], is-new as Boolean = false, is-apply as Boolean = false)
-    if is-new and is-apply
-      throw Error "Cannot specify both is-new and is-apply"
-    
-    CallNode(func.line, func.column, @state.scope.id, @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new, is-apply).reduce(@state)
-  
-  def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
-    let clone = @state.clone(@state.clone-scope())
-    params := for param in params
-      let p = param.rescope(clone.scope.id, clone)
-      add-param-to-scope clone, p
-      p
-    FunctionNode(body.line, body.column, @state.scope.id, params, body.rescope(clone.scope.id, clone), auto-return, bound, curry, as-type, generator, generic).reduce(@state)
-  
-  def is-func(node) -> @real(node) instanceof FunctionNode
-  def func-body(mutable node)
-    node := @real node
-    if @is-func node then node.body
-  def func-params(mutable node)
-    node := @real node
-    if @is-func node then node.params
-  def func-is-auto-return(mutable node)
-    node := @real node
-    if @is-func node then not not node.auto-return
-  def func-is-bound(mutable node)
-    node := @real node
-    if @is-func node then not not node.bound and node.bound not instanceof Node
-  def func-is-curried(mutable node)
-    node := @real node
-    if @is-func node then not not node.curry
-  def func-as-type(mutable node)
-    node := @real node
-    if @is-func node then node.as-type
-  def func-is-generator(mutable node)
-    node := @real node
-    if @is-func node then not not node.generator
-  def func-generic(mutable node)
-    node := @real node
-    if @is-func node
-      node.generic.slice()
-    else
-      []
-  
-  def param(ident as Node, default-value, spread, is-mutable, as-type)
-    ParamNode(ident.line, ident.column, ident.scope-id, ident, default-value, spread, is-mutable, as-type).reduce(@state)
-  
-  def is-param(node) -> @real(node) instanceof ParamNode
-  def param-ident(mutable node)
-    node := @real node
-    if @is-param node then node.ident
-  def param-default-value(mutable node)
-    node := @real node
-    if @is-param node then node.default-value
-  def param-is-spread(mutable node)
-    node := @real node
-    if @is-param node then not not node.spread
-  def param-is-mutable(mutable node)
-    node := @real node
-    if @is-param node then not not node.is-mutable
-  def param-type(mutable node)
-    node := @real node
-    if @is-param node then node.as-type
-  
-  def is-array(node) -> @real(node) instanceof ArrayNode
-  def elements(mutable node)
-    node := @real node
-    if @is-array node then node.elements
-  
-  def array-has-spread(mutable node)
-    node := @real node
-    if node instanceof ArrayNode
-      for some element in node.elements
-        @real(element) instanceof SpreadNode
-    else
-      false
-  
-  def is-object(node) -> @real(node) instanceof ObjectNode
-  def pairs(mutable node)
-    node := @real node
-    if @is-object(node) or @is-type-object(node) then node.pairs
-  
-  def is-block(node) -> @real(node) instanceof BlockNode
-  def nodes(mutable node)
-    node := @real node
-    if @is-block node then node.nodes
-  
-  def array(elements as [Node])
-    @state.array(0, (for element in elements; @do-wrap(element))).reduce(@state)
-  def object(pairs as [{ key: Node, value: Node }])
-    @state.object(0, (for {key, value, property} in pairs; {key: @do-wrap(key), value: @do-wrap(value) property})).reduce(@state)
-  
-  def type(node)
-    if is-string! node
-      Type![node] or throw Error "Unknown type $(node)"
-    else if node instanceof Node
-      node.type(@state)
-    else
-      throw Error "Can only retrieve type from a String or Node, got $(typeof! node)"
-  
-  def to-type = node-to-type
-  
-  def is-complex(mutable node)
-    node := @real node
-    node? and node not instanceofsome [ConstNode, IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
-  
-  def is-noop(mutable node)
-    node := @real node
-    node.is-noop(@state)
-  
-  def is-nothing(mutable node)
-    @real(node) instanceof NothingNode
-  
-  def is-type-array(mutable node)
-    node := @real(node)
-    node instanceof TypeGenericNode and node.basetype instanceof IdentNode and node.basetype.name == \Array
-  def subtype(mutable node)
-    node := @real node
-    if node instanceof TypeGenericNode
-      if node.basetype instanceof IdentNode and node.basetype.name == \Array
-        node.args[0]
-  
-  def is-type-generic(node) -> @real(node) instanceof TypeGenericNode
-  def basetype(mutable node)
-    node := @real node
-    node instanceof TypeGenericNode and node.basetype
-  def type-arguments(mutable node)
-    node := @real node
-    node instanceof TypeGenericNode and node.args
-  
-  def is-type-object(node) -> @real(node) instanceof TypeObjectNode
-  
-  def is-type-function(mutable node)
-    node := @real(node)
-    node instanceof TypeGenericNode and node.basetype instanceof IdentNode and node.basetype.name == \Function
-  def return-type(mutable node)
-    node := @real node
-    if node instanceof TypeGenericNode
-      if node.basetype instanceof IdentNode and node.basetype.name == \Function
-        node.args[0]
-  
-  def is-type-union(node) -> @real(node) instanceof TypeUnionNode
-  def types(mutable node)
-    node := @real node
-    @is-type-union(node) and node.types
-  
-  def is-this(node) -> @real(node) instanceof ThisNode
-  def is-arguments(mutable node)
-    node := @real node
-    node instanceof ArgsNode
-  
-  def is-def(node) -> @real(node) instanceof DefNode
-  def is-assign(node) -> @real(node) instanceof AssignNode
-  def is-binary(node) -> @real(node) instanceof BinaryNode
-  def is-unary(node) -> @real(node) instanceof UnaryNode
-  def op(mutable node)
-    node := @real node
-    if @is-assign(node) or @is-binary(node) or @is-unary(node)
-      node.op
-  def left(mutable node)
-    node := @real node
-    if @is-def(node) or @is-binary(node)
-      node.left
-  def right(mutable node)
-    node := @real node
-    if @is-def(node) or @is-binary(node)
-      node.right
-  def unary-node(mutable node)
-    node := @real node
-    if @is-unary(node)
-      node.node
-
-  def is-access(node) -> @real(node) instanceof AccessNode
-  def parent(mutable node)
-    node := @real node
-    if node instanceof AccessNode
-      node.parent
-  def child(mutable node)
-    node := @real node
-    if node instanceof AccessNode
-      node.child
-  
-  def is-if(node) -> @real(node) instanceof IfNode
-  def test(mutable node)
-    node := @real(node)
-    if node instanceof IfNode
-      node.test
-  def when-true(mutable node)
-    node := @real(node)
-    if node instanceof IfNode
-      node.when-true
-  def when-false(mutable node)
-    node := @real(node)
-    if node instanceof IfNode
-      node.when-false
-  
-  def cache(node as Node, init, name as String = \ref, save as Boolean)
-    @maybe-cache node, (#(set-node, node, cached)
-      if cached
-        init.push set-node
-      node), name, save
-  
-  def maybe-cache(mutable node as Node, func, name as String = \ref, save as Boolean)
-    node := @macro-expand-1(node)
-    if @is-complex node
-      let type = node.type(@state)
-      let tmp = @tmp(name, save, type)
-      @state.scope.add tmp, false, type
-      func @state.block(@index, [
-        @state.var @index, tmp, false
-        @state.assign @index, tmp, "=", @do-wrap(node)
-      ]), tmp, true
-    else
-      func node, node, false
-  
-  def maybe-cache-access(mutable node as Node, func, parent-name as String = \ref, child-name as String = \ref, save as Boolean)
-    node := @macro-expand-1 node
-    if @is-access(node)
-      @maybe-cache @parent(node), (#(set-parent, parent, parent-cached)@
-        @maybe-cache @child(node), (#(set-child, child, child-cached)@
-          if parent-cached or child-cached
-            func(
-              @state.access(@index, set-parent, set-child)
-              @state.access(@index, parent, child)
-              true)
-          else
-            func node, node, false), child-name, save), parent-name, save
-    else
-      func node, node, false
-  
-  def empty(node)
-    if not node?
-      true
-    else if node not instanceof Node
-      false
-    else if node instanceof BlockNode
-      for every item in node.nodes by -1; @empty(item)
-    else
-      node instanceof NothingNode
-  
-  let constify-object(obj, line, column, scope-id)
-    if not is-object! obj or obj instanceof RegExp
-      ConstNode line, column, scope-id, obj
-    else if is-array! obj
-      ArrayNode line, column, scope-id, for item in obj
-        constify-object item, line, column, scope-id
-    else if obj instanceof IdentNode and obj.name.length > 1 and C(obj.name, 0) == C('$')
-      CallNode obj.line, obj.column, obj.scope-id,
-        IdentNode obj.line, obj.column, obj.scope-id, \__wrap
-        [
-          IdentNode obj.line, obj.column, obj.scope-id, obj.name.substring 1
-          ConstNode obj.line, obj.column, obj.scope-id, obj.scope-id
-        ]
-    else if obj instanceof CallNode and not obj.is-new and not obj.is-apply and obj.func instanceof IdentNode and obj.func.name == '$'
-      if obj.args.length != 1 or obj.args[0] instanceof SpreadNode
-        throw Error "Can only use \$() in an AST if it has one argument."
-      CallNode obj.line, obj.column, obj.scope-id,
-        IdentNode obj.line, obj.column, obj.scope-id, \__wrap
-        [
-          obj.args[0]
-          ConstNode obj.line, obj.column, obj.scope-id, obj.scope-id
-        ]
-    else if obj instanceof Node
-      if obj.constructor == Node
-        throw Error "Cannot constify a raw node"
-      
-      CallNode obj.line, obj.column, obj.scope-id,
-        IdentNode obj.line, obj.column, obj.scope-id, \__node
-        [
-          ConstNode obj.line, obj.column, obj.scope-id, obj.constructor.capped-name
-          ConstNode obj.line, obj.column, obj.scope-id, obj.line
-          ConstNode obj.line, obj.column, obj.scope-id, obj.column
-          ...(for k in obj.constructor.arg-names
-            constify-object obj[k], obj.line, obj.column, obj.scope-id)
-        ]
-    else
-      ObjectNode line, column, scope-id, for k, v of obj
-        key: ConstNode line, column, scope-id, k
-        value: constify-object v, line, column, scope-id
-  @constify-object := constify-object
-  
-  let walk(node, func)
-    if not is-object! node or node instanceof RegExp
-      return node
-    
-    if node not instanceof Node
-      throw Error "Unexpected type to walk through: $(typeof! node)"
-    if node not instanceof BlockNode
-      return? func(node)
-    node.walk(#(x) -> walk x, func)
-  
-  def wrap(value)
-    if is-array! value
-      BlockNode(0, 0, @state.scope.id, value).reduce(@state)
-    else if value instanceof Node
-      value
-    else if not value?
-      NothingNode(0, 0, @state.scope.id)
-    else if value instanceof RegExp or typeof value in [\string, \boolean, \number]
-      ConstNode(0, 0, @state.scope.id, value)
-    else
-      value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
-  
-  def node(type, line, column, ...args)
-    Node[type](line, column, @state.scope.id, ...args).reduce(@state)
-  
-  def walk(node as Node|void|null, func as Node -> Node)
-    if node?
-      walk node, func
-    else
-      node
-  
-  def has-func(node)
-    if @_has-func?
-      @_has-func
-    else
-      let FOUND = {}
-      let walker(x)
-        if x instanceof FunctionNode
-          throw FOUND
-        else
-          x.walk(walker)
-      try
-        walk @macro-expand-all(node), walker
-      catch e
-        if e != FOUND
-          throw e
-        return (@_has-func := true)
-      @_has-func := false
-  
-  def is-statement(mutable node)
-    node := @macro-expand-1 node // TODO: should this be macro-expand-all?
-    node instanceof Node and node.is-statement()
-  
-  def is-type(node, name as String)
-    let type = Type![name]
-    if not type? or type not instanceof Type
-      throw Error "$name is not a known type name"
-    node.type(@state).is-subset-of(type)
-  
-  def has-type(node, name as String)
-    let type = Type![name]
-    if not type? or type not instanceof Type
-      throw Error "$name is not a known type name"
-    node.type(@state).overlaps(type) // TODO: should this be macro-expand-all?
-  
-  let mutators =
-    Block: #(x, func)
-      let {nodes} = x
-      let len = nodes.length
-      if len != 0
-        let last-node = @mutate-last(nodes[len - 1], func)
-        if last-node != nodes[len - 1]
-          return BlockNode x.line, x.column, x.scope-id, [...nodes[0 til -1], last-node], x.label
-      x
-    If: #(x, func)
-      let when-true = @mutate-last x.when-true, func
-      let when-false = @mutate-last x.when-false, func
-      if when-true != x.when-true or when-false != x.when-false
-        IfNode x.line, x.column, x.scope-id, x.test, when-true, when-false, x.label
-      else
-        x
-    Switch: #(x, func)
-      let cases = map x.cases, #(case_)@
-        if case_.fallthrough
-          case_
-        else
-          let body = @mutate-last case_.body, func
-          if body != case_.body
-            { case_.node, body, case_.fallthrough }
-          else
-            case_
-      let default-case = @mutate-last (x.default-case or @noop()), func
-      if cases != x.cases or default-case != x.default-case
-        SwitchNode x.line, x.column, x.scope-id, x.node, cases, default-case, x.label
-      else
-        x
-    TmpWrapper: #(x, func)
-      let node = @mutate-last x.node, func
-      if node != x.node
-        TmpWrapperNode x.line, x.column, x.scope-id, node, x.tmps
-      else
-        x
-    MacroAccess: #(x, func)
-      @mutate-last @macro-expand-1(x), func
-    Break: identity
-    Continue: identity
-    Nothing: identity
-    Return: identity
-    Debugger: identity
-    Throw: identity
-  def mutate-last(mutable node, func as Node -> Node, include-noop)
-    if not is-object! node or node instanceof RegExp
-      return node
-    
-    if node not instanceof Node
-      throw Error "Unexpected type to mutate-last through: $(typeof! node)"
-    
-    if mutators not ownskey node.constructor.capped-name or (include-noop and node instanceof NothingNode)
-      func(node) ? node
-    else
-      mutators[node.constructor.capped-name]@(this, node, func)
-  
-  def can-mutate-last(node)
-    node instanceof Node and mutators ownskey node.constructor.capped-name
-
-let one-of(rules as [Function])
-  let name = ["("]
-  for rule, i in rules
-    if i > 0
-      name.push " | "
-    name.push rule.parser-name or "<unknown>"
-  name.push ")"
-  named name.join(""), #(o)
-    for rule in rules
-      let result = rule o
-      if result
-        return result
-    false
-
-namedlet AnyObjectLiteral = one-of! [
+define AnyObjectLiteral = one-of(
   UnclosedObjectLiteral
   ObjectLiteral
-  IndentedUnclosedObjectLiteral
-]
+  IndentedUnclosedObjectLiteral)
 
-namedlet AnyArrayLiteral = one-of! [
+define AnyArrayLiteral = one-of(
   ArrayLiteral
-  IndentedUnclosedArrayLiteral
-]
+  IndentedUnclosedArrayLiteral)
 
-class MacroHolder
-  def constructor()
-    @by-name := {}
-    @by-id := []
-    @by-label := {}
-    @type-by-id := []
-    @operator-names := {}
-    @binary-operators := []
-    @assign-operators := []
-    @prefix-unary-operators := []
-    @postfix-unary-operators := []
-    @serialization := {}
-    @helpers := {}
-    @syntaxes := {
-      Logic: prevent-unclosed-object-literal Logic
-      Expression
-      Assignment
-      ExpressionOrAssignment
-      FunctionDeclaration
-      Statement
-      Body
-      BodyNoEnd
-      GeneratorBody
-      GeneratorBodyNoEnd
-      End
-      Identifier
-      SimpleAssignable
-      Parameter
-      InvocationArguments
-      ObjectLiteral: AnyObjectLiteral
-      ArrayLiteral: AnyArrayLiteral
-      DedentedBody
-      ObjectKey
-      Type: TypeReference
-      NoSpace
-    }
-  
-  def clone()
-    let clone = MacroHolder()
-    clone.by-name := {} <<< @by-name
-    clone.by-id := @by-id.slice()
-    clone.by-label := {} <<< @by-label
-    clone.type-by-id := @type-by-id.slice()
-    clone.operator-names := {} <<< @operator-names
-    clone.binary-operators := @binary-operators.slice()
-    clone.assign-operators := @assign-operators.slice()
-    clone.prefix-unary-operators := @prefix-unary-operators.slice()
-    clone.postfix-unary-operators := @postfix-unary-operators.slice()
-    clone.serialization := {} <<< @serialization
-    clone.helpers := {} <<< @helpers
-    clone.syntaxes := {} <<< @syntaxes
-    clone
+define DedentedBody = with-space one-of(
+  sequential(
+    Newline
+    EmptyLines
+    [\this, Block])
+  sequential(
+    #(parser, index) -> if parser.options.embedded then Box index
+    check EmbeddedClose
+    EmptyLines
+    [\this, Block])
+  Nothing)
 
-  def get-by-name(name)
-    @by-name![name]
+class Stack<T>
+  def constructor(initial as T)
+    @initial := initial
+    @data := []
   
-  def get-or-add-by-name(name)
-    let by-name = @by-name
-    if by-name ownskey name
-      by-name[name]
+  def count() as Number -> @data.length
+  def push(value as T)! -> @data.push value
+  def pop() as T
+    let data = @data
+    if data.length == 0
+      throw Error "Cannot pop"
+    data.pop()
+  def can-pop() as Boolean -> @data.length > 0
+  def peek() as T
+    let data = @data
+    let len = data.length
+    if len == 0
+      @initial
     else
-      let token = macro-name name
-      let m = short-circuit! token, named "<$name macro>", #(o)
-        for item in m.data
-          let result = item o
-          if result
-            return result
-        false
-      m.token := token
-      m.data := []
-      by-name[name] := m
-  
-  def get-or-add-by-names(names as [String])
-    return for name in names
-      @get-or-add-by-name name
-  
-  def set-type-by-id(id as Number, type as Type)!
-    @type-by-id[id] := type
-  
-  def get-type-by-id(id)
-    @type-by-id[id]
-  
-  def get-by-id(id)
-    let by-id = @by-id
-    if id >= 0 and id < by-id.length
-      by-id[id]
-  
-  def add-macro(m, mutable macro-id as Number|void, type as Type|String|void)
-    let by-id = @by-id
-    if macro-id?
-      if by-id ownskey macro-id
-        throw Error "Cannot add macro #$(macro-id), as it already exists"
-      by-id[macro-id] := m
-    else
-      by-id.push m
-      macro-id := by-id.length - 1
-    if type?
-      @type-by-id[macro-id] := type
-    macro-id
-  
-  def replace-macro(id, m, type as Type|void)!
-    let by-id = @by-id
-    by-id[id] := m
-    if type?
-      @type-by-id[id] := type
-  
-  def has-macro-or-operator(name)
-    @by-name ownskey name or @operator-names ownskey name
-  
-  def get-macro-and-operator-names()
-    let names = []
-    for name of @by-name
-      names.push name
-    for name of @operator-names
-      names.push name
-    names
-  
-  def add-binary-operator(operators, m, options, macro-id)
-    for op in operators by -1
-      @operator-names[op] := true
-    let precedence = Number(options.precedence) or 0
-    let binary-operators = @binary-operators[precedence] ?= []
-    let data =
-      rule: one-of for op in operators
-        word-or-symbol op
-      func: m
-      right-to-left: not not options.right-to-left
-      maximum: options.maximum or 0
-      minimum: options.minimum or 0
-      invertible: not not options.invertible
-    binary-operators.push data
-    if options.label
-      @add-by-label options.label, data
-    @add-macro m, macro-id, if options.type in [\left, \right] then options.type else if options.type? then Type![options.type]
-  
-  def get-by-label(label)
-    @by-label![label]
-  
-  def add-by-label(label as String, data)
-    @by-label[label] := data
-  
-  def add-assign-operator(operators, m, options, macro-id)
-    for op in operators by -1
-      @operator-names[op] := true
-    let data = 
-      rule: one-of for op in operators
-        if op == ":="
-          ColonEqual
-        else
-          word-or-symbol op
-      func: m
-    @assign-operators.push data
-    if options.label
-      @add-by-label options.label, data
-    @add-macro m, macro-id, if options.type in [\left, \right] then options.type else if options.type? then Type![options.type]
-  
-  def add-unary-operator(operators, m, options, macro-id)
-    for op in operators by -1
-      @operator-names[op] := true
-    let store = if options.postfix then @postfix-unary-operators else @prefix-unary-operators
-    let data =
-      rule: one-of for op in operators
-        let rule = word-or-symbol op
-        if not r"[a-zA-Z]".test(op)
-          if options.postfix
-            sequential [
-              NoSpace
-              [\this, rule]
-            ]
-          else
-            sequential [
-              [\this, rule]
-              NoSpace
-            ]
-        else
-          rule
-      func: m
-      standalone: not options ownskey \standalone or not not options.standalone
-    store.push data
-    if options.label
-      @add-by-label options.label, data
-    @add-macro m, macro-id, if options.type == \node then options.type else if options.type? then Type![options.type]
-  
-  def add-serialized-helper(name as String, helper, type, dependencies)!
-    let helpers = (@serialization.helpers ?= {})
-    helpers[name] := { helper, type, dependencies }
-  
-  def add-macro-serialization(serialization as {type: String})!
-    let obj = {} <<< serialization
-    delete obj.type
-    let by-type = (@serialization[serialization.type] ?= [])
-    by-type.push obj
-  
-  def add-syntax(name as String, value as Function)!
-    if @syntaxes ownskey name
-      throw Error "Cannot override already-defined syntax: $(name)"
-    @syntaxes[name] := value
-  
-  def has-syntax(name as String)
-    @syntaxes ownskey name
-  
-  def get-syntax(name as String)
-    if @syntaxes ownskey name
-      @syntaxes[name]
-    else
-      throw Error "Unknown syntax: $(name)"
-  
-  def serialize(allow-JS as Boolean)
-    let serialization = {} <<< @serialization
-    let helpers = serialization!.helpers
-    if helpers
-      for name, helper of helpers
-        for dep, i in helper.dependencies by -1
-          if helpers not ownskey dep
-            helper.dependencies.splice i, 1
-    if allow-JS
-      require('./jsutils').to-JS-source(serialization)
-    else
-      JSON.stringify(serialization)
-  
-  def deserialize(data)!
-    // TODO: pass in the output language rather than assume JS
-    require! ast: './jsast'
-    for name, {helper, type, dependencies} of (data!.helpers ? {})
-      @add-helper name, ast.fromJSON(helper), Type.fromJSON(type), dependencies
-    
-    State("", this).deserialize-macros(data)
-  
-  def add-helper(name as String, value, type as Type, dependencies as [String])
-    if @helpers ownskey name
-      throw Error "Trying to overwrite helper $name"
-    @helpers[name] := { value, type, dependencies }
+      data[len - 1]
 
-  def has-helper(name as String)
-    @helpers ownskey name
+let make-macro-holder()
+  MacroHolder {
+    Logic: prevent-unclosed-object-literal Logic
+    Expression
+    Assignment
+    ExpressionOrAssignment
+    FunctionDeclaration
+    Statement
+    Body
+    BodyNoEnd
+    GeneratorBody
+    GeneratorBodyNoEnd
+    End
+    Identifier
+    SimpleAssignable: IdentifierOrSimpleAccess
+    Parameter
+    InvocationArguments
+    ObjectLiteral: AnyObjectLiteral
+    ArrayLiteral: AnyArrayLiteral
+    DedentedBody
+    ObjectKey
+    Type: TypeReference
+    NoSpace
+    ColonEqual
+  }, macro-name, word-or-symbol, one-of, sequential
 
-  def get-helper(name as String)
-    if @helpers ownskey name
-      @helpers[name].value
-    else
-      throw Error "No such helper: $name"
-
-  def helper-type(name as String)
-    if @helpers ownskey name
-      @helpers[name].type
-    else
-      throw Error "No such helper: $name"
-
-  def helper-dependencies(name as String)
-    if @helpers ownskey name
-      @helpers[name].dependencies
-    else
-      throw Error "No such helper: $name"
-
-class Node
-  def constructor() -> throw Error "Node should not be instantiated directly"
+class Parser
+  def constructor(@source as String = "", @macros as MacroHolder = make-macro-holder(), @options as {} = {})
+    @indent := Stack<Number>(0)
+    @position := Stack<String>(\statement)
+    @in-ast := Stack<Boolean>(false)
+    @in-generator := Stack<Boolean>(false)
+    @in-function-type-params := Stack<Boolean>(false)
+    @prevent-unclosed-object-literal := Stack<Boolean>(false)
+    @allow-embedded-text := Stack<Boolean>(true)
+    @in-macro := Stack<Boolean>(false)
+    @in-ast := Stack<Boolean>(false)
+    @in-evil-ast := Stack<Boolean>(false)
+    @asterix-as-array-length := Stack<Boolean>(false)
+    @scope := Stack<Scope>(Scope(null, true))
+    @failure-messages := []
+    @failure-index := -1
+    @calculate-line-info()
+    @cache := []
+    @current-tmp-id := -1
   
-  def type() -> Type.any
-  def walk(f) -> this
-  def walk-async(f, callback) -> callback(null, this)
-  def cacheable = true
-  def scope(o) -> o.get-scope(@scope-id)
-  def with-label(label as IdentNode|TmpNode|null)
-    BlockNode @line, @column, @scope-id, [this], label
-  def _reduce(o)
-    @walk #(node) -> node.reduce(o)
-  def reduce(o as State)
-    if @_reduced?
-      @_reduced
+  def build-error(message as String, node as Number|Node)
+    let index = if is-number! node
+      node
     else
-      let reduced = @_reduce(o)
-      if reduced == this
-        @_reduced := this
-      else
-        @_reduced := reduced.reduce(o)
-  def is-const() -> false
-  def const-value() -> throw Error("Not a const: $(typeof! node)")
-  def is-noop(o) -> @reduce(o)._is-noop(o)
-  def _is-noop(o) -> false
-  def is-statement() -> false
-  def rescope(new-scope-id, o)
-    let old-scope-id = @scope-id
-    if old-scope-id == new-scope-id
-      this
-    else
-      @scope-id := new-scope-id
-      @walk #(node)
-        if node.scope-id == old-scope-id
-          node.rescope new-scope-id, o
-        else if node.scope-id != new-scope-id
-          let node-scope = node.scope(o)
-          if node-scope.parent?
-            let parent-id = node-scope.parent.id
-            if parent-id == old-scope-id
-              node-scope.reparent(o.get-scope(new-scope-id))
-          node
-        else
-          node
-  def do-wrap(o)
-    if @is-statement()
-      let inner-scope = o.clone-scope(o.get-scope(@scope-id))
-      CallNode(@line, @column, @scope-id, FunctionNode(@line, @column, @scope-id, [], @rescope(inner-scope.id, o), true, true), [])
-    else
-      this
-
-let inspect-helper(depth, name, line, column, ...args)
-  let d = if depth? then depth - 1 else null
-  let mutable found = false
-  for arg in args by -1
-    if not arg or arg instanceof NothingNode or (is-array! arg and arg.length == 0)
-      args.pop()
-    else
-      break
-
-  let mutable parts = for arg in args; inspect(arg, null, d)
-  let has-large = for some part in parts
-    parts.length > 50 or part.index-of("\n") != -1
-  if has-large
-    parts := for part in parts
-      "  " & part.split("\n").join("\n  ")
-    "$name(\n$(parts.join ',\n'))"
-  else
-    "$name($(parts.join ', '))"
-
-macro node-class
-  syntax ident as Identifier, args as ("(", head as Parameter, tail as (",", this as Parameter)*, ")")?, body as Body?
-    
-    let params =
-      * @param AST line, null, null, null, AST Number
-      * @param AST column, null, null, null, AST Number
-      * @param AST scope-id, null, null, null, AST Number
-    let full-name = @name(ident)
-    if full-name.slice(-4) != "Node"
-      throw Error "node-class's name must end in 'Node', got $(full-name)"
-    let capped-name = full-name.slice(0, -4)
-    let lower-name = capped-name.char-at(0).to-lower-case() & capped-name.substring(1)
-    let type = @ident(full-name)
-    let mutable ctor-body = AST
-      @line := line
-      @column := column
-      @scope-id := scope-id
-      @_reduced := void
-      @_macro-expanded := void
-      @_macro-expand-alled := void
-    let inspect-parts = []
-    let mutable arg-names = []
-    if args
-      args := [args.head, ...args.tail]
-    else
-      args := []
-    for arg, i in args
-      params.push arg
-      let ident = @param-ident arg
-      let key = @const(@name(ident))
-      ctor-body := AST
-        $ctor-body
-        @[$key] := $ident
-      arg-names.push key
-      inspect-parts.push ASTE @[$key]
-    
-    let find-def(name)@
-      if body
-        let FOUND = {}
-        let find-walk(node)@
-          @walk node, #(node)@
-            if @is-def(node)
-              let key = @left(node)
-              if @is-const(key) and @value(key) == name
-                throw FOUND
-        try
-          find-walk(body)
-        catch e == FOUND
-          return true
-      false
-    
-    let is-node-type(arg)@
-      let param-type = @param-type(arg) or arg
-      if @is-ident(param-type) and @name(param-type).slice(-4) == \Node
-        true
-      else if @is-type-union(param-type)
-        for every type in @types(param-type)
-          is-node-type(type)
-    let has-node-type(arg)@
-      @is-type-union(@param-type(arg)) and for some type in @types(@param-type(arg)); is-node-type(type)
-    let is-node-array-type(arg)@
-      @is-type-array(@param-type(arg)) and @is-ident(@subtype(@param-type(arg))) and @name(@subtype(@param-type(arg))) == \Node
-    
-    let add-methods = []
-    if not find-def \inspect
-      add-methods.push AST def inspect(depth) -> inspect-helper depth, $full-name, @line, @column, ...$(@array inspect-parts)
-    if args.length and not find-def \walk
-      let walk-init = []
-      let mutable walk-check = AST false
-      let mutable walk-args = []
-      for arg in args
-        let ident = @param-ident arg
-        let key = @name(ident)
-        if is-node-type(arg)
-          walk-init.push AST let $ident = f this[$key]
-          walk-check := AST $walk-check or $ident != this[$key]
-          walk-args.push ident
-        else if has-node-type(arg)
-          walk-init.push AST let $ident = if this[$key] instanceof Node then f this[$key] else this[$key]
-          walk-check := AST $walk-check or $ident != this[$key]
-          walk-args.push ident
-        else if is-node-array-type(arg)
-          walk-init.push AST let $ident = map this[$key], f
-          walk-check := AST $walk-check or $ident != this[$key]
-          walk-args.push ident
-        else
-          walk-args.push AST this[$key]
-      walk-args := @array walk-args
-      let walk-func = @func [@param(AST f)], AST
-        $walk-init
-        if $walk-check
-          $type @line, @column, @scope-id, ...$walk-args
-        else
-          this
-      add-methods.push AST def walk = mutate-function! $walk-func
-    if args.length and not find-def \walk-async
-      let mutable walk-check = AST false
-      let mutable walk-args = []
-      for arg in args
-        let ident = @param-ident arg
-        let key = @name(ident)
-        if is-node-type(arg) or has-node-type(arg) or is-node-array-type(arg)
-          walk-check := AST $walk-check or $ident != this[$key]
-          walk-args.push ident
-        else
-          walk-args.push AST this[$key]
-          
-      walk-args := @array walk-args
-      let walk-async-body = for reduce arg in args by -1, current = (AST
-          callback null, if $walk-check
-            $type @line, @column, @scope-id, ...$walk-args
-          else
-            this)
-        let ident = @param-ident arg
-        let key = @name(ident)
-        if is-node-type(arg)
-          AST
-            async! callback, $ident <- f this[$key]
-            $current
-        else if has-node-type(arg)
-          AST
-            asyncif $ident <- next, this[$key] instanceof Node
-              async! callback, $ident <- f this[$key]
-              next($ident)
-            else
-              next(this[$key])
-            $current
-        else if is-node-array-type(arg)
-          AST
-            async! callback, $ident <- map-async this[$key], f
-            $current
-        else
-          current
-      let walk-async-func = @func [@param(AST f), @param(AST callback)], walk-async-body
-      add-methods.push AST def walk-async = mutate-function! $walk-async-func
-    
-    let func = @func params, AST $ctor-body, false, true
-    arg-names := @array arg-names
-    AST Node[$capped-name] := class $type extends Node
-      def constructor = mutate-function! $func
-      @capped-name := $capped-name
-      @arg-names := $arg-names
-      State.add-node-factory $lower-name, this
-      $body
-      $add-methods
-
-class Scope
-  def constructor(id, parent as Scope|null)
-    @id := id
-    @parent := parent
-    @variables := {}
-    @tmps := []
-
-  def clone(id) -> Scope(id, this)
+      @index-from-position(node.line, node.column)
+    MacroError message, this, index
   
-  def reparent(parent as Scope)!
-    if parent == this
-      throw Error("Trying to reparent to own scope")
-    @parent := parent
-  
-  def add(ident as IdentNode|TmpNode, is-mutable as Boolean, type as Type)!
-    if ident instanceof TmpNode
-      @tmps[ident.id] := { is-mutable, type }
-    else
-      @variables[ident.name] := { is-mutable, type }
-  
-  def owns(ident as IdentNode|TmpNode)
-    if ident instanceof TmpNode
-      @tmps ownskey ident.id
-    else
-      @variables ownskey ident.name
-  
-  def has(ident as IdentNode|TmpNode)
-    if @owns(ident)
-      true
-    else if @parent?
-      @parent.has(ident)
-    else
-      false
-  
-  let get(ident)
-    if ident instanceof TmpNode
-      if @tmps ownskey ident.id
-        @tmps[ident.id]
-      else if @parent?
-        get@ @parent, ident
-    else
-      if @variables ownskey ident.name
-        @variables[ident.name]
-      else if @parent?
-        get@ @parent, ident
-  
-  def is-mutable(ident as IdentNode|TmpNode)
-    let data = get@(this, ident)
-    if data
-      data.is-mutable
-    else
-      false
-  
-  def type(ident as IdentNode|TmpNode)
-    let data = get@(this, ident)
-    if data
-      data.type
-    else
-      Type.any
-
-class State
-  def constructor(@data, @macros as MacroHolder = MacroHolder(), @options = {}, @index = 0, @line = 1, @line-info, @failures as FailureManager = FailureManager(), @cache = [], @current-macro = null, @prevent-failures = 0, @known-scopes = [], @stacks = [], scope)
-    if not scope
-      @scope := Scope(known-scopes.length)
-      known-scopes.push @scope
-    else
-      @scope := scope
-    @expanding-macros := false
-    if not line-info
-      @calculate-line-info()
-  
-  def clone(scope as Scope|void) -> State @data, @macros, @options, @index, @line, @line-info, @failures, @cache, @current-macro, @prevent-failures, @known-scopes, @stacks, scope or @scope
-  
-  def clear-cache()! -> @cache.length := 0
+  def make-tmp(index, name as String, type as Type = Type.any)
+    @Tmp index, (@current-tmp-id += 1), name, type
   
   def calculate-line-info()!
     let newline-regex = r"(?:\r\n?|[\n\u2028\u2029])"g
-    let data = @data
+    let source = @source
     let line-info = @line-info := []
     let mutable index = 0
     line-info.push 0
     while true
-      let match = newline-regex.exec(data)
+      let match = newline-regex.exec(source)
       if not match
         break
       index := match.index + match[0].length
       line-info.push index
   
-  def get-position(index as Number = @index)
+  def index-from-position(line as Number, column as Number)
+    let line-info = @line-info[line - 1]
+    if line-info?
+      line-info + column - 1
+    else
+      0
+  def get-position(index as Number)
     let line-info = @line-info
     let mutable left = 0
     let mutable right as Number = line-info.length
@@ -6246,49 +4766,71 @@ class State
         left := i
         break
     { line: left + 1, column: index - line-info[left] + 1 }
-  
+
   def get-line(index as Number = @index)
     @get-position(index).line
+    
+  def fail(message as String, index as Number)!
+    if index > @failure-index
+      @failure-messages := []
+      @failure-index := index
+    if index >= @failure-index
+      @failure-messages.push message
   
-  def clone-scope(outer-scope)
-    let scope = (outer-scope or @scope).clone(@known-scopes.length)
-    @known-scopes.push scope
+  let build-expected(messages)
+    let errors = unique(messages).sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
+    switch errors.length
+    case 0; "End of input"
+    case 1; errors[0]
+    case 2; "$(errors[0]) or $(errors[1])"
+    default; "$(errors[0 til -1].join ', '), or $(errors[* - 1])"
+  
+  def get-failure(index as Number = @failure-index)
+    let source = @source
+    let last-token = if index < source.length
+      JSON.stringify source.substring(index, index + 20)
+    else
+      "end-of-input"
+    
+    ParserError "Expected $(build-expected @failure-messages), but $last-token found", this, index
+  
+  def push-scope(is-top as Boolean, parent as Scope|null)
+    let scope = (parent or @scope.peek()).clone(is-top)
+    @scope.push scope
     scope
   
-  def get-scope(id as Number)
-    @known-scopes[id] or throw Error "Unknown scope: $id"
+  def pop-scope()!
+    @scope.pop()
   
-  def update(clone)!
-    @index := clone.index
-    @line := clone.line
-    @macros := clone.macros
+  def has-macro-or-operator(name as String) -> @macros.has-macro-or-operator name
   
-  def fail(message)!
-    if not @prevent-failures
-      @failures.add message, @index, @get-line()
+  def assign-operators() -> @macros.assign-operators
   
-  def prevent-fail()!
-    @prevent-failures ~+= 1
+  def all-binary-operators() -> @macros.all-binary-operators()
+  def binary-operators(precedence)
+    @macros.binary-operators[precedence]
+  def prefix-unary-operators() -> @macros.prefix-unary-operators
+  def postfix-unary-operators() -> @macros.postfix-unary-operators
   
-  def unprevent-fail()!
-    @prevent-failures ~-= 1
+  def get-macro-by-name(name as String)
+    @macros.get-by-name(name)
   
-  def error(message)!
-    throw ParserError message, @data, @get-line()
+  def get-macro-by-label(label as String)
+    @macros.get-by-label(label)
   
-  def enter-macro(names, func)
+  def enter-macro(index as Number, names)!
     if not names
       throw Error "Must provide a macro name"
     if @current-macro
-      @error "Attempting to define a macro $(String names) inside a macro $(String @current-macro)"
-    try
-      @current-macro := names
-      func()
-    finally
-      @current-macro := null
-    @nothing @index
+      throw ParserError "Attempting to define a macro $(quote String names) inside a macro $(quote String @current-macro)", this, index
+    @current-macro := names
   
-  def define-helper(i, name as IdentNode, value as Node)
+  def exit-macro()!
+    if not @current-macro
+      throw Error "Attempting to exit a macro when not in one"
+    @current-macro := null
+  
+  def define-helper(i, name as IdentNode, value as Node)!
     // TODO: keep helpers in the parser and have the translator ask for them
     require! translator: './jstranslator'
     let node = @macro-expand-all(value).reduce(this)
@@ -6296,7 +4838,6 @@ class State
     let {helper, dependencies} = translator.define-helper(@macros, name, node, type)
     if @options.serialize-macros
       @macros.add-serialized-helper(name.name, helper, type, dependencies)
-    @nothing i
   
   let macro-syntax-const-literals =
     ",": Comma
@@ -6304,7 +4845,9 @@ class State
     ":": Colon
     ":=": ColonEqual
     "": Nothing
-    "\n": NewlineWithCheckIndent
+    "\n": SomeEmptyLinesWithCheckIndent
+    "<": LessThan
+    ">": GreaterThan
     "(": OpenParenthesis
     ")": CloseParenthesis
     "[": OpenSquareBracket
@@ -6327,11 +4870,11 @@ class State
       obj
   
   let make-macro-root(index, params, body)
-    @root index, void, @return index, @function(index
+    @Root index, void, @Return index, @Function(index
       [
         params
-        @param index, (@ident index, \__wrap), void, false, true, void
-        @param index, (@ident index, \__node), void, false, true, void
+        @Param index, (@Ident index, \__wrap), void, false, true, void
+        @Param index, (@Ident index, \__node), void, false, true, void
       ]
       body
       true
@@ -6374,44 +4917,44 @@ class State
         throw Error()
   let deserialize-param-type = do
     let deserialize-param-type-by-type =
-      ident: #(scope-id, name)
-        IdentNode 0, 0, scope-id, name
-      sequence: #(scope-id, ...items)
-        SyntaxSequenceNode 0, 0, scope-id, deserialize-params(items, scope-id)
-      choice: #(scope-id, ...choices)
-        SyntaxChoiceNode 0, 0, scope-id, for choice in choices; deserialize-param-type(choice, scope-id)
-      const: #(scope-id, value)
-        ConstNode 0, 0, scope-id, value
-      many: #(scope-id, multiplier, ...inner)
-        SyntaxManyNode 0, 0, scope-id, deserialize-param-type(inner, scope-id), multiplier
-    #(as-type as [] = [], scope-id)
+      ident: #(scope, name)
+        IdentNode 0, 0, scope, name
+      sequence: #(scope, ...items)
+        SyntaxSequenceNode 0, 0, scope, deserialize-params(items, scope)
+      choice: #(scope, ...choices)
+        SyntaxChoiceNode 0, 0, scope, for choice in choices; deserialize-param-type(choice, scope)
+      const: #(scope, value)
+        ConstNode 0, 0, scope, value
+      many: #(scope, multiplier, ...inner)
+        SyntaxManyNode 0, 0, scope, deserialize-param-type(inner, scope), multiplier
+    #(as-type as [] = [], scope)
       if as-type.length == 0
         return void
       else
         let type = as-type[0]
         if deserialize-param-type-by-type ownskey type
-          deserialize-param-type-by-type[type] scope-id, ...as-type[1 til Infinity]
+          deserialize-param-type-by-type[type] scope, ...as-type[1 til Infinity]
         else
           throw Error "Unknown as-type: $(String type)"
   let deserialize-params = do
     let deserialize-param-by-type =
-      const: #(scope-id, value)
-        ConstNode 0, 0, scope-id, value
-      ident: #(scope-id, name, ...as-type)
+      const: #(scope, value)
+        ConstNode 0, 0, scope, value
+      ident: #(scope, name, ...as-type)
         SyntaxParamNode 0, 0,
-          scope-id
-          IdentNode 0, 0, scope-id, name
-          deserialize-param-type(as-type, scope-id)
-      this: #(scope-id, ...as-type)
+          scope
+          IdentNode 0, 0, scope, name
+          deserialize-param-type(as-type, scope)
+      this: #(scope, ...as-type)
         SyntaxParamNode 0, 0,
-          scope-id
-          ThisNode 0, 0, scope-id
-          deserialize-param-type(as-type, scope-id)
-    #(params, scope-id)
+          scope
+          ThisNode 0, 0, scope
+          deserialize-param-type(as-type, scope)
+    #(params, scope as Scope)
       return for param in fix-array(params)
         let [type] = param
         if deserialize-param-by-type ownskey type
-          deserialize-param-by-type[type] scope-id, ...param[1 til Infinity]
+          deserialize-param-by-type[type] scope, ...param[1 til Infinity]
         else
           throw Error "Unknown param type: $(String type)"
   
@@ -6422,11 +4965,11 @@ class State
       if macros.has-syntax(name)
         macros.get-syntax(name)
       else
-        named(name, #(o) -> macros.get-syntax(name)@(this, o))
+        #(parser, index) -> macros.get-syntax(name)@(this, parser, index)
     else if param instanceof SyntaxSequenceNode
       handle-params@ this, param.params
     else if param instanceof SyntaxChoiceNode
-      cache one-of for choice in param.choices
+      one-of ...for choice in param.choices
         calc-param@ this, choice
     else if param.is-const()
       let string = param.const-value()
@@ -6437,9 +4980,9 @@ class State
       let {multiplier} = param
       let calced = calc-param@ this, param.inner
       switch multiplier
-      case "*"; zero-or-more! calced
-      case "+"; one-or-more! calced
-      case "?"; maybe! calced, #(x, o, i) -> o.nothing(i)
+      case "*"; zero-or-more calced
+      case "+"; one-or-more calced
+      case "?"; one-of(calced, Nothing)
       default
         throw Error("Unknown syntax multiplier: $multiplier")
     else
@@ -6462,11 +5005,11 @@ class State
           \this
         else
           throw Error "Don't know how to handle ident type: $(typeof! ident)"
-        let type = param.as-type ? IdentNode 0, 0, -1, \Expression // FIXME: the lack of scope might break things
+        let type = param.as-type ? IdentNode 0, 0, param.scope, \Expression
         sequence.push [key, calc-param@ this, type]
       else
         @error "Unexpected parameter type: $(typeof! param)"
-    sequential sequence
+    sequential ...sequence
   let simplify-array(operators as [])
     if operators.length == 0
       void
@@ -6487,23 +5030,24 @@ class State
       {}
   let macro-syntax-types =
     syntax: #(index, params, mutable body, options, state-options, translator)
-      let macro-full-data-ident = @ident index, \macro-full-data
-      let func-param = @param index, macro-full-data-ident, void, false, false, void
-      let macro-name-ident = @ident index, \macro-name
-      @scope.add macro-name-ident, false, Type.string
-      let macro-data-ident = @ident index, \macro-data
-      @scope.add macro-data-ident, false, Type.object
-      body := @block index, [
-        @var index, macro-name-ident, false
-        @assign index, macro-name-ident, "=", @access index, macro-full-data-ident, @const index, \macro-name
-        @var index, macro-data-ident, false
-        @assign index, macro-data-ident, "=", @access index, macro-full-data-ident, @const index, \macro-data
+      let macro-full-data-ident = @Ident index, \macro-full-data
+      let func-param = @Param index, macro-full-data-ident, void, false, false, void
+      let macro-name-ident = @Ident index, \macro-name
+      let scope = @scope.peek()
+      scope.add macro-name-ident, false, Type.string
+      let macro-data-ident = @Ident index, \macro-data
+      scope.add macro-data-ident, false, Type.object
+      body := @Block index, [
+        @Var index, macro-name-ident, false
+        @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, @Const index, \macro-name
+        @Var index, macro-data-ident, false
+        @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, @Const index, \macro-data
         ...for param in params
           if param instanceof SyntaxParamNode
-            @scope.add param.ident, true, Type.any
-            @block index, [
-              @var index, param.ident, true
-              @assign index, param.ident, "=", @access index, macro-data-ident, @const index, param.ident.name
+            scope.add param.ident, true, Type.any
+            @Block index, [
+              @Var index, param.ident, true
+              @Assign index, param.ident, "=", @Access index, macro-data-ident, @Const index, param.ident.name
             ]
         body
       ]
@@ -6531,15 +5075,16 @@ class State
       let state = this
       let handler = if body?
         do
-          let macro-data-ident = @ident index, \macro-data
-          let func-param = @param index, macro-data-ident, void, false, false, void
-          body := @block index, [
+          let macro-data-ident = @Ident index, \macro-data
+          let func-param = @Param index, macro-data-ident, void, false, false, void
+          let scope = @scope.peek()
+          body := @Block index, [
             ...for param in params
               if param instanceof SyntaxParamNode
-                @scope.add param.ident, true, Type.any
-                @block index, [
-                  @var index, param.ident, true
-                  @assign index, param.ident, "=", @access index, macro-data-ident, @const index, param.ident.name
+                scope.add param.ident, true, Type.any
+                @Block index, [
+                  @Var index, param.ident, true
+                  @Assign index, param.ident, "=", @Access index, macro-data-ident, @Const index, param.ident.name
                 ]
             body
           ]
@@ -6565,23 +5110,24 @@ class State
       }
     
     call: #(index, params, mutable body, options, state-options, translator)
-      let macro-full-data-ident = @ident index, \macro-full-data
-      let func-param = @param index, macro-full-data-ident, void, false, false, void
-      let macro-name-ident = @ident index, \macro-name
-      @scope.add macro-name-ident, false, Type.string
-      let macro-data-ident = @ident index, \macro-data
-      @scope.add macro-data-ident, false, Type.object
-      body := @block index, [
-        @var index, macro-name-ident, false
-        @assign index, macro-name-ident, "=", @access index, macro-full-data-ident, @const index, \macro-name
-        @var index, macro-data-ident, false
-        @assign index, macro-data-ident, "=", @access index, macro-full-data-ident, @const index, \macro-data
+      let macro-full-data-ident = @Ident index, \macro-full-data
+      let func-param = @Param index, macro-full-data-ident, void, false, false, void
+      let scope = @scope.peek()
+      let macro-name-ident = @Ident index, \macro-name
+      scope.add macro-name-ident, false, Type.string
+      let macro-data-ident = @Ident index, \macro-data
+      scope.add macro-data-ident, false, Type.object
+      body := @Block index, [
+        @Var index, macro-name-ident, false
+        @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, @Const index, \macro-name
+        @Var index, macro-data-ident, false
+        @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, @Const index, \macro-data
         ...for param, i in params
           if param instanceof ParamNode
-            @scope.add param.ident, true, Type.any
-            @block index, [
-              @var index, param.ident, true
-              @assign index, param.ident, "=", @access index, macro-data-ident, @const index, i
+            scope.add param.ident, true, Type.any
+            @Block index, [
+              @Var index, param.ident, true
+              @Assign index, param.ident, "=", @Access index, macro-data-ident, @Const index, i
             ]
         body
       ]
@@ -6607,15 +5153,16 @@ class State
       }
     
     binary-operator: #(index, operators, mutable body, options, state-options, translator)
-      let macro-data-ident = @ident index, \macro-data
-      let func-param = @param index, macro-data-ident, void, false, false, void
-      body := @block index, [
+      let macro-data-ident = @Ident index, \macro-data
+      let func-param = @Param index, macro-data-ident, void, false, false, void
+      let scope = @scope.peek()
+      body := @Block index, [
         ...for name in [\left, \op, \right]
-          let ident = @ident index, name
-          @scope.add ident, true, Type.any
-          @block index, [
-            @var index, ident, true
-            @assign index, ident, "=", @access index, macro-data-ident, @const index, name
+          let ident = @Ident index, name
+          scope.add ident, true, Type.any
+          @Block index, [
+            @Var index, ident, true
+            @Assign index, ident, "=", @Access index, macro-data-ident, @Const index, name
           ]
         body
       ]
@@ -6632,7 +5179,7 @@ class State
           #(args, ...rest)
             let result = inner@ this, reduce-object(state, args), ...rest
             if args.inverted
-              UnaryNode(result.line, result.column, result.scope-id, "!", result).reduce(state)
+              UnaryNode(result.line, result.column, result.scope, "!", result).reduce(state)
             else
               result.reduce(state)
       else
@@ -6649,15 +5196,16 @@ class State
       }
     
     assign-operator: #(index, operators, mutable body, options, state-options, translator)
-      let macro-data-ident = @ident index, \macro-data
-      let func-param = @param index, macro-data-ident, void, false, false, void
-      body := @block index, [
+      let macro-data-ident = @Ident index, \macro-data
+      let func-param = @Param index, macro-data-ident, void, false, false, void
+      let scope = @scope.peek()
+      body := @Block index, [
         ...for name in [\left, \op, \right]
-          let ident = @ident index, name
-          @scope.add ident, true, Type.any
-          @block index, [
-            @var index, ident, true
-            @assign index, ident, "=", @access index, macro-data-ident, @const index, name
+          let ident = @Ident index, name
+          scope.add ident, true, Type.any
+          @Block index, [
+            @Var index, ident, true
+            @Assign index, ident, "=", @Access index, macro-data-ident, @Const index, name
           ]
         body
       ]
@@ -6682,15 +5230,16 @@ class State
       }
     
     unary-operator: #(index, operators, mutable body, options, state-options, translator)
-      let macro-data-ident = @ident index, \macro-data
-      let func-param = @param index, macro-data-ident, void, false, false, void
-      body := @block index, [
+      let macro-data-ident = @Ident index, \macro-data
+      let func-param = @Param index, macro-data-ident, void, false, false, void
+      let scope = @scope.peek()
+      body := @Block index, [
         ...for name in [\op, \node]
-          let ident = @ident index, name
-          @scope.add ident, true, Type.any
-          @block index, [
-            @var index, ident, true
-            @assign index, ident, "=", @access index, macro-data-ident, @const index, name
+          let ident = @Ident index, name
+          scope.add ident, true, Type.any
+          @Block index, [
+            @Var index, ident, true
+            @Assign index, ident, "=", @Access index, macro-data-ident, @Const index, name
           ]
         body
       ]
@@ -6730,8 +5279,9 @@ class State
       let state = this
       handler := do inner = handler
         #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
-      @enter-macro names, #@
-        handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params, @scope.id)), null, options, id
+      @enter-macro 0, names
+      handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params, @scope.peek())), null, options, id
+      @exit-macro()
     
     call: #({code, mutable names, options = {}, id})
       names := fix-array names
@@ -6741,8 +5291,9 @@ class State
       let state = this
       handler := do inner = handler
         #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
-      @enter-macro names, #@
-        handle-macro-syntax@ this, 0, \call, handler, InvocationArguments, null, options, id
+      @enter-macro 0, names
+      handle-macro-syntax@ this, 0, \call, handler, InvocationArguments, null, options, id
+      @exit-macro()
     
     define-syntax: #({code, params, options = {}, id})
       if @macros.has-syntax(options.name)
@@ -6759,8 +5310,9 @@ class State
       else
         handler := #(args) -> reduce-object(state, args)
       
-      @enter-macro DEFINE_SYNTAX, #@
-        handle-macro-syntax@ this, 0, \define-syntax, handler, handle-params@(this, deserialize-params(params, @scope.id)), null, options, id
+      @enter-macro 0, DEFINE_SYNTAX
+      handle-macro-syntax@ this, 0, \define-syntax, handler, handle-params@(this, deserialize-params(params, @scope.peek())), null, options, id
+      @exit-macro()
     
     binary-operator: #({code, mutable operators, options = {}, id})
       operators := fix-array operators
@@ -6773,14 +5325,15 @@ class State
           #(args, ...rest)
             let result = inner@ this, reduce-object(state, args), ...rest
             if args.inverted
-              UnaryNode(result.line, result.column, result.scope-id, "!", result).reduce(state)
+              UnaryNode(result.line, result.column, result.scope, "!", result).reduce(state)
             else
               result.reduce(state)
       else
         handler := do inner = handler
           #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
-      @enter-macro BINARY_OPERATOR, #@
-        handle-macro-syntax@ this, 0, \binary-operator, handler, void, operators, options, id
+      @enter-macro 0, BINARY_OPERATOR
+      handle-macro-syntax@ this, 0, \binary-operator, handler, void, operators, options, id
+      @exit-macro()
       
     assign-operator: #({code, mutable operators, options = {}, id})
       operators := fix-array operators
@@ -6790,8 +5343,9 @@ class State
       let state = this
       handler := do inner = handler
         #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
-      @enter-macro ASSIGN_OPERATOR, #@
-        handle-macro-syntax@ this, 0, \assign-operator, handler, void, operators, options, id
+      @enter-macro 0, ASSIGN_OPERATOR
+      handle-macro-syntax@ this, 0, \assign-operator, handler, void, operators, options, id
+      @exit-macro()
     
     unary-operator: #({code, mutable operators, options = {}, id})!
       operators := fix-array operators
@@ -6801,8 +5355,9 @@ class State
       let state = this
       handler := do inner = handler
         #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
-      @enter-macro UNARY_OPERATOR, #@
-        handle-macro-syntax@ this, 0, \unary-operator, handler, void, operators, options, id
+      @enter-macro 0, UNARY_OPERATOR
+      handle-macro-syntax@ this, 0, \unary-operator, handler, void, operators, options, id
+      @exit-macro()
   
   let remove-noops(obj)
     if is-array! obj
@@ -6822,20 +5377,22 @@ class State
     else
       obj
   
-  def start-macro-syntax(index, params as [], options)
+  def start-macro-syntax(index, params as [], options = {})
     if not @current-macro
-      this.error "Attempting to specify a macro syntax when not in a macro"
+      throw Error "Attempting to specify a macro syntax when not in a macro"
     
     let rule = handle-params@ this, params
     
     let macros = @macros
-    let mutator = #(x, o, i, line)
-      if _in-ast.peek(o) or not o.expanding-macros
-        o.macro-access i, macro-id, line, remove-noops(x), _position.peek(o), _in-generator.peek(o), _in-evil-ast.peek(o)
+    let mutator = #(data, parser, index)
+      if parser.in-ast.peek() or not parser.expanding-macros
+        parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
       else
         throw Error "Cannot use macro until fully defined"
     for m in macros.get-or-add-by-names @current-macro
-      m.data.push sequential! [[\macro-name, m.token], [\macro-data, rule]], mutator
+      m.data.push sequential(
+        [\macro-name, m.token]
+        [\macro-data, rule]) |> mutate mutator
     let macro-id = macros.add-macro mutator, void, if options.type? then Type![options.type]
     @pending-macro-id := macro-id
     params
@@ -6843,26 +5400,32 @@ class State
   let handle-macro-syntax(index, type, handler as Function, rule, params, options, mutable macro-id)
     let macros = @macros
     
-    let mutator = #(x, o, i, line, scope-id)@
-      if _in-ast.peek(o) or not o.expanding-macros
-        o.macro-access i, macro-id, line, remove-noops(x), _position.peek(o), _in-generator.peek(o), _in-evil-ast.peek(o)
+    let mutator = #(data, parser, index)@
+      if parser.in-ast.peek() or not parser.expanding-macros
+        parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
       else
-        let clone = o.clone(o.get-scope(scope-id))
-        let macro-helper = MacroHelper clone, i, _position.peek(o), _in-generator.peek(o), _in-evil-ast.peek(o)
-        if type == \assign-operator and macro-helper.is-ident(x.left)
-          if not macro-helper.has-variable(x.left)
-            throw MacroError Error("Trying to assign with $(x.op) to unknown variable: $(macro-helper.name x.left)"), o.data, line
-          else if not macro-helper.is-variable-mutable(x.left) and not _in-evil-ast.peek(o)
-            throw MacroError Error("Trying to assign with $(x.op) to immutable variable: $(macro-helper.name x.left)"), o.data, line
-        let mutable result = try
-          handler@ macro-helper, remove-noops(x), macro-helper@.wrap, macro-helper@.node
+        let scope = parser.push-scope(false)
+        let macro-helper = MacroHelper parser, index, parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
+        if type == \assign-operator and macro-helper.is-ident(data.left)
+          if not macro-helper.has-variable(data.left)
+            throw parser.build-error "Trying to assign with $(data.op) to unknown variable '$(macro-helper.name data.left)'", data.left
+          else if not macro-helper.is-variable-mutable(data.left) and not parser.in-evil-ast.peek()
+            throw parser.build-error "Trying to assign with $(data.op) to immutable variable '$(macro-helper.name data.left)'", data.left
+        let mutable result = void
+        try
+          result := handler@ macro-helper, remove-noops(data), macro-helper@.wrap, macro-helper@.node
+        catch e as ReferenceError
+          throw e
         catch e as MacroError
-          e.set-line line
+          let pos = parser.get-position(index)
+          e.set-position pos.line, pos.column
           throw e
         catch e
-          throw MacroError(e, o.data, line)
-        o.update clone
+          throw MacroError e, parser, index
+        parser.pop-scope()
+        
         if result instanceof Node
+          let line = parser.get-line(index)
           let walker(node)
             if node instanceof MacroAccessNode
               node.call-line := line
@@ -6870,7 +5433,7 @@ class State
           result := walker result.reduce(this)
           let tmps = macro-helper.get-tmps()
           if tmps.unsaved.length
-            o.tmp-wrapper i, result, tmps.unsaved
+            parser.TmpWrapper index, result, tmps.unsaved
           else
             result
         else
@@ -6884,15 +5447,19 @@ class State
     case UNARY_OPERATOR
       macros.add-unary-operator(params, mutator, options, macro-id)
     case DEFINE_SYNTAX
-      assert(rule)
-      macros.add-syntax options.name, mutate! rule, mutator
+      if not rule
+        throw Error "Expected rule to exist"
+      macros.add-syntax options.name, rule |> mutate mutator
       macros.add-macro mutator, macro-id, if options.type? then Type![options.type]
     default
-      assert(rule)
+      if not rule
+        throw Error "Expected rule to exist"
       for m in macros.get-or-add-by-names @current-macro
         if @pending-macro-id?
           m.data.pop()
-        m.data.push sequential! [[\macro-name, m.token], [\macro-data, rule]], mutator
+        m.data.push cache(sequential(
+          [\macro-name, m.token]
+          [\macro-data, rule]) |> mutate mutator)
       
       if @pending-macro-id?
         if macro-id?
@@ -6919,60 +5486,67 @@ class State
       serialization.id := macro-id
       @macros.add-macro-serialization serialization
   
-  let BINARY_OPERATOR = freeze {}
+  let BINARY_OPERATOR = {}
   def define-binary-operator(index as Number, operators as [String], options as Object, body as Node)
-    @enter-macro BINARY_OPERATOR, #@
-      @macro-syntax index, \binary-operator, operators, options, body
+    @enter-macro index, BINARY_OPERATOR
+    @macro-syntax index, \binary-operator, operators, options, body
+    @exit-macro()
   
-  let ASSIGN_OPERATOR = freeze {}
+  let ASSIGN_OPERATOR = {}
   def define-assign-operator(index as Number, operators as [String], options as Object, body as Node)
-    @enter-macro ASSIGN_OPERATOR, #@
-      @macro-syntax index, \assign-operator, operators, options, body
+    @enter-macro index, ASSIGN_OPERATOR
+    @macro-syntax index, \assign-operator, operators, options, body
+    @exit-macro()
   
-  let UNARY_OPERATOR = freeze {}
+  let UNARY_OPERATOR = {}
   def define-unary-operator(index as Number, operators as [String], options as Object, body as Node)
-    @enter-macro UNARY_OPERATOR, #@
-      @macro-syntax index, \unary-operator, operators, options, body
+    @enter-macro index, UNARY_OPERATOR
+    @macro-syntax index, \unary-operator, operators, options, body
+    @exit-macro()
   
-  let DEFINE_SYNTAX = freeze {}
+  let DEFINE_SYNTAX = {}
   def define-syntax(index, name, params, body)
-    @enter-macro DEFINE_SYNTAX, #@
-      @macro-syntax index, \define-syntax, params, { name }, body
+    @enter-macro index, DEFINE_SYNTAX
+    @macro-syntax index, \define-syntax, params, { name }, body
+    @exit-macro()
   
   def deserialize-macros(data)
     for type, deserializer of macro-deserializers
       for item in (data![type] ? [])
         deserializer@(this, item)
   
-  def macro-expand-1(node)
+  def macro-expand-1(mutable node)
     if node._macro-expanded?
       return node._macro-expanded
     else if node instanceof MacroAccessNode
-      _position.push this, node.position
-      _in-generator.push this, node.in-generator
-      _in-evil-ast.push this, node.in-evil-ast
-      let old-expanding-macros = @expanding-macros
-      @expanding-macros := true
-      let result = try
-        // TODO: change start-index
-        @macros.get-by-id(node.id)(node.data, this, node.start-index or 0, node.call-line, node.scope-id)
-      catch e
-        if e instanceof MacroError
-          e.set-line node.call-line
-        throw e
-      finally
-        _position.pop this
-        _in-generator.pop this
-        _in-evil-ast.pop this
-        @expanding-macros := old-expanding-macros
-      node._macro-expanded := if result instanceof MacroAccessNode
-        // I know this somewhat violates the expanding only once assumption, but it makes
-        // using this so much easier to know that macro-expand-1 will never return a MacroAccessNode
-        @macro-expand-1(result)
-      else if result instanceof Node
-        result._macro-expanded := result
-      else
-        result
+      let nodes = []
+      while node instanceof MacroAccessNode
+        nodes.push node
+        @position.push node.position
+        @in-generator.push node.in-generator
+        @in-evil-ast.push node.in-evil-ast
+        @scope.push node.scope
+        let old-expanding-macros = @expanding-macros
+        @expanding-macros := true
+        let mutable result = void
+        try
+          // TODO: change start-index
+          result := @macros.get-by-id(node.id)(node.data, this, node.start-index or 0, node.call-line, node.scope)
+        catch e
+          if e instanceof MacroError
+            // TODO: add column as well
+            e.set-position node.call-line, 0
+          throw e
+        finally
+          @scope.pop()
+          @position.pop()
+          @in-generator.pop()
+          @in-evil-ast.pop()
+          @expanding-macros := old-expanding-macros
+        node := result
+      for n in nodes
+        n._macro-expanded := node
+      node
     else
       node._macro-expanded := node
   
@@ -6980,7 +5554,7 @@ class State
     let mutable start-time = new Date().get-time()
     let walker = #(node, callback)@
       if (new Date().get-time() - start-time) > 5_ms
-        return next-tick #
+        return set-immediate #
           start-time := new Date().get-time()
           walker node, callback
       if node._macro-expand-alled?
@@ -7016,1390 +5590,72 @@ class State
         expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
     
     walker node
+  def clear-cache()! -> @cache := []
   
   @add-node-factory := #(name, type)!
-    State::[name] := #(index, ...args)
+    Parser::[name] := #(index, ...args)
       let pos = @get-position(index)
-      type(pos.line, pos.column, @scope.id, ...args)
+      type(pos.line, pos.column, @scope.peek(), ...args)
 
-node-class AccessNode(parent as Node, child as Node)
-  def type(o) -> @_type ?= do
-    let parent-type = @parent.type(o)
-    let is-string = parent-type.is-subset-of(Type.string)
-    if is-string or parent-type.is-subset-of(Type.array-like)
-      let child = o.macro-expand-1(@child).reduce(o)
-      if child.is-const()
-        let child-value = child.const-value()
-        if child-value == \length
-          return Type.number
-        else if is-number! child-value
-          return if child-value >= 0 and child-value %% 1
-            if is-string
-              Type.string.union(Type.undefined)
-            else if parent-type.subtype
-              parent-type.subtype.union(Type.undefined)
-            else
-              Type.any
-          else
-            Type.undefined
-      else
-        let child-type = child.type(o)
-        if child-type.is-subset-of(Type.number)
-          return if is-string
-            Type.string.union(Type.undefined)
-          else if parent-type.subtype
-            parent-type.subtype.union(Type.undefined)
-          else
-            Type.any
-    else if parent-type.is-subset-of(Type.object) and is-function! parent-type.value
-      let child = o.macro-expand-1(@child).reduce(o)
-      if child.is-const()
-        return parent-type.value(String child.const-value())
-    Type.any
-  def _reduce(o)
-    let mutable parent = @parent.reduce(o).do-wrap(o)
-    let mutable cached-parent = null
-    let replace-length-ident(node)
-      if node instanceof IdentNode and node.name == CURRENT_ARRAY_LENGTH_NAME
-        if parent.cacheable and not cached-parent?
-          cached-parent := TmpNode node.line, node.column, node.scope-id, get-tmp-id(), \ref, parent.type(o)
-        AccessNode node.line, node.column, node.scope-id, cached-parent ? parent, ConstNode node.line, node.column, node.scope-id, \length
-      else if node instanceof AccessNode
-        let node-parent = replace-length-ident node.parent
-        if node-parent != node.parent
-          AccessNode(node.line, node.column, node.scope-id, node-parent, node.child).walk replace-length-ident
-        else
-          node.walk replace-length-ident
-      else
-        node.walk replace-length-ident
-    let child = replace-length-ident @child.reduce(o).do-wrap(o)
-    if cached-parent?
-      return TmpWrapperNode(@line, @column, @scope-id
-        AccessNode(@line, @column, @scope-id
-          AssignNode(@line, @column, @scope-id, cached-parent, "=", parent)
-          child)
-        [cached-parent.id])
-    
-    if parent.is-const() and child.is-const()
-      let p-value = parent.const-value()
-      let c-value = child.const-value()
-      if Object(p-value) haskey c-value
-        let value = p-value[c-value]
-        if is-null! value or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
-          return ConstNode @line, @column, @scope-id, value
-    if child instanceof CallNode and child.func instanceof IdentNode and child.func.name == \__range
-      let [start, mutable end, step, inclusive] = child.args
-      let has-step = not step.is-const() or step.const-value() != 1
-      if not has-step
-        if inclusive.is-const()
-          if inclusive.const-value()
-            end := if end.is-const() and is-number! end.const-value()
-              ConstNode end.line, end.column, end.scope-id, end.const-value() + 1 or Infinity
-            else
-              BinaryNode end.line, end.column, end.scope-id,
-                BinaryNode end.line, end.column, end.scope-id,
-                  end
-                  "+"
-                  ConstNode inclusive.line, inclusive.column, inclusive.scope-id, 1
-                "||"
-                ConstNode end.line, end.column, end.scope-id, Infinity
-        else
-          end := IfNode end.line, end.column, end.scope-id,
-            inclusive
-            BinaryNode end.line, end.column, end.scope-id,
-              BinaryNode end.line, end.column, end.scope-id,
-                end
-                "+"
-                ConstNode inclusive.line, inclusive.column, inclusive.scope-id, 1
-              "||"
-              ConstNode end.line, end.column, end.scope-id, Infinity
-            end
-      let args = [parent]
-      let has-end = not end.is-const() or end.const-value() not in [void, Infinity]
-      if not start.is-const() or start.const-value() != 0 or has-end or has-step
-        args.push start
-      if has-end or has-step
-        args.push end
-      if has-step
-        args.push step
-        if not inclusive.is-const() or inclusive.const-value()
-          args.push inclusive
-      (CallNode @line, @column, @scope-id,
-        IdentNode @line, @column, @scope-id, if has-step then \__slice-step else \__slice
-        args
-        false
-        not has-step).reduce(o)
-    else if parent != @parent or child != @child
-      AccessNode @line, @column, @scope-id, parent, child
-    else
-      this
-  def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
-node-class AccessMultiNode(parent as Node, elements as [Node])
-  def type() -> Type.array
-  def _reduce(o)
-    let mutable parent = @parent.reduce(o)
-    let mutable set-parent = parent
-    let tmp-ids = []
-    if parent.cacheable
-      let tmp = TmpNode(@line, @column, @scope-id, get-tmp-id(), \ref, parent.type(o))
-      tmp-ids.push tmp.id
-      set-parent := AssignNode(@line, @column, @scope-id, tmp, "=", parent.do-wrap(o))
-      parent := tmp
-    let result = ArrayNode(@line, @column, @scope-id, for element, j in @elements
-      AccessNode(@line, @column, @scope-id, if j == 0 then set-parent else parent, element.reduce(o)))
-    if tmp-ids.length
-      TmpWrapperNode(@line, @column, @scope-id, result, tmp-ids)
-    else
-      result
-node-class ArgsNode
-  def type() -> Type.args
-  def cacheable = false
-  def _is-noop() -> true
-node-class ArrayNode(elements as [Node])
-  def type() -> Type.array
-  def _reduce(o)
-    let elements = map @elements, #(x) -> x.reduce(o).do-wrap(o)
-    if elements != @elements
-      ArrayNode @line, @column, @scope-id, elements
-    else
-      this
-  def _is-noop(o) -> @__is-noop ?= for every element in @elements; element.is-noop(o)
-State::array-param := State::array
-node-class AssignNode(left as Node, op as String, right as Node)
-  def type = do
-    let ops =
-      "=": #(left, right) -> right
-      "+=": #(left, right)
-        if left.is-subset-of(Type.numeric) and right.is-subset-of(Type.numeric)
-          Type.number
-        else if left.overlaps(Type.numeric) and right.overlaps(Type.numeric)
-          Type.string-or-number
-        else
-          Type.string
-      "-=": Type.number
-      "*=": Type.number
-      "/=": Type.number
-      "%=": Type.number
-      "<<=": Type.number
-      ">>=": Type.number
-      ">>>=": Type.number
-      "&=": Type.number
-      "^=": Type.number
-      "|=": Type.number
-    #(o) -> @_type ?= do
-      let type = ops![@op]
-      if not type
-        Type.any
-      else if is-function! type
-        type @left.type(o), @right.type(o)
-      else
-        type
-  def _reduce(o)
-    let left = @left.reduce(o)
-    let right = @right.reduce(o).do-wrap(o)
-    if left != @left or right != @right
-      AssignNode @line, @column, @scope-id, left, @op, right
-    else
-      this
-node-class BinaryNode(left as Node, op as String, right as Node)
-  def type = do
-    let ops =
-      "*": Type.number
-      "/": Type.number
-      "%": Type.number
-      "+": #(left, right)
-        if left.is-subset-of(Type.numeric) and right.is-subset-of(Type.numeric)
-          Type.number
-        else if left.overlaps(Type.numeric) and right.overlaps(Type.numeric)
-          Type.string-or-number
-        else
-          Type.string
-      "-": Type.number
-      "<<": Type.number
-      ">>": Type.number
-      ">>>": Type.number
-      "<": Type.boolean
-      "<=": Type.boolean
-      ">": Type.boolean
-      ">=": Type.boolean
-      "in": Type.boolean
-      "instanceof": Type.boolean
-      "==": Type.boolean
-      "!=": Type.boolean
-      "===": Type.boolean
-      "!==": Type.boolean
-      "&": Type.number
-      "^": Type.number
-      "|": Type.number
-      "&&": #(left, right) -> left.intersect(Type.potentially-falsy).union(right)
-      "||": #(left, right) -> left.intersect(Type.potentially-truthy).union(right)
-    #(o) -> @_type ?= do
-      let type = ops![@op]
-      if not type
-        Type.any
-      else if is-function! type
-        type @left.type(o), @right.type(o)
-      else
-        type
-  def _reduce = do
-    let const-ops =
-      "*": (~*)
-      "/": (~/)
-      "%": (~%)
-      "+": do
-        let is-JS-numeric(x)
-          is-null! x or typeof x in [\number, \boolean, \undefined]
-        #(left, right)
-          if is-JS-numeric(left) and is-JS-numeric(right)
-            left ~+ right
-          else
-            left ~& right
-      "-": (~-)
-      "<<": (~bitlshift)
-      ">>": (~bitrshift)
-      ">>>": (~biturshift)
-      "<": (~<)
-      "<=": (~<=)
-      ">": (~>)
-      ">=": (~>=)
-      "==": (~=)
-      "!=": (!~=)
-      "===": (==)
-      "!==": (!=)
-      "&": (~bitand)
-      "^": (~bitxor)
-      "|": (~bitor)
-      "&&": (and)
-      "||": (or)
-    let left-const-nan(x, y)
-      if x.const-value() is NaN
-        BlockNode @line, @column, @scope-id, [y, x]
-    let left-const-ops =
-      "*": #(x, y)
-        if x.const-value() == 1
-          UnaryNode @line, @column, @scope-id, "+", y
-        else if x.const-value() == -1
-          UnaryNode @line, @column, @scope-id, "-", y
-        else if x.const-value() is NaN
-          BlockNode @line, @column, @scope-id, [y, x]
-      "/": left-const-nan
-      "%": left-const-nan
-      "+": #(x, y, o)
-        if x.const-value() == 0 and y.type(o).is-subset-of(Type.number)
-          UnaryNode @line, @column, @scope-id, "+", y
-        else if x.const-value() == "" and y.type(o).is-subset-of(Type.string)
-          y
-        else if is-string! x.const-value() and y instanceof BinaryNode and y.op == "+" and y.left.is-const() and is-string! y.left.const-value()
-          BinaryNode @line, @column, @scope-id, ConstNode(x.line, x.column, @scope-id, x.const-value() & y.left.const-value()), "+", y.right
-        else if x.const-value() is NaN
-          BlockNode @line, @column, @scope-id, [y, x]
-      "-": #(x, y)
-        if x.const-value() == 0
-          UnaryNode @line, @column, @scope-id, "-", y
-        else if x.const-value() is NaN
-          BlockNode @line, @column, @scope-id, [y, x]
-      "<<": left-const-nan
-      ">>": left-const-nan
-      ">>>": left-const-nan
-      "&": left-const-nan
-      "|": left-const-nan
-      "^": left-const-nan
-      "&&": #(x, y) -> if x.const-value() then y else x
-      "||": #(x, y) -> if x.const-value() then x else y
-    let right-const-nan = #(x, y)
-      if y.const-value() is NaN
-        BlockNode @line, @column, @scope-id, [x, y]
-    let right-const-ops =
-      "*": #(x, y)
-        if y.const-value() == 1
-          UnaryNode @line, @column, @scope-id, "+", x
-        else if y.const-value() == -1
-          UnaryNode @line, @column, @scope-id, "-", x
-        else if y.const-value() is NaN
-          BlockNode @line, @column, @scope-id, [x, y]
-      "/": #(x, y)
-        if y.const-value() == 1
-          UnaryNode @line, @column, @scope-id, "+", x
-        else if y.const-value() == -1
-          UnaryNode @line, @column, @scope-id, "-", x
-        else if y.const-value() is NaN
-          BlockNode @line, @column, @scope-id, [x, y]
-      "%": right-const-nan
-      "+": #(x, y, o)
-        if y.const-value() == 0 and x.type(o).is-subset-of(Type.number)
-          UnaryNode @line, @column, @scope-id, "+", x
-        else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
-          BinaryNode @line, @column, @scope-id, x, "-", ConstNode(y.line, y.column, @scope-id, -y.const-value())
-        else if y.const-value() == "" and x.type(o).is-subset-of(Type.string)
-          x
-        else if is-string! y.const-value() and x instanceof BinaryNode and x.op == "+" and x.right.is-const() and is-string! x.right.const-value()
-          BinaryNode @line, @column, @scope-id, x.left, "+", ConstNode(x.right.line, x.right.column, @scope-id, x.right.const-value() & y.const-value())
-        else if y.const-value() is NaN
-          BlockNode @line, @column, @scope-id, [x, y]
-      "-": #(x, y, o)
-        if y.const-value() == 0
-          UnaryNode @line, @column, @scope-id, "+", x
-        else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
-          BinaryNode @line, @column, @scope-id, x, "+", ConstNode(y.line, y.column, @scope-id, -y.const-value())
-        else if y.const-value() is NaN
-          BlockNode @line, @column, @scope-id, [x, y]
-      "<<": right-const-nan
-      ">>": right-const-nan
-      ">>>": right-const-nan
-      "&": right-const-nan
-      "|": right-const-nan
-      "^": right-const-nan
-    let non-const-ops =
-      "&&": #(x, y, o)
-        let x-type = x.type(o)
-        if x-type.is-subset-of(Type.always-truthy)
-          BlockNode @line, @column, @scope-id, [x, y]
-        else if x-type.is-subset-of(Type.always-falsy)
-          x
-        else if x instanceof BinaryNode and x.op == "&&"
-          let truthy = if x.right.is-const()
-            not not x.right.const-value()
-          else
-            let x-right-type = x.right.type(o)
-            if x-right-type.is-subset-of(Type.always-truthy)
-              true
-            else if x-right-type.is-subset-of(Type.always-falsy)
-              false
-            else
-              null
-          if truthy == true
-            BinaryNode @line, @column, @scope-id, x.left, "&&", BlockNode x.right.line, x.right.column, @scope-id, [x.right, y]
-          else if truthy == false
-            x
-      "||": #(x, y, o)
-        let x-type = x.type(o)
-        if x-type.is-subset-of(Type.always-truthy)
-          x
-        else if x-type.is-subset-of(Type.always-falsy)
-          BlockNode @line, @column, @scope-id, [x, y]
-        else if x instanceof BinaryNode and x.op == "||"
-          let truthy = if x.right.is-const()
-            not not x.right.const-value()
-          else
-            let x-right-type = x.right.type(o)
-            if x-right-type.is-subset-of(Type.always-truthy)
-              true
-            else if x-right-type.is-subset-of(Type.always-falsy)
-              false
-            else
-              null
-          if truthy == true
-            x
-          else if truthy == false
-            BinaryNode @line, @column, @scope-id, x.left, "||", BlockNode x.right.line, x.right.column, @scope-id, [x.right, y]
-        else if x instanceof IfNode and x.when-false.is-const() and not x.when-false.const-value()
-          let mutable test = x.test
-          let mutable when-true = x.when-true
-          while when-true instanceof IfNode and when-true.when-false.is-const() and not when-true.when-false.const-value()
-            test := BinaryNode x.line, x.column, x.scope-id, test, "&&", when-true.test
-            when-true := when-true.when-true
-          BinaryNode(@line, @column, @scope-id
-            BinaryNode x.line, x.column, x.scope-id, test, "&&", when-true
-            "||"
-            y)
-    #(o)
-      let left = @left.reduce(o).do-wrap(o)
-      let right = @right.reduce(o).do-wrap(o)
-      let op = @op
-      if left.is-const()
-        if right.is-const() and const-ops ownskey op
-          return ConstNode @line, @column, @scope-id, const-ops[op](left.const-value(), right.const-value())
-        return? left-const-ops![op]@(this, left, right, o)
-      if right.is-const()
-        return? right-const-ops![op]@(this, left, right, o)
-      
-      return? non-const-ops![op]@(this, left, right, o)
-      
-      if left != @left or right != @right
-        BinaryNode @line, @column, @scope-id, left, op, right
-      else
-        this
-  def _is-noop(o) -> @__is-noop ?= @left.is-noop(o) and @right.is-noop(o)
-node-class BlockNode(nodes as [Node], label as IdentNode|TmpNode|null)
-  def type(o)
-    let nodes = @nodes
-    if nodes.length == 0
-      Type.undefined
-    else
-      nodes[* - 1].type(o)
-  def with-label(label as IdentNode|TmpNode|null, o)
-    if not @label?
-      if @nodes.length == 1
-        return @nodes[0].with-label label, o
-      else if @nodes.length > 1 and @nodes[* - 1] instanceof ForInNode
-        if for every node in @nodes[0 til -1]; node instanceofsome [AssignNode, VarNode]
-          return BlockNode @line, @column, @scope-id, @nodes[0 til -1].concat([@nodes[* - 1].with-label(label, o)])
-    BlockNode @line, @column, @scope-id, @nodes, label
-  def _reduce(o)
-    let mutable changed = false
-    let body = []
-    for node, i, len in @nodes
-      let reduced = node.reduce(o)
-      if reduced instanceof BlockNode and not reduced.label?
-        body.push ...reduced.nodes
-        changed := true
-      else if reduced instanceof NothingNode
-        changed := true
-      else if reduced instanceofsome [BreakNode, ContinueNode, ThrowNode, ReturnNode]
-        body.push reduced
-        if reduced != node or i < len - 1
-          changed := true
-        break
-      else
-        body.push reduced
-        if reduced != node
-          changed := true
-    let label = if @label? then @label.reduce(o) else @label
-    if body.length == 0
-      NothingNode @line, @column, @scope-id
-    else if not label? and body.length == 1
-      body[0]
-    else
-      if changed or label != @label
-        BlockNode @line, @column, @scope-id, body, label
-      else
-        this
-  def is-statement() -> for some node in @nodes by -1; node.is-statement()
-  def _is-noop(o) -> @__is-noop ?= for every node in @nodes by -1; node.is-noop(o)
-node-class BreakNode(label as IdentNode|TmpNode|null)
-  def type() -> Type.undefined
-  def is-statement() -> true
-  def with-label(label as IdentNode|TmpNode|null)
-    BreakNode @line, @column, @scope-id, label
-node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as Boolean)
-  def type = do
-    let PRIMORDIAL_FUNCTIONS =
-      Object: Type.object
-      String: Type.string
-      Number: Type.number
-      Boolean: Type.boolean
-      Function: Type.function
-      Array: Type.array
-      Date: Type.string
-      RegExp: Type.regexp
-      Error: Type.error
-      RangeError: Type.error
-      ReferenceError: Type.error
-      SyntaxError: Type.error
-      TypeError: Type.error
-      URIError: Type.error
-      escape: Type.string
-      unescape: Type.string
-      parseInt: Type.number
-      parseFloat: Type.number
-      isNaN: Type.boolean
-      isFinite: Type.boolean
-      decodeURI: Type.string
-      decodeURIComponent: Type.string
-      encodeURI: Type.string
-      encodeURIComponent: Type.string
-    let PRIMORDIAL_SUBFUNCTIONS =
-      Object:
-        getPrototypeOf: Type.object
-        getOwnPropertyDescriptor: Type.object
-        getOwnPropertyNames: Type.string.array()
-        create: Type.object
-        defineProperty: Type.object
-        defineProperties: Type.object
-        seal: Type.object
-        freeze: Type.object
-        preventExtensions: Type.object
-        isSealed: Type.boolean
-        isFrozen: Type.boolean
-        isExtensible: Type.boolean
-        keys: Type.string.array()
-      String:
-        fromCharCode: Type.string
-      Number:
-        isFinite: Type.boolean
-        isNaN: Type.boolean
-      Array:
-        isArray: Type.boolean
-      Math:
-        abs: Type.number
-        acos: Type.number
-        asin: Type.number
-        atan: Type.number
-        atan2: Type.number
-        ceil: Type.number
-        cos: Type.number
-        exp: Type.number
-        floor: Type.number
-        log: Type.number
-        max: Type.number
-        min: Type.number
-        pow: Type.number
-        random: Type.number
-        round: Type.number
-        sin: Type.number
-        sqrt: Type.number
-        tan: Type.number
-      JSON:
-        stringify: Type.string.union(Type.undefined)
-        parse: Type.string.union(Type.number).union(Type.boolean).union(Type.null).union(Type.array).union(Type.object)
-      Date:
-        UTC: Type.number
-        now: Type.number
-    let PRIMORDIAL_METHODS =
-      String:
-        toString: Type.string
-        valueOf: Type.string
-        charAt: Type.string
-        charCodeAt: Type.number
-        concat: Type.string
-        indexOf: Type.number
-        lastIndexOf: Type.number
-        localeCompare: Type.number
-        match: Type.array.union(Type.null)
-        replace: Type.string
-        search: Type.number
-        slice: Type.string
-        split: Type.string.array()
-        substring: Type.string
-        toLowerCase: Type.string
-        toLocaleLowerCase: Type.string
-        toUpperCase: Type.string
-        toLocaleUpperCase: Type.string
-        trim: Type.string
-      Boolean:
-        toString: Type.string
-        valueOf: Type.boolean
-      Number:
-        toString: Type.string
-        valueOf: Type.number
-        toLocaleString: Type.string
-        toFixed: Type.string
-        toExponential: Type.string
-        toPrecision: Type.string
-      Date:
-        toString: Type.string
-        toDateString: Type.string
-        toTimeString: Type.string
-        toLocaleString: Type.string
-        toLocaleDateString: Type.string
-        toLocaleTimeString: Type.string
-        valueOf: Type.number
-        getTime: Type.number
-        getFullYear: Type.number
-        getUTCFullYear: Type.number
-        getMonth: Type.number
-        getUTCMonth: Type.number
-        getDate: Type.number
-        getUTCDate: Type.number
-        getDay: Type.number
-        getUTCDay: Type.number
-        getHours: Type.number
-        getUTCHours: Type.number
-        getMinutes: Type.number
-        getUTCMinutes: Type.number
-        getSeconds: Type.number
-        getUTCSeconds: Type.number
-        getMilliseconds: Type.number
-        getUTCMilliseconds: Type.number
-        getTimezoneOffset: Type.number
-        setTime: Type.number
-        setMilliseconds: Type.number
-        setUTCMilliseconds: Type.number
-        setSeconds: Type.number
-        setUTCSeconds: Type.number
-        setMinutes: Type.number
-        setUTCMinutes: Type.number
-        setHours: Type.number
-        setUTCHours: Type.number
-        setDate: Type.number
-        setUTCDate: Type.number
-        setMonth: Type.number
-        setUTCMonth: Type.number
-        setFullYear: Type.number
-        setUTCFullYear: Type.number
-        toUTCString: Type.string
-        toISOString: Type.string
-        toJSON: Type.string
-      RegExp:
-        exec: Type.array.union(Type.null)
-        test: Type.boolean
-        toString: Type.string
-      Error:
-        toString: Type.string
-    #(o) -> @_type ?= do
-      let func = @func
-      let mutable func-type = func.type(o)
-      if func-type.is-subset-of(Type.function)
-        return func-type.args[0]
-      else if func instanceof IdentNode
-        let {name} = func
-        if PRIMORDIAL_FUNCTIONS ownskey name
-          return PRIMORDIAL_FUNCTIONS[name]
-        else if o?.macros.has-helper name
-          func-type := o.macros.helper-type name
-          if func-type.is-subset-of(Type.function)
-            return func-type.args[0]
-      else if func instanceof AccessNode
-        let {parent, child} = func
-        if child instanceof ConstNode
-          if child.value in [\call, \apply]
-            let parent-type = parent.type(o)
-            if parent-type.is-subset-of(Type.function)
-              return parent-type.args[0]
-          else if parent instanceof IdentNode
-            return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
-          // else check the type of parent, maybe figure out its methods
-      Type.any
-  def _reduce = do
-    let PURE_PRIMORDIAL_FUNCTIONS = {
-      +escape
-      +unescape
-      +parseInt
-      +parseFloat
-      +isNaN
-      +isFinite
-      +decodeURI
-      +decodeURIComponent
-      +encodeURI
-      +encodeURIComponent
-      +String
-      +Boolean
-      +Number
-      +RegExp
-    }
-    let PURE_PRIMORDIAL_SUBFUNCTIONS =
-      String: {
-        +fromCharCode
-      }
-      Number: {
-        +isFinite
-        +isNaN
-      }
-      Math: {
-        +abs
-        +acos
-        +asin
-        +atan
-        +atan2
-        +ceil
-        +cos
-        +exp
-        +floor
-        +log
-        +"max"
-        +"min"
-        +pow
-        +round
-        +sin
-        +sqrt
-        +tan
-      }
-      JSON: {
-        +parse
-        +stringify
-      }
-    #(o)
-      let func = @func.reduce(o).do-wrap(o)
-      let args = map @args, #(node) -> node.reduce(o).do-wrap(o)
-      if not @is-new and not @is-apply
-        let const-args = []
-        let mutable all-const = true
-        for arg in args
-          if arg.is-const()
-            const-args.push arg.const-value()
-          else
-            all-const := false
-            break
-        if all-const
-          if func instanceof IdentNode
-            if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name
-              try
-                let value = GLOBAL[func.name]@ void, ...const-args
-                return ConstNode @line, @column, @scope-id, value
-              catch e
-                // TODO: do something here to alert the user
-                void
-          else if func instanceof AccessNode and func.child.is-const()
-            let {parent, child} = func
-            let c-value = child.const-value()
-            if parent.is-const()
-              let p-value = parent.const-value()
-              if is-function! p-value[c-value]
-                try
-                  let value = p-value[c-value] ...const-args
-                  return ConstNode @line, @column, @scope-id, value
-                catch e
-                  // TODO: do something here to alert the user
-                  void
-            else if parent instanceof IdentNode
-              if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
-                try
-                  let value = GLOBAL[parent.name][c-value] ...const-args
-                  return ConstNode @line, @column, @scope-id, value
-                catch e
-                  // TODO: do something here to alert the user
-                  void
-      if func != @func or args != @args
-        CallNode @line, @column, @scope-id, func, args, @is-new, @is-apply
-      else
-        this
-node-class CommentNode(text as String)
-  def type() -> Type.undefined
-  def cacheable = false
-  def is-count() -> true
-  def const-value() -> void
-  def _is-noop() -> true
-node-class ConstNode(value as Number|String|Boolean|void|null)
-  def type()
-    let value = @value
-    if is-null! value
-      Type.null
-    else
-      switch typeof value
-      case \number; Type.number
-      case \string; Type.string
-      case \boolean; Type.boolean
-      case \undefined; Type.undefined
-      default
-        throw Error("Unknown type for $(String value)")
-  def cacheable = false
-  def is-const() -> true
-  def const-value() -> @value
-  def _is-noop() -> true
-  def inspect(depth) -> "ConstNode($(inspect @value, null, if depth? then depth - 1 else null))"
-node-class ContinueNode(label as IdentNode|TmpNode|null)
-  def type() -> Type.undefined
-  def is-statement() -> true
-  def with-label(label as IdentNode|TmpNode|null)
-    ContinueNode @line, @column, @scope-id, label
-node-class DebuggerNode
-  def type() -> Type.undefined
-  def is-statement() -> true
-node-class DefNode(left as Node, right as Node|void)
-  def type(o) -> if @right? then @right.type(o) else Type.any
-node-class EmbedWriteNode(text as Node, escape as Boolean)
-node-class EvalNode(code as Node)
-node-class ForNode(init as Node = NothingNode(0, 0, scope-id), test as Node = ConstNode(0, 0, scope-id, true), step as Node = NothingNode(0, 0, scope-id), body as Node, label as IdentNode|TmpNode|null)
-  def type() -> Type.undefined
-  def is-statement() -> true
-  def with-label(label as IdentNode|TmpNode|null)
-    ForNode @line, @column, @scope-id, @init, @test, @step, @body, label
-node-class ForInNode(key as Node, object as Node, body as Node, label as IdentNode|TmpNode|null)
-  def type() -> Type.undefined
-  def is-statement() -> true
-  def with-label(label as IdentNode|TmpNode|null)
-    ForInNode @line, @column, @scope-id, @key, @object, @body, label
-node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
-  def type(o) -> @_type ?= do
-    // TODO: handle generator types
-    if @as-type?
-      node-to-type(@as-type).function()
-    else
-      let mutable return-type = if @auto-return
-        @body.type(o)
-      else
-        Type.undefined
-      let walker(node)
-        if node instanceof ReturnNode
-          return-type := return-type.union node.type(o)
-          node
-        else if node instanceof FunctionNode
-          node
-        else if node instanceof MacroAccessNode
-          if node.data.macro-name in [\return, "return?"] // FIXME: so ungodly hackish
-            if node.data.macro-data.node
-              return-type := return-type.union node.data.macro-data.node.type(o)
-            else
-              return-type := return-type.union Type.undefined
-          node.walk walker
-        else
-          node.walk walker
-      walker @body
-      return-type.function()
-  def _is-noop(o) -> true
-node-class IdentNode(name as String)
-  def cacheable = false
-  def type(o)
-    if @name == CURRENT_ARRAY_LENGTH_NAME
-      Type.number
-    else if o
-      o.scope.type(this)
-    else
-      Type.any
-  def _is-noop(o) -> true
-node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, 0, scope-id), label as IdentNode|TmpNode|null)
-  def type(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
-  def with-label(label as IdentNode|TmpNode|null)
-    IfNode @line, @column, @scope-id, @test, @when-true, @when-false, label
-  def _reduce(o)
-    let test = @test.reduce(o)
-    let when-true = @when-true.reduce(o)
-    let when-false = @when-false.reduce(o)
-    let label = if @label? then @label.reduce(o) else @label
-    if test.is-const()
-      BlockNode(@line, @column, @scope-id,
-        [if test.const-value()
-          when-true
-        else
-          when-false]
-        label).reduce(o)
-    else
-      let test-type = test.type(o)
-      if test-type.is-subset-of(Type.always-truthy)
-        BlockNode(@line, @column, @scope-id, [test, when-true], label).reduce(o)
-      else if test-type.is-subset-of(Type.always-falsy)
-        BlockNode(@line, @column, @scope-id, [test, when-false], label).reduce(o)
-      else if test != @test or when-true != @when-true or when-false != @when-false or label != @label
-        IfNode(@line, @column, @scope-id, test, when-true, when-false, label)
-      else
-        this
-  def is-statement() -> @_is-statement ?= @when-true.is-statement() or @when-false.is-statement()
-  def do-wrap(o)
-    let when-true = @when-true.do-wrap(o)
-    let when-false = @when-false.do-wrap(o)
-    if when-true != @when-true or when-false != @when-false
-      IfNode @line, @column, @scope-id, @test, when-true, when-false, @label
-    else
-      this
-  def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
-node-class MacroAccessNode(id as Number, call-line as Number, data as Object, position as String, in-generator as Boolean, in-evil-ast as Boolean)
-  def type(o as State) -> @_type ?= do
-    let type = o.macros.get-type-by-id(@id)
-    if type?
-      if is-string! type
-        @data[type].type(o)
-      else
-        type
-    else
-      o.macro-expand-1(this).type(o)
-  def with-label(label as IdentNode|TmpNode|null, o)
-    o.macro-expand-1(this).with-label label, o
-  def walk = do
-    let walk-object(obj, func)
-      let result = {}
-      let mutable changed = false
-      for k, v of obj
-        let new-v = walk-item v, func
-        if new-v != v
-          changed := true
-        result[k] := new-v
-      if changed
-        result
-      else
-        obj
-    let walk-item(item, func)
-      if item instanceof Node
-        func item
-      else if is-array! item
-        map item, #(x) -> walk-item x, func
-      else if is-object! item
-        walk-object item, func
-      else
-        item
-    #(func)
-      let data = walk-item(@data, func)
-      if data != @data
-        MacroAccessNode @line, @column, @scope-id, @id, @call-line, data, @position, @in-generator, @in-evil-ast
-      else
-        this
-  def walk-async = do
-    let walk-object(obj, func, callback)
-      let mutable changed = false
-      let result = {}
-      asyncfor err <- next, k, v of obj
-        async! next, new-item <- walk-item item, func
-        if item != new-item
-          changed := true
-        result[k] := new-item
-        next null
-      if err?
-        callback err
-      else
-        callback null, if changed
-          result
-        else
-          obj
-    let walk-item(item, func, callback)
-      if item instanceof Node
-        func item, callback
-      else if is-array! item
-        map-async item, (#(x, cb) -> walk-item x, func, cb), callback
-      else if is-object! item
-        walk-object item, func, callback
-      else
-        callback null, item
-    #(func, callback)
-      async! callback, data <- walk-item @data, func
-      callback null, if data != @data
-        MacroAccessNode @line, @column, @scope-id, @id, @call-line, data, @position, @in-generator, @in-evil-ast
-      else
-        this
-  def _is-noop(o) -> o.macro-expand-1(this).is-noop(o)
-node-class NothingNode
-  def type() -> Type.undefined
-  def cacheable = false
-  def is-const() -> true
-  def const-value() -> void
-  def _is-noop() -> true
-node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void }], prototype as Node|void)
-  def type(o) -> @_type ?= do
-    let data = {}
-    for {key, value} in @pairs
-      if key.is-const()
-        data[key.const-value()] := value.type(o)
-    Type.make-object data
-  def walk = do
-    let walk-pair(pair, func)
-      let key = func pair.key
-      let value = func pair.value
-      if key != pair.key or value != pair.value
-        { key, value, property: pair.property }
-      else
-        pair
-    #(func)
-      let pairs = map @pairs, walk-pair, func
-      let prototype = if @prototype? then func @prototype else @prototype
-      if pairs != @pairs or prototype != @prototype
-        ObjectNode @line, @column, @scope-id, pairs, prototype
-      else
-        this
-  def walk-async = do
-    let walk-pair(pair, func, callback)
-      async! callback, key <- func pair.key
-      async! callback, value <- func pair.value
-      callback null, if key != pair.key or value != pair.value
-        { key, value, pair.property }
-      else
-        pair
-    #(func, callback)
-      async! callback, pairs <- map-async @pairs, walk-pair, func
-      asyncif prototype <- next, @prototype?
-        async! callback, p <- func @prototype
-        next(p)
-      else
-        next(@prototype)
-      callback null, if pairs != @pairs or prototype != @prototype
-        ObjectNode @line, @column, @scope-id, pairs, prototype
-      else
-        this
-  def _reduce = do
-    let reduce-pair(pair, o)
-      let key = pair.key.reduce(o)
-      let value = pair.value.reduce(o).do-wrap(o)
-      if key != pair.key or value != pair.value
-        { key, value, pair.property }
-      else
-        pair
-    #(o)
-      let pairs = map @pairs, reduce-pair, o
-      let prototype = if @prototype? then @prototype.reduce(o) else @prototype
-      if pairs != @pairs or prototype != @prototype
-        ObjectNode @line, @column, @scope-id, pairs, prototype
-      else
-        this
-  def _is-noop(o) -> @__is-noop ?= for every {key, value} in @pairs; key.is-noop(o) and value.is-noop(o)
-State::object := #(i, pairs, prototype)
-  let known-keys = []
-  let mutable last-property-pair = null
-  for {key, property} in pairs
-    if key instanceof ConstNode
-      let key-value = String key.value
-      if property in [\get, \set] and last-property-pair and last-property-pair.property != property and last-property-pair.key == key-value
-        last-property-pair := null
-        continue
-      else if key-value in known-keys
-        @error "Duplicate key in object: $(key-value)"
-      known-keys.push key-value
-      if property in [\get, \set]
-        last-property-pair := {key: key-value, property}
-      else
-        last-property-pair := null
-    else
-      last-property-pair := null
-  ObjectNode(i, @index, @scope.id, pairs, prototype)
-State::object-param := State::object
-node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
-node-class RegexpNode(source as Node, flags as String)
-  def type() -> Type.regexp
-  def _is-noop(o) -> @text.is-noop(o)
-  def _reduce(o)
-    let source = @source.reduce(o).do-wrap(o)
-    if not source.is-const()
-      CallNode @line, @column, @scope-id, IdentNode(@line, @column, @scope-id, "RegExp"), [
-        source
-        ConstNode @line, @column, @scope-id, @flags
-      ]
-    else if source != @source
-      RegexpNode @line, @column, @scope-id, source, @flags
-    else
-      this
-node-class ReturnNode(node as Node = ConstNode(line, column, scope-id, void))
-  def type(o) -> @node.type(o)
-  def is-statement() -> true
-  def _reduce(o)
-    let node = @node.reduce(o).do-wrap(o)
-    if node != @node
-      ReturnNode @line, @column, @scope-id, node
-    else
-      this
-node-class RootNode(file as String|void, body as Node, is-embedded as Boolean, is-generator as Boolean)
-  def is-statement() -> true
-node-class SpreadNode(node as Node)
-  def _reduce(o)
-    let node = @node.reduce(o).do-wrap(o)
-    if node != @node
-      SpreadNode @line, @column, @scope-id, node
-    else
-      this
-State::string := #(index, mutable parts as [Node])
-  let concat-op = @macros.get-by-label(\string-concat)
-  if not concat-op
-    throw Error "Cannot use string interpolation until the string-concat operator has been defined"
-  if parts.length == 0
-    ConstNode index, index, @scope.id, ""
-  else if parts.length == 1
-    concat-op.func {
-      left: ConstNode index, index, @scope.id, ""
-      op: ""
-      right: parts[0]
-    }, this, index, @get-line(index)
-  else
-    for reduce part in parts[1 to -1], current = parts[0]
-      concat-op.func {
-        left: current
-        op: ""
-        right: part
-      }, this, index, @get-line(index)
-
-node-class SuperNode(child as Node|void, args as [Node])
-  def _reduce(o)
-    let child = if @child? then @child.reduce(o).do-wrap(o) else @child
-    let args = map @args, #(node, o) -> node.reduce(o).do-wrap(o), o
-    if child != @child or args != @args
-      SuperNode @line, @column, @scope-id, child, args
-    else
-      this
-node-class SwitchNode(node as Node, cases as [], default-case as Node|void, label as IdentNode|TmpNode|null)
-  def type(o) -> @_type ?= do
-    for reduce case_ in @cases, type = if @default-case? then @default-case.type(o) else Type.undefined
-      if case_.fallthrough
-        type
-      else
-        type.union case_.body.type(o)
-  def with-label(label as IdentNode|TmpNode|null)
-    SwitchNode @line, @column, @scope-id, @node, @cases, @default-case, label
-  def walk(f)
-    let node = f @node
-    let cases = map @cases, #(case_)
-      let case-node = f case_.node
-      let case-body = f case_.body
-      if case-node != case_.node or case-body != case_.body
-        { node: case-node, body: case-body, case_.fallthrough }
-      else
-        case_
-    let default-case = if @default-case then f @default-case else @default-case
-    let label = if @label? then f @label else @label
-    if node != @node or cases != @cases or default-case != @default-case or label != @label
-      SwitchNode @line, @column, @scope-id, node, cases, default-case, label
-    else
-      this
-  def walk-async(f, callback)
-    async! callback, node <- f @node
-    async! callback, cases <- map-async @cases, #(case_, cb)
-      async! cb, case-node <- f case_.node
-      async! cb, case-body <- f case_.body
-      cb null, if case-node != case_.node or case-body != case_.body
-        { node: case-node, body: case-body, case_.fallthrough }
-      else
-        case_
-    asyncif default-case <- next, @default-case?
-      async! callback, x <- f @default-case
-      next(x)
-    else
-      next(@default-case)
-    asyncif label <- next, @label?
-      async! callback, x <- f @label
-      next(x)
-    else
-      next(@label)
-    callback null, if node != @node or cases != @cases or default-case != @default-case or label != @label
-      SwitchNode @line, @column, @scope-id, node, cases, default-case, label
-    else
-      this
-  def is-statement() -> true
-node-class SyntaxChoiceNode(choices as [Node])
-node-class SyntaxManyNode(inner as Node, multiplier as String)
-node-class SyntaxParamNode(ident as Node, as-type as Node|void)
-node-class SyntaxSequenceNode(params as [Node])
-node-class ThisNode
-  def cacheable = false
-  def _is-noop() -> true
-node-class ThrowNode(node as Node)
-  def type() -> Type.none
-  def is-statement() -> true
-  def _reduce(o)
-    let node = @node.reduce(o).do-wrap(o)
-    if node != @node
-      ThrowNode @line, @column, @scope-id, node
-    else
-      this
-node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
-  def cacheable = false
-  def type() -> @_type
-  def _is-noop() -> true
-node-class TmpWrapperNode(node as Node, tmps as [])
-  def type(o) -> @node.type(o)
-  def with-label(label as IdentNode|TmpNode|null, o)
-    TmpWrapperNode @line, @column, @scope-id, @node.with-label(label, o), @tmps
-  def _reduce(o)
-    let node = @node.reduce(o)
-    if @tmps.length == 0
-      node
-    else if @node != node
-      TmpWrapperNode @line, @column, @scope-id, node, @tmps
-    else
-      this
-  def is-statement() -> @node.is-statement()
-  def _is-noop(o) -> @node.is-noop(o)
-node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Node, label as IdentNode|TmpNode|null)
-  def type(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
-  def is-statement() -> true
-  def _is-noop(o) -> @try-body.is-noop(o)
-  def with-label(label as IdentNode|TmpNode|null)
-    TryCatchNode @line, @column, @scope-id, @try-body, @catch-ident, @catch-body, label
-node-class TryFinallyNode(try-body as Node, finally-body as Node, label as IdentNode|TmpNode|null)
-  def type(o) -> @try-body.type(o)
-  def _reduce(o)
-    let try-body = @try-body.reduce(o)
-    let finally-body = @finally-body.reduce(o)
-    let label = if @label? then @label.reduce(o) else @label
-    if finally-body instanceof NothingNode
-      BlockNode(@line, @column, @scope-if [try-body], label).reduce(o)
-    else if try-body instanceof NothingNode
-      BlockNode(@line, @column, @scope-if [finally-body], label).reduce(o)
-    else if try-body != @try-body or finally-body != @finally-body or label != @label
-      TryFinallyNode @line, @column, @scope-id, try-body, finally-body, label
-    else
-      this
-  def is-statement() -> true
-  def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
-  def with-label(label as IdentNode|TmpNode|null)
-    TryFinallyNode @line, @column, @scope-id, @try-body, @finally-body, label
-node-class TypeFunctionNode(return-type as Node)
-node-class TypeGenericNode(basetype as Node, args as [Node])
-node-class TypeObjectNode(pairs as [])
-  let reduce-pair(pair, o)
-    let key = pair.key.reduce(o)
-    let value = pair.value.reduce(o)
-    if key != pair.key or value != pair.value
-      { key, value }
-    else
-      pair
-  def _reduce(o)
-    let pairs = map @pairs, reduce-pair, o
-    if pairs != @pairs
-      TypeObjectNode @line, @column, @scope-id, pairs
-    else
-      this
-node-class TypeUnionNode(types as [Node])
-node-class UnaryNode(op as String, node as Node)
-  def type = do
-    let ops =
-      "-": Type.number
-      "+": Type.number
-      "--": Type.number
-      "++": Type.number
-      "--post": Type.number
-      "++post": Type.number
-      "!": Type.boolean
-      "~": Type.number
-      typeof: Type.string
-      delete: Type.boolean
-    # -> ops![@op] or Type.any
-  def _reduce = do
-    let const-ops =
-      "-": #(x) -> ~-x
-      "+": #(x) -> ~+x
-      "!": (not)
-      "~": (~bitnot)
-      typeof: (typeof)
-    let nonconst-ops =
-      "+": #(node, o)
-        if node.type(o).is-subset-of Type.number
-          node
-      "-": #(node)
-        if node instanceof UnaryNode
-          if node.op in ["-", "+"]
-            UnaryNode @line, @column, @scope-id, if node.op == "-" then "+" else "-", node.node
-        else if node instanceof BinaryNode
-          if node.op in ["-", "+"]
-            BinaryNode @line, @column, @scope-id, node.left, if node.op == "-" then "+" else "-", node.right
-          else if node.op in ["*", "/"]
-            BinaryNode @line, @column, @scope-id, UnaryNode(node.left.line, node.left.column, node.left.scope-id, "-", node.left), node.op, node.right
-      "!": do
-        let invertible-binary-ops =
-          "<": ">="
-          "<=": ">"
-          ">": "<="
-          ">=": "<"
-          "==": "!="
-          "!=": "=="
-          "===": "!=="
-          "!==": "==="
-          "&&": #(x, y) -> BinaryNode @line, @column, @scope-id, UnaryNode(x.line, x.column, x.scope-id, "!", x), "||", UnaryNode(y.line, y.column, y.scope-id, "!", y)
-          "||": #(x, y) -> BinaryNode @line, @column, @scope-id, UnaryNode(x.line, x.column, x.scope-id, "!", x), "&&", UnaryNode(y.line, y.column, y.scope-id, "!", y)
-        #(node, o)
-          if node instanceof UnaryNode
-            if node.op == "!" and node.node.type(o).is-subset-of(Type.boolean)
-              node.node
-          else if node instanceof BinaryNode
-            if invertible-binary-ops ownskey node.op
-              let invert = invertible-binary-ops[node.op]
-              if is-function! invert
-                invert@ this, node.left, node.right
-              else
-                BinaryNode @line, @column, @scope-id, node.left, invert, node.right
-      typeof: do
-        let object-type = Type.null.union(Type.object).union(Type.array-like).union(Type.regexp).union(Type.date).union(Type.error)
-        #(node, o)
-          if node.is-noop(o)
-            let type = node.type(o)
-            if type.is-subset-of(Type.number)
-              ConstNode @line, @column, @scope-id, \number
-            else if type.is-subset-of(Type.string)
-              ConstNode @line, @column, @scope-id, \string
-            else if type.is-subset-of(Type.boolean)
-              ConstNode @line, @column, @scope-id, \boolean
-            else if type.is-subset-of(Type.undefined)
-              ConstNode @line, @column, @scope-id, \undefined
-            else if type.is-subset-of(Type.function)
-              ConstNode @line, @column, @scope-id, \function
-            else if type.is-subset-of(object-type)
-              ConstNode @line, @column, @scope-id, \object
-    #(o)
-      let node = @node.reduce(o).do-wrap(o)
-      let op = @op
-      if node.is-const() and const-ops ownskey op
-        return ConstNode @line, @column, @scope-id, const-ops[op](node.const-value())
-      
-      let result = nonconst-ops![op]@ this, node, o
-      if result?
-        return result.reduce(o)
-      
-      if node != @node
-        UnaryNode @line, @column, @scope-id, op, node
-      else
-        this
-  def _is-noop(o) -> @__is-noop ?= @op not in ["++", "--", "++post", "--post", "delete"] and @node.is-noop(o)
-node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
-  def type() -> Type.undefined
-  def _reduce(o)
-    let ident = @ident.reduce(o)
-    if ident != @ident
-      VarNode @line, @column, @scope-id, ident, @is-mutable
-    else
-      this
-node-class YieldNode(node as Node)
-  def type() -> Type.any
-  def _reduce(o)
-    let node = @node.reduce(o).do-wrap(o)
-    if node != @node
-      YieldNode @line, @column, @scope-id, node
-    else
-      this
-
-let without-repeats(array)
-  let result = []
-  let mutable last-item = void
-  for item in array
-    if item != last-item
-      result.push item
-    last-item := item
-  result
-
-let build-expected(errors)
-  let errs = without-repeats errors.slice().sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
-  switch errs.length
-  case 0
-    "End of input"
-  case 1
-    errs[0]
-  case 2
-    "$(errs[0]) or $(errs[1])"
-  default
-    "$(errs[0 til -1].join ', '), or $(errs[* - 1])"
-
-let build-error-message(errors, last-token)
-  "Expected $(build-expected errors), but $(last-token) found"
-
-let parse(text as String, macros as MacroHolder|null, options as {} = {}, callback as Function|null)
-  let o = State text, macros?.clone(), options
+let parse(source as String, macros as MacroHolder|null, options as {} = {}, callback as Function|null)
+  let parser = Parser source, macros?.clone(), options
   
-  let root-rule = if o.options.embedded-generator
+  let root-rule = if options.embedded-generator
     EmbeddedRootGenerator
-  else if o.options.embedded
+  else if options.embedded
     EmbeddedRoot
   else
     Root
   
   let start-time = new Date().get-time()
   asyncif result <- next, callback?
-    async err, root <- root-rule o
+    async err, root <- root-rule parser
     if err? and err != SHORT_CIRCUIT
       return callback err
     next root
   else
     try
-      next root-rule o
+      next root-rule parser
     catch e
       if e != SHORT_CIRCUIT
         throw e
       else
         next()
+  parser.clear-cache()
   let end-parse-time = new Date().get-time()
   options.progress?(\parse, end-parse-time - start-time)
   
-  if not result or o.index < o.data.length
-    let {index, line, messages} = o.failures
-    let last-token = if index < o.data.length
-      JSON.stringify o.data.substring(index, index + 20)
-    else
-      "end-of-input"
-    let err = ParserError build-error-message(messages, last-token), o.data, line
+  if not result or result.index < source.length
+    let err = parser.get-failure(result?.index)
     if callback?
-      return callback(err)
+      return callback err
     else
       throw err
+  
+  asyncif expanded <- next, callback?
+    async! callback, expanded <- parser.macro-expand-all-async result.value
+    next expanded
   else
-    asyncif expanded <- next, callback?
-      async! callback, expanded <- o.macro-expand-all-async result
-      next expanded
-    else
-      next o.macro-expand-all(result)
-    let end-expand-time = new Date().get-time()
-    options.progress?(\macro-expand, end-expand-time - end-parse-time)
-    let reduced = expanded.reduce(o)
-    let end-reduce-time = new Date().get-time()
-    options.progress?(\reduce, end-reduce-time - end-expand-time)
-    let ret = {
-      result: reduced
-      o.macros
-      parse-time: end-parse-time - start-time
-      macro-expand-time: end-expand-time - end-parse-time
-      reduce-time: end-reduce-time - end-expand-time
-      time: end-reduce-time - start-time
-    }
-    if callback?
-      callback null, ret
-    else
-      ret
+    next parser.macro-expand-all result.value
+  
+  let end-expand-time = new Date().get-time()
+  options.progress?(\macro-expand, end-expand-time - end-parse-time)
+  let reduced = expanded.reduce(parser)
+  let end-reduce-time = new Date().get-time()
+  options.progress?(\reduce, end-reduce-time - end-expand-time)
+  let ret = {
+    result: reduced
+    parser.macros
+    parse-time: end-parse-time - start-time
+    macro-expand-time: end-expand-time - end-parse-time
+    reduce-time: end-reduce-time - end-expand-time
+    time: end-reduce-time - start-time
+  }
+  if callback?
+    callback null, ret
+  else
+    ret
 module.exports := parse
-let unique(array)
-  let result = []
-  for item in array
-    if item not in result
-      result.push item
-  result
 parse <<< {
   ParserError
   MacroError
@@ -8407,12 +5663,67 @@ parse <<< {
   MacroHolder
   deserialize-prelude: #(data)
     let parsed = if is-string! data then JSON.parse(data) else data
-    let macros = MacroHolder()
-    macros.deserialize(parsed)
+    let parser = Parser()
+    parser.macros.deserialize(parsed, parser, {})
     {
-      result: NothingNode(0, 0, -1)
-      macros
+      result: NothingNode 0, 0, parser.scope.peek()
+      parser.macros
     }
   get-reserved-words: #(macros, options = {})
     unique [...get-reserved-idents(options), ...(macros?.get-macro-and-operator-names?() or [])]
 }
+
+for node-type in [
+      'Access',
+      'AccessMulti',
+      'Args',
+      'Array',
+      'Assign',
+      'Binary',
+      'Block',
+      'Break',
+      'Call',
+      'Comment',
+      'Const',
+      'Continue',
+      'Debugger',
+      'Def',
+      'EmbedWrite',
+      'Eval',
+      'For',
+      'ForIn',
+      'Function',
+      'Ident',
+      'If',
+      'MacroAccess',
+      'Nothing',
+      'Object',
+      'Param',
+      'Regexp',
+      'Return',
+      'Root',
+      'Spread',
+      'Super',
+      'Switch',
+      'SyntaxChoice',
+      'SyntaxMany',
+      'SyntaxParam',
+      'SyntaxSequence',
+      'This',
+      'Throw',
+      'Tmp',
+      'TmpWrapper',
+      'TryCatch',
+      'TryFinally',
+      'TypeFunction',
+      'TypeGeneric',
+      'TypeObject',
+      'TypeUnion',
+      'Unary',
+      'Var',
+      'Yield' ]
+  Parser.add-node-factory node-type, Node[node-type]
+Parser::string := Node.string
+Parser::array-param := Parser::array
+Parser::object := Node.object
+Parser::object-param := Node.object-param

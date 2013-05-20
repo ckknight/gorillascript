@@ -1,3 +1,5 @@
+let inspect = require('util')?.inspect
+
 let string-repeat(text, count)
   if count < 1
     ""
@@ -29,3 +31,18 @@ exports.Cache := class Cache<TKey, TValue>
         throw Error "Expected factory result to be a $(__name TValue), got $(typeof! value)"
       weakmap.set(key, value)
     value
+
+exports.quote := #(value as String)
+  if inspect
+    inspect value
+  else if value.index-of("'") == -1
+    "'$(JSON.stringify(value).slice(1, -1))'"
+  else
+    JSON.stringify value
+
+exports.unique := #(items)
+  let result = []
+  for item in items
+    if item not in result
+      result.push item
+  result

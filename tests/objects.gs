@@ -195,7 +195,7 @@ describe "single-line objects", #
       alpha: 'bravo'
       alpha: 'charlie'
     }
-    """).throws gorilla.ParserError, r"Duplicate key in object.*alpha.*line #4" // TODO: should probably be line #3
+    """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*3:3"
 
   it "multiple access", #
     let obj = { alpha: "bravo", charlie: "delta", echo: "foxtrot" }
@@ -779,7 +779,7 @@ describe "single-line objects", #
       set alpha: 'delta'
       echo: 'foxtrot'
     }
-    """).throws gorilla.ParserError, r"Duplicate key in object:.*alpha.*line #6" // TODO: should be line #4
+    """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
     expect(#-> gorilla.compile """
     let x = {
       set alpha: 'bravo'
@@ -787,7 +787,7 @@ describe "single-line objects", #
       get alpha: 'delta'
       echo: 'foxtrot'
     }
-    """).throws gorilla.ParserError, r"Duplicate key in object:.*alpha.*line #6" // TODO: should be line #4
+    """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
 
   it "Multiple gets of the same key", #
     expect(#-> gorilla.compile """
@@ -796,7 +796,7 @@ describe "single-line objects", #
       get alpha: 'charlie'
       delta: 'echo'
     }
-    """).throws gorilla.ParserError, r"Duplicate key in object:.*alpha.*line #5" // TODO: should be line #3
+    """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*3:7"
     expect(#-> gorilla.compile """
     let x = {
       get alpha: 'bravo'
@@ -804,7 +804,7 @@ describe "single-line objects", #
       get alpha: 'delta'
       echo: 'foxtrot'
     }
-    """).throws gorilla.ParserError, r"Duplicate key in object:.*alpha.*line #6" // TODO: should be line #4
+    """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
     expect(#-> gorilla.compile """
     let x = {
       get alpha: 'bravo'
@@ -812,7 +812,7 @@ describe "single-line objects", #
       get alpha: 'delta'
       echo: 'foxtrot'
     }
-    """).throws gorilla.ParserError, r"Duplicate key in object:.*alpha.*line #6" // TODO: should be line #4
+    """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
 
   it "Multiple sets of the same key", #
     expect(#-> gorilla.compile """
@@ -821,7 +821,7 @@ describe "single-line objects", #
       set alpha: 'charlie'
       echo: 'foxtrot'
     }
-    """).throws gorilla.ParserError, r"Duplicate key in object:.*alpha.*line #5" // TODO: should be line #3
+    """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*3:7"
     expect(#-> gorilla.compile """
     let x = {
       get alpha: 'bravo'
@@ -829,7 +829,7 @@ describe "single-line objects", #
       set alpha: 'delta'
       echo: 'foxtrot'
     }
-    """).throws gorilla.ParserError, r"Duplicate key in object:.*alpha.*line #6" // TODO: should be line #4
+    """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
     expect(#-> gorilla.compile """
     let x = {
       set alpha: 'bravo'
@@ -837,7 +837,7 @@ describe "single-line objects", #
       set alpha: 'delta'
       echo: 'foxtrot'
     }
-    """).throws gorilla.ParserError, r"Duplicate key in object:.*alpha.*line #6" // TODO: should be line #4
+    """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
 
   it "Method declaration in object", #
     let x = {

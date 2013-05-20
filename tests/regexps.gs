@@ -86,13 +86,13 @@ describe "regular expressions", #
   
   it "throws an exception if the regex is improper", #
     expect(#-> gorilla.compile """let x = 0
-    let y = r'+'""").throws(gorilla.ParserError, r'Invalid regular expression.*?line #2')
+    let y = r'+'""").throws(gorilla.ParserError, r'Invalid regular expression.*?\b2:\d+')
     
     expect(#-> gorilla.compile """let x = 0
-    let y = r'x'gg""").throws(gorilla.ParserError, r'Invalid regular expression.*?line #2')
+    let y = r'x'gg""").throws(gorilla.ParserError, r'Invalid regular expression.*?\b2:\d+')
     
     expect(#-> gorilla.compile """let x = 0
-    let y = r'x'q""").throws(gorilla.ParserError, r'Invalid regular expression.*?line #2')
+    let y = r'x'q""").throws(gorilla.ParserError, r'Invalid regular expression.*?\b2:\d+')
   
   it "allows the sticky flag", #
     expect(gorilla.compile("let y = r'x'y")).to.be.ok

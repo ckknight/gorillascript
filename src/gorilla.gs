@@ -5,7 +5,7 @@ require! path
 
 let DEFAULT_TRANSLATOR = './jstranslator'
 
-exports.version := "0.6.6"
+exports.version := "0.6.8"
 exports <<< {parser.ParserError, parser.MacroError}
 
 // TODO: Remove register-extension when fully deprecated.
@@ -24,7 +24,7 @@ let fetch-and-parse-prelude = do
       fetchers.shift()(err, value)
   let real-__filename = if __filename? then fs.realpath-sync(__filename)
   let get-prelude-src-path = if real-__filename? then #(lang) -> path.join(path.dirname(real-__filename), "../src/$(lang)prelude.gs")
-  let get-prelude-cache-path = if os? then #(lang) -> path.join(os.tmp-dir(), "gs-$(lang)prelude.cache")
+  let get-prelude-cache-path = if os? then #(lang) -> path.join(os.tmp-dir(), "gs-$(lang)prelude-$(exports.version).cache")
   let f(lang as String, cb as ->)
     let mutable parsed-prelude = parsed-prelude-by-lang![lang]
     if parsed-prelude?
@@ -43,16 +43,21 @@ let fetch-and-parse-prelude = do
       catch e as ReferenceError
         throw e
       catch e
-        console.error "Error deserializing prelude, reloading. $(String e)"
+        console.error "GorillaScript: Error deserializing prelude, reloading. $(String e)"
         async! flush <- fs.unlink get-prelude-cache-path(lang)
         next()
       else
         flush(null, parsed-prelude)
     async! flush, prelude <- fs.read-file get-prelude-src-path(lang), "utf8"
-    if not parsed-prelude?
-      parsed-prelude-by-lang[lang] := parsed-prelude := parser prelude, null, { +serialize-macros }
+    asyncif next, not parsed-prelude?
+      process.stderr.write "GorillaScript: Compiling prelude ... "
+      let start-time = new Date().get-time()
+      async! flush, result <- parser prelude, null, { +serialize-macros }
+      parsed-prelude-by-lang[lang] := parsed-prelude := result
+      process.stderr.write "$(((new Date().get-time() - start-time) / 1000_ms).to-fixed(3)) s\n"
       fs.write-file get-prelude-cache-path(lang), parsed-prelude.macros.serialize(), "utf8", #(err)
         throw? err
+      next()
     flush(null, parsed-prelude)
   
   f.serialized := #(lang as String, cb as ->)

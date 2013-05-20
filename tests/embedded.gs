@@ -27,6 +27,21 @@ describe "embedded compilation", #
     let f = gorilla.eval """
     <% if name: %>
     Hello, <%= name %>!
+    <% end %>
+    """, embedded: true, noindent: true
+
+    let text = []
+    f #(x, escape) -> text.push(x), {name: "world"}
+    expect(text.join("").trim()).to.equal "Hello, world!"
+
+    text.length := 0
+    f #(x, escape) -> text.push(x), null
+    expect(text.join("").trim()).to.equal ""
+  
+  it "allows if-else statements", #
+    let f = gorilla.eval """
+    <% if name: %>
+    Hello, <%= name %>!
     <% else: %>
     Hello!
     <% end %>

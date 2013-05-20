@@ -66,9 +66,10 @@ macro debugger
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
     @let ident, false, @type(func)
-    @block
-      * @var ident, false
-      * @assign ident, "=", func
+    @block [
+      @var ident, false
+      @assign ident, "=", func
+    ]
 
 macro if, unless
   // this uses eval instead of normal operators since those aren't defined yet
@@ -88,13 +89,13 @@ macro if, unless
 macro continue
   syntax label as (Identifier|"")
     if @position == \expression
-      throw Error "continue can only be used in a statement position"
+      @error "continue can only be used in a statement position"
     @continue label
 
 macro break
   syntax label as (Identifier|"")
     if @position == \expression
-      throw Error "break can only be used in a statement position"
+      @error "break can only be used in a statement position"
     @break label
 
 define operator unary ? with postfix: true, type: \boolean, label: \existential
@@ -186,12 +187,13 @@ macro let
     let inc(x) -> eval("x + 1")
     declarable := @macro-expand-1(declarable)
     if not declarable
-      throw Error("Unknown declarable: " ~& String declarable)
+      @error "Unknown declarable: " ~& String declarable
     if declarable.type == \ident
       @let declarable.ident, declarable.is-mutable, if declarable.as-type then @to-type(declarable.as-type) else @type(value)
-      @block
-        * @var declarable.ident, declarable.is-mutable
-        * @mutate-last value or @noop(), (#(n)@ -> @assign declarable.ident, "=", n), true
+      @block [
+        @var declarable.ident, declarable.is-mutable
+        @mutate-last value or @noop(), (#(n)@ -> @assign declarable.ident, "=", n), true
+      ]
     else if declarable.type == \array
       let num-real-elements(i, acc)
         if i ~< declarable.elements.length
@@ -199,10 +201,12 @@ macro let
         else
           acc
       if num-real-elements(0, 0) ~<= 1
+        let handle-item(element, index)@
+          @macro-expand-1 AST let $element = $value[$index]
         let handle(i)@
           if i ~< declarable.elements.length
             if declarable.elements[i]
-              @macro-expand-1 AST let $(declarable.elements[i]) = $value[$i]
+              handle-item declarable.elements[i], @const i
             else
               handle(inc(i))
           else
@@ -210,11 +214,13 @@ macro let
         handle(0)
       else
         @maybe-cache value, #(set-value, value)@
+          let handle-item(i, element, current-value, index, block)@
+            block.push @macro-expand-1 AST let $element = $current-value[$index]
+            handle inc(i), value, block
           let handle(i, current-value, block)@
             if i ~< declarable.elements.length
               if declarable.elements[i]
-                block.push @macro-expand-1 AST let $(declarable.elements[i]) = $current-value[$i]
-                handle inc(i), value, block
+                handle-item i, declarable.elements[i], current-value, @const(i), block
               else
                 handle inc(i), current-value, block
             else
@@ -222,14 +228,18 @@ macro let
           handle 0, set-value, []
     else if declarable.type == \object
       if declarable.pairs.length == 1
+        let handle-item(left, key)@
+          @macro-expand-1 AST let $left = $value[$key]
         let handle(pair)@
-          @macro-expand-1 AST let $(pair.value) = $value[$(pair.key)]
+          handle-item(pair.value, pair.key)
         handle(@macro-expand-1(declarable.pairs[0]))
       else
         @maybe-cache value, #(set-value, value)@
-          let handle-pair(i, current-value, pair, block)@
-            block.push @macro-expand-1 AST let $(pair.value) = $current-value[$(pair.key)]
+          let handle-item(i, left, current-value, key, block)@
+            block.push @macro-expand-1 AST let $left = $current-value[$key]
             handle inc(i), value, block
+          let handle-pair(i, current-value, pair, block)@
+            handle-item i, pair.value, current-value, pair.key, block
           let handle(i, current-value, block)@
             if i ~< declarable.pairs.length
               handle-pair i, current-value, @macro-expand-1(declarable.pairs[i]), block
@@ -237,7 +247,7 @@ macro let
               @block block
           handle 0, set-value, []
     else
-      throw Error("Unknown declarable " ~& (String declarable) ~& " " ~& (String declarable?.constructor?.name))
+      @error "Unknown declarable: " ~& String declarable ~& " " ~& (String declarable?.constructor?.name)
 
 macro return
   syntax node as Expression?
@@ -813,7 +823,7 @@ define operator unary bitnot with type: \number
 
 define operator unary delete with standalone: false
   if not @is-access(node)
-    throw Error "Can only use delete on an access"
+    @error "Can only use delete on an access"
   if @position == \expression
     @maybe-cache-access node, #(set-node, node)@
       let tmp = @tmp \ref
@@ -854,7 +864,7 @@ define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, 
     else if op == "bitxor="
       ASTE $left ~bitxor= +$right
     else
-      throw Error()
+      @error "Unknown operator " ~& op
   else
     @maybe-cache-access left, #(set-left, left)@
       let action = if op == "*="
@@ -880,7 +890,7 @@ define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, 
       else if op == "bitxor="
         ASTE $left bitxor $right
       else
-        throw Error()
+        @error "Unknown operator " ~& op
       ASTE $set-left := $action
 
 macro do
@@ -963,7 +973,7 @@ macro for
           $else-body
       else
         if else-body
-          throw Error "Cannot use a for loop with an else with $(reducer)"
+          @error "Cannot use a for loop with an else with $(reducer)", else-body
         if reducer == \some
           body := @mutate-last body or @noop(), #(node) -> AST
             if $node
@@ -979,10 +989,10 @@ macro for
           ASTE do
             $loop
         else
-          throw Error("Unknown reducer: $reducer")
+          @error "Unknown reducer: $reducer"
     else if else-body
       if @position == \expression
-        throw Error("Cannot use a for loop with an else as an expression")
+        @error "Cannot use a for loop with an else with as an expression", else-body
       let run-else = @tmp \else, false, \boolean
       body := AST
         $run-else := false
@@ -1068,15 +1078,15 @@ define operator binary til with maximum: 1, precedence: 4, type: \array
 
 define operator binary by with maximum: 1, precedence: 3, type: \array
   if not @has-type(right, \number)
-    throw Error "Must provide a number to the 'by' operator"
+    @error "Must provide a number to the 'by' operator", right
   if @is-const(right) and @value(right) == 0
-    throw Error "'by' step must be non-zero"
+    @error "'by' step must be non-zero", right
   if @is-call(left) and @is-ident(@call-func(left)) and @name(@call-func(left)) == \__range and not @call-is-apply(left)
     let call-args = @call-args(left)
     ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
   else
     if @is-const(right) and @value(right) not %% 1
-      throw Error "'by' step must be an integer"
+      @error "'by' step must be an integer", right
     ASTE __step($left, $right)
 
 define helper __in = if is-function! Array.prototype.index-of
@@ -1106,7 +1116,7 @@ macro for
     
     if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range and not @call-is-apply(array)
       if @is-array(value) or @is-object(value)
-        throw Error "Cannot assign a number to a complex declarable"
+        @error "Cannot assign a number to a complex declarable", value
       value := value.ident
       let [mutable start, mutable end, mutable step, mutable inclusive] = @call-args(array)
     
@@ -1114,14 +1124,14 @@ macro for
     
       if @is-const(start)
         if not is-number! @value(start)
-          throw Error "Cannot start with a non-number: #(@value start)"
+          @error "Cannot start with a non-number: $(@value start)", start
       else
         start := ASTE +$start
       init.push @macro-expand-all AST let mutable $value = $start
 
       if @is-const(end)
         if not is-number! @value(end)
-          throw Error "Cannot end with a non-number: #(@value start)"
+          @error "Cannot end with a non-number: $(@value end)", end
       else if @is-complex(end)
         end := @cache (ASTE +$end), init, \end, false
       else
@@ -1129,7 +1139,7 @@ macro for
 
       if @is-const(step)
         if not is-number! @value(step)
-          throw Error "Cannot step with a non-number: #(@value step)"
+          @error "Cannot step with a non-number: $(@value step)", step
       else if @is-complex(step)
         step := @cache (ASTE +$step), init, \step, false
       else
@@ -1259,14 +1269,16 @@ macro for
           step := args[3]
           inclusive := args[4]
       if @is-const(step)
-        if not is-number! @value(step) or @value(step) not %% 1
-          throw Error "Expected step to be an integer, got $(typeof! @value(step)) ($(String @value(step)))"
+        if not is-number! @value(step)
+          @error "Expected step to be a number, got $(typeof! @value step)", step
+        else if @value(step) not %% 1
+          @error "Expected step to be an integer, got $(@value step)", step
         else if @value(step) == 0
-          throw Error "Step must be non-zero"
+          @error "Expected step to non-zero", step
       if start and @is-const(start) and @value(start) != Infinity and (not is-number! @value(start) or @value(start) not %% 1)
-        throw Error "Expected start to be an integer, got $(typeof! @value(start)) ($(String @value(start)))"
+        @error "Expected start to be an integer, got $(typeof! @value(start)) ($(String @value(start)))", start
       if end and @is-const(end) and @value(end) != Infinity and (not is-number! @value(end) or @value(end) not %% 1)
-        throw Error "Expected end to be an integer or Infinity, got $(typeof! @value(end)) ($(String @value(end)))"
+        @error "Expected end to be an integer, got $(typeof! @value(end)) ($(String @value(end)))", end
       
       if not is-string and not @is-type array, \array-like
         array := ASTE __to-array $array
@@ -1512,7 +1524,7 @@ macro for
           $else-body
       else
         if else-body
-          throw Error("Cannot use a for loop with an else with $reducer")
+          @error "Cannot use a for loop with an else with $(reducer)", else-body
         if reducer == \some
           body := @mutate-last body or @noop(), #(node) -> AST
             if $node
@@ -1532,10 +1544,10 @@ macro for
             $loop
             true
         else
-          throw Error("Unknown reducer: $reducer")
+          @error "Unknown reducer: $reducer"
     else if @position == \expression
       if else-body
-        throw Error("Cannot use a for loop with an else as an expression")
+        @error "Cannot use a for loop with an else as an expression", else-body
       let arr = @tmp \arr, false, @type(body).array()
       body := @mutate-last body or @noop(), #(node) -> (ASTE $arr.push $node)
       init.unshift AST let $arr = []
@@ -1646,7 +1658,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
             has-void := true
             names.push @const \undefined
           else
-            throw Error "Unknown const value for typechecking: $(String @value(t))"
+            @error "Unknown const for type-checking: $(String @value(t))", t
         else if @is-ident(t)
           if @name(t) == \Boolean
             has-boolean := true
@@ -1656,7 +1668,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
             names.push ASTE __name $t
           tests.push ASTE $value not instanceof $t
         else
-          throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
+          @error "Not implemented: typechecking for non-idents/consts within a type-union", t
 
       let test = if tests.length
         @binary-chain "&&", tests
@@ -1707,7 +1719,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
       else
         $checks
     else
-      throw Error "Unknown type to translate: $(typeof! type)"
+      @error "Unknown type to translate: $(typeof! type)", type
   let init = []
   let mutable changed = false
   let translate-param(param, in-destructure)@
@@ -1728,7 +1740,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
               init.splice init-index, 0, AST let $element-ident = $array-ident[$spread-counter + ($i - $found-spread - 1)]
           else
             if found-spread != -1
-              throw Error "Cannot have multiple spread parameters in an array destructure"
+              @error "Cannot have multiple spread parameters in an array destructure", element
             found-spread := i
             if i == len - 1
               init.splice init-index, 0, AST let $element-ident = __slice@ $array-ident, ...(if $i == 0 then [] else [$i])
@@ -1766,7 +1778,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         else if @is-access(param-ident)
           @ident(@value(@child(param-ident)))
         else
-          throw Error "Not an ident or this-access: $(typeof! param-ident)"
+          @error "Not an ident or this-access: $(typeof! param-ident) $(param-ident.inspect())", param-ident
         let type-check = if as-type?
           translate-type-check(ident, @name(ident), as-type, default-value?)
         else
@@ -1792,7 +1804,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         let blank-ident = @tmp \p, false, \object
         @rewrap @param(blank-ident, null, false, false, null), param
     else
-      throw Error "Unknown param type: $(typeof! param)"
+      @error "Unknown param type: $(typeof! param)", param
   
   let mutable found-spread = -1
   let mutable spread-counter = void
@@ -1803,7 +1815,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
     let ident = @param-ident(p)
     if @param-is-spread(p)
       if found-spread != -1
-        throw Error "Cannot have two spread parameters"
+        @error "Cannot have two spread parameters", p
       changed := true
       found-spread := i
       if i == len - 1
@@ -1962,8 +1974,8 @@ define operator binary instanceofsome with precedence: 6, maximum: 1, invertible
 macro try
   syntax try-body as (BodyNoEnd | (";", this as Statement)), typed-catches as ("\n", "catch", ident as Identifier, check as ((type as "as", value as Type)|(type as "==", value as Expression)), body as (BodyNoEnd | (";", this as Statement)))*, catch-part as ("\n", "catch", ident as Identifier?, body as (BodyNoEnd | (";", this as Statement)))?, else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, finally-body as ("\n", "finally", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let has-else = not not else-body
-    if not catch-part and has-else and not finally-body
-      throw Error("Must provide at least a catch, else, or finally to a try block")
+    if typed-catches.length == 0 and not catch-part and not has-else and not finally-body
+      @error "Must provide at least a catch, else, or finally to a try block"
 
     let mutable catch-ident = catch-part?.ident
     let mutable catch-body = catch-part?.body
@@ -1979,13 +1991,13 @@ macro try
         if type-catch.check.type == "as"
           let types = @array for type in (if @is-type-union(type-catch.check.value) then @types(type-catch.check.value) else [type-catch.check.value])
             if @is-type-array(type)
-              throw Error "Expected a normal type, cannot use an array type"
+              @error "Expected a normal type, cannot use an array type", type
             else if @is-type-generic(type)
-              throw Error "Expected a normal type, cannot use a generic type"
+              @error "Expected a normal type, cannot use a generic type", type
             else if @is-type-function(type)
-              throw Error "Expected a normal type, cannot use a function type"
+              @error "Expected a normal type, cannot use a function type", type
             else if @is-type-object(type)
-              throw Error "Expected a normal type, cannot use an object type"
+              @error "Expected a normal type, cannot use an object type", type
             type
           AST
             if $catch-ident instanceofsome $types
@@ -2182,7 +2194,6 @@ macro switch
         node: case-nodes[* - 1]
         body: body
         fallthrough: is-fallthrough
-
     @switch(node, result-cases, default-case)
   
   syntax cases as ("\n", "case", test as Logic, body as (BodyNoEnd | (";", this as Statement))?)*, default-case as ("\n", "default", this as (BodyNoEnd | (";", this as Statement))?)?, "end"
@@ -2333,7 +2344,7 @@ macro once!(func, silent-fail)
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
     if not @is-call(call)
-      throw Error("async call expression must be a call")
+      @error "async call expression must be a call", call
     
     body ?= @noop()
     
@@ -2344,7 +2355,7 @@ macro async
 macro async!
   syntax callback as ("throw" | Expression), params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
     if not @is-call(call)
-      throw Error("async! call expression must be a call")
+      @error "async! call expression must be a call", call
     
     body ?= @noop()
     
@@ -2368,7 +2379,7 @@ macro require!
   syntax name as Expression
     if @is-const name
       if not is-string! @value(name)
-        throw Error("Expected a constant string, got $(typeof! @value(name))")
+        @error "Expected a constant string, got $(typeof! @value(name))", name
     
     if @is-const name
       let mutable ident-name = @value(name)
@@ -2384,7 +2395,7 @@ macro require!
       for obj in @pairs(name)
         let {key, value} = obj
         unless @is-const key
-          throw Error "If providing an object to require!, all keys must be constant strings"
+          @error "If providing an object to require!, all keys must be constant strings", key
         let mutable ident-name = @value(key)
         if ident-name.index-of("/") != -1
           ident-name := ident-name.substring ident-name.last-index-of("/") + 1
@@ -2395,10 +2406,10 @@ macro require!
           let path = @name value
           requires.push AST let $ident = require $path
         else
-          throw Error "If providing an object to require!, all values must be constant strings or idents"
+          @error "If providing an object to require!, all values must be constant strings or idents", value
       @block(requires)
     else
-      throw Error("Expected either a constant string or ident or object")
+      @error "Expected either a constant string or ident or object", name
 
 define helper __async = #(mutable limit as Number, length as Number, has-result as Boolean, on-value as ->, on-complete as ->)!
   let result = if has-result then [] else null
@@ -2574,19 +2585,19 @@ macro asyncfor
     index ?= @tmp \i, true, \number
     if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range and not @call-is-apply(array)
       if @is-array(value) or @is-object(value)
-        throw Error "Cannot assign a number to a complex declarable"
+        @error "Cannot assign a number to a complex declarable", value
       value := value.ident
       let [mutable start, mutable end, mutable step, mutable inclusive] = @call-args(array)
       
       if @is-const(start)
         if not is-number! @value(start)
-          throw Error "Cannot start with a non-number: #(@value start)"
+          @error "Cannot start with a non-number: $(@value start)", start
       else
         start := ASTE +$start
 
       if @is-const(end)
         if not is-number! @value(end)
-          throw Error "Cannot end with a non-number: #(@value start)"
+          @error "Cannot end with a non-number: $(@value end)", end
       else if @is-complex(end)
         end := @cache (ASTE +$end), init, \end, false
       else
@@ -2594,7 +2605,7 @@ macro asyncfor
 
       if @is-const(step)
         if not is-number! @value(step)
-          throw Error "Cannot step with a non-number: #(@value step)"
+          @error "Cannot step with a non-number: $(@value step)", step
       else if @is-complex(step)
         step := @cache (ASTE +$step), init, \step, false
       else
@@ -2986,7 +2997,7 @@ macro enum
         let key = @left node
         let mutable value = @right node
         if not @is-const key
-          throw Error "Cannot have non-const enum keys"
+          @error "Cannot have non-const enum keys", key
         if not value
           index += 1
           value := index
@@ -3077,13 +3088,13 @@ macro namespace
 macro yield
   syntax node as Expression?
     if not @in-generator
-      throw Error "Can only use yield in a generator function"
+      @error "Can only use yield in a generator function"
     @mutate-last node or @noop(), (#(n)@ -> @yield n), true
 
 macro yield*
   syntax node as Expression
     if not @in-generator
-      throw Error "Can only use yield* in a generator function"
+      @error "Can only use yield* in a generator function"
     let init = []
     if @is-type node, \array-like
       let index = @tmp \i, false, \number
@@ -3307,7 +3318,7 @@ define operator binary <<< with precedence: 6
               }
             block.push AST __def-prop $current-left, $key, $descriptor
           else
-            throw Error "Unknown property: $property"
+            @error "Unknown property: $property", key
         else
           block.push AST $current-left[$key] := $value
         current-left := next-left
@@ -3520,7 +3531,7 @@ define operator unary set! with type: \object, label: \construct-set
 
 define operator unary map! with type: \object, label: \construct-map
   if not @is-object(node)
-    throw Error "map! can only be used on literal objects"
+    @error "map! can only be used on literal objects", node
   
   let pairs = @pairs(node)
   if pairs.length == 0
@@ -3530,7 +3541,7 @@ define operator unary map! with type: \object, label: \construct-map
     let parts = []
     for {key, value, property} in pairs
       if property?
-        throw Error "Cannot use map! on an object with custom properties"
+        @error "Cannot use map! on an object with custom properties", key
       parts.push AST $map.set $key, $value
     AST
       let $map = Map()
@@ -3595,7 +3606,7 @@ define helper __defer = #
   
   {
     promise: {
-      then: #(on-fulfilled, on-rejected)
+      then: #(on-fulfilled, on-rejected, allow-sync)
         let {promise, fulfill, reject} = __defer()
         let step = #! -> try
           let f = if is-error then on-rejected else on-fulfilled
@@ -3612,12 +3623,14 @@ define helper __defer = #
 
         if deferred
           deferred.push step
+        else if allow-sync == true
+          step()
         else
           set-immediate step
         promise
     }
-    fulfill: #(value)! -> complete false, value
-    reject: #(value)! -> complete true, value
+    fulfill(value)! -> complete false, value
+    reject(value)! -> complete true, value
   }
 
 define helper __generator-to-promiser = #(factory as ->) -> #
@@ -3640,7 +3653,7 @@ define helper __generator-to-promiser = #(factory as ->) -> #
 macro promise!
   syntax node as Expression
     if @is-func(node) and not @func-is-generator(node)
-      throw Error "Must be used with a generator function"
+      @error "Must be used with a generator function", node
   
     ASTE __generator-to-promiser($node)
   
@@ -3666,7 +3679,7 @@ define helper __to-promise = #(func, context, args)
 
 define operator unary to-promise! with type: \promise
   if not @is-call(node)
-    throw Error("async call expression must be a call")
+    @error "to-promise! call expression must be a call", node
   
   let func = @call-func(node)
   let mutable args = @call-args(node)

@@ -1,7 +1,7 @@
 // basics of function testing before we add tests using `test`
-let x = #-> "alpha"
-expect(x).to.be.a \function
-expect(x()).to.equal "alpha"
+let q = #-> "alpha"
+expect(q).to.be.a \function
+expect(q()).to.equal "alpha"
 
 describe "functions", #
   it "simple function", #
@@ -212,7 +212,7 @@ describe "functions", #
 
   it "multiple spread arguments is an Error", #
     expect(#-> gorilla.compile """let x = 0
-    let f(...a, ...b) ->""").throws gorilla.ParserError, r"line #2"
+    let f(...a, ...b) ->""").throws gorilla.ParserError, r"Cannot have more than one spread parameter.*?2:12"
 
   it "special `arguments` variable is still available", #
     let fun() -> arguments
@@ -522,7 +522,7 @@ describe "functions", #
   it "reserved word as parameter", #
     for name in gorilla.get-reserved-words()
       expect(#-> gorilla.compile """let z = 5
-      let fun(x, $name) ->""").throws gorilla.ParserError, r"line #2"
+      let fun(x, $name) ->""").throws gorilla.ParserError, r"2:\d+"
 
   it "eval is still usable, in case someone wants to use it", #
     expect(eval("5")).to.equal 5
@@ -615,19 +615,19 @@ describe "functions", #
 
   it "duplicate parameter name", #
     expect(#-> gorilla.compile """let x = 0
-    let fun(a, a) ->""").throws gorilla.ParserError, r"line #2"
+    let fun(a, a) ->""").throws gorilla.ParserError, r"Duplicate parameter name: \'a\'.*2:11"
 
   it "duplicate parameter name", #
     expect(#-> gorilla.compile """let x = 0
-    let fun(a, [a]) ->""").throws gorilla.ParserError, r"line #2"
+    let fun(a, [a]) ->""").throws gorilla.ParserError, r"Duplicate parameter name: \'a\'.*2:13"
 
   it "duplicate parameter name", #
     expect(#-> gorilla.compile """let x = 0
-    let fun([a], [a]) ->""").throws gorilla.ParserError, r"line #2"
+    let fun([a], [a]) ->""").throws gorilla.ParserError, r"Duplicate parameter name: \'a\'.*2:15"
 
   it "duplicate parameter name", #
     expect(#-> gorilla.compile """let x = 0
-    let fun([a], {a}) ->""").throws gorilla.ParserError, r"line #2"
+    let fun([a], {a}) ->""").throws gorilla.ParserError, r"Duplicate parameter name: \'a\'.*2:15"
 
   it "typed parameters, Boolean", #
     let fun(val as Boolean) -> val
