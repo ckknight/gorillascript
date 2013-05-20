@@ -21,7 +21,8 @@
   },
   "readmeFilename": "README",
   "dependencies": {
-    "cli": "~0.4.4-2"
+    "cli": "~0.4.4-2",
+    "source-map": "~0.1.22"
   },
   "devDependencies": {
     "promises-aplus-tests": "*",
