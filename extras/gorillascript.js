@@ -7851,7 +7851,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __arrayToIter, __bind, __cmp, __create, __curry, __genericFunc, __getInstanceof, __import, __in, __indexOfIdentical, __int, __isArray, __isObject, __iter, __lt, __lte, __name, __num, __owns, __slice, __str, __strnum, __toArray, __typeof, _arr, _Block, _BlockWithClearCache, _DefineMacro, _FunctionBody, _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, Assignment, AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CurrentArrayLength, CustomBinaryOperator, CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody, DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedComment, EmbeddedLiteralText, EmbeddedLiteralTextInner, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlock, EmbeddedLiteralTextInnerWithBlockWithClearCache, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedReadLiteralText, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, End, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement, ExpressionOrAssignment, FalseLiteral, ForInNode, ForNode, fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral, FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, Index, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter, LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, Map, MapLiteral, MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointChar, MaybeNotToken, MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar, NameOrSymbol, NamePart, NameStart, NaNLiteral, Node, nodeType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment, NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectKeyNotColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, Parser, ParserError, PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, separatedList, sequential, setImmediate, SetLiteral, Shebang, SHORT_CIRCUIT, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement, StringIndent, StringInterpolation, StringLiteral, stringRepeat, SuperInvocation, SuperNode, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore, UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, VoidLiteral, WeakMap, wrapIndent, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
+      var __arrayToIter, __bind, __cmp, __create, __curry, __genericFunc, __getInstanceof, __import, __in, __indexOfIdentical, __int, __isArray, __isObject, __iter, __lt, __lte, __name, __num, __owns, __slice, __str, __strnum, __toArray, __typeof, _arr, _Block, _BlockWithClearCache, _DefineMacro, _FunctionBody, _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody, DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlockWithClearCache, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement, ExpressionOrAssignment, FalseLiteral, ForInNode, ForNode, fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral, FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter, LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, Map, MapLiteral, MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointChar, MaybeNotToken, MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar, NameOrSymbol, NamePart, NameStart, NaNLiteral, Node, nodeType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment, NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, Parser, ParserError, PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, separatedList, sequential, setImmediate, SetLiteral, Shebang, SHORT_CIRCUIT, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement, StringInterpolation, StringLiteral, stringRepeat, SuperInvocation, SuperNode, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore, UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, VoidLiteral, WeakMap, wrapIndent, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
       __arrayToIter = (function () {
         var proto;
         proto = {
@@ -8759,7 +8759,7 @@
         var id;
         id = -1;
         return function (rule) {
-          var cacheKey, stack;
+          var cacheKey;
           if (typeof rule !== "function") {
             throw TypeError("Expected rule to be a Function, got " + __typeof(rule));
           }
@@ -8767,7 +8767,6 @@
             throw Error("Expected only one argument");
           }
           cacheKey = ++id;
-          stack = Error().stack;
           function f(parser, index) {
             var _ref, _ref2, cache, indent, indentCache, inner, item, result;
             cache = parser.cache;
@@ -8797,7 +8796,7 @@
               return result;
             }
           }
-          unusedCaches.set(f, stack);
+          unusedCaches.set(f, Error().stack);
           return f;
         };
       }());
@@ -10774,9 +10773,9 @@
           return Box(index);
         }
       }
-      CheckStop = cache(oneOf(Newline, Eof, function (parser, index) {
+      CheckStop = oneOf(Newline, Eof, function (parser, index) {
         return EmbeddedClose(parser, index) || EmbeddedCloseWrite(parser, index);
-      }));
+      });
       MaybeComment = cache((function () {
         function SingleLineComment(parser, index) {
           var _ref, len, source;
@@ -10821,27 +10820,27 @@
       EmptyLine = cache(withSpace(Newline));
       EmptyLines = cache(zeroOrMore(EmptyLine, true));
       SomeEmptyLines = cache(oneOrMore(EmptyLine, true));
-      NoSpaceNewline = cache(except(EmptyLine));
+      NoSpaceNewline = except(EmptyLine);
       OpenParenthesis = cache(withSpace(character('"("', 40)));
       CloseParenthesis = cache(withSpace(character('")"', 41)));
       OpenSquareBracket = cache(withSpace(OpenSquareBracketChar));
       CloseSquareBracket = cache(withSpace(character('"]"', 93)));
       OpenCurlyBrace = cache(withSpace(OpenCurlyBraceChar));
       CloseCurlyBrace = cache(withSpace(CloseCurlyBraceChar));
-      EqualSign = cache(withSpace(EqualSignChar));
+      EqualSign = withSpace(EqualSignChar);
       PercentSign = cache(withSpace(PercentSignChar));
       DollarSign = cache(withSpace(DollarSignChar));
       Comma = cache(withSpace(CommaChar));
       MaybeComma = cache(maybe(Comma));
-      CommaOrNewline = cache(oneOf(
+      CommaOrNewline = oneOf(
         sequential(
           ["this", Comma],
           EmptyLines
         ),
         SomeEmptyLines
-      ));
+      );
       MaybeCommaOrNewline = cache(maybe(CommaOrNewline));
-      _SomeEmptyLinesWithCheckIndent = cache(sequential(SomeEmptyLines, CheckIndent));
+      _SomeEmptyLinesWithCheckIndent = sequential(SomeEmptyLines, CheckIndent);
       SomeEmptyLinesWithCheckIndent = cache(function (parser, index) {
         if (parser.options.noindent) {
           return EmptyLines(parser, index);
@@ -10896,13 +10895,13 @@
       Logic = function (parser, index) {
         return Logic(parser, index);
       };
-      End = cache(function (parser, index) {
+      function End(parser, index) {
         if (parser.options.noindent) {
           return EndNoIndent(parser, index);
         } else {
           return Box(index);
         }
-      });
+      }
       _Name = cache((_ref = separatedList(
         cons(NameStart, zeroOrMore(NameChar)),
         MinusChar,
@@ -10931,7 +10930,7 @@
         ["this", NameOrSymbol],
         NotColonUnlessNoIndentAndNewline
       )));
-      MacroNames = cache(separatedList.generic(String)(MacroName, Comma));
+      MacroNames = separatedList.generic(String)(MacroName, Comma);
       UseMacro = cache(function (parser, index) {
         var m, name, result;
         name = MacroName(parser, index);
@@ -11097,7 +11096,7 @@
         return parser.Args(index);
       })(_ref)));
       ThisOrShorthandLiteral = cache(oneOf.generic(ThisNode)(ThisLiteral, ThisShorthandLiteral));
-      ThisOrShorthandLiteralPeriod = cache(oneOf.generic(ThisNode)(
+      ThisOrShorthandLiteralPeriod = oneOf.generic(ThisNode)(
         sequential(
           ["this", ThisLiteral],
           Period
@@ -11106,7 +11105,7 @@
           ["this", ThisShorthandLiteral],
           maybe(Period)
         )
-      ));
+      );
       getReservedIdents = (function () {
         var RESERVED_IDENTS, RESERVED_IDENTS_NOINDENT;
         RESERVED_IDENTS = [
@@ -11298,7 +11297,8 @@
         if (typeof digit !== "function") {
           throw TypeError("Expected digit to be a Function, got " + __typeof(digit));
         }
-        return cache((_ref = separatedList(oneOrMore(digit), oneOrMore(Underscore, true)), mutate(function (parts) {
+        _ref = separatedList(oneOrMore(digit), oneOrMore(Underscore, true));
+        return mutate(function (parts) {
           var _arr, _i, _len, part, result;
           result = [];
           for (_arr = __toArray(parts), _i = 0, _len = _arr.length; _i < _len; ++_i) {
@@ -11306,7 +11306,7 @@
             processCharCodes(part, result);
           }
           return result.join("");
-        })(_ref)));
+        })(_ref);
       }
       MaybeUnderscores = cache(zeroOrMore(Underscore, true));
       function parseRadixNumber(integer, fraction, radix, exponent) {
@@ -11590,29 +11590,30 @@
         makeConstLiteral("undefined", void 0),
         makeConstLiteral("void", void 0)
       ));
-      InfinityLiteral = cache(makeConstLiteral("Infinity", 1/0));
-      NaNLiteral = cache(makeConstLiteral("NaN", 0/0));
-      TrueLiteral = cache(makeConstLiteral("true", true));
-      FalseLiteral = cache(makeConstLiteral("false", false));
-      SimpleConstantLiteral = cache(oneOf(
+      InfinityLiteral = makeConstLiteral("Infinity", 1/0);
+      NaNLiteral = makeConstLiteral("NaN", 0/0);
+      TrueLiteral = makeConstLiteral("true", true);
+      FalseLiteral = makeConstLiteral("false", false);
+      SimpleConstantLiteral = oneOf(
         NullLiteral,
         VoidLiteral,
         InfinityLiteral,
         NaNLiteral,
         TrueLiteral,
         FalseLiteral
-      ));
-      HexEscapeSequence = cache((_ref = sequential(
+      );
+      _ref = sequential(
         character('"x"', 120),
         SHORT_CIRCUIT,
         [
           "this",
           multiple(HexDigit, 2, 2)
         ]
-      ), mutate(function (digits) {
+      );
+      HexEscapeSequence = mutate(function (digits) {
         return parseInt(codesToString(digits), 16);
-      })(_ref)));
-      UnicodeEscapeSequence = cache(sequential(
+      })(_ref);
+      UnicodeEscapeSequence = sequential(
         character('"u"', 117),
         SHORT_CIRCUIT,
         [
@@ -11639,25 +11640,25 @@
             })(_ref))
           )
         ]
-      ));
-      SingleEscapeCharacter = cache((function () {
+      );
+      SingleEscapeCharacter = (function () {
         var _o, ESCAPED_CHARACTERS;
         ESCAPED_CHARACTERS = (_o = __create(null), _o[98] = 8, _o[102] = 12, _o[114] = 13, _o[110] = 10, _o[116] = 9, _o[118] = 11, _o);
         return oneOf(mutate(0)(Zero), mutate(function (c) {
           return ESCAPED_CHARACTERS[c] || c;
         })(AnyChar));
-      }()));
-      BackslashEscapeSequence = cache(sequential(BackslashChar, SHORT_CIRCUIT, [
+      }());
+      BackslashEscapeSequence = sequential(BackslashChar, SHORT_CIRCUIT, [
         "this",
         oneOf(HexEscapeSequence, UnicodeEscapeSequence, SingleEscapeCharacter)
-      ]));
+      ]);
       inExpression = makeAlterStack.generic(String)("position", "expression");
       inStatement = makeAlterStack.generic(String)("position", "statement");
-      AssignmentAsExpression = cache(inExpression(function (parser, index) {
+      AssignmentAsExpression = inExpression(function (parser, index) {
         return Assignment(parser, index);
-      }));
+      });
       ExpressionOrAssignment = cache(oneOf(AssignmentAsExpression, Expression));
-      StringInterpolation = cache(sequential(DollarSignChar, NoSpace, SHORT_CIRCUIT, [
+      StringInterpolation = sequential(DollarSignChar, NoSpace, SHORT_CIRCUIT, [
         "this",
         oneOf(Identifier, sequential(
           OpenParenthesis,
@@ -11667,7 +11668,7 @@
           ],
           CloseParenthesis
         ))
-      ]));
+      ]);
       SingleStringLiteral = cache((_ref = sequential(
         SingleQuote,
         SHORT_CIRCUIT,
@@ -11679,7 +11680,7 @@
       ), mutate(function (codes, parser, index) {
         return parser.Const(index, codesToString(codes));
       })(_ref)));
-      DoubleStringLiteralInner = cache(zeroOrMoreOf(BackslashEscapeSequence, StringInterpolation, anyExcept(oneOf(DoubleQuote, Newline))));
+      DoubleStringLiteralInner = zeroOrMoreOf(BackslashEscapeSequence, StringInterpolation, anyExcept(oneOf(DoubleQuote, Newline)));
       function doubleStringLiteralHandler(parts, parser, index) {
         var _arr, _i, _len, currentLiteral, part, stringParts;
         stringParts = [];
@@ -11732,7 +11733,7 @@
         stringParts = doubleStringLiteralHandler(parts, parser, index);
         return parser.Array(index, stringParts);
       })(_ref)));
-      StringIndent = cache(function (parser, index) {
+      function StringIndent(parser, index) {
         var c, count, currentIndent, currentIndex, indentValue;
         count = 0;
         currentIndent = parser.indent.peek();
@@ -11754,7 +11755,7 @@
         } else if (count === currentIndent || Newline(parser, currentIndex)) {
           return Box(currentIndex, count);
         }
-      });
+      }
       if (typeof String.prototype.trimRight === "function") {
         trimRight = function (x) {
           return x.trimRight();
@@ -11764,10 +11765,12 @@
           return x.replace(/\s+$/, "");
         };
       }
-      TripleSingleStringLine = cache((_ref = zeroOrMoreOf(BackslashEscapeSequence, anyExcept(oneOf(TripleSingleQuote, Newline))), mutate(function (codes) {
+      _ref = zeroOrMoreOf(BackslashEscapeSequence, anyExcept(oneOf(TripleSingleQuote, Newline)));
+      TripleSingleStringLine = mutate(function (codes) {
         return [trimRight(codesToString(codes))];
-      })(_ref)));
-      TripleDoubleStringLine = cache((_ref = zeroOrMoreOf(BackslashEscapeSequence, StringInterpolation, anyExcept(oneOf(TripleDoubleQuote, Newline))), mutate(function (parts) {
+      })(_ref);
+      _ref = zeroOrMoreOf(BackslashEscapeSequence, StringInterpolation, anyExcept(oneOf(TripleDoubleQuote, Newline)));
+      TripleDoubleStringLine = mutate(function (parts) {
         var _arr, _i, _len, currentLiteral, part, stringParts;
         stringParts = [];
         currentLiteral = [];
@@ -11787,7 +11790,7 @@
           stringParts.push(trimRight(codesToString(currentLiteral)));
         }
         return stringParts;
-      })(_ref)));
+      })(_ref);
       function tripleStringHandler(x, parser, index) {
         var _end, _len, i, j, len, line, lines, part, stringParts;
         lines = [x.first];
@@ -12063,23 +12066,23 @@
       Literal = cache(oneOf(ThisOrShorthandLiteral, ArgumentsLiteral, ConstantLiteral));
       MaybeNotToken = cache(maybe(word("not")));
       MaybeQuestionMarkChar = cache(maybe(character('"?"', 63)));
-      GeneratorBody = cache(makeAlterStack.generic(Boolean)("inGenerator", true)(Body));
-      GeneratorBodyNoEnd = cache(makeAlterStack.generic(Boolean)("inGenerator", true)(BodyNoEnd));
+      GeneratorBody = makeAlterStack.generic(Boolean)("inGenerator", true)(Body);
+      GeneratorBodyNoEnd = makeAlterStack.generic(Boolean)("inGenerator", true)(BodyNoEnd);
       LessThanChar = character('"<"', 60);
-      LessThan = cache(withSpace(LessThanChar));
+      LessThan = withSpace(LessThanChar);
       GreaterThanChar = character('">"', 62);
-      GreaterThan = cache(withSpace(GreaterThanChar));
+      GreaterThan = withSpace(GreaterThanChar);
       FunctionGlyph = cache(sequential(Space, MinusChar, GreaterThanChar));
-      _FunctionBody = cache(oneOf.generic(Node)(
+      _FunctionBody = oneOf.generic(Node)(
         sequential(FunctionGlyph, [
           "this",
           oneOf(Statement, Nothing)
         ]),
         Body
-      ));
-      FunctionBody = cache(makeAlterStack.generic(Boolean)("inGenerator", false)(_FunctionBody));
-      GeneratorFunctionBody = cache(makeAlterStack.generic(Boolean)("inGenerator", true)(_FunctionBody));
-      IdentifierOrSimpleAccessStart = cache(oneOf(
+      );
+      FunctionBody = makeAlterStack.generic(Boolean)("inGenerator", false)(_FunctionBody);
+      GeneratorFunctionBody = makeAlterStack.generic(Boolean)("inGenerator", true)(_FunctionBody);
+      IdentifierOrSimpleAccessStart = oneOf(
         Identifier,
         (_ref = sequential(
           ["parent", ThisOrShorthandLiteralPeriod],
@@ -12123,9 +12126,9 @@
             child
           );
         })(_ref))
-      ));
+      );
       PeriodOrDoubleColonChar = cache(oneOf(Period, DoubleColonChar));
-      IdentifierOrSimpleAccessPart = cache((_ref = oneOf(
+      _ref = oneOf(
         sequential(
           ["type", PeriodOrDoubleColonChar],
           ["child", IdentifierNameConstOrNumberLiteral]
@@ -12136,7 +12139,8 @@
           ["child", Expression],
           CloseSquareBracket
         )
-      ), mutate(function (_p, parser, childIndex) {
+      );
+      IdentifierOrSimpleAccessPart = mutate(function (_p, parser, childIndex) {
         var child, isProto, type;
         type = _p.type;
         child = _p.child;
@@ -12150,7 +12154,7 @@
             child
           );
         };
-      })(_ref)));
+      })(_ref);
       IdentifierOrSimpleAccess = cache((_ref = sequential(
         ["head", IdentifierOrSimpleAccessStart],
         ["tail", zeroOrMore(IdentifierOrSimpleAccessPart)]
@@ -12192,7 +12196,7 @@
           return arrayIdent;
         }
       })(_ref)));
-      ObjectTypePair = cache(sequential(
+      ObjectTypePair = sequential(
         [
           "key",
           function (parser, index) {
@@ -12201,7 +12205,7 @@
         ],
         Colon,
         ["value", TypeReference]
-      ));
+      );
       ObjectType = cache((_ref = sequential(
         OpenCurlyBrace,
         [
@@ -12330,19 +12334,19 @@
           return parser.TypeUnion(index, types);
         }
       })(_ref)));
-      MaybeAsType = cache(maybe(sequential(word("as"), SHORT_CIRCUIT, ["this", TypeReference])));
+      MaybeAsType = maybe(sequential(word("as"), SHORT_CIRCUIT, ["this", TypeReference]));
       BracketedObjectKey = cache(sequential(
         OpenSquareBracket,
         ["this", ExpressionOrAssignment],
         CloseSquareBracket
       ));
-      ConstObjectKey = cache(oneOf(
+      ConstObjectKey = oneOf(
         StringLiteral,
         mutate(function (node, parser, index) {
           return parser.Const(index, String(node.constValue()));
         })(NumberLiteral),
         IdentifierNameConst
-      ));
+      );
       ObjectKey = cache(oneOf(BracketedObjectKey, ConstObjectKey));
       ObjectKeyColon = cache(sequential(
         ["this", ObjectKey],
@@ -12352,7 +12356,7 @@
           if (parser.options.noindent) {
             if (EmptyLine(parser, index)) {
               return;
-            } else if (parser.options.embedded && (EmbeddedClose(parser, index) || EmbeddedCloseWrite(parser, index) || EmbeddedCloseComment(parser, index))) {
+            } else if (parser.options.embedded && (EmbeddedClose(parser, index) || EmbeddedCloseWrite(parser, index))) {
               return;
             }
           }
@@ -12403,7 +12407,7 @@
         }
         return array;
       }
-      IdentifierOrThisAccess = cache(oneOf(Identifier, (_ref = sequential(
+      IdentifierOrThisAccess = oneOf(Identifier, (_ref = sequential(
         ["parent", ThisOrShorthandLiteralPeriod],
         ["child", IdentifierNameConst]
       ), mutate(function (_p, parser, index) {
@@ -12411,8 +12415,8 @@
         parent = _p.parent;
         child = _p.child;
         return parser.Access(index, parent, child);
-      })(_ref))));
-      IdentifierParameter = cache((_ref = sequential(
+      })(_ref)));
+      _ref = sequential(
         ["isMutable", bool(maybe(word("mutable")))],
         ["spread", bool(MaybeSpreadToken)],
         ["ident", IdentifierOrThisAccess],
@@ -12421,7 +12425,8 @@
           "defaultValue",
           maybe(sequential(EqualSign, ["this", Expression]))
         ]
-      ), mutate(function (_p, parser, index) {
+      );
+      IdentifierParameter = mutate(function (_p, parser, index) {
         var asType, defaultValue, ident, isMutable, spread;
         isMutable = _p.isMutable;
         spread = _p.spread;
@@ -12439,11 +12444,11 @@
           isMutable,
           asType
         );
-      })(_ref)));
+      })(_ref);
       Parameter = function (parser, index) {
         return Parameter(parser, index);
       };
-      ArrayParameter = cache((_ref = sequential(
+      _ref = sequential(
         OpenSquareBracket,
         EmptyLines,
         [
@@ -12454,17 +12459,19 @@
         ],
         EmptyLines,
         CloseSquareBracket
-      ), mutate(function (params, parser, index) {
+      );
+      ArrayParameter = mutate(function (params, parser, index) {
         return parser.Array(index, params);
-      })(_ref)));
-      ParamDualObjectKey = cache(sequential(
+      })(_ref);
+      ParamDualObjectKey = sequential(
         ["key", ObjectKeyColon],
         ["value", Parameter]
-      ));
-      ParamSingularObjectKey = cache((_ref = sequential(
+      );
+      _ref = sequential(
         ["this", IdentifierParameter],
         NotColon
-      ), mutate(function (param, parser, index) {
+      );
+      ParamSingularObjectKey = mutate(function (param, parser, index) {
         var ident, key;
         ident = param.ident;
         if (ident instanceof IdentNode) {
@@ -12475,9 +12482,9 @@
           throw Error("Unknown object key type: " + __strnum(param.type));
         }
         return { key: key, value: param };
-      })(_ref)));
-      KvpParameter = cache(maybe(oneOf(ParamDualObjectKey, ParamSingularObjectKey)));
-      ObjectParameter = cache((_ref = sequential(
+      })(_ref);
+      KvpParameter = maybe(oneOf(ParamDualObjectKey, ParamSingularObjectKey));
+      _ref = sequential(
         OpenCurlyBrace,
         EmptyLines,
         [
@@ -12486,7 +12493,8 @@
         ],
         EmptyLines,
         CloseCurlyBrace
-      ), mutate(function (params, parser, index) {
+      );
+      ObjectParameter = mutate(function (params, parser, index) {
         return parser.object(index, (function () {
           var _arr, _arr2, _i, _len, param;
           for (_arr = [], _arr2 = __toArray(params), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
@@ -12497,20 +12505,22 @@
           }
           return _arr;
         }()));
-      })(_ref)));
-      Parameter = cache(oneOf(IdentifierParameter, ArrayParameter, ObjectParameter));
-      ParameterOrNothing = cache(oneOf(Parameter, Nothing));
-      Parameters = cache((_ref = separatedList(ParameterOrNothing, CommaOrNewline), mutate(function (params, parser, index) {
+      })(_ref);
+      Parameter = oneOf(IdentifierParameter, ArrayParameter, ObjectParameter);
+      ParameterOrNothing = oneOf(Parameter, Nothing);
+      _ref = separatedList(ParameterOrNothing, CommaOrNewline);
+      Parameters = mutate(function (params, parser, index) {
         return validateSpreadParameters(removeTrailingNothings(params), parser);
-      })(_ref)));
-      ParameterSequence = cache((_ref = sequential(
+      })(_ref);
+      _ref = sequential(
         OpenParenthesis,
         SHORT_CIRCUIT,
         EmptyLines,
         ["this", Parameters],
         EmptyLines,
         CloseParenthesis
-      ), mutate((function () {
+      );
+      ParameterSequence = mutate((function () {
         function checkParam(param, parser, names) {
           var _arr, _i, _len, child, element, ident, name, pair;
           if (!(param instanceof Node)) {
@@ -12560,8 +12570,8 @@
           }
           return params;
         };
-      }()))(_ref)));
-      FunctionDeclaration = cache((function () {
+      }()))(_ref);
+      FunctionDeclaration = (function () {
         var _ref, asTypeRule, FunctionFlag, FunctionFlags, GenericDefinitionPart, paramsRule;
         FunctionFlag = oneOf(ExclamationPointChar, AtSignChar, AsterixChar, CaretChar);
         _ref = zeroOrMore(FunctionFlag);
@@ -12653,7 +12663,7 @@
           parser.popScope();
           return Box(body.index, result);
         };
-      }()));
+      }());
       FunctionLiteral = cache(sequential(Space, HashSignChar, ["this", FunctionDeclaration]));
       preventUnclosedObjectLiteral = makeAlterStack.generic(Boolean)("preventUnclosedObjectLiteral", true);
       ArrayLiteral = cache(preventUnclosedObjectLiteral((_ref = sequential(
@@ -12722,11 +12732,11 @@
           return Box(index);
         }
       });
-      DualObjectKey = cache(sequential(
+      DualObjectKey = sequential(
         ["key", ObjectKeyColon],
         NoNewlineIfNoIndent,
         ["value", Expression]
-      ));
+      );
       GetSetToken = cache(oneOf(word("get"), word("set")));
       PropertyDualObjectKey = cache(sequential(
         [
@@ -12740,20 +12750,17 @@
         ["value", Expression]
       ));
       PropertyOrDualObjectKey = cache(oneOf(PropertyDualObjectKey, DualObjectKey));
-      ObjectKeyNotColon = cache(sequential(
-        ["this", ObjectKey],
-        NotColon
-      ));
-      MethodDeclaration = cache(sequential(
+      MethodDeclaration = sequential(
         ["property", maybe(GetSetToken)],
-        ["key", ObjectKeyNotColon],
+        ["key", ObjectKey],
+        NotColon,
         ["value", FunctionDeclaration]
-      ));
-      PropertyOrDualObjectKeyOrMethodDeclaration = cache(oneOf(PropertyOrDualObjectKey, MethodDeclaration));
+      );
+      PropertyOrDualObjectKeyOrMethodDeclaration = oneOf(PropertyOrDualObjectKey, MethodDeclaration);
       UnclosedObjectLiteral = cache((_ref = separatedList(PropertyOrDualObjectKey, Comma), mutate(function (pairs, parser, index) {
         return parser.object(index, pairs);
       })(_ref)));
-      SingularObjectKey = cache(oneOf(
+      SingularObjectKey = oneOf(
         (_ref = sequential(
           ["this", IdentifierOrAccess],
           NotColon
@@ -12804,7 +12811,7 @@
         ), mutate(function (node, parser, index) {
           return { key: node, value: node };
         })(_ref))
-      ));
+      );
       KeyValuePair = cache(oneOf(
         PropertyOrDualObjectKeyOrMethodDeclaration,
         (_ref = sequential(
@@ -12959,7 +12966,7 @@
           index
         );
       })(_ref)));
-      Assignment = cache(function (parser, index) {
+      function Assignment(parser, index) {
         var _arr, _i, left, op, operator, right, rule;
         left = IdentifierOrAccess(parser, index);
         if (!left) {
@@ -12982,8 +12989,8 @@
             index
           ));
         }
-      });
-      CustomOperatorCloseParenthesis = cache((function () {
+      }
+      CustomOperatorCloseParenthesis = (function () {
         function handleUnaryOperator(operator, parser, index) {
           var close, node, op, result, scope;
           op = operator.rule(parser, index);
@@ -13080,8 +13087,8 @@
             }
           }
         };
-      }()));
-      CustomBinaryOperator = cache(function (parser, index) {
+      }());
+      function CustomBinaryOperator(parser, index) {
         var _arr, _i, currentIndex, invert, inverted, op, operator;
         for (_arr = __toArray(parser.allBinaryOperators()), _i = _arr.length; _i--; ) {
           operator = _arr[_i];
@@ -13100,7 +13107,7 @@
           }
           return Box(op.index, { op: op.value, operator: operator, inverted: inverted });
         }
-      });
+      }
       Parenthetical = cache(sequential(OpenParenthesis, [
         "this",
         oneOf.generic(Node)(
@@ -13236,7 +13243,7 @@
           ))
         ]
       ));
-      UnclosedArrayLiteralElement = cache(sequential(AsterixChar, Space, [
+      UnclosedArrayLiteralElement = sequential(AsterixChar, Space, [
         "this",
         oneOf(
           retainIndent(sequential(PushFakeIndent(2), [
@@ -13251,7 +13258,7 @@
           ])),
           SpreadOrExpression
         )
-      ]));
+      ]);
       IndentedUnclosedArrayLiteralInner = cache((_ref = separatedList(UnclosedArrayLiteralElement, sequential(MaybeComma, SomeEmptyLinesWithCheckIndent)), mutate(function (items, parser, index) {
         return parser.Array(index, items);
       })(_ref)));
@@ -13688,19 +13695,6 @@
           );
         };
       }());
-      Index = cache((function () {
-        var _ref, asterixAsArrayLength, ExpressionWithAsterixAsArrayLength;
-        asterixAsArrayLength = makeAlterStack.generic(Boolean)("asterixAsArrayLength", true);
-        ExpressionWithAsterixAsArrayLength = asterixAsArrayLength(Expression);
-        _ref = separatedList(ExpressionWithAsterixAsArrayLength, CommaOrNewline);
-        return mutate(function (nodes) {
-          if (__num(nodes.length) > 1) {
-            return { type: "multi", elements: nodes };
-          } else {
-            return { type: "single", node: nodes[0] };
-          }
-        })(_ref);
-      }()));
       InvocationOrAccessPart = cache(oneOf(
         (_ref = sequential(
           LessThanChar,
@@ -13740,7 +13734,19 @@
           ["bind", MaybeAtSignChar],
           ["type", maybe(DoubleColonChar)],
           OpenSquareBracketChar,
-          ["child", Index],
+          [
+            "child",
+            (_ref2 = separatedList(
+              makeAlterStack.generic(Boolean)("asterixAsArrayLength", true)(Expression),
+              CommaOrNewline
+            ), mutate(function (nodes) {
+              if (__num(nodes.length) > 1) {
+                return { type: "multi", elements: nodes };
+              } else {
+                return { type: "single", node: nodes[0] };
+              }
+            })(_ref2))
+          ],
           CloseSquareBracket
         ), mutate(function (x, parser, index) {
           if (x.child.type === "single") {
@@ -13778,7 +13784,7 @@
           };
         })(_ref))
       ));
-      BasicInvocationOrAccess = cache((_ref = sequential(
+      _ref = sequential(
         ["isNew", bool(maybe(word("new")))],
         [
           "head",
@@ -13801,7 +13807,8 @@
           )
         ],
         ["tail", zeroOrMore(InvocationOrAccessPart)]
-      ), mutate(function (_p, parser, index) {
+      );
+      BasicInvocationOrAccess = mutate(function (_p, parser, index) {
         var head, isNew, tail;
         isNew = _p.isNew;
         head = _p.head;
@@ -13813,7 +13820,7 @@
           parser,
           index
         );
-      })(_ref)));
+      })(_ref);
       SuperInvocation = cache((_ref = sequential(
         word("super"),
         SHORT_CIRCUIT,
@@ -14049,7 +14056,7 @@
         ],
         Space
       ));
-      MacroSyntaxParameterType = cache((_ref = sequential(
+      _ref = sequential(
         [
           "type",
           oneOf(
@@ -14090,7 +14097,8 @@
           "multiplier",
           maybe(oneOf(symbol("?"), symbol("*"), symbol("+")))
         ]
-      ), mutate(function (_p, parser, index) {
+      );
+      MacroSyntaxParameterType = mutate(function (_p, parser, index) {
         var multiplier, type;
         type = _p.type;
         multiplier = _p.multiplier;
@@ -14099,8 +14107,8 @@
         } else {
           return type;
         }
-      })(_ref)));
-      MacroSyntaxParameter = cache(oneOf(StringLiteral, (_ref = sequential(
+      })(_ref);
+      MacroSyntaxParameter = oneOf(StringLiteral, (_ref = sequential(
         [
           "ident",
           oneOf(ThisOrShorthandLiteral, Identifier)
@@ -14114,10 +14122,10 @@
         ident = _p.ident;
         type = _p.type;
         return parser.SyntaxParam(index, ident, type);
-      })(_ref))));
-      MacroSyntaxParameters = cache(separatedList(MacroSyntaxParameter, Comma));
-      MacroSyntaxChoiceParameters = cache(separatedList(MacroSyntaxParameterType, Pipe));
-      MacroOptions = cache(maybe(
+      })(_ref)));
+      MacroSyntaxParameters = separatedList(MacroSyntaxParameter, Comma);
+      MacroSyntaxChoiceParameters = separatedList(MacroSyntaxParameterType, Pipe);
+      MacroOptions = maybe(
         (_ref = sequential(word("with"), ["this", UnclosedObjectLiteral]), mutate(function (object, parser, index) {
           if (!object.isLiteral()) {
             throw ParserError("Macro options must be a literal object without any logic, invocation, or anything else", parser, index);
@@ -14127,7 +14135,7 @@
         function () {
           return {};
         }
-      ));
+      );
       function addMacroSyntaxParametersToScope(params, scope) {
         var _arr, _i, _len, ident, param;
         for (_arr = __toArray(params), _i = 0, _len = _arr.length; _i < _len; ++_i) {
@@ -14140,7 +14148,7 @@
           }
         }
       }
-      MacroSyntax = cache(sequential(
+      MacroSyntax = sequential(
         CheckIndent,
         word("syntax"),
         SHORT_CIRCUIT,
@@ -14175,8 +14183,8 @@
         },
         Space,
         CheckStop
-      ));
-      MacroBody = cache(oneOf(
+      );
+      MacroBody = oneOf(
         sequential(
           function (parser, index) {
             if (parser.options.noindent) {
@@ -14227,9 +14235,9 @@
           parser.popScope();
           return Box(body.index, parser.Nothing(index));
         }
-      ));
+      );
       inMacro = makeAlterStack.generic(Boolean)("inMacro", true);
-      _DefineMacro = cache(sequential(word("macro"), [
+      _DefineMacro = sequential(word("macro"), [
         "this",
         inMacro(function (parser, index) {
           var body, names;
@@ -14242,8 +14250,8 @@
           parser.exitMacro();
           return Box(body.index, parser.Nothing(index));
         })
-      ]));
-      DefineSyntax = cache((function () {
+      ]);
+      DefineSyntax = (function () {
         var topRule;
         topRule = sequential(
           word("define"),
@@ -14266,8 +14274,8 @@
             parser.Nothing(index)
           );
         });
-      }()));
-      DefineHelper = cache((_ref = sequential(
+      }());
+      _ref = sequential(
         word("define"),
         word("helper"),
         SHORT_CIRCUIT,
@@ -14279,14 +14287,15 @@
             FunctionDeclaration
           )
         ]
-      ), mutate(function (_p, parser, index) {
+      );
+      DefineHelper = mutate(function (_p, parser, index) {
         var name, value;
         name = _p.name;
         value = _p.value;
         parser.defineHelper(index, name, value);
         return parser.Nothing(index);
-      })(_ref)));
-      DefineOperator = cache((function () {
+      })(_ref);
+      DefineOperator = (function () {
         var mainRule;
         mainRule = sequential(
           word("define"),
@@ -14363,7 +14372,7 @@
           parser.popScope();
           return Box(body.index, parser.Nothing(index));
         });
-      }()));
+      }());
       DefineMacro = cache(oneOf.generic(NothingNode)(_DefineMacro, DefineSyntax, DefineHelper, DefineOperator));
       Statement = cache(sequential(
         [
@@ -14378,7 +14387,7 @@
         }
         return text.replace(/\s+/g, " ");
       }
-      EmbeddedReadLiteralText = cache(function (parser, index) {
+      function EmbeddedReadLiteralText(parser, index) {
         var c, codes, currentIndex, len, source, text;
         source = parser.source;
         len = source.length;
@@ -14407,7 +14416,7 @@
           parser.Const(index, text),
           false
         ));
-      });
+      }
       makeEmbeddedRule = (function () {
         var rules;
         function make(text) {
@@ -14450,8 +14459,8 @@
         };
       }());
       EmbeddedOpenComment = cache(makeEmbeddedRule("embeddedOpenComment", EMBED_OPEN_COMMENT_DEFAULT));
-      EmbeddedCloseComment = cache(makeEmbeddedRule("embeddedCloseComment", EMBED_CLOSE_COMMENT_DEFAULT));
-      EmbeddedComment = cache(function (parser, index) {
+      EmbeddedCloseComment = makeEmbeddedRule("embeddedCloseComment", EMBED_CLOSE_COMMENT_DEFAULT);
+      function EmbeddedComment(parser, index) {
         var any, close, currentIndex, len, open;
         open = EmbeddedOpenComment(parser, index);
         if (!open) {
@@ -14475,7 +14484,7 @@
           currentIndex = any.index;
         }
         return Box(currentIndex, parser.Nothing(index));
-      });
+      }
       EmbeddedOpen = cache(makeEmbeddedRule("embeddedOpen", EMBED_OPEN_DEFAULT));
       EmbeddedClose = cache(sequential(EmptyLines, Space, oneOf(Eof, makeEmbeddedRule("embeddedClose", EMBED_CLOSE_DEFAULT))));
       EmbeddedOpenWrite = cache(makeEmbeddedRule("embeddedOpenWrite", EMBED_OPEN_WRITE_DEFAULT));
@@ -14485,28 +14494,27 @@
       NotEmbeddedOpenComment = cache(except(EmbeddedOpenComment));
       NotEmbeddedOpenWrite = cache(except(EmbeddedOpenWrite));
       disallowEmbeddedText = makeAlterStack.generic(Boolean)("allowEmbeddedText", false);
-      EmbeddedWriteExpression = cache(disallowEmbeddedText((_ref = sequential(
+      EmbeddedWriteExpression = disallowEmbeddedText((_ref = sequential(
         NotEmbeddedOpenComment,
         EmbeddedOpenWrite,
         ["this", Expression],
         EmbeddedCloseWrite
       ), mutate(function (node, parser, index) {
         return parser.EmbedWrite(index, node, true);
-      })(_ref))));
-      EmbeddedLiteralTextInnerPart = cache(oneOf(EmbeddedComment, EmbeddedWriteExpression, EmbeddedReadLiteralText));
-      EmbeddedLiteralTextInner = cache((_ref = zeroOrMore(EmbeddedLiteralTextInnerPart), mutate(function (nodes, parser, index) {
-        return parser.Block(index, nodes);
       })(_ref)));
-      EmbeddedLiteralText = cache(sequential(
+      EmbeddedLiteralTextInnerPart = oneOf(EmbeddedComment, EmbeddedWriteExpression, EmbeddedReadLiteralText);
+      EmbeddedLiteralText = cache((_ref = sequential(
         function (parser, index) {
           if (parser.options.embedded && parser.allowEmbeddedText.peek() && index < parser.source.length) {
             return Box(index);
           }
         },
         EmbeddedClose,
-        ["this", EmbeddedLiteralTextInner],
+        ["this", zeroOrMore(EmbeddedLiteralTextInnerPart)],
         oneOf(Eof, sequential(NotEmbeddedOpenComment, NotEmbeddedOpenWrite, EmbeddedOpen))
-      ));
+      ), mutate(function (nodes, parser, index) {
+        return parser.Block(index, nodes);
+      })(_ref)));
       Semicolon = cache(withSpace(SemicolonChar));
       Semicolons = cache(zeroOrMore(Semicolon, true));
       Line = cache((function () {
@@ -14651,25 +14659,22 @@
           return setImmediate(next);
         };
       }());
-      _Block = cache(mutate(_BlockMutator, separatedList(Line, SomeEmptyLines)));
-      Block = cache(oneOf(
+      _Block = mutate(_BlockMutator, separatedList(Line, SomeEmptyLines));
+      Block = oneOf(
         sequential(CheckIndent, [
           "this",
           oneOf.generic(Node)(IndentedUnclosedObjectLiteralInner, IndentedUnclosedArrayLiteralInner)
         ]),
         _Block
-      ));
-      EmbeddedBlock = cache(sequential(
+      );
+      EmbeddedBlock = sequential(
         NotEmbeddedOpenWrite,
         NotEmbeddedOpenComment,
         EmbeddedOpen,
         ["this", _Block],
         EmbeddedClose
-      ));
-      EmbeddedLiteralTextInnerPartWithBlock = cache(oneOf(EmbeddedLiteralTextInnerPart, EmbeddedBlock));
-      EmbeddedLiteralTextInnerWithBlock = cache((_ref = zeroOrMore(EmbeddedLiteralTextInnerPartWithBlock), mutate(function (nodes, parser, index) {
-        return parser.Block(index, nodes);
-      })(_ref)));
+      );
+      EmbeddedLiteralTextInnerPartWithBlock = oneOf(EmbeddedLiteralTextInnerPart, EmbeddedBlock);
       EmbeddedLiteralTextInnerWithBlockWithClearCache = (function () {
         function syncRule(parser, index) {
           var currentIndex, item, nodes;
@@ -14723,16 +14728,16 @@
           return next();
         };
       }());
-      EndNoIndent = cache(sequential(EmptyLines, Space, maybe(Semicolons), word("end")));
-      BodyWithIndent = cache(retainIndent(sequential(
+      EndNoIndent = sequential(EmptyLines, Space, maybe(Semicolons), word("end"));
+      BodyWithIndent = retainIndent(sequential(
         Space,
         Newline,
         EmptyLines,
         Advance,
         ["this", Block],
         PopIndent
-      )));
-      BodyNoIndentNoEnd = cache(sequential(
+      ));
+      BodyNoIndentNoEnd = sequential(
         function (parser, index) {
           if (ColonNewline(parser, index) || parser.options.embedded && (ColonEmbeddedClose(parser, index) || ColonEmbeddedCloseWrite(parser, index))) {
             return Box(index);
@@ -14753,11 +14758,11 @@
             }
           }
         ]
-      ));
-      BodyNoIndent = cache(sequential(
+      );
+      BodyNoIndent = sequential(
         ["this", BodyNoIndentNoEnd],
         EndNoIndent
-      ));
+      );
       Body = cache(function (parser, index) {
         var ret, scope;
         scope = parser.pushScope(true);
@@ -16825,6 +16830,7 @@
       parse.MacroError = MacroError;
       parse.Node = Node;
       parse.MacroHolder = MacroHolder;
+      parse.unusedCaches = unusedCaches;
       parse.deserializePrelude = function (data) {
         var parsed, parser;
         if (typeof data === "string") {

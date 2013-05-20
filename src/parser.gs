@@ -147,7 +147,7 @@ class Box
     if index not %% 1 or index < 0
       throw RangeError "Expected index to be a non-negative integer, got $index"
 
-let unused-caches = Map()
+let unused-caches = if DEBUG then Map()
 
 let cache = do
   let mutable id = -1
@@ -155,7 +155,6 @@ let cache = do
     if DEBUG and arguments.length > 1
       throw Error "Expected only one argument"
     let cache-key = (id += 1)
-    let stack = Error().stack
     let f(parser, index)
       let cache = parser.cache
       let indent = parser.indent.peek()
@@ -164,7 +163,8 @@ let cache = do
       let inner = (indent-cache[index ~% 16] ?= [])
       let item = inner[cache-key]
       if item and item.start == index
-        unused-caches.delete f
+        if DEBUG
+          unused-caches.delete f
         item.result
       else
         let result = rule parser, index
@@ -178,7 +178,8 @@ let cache = do
           result
         }
         result
-    unused-caches.set f, stack
+    if DEBUG
+      unused-caches.set f, Error().stack
     f
 
 macro define
@@ -5047,7 +5048,7 @@ class Parser
       let state = this
       {
         handler: #(args, ...rest) -> handler@(this, reduce-object(state, args), ...rest).reduce(state)
-        rule: cache handle-params@ this, params
+        rule: handle-params@ this, params
         serialization: if serialization?
           type: \syntax
           code: serialization
@@ -5087,7 +5088,7 @@ class Parser
         #(args, ...rest) -> reduce-object(state, args)
       {
         handler
-        rule: cache handle-params@ this, params
+        rule: handle-params@ this, params
         serialization: if state-options.serialize-macros
           type: \define-syntax
           code: serialization
@@ -5266,7 +5267,7 @@ class Parser
       handler := do inner = handler
         #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       @enter-macro 0, names
-      handle-macro-syntax@ this, 0, \syntax, handler, cache(handle-params@(this, deserialize-params(params, @scope.peek()))), null, options, id
+      handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params, @scope.peek())), null, options, id
       @exit-macro()
     
     call: #({code, mutable names, options = {}, id})
@@ -5297,7 +5298,7 @@ class Parser
         handler := #(args) -> reduce-object(state, args)
       
       @enter-macro 0, DEFINE_SYNTAX
-      handle-macro-syntax@ this, 0, \define-syntax, handler, cache(handle-params@(this, deserialize-params(params, @scope.peek()))), null, options, id
+      handle-macro-syntax@ this, 0, \define-syntax, handler, handle-params@(this, deserialize-params(params, @scope.peek())), null, options, id
       @exit-macro()
     
     binary-operator: #({code, mutable operators, options = {}, id})
