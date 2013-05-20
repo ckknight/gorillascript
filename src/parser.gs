@@ -1757,7 +1757,7 @@ let Newline(parser, mutable index)
   Box index ~+ 1, c
 
 let Eof(parser, index) -> if index ~>= parser.source.length then Box index
-define CheckStop = one-of(
+let CheckStop = one-of(
   Newline
   Eof
   #(parser, index)
@@ -1795,7 +1795,7 @@ define NoSpace = except SpaceChar
 define EmptyLine = with-space Newline
 define EmptyLines = zero-or-more EmptyLine, true
 define SomeEmptyLines = one-or-more EmptyLine, true
-define NoSpaceNewline = except EmptyLine
+let NoSpaceNewline = except EmptyLine
 
 define OpenParenthesis = with-space character! "("
 define CloseParenthesis = with-space character! ")"
@@ -1804,20 +1804,20 @@ define CloseSquareBracket = with-space character! "]"
 define OpenCurlyBrace = with-space OpenCurlyBraceChar
 define CloseCurlyBrace = with-space CloseCurlyBraceChar
 
-define EqualSign = with-space EqualSignChar
+let EqualSign = with-space EqualSignChar
 define PercentSign = with-space PercentSignChar
 define DollarSign = with-space DollarSignChar
 
 define Comma = with-space CommaChar
 define MaybeComma = maybe Comma
-define CommaOrNewline = one-of(
+let CommaOrNewline = one-of(
   sequential(
     [\this, Comma]
     EmptyLines)
   SomeEmptyLines)
 define MaybeCommaOrNewline = maybe CommaOrNewline
 
-define _SomeEmptyLinesWithCheckIndent = sequential(
+let _SomeEmptyLinesWithCheckIndent = sequential(
   SomeEmptyLines
   CheckIndent)
 
@@ -1870,7 +1870,7 @@ let mutable Body = #(parser, index) -> Body(parser, index)
 let mutable BodyNoEnd = #(parser, index) -> BodyNoEnd(parser, index)
 let mutable Logic = #(parser, index) -> Logic(parser, index)
 
-define End(parser, index)
+let End(parser, index)
   if parser.options.noindent
     EndNoIndent parser, index
   else
@@ -1900,7 +1900,7 @@ define NameOrSymbol = with-space one-of(
 define MacroName = with-space sequential(
   [\this, NameOrSymbol]
   NotColonUnlessNoIndentAndNewline)
-define MacroNames = separated-list<String> MacroName, Comma
+let MacroNames = separated-list<String> MacroName, Comma
 
 define UseMacro(parser, index)
   let name = MacroName parser, index
@@ -2007,7 +2007,7 @@ define ArgumentsLiteral = word("arguments") |> mutate #(, parser, index)
   parser.Args index
 
 define ThisOrShorthandLiteral = one-of<ThisNode>(ThisLiteral, ThisShorthandLiteral)
-define ThisOrShorthandLiteralPeriod = one-of<ThisNode>(
+let ThisOrShorthandLiteralPeriod = one-of<ThisNode>(
   sequential(
     [\this, ThisLiteral]
     Period)
@@ -2156,7 +2156,7 @@ define Identifier = one-of(
       Box name.index, parser.Ident index, name.value)
 
 let make-digits-rule(digit as ->)
-  cache separated-list(
+  separated-list(
     one-or-more digit
     one-or-more Underscore, true) |> mutate #(parts)
     let result = []
@@ -2323,12 +2323,12 @@ define NullLiteral = make-const-literal "null", null
 define VoidLiteral = one-of(
   make-const-literal "undefined", void
   make-const-literal "void", void)
-define InfinityLiteral = make-const-literal "Infinity", Infinity
-define NaNLiteral = make-const-literal "NaN", NaN
-define TrueLiteral = make-const-literal "true", true
-define FalseLiteral = make-const-literal "false", false
+let InfinityLiteral = make-const-literal "Infinity", Infinity
+let NaNLiteral = make-const-literal "NaN", NaN
+let TrueLiteral = make-const-literal "true", true
+let FalseLiteral = make-const-literal "false", false
 
-define SimpleConstantLiteral = one-of(
+let SimpleConstantLiteral = one-of(
   NullLiteral
   VoidLiteral
   InfinityLiteral
@@ -2336,13 +2336,13 @@ define SimpleConstantLiteral = one-of(
   TrueLiteral
   FalseLiteral)
 
-define HexEscapeSequence = sequential(
+let HexEscapeSequence = sequential(
   character! "x"
   SHORT_CIRCUIT
   [\this, multiple HexDigit, 2, 2]) |> mutate #(digits)
   parse-int(codes-to-string(digits), 16)
 
-define UnicodeEscapeSequence = sequential(
+let UnicodeEscapeSequence = sequential(
   character! "u"
   SHORT_CIRCUIT
   [\this, one-of(
@@ -2358,7 +2358,7 @@ define UnicodeEscapeSequence = sequential(
         throw ParserError "Unicode escape sequence too large: '\\u{$inner}'", parser, index
       value)])
 
-define SingleEscapeCharacter = do
+let SingleEscapeCharacter = do
   let ESCAPED_CHARACTERS = { extends null
     [C "b"]: C "\b"
     [C "f"]: C "\f"
@@ -2371,7 +2371,7 @@ define SingleEscapeCharacter = do
     Zero |> mutate 0
     AnyChar |> mutate #(c) -> ESCAPED_CHARACTERS[c] or c)
 
-define BackslashEscapeSequence = sequential(
+let BackslashEscapeSequence = sequential(
   BackslashChar
   SHORT_CIRCUIT
   [\this, one-of(
@@ -2381,10 +2381,10 @@ define BackslashEscapeSequence = sequential(
 
 let in-expression = make-alter-stack<String> \position, \expression
 let in-statement = make-alter-stack<String> \position, \statement
-define AssignmentAsExpression = in-expression #(parser, index) -> Assignment parser, index
+let AssignmentAsExpression = in-expression #(parser, index) -> Assignment parser, index
 define ExpressionOrAssignment = one-of(AssignmentAsExpression, Expression)
 
-define StringInterpolation = sequential(
+let StringInterpolation = sequential(
   DollarSignChar
   NoSpace
   SHORT_CIRCUIT
@@ -2408,7 +2408,7 @@ define SingleStringLiteral = sequential(
   SingleQuote) |> mutate #(codes, parser, index)
   parser.Const index, codes-to-string(codes)
 
-define DoubleStringLiteralInner = zero-or-more-of(
+let DoubleStringLiteralInner = zero-or-more-of(
   BackslashEscapeSequence
   StringInterpolation
   any-except one-of(
@@ -2455,7 +2455,7 @@ define DoubleStringArrayLiteral = sequential(
   let string-parts = double-string-literal-handler parts, parser, index
   parser.Array index, string-parts
 
-define StringIndent(parser, index)
+let StringIndent(parser, index)
   let mutable count = 0
   let current-indent = parser.indent.peek()
   let mutable current-index = index
@@ -2478,12 +2478,12 @@ let trim-right = if is-function! String::trim-right
 else
   #(x) -> x.replace r'\s+$', ""
 
-define TripleSingleStringLine = zero-or-more-of(
+let TripleSingleStringLine = zero-or-more-of(
   BackslashEscapeSequence
   any-except one-of(
     TripleSingleQuote
     Newline)) |> mutate #(codes) -> [trim-right codes-to-string(codes)]
-define TripleDoubleStringLine = zero-or-more-of(
+let TripleDoubleStringLine = zero-or-more-of(
   BackslashEscapeSequence
   StringInterpolation
   any-except one-of(
@@ -2698,28 +2698,28 @@ define MaybeNotToken = maybe word("not")
 
 define MaybeQuestionMarkChar = maybe character! "?"
 
-define GeneratorBody = make-alter-stack<Boolean>(\in-generator, true)(Body)
-define GeneratorBodyNoEnd = make-alter-stack<Boolean>(\in-generator, true)(BodyNoEnd)
+let GeneratorBody = make-alter-stack<Boolean>(\in-generator, true)(Body)
+let GeneratorBodyNoEnd = make-alter-stack<Boolean>(\in-generator, true)(BodyNoEnd)
 
 let LessThanChar = character! "<"
-define LessThan = with-space LessThanChar
+let LessThan = with-space LessThanChar
 let GreaterThanChar = character! ">"
-define GreaterThan = with-space GreaterThanChar
+let GreaterThan = with-space GreaterThanChar
 
 define FunctionGlyph = sequential(
   Space
   MinusChar
   GreaterThanChar)
-define _FunctionBody = one-of<Node>(
+let _FunctionBody = one-of<Node>(
   sequential(
     FunctionGlyph
     [\this, one-of Statement, Nothing])
   Body)
 
-define FunctionBody = make-alter-stack<Boolean>(\in-generator, false)(_FunctionBody)
-define GeneratorFunctionBody = make-alter-stack<Boolean>(\in-generator, true)(_FunctionBody)
+let FunctionBody = make-alter-stack<Boolean>(\in-generator, false)(_FunctionBody)
+let GeneratorFunctionBody = make-alter-stack<Boolean>(\in-generator, true)(_FunctionBody)
 
-define IdentifierOrSimpleAccessStart = one-of(
+let IdentifierOrSimpleAccessStart = one-of(
   Identifier
   sequential(
     [\parent, ThisOrShorthandLiteralPeriod]
@@ -2749,7 +2749,7 @@ define IdentifierOrSimpleAccessStart = one-of(
           parent
         child)
 define PeriodOrDoubleColonChar = one-of(Period, DoubleColonChar)
-define IdentifierOrSimpleAccessPart = one-of(
+let IdentifierOrSimpleAccessPart = one-of(
   sequential(
     [\type, PeriodOrDoubleColonChar]
     [\child, IdentifierNameConstOrNumberLiteral])
@@ -2797,7 +2797,7 @@ define ArrayType = sequential(
   else
     array-ident
 
-define ObjectTypePair = sequential(
+let ObjectTypePair = sequential(
   [\key, #(parser, index) -> ConstObjectKey parser, index]
   Colon
   [\value, TypeReference])
@@ -2878,7 +2878,7 @@ redefine TypeReference = separated-list(
     else
       parser.TypeUnion index, types
 
-define MaybeAsType = maybe sequential(
+let MaybeAsType = maybe sequential(
   word "as"
   SHORT_CIRCUIT
   [\this, TypeReference])
@@ -2888,7 +2888,7 @@ define BracketedObjectKey = sequential(
   [\this, ExpressionOrAssignment]
   CloseSquareBracket)
 
-define ConstObjectKey = one-of(
+let ConstObjectKey = one-of(
   StringLiteral
   NumberLiteral |> mutate #(node, parser, index)
     parser.Const index, String(node.const-value())
@@ -2904,7 +2904,7 @@ define ObjectKeyColon = sequential(
       if EmptyLine parser, index
         return
       else if parser.options.embedded
-        if EmbeddedClose(parser, index) or EmbeddedCloseWrite(parser, index) or EmbeddedCloseComment(parser, index)
+        if EmbeddedClose(parser, index) or EmbeddedCloseWrite(parser, index)
           return
     Box index)
 
@@ -2935,14 +2935,14 @@ let remove-trailing-nothings(array as [])
     array.pop()
   array
 
-define IdentifierOrThisAccess = one-of(
+let IdentifierOrThisAccess = one-of(
   Identifier
   sequential(
     [\parent, ThisOrShorthandLiteralPeriod]
     [\child, IdentifierNameConst]) |> mutate #({parent, child}, parser, index)
     parser.Access index, parent, child)
 
-define IdentifierParameter = sequential(
+let IdentifierParameter = sequential(
   [\is-mutable, bool maybe word "mutable"]
   [\spread, bool MaybeSpreadToken]
   [\ident, IdentifierOrThisAccess]
@@ -2962,7 +2962,7 @@ define IdentifierParameter = sequential(
 // redefined later
 let mutable Parameter = #(parser, index) -> Parameter parser, index
 
-define ArrayParameter = sequential(
+let ArrayParameter = sequential(
   OpenSquareBracket
   EmptyLines
   [\this, #(parser, index) -> Parameters parser, index]
@@ -2970,11 +2970,11 @@ define ArrayParameter = sequential(
   CloseSquareBracket) |> mutate #(params, parser, index)
   parser.Array index, params
 
-define ParamDualObjectKey = sequential(
+let ParamDualObjectKey = sequential(
   [\key, ObjectKeyColon]
   [\value, Parameter])
 
-define ParamSingularObjectKey = sequential(
+let ParamSingularObjectKey = sequential(
   [\this, IdentifierParameter]
   NotColon) |> mutate #(param, parser, index)
   let {ident} = param
@@ -2986,9 +2986,9 @@ define ParamSingularObjectKey = sequential(
     throw Error "Unknown object key type: $(param.type)"
   { key, value: param }
 
-define KvpParameter = maybe one-of(ParamDualObjectKey, ParamSingularObjectKey)
+let KvpParameter = maybe one-of(ParamDualObjectKey, ParamSingularObjectKey)
 
-define ObjectParameter = sequential(
+let ObjectParameter = sequential(
   OpenCurlyBrace
   EmptyLines
   [\this, separated-list(KvpParameter, CommaOrNewline)]
@@ -2996,18 +2996,18 @@ define ObjectParameter = sequential(
   CloseCurlyBrace) |> mutate #(params, parser, index)
   parser.object index, (for filter param in params; param)
 
-redefine Parameter = one-of(
+Parameter := one-of(
   IdentifierParameter
   ArrayParameter
   ObjectParameter)
 
-define ParameterOrNothing = one-of(Parameter, Nothing)
-define Parameters = separated-list(
+let ParameterOrNothing = one-of(Parameter, Nothing)
+let Parameters = separated-list(
   ParameterOrNothing
   CommaOrNewline) |> mutate #(params, parser, index)
     validate-spread-parameters remove-trailing-nothings(params), parser
 
-define ParameterSequence = sequential(
+let ParameterSequence = sequential(
   OpenParenthesis
   SHORT_CIRCUIT
   EmptyLines
@@ -3044,7 +3044,7 @@ define ParameterSequence = sequential(
       check-param(param, parser, names)
     params
 
-define FunctionDeclaration = do
+let FunctionDeclaration = do
   let FunctionFlag = one-of(
     ExclamationPointChar
     AtSignChar
@@ -3159,7 +3159,7 @@ define NoNewlineIfNoIndent(parser, index)
   else
     Box index
 
-define DualObjectKey = sequential(
+let DualObjectKey = sequential(
   [\key, ObjectKeyColon]
   NoNewlineIfNoIndent
   [\value, Expression])
@@ -3179,24 +3179,20 @@ define PropertyDualObjectKey = sequential(
 
 define PropertyOrDualObjectKey = one-of(PropertyDualObjectKey, DualObjectKey)
 
-define ObjectKeyNotColon = sequential(
-  [\this, ObjectKey]
-  NotColon
-)
-
-define MethodDeclaration = sequential(
+let MethodDeclaration = sequential(
   [\property, maybe GetSetToken]
-  [\key, ObjectKeyNotColon]
+  [\key, ObjectKey]
+  NotColon // TODO: is this needed?
   [\value, FunctionDeclaration])
 
-define PropertyOrDualObjectKeyOrMethodDeclaration = one-of(PropertyOrDualObjectKey, MethodDeclaration)
+let PropertyOrDualObjectKeyOrMethodDeclaration = one-of(PropertyOrDualObjectKey, MethodDeclaration)
 
 define UnclosedObjectLiteral = separated-list(
   PropertyOrDualObjectKey
   Comma) |> mutate #(pairs, parser, index)
   parser.object index, pairs
 
-define SingularObjectKey = one-of(
+let SingularObjectKey = one-of(
   sequential(
     [\this, IdentifierOrAccess]
     NotColon) |> mutate #(ident, parser, index)
@@ -3302,7 +3298,7 @@ define MapLiteral = sequential(
     node: parser.object index, pairs
   }, parser, index
 
-define Assignment(parser, index)
+let Assignment(parser, index)
   let left = IdentifierOrAccess parser, index
   if not left
     return
@@ -3320,7 +3316,7 @@ define Assignment(parser, index)
       right: right.value
     }, parser, index
 
-define CustomOperatorCloseParenthesis = do
+let CustomOperatorCloseParenthesis = do
   let handle-unary-operator(operator, parser, index)
     let op = operator.rule parser, index
     if not op
@@ -3384,7 +3380,7 @@ define CustomOperatorCloseParenthesis = do
     for operator in parser.postfix-unary-operators() by -1
       return? handle-unary-operator operator, parser, index
 
-define CustomBinaryOperator(parser, index)
+let CustomBinaryOperator(parser, index)
   for operator in parser.all-binary-operators() by -1
     let mutable inverted = false
     let mutable current-index = index
@@ -3488,7 +3484,7 @@ define IndentedUnclosedObjectLiteral = sequential(
     [\this, IndentedUnclosedObjectLiteralInner]
     PopIndent)])
 
-define UnclosedArrayLiteralElement = sequential(
+let UnclosedArrayLiteralElement = sequential(
   AsterixChar
   Space
   [\this, one-of(
@@ -3765,19 +3761,6 @@ let convert-invocation-or-access = do
     
     convert-call-chain parser, index, head.node, 0, links
 
-define Index = do
-  let asterix-as-array-length = make-alter-stack<Boolean> \asterix-as-array-length, true
-  let ExpressionWithAsterixAsArrayLength = asterix-as-array-length Expression
-  separated-list(
-    ExpressionWithAsterixAsArrayLength
-    CommaOrNewline) |> mutate #(nodes)
-    if nodes.length > 1
-      type: \multi
-      elements: nodes
-    else
-      type: \single
-      node: nodes[0]
-
 define InvocationOrAccessPart = one-of(
   sequential(
     LessThanChar
@@ -3808,7 +3791,15 @@ define InvocationOrAccessPart = one-of(
     [\bind, MaybeAtSignChar]
     [\type, maybe DoubleColonChar]
     OpenSquareBracketChar
-    [\child, Index]
+    [\child, separated-list(
+      Expression |> make-alter-stack<Boolean>(\asterix-as-array-length, true)
+      CommaOrNewline) |> mutate #(nodes)
+      if nodes.length > 1
+        type: \multi
+        elements: nodes
+      else
+        type: \single
+        node: nodes[0]]
     CloseSquareBracket) |> mutate #(x, parser, index)
     if x.child.type == \single
       {
@@ -3839,7 +3830,7 @@ define InvocationOrAccessPart = one-of(
       x.is-apply
     })
 
-define BasicInvocationOrAccess = sequential(
+let BasicInvocationOrAccess = sequential(
   [\is-new, bool maybe word("new")]
   [\head, one-of(
     sequential(
@@ -4034,7 +4025,7 @@ define LicenseComment = sequential(
         line.push ch]
   Space)
 
-define MacroSyntaxParameterType = sequential(
+let MacroSyntaxParameterType = sequential(
   [\type, one-of(
     Identifier
     StringLiteral
@@ -4060,7 +4051,7 @@ define MacroSyntaxParameterType = sequential(
   else
     type
 
-define MacroSyntaxParameter = one-of(
+let MacroSyntaxParameter = one-of(
   StringLiteral
   sequential(
     [\ident, one-of(ThisOrShorthandLiteral, Identifier)]
@@ -4069,11 +4060,11 @@ define MacroSyntaxParameter = one-of(
       [\this, MacroSyntaxParameterType])]) |> mutate #({ident, type}, parser, index)
     parser.SyntaxParam index, ident, type)
 
-define MacroSyntaxParameters = separated-list(MacroSyntaxParameter, Comma)
+let MacroSyntaxParameters = separated-list(MacroSyntaxParameter, Comma)
 
-define MacroSyntaxChoiceParameters = separated-list(MacroSyntaxParameterType, Pipe)
+let MacroSyntaxChoiceParameters = separated-list(MacroSyntaxParameterType, Pipe)
 
-define MacroOptions = maybe (sequential(
+let MacroOptions = maybe (sequential(
   word "with"
   [\this, UnclosedObjectLiteral]) |> mutate #(object, parser, index)
   if not object.is-literal()
@@ -4087,7 +4078,7 @@ let add-macro-syntax-parameters-to-scope(params, scope)!
       if ident instanceof IdentNode
         scope.add ident, true, Type.any
 
-define MacroSyntax = sequential(
+let MacroSyntax = sequential(
   CheckIndent
   word "syntax"
   SHORT_CIRCUIT
@@ -4109,7 +4100,7 @@ define MacroSyntax = sequential(
   Space
   CheckStop)
 
-define MacroBody = one-of(
+let MacroBody = one-of(
   sequential(
     #(parser, index) -> if parser.options.noindent then Colon(parser, index) else Box index
     Space
@@ -4141,7 +4132,7 @@ define MacroBody = one-of(
     Box body.index, parser.Nothing index)
 
 let in-macro = make-alter-stack<Boolean> \in-macro, true
-define _DefineMacro = sequential(
+let _DefineMacro = sequential(
   word "macro"
   [\this, in-macro #(parser, index)
     let names = MacroNames parser, index
@@ -4152,7 +4143,7 @@ define _DefineMacro = sequential(
     parser.exit-macro()
     Box body.index, parser.Nothing index])
 
-define DefineSyntax = do
+let DefineSyntax = do
   let top-rule = sequential(
     word "define"
     word "syntax"
@@ -4168,7 +4159,7 @@ define DefineSyntax = do
     parser.define-syntax index, top.value.name.name, top.value.value, body?.value
     Box (if body then body.index else top.index), parser.Nothing index
 
-define DefineHelper = sequential(
+let DefineHelper = sequential(
   word "define"
   word "helper"
   SHORT_CIRCUIT
@@ -4181,7 +4172,7 @@ define DefineHelper = sequential(
   parser.define-helper index, name, value
   parser.Nothing index
 
-define DefineOperator = do
+let DefineOperator = do
   let main-rule = sequential(
     word "define"
     word "operator"
@@ -4229,7 +4220,7 @@ redefine Statement = sequential(
 
 let unpretty-text(text as String)
   text.replace r"\s+"g, " "
-define EmbeddedReadLiteralText(parser, index)
+let EmbeddedReadLiteralText(parser, index)
   let source = parser.source
   let len = source.length
   let mutable current-index as Number = index
@@ -4268,9 +4259,9 @@ let make-embedded-rule = do
       text := default-value
     get-embedded-rule(text)(parser, index)
 define EmbeddedOpenComment = make-embedded-rule \embedded-open-comment, EMBED_OPEN_COMMENT_DEFAULT
-define EmbeddedCloseComment = make-embedded-rule \embedded-close-comment, EMBED_CLOSE_COMMENT_DEFAULT
+let EmbeddedCloseComment = make-embedded-rule \embedded-close-comment, EMBED_CLOSE_COMMENT_DEFAULT
 
-define EmbeddedComment(parser, index)
+let EmbeddedComment(parser, index)
   let open = EmbeddedOpenComment parser, index
   if not open
     return
@@ -4314,31 +4305,29 @@ define NotEmbeddedOpenWrite = except EmbeddedOpenWrite
 
 let disallow-embedded-text = make-alter-stack<Boolean> \allow-embedded-text, false
 
-define EmbeddedWriteExpression = disallow-embedded-text sequential(
+let EmbeddedWriteExpression = disallow-embedded-text sequential(
   NotEmbeddedOpenComment
   EmbeddedOpenWrite
   [\this, Expression]
   EmbeddedCloseWrite) |> mutate #(node, parser, index)
   parser.EmbedWrite index, node, true
 
-define EmbeddedLiteralTextInnerPart = one-of(
+let EmbeddedLiteralTextInnerPart = one-of(
   EmbeddedComment
   EmbeddedWriteExpression
   EmbeddedReadLiteralText)
 
-define EmbeddedLiteralTextInner = zero-or-more(EmbeddedLiteralTextInnerPart) |> mutate #(nodes, parser, index)
-  parser.Block index, nodes
-
 define EmbeddedLiteralText = sequential(
   #(parser, index) -> if parser.options.embedded and parser.allow-embedded-text.peek() and index ~< parser.source.length then Box index
   EmbeddedClose
-  [\this, EmbeddedLiteralTextInner]
+  [\this, zero-or-more(EmbeddedLiteralTextInnerPart)]
   one-of(
     Eof
     sequential(
       NotEmbeddedOpenComment
       NotEmbeddedOpenWrite
-      EmbeddedOpen)))
+      EmbeddedOpen))) |> mutate #(nodes, parser, index)
+  parser.Block index, nodes
 
 define Semicolon = with-space SemicolonChar
 define Semicolons = zero-or-more Semicolon, true
@@ -4455,27 +4444,24 @@ let _BlockWithClearCache = do
       callback null, Box current-index, _Block-mutator result, parser, index
     set-immediate next
 
-define _Block = mutate _Block-mutator, separated-list(
+let _Block = mutate _Block-mutator, separated-list(
   Line
   SomeEmptyLines)
 
-define Block = one-of(
+let Block = one-of(
   sequential(
     CheckIndent
     [\this, one-of<Node>(IndentedUnclosedObjectLiteralInner, IndentedUnclosedArrayLiteralInner)])
   _Block)
 
-define EmbeddedBlock = sequential(
+let EmbeddedBlock = sequential(
   NotEmbeddedOpenWrite
   NotEmbeddedOpenComment
   EmbeddedOpen
   [\this, _Block]
   EmbeddedClose)
 
-define EmbeddedLiteralTextInnerPartWithBlock = one-of(EmbeddedLiteralTextInnerPart, EmbeddedBlock)
-
-define EmbeddedLiteralTextInnerWithBlock = zero-or-more(EmbeddedLiteralTextInnerPartWithBlock) |> mutate #(nodes, parser, index)
-  parser.Block index, nodes
+let EmbeddedLiteralTextInnerPartWithBlock = one-of(EmbeddedLiteralTextInnerPart, EmbeddedBlock)
 
 let EmbeddedLiteralTextInnerWithBlockWithClearCache = do
   let sync-rule(parser, index)
@@ -4517,13 +4503,13 @@ let EmbeddedLiteralTextInnerWithBlockWithClearCache = do
       callback null, Box current-index, parser.Block index, nodes
     next()
 
-define EndNoIndent = sequential(
+let EndNoIndent = sequential(
   EmptyLines
   Space
   maybe Semicolons
   word "end")
 
-define BodyWithIndent = retain-indent sequential(
+let BodyWithIndent = retain-indent sequential(
   Space
   Newline
   EmptyLines
@@ -4531,7 +4517,7 @@ define BodyWithIndent = retain-indent sequential(
   [\this, Block]
   PopIndent)
 
-define BodyNoIndentNoEnd = sequential(
+let BodyNoIndentNoEnd = sequential(
   #(parser, index)
     if ColonNewline(parser, index) or (parser.options.embedded and (ColonEmbeddedClose(parser, index) or ColonEmbeddedCloseWrite(parser, index)))
       Box index
@@ -4545,7 +4531,7 @@ define BodyNoIndentNoEnd = sequential(
     finally
       indent.pop()])
 
-define BodyNoIndent = sequential(
+let BodyNoIndent = sequential(
   [\this, BodyNoIndentNoEnd]
   EndNoIndent)
 
@@ -5061,7 +5047,7 @@ class Parser
       let state = this
       {
         handler: #(args, ...rest) -> handler@(this, reduce-object(state, args), ...rest).reduce(state)
-        rule: handle-params@ this, params
+        rule: cache handle-params@ this, params
         serialization: if serialization?
           type: \syntax
           code: serialization
@@ -5101,7 +5087,7 @@ class Parser
         #(args, ...rest) -> reduce-object(state, args)
       {
         handler
-        rule: handle-params@ this, params
+        rule: cache handle-params@ this, params
         serialization: if state-options.serialize-macros
           type: \define-syntax
           code: serialization
@@ -5280,7 +5266,7 @@ class Parser
       handler := do inner = handler
         #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
       @enter-macro 0, names
-      handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params, @scope.peek())), null, options, id
+      handle-macro-syntax@ this, 0, \syntax, handler, cache(handle-params@(this, deserialize-params(params, @scope.peek()))), null, options, id
       @exit-macro()
     
     call: #({code, mutable names, options = {}, id})
@@ -5311,7 +5297,7 @@ class Parser
         handler := #(args) -> reduce-object(state, args)
       
       @enter-macro 0, DEFINE_SYNTAX
-      handle-macro-syntax@ this, 0, \define-syntax, handler, handle-params@(this, deserialize-params(params, @scope.peek())), null, options, id
+      handle-macro-syntax@ this, 0, \define-syntax, handler, cache(handle-params@(this, deserialize-params(params, @scope.peek()))), null, options, id
       @exit-macro()
     
     binary-operator: #({code, mutable operators, options = {}, id})
@@ -5661,6 +5647,7 @@ parse <<< {
   MacroError
   Node
   MacroHolder
+  unused-caches
   deserialize-prelude: #(data)
     let parsed = if is-string! data then JSON.parse(data) else data
     let parser = Parser()

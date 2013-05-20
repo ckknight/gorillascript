@@ -32,9 +32,9 @@ command \install, "Install GorillaScript to /usr/local or --prefix", #(options, 
 command \build, "Build GorillaScript from source", #(options, cb)
   async! cb, filename-path <- fs.realpath __filename
   let src-path = path.join(path.dirname(filename-path), "src")
-  async! cb, mutable files <- fs.readdir src-path
+  async! cb, filenames <- fs.readdir src-path
   
-  files := for filter file in files
+  let mutable files = for filter file in filenames
     not r'prelude\.gs$'.test(file)
   if options.file
     let file-filter = options.file.split ","
@@ -134,7 +134,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
     next()
   
   let gorilla = require('./lib/gorilla')
-  async! cb, mutable serialized-prelude <- gorilla.get-serialized-prelude("js")
+  async! cb, serialized-prelude <- gorilla.get-serialized-prelude("js")
   let mutable deserialized-prelude = JSON.parse serialized-prelude
   if options.uglify
     for k, v of deserialized-prelude
@@ -147,7 +147,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
             else
               minified := "return $minified"
             item.code := minified
-  serialized-prelude := require('./lib/jsutils').to-JS-source deserialized-prelude, null, indent: 2
+  let full-serialized-prelude = require('./lib/jsutils').to-JS-source deserialized-prelude, null, indent: 2
   let mutable code = """
     ;(function (root) {
       var GorillaScript = (function (realRequire) {
@@ -167,7 +167,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
         $(parts.join("\n").split("\n").join("\n  "))
         
         require("./browser");
-        return require("./gorilla").withPrelude("js", $serialized-prelude);
+        return require("./gorilla").withPrelude("js", $full-serialized-prelude);
       }(typeof module !== "undefined" && typeof require === "function" ? require : void 0));
       
       if (typeof define === "function" && define.amd) {
@@ -190,17 +190,17 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
 command "test", "Run the GorillaScript test suite", #(options, cb)
   async! cb, filename-path <- fs.realpath __filename
   let tests-path = path.join(path.dirname(filename-path), "tests")
-  async! cb, mutable files <- fs.readdir tests-path
+  async! cb, filenames <- fs.readdir tests-path
   
-  if options.file
+  let files = if options.file
     let file-filter = options.file.split ","
     for file in file-filter
-      if file not in files
+      if file not in filenames
         return cb "Cannot build unknown file: $file"
-    files := for filter file in files
+    for filter file in filenames
       file in file-filter
   else
-    files := for filter file in files
+    for filter file in filenames
       path.extname(file) == ".gs"
   
   if files.length == 0

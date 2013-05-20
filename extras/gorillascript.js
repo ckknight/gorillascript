@@ -7925,10 +7925,10 @@
         if (typeof f !== "function") {
           throw TypeError("Expected f to be a Function, got " + __typeof(f));
         }
-        if (__num(numArgs) > 1) {
+        if (numArgs > 1) {
           currier = function (args) {
             var ret;
-            if (!__lt(args.length, numArgs)) {
+            if (__num(args.length) >= numArgs) {
               return f.apply(this, args);
             } else {
               ret = function () {
@@ -8393,6 +8393,9 @@
           nextTick = process.nextTick;
           return function (func) {
             var args;
+            if (typeof func !== "function") {
+              throw TypeError("Expected func to be a Function, got " + __typeof(func));
+            }
             args = __slice.call(arguments, 1);
             if (args.length) {
               return nextTick(function () {
@@ -8405,6 +8408,9 @@
         }())
         : function (func) {
           var args;
+          if (typeof func !== "function") {
+            throw TypeError("Expected func to be a Function, got " + __typeof(func));
+          }
           args = __slice.call(arguments, 1);
           if (args.length) {
             return setTimeout(
@@ -21219,6 +21225,9 @@
         }
         function doNothing() {}
         return function (func, silentFail) {
+          if (typeof func !== "function") {
+            throw TypeError("Expected func to be a Function, got " + __typeof(func));
+          }
           if (silentFail == null) {
             silentFail = false;
           } else if (typeof silentFail !== "boolean") {
@@ -21274,7 +21283,7 @@
       fs = require("fs");
       path = require("path");
       DEFAULT_TRANSLATOR = "./jstranslator";
-      exports.version = "0.6.8";
+      exports.version = "0.6.9";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -22007,6 +22016,9 @@
         }
         function doNothing() {}
         return function (func, silentFail) {
+          if (typeof func !== "function") {
+            throw TypeError("Expected func to be a Function, got " + __typeof(func));
+          }
           if (silentFail == null) {
             silentFail = false;
           } else if (typeof silentFail !== "boolean") {
@@ -27624,12 +27636,7 @@
                     1,
                     0,
                     ["Ident", 1903, 20, 0, "i"],
-                    "-=",
-                    "Unary",
-                    1,
-                    1,
-                    0,
-                    "-",
+                    "+=",
                     "Ident",
                     1903,
                     26,
@@ -27735,12 +27742,7 @@
                   1,
                   0,
                   ["Ident", 1908, 20, 0, "i"],
-                  "-=",
-                  "Unary",
-                  1,
-                  1,
-                  0,
-                  "-",
+                  "+=",
                   "Ident",
                   1908,
                   26,
@@ -27843,211 +27845,68 @@
             ],
             ["i", "len", "result"],
             [],
-            "IfStatement",
-            1,
-            1,
-            0,
-            0,
-            [
-              "Binary",
-              1,
-              1,
-              0,
-              ["Ident", 1915, 5, 0, "step"],
-              "===",
-              "Const",
-              1915,
-              14,
-              0,
-              0
-            ],
-            [
-              "Throw",
-              1,
-              1,
-              0,
-              "Call",
-              1916,
-              10,
-              0,
-              ["Ident", 1916, 10, 0, "RangeError"],
-              0,
-              ["Const", 1916, 22, 0, "step cannot be zero"]
-            ],
-            "IfStatement",
-            1,
+            "BlockStatement",
+            1844,
             1,
             0,
             0,
             [
-              "Binary",
+              "IfStatement",
               1,
               1,
               0,
-              ["Ident", 1917, 10, 0, "step"],
-              "===",
-              "Const",
-              1917,
-              19,
-              0,
-              1
-            ],
-            [
-              "Return",
-              1918,
-              1,
-              0,
-              "Call",
-              1918,
-              1,
-              0,
-              ["Ident", 1918, 1, 0, "__toArray"],
-              0,
-              ["Ident", 1918, 16, 0, "array"]
-            ],
-            "IfStatement",
-            1,
-            1,
-            0,
-            0,
-            [
-              "Binary",
-              1,
-              1,
-              0,
-              ["Ident", 1919, 10, 0, "step"],
-              "===",
-              "Const",
-              1,
-              1,
-              0,
-              -1
-            ],
-            [
-              "Return",
-              1920,
-              1,
-              0,
-              "Call",
-              1920,
-              1,
               0,
               [
                 "Binary",
-                1920,
-                1,
+                607,
+                18,
                 0,
                 [
-                  "Call",
-                  1920,
+                  "Unary",
+                  1,
                   1,
                   0,
-                  [
-                    "Binary",
-                    1920,
-                    1,
-                    0,
-                    ["Ident", 1920, 1, 0, "__slice"],
-                    ".",
-                    "Const",
-                    1920,
-                    1,
-                    0,
-                    "call"
-                  ],
+                  "typeof",
+                  "Ident",
+                  1914,
+                  32,
                   0,
-                  ["Ident", 1920, 14, 0, "array"]
+                  "step"
                 ],
-                ".",
+                "!==",
                 "Const",
-                1920,
-                21,
+                123,
+                25,
                 0,
-                "reverse"
+                "number"
               ],
-              0
-            ],
-            "IfStatement",
-            1,
-            1,
-            0,
-            0,
-            [
-              "Binary",
-              636,
-              7,
-              0,
               [
-                "Binary",
+                "Throw",
                 1,
                 1,
+                0,
+                "Call",
+                1629,
+                18,
+                0,
+                ["Ident", 1629, 18, 0, "TypeError"],
                 0,
                 [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Const", 1, 1, 0, "Expected step to be a Number, got "],
+                  "+",
                   "Call",
-                  505,
-                  11,
+                  475,
+                  49,
                   0,
-                  ["Ident", 505, 11, 0, "__num"],
+                  ["Ident", 475, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 1921, 10, 0, "step"]
-                ],
-                "%",
-                "Const",
-                1921,
-                23,
-                0,
-                1
-              ],
-              "!==",
-              "Const",
-              636,
-              26,
-              0,
-              0
-            ],
-            [
-              "Throw",
-              1,
-              1,
-              0,
-              "Call",
-              1922,
-              10,
-              0,
-              ["Ident", 1922, 10, 0, "RangeError"],
-              0,
-              [
-                "Binary",
-                1,
-                1,
-                0,
-                ["Const", 1922, 22, 0, "step must be an integer, got "],
-                "+",
-                "Call",
-                1922,
-                54,
-                0,
-                ["Ident", 1922, 54, 0, "String"],
-                0,
-                ["Ident", 1922, 61, 0, "step"]
+                  ["Ident", 1914, 32, 0, "step"]
+                ]
               ]
-            ],
-            "BlockStatement",
-            1924,
-            1,
-            0,
-            0,
-            [
-              "Binary",
-              1,
-              1,
-              0,
-              ["Ident", 1924, 8, 0, "result"],
-              "=",
-              "Arr",
-              1924,
-              17,
-              0
             ],
             [
               "IfStatement",
@@ -28060,25 +27919,197 @@
                 1,
                 1,
                 0,
-                [
-                  "Call",
-                  700,
-                  11,
-                  0,
-                  ["Ident", 700, 11, 0, "__num"],
-                  0,
-                  ["Ident", 1925, 7, 0, "step"]
-                ],
-                ">",
+                ["Ident", 1915, 5, 0, "step"],
+                "===",
                 "Const",
-                1925,
-                15,
+                1915,
+                14,
                 0,
                 0
               ],
               [
-                "BlockStatement",
-                1926,
+                "Throw",
+                1,
+                1,
+                0,
+                "Call",
+                1916,
+                10,
+                0,
+                ["Ident", 1916, 10, 0, "RangeError"],
+                0,
+                ["Const", 1916, 22, 0, "step cannot be zero"]
+              ],
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                1,
+                1,
+                0,
+                ["Ident", 1917, 10, 0, "step"],
+                "===",
+                "Const",
+                1917,
+                19,
+                0,
+                1
+              ],
+              [
+                "Return",
+                1918,
+                1,
+                0,
+                "Call",
+                1918,
+                1,
+                0,
+                ["Ident", 1918, 1, 0, "__toArray"],
+                0,
+                ["Ident", 1918, 16, 0, "array"]
+              ],
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                1,
+                1,
+                0,
+                ["Ident", 1919, 10, 0, "step"],
+                "===",
+                "Const",
+                1,
+                1,
+                0,
+                -1
+              ],
+              [
+                "Return",
+                1920,
+                1,
+                0,
+                "Call",
+                1920,
+                1,
+                0,
+                [
+                  "Binary",
+                  1920,
+                  1,
+                  0,
+                  [
+                    "Call",
+                    1920,
+                    1,
+                    0,
+                    [
+                      "Binary",
+                      1920,
+                      1,
+                      0,
+                      ["Ident", 1920, 1, 0, "__slice"],
+                      ".",
+                      "Const",
+                      1920,
+                      1,
+                      0,
+                      "call"
+                    ],
+                    0,
+                    ["Ident", 1920, 14, 0, "array"]
+                  ],
+                  ".",
+                  "Const",
+                  1920,
+                  21,
+                  0,
+                  "reverse"
+                ],
+                0
+              ],
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                636,
+                7,
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Ident", 1921, 10, 0, "step"],
+                  "%",
+                  "Const",
+                  1921,
+                  23,
+                  0,
+                  1
+                ],
+                "!==",
+                "Const",
+                636,
+                26,
+                0,
+                0
+              ],
+              [
+                "Throw",
+                1,
+                1,
+                0,
+                "Call",
+                1922,
+                10,
+                0,
+                ["Ident", 1922, 10, 0, "RangeError"],
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Const", 1922, 22, 0, "step must be an integer, got "],
+                  "+",
+                  "Call",
+                  1922,
+                  54,
+                  0,
+                  ["Ident", 1922, 54, 0, "String"],
+                  0,
+                  ["Ident", 1922, 61, 0, "step"]
+                ]
+              ],
+              "BlockStatement",
+              1924,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                1,
+                1,
+                0,
+                ["Ident", 1924, 8, 0, "result"],
+                "=",
+                "Arr",
+                1924,
+                17,
+                0
+              ],
+              [
+                "IfStatement",
+                1,
                 1,
                 0,
                 0,
@@ -28087,40 +28118,169 @@
                   1,
                   1,
                   0,
-                  ["Ident", 1926, 18, 0, "i"],
-                  "=",
+                  ["Ident", 1925, 7, 0, "step"],
+                  ">",
                   "Const",
-                  1926,
-                  23,
+                  1925,
+                  15,
                   0,
                   0
                 ],
+                [
+                  "BlockStatement",
+                  1926,
+                  1,
+                  0,
+                  0,
+                  [
+                    "Binary",
+                    1,
+                    1,
+                    0,
+                    ["Ident", 1926, 18, 0, "i"],
+                    "=",
+                    "Const",
+                    1926,
+                    23,
+                    0,
+                    0
+                  ],
+                  [
+                    "Binary",
+                    1,
+                    1,
+                    0,
+                    ["Ident", 1927, 10, 0, "len"],
+                    "=",
+                    "Call",
+                    505,
+                    11,
+                    0,
+                    ["Ident", 505, 11, 0, "__num"],
+                    0,
+                    [
+                      "Binary",
+                      1927,
+                      18,
+                      0,
+                      ["Ident", 1927, 18, 0, "array"],
+                      ".",
+                      "Const",
+                      1927,
+                      24,
+                      0,
+                      "length"
+                    ]
+                  ],
+                  [
+                    "For",
+                    1,
+                    1,
+                    0,
+                    0,
+                    0,
+                    [
+                      "Binary",
+                      1,
+                      1,
+                      0,
+                      ["Ident", 1928, 12, 0, "i"],
+                      "<",
+                      "Ident",
+                      1928,
+                      16,
+                      0,
+                      "len"
+                    ],
+                    [
+                      "Binary",
+                      1,
+                      1,
+                      0,
+                      ["Ident", 1928, 21, 0, "i"],
+                      "+=",
+                      "Ident",
+                      1928,
+                      26,
+                      0,
+                      "step"
+                    ],
+                    "Call",
+                    1929,
+                    1,
+                    0,
+                    [
+                      "Binary",
+                      1929,
+                      1,
+                      0,
+                      ["Ident", 1929, 1, 0, "result"],
+                      ".",
+                      "Const",
+                      1929,
+                      16,
+                      0,
+                      "push"
+                    ],
+                    0,
+                    [
+                      "Binary",
+                      1929,
+                      21,
+                      0,
+                      ["Ident", 1929, 21, 0, "array"],
+                      ".",
+                      "Ident",
+                      1929,
+                      27,
+                      0,
+                      "i"
+                    ]
+                  ]
+                ],
+                "BlockStatement",
+                1931,
+                1,
+                0,
+                0,
                 [
                   "Binary",
                   1,
                   1,
                   0,
-                  ["Ident", 1927, 10, 0, "len"],
+                  ["Ident", 1931, 18, 0, "i"],
                   "=",
-                  "Call",
-                  505,
-                  11,
-                  0,
-                  ["Ident", 505, 11, 0, "__num"],
+                  "Binary",
+                  1,
+                  1,
                   0,
                   [
-                    "Binary",
-                    1927,
-                    18,
+                    "Call",
+                    505,
+                    11,
                     0,
-                    ["Ident", 1927, 18, 0, "array"],
-                    ".",
-                    "Const",
-                    1927,
-                    24,
+                    ["Ident", 505, 11, 0, "__num"],
                     0,
-                    "length"
-                  ]
+                    [
+                      "Binary",
+                      1931,
+                      22,
+                      0,
+                      ["Ident", 1931, 22, 0, "array"],
+                      ".",
+                      "Const",
+                      1931,
+                      29,
+                      0,
+                      "length"
+                    ]
+                  ],
+                  "-",
+                  "Const",
+                  1931,
+                  38,
+                  0,
+                  1
                 ],
                 [
                   "For",
@@ -28134,42 +28294,40 @@
                     1,
                     1,
                     0,
-                    ["Ident", 1928, 12, 0, "i"],
-                    "<",
-                    "Ident",
-                    1928,
-                    16,
+                    ["Ident", 1932, 12, 0, "i"],
+                    ">=",
+                    "Const",
+                    1932,
+                    18,
                     0,
-                    "len"
+                    0
                   ],
                   [
                     "Binary",
                     1,
                     1,
                     0,
-                    ["Ident", 1928, 21, 0, "i"],
+                    ["Ident", 1932, 20, 0, "i"],
                     "+=",
-                    "Call",
-                    505,
-                    11,
+                    "Ident",
+                    1932,
+                    25,
                     0,
-                    ["Ident", 505, 11, 0, "__num"],
-                    0,
-                    ["Ident", 1928, 26, 0, "step"]
+                    "step"
                   ],
                   "Call",
-                  1929,
+                  1933,
                   1,
                   0,
                   [
                     "Binary",
-                    1929,
+                    1933,
                     1,
                     0,
-                    ["Ident", 1929, 1, 0, "result"],
+                    ["Ident", 1933, 1, 0, "result"],
                     ".",
                     "Const",
-                    1929,
+                    1933,
                     16,
                     0,
                     "push"
@@ -28177,145 +28335,34 @@
                   0,
                   [
                     "Binary",
-                    1929,
+                    1933,
                     21,
                     0,
-                    ["Ident", 1929, 21, 0, "array"],
+                    ["Ident", 1933, 21, 0, "array"],
                     ".",
                     "Ident",
-                    1929,
+                    1933,
                     27,
                     0,
                     "i"
                   ]
                 ]
               ],
-              "BlockStatement",
-              1931,
-              1,
-              0,
-              0,
               [
-                "Binary",
-                1,
-                1,
-                0,
-                ["Ident", 1931, 18, 0, "i"],
-                "=",
-                "Binary",
-                1,
+                "Return",
+                1934,
                 1,
                 0,
-                [
-                  "Call",
-                  505,
-                  11,
-                  0,
-                  ["Ident", 505, 11, 0, "__num"],
-                  0,
-                  [
-                    "Binary",
-                    1931,
-                    22,
-                    0,
-                    ["Ident", 1931, 22, 0, "array"],
-                    ".",
-                    "Const",
-                    1931,
-                    29,
-                    0,
-                    "length"
-                  ]
-                ],
-                "-",
-                "Const",
-                1931,
-                38,
-                0,
-                1
-              ],
-              [
-                "For",
-                1,
+                "Ident",
+                1934,
                 1,
                 0,
-                0,
-                0,
-                [
-                  "Binary",
-                  1,
-                  1,
-                  0,
-                  ["Ident", 1932, 12, 0, "i"],
-                  ">=",
-                  "Const",
-                  1932,
-                  18,
-                  0,
-                  0
-                ],
-                [
-                  "Binary",
-                  1,
-                  1,
-                  0,
-                  ["Ident", 1932, 20, 0, "i"],
-                  "+=",
-                  "Call",
-                  505,
-                  11,
-                  0,
-                  ["Ident", 505, 11, 0, "__num"],
-                  0,
-                  ["Ident", 1932, 25, 0, "step"]
-                ],
-                "Call",
-                1933,
-                1,
-                0,
-                [
-                  "Binary",
-                  1933,
-                  1,
-                  0,
-                  ["Ident", 1933, 1, 0, "result"],
-                  ".",
-                  "Const",
-                  1933,
-                  16,
-                  0,
-                  "push"
-                ],
-                0,
-                [
-                  "Binary",
-                  1933,
-                  21,
-                  0,
-                  ["Ident", 1933, 21, 0, "array"],
-                  ".",
-                  "Ident",
-                  1933,
-                  27,
-                  0,
-                  "i"
-                ]
+                "result"
               ]
-            ],
-            [
-              "Return",
-              1934,
-              1,
-              0,
-              "Ident",
-              1934,
-              1,
-              0,
-              "result"
             ]
           ],
           type: {type: "generic", base: "functionBase", args: ["array"]},
-          dependencies: ["__num", "__slice", "__step", "__toArray"]
+          dependencies: ["__num", "__slice", "__step", "__toArray", "__typeof"]
         },
         __sliceStep: {
           helper: [
@@ -29012,7 +29059,10 @@
           type: {
             type: "generic",
             base: "functionBase",
-            args: [{type: "object", pairs: {index: "number"}}]
+            args: [{
+              type: "object",
+              pairs: {array: "array", index: "number"}
+            }]
           },
           dependencies: ["__arrayToIter", "__create", "__isArray", "__num", "__typeof"]
         },
@@ -30595,6 +30645,64 @@
                   0,
                   [
                     "Binary",
+                    611,
+                    18,
+                    0,
+                    [
+                      "Unary",
+                      1,
+                      1,
+                      0,
+                      "typeof",
+                      "Ident",
+                      2309,
+                      12,
+                      0,
+                      "func"
+                    ],
+                    "!==",
+                    "Const",
+                    129,
+                    25,
+                    0,
+                    "function"
+                  ],
+                  [
+                    "Throw",
+                    1,
+                    1,
+                    0,
+                    "Call",
+                    1629,
+                    18,
+                    0,
+                    ["Ident", 1629, 18, 0, "TypeError"],
+                    0,
+                    [
+                      "Binary",
+                      1,
+                      1,
+                      0,
+                      ["Const", 1, 1, 0, "Expected func to be a Function, got "],
+                      "+",
+                      "Call",
+                      475,
+                      49,
+                      0,
+                      ["Ident", 475, 49, 0, "__typeof"],
+                      0,
+                      ["Ident", 2309, 12, 0, "func"]
+                    ]
+                  ]
+                ],
+                [
+                  "IfStatement",
+                  1,
+                  1,
+                  0,
+                  0,
+                  [
+                    "Binary",
                     1,
                     1,
                     0,
@@ -31811,6 +31919,64 @@
               0,
               [
                 "Binary",
+                607,
+                18,
+                0,
+                [
+                  "Unary",
+                  1,
+                  1,
+                  0,
+                  "typeof",
+                  "Ident",
+                  2450,
+                  39,
+                  0,
+                  "limit"
+                ],
+                "!==",
+                "Const",
+                123,
+                25,
+                0,
+                "number"
+              ],
+              [
+                "Throw",
+                1,
+                1,
+                0,
+                "Call",
+                1629,
+                18,
+                0,
+                ["Ident", 1629, 18, 0, "TypeError"],
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Const", 1, 1, 0, "Expected limit to be a Number, got "],
+                  "+",
+                  "Call",
+                  475,
+                  49,
+                  0,
+                  ["Ident", 475, 49, 0, "__typeof"],
+                  0,
+                  ["Ident", 2450, 39, 0, "limit"]
+                ]
+              ]
+            ],
+            [
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
                 1,
                 1,
                 0,
@@ -31984,6 +32150,178 @@
                 20,
                 0,
                 false
+              ],
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                609,
+                18,
+                0,
+                [
+                  "Unary",
+                  1,
+                  1,
+                  0,
+                  "typeof",
+                  "Ident",
+                  2450,
+                  86,
+                  0,
+                  "hasResult"
+                ],
+                "!==",
+                "Const",
+                126,
+                25,
+                0,
+                "boolean"
+              ],
+              [
+                "Throw",
+                1,
+                1,
+                0,
+                "Call",
+                1629,
+                18,
+                0,
+                ["Ident", 1629, 18, 0, "TypeError"],
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Const", 1, 1, 0, "Expected hasResult to be a Boolean, got "],
+                  "+",
+                  "Call",
+                  475,
+                  49,
+                  0,
+                  ["Ident", 475, 49, 0, "__typeof"],
+                  0,
+                  ["Ident", 2450, 86, 0, "hasResult"]
+                ]
+              ]
+            ],
+            [
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                611,
+                18,
+                0,
+                [
+                  "Unary",
+                  1,
+                  1,
+                  0,
+                  "typeof",
+                  "Ident",
+                  2450,
+                  109,
+                  0,
+                  "onValue"
+                ],
+                "!==",
+                "Const",
+                129,
+                25,
+                0,
+                "function"
+              ],
+              [
+                "Throw",
+                1,
+                1,
+                0,
+                "Call",
+                1629,
+                18,
+                0,
+                ["Ident", 1629, 18, 0, "TypeError"],
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Const", 1, 1, 0, "Expected onValue to be a Function, got "],
+                  "+",
+                  "Call",
+                  475,
+                  49,
+                  0,
+                  ["Ident", 475, 49, 0, "__typeof"],
+                  0,
+                  ["Ident", 2450, 109, 0, "onValue"]
+                ]
+              ]
+            ],
+            [
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                611,
+                18,
+                0,
+                [
+                  "Unary",
+                  1,
+                  1,
+                  0,
+                  "typeof",
+                  "Ident",
+                  2450,
+                  125,
+                  0,
+                  "onComplete"
+                ],
+                "!==",
+                "Const",
+                129,
+                25,
+                0,
+                "function"
+              ],
+              [
+                "Throw",
+                1,
+                1,
+                0,
+                "Call",
+                1629,
+                18,
+                0,
+                ["Ident", 1629, 18, 0, "TypeError"],
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Const", 1, 1, 0, "Expected onComplete to be a Function, got "],
+                  "+",
+                  "Call",
+                  475,
+                  49,
+                  0,
+                  ["Ident", 475, 49, 0, "__typeof"],
+                  0,
+                  ["Ident", 2450, 125, 0, "onComplete"]
+                ]
               ]
             ],
             [
@@ -34688,15 +35026,7 @@
                 1,
                 1,
                 0,
-                [
-                  "Call",
-                  700,
-                  11,
-                  0,
-                  ["Ident", 700, 11, 0, "__num"],
-                  0,
-                  ["Ident", 3260, 5, 0, "numArgs"]
-                ],
+                ["Ident", 3260, 5, 0, "numArgs"],
                 ">",
                 "Const",
                 3260,
@@ -34731,31 +35061,37 @@
                   0,
                   0,
                   [
-                    "Unary",
+                    "Binary",
                     1,
                     1,
-                    0,
-                    "!",
-                    "Call",
-                    707,
-                    9,
-                    0,
-                    ["Ident", 707, 9, 0, "__lt"],
                     0,
                     [
-                      "Binary",
-                      3262,
-                      9,
+                      "Call",
+                      698,
+                      11,
                       0,
-                      ["Ident", 3262, 9, 0, "args"],
-                      ".",
-                      "Const",
-                      3262,
-                      15,
+                      ["Ident", 698, 11, 0, "__num"],
                       0,
-                      "length"
+                      [
+                        "Binary",
+                        3262,
+                        9,
+                        0,
+                        ["Ident", 3262, 9, 0, "args"],
+                        ".",
+                        "Const",
+                        3262,
+                        15,
+                        0,
+                        "length"
+                      ]
                     ],
-                    ["Ident", 3262, 24, 0, "numArgs"]
+                    ">=",
+                    "Ident",
+                    3262,
+                    24,
+                    0,
+                    "numArgs"
                   ],
                   [
                     "Return",
@@ -34947,7 +35283,7 @@
             ]
           ],
           type: {type: "generic", base: "functionBase", args: ["function"]},
-          dependencies: ["__curry", "__lt", "__num", "__slice", "__typeof"]
+          dependencies: ["__curry", "__num", "__slice", "__typeof"]
         },
         __import: {
           helper: [
@@ -41315,6 +41651,64 @@
                   0,
                   0,
                   [
+                    "IfStatement",
+                    1,
+                    1,
+                    0,
+                    0,
+                    [
+                      "Binary",
+                      611,
+                      18,
+                      0,
+                      [
+                        "Unary",
+                        1,
+                        1,
+                        0,
+                        "typeof",
+                        "Ident",
+                        3579,
+                        7,
+                        0,
+                        "func"
+                      ],
+                      "!==",
+                      "Const",
+                      129,
+                      25,
+                      0,
+                      "function"
+                    ],
+                    [
+                      "Throw",
+                      1,
+                      1,
+                      0,
+                      "Call",
+                      1629,
+                      18,
+                      0,
+                      ["Ident", 1629, 18, 0, "TypeError"],
+                      0,
+                      [
+                        "Binary",
+                        1,
+                        1,
+                        0,
+                        ["Const", 1, 1, 0, "Expected func to be a Function, got "],
+                        "+",
+                        "Call",
+                        475,
+                        49,
+                        0,
+                        ["Ident", 475, 49, 0, "__typeof"],
+                        0,
+                        ["Ident", 3579, 7, 0, "func"]
+                      ]
+                    ]
+                  ],
+                  [
                     "Binary",
                     1,
                     1,
@@ -41441,6 +41835,64 @@
             0,
             0,
             [
+              "IfStatement",
+              1,
+              1,
+              0,
+              0,
+              [
+                "Binary",
+                611,
+                18,
+                0,
+                [
+                  "Unary",
+                  1,
+                  1,
+                  0,
+                  "typeof",
+                  "Ident",
+                  3585,
+                  5,
+                  0,
+                  "func"
+                ],
+                "!==",
+                "Const",
+                129,
+                25,
+                0,
+                "function"
+              ],
+              [
+                "Throw",
+                1,
+                1,
+                0,
+                "Call",
+                1629,
+                18,
+                0,
+                ["Ident", 1629, 18, 0, "TypeError"],
+                0,
+                [
+                  "Binary",
+                  1,
+                  1,
+                  0,
+                  ["Const", 1, 1, 0, "Expected func to be a Function, got "],
+                  "+",
+                  "Call",
+                  475,
+                  49,
+                  0,
+                  ["Ident", 475, 49, 0, "__typeof"],
+                  0,
+                  ["Ident", 3585, 5, 0, "func"]
+                ]
+              ]
+            ],
+            [
               "Binary",
               1,
               1,
@@ -41553,7 +42005,7 @@
             ]
           ],
           type: "any",
-          dependencies: ["__slice", "__toArray", "GLOBAL", "setImmediate"]
+          dependencies: ["__slice", "__toArray", "__typeof", "GLOBAL", "setImmediate"]
         },
         __defer: {
           helper: [
