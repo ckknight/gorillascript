@@ -999,6 +999,23 @@ node-class DefNode(left as Node, right as Node|void)
   def type(o) -> if @right? then @right.type(o) else Type.any
 node-class EmbedWriteNode(text as Node, escape as Boolean)
 node-class EvalNode(code as Node)
+  let simplifiers = {
+    "true": #-> ConstNode @line, @column, @scope, true
+    "false": #-> ConstNode @line, @column, @scope, false
+    "void 0": #-> ConstNode @line, @column, @scope, void
+    "null": #-> ConstNode @line, @column, @scope, null
+  }
+  def _reduce(o)
+    let code = @code.reduce(o).do-wrap()
+    if code.is-const() and code.is-const-type(\string)
+      let simplifier = simplifiers![code.const-value()]
+      if simplifier
+        return simplifier@ this
+    
+    if code != @code
+      EvalNode @line, @column, @scope, code
+    else
+      this
 node-class ForNode(init as Node = NothingNode(0, 0, scope), test as Node = ConstNode(0, 0, scope, true), step as Node = NothingNode(0, 0, scope), body as Node, label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true

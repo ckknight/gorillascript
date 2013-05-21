@@ -11,6 +11,7 @@ class MacroHolder
     @assign-operators := []
     @prefix-unary-operators := []
     @postfix-unary-operators := []
+    @consts := {}
     @serialization := {}
     @helpers := {}
   
@@ -25,6 +26,7 @@ class MacroHolder
     clone.assign-operators := @assign-operators.slice()
     clone.prefix-unary-operators := @prefix-unary-operators.slice()
     clone.postfix-unary-operators := @postfix-unary-operators.slice()
+    clone.consts := {} <<< @consts
     clone.serialization := {} <<< @serialization
     clone.helpers := {} <<< @helpers
     clone.syntaxes := {} <<< @syntaxes
@@ -168,6 +170,45 @@ class MacroHolder
     let helpers = (@serialization.helpers ?= {})
     helpers[name] := { helper, type, dependencies }
   
+  def add-const(name as String, value as Number|String|Boolean|null|void)!
+    @consts[name] := value
+  
+  let serialize-const-value(value)
+    switch value
+    case 0
+      { type: if value is 0 then "+0" else "-0" }
+    case Infinity
+      { type: "Infinity" }
+    case -Infinity
+      { type: "-Infinity" }
+    default
+      if value is NaN
+        { type: "NaN" }
+      else if value == void
+        { type: "void" }
+      else
+        value
+  
+  let deserialize-const-value(value)
+    if is-object! value and is-string! value.type
+      switch value.type
+      case "+0"; 0
+      case "-0"; -0
+      case "Infinity"; Infinity
+      case "-Infinity"; -Infinity
+      case "NaN"; NaN
+      case "void"; void
+      default
+        throw Error "Unknown value"
+    else
+      value
+  
+  def add-serialized-const(name as String)!
+    if @consts not ownskey name
+      throw Error "Unknown const $name"
+    let consts = (@serialization.consts ?= {})
+    consts[name] := serialize-const-value(@consts[name])
+  
   def add-macro-serialization(serialization as {type: String})!
     let obj = {} <<< serialization
     delete obj.type
@@ -206,6 +247,9 @@ class MacroHolder
     require! ast: './jsast'
     for name, {helper, type, dependencies} of (data!.helpers ? {})
       @add-helper name, ast.fromJSON(helper), Type.fromJSON(type), dependencies
+    
+    for name, value of (data!.consts ? {})
+      @add-const name, deserialize-const-value value
     
     state.deserialize-macros(data)
   

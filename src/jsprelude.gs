@@ -1,3 +1,9 @@
+const true = eval("true")
+const false = eval("false")
+const null = eval("null")
+const void = eval("void 0")
+const undefined = void
+
 macro do
   syntax body as (Body | (";", this as Statement))
     ASTE (#@ -> $body)()
@@ -308,6 +314,9 @@ define operator binary ~*, ~/, ~%, ~\ with precedence: 11, type: \number
     @binary left, "/", right
   else
     @binary left, "%", right
+
+const Infinity = 1 ~/ 0
+const NaN = 0 ~/ 0
 
 define operator assign ~*=, ~/=, ~%= with type: \number
   if @can-mutate-last(right) and @is-ident-or-tmp(left)

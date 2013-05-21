@@ -107,7 +107,10 @@ exports.run := #(callback = fatal-error)
 let fatal-error(message)
   if not message?
     return
-  console.error String(message) & "\n"
+  if message instanceof Error and message.stack
+    console.error message.stack & "\n"
+  else
+    console.error String(message) & "\n"
   console.log "To see a list of all commands/options, run 'gork'."
   process.exit 1
 

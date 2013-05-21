@@ -2343,23 +2343,6 @@ let make-const-literal(name as String, value)
   word(name) |> mutate #(, parser, index)
     parser.Const index, value
 
-define NullLiteral = make-const-literal "null", null
-define VoidLiteral = one-of(
-  make-const-literal "undefined", void
-  make-const-literal "void", void)
-let InfinityLiteral = make-const-literal "Infinity", Infinity
-let NaNLiteral = make-const-literal "NaN", NaN
-let TrueLiteral = make-const-literal "true", true
-let FalseLiteral = make-const-literal "false", false
-
-let SimpleConstantLiteral = one-of(
-  NullLiteral
-  VoidLiteral
-  InfinityLiteral
-  NaNLiteral
-  TrueLiteral
-  FalseLiteral)
-
 let HexEscapeSequence = sequential(
   character! "x"
   SHORT_CIRCUIT
@@ -2707,8 +2690,29 @@ define RegexLiteral = do
       seen-flags.push flag
     parser.Regexp index, text, flags
 
+let CustomConstantLiteral(parser, index)
+  let name = Name parser, index
+  if not name
+    return
+  
+  let consts = parser.macros.consts
+  if consts not ownskey name.value
+    return
+  
+  Box name.index, parser.Const index, consts[name.value]
+
+let NullOrVoidLiteral(parser, index)
+  let constant = CustomConstantLiteral parser, index
+  if not constant
+    return
+  
+  if constant.value.value?
+    return
+  
+  constant
+
 define ConstantLiteral = one-of(
-  SimpleConstantLiteral
+  CustomConstantLiteral
   NumberLiteral
   StringLiteral
   RegexLiteral)
@@ -2871,8 +2875,7 @@ let NonUnionType = one-of(
     CloseParenthesis)
   ArrayType
   ObjectType
-  VoidLiteral
-  NullLiteral
+  NullOrVoidLiteral
   sequential(
     [\base, IdentifierOrSimpleAccess]
     [\args, maybe sequential(
@@ -3884,7 +3887,7 @@ define SuperInvocation = sequential(
   parser.Super index, child, args
 
 define Eval = sequential(
-  word \eval
+  word "eval"
   SHORT_CIRCUIT
   [\this, InvocationArguments]) |> mutate #(args, parser, index)
   if args.length != 1
@@ -4090,7 +4093,8 @@ let MacroSyntaxChoiceParameters = separated-list(MacroSyntaxParameterType, Pipe)
 
 let MacroOptions = maybe (sequential(
   word "with"
-  [\this, UnclosedObjectLiteral]) |> mutate #(object, parser, index)
+  [\this, UnclosedObjectLiteral]) |> mutate #(mutable object, parser, index)
+  object := object.reduce(parser)
   if not object.is-literal()
     throw ParserError "Macro options must be a literal object without any logic, invocation, or anything else", parser, index
   object.literal-value()), #-> {}
@@ -4234,10 +4238,23 @@ let DefineOperator = do
 
 define DefineMacro = one-of<NothingNode>(_DefineMacro, DefineSyntax, DefineHelper, DefineOperator)
 
+let DefineConstLiteral = sequential(
+  word "const"
+  SHORT_CIRCUIT
+  [\name, Name]
+  EqualSign
+  [\value, Expression]) |> mutate #({name, mutable value}, parser, index)
+  value := parser.macro-expand-all(value.reduce(parser))
+  if not value.is-const()
+    throw ParserError "const value must be a constant.", this, index
+  parser.define-const index, name, value.const-value()
+  parser.Nothing index
+
 redefine Statement = sequential(
   [\this, in-statement one-of<Node>(
     LicenseComment
     DefineMacro
+    DefineConstLiteral
     Assignment
     ExpressionAsStatement)]
   Space) // TODO: have statement decorators?
@@ -5433,6 +5450,14 @@ class Parser
     @macro-syntax index, \define-syntax, params, { name }, body
     @exit-macro()
   
+  def define-const(index, name as String, value as Number|String|Boolean|void|null)!
+    @macros.add-const name, value
+    if @options.serialize-macros
+      @macros.add-serialized-const(name)
+  
+  def get-const(name as String)
+    @macros.get-const name
+  
   def deserialize-macros(data)
     for type, deserializer of macro-deserializers
       for item in (data![type] ? [])
@@ -5577,7 +5602,7 @@ let parse(source as String, macros as MacroHolder|null, options as {} = {}, call
   if callback?
     promise.then(
       #(value) -> callback null, value
-      #(err) -> callback err)
+      #(err) -> set-immediate callback, err)
     return
   else
     promise.sync()
