@@ -7,18 +7,15 @@ let {string-repeat} = require('./utils')
 let {add-param-to-scope} = require('./parser-utils')
 let {quote, unique} = require './utils'
 
-let CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
+const DEBUG = false
 
-macro DEBUG
-  syntax ""
-    ASTE false
-
-let EMBED_OPEN_DEFAULT = "<%"
-let EMBED_CLOSE_DEFAULT = "%>"
-let EMBED_OPEN_WRITE_DEFAULT = "<%="
-let EMBED_CLOSE_WRITE_DEFAULT = "%>"
-let EMBED_OPEN_COMMENT_DEFAULT = "<%--"
-let EMBED_CLOSE_COMMENT_DEFAULT = "--%>"
+const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
+const EMBED_OPEN_DEFAULT = "<%"
+const EMBED_CLOSE_DEFAULT = "%>"
+const EMBED_OPEN_WRITE_DEFAULT = "<%="
+const EMBED_CLOSE_WRITE_DEFAULT = "%>"
+const EMBED_OPEN_COMMENT_DEFAULT = "<%--"
+const EMBED_CLOSE_COMMENT_DEFAULT = "--%>"
 
 let AccessNode = Node.Access
 let AccessMultiNode = Node.AccessMulti

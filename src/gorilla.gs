@@ -3,7 +3,7 @@ require! os
 require! fs
 require! path
 
-let DEFAULT_TRANSLATOR = './jstranslator'
+const DEFAULT_TRANSLATOR = './jstranslator'
 
 exports.version := "0.6.10"
 exports <<< {parser.ParserError, parser.MacroError}

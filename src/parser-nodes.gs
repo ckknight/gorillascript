@@ -3,7 +3,7 @@ let {node-to-type, map, map-async} = require './parser-utils'
 let {quote} = require './utils'
 let inspect = require('util')?.inspect
 
-let CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
+const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length // TODO: get the value from parser.gs or something
 
 let map(array, func, arg)
   let result = []

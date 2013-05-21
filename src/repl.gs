@@ -5,8 +5,8 @@ require! vm
 require! module
 require! child_process
 
-let REPL_PROMPT = "gs> "
-let REPL_PROMPT_CONTINUATION = "..> "
+const REPL_PROMPT = "gs> "
+const REPL_PROMPT_CONTINUATION = "..> "
 let enable-colors = process.platform != 'win32' and not process.env.NODE_DISABLE_COLORS
 
 let stdin = process.open-stdin()

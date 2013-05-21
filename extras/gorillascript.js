@@ -7851,7 +7851,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __bind, __cmp, __create, __curry, __defer, __generatorToPromise, __genericFunc, __getInstanceof, __import, __in, __int, __isArray, __isObject, __lt, __lte, __name, __num, __owns, __promise, __slice, __str, __strnum, __toArray, __typeof, _arr, _Block, _DefineMacro, _FunctionBody, _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody, DefineConstLiteral, DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedRootGeneratorP, EmbeddedRootInnerP, EmbeddedRootP, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement, ExpressionOrAssignment, ForInNode, ForNode, fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral, FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter, LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody, MacroContext, MacroError, MacroHolder, macroName, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, MapLiteral, MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointChar, MaybeNotToken, MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar, NameOrSymbol, NamePart, NameStart, Node, nodeType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment, NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, Parser, ParserError, PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootInnerP, RootNode, RootP, Scope, Semicolon, SemicolonChar, Semicolons, separatedList, sequential, setImmediate, SetLiteral, Shebang, SHORT_CIRCUIT, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement, StringInterpolation, StringLiteral, stringRepeat, SuperInvocation, SuperNode, SwitchNode, Symbol, symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore, UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, WeakMap, word, wordOrSymbol, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
+      var __bind, __cmp, __create, __curry, __defer, __generatorToPromise, __genericFunc, __getInstanceof, __import, __in, __int, __isArray, __isObject, __lt, __lte, __name, __num, __owns, __promise, __slice, __str, __strnum, __toArray, __typeof, _arr, _Block, _DefineMacro, _FunctionBody, _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody, DefineConstLiteral, DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedRootGeneratorP, EmbeddedRootInnerP, EmbeddedRootP, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement, ExpressionOrAssignment, ForInNode, ForNode, fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral, FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter, LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody, MacroContext, MacroError, MacroHolder, MacroName, macroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, MapLiteral, MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointChar, MaybeNotToken, MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar, NameOrSymbol, NamePart, NameStart, Node, nodeType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment, NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, Parser, ParserError, PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootInnerP, RootNode, RootP, Scope, Semicolon, SemicolonChar, Semicolons, separatedList, sequential, setImmediate, SetLiteral, Shebang, SHORT_CIRCUIT, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement, StringInterpolation, StringLiteral, stringRepeat, SuperInvocation, SuperNode, SwitchNode, symbol, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore, UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, WeakMap, word, wordOrSymbol, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
       __bind = function (parent, child) {
         var func;
         if (parent == null) {
@@ -8428,13 +8428,6 @@
       addParamToScope = require("./parser-utils").addParamToScope;
       quote = (_ref = require("./utils")).quote;
       unique = _ref.unique;
-      CURRENT_ARRAY_LENGTH_NAME = "__currentArrayLength";
-      EMBED_OPEN_DEFAULT = "<%";
-      EMBED_CLOSE_DEFAULT = "%>";
-      EMBED_OPEN_WRITE_DEFAULT = "<%=";
-      EMBED_CLOSE_WRITE_DEFAULT = "%>";
-      EMBED_OPEN_COMMENT_DEFAULT = "<%--";
-      EMBED_CLOSE_COMMENT_DEFAULT = "--%>";
       AccessNode = Node.Access;
       AccessMultiNode = Node.AccessMulti;
       ArgsNode = Node.Args;
@@ -12975,7 +12968,7 @@
         if (parser.asterixAsArrayLength.peek()) {
           asterix = AsterixChar(parser, index);
           if (asterix) {
-            return Box(asterix.index, parser.Ident(index, CURRENT_ARRAY_LENGTH_NAME));
+            return Box(asterix.index, parser.Ident(index, "__currentArrayLength"));
           }
         }
       });
@@ -14243,8 +14236,8 @@
           };
         };
       }());
-      EmbeddedOpenComment = cache(makeEmbeddedRule("embeddedOpenComment", EMBED_OPEN_COMMENT_DEFAULT));
-      EmbeddedCloseComment = makeEmbeddedRule("embeddedCloseComment", EMBED_CLOSE_COMMENT_DEFAULT);
+      EmbeddedOpenComment = cache(makeEmbeddedRule("embeddedOpenComment", "<%--"));
+      EmbeddedCloseComment = makeEmbeddedRule("embeddedCloseComment", "--%>");
       function EmbeddedComment(parser, index) {
         var any, close, currentIndex, len, open;
         open = EmbeddedOpenComment(parser, index);
@@ -14270,10 +14263,10 @@
         }
         return Box(currentIndex, parser.Nothing(index));
       }
-      EmbeddedOpen = cache(makeEmbeddedRule("embeddedOpen", EMBED_OPEN_DEFAULT));
-      EmbeddedClose = cache(sequential(EmptyLines, Space, oneOf(Eof, makeEmbeddedRule("embeddedClose", EMBED_CLOSE_DEFAULT))));
-      EmbeddedOpenWrite = cache(makeEmbeddedRule("embeddedOpenWrite", EMBED_OPEN_WRITE_DEFAULT));
-      EmbeddedCloseWrite = cache(sequential(EmptyLines, Space, oneOf(Eof, makeEmbeddedRule("embeddedCloseWrite", EMBED_CLOSE_WRITE_DEFAULT))));
+      EmbeddedOpen = cache(makeEmbeddedRule("embeddedOpen", "<%"));
+      EmbeddedClose = cache(sequential(EmptyLines, Space, oneOf(Eof, makeEmbeddedRule("embeddedClose", "%>"))));
+      EmbeddedOpenWrite = cache(makeEmbeddedRule("embeddedOpenWrite", "<%="));
+      EmbeddedCloseWrite = cache(sequential(EmptyLines, Space, oneOf(Eof, makeEmbeddedRule("embeddedCloseWrite", "%>"))));
       ColonEmbeddedClose = cache(sequential(Colon, EmbeddedClose));
       ColonEmbeddedCloseWrite = cache(sequential(Colon, EmbeddedCloseWrite));
       NotEmbeddedOpenComment = cache(except(EmbeddedOpenComment));
@@ -17511,7 +17504,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __create, __curry, __in, __isArray, __keys, __name, __num, __once, __owns, __slice, __strnum, __toArray, __typeof, _ref, AccessMultiNode, AccessNode, ArgsNode, ArrayNode, AssignNode, BinaryNode, BlockNode, BreakNode, CallNode, CommentNode, ConstNode, ContinueNode, CURRENT_ARRAY_LENGTH_NAME, DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode, ForNode, FunctionNode, IdentNode, IfNode, inspect, MacroAccessNode, mapAsync, Node, nodeToType, NothingNode, ObjectNode, ParamNode, quote, RegexpNode, ReturnNode, RootNode, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode, UnaryNode, VarNode, YieldNode;
+      var __async, __create, __curry, __in, __isArray, __keys, __name, __num, __once, __owns, __slice, __strnum, __toArray, __typeof, _ref, AccessMultiNode, AccessNode, ArgsNode, ArrayNode, AssignNode, BinaryNode, BlockNode, BreakNode, CallNode, CommentNode, ConstNode, ContinueNode, DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode, ForNode, FunctionNode, IdentNode, IfNode, inspect, MacroAccessNode, mapAsync, Node, nodeToType, NothingNode, ObjectNode, ParamNode, quote, RegexpNode, ReturnNode, RootNode, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode, UnaryNode, VarNode, YieldNode;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -17733,7 +17726,6 @@
       if ((_ref = require("util")) != null) {
         inspect = _ref.inspect;
       }
-      CURRENT_ARRAY_LENGTH_NAME = "__currentArrayLength";
       function map(array, func, arg) {
         var _arr, _i, _len, changed, item, newItem, result;
         result = [];
@@ -18020,7 +18012,7 @@
           cachedParent = null;
           function replaceLengthIdent(node) {
             var nodeParent;
-            if (node instanceof IdentNode && node.name === CURRENT_ARRAY_LENGTH_NAME) {
+            if (node instanceof IdentNode && node.name === "__currentArrayLength") {
               if (parent.cacheable && cachedParent == null) {
                 cachedParent = o.makeTmp(
                   o.indexFromPosition(node.line, node.column),
@@ -21361,7 +21353,7 @@
         IdentNode.argNames = ["name"];
         _IdentNode_prototype.cacheable = false;
         _IdentNode_prototype.type = function (o) {
-          if (this.name === CURRENT_ARRAY_LENGTH_NAME) {
+          if (this.name === "__currentArrayLength") {
             return Type.number;
           } else if (o) {
             return this.scope.type(this);
@@ -31623,7 +31615,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __isArray, __lte, __num, __once, __owns, __slice, __strnum, __toArray, __typeof, compile, DEFAULT_TRANSLATOR, fetchAndParsePrelude, fs, init, os, parse, parser, path, translate;
+      var __async, __isArray, __lte, __num, __once, __owns, __slice, __strnum, __toArray, __typeof, compile, fetchAndParsePrelude, fs, init, os, parse, parser, path, translate;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -31781,7 +31773,6 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      DEFAULT_TRANSLATOR = "./jstranslator";
       exports.version = "0.6.10";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
@@ -32096,7 +32087,7 @@
         if (typeof options.translator === "function") {
           translator = options.translator;
         } else {
-          translator = require(typeof options.translator === "string" ? options.translator : DEFAULT_TRANSLATOR);
+          translator = require(typeof options.translator === "string" ? options.translator : "./jstranslator");
         }
         if (callback != null) {
           _f = function (next) {
