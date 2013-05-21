@@ -5,7 +5,7 @@ require! path
 
 const DEFAULT_TRANSLATOR = './jstranslator'
 
-exports.version := "0.6.11"
+exports.version := "0.6.12"
 exports <<< {parser.ParserError, parser.MacroError}
 
 // TODO: Remove register-extension when fully deprecated.
@@ -215,6 +215,9 @@ let evaluate(code, options)
       else
         for k, v of options.sandbox
           sandbox[k] := v
+    else
+      for k, v of GLOBAL
+        sandbox[k] := v
     sandbox.__filename := options.filename or "eval"
     sandbox.__dirname := path.dirname sandbox.__filename
     if not sandbox.module and not sandbox.require

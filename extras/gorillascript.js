@@ -31864,7 +31864,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.6.11";
+      exports.version = "0.6.12";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -32347,6 +32347,13 @@
                   v = _obj[k];
                   sandbox[k] = v;
                 }
+              }
+            }
+          } else {
+            for (k in GLOBAL) {
+              if (__owns.call(GLOBAL, k)) {
+                v = GLOBAL[k];
+                sandbox[k] = v;
               }
             }
           }
