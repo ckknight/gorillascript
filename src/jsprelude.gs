@@ -3633,8 +3633,7 @@ define helper __defer = #
     reject(value)! -> complete true, value
   }
 
-define helper __generator-to-promiser = #(factory as ->) -> #
-  let generator = factory@ this, ...arguments
+define helper __generator-to-promise = #(generator as { send: (->), throw: (->) })
   let continuer(verb, arg)
     try
       let item = generator[verb](arg)
@@ -3649,13 +3648,18 @@ define helper __generator-to-promiser = #(factory as ->) -> #
   let callback(value) -> continuer \send, value
   let errback(value) -> continuer \throw, value
   callback(void)
+define helper __promise = #(mutable value)
+  if is-function! value
+    #-> __generator-to-promise value@(this, ...arguments)
+  else
+    __generator-to-promise value
 
 macro promise!
   syntax node as Expression
     if @is-func(node) and not @func-is-generator(node)
       @error "Must be used with a generator function", node
-  
-    ASTE __generator-to-promiser($node)
+    
+    ASTE __promise($node)
   
   syntax body as GeneratorBody
     let func = @rewrap(@func([]
@@ -3666,7 +3670,7 @@ macro promise!
       null
       true), body)
     
-    ASTE __generator-to-promiser($func)()
+    ASTE __generator-to-promise($func())
 
 define helper __to-promise = #(func, context, args)
   let d = __defer()

@@ -14,6 +14,41 @@ describe "promise!", #
     make-promise().then #(value)
       expect(value).to.equal \foxtrot
       cb()
+  it "can create a promise factory from a generator function", #(cb)
+    let generator()*
+      let d = __defer()
+      d.fulfill(\bravo)
+      let alpha = yield d.promise
+      expect(alpha).to.equal \bravo
+      let charlie = __defer()
+      set-immediate #-> charlie.fulfill \delta
+      let echo = yield charlie.promise
+      expect(echo).to.equal \delta
+      return \foxtrot
+    
+    let make-promise = promise! generator
+    
+    make-promise().then #(value)
+      expect(value).to.equal \foxtrot
+      cb()
+  
+  it "can create a promise from a generator instance", #(cb)
+    let generator()*
+      let d = __defer()
+      d.fulfill(\bravo)
+      let alpha = yield d.promise
+      expect(alpha).to.equal \bravo
+      let charlie = __defer()
+      set-immediate #-> charlie.fulfill \delta
+      let echo = yield charlie.promise
+      expect(echo).to.equal \delta
+      return \foxtrot
+    
+    let promise = promise! generator()
+    
+    promise.then #(value)
+      expect(value).to.equal \foxtrot
+      cb()
   
   it "can create a one-off promise", #(cb)
     let promise = promise!
