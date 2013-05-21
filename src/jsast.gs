@@ -414,7 +414,7 @@ exports.Binary := class Binary extends Expression
       IfStatement(@pos, @left, @right).compile-as-statement(options, line-start, sb)
     else if @op == "||"
       // TODO: invert rather than add the ! operator
-      IfStatement(@pos, ast.Unary(@pos, "!", @left), @right).compile-as-statement(options, line-start, sb)
+      IfStatement(@pos, Unary(@pos, "!", @left), @right).compile-as-statement(options, line-start, sb)
     else if op == "."
       super.compile-as-statement(options, line-start, sb)
     else

@@ -1794,11 +1794,17 @@ let translate-function-body(pos, is-generator, auto-return, scope, body, unassig
     if not is-simple-generator
       let builder = GeneratorBuilder pos, scope, has-generator-node
       generator-translate(body, scope, builder.start).goto(pos, #-> builder.stop)
+      let translated-body = builder.create()
+      if pos.file
+        translated-body.pos.file or= pos.file
       return {
         wrap: #(x) -> x
-        body: builder.create()
+        body: translated-body
       }
   
+  let translated-body = translate(body, scope, \top-statement, not is-simple-generator and auto-return, unassigned)()
+  if pos.file
+    translated-body.pos.file or= pos.file
   {
     wrap: if is-simple-generator
       scope.add-helper \__generator
@@ -1808,7 +1814,7 @@ let translate-function-body(pos, is-generator, auto-return, scope, body, unassig
           [x]
     else
       #(x) -> x
-    body: translate(body, scope, \top-statement, not is-simple-generator and auto-return, unassigned)()
+    body: translated-body
   }
 
 let translate-root(mutable roots as Object, mutable scope as Scope)
@@ -1844,7 +1850,10 @@ let translate-root(mutable roots as Object, mutable scope as Scope)
     
     if roots[0].is-generator
       scope := scope.clone(true)
-    translate-function-body(get-pos(roots[0]), roots[0].is-generator, scope.options.return or scope.options.eval, scope, roots[0].body)
+    let root-pos = get-pos(roots[0])
+    let ret = translate-function-body(root-pos, roots[0].is-generator, scope.options.return or scope.options.eval, scope, roots[0].body)
+    ret.body.pos.file or= root-pos.file
+    ret
   else
     {
       wrap: #(x) -> x

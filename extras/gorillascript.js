@@ -3533,7 +3533,7 @@
           } else if (this.op === "||") {
             IfStatement(
               this.pos,
-              ast.Unary(this.pos, "!", this.left),
+              Unary(this.pos, "!", this.left),
               this.right
             ).compileAsStatement(options, lineStart, sb);
           } else if (op === ".") {
@@ -16766,7 +16766,7 @@
         if (callback != null) {
           promise.then(
             function (value) {
-              return callback(null, value);
+              return setImmediate(callback(null, value));
             },
             function (err) {
               return setImmediate(callback, err);
@@ -31340,7 +31340,7 @@
         return _arr;
       }
       function translateFunctionBody(pos, isGenerator, autoReturn, scope, body, unassigned) {
-        var builder, hasGeneratorNode, isSimpleGenerator;
+        var _ref, builder, hasGeneratorNode, isSimpleGenerator, translatedBody;
         if (unassigned == null) {
           unassigned = {};
         }
@@ -31353,12 +31353,30 @@
             generatorTranslate(body, scope, builder.start).goto(pos, function () {
               return builder.stop;
             });
+            translatedBody = builder.create();
+            if (pos.file) {
+              if (!(_ref = translatedBody.pos).file) {
+                _ref.file = pos.file;
+              }
+            }
             return {
               wrap: function (x) {
                 return x;
               },
-              body: builder.create()
+              body: translatedBody
             };
+          }
+        }
+        translatedBody = translate(
+          body,
+          scope,
+          "topStatement",
+          !isSimpleGenerator && autoReturn,
+          unassigned
+        )();
+        if (pos.file) {
+          if (!(_ref = translatedBody.pos).file) {
+            _ref.file = pos.file;
           }
         }
         return {
@@ -31373,13 +31391,7 @@
             : function (x) {
               return x;
             },
-          body: translate(
-            body,
-            scope,
-            "topStatement",
-            !isSimpleGenerator && autoReturn,
-            unassigned
-          )()
+          body: translatedBody
         };
       }
       function translateRoot(roots, scope) {
@@ -31431,19 +31443,25 @@
         }
         wrap = (_ref = roots.length === 1
           ? (function () {
+            var _ref, ret, rootPos;
             if (!(roots[0] instanceof ParserNode.Root)) {
               throw Error("Cannot translate non-Root object");
             }
             if (roots[0].isGenerator) {
               scope = scope.clone(true);
             }
-            return translateFunctionBody(
-              getPos(roots[0]),
+            rootPos = getPos(roots[0]);
+            ret = translateFunctionBody(
+              rootPos,
               roots[0].isGenerator,
               scope.options["return"] || scope.options["eval"],
               scope,
               roots[0].body
             );
+            if (!(_ref = ret.body.pos).file) {
+              _ref.file = rootPos.file;
+            }
+            return ret;
           }())
           : {
             wrap: function (x) {
@@ -31864,7 +31882,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.6.12";
+      exports.version = "0.6.13";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {

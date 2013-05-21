@@ -5607,7 +5607,7 @@ let parse(source as String, macros as MacroHolder|null, options as {} = {}, call
     }
   if callback?
     promise.then(
-      #(value) -> callback null, value
+      #(value) -> set-immediate callback null, value
       #(err) -> set-immediate callback, err)
     return
   else
