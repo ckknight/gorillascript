@@ -1,3 +1,8 @@
+let random-wait(value, max-time = 10)
+  let defer = __defer()
+  set-timeout #-> defer.fulfill(value), (Math.random() * max-time) \ 1
+  defer.promise
+
 describe "promise!", #
   describe "on a generator function", #
     it "can create a promise factory", #(cb)
@@ -395,3 +400,65 @@ describe "every-promise!", #
   
       alpha.reject \echo
       bravo.fulfill \foxtrot
+
+describe "promisefor", #
+  describe "in a range", #
+    it "returns a promise which fulfills with an array", #(cb)
+      let items = []
+      let loop = promisefor(3) i in 0 til 10
+        let j = yield random-wait(i * i)
+        items.push i
+        return j
+      
+      loop.then(#(value)
+        expect(value).to.eql [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
+        expect(items).to.not.eql (0 til 10)
+        expect(items.sort (<=>)).to.eql (0 til 10)
+        cb())
+  
+  describe "in an array", #
+    it "returns a promise which fulfills with an array", #(cb)
+      let items = []
+      let arr = 0 til 10
+      let loop = promisefor(3) i in arr
+        let j = yield random-wait(i * i)
+        items.push i
+        return j
+      
+      loop.then(#(value)
+        expect(value).to.eql [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
+        expect(items).to.not.eql (0 til 10)
+        expect(items.sort (<=>)).to.eql (0 til 10)
+        cb())
+  
+  describe "of an object", #
+    it "returns a promise which fulfills with an array", #(cb)
+      let items = []
+      let loop = promisefor(3) k, v of { a: \b, c: \d, e: \f, g: \h, i: \j, k: \l, m: \n }
+        let u = yield random-wait(v.to-upper-case())
+        items.push [k, v]
+        return u
+      
+      loop.then(#(value)
+        expect(value.sort()).to.eql [\B, \D, \F, \H, \J, \L, \N]
+        expect(items.sort #(a, b) -> a[0] <=> b[0]).to.eql [[\a, \b], [\c, \d], [\e, \f], [\g, \h], [\i, \j], [\k, \l], [\m, \n]]
+        cb())
+  
+  describe "from an iterator", #
+    it "returns a promise which fulfills with an array", #(cb)
+      let iter()*
+        for i in 0 til 10
+          yield i
+      let items = []
+      let loop = promisefor(3) i, j from iter()
+        expect(i).to.equal j
+        let k = yield random-wait(i * i)
+        items.push i
+        return k
+      
+      loop.then(#(value)
+        expect(value).to.eql [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
+        expect(items).to.not.eql (0 til 10)
+        expect(items.sort (<=>)).to.eql (0 til 10)
+        cb())
+  

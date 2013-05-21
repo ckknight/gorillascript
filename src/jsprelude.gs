@@ -2487,7 +2487,7 @@ define helper __async-iter = #(mutable limit as Number, iterator as {next: Funct
       try
         let item = iterator.next()
       catch e
-        broken := true
+        broken := e
         break
       
       if item.done
@@ -2691,7 +2691,7 @@ macro asyncfor
     err ?= @tmp \err, true
     parallelism ?= ASTE 1
     
-    ASTE __async-iter +$parallelism, $iterator, $has-result,
+    ASTE __async-iter +$parallelism, __iter($iterator), $has-result,
       #($value, $index, $next)@ -> $body
       if $has-result
         #($err, $result)@ -> $rest
@@ -3830,3 +3830,172 @@ define operator unary every-promise! with type: \promise
     @error "every-promise! should be used on an Array or Object"
   
   ASTE __every-promise $node
+
+define helper __promise-loop = #(mutable limit as Number, length as Number, body as ->)
+  if limit ~< 1 or limit != limit
+    limit := Infinity
+  
+  let result = []
+  let mutable done = false
+  let mutable slots-used = 0
+  let defer = __defer()
+  let mutable index = 0
+  let handle(index)
+    slots-used += 1
+    body(index).then(
+      #(value)
+        result[index] := value
+        slots-used -= 1
+        flush()
+      #(reason)
+        done := true
+        defer.reject reason)
+  let flush()
+    while not done and slots-used < limit and index < length, index += 1
+      handle(index)
+    if not done and index >= length and slots-used == 0
+      done := true
+      defer.fulfill result
+  set-immediate flush
+  defer.promise
+
+define helper __promise-iter = #(mutable limit as Number, iterator as {next: Function}, body as ->)
+  if limit ~< 1 or limit != limit
+    limit := Infinity
+  
+  let result = []
+  let mutable done = false
+  let mutable slots-used = 0
+  let defer = __defer()
+  let mutable index = 0
+  let mutable iter-stopped = false
+  let handle(item, index)
+    slots-used += 1
+    body(item, index).then(
+      #(value)
+        result[index] := value
+        slots-used -= 1
+        flush()
+      #(reason)
+        done := true
+        defer.reject reason)
+  let flush()
+    while not done and not iter-stopped and slots-used < limit
+      let mutable item = void
+      try
+        item := iterator.next()
+      catch e
+        done := true
+        defer.reject e
+        return
+      
+      if item.done
+        iter-stopped := true
+        break
+      
+      handle(item.value, post-inc! index)
+    
+    if not done and slots-used == 0 and iter-stopped
+      done := true
+      defer.fulfill result
+  set-immediate flush
+  defer.promise
+
+macro promisefor
+  syntax "(", parallelism as Expression, ")", value as Declarable, index as (",", value as Identifier, length as (",", this as Identifier)?)?, "in", array, body as GeneratorBody
+    let init = []
+    
+    value := @macro-expand-1(value)
+    let mutable length = null
+    if index
+      length := index.length
+      index := index.value
+    
+    parallelism ?= ASTE 1
+    
+    index ?= @tmp \i, true, \number
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range and not @call-is-apply(array)
+      if @is-array(value) or @is-object(value)
+        @error "Cannot assign a number to a complex declarable", value
+      value := value.ident
+      let [mutable start, mutable end, mutable step, mutable inclusive] = @call-args(array)
+      
+      if @is-const(start)
+        if not is-number! @value(start)
+          @error "Cannot start with a non-number: $(@value start)", start
+      else
+        start := ASTE +$start
+
+      if @is-const(end)
+        if not is-number! @value(end)
+          @error "Cannot end with a non-number: $(@value end)", end
+      else if @is-complex(end)
+        end := @cache (ASTE +$end), init, \end, false
+      else
+        init.push ASTE +$end
+
+      if @is-const(step)
+        if not is-number! @value(step)
+          @error "Cannot step with a non-number: $(@value step)", step
+      else if @is-complex(step)
+        step := @cache (ASTE +$step), init, \step, false
+      else
+        init.push ASTE +$step
+      
+      body := AST
+        let $value = $index ~* $step ~+ $start
+        $body
+
+      let length-calc = ASTE if $inclusive
+        ($end ~- $start ~+ $step) ~\ $step
+      else
+        ($end ~- $start) ~\ $step
+      if not length
+        length := length-calc
+      else
+        init.push AST let $length = $length-calc
+    else
+      array := @cache array, init, \arr, true
+
+      body := AST
+        let $value = $array[$index]
+        $body
+      
+      if not length
+        length := ASTE +$array.length
+      else
+        init.push AST let $length = +$array.length
+    
+    AST
+      $init
+      __promise-loop +$parallelism, $length, __promise(#($index)* -> $body)
+  
+  syntax "(", parallelism as Expression, ")", key as Identifier, value as (",", value as Declarable, index as (",", this as Identifier)?)?, type as ("of" | "ofall"), object, body as GeneratorBody
+      let own = type == "of"
+      let init = []
+      object := @cache object, init, \obj, true
+      
+      let mutable index = null
+      if value
+        index := value.index
+        value := @macro-expand-1(value.value)
+      if value
+        body := AST
+          let $value = $object[$key]
+          $body
+    
+      let keys = @tmp \keys, true, \string-array
+      AST
+        $init
+        let $keys = if $own
+          __keys $object
+        else
+          __allkeys $object
+        promisefor($parallelism) $key, $index in $keys
+          $body
+  
+  syntax "(", parallelism as Expression, ")", value as Identifier, index as (",", this as Identifier)?, "from", iterator, body as GeneratorBody
+    index ?= @tmp \i, true
+    
+    AST
+      __promise-iter +$parallelism, __iter($iterator), __promise(#($value, $index)* -> $body)
