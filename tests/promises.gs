@@ -1,19 +1,53 @@
 describe "promise!", #
-  it "can create a promise factory", #(cb)
-    let make-promise = promise! #*
-      let d = __defer()
-      d.fulfill(\bravo)
-      let alpha = yield d.promise
-      expect(alpha).to.equal \bravo
-      let charlie = __defer()
-      set-immediate #-> charlie.fulfill \delta
-      let echo = yield charlie.promise
-      expect(echo).to.equal \delta
-      return \foxtrot
+  describe "on a generator function", #
+    it "can create a promise factory", #(cb)
+      let make-promise = promise! #*
+        let d = __defer()
+        d.fulfill(\bravo)
+        let alpha = yield d.promise
+        expect(alpha).to.equal \bravo
+        let charlie = __defer()
+        set-immediate #-> charlie.fulfill \delta
+        let echo = yield charlie.promise
+        expect(echo).to.equal \delta
+        return \foxtrot
     
-    make-promise().then #(value)
-      expect(value).to.equal \foxtrot
-      cb()
+      make-promise().then #(value)
+        expect(value).to.equal \foxtrot
+        cb()
+    
+    it "can work on a simple generator", #(cb)
+      let make-promise = promise! #*
+        return \alpha
+      
+      make-promise().then #(value)
+        expect(value).to.equal \alpha
+        cb()
+    
+    it "can work on a reference to a generator function", #(cb)
+      let generator()*
+        let d = __defer()
+        d.fulfill(\bravo)
+        let alpha = yield d.promise
+        expect(alpha).to.equal \bravo
+        let charlie = __defer()
+        set-immediate #-> charlie.fulfill \delta
+        let echo = yield charlie.promise
+        expect(echo).to.equal \delta
+        return \foxtrot
+      
+      (promise! generator)().then #(value)
+        expect(value).to.equal \foxtrot
+        cb()
+    
+    it "can work on a reference to a simple generator function", #(cb)
+      let generator()*
+        return \foxtrot
+      
+      (promise! generator)().then #(value)
+        expect(value).to.equal \foxtrot
+        cb()
+  
   it "can create a promise factory from a generator function", #(cb)
     let generator()*
       let d = __defer()
@@ -32,23 +66,34 @@ describe "promise!", #
       expect(value).to.equal \foxtrot
       cb()
   
-  it "can create a promise from a generator instance", #(cb)
-    let generator()*
-      let d = __defer()
-      d.fulfill(\bravo)
-      let alpha = yield d.promise
-      expect(alpha).to.equal \bravo
-      let charlie = __defer()
-      set-immediate #-> charlie.fulfill \delta
-      let echo = yield charlie.promise
-      expect(echo).to.equal \delta
-      return \foxtrot
+  describe "on a generator instance", #
+    it "can create a promise from a generator instance", #(cb)
+      let generator()*
+        let d = __defer()
+        d.fulfill(\bravo)
+        let alpha = yield d.promise
+        expect(alpha).to.equal \bravo
+        let charlie = __defer()
+        set-immediate #-> charlie.fulfill \delta
+        let echo = yield charlie.promise
+        expect(echo).to.equal \delta
+        return \foxtrot
     
-    let promise = promise! generator()
+      let promise = promise! generator()
     
-    promise.then #(value)
-      expect(value).to.equal \foxtrot
-      cb()
+      promise.then #(value)
+        expect(value).to.equal \foxtrot
+        cb()
+    
+    it "can work on a simple generator", #
+      let generator()*
+        return \foxtrot
+      
+      let promise = promise! generator()
+    
+      promise.then #(value)
+        expect(value).to.equal \foxtrot
+        cb()
   
   it "can create a one-off promise", #(cb)
     let promise = promise!
@@ -219,3 +264,17 @@ describe "to-promise!", #
         p.then null, #(reason)
           expect(reason).to.equal err
           cb()
+
+describe "fulfilled!", #
+  it "produces an already-fulfilled promise", #
+    let alpha = fulfilled! \bravo
+    alpha.then #(value)
+      expect(value).to.equal \bravo
+      cb()
+  
+describe "rejected!", #
+  it "produces an already-rejected promise", #
+    let alpha = rejected! \bravo
+    alpha.then null, #(reason)
+      expect(reason).to.equal \bravo
+      cb()

@@ -3588,80 +3588,118 @@ else
     else
       set-timeout(func, 0)
 
-define helper __defer = #
-  let mutable is-error = false
-  let mutable value = null
+define helper __defer = do
+  let __defer()
+    let mutable is-error = false
+    let mutable value = null
   
-  let mutable deferred as Array|null = []
-  let complete(new-is-error, new-value)!
-    if deferred
-      let funcs as Array = deferred
-      deferred := null
-      is-error := new-is-error
-      value := new-value
-      if funcs.length
-        set-immediate #
-          for i in 0 til funcs.length
-            funcs[i]()
+    let mutable deferred as Array|null = []
+    let complete(new-is-error, new-value)!
+      if deferred
+        let funcs as Array = deferred
+        deferred := null
+        is-error := new-is-error
+        value := new-value
+        if funcs.length
+          set-immediate #
+            for i in 0 til funcs.length
+              funcs[i]()
   
-  {
-    promise: {
-      then: #(on-fulfilled, on-rejected, allow-sync)
-        let {promise, fulfill, reject} = __defer()
-        let step = #! -> try
-          let f = if is-error then on-rejected else on-fulfilled
-          if is-function! f
-            let result = f value
-            if result and is-function! result.then
-              result.then fulfill, reject
+    {
+      promise: {
+        then: #(on-fulfilled, on-rejected, mutable allow-sync)
+          if allow-sync != true
+            allow-sync := void
+          let {promise, fulfill, reject} = __defer()
+          let step = #! -> try
+            let f = if is-error then on-rejected else on-fulfilled
+            if is-function! f
+              let result = f value
+              if result and is-function! result.then
+                result.then fulfill, reject, allow-sync
+              else
+                fulfill result
             else
-              fulfill result
+              (if is-error then reject else fulfill)(value)
+          catch e
+            reject e
+
+          if deferred
+            deferred.push step
+          else if allow-sync
+            step()
           else
-            (if is-error then reject else fulfill)(value)
-        catch e
-          reject e
-
-        if deferred
-          deferred.push step
-        else if allow-sync == true
-          step()
-        else
-          set-immediate step
-        promise
+            set-immediate step
+          promise
+        sync: #
+          let mutable state = 0
+          let mutable result = 0
+          @then(
+            #(ret)
+              state := 1
+              result := ret
+            #(err)
+              state := 2
+              result := err
+            true)
+          switch state
+          case 0
+            throw Error "Promise did not execute synchronously"
+          case 1
+            return result
+          case 2
+            throw result
+          default
+            throw Error "Unknown state"
+      }
+      fulfill(value)! -> complete false, value
+      reject(reason)! -> complete true, reason
     }
-    fulfill(value)! -> complete false, value
-    reject(value)! -> complete true, value
-  }
+  __defer.fulfilled := #(value)
+    let d = __defer()
+    d.fulfill value
+    d.promise
+  __defer.rejected := #(reason)
+    let d = __defer()
+    d.reject reason
+    d.promise
+  __defer
 
-define helper __generator-to-promise = #(generator as { send: (->), throw: (->) })
+define helper __generator-to-promise = #(generator as { send: (->), throw: (->) }, allow-sync as Boolean)
   let continuer(verb, arg)
+    let mutable item = void
     try
-      let item = generator[verb](arg)
+      item := generator[verb](arg)
     catch e
-      let defer = __defer()
-      defer.reject e
-      return defer.promise
+      return __defer.rejected(e)
     if item.done
-      item.value
+      __defer.fulfilled(item.value)
     else
-      item.value.then callback, errback
+      item.value.then callback, errback, allow-sync
   let callback(value) -> continuer \send, value
   let errback(value) -> continuer \throw, value
   callback(void)
-define helper __promise = #(mutable value)
+define helper __promise = #(mutable value, allow-sync as Boolean)
   if is-function! value
-    #-> __generator-to-promise value@(this, ...arguments)
+    let factory() -> __generator-to-promise value@(this, ...arguments)
+    factory.sync := #-> __generator-to-promise(value@(this, ...arguments), true).sync()
+    factory
   else
-    __generator-to-promise value
+    __generator-to-promise value, allow-sync
 
 macro promise!
-  syntax node as Expression
+  syntax sync as ("(", this as Expression, ")")?, node as Expression
     if @is-func(node) and not @func-is-generator(node)
-      @error "Must be used with a generator function", node
+      @error "promise! must be used with a generator function", node
+    if sync and @is-func(node)
+      @error "Use .sync() to retrieve asynchronously", sync
     
-    ASTE __promise($node)
+    if not sync or (@is-const(sync) and not @value(sync))
+      ASTE __promise($node)
+    else
+      ASTE __promise($node, $sync)
   
-  syntax body as GeneratorBody
+  syntax sync as ("(", this as Expression, ")")?, body as GeneratorBody
     let func = @rewrap(@func([]
       body
       true
@@ -3670,7 +3708,16 @@ macro promise!
       null
       true), body)
     
-    ASTE __generator-to-promise($func())
+    if not sync or (@is-const(sync) and not @value(sync))
+      ASTE __generator-to-promise($func())
+    else
+      ASTE __generator-to-promise($func(), $sync)
+
+define operator unary fulfilled!
+  @mutate-last node or @noop(), (#(n)@ -> ASTE __defer.fulfilled($n)), true
+
+define operator unary rejected!
+  @mutate-last node or @noop(), (#(n)@ -> ASTE __defer.rejected($n)), true
 
 define helper __to-promise = #(func, context, args)
   let d = __defer()
