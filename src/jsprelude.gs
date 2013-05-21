@@ -3728,7 +3728,15 @@ define operator unary fulfilled!
 define operator unary rejected!
   @mutate-last node or @noop(), (#(n)@ -> ASTE __defer.rejected($n)), true
 
-define helper __to-promise = #(func, context, args)
+define helper __from-promise = #(promise as { then: (->) }) -> #(callback)!
+  promise.then(
+    #(value) -> set-immediate callback, null, value
+    #(reason) -> set-immediate callback, reason)
+
+define operator unary from-promise! with type: \function
+  ASTE __from-promise $node
+
+define helper __to-promise = #(func as ->, context, args)
   let d = __defer()
   func@ context, ...args, #(err, value)!
     if err?

@@ -278,3 +278,39 @@ describe "rejected!", #
     alpha.then null, #(reason)
       expect(reason).to.equal \bravo
       cb()
+
+describe "from-promise!", #
+  describe "converts a normal promise into a function which takes a single callback", #
+    it "works on an already-fulfilled promise", #(cb)
+      let alpha = fulfilled! \bravo
+      let fun = from-promise! alpha
+      fun #(err, value)
+        expect(err).to.not.exist
+        expect(value).to.equal \bravo
+        cb()
+    
+    it "works on an already-rejected promise", #(cb)
+      let alpha = rejected! \bravo
+      let fun = from-promise! alpha
+      fun #(err, value)
+        expect(err).to.equal \bravo
+        expect(value).to.not.exist
+        cb()
+    
+    it "works on a promise that is fulfilled later", #(cb)
+      let alpha = __defer()
+      let fun = from-promise! alpha.promise
+      fun #(err, value)
+        expect(err).to.not.exist
+        expect(value).to.equal \bravo
+        cb()
+      alpha.fulfill \bravo
+    
+    it "works on a promise that is rejected later", #(cb)
+      let alpha = __defer()
+      let fun = from-promise! alpha.promise
+      fun #(err, value)
+        expect(err).to.equal \bravo
+        expect(value).to.not.exist
+        cb()
+      alpha.reject \bravo
