@@ -344,28 +344,54 @@ describe "any-promise!", #
 
 
 describe "all-promises!", #
-  it "succeeds when the all promises are fulfilled", #(cb)
-    let alpha = __defer()
-    let bravo = __defer()
-    let charlie = __defer.fulfilled \delta
+  describe "with an array", #
+    it "succeeds when the all promises are fulfilled", #(cb)
+      let alpha = __defer()
+      let bravo = __defer()
+      let charlie = __defer.fulfilled \delta
     
-    (all-promises! [alpha.promise, bravo.promise, charlie]).then(
-      #(value)
-        expect(value).to.eql [\echo, \foxtrot, \delta]
-        cb())
+      (all-promises! [alpha.promise, bravo.promise, charlie]).then(
+        #(value)
+          expect(value).to.eql [\echo, \foxtrot, \delta]
+          cb())
     
-    alpha.fulfill \echo
-    bravo.fulfill \foxtrot
+      alpha.fulfill \echo
+      bravo.fulfill \foxtrot
   
-  it "fails when the first promise is rejected", #(cb)
-    let alpha = __defer()
-    let bravo = __defer()
-    let charlie = __defer.fulfilled \delta
+    it "fails when the first promise is rejected", #(cb)
+      let alpha = __defer()
+      let bravo = __defer()
+      let charlie = __defer.fulfilled \delta
     
-    (all-promises! [alpha.promise, bravo.promise, charlie]).then null, #(reason)
-      expect(reason).to.equal \echo
-      cb()
+      (all-promises! [alpha.promise, bravo.promise, charlie]).then null, #(reason)
+        expect(reason).to.equal \echo
+        cb()
     
-    alpha.reject \echo
-    bravo.fulfill \foxtrot
+      alpha.reject \echo
+      bravo.fulfill \foxtrot
 
+  describe "with an object", #
+    it "succeeds when the all promises are fulfilled", #(cb)
+      let alpha = __defer()
+      let bravo = __defer()
+      let charlie = __defer.fulfilled \delta
+  
+      (all-promises! { alpha: alpha.promise, bravo: bravo.promise, charlie }).then(
+        #(value)
+          expect(value).to.eql { alpha: \echo, bravo: \foxtrot, charlie: \delta }
+          cb())
+  
+      alpha.fulfill \echo
+      bravo.fulfill \foxtrot
+
+    it "fails when the first promise is rejected", #(cb)
+      let alpha = __defer()
+      let bravo = __defer()
+      let charlie = __defer.fulfilled \delta
+  
+      (all-promises! { alpha: alpha.promise, bravo: bravo.promise, charlie: charlie }).then null, #(reason)
+        expect(reason).to.equal \echo
+        cb()
+  
+      alpha.reject \echo
+      bravo.fulfill \foxtrot

@@ -3802,24 +3802,31 @@ define operator unary any-promise! with type: \promise
   
   ASTE __any-promise $node
 
-define helper __all-promises = #(promises as [])
+define helper __all-promises = #(promises as {})
+  let is-array = is-array! promises
   let defer = __defer()
-  let result = []
-  let mutable i = promises.length
-  let mutable remaining = i
-  let handle(i, promise)
+  let result = if is-array then [] else {}
+  let mutable remaining = 0
+  let handle(key, promise)
     promise.then(
       #(value)!
-        result[i] := value
+        result[key] := value
         if (remaining -= 1) == 0
           defer.fulfill result
       defer.reject)
-  while post-dec! i
-    handle i, promises[i]
+  if is-array
+    let mutable i = promises.length
+    remaining := i
+    while post-dec! i
+      handle i, promises[i]
+  else
+    for k, v of promises
+      remaining += 1
+      handle k, v
   defer.promise
 
 define operator unary all-promises! with type: \promise
-  if not @has-type(node, \array)
-    @error "all-promises! should be used on an Array"
+  if not @has-type(node, \array) and not @has-type(node, \object)
+    @error "all-promises! should be used on an Array or Object"
   
   ASTE __all-promises $node
