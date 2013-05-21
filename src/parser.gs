@@ -11,7 +11,7 @@ let CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 
 macro DEBUG
   syntax ""
-    ASTE true
+    ASTE false
 
 let EMBED_OPEN_DEFAULT = "<%"
 let EMBED_CLOSE_DEFAULT = "%>"
@@ -759,7 +759,7 @@ if not DEBUG
   sequential.generic := #-> sequential
   cons.generic := #-> cons
   concat.generic := #-> concat
-  separated-list.generic := #-> concat
+  separated-list.generic := #-> separated-list
 
 macro character!(chars, name)
   if @is-const(chars)
@@ -4376,7 +4376,7 @@ let _Block-mutator(lines, parser, index)
   let nodes = []
   for item, i in lines
     for part, j in item
-      if DEBUG and part not instanceof Node
+      if part not instanceof Node
         throw TypeError "Expected lines[$i][$j] to be a Node, got $(typeof! part)"
       else if part instanceof BlockNode and not item.label?
         nodes.push ...part.nodes
