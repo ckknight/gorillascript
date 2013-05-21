@@ -124,6 +124,7 @@ let join-parsed-results(results)
     parse-time: 0
     macro-expand-time: 0
     reduce-time: 0
+    results[0].macros
     result: []
   }
   for parsed in results

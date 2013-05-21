@@ -165,7 +165,11 @@ else if filenames.length
     next()
   else
     opts.filenames := filenames
+    process.stdout.write "Compiling $(filenames.join ", ") ... "
+    let start-time = Date.now()
     async! throw, compilation <- gorilla.compile (for filename in filenames; input[filename]), opts
+    let end-time = Date.now()
+    process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
     compiled["join"] := compilation.code
     next()
   
