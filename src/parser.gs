@@ -474,6 +474,22 @@ let sequential<T>(...items) as (->)
   if items.length == 0
     throw Error "Expected items to be non-empty"
 
+  
+  if items.length == 1
+    if is-array! items[0]
+      if items[0][0] == \this
+        return items[0][1]
+    else
+      if is-function! items[0]
+        let rule = items[0]
+        return #(parser, mutable index as Number)
+          let item = rule parser, index
+          if not item
+            return
+          if DEBUG and item not instanceof Box
+            throw TypeError "Expected item to be a Box, got $(typeof! item)"
+          Box item.index
+  
   let rules = []
   let mapping = []
   let keys = []
@@ -519,7 +535,7 @@ let sequential<T>(...items) as (->)
       mutations.push null
       rules.push rule
     mapping.push key
-
+  
   stack-wrap! if this-index != -1
     if has-other
       throw Error "Cannot specify both the 'this' key and another key"
@@ -1926,11 +1942,18 @@ let rule-equal(rule as ->, text as String)
     else
       parser.fail failure-message, index
 
-let word(text as String) -> rule-equal Name, text
-let symbol(text as String) -> rule-equal Symbol, text
-let macro-name(text as String) -> rule-equal MacroName, text
+let memoize(func as String ->)
+  let cache = { extends null }
+  #(key as String)
+    if cache ownskey key
+      cache[key]
+    else
+      cache[key] := func(key)
+let word = memoize #(text as String) -> rule-equal Name, text
+let symbol = memoize #(text as String) -> rule-equal Symbol, text
+let macro-name = memoize #(text as String) -> rule-equal MacroName, text
 
-let word-or-symbol(text as String)
+let word-or-symbol = memoize #(text as String)
   let parts = [Space]
   for part, i in text.split r"([a-z]+)"ig
     if part
