@@ -56,7 +56,7 @@ let identity(x) -> x
 let ret-this() -> this
 
 
-class MacroHelper
+class MacroContext
   def constructor(@parser/* as Parser*/, @index, @position, @in-generator, @in-evil-ast)
     @unsaved-tmps := []
     @saved-tmps := []
@@ -666,4 +666,4 @@ class MacroHelper
   def can-mutate-last(node)
     node instanceof Node and mutators ownskey node.constructor.capped-name
 
-module.exports := MacroHelper
+module.exports := MacroContext

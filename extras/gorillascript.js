@@ -7851,7 +7851,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __bind, __cmp, __create, __curry, __genericFunc, __getInstanceof, __import, __in, __int, __isArray, __isObject, __lt, __lte, __name, __num, __owns, __slice, __str, __strnum, __toArray, __typeof, _arr, _Block, _BlockWithClearCache, _DefineMacro, _FunctionBody, _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody, DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlockWithClearCache, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement, ExpressionOrAssignment, FalseLiteral, ForInNode, ForNode, fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral, FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter, LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody, MacroError, MacroHelper, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, MapLiteral, MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointChar, MaybeNotToken, MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar, NameOrSymbol, NamePart, NameStart, NaNLiteral, Node, nodeType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment, NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, Parser, ParserError, PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, separatedList, sequential, setImmediate, SetLiteral, Shebang, SHORT_CIRCUIT, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement, StringInterpolation, StringLiteral, stringRepeat, SuperInvocation, SuperNode, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore, UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, VoidLiteral, WeakMap, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
+      var __bind, __cmp, __create, __curry, __genericFunc, __getInstanceof, __import, __in, __int, __isArray, __isObject, __lt, __lte, __name, __num, __owns, __slice, __str, __strnum, __toArray, __typeof, _arr, _Block, _BlockWithClearCache, _DefineMacro, _FunctionBody, _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CURRENT_ARRAY_LENGTH_NAME, CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody, DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EMBED_CLOSE_COMMENT_DEFAULT, EMBED_CLOSE_DEFAULT, EMBED_CLOSE_WRITE_DEFAULT, EMBED_OPEN_COMMENT_DEFAULT, EMBED_OPEN_DEFAULT, EMBED_OPEN_WRITE_DEFAULT, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedLiteralTextInnerWithBlockWithClearCache, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement, ExpressionOrAssignment, FalseLiteral, ForInNode, ForNode, fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral, FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression, InfinityLiteral, inFunctionTypeParams, inMacro, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter, LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody, MacroContext, MacroError, MacroHolder, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, MapLiteral, MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointChar, MaybeNotToken, MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar, NameOrSymbol, NamePart, NameStart, NaNLiteral, Node, nodeType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment, NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams, NullLiteral, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, Parser, ParserError, PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootNode, Scope, Semicolon, SemicolonChar, Semicolons, separatedList, sequential, setImmediate, SetLiteral, Shebang, SHORT_CIRCUIT, SimpleConstantLiteral, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement, StringInterpolation, StringLiteral, stringRepeat, SuperInvocation, SuperNode, SwitchNode, Symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TrueLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore, UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, VoidLiteral, WeakMap, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
       __bind = function (parent, child) {
         var func;
         if (parent == null) {
@@ -8253,7 +8253,7 @@
         }()));
       Node = require("./parser-nodes");
       Scope = require("./parser-scope");
-      MacroHelper = require("./parser-macrohelper");
+      MacroContext = require("./parser-macrocontext");
       MacroHolder = require("./parser-macroholder");
       Type = require("./types");
       stringRepeat = require("./utils").stringRepeat;
@@ -12893,7 +12893,7 @@
       Ast = cache((_ref = oneOf(AstExpression, AstStatement), mutate(function (node, parser, index) {
         var position;
         position = parser.getPosition(index);
-        return MacroHelper.constifyObject(node, position.line, position.column, parser.scope.peek());
+        return MacroContext.constifyObject(node, position.line, position.column, parser.scope.peek());
       })(_ref)));
       PrimaryExpression = cache(oneOf.generic(Node)(
         UnclosedObjectLiteral,
@@ -15854,7 +15854,7 @@
           }
           macros = this.macros;
           function mutator(data, parser, index) {
-            var line, macroHelper, pos, result, scope, tmps, walker;
+            var line, macroContext, pos, result, scope, tmps, walker;
             if (parser.inAst.peek() || !parser.expandingMacros) {
               return parser.MacroAccess(
                 index,
@@ -15867,26 +15867,26 @@
               );
             } else {
               scope = parser.pushScope(false);
-              macroHelper = MacroHelper(
+              macroContext = MacroContext(
                 parser,
                 index,
                 parser.position.peek(),
                 parser.inGenerator.peek(),
                 parser.inEvilAst.peek()
               );
-              if (type === "assignOperator" && macroHelper.isIdent(data.left)) {
-                if (!macroHelper.hasVariable(data.left)) {
-                  throw parser.buildError("Trying to assign with " + __strnum(data.op) + " to unknown variable '" + __strnum(macroHelper.name(data.left)) + "'", data.left);
-                } else if (!macroHelper.isVariableMutable(data.left) && !parser.inEvilAst.peek()) {
-                  throw parser.buildError("Trying to assign with " + __strnum(data.op) + " to immutable variable '" + __strnum(macroHelper.name(data.left)) + "'", data.left);
+              if (type === "assignOperator" && macroContext.isIdent(data.left)) {
+                if (!macroContext.hasVariable(data.left)) {
+                  throw parser.buildError("Trying to assign with " + __strnum(data.op) + " to unknown variable '" + __strnum(macroContext.name(data.left)) + "'", data.left);
+                } else if (!macroContext.isVariableMutable(data.left) && !parser.inEvilAst.peek()) {
+                  throw parser.buildError("Trying to assign with " + __strnum(data.op) + " to immutable variable '" + __strnum(macroContext.name(data.left)) + "'", data.left);
                 }
               }
               try {
                 result = handler.call(
-                  macroHelper,
+                  macroContext,
                   removeNoops(data),
-                  __bind(macroHelper, "wrap"),
-                  __bind(macroHelper, "node")
+                  __bind(macroContext, "wrap"),
+                  __bind(macroContext, "node")
                 );
               } catch (e) {
                 if (e instanceof ReferenceError) {
@@ -15909,7 +15909,7 @@
                   return node.walk(walker);
                 };
                 result = walker(result.reduce(_this));
-                tmps = macroHelper.getTmps();
+                tmps = macroContext.getTmps();
                 if (tmps.unsaved.length) {
                   return parser.TmpWrapper(index, result, tmps.unsaved);
                 } else {
@@ -25268,12 +25268,12 @@
     
     return module.exports;
   };
-  require['./parser-macrohelper'] = function () {
+  require['./parser-macrocontext'] = function () {
     var module = { exports: this };
     var exports = this;
     (function () {
       "use strict";
-      var __create, __isArray, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, _ref, AccessMultiNode, AccessNode, addParamToScope, ArgsNode, ArrayNode, AssignNode, BinaryNode, BlockNode, BreakNode, CallNode, CommentNode, ConstNode, ContinueNode, DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode, ForNode, FunctionNode, IdentNode, IfNode, MacroAccessNode, MacroHelper, map, Node, nodeToType, NothingNode, ObjectNode, ParamNode, RegexpNode, ReturnNode, RootNode, Scope, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode, UnaryNode, VarNode, YieldNode;
+      var __create, __isArray, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, _ref, AccessMultiNode, AccessNode, addParamToScope, ArgsNode, ArrayNode, AssignNode, BinaryNode, BlockNode, BreakNode, CallNode, CommentNode, ConstNode, ContinueNode, DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode, ForNode, FunctionNode, IdentNode, IfNode, MacroAccessNode, MacroContext, map, Node, nodeToType, NothingNode, ObjectNode, ParamNode, RegexpNode, ReturnNode, RootNode, Scope, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode, UnaryNode, VarNode, YieldNode;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
@@ -25398,11 +25398,11 @@
       function retThis() {
         return this;
       }
-      MacroHelper = (function () {
-        var _MacroHelper_prototype, mutators;
-        function MacroHelper(parser, index, position, inGenerator, inEvilAst) {
+      MacroContext = (function () {
+        var _MacroContext_prototype, mutators;
+        function MacroContext(parser, index, position, inGenerator, inEvilAst) {
           var _this;
-          _this = this instanceof MacroHelper ? this : __create(_MacroHelper_prototype);
+          _this = this instanceof MacroContext ? this : __create(_MacroContext_prototype);
           _this.parser = parser;
           _this.index = index;
           _this.position = position;
@@ -25412,16 +25412,16 @@
           _this.savedTmps = [];
           return _this;
         }
-        _MacroHelper_prototype = MacroHelper.prototype;
-        MacroHelper.displayName = "MacroHelper";
-        _MacroHelper_prototype.doWrap = function (node) {
+        _MacroContext_prototype = MacroContext.prototype;
+        MacroContext.displayName = "MacroContext";
+        _MacroContext_prototype.doWrap = function (node) {
           if (node instanceof Node) {
             return node.doWrap(this.parser);
           } else {
             return node;
           }
         };
-        _MacroHelper_prototype.error = function (message, node) {
+        _MacroContext_prototype.error = function (message, node) {
           if (typeof message !== "string") {
             throw TypeError("Expected message to be a String, got " + __typeof(message));
           }
@@ -25432,10 +25432,10 @@
           }
           throw this.parser.buildError(message, node || this.index);
         };
-        _MacroHelper_prototype.scope = function () {
+        _MacroContext_prototype.scope = function () {
           return this.parser.scope.peek();
         };
-        _MacroHelper_prototype["let"] = function (ident, isMutable, type) {
+        _MacroContext_prototype["let"] = function (ident, isMutable, type) {
           if (!(ident instanceof TmpNode) && !(ident instanceof IdentNode)) {
             throw TypeError("Expected ident to be one of " + (__name(TmpNode) + " or " + __name(IdentNode)) + ", got " + __typeof(ident));
           }
@@ -25454,19 +25454,19 @@
           }
           return this.scope().add(ident, isMutable, type);
         };
-        _MacroHelper_prototype.hasVariable = function (ident) {
+        _MacroContext_prototype.hasVariable = function (ident) {
           if (!(ident instanceof TmpNode) && !(ident instanceof IdentNode)) {
             throw TypeError("Expected ident to be one of " + (__name(TmpNode) + " or " + __name(IdentNode)) + ", got " + __typeof(ident));
           }
           return this.scope().has(ident);
         };
-        _MacroHelper_prototype.isVariableMutable = function (ident) {
+        _MacroContext_prototype.isVariableMutable = function (ident) {
           if (!(ident instanceof TmpNode) && !(ident instanceof IdentNode)) {
             throw TypeError("Expected ident to be one of " + (__name(TmpNode) + " or " + __name(IdentNode)) + ", got " + __typeof(ident));
           }
           return this.scope().isMutable(ident);
         };
-        _MacroHelper_prototype["var"] = function (ident, isMutable) {
+        _MacroContext_prototype["var"] = function (ident, isMutable) {
           if (!(ident instanceof IdentNode) && !(ident instanceof TmpNode)) {
             throw TypeError("Expected ident to be one of " + (__name(IdentNode) + " or " + __name(TmpNode)) + ", got " + __typeof(ident));
           }
@@ -25477,7 +25477,7 @@
           }
           return this.parser.Var(this.index, ident, isMutable);
         };
-        _MacroHelper_prototype.def = function (key, value) {
+        _MacroContext_prototype.def = function (key, value) {
           if (key == null) {
             key = NothingNode(0, 0, this.scope());
           } else if (!(key instanceof Node)) {
@@ -25490,10 +25490,10 @@
           }
           return this.parser.Def(this.index, key, this.doWrap(value));
         };
-        _MacroHelper_prototype.noop = function () {
+        _MacroContext_prototype.noop = function () {
           return this.parser.Nothing(this.index);
         };
-        _MacroHelper_prototype.block = function (nodes, label) {
+        _MacroContext_prototype.block = function (nodes, label) {
           var _i;
           if (!__isArray(nodes)) {
             throw TypeError("Expected nodes to be an Array, got " + __typeof(nodes));
@@ -25511,7 +25511,7 @@
           }
           return this.parser.Block(this.index, nodes, label).reduce(this.parser);
         };
-        _MacroHelper_prototype["if"] = function (test, whenTrue, whenFalse, label) {
+        _MacroContext_prototype["if"] = function (test, whenTrue, whenFalse, label) {
           if (test == null) {
             test = NothingNode(0, 0, this.scope());
           } else if (!(test instanceof Node)) {
@@ -25540,7 +25540,7 @@
             label
           ).reduce(this.parser);
         };
-        _MacroHelper_prototype["switch"] = function (node, cases, defaultCase, label) {
+        _MacroContext_prototype["switch"] = function (node, cases, defaultCase, label) {
           var _this;
           _this = this;
           if (node == null) {
@@ -25576,7 +25576,7 @@
             label
           ).reduce(this.parser);
         };
-        _MacroHelper_prototype["for"] = function (init, test, step, body, label) {
+        _MacroContext_prototype["for"] = function (init, test, step, body, label) {
           if (init == null) {
             init = null;
           } else if (!(init instanceof Node)) {
@@ -25611,7 +25611,7 @@
             label
           ).reduce(this.parser);
         };
-        _MacroHelper_prototype.forIn = function (key, object, body, label) {
+        _MacroContext_prototype.forIn = function (key, object, body, label) {
           if (!(key instanceof IdentNode)) {
             throw TypeError("Expected key to be a " + __name(IdentNode) + ", got " + __typeof(key));
           }
@@ -25638,7 +25638,7 @@
             label
           ).reduce(this.parser);
         };
-        _MacroHelper_prototype.tryCatch = function (tryBody, catchIdent, catchBody, label) {
+        _MacroContext_prototype.tryCatch = function (tryBody, catchIdent, catchBody, label) {
           if (tryBody == null) {
             tryBody = NothingNode(0, 0, this.scope());
           } else if (!(tryBody instanceof Node)) {
@@ -25667,7 +25667,7 @@
             label
           ).reduce(this.parser);
         };
-        _MacroHelper_prototype.tryFinally = function (tryBody, finallyBody, label) {
+        _MacroContext_prototype.tryFinally = function (tryBody, finallyBody, label) {
           if (tryBody == null) {
             tryBody = NothingNode(0, 0, this.scope());
           } else if (!(tryBody instanceof Node)) {
@@ -25685,7 +25685,7 @@
           }
           return this.parser.TryFinally(this.index, tryBody, finallyBody, label).reduce(this.parser);
         };
-        _MacroHelper_prototype.assign = function (left, op, right) {
+        _MacroContext_prototype.assign = function (left, op, right) {
           if (left == null) {
             left = NothingNode(0, 0, this.scope());
           } else if (!(left instanceof Node)) {
@@ -25701,7 +25701,7 @@
           }
           return this.parser.Assign(this.index, left, op, this.doWrap(right)).reduce(this.parser);
         };
-        _MacroHelper_prototype.binary = function (left, op, right) {
+        _MacroContext_prototype.binary = function (left, op, right) {
           if (left == null) {
             left = NothingNode(0, 0, this.scope());
           } else if (!(left instanceof Node)) {
@@ -25717,7 +25717,7 @@
           }
           return this.parser.Binary(this.index, this.doWrap(left), op, this.doWrap(right)).reduce(this.parser);
         };
-        _MacroHelper_prototype.binaryChain = function (op, nodes) {
+        _MacroContext_prototype.binaryChain = function (op, nodes) {
           var _i, _i2, _len, left, result, right;
           if (typeof op !== "string") {
             throw TypeError("Expected op to be a String, got " + __typeof(op));
@@ -25742,7 +25742,7 @@
           result = left;
           return result.reduce(this.parser);
         };
-        _MacroHelper_prototype.unary = function (op, node) {
+        _MacroContext_prototype.unary = function (op, node) {
           if (typeof op !== "string") {
             throw TypeError("Expected op to be a String, got " + __typeof(op));
           }
@@ -25753,7 +25753,7 @@
           }
           return this.parser.Unary(this.index, op, this.doWrap(node)).reduce(this.parser);
         };
-        _MacroHelper_prototype["throw"] = function (node) {
+        _MacroContext_prototype["throw"] = function (node) {
           if (node == null) {
             node = NothingNode(0, 0, this.scope());
           } else if (!(node instanceof Node)) {
@@ -25761,7 +25761,7 @@
           }
           return this.parser.Throw(this.index, this.doWrap(node)).reduce(this.parser);
         };
-        _MacroHelper_prototype["return"] = function (node) {
+        _MacroContext_prototype["return"] = function (node) {
           if (node == null) {
             node = void 0;
           } else if (!(node instanceof Node)) {
@@ -25769,7 +25769,7 @@
           }
           return this.parser.Return(this.index, this.doWrap(node)).reduce(this.parser);
         };
-        _MacroHelper_prototype["yield"] = function (node) {
+        _MacroContext_prototype["yield"] = function (node) {
           if (node == null) {
             node = NothingNode(0, 0, this.scope());
           } else if (!(node instanceof Node)) {
@@ -25777,10 +25777,10 @@
           }
           return this.parser.Yield(this.index, this.doWrap(node)).reduce(this.parser);
         };
-        _MacroHelper_prototype["debugger"] = function () {
+        _MacroContext_prototype["debugger"] = function () {
           return this.parser.Debugger(this.index);
         };
-        _MacroHelper_prototype["break"] = function (label) {
+        _MacroContext_prototype["break"] = function (label) {
           if (label == null) {
             label = null;
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
@@ -25788,7 +25788,7 @@
           }
           return this.parser.Break(this.index, label);
         };
-        _MacroHelper_prototype["continue"] = function (label) {
+        _MacroContext_prototype["continue"] = function (label) {
           if (label == null) {
             label = null;
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
@@ -25796,13 +25796,13 @@
           }
           return this.parser.Continue(this.index, label);
         };
-        _MacroHelper_prototype.spread = function (node) {
+        _MacroContext_prototype.spread = function (node) {
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
           return this.parser.Spread(this.index, node);
         };
-        _MacroHelper_prototype.real = function (node) {
+        _MacroContext_prototype.real = function (node) {
           node = this.macroExpand1(node);
           if (node instanceof TmpWrapperNode) {
             return node.node;
@@ -25810,7 +25810,7 @@
             return node;
           }
         };
-        _MacroHelper_prototype.rewrap = function (newNode, oldNode) {
+        _MacroContext_prototype.rewrap = function (newNode, oldNode) {
           oldNode = this.macroExpand1(oldNode);
           if (oldNode instanceof TmpWrapperNode) {
             if (newNode instanceof TmpWrapperNode) {
@@ -25834,7 +25834,7 @@
             return newNode;
           }
         };
-        _MacroHelper_prototype.eq = function (alpha, bravo) {
+        _MacroContext_prototype.eq = function (alpha, bravo) {
           alpha = this.real(alpha);
           bravo = this.real(bravo);
           if (alpha instanceof ConstNode) {
@@ -25845,7 +25845,7 @@
             return false;
           }
         };
-        _MacroHelper_prototype.isLabeledBlock = function (node) {
+        _MacroContext_prototype.isLabeledBlock = function (node) {
           node = this.real(node);
           if (node instanceof BlockNode || node instanceof IfNode || node instanceof SwitchNode || node instanceof ForNode || node instanceof ForInNode || node instanceof TryCatchNode || node instanceof TryFinallyNode) {
             return node.label != null;
@@ -25853,13 +25853,13 @@
             return false;
           }
         };
-        _MacroHelper_prototype.isBreak = function (node) {
+        _MacroContext_prototype.isBreak = function (node) {
           return this.real(node) instanceof BreakNode;
         };
-        _MacroHelper_prototype.isContinue = function (node) {
+        _MacroContext_prototype.isContinue = function (node) {
           return this.real(node) instanceof ContinueNode;
         };
-        _MacroHelper_prototype.label = function (node) {
+        _MacroContext_prototype.label = function (node) {
           node = this.real(node);
           if (node instanceof BreakNode || node instanceof ContinueNode || node instanceof BlockNode || node instanceof IfNode || node instanceof SwitchNode || node instanceof ForNode || node instanceof ForInNode || node instanceof TryCatchNode || node instanceof TryFinallyNode) {
             return node.label;
@@ -25867,7 +25867,7 @@
             return null;
           }
         };
-        _MacroHelper_prototype.withLabel = function (node, label) {
+        _MacroContext_prototype.withLabel = function (node, label) {
           if (label == null) {
             label = null;
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
@@ -25875,7 +25875,7 @@
           }
           return node.withLabel(label, this.parser);
         };
-        _MacroHelper_prototype.macroExpand1 = function (node) {
+        _MacroContext_prototype.macroExpand1 = function (node) {
           var expanded;
           if (node instanceof Node) {
             expanded = this.parser.macroExpand1(node);
@@ -25888,7 +25888,7 @@
             return node;
           }
         };
-        _MacroHelper_prototype.macroExpandAll = function (node) {
+        _MacroContext_prototype.macroExpandAll = function (node) {
           var expanded;
           if (node instanceof Node) {
             expanded = this.parser.macroExpandAll(node);
@@ -25901,7 +25901,7 @@
             return node;
           }
         };
-        _MacroHelper_prototype.tmp = function (name, save, type) {
+        _MacroContext_prototype.tmp = function (name, save, type) {
           var tmp;
           if (name == null) {
             name = "ref";
@@ -25927,13 +25927,13 @@
           (save ? this.savedTmps : this.unsavedTmps).push(tmp.id);
           return tmp;
         };
-        _MacroHelper_prototype.getTmps = function () {
+        _MacroContext_prototype.getTmps = function () {
           return { unsaved: this.unsavedTmps.slice(), saved: this.savedTmps.slice() };
         };
-        _MacroHelper_prototype.isConst = function (node) {
+        _MacroContext_prototype.isConst = function (node) {
           return node === void 0 || node instanceof Node && this.real(node).isConst();
         };
-        _MacroHelper_prototype.value = function (node) {
+        _MacroContext_prototype.value = function (node) {
           var expanded;
           if (node === void 0) {
             return;
@@ -25944,38 +25944,38 @@
             }
           }
         };
-        _MacroHelper_prototype["const"] = function (value) {
+        _MacroContext_prototype["const"] = function (value) {
           return this.parser.Const(this.index, value);
         };
-        _MacroHelper_prototype.isSpread = function (node) {
+        _MacroContext_prototype.isSpread = function (node) {
           return this.real(node) instanceof SpreadNode;
         };
-        _MacroHelper_prototype.spreadSubnode = function (node) {
+        _MacroContext_prototype.spreadSubnode = function (node) {
           node = this.real(node);
           if (node instanceof SpreadNode) {
             return node.node;
           }
         };
-        _MacroHelper_prototype.isNode = function (node) {
+        _MacroContext_prototype.isNode = function (node) {
           return node instanceof Node;
         };
-        _MacroHelper_prototype.isIdent = function (node) {
+        _MacroContext_prototype.isIdent = function (node) {
           return this.real(node) instanceof IdentNode;
         };
-        _MacroHelper_prototype.isTmp = function (node) {
+        _MacroContext_prototype.isTmp = function (node) {
           return this.real(node) instanceof TmpNode;
         };
-        _MacroHelper_prototype.isIdentOrTmp = function (node) {
+        _MacroContext_prototype.isIdentOrTmp = function (node) {
           var _ref;
           return (_ref = this.real(node)) instanceof IdentNode || _ref instanceof TmpNode;
         };
-        _MacroHelper_prototype.name = function (node) {
+        _MacroContext_prototype.name = function (node) {
           node = this.real(node);
           if (this.isIdent(node)) {
             return node.name;
           }
         };
-        _MacroHelper_prototype.ident = function (name) {
+        _MacroContext_prototype.ident = function (name) {
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
@@ -25983,37 +25983,37 @@
             return this.parser.Ident(this.index, name);
           }
         };
-        _MacroHelper_prototype.isCall = function (node) {
+        _MacroContext_prototype.isCall = function (node) {
           return this.real(node) instanceof CallNode;
         };
-        _MacroHelper_prototype.callFunc = function (node) {
+        _MacroContext_prototype.callFunc = function (node) {
           node = this.real(node);
           if (node instanceof CallNode) {
             return node.func;
           }
         };
-        _MacroHelper_prototype.callArgs = function (node) {
+        _MacroContext_prototype.callArgs = function (node) {
           node = this.real(node);
           if (node instanceof CallNode) {
             return node.args;
           }
         };
-        _MacroHelper_prototype.isSuper = function (node) {
+        _MacroContext_prototype.isSuper = function (node) {
           return this.real(node) instanceof SuperNode;
         };
-        _MacroHelper_prototype.superChild = function (node) {
+        _MacroContext_prototype.superChild = function (node) {
           node = this.real(node);
           if (this.isSuper(node)) {
             return node.child;
           }
         };
-        _MacroHelper_prototype.superArgs = function (node) {
+        _MacroContext_prototype.superArgs = function (node) {
           node = this.real(node);
           if (this.isSuper(node)) {
             return node.args;
           }
         };
-        _MacroHelper_prototype.callIsNew = function (node) {
+        _MacroContext_prototype.callIsNew = function (node) {
           node = this.real(node);
           if (node instanceof CallNode) {
             return !!node.isNew;
@@ -26021,7 +26021,7 @@
             return false;
           }
         };
-        _MacroHelper_prototype.callIsApply = function (node) {
+        _MacroContext_prototype.callIsApply = function (node) {
           node = this.real(node);
           if (node instanceof CallNode) {
             return !!node.isApply;
@@ -26029,7 +26029,7 @@
             return false;
           }
         };
-        _MacroHelper_prototype.call = function (func, args, isNew, isApply) {
+        _MacroContext_prototype.call = function (func, args, isNew, isApply) {
           var _i, _this;
           _this = this;
           if (!(func instanceof Node)) {
@@ -26076,7 +26076,7 @@
             isApply
           ).reduce(this.parser);
         };
-        _MacroHelper_prototype.func = function (params, body, autoReturn, bound, curry, asType, generator, generic) {
+        _MacroContext_prototype.func = function (params, body, autoReturn, bound, curry, asType, generator, generic) {
           var _i, _this, func, scope;
           _this = this;
           if (!(body instanceof Node)) {
@@ -26145,52 +26145,52 @@
           this.parser.popScope();
           return func;
         };
-        _MacroHelper_prototype.isFunc = function (node) {
+        _MacroContext_prototype.isFunc = function (node) {
           return this.real(node) instanceof FunctionNode;
         };
-        _MacroHelper_prototype.funcBody = function (node) {
+        _MacroContext_prototype.funcBody = function (node) {
           node = this.real(node);
           if (this.isFunc(node)) {
             return node.body;
           }
         };
-        _MacroHelper_prototype.funcParams = function (node) {
+        _MacroContext_prototype.funcParams = function (node) {
           node = this.real(node);
           if (this.isFunc(node)) {
             return node.params;
           }
         };
-        _MacroHelper_prototype.funcIsAutoReturn = function (node) {
+        _MacroContext_prototype.funcIsAutoReturn = function (node) {
           node = this.real(node);
           if (this.isFunc(node)) {
             return !!node.autoReturn;
           }
         };
-        _MacroHelper_prototype.funcIsBound = function (node) {
+        _MacroContext_prototype.funcIsBound = function (node) {
           node = this.real(node);
           if (this.isFunc(node)) {
             return !!node.bound && !(node.bound instanceof Node);
           }
         };
-        _MacroHelper_prototype.funcIsCurried = function (node) {
+        _MacroContext_prototype.funcIsCurried = function (node) {
           node = this.real(node);
           if (this.isFunc(node)) {
             return !!node.curry;
           }
         };
-        _MacroHelper_prototype.funcAsType = function (node) {
+        _MacroContext_prototype.funcAsType = function (node) {
           node = this.real(node);
           if (this.isFunc(node)) {
             return node.asType;
           }
         };
-        _MacroHelper_prototype.funcIsGenerator = function (node) {
+        _MacroContext_prototype.funcIsGenerator = function (node) {
           node = this.real(node);
           if (this.isFunc(node)) {
             return !!node.generator;
           }
         };
-        _MacroHelper_prototype.funcGeneric = function (node) {
+        _MacroContext_prototype.funcGeneric = function (node) {
           node = this.real(node);
           if (this.isFunc(node)) {
             return node.generic.slice();
@@ -26198,7 +26198,7 @@
             return [];
           }
         };
-        _MacroHelper_prototype.param = function (ident, defaultValue, spread, isMutable, asType) {
+        _MacroContext_prototype.param = function (ident, defaultValue, spread, isMutable, asType) {
           if (!(ident instanceof Node)) {
             throw TypeError("Expected ident to be a " + __name(Node) + ", got " + __typeof(ident));
           }
@@ -26213,49 +26213,49 @@
             asType
           ).reduce(this.parser);
         };
-        _MacroHelper_prototype.isParam = function (node) {
+        _MacroContext_prototype.isParam = function (node) {
           return this.real(node) instanceof ParamNode;
         };
-        _MacroHelper_prototype.paramIdent = function (node) {
+        _MacroContext_prototype.paramIdent = function (node) {
           node = this.real(node);
           if (this.isParam(node)) {
             return node.ident;
           }
         };
-        _MacroHelper_prototype.paramDefaultValue = function (node) {
+        _MacroContext_prototype.paramDefaultValue = function (node) {
           node = this.real(node);
           if (this.isParam(node)) {
             return node.defaultValue;
           }
         };
-        _MacroHelper_prototype.paramIsSpread = function (node) {
+        _MacroContext_prototype.paramIsSpread = function (node) {
           node = this.real(node);
           if (this.isParam(node)) {
             return !!node.spread;
           }
         };
-        _MacroHelper_prototype.paramIsMutable = function (node) {
+        _MacroContext_prototype.paramIsMutable = function (node) {
           node = this.real(node);
           if (this.isParam(node)) {
             return !!node.isMutable;
           }
         };
-        _MacroHelper_prototype.paramType = function (node) {
+        _MacroContext_prototype.paramType = function (node) {
           node = this.real(node);
           if (this.isParam(node)) {
             return node.asType;
           }
         };
-        _MacroHelper_prototype.isArray = function (node) {
+        _MacroContext_prototype.isArray = function (node) {
           return this.real(node) instanceof ArrayNode;
         };
-        _MacroHelper_prototype.elements = function (node) {
+        _MacroContext_prototype.elements = function (node) {
           node = this.real(node);
           if (this.isArray(node)) {
             return node.elements;
           }
         };
-        _MacroHelper_prototype.arrayHasSpread = function (node) {
+        _MacroContext_prototype.arrayHasSpread = function (node) {
           var _this;
           _this = this;
           node = this.real(node);
@@ -26274,25 +26274,25 @@
             return false;
           }
         };
-        _MacroHelper_prototype.isObject = function (node) {
+        _MacroContext_prototype.isObject = function (node) {
           return this.real(node) instanceof ObjectNode;
         };
-        _MacroHelper_prototype.pairs = function (node) {
+        _MacroContext_prototype.pairs = function (node) {
           node = this.real(node);
           if (this.isObject(node) || this.isTypeObject(node)) {
             return node.pairs;
           }
         };
-        _MacroHelper_prototype.isBlock = function (node) {
+        _MacroContext_prototype.isBlock = function (node) {
           return this.real(node) instanceof BlockNode;
         };
-        _MacroHelper_prototype.nodes = function (node) {
+        _MacroContext_prototype.nodes = function (node) {
           node = this.real(node);
           if (this.isBlock(node)) {
             return node.nodes;
           }
         };
-        _MacroHelper_prototype.array = function (elements) {
+        _MacroContext_prototype.array = function (elements) {
           var _i, _this;
           _this = this;
           if (!__isArray(elements)) {
@@ -26313,7 +26313,7 @@
             return _arr;
           }())).reduce(this.parser);
         };
-        _MacroHelper_prototype.object = function (pairs) {
+        _MacroContext_prototype.object = function (pairs) {
           var _i, _this;
           _this = this;
           if (!__isArray(pairs)) {
@@ -26343,7 +26343,7 @@
             return _arr;
           }())).reduce(this.parser);
         };
-        _MacroHelper_prototype.type = function (node) {
+        _MacroContext_prototype.type = function (node) {
           var _this;
           _this = this;
           if (typeof node === "string") {
@@ -26356,139 +26356,139 @@
             throw Error("Can only retrieve type from a String or Node, got " + __typeof(node));
           }
         };
-        _MacroHelper_prototype.toType = nodeToType;
-        _MacroHelper_prototype.isComplex = function (node) {
+        _MacroContext_prototype.toType = nodeToType;
+        _MacroContext_prototype.isComplex = function (node) {
           node = this.real(node);
           return node != null && !(node instanceof ConstNode) && !(node instanceof IdentNode) && !(node instanceof TmpNode) && !(node instanceof ThisNode) && !(node instanceof ArgsNode) && (!(node instanceof BlockNode) || node.nodes.length !== 0);
         };
-        _MacroHelper_prototype.isNoop = function (node) {
+        _MacroContext_prototype.isNoop = function (node) {
           node = this.real(node);
           return node.isNoop(this.parser);
         };
-        _MacroHelper_prototype.isNothing = function (node) {
+        _MacroContext_prototype.isNothing = function (node) {
           return this.real(node) instanceof NothingNode;
         };
-        _MacroHelper_prototype.isTypeArray = function (node) {
+        _MacroContext_prototype.isTypeArray = function (node) {
           node = this.real(node);
           return node instanceof TypeGenericNode && node.basetype instanceof IdentNode && node.basetype.name === "Array";
         };
-        _MacroHelper_prototype.subtype = function (node) {
+        _MacroContext_prototype.subtype = function (node) {
           node = this.real(node);
           if (node instanceof TypeGenericNode && node.basetype instanceof IdentNode && node.basetype.name === "Array") {
             return node.args[0];
           }
         };
-        _MacroHelper_prototype.isTypeGeneric = function (node) {
+        _MacroContext_prototype.isTypeGeneric = function (node) {
           return this.real(node) instanceof TypeGenericNode;
         };
-        _MacroHelper_prototype.basetype = function (node) {
+        _MacroContext_prototype.basetype = function (node) {
           node = this.real(node);
           return node instanceof TypeGenericNode && node.basetype;
         };
-        _MacroHelper_prototype.typeArguments = function (node) {
+        _MacroContext_prototype.typeArguments = function (node) {
           node = this.real(node);
           return node instanceof TypeGenericNode && node.args;
         };
-        _MacroHelper_prototype.isTypeObject = function (node) {
+        _MacroContext_prototype.isTypeObject = function (node) {
           return this.real(node) instanceof TypeObjectNode;
         };
-        _MacroHelper_prototype.isTypeFunction = function (node) {
+        _MacroContext_prototype.isTypeFunction = function (node) {
           node = this.real(node);
           return node instanceof TypeGenericNode && node.basetype instanceof IdentNode && node.basetype.name === "Function";
         };
-        _MacroHelper_prototype.returnType = function (node) {
+        _MacroContext_prototype.returnType = function (node) {
           node = this.real(node);
           if (node instanceof TypeGenericNode && node.basetype instanceof IdentNode && node.basetype.name === "Function") {
             return node.args[0];
           }
         };
-        _MacroHelper_prototype.isTypeUnion = function (node) {
+        _MacroContext_prototype.isTypeUnion = function (node) {
           return this.real(node) instanceof TypeUnionNode;
         };
-        _MacroHelper_prototype.types = function (node) {
+        _MacroContext_prototype.types = function (node) {
           node = this.real(node);
           return this.isTypeUnion(node) && node.types;
         };
-        _MacroHelper_prototype.isThis = function (node) {
+        _MacroContext_prototype.isThis = function (node) {
           return this.real(node) instanceof ThisNode;
         };
-        _MacroHelper_prototype.isArguments = function (node) {
+        _MacroContext_prototype.isArguments = function (node) {
           node = this.real(node);
           return node instanceof ArgsNode;
         };
-        _MacroHelper_prototype.isDef = function (node) {
+        _MacroContext_prototype.isDef = function (node) {
           return this.real(node) instanceof DefNode;
         };
-        _MacroHelper_prototype.isAssign = function (node) {
+        _MacroContext_prototype.isAssign = function (node) {
           return this.real(node) instanceof AssignNode;
         };
-        _MacroHelper_prototype.isBinary = function (node) {
+        _MacroContext_prototype.isBinary = function (node) {
           return this.real(node) instanceof BinaryNode;
         };
-        _MacroHelper_prototype.isUnary = function (node) {
+        _MacroContext_prototype.isUnary = function (node) {
           return this.real(node) instanceof UnaryNode;
         };
-        _MacroHelper_prototype.op = function (node) {
+        _MacroContext_prototype.op = function (node) {
           node = this.real(node);
           if (this.isAssign(node) || this.isBinary(node) || this.isUnary(node)) {
             return node.op;
           }
         };
-        _MacroHelper_prototype.left = function (node) {
+        _MacroContext_prototype.left = function (node) {
           node = this.real(node);
           if (this.isDef(node) || this.isBinary(node)) {
             return node.left;
           }
         };
-        _MacroHelper_prototype.right = function (node) {
+        _MacroContext_prototype.right = function (node) {
           node = this.real(node);
           if (this.isDef(node) || this.isBinary(node)) {
             return node.right;
           }
         };
-        _MacroHelper_prototype.unaryNode = function (node) {
+        _MacroContext_prototype.unaryNode = function (node) {
           node = this.real(node);
           if (this.isUnary(node)) {
             return node.node;
           }
         };
-        _MacroHelper_prototype.isAccess = function (node) {
+        _MacroContext_prototype.isAccess = function (node) {
           return this.real(node) instanceof AccessNode;
         };
-        _MacroHelper_prototype.parent = function (node) {
+        _MacroContext_prototype.parent = function (node) {
           node = this.real(node);
           if (node instanceof AccessNode) {
             return node.parent;
           }
         };
-        _MacroHelper_prototype.child = function (node) {
+        _MacroContext_prototype.child = function (node) {
           node = this.real(node);
           if (node instanceof AccessNode) {
             return node.child;
           }
         };
-        _MacroHelper_prototype.isIf = function (node) {
+        _MacroContext_prototype.isIf = function (node) {
           return this.real(node) instanceof IfNode;
         };
-        _MacroHelper_prototype.test = function (node) {
+        _MacroContext_prototype.test = function (node) {
           node = this.real(node);
           if (node instanceof IfNode) {
             return node.test;
           }
         };
-        _MacroHelper_prototype.whenTrue = function (node) {
+        _MacroContext_prototype.whenTrue = function (node) {
           node = this.real(node);
           if (node instanceof IfNode) {
             return node.whenTrue;
           }
         };
-        _MacroHelper_prototype.whenFalse = function (node) {
+        _MacroContext_prototype.whenFalse = function (node) {
           node = this.real(node);
           if (node instanceof IfNode) {
             return node.whenFalse;
           }
         };
-        _MacroHelper_prototype.cache = function (node, init, name, save) {
+        _MacroContext_prototype.cache = function (node, init, name, save) {
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
@@ -26514,7 +26514,7 @@
             save
           );
         };
-        _MacroHelper_prototype.maybeCache = function (node, func, name, save) {
+        _MacroContext_prototype.maybeCache = function (node, func, name, save) {
           var tmp, type;
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
@@ -26546,7 +26546,7 @@
             return func(node, node, false);
           }
         };
-        _MacroHelper_prototype.maybeCacheAccess = function (node, func, parentName, childName, save) {
+        _MacroContext_prototype.maybeCacheAccess = function (node, func, parentName, childName, save) {
           var _this;
           _this = this;
           if (!(node instanceof Node)) {
@@ -26596,7 +26596,7 @@
             return func(node, node, false);
           }
         };
-        _MacroHelper_prototype.empty = function (node) {
+        _MacroContext_prototype.empty = function (node) {
           var _this;
           _this = this;
           if (node == null) {
@@ -26691,7 +26691,7 @@
             }()));
           }
         }
-        MacroHelper.constifyObject = constifyObject;
+        MacroContext.constifyObject = constifyObject;
         function walk(node, func) {
           var _ref;
           if (typeof node !== "object" || node === null || node instanceof RegExp) {
@@ -26707,7 +26707,7 @@
             return walk(x, func);
           });
         }
-        _MacroHelper_prototype.wrap = function (value) {
+        _MacroContext_prototype.wrap = function (value) {
           var _ref;
           if (__isArray(value)) {
             return BlockNode(0, 0, this.scope(), value).reduce(this.parser);
@@ -26721,12 +26721,12 @@
             return value;
           }
         };
-        _MacroHelper_prototype.node = function (type, line, column) {
+        _MacroContext_prototype.node = function (type, line, column) {
           var args;
           args = __slice.call(arguments, 3);
           return Node[type].apply(Node, [line, column, this.scope()].concat(__toArray(args))).reduce(this.parser);
         };
-        _MacroHelper_prototype.walk = function (node, func) {
+        _MacroContext_prototype.walk = function (node, func) {
           if (node != null && !(node instanceof Node)) {
             throw TypeError("Expected node to be one of " + (__name(Node) + " or undefined or null") + ", got " + __typeof(node));
           }
@@ -26739,7 +26739,7 @@
             return node;
           }
         };
-        _MacroHelper_prototype.hasFunc = function (node) {
+        _MacroContext_prototype.hasFunc = function (node) {
           var FOUND, walker;
           if (this._hasFunc != null) {
             return this._hasFunc;
@@ -26763,11 +26763,11 @@
             return this._hasFunc = false;
           }
         };
-        _MacroHelper_prototype.isStatement = function (node) {
+        _MacroContext_prototype.isStatement = function (node) {
           node = this.macroExpand1(node);
           return node instanceof Node && node.isStatement();
         };
-        _MacroHelper_prototype.isType = function (node, name) {
+        _MacroContext_prototype.isType = function (node, name) {
           var type;
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
@@ -26780,7 +26780,7 @@
           }
           return node.type(this.parser).isSubsetOf(type);
         };
-        _MacroHelper_prototype.hasType = function (node, name) {
+        _MacroContext_prototype.hasType = function (node, name) {
           var type;
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
@@ -26886,7 +26886,7 @@
           Debugger: identity,
           Throw: identity
         };
-        _MacroHelper_prototype.mutateLast = function (node, func, includeNoop) {
+        _MacroContext_prototype.mutateLast = function (node, func, includeNoop) {
           var _ref;
           if (typeof func !== "function") {
             throw TypeError("Expected func to be a Function, got " + __typeof(func));
@@ -26907,12 +26907,12 @@
             return mutators[node.constructor.cappedName].call(this, node, func);
           }
         };
-        _MacroHelper_prototype.canMutateLast = function (node) {
+        _MacroContext_prototype.canMutateLast = function (node) {
           return node instanceof Node && __owns.call(mutators, node.constructor.cappedName);
         };
-        return MacroHelper;
+        return MacroContext;
       }());
-      module.exports = MacroHelper;
+      module.exports = MacroContext;
     }.call(this));
     
     return module.exports;

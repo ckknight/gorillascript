@@ -1,6 +1,6 @@
 require! Node: './parser-nodes'
 require! Scope: './parser-scope'
-require! MacroHelper: './parser-macrohelper'
+require! MacroContext: './parser-macrocontext'
 require! MacroHolder: './parser-macroholder'
 require! Type: './types'
 let {string-repeat} = require('./utils')
@@ -3559,7 +3559,7 @@ define AstStatement = sequential(
 
 define Ast = one-of(AstExpression, AstStatement) |> mutate #(node, parser, index)
   let position = parser.get-position(index)
-  MacroHelper.constify-object node, position.line, position.column, parser.scope.peek()
+  MacroContext.constify-object node, position.line, position.column, parser.scope.peek()
 
 define PrimaryExpression = one-of<Node>(
   UnclosedObjectLiteral
@@ -5392,15 +5392,15 @@ class Parser
         parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
       else
         let scope = parser.push-scope(false)
-        let macro-helper = MacroHelper parser, index, parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
-        if type == \assign-operator and macro-helper.is-ident(data.left)
-          if not macro-helper.has-variable(data.left)
-            throw parser.build-error "Trying to assign with $(data.op) to unknown variable '$(macro-helper.name data.left)'", data.left
-          else if not macro-helper.is-variable-mutable(data.left) and not parser.in-evil-ast.peek()
-            throw parser.build-error "Trying to assign with $(data.op) to immutable variable '$(macro-helper.name data.left)'", data.left
+        let macro-context = MacroContext parser, index, parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
+        if type == \assign-operator and macro-context.is-ident(data.left)
+          if not macro-context.has-variable(data.left)
+            throw parser.build-error "Trying to assign with $(data.op) to unknown variable '$(macro-context.name data.left)'", data.left
+          else if not macro-context.is-variable-mutable(data.left) and not parser.in-evil-ast.peek()
+            throw parser.build-error "Trying to assign with $(data.op) to immutable variable '$(macro-context.name data.left)'", data.left
         let mutable result = void
         try
-          result := handler@ macro-helper, remove-noops(data), macro-helper@.wrap, macro-helper@.node
+          result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.node
         catch e as ReferenceError
           throw e
         catch e as MacroError
@@ -5418,7 +5418,7 @@ class Parser
               node.call-line := line
             node.walk walker
           result := walker result.reduce(this)
-          let tmps = macro-helper.get-tmps()
+          let tmps = macro-context.get-tmps()
           if tmps.unsaved.length
             parser.TmpWrapper index, result, tmps.unsaved
           else
