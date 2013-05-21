@@ -31864,7 +31864,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.6.10";
+      exports.version = "0.6.11";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
