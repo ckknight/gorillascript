@@ -90,10 +90,16 @@ let handle-code(code, callback = #->)
     async! next, result <- gorilla.eval code, opts
     next null, util.inspect result
   if err?
+    if err instanceof Error and err.stack
+      process.stderr.write err.stack
+    else
+      process.stderr.write String(err)
+    process.stderr.write "\n"
     callback(err)
   else
     if result != ""
-      process.stdout.write "$result\n"
+      process.stdout.write result
+      process.stdout.write "\n"
     callback()
 
 if options.ast and options.compile
