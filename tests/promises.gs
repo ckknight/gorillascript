@@ -314,3 +314,58 @@ describe "from-promise!", #
         expect(value).to.not.exist
         cb()
       alpha.reject \bravo
+
+describe "any-promise!", #
+  it "succeeds when the first promise is fulfilled", #(cb)
+    let alpha = __defer()
+    let bravo = __defer()
+    let charlie = __defer()
+    
+    (any-promise! [alpha.promise, bravo.promise, charlie.promise]).then #(value)
+      expect(value).to.equal \delta
+      cb()
+    
+    bravo.fulfill \delta
+    alpha.reject \echo
+    charlie.reject \foxtrot
+  
+  it "fails when the first promise is rejected", #(cb)
+    let alpha = __defer()
+    let bravo = __defer()
+    let charlie = __defer()
+    
+    (any-promise! [alpha.promise, bravo.promise, charlie.promise]).then null, #(reason)
+      expect(reason).to.equal \delta
+      cb()
+    
+    alpha.reject \delta
+    bravo.fulfill \echo
+    charlie.reject \foxtrot
+
+
+describe "all-promises!", #
+  it "succeeds when the all promises are fulfilled", #(cb)
+    let alpha = __defer()
+    let bravo = __defer()
+    let charlie = __defer.fulfilled \delta
+    
+    (all-promises! [alpha.promise, bravo.promise, charlie]).then(
+      #(value)
+        expect(value).to.eql [\echo, \foxtrot, \delta]
+        cb())
+    
+    alpha.fulfill \echo
+    bravo.fulfill \foxtrot
+  
+  it "fails when the first promise is rejected", #(cb)
+    let alpha = __defer()
+    let bravo = __defer()
+    let charlie = __defer.fulfilled \delta
+    
+    (all-promises! [alpha.promise, bravo.promise, charlie]).then null, #(reason)
+      expect(reason).to.equal \echo
+      cb()
+    
+    alpha.reject \echo
+    bravo.fulfill \foxtrot
+

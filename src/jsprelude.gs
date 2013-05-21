@@ -3788,3 +3788,38 @@ define helper __generator = #(func) -> #
     next() -> @send()
     throw: (throw)
   }
+
+define helper __any-promise = #(promises as [])
+  let defer = __defer()
+  let mutable i = promises.length
+  while post-dec! i
+    promises[i].then(defer.fulfill, defer.reject)
+  defer.promise
+
+define operator unary any-promise! with type: \promise
+  if not @has-type(node, \array)
+    @error "any-promise! should be used on an Array"
+  
+  ASTE __any-promise $node
+
+define helper __all-promises = #(promises as [])
+  let defer = __defer()
+  let result = []
+  let mutable i = promises.length
+  let mutable remaining = i
+  let handle(i, promise)
+    promise.then(
+      #(value)!
+        result[i] := value
+        if (remaining -= 1) == 0
+          defer.fulfill result
+      defer.reject)
+  while post-dec! i
+    handle i, promises[i]
+  defer.promise
+
+define operator unary all-promises! with type: \promise
+  if not @has-type(node, \array)
+    @error "all-promises! should be used on an Array"
+  
+  ASTE __all-promises $node
