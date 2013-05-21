@@ -250,7 +250,7 @@ command "test", "Run the GorillaScript test suite", #(options, cb)
     output "$(pad-right 'total:', longest-name-len + 1, ' ') "
     for part in [\parse, \macro-expand, \reduce, \translate, \compile]
       output "  $(pad-left (((totals[part] or 0) / 1000_ms).to-fixed 3), 6, ' ') s"
-    output " | $(pad-left (total-time / 1000_ms).to-fixed(3), 6, ' ') s"
+    output " | $(pad-left (total-time / 1000_ms).to-fixed(3), 6, ' ') s\n"
   
   GLOBAL.gorilla := gorilla
   GLOBAL.require := require
@@ -266,7 +266,10 @@ command "test", "Run the GorillaScript test suite", #(options, cb)
   let suite = mocha.suite
   for k, v of compilations
     suite.emit 'pre-require', GLOBAL, k, mocha
-    suite.emit 'require', describe("$k:", #-> v@(GLOBAL)), k, mocha
+    try
+      suite.emit 'require', describe("$k:", #-> v@(GLOBAL)), k, mocha
+    catch e
+      console.log "Error loading $k: $(e.stack)"
     suite.emit 'post-require', GLOBAL, k, mocha
   mocha.run #(count)
     if count
