@@ -4387,63 +4387,27 @@ let _Block-mutator(lines, parser, index)
   case 1; nodes[0]
   default; parser.Block index, nodes
 
-let _BlockWithClearCache = do
-  let sync-rule = mutate _Block-mutator, #(parser, index)
+let RootInnerP = promise! #(parser, index)*
+  parser.clear-cache()
+  let head = Line parser, index
+  if not head
+    return
+  let result = [head.value]
+  let mutable current-index = head.index
+  while true
     parser.clear-cache()
-    let head = Line parser, index
-    if not head
-      return
-    let result = [head.value]
-    let mutable current-index = head.index
-    while true
-      parser.clear-cache()
-      let separator = SomeEmptyLines parser, current-index
-      if not separator
-        break
-      let item = Line parser, separator.index
-      if not item
-        break
-      current-index := item.index
-      result.push item.value
-    parser.clear-cache()
-    Box current-index, result
-  #(parser, index, callback)
-    if not callback?
-      return sync-rule parser, index
-    parser.clear-cache()
-    let mutable head = void
-    try
-      head := Line parser, index
-    catch e
-      return callback e
-    if not head
-      return callback null
-    parser.clear-cache()
-    let result = [head.value]
-    let mutable current-index = head.index
-    let next()
-      parser.clear-cache()
-      let mutable separator = void
-      try
-        separator := SomeEmptyLines parser, current-index
-      catch e
-        return callback e
-      if not separator
-        return done()
-      let mutable item = void
-      try
-        item := Line parser, separator.index
-      catch e
-        return callback e
-      if not item
-        return done()
-      current-index := item.index
-      result.push item.value
-      set-immediate next
-    let done()
-      parser.clear-cache()
-      callback null, Box current-index, _Block-mutator result, parser, index
-    set-immediate next
+    unless parser.options.sync
+      yield fulfilled! void
+    let separator = SomeEmptyLines parser, current-index
+    if not separator
+      break
+    let item = Line parser, separator.index
+    if not item
+      break
+    current-index := item.index
+    result.push item.value
+  parser.clear-cache()
+  return Box current-index, _Block-mutator result, parser, index
 
 let _Block = mutate _Block-mutator, separated-list(
   Line
@@ -4464,45 +4428,22 @@ let EmbeddedBlock = sequential(
 
 let EmbeddedLiteralTextInnerPartWithBlock = one-of(EmbeddedLiteralTextInnerPart, EmbeddedBlock)
 
-let EmbeddedLiteralTextInnerWithBlockWithClearCache = do
-  let sync-rule(parser, index)
-    let nodes = []
-    let mutable current-index = index
-    while true
-      parser.clear-cache()
-      let item = EmbeddedLiteralTextInnerPartWithBlock parser, current-index
-      if not item
-        break
-      nodes.push item.value
-      if current-index == item.index
-        throw Error "Infinite loop detected"
-      current-index := item.index
+let EmbeddedRootInnerP = promise! #(parser, index)*
+  let nodes = []
+  let mutable current-index = index
+  while true
     parser.clear-cache()
-    Box current-index, parser.Block index, nodes
-  #(parser, index, callback)
-    if not callback?
-      return sync-rule parser, index
-    let nodes = []
-    let mutable current-index = index
-    let next()
-      parser.clear-cache()
-      let mutable item = void
-      try
-        item := EmbeddedLiteralTextInnerPartWithBlock parser, current-index
-      catch e
-        return callback e
-      if not item
-        return done()
-      nodes.push item.value
-      if current-index == item.index
-        return callback Error "Infinite loop detected"
-      current-index := item.index
-      parser.clear-cache()
-      set-immediate next
-    let done()
-      parser.clear-cache()
-      callback null, Box current-index, parser.Block index, nodes
-    next()
+    unless parser.options.sync
+      yield fulfilled! void
+    let item = EmbeddedLiteralTextInnerPartWithBlock parser, current-index
+    if not item
+      break
+    nodes.push item.value
+    if current-index == item.index
+      throw Error "Infinite loop detected"
+    current-index := item.index
+  parser.clear-cache()
+  return Box current-index, parser.Block index, nodes
 
 let EndNoIndent = sequential(
   EmptyLines
@@ -4561,63 +4502,35 @@ let Shebang = maybe sequential(
   ExclamationPointChar
   zero-or-more any-except Newline)
 
-let Root(parser as Parser, callback as ->|null)
+let RootP = promise! #(parser as Parser)*
   let bom = BOM parser, 0
   let shebang = Shebang parser, bom.index
   let empty = EmptyLines parser, shebang.index
   parser.clear-cache()
-  if callback?
-    async err, root <- _BlockWithClearCache parser, empty.index
-    if err?
-      parser.clear-cache()
-      return callback err
-    if not root
-      return callback null, null
-    let empty-again = EmptyLines parser, root.index
-    let end-space = Space parser, empty-again.index
-    parser.clear-cache()
-    callback null, Box end-space.index, parser.Root empty.index, parser.options.filename, root.value
-  else
-    try
-      let root = _BlockWithClearCache parser, 0
-      if not root
-        return
-      let empty-again = EmptyLines parser, root.index
-      let end-space = Space parser, empty-again.index
-      Box end-space.index, parser.Root 0, parser.options.filename, root.value
-    finally
-      parser.clear-cache()
+  let root = if parser.options.sync then RootInnerP.sync parser, empty.index else yield RootInnerP parser, empty.index
+  parser.clear-cache()
+  if not root
+    return
+  let empty-again = EmptyLines parser, root.index
+  let end-space = Space parser, empty-again.index
+  parser.clear-cache()
+  return Box end-space.index, parser.Root empty.index, parser.options.filename, root.value
 
-let EmbeddedRoot(parser as Parser, callback as ->|null)
+let EmbeddedRootP = promise! #(parser as Parser)*
   let bom = BOM parser, 0
   let shebang = Shebang parser, bom.index
   parser.clear-cache()
-  if callback?
-    async err, root <- EmbeddedLiteralTextInnerWithBlockWithClearCache parser, shebang.index
-    parser.clear-cache()
-    if err?
-      return callback err
-    callback null, Box root.index, parser.Root 0, parser.options.filename, root.value, true, parser.in-generator.peek()
-  else
-    try
-      let root = EmbeddedLiteralTextInnerWithBlockWithClearCache parser, shebang.index
-      if not root
-        return
-      Box root.index, parser.Root 0, parser.options.filename, root.value, true, parser.in-generator.peek()
-    finally
-      parser.clear-cache()
+  let root = if parser.options.sync then EmbeddedRootInnerP.sync parser, shebang.index else yield EmbeddedRootInnerP parser, shebang.index
+  parser.clear-cache()
+  if not root
+    return
+  return Box root.index, parser.Root 0, parser.options.filename, root.value, true, parser.in-generator.peek()
 
-let EmbeddedRootGenerator(parser as Parser, callback as ->|null)
+let EmbeddedRootGeneratorP = promise! #(parser as Parser)*
   parser.in-generator.push true
-  if callback?
-    async err, result <- EmbeddedRoot parser
-    parser.in-generator.pop()
-    callback err, result
-  else
-    try
-      return EmbeddedRoot parser
-    finally
-      parser.in-generator.pop()
+  let result = if parser.options.sync then EmbeddedRootP.sync parser else yield EmbeddedRootP parser
+  parser.in-generator.pop()
+  return result
 
 define AnyObjectLiteral = one-of(
   UnclosedObjectLiteral
@@ -5562,7 +5475,7 @@ class Parser
 
     walker node, callback
   
-  def macro-expand-all(node, callback)
+  def macro-expand-all(node)
     let walker = #(node)@
       if node._macro-expand-alled?
         node._macro-expand-alled
@@ -5577,6 +5490,19 @@ class Parser
         expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
     
     walker node
+  
+  def macro-expand-all-promise(node)
+    if @options.sync
+      fulfilled! @macro-expand-all(node)
+    else
+      let defer = __defer()
+      @macro-expand-all-async node, #(err, result)
+        if err
+          defer.reject err
+        else
+          defer.fulfill result
+      defer.promise
+  
   def clear-cache()! -> @cache := []
   
   @add-node-factory := #(name, type)!
@@ -5585,63 +5511,53 @@ class Parser
       type(pos.line, pos.column, @scope.peek(), ...args)
 
 let parse(source as String, macros as MacroHolder|null, options as {} = {}, callback as Function|null)
-  let parser = Parser source, macros?.clone(), options
+  options.sync := not callback?
+  let promise = promise!(not callback?)
+    let parser = Parser source, macros?.clone(), options
   
-  let root-rule = if options.embedded-generator
-    EmbeddedRootGenerator
-  else if options.embedded
-    EmbeddedRoot
-  else
-    Root
-  
-  let start-time = new Date().get-time()
-  asyncif result <- next, callback?
-    async err, root <- root-rule parser
-    if err? and err != SHORT_CIRCUIT
-      return callback err
-    next root
-  else
-    try
-      next root-rule parser
-    catch e
-      if e != SHORT_CIRCUIT
-        throw e
-      else
-        next()
-  parser.clear-cache()
-  let end-parse-time = new Date().get-time()
-  options.progress?(\parse, end-parse-time - start-time)
-  
-  if not result or result.index < source.length
-    let err = parser.get-failure(result?.index)
-    if callback?
-      return callback err
+    let root-rule = if options.embedded-generator
+      EmbeddedRootGeneratorP
+    else if options.embedded
+      EmbeddedRootP
     else
-      throw err
+      RootP
   
-  asyncif expanded <- next, callback?
-    async! callback, expanded <- parser.macro-expand-all-async result.value
-    next expanded
-  else
-    next parser.macro-expand-all result.value
-  
-  let end-expand-time = new Date().get-time()
-  options.progress?(\macro-expand, end-expand-time - end-parse-time)
-  let reduced = expanded.reduce(parser)
-  let end-reduce-time = new Date().get-time()
-  options.progress?(\reduce, end-reduce-time - end-expand-time)
-  let ret = {
-    result: reduced
-    parser.macros
-    parse-time: end-parse-time - start-time
-    macro-expand-time: end-expand-time - end-parse-time
-    reduce-time: end-reduce-time - end-expand-time
-    time: end-reduce-time - start-time
-  }
+    let start-time = new Date().get-time()
+    let mutable result = void
+    try
+      result := if not callback? then root-rule.sync(parser) else yield root-rule parser
+    catch e == SHORT_CIRCUIT
+      void
+
+    parser.clear-cache()
+    let end-parse-time = new Date().get-time()
+    options.progress?(\parse, end-parse-time - start-time)
+
+    if not result or result.index < source.length
+      throw parser.get-failure(result?.index)
+
+    let expanded = yield parser.macro-expand-all-promise result.value
+
+    let end-expand-time = new Date().get-time()
+    options.progress?(\macro-expand, end-expand-time - end-parse-time)
+    let reduced = expanded.reduce(parser)
+    let end-reduce-time = new Date().get-time()
+    options.progress?(\reduce, end-reduce-time - end-expand-time)
+    return {
+      result: reduced
+      parser.macros
+      parse-time: end-parse-time - start-time
+      macro-expand-time: end-expand-time - end-parse-time
+      reduce-time: end-reduce-time - end-expand-time
+      time: end-reduce-time - start-time
+    }
   if callback?
-    callback null, ret
+    promise.then(
+      #(value) -> callback null, value
+      #(err) -> callback err)
+    return
   else
-    ret
+    promise.sync()
 module.exports := parse
 parse <<< {
   ParserError
