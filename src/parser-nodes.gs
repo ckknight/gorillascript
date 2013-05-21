@@ -108,8 +108,6 @@ macro node-class
     let mutable ctor-body = AST
       @line := line
       @column := column
-      if not scope or scope.constructor.name != \Scope
-        throw TypeError "Expected scope to be a Scope, got $(typeof! scope)"
       @scope := scope
       @_reduced := void
       @_macro-expanded := void

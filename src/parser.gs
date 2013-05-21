@@ -88,7 +88,7 @@ class ParserError extends Error
       Error.capture-stack-trace this, ParserError
     else if err haskey \stack
       @stack := err.stack
-  def name = @name
+  def name = "ParserError"
 
 class MacroError extends Error
   def constructor(inner as Error|String = "", parser as Parser|null, @index as Number = 0)
@@ -129,7 +129,7 @@ class MacroError extends Error
       @stack := err.stack
     if inner instanceof Error
       @inner := inner
-  def name = @name
+  def name = "MacroError"
   def set-position(line as Number, column as Number)!
     if true
       // FIXME: disabling this for now
