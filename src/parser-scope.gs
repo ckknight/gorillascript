@@ -20,6 +20,7 @@ class Scope
     @destroyed := false
     @children := []
     @variables := {}
+    @consts := {}
     @tmps := {}
     if not is-top
       parent.children.push this
@@ -36,15 +37,39 @@ class Scope
       obj <<< child._all-tmps()
     obj
   
+  def _all-consts()
+    let obj = {} <<< @consts
+    for child in @children
+      obj <<< child._all-consts()
+    obj
+  
+  let is-empty(obj)
+    for k of obj
+      return false
+    true
+  
   def inspect()
     if not @is-top
       return @top().inspect()
     let inspect = require('util').inspect
-    let text = "Scope($(inspect @_all-variables()), $(inspect @_all-tmps()))"
+    let variables = @_all-variables()
+    let tmps = @_all-tmps()
+    let consts = @_all-consts()
+    let text = []
+    text.push "Scope("
+    if not is-empty(variables) or not is-empty(tmps) or not is-empty(consts)
+      text.push inspect variables
+    if not is-empty(tmps) or not is-empty(consts)
+      text.push ", "
+      text.push inspect tmps
+    if not is-empty(consts)
+      text.push ", "
+      text.push inspect consts
+    text.push ")"
     if @parent
-      "$text -> $(inspect @parent)"
-    else
-      text
+      text.push " -> "
+      text.push @parent.inspect()
+    text.join ""
   
   def destroy()!
     if @destroyed
@@ -100,6 +125,9 @@ class Scope
     else
       @variables[ident.name] := { is-mutable, type }
   
+  def add-const(name as String, value as Number|String|Boolean|null|void)!
+    @consts[name] := value
+  
   let get-ident(scope, name)
     let variables = scope.variables
     if variables ownskey name
@@ -145,6 +173,28 @@ class Scope
     if @destroyed
       throw ScopeDestroyedError()
     get(this, ident)?.type or Type.any
+  
+  let get-const(scope, name)
+    let consts = scope.consts
+    if consts ownskey name
+      { value: consts[name] }
+    else
+      for child in scope.children
+        return? get-const child, name
+  
+  def const-value(name as String)
+    if @destroyed
+      throw ScopeDestroyedError()
+    
+    let mutable current = this
+    let mutable layers = 0
+    while current
+      layers += 1
+      if layers > 1000
+        throw Error "Infinite loop detected"
+      current := current.top()
+      return? get-const(current, name)
+      current := current.parent
 
 module.exports := Scope
 module.exports <<< {

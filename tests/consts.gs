@@ -21,3 +21,18 @@ describe "consts", #
     expect(make-code("false")).to.not.contain "EVIL"
     expect(make-code("true")).to.not.contain "hello"
     expect(make-code("true")).to.contain "EVIL"
+  
+  it "can exist in a lower scope", #
+    let f()
+      const MY_CONST = 5
+      MY_CONST + 5
+    expect(f()).to.equal 10
+    expect(typeof MY_CONST).to.equal \undefined
+  
+  it "can shadow a higher-scoped variable", #
+    let MY_VALUE = 0
+    let f()
+      const MY_VALUE = 5
+      MY_VALUE + 5
+    expect(f()).to.equal 10
+    expect(MY_VALUE).to.equal 0

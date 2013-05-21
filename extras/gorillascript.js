@@ -11033,7 +11033,7 @@
         function (parser, index) {
           var name;
           name = Name(parser, index);
-          if (!name || __in(name.value, getReservedIdents(parser.options)) || parser.hasMacroOrOperator(name.value)) {
+          if (!name || __in(name.value, getReservedIdents(parser.options)) || parser.hasMacroOrOperator(name.value || parser.scope.peek().hasConst(name.value))) {
             return parser.fail("identifier", index);
           } else {
             return Box(name.index, parser.Ident(index, name.value));
@@ -11794,16 +11794,16 @@
         })(_ref)));
       }()));
       function CustomConstantLiteral(parser, index) {
-        var consts, name;
+        var name, value;
         name = Name(parser, index);
         if (!name) {
           return;
         }
-        consts = parser.macros.consts;
-        if (!__owns.call(consts, name.value)) {
+        value = parser.getConst(name.value);
+        if (!value) {
           return;
         }
-        return Box(name.index, parser.Const(index, consts[name.value]));
+        return Box(name.index, parser.Const(index, value.value));
       }
       function NullOrVoidLiteral(parser, index) {
         var constant;
@@ -16427,22 +16427,35 @@
           return this.exitMacro();
         };
         _Parser_prototype.defineConst = function (index, name, value) {
+          var scope;
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
           if (value != null && typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean") {
             throw TypeError("Expected value to be one of Number or String or Boolean or undefined or null, got " + __typeof(value));
           }
-          this.macros.addConst(name, value);
-          if (this.options.serializeMacros) {
-            this.macros.addSerializedConst(name);
+          scope = this.scope.peek();
+          if (scope === this.scope.initial) {
+            this.macros.addConst(name, value);
+            if (this.options.serializeMacros) {
+              this.macros.addSerializedConst(name);
+            }
           }
+          scope.addConst(name, value);
         };
         _Parser_prototype.getConst = function (name) {
+          var _ref, consts, scope;
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
-          return this.macros.getConst(name);
+          scope = this.scope.peek();
+          if ((_ref = scope.constValue(name)) != null) {
+            return _ref;
+          }
+          consts = this.macros.consts;
+          if (__owns.call(consts, name)) {
+            return { value: consts[name] };
+          }
         };
         _Parser_prototype.deserializeMacros = function (data) {
           var _arr, _i, _len, _ref, deserializer, item, type;
@@ -17157,7 +17170,7 @@
     var exports = this;
     (function () {
       "use strict";
-      var __create, __import, __isArray, __name, __owns, __slice, __strnum, __toArray, __typeof, _ref, IdentNode, Node, Scope, ScopeDestroyedError, TmpNode, Type;
+      var __create, __import, __isArray, __name, __owns, __slice, __toArray, __typeof, _ref, IdentNode, Node, Scope, ScopeDestroyedError, TmpNode, Type;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
@@ -17189,17 +17202,6 @@
       };
       __owns = Object.prototype.hasOwnProperty;
       __slice = Array.prototype.slice;
-      __strnum = function (strnum) {
-        var type;
-        type = typeof strnum;
-        if (type === "string") {
-          return strnum;
-        } else if (type === "number") {
-          return String(strnum);
-        } else {
-          throw TypeError("Expected a string or number, got " + __typeof(strnum));
-        }
-      };
       __toArray = function (x) {
         if (x == null) {
           throw TypeError("Expected an object, got " + __typeof(x));
@@ -17280,6 +17282,7 @@
           _this.destroyed = false;
           _this.children = [];
           _this.variables = {};
+          _this.consts = {};
           _this.tmps = {};
           if (!isTop) {
             parent.children.push(_this);
@@ -17306,18 +17309,52 @@
           }
           return obj;
         };
+        _Scope_prototype._allConsts = function () {
+          var _arr, _i, _len, child, obj;
+          obj = __import({}, this.consts);
+          for (_arr = __toArray(this.children), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+            child = _arr[_i];
+            __import(obj, child._allConsts());
+          }
+          return obj;
+        };
+        function isEmpty(obj) {
+          var k;
+          for (k in obj) {
+            if (__owns.call(obj, k)) {
+              return false;
+            }
+          }
+          return true;
+        }
         _Scope_prototype.inspect = function () {
-          var inspect, text;
+          var consts, inspect, text, tmps, variables;
           if (!this.isTop) {
             return this.top().inspect();
           }
           inspect = require("util").inspect;
-          text = "Scope(" + __strnum(inspect(this._allVariables())) + ", " + __strnum(inspect(this._allTmps())) + ")";
-          if (this.parent) {
-            return text + " -> " + __strnum(inspect(this.parent));
-          } else {
-            return text;
+          variables = this._allVariables();
+          tmps = this._allTmps();
+          consts = this._allConsts();
+          text = [];
+          text.push("Scope(");
+          if (!isEmpty(variables) || !isEmpty(tmps) || !isEmpty(consts)) {
+            text.push(inspect(variables));
           }
+          if (!isEmpty(tmps) || !isEmpty(consts)) {
+            text.push(", ");
+            text.push(inspect(tmps));
+          }
+          if (!isEmpty(consts)) {
+            text.push(", ");
+            text.push(inspect(consts));
+          }
+          text.push(")");
+          if (this.parent) {
+            text.push(" -> ");
+            text.push(this.parent.inspect());
+          }
+          return text.join("");
         };
         _Scope_prototype.destroy = function () {
           var _arr, _i, child, index, parentChildren;
@@ -17413,6 +17450,15 @@
             this.variables[ident.name] = { isMutable: isMutable, type: type };
           }
         };
+        _Scope_prototype.addConst = function (name, value) {
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          if (value != null && typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean") {
+            throw TypeError("Expected value to be one of Number or String or Boolean or null or undefined, got " + __typeof(value));
+          }
+          this.consts[name] = value;
+        };
         function getIdent(scope, name) {
           var _arr, _i, _len, _ref, child, variables;
           variables = scope.variables;
@@ -17490,6 +17536,42 @@
             throw ScopeDestroyedError();
           }
           return ((_ref = get(this, ident)) != null ? _ref.type : void 0) || Type.any;
+        };
+        function getConst(scope, name) {
+          var _arr, _i, _len, _ref, child, consts;
+          consts = scope.consts;
+          if (__owns.call(consts, name)) {
+            return { value: consts[name] };
+          } else {
+            for (_arr = __toArray(scope.children), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+              child = _arr[_i];
+              if ((_ref = getConst(child, name)) != null) {
+                return _ref;
+              }
+            }
+          }
+        }
+        _Scope_prototype.constValue = function (name) {
+          var _ref, current, layers;
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          if (this.destroyed) {
+            throw ScopeDestroyedError();
+          }
+          current = this;
+          layers = 0;
+          while (current) {
+            ++layers;
+            if (layers > 1000) {
+              throw Error("Infinite loop detected");
+            }
+            current = current.top();
+            if ((_ref = getConst(current, name)) != null) {
+              return _ref;
+            }
+            current = current.parent;
+          }
         };
         return Scope;
       }());

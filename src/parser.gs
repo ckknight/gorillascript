@@ -2171,7 +2171,7 @@ define Identifier = one-of(
       args
   #(parser, index)
     let name = Name parser, index
-    if not name or name.value in get-reserved-idents(parser.options) or parser.has-macro-or-operator name.value
+    if not name or name.value in get-reserved-idents(parser.options) or parser.has-macro-or-operator name.value or parser.scope.peek().has-const name.value
       parser.fail "identifier", index
     else
       Box name.index, parser.Ident index, name.value)
@@ -2692,11 +2692,11 @@ let CustomConstantLiteral(parser, index)
   if not name
     return
   
-  let consts = parser.macros.consts
-  if consts not ownskey name.value
+  let value = parser.get-const name.value
+  if not value
     return
   
-  Box name.index, parser.Const index, consts[name.value]
+  Box name.index, parser.Const index, value.value
 
 let NullOrVoidLiteral(parser, index)
   let constant = CustomConstantLiteral parser, index
@@ -5448,12 +5448,19 @@ class Parser
     @exit-macro()
   
   def define-const(index, name as String, value as Number|String|Boolean|void|null)!
-    @macros.add-const name, value
-    if @options.serialize-macros
-      @macros.add-serialized-const(name)
+    let scope = @scope.peek()
+    if scope == @scope.initial
+      @macros.add-const name, value
+      if @options.serialize-macros
+        @macros.add-serialized-const(name)
+    scope.add-const name, value
   
   def get-const(name as String)
-    @macros.get-const name
+    let scope = @scope.peek()
+    return? scope.const-value(name)
+    let consts = @macros.consts
+    if consts ownskey name
+      { value: consts[name] }
   
   def deserialize-macros(data)
     for type, deserializer of macro-deserializers
