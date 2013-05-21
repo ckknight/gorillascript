@@ -14578,7 +14578,7 @@
         var _e, _send, _state, _step, bom, empty, emptyAgain, endSpace, root, shebang;
         _state = 0;
         function _close() {
-          _state = 6;
+          _state = 8;
         }
         function _step(_received) {
           while (true) {
@@ -14590,27 +14590,36 @@
               bom = BOM(parser, 0);
               shebang = Shebang(parser, bom.index);
               empty = EmptyLines(parser, shebang.index);
-              parser.clearCache();
-              _state = parser.options.sync ? 1 : 2;
+              _state = Eof(parser, empty.index) ? 1 : 2;
               break;
             case 1:
-              root = RootInnerP.sync(parser, empty.index);
-              _state = 4;
-              break;
+              _state = 8;
+              return {
+                done: true,
+                value: Box(empty.index, parser.Root(empty.index, parser.options.filename, parser.Nothing(empty.index)))
+              };
             case 2:
+              parser.clearCache();
+              _state = parser.options.sync ? 3 : 4;
+              break;
+            case 3:
+              root = RootInnerP.sync(parser, empty.index);
+              _state = 6;
+              break;
+            case 4:
               ++_state;
               return {
                 done: false,
                 value: RootInnerP(parser, empty.index)
               };
-            case 3:
+            case 5:
               root = _received;
               ++_state;
-            case 4:
+            case 6:
               parser.clearCache();
-              _state = !root ? 6 : 5;
+              _state = !root ? 8 : 7;
               break;
-            case 5:
+            case 7:
               emptyAgain = EmptyLines(parser, root.index);
               endSpace = Space(parser, emptyAgain.index);
               parser.clearCache();
@@ -14619,7 +14628,7 @@
                 done: true,
                 value: Box(endSpace.index, parser.Root(empty.index, parser.options.filename, root.value))
               };
-            case 6:
+            case 8:
               return { done: true, value: void 0 };
             default: throw Error("Unknown state: " + _state);
             }

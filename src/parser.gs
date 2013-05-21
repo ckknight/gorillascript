@@ -4543,6 +4543,8 @@ let RootP = promise! #(parser as Parser)*
   let bom = BOM parser, 0
   let shebang = Shebang parser, bom.index
   let empty = EmptyLines parser, shebang.index
+  if Eof parser, empty.index
+    return Box empty.index, parser.Root empty.index, parser.options.filename, parser.Nothing empty.index
   parser.clear-cache()
   let root = if parser.options.sync then RootInnerP.sync parser, empty.index else yield RootInnerP parser, empty.index
   parser.clear-cache()
