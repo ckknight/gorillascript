@@ -34896,14 +34896,14 @@
           id: 161
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;if(!this.hasType(node,"array")){this.error("any-promise! should be used on an Array");}return __node("Call",3803,7,__node("Ident",3803,7,"__anyPromise"),[__wrap(node)],false,false);};}.call(this));',
-          operators: "anyPromise!",
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;if(!this.hasType(node,"array")){this.error("some-promise! should be used on an Array");}return __node("Call",3803,7,__node("Ident",3803,7,"__somePromise"),[__wrap(node)],false,false);};}.call(this));',
+          operators: "somePromise!",
           options: {type: "promise"},
           id: 162
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;if(!this.hasType(node,"array")&&!this.hasType(node,"object")){this.error("all-promises! should be used on an Array or Object");}return __node("Call",3832,7,__node("Ident",3832,7,"__allPromises"),[__wrap(node)],false,false);};}.call(this));',
-          operators: "allPromises!",
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node){var node,op;op=macroData.op;node=macroData.node;if(!this.hasType(node,"array")&&!this.hasType(node,"object")){this.error("every-promise! should be used on an Array or Object");}return __node("Call",3832,7,__node("Ident",3832,7,"__everyPromise"),[__wrap(node)],false,false);};}.call(this));',
+          operators: "everyPromise!",
           options: {type: "promise"},
           id: 163
         }
@@ -55507,14 +55507,14 @@
           },
           dependencies: ["__generator", "__slice"]
         },
-        __anyPromise: {
+        __somePromise: {
           helper: [
             "Func",
             1853,
             1,
             0,
             0,
-            [["Ident", 3792, 33, 0, "promises"]],
+            [["Ident", 3792, 34, 0, "promises"]],
             ["defer", "i"],
             [],
             "BlockStatement",
@@ -55540,7 +55540,7 @@
                 0,
                 ["Ident", 138, 146, 0, "__isArray"],
                 0,
-                ["Ident", 3792, 33, 0, "promises"]
+                ["Ident", 3792, 34, 0, "promises"]
               ],
               [
                 "Throw",
@@ -55566,7 +55566,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 3792, 33, 0, "promises"]
+                  ["Ident", 3792, 34, 0, "promises"]
                 ]
               ]
             ],
@@ -55706,16 +55706,16 @@
               pairs: {sync: "function", then: "function"}
             }]
           },
-          dependencies: ["__anyPromise", "__defer", "__isArray", "__typeof"]
+          dependencies: ["__defer", "__isArray", "__somePromise", "__typeof"]
         },
-        __allPromises: {
+        __everyPromise: {
           helper: [
             "Func",
             1853,
             1,
             0,
             0,
-            [["Ident", 3805, 34, 0, "promises"]],
+            [["Ident", 3805, 35, 0, "promises"]],
             [
               "defer",
               "i",
@@ -55755,7 +55755,7 @@
                     "typeof",
                     "Ident",
                     3805,
-                    34,
+                    35,
                     0,
                     "promises"
                   ],
@@ -55771,7 +55771,7 @@
                 1,
                 1,
                 0,
-                ["Ident", 3805, 34, 0, "promises"],
+                ["Ident", 3805, 35, 0, "promises"],
                 "===",
                 "Const",
                 141,
@@ -55803,7 +55803,7 @@
                   0,
                   ["Ident", 484, 49, 0, "__typeof"],
                   0,
-                  ["Ident", 3805, 34, 0, "promises"]
+                  ["Ident", 3805, 35, 0, "promises"]
                 ]
               ]
             ],
@@ -56213,7 +56213,7 @@
               pairs: {sync: "function", then: "function"}
             }]
           },
-          dependencies: ["__allPromises", "__defer", "__isArray", "__owns", "__typeof"]
+          dependencies: ["__defer", "__everyPromise", "__isArray", "__owns", "__typeof"]
         }
       },
       assignOperator: [

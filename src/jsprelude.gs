@@ -3789,20 +3789,20 @@ define helper __generator = #(func) -> #
     throw: (throw)
   }
 
-define helper __any-promise = #(promises as [])
+define helper __some-promise = #(promises as [])
   let defer = __defer()
   let mutable i = promises.length
   while post-dec! i
     promises[i].then(defer.fulfill, defer.reject)
   defer.promise
 
-define operator unary any-promise! with type: \promise
+define operator unary some-promise! with type: \promise
   if not @has-type(node, \array)
-    @error "any-promise! should be used on an Array"
+    @error "some-promise! should be used on an Array"
   
-  ASTE __any-promise $node
+  ASTE __some-promise $node
 
-define helper __all-promises = #(promises as {})
+define helper __every-promise = #(promises as {})
   let is-array = is-array! promises
   let defer = __defer()
   let result = if is-array then [] else {}
@@ -3825,8 +3825,8 @@ define helper __all-promises = #(promises as {})
       handle k, v
   defer.promise
 
-define operator unary all-promises! with type: \promise
+define operator unary every-promise! with type: \promise
   if not @has-type(node, \array) and not @has-type(node, \object)
-    @error "all-promises! should be used on an Array or Object"
+    @error "every-promise! should be used on an Array or Object"
   
-  ASTE __all-promises $node
+  ASTE __every-promise $node

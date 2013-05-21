@@ -315,13 +315,13 @@ describe "from-promise!", #
         cb()
       alpha.reject \bravo
 
-describe "any-promise!", #
+describe "some-promise!", #
   it "succeeds when the first promise is fulfilled", #(cb)
     let alpha = __defer()
     let bravo = __defer()
     let charlie = __defer()
     
-    (any-promise! [alpha.promise, bravo.promise, charlie.promise]).then #(value)
+    (some-promise! [alpha.promise, bravo.promise, charlie.promise]).then #(value)
       expect(value).to.equal \delta
       cb()
     
@@ -334,7 +334,7 @@ describe "any-promise!", #
     let bravo = __defer()
     let charlie = __defer()
     
-    (any-promise! [alpha.promise, bravo.promise, charlie.promise]).then null, #(reason)
+    (some-promise! [alpha.promise, bravo.promise, charlie.promise]).then null, #(reason)
       expect(reason).to.equal \delta
       cb()
     
@@ -343,14 +343,14 @@ describe "any-promise!", #
     charlie.reject \foxtrot
 
 
-describe "all-promises!", #
+describe "every-promise!", #
   describe "with an array", #
     it "succeeds when the all promises are fulfilled", #(cb)
       let alpha = __defer()
       let bravo = __defer()
       let charlie = __defer.fulfilled \delta
     
-      (all-promises! [alpha.promise, bravo.promise, charlie]).then(
+      (every-promise! [alpha.promise, bravo.promise, charlie]).then(
         #(value)
           expect(value).to.eql [\echo, \foxtrot, \delta]
           cb())
@@ -363,7 +363,7 @@ describe "all-promises!", #
       let bravo = __defer()
       let charlie = __defer.fulfilled \delta
     
-      (all-promises! [alpha.promise, bravo.promise, charlie]).then null, #(reason)
+      (every-promise! [alpha.promise, bravo.promise, charlie]).then null, #(reason)
         expect(reason).to.equal \echo
         cb()
     
@@ -376,7 +376,7 @@ describe "all-promises!", #
       let bravo = __defer()
       let charlie = __defer.fulfilled \delta
   
-      (all-promises! { alpha: alpha.promise, bravo: bravo.promise, charlie }).then(
+      (every-promise! { alpha: alpha.promise, bravo: bravo.promise, charlie }).then(
         #(value)
           expect(value).to.eql { alpha: \echo, bravo: \foxtrot, charlie: \delta }
           cb())
@@ -389,7 +389,7 @@ describe "all-promises!", #
       let bravo = __defer()
       let charlie = __defer.fulfilled \delta
   
-      (all-promises! { alpha: alpha.promise, bravo: bravo.promise, charlie: charlie }).then null, #(reason)
+      (every-promise! { alpha: alpha.promise, bravo: bravo.promise, charlie: charlie }).then null, #(reason)
         expect(reason).to.equal \echo
         cb()
   
