@@ -67,6 +67,7 @@
       <li><a href="#gnome">GNOME bindings</a>
       <li><a href="#gork">Gork and Gorkfiles</a>
       <li><a href="#browser">Browser support</a>
+      <li><a href="#ide">Code Editor/IDE support</a>
       <li><a href="#irc">Chat with others (IRC)</a>
     </ul>
   </nav>
@@ -1725,6 +1726,17 @@ command "build:full", "Rebuild all files", #(options, cb)
     <p>If <code class="language-gorillascript">define</code> and <code class="language-gorillascript">define.amd</code> are properly defined, they will be used instead of setting <code class="language-gorillascript">window.Gorilla</code>, as a proper <a href="http://wiki.commonjs.org/wiki/Modules/AsynchronousDefinition">module definition</a></p>
     
     <p>Note: any compiled GorillaScript file should work in all browsers, including older browsers. Certain features like <a href="#properties">getters and setters</a> may not work in engines that do not support them, but this will cause a runtime exception on defining such properties rather than a compile-time error.</p>
+  </section>
+  
+  <section id="ide">
+    <h2>Code Editor/IDE support</h2>
+    
+    <ul>
+      <li>TextMate: <strong>ckknight</strong>'s <a href="https://github.com/ckknight/GorillaScript.tmbundle">GorillaScript TextMate bundle</a></li>
+      <li>Vim: <strong>unc0</strong>'s <a href="https://github.com/unc0/vim-gorilla-script">Vim GorillaScript</a></li>
+    </ul>
+    
+    <p>If you would like to contribute to this list, please <a href="https://github.com/ckknight/gorillascript/issues">file an issue</a>.</p>
   </section>
   
   <section id="irc">
