@@ -5485,7 +5485,7 @@ class Parser
         let mutable result = void
         try
           // TODO: change start-index
-          result := @macros.get-by-id(node.id)(node.data, this, node.start-index or 0)
+          result := @macros.get-by-id(node.id)(node.data, this, @index-from-position(node.line, node.column))
         catch e
           if e instanceof MacroError
             // TODO: add column as well

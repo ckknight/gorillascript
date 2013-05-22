@@ -1,8 +1,9 @@
-expect(__LINE__).to.equal 1
-expect(__LINE__).to.equal 2
-expect(__LINE__).to.equal 3
-expect(__COLUMN__).to.equal 8
-expect(__FILE__).to.match r'/macros\.gs$'
+it "has standard macros to give file information", #
+  expect(__LINE__).to.equal 2
+  expect(__LINE__).to.equal 3
+  expect(__LINE__).to.equal 4
+  expect(__COLUMN__).to.equal 10
+  expect(__FILE__).to.match r'/macros\.gs$'
 
 macro myif
   syntax test as Logic, body as Body, else-body as ("myelse", this as Body)?
