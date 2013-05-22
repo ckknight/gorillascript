@@ -378,15 +378,15 @@ let multiple<T>(mutable rule as ->, mutable minimum as Number = 0, mutable maxim
             if item.value not instanceof T
               throw TypeError "Expected item.value to be a $(__name T), got $(typeof! item.value)"
           let new-index = item.index
-          if new-index == index
-            throw Error "Infinite loop detected"
-          else
-            index := new-index
           result[count] := {
             start-index: index
             end-index: new-index
             item.value
           }
+          if new-index == index
+            throw Error "Infinite loop detected"
+          else
+            index := new-index
           count += 1
         Box index, result)
 
@@ -5485,7 +5485,7 @@ class Parser
         let mutable result = void
         try
           // TODO: change start-index
-          result := @macros.get-by-id(node.id)(node.data, this, node.start-index or 0, node.call-line, node.scope)
+          result := @macros.get-by-id(node.id)(node.data, this, node.start-index or 0)
         catch e
           if e instanceof MacroError
             // TODO: add column as well

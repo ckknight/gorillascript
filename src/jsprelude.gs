@@ -4029,3 +4029,19 @@ macro promisefor
     
     AST
       __promise-iter +$parallelism, __iter($iterator), __promise(#($value, $index)* -> $body)
+
+macro __LINE__
+  syntax "" with type: \number
+    @const @line()
+
+macro __COLUMN__
+  syntax "" with type: \number
+    @const @column()
+
+macro __FILE__
+  syntax "" with type: \string
+    @const @file()
+
+macro __DATEMSEC__
+  syntax "" with type: \number
+    @const new Date().get-time()

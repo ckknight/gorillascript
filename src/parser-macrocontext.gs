@@ -72,6 +72,21 @@ class MacroContext
   
   def scope() -> @parser.scope.peek()
   
+  def line(node)
+    if node instanceof Node
+      node.line
+    else
+      @parser.get-position(@index).line
+  
+  def column(node)
+    if node instanceof Node
+      node.column
+    else
+      @parser.get-position(@index).column
+  
+  def file()
+    @parser.options.filename or ""
+  
   def let(ident as TmpNode|IdentNode, is-mutable as Boolean, mutable type as Type = Type.any)
     if ident instanceof IdentNode and is-mutable and type.is-subset-of(Type.undefined-or-null)
       type := Type.any
