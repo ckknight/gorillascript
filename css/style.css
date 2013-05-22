@@ -324,3 +324,18 @@ section li {
   height: 400px;
 }
 /*}}}*/
+
+.comma-list {
+  display: inline-block;
+  list-style: none;
+}
+
+.comma-list li {
+  display: inline;
+}
+.comma-list li a:after {
+  content: ", ";
+}
+.comma-list li:last-child a:after {
+  content: "";
+}
