@@ -3540,7 +3540,7 @@ define IndentedUnclosedArrayLiteral = sequential(
 let in-ast = make-alter-stack<Boolean> \in-ast, true
 let in-evil-ast = make-alter-stack<Boolean> \in-evil-ast, true
 
-define AstExpression = sequential(
+let AstExpression = sequential(
   word "ASTE"
   SHORT_CIRCUIT
   #(parser, index)
@@ -3560,7 +3560,7 @@ define AstExpression = sequential(
       else
         rule parser, index])
 
-define AstStatement = sequential(
+let AstStatement = sequential(
   word "AST"
   SHORT_CIRCUIT
   #(parser, index)

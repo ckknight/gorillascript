@@ -45,3 +45,16 @@ describe "scope of tmp variables", #
   it "should work given differing function scopes", #
     expect(square 0).to.equal 0
     expect(square 5).to.equal 25
+
+macro do-yield(value)
+  ASTE yield $value
+
+describe "Macros", #
+  it "should allow for indirect yield expresion", #
+    let generator()*
+      do-yield "hello"
+      do-yield "there"
+    
+    let iter = generator()
+    expect(iter.next()).to.eql { -done, value: "hello" }
+    expect(iter.next()).to.eql { -done, value: "there" }

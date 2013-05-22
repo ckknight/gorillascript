@@ -3111,16 +3111,15 @@ macro yield*
       let length = @tmp \len, false, \number
       node := @cache node, init, \arr, false
       init.push AST let $length = $node.length
-      let yield-item = @yield ASTE $node[$index]
       AST
         for $init; $index ~< $length; $index += 1
-          $yield-item
+          yield $node[$index]
+        void
     else
       let iterator = @cache ASTE __iter($node), init, \iter, false
       let err = @tmp \e, true
       let send = @tmp \send
       let item = @tmp \item
-      let yield-next = @yield ASTE $item.value
       let received = @tmp \tmp
       AST
         $init
@@ -3132,7 +3131,7 @@ macro yield*
           if $item.done
             break
           try
-            $received := $yield-next
+            $received := yield $item.value
             $send := true
           catch $err
             $received := $err

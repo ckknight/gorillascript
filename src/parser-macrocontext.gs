@@ -564,7 +564,13 @@ class MacroContext
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
   
   def node(type, line, column, ...args)
-    Node[type](line, column, @scope(), ...args).reduce(@parser)
+    if type == "MacroAccess"
+      @macro line, column, ...args
+    else
+      Node[type](line, column, @scope(), ...args).reduce(@parser)
+  
+  def macro(line, column, id, call-line, data, position, in-generator, in-evil-ast)
+    Node.MacroAccess(line, column, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
   
   def walk(node as Node|void|null, func as Node -> Node)
     if node?
