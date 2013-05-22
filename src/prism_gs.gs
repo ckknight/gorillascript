@@ -3,8 +3,8 @@ Prism.languages.gorillascript := Prism.languages.extend \javascript, {
     \b(
       yield\*?|
       (throw|return)\??|
-      ((all)?keys|label|map|require|async)!|
-      (to-)?promise!
+      ((all)?keys|label|require|async|fulfilled|rejected|delay)!|
+      (to-|from-|some-|every-)?promise!
       )
     |
     \b(
@@ -14,6 +14,7 @@ Prism.languages.gorillascript := Prism.languages.extend \javascript, {
         case|default|catch|finally|try|
         return(if|ing|unless)?|
         new|class|extends|private|public|protected|def|super|require|
+        promisefor|
         async(if|for|unless|until|while)?|
         import|export|returnif|returning|returnunless|mutable|
         macro|const|static|var|do|of|let|enum|namespace|package|true|false|
@@ -95,6 +96,9 @@ Prism.languages.insert-before \gorillascript, \ident, {
     is\-?NaN|
     is(F|\-f)inite|
     decode\-?URI((C|\-c)omponent)?|
-    encode\-?URI((C|\-c)omponent)?
+    encode\-?URI((C|\-c)omponent)?|
+    Set|
+    Map|
+    WeakMap
   )\b"""g
 }

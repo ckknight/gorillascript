@@ -53,8 +53,9 @@
       <li><a href="#regexes">Regular Expressions</a>
       <li><a href="#custom-interpolation">Custom interpolation strings</a>
       <li><a href="#iterators">Iterators</a>
-      <li><a href="#async">Async</a>
       <li><a href="#promises">Promises</a>
+      <li><a href="#parallel-loops">Parallel loops</a>
+      <li><a href="#async">Async</a>
       <li><a href="#typing">Optional typing</a>
       <li><a href="#operators-as-functions">Operators, accesses, and method calls as functions</a>
       <li><a href="#properties">Getters and setters</a>
@@ -1089,7 +1090,7 @@ finally
 
     <p>If <code class="language-gorillascript">Array.prototype</code> were to implement <code class="language-gorillascript">iterator</code>, which the ECMAScript 6 draft is recommending, one could iterate over <code class="language-gorillascript">Array</code>s, <code class="language-gorillascript">Set</code>s, <code class="language-gorillascript">Map</code>s, but one can iterate over any custom type now or by simply adding an <code class="language-gorillascript">Array.prototype.iterator</code> method.</p>
 
-    <p>Production of iterators is easy as well in GorillaScript. You need merely append the <code class="language-gorillascript">*</code> and use the <code class="language-gorillascript">yield</code> statement.</p>
+    <p>Production of iterators is easy as well in GorillaScript. You need merely append the <code class="language-gorillascript">*</code> to your function declaration and use the <code class="language-gorillascript">yield</code> (or <code class="language-gorillascript">yield*</code>) expression.</p>
 
     <pre class="gs-code"><code class="language-gorillascript">let fib()*
   let mutable a = 0
@@ -1135,11 +1136,142 @@ finally
     
     <p>One can also use <code class="language-gorillascript">yield</code> in an expression position, not just <code class="language-gorillascript">return</code> as a way to receive information from custom iterators. This isn&#8217;t affected by a <code class="language-gorillascript">for-from</code> loop, but some libraries and patterns can rely on it.</p>
   </section>
+  
+  <section id="promises">
+    <h2>Promises</h2>
+    
+    <p>GorillaScript provides mechanisms for <a href="http://promises-aplus.github.io/promises-spec/">Promises/A+</a>-compliant Promises to be used and joined and manipulated together.</p>
 
+    <p>Promises provide a whole slew of asynchronous-capable syntax to make dealing with &#8220;callback hell&#8221; just a little easier. Since JavaScript fundamentals and frameworks (node.js, for example) tend to be very async-friendly, this is especially helpful.</p>
+    
+    <p>Promises have the benefit over simple callbacks in that they are well-defined by the Promises/A+ spec, have easy-to-follow resolve/reject rules, and can be combined together shockingly easily.</p>
+    
+    <p>Piggy-backing on the <code class="language-gorillascript">yield</code> syntax, since <code class="language-gorillascript">yield</code> can be used as an expression and not just a statement, information can be sent back to the iterator every time a <code class="language-gorillascript">yield</code> occurs. GorillaScript takes advantage of this with the <code class="language-gorillascript">promise!</code> keyword, which converts a generator function into a Promise factory or allows an arbitrary block of code to turn into a Promise, all one needs to do is <code class="language-gorillascript">yield</code> other Promises until complete.</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">let make-promise = promise! #(filename)*
+  // here, read-file returns a Promise
+  let text = yield read-file(filename)
+  return text.to-upper-case()
+
+let promise = make-promise()
+  .then(on-success, on-failure)
+</code></pre>
+
+    <p>It practically reads like synchronous code, and it's guaranteed to execute in the same order as if it were synchronous.</p>
+    
+    <p>You can also use <code class="language-gorillascript">promise!</code> with a body of code instead of just a function:</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">let do-stuff(filename)
+  let my-promise = promise!
+    let text = yield read-file(filename)
+    return text.to-upper-case()
+  
+  my-promise.then(on-success, on-failure)
+</code></pre>
+    
+    <h3><code class="language-gorillascript">to-promise!</code></h3>
+    
+    <p>To facilitate the easy use of Promises, there is also a <code class="language-gorillascript">to-promise!</code> macro that converts a node.js-style function call into a self-fulfilled Promise, as long as that function takes a callback as its last argument with the signature <code class="language-javascript">function (error, result)</code>.</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">let do-stuff(filename)
+  let my-promise = promise!
+    let p = to-promise! fs.read-file filename, "utf8"
+    let text = yield p
+    return text.to-upper-case()
+  
+  my-promise.then(on-success, on-failure)
+</code></pre>
+    
+    <h3><code class="language-gorillascript">from-promise!</code></h3>
+    
+    <p>Along with <code class="language-gorillascript">to-promise!</code> is <code class="language-gorillascript">from-promise!</code>, which converts a Promise into a function which takes a node.js-style callback with the signature <code class="language-javascript">function (error, result)</code>.</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">let do-stuff(filename)
+  let my-promise = promise!
+    let p = to-promise! fs.read-file filename, "utf8"
+    let text = yield p
+    return text.to-upper-case()
+  
+  let node-func = from-promise! my-promise
+  node-func #(err, value)
+    if err?
+      handle-error err
+    else
+      handle-success value
+</code></pre>
+
+    <p>It is recommended to use promises over node.js-style callbacks in nearly all cases, due to the composability of code.</p>
+    
+    <h3><code class="language-gorillascript">fulfilled!</code> and <code class="language-gorillascript">rejected!</code></h3>
+    
+    <p>As a convenience, you can use <code class="language-gorillascript">fulfilled! value</code> to produce an already-fulfilled promise or <code class="language-gorillascript">rejected! reason</code> to produce an already-rejected promise.</p>
+    
+    <h3><code class="language-gorillascript">delay!</code></h3>
+    
+    <p>In case you wish to have a Promise that fulfills after a known amount of time, <code class="language-gorillascript">delay!</code> is available.</code>
+    
+    <pre class="gs-code"><code class="language-gorillascript">let take-a-while = promise! #()*
+  for i in 0 til 10
+    calculate(i)
+    yield delay! 100_ms
+</code></pre>
+    
+    <p>You can also give <code class="language-gorillascript">delay!</code> a value to be fulfilled with:</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">let promise = delay! 1000_ms, "hello!"
+promise.then #(value)
+  assert value == "hello!"
+</code></pre>
+    
+    
+    <h3><code class="language-gorillascript">some-promise!</code></h3>
+    
+    <p>If you want to easily create several Promises and get a result when any Promise within either fulfills or rejects, <code class="language-gorillascript">some-promise!</code> is perfect for the task.</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">let read-file-or-timeout(filename)
+  some-promise! [
+    read-file filename
+    delay! 1000_ms
+  ]
+</code></pre>
+    
+    <p>Which very nicely returns a Promise that either reads a file or times out after waiting too long. The same could be done for fetching pages from the internet or waiting on another process to complete.</p>
+    
+    <h3><code class="language-gorillascript">every-promise!</code></h3>
+    
+    <p>If you wish to execute several Promises in parallel and do something after they all complete (or any of them fail), <code class="language-gorillascript">every-promise!</code> is there for you.</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">let read-many-files(filenames)
+  let file-promises = []
+  for filename in filenames
+    file-promises.push read-file filename
+  every-promise! file-promises
+</code></pre>
+  </section>
+  
+  <section id="parallel-loops">
+    <h2>Parallel Loops</h2>
+    
+    <p>Piggy-backing on the Promise system, GorillaScript provides the <code class="language-gorillascript">promisefor</code> looping construct that allows for asynchronous execution. It can be used either inside of other Promises or in any normal function, it will return a Promise in both cases.</p>
+    
+    <p>If you need to run a loop serially (as opposed to in-parallel), you should simply make a <code class="language-gorillascript">promise!</code> and use the standard looping construct.</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">let loop = promisefor(3) filename in filenames
+  let text = yield read-file filename
+  return text.to-upper-case()
+
+loop.then on-success, on-error
+</code></pre>
+
+    <p>The previous code will run the body of the loop in parallel up to 3 at a time, in-order, until the loop is exhausted. The result will be an array, also in-order, regardless of the individual loop bodies' completion time.</p>
+  </section>
+  
   <section id="async">
     <h2>Async</h2>
-
-    <p>GorillaScript provides a whole slew of asynchronous-capable syntax to make dealing with &#8220;callback hell&#8221; just a little easier. Since JavaScript fundamentals and frameworks (node.js, for example) tend to be very async-friendly, this is especially helpful.</p>
+    
+    <p>If you wish to use an async-friendly syntax without resorting to Promises, there are several syntax constructs to allow for this.</p>
+    
+    <p>It is recommended to use the <a href="#promises">Promise-based syntax</a> over this, as it is more composable. In it, you can use all the standard language constructs such as loops, conditionals, etc. and GorillaScript will convert it all nicely for you. The following examples require some mangling of your code and manual callback invocation to provide the illusion of top-to-bottom code execution.</p>
 
     <h3>Calling an async function</h3>
 
@@ -1259,48 +1391,6 @@ else
 </code></pre>
   </section>
   
-  <section id="promises">
-    <h2>Promises</h2>
-    
-    <p>GorillaScript provides mechanisms for <a href="http://promises-aplus.github.io/promises-spec/">Promises/A+</a>-compliant promises to be used and joined and manipulated together.</p>
-    
-    <p>Promises have the benefit over simple callbacks in that they are well-defined by the Promises/A+ spec, have easy-to-follow resolve/reject rules, and can be combined together shockingly easily.</p>
-    
-    <p>Piggy-backing on the <code class="language-gorillascript">yield</code> syntax, since <code class="language-gorillascript">yield</code> can be used as an expression and not just a statement, information can be sent back to the iterator every time a <code class="language-gorillascript">yield</code> occurs. GorillaScript takes advantage of this with the <code class="language-gorillascript">promise!</code> keyword, which converts a generator function into a promise factory or allows an arbitrary block of code to turn into a promise, all one needs to do is <code class="language-gorillascript">yield</code> other promises until complete.</p>
-    
-    <pre class="gs-code"><code class="language-gorillascript">let make-promise = promise! #(filename)*
-  // here, read-file returns a promise
-  let text = yield read-file(filename)
-  return text.to-upper-case()
-
-let promise = make-promise()
-  .then(on-success, on-failure)
-</code></pre>
-
-    <p>It practically reads like synchronous code, and it's guaranteed to execute in the same order as if it were synchronous.</p>
-    
-    <p>You can also use <code class="language-gorillascript">promise!</code> with a body of code instead of just a function:</p>
-    
-    <pre class="gs-code"><code class="language-gorillascript">let do-stuff(filename)
-  let my-promise = promise!
-    let text = yield read-file(filename)
-    return text.to-upper-case()
-  
-  my-promise.then(on-success, on-failure)
-</code></pre>
-
-    <p>To facilitate the easy use of promises, there is also a <code class="language-gorillascript">to-promise!</code> macro that converts a normal function call into a self-fulfilled promise, as long as that function takes a callback as its last argument with the signature <code class="language-gorillascript">function (error, result)</code>.</p>
-    
-    <pre class="gs-code"><code class="language-gorillascript">let do-stuff(filename)
-  let my-promise = promise!
-    let p = to-promise! fs.read-file filename, "utf8"
-    let text = yield p
-    return text.to-upper-case()
-  
-  my-promise.then(on-success, on-failure)
-</code></pre>
-  </section>
-
   <section id="typing">
     <h2>Optional typing</h2>
 
