@@ -1987,9 +1987,7 @@ let translate-root(mutable roots as Object, mutable scope as Scope)
       []
       []
 
-module.exports := #(node, macros as MacroHolder, options = {}, callback)
-  if is-function! options
-    return module.exports(node, macros, null, options)
+module.exports := #(node, macros as MacroHolder, options = {})
   let mutable result = void
   let start-time = new Date().get-time()
   try
@@ -2003,14 +2001,10 @@ module.exports := #(node, macros as MacroHolder, options = {}, callback)
       throw e
   let end-time = new Date().get-time()
   options.progress?(\translate, end-time - start-time)
-  let ret = {
+  return {
     node: result
     time: end-time - start-time
   }
-  if callback?
-    callback null, ret
-  else
-    ret
 
 module.exports.define-helper := #(macros as MacroHolder, name, value, type as Type, mutable dependencies)
   let scope = Scope({}, macros, false)

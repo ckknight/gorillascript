@@ -31700,16 +31700,13 @@
           );
         }
       }
-      module.exports = function (node, macros, options, callback) {
-        var endTime, result, ret, scope, startTime;
+      module.exports = function (node, macros, options) {
+        var endTime, result, scope, startTime;
         if (!(macros instanceof MacroHolder)) {
           throw TypeError("Expected macros to be a " + __name(MacroHolder) + ", got " + __typeof(macros));
         }
         if (options == null) {
           options = {};
-        }
-        if (typeof options === "function") {
-          return module.exports(node, macros, null, options);
         }
         startTime = new Date().getTime();
         try {
@@ -31717,7 +31714,7 @@
           result = translateRoot(node, scope);
           scope.releaseTmps();
         } catch (e) {
-          if (callback != null) {
+          if (typeof callback !== "undefined" && callback !== null) {
             return callback(e);
           } else {
             throw e;
@@ -31727,12 +31724,7 @@
         if (typeof options.progress === "function") {
           options.progress("translate", __num(endTime) - __num(startTime));
         }
-        ret = { node: result, time: __num(endTime) - __num(startTime) };
-        if (callback != null) {
-          return callback(null, ret);
-        } else {
-          return ret;
-        }
+        return { node: result, time: __num(endTime) - __num(startTime) };
       };
       module.exports.defineHelper = function (macros, name, value, type, dependencies) {
         var helper, ident, scope;
@@ -32363,18 +32355,7 @@
               };
             }
             return _f(function (parsed) {
-              var _once;
-              return translator(parsed.result, parsed.macros, options, (_once = false, function (_e, translated) {
-                if (_once) {
-                  throw Error("Attempted to call function more than once");
-                } else {
-                  _once = true;
-                }
-                if (_e != null) {
-                  return callback(_e);
-                }
-                return next(parsed, translated);
-              }));
+              return next(parsed);
             });
           };
         } else {
@@ -32395,11 +32376,12 @@
             } else {
               parsed = parse(source, options);
             }
-            return next(parsed, translator(parsed.result, parsed.macros, options));
+            return next(parsed);
           };
         }
-        return _f(function (parsed, translated) {
-          var result;
+        return _f(function (parsed) {
+          var result, translated;
+          translated = translator(parsed.result, parsed.macros, options);
           result = {
             node: translated.node,
             parseTime: parsed.parseTime,

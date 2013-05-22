@@ -149,7 +149,7 @@ let translate = exports.ast := #(source, options = {}, callback)
     options.translator
   else 
     require(if is-string! options.translator then options.translator else DEFAULT_TRANSLATOR)
-  asyncif parsed, translated <- next, callback?
+  asyncif parsed <- next, callback?
     asyncif parsed <- next2, is-array! source
       asyncfor err, results <- next3, item, i in source
         if is-array! options.filenames
@@ -161,8 +161,7 @@ let translate = exports.ast := #(source, options = {}, callback)
     else
       async! callback, parsed <- parse source, options
       next2 parsed
-    async! callback, translated <- translator parsed.result, parsed.macros, options
-    next parsed, translated
+    next parsed
   else
     let parsed = if is-array! source
       join-parsed-results for item in source
@@ -171,7 +170,8 @@ let translate = exports.ast := #(source, options = {}, callback)
         parse item, options
     else
       parse source, options
-    next parsed, translator(parsed.result, parsed.macros, options)
+    next parsed
+  let translated = translator(parsed.result, parsed.macros, options)
   
   let result = {
     translated.node
