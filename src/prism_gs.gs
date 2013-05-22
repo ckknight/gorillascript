@@ -20,7 +20,7 @@ Prism.languages.gorillascript := Prism.languages.extend \javascript, {
         macro|const|static|var|do|of|let|enum|namespace|package|true|false|
         null|undefined|void|GLOBAL|this|prototype|arguments|
         from|
-        __(?:FILE|LINE|COLUMN|DATEMSEC)__
+        __(?:FILE|LINE|COLUMN|DATEMSEC|VERSION)__
       )(?!-)\b
     """g
   operator: r"""

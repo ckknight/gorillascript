@@ -9,7 +9,7 @@ jQuery #($)
         return
       let text = $("#try-input").val()
       compiling := true
-      async err, result <- GorillaScript.compile text
+      async err, result <- (from-promise! GorillaScript.compile text)()
       compiling := false
       if err
         $("#try-input-wrap").add-class("error")
@@ -106,7 +106,7 @@ jQuery #($)
       
       let {gs-code, $js-code} = pending.shift()
       
-      async err, result <- GorillaScript.compile gs-code, return: true, bare: true
+      async err, result <- (from-promise! GorillaScript.compile gs-code, return: true, bare: true)()
       let $code = $js-code.find("code")
       $code.text if err?
         "// Error: $(String err)"

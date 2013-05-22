@@ -18,14 +18,14 @@ command \build, "Build browser extras", #(options, cb)
   let basepath = path.dirname(filename-path)
   let files = ["node_modules/gorillascript/extras/gorillascript.js", "src/prism.js", "src/prism_gs.gs", "src/index.gs"]
   
-  async <- gorilla.init()
+  async <- (from-promise! gorilla.init())()
   
   output "Building code.js ... "
   let mutable start-time = new Date().get-time()
   asyncfor err, codes <- next, file in files
     async! cb, text <- fs.read-file path.join(basepath, file), "utf8"
     if r'\.gs$'.test file
-      async! cb, compiled <- gorilla.compile text
+      async! cb, compiled <- (from-promise! gorilla.compile text)()
       next null, compiled.code
     else
       next null, text

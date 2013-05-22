@@ -263,12 +263,15 @@ DEBUG and assert(some-expensive-check())
         <dd>A number representing the current column in the GorillaScript file being parsed. 1-indexed.</dd>
       <dt><code class="language-gorillascript">__DATEMSEC__</code></dt>
         <dd>A number representing the milliseconds since epoch.</dd>
+      <dt><code class="language-gorillascript">__VERSION__</code></dt>
+        <dd>A string representing the <code class="language-javascript">"version"</code> key from the closest <code>package.json</code>.</dd>
     </dl>
     
     <pre class="gs-code"><code class="language-gorillascript">print __FILE__
 print __LINE__
 print __COLUMN__
 print new Date(__DATEMSEC__)
+MyProject.version := __VERSION__ // would work if we weren't in the browser
 </code></pre>
   </section>
 
