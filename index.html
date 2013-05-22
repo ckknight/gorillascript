@@ -23,6 +23,7 @@
       <li><a href="#strict-mode-by-default">Strict mode by default</a>
       <li><a href="#type-safety-of-operators">Type safety of operators</a>
       <li><a href="#immutable-by-default">Immutable by default</a>
+      <li><a href="#constants">Constants</a>
       <li><a href="#indentation">Indentation to mark code blocks</a>
       <li><a href="#changed-operators">Changed operators</a>
       <li><a href="#function-syntax">Slightly nicer function syntax</a>
@@ -91,6 +92,7 @@
     <p>Some of the features that are available in GorillaScript that are not (or are otherwise unwieldy) in vanilla JavaScript are:</p>
     
     <ul class="comma-list">
+      <li><a href="#constants">Constants</a>
       <li><a href="#changed-operators">Some new operators</a>
       <li><a href="#string-interpolation">String interpolation</a>
       <li><a href="#optional-parameters">Optional parameters</a>
@@ -235,6 +237,19 @@ z := 6 // never declared, this is an error
 </code></pre>
 
     <p>As you may have noticed, there are two different operators for declaration <code class="language-gorillascript">=</code> as compared to assignment <code class="language-gorillascript">:=</code>. This is to clarify the difference. In an ideal program, having as little mutable state as possible is best, so if <code class="language-gorillascript">:=</code> jumps out, that&#8217;s a good thing.</p>
+  </section>
+  
+  <section id="constants">
+    <h2>Constants</h2>
+    
+    <p>Separate from the <code class="language-gorillascript">let</code> statement, <code class="language-gorillascript">const</code> allows you to specify that a value is a specific constant value (i.e. a JavaScript primitive). Any references in-code will be replaced by the value, allowing for pragma-like control over your code.</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">const DEBUG = false
+
+DEBUG and assert(some-expensive-check())
+</code></pre>
+
+    <p>Constants do not need to be in <code class="language-gorillascript">CONST_CASE</code>, though it is recommended.</p>
   </section>
 
   <section id="indentation">
