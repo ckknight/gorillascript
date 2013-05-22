@@ -134,7 +134,7 @@ command "build:browser", "Merge GorillaScript for use in the browser", #(options
     next()
   
   let gorilla = require('./lib/gorilla')
-  async! cb, serialized-prelude <- gorilla.get-serialized-prelude("js")
+  async! cb, serialized-prelude <- (from-promise! gorilla.get-serialized-prelude("js"))()
   let mutable deserialized-prelude = JSON.parse serialized-prelude
   if options.uglify
     for k, v of deserialized-prelude

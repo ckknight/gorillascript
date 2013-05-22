@@ -18,78 +18,75 @@ else if require.register-extension
 
 let fetch-and-parse-prelude = do
   let parsed-prelude-by-lang = {}
-  let fetchers = []
-  let flush(err, value)
-    while fetchers.length > 0
-      fetchers.shift()(err, value)
   let real-__filename = if __filename? then fs.realpath-sync(__filename)
   let get-prelude-src-path = if real-__filename? then #(lang) -> path.join(path.dirname(real-__filename), "../src/$(lang)prelude.gs")
   let get-prelude-cache-path = if os? then #(lang) -> path.join(os.tmp-dir(), "gs-$(lang)prelude-$(exports.version).cache")
-  let f(lang as String, cb as ->)
-    let mutable parsed-prelude = parsed-prelude-by-lang![lang]
-    if parsed-prelude?
-      return cb null, parsed-prelude
-    fetchers.push cb
-    if fetchers.length > 1
-      return
-    async! flush, prelude-src-stat <- fs.stat get-prelude-src-path(lang)
-    async err, prelude-cache-stat <- fs.stat get-prelude-cache-path(lang)
-    if err? and err.code != "ENOENT"
-      return flush(err, null)
-    asyncif next, prelude-cache-stat and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time()
-      async! flush, cache-prelude <- fs.read-file get-prelude-cache-path(lang), "utf8"
+  let prelude-promises-by-lang = {}
+  let work = promise! #(lang as String, sync)*
+    let prelude-src-path = get-prelude-src-path(lang)
+    let prelude-src-stat = if sync
+      fs.stat-sync prelude-src-path
+    else
+      yield to-promise! fs.stat prelude-src-path
+    
+    let prelude-cache-path = get-prelude-cache-path(lang)
+    let mutable prelude-cache-stat = void
+    try
+      prelude-cache-stat := if sync
+        fs.stat-sync prelude-cache-path
+      else
+        yield to-promise! fs.stat prelude-cache-path
+    catch e
+      if e.code != "ENOENT"
+        throw e
+    
+    let mutable parsed-prelude = void
+    if prelude-cache-stat and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time()
+      let cache-prelude = if sync
+        fs.read-file-sync prelude-cache-path "utf8"
+      else
+        yield to-promise! fs.read-file prelude-cache-path, "utf8"
+      let mutable errored = false
       try
-        parsed-prelude-by-lang[lang] := parsed-prelude := parser.deserialize-prelude(cache-prelude)
+        parsed-prelude := parsed-prelude-by-lang[lang] := parser.deserialize-prelude(cache-prelude)
       catch e as ReferenceError
         throw e
       catch e
-        console.error "GorillaScript: Error deserializing prelude, reloading. $(String e)"
-        async! flush <- fs.unlink get-prelude-cache-path(lang)
-        next()
+        console.error "Error deserializing prelude, reloading. $(String e)"
+        errored := true
+      if errored
+        if sync
+          fs.unlink-sync prelude-cache-path
+        else
+          yield to-promise! fs.unlink prelude-cache-path
+    if not parsed-prelude?
+      let prelude = if sync
+        fs.read-file-sync prelude-src-path, "utf8"
       else
-        flush(null, parsed-prelude)
-    async! flush, prelude <- fs.read-file get-prelude-src-path(lang), "utf8"
-    asyncif next, not parsed-prelude?
-      process.stderr.write "GorillaScript: Compiling prelude ... "
-      let start-time = new Date().get-time()
-      async! flush, result <- (from-promise! parser prelude, null, { +serialize-macros })()
-      parsed-prelude-by-lang[lang] := parsed-prelude := result
-      process.stderr.write "$(((new Date().get-time() - start-time) / 1000_ms).to-fixed(3)) s\n"
-      fs.write-file get-prelude-cache-path(lang), parsed-prelude.macros.serialize(), "utf8", #(err)
-        throw? err
-      next()
-    flush(null, parsed-prelude)
-  
-  f.serialized := #(lang as String, cb as ->)
-    async! cb <- f(lang)
-    fs.read-file get-prelude-cache-path(lang), "utf8", cb
-      
-  f.sync := #(lang as String)
-    let mutable parsed-prelude = parsed-prelude-by-lang![lang]
+        yield to-promise! fs.read-file prelude-src-path, "utf8"
+      parsed-prelude := parsed-prelude-by-lang[lang] := if sync
+        parser.sync prelude, null, { +serialize-macros, +sync }
+      else
+        yield parser prelude, null, { +serialize-macros }
+      fs.write-file prelude-cache-path, parsed-prelude.macros.serialize(), "utf8", #->
+    delete prelude-promises-by-lang[lang]
+    return parsed-prelude
+  let f(lang as String, sync as Boolean)
+    let parsed-prelude = parsed-prelude-by-lang![lang]
     if parsed-prelude?
-      parsed-prelude
+      if sync
+        parsed-prelude
+      else
+        fulfilled! parsed-prelude
     else
-      let prelude-src-stat = fs.stat-sync get-prelude-src-path(lang)
-      let prelude-cache-stat = try
-        fs.stat-sync get-prelude-cache-path(lang)
-      catch e
-        if e.code != "ENOENT"
-          throw e
-      if prelude-cache-stat and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time()
-        let cache-prelude = fs.read-file-sync get-prelude-cache-path(lang), "utf8"
-        try
-          parsed-prelude := parsed-prelude-by-lang[lang] := parser.deserialize-prelude(cache-prelude)
-        catch e as ReferenceError
-          throw e
-        catch e
-          console.error "Error deserializing prelude, reloading. $(String e)"
-          fs.unlink-sync get-prelude-cache-path(lang)
-      if not parsed-prelude?
-        let prelude = fs.read-file-sync get-prelude-src-path(lang), "utf8"
-        parsed-prelude := parsed-prelude-by-lang[lang] := parser.sync prelude, null, { +serialize-macros }
-        fs.write-file get-prelude-cache-path(lang), parsed-prelude.macros.serialize(), "utf8", #(err)
-          throw? err
-      parsed-prelude
+      if sync
+        work.sync lang, true
+      else
+        prelude-promises-by-lang[lang] ?= work lang
+  
+  f.serialized := promise! #(lang as String)*
+    yield f(lang)
+    return yield to-promise! fs.read-file get-prelude-cache-path(lang), "utf8"
   
   exports.with-prelude := #(lang as String, serialized-prelude as {})
     parsed-prelude-by-lang[lang] := parser.deserialize-prelude(serialized-prelude)
@@ -105,9 +102,9 @@ exports.parse := promise! #(source, options = {})*
   else if options.no-prelude
     null
   else if sync
-    fetch-and-parse-prelude.sync(options.lang or "js").macros
+    fetch-and-parse-prelude(options.lang or "js", true).macros
   else
-    (yield to-promise! fetch-and-parse-prelude(options.lang or "js")).macros
+    (yield fetch-and-parse-prelude(options.lang or "js")).macros
   
   return if sync
     parser.sync(source, macros, options)
@@ -121,7 +118,7 @@ exports.get-reserved-words := #(options = {})
   if options.no-prelude
     parser.get-reserved-words(null, options)
   else
-    parser.get-reserved-words(fetch-and-parse-prelude.sync(options.lang or "js").macros, options)
+    parser.get-reserved-words(fetch-and-parse-prelude(options.lang or "js", true).macros, options)
 
 let join-parsed-results(results)
   let joined-parsed = {
@@ -280,9 +277,9 @@ exports.run-sync := #(source, options = {})
 
 let init = exports.init := promise! #(options = {})*
   if options.sync
-    fetch-and-parse-prelude.sync(options.lang or "js")
+    fetch-and-parse-prelude(options.lang or "js", true)
   else
-    yield to-promise! fetch-and-parse-prelude(options.lang or "js")
+    yield fetch-and-parse-prelude(options.lang or "js")
 exports.init-sync := #(options = {})!
   options.sync := true
   init.sync options
