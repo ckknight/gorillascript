@@ -27525,6 +27525,24 @@
           MacroAccess: function (x, func) {
             return this.mutateLast(this.macroExpand1(x), func);
           },
+          TryCatch: function (x, func) {
+            var catchBody, tryBody;
+            tryBody = this.mutateLast(x.tryBody, func);
+            catchBody = this.mutateLast(x.catchBody, func);
+            if (tryBody !== x.tryBody || catchBody !== x.catchBody) {
+              return TryCatchNode(
+                x.line,
+                x.column,
+                x.scope,
+                tryBody,
+                x.catchIdent,
+                catchBody,
+                x.label
+              );
+            } else {
+              return x;
+            }
+          },
           Break: identity,
           Continue: identity,
           Nothing: identity,
@@ -27790,7 +27808,7 @@
             }
           };
           _Map_prototype.keys = function () {
-            var _arr, _e, _i, _send, _state, _step, _this, key;
+            var _arr, _e, _i, _send, _state, _step, _this, _throw, key;
             _this = this;
             _state = 0;
             function _close() {
@@ -27816,12 +27834,15 @@
                 }
               }
             }
+            function _throw(_e) {
+              _close();
+              throw _e;
+            }
             function _send(_received) {
               try {
                 return _step(_received);
               } catch (_e) {
-                _close();
-                throw _e;
+                _throw(_e);
               }
             }
             return {
@@ -27833,14 +27854,14 @@
                 return _send(void 0);
               },
               send: _send,
-              "throw": function (e) {
-                _close();
-                throw e;
+              "throw": function (_e) {
+                _throw(_e);
+                return _send(void 0);
               }
             };
           };
           _Map_prototype.values = function () {
-            var _arr, _e, _i, _send, _state, _step, _this, value;
+            var _arr, _e, _i, _send, _state, _step, _this, _throw, value;
             _this = this;
             _state = 0;
             function _close() {
@@ -27866,12 +27887,15 @@
                 }
               }
             }
+            function _throw(_e) {
+              _close();
+              throw _e;
+            }
             function _send(_received) {
               try {
                 return _step(_received);
               } catch (_e) {
-                _close();
-                throw _e;
+                _throw(_e);
               }
             }
             return {
@@ -27883,14 +27907,14 @@
                 return _send(void 0);
               },
               send: _send,
-              "throw": function (e) {
-                _close();
-                throw e;
+              "throw": function (_e) {
+                _throw(_e);
+                return _send(void 0);
               }
             };
           };
           _Map_prototype.items = function () {
-            var _arr, _e, _send, _state, _step, _this, i, key, values;
+            var _arr, _e, _send, _state, _step, _this, _throw, i, key, values;
             _this = this;
             _state = 0;
             function _close() {
@@ -27920,12 +27944,15 @@
                 }
               }
             }
+            function _throw(_e) {
+              _close();
+              throw _e;
+            }
             function _send(_received) {
               try {
                 return _step(_received);
               } catch (_e) {
-                _close();
-                throw _e;
+                _throw(_e);
               }
             }
             return {
@@ -27937,9 +27964,9 @@
                 return _send(void 0);
               },
               send: _send,
-              "throw": function (e) {
-                _close();
-                throw e;
+              "throw": function (_e) {
+                _throw(_e);
+                return _send(void 0);
               }
             };
           };
@@ -32093,7 +32120,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.0";
+      exports.version = "0.7.1";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -50151,6 +50178,7 @@
                   "_state",
                   "_step",
                   "_this",
+                  "_throw",
                   "key"
                 ],
                 [],
@@ -50457,29 +50485,10 @@
                   3481,
                   11,
                   0,
-                  ["Ident", 3481, 11, 0, "_send"],
-                  [["Ident", 3481, 11, 0, "_received"]],
+                  ["Ident", 3481, 11, 0, "_throw"],
+                  [["Ident", 3481, 11, 0, "_e"]],
                   [],
                   [],
-                  "TryCatch",
-                  3481,
-                  11,
-                  0,
-                  0,
-                  [
-                    "Return",
-                    3481,
-                    11,
-                    0,
-                    "Call",
-                    3481,
-                    11,
-                    0,
-                    ["Ident", 3481, 11, 0, "_step"],
-                    0,
-                    ["Ident", 3481, 11, 0, "_received"]
-                  ],
-                  ["Ident", 3481, 11, 0, "_e"],
                   "BlockStatement",
                   3481,
                   11,
@@ -50504,6 +50513,42 @@
                     0,
                     "_e"
                   ]
+                ],
+                [
+                  "Func",
+                  3481,
+                  11,
+                  0,
+                  ["Ident", 3481, 11, 0, "_send"],
+                  [["Ident", 3481, 11, 0, "_received"]],
+                  [],
+                  [],
+                  "TryCatch",
+                  3481,
+                  11,
+                  0,
+                  0,
+                  [
+                    "Return",
+                    3481,
+                    11,
+                    0,
+                    "Call",
+                    3481,
+                    11,
+                    0,
+                    ["Ident", 3481, 11, 0, "_step"],
+                    0,
+                    ["Ident", 3481, 11, 0, "_received"]
+                  ],
+                  ["Ident", 3481, 11, 0, "_e"],
+                  "Call",
+                  3481,
+                  11,
+                  0,
+                  ["Ident", 3481, 11, 0, "_throw"],
+                  0,
+                  ["Ident", 3481, 11, 0, "_e"]
                 ],
                 [
                   "Return",
@@ -50581,7 +50626,7 @@
                     11,
                     0,
                     0,
-                    [["Ident", 3481, 11, 0, "e"]],
+                    [["Ident", 3481, 11, 0, "_e"]],
                     [],
                     [],
                     "BlockStatement",
@@ -50594,19 +50639,22 @@
                       3481,
                       11,
                       0,
-                      ["Ident", 3481, 11, 0, "_close"],
-                      0
+                      ["Ident", 3481, 11, 0, "_throw"],
+                      0,
+                      ["Ident", 3481, 11, 0, "_e"]
                     ],
                     [
-                      "Throw",
+                      "Return",
                       3481,
                       11,
                       0,
-                      "Ident",
+                      "Call",
                       3481,
                       11,
                       0,
-                      "e"
+                      ["Ident", 3481, 11, 0, "_send"],
+                      0,
+                      ["Const", 3481, 11, 0]
                     ]
                   ]
                 ]
@@ -50644,6 +50692,7 @@
                   "_state",
                   "_step",
                   "_this",
+                  "_throw",
                   "value"
                 ],
                 [],
@@ -50950,29 +50999,10 @@
                   3485,
                   13,
                   0,
-                  ["Ident", 3485, 13, 0, "_send"],
-                  [["Ident", 3485, 13, 0, "_received"]],
+                  ["Ident", 3485, 13, 0, "_throw"],
+                  [["Ident", 3485, 13, 0, "_e"]],
                   [],
                   [],
-                  "TryCatch",
-                  3485,
-                  13,
-                  0,
-                  0,
-                  [
-                    "Return",
-                    3485,
-                    13,
-                    0,
-                    "Call",
-                    3485,
-                    13,
-                    0,
-                    ["Ident", 3485, 13, 0, "_step"],
-                    0,
-                    ["Ident", 3485, 13, 0, "_received"]
-                  ],
-                  ["Ident", 3485, 13, 0, "_e"],
                   "BlockStatement",
                   3485,
                   13,
@@ -50997,6 +51027,42 @@
                     0,
                     "_e"
                   ]
+                ],
+                [
+                  "Func",
+                  3485,
+                  13,
+                  0,
+                  ["Ident", 3485, 13, 0, "_send"],
+                  [["Ident", 3485, 13, 0, "_received"]],
+                  [],
+                  [],
+                  "TryCatch",
+                  3485,
+                  13,
+                  0,
+                  0,
+                  [
+                    "Return",
+                    3485,
+                    13,
+                    0,
+                    "Call",
+                    3485,
+                    13,
+                    0,
+                    ["Ident", 3485, 13, 0, "_step"],
+                    0,
+                    ["Ident", 3485, 13, 0, "_received"]
+                  ],
+                  ["Ident", 3485, 13, 0, "_e"],
+                  "Call",
+                  3485,
+                  13,
+                  0,
+                  ["Ident", 3485, 13, 0, "_throw"],
+                  0,
+                  ["Ident", 3485, 13, 0, "_e"]
                 ],
                 [
                   "Return",
@@ -51074,7 +51140,7 @@
                     13,
                     0,
                     0,
-                    [["Ident", 3485, 13, 0, "e"]],
+                    [["Ident", 3485, 13, 0, "_e"]],
                     [],
                     [],
                     "BlockStatement",
@@ -51087,19 +51153,22 @@
                       3485,
                       13,
                       0,
-                      ["Ident", 3485, 13, 0, "_close"],
-                      0
+                      ["Ident", 3485, 13, 0, "_throw"],
+                      0,
+                      ["Ident", 3485, 13, 0, "_e"]
                     ],
                     [
-                      "Throw",
+                      "Return",
                       3485,
                       13,
                       0,
-                      "Ident",
+                      "Call",
                       3485,
                       13,
                       0,
-                      "e"
+                      ["Ident", 3485, 13, 0, "_send"],
+                      0,
+                      ["Const", 3485, 13, 0]
                     ]
                   ]
                 ]
@@ -51136,6 +51205,7 @@
                   "_state",
                   "_step",
                   "_this",
+                  "_throw",
                   "i",
                   "key",
                   "values"
@@ -51482,29 +51552,10 @@
                   3489,
                   12,
                   0,
-                  ["Ident", 3489, 12, 0, "_send"],
-                  [["Ident", 3489, 12, 0, "_received"]],
+                  ["Ident", 3489, 12, 0, "_throw"],
+                  [["Ident", 3489, 12, 0, "_e"]],
                   [],
                   [],
-                  "TryCatch",
-                  3489,
-                  12,
-                  0,
-                  0,
-                  [
-                    "Return",
-                    3489,
-                    12,
-                    0,
-                    "Call",
-                    3489,
-                    12,
-                    0,
-                    ["Ident", 3489, 12, 0, "_step"],
-                    0,
-                    ["Ident", 3489, 12, 0, "_received"]
-                  ],
-                  ["Ident", 3489, 12, 0, "_e"],
                   "BlockStatement",
                   3489,
                   12,
@@ -51529,6 +51580,42 @@
                     0,
                     "_e"
                   ]
+                ],
+                [
+                  "Func",
+                  3489,
+                  12,
+                  0,
+                  ["Ident", 3489, 12, 0, "_send"],
+                  [["Ident", 3489, 12, 0, "_received"]],
+                  [],
+                  [],
+                  "TryCatch",
+                  3489,
+                  12,
+                  0,
+                  0,
+                  [
+                    "Return",
+                    3489,
+                    12,
+                    0,
+                    "Call",
+                    3489,
+                    12,
+                    0,
+                    ["Ident", 3489, 12, 0, "_step"],
+                    0,
+                    ["Ident", 3489, 12, 0, "_received"]
+                  ],
+                  ["Ident", 3489, 12, 0, "_e"],
+                  "Call",
+                  3489,
+                  12,
+                  0,
+                  ["Ident", 3489, 12, 0, "_throw"],
+                  0,
+                  ["Ident", 3489, 12, 0, "_e"]
                 ],
                 [
                   "Return",
@@ -51606,7 +51693,7 @@
                     12,
                     0,
                     0,
-                    [["Ident", 3489, 12, 0, "e"]],
+                    [["Ident", 3489, 12, 0, "_e"]],
                     [],
                     [],
                     "BlockStatement",
@@ -51619,19 +51706,22 @@
                       3489,
                       12,
                       0,
-                      ["Ident", 3489, 12, 0, "_close"],
-                      0
+                      ["Ident", 3489, 12, 0, "_throw"],
+                      0,
+                      ["Ident", 3489, 12, 0, "_e"]
                     ],
                     [
-                      "Throw",
+                      "Return",
                       3489,
                       12,
                       0,
-                      "Ident",
+                      "Call",
                       3489,
                       12,
                       0,
-                      "e"
+                      ["Ident", 3489, 12, 0, "_send"],
+                      0,
+                      ["Const", 3489, 12, 0]
                     ]
                   ]
                 ]
@@ -52398,6 +52488,7 @@
                   "_state",
                   "_step",
                   "_this",
+                  "_throw",
                   "item"
                 ],
                 [],
@@ -52704,29 +52795,10 @@
                   3516,
                   13,
                   0,
-                  ["Ident", 3516, 13, 0, "_send"],
-                  [["Ident", 3516, 13, 0, "_received"]],
+                  ["Ident", 3516, 13, 0, "_throw"],
+                  [["Ident", 3516, 13, 0, "_e"]],
                   [],
                   [],
-                  "TryCatch",
-                  3516,
-                  13,
-                  0,
-                  0,
-                  [
-                    "Return",
-                    3516,
-                    13,
-                    0,
-                    "Call",
-                    3516,
-                    13,
-                    0,
-                    ["Ident", 3516, 13, 0, "_step"],
-                    0,
-                    ["Ident", 3516, 13, 0, "_received"]
-                  ],
-                  ["Ident", 3516, 13, 0, "_e"],
                   "BlockStatement",
                   3516,
                   13,
@@ -52751,6 +52823,42 @@
                     0,
                     "_e"
                   ]
+                ],
+                [
+                  "Func",
+                  3516,
+                  13,
+                  0,
+                  ["Ident", 3516, 13, 0, "_send"],
+                  [["Ident", 3516, 13, 0, "_received"]],
+                  [],
+                  [],
+                  "TryCatch",
+                  3516,
+                  13,
+                  0,
+                  0,
+                  [
+                    "Return",
+                    3516,
+                    13,
+                    0,
+                    "Call",
+                    3516,
+                    13,
+                    0,
+                    ["Ident", 3516, 13, 0, "_step"],
+                    0,
+                    ["Ident", 3516, 13, 0, "_received"]
+                  ],
+                  ["Ident", 3516, 13, 0, "_e"],
+                  "Call",
+                  3516,
+                  13,
+                  0,
+                  ["Ident", 3516, 13, 0, "_throw"],
+                  0,
+                  ["Ident", 3516, 13, 0, "_e"]
                 ],
                 [
                   "Return",
@@ -52828,7 +52936,7 @@
                     13,
                     0,
                     0,
-                    [["Ident", 3516, 13, 0, "e"]],
+                    [["Ident", 3516, 13, 0, "_e"]],
                     [],
                     [],
                     "BlockStatement",
@@ -52841,19 +52949,22 @@
                       3516,
                       13,
                       0,
-                      ["Ident", 3516, 13, 0, "_close"],
-                      0
+                      ["Ident", 3516, 13, 0, "_throw"],
+                      0,
+                      ["Ident", 3516, 13, 0, "_e"]
                     ],
                     [
-                      "Throw",
+                      "Return",
                       3516,
                       13,
                       0,
-                      "Ident",
+                      "Call",
                       3516,
                       13,
                       0,
-                      "e"
+                      ["Ident", 3516, 13, 0, "_send"],
+                      0,
+                      ["Const", 3516, 13, 0]
                     ]
                   ]
                 ]

@@ -669,6 +669,13 @@ class MacroContext
         x
     MacroAccess: #(x, func)
       @mutate-last @macro-expand-1(x), func
+    TryCatch: #(x, func)
+      let try-body = @mutate-last x.try-body, func
+      let catch-body = @mutate-last x.catch-body, func
+      if try-body != x.try-body or catch-body != x.catch-body
+        TryCatchNode x.line, x.column, x.scope, try-body, x.catch-ident, catch-body, x.label
+      else
+        x
     Break: identity
     Continue: identity
     Nothing: identity
