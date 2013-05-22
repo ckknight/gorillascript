@@ -100,6 +100,7 @@
       <li><a href="#array-slicing">Array slicing</a>
       <li><a href="#classes">Classes</a>
       <li><a href="#destructuring">Destructuring</a>
+      <li><a href="#switch">Topicless switch</a>
       <li><a href="#iterators">Iterators</a>
       <li><a href="#promises">Promises</a>
       <li><a href="#parallel-loops">Parallel loops</a>
@@ -220,7 +221,9 @@ new Date().getTime() + 1 == 1359519958072 // or some other number
   <section id="immutable-by-default">
     <h2>Immutable by default</h2>
 
-    <p>GorillaScript uses two separate tokens for declaration as compared to assignment. Also, instead of JavaScript&#8217;s <code class="language-javascript">var</code> keyword, GorillaScript uses <code class="language-gorillascript">let</code>. Unless one specifies <code class="language-gorillascript">let mutable</code>, the local constant cannot be reset to any other value. The object in the value can still be mutated (assuming it is mutable). This can prevent some errors and often helps with the clarity of one&#8217;s code.</p>
+    <p>GorillaScript uses two separate tokens for declaration as compared to assignment. Also, instead of JavaScript&#8217;s <code class="language-javascript">var</code> keyword, GorillaScript uses <code class="language-gorillascript">let</code>. Unless one specifies <code class="language-gorillascript">let mutable</code>, the local cannot be reset to any other value. This can prevent some errors and often helps with the clarity of one&#8217;s code.</p>
+    
+    <p>Note: An object assigned to a local using <code class="language-gorillascript">let</code> can still be mutated, such as pushing values into an <code class="language-gorillascript">Array</code>. The reference to the array cannot be mutated, though.</p>
 
     <p>Also, no undeclared variables can be altered, preventing unexpected global pollution (and typos).</p>
 
