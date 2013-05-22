@@ -469,6 +469,7 @@ class GeneratorBuilder
     let state-ident = @state-ident
     let step = @scope.reserve-ident @pos, \step, Type.function
     let send = @scope.reserve-ident @pos, \send, Type.function
+    let throw-ident = @scope.reserve-ident @pos, \throw, Type.function
     body.push ast.Func @pos, step, [@received-ident], [], ast.While @pos, true,
       ast.Switch @pos,
         state-ident
@@ -484,20 +485,21 @@ class GeneratorBuilder
           ast.Call @pos,
             ast.Ident @pos, \Error
             [ast.Binary @pos, "Unknown state: ", "+", state-ident]
+    body.push ast.Func @pos, throw-ident, [err], [], for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Call(@pos, close, []), ast.Throw @pos, err]
+      let err-ident = catch-info.t-ident()
+      @scope.add-variable err-ident
+      ast.If @pos,
+        ast.Or @pos, ...(for state in catch-info.try-states
+          if not @redirects.has state
+            ast.Binary(@pos, state-ident, "===", ast.Const(@pos, state.case-id())))
+        ast.Block @pos,
+          * ast.Assign @pos, err-ident, err
+          * ast.Assign @pos, state-ident, ast.Const(@pos, catch-info.catch-state.case-id())
+        current
     let send-try-catch = ast.TryCatch @pos,
       ast.Return @pos, ast.Call @pos, step, [@received-ident]
       err
-      for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Call(@pos, close, []), ast.Throw @pos, err]
-        let err-ident = catch-info.t-ident()
-        @scope.add-variable err-ident
-        ast.If @pos,
-          ast.Or @pos, ...(for state in catch-info.try-states
-            if not @redirects.has state
-              ast.Binary(@pos, state-ident, "===", ast.Const(@pos, state.case-id())))
-          ast.Block @pos,
-            * ast.Assign @pos, err-ident, err
-            * ast.Assign @pos, state-ident, ast.Const(@pos, catch-info.catch-state.case-id())
-          current
+      ast.Call @pos, throw-ident, [err]
     body.push ast.Func @pos, send, [@received-ident], [], if catches.length
       ast.While @pos, true, send-try-catch
     else
@@ -507,11 +509,14 @@ class GeneratorBuilder
       * ast.Obj.Pair @pos, \iterator, ast.Func @pos, null, [], [], ast.Return(@pos, ast.This(@pos))
       * ast.Obj.Pair @pos, \next, ast.Func @pos, null, [], [], ast.Return @pos, ast.Call @pos, send, [ast.Const @pos, void]
       * ast.Obj.Pair @pos, \send, send
-      * ast.Obj.Pair @pos, \throw, ast.Func @pos, null, [ast.Ident @pos, \e], [], ast.Block @pos, [
+      * ast.Obj.Pair @pos, \throw, ast.Func @pos, null, [err], [], ast.Block @pos, [
           ast.Call @pos,
-            close
-            []
-          ast.Throw @pos, ast.Ident @pos, \e
+            throw-ident
+            [err]
+          ast.Return @pos,
+            ast.Call @pos,
+              send
+              [ast.Const @pos, void]
         ]
     ast.Block @pos, body
 
