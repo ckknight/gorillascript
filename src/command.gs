@@ -87,7 +87,7 @@ let handle-code(code, callback = #->)
       gjs.stdin.end()
       next null, ""), 50
   else
-    async! next, result <- gorilla.eval code, opts
+    async! next, result <- (from-promise! gorilla.eval code, opts)()
     next null, util.inspect result
   if err?
     if err instanceof Error and err.stack

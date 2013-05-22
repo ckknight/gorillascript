@@ -198,7 +198,7 @@ exports.start := #(options = {})
       async err, compiled <- gorilla.compile code, { eval: true, filename: \repl, modulename: \repl }
       pipe.stdin.write compiled.code
     else
-      async err, ret <- gorilla.eval code, { sandbox, filename: \repl, modulename: \repl }
+      async err, ret <- (from-promise! gorilla.eval code, { sandbox, filename: \repl, modulename: \repl })()
       if err
         error err
       else if not is-void! ret

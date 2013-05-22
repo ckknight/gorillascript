@@ -246,39 +246,31 @@ let evaluate(code, options)
     let fun = Function("return $code")
     fun()
 
-exports.eval := #(source, options = {}, callback)
-  if is-function! options
-    return exports.eval source, null, options
+exports.eval := promise! #(source, options = {})*
+  let sync = options.sync
   options.eval := true
   options.return := false
-  asyncif compiled <- next, callback?
-    async! callback, compiled <- compile source, options
-    next compiled
+  let compiled = if sync
+    compile source, options
   else
-    next compile source, options
+    yield to-promise! compile source, options
   
   let start-time = new Date().get-time()
-  let mutable result = null
-  try
-    result := evaluate compiled.code, options
-  catch e
-    if callback?
-      return callback e
-    else
-      throw e
+  let result = evaluate compiled.code, options
   options.progress?(\eval, new Date().get-time() - start-time)
-  
-  if callback?
-    callback null, result
-  else
-    result
+  return result
+
+exports.eval-sync := #(source, options = {})
+  options.sync := true
+  exports.eval.sync source, options
+
 exports.run := promise! #(source, options = {})*
   let sync = options.sync
   if is-void! process
     return if sync
-      exports.eval(source, options)
+      exports.eval-sync(source, options)
     else
-      yield to-promise! exports.eval(source, options)
+      yield exports.eval(source, options)
   let main-module = require.main
   main-module.filename := (process.argv[1] := if options.filename
     fs.realpath-sync(options.filename)
@@ -296,9 +288,15 @@ exports.run := promise! #(source, options = {})*
     main-module._compile compiled.code, main-module.filename
   else
     main-module._compile source, main-module.filename
+exports.run-sync := #(source, options = {})
+  options.sync := true
+  exports.run.sync source, options
 
 let init = exports.init := promise! #(options = {})*
   if options.sync
     fetch-and-parse-prelude.sync(options.lang or "js")
   else
     yield to-promise! fetch-and-parse-prelude(options.lang or "js")
+exports.init-sync := #(options = {})!
+  options.sync := true
+  init.sync options

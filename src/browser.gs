@@ -27,7 +27,7 @@ if window?
         if script.src
           GorillaScript.load script.src, next
         else
-          GorillaScript.run.sync script.inner-HTML, sync: true
+          GorillaScript.run-sync script.inner-HTML
           next()
       else
         next()

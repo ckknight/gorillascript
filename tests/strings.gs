@@ -117,7 +117,7 @@ describe "Triple-double-quoted strings", #
     I am well today.
     """).to.equal "Hello, friend!\nI am well today."
     
-    expect(gorilla.eval '"""alpha\r\nbravo"""').to.equal "alpha\nbravo"
+    expect(gorilla.eval-sync '"""alpha\r\nbravo"""').to.equal "alpha\nbravo"
   
   it "only ignores one line of whitespace on start and end", #
     expect("""
@@ -204,7 +204,7 @@ describe "Triple-single-quoted strings", #
     I am well today.
     ''').to.equal "Hello, friend!\nI am well today."
 
-    expect(gorilla.eval "'''alpha\r\nbravo'''").to.equal "alpha\nbravo"
+    expect(gorilla.eval-sync "'''alpha\r\nbravo'''").to.equal "alpha\nbravo"
   
   it "only ignores one line of whitespace on start and end", #
     expect('''
