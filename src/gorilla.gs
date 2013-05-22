@@ -141,39 +141,32 @@ let join-parsed-results(results)
     joined-parsed.result.push parsed.result
   joined-parsed
 
-let translate = exports.ast := #(source, options = {}, callback)
-  if is-function! options
-    return translate source, null, options
+exports.ast := promise! #(source, options = {})*
   let start-time = new Date().get-time()
+  let sync = options.sync
   let translator = if is-function! options.translator
     options.translator
   else 
     require(if is-string! options.translator then options.translator else DEFAULT_TRANSLATOR)
-  asyncif parsed <- next, callback?
-    asyncif parsed <- next2, is-array! source
-      asyncfor err, results <- next3, item, i in source
-        if is-array! options.filenames
-          options.filename := options.filenames[i]
-        parse item, options, next3
-      if err?
-        return callback(err)
-      next2 join-parsed-results(results)
-    else
-      async! callback, parsed <- parse source, options
-      next2 parsed
-    next parsed
-  else
-    let parsed = if is-array! source
-      join-parsed-results for item in source
-        if is-array! options.filenames
-          options.filename := options.filenames[i]
+  
+  let parsed = if is-array! source
+    let array = []
+    for item in source
+      if is-array! options.filenames
+        options.filename := options.filenames[i]
+      array.push if sync
         parse item, options
-    else
+      else
+        yield to-promise! parse item, options
+    join-parsed-results array
+  else
+    if sync
       parse source, options
-    next parsed
+    else
+      yield to-promise! parse source, options
   let translated = translator(parsed.result, parsed.macros, options)
   
-  let result = {
+  return {
     translated.node
     parsed.parse-time
     parsed.macro-expand-time
@@ -181,18 +174,17 @@ let translate = exports.ast := #(source, options = {}, callback)
     translate-time: translated.time
     time: new Date().get-time() - start-time
   }
-  if callback?
-    callback null, result
-  else
-    result
+exports.ast-sync := #(source, options = {})
+  options.sync := true
+  exports.ast.sync source, options
 
 exports.compile := promise! #(source, options = {})*
   let sync = options.sync
   let start-time = new Date().get-time()
   let translated = if sync
-    translate source, options
+    exports.ast-sync source, options
   else
-    yield to-promise! translate source, options
+    yield exports.ast source, options
   let compiled = translated.node.compile options
   return {
     translated.parse-time

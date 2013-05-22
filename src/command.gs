@@ -66,7 +66,7 @@ if options.stdout
 
 let handle-code(code, callback = #->)
   asyncif err, result <- next, options.ast
-    async! next, ast <- gorilla.ast code, opts
+    async! next, ast <- (from-promise! gorilla.ast code, opts)()
     next null, util.inspect ast.node, false, null
   else if options.nodes
     async! next, nodes <- gorilla.parse code, opts
