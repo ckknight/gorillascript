@@ -3785,7 +3785,9 @@ define helper __generator = #(func) -> #
           void
       }
     next() -> @send()
-    throw: (throw)
+    throw(err)
+      data := null
+      throw err
   }
 
 define helper __some-promise = #(promises as [])
