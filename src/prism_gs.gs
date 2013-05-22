@@ -19,7 +19,8 @@ Prism.languages.gorillascript := Prism.languages.extend \javascript, {
         import|export|returnif|returning|returnunless|mutable|
         macro|const|static|var|do|of|let|enum|namespace|package|true|false|
         null|undefined|void|GLOBAL|this|prototype|arguments|
-        from
+        from|
+        __(?:FILE|LINE|COLUMN|DATEMSEC)__
       )(?!-)\b
     """g
   operator: r"""

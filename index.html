@@ -251,6 +251,25 @@ DEBUG and assert(some-expensive-check())
 </code></pre>
 
     <p>Constants do not need to be in <code class="language-gorillascript">CONST_CASE</code>, though it is recommended.</p>
+    
+    <p>There are also a few constant-like values provided:</p>
+    
+    <dl>
+      <dt><code class="language-gorillascript">__FILE__</code></dt>
+        <dd>A string representing the current full file path. If unknown, the empty string.</dd>
+      <dt><code class="language-gorillascript">__LINE__</code></dt>
+        <dd>A number representing the current line in the GorillaScript file being parsed. 1-indexed.</dd>
+      <dt><code class="language-gorillascript">__COLUMN__</code></dt>
+        <dd>A number representing the current column in the GorillaScript file being parsed. 1-indexed.</dd>
+      <dt><code class="language-gorillascript">__DATEMSEC__</code></dt>
+        <dd>A number representing the milliseconds since epoch.</dd>
+    </dl>
+    
+    <pre class="gs-code"><code class="language-gorillascript">print __FILE__
+print __LINE__
+print __COLUMN__
+print new Date(__DATEMSEC__)
+</code></pre>
   </section>
 
   <section id="indentation">
