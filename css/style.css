@@ -20,8 +20,20 @@ pre {
 	font-size: 12px;
 }
 .tabs a { font-size: 13px; }
-.logo { font-size: 26px; }
-header p, #toc-label, .logo #github, #toc li { font-size: 14px }
+.logo {
+  width: 80px;
+  height: 80px;
+  float: left;
+  padding-right: 1em;
+}
+.title {
+  font-size: 26px;
+  display: inline-block;
+}
+#github {
+  padding-left: 1em;
+}
+header p, #toc-label, #github, #toc li { font-size: 14px }
 section { margin-bottom: -0.9em; }
 section h2 { padding-top: 1.1em; }
 header a, footer a {
