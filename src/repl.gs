@@ -195,7 +195,7 @@ exports.start := #(options = {})
     let code = backlog
     backlog := ""
     if pipe
-      async err, compiled <- gorilla.compile code, { eval: true, filename: \repl, modulename: \repl }
+      async err, compiled <- (from-promise! gorilla.compile code, { eval: true, filename: \repl, modulename: \repl })()
       pipe.stdin.write compiled.code
     else
       async err, ret <- (from-promise! gorilla.eval code, { sandbox, filename: \repl, modulename: \repl })()

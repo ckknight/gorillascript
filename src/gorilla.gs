@@ -11,10 +11,10 @@ exports <<< {parser.ParserError, parser.MacroError}
 // TODO: Remove register-extension when fully deprecated.
 if require.extensions
   require.extensions[".gs"] := #(module, filename)
-    let compiled = compile fs.read-file-sync(filename, "utf8"), { filename }
+    let compiled = exports.compile-sync fs.read-file-sync(filename, "utf8"), { filename }
     module._compile compiled.code, filename
 else if require.register-extension
-  require.register-extension ".gs", #(content) -> compiler content
+  require.register-extension ".gs", #(content) -> exports.compile-sync content, { filename }
 
 let fetch-and-parse-prelude = do
   let parsed-prelude-by-lang = {}
@@ -186,17 +186,15 @@ let translate = exports.ast := #(source, options = {}, callback)
   else
     result
 
-let compile = exports.compile := #(source, options = {}, callback)
-  if is-function! options
-    return compile source, null, options
+exports.compile := promise! #(source, options = {})*
+  let sync = options.sync
   let start-time = new Date().get-time()
-  asyncif translated <- next, callback?
-    async! callback, translated <- translate source, options
-    next translated
+  let translated = if sync
+    translate source, options
   else
-    next translate source, options
+    yield to-promise! translate source, options
   let compiled = translated.node.compile options
-  let result = {
+  return {
     translated.parse-time
     translated.macro-expand-time
     translated.reduce-time
@@ -206,10 +204,9 @@ let compile = exports.compile := #(source, options = {}, callback)
     time: new Date().get-time() - start-time
     compiled.code
   }
-  if callback?
-    callback null, result
-  else
-    result
+exports.compile-sync := #(source, options = {})
+  options.sync := true
+  exports.compile.sync source, options
 
 let evaluate(code, options)
   let Script = require?('vm')?.Script
@@ -251,9 +248,9 @@ exports.eval := promise! #(source, options = {})*
   options.eval := true
   options.return := false
   let compiled = if sync
-    compile source, options
+    exports.compile-sync source, options
   else
-    yield to-promise! compile source, options
+    yield exports.compile source, options
   
   let start-time = new Date().get-time()
   let result = evaluate compiled.code, options
@@ -282,9 +279,9 @@ exports.run := promise! #(source, options = {})*
     main-module.paths := Module._node-module-paths path.dirname options.filename
   if path.extname(main-module.filename) != ".gs" or require.extensions
     let compiled = if sync
-      compile(source, options)
+      exports.compile-sync source, options
     else
-      yield to-promise! compile(source, options)
+      yield exports.compile source, options
     main-module._compile compiled.code, main-module.filename
   else
     main-module._compile source, main-module.filename

@@ -72,7 +72,7 @@ command \build, "Build GorillaScript from source", #(options, cb)
     let progress = #(name, time)!
       totals[name] := (totals[name] or 0) + time
       output "  $(pad-left ((time / 1000_ms).to-fixed 3), 6, ' ') s"
-    async err, compiled <- gorilla.compile code, { extends options, filename: file, progress: progress }
+    async err, compiled <- (from-promise! gorilla.compile code, { extends options, filename: file, progress: progress })()
     if err?
       output "\n"
       return next(err)
@@ -233,7 +233,7 @@ command "test", "Run the GorillaScript test suite", #(options, cb)
     let progress = #(name, time)
       totals[name] := (totals[name] or 0) + time
       output "  $(pad-left ((time / 1000_ms).to-fixed 3), 6, ' ') s"
-    async err, result <- gorilla.compile code.to-string(), { extends options, filename, include-globals: true, no-prelude: options["no-prelude"], progress }
+    async err, result <- (from-promise! gorilla.compile code.to-string(), { extends options, filename, include-globals: true, no-prelude: options["no-prelude"], progress })()
     throw? err // TODO: better handling
     
     compilations[file] := Function(result.code)

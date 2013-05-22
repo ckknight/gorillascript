@@ -85,14 +85,14 @@ describe "regular expressions", #
       .and.have.property(0).that.equal ""
   
   it "throws an exception if the regex is improper", #
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = r'+'""").throws(gorilla.ParserError, r'Invalid regular expression.*?\b2:\d+')
     
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = r'x'gg""").throws(gorilla.ParserError, r'Invalid regular expression.*?\b2:\d+')
     
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = r'x'q""").throws(gorilla.ParserError, r'Invalid regular expression.*?\b2:\d+')
   
   it "allows the sticky flag", #
-    expect(gorilla.compile("let y = r'x'y")).to.be.ok
+    expect(gorilla.compile-sync("let y = r'x'y")).to.be.ok

@@ -801,7 +801,7 @@ describe "loops", #
     expect(for some x in 1 til 10
       x > 10).to.be.false
   
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for some x in 1 til 10
       true
     else
@@ -818,7 +818,7 @@ describe "loops", #
     expect(for every x in 1 til 10
       x <= 10).to.be.true
   
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for every x in 1 til 10
       true
     else
@@ -840,7 +840,7 @@ describe "loops", #
       i not %% 2
     expect(arr).to.eql [1, 3, 5, 7, 9]
 
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for filter i in 1 til 10
       true
     else
@@ -850,7 +850,7 @@ describe "loops", #
     expect(for reduce i in 1 til 10, sum = 0
       sum + i).to.equal 45
     
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for reduce i in 1 til 10, sum = 0
       sum + i
     else
@@ -863,7 +863,7 @@ describe "loops", #
     expect(for some x in [#-> 1, #-> 2, #-> 3]
       x() == 4).to.be.false
   
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for some x in [1, 2]
       true
     else
@@ -876,7 +876,7 @@ describe "loops", #
     expect(for every x in [#-> 1, #-> 2, #-> 3]
       x() < 4).to.be.true
   
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for every x in [1, 2]
       true
     else
@@ -900,7 +900,7 @@ describe "loops", #
       x %% 2
     expect(arr).to.eql [4, 16, 36]
   
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for filter x in [1, 4, 9, 16, 25, 36]
       true
     else
@@ -910,7 +910,7 @@ describe "loops", #
     expect(for reduce i in [1, 2, 3, 4], sum = 0
       sum + i).to.equal 10
   
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for reduce i in [1, 2, 3, 4], sum = 0
       sum + i
     else
@@ -923,7 +923,7 @@ describe "loops", #
     expect(for some k, v of {a:1, b:2, c:3}
       v == 4).to.be.false
   
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for some k, v of {a:1, b:2, c:3}
       true
     else
@@ -936,7 +936,7 @@ describe "loops", #
     expect(for every k, v of {a:1, b:2, c:3}
       v < 4).to.be.true
   
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for every k, v of {a:1, b:2, c:3}
       true
     else
@@ -957,7 +957,7 @@ describe "loops", #
     expect(for reduce k, v of {a:1, b:2, c:3}, sum = 0
       sum + v).to.equal 6
   
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for reduce k, v of {a:1, b:2, c:3}, sum = 0
       sum + v
     else
@@ -973,7 +973,7 @@ describe "loops", #
     expect(while some i < 10, i += 1
       i > 10).to.be.false
   
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let mutable i = 0
     while some i < 10, i += 1
       true
@@ -990,7 +990,7 @@ describe "loops", #
     expect(while every i < 10, i += 1
       i <= 10).to.be.true
 
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let mutable i = 0
     while every i < 10, i += 1
       true
@@ -1015,7 +1015,7 @@ describe "loops", #
     expect(while reduce i < 10, i += 1, sum = 0
       sum + i).to.equal 45
   
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let mutable i = 0
     while reduce i < 10, i += 1, sum = 0
       sum + i
@@ -1033,7 +1033,7 @@ describe "loops", #
     ok not (repeat while some i < 10, i += 1
       i > 10)
   
-    throws #-> Cotton.compile("""
+    throws #-> Cotton.compile-sync("""
     let mutable i = 0
     repeat while some i < 10, i += 1
       true
@@ -1050,7 +1050,7 @@ describe "loops", #
     ok repeat while every i < 10, i += 1
       i <= 10
 
-    throws #-> Cotton.compile("""
+    throws #-> Cotton.compile-sync("""
     let mutable i = 0
     repeat while every i < 10, i += 1
       true
@@ -1075,7 +1075,7 @@ describe "loops", #
     expect(repeat while reduce i > 0 and i < 10, i += 1, sum = 0).to.equal 45
       sum + i
   
-    throws #-> Cotton.compile("""
+    throws #-> Cotton.compile-sync("""
     let mutable i = 0
     repeat while reduce i < 10, i += 1, sum = 0
       sum + i
@@ -1214,7 +1214,7 @@ describe "loops", #
     expect(for some x from array-to-iterator [#-> 1, #-> 2, #-> 3]
       x() == 4).to.be.false
 
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for some x from array-to-iterator [1, 2]
       true
     else
@@ -1227,7 +1227,7 @@ describe "loops", #
     expect(for every x from array-to-iterator [#-> 1, #-> 2, #-> 3]
       x() < 4).to.be.true
 
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for every x from array-to-iterator [1, 2]
       true
     else
@@ -1251,7 +1251,7 @@ describe "loops", #
       x %% 2
     expect(arr).to.eql [4, 16, 36]
 
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for filter x from array-to-iterator [1, 4, 9, 16, 25, 36]
       true
     else
@@ -1261,7 +1261,7 @@ describe "loops", #
     expect(for reduce i from array-to-iterator([1, 2, 3, 4]), sum = 0
       sum + i).to.equal 10
 
-    expect(#-> gorilla.compile """let y = 0
+    expect(#-> gorilla.compile-sync """let y = 0
     for reduce i from array-to-iterator([1, 2, 3, 4]), sum = 0
       sum + i
     else

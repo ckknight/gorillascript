@@ -31770,7 +31770,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __fromPromise, __isArray, __lte, __num, __once, __owns, __slice, __strnum, __toArray, __typeof, compile, fetchAndParsePrelude, fs, init, os, parse, parser, path, setImmediate, translate;
+      var __async, __defer, __fromPromise, __generatorToPromise, __isArray, __lte, __num, __once, __owns, __promise, __slice, __strnum, __toArray, __toPromise, __typeof, fetchAndParsePrelude, fs, init, os, parse, parser, path, setImmediate, translate;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -31839,6 +31839,115 @@
         }
         next();
       };
+      __defer = (function () {
+        function __defer() {
+          var deferred, isError, value;
+          isError = false;
+          value = null;
+          deferred = [];
+          function complete(newIsError, newValue) {
+            var funcs;
+            if (deferred) {
+              funcs = deferred;
+              deferred = null;
+              isError = newIsError;
+              value = newValue;
+              if (funcs.length) {
+                setImmediate(function () {
+                  var _end, i;
+                  for (i = 0, _end = funcs.length; i < _end; ++i) {
+                    funcs[i]();
+                  }
+                });
+              }
+            }
+          }
+          return {
+            promise: {
+              then: function (onFulfilled, onRejected, allowSync) {
+                var _ref, fulfill, promise, reject;
+                if (allowSync !== true) {
+                  allowSync = void 0;
+                }
+                promise = (_ref = __defer()).promise;
+                fulfill = _ref.fulfill;
+                reject = _ref.reject;
+                function step() {
+                  var f, result;
+                  try {
+                    if (isError) {
+                      f = onRejected;
+                    } else {
+                      f = onFulfilled;
+                    }
+                    if (typeof f === "function") {
+                      result = f(value);
+                      if (result && typeof result.then === "function") {
+                        result.then(fulfill, reject, allowSync);
+                      } else {
+                        fulfill(result);
+                      }
+                    } else {
+                      (isError ? reject : fulfill)(value);
+                    }
+                  } catch (e) {
+                    reject(e);
+                  }
+                }
+                if (deferred) {
+                  deferred.push(step);
+                } else if (allowSync) {
+                  step();
+                } else {
+                  setImmediate(step);
+                }
+                return promise;
+              },
+              sync: function () {
+                var result, state;
+                state = 0;
+                result = 0;
+                this.then(
+                  function (ret) {
+                    state = 1;
+                    return result = ret;
+                  },
+                  function (err) {
+                    state = 2;
+                    return result = err;
+                  },
+                  true
+                );
+                switch (state) {
+                case 0: throw Error("Promise did not execute synchronously");
+                case 1: return result;
+                case 2: throw result;
+                default: throw Error("Unknown state");
+                }
+              }
+            },
+            fulfill: function (value) {
+              complete(false, value);
+            },
+            reject: function (reason) {
+              complete(true, reason);
+            }
+          };
+        }
+        __defer.fulfilled = function (value) {
+          var d;
+          d = __defer();
+          d.fulfill(value);
+          return d.promise;
+        };
+        __defer.rejected = function (reason) {
+          var d;
+          d = __defer();
+          d.reject(reason);
+          return d.promise;
+        };
+        return __defer;
+      }());
       __fromPromise = function (promise) {
         if (typeof promise !== "object" || promise === null) {
           throw TypeError("Expected promise to be an Object, got " + __typeof(promise));
@@ -31855,6 +31964,43 @@
             }
           );
         };
+      };
+      __generatorToPromise = function (generator, allowSync) {
+        if (typeof generator !== "object" || generator === null) {
+          throw TypeError("Expected generator to be an Object, got " + __typeof(generator));
+        } else {
+          if (typeof generator.send !== "function") {
+            throw TypeError("Expected generator.send to be a Function, got " + __typeof(generator.send));
+          }
+          if (typeof generator["throw"] !== "function") {
+            throw TypeError("Expected generator.throw to be a Function, got " + __typeof(generator["throw"]));
+          }
+        }
+        if (allowSync == null) {
+          allowSync = false;
+        } else if (typeof allowSync !== "boolean") {
+          throw TypeError("Expected allowSync to be a Boolean, got " + __typeof(allowSync));
+        }
+        function continuer(verb, arg) {
+          var item;
+          try {
+            item = generator[verb](arg);
+          } catch (e) {
+            return __defer.rejected(e);
+          }
+          if (item.done) {
+            return __defer.fulfilled(item.value);
+          } else {
+            return item.value.then(callback, errback, allowSync);
+          }
+        }
+        function callback(value) {
+          return continuer("send", value);
+        }
+        function errback(value) {
+          return continuer("throw", value);
+        }
+        return callback(void 0);
       };
       __isArray = typeof Array.isArray === "function" ? Array.isArray
         : (function () {
@@ -31905,6 +32051,28 @@
         };
       }());
       __owns = Object.prototype.hasOwnProperty;
+      __promise = function (value, allowSync) {
+        var factory;
+        if (allowSync == null) {
+          allowSync = false;
+        } else if (typeof allowSync !== "boolean") {
+          throw TypeError("Expected allowSync to be a Boolean, got " + __typeof(allowSync));
+        }
+        if (typeof value === "function") {
+          factory = function () {
+            return __generatorToPromise(value.apply(this, arguments));
+          };
+          factory.sync = function () {
+            return __generatorToPromise(
+              value.apply(this, arguments),
+              true
+            ).sync();
+          };
+          return factory;
+        } else {
+          return __generatorToPromise(value, allowSync);
+        }
+      };
       __slice = Array.prototype.slice;
       __strnum = function (strnum) {
         var type;
@@ -31927,6 +32095,23 @@
         } else {
           return __slice.call(x);
         }
+      };
+      __toPromise = function (func, context, args) {
+        var d;
+        if (typeof func !== "function") {
+          throw TypeError("Expected func to be a Function, got " + __typeof(func));
+        }
+        d = __defer();
+        func.apply(context, __toArray(args).concat([
+          function (err, value) {
+            if (err != null) {
+              d.reject(err);
+            } else {
+              d.fulfill(value);
+            }
+          }
+        ]));
+        return d.promise;
       };
       __typeof = (function () {
         var _toString;
@@ -31988,7 +32173,7 @@
       if (require.extensions) {
         require.extensions[".gs"] = function (module, filename) {
           var compiled;
-          compiled = compile(
+          compiled = exports.compileSync(
             fs.readFileSync(filename, "utf8"),
             { filename: filename }
           );
@@ -31996,7 +32181,7 @@
         };
       } else if (require.registerExtension) {
         require.registerExtension(".gs", function (content) {
-          return compiler(content);
+          return exports.compileSync(content, { filename: filename });
         });
       }
       fetchAndParsePrelude = (function () {
@@ -32397,54 +32582,87 @@
           }
         });
       };
-      compile = exports.compile = function (source, options, callback) {
-        var _f, startTime;
+      exports.compile = __promise(function (source, options) {
+        var _e, _send, _state, _step, compiled, startTime, sync, translated;
+        _state = 0;
+        function _close() {
+          _state = 5;
+        }
+        function _step(_received) {
+          while (true) {
+            switch (_state) {
+            case 0:
+              if (options == null) {
+                options = {};
+              }
+              sync = options.sync;
+              startTime = new Date().getTime();
+              _state = sync ? 1 : 2;
+              break;
+            case 1:
+              translated = translate(source, options);
+              _state = 4;
+              break;
+            case 2:
+              ++_state;
+              return {
+                done: false,
+                value: __toPromise(translate, void 0, [source, options])
+              };
+            case 3:
+              translated = _received;
+              ++_state;
+            case 4:
+              compiled = translated.node.compile(options);
+              ++_state;
+              return {
+                done: true,
+                value: {
+                  parseTime: translated.parseTime,
+                  macroExpandTime: translated.macroExpandTime,
+                  reduceTime: translated.reduceTime,
+                  translateTime: translated.translateTime,
+                  compileTime: compiled.compileTime,
+                  uglifyTime: compiled.uglifyTime,
+                  time: __num(new Date().getTime()) - __num(startTime),
+                  code: compiled.code
+                }
+              };
+            case 5:
+              return { done: true, value: void 0 };
+            default: throw Error("Unknown state: " + _state);
+            }
+          }
+        }
+        function _send(_received) {
+          try {
+            return _step(_received);
+          } catch (_e) {
+            _close();
+            throw _e;
+          }
+        }
+        return {
+          close: _close,
+          iterator: function () {
+            return this;
+          },
+          next: function () {
+            return _send(void 0);
+          },
+          send: _send,
+          "throw": function (e) {
+            _close();
+            throw e;
+          }
+        };
+      });
+      exports.compileSync = function (source, options) {
         if (options == null) {
           options = {};
         }
-        if (typeof options === "function") {
-          return compile(source, null, options);
-        }
-        startTime = new Date().getTime();
-        if (callback != null) {
-          _f = function (next) {
-            var _once;
-            return translate(source, options, (_once = false, function (_e, translated) {
-              if (_once) {
-                throw Error("Attempted to call function more than once");
-              } else {
-                _once = true;
-              }
-              if (_e != null) {
-                return callback(_e);
-              }
-              return next(translated);
-            }));
-          };
-        } else {
-          _f = function (next) {
-            return next(translate(source, options));
-          };
-        }
-        return _f(function (translated) {
-          var compiled, result;
-          compiled = translated.node.compile(options);
-          result = {
-            parseTime: translated.parseTime,
-            macroExpandTime: translated.macroExpandTime,
-            reduceTime: translated.reduceTime,
-            translateTime: translated.translateTime,
-            compileTime: compiled.compileTime,
-            uglifyTime: compiled.uglifyTime,
-            time: __num(new Date().getTime()) - __num(startTime),
-            code: compiled.code
-          };
-          if (callback != null) {
-            return callback(null, result);
-          } else {
-            return result;
-          }
-        });
+        options.sync = true;
+        return exports.compile.sync(source, options);
       };
       function evaluate(code, options) {
         var _arr, _i, _module, _obj, _ref, _require, fun, k, Module, r, sandbox, Script, v;
@@ -32503,130 +32721,246 @@
           return fun();
         }
       }
-      exports["eval"] = function (source, options, callback) {
-        var _f;
-        if (options == null) {
-          options = {};
+      exports["eval"] = __promise(function (source, options) {
+        var _e, _send, _state, _step, compiled, result, startTime, sync;
+        _state = 0;
+        function _close() {
+          _state = 5;
         }
-        if (typeof options === "function") {
-          return exports["eval"](source, null, options);
-        }
-        options["eval"] = true;
-        options["return"] = false;
-        if (callback != null) {
-          _f = function (next) {
-            var _once;
-            return compile(source, options, (_once = false, function (_e, compiled) {
-              if (_once) {
-                throw Error("Attempted to call function more than once");
-              } else {
-                _once = true;
+        function _step(_received) {
+          while (true) {
+            switch (_state) {
+            case 0:
+              if (options == null) {
+                options = {};
               }
-              if (_e != null) {
-                return callback(_e);
+              sync = options.sync;
+              options["eval"] = true;
+              options["return"] = false;
+              _state = sync ? 1 : 2;
+              break;
+            case 1:
+              compiled = exports.compileSync(source, options);
+              _state = 4;
+              break;
+            case 2:
+              ++_state;
+              return {
+                done: false,
+                value: exports.compile(source, options)
+              };
+            case 3:
+              compiled = _received;
+              ++_state;
+            case 4:
+              startTime = new Date().getTime();
+              result = evaluate(compiled.code, options);
+              if (typeof options.progress === "function") {
+                options.progress("eval", __num(new Date().getTime()) - __num(startTime));
               }
-              return next(compiled);
-            }));
-          };
-        } else {
-          _f = function (next) {
-            return next(compile(source, options));
-          };
+              ++_state;
+              return { done: true, value: result };
+            case 5:
+              return { done: true, value: void 0 };
+            default: throw Error("Unknown state: " + _state);
+            }
+          }
         }
-        return _f(function (compiled) {
-          var result, startTime;
-          startTime = new Date().getTime();
-          result = null;
+        function _send(_received) {
           try {
-            result = evaluate(compiled.code, options);
-          } catch (e) {
-            if (callback != null) {
-              return callback(e);
-            } else {
-              throw e;
-            }
+            return _step(_received);
+          } catch (_e) {
+            _close();
+            throw _e;
           }
-          if (typeof options.progress === "function") {
-            options.progress("eval", __num(new Date().getTime()) - __num(startTime));
+        }
+        return {
+          close: _close,
+          iterator: function () {
+            return this;
+          },
+          next: function () {
+            return _send(void 0);
+          },
+          send: _send,
+          "throw": function (e) {
+            _close();
+            throw e;
           }
-          if (callback != null) {
-            return callback(null, result);
-          } else {
-            return result;
-          }
-        });
-      };
-      exports.run = function (source, options, callback) {
-        var _f, mainModule, Module;
+        };
+      });
+      exports.evalSync = function (source, options) {
         if (options == null) {
           options = {};
         }
-        if (typeof options === "function") {
-          return exports.run(source, null, options);
-        }
-        if (typeof process === "undefined") {
-          exports["eval"](source, options, callback != null
-            ? function (err) {
-              return callback(err);
-            }
-            : void 0);
-          return;
-        }
-        mainModule = require.main;
-        mainModule.filename = process.argv[1] = options.filename ? fs.realpathSync(options.filename) : ".";
-        if (mainModule.moduleCache) {
-          mainModule.moduleCache = {};
-        }
-        if (process.binding("natives").module) {
-          Module = require("module").Module;
-          mainModule.paths = Module._nodeModulePaths(path.dirname(options.filename));
-        }
-        if (path.extname(mainModule.filename) !== ".gs" || require.extensions) {
-          if (callback != null) {
-            _f = function (next) {
-              var _once;
-              return compile(source, options, (_once = false, function (_e, ret) {
-                if (_once) {
-                  throw Error("Attempted to call function more than once");
-                } else {
-                  _once = true;
-                }
-                if (_e != null) {
-                  return callback(_e);
-                }
-                return next(ret);
-              }));
-            };
-          } else {
-            _f = function (next) {
-              return next(compile(source, options));
-            };
-          }
-          _f(function (compiled) {
-            mainModule._compile(compiled.code, mainModule.filename);
-            if (typeof callback === "function") {
-              return callback();
-            }
-          });
-        } else {
-          mainModule._compile(source, mainModule.filename);
-          if (typeof callback === "function") {
-            callback();
-          }
-        }
+        options.sync = true;
+        return exports["eval"].sync(source, options);
       };
-      init = exports.init = function (options, callback) {
+      exports.run = __promise(function (source, options) {
+        var _e, _send, _state, _step, compiled, mainModule, Module, sync;
+        _state = 0;
+        function _close() {
+          _state = 12;
+        }
+        function _step(_received) {
+          while (true) {
+            switch (_state) {
+            case 0:
+              if (options == null) {
+                options = {};
+              }
+              sync = options.sync;
+              _state = typeof process === "undefined" ? 1 : 5;
+              break;
+            case 1:
+              _state = sync ? 2 : 3;
+              break;
+            case 2:
+              _state = 12;
+              return {
+                done: true,
+                value: exports.evalSync(source, options)
+              };
+            case 3:
+              ++_state;
+              return {
+                done: false,
+                value: exports["eval"](source, options)
+              };
+            case 4:
+              _state = 12;
+              return { done: true, value: _received };
+            case 5:
+              mainModule = require.main;
+              mainModule.filename = process.argv[1] = options.filename ? fs.realpathSync(options.filename) : ".";
+              if (mainModule.moduleCache) {
+                mainModule.moduleCache = {};
+              }
+              if (process.binding("natives").module) {
+                Module = require("module").Module;
+                mainModule.paths = Module._nodeModulePaths(path.dirname(options.filename));
+              }
+              _state = path.extname(mainModule.filename) !== ".gs" || require.extensions ? 6 : 11;
+              break;
+            case 6:
+              _state = sync ? 7 : 8;
+              break;
+            case 7:
+              compiled = exports.compileSync(source, options);
+              _state = 10;
+              break;
+            case 8:
+              ++_state;
+              return {
+                done: false,
+                value: exports.compile(source, options)
+              };
+            case 9:
+              compiled = _received;
+              ++_state;
+            case 10:
+              mainModule._compile(compiled.code, mainModule.filename);
+              _state = 12;
+              break;
+            case 11:
+              mainModule._compile(source, mainModule.filename);
+              ++_state;
+            case 12:
+              return { done: true, value: void 0 };
+            default: throw Error("Unknown state: " + _state);
+            }
+          }
+        }
+        function _send(_received) {
+          try {
+            return _step(_received);
+          } catch (_e) {
+            _close();
+            throw _e;
+          }
+        }
+        return {
+          close: _close,
+          iterator: function () {
+            return this;
+          },
+          next: function () {
+            return _send(void 0);
+          },
+          send: _send,
+          "throw": function (e) {
+            _close();
+            throw e;
+          }
+        };
+      });
+      exports.runSync = function (source, options) {
         if (options == null) {
           options = {};
         }
-        if (typeof options === "function") {
-          return init(void 0, options);
+        options.sync = true;
+        return exports.run.sync(source, options);
+      };
+      init = exports.init = __promise(function (options) {
+        var _e, _send, _state, _step;
+        _state = 0;
+        function _close() {
+          _state = 3;
         }
-        if (callback != null) {
-          fetchAndParsePrelude(options.lang || "js", callback);
-        } else {
-          fetchAndParsePrelude.sync(options.lang || "js");
+        function _step(_received) {
+          while (true) {
+            switch (_state) {
+            case 0:
+              if (options == null) {
+                options = {};
+              }
+              _state = options.sync ? 1 : 2;
+              break;
+            case 1:
+              fetchAndParsePrelude.sync(options.lang || "js");
+              _state = 3;
+              break;
+            case 2:
+              ++_state;
+              return {
+                done: false,
+                value: __toPromise(fetchAndParsePrelude, void 0, [options.lang || "js"])
+              };
+            case 3:
+              return { done: true, value: void 0 };
+            default: throw Error("Unknown state: " + _state);
+            }
+          }
         }
+        function _send(_received) {
+          try {
+            return _step(_received);
+          } catch (_e) {
+            _close();
+            throw _e;
+          }
+        }
+        return {
+          close: _close,
+          iterator: function () {
+            return this;
+          },
+          next: function () {
+            return _send(void 0);
+          },
+          send: _send,
+          "throw": function (e) {
+            _close();
+            throw e;
+          }
+        };
+      });
+      exports.initSync = function (options) {
+        if (options == null) {
+          options = {};
+        }
+        options.sync = true;
+        init.sync(options);
       };
     }.call(this, typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : this));
     
@@ -32635,9 +32969,9 @@
   require['./browser'] = function () {
     var module = { exports: this };
     var exports = this;
-    (function () {
+    (function (GLOBAL) {
       "use strict";
-      var __async, __isArray, __num, __once, __slice, __toArray, __typeof, GorillaScript, runScripts;
+      var __async, __fromPromise, __isArray, __num, __once, __slice, __toArray, __typeof, GorillaScript, runScripts, setImmediate;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -32706,6 +33040,23 @@
         }
         next();
       };
+      __fromPromise = function (promise) {
+        if (typeof promise !== "object" || promise === null) {
+          throw TypeError("Expected promise to be an Object, got " + __typeof(promise));
+        } else if (typeof promise.then !== "function") {
+          throw TypeError("Expected promise.then to be a Function, got " + __typeof(promise.then));
+        }
+        return function (callback) {
+          promise.then(
+            function (value) {
+              return setImmediate(callback, null, value);
+            },
+            function (reason) {
+              return setImmediate(callback, reason);
+            }
+          );
+        };
+      };
       __isArray = typeof Array.isArray === "function" ? Array.isArray
         : (function () {
           var _toString;
@@ -32768,6 +33119,43 @@
           }
         };
       }());
+      setImmediate = typeof GLOBAL.setImmediate === "function" ? GLOBAL.setImmediate
+        : typeof process !== "undefined" && typeof process.nextTick === "function"
+        ? (function () {
+          var nextTick;
+          nextTick = process.nextTick;
+          return function (func) {
+            var args;
+            if (typeof func !== "function") {
+              throw TypeError("Expected func to be a Function, got " + __typeof(func));
+            }
+            args = __slice.call(arguments, 1);
+            if (args.length) {
+              return nextTick(function () {
+                func.apply(void 0, __toArray(args));
+              });
+            } else {
+              return nextTick(func);
+            }
+          };
+        }())
+        : function (func) {
+          var args;
+          if (typeof func !== "function") {
+            throw TypeError("Expected func to be a Function, got " + __typeof(func));
+          }
+          args = __slice.call(arguments, 1);
+          if (args.length) {
+            return setTimeout(
+              function () {
+                func.apply(void 0, __toArray(args));
+              },
+              0
+            );
+          } else {
+            return setTimeout(func, 0);
+          }
+        };
       GorillaScript = require("./gorilla");
       GorillaScript.require = require;
       if (typeof window !== "undefined" && window !== null) {
@@ -32794,7 +33182,7 @@
             var _ref;
             if (xhr.readyState === 4) {
               if ((_ref = xhr.status) === 0 || _ref === 200) {
-                return GorillaScript.run(xhr.responseText, callback);
+                return __fromPromise(GorillaScript.run(xhr.responseText))(callback);
               } else {
                 return callback(Error("Could not load " + url));
               }
@@ -32816,7 +33204,7 @@
                 if (script.src) {
                   return GorillaScript.load(script.src, next);
                 } else {
-                  GorillaScript.run(script.innerHTML);
+                  GorillaScript.runSync(script.innerHTML);
                   return next();
                 }
               } else {
@@ -32832,7 +33220,7 @@
           attachEvent("onload", runScripts);
         }
       }
-    }.call(this));
+    }.call(this, typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : this));
     
     return module.exports;
   };

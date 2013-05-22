@@ -8,7 +8,7 @@ describe "consts", #
   
   it "converts directly to constant value", #
     let make-code(debug-value)
-      gorilla.compile("""
+      gorilla.compile-sync("""
       const DEBUG = $debug-value
     
       if DEBUG

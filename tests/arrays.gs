@@ -22,7 +22,7 @@ describe "single-line arrays", #
   
   /*
   it "fails on single-line array missing commas", #
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = ["alpha" "bravo" "charlie"]""").to.throw gorilla.ParserError
   */
   

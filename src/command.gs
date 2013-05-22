@@ -72,12 +72,12 @@ let handle-code(code, callback = #->)
     async! next, nodes <- gorilla.parse code, opts
     next null, util.inspect nodes.result, false, null
   else if options.stdout
-    async! next, result <- gorilla.compile code, opts
+    async! next, result <- (from-promise! gorilla.compile code, opts)()
     if opts.uglify
       process.stdout.write "\n"
     next null, result.code
   else if options.gjs
-    async! next, compiled <- gorilla.compile code, { eval: true } <<< opts
+    async! next, compiled <- (from-promise! gorilla.compile code, { eval: true } <<< opts)()
     console.log "running with gjs"
     let gjs = child_process.spawn "gjs"
     gjs.stdout.on 'data', #(data) -> process.stdout.write data
@@ -154,7 +154,7 @@ else if filenames.length
     if options.compile
       process.stdout.write "Compiling $(path.basename filename) ... "
       let start-time = Date.now()
-      async! done, compilation <- gorilla.compile code, opts
+      async! done, compilation <- (from-promise! gorilla.compile code, opts)()
       let end-time = Date.now()
       process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
       compiled[filename] := compilation.code
@@ -173,7 +173,7 @@ else if filenames.length
     opts.filenames := filenames
     process.stdout.write "Compiling $(filenames.join ", ") ... "
     let start-time = Date.now()
-    async! throw, compilation <- gorilla.compile (for filename in filenames; input[filename]), opts
+    async! throw, compilation <- (from-promise! gorilla.compile (for filename in filenames; input[filename]), opts)()
     let end-time = Date.now()
     process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
     compiled["join"] := compilation.code

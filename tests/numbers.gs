@@ -157,24 +157,24 @@ describe "Arbitrary-radix numbers", #
     expect(32r1_234.56_78).to.equal 32r1234 + 32r5678 / 32r10000
   
   it "should error if a radix is too small", #
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = 1r00000""").throws gorilla.ParserError, r"Radix must be at least 2, got 1.*2:9"
   
   it "should error if a radix is too large", #
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = 37r12345""").throws gorilla.ParserError, r"Radix must be at most 36, got 37.*2:9"
 
 describe "Numbers too large", #
   it "should error if a number too large is encountered", #
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = 1e1000""").throws gorilla.ParserError, r"Unable to parse number '1e1000'.*2:9"
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = $(Number.MAX_VALUE.to-string(9))""").throws gorilla.ParserError, r"Unable to parse number '$(Number.MAX_VALUE.to-string(9))'.*2:9"
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = 0b$(Number.MAX_VALUE.to-string(2))0""").throws gorilla.ParserError, r"Unable to parse number '0b$(Number.MAX_VALUE.to-string(2))0'.*2:9"
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = 0o$(Number.MAX_VALUE.to-string(8))0""").throws gorilla.ParserError, r"Unable to parse number '0o$(Number.MAX_VALUE.to-string(8))0'.*2:9"
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = 0x$(Number.MAX_VALUE.to-string(16))0""").throws gorilla.ParserError, r"Unable to parse number '0x$(Number.MAX_VALUE.to-string(16))0'.*2:9"
-    expect(#-> gorilla.compile """let x = 0
+    expect(#-> gorilla.compile-sync """let x = 0
     let y = 36r$(Number.MAX_VALUE.to-string(36))0""").throws gorilla.ParserError, r"Unable to parse number '36r$(Number.MAX_VALUE.to-string(36))0'.*2:9"

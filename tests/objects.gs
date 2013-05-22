@@ -190,7 +190,7 @@ describe "single-line objects", #
 
 
   it "object with the same key twice", #
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let x = {
       alpha: 'bravo'
       alpha: 'charlie'
@@ -772,7 +772,7 @@ describe "single-line objects", #
     expect(p.x).to.equal "hello"
 
   it "get and set not next to each other", #
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let x = {
       get alpha: 'bravo'
       bravo: 'charlie'
@@ -780,7 +780,7 @@ describe "single-line objects", #
       echo: 'foxtrot'
     }
     """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let x = {
       set alpha: 'bravo'
       bravo: 'charlie'
@@ -790,14 +790,14 @@ describe "single-line objects", #
     """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
 
   it "Multiple gets of the same key", #
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let x = {
       get alpha: 'bravo'
       get alpha: 'charlie'
       delta: 'echo'
     }
     """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*3:7"
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let x = {
       get alpha: 'bravo'
       set bravo: 'charlie'
@@ -805,7 +805,7 @@ describe "single-line objects", #
       echo: 'foxtrot'
     }
     """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let x = {
       get alpha: 'bravo'
       set alpha: 'charlie'
@@ -815,14 +815,14 @@ describe "single-line objects", #
     """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
 
   it "Multiple sets of the same key", #
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let x = {
       set alpha: 'bravo'
       set alpha: 'charlie'
       echo: 'foxtrot'
     }
     """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*3:7"
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let x = {
       get alpha: 'bravo'
       set alpha: 'charlie'
@@ -830,7 +830,7 @@ describe "single-line objects", #
       echo: 'foxtrot'
     }
     """).throws gorilla.ParserError, r"Duplicate key 'alpha' in object.*4:7"
-    expect(#-> gorilla.compile """
+    expect(#-> gorilla.compile-sync """
     let x = {
       set alpha: 'bravo'
       get alpha: 'charlie'

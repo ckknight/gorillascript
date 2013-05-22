@@ -118,15 +118,15 @@ describe "single-line", #
 
 describe "if statement shouldn't use ternary", #
   it "with a normal if", #
-    expect(gorilla.compile("""
+    expect(gorilla.compile-sync("""
     if Math then String else Object end""", bare: true).code).not.to.match r"\?"
   
   it "with a return if", #
-    expect(gorilla.compile("""
+    expect(gorilla.compile-sync("""
     return if Math then String else Object end""", bare: true).code).not.to.match r"\?"
   
   it "with a let if", #
-    expect(gorilla.compile("""
+    expect(gorilla.compile-sync("""
     let x = if Math then String else Object end""", bare: true).code).not.to.match r"\?"
 
 describe "many conditionals in an inline expression", #
