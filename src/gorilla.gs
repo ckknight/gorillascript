@@ -297,10 +297,8 @@ exports.run := promise! #(source, options = {})*
   else
     main-module._compile source, main-module.filename
 
-let init = exports.init := #(options = {}, callback)!
-  if is-function! options
-    return init(void, options)
-  if callback?
-    fetch-and-parse-prelude(options.lang or "js", callback)
-  else
+let init = exports.init := promise! #(options = {})*
+  if options.sync
     fetch-and-parse-prelude.sync(options.lang or "js")
+  else
+    yield to-promise! fetch-and-parse-prelude(options.lang or "js")

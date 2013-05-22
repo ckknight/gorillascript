@@ -48,7 +48,7 @@ command \build, "Build GorillaScript from source", #(options, cb)
     return cb("No files to build")
   
   let gorilla = require('./lib/gorilla')
-  async! cb <- gorilla.init(lang: get-lang(options))
+  async! cb <- (from-promise! gorilla.init(lang: get-lang(options)))()
   
   files.sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case()
   let inputs = {}
@@ -213,7 +213,7 @@ command "test", "Run the GorillaScript test suite", #(options, cb)
   
   let longest-name-len = for reduce file in files, current = 0; current max file.length
   
-  async! cb <- gorilla.init(lang: get-lang(options))
+  async! cb <- (from-promise! gorilla.init(lang: get-lang(options)))()
   
   output string-repeat(" ", longest-name-len)
   output "     parse     macro     reduce    translate compile |  total\n"

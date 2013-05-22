@@ -58,7 +58,7 @@ asyncif next, options["no-prelude"]
   opts.no-prelude := true
   next()
 else
-  async! throw <- gorilla.init { lang }
+  async! throw <- (from-promise! gorilla.init { lang })()
   next()
 
 if options.stdout
