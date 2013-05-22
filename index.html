@@ -200,7 +200,7 @@ new Date().getTime() + 1 == 1359519958072 // or some other number
   <section id="type-safety-of-operators">
     <h2>Type safety of operators</h2>
 
-    <p>All operators check the types of their operands to assure that there will be no improper inputs and that any errors that do occur are caught as early as possible.</p>
+    <p>All operators check the types of their operands to assure that there will be no improper inputs and that any errors that do occur are caught as early as possible. This is highly similar to the custom <a href="http://restrictmode.org/"><code class="language-javascript">"use restrict"</code></a> mode.</p>
 
     <ul>
     <li><code class="language-gorillascript">==</code> and <code class="language-gorillascript">!=</code> do not check the types, since they are already strict by default (in GorillaScript).</li>
