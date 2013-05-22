@@ -162,7 +162,7 @@ else if filenames.length
     else if options.stdout or options.gjs
       handle-code code, done
     else
-      gorilla.run code, { extends opts, filename }, done
+      (from-promise! gorilla.run code, { extends opts, filename })(done)
   
   asyncif next, not options.join
     asyncfor err <- done, filename in filenames

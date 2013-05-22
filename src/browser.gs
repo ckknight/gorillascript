@@ -15,7 +15,7 @@ if window?
     xhr.onreadystatechange := #
       if xhr.ready-state == 4
         if xhr.status in [0, 200]
-          GorillaScript.run xhr.response-text, callback
+          (from-promise! GorillaScript.run xhr.response-text)(callback)
         else
           callback Error "Could not load $url"
     xhr.send null
@@ -27,7 +27,7 @@ if window?
         if script.src
           GorillaScript.load script.src, next
         else
-          GorillaScript.run script.inner-HTML
+          GorillaScript.run.sync script.inner-HTML, sync: true
           next()
       else
         next()

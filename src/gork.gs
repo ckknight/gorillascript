@@ -85,7 +85,7 @@ exports.run := #(callback = fatal-error)
   async! callback, filepath <- find-gorkfile current-path
   async! callback, text <- fs.read-file filepath, "utf-8"
   process.chdir path.dirname(filepath)
-  async! callback <- gorilla.run text, filename: "Gorkfile", include-globals: true
+  async! callback <- (from-promise! gorilla.run text, filename: "Gorkfile", include-globals: true)()
   cli.parse switches, command-to-description
   if process.argv.length <= 2
     cli.get-usage()

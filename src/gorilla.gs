@@ -272,13 +272,13 @@ exports.eval := #(source, options = {}, callback)
     callback null, result
   else
     result
-
-exports.run := #(source, options = {}, callback)!
-  if is-function! options
-    return exports.run source, null, options
+exports.run := promise! #(source, options = {})*
+  let sync = options.sync
   if is-void! process
-    exports.eval(source, options, if callback? then #(err) -> callback(err))
-    return
+    return if sync
+      exports.eval(source, options)
+    else
+      yield to-promise! exports.eval(source, options)
   let main-module = require.main
   main-module.filename := (process.argv[1] := if options.filename
     fs.realpath-sync(options.filename)
@@ -289,16 +289,13 @@ exports.run := #(source, options = {}, callback)!
     let {Module} = require('module')
     main-module.paths := Module._node-module-paths path.dirname options.filename
   if path.extname(main-module.filename) != ".gs" or require.extensions
-    asyncif compiled <- next, callback?
-      async! callback, ret <- compile(source, options)
-      next ret
+    let compiled = if sync
+      compile(source, options)
     else
-      next compile(source, options)
+      yield to-promise! compile(source, options)
     main-module._compile compiled.code, main-module.filename
-    callback?()
   else
     main-module._compile source, main-module.filename
-    callback?()
 
 let init = exports.init := #(options = {}, callback)!
   if is-function! options
