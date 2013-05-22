@@ -98,27 +98,24 @@ let fetch-and-parse-prelude = do
 
 exports.get-serialized-prelude := fetch-and-parse-prelude.serialized
 
-let parse = exports.parse := #(source, options = {}, callback)
-  if is-function! options
-    return parse source, null, options
-  let sync = options.sync := not callback?
-  if options.macros
-    if sync
-      parser.sync(source, options.macros, options)
-    else
-      (from-promise! parser(source, options.macros, options))(callback)
+exports.parse := promise! #(source, options = {})*
+  let sync = options.sync
+  let macros = if options.macros
+    options.macros
   else if options.no-prelude
-    if sync
-      parser.sync(source, null, options)
-    else
-      (from-promise! parser(source, null, options))(callback)
+    null
+  else if sync
+    fetch-and-parse-prelude.sync(options.lang or "js").macros
   else
-    if sync
-      let prelude = fetch-and-parse-prelude.sync(options.lang or "js")
-      parser.sync(source, prelude.macros, options)
-    else
-      async! callback, prelude <- fetch-and-parse-prelude(options.lang or "js")
-      (from-promise! parser(source, prelude.macros, options))(callback)
+    (yield to-promise! fetch-and-parse-prelude(options.lang or "js")).macros
+  
+  return if sync
+    parser.sync(source, macros, options)
+  else
+    yield parser(source, macros, options)
+exports.parse-sync := #(source, options = {})
+  options.sync := true
+  exports.parse.sync source, options
 
 exports.get-reserved-words := #(options = {})
   if options.no-prelude
@@ -155,15 +152,15 @@ exports.ast := promise! #(source, options = {})*
       if is-array! options.filenames
         options.filename := options.filenames[i]
       array.push if sync
-        parse item, options
+        exports.parse-sync item, options
       else
-        yield to-promise! parse item, options
+        yield exports.parse item, options
     join-parsed-results array
   else
     if sync
-      parse source, options
+      exports.parse-sync source, options
     else
-      yield to-promise! parse source, options
+      yield exports.parse source, options
   let translated = translator(parsed.result, parsed.macros, options)
   
   return {

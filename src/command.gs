@@ -69,7 +69,7 @@ let handle-code(code, callback = #->)
     async! next, ast <- (from-promise! gorilla.ast code, opts)()
     next null, util.inspect ast.node, false, null
   else if options.nodes
-    async! next, nodes <- gorilla.parse code, opts
+    async! next, nodes <- (from-promise! gorilla.parse code, opts)()
     next null, util.inspect nodes.result, false, null
   else if options.stdout
     async! next, result <- (from-promise! gorilla.compile code, opts)()
