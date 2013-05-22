@@ -14427,6 +14427,7 @@
           },
           send: _send,
           "throw": function (e) {
+            _close();
             throw e;
           }
         };
@@ -14511,6 +14512,7 @@
           },
           send: _send,
           "throw": function (e) {
+            _close();
             throw e;
           }
         };
@@ -14652,6 +14654,7 @@
           },
           send: _send,
           "throw": function (e) {
+            _close();
             throw e;
           }
         };
@@ -14727,6 +14730,7 @@
           },
           send: _send,
           "throw": function (e) {
+            _close();
             throw e;
           }
         };
@@ -14785,6 +14789,7 @@
           },
           send: _send,
           "throw": function (e) {
+            _close();
             throw e;
           }
         };
@@ -16757,6 +16762,7 @@
               },
               send: _send,
               "throw": function (e) {
+                _close();
                 throw e;
               }
             };
@@ -28932,7 +28938,10 @@
               null,
               [ast.Ident(this.pos, "e")],
               [],
-              ast.Throw(this.pos, ast.Ident(this.pos, "e"))
+              ast.Block(this.pos, [
+                ast.Call(this.pos, close, []),
+                ast.Throw(this.pos, ast.Ident(this.pos, "e"))
+              ])
             ))
           ])));
           return ast.Block(this.pos, body);

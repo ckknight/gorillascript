@@ -507,7 +507,12 @@ class GeneratorBuilder
       * ast.Obj.Pair @pos, \iterator, ast.Func @pos, null, [], [], ast.Return(@pos, ast.This(@pos))
       * ast.Obj.Pair @pos, \next, ast.Func @pos, null, [], [], ast.Return @pos, ast.Call @pos, send, [ast.Const @pos, void]
       * ast.Obj.Pair @pos, \send, send
-      * ast.Obj.Pair @pos, \throw, ast.Func @pos, null, [ast.Ident @pos, \e], [], ast.Throw @pos, ast.Ident @pos, \e
+      * ast.Obj.Pair @pos, \throw, ast.Func @pos, null, [ast.Ident @pos, \e], [], ast.Block @pos, [
+          ast.Call @pos,
+            close
+            []
+          ast.Throw @pos, ast.Ident @pos, \e
+        ]
     ast.Block @pos, body
 
 let flatten-spread-array(elements)
