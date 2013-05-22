@@ -5566,56 +5566,46 @@ class Parser
       let pos = @get-position(index)
       type(pos.line, pos.column, @scope.peek(), ...args)
 
-let parse(source as String, macros as MacroHolder|null, options as {} = {}, callback as Function|null)
-  options.sync := not callback?
-  let promise = promise!(not callback?)
-    let parser = Parser source, macros?.clone(), options
-  
-    let root-rule = if options.embedded-generator
-      EmbeddedRootGeneratorP
-    else if options.embedded
-      EmbeddedRootP
-    else
-      RootP
-  
-    let start-time = new Date().get-time()
-    let mutable result = void
-    try
-      result := if not callback? then root-rule.sync(parser) else yield root-rule parser
-    catch e == SHORT_CIRCUIT
-      void
+let parse = promise! #(source as String, macros as MacroHolder|null, options as {} = {})*
+  let parser = Parser source, macros?.clone(), options
 
-    parser.clear-cache()
-    let end-parse-time = new Date().get-time()
-    options.progress?(\parse, end-parse-time - start-time)
-
-    if not result or result.index < source.length
-      throw parser.get-failure(result?.index)
-
-    let expanded = yield parser.macro-expand-all-promise result.value
-
-    let end-expand-time = new Date().get-time()
-    options.progress?(\macro-expand, end-expand-time - end-parse-time)
-    let reduced = expanded.reduce(parser)
-    let end-reduce-time = new Date().get-time()
-    options.progress?(\reduce, end-reduce-time - end-expand-time)
-    return {
-      result: reduced
-      parser.macros
-      parse-time: end-parse-time - start-time
-      macro-expand-time: end-expand-time - end-parse-time
-      reduce-time: end-reduce-time - end-expand-time
-      time: end-reduce-time - start-time
-    }
-  if callback?
-    promise.then(
-      #(value) -> set-immediate callback null, value
-      #(err) -> set-immediate callback, err)
-    return
+  let root-rule = if options.embedded-generator
+    EmbeddedRootGeneratorP
+  else if options.embedded
+    EmbeddedRootP
   else
-    promise.sync()
-module.exports := parse
-parse <<< {
+    RootP
+
+  let start-time = new Date().get-time()
+  let mutable result = void
+  try
+    result := if options.sync then root-rule.sync(parser) else yield root-rule parser
+  catch e == SHORT_CIRCUIT
+    void
+
+  parser.clear-cache()
+  let end-parse-time = new Date().get-time()
+  options.progress?(\parse, end-parse-time - start-time)
+
+  if not result or result.index < source.length
+    throw parser.get-failure(result?.index)
+
+  let expanded = yield parser.macro-expand-all-promise result.value
+
+  let end-expand-time = new Date().get-time()
+  options.progress?(\macro-expand, end-expand-time - end-parse-time)
+  let reduced = expanded.reduce(parser)
+  let end-reduce-time = new Date().get-time()
+  options.progress?(\reduce, end-reduce-time - end-expand-time)
+  return {
+    result: reduced
+    parser.macros
+    parse-time: end-parse-time - start-time
+    macro-expand-time: end-expand-time - end-parse-time
+    reduce-time: end-reduce-time - end-expand-time
+    time: end-reduce-time - start-time
+  }
+module.exports := parse <<< {
   ParserError
   MacroError
   Node

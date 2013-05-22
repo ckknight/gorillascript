@@ -52,7 +52,7 @@ let fetch-and-parse-prelude = do
     asyncif next, not parsed-prelude?
       process.stderr.write "GorillaScript: Compiling prelude ... "
       let start-time = new Date().get-time()
-      async! flush, result <- parser prelude, null, { +serialize-macros }
+      async! flush, result <- (from-promise! parser prelude, null, { +serialize-macros })()
       parsed-prelude-by-lang[lang] := parsed-prelude := result
       process.stderr.write "$(((new Date().get-time() - start-time) / 1000_ms).to-fixed(3)) s\n"
       fs.write-file get-prelude-cache-path(lang), parsed-prelude.macros.serialize(), "utf8", #(err)
@@ -86,7 +86,7 @@ let fetch-and-parse-prelude = do
           fs.unlink-sync get-prelude-cache-path(lang)
       if not parsed-prelude?
         let prelude = fs.read-file-sync get-prelude-src-path(lang), "utf8"
-        parsed-prelude := parsed-prelude-by-lang[lang] := parser prelude, null, { +serialize-macros }
+        parsed-prelude := parsed-prelude-by-lang[lang] := parser.sync prelude, null, { +serialize-macros }
         fs.write-file get-prelude-cache-path(lang), parsed-prelude.macros.serialize(), "utf8", #(err)
           throw? err
       parsed-prelude
@@ -101,17 +101,24 @@ exports.get-serialized-prelude := fetch-and-parse-prelude.serialized
 let parse = exports.parse := #(source, options = {}, callback)
   if is-function! options
     return parse source, null, options
+  let sync = options.sync := not callback?
   if options.macros
-    parser(source, options.macros, options, callback)
-  else if options.no-prelude
-    parser(source, null, options, callback)
-  else
-    if callback?
-      async! callback, prelude <- fetch-and-parse-prelude(options.lang or "js")
-      parser(source, prelude.macros, options, callback)
+    if sync
+      parser.sync(source, options.macros, options)
     else
+      (from-promise! parser(source, options.macros, options))(callback)
+  else if options.no-prelude
+    if sync
+      parser.sync(source, null, options)
+    else
+      (from-promise! parser(source, null, options))(callback)
+  else
+    if sync
       let prelude = fetch-and-parse-prelude.sync(options.lang or "js")
-      parser(source, prelude.macros, options, callback)
+      parser.sync(source, prelude.macros, options)
+    else
+      async! callback, prelude <- fetch-and-parse-prelude(options.lang or "js")
+      (from-promise! parser(source, prelude.macros, options))(callback)
 
 exports.get-reserved-words := #(options = {})
   if options.no-prelude

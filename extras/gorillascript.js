@@ -7885,7 +7885,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __bind, __cmp, __create, __curry, __defer, __generatorToPromise, __genericFunc, __getInstanceof, __import, __in, __int, __isArray, __isObject, __lt, __lte, __name, __num, __owns, __promise, __slice, __str, __strnum, __toArray, __typeof, _arr, _Block, _DefineMacro, _FunctionBody, _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody, DefineConstLiteral, DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedRootGeneratorP, EmbeddedRootInnerP, EmbeddedRootP, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement, ExpressionOrAssignment, ForInNode, ForNode, fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral, FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, getPackageVersion, getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter, LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody, MacroContext, MacroError, MacroHolder, MacroName, macroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, MapLiteral, MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointChar, MaybeNotToken, MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar, NameOrSymbol, NamePart, NameStart, Node, nodeType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment, NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, Parser, ParserError, PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootInnerP, RootNode, RootP, Scope, Semicolon, SemicolonChar, Semicolons, separatedList, sequential, setImmediate, SetLiteral, Shebang, SHORT_CIRCUIT, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement, StringInterpolation, StringLiteral, stringRepeat, SuperInvocation, SuperNode, SwitchNode, Symbol, symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore, UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, WeakMap, word, wordOrSymbol, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
+      var __bind, __cmp, __create, __curry, __defer, __generatorToPromise, __genericFunc, __getInstanceof, __import, __in, __int, __isArray, __isObject, __lt, __lte, __name, __num, __owns, __promise, __slice, __str, __strnum, __toArray, __typeof, _arr, _Block, _DefineMacro, _FunctionBody, _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody, DefineConstLiteral, DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedRootGeneratorP, EmbeddedRootInnerP, EmbeddedRootP, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement, ExpressionOrAssignment, ForInNode, ForNode, fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral, FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, getPackageVersion, getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter, LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody, MacroContext, MacroError, MacroHolder, macroName, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, MapLiteral, MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointChar, MaybeNotToken, MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar, NameOrSymbol, NamePart, NameStart, Node, nodeType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment, NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, parse, Parser, ParserError, PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootInnerP, RootNode, RootP, Scope, Semicolon, SemicolonChar, Semicolons, separatedList, sequential, setImmediate, SetLiteral, Shebang, SHORT_CIRCUIT, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement, StringInterpolation, StringLiteral, stringRepeat, SuperInvocation, SuperNode, SwitchNode, Symbol, symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore, UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, WeakMap, word, wordOrSymbol, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
       __bind = function (parent, child) {
         var func;
         if (parent == null) {
@@ -16666,167 +16666,136 @@
         };
         return Parser;
       }());
-      function parse(source, macros, options, callback) {
-        var promise;
-        if (typeof source !== "string") {
-          throw TypeError("Expected source to be a String, got " + __typeof(source));
+      parse = __promise(function (source, macros, options) {
+        var _e, _send, _state, _step, e, endExpandTime, endParseTime, endReduceTime, expanded, parser, reduced, result, rootRule, startTime;
+        _state = 0;
+        function _close() {
+          _state = 9;
         }
-        if (macros == null) {
-          macros = null;
-        } else if (!(macros instanceof MacroHolder)) {
-          throw TypeError("Expected macros to be one of " + (__name(MacroHolder) + " or null") + ", got " + __typeof(macros));
-        }
-        if (options == null) {
-          options = {};
-        } else if (typeof options !== "object" || options === null) {
-          throw TypeError("Expected options to be an Object, got " + __typeof(options));
-        }
-        if (callback == null) {
-          callback = null;
-        } else if (typeof callback !== "function") {
-          throw TypeError("Expected callback to be one of Function or null, got " + __typeof(callback));
-        }
-        options.sync = callback == null;
-        promise = __generatorToPromise(
-          (function () {
-            var _e, _send, _state, _step, e, endExpandTime, endParseTime, endReduceTime, expanded, parser, reduced, result, rootRule, startTime;
-            _state = 0;
-            function _close() {
-              _state = 9;
-            }
-            function _step(_received) {
-              while (true) {
-                switch (_state) {
-                case 0:
-                  parser = Parser(
-                    source,
-                    macros != null ? macros.clone() : void 0,
-                    options
-                  );
-                  if (options.embeddedGenerator) {
-                    rootRule = EmbeddedRootGeneratorP;
-                  } else if (options.embedded) {
-                    rootRule = EmbeddedRootP;
-                  } else {
-                    rootRule = RootP;
-                  }
-                  startTime = new Date().getTime();
-                  result = void 0;
-                  ++_state;
-                case 1:
-                  _state = callback == null ? 2 : 3;
-                  break;
-                case 2:
-                  result = rootRule.sync(parser);
-                  _state = 5;
-                  break;
-                case 3:
-                  ++_state;
-                  return { done: false, value: rootRule(parser) };
-                case 4:
-                  result = _received;
-                  ++_state;
-                case 5:
-                  _state = 7;
-                  break;
-                case 6:
-                  if (!(e === SHORT_CIRCUIT)) {
-                    throw e;
-                  }
-                  ++_state;
-                case 7:
-                  parser.clearCache();
-                  endParseTime = new Date().getTime();
-                  if (typeof options.progress === "function") {
-                    options.progress("parse", __num(endParseTime) - __num(startTime));
-                  }
-                  if (!result || __num(result.index) < source.length) {
-                    throw parser.getFailure(result != null ? result.index : void 0);
-                  }
-                  ++_state;
-                  return { done: false, value: parser.macroExpandAllPromise(result.value) };
-                case 8:
-                  expanded = _received;
-                  endExpandTime = new Date().getTime();
-                  if (typeof options.progress === "function") {
-                    options.progress("macroExpand", __num(endExpandTime) - __num(endParseTime));
-                  }
-                  reduced = expanded.reduce(parser);
-                  endReduceTime = new Date().getTime();
-                  if (typeof options.progress === "function") {
-                    options.progress("reduce", __num(endReduceTime) - __num(endExpandTime));
-                  }
-                  ++_state;
-                  return {
-                    done: true,
-                    value: {
-                      result: reduced,
-                      macros: parser.macros,
-                      parseTime: __num(endParseTime) - __num(startTime),
-                      macroExpandTime: __num(endExpandTime) - __num(endParseTime),
-                      reduceTime: __num(endReduceTime) - __num(endExpandTime),
-                      time: __num(endReduceTime) - __num(startTime)
-                    }
-                  };
-                case 9:
-                  return { done: true, value: void 0 };
-                default: throw Error("Unknown state: " + _state);
-                }
+        function _step(_received) {
+          while (true) {
+            switch (_state) {
+            case 0:
+              if (typeof source !== "string") {
+                throw TypeError("Expected source to be a String, got " + __typeof(source));
               }
-            }
-            function _send(_received) {
-              while (true) {
-                try {
-                  return _step(_received);
-                } catch (_e) {
-                  if (_state === 1 || _state === 2 || _state === 3 || _state === 4 || _state === 5) {
-                    e = _e;
-                    _state = 6;
-                  } else {
-                    _close();
-                    throw _e;
-                  }
-                }
+              if (macros == null) {
+                macros = null;
+              } else if (!(macros instanceof MacroHolder)) {
+                throw TypeError("Expected macros to be one of " + (__name(MacroHolder) + " or null") + ", got " + __typeof(macros));
               }
-            }
-            return {
-              close: _close,
-              iterator: function () {
-                return this;
-              },
-              next: function () {
-                return _send(void 0);
-              },
-              send: _send,
-              "throw": function (e) {
-                _close();
+              if (options == null) {
+                options = {};
+              } else if (typeof options !== "object" || options === null) {
+                throw TypeError("Expected options to be an Object, got " + __typeof(options));
+              }
+              parser = Parser(
+                source,
+                macros != null ? macros.clone() : void 0,
+                options
+              );
+              if (options.embeddedGenerator) {
+                rootRule = EmbeddedRootGeneratorP;
+              } else if (options.embedded) {
+                rootRule = EmbeddedRootP;
+              } else {
+                rootRule = RootP;
+              }
+              startTime = new Date().getTime();
+              result = void 0;
+              ++_state;
+            case 1:
+              _state = options.sync ? 2 : 3;
+              break;
+            case 2:
+              result = rootRule.sync(parser);
+              _state = 5;
+              break;
+            case 3:
+              ++_state;
+              return { done: false, value: rootRule(parser) };
+            case 4:
+              result = _received;
+              ++_state;
+            case 5:
+              _state = 7;
+              break;
+            case 6:
+              if (!(e === SHORT_CIRCUIT)) {
                 throw e;
               }
-            };
-          }()),
-          callback == null
-        );
-        if (callback != null) {
-          promise.then(
-            function (value) {
-              return setImmediate(callback(null, value));
-            },
-            function (err) {
-              return setImmediate(callback, err);
+              ++_state;
+            case 7:
+              parser.clearCache();
+              endParseTime = new Date().getTime();
+              if (typeof options.progress === "function") {
+                options.progress("parse", __num(endParseTime) - __num(startTime));
+              }
+              if (!result || __num(result.index) < source.length) {
+                throw parser.getFailure(result != null ? result.index : void 0);
+              }
+              ++_state;
+              return { done: false, value: parser.macroExpandAllPromise(result.value) };
+            case 8:
+              expanded = _received;
+              endExpandTime = new Date().getTime();
+              if (typeof options.progress === "function") {
+                options.progress("macroExpand", __num(endExpandTime) - __num(endParseTime));
+              }
+              reduced = expanded.reduce(parser);
+              endReduceTime = new Date().getTime();
+              if (typeof options.progress === "function") {
+                options.progress("reduce", __num(endReduceTime) - __num(endExpandTime));
+              }
+              ++_state;
+              return {
+                done: true,
+                value: {
+                  result: reduced,
+                  macros: parser.macros,
+                  parseTime: __num(endParseTime) - __num(startTime),
+                  macroExpandTime: __num(endExpandTime) - __num(endParseTime),
+                  reduceTime: __num(endReduceTime) - __num(endExpandTime),
+                  time: __num(endReduceTime) - __num(startTime)
+                }
+              };
+            case 9:
+              return { done: true, value: void 0 };
+            default: throw Error("Unknown state: " + _state);
             }
-          );
-          return;
-        } else {
-          return promise.sync();
+          }
         }
-      }
-      module.exports = parse;
-      parse.ParserError = ParserError;
-      parse.MacroError = MacroError;
-      parse.Node = Node;
-      parse.MacroHolder = MacroHolder;
-      parse.unusedCaches = unusedCaches;
-      parse.deserializePrelude = function (data) {
+        function _send(_received) {
+          while (true) {
+            try {
+              return _step(_received);
+            } catch (_e) {
+              if (_state === 1 || _state === 2 || _state === 3 || _state === 4 || _state === 5) {
+                e = _e;
+                _state = 6;
+              } else {
+                _close();
+                throw _e;
+              }
+            }
+          }
+        }
+        return {
+          close: _close,
+          iterator: function () {
+            return this;
+          },
+          next: function () {
+            return _send(void 0);
+          },
+          send: _send,
+          "throw": function (e) {
+            _close();
+            throw e;
+          }
+        };
+      });
+      module.exports = (parse.ParserError = ParserError, parse.MacroError = MacroError, parse.Node = Node, parse.MacroHolder = MacroHolder, parse.unusedCaches = unusedCaches, parse.deserializePrelude = function (data) {
         var parsed, parser;
         if (typeof data === "string") {
           parsed = JSON.parse(data);
@@ -16839,13 +16808,12 @@
           result: NothingNode(0, 0, parser.scope.peek()),
           macros: parser.macros
         };
-      };
-      parse.getReservedWords = function (macros, options) {
+      }, parse.getReservedWords = function (macros, options) {
         if (options == null) {
           options = {};
         }
         return unique(__toArray(getReservedIdents(options)).concat(__toArray(macros != null && typeof macros.getMacroAndOperatorNames === "function" && macros.getMacroAndOperatorNames() || [])));
-      };
+      }, parse);
       for (_arr = [
         "Access",
         "AccessMulti",
@@ -31810,7 +31778,7 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __isArray, __lte, __num, __once, __owns, __slice, __strnum, __toArray, __typeof, compile, fetchAndParsePrelude, fs, init, os, parse, parser, path, translate;
+      var __async, __fromPromise, __isArray, __lte, __num, __once, __owns, __slice, __strnum, __toArray, __typeof, compile, fetchAndParsePrelude, fs, init, os, parse, parser, path, setImmediate, translate;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -31878,6 +31846,23 @@
           }
         }
         next();
+      };
+      __fromPromise = function (promise) {
+        if (typeof promise !== "object" || promise === null) {
+          throw TypeError("Expected promise to be an Object, got " + __typeof(promise));
+        } else if (typeof promise.then !== "function") {
+          throw TypeError("Expected promise.then to be a Function, got " + __typeof(promise.then));
+        }
+        return function (callback) {
+          promise.then(
+            function (value) {
+              return setImmediate(callback, null, value);
+            },
+            function (reason) {
+              return setImmediate(callback, reason);
+            }
+          );
+        };
       };
       __isArray = typeof Array.isArray === "function" ? Array.isArray
         : (function () {
@@ -31964,6 +31949,43 @@
           }
         };
       }());
+      setImmediate = typeof GLOBAL.setImmediate === "function" ? GLOBAL.setImmediate
+        : typeof process !== "undefined" && typeof process.nextTick === "function"
+        ? (function () {
+          var nextTick;
+          nextTick = process.nextTick;
+          return function (func) {
+            var args;
+            if (typeof func !== "function") {
+              throw TypeError("Expected func to be a Function, got " + __typeof(func));
+            }
+            args = __slice.call(arguments, 1);
+            if (args.length) {
+              return nextTick(function () {
+                func.apply(void 0, __toArray(args));
+              });
+            } else {
+              return nextTick(func);
+            }
+          };
+        }())
+        : function (func) {
+          var args;
+          if (typeof func !== "function") {
+            throw TypeError("Expected func to be a Function, got " + __typeof(func));
+          }
+          args = __slice.call(arguments, 1);
+          if (args.length) {
+            return setTimeout(
+              function () {
+                func.apply(void 0, __toArray(args));
+              },
+              0
+            );
+          } else {
+            return setTimeout(func, 0);
+          }
+        };
       parser = require("./parser");
       os = require("os");
       fs = require("fs");
@@ -32108,7 +32130,7 @@
                       var _once4, startTime;
                       process.stderr.write("GorillaScript: Compiling prelude ... ");
                       startTime = new Date().getTime();
-                      return parser(prelude, null, { serializeMacros: true }, (_once4 = false, function (_e3, result) {
+                      return __fromPromise(parser(prelude, null, { serializeMacros: true }))((_once4 = false, function (_e3, result) {
                         if (_once4) {
                           throw Error("Attempted to call function more than once");
                         } else {
@@ -32196,7 +32218,7 @@
             }
             if (parsedPrelude == null) {
               prelude = fs.readFileSync(getPreludeSrcPath(lang), "utf8");
-              parsedPrelude = parsedPreludeByLang[lang] = parser(prelude, null, { serializeMacros: true });
+              parsedPrelude = parsedPreludeByLang[lang] = parser.sync(prelude, null, { serializeMacros: true });
               fs.writeFile(getPreludeCachePath(lang), parsedPrelude.macros.serialize(), "utf8", function (err) {
                 if (err != null) {
                   throw err;
@@ -32220,18 +32242,30 @@
       }());
       exports.getSerializedPrelude = fetchAndParsePrelude.serialized;
       parse = exports.parse = function (source, options, callback) {
-        var _once, prelude;
+        var _once, prelude, sync;
         if (options == null) {
           options = {};
         }
         if (typeof options === "function") {
           return parse(source, null, options);
         }
+        sync = options.sync = callback == null;
         if (options.macros) {
-          return parser(source, options.macros, options, callback);
+          if (sync) {
+            return parser.sync(source, options.macros, options);
+          } else {
+            return __fromPromise(parser(source, options.macros, options))(callback);
+          }
         } else if (options.noPrelude) {
-          return parser(source, null, options, callback);
-        } else if (callback != null) {
+          if (sync) {
+            return parser.sync(source, null, options);
+          } else {
+            return __fromPromise(parser(source, null, options))(callback);
+          }
+        } else if (sync) {
+          prelude = fetchAndParsePrelude.sync(options.lang || "js");
+          return parser.sync(source, prelude.macros, options);
+        } else {
           return fetchAndParsePrelude(options.lang || "js", (_once = false, function (_e, prelude) {
             if (_once) {
               throw Error("Attempted to call function more than once");
@@ -32241,11 +32275,8 @@
             if (_e != null) {
               return callback(_e);
             }
-            return parser(source, prelude.macros, options, callback);
+            return __fromPromise(parser(source, prelude.macros, options))(callback);
           }));
-        } else {
-          prelude = fetchAndParsePrelude.sync(options.lang || "js");
-          return parser(source, prelude.macros, options, callback);
         }
       };
       exports.getReservedWords = function (options) {
