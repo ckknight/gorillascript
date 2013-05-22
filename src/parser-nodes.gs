@@ -1391,6 +1391,10 @@ node-class ThrowNode(node as Node)
       ThrowNode @line, @column, @scope, node
     else
       this
+  def do-wrap(o)
+    CallNode @line, @column, @scope,
+      IdentNode @line, @column, @scope, \__throw
+      [@node]
 node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def cacheable = false
   def type() -> @_type

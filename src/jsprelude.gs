@@ -59,6 +59,8 @@ define operator binary ~>, ~>= with precedence: 2, maximum: 1, type: \boolean
 define operator unary throw with type: "none"
   @mutate-last node or @noop(), (#(n)@ -> @throw n), true
 
+define helper __throw = #(err) -> throw err
+
 define operator unary post-inc! with type: \number
   @unary "++post", node
 
