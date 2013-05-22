@@ -3721,10 +3721,14 @@ macro promise!
     else
       ASTE __generator-to-promise($func(), $sync)
 
-define operator unary fulfilled!
+macro fulfilled!(node)
+  if macro-data.length > 1
+    @error "fulfilled! only expects one argument"
   @mutate-last node or @noop(), (#(n)@ -> ASTE __defer.fulfilled($n)), true
 
-define operator unary rejected!
+macro rejected!(node)
+  if macro-data.length > 1
+    @error "rejected! only expects one argument"
   @mutate-last node or @noop(), (#(n)@ -> ASTE __defer.rejected($n)), true
 
 define helper __from-promise = #(promise as { then: (->) }) -> #(callback)!
@@ -3732,7 +3736,9 @@ define helper __from-promise = #(promise as { then: (->) }) -> #(callback)!
     #(value) -> set-immediate callback, null, value
     #(reason) -> set-immediate callback, reason)
 
-define operator unary from-promise! with type: \function
+macro from-promise!(node)
+  if macro-data.length > 1
+    @error "from-promise! only expects one argument"
   ASTE __from-promise $node
 
 define helper __to-promise = #(func as ->, context, args)
@@ -3744,7 +3750,9 @@ define helper __to-promise = #(func as ->, context, args)
       d.fulfill value
   d.promise
 
-define operator unary to-promise! with type: \promise
+macro to-promise!(node) with type: \promise
+  if macro-data.length > 1
+    @error "to-promise! only expects one argument"
   if not @is-call(node)
     @error "to-promise! call expression must be a call", node
   
@@ -3797,9 +3805,11 @@ define helper __some-promise = #(promises as [])
     promises[i].then(defer.fulfill, defer.reject)
   defer.promise
 
-define operator unary some-promise! with type: \promise
+macro some-promise!(node)
+  if macro-data.length > 1
+    @error "some-promise! only expects one argument"
   if not @has-type(node, \array)
-    @error "some-promise! should be used on an Array"
+    @error "some-promise! should be used on an Array", node
   
   ASTE __some-promise $node
 
@@ -3826,11 +3836,30 @@ define helper __every-promise = #(promises as {})
       handle k, v
   defer.promise
 
-define operator unary every-promise! with type: \promise
+macro every-promise!(node)
+  if macro-data.length > 1
+    @error "some-promise! only expects one argument"
   if not @has-type(node, \array) and not @has-type(node, \object)
-    @error "every-promise! should be used on an Array or Object"
+    @error "every-promise! should be used on an Array or Object", node
   
   ASTE __every-promise $node
+
+define helper __delay = #(milliseconds as Number, value)
+  if milliseconds <= 0
+    __defer.fulfilled(value)
+  else
+    let defer = __defer()
+    set-timeout (#!-> defer.fulfill(value)), milliseconds
+    defer.promise
+
+macro delay!(milliseconds, value)
+  if not @has-type(milliseconds, \number)
+    @error "delay! should take a number in milliseconds"
+  
+  if @is-const(value) and @value(value) == void
+    ASTE __delay $milliseconds
+  else
+    ASTE __delay $milliseconds, $value
 
 define helper __promise-loop = #(mutable limit as Number, length as Number, body as ->)
   if limit ~< 1 or limit != limit

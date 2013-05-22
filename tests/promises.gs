@@ -1,4 +1,5 @@
 let random-wait(value, max-time = 10)
+  //delay! (Math.random() * max-time) \ 1, value
   let defer = __defer()
   set-timeout #-> defer.fulfill(value), (Math.random() * max-time) \ 1
   defer.promise
@@ -462,3 +463,26 @@ describe "promisefor", #
         expect(items.sort (<=>)).to.eql (0 til 10)
         cb())
   
+describe "delay!", #
+  it "works for time <= 0", #(cb)
+    let alpha = delay! -1000_ms, \bravo
+    alpha.then #(value)
+      expect(value).to.equal \bravo
+      cb()
+  
+  it "waits at least the specified time before fulfilling", #(cb)
+    let start = +new Date().get-time()
+    let alpha = delay! 200_ms, \bravo
+    alpha.then #(value)
+      expect(value).to.equal \bravo
+      let elapsed = new Date().get-time()
+      expect(elapsed).to.be.at.least 200_ms
+      cb()
+  
+  it "can be used with some-promise! as a timeout mechanism", #(cb)
+    let never-finish = __defer().promise
+    let timeout = {}
+    (some-promise! [never-finish, delay!(50_ms, timeout)]).then #(value)
+      expect(value).to.equal timeout
+      cb()
+      
