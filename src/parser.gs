@@ -5,7 +5,7 @@ require! MacroHolder: './parser-macroholder'
 require! Type: './types'
 let {string-repeat} = require('./utils')
 let {add-param-to-scope} = require('./parser-utils')
-let {quote, unique} = require './utils'
+let {quote, unique, get-package-version} = require './utils'
 
 const DEBUG = false
 
@@ -4740,6 +4740,8 @@ class Parser
   
   def pop-scope()!
     @scope.pop()
+  
+  def get-package-version() -> @_package-version ?= get-package-version(@options.filename)
   
   def has-macro-or-operator(name as String) -> @macros.has-macro-or-operator name
   

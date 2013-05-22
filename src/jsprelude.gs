@@ -4045,3 +4045,7 @@ macro __FILE__
 macro __DATEMSEC__
   syntax "" with type: \number
     @const new Date().get-time()
+
+macro __VERSION__
+  syntax "" with type: \string
+    @const @version()

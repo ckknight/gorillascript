@@ -87,6 +87,9 @@ class MacroContext
   def file()
     @parser.options.filename or ""
   
+  def version()
+    @parser.get-package-version()
+  
   def let(ident as TmpNode|IdentNode, is-mutable as Boolean, mutable type as Type = Type.any)
     if ident instanceof IdentNode and is-mutable and type.is-subset-of(Type.undefined-or-null)
       type := Type.any

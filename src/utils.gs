@@ -1,4 +1,6 @@
 let inspect = require('util')?.inspect
+let path = require('path')
+let fs = require('fs')
 
 let string-repeat(text, count)
   if count < 1
@@ -46,3 +48,36 @@ exports.unique := #(items)
     if item not in result
       result.push item
   result
+
+let find-package-json(dir)
+  let filepath = path.join dir, "package.json"
+  if fs.exists-sync filepath
+    filepath
+  else
+    let parent = path.normalize path.join dir, ".."
+    if parent != dir
+      find-package-json parent
+
+exports.get-package-version := #(filename)
+  if not is-string! filename or not fs or not path
+    return ""
+  
+  let mutable package-json-filename = void
+  try
+    package-json-filename := find-package-json(path.dirname(filename))
+  catch e
+    void
+  
+  if not package-json-filename
+    return ""
+  
+  let mutable version = void
+  try
+    version := JSON.parse(fs.read-file-sync(package-json-filename)).version
+  catch e
+    void
+  
+  if is-string! version
+    version
+  else
+    ""
