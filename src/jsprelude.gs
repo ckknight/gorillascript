@@ -161,7 +161,10 @@ define operator binary ~& with precedence: 7, type: \string
     @binary left, "+", right
 
 define operator assign := with type: \right
-  @assign left, "=", right
+  if not @is-complex(left) or (@is-access(left) and not @is-complex(@parent(left)) and not @is-complex(@child(left)))
+    @mutate-last right or @noop(), (#(n)@ -> @assign left, "=", n), true
+  else
+    @assign left, "=", right
 
 define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier, as-type as ("as", this as Type)?
   if @is-ident-or-tmp(ident)
