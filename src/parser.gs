@@ -2689,6 +2689,14 @@ define RegexLiteral = do
       seen-flags.push flag
     parser.Regexp index, text, flags
 
+let ConstantLiteralAccessPart = one-of(
+  sequential(
+    Period
+    [\this, IdentifierNameConstOrNumberLiteral])
+  sequential(
+    OpenSquareBracketChar
+    [\this, Expression]
+    CloseSquareBracket))
 let CustomConstantLiteral(parser, index)
   let name = Name parser, index
   if not name
@@ -2701,7 +2709,20 @@ let CustomConstantLiteral(parser, index)
   if parser.in-ast.peek()
     Box name.index, parser.MacroConst index, name.value
   else
-    Box name.index, parser.Const index, value.value
+    let mutable current = value.value
+    let mutable current-index = name.index
+    while is-object! current
+      let part = ConstantLiteralAccessPart parser, current-index
+      if not part
+        throw ParserError "Constant '$(name.value)' cannot appear without being accessed upon."
+      current-index := part.index
+      if not part.value.is-const()
+        throw ParserError "Constant '$(name.value)' must only be accessed with constant keys."
+      let key = part.value.const-value()
+      if current not ownskey key
+        throw ParserError "Unknown key $(JSON.stringify String key) in constant."
+      current := current[key]
+    Box current-index, parser.Const index, current
 
 let NullOrVoidLiteral(parser, index)
   let constant = CustomConstantLiteral parser, index
@@ -4247,9 +4268,9 @@ let DefineConstLiteral = sequential(
   EqualSign
   [\value, Expression]) |> mutate #({name, mutable value}, parser, index)
   value := parser.macro-expand-all(value.reduce(parser))
-  if not value.is-const()
-    throw ParserError "const value must be a constant.", this, index
-  parser.define-const index, name, value.const-value()
+  if not value.is-literal()
+    throw ParserError "const value must be a literal.", this, index
+  parser.define-const index, name, value.literal-value()
   parser.Nothing index
 
 redefine Statement = sequential(
@@ -5458,7 +5479,7 @@ class Parser
     @macro-syntax index, \define-syntax, params, { name }, body
     @exit-macro()
   
-  def define-const(index, name as String, value as Number|String|Boolean|void|null)!
+  def define-const(index, name as String, value)!
     let scope = @scope.peek()
     if scope == @scope.initial
       @macros.add-const name, value

@@ -7935,12 +7935,13 @@
           ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar,
           ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline,
           Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent,
-          CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey,
-          ContinueNode, convertInvocationOrAccess, CountIndent, CurrentArrayLength,
-          CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber,
-          DedentedBody, DefineConstLiteral, DefineHelper, DefineMacro,
-          DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign,
-          DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral,
+          CommentNode, concat, cons, ConstantLiteral, ConstantLiteralAccessPart,
+          ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess,
+          CountIndent, CurrentArrayLength, CustomOperatorCloseParenthesis,
+          DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody,
+          DefineConstLiteral, DefineHelper, DefineMacro, DefineOperator,
+          DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar,
+          DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral,
           DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey,
           EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite,
           EmbeddedLiteralText, EmbeddedLiteralTextInnerPart,
@@ -11956,8 +11957,16 @@
           return parser.Regexp(index, text, flags);
         })(_ref)));
       }()));
+      ConstantLiteralAccessPart = oneOf(
+        sequential(Period, ["this", IdentifierNameConstOrNumberLiteral]),
+        sequential(
+          OpenSquareBracketChar,
+          ["this", Expression],
+          CloseSquareBracket
+        )
+      );
       function CustomConstantLiteral(parser, index) {
-        var name, value;
+        var current, currentIndex, key, name, part, value;
         name = Name(parser, index);
         if (!name) {
           return;
@@ -11969,7 +11978,24 @@
         if (parser.inAst.peek()) {
           return Box(name.index, parser.MacroConst(index, name.value));
         } else {
-          return Box(name.index, parser.Const(index, value.value));
+          current = value.value;
+          currentIndex = name.index;
+          while (typeof current === "object" && current !== null) {
+            part = ConstantLiteralAccessPart(parser, currentIndex);
+            if (!part) {
+              throw ParserError("Constant '" + __strnum(name.value) + "' cannot appear without being accessed upon.");
+            }
+            currentIndex = part.index;
+            if (!part.value.isConst()) {
+              throw ParserError("Constant '" + __strnum(name.value) + "' must only be accessed with constant keys.");
+            }
+            key = part.value.constValue();
+            if (!__owns.call(current, key)) {
+              throw ParserError("Unknown key " + __str(JSON.stringify(String(key))) + " in constant.");
+            }
+            current = current[key];
+          }
+          return Box(currentIndex, parser.Const(index, current));
         }
       }
       function NullOrVoidLiteral(parser, index) {
@@ -14313,10 +14339,10 @@
         name = _p.name;
         value = _p.value;
         value = parser.macroExpandAll(value.reduce(parser));
-        if (!value.isConst()) {
-          throw ParserError("const value must be a constant.", this, index);
+        if (!value.isLiteral()) {
+          throw ParserError("const value must be a literal.", this, index);
         }
-        parser.defineConst(index, name, value.constValue());
+        parser.defineConst(index, name, value.literalValue());
         return parser.Nothing(index);
       })(_ref);
       Statement = cache(sequential(
@@ -16664,9 +16690,6 @@
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
-          if (value != null && typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean") {
-            throw TypeError("Expected value to be one of Number or String or Boolean or undefined or null, got " + __typeof(value));
-          }
           scope = this.scope.peek();
           if (scope === this.scope.initial) {
             this.macros.addConst(name, value);
@@ -17675,9 +17698,6 @@
         _Scope_prototype.addConst = function (name, value) {
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
-          }
-          if (value != null && typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean") {
-            throw TypeError("Expected value to be one of Number or String or Boolean or null or undefined, got " + __typeof(value));
           }
           this.consts[name] = value;
         };
@@ -25889,9 +25909,6 @@
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
-          if (value != null && typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean") {
-            throw TypeError("Expected value to be one of Number or String or Boolean or null or undefined, got " + __typeof(value));
-          }
           this.consts[name] = value;
         };
         function serializeConstValue(value) {
@@ -32393,7 +32410,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.3";
+      exports.version = "0.7.4";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {

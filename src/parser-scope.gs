@@ -125,7 +125,7 @@ class Scope
     else
       @variables[ident.name] := { is-mutable, type }
   
-  def add-const(name as String, value as Number|String|Boolean|null|void)!
+  def add-const(name as String, value)!
     @consts[name] := value
   
   let get-ident(scope, name)

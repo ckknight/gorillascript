@@ -170,7 +170,7 @@ class MacroHolder
     let helpers = (@serialization.helpers ?= {})
     helpers[name] := { helper, type, dependencies }
   
-  def add-const(name as String, value as Number|String|Boolean|null|void)!
+  def add-const(name as String, value)!
     @consts[name] := value
   
   let serialize-const-value(value)

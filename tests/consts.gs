@@ -1,5 +1,7 @@
 const unfalse = true
 const untrue = false
+const CONST_OBJECT = { alpha: 1, bravo: 2 }
+const CONST_ARRAY = [\alpha, \bravo, \charlie]
 
 describe "consts", #
   it "work from the top scope", #
@@ -61,3 +63,40 @@ describe "consts", #
       const DEBUG = true
       get-debug()
     expect(f()).to.be.true
+
+describe "object consts", #
+  it "work from the top scope", #
+    expect(CONST_OBJECT.alpha).to.equal 1
+    expect(CONST_OBJECT.bravo).to.equal 2
+  
+  it "converts directly to a constant value when accessing a const object's key", #
+    let make-code(key)
+      gorilla.compile-sync("""
+      const VALUES = { alpha: 1, bravo: 2, charlie: 3 }
+      
+      let value = VALUES.$key
+      """).code
+    
+    expect(make-code("alpha")).to.not.contain "alpha"
+    expect(make-code("bravo")).to.not.contain "bravo"
+    expect(make-code("charlie")).to.not.contain "charlie"
+
+describe "array consts", #
+  it "work from the top scope", #
+    expect(CONST_ARRAY[0]).to.equal \alpha
+    expect(CONST_ARRAY[1]).to.equal \bravo
+    expect(CONST_ARRAY[2]).to.equal \charlie
+    expect(CONST_ARRAY.length).to.equal 3
+  
+  it "converts directly to a constant value when accessing a const array's key", #
+    let make-code(key)
+      gorilla.compile-sync("""
+      const VALUES = ["alpha", "bravo", "charlie"]
+      
+      let value = VALUES.$key
+      """).code
+    
+    expect(make-code(0)).to.contain "alpha"
+    expect(make-code(1)).to.contain "bravo"
+    expect(make-code(2)).to.contain "charlie"
+    expect(make-code("length")).to.contain "3"
