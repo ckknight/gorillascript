@@ -2722,14 +2722,12 @@ macro asyncif, asyncunless
       test := ASTE not $test
     let {mutable err, result} = results ? {}
     
-    let f = @tmp \f, false
-    
     rest ?= @noop()
     
     let mutable current = if else-body
-      ASTE $f := #($done)@ -> $else-body
+      ASTE #($done)@ -> $else-body
     else
-      ASTE $f := #($done)@ -> $done()
+      ASTE #($done)@ -> $done()
     
     let mutable i = else-ifs.length - 1
     while i >= 0, i -= 1
@@ -2738,28 +2736,25 @@ macro asyncif, asyncunless
       if else-if.type == "unless"
         inner-test := ASTE not $inner-test
       current := AST if $inner-test
-        $f := #($done)@ -> $(else-if.body)
+        #($done)@ -> $(else-if.body)
       else
         $current
     
     current := AST if $test
-      $f := #($done)@ -> $body
+      #($done)@ -> $body
     else
       $current
     
     if not err and not result
       AST
-        $current
-        $f(#@-> $rest)
+        $current(#@-> $rest)
     else if not result
       AST
-        $current
-        $f(#($err)@ -> $rest)
+        $current(#($err)@ -> $rest)
     else
       err ?= @tmp \err, true
       AST
-        $current
-        $f(#($err, $result)@ -> $rest)
+        $current(#($err, $result)@ -> $rest)
 
 macro def
   syntax key as ObjectKey, func as FunctionDeclaration
