@@ -404,7 +404,7 @@ node-class AssignNode(left as Node, op as String, right as Node)
       "&=": Type.number
       "^=": Type.number
       "|=": Type.number
-    #(o) -> @_type ?= do
+    #(o) -> @_type ?=
       let type = ops![@op]
       if not type
         Type.any
@@ -451,7 +451,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "|": Type.number
       "&&": #(left, right) -> left.intersect(Type.potentially-falsy).union(right)
       "||": #(left, right) -> left.intersect(Type.potentially-truthy).union(right)
-    #(o) -> @_type ?= do
+    #(o) -> @_type ?=
       let type = ops![@op]
       if not type
         Type.any
@@ -1027,7 +1027,7 @@ node-class ForInNode(key as Node, object as Node, body as Node, label as IdentNo
   def with-label(label as IdentNode|TmpNode|null)
     ForInNode @line, @column, @scope, @key, @object, @body, label
 node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
-  def type(o) -> @_type ?= do
+  def type(o) -> @_type ?=
     // TODO: handle generator types
     if @as-type?
       node-to-type(@as-type).function()
@@ -1100,7 +1100,7 @@ node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingN
       this
   def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
 node-class MacroAccessNode(id as Number, call-line as Number, data as Object, position as String, in-generator as Boolean, in-evil-ast as Boolean)
-  def type(o) -> @_type ?= do
+  def type(o) -> @_type ?=
     let type = o.macros.get-type-by-id(@id)
     if type?
       if is-string! type
@@ -1181,7 +1181,7 @@ node-class NothingNode
   def is-const-value(value) -> value == void
   def _is-noop() -> true
 node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void }], prototype as Node|void)
-  def type(o) -> @_type ?= do
+  def type(o) -> @_type ?=
     let data = {}
     for {key, value} in @pairs
       if key.is-const()
@@ -1328,7 +1328,7 @@ node-class SuperNode(child as Node|void, args as [Node])
     else
       this
 node-class SwitchNode(node as Node, cases as [], default-case as Node|void, label as IdentNode|TmpNode|null)
-  def type(o) -> @_type ?= do
+  def type(o) -> @_type ?=
     for reduce case_ in @cases, type = if @default-case? then @default-case.type(o) else Type.undefined
       if case_.fallthrough
         type

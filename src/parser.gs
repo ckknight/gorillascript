@@ -2256,7 +2256,7 @@ define BinaryNumber = make-radix-number 2, character!("bB"), HexDigit
 
 define RadixNumber = do
   let digits-cache = []
-  let get-digits-rule(radix) -> digits-cache[radix] ?= do
+  let get-digits-rule(radix) -> digits-cache[radix] ?=
     let digit = switch radix
     case 2; BinaryDigit
     case 8; OctalDigit

@@ -286,7 +286,7 @@ module.exports := class Type
       bravo.args := alpha.args
       bravo.id := alpha.id
 
-    def to-string() -> @_name ?= do
+    def to-string() -> @_name ?=
       if @base == array-base and @args.length == 1
         if @args[0] == any
           "[]"

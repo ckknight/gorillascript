@@ -93,7 +93,7 @@ class MacroHolder
       names.push name
     names
   
-  def all-binary-operators() -> @_all-binary-operators ?= do
+  def all-binary-operators() -> @_all-binary-operators ?=
     let result = []
     for array in @binary-operators
       result.push ...array

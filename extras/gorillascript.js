@@ -1486,43 +1486,39 @@
             bravo.id = alpha.id;
           }
           _GenericType_prototype.toString = function () {
-            var _ref, _this;
-            _this = this;
+            var _arr, _len, _ref, arg, i, sb;
             if ((_ref = this._name) == null) {
-              return this._name = (function () {
-                var _arr, _len, arg, i, sb;
-                if (_this.base === arrayBase && _this.args.length === 1) {
-                  if (_this.args[0] === any) {
-                    return "[]";
-                  } else {
-                    return "[" + String(_this.args[0]) + "]";
-                  }
-                } else if (_this.base === functionBase && _this.args.length === 1) {
-                  if (_this.args[0] === any) {
-                    return "->";
-                  } else {
-                    return "-> " + String(_this.args[0]);
-                  }
+              if (this.base === arrayBase && this.args.length === 1) {
+                if (this.args[0] === any) {
+                  return this._name = "[]";
                 } else {
-                  sb = [];
-                  sb.push(String(_this.base));
-                  sb.push("<");
-                  for (_arr = __toArray(_this.args), i = 0, _len = _arr.length; i < _len; ++i) {
-                    arg = _arr[i];
-                    if (i > 0) {
-                      sb.push(",");
-                      if (arg !== any && _this.args[i - 1] !== any) {
-                        sb.push(" ");
-                      }
-                    }
-                    if (arg !== any) {
-                      sb.push(String(arg));
+                  return this._name = "[" + String(this.args[0]) + "]";
+                }
+              } else if (this.base === functionBase && this.args.length === 1) {
+                if (this.args[0] === any) {
+                  return this._name = "->";
+                } else {
+                  return this._name = "-> " + String(this.args[0]);
+                }
+              } else {
+                sb = [];
+                sb.push(String(this.base));
+                sb.push("<");
+                for (_arr = __toArray(this.args), i = 0, _len = _arr.length; i < _len; ++i) {
+                  arg = _arr[i];
+                  if (i > 0) {
+                    sb.push(",");
+                    if (arg !== any && this.args[i - 1] !== any) {
+                      sb.push(" ");
                     }
                   }
-                  sb.push(">");
-                  return sb.join("");
+                  if (arg !== any) {
+                    sb.push(String(arg));
+                  }
                 }
-              }());
+                sb.push(">");
+                return this._name = sb.join("");
+              }
             } else {
               return _ref;
             }
@@ -11391,46 +11387,43 @@
         var digitsCache, R, Radix;
         digitsCache = [];
         function getDigitsRule(radix) {
-          var _ref;
+          var _end, _ref, digit, i, letterEnd, name, set;
           if ((_ref = digitsCache[radix]) == null) {
-            return digitsCache[radix] = (function () {
-              var _end, digit, i, letterEnd, name, set;
-              switch (radix) {
-              case 2:
-                digit = BinaryDigit;
-                break;
-              case 8:
-                digit = OctalDigit;
-                break;
-              case 10:
-                digit = DecimalDigit;
-                break;
-              case 16:
-                digit = HexDigit;
-                break;
-              default:
-                set = __create(null);
-                for (i = 0, _end = __num(radix) > 10 ? __num(radix) : 10; i < _end; ++i) {
-                  set[i + 48] = true;
-                }
-                for (i = 0, _end = (__num(radix) > 36 ? __num(radix) : 36) - 10; i < _end; ++i) {
-                  set[i + 65] = true;
-                  set[i + 97] = true;
-                }
-                name = ["[0-"];
-                name.push(String.fromCharCode((__num(radix) > 9 ? __num(radix) : 9) + 48));
-                if (__num(radix) >= 10) {
-                  letterEnd = (__num(radix) > 36 ? __num(radix) : 36) - 10;
-                  name.push("A-");
-                  name.push(String.fromCharCode(letterEnd + 65));
-                  name.push("a-");
-                  name.push(String.fromCharCode(letterEnd + 97));
-                }
-                name.push("]");
-                digit = characters(name.join(""), set);
+            switch (radix) {
+            case 2:
+              digit = BinaryDigit;
+              break;
+            case 8:
+              digit = OctalDigit;
+              break;
+            case 10:
+              digit = DecimalDigit;
+              break;
+            case 16:
+              digit = HexDigit;
+              break;
+            default:
+              set = __create(null);
+              for (i = 0, _end = __num(radix) > 10 ? __num(radix) : 10; i < _end; ++i) {
+                set[i + 48] = true;
               }
-              return makeDigitsRule(digit);
-            }());
+              for (i = 0, _end = (__num(radix) > 36 ? __num(radix) : 36) - 10; i < _end; ++i) {
+                set[i + 65] = true;
+                set[i + 97] = true;
+              }
+              name = ["[0-"];
+              name.push(String.fromCharCode((__num(radix) > 9 ? __num(radix) : 9) + 48));
+              if (__num(radix) >= 10) {
+                letterEnd = (__num(radix) > 36 ? __num(radix) : 36) - 10;
+                name.push("A-");
+                name.push(String.fromCharCode(letterEnd + 65));
+                name.push("a-");
+                name.push(String.fromCharCode(letterEnd + 97));
+              }
+              name.push("]");
+              digit = characters(name.join(""), set);
+            }
+            return digitsCache[radix] = makeDigitsRule(digit);
           } else {
             return _ref;
           }
@@ -18944,22 +18937,18 @@
             "|=": Type.number
           };
           return function (o) {
-            var _ref, _this;
-            _this = this;
+            var _ref, _ref2, type;
             if ((_ref = this._type) == null) {
-              return this._type = (function () {
-                var _ref, type;
-                if (__owns.call(ops, _ref = _this.op)) {
-                  type = ops[_ref];
-                }
-                if (!type) {
-                  return Type.any;
-                } else if (typeof type === "function") {
-                  return type(_this.left.type(o), _this.right.type(o));
-                } else {
-                  return type;
-                }
-              }());
+              if (__owns.call(ops, _ref2 = this.op)) {
+                type = ops[_ref2];
+              }
+              if (!type) {
+                return this._type = Type.any;
+              } else if (typeof type === "function") {
+                return this._type = type(this.left.type(o), this.right.type(o));
+              } else {
+                return this._type = type;
+              }
             } else {
               return _ref;
             }
@@ -19127,22 +19116,18 @@
             }
           };
           return function (o) {
-            var _ref, _this;
-            _this = this;
+            var _ref, _ref2, type;
             if ((_ref = this._type) == null) {
-              return this._type = (function () {
-                var _ref, type;
-                if (__owns.call(ops, _ref = _this.op)) {
-                  type = ops[_ref];
-                }
-                if (!type) {
-                  return Type.any;
-                } else if (typeof type === "function") {
-                  return type(_this.left.type(o), _this.right.type(o));
-                } else {
-                  return type;
-                }
-              }());
+              if (__owns.call(ops, _ref2 = this.op)) {
+                type = ops[_ref2];
+              }
+              if (!type) {
+                return this._type = Type.any;
+              } else if (typeof type === "function") {
+                return this._type = type(this.left.type(o), this.right.type(o));
+              } else {
+                return this._type = type;
+              }
             } else {
               return _ref;
             }
@@ -21434,43 +21419,39 @@
           "generic"
         ];
         _FunctionNode_prototype.type = function (o) {
-          var _ref, _this;
-          _this = this;
+          var _ref, returnType, walker;
           if ((_ref = this._type) == null) {
-            return this._type = (function () {
-              var returnType, walker;
-              if (_this.asType != null) {
-                return nodeToType(_this.asType)["function"]();
+            if (this.asType != null) {
+              return this._type = nodeToType(this.asType)["function"]();
+            } else {
+              if (this.autoReturn) {
+                returnType = this.body.type(o);
               } else {
-                if (_this.autoReturn) {
-                  returnType = _this.body.type(o);
-                } else {
-                  returnType = Type["undefined"];
-                }
-                walker = function (node) {
-                  var _ref;
-                  if (node instanceof ReturnNode) {
-                    returnType = returnType.union(node.type(o));
-                    return node;
-                  } else if (node instanceof FunctionNode) {
-                    return node;
-                  } else if (node instanceof MacroAccessNode) {
-                    if ((_ref = node.data.macroName) === "return" || _ref === "return?") {
-                      if (node.data.macroData.node) {
-                        returnType = returnType.union(node.data.macroData.node.type(o));
-                      } else {
-                        returnType = returnType.union(Type["undefined"]);
-                      }
-                    }
-                    return node.walk(walker);
-                  } else {
-                    return node.walk(walker);
-                  }
-                };
-                walker(_this.body);
-                return returnType["function"]();
+                returnType = Type["undefined"];
               }
-            }());
+              walker = function (node) {
+                var _ref;
+                if (node instanceof ReturnNode) {
+                  returnType = returnType.union(node.type(o));
+                  return node;
+                } else if (node instanceof FunctionNode) {
+                  return node;
+                } else if (node instanceof MacroAccessNode) {
+                  if ((_ref = node.data.macroName) === "return" || _ref === "return?") {
+                    if (node.data.macroData.node) {
+                      returnType = returnType.union(node.data.macroData.node.type(o));
+                    } else {
+                      returnType = returnType.union(Type["undefined"]);
+                    }
+                  }
+                  return node.walk(walker);
+                } else {
+                  return node.walk(walker);
+                }
+              };
+              walker(this.body);
+              return this._type = returnType["function"]();
+            }
           } else {
             return _ref;
           }
@@ -21993,22 +21974,18 @@
           "inEvilAst"
         ];
         _MacroAccessNode_prototype.type = function (o) {
-          var _ref, _this;
-          _this = this;
+          var _ref, type;
           if ((_ref = this._type) == null) {
-            return this._type = (function () {
-              var type;
-              type = o.macros.getTypeById(_this.id);
-              if (type != null) {
-                if (typeof type === "string") {
-                  return _this.data[type].type(o);
-                } else {
-                  return type;
-                }
+            type = o.macros.getTypeById(this.id);
+            if (type != null) {
+              if (typeof type === "string") {
+                return this._type = this.data[type].type(o);
               } else {
-                return o.macroExpand1(_this).type(o);
+                return this._type = type;
               }
-            }());
+            } else {
+              return this._type = o.macroExpand1(this).type(o);
+            }
           } else {
             return _ref;
           }
@@ -22287,21 +22264,17 @@
         ObjectNode.cappedName = "Object";
         ObjectNode.argNames = ["pairs", "prototype"];
         _ObjectNode_prototype.type = function (o) {
-          var _ref, _this;
-          _this = this;
+          var _arr, _i, _len, _ref, _ref2, data, key, value;
           if ((_ref = this._type) == null) {
-            return this._type = (function () {
-              var _arr, _i, _len, _ref, data, key, value;
-              data = {};
-              for (_arr = __toArray(_this.pairs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
-                key = (_ref = _arr[_i]).key;
-                value = _ref.value;
-                if (key.isConst()) {
-                  data[key.constValue()] = value.type(o);
-                }
+            data = {};
+            for (_arr = __toArray(this.pairs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+              key = (_ref2 = _arr[_i]).key;
+              value = _ref2.value;
+              if (key.isConst()) {
+                data[key.constValue()] = value.type(o);
               }
-              return Type.makeObject(data);
-            }());
+            }
+            return this._type = Type.makeObject(data);
           } else {
             return _ref;
           }
@@ -23324,26 +23297,22 @@
         SwitchNode.cappedName = "Switch";
         SwitchNode.argNames = ["node", "cases", "defaultCase", "label"];
         _SwitchNode_prototype.type = function (o) {
-          var _ref, _this;
-          _this = this;
+          var _arr, _i, _len, _ref, case_, type;
           if ((_ref = this._type) == null) {
-            return this._type = (function () {
-              var _arr, _i, _len, case_, type;
-              if (_this.defaultCase != null) {
-                type = _this.defaultCase.type(o);
+            if (this.defaultCase != null) {
+              type = this.defaultCase.type(o);
+            } else {
+              type = Type["undefined"];
+            }
+            for (_arr = __toArray(this.cases), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+              case_ = _arr[_i];
+              if (case_.fallthrough) {
+                type = type;
               } else {
-                type = Type["undefined"];
+                type = type.union(case_.body.type(o));
               }
-              for (_arr = __toArray(_this.cases), _i = 0, _len = _arr.length; _i < _len; ++_i) {
-                case_ = _arr[_i];
-                if (case_.fallthrough) {
-                  type = type;
-                } else {
-                  type = type.union(case_.body.type(o));
-                }
-              }
-              return type;
-            }());
+            }
+            return this._type = type;
           } else {
             return _ref;
           }
@@ -25642,18 +25611,14 @@
           return names;
         };
         _MacroHolder_prototype.allBinaryOperators = function () {
-          var _ref, _this;
-          _this = this;
+          var _arr, _i, _len, _ref, array, result;
           if ((_ref = this._allBinaryOperators) == null) {
-            return this._allBinaryOperators = (function () {
-              var _arr, _i, _len, array, result;
-              result = [];
-              for (_arr = __toArray(_this.binaryOperators), _i = 0, _len = _arr.length; _i < _len; ++_i) {
-                array = _arr[_i];
-                result.push.apply(result, __toArray(array));
-              }
-              return result;
-            }());
+            result = [];
+            for (_arr = __toArray(this.binaryOperators), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+              array = _arr[_i];
+              result.push.apply(result, __toArray(array));
+            }
+            return this._allBinaryOperators = result;
           } else {
             return _ref;
           }
