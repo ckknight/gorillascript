@@ -8,26 +8,27 @@ const VAR_LINE_LENGTH = 80_chars
 
 const INDENT = "  "
 
-enum Level
-  def block // { f(); `...`; g(); }
-  def inside-parentheses // f() + (`...`) + g() or f[`...`]
-  def sequence // [f(), `...`, g()] or x(f(), `...`, g())
-  def assignment  // `...` += x
-  def inline-condition // `...` ? x : y
-  def logical-or // f() || `...`
-  def logical-and // f() && `...`
-  def bitwise-or // f() | `...`
-  def bitwise-and // f() ^ `...`
-  def bitwise-xor // f() & `...`
-  def equality // f() == `...`
-  def relational // f() < `...` or f() in `...` or f() instanceof `...`
-  def bitwise-shift // f() << `...` or f() >> `...` or f() >>> `...`
-  def addition // f() + `...` or f() - `...`
-  def multiplication // f() * `...` or f() / `...` or f() % `...`
-  def unary // +`...` or !`...`
-  def increment // ++`...` or `...`++ or --`...` or `...`--
-  def call-or-access // `...`() or `...`[0] `...`.item
-  def new-call // new `...`()
+const Level = {
+  block:              1 // { f(); `...`; g(); }
+  inside-parentheses: 2 // f() + (`...`) + g() or f[`...`]
+  sequence:           3 // [f(), `...`, g()] or x(f(), `...`, g())
+  assignment:         4 // `...` += x
+  inline-condition:   5 // `...` ? x : y
+  logical-or:         6 // f() || `...`
+  logical-and:        7 // f() && `...`
+  bitwise-or:         8 // f() | `...`
+  bitwise-and:        9 // f() ^ `...`
+  bitwise-xor:       10 // f() & `...`
+  equality:          11 // f() == `...`
+  relational:        12 // f() < `...` or f() in `...` or f() instanceof `...`
+  bitwise-shift:     13 // f() << `...` or f() >> `...` or f() >>> `...`
+  addition:          14 // f() + `...` or f() - `...`
+  multiplication:    15 // f() * `...` or f() / `...` or f() % `...`
+  unary:             16 // +`...` or !`...`
+  increment:         17 // ++`...` or `...`++ or --`...` or `...`--
+  call-or-access:    18 // `...`() or `...`[0] `...`.item
+  new-call:          19 // new `...`()
+}
 
 let inc-indent(options)
   let clone = { extends options }
