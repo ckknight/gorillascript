@@ -68,7 +68,7 @@ let VarNode = Node.Var
 let YieldNode = Node.Yield
 
 class ParserError extends Error
-  def constructor(mutable message as String = "", parser as Parser|null, @index as Number = 0)
+  def constructor(mutable @message as String = "", parser as Parser|null, @index as Number = 0)
     if DEBUG and message and not parser
       throw TypeError("Expected parser to be a Parser, got $(typeof! parser)")
     if parser
@@ -2714,14 +2714,14 @@ let CustomConstantLiteral(parser, index)
     while is-object! current
       let part = ConstantLiteralAccessPart parser, current-index
       if not part
-        throw ParserError "Constant '$(name.value)' cannot appear without being accessed upon."
-      current-index := part.index
+        throw ParserError "Constant '$(name.value)' cannot appear without being accessed upon.", parser, index
       if not part.value.is-const()
-        throw ParserError "Constant '$(name.value)' must only be accessed with constant keys."
+        throw ParserError "Constant '$(name.value)' must only be accessed with constant keys.", parser, current-index
       let key = part.value.const-value()
       if current not ownskey key
-        throw ParserError "Unknown key $(JSON.stringify String key) in constant."
+        throw ParserError "Unknown key $(JSON.stringify String key) in constant.", parser, current-index
       current := current[key]
+      current-index := part.index
     Box current-index, parser.Const index, current
 
 let NullOrVoidLiteral(parser, index)

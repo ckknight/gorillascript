@@ -8636,6 +8636,7 @@
           } else if (typeof message !== "string") {
             throw TypeError("Expected message to be a String, got " + __typeof(message));
           }
+          _this.message = message;
           if (parser == null) {
             parser = null;
           } else if (!(parser instanceof Parser)) {
@@ -11971,17 +11972,17 @@
           while (typeof current === "object" && current !== null) {
             part = ConstantLiteralAccessPart(parser, currentIndex);
             if (!part) {
-              throw ParserError("Constant '" + __strnum(name.value) + "' cannot appear without being accessed upon.");
+              throw ParserError("Constant '" + __strnum(name.value) + "' cannot appear without being accessed upon.", parser, index);
             }
-            currentIndex = part.index;
             if (!part.value.isConst()) {
-              throw ParserError("Constant '" + __strnum(name.value) + "' must only be accessed with constant keys.");
+              throw ParserError("Constant '" + __strnum(name.value) + "' must only be accessed with constant keys.", parser, currentIndex);
             }
             key = part.value.constValue();
             if (!__owns.call(current, key)) {
-              throw ParserError("Unknown key " + __str(JSON.stringify(String(key))) + " in constant.");
+              throw ParserError("Unknown key " + __str(JSON.stringify(String(key))) + " in constant.", parser, currentIndex);
             }
             current = current[key];
+            currentIndex = part.index;
           }
           return Box(currentIndex, parser.Const(index, current));
         }
@@ -32398,7 +32399,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.4";
+      exports.version = "0.7.5";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
