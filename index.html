@@ -243,7 +243,7 @@ z := 6 // never declared, this is an error
   <section id="constants">
     <h2>Constants</h2>
     
-    <p>Separate from the <code class="language-gorillascript">let</code> statement, <code class="language-gorillascript">const</code> allows you to specify that a value is a specific constant value (i.e. a JavaScript primitive). Any references in-code will be replaced by the value, allowing for pragma-like control over your code.</p>
+    <p>Separate from the <code class="language-gorillascript">let</code> statement, <code class="language-gorillascript">const</code> allows you to specify that a value is a specific literal value. Any references in-code will be replaced by the value, allowing for pragma-like control over your code.</p>
     
     <pre class="gs-code"><code class="language-gorillascript">const DEBUG = false
 
@@ -272,6 +272,34 @@ print __LINE__
 print __COLUMN__
 print new Date(__DATEMSEC__)
 MyProject.version := __VERSION__ // would work if we weren't in the browser
+</code></pre>
+
+    <p>Also, if you'd like to have namespaced constants such as in other languages&apos; <code>enum</code>, you can specify an object (or array) as the value. Any unknown access into these objects will result in a compile-time error rather than a value of <code class="language-javascript">undefined</code></p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">const FRUIT_TYPES = {
+  apple: 1
+  banana: 2
+  cherry: 3
+}
+
+print FRUIT_TYPES.apple // 1
+print FRUIT_TYPES.banana // 2
+print FRUIT_TYPES.cherry // 3
+// print FRUIT_TYPES.date // would error if uncommented
+</code></pre>
+
+    <p>You don't have to use numbers as the values, in fact, you can use it as a way to compile-time check constant string values:</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">const FRUIT_TYPES = {
+  "apple"
+  "banana"
+  "cherry"
+}
+
+print FRUIT_TYPES.apple // "apple"
+print FRUIT_TYPES.banana // "banana"
+print FRUIT_TYPES.cherry // "cherry"
+// print FRUIT_TYPES.date // would error if uncommented
 </code></pre>
   </section>
 
