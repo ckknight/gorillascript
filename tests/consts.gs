@@ -36,3 +36,28 @@ describe "consts", #
       MY_VALUE + 5
     expect(f()).to.equal 10
     expect(MY_VALUE).to.equal 0
+  
+  it "can be redefined", #
+    const DEBUG = false
+    expect(DEBUG).to.be.false
+    const DEBUG = true
+    expect(DEBUG).to.be.true
+  
+  it "can be redefined in a lower scope", #
+    const DEBUG = false
+    expect(DEBUG).to.be.false
+    let f()
+      const DEBUG = true
+      DEBUG
+    expect(f()).to.be.true
+    expect(DEBUG).to.be.false
+  
+  it "is accessed dynamically within a macro's AST", #
+    const DEBUG = false
+    macro get-debug()
+      ASTE DEBUG
+    expect(get-debug()).to.be.false
+    let f()
+      const DEBUG = true
+      get-debug()
+    expect(f()).to.be.true

@@ -7965,8 +7965,8 @@
           inStatement, InvocationArguments, InvocationOrAccess,
           InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan,
           LessThanChar, Letter, LicenseComment, Line, Literal, Logic,
-          MacroAccessNode, MacroBody, MacroContext, MacroError, MacroHolder,
-          macroName, MacroName, MacroNames, MacroOptions, MacroSyntax,
+          MacroAccessNode, MacroBody, MacroConstNode, MacroContext, MacroError,
+          MacroHolder, macroName, MacroName, MacroNames, MacroOptions, MacroSyntax,
           MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters,
           MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, MapLiteral,
           MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline,
@@ -8610,6 +8610,7 @@
       IdentNode = Node.Ident;
       IfNode = Node.If;
       MacroAccessNode = Node.MacroAccess;
+      MacroConstNode = Node.MacroConst;
       NothingNode = Node.Nothing;
       ObjectNode = Node.Object;
       ParamNode = Node.Param;
@@ -11965,7 +11966,11 @@
         if (!value) {
           return;
         }
-        return Box(name.index, parser.Const(index, value.value));
+        if (parser.inAst.peek()) {
+          return Box(name.index, parser.MacroConst(index, name.value));
+        } else {
+          return Box(name.index, parser.Const(index, value.value));
+        }
       }
       function NullOrVoidLiteral(parser, index) {
         var constant;
@@ -15418,6 +15423,14 @@
                   false,
                   true,
                   void 0
+                ),
+                this.Param(
+                  index,
+                  this.Ident(index, "__const"),
+                  void 0,
+                  false,
+                  true,
+                  void 0
                 )
               ],
               body,
@@ -16430,7 +16443,8 @@
                   macroContext,
                   removeNoops(data),
                   __bind(macroContext, "wrap"),
-                  __bind(macroContext, "node")
+                  __bind(macroContext, "node"),
+                  __bind(macroContext, "getConst")
                 );
               } catch (e) {
                 if (e instanceof ReferenceError) {
@@ -16662,12 +16676,16 @@
           }
           scope.addConst(name, value);
         };
-        _Parser_prototype.getConst = function (name) {
-          var _ref, consts, scope;
+        _Parser_prototype.getConst = function (name, scope) {
+          var _ref, consts;
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
-          scope = this.scope.peek();
+          if (scope == null) {
+            scope = this.scope.peek();
+          } else if (!(scope instanceof Scope)) {
+            throw TypeError("Expected scope to be a " + __name(Scope) + ", got " + __typeof(scope));
+          }
           if ((_ref = scope.constValue(name)) != null) {
             return _ref;
           }
@@ -17012,6 +17030,7 @@
         "Ident",
         "If",
         "MacroAccess",
+        "MacroConst",
         "Nothing",
         "Object",
         "Param",
@@ -17794,13 +17813,13 @@
           AccessMultiNode, AccessNode, ArgsNode, ArrayNode, AssignNode, BinaryNode,
           BlockNode, BreakNode, CallNode, CommentNode, ConstNode, ContinueNode,
           DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode, ForNode,
-          FunctionNode, IdentNode, IfNode, inspect, MacroAccessNode, mapAsync, Node,
-          nodeToType, NothingNode, ObjectNode, ParamNode, quote, RegexpNode,
-          ReturnNode, RootNode, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode,
-          SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode,
-          TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type,
-          TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode,
-          UnaryNode, VarNode, YieldNode;
+          FunctionNode, IdentNode, IfNode, inspect, MacroAccessNode, MacroConstNode,
+          mapAsync, Node, nodeToType, NothingNode, ObjectNode, ParamNode, quote,
+          RegexpNode, ReturnNode, RootNode, SpreadNode, SuperNode, SwitchNode,
+          SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode,
+          ThisNode, ThrowNode, TmpNode, TmpWrapperNode, TryCatchNode,
+          TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode,
+          TypeUnionNode, UnaryNode, VarNode, YieldNode;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -22169,6 +22188,86 @@
         };
         return MacroAccessNode;
       }(Node));
+      Node.MacroConst = MacroConstNode = (function (Node) {
+        var _MacroConstNode_prototype, _Node_prototype;
+        function MacroConstNode(line, column, scope, name) {
+          var _this;
+          _this = this instanceof MacroConstNode ? this : __create(_MacroConstNode_prototype);
+          if (typeof line !== "number") {
+            throw TypeError("Expected line to be a Number, got " + __typeof(line));
+          }
+          if (typeof column !== "number") {
+            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          }
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          _this.line = line;
+          _this.column = column;
+          _this.scope = scope;
+          _this._reduced = void 0;
+          _this._macroExpanded = void 0;
+          _this._macroExpandAlled = void 0;
+          _this.name = name;
+          return _this;
+        }
+        _Node_prototype = Node.prototype;
+        _MacroConstNode_prototype = MacroConstNode.prototype = __create(_Node_prototype);
+        _MacroConstNode_prototype.constructor = MacroConstNode;
+        MacroConstNode.displayName = "MacroConstNode";
+        if (typeof Node.extended === "function") {
+          Node.extended(MacroConstNode);
+        }
+        MacroConstNode.cappedName = "MacroConst";
+        MacroConstNode.argNames = ["name"];
+        _MacroConstNode_prototype.type = function (o) {
+          var _ref, c, value;
+          if ((_ref = this._type) == null) {
+            c = o.getConst(this.name);
+            if (!c) {
+              return this._type = Type.any;
+            } else {
+              value = c.value;
+              if (value === null) {
+                return this._type = Type["null"];
+              } else {
+                switch (typeof value) {
+                case "number": return this._type = Type.number;
+                case "string": return this._type = Type.string;
+                case "boolean": return this._type = Type.boolean;
+                case "undefined": return this._type = Type["undefined"];
+                default: throw Error("Unknown type for " + String(c.value));
+                }
+              }
+            }
+          } else {
+            return _ref;
+          }
+        };
+        _MacroConstNode_prototype._isNoop = function (o) {
+          return true;
+        };
+        _MacroConstNode_prototype.toConst = function (o) {
+          var _ref;
+          return ConstNode(this.line, this.column, this.scope, (_ref = o.getConst(this.name)) != null ? _ref.value : void 0);
+        };
+        _MacroConstNode_prototype.inspect = function (depth) {
+          return inspectHelper(
+            depth,
+            "MacroConstNode",
+            this.line,
+            this.column,
+            this.name
+          );
+        };
+        _MacroConstNode_prototype.walk = function (f) {
+          return this;
+        };
+        _MacroConstNode_prototype.walkAsync = function (f, callback) {
+          return callback(null, this);
+        };
+        return MacroConstNode;
+      }(Node));
       Node.Nothing = NothingNode = (function (Node) {
         var _Node_prototype, _NothingNode_prototype;
         function NothingNode(line, column, scope) {
@@ -26011,13 +26110,13 @@
           ArgsNode, ArrayNode, AssignNode, BinaryNode, BlockNode, BreakNode,
           CallNode, CommentNode, ConstNode, ContinueNode, DebuggerNode, DefNode,
           EmbedWriteNode, EvalNode, ForInNode, ForNode, FunctionNode, IdentNode,
-          IfNode, MacroAccessNode, MacroContext, map, Node, nodeToType, NothingNode,
-          ObjectNode, ParamNode, RegexpNode, ReturnNode, RootNode, Scope,
-          SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode, SyntaxManyNode,
-          SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode,
-          TmpWrapperNode, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode,
-          TypeGenericNode, TypeObjectNode, TypeUnionNode, UnaryNode, VarNode,
-          YieldNode;
+          IfNode, MacroAccessNode, MacroConstNode, MacroContext, map, Node,
+          nodeToType, NothingNode, ObjectNode, ParamNode, RegexpNode, ReturnNode,
+          RootNode, Scope, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode,
+          SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode,
+          TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type,
+          TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode,
+          UnaryNode, VarNode, YieldNode;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
@@ -26113,6 +26212,7 @@
       IdentNode = Node.Ident;
       IfNode = Node.If;
       MacroAccessNode = Node.MacroAccess;
+      MacroConstNode = Node.MacroConst;
       NothingNode = Node.Nothing;
       ObjectNode = Node.Object;
       ParamNode = Node.Param;
@@ -27409,6 +27509,14 @@
               IdentNode(obj.line, obj.column, scope, "__wrap"),
               [obj.args[0]]
             );
+          } else if (obj instanceof MacroConstNode) {
+            return CallNode(
+              obj.line,
+              obj.column,
+              scope,
+              IdentNode(obj.line, obj.column, scope, "__const"),
+              [ConstNode(obj.line, obj.column, scope, obj.name)]
+            );
           } else if (obj instanceof Node) {
             if (obj.constructor === Node) {
               throw Error("Cannot constify a raw node");
@@ -27486,6 +27594,17 @@
           } else {
             return Node[type].apply(Node, [line, column, this.scope()].concat(__toArray(args))).reduce(this.parser);
           }
+        };
+        _MacroContext_prototype.getConst = function (name) {
+          var c;
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          c = this.parser.getConst(name);
+          if (!c) {
+            throw Error("Unknown const '" + name + "'");
+          }
+          return ConstNode(0, 0, this.scope(), c.value);
         };
         _MacroContext_prototype.macro = function (line, column, id, callLine, data, position, inGenerator, inEvilAst) {
           return Node.MacroAccess(

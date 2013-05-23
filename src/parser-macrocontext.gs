@@ -25,6 +25,7 @@ let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let IfNode = Node.If
 let MacroAccessNode = Node.MacroAccess
+let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ObjectNode = Node.Object
 let ParamNode = Node.Param
@@ -540,6 +541,12 @@ class MacroContext
         [
           obj.args[0]
         ]
+    else if obj instanceof MacroConstNode
+      CallNode obj.line, obj.column, scope,
+        IdentNode obj.line, obj.column, scope, \__const
+        [
+          ConstNode obj.line, obj.column, scope, obj.name
+        ]
     else if obj instanceof Node
       if obj.constructor == Node
         throw Error "Cannot constify a raw node"
@@ -586,6 +593,12 @@ class MacroContext
       @macro line, column, ...args
     else
       Node[type](line, column, @scope(), ...args).reduce(@parser)
+  
+  def get-const(name as String)
+    let c = @parser.get-const(name)
+    if not c
+      throw Error "Unknown const '$name'"
+    ConstNode 0, 0, @scope(), c.value
   
   def macro(line, column, id, call-line, data, position, in-generator, in-evil-ast)
     Node.MacroAccess(line, column, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)

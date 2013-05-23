@@ -39,6 +39,7 @@ let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let IfNode = Node.If
 let MacroAccessNode = Node.MacroAccess
+let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ObjectNode = Node.Object
 let ParamNode = Node.Param
@@ -2697,7 +2698,10 @@ let CustomConstantLiteral(parser, index)
   if not value
     return
   
-  Box name.index, parser.Const index, value.value
+  if parser.in-ast.peek()
+    Box name.index, parser.MacroConst index, name.value
+  else
+    Box name.index, parser.Const index, value.value
 
 let NullOrVoidLiteral(parser, index)
   let constant = CustomConstantLiteral parser, index
@@ -4818,6 +4822,7 @@ class Parser
         params
         @Param index, (@Ident index, \__wrap), void, false, true, void
         @Param index, (@Ident index, \__node), void, false, true, void
+        @Param index, (@Ident index, \__const), void, false, true, void
       ]
       body
       true
@@ -5356,7 +5361,7 @@ class Parser
             throw parser.build-error "Trying to assign with $(data.op) to immutable variable '$(macro-context.name data.left)'", data.left
         let mutable result = void
         try
-          result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.node
+          result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.node, macro-context@.get-const
         catch e as ReferenceError
           throw e
         catch e as MacroError
@@ -5461,8 +5466,7 @@ class Parser
         @macros.add-serialized-const(name)
     scope.add-const name, value
   
-  def get-const(name as String)
-    let scope = @scope.peek()
+  def get-const(name as String, scope as Scope = @scope.peek())
     return? scope.const-value(name)
     let consts = @macros.consts
     if consts ownskey name
@@ -5651,6 +5655,7 @@ for node-type in [
       'Ident',
       'If',
       'MacroAccess',
+      'MacroConst',
       'Nothing',
       'Object',
       'Param',
