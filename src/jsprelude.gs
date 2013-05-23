@@ -488,6 +488,29 @@ define operator unary typeof! with type: \string
   else
     @mutate-last node or @noop(), (#(n)@ -> ASTE __typeof($n)), true
 
+macro first!(head)
+  // FIXME: this is hackish, macro should be (head, ...tail)
+  let tail = arguments[0].macroData.slice(1)
+  if tail.length == 0
+    ASTE $head
+  else
+    @maybe-cache head, #(set-head, head)@
+      AST
+        $set-head
+        $tail
+        $head
+
+macro last!()
+  // FIXME: this is hackish, macro should be (...start, finish)
+  let start = arguments[0].macroData.slice(0, ~-1)
+  let finish = arguments[0].macroData[* ~- 1]
+  if start.length == 0
+    ASTE $finish
+  else
+    AST
+      $start
+      $finish
+
 define helper __num = #(num) as Number
   if not is-number! num
     throw TypeError("Expected a number, got " ~& typeof! num)
@@ -989,19 +1012,31 @@ macro for
         if else-body
           @error "Cannot use a for loop with an else with $(reducer)", else-body
         if reducer == \some
-          body := @mutate-last body or @noop(), #(node) -> AST
+          let some = @tmp \some, false, \boolean
+          let result = []
+          result.push AST let $some = false
+          result.push @for init, test, step, @mutate-last body or @noop(), #(node) -> AST
             if $node
-              return true
-          let loop = [@for(init, test, step, body), (AST return false)]
-          ASTE do
-            $loop
+              $some := true
+              break
+          result.push some
+          if @position == \expression
+            ASTE $result
+          else
+            AST $result
         else if reducer == \every
-          body := @mutate-last body or @noop(), #(node) -> AST
+          let every = @tmp \every, false, \boolean
+          let result = []
+          result.push AST let $every = true
+          result.push @for init, test, step, @mutate-last body or @noop(), #(node) -> AST
             if not $node
-              return false
-          let loop = [@for(init, test, step, body), (AST return true)]
-          ASTE do
-            $loop
+              $every := false
+              break
+          result.push every
+          if @position == \expression
+            ASTE $result
+          else
+            AST $result
         else
           @error "Unknown reducer: $reducer"
     else if else-body
@@ -3555,29 +3590,6 @@ define operator unary map! with type: \object, label: \construct-map
       let $map = Map()
       $parts
       $map
-
-macro first!(head)
-  // FIXME: this is hackish, macro should be (head, ...tail)
-  let tail = arguments[0].macroData[1 to -1]
-  if tail.length == 0
-    ASTE $head
-  else
-    @maybe-cache head, #(set-head, head)@
-      AST
-        $set-head
-        $tail
-        $head
-
-macro last!()
-  // FIXME: this is hackish, macro should be (...start, finish)
-  let start = arguments[0].macroData[0 til -1]
-  let finish = arguments[0].macroData[* - 1]
-  if start.length == 0
-    ASTE $finish
-  else
-    AST
-      $start
-      $finish
 
 define helper set-immediate = if is-function! GLOBAL.set-immediate
   GLOBAL.set-immediate

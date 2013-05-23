@@ -5501,7 +5501,10 @@ class Parser
           @in-generator.pop()
           @in-evil-ast.pop()
           @expanding-macros := old-expanding-macros
-        node := result
+        node := if node.do-wrapped
+          result.do-wrap(this)
+        else
+          result
       for n in nodes
         n._macro-expanded := node
       node

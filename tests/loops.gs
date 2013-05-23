@@ -806,6 +806,12 @@ describe "loops", #
       true
     else
       throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
+  
+  it "For-some in range as an if test", #
+    if (for some x in 0 til 10; x == 11)
+      throw Error()
+    unless (for some x in 0 til 10; x == 4)
+      throw Error()
 
   it "For-every in range", #
     let mutable i = 0
@@ -823,6 +829,12 @@ describe "loops", #
       true
     else
       throw Error()""").throws gorilla.MacroError, r"Cannot use a for loop with an else.*5:\d+"
+  
+  it "For-every in range as an if test", #
+    if (for every x in 0 til 10; x < 5)
+      throw Error()
+    unless (for every x in 0 til 10; x < 10)
+      throw Error()
 
   it "For-first in range", #
     expect(for first x in 1 til 10

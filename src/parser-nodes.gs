@@ -1099,7 +1099,7 @@ node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingN
     else
       this
   def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
-node-class MacroAccessNode(id as Number, call-line as Number, data as Object, position as String, in-generator as Boolean, in-evil-ast as Boolean)
+node-class MacroAccessNode(id as Number, call-line as Number, data as Object, position as String, in-generator as Boolean, in-evil-ast as Boolean, do-wrapped as Boolean)
   def type(o) -> @_type ?=
     let type = o.macros.get-type-by-id(@id)
     if type?
@@ -1136,7 +1136,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
     #(func)
       let data = walk-item(@data, func)
       if data != @data
-        MacroAccessNode @line, @column, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast
+        MacroAccessNode @line, @column, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast, @do-wrapped
       else
         this
   def walk-async = do
@@ -1168,10 +1168,15 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
     #(func, callback)
       async! callback, data <- walk-item @data, func
       callback null, if data != @data
-        MacroAccessNode @line, @column, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast
+        MacroAccessNode @line, @column, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast, @do-wrapped
       else
         this
   def _is-noop(o) -> o.macro-expand-1(this).is-noop(o)
+  def do-wrap()
+    if @do-wrapped
+      this
+    else
+      MacroAccessNode @line, @column, @scope, @id, @call-line, @data, @position, @in-generator, @in-evil-ast, true
 node-class NothingNode
   def type() -> Type.undefined
   def cacheable = false
@@ -1413,6 +1418,12 @@ node-class TmpWrapperNode(node as Node, tmps as [])
       this
   def is-statement() -> @node.is-statement()
   def _is-noop(o) -> @node.is-noop(o)
+  def do-wrap(o)
+    let node = @node.do-wrap(o)
+    if node != @node
+      TmpWrapperNode @line, @column, @scope, node, @tmps
+    else
+      this
 node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Node, label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
   def is-statement() -> true
