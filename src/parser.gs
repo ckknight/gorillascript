@@ -2387,6 +2387,7 @@ let in-expression = make-alter-stack<String> \position, \expression
 let in-statement = make-alter-stack<String> \position, \statement
 let AssignmentAsExpression = in-expression #(parser, index) -> Assignment parser, index
 define ExpressionOrAssignment = one-of(AssignmentAsExpression, Expression)
+define ExpressionOrAssignmentOrBody = one-of(ExpressionOrAssignment, Body)
 
 let StringInterpolation = sequential(
   DollarSignChar
@@ -3331,7 +3332,7 @@ let Assignment(parser, index)
     let op = rule parser, left.index
     if not op
       continue
-    let right = ExpressionOrAssignment parser, op.index
+    let right = ExpressionOrAssignmentOrBody parser, op.index
     if not right
       continue
     return Box right.index, operator.func {
@@ -4619,6 +4620,7 @@ let make-macro-holder()
     Expression
     Assignment
     ExpressionOrAssignment
+    ExpressionOrAssignmentOrBody
     FunctionDeclaration
     Statement
     Body

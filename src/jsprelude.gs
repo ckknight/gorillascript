@@ -191,7 +191,7 @@ define syntax DeclarableObject = "{", head as DeclarableObjectPair, tail as (","
 define syntax Declarable = this as (DeclarableArray | DeclarableObject | DeclarableIdent)
 
 macro let
-  syntax declarable as Declarable, "=", value as ExpressionOrAssignment
+  syntax declarable as Declarable, "=", value as ExpressionOrAssignmentOrBody
     let inc(x) -> eval("x + 1")
     declarable := @macro-expand-1(declarable)
     if not declarable

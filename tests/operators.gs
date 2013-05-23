@@ -1231,3 +1231,34 @@ describe "Simple operators", #
     expect(b.alpha).to.equal \bravo
     expect(b.charlie).to.equal \delta
     expect(one.charlie).to.equal void
+  
+  it "Let allows for bodies as the right-hand expression", #
+    let a = stub()
+    let b = stub()
+    let c = stub().returns "hello"
+    
+    let value =
+      a()
+      b()
+      c()
+    
+    expect(a).to.be.called-once
+    expect(b).to.be.called-once
+    expect(c).to.be.called-once
+    expect(value).to.be.equal "hello"
+  
+  it "Assign allows for bodies as the right-hand expression", #
+    let a = stub()
+    let b = stub()
+    let c = stub().returns "hello"
+    
+    let mutable value = void
+    value :=
+      a()
+      b()
+      c()
+    
+    expect(a).to.be.called-once
+    expect(b).to.be.called-once
+    expect(c).to.be.called-once
+    expect(value).to.be.equal "hello"
