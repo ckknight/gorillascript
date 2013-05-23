@@ -18,7 +18,9 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __create, __genericFunc, __getInstanceof, __in, __isArray, __isObject, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, _ref, Cache, fs, inspect, path, WeakMap;
+      var __create, __genericFunc, __getInstanceof, __in, __isArray, __isObject,
+          __name, __num, __owns, __slice, __strnum, __toArray, __typeof, _ref,
+          Cache, fs, inspect, path, WeakMap;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
@@ -408,7 +410,8 @@
     var exports = this;
     (function () {
       "use strict";
-      var __bind, __create, __in, __isArray, __lte, __num, __owns, __slice, __strnum, __toArray, __typeof, isAcceptableIdent, padLeft, toJSSource;
+      var __bind, __create, __in, __isArray, __lte, __num, __owns, __slice,
+          __strnum, __toArray, __typeof, isAcceptableIdent, padLeft, toJSSource;
       __bind = function (parent, child) {
         var func;
         if (parent == null) {
@@ -771,7 +774,8 @@
               }
             }
             return function (obj, sb, options) {
-              var _arr, _len, _ref, childOptions, hasIndent, i, key, len, pairs, value;
+              var _arr, _len, _ref, childOptions, hasIndent, i, key, len, pairs,
+                  value;
               _arr = [];
               for (key in obj) {
                 if (__owns.call(obj, key)) {
@@ -884,7 +888,8 @@
     var exports = this;
     (function () {
       "use strict";
-      var __cmp, __create, __isArray, __lte, __name, __num, __owns, __slice, __str, __strnum, __throw, __toArray, __typeof, inspect, Type, util;
+      var __cmp, __create, __isArray, __lte, __name, __num, __owns, __slice, __str,
+          __strnum, __throw, __toArray, __typeof, inspect, Type, util;
       __cmp = function (left, right) {
         var type;
         if (left === right) {
@@ -992,7 +997,9 @@
         inspect = util.inspect;
       }
       module.exports = Type = (function () {
-        var _Type_prototype, any, AnyType, arrayBase, ComplementType, fromJSONTypes, functionBase, GenericType, getId, none, NoneType, ObjectType, SimpleType, UnionType;
+        var _Type_prototype, any, AnyType, arrayBase, ComplementType, fromJSONTypes,
+            functionBase, GenericType, getId, none, NoneType, ObjectType,
+            SimpleType, UnionType;
         function Type() {
           var _this;
           _this = this instanceof Type ? this : __create(_Type_prototype);
@@ -1584,7 +1591,8 @@
             }
           };
           _GenericType_prototype.intersect = function (other) {
-            var arg, args, i, isOther, isThis, len, newArg, newArgs, otherArg, otherArgs;
+            var arg, args, i, isOther, isThis, len, newArg, newArgs, otherArg,
+                otherArgs;
             if (!(other instanceof Type)) {
               throw TypeError("Expected other to be a " + __name(Type) + ", got " + __typeof(other));
             }
@@ -1932,7 +1940,8 @@
             }
           };
           _ObjectType_prototype.isSubsetOf = function (other) {
-            var _arr, _i, _len, _ref, _this, i, len, otherK, otherPairs, otherV, pair, pairs;
+            var _arr, _i, _len, _ref, _this, i, len, otherK, otherPairs, otherV,
+                pair, pairs;
             _this = this;
             if (!(other instanceof Type)) {
               throw TypeError("Expected other to be a " + __name(Type) + ", got " + __typeof(other));
@@ -2645,7 +2654,14 @@
     var exports = this;
     (function () {
       "use strict";
-      var __create, __import, __in, __isArray, __lt, __lte, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, _ref, Arguments, Arr, Binary, Block, BlockExpression, BlockStatement, Break, Call, Comment, Const, Continue, Debugger, DoWhile, Eval, Expression, For, ForIn, fromJSON, Func, getIndent, Ident, If, IfExpression, IfStatement, INDENT, inspect, isAcceptableIdent, Level, Node, Noop, Obj, padLeft, Regex, Return, Root, Statement, Switch, This, Throw, toJSSource, TryCatch, TryFinally, Unary, util, While;
+      var __create, __import, __in, __isArray, __lt, __lte, __name, __num, __owns,
+          __slice, __strnum, __toArray, __typeof, _ref, Arguments, Arr, Binary,
+          Block, BlockExpression, BlockStatement, Break, Call, Comment, Const,
+          Continue, Debugger, DoWhile, Eval, Expression, For, ForIn, fromJSON, Func,
+          getIndent, Ident, If, IfExpression, IfStatement, inspect,
+          isAcceptableIdent, Level, Node, Noop, Obj, padLeft, Regex, Return, Root,
+          Statement, Switch, This, Throw, toJSIdent, toJSSource, TryCatch,
+          TryFinally, Unary, util, While;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
@@ -2789,7 +2805,6 @@
         this.newCall = 19;
         return this;
       }.call({}));
-      INDENT = "  ";
       function incIndent(options) {
         var clone;
         clone = __create(options);
@@ -2804,7 +2819,7 @@
           if (__num(indent) >= cache.length) {
             result = cache[cache.length - 1];
             for (i = cache.length, __num(indent); i <= indent; ++i) {
-              result = __strnum(result) + INDENT;
+              result = __strnum(result) + "  ";
               cache.push(result);
             }
           }
@@ -3396,7 +3411,8 @@
         return value < 0 || value === 0 && 1 / value < 0;
       }
       exports.Binary = Binary = (function (Expression) {
-        var _Binary_prototype, _Expression_prototype, _o, ASSIGNMENT_OPS, LEVEL_TO_ASSOCIATIVITY, OPERATOR_PRECEDENCE;
+        var _Binary_prototype, _Expression_prototype, _o, ASSIGNMENT_OPS,
+            LEVEL_TO_ASSOCIATIVITY, OPERATOR_PRECEDENCE;
         function Binary(pos, left, op, right) {
           var _this;
           _this = this instanceof Binary ? this : __create(_Binary_prototype);
@@ -3765,7 +3781,8 @@
           Statement.extended(BlockStatement);
         }
         _BlockStatement_prototype.compile = function (options, level, lineStart, sb) {
-          var _arr, _arr2, _i, _len, _ref, childOptions, i, item, minify, node, nodes;
+          var _arr, _arr2, _i, _len, _ref, childOptions, i, item, minify, node,
+              nodes;
           if (level !== Level.block) {
             throw Error("Cannot compile a statement except on the Block level");
           }
@@ -5338,8 +5355,19 @@
           names.push(variable);
         }
       }
+      toJSIdent = (function () {
+        function unicodeReplacer(m) {
+          return "\\u" + __strnum(padLeft(m.charCodeAt(0).toString(16), 4, "0"));
+        }
+        return function (name) {
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          return name.replace(/[\u0000-\u001f\u0080-\uffff]/g, unicodeReplacer);
+        };
+      }());
       function compileFuncBody(options, sb, declarations, variables, body, lineStart) {
-        var _arr, _i, _len, declaration, i, minify, variable;
+        var _arr, _i, _len, column, declaration, i, minify, name, variable;
         minify = options.minify;
         for (_arr = __toArray(declarations), _i = 0, _len = _arr.length; _i < _len; ++_i) {
           declaration = _arr[_i];
@@ -5355,19 +5383,30 @@
           }
         }
         if (__num(variables.length) > 0) {
+          column = 0;
           if (!minify) {
             sb.indent(options.indent);
+            column = 4 + 2 * __num(options.indent);
           }
           sb("var ");
           for (_arr = __toArray(variables), i = 0, _len = _arr.length; i < _len; ++i) {
             variable = _arr[i];
+            name = toJSIdent(variables[i]);
             if (i > 0) {
-              sb(",");
-              if (!minify) {
-                sb(" ");
+              if (minify) {
+                sb(",");
+              } else if (column + 2 + name.length < 80) {
+                sb(", ");
+                column += 2;
+              } else {
+                sb(",\n");
+                sb.indent(options.indent);
+                sb("    ");
+                column = 4 + 2 * __num(options.indent);
               }
             }
-            Ident(body.pos, variables[i], true).compile(options, Level.insideParentheses, false, sb);
+            sb(name);
+            column += name.length;
           }
           sb(";");
           lineStart = false;
@@ -5634,9 +5673,6 @@
         if (typeof Expression.extended === "function") {
           Expression.extended(Ident);
         }
-        function unicodeReplacer(m) {
-          return "\\u" + __strnum(padLeft(m.charCodeAt(0).toString(16), 4, "0"));
-        }
         _Ident_prototype.compile = function (options, level, lineStart, sb) {
           var _ref;
           if ((_ref = options.sourcemap) != null) {
@@ -5648,7 +5684,7 @@
               this.pos.file
             );
           }
-          sb(this.name.replace(/[\u0000-\u001f\u0080-\uffff]/g, unicodeReplacer));
+          sb(toJSIdent(this.name));
         };
         _Ident_prototype.compileAsBlock = function (options, level, lineStart, sb) {
           Noop(this.pos).compileAsBlock(options, level, lineStart, sb);
@@ -6763,7 +6799,8 @@
         _Root_prototype = Root.prototype;
         Root.displayName = "Root";
         _Root_prototype.compile = function (options) {
-          var _ref, code, endCompileTime, endUglifyTime, fs, minified, oldWarn_function, os, path, sb, startTime, tmpMap, UglifyJS, writer;
+          var _ref, code, endCompileTime, endUglifyTime, fs, minified,
+              oldWarn_function, os, path, sb, startTime, tmpMap, UglifyJS, writer;
           if (options == null) {
             options = {};
           }
@@ -7252,7 +7289,8 @@
           return result;
         };
         Switch.fromJSON = function (line, column, file, label, node) {
-          var caseData, cBody, cColumn, cFile, cLine, cNode, defaultCase, i, len, resultCases;
+          var caseData, cBody, cColumn, cFile, cLine, cNode, defaultCase, i, len,
+              resultCases;
           caseData = __slice.call(arguments, 5);
           len = caseData.length;
           switch (len % 5) {
@@ -7682,7 +7720,8 @@
         return TryFinally;
       }(Statement));
       exports.Unary = Unary = (function (Expression) {
-        var _Expression_prototype, _Unary_prototype, ASSIGNMENT_OPERATORS, KNOWN_OPERATORS;
+        var _Expression_prototype, _Unary_prototype, ASSIGNMENT_OPERATORS,
+            KNOWN_OPERATORS;
         function Unary(pos, op, node) {
           var _this;
           _this = this instanceof Unary ? this : __create(_Unary_prototype);
@@ -7894,7 +7933,95 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __bind, __cmp, __create, __curry, __defer, __generatorToPromise, __genericFunc, __getInstanceof, __import, __in, __int, __isArray, __isObject, __lt, __lte, __name, __num, __owns, __promise, __slice, __str, __strnum, __toArray, __typeof, _arr, _Block, _DefineMacro, _FunctionBody, _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode, ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent, CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody, DefineConstLiteral, DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite, EmbeddedRootGeneratorP, EmbeddedRootInnerP, EmbeddedRootP, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement, ExpressionOrAssignment, ExpressionOrAssignmentOrBody, ForInNode, ForNode, fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral, FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd, GeneratorFunctionBody, getPackageVersion, getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier, IdentifierNameConst, IdentifierNameConstOrNumberLiteral, IdentifierOrAccess, IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart, IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst, IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro, inStatement, InvocationArguments, InvocationOrAccess, InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter, LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody, MacroContext, MacroError, MacroHolder, macroName, MacroName, MacroNames, MacroOptions, MacroSyntax, MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters, MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, MapLiteral, MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment, MaybeExclamationPointChar, MaybeNotToken, MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores, MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar, NameOrSymbol, NamePart, NameStart, Node, nodeType, NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon, NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment, NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams, NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit, OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical, parse, Parser, ParserError, PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootInnerP, RootNode, RootP, Scope, Semicolon, SemicolonChar, Semicolons, separatedList, sequential, setImmediate, SetLiteral, Shebang, SHORT_CIRCUIT, SingleEscapeCharacter, SingleQuote, SingleStringLiteral, SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space, SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement, StringInterpolation, StringLiteral, stringRepeat, SuperInvocation, SuperNode, SwitchNode, Symbol, symbol, SymbolChar, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral, ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight, TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine, TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine, TripleSingleStringLiteral, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference, TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement, UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore, UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, WeakMap, word, wordOrSymbol, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
+      var __bind, __cmp, __create, __curry, __defer, __generatorToPromise,
+          __genericFunc, __getInstanceof, __import, __in, __int, __isArray,
+          __isObject, __lt, __lte, __name, __num, __owns, __promise, __slice, __str,
+          __strnum, __toArray, __typeof, _arr, _Block, _DefineMacro, _FunctionBody,
+          _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol,
+          AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral,
+          AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode,
+          ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast,
+          AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar,
+          BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess,
+          BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block,
+          BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd,
+          BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode,
+          CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar,
+          ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar,
+          ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline,
+          Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent,
+          CommentNode, concat, cons, ConstantLiteral, ConstNode, ConstObjectKey,
+          ContinueNode, convertInvocationOrAccess, CountIndent, CurrentArrayLength,
+          CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber,
+          DedentedBody, DefineConstLiteral, DefineHelper, DefineMacro,
+          DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign,
+          DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral,
+          DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey,
+          EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite,
+          EmbeddedLiteralText, EmbeddedLiteralTextInnerPart,
+          EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment,
+          EmbeddedOpenWrite, EmbeddedRootGeneratorP, EmbeddedRootInnerP,
+          EmbeddedRootP, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine,
+          EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval,
+          EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement,
+          ExpressionOrAssignment, ExpressionOrAssignmentOrBody, ForInNode, ForNode,
+          fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph,
+          FunctionLiteral, FunctionNode, FunctionType, GeneratorBody,
+          GeneratorBodyNoEnd, GeneratorFunctionBody, getPackageVersion,
+          getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar,
+          HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier,
+          IdentifierNameConst, IdentifierNameConstOrNumberLiteral,
+          IdentifierOrAccess, IdentifierOrSimpleAccess,
+          IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart,
+          IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst,
+          IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner,
+          IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner,
+          INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro,
+          inStatement, InvocationArguments, InvocationOrAccess,
+          InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan,
+          LessThanChar, Letter, LicenseComment, Line, Literal, Logic,
+          MacroAccessNode, MacroBody, MacroContext, MacroError, MacroHolder,
+          macroName, MacroName, MacroNames, MacroOptions, MacroSyntax,
+          MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters,
+          MacroSyntaxParameterType, makeAlterStack, makeEmbeddedRule, MapLiteral,
+          MaybeAsType, MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline,
+          MaybeComment, MaybeExclamationPointChar, MaybeNotToken,
+          MaybeQuestionMarkChar, MaybeSpreadToken, MaybeUnderscores,
+          MethodDeclaration, MinusChar, multiple, mutate, Name, NameChar,
+          NameOrSymbol, NamePart, NameStart, Node, nodeType, NoNewlineIfNoIndent,
+          NonUnionType, NoSpace, NoSpaceNewline, NotColon,
+          NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment,
+          NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams,
+          NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral,
+          ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit,
+          OctalNumber, oneOf, oneOrMore, oneOrMoreOf, OpenCurlyBrace,
+          OpenCurlyBraceChar, OpenParenthesis, OpenSquareBracket,
+          OpenSquareBracketChar, ParamDualObjectKey, Parameter, ParameterOrNothing,
+          Parameters, ParameterSequence, ParamNode, ParamSingularObjectKey,
+          Parenthetical, parse, Parser, ParserError, PercentSign, PercentSignChar,
+          Period, PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar,
+          PlusOrMinusChar, PostfixUnaryOperation, PrefixUnaryOperation,
+          preventUnclosedObjectLiteral, PrimaryExpression, PropertyDualObjectKey,
+          PropertyOrDualObjectKey, PropertyOrDualObjectKeyOrMethodDeclaration,
+          quote, RadixNumber, RegexLiteral, RegexpNode, ReturnNode, RootInnerP,
+          RootNode, RootP, Scope, Semicolon, SemicolonChar, Semicolons,
+          separatedList, sequential, setImmediate, SetLiteral, Shebang,
+          SHORT_CIRCUIT, SingleEscapeCharacter, SingleQuote, SingleStringLiteral,
+          SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space,
+          SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement,
+          StringInterpolation, StringLiteral, stringRepeat, SuperInvocation,
+          SuperNode, SwitchNode, Symbol, symbol, SymbolChar, SyntaxChoiceNode,
+          SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral,
+          ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod,
+          ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight,
+          TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine,
+          TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine,
+          TripleSingleStringLiteral, TryCatchNode, TryFinallyNode, Type,
+          TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference,
+          TypeUnionNode, UnaryNode, UnclosedArguments, UnclosedArrayLiteralElement,
+          UnclosedObjectLiteral, UnclosedObjectLiteralsAllowed, Underscore,
+          UnicodeEscapeSequence, unique, unusedCaches, UseMacro, VarNode, WeakMap,
+          word, wordOrSymbol, YieldNode, Zero, zeroOrMore, zeroOrMoreOf;
       __bind = function (parent, child) {
         var func;
         if (parent == null) {
@@ -9084,7 +9211,8 @@
       }
       oneOf = __genericFunc(1, function (T) {
         return function () {
-          var _arr, _i, _i2, _i3, _len, _len2, expandedRules, func, rule, rules, subrule;
+          var _arr, _i, _i2, _i3, _len, _len2, expandedRules, func, rule, rules,
+              subrule;
           rules = __slice.call(arguments);
           if (!__isArray(rules)) {
             throw TypeError("Expected rules to be an Array, got " + __typeof(rules));
@@ -9164,7 +9292,8 @@
       SHORT_CIRCUIT = {};
       sequential = __genericFunc(1, function (T) {
         return function () {
-          var _len, hasMutations, hasOther, i, item, items, key, keys, mapping, mutations, mutator, rule, rules, shortCircuitIndex, thisIndex;
+          var _len, hasMutations, hasOther, i, item, items, key, keys, mapping,
+              mutations, mutator, rule, rules, shortCircuitIndex, thisIndex;
           items = __slice.call(arguments);
           if (items.length === 0) {
             throw Error("Expected items to be non-empty");
@@ -11309,7 +11438,8 @@
         Radix = multiple(DecimalDigit, 1, 2);
         R = characters("[Rr]", charsToFakeSet([82, 114]));
         return function (parser, index) {
-          var currentIndex, digitsRule, fraction, integer, period, radix, radixNum, radixValue, separator, trailing, value;
+          var currentIndex, digitsRule, fraction, integer, period, radix, radixNum,
+              radixValue, separator, trailing, value;
           radix = Radix(parser, index);
           if (!radix) {
             return;
@@ -11795,7 +11925,8 @@
           ],
           ["flags", RegexFlags]
         ), mutate(function (_p, parser, index) {
-          var _arr, _i, _len, currentLiteral, flag, flags, part, seenFlags, stringParts, text;
+          var _arr, _i, _len, currentLiteral, flag, flags, part, seenFlags,
+              stringParts, text;
           text = _p.text;
           flags = _p.flags;
           stringParts = [];
@@ -12374,7 +12505,8 @@
         };
       }()))(_ref);
       FunctionDeclaration = (function () {
-        var _ref, asTypeRule, FunctionFlag, FunctionFlags, GenericDefinitionPart, paramsRule;
+        var _ref, asTypeRule, FunctionFlag, FunctionFlags, GenericDefinitionPart,
+            paramsRule;
         FunctionFlag = oneOf(ExclamationPointChar, AtSignChar, AsterixChar, CaretChar);
         _ref = zeroOrMore(FunctionFlag);
         FunctionFlags = mutate(function (codes, parser, index) {
@@ -12434,7 +12566,8 @@
           }
         }
         return function (parser, index) {
-          var _arr, _i, asType, body, flags, flagsValue, func, generic, param, params, result, scope;
+          var _arr, _i, asType, body, flags, flagsValue, func, generic, param,
+              params, result, scope;
           generic = GenericDefinitionPart(parser, index);
           scope = parser.pushScope(true);
           params = paramsRule(parser, generic.index);
@@ -13201,7 +13334,8 @@
               }
             };
             return function (parser, index, head, link, linkIndex, links) {
-              var bindAccess, child, existentialOp, makeAccess, result, setChild, setHead, tmp, tmpIds;
+              var bindAccess, child, existentialOp, makeAccess, result, setChild,
+                  setHead, tmp, tmpIds;
               if (link.bind) {
                 bindAccess = function (parent, child) {
                   return parser.Call(
@@ -13733,7 +13867,9 @@
         precedenceCache = [];
         return function (precedence) {
           return precedenceCache[precedence] || (precedenceCache[precedence] = cache(function (parser, index) {
-            var _arr, _i, _i2, _len, currentIndex, head, invert, inverted, j, left, nextRule, node, op, operator, operators, part, result, right, rule, tail;
+            var _arr, _i, _i2, _len, currentIndex, head, invert, inverted, j, left,
+                nextRule, node, op, operator, operators, part, result, right, rule,
+                tail;
             operators = parser.binaryOperators(precedence);
             if (!operators) {
               return PrefixUnaryOperation(parser, index);
@@ -13815,7 +13951,8 @@
         [
           "this",
           function (parser, index) {
-            var _len, ch, currentIndex, i, indent, l, len, line, lines, result, source;
+            var _len, ch, currentIndex, i, indent, l, len, line, lines, result,
+                source;
             source = parser.source;
             if (source.charCodeAt(index) !== 47 || source.charCodeAt(+index + 1) !== 42 || source.charCodeAt(+index + 2) !== 33) {
               return;
@@ -14411,7 +14548,8 @@
         }
       }
       RootInnerP = __promise(function (parser, index) {
-        var _e, _send, _state, _step, _throw, currentIndex, head, item, result, separator;
+        var _e, _send, _state, _step, _throw, currentIndex, head, item, result,
+            separator;
         _state = 0;
         function _close() {
           _state = 9;
@@ -14636,7 +14774,8 @@
       BOM = maybe(character('"\ufeff"', 65279));
       Shebang = maybe(sequential(HashSignChar, ExclamationPointChar, zeroOrMore(anyExcept(Newline))));
       RootP = __promise(function (parser) {
-        var _e, _send, _state, _step, _throw, bom, empty, emptyAgain, endSpace, root, shebang;
+        var _e, _send, _state, _step, _throw, bom, empty, emptyAgain, endSpace,
+            root, shebang;
         _state = 0;
         function _close() {
           _state = 8;
@@ -14962,7 +15101,9 @@
         );
       }
       Parser = (function () {
-        var _Parser_prototype, ASSIGN_OPERATOR, BINARY_OPERATOR, DEFINE_SYNTAX, deserializeParams, deserializeParamType, macroDeserializers, macroSyntaxConstLiterals, macroSyntaxTypes, UNARY_OPERATOR;
+        var _Parser_prototype, ASSIGN_OPERATOR, BINARY_OPERATOR, DEFINE_SYNTAX,
+            deserializeParams, deserializeParamType, macroDeserializers,
+            macroSyntaxConstLiterals, macroSyntaxTypes, UNARY_OPERATOR;
         function Parser(source, macros, options) {
           var _this;
           _this = this instanceof Parser ? this : __create(_Parser_prototype);
@@ -15572,7 +15713,9 @@
         }
         macroSyntaxTypes = {
           syntax: function (index, params, body, options, stateOptions, translator) {
-            var _this, compilation, funcParam, handler, macroDataIdent, macroFullDataIdent, macroNameIdent, rawFunc, scope, serialization, state, translated;
+            var _this, compilation, funcParam, handler, macroDataIdent,
+                macroFullDataIdent, macroNameIdent, rawFunc, scope, serialization,
+                state, translated;
             _this = this;
             macroFullDataIdent = this.Ident(index, "macroFullData");
             funcParam = this.Param(
@@ -15645,7 +15788,8 @@
             state = this;
             if (body != null) {
               handler = (function () {
-                var compilation, funcParam, handler, macroDataIdent, rawFunc, scope, translated;
+                var compilation, funcParam, handler, macroDataIdent, rawFunc, scope,
+                    translated;
                 macroDataIdent = _this.Ident(index, "macroData");
                 funcParam = _this.Param(
                   index,
@@ -15700,7 +15844,9 @@
             };
           },
           call: function (index, params, body, options, stateOptions, translator) {
-            var _this, compilation, funcParam, handler, macroDataIdent, macroFullDataIdent, macroNameIdent, rawFunc, scope, serialization, state, translated;
+            var _this, compilation, funcParam, handler, macroDataIdent,
+                macroFullDataIdent, macroNameIdent, rawFunc, scope, serialization,
+                state, translated;
             _this = this;
             macroFullDataIdent = this.Ident(index, "macroFullData");
             funcParam = this.Param(
@@ -15763,7 +15909,8 @@
             };
           },
           binaryOperator: function (index, operators, body, options, stateOptions, translator) {
-            var _this, compilation, funcParam, handler, macroDataIdent, rawFunc, scope, serialization, state, translated;
+            var _this, compilation, funcParam, handler, macroDataIdent, rawFunc,
+                scope, serialization, state, translated;
             _this = this;
             macroDataIdent = this.Ident(index, "macroData");
             funcParam = this.Param(
@@ -15834,7 +15981,8 @@
             };
           },
           assignOperator: function (index, operators, body, options, stateOptions, translator) {
-            var _this, compilation, funcParam, handler, macroDataIdent, rawFunc, scope, serialization, state, translated;
+            var _this, compilation, funcParam, handler, macroDataIdent, rawFunc,
+                scope, serialization, state, translated;
             _this = this;
             macroDataIdent = this.Ident(index, "macroData");
             funcParam = this.Param(
@@ -15884,7 +16032,8 @@
             };
           },
           unaryOperator: function (index, operators, body, options, stateOptions, translator) {
-            var _this, compilation, funcParam, handler, macroDataIdent, rawFunc, scope, serialization, state, translated;
+            var _this, compilation, funcParam, handler, macroDataIdent, rawFunc,
+                scope, serialization, state, translated;
             _this = this;
             macroDataIdent = this.Ident(index, "macroData");
             funcParam = this.Param(
@@ -16698,7 +16847,8 @@
         return Parser;
       }());
       parse = __promise(function (source, macros, options) {
-        var _e, _send, _state, _step, _throw, e, endExpandTime, endParseTime, endReduceTime, expanded, parser, reduced, result, rootRule, startTime;
+        var _e, _send, _state, _step, _throw, e, endExpandTime, endParseTime,
+            endReduceTime, expanded, parser, reduced, result, rootRule, startTime;
         _state = 0;
         function _close() {
           _state = 8;
@@ -16919,7 +17069,8 @@
     var exports = this;
     (function () {
       "use strict";
-      var __async, __isArray, __num, __once, __owns, __slice, __toArray, __typeof, nodeToType, Type;
+      var __async, __isArray, __num, __once, __owns, __slice, __toArray, __typeof,
+          nodeToType, Type;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -17075,7 +17226,8 @@
           URIError: Type.error
         };
         return function (node) {
-          var _arr, _arr2, _i, _len, _ref, arg, args, basetype, current, data, key, Node, type, value;
+          var _arr, _arr2, _i, _len, _ref, arg, args, basetype, current, data, key,
+              Node, type, value;
           Node = require("./parser-nodes");
           if (!(node instanceof Node)) {
             throw TypeError("Expected a Node, got " + __typeof(node));
@@ -17233,7 +17385,9 @@
     var exports = this;
     (function () {
       "use strict";
-      var __create, __import, __isArray, __name, __owns, __slice, __toArray, __typeof, _ref, IdentNode, Node, Scope, ScopeDestroyedError, TmpNode, Type;
+      var __create, __import, __isArray, __name, __owns, __slice, __toArray,
+          __typeof, _ref, IdentNode, Node, Scope, ScopeDestroyedError, TmpNode,
+          Type;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
@@ -17649,7 +17803,18 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __create, __curry, __in, __isArray, __keys, __name, __num, __once, __owns, __slice, __strnum, __toArray, __typeof, _ref, AccessMultiNode, AccessNode, ArgsNode, ArrayNode, AssignNode, BinaryNode, BlockNode, BreakNode, CallNode, CommentNode, ConstNode, ContinueNode, DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode, ForNode, FunctionNode, IdentNode, IfNode, inspect, MacroAccessNode, mapAsync, Node, nodeToType, NothingNode, ObjectNode, ParamNode, quote, RegexpNode, ReturnNode, RootNode, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode, UnaryNode, VarNode, YieldNode;
+      var __async, __create, __curry, __in, __isArray, __keys, __name, __num,
+          __once, __owns, __slice, __strnum, __toArray, __typeof, _ref,
+          AccessMultiNode, AccessNode, ArgsNode, ArrayNode, AssignNode, BinaryNode,
+          BlockNode, BreakNode, CallNode, CommentNode, ConstNode, ContinueNode,
+          DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode, ForNode,
+          FunctionNode, IdentNode, IfNode, inspect, MacroAccessNode, mapAsync, Node,
+          nodeToType, NothingNode, ObjectNode, ParamNode, quote, RegexpNode,
+          ReturnNode, RootNode, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode,
+          SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode,
+          TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type,
+          TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode,
+          UnaryNode, VarNode, YieldNode;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -18153,7 +18318,8 @@
           }
         };
         _AccessNode_prototype._reduce = function (o) {
-          var _ref, args, cachedParent, child, cValue, end, hasEnd, hasStep, inclusive, parent, pValue, start, step, value;
+          var _ref, args, cachedParent, child, cValue, end, hasEnd, hasStep,
+              inclusive, parent, pValue, start, step, value;
           parent = this.parent.reduce(o).doWrap(o);
           cachedParent = null;
           function replaceLengthIdent(node) {
@@ -20012,7 +20178,8 @@
             _this = this;
             if ((_ref = this._type) == null) {
               return this._type = (function () {
-                var _ref, _ref2, _ref3, _ref4, child, func, funcType, name, parent, parentType;
+                var _ref, _ref2, _ref3, _ref4, child, func, funcType, name, parent,
+                    parentType;
                 func = _this.func;
                 funcType = func.type(o);
                 if (funcType.isSubsetOf(Type["function"])) {
@@ -20091,7 +20258,8 @@
             JSON: { parse: true, stringify: true }
           };
           return function (o) {
-            var _arr, _i, _len, _ref, _ref2, _ref3, allConst, arg, args, child, constArgs, cValue, func, parent, pValue, value;
+            var _arr, _i, _len, _ref, _ref2, _ref3, allConst, arg, args, child,
+                constArgs, cValue, func, parent, pValue, value;
             func = this.func.reduce(o).doWrap(o);
             args = map(this.args, function (node) {
               return node.reduce(o).doWrap(o);
@@ -22335,7 +22503,8 @@
         return ObjectNode;
       }(Node));
       Node.object = function (index, pairs, prototype) {
-        var _arr, _i, _len, _ref, key, keyValue, knownKeys, lastPropertyPair, ParserError, property;
+        var _arr, _i, _len, _ref, key, keyValue, knownKeys, lastPropertyPair,
+            ParserError, property;
         knownKeys = [];
         lastPropertyPair = null;
         for (_arr = __toArray(pairs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
@@ -25197,7 +25366,8 @@
     var exports = this;
     (function () {
       "use strict";
-      var __create, __import, __isArray, __lt, __name, __num, __owns, __slice, __strnum, __toArray, __typeof, MacroHolder, Type;
+      var __create, __import, __isArray, __lt, __name, __num, __owns, __slice,
+          __strnum, __toArray, __typeof, MacroHolder, Type;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
@@ -25842,7 +26012,18 @@
     var exports = this;
     (function () {
       "use strict";
-      var __create, __isArray, __name, __num, __owns, __slice, __strnum, __throw, __toArray, __typeof, _ref, AccessMultiNode, AccessNode, addParamToScope, ArgsNode, ArrayNode, AssignNode, BinaryNode, BlockNode, BreakNode, CallNode, CommentNode, ConstNode, ContinueNode, DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode, ForNode, FunctionNode, IdentNode, IfNode, MacroAccessNode, MacroContext, map, Node, nodeToType, NothingNode, ObjectNode, ParamNode, RegexpNode, ReturnNode, RootNode, Scope, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode, UnaryNode, VarNode, YieldNode;
+      var __create, __isArray, __name, __num, __owns, __slice, __strnum, __throw,
+          __toArray, __typeof, _ref, AccessMultiNode, AccessNode, addParamToScope,
+          ArgsNode, ArrayNode, AssignNode, BinaryNode, BlockNode, BreakNode,
+          CallNode, CommentNode, ConstNode, ContinueNode, DebuggerNode, DefNode,
+          EmbedWriteNode, EvalNode, ForInNode, ForNode, FunctionNode, IdentNode,
+          IfNode, MacroAccessNode, MacroContext, map, Node, nodeToType, NothingNode,
+          ObjectNode, ParamNode, RegexpNode, ReturnNode, RootNode, Scope,
+          SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode, SyntaxManyNode,
+          SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode,
+          TmpWrapperNode, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode,
+          TypeGenericNode, TypeObjectNode, TypeUnionNode, UnaryNode, VarNode,
+          YieldNode;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
@@ -27543,7 +27724,11 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __arrayToIter, __cmp, __create, __import, __indexOfIdentical, __isArray, __iter, __name, __num, __owns, __slice, __strnum, __throw, __toArray, __typeof, _ref, ast, AstNode, Cache, GeneratorBuilder, GeneratorState, generatorTranslate, MacroHolder, Map, ParserNode, Scope, translators, Type;
+      var __arrayToIter, __cmp, __create, __import, __indexOfIdentical, __isArray,
+          __iter, __name, __num, __owns, __slice, __strnum, __throw, __toArray,
+          __typeof, _ref, ast, AstNode, Cache, GeneratorBuilder, GeneratorState,
+          generatorTranslate, MacroHolder, Map, ParserNode, Scope, translators,
+          Type;
       __arrayToIter = (function () {
         var proto;
         proto = {
@@ -28846,7 +29031,8 @@
           this.catches.push({ tryStates: catchStates, tIdent: tIdent, catchState: state });
         };
         _GeneratorBuilder_prototype.create = function () {
-          var _this, body, catches, close, err, f, innerScope, send, sendTryCatch, stateIdent, step, throwIdent;
+          var _this, body, catches, close, err, f, innerScope, send, sendTryCatch,
+              stateIdent, step, throwIdent;
           _this = this;
           if (this.currentCatch.length) {
             throw Error("Cannot create a generator if there are stray catches");
@@ -28910,7 +29096,8 @@
               this.pos,
               stateIdent,
               (function () {
-                var _arr, _arr2, _arr3, _arr4, _i, _i2, _len, _len2, nodes, state, tNode;
+                var _arr, _arr2, _arr3, _arr4, _i, _i2, _len, _len2, nodes, state,
+                    tNode;
                 for (_arr = [], _arr2 = __toArray(_this.statesOrder), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
                   state = _arr2[_i];
                   if (!_this.redirects.has(state)) {
@@ -29557,7 +29744,8 @@
             });
           },
           If: function (node, scope, state, assignTo) {
-            var cleanup, gWhenFalse, gWhenTrue, postBranch, test, tTmp, tWhenFalse, tWhenTrue, whenFalseBranch, whenTrueBranch;
+            var cleanup, gWhenFalse, gWhenTrue, postBranch, test, tTmp, tWhenFalse,
+                tWhenTrue, whenFalseBranch, whenTrueBranch;
             test = generatorTranslateExpression(node.test, scope, state, state.hasGeneratorNode(node.test));
             state = test.state;
             if (state.hasGeneratorNode(node.whenTrue) || state.hasGeneratorNode(node.whenFalse)) {
@@ -29797,7 +29985,8 @@
             return postBranch;
           },
           ForIn: function (node, scope, state) {
-            var bodyBranch, getKey, gObject, index, keys, length, postBranch, stepBranch, testBranch, tKey;
+            var bodyBranch, getKey, gObject, index, keys, length, postBranch,
+                stepBranch, testBranch, tKey;
             if (node.label != null) {
               throw Error("Not implemented: for-in with label in generator");
             }
@@ -29872,7 +30061,8 @@
             return postBranch;
           },
           If: function (node, scope, state, breakState, continueState) {
-            var postBranch, test, tWhenFalse, tWhenTrue, whenFalseBranch, whenTrueBranch;
+            var postBranch, test, tWhenFalse, tWhenTrue, whenFalseBranch,
+                whenTrueBranch;
             test = generatorTranslateExpression(node.test, scope, state, state.hasGeneratorNode(node.test));
             state = test.state;
             if (state.hasGeneratorNode(node.whenTrue) || state.hasGeneratorNode(node.whenFalse)) {
@@ -29953,7 +30143,8 @@
             }
           },
           Switch: function (node, scope, state, _p, continueState) {
-            var _arr, _f, _len, bodyStates, defaultBranch, defaultCase, gDefaultBody, gNode, i, postBranch, resultCases;
+            var _arr, _f, _len, bodyStates, defaultBranch, defaultCase,
+                gDefaultBody, gNode, i, postBranch, resultCases;
             if (node.label != null) {
               throw Error("Not implemented: switch with label in generator");
             }
@@ -30660,7 +30851,8 @@
           };
         },
         Function: (function () {
-          var primitiveTypes, translateParamTypes, translateType, translateTypeChecks;
+          var primitiveTypes, translateParamTypes, translateType,
+              translateTypeChecks;
           primitiveTypes = { Boolean: "boolean", String: "string", Number: "number", Function: "function" };
           translateTypeChecks = {
             Ident: function (node) {
@@ -30809,7 +31001,8 @@
           }());
           return function (node, scope, location, autoReturn) {
             return function () {
-              var _arr, _ref, body, fakeThis, i, initializers, innerScope, len, p, param, paramIdents, realInnerScope, unassigned, wrap;
+              var _arr, _ref, body, fakeThis, i, initializers, innerScope, len, p,
+                  param, paramIdents, realInnerScope, unassigned, wrap;
               innerScope = scope.clone(!!node.bound);
               realInnerScope = innerScope;
               if (node.generator && !innerScope.bound) {
@@ -31009,7 +31202,9 @@
             );
           }
           return function () {
-            var _len, constPairs, currentPair, currentPairs, i, ident, key, lastProperty, obj, postConstPairs, property, prototype, result, tKey, tValue, value;
+            var _len, constPairs, currentPair, currentPairs, i, ident, key,
+                lastProperty, obj, postConstPairs, property, prototype, result,
+                tKey, tValue, value;
             constPairs = [];
             postConstPairs = [];
             if (typeof tPrototype === "function") {
@@ -31474,7 +31669,8 @@
         };
       }
       function translateRoot(roots, scope) {
-        var _arr, _i, _len, _ref, bareInit, body, callFunc, comments, fakeThis, helper, ident, init, name, noPos, uncommentedBody, walker, wrap;
+        var _arr, _i, _len, _ref, bareInit, body, callFunc, comments, fakeThis,
+            helper, ident, init, name, noPos, uncommentedBody, walker, wrap;
         if (typeof roots !== "object" || roots === null) {
           throw TypeError("Expected roots to be an Object, got " + __typeof(roots));
         }
@@ -31547,7 +31743,8 @@
               return x;
             },
             body: ast.Block(noPos, (function () {
-              var _arr, _arr2, _i, _len, _ref, comments, innerScope, root, rootBody, rootPos;
+              var _arr, _arr2, _i, _len, _ref, comments, innerScope, root, rootBody,
+                  rootPos;
               for (_arr = [], _arr2 = __toArray(roots), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
                 root = _arr2[_i];
                 if (!(root instanceof ParserNode.Root)) {
@@ -31795,7 +31992,9 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __defer, __generatorToPromise, __isArray, __lte, __num, __owns, __promise, __slice, __strnum, __toArray, __toPromise, __typeof, fetchAndParsePrelude, fs, init, os, parser, path, setImmediate;
+      var __defer, __generatorToPromise, __isArray, __lte, __num, __owns, __promise,
+          __slice, __strnum, __toArray, __toPromise, __typeof, fetchAndParsePrelude,
+          fs, init, os, parser, path, setImmediate;
       __defer = (function () {
         function __defer() {
           var deferred, isError, value;
@@ -32085,7 +32284,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.2";
+      exports.version = "0.7.3";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -32103,7 +32302,8 @@
         });
       }
       fetchAndParsePrelude = (function () {
-        var getPreludeCachePath, getPreludeSrcPath, parsedPreludeByLang, preludePromisesByLang, real__filename, work;
+        var getPreludeCachePath, getPreludeSrcPath, parsedPreludeByLang,
+            preludePromisesByLang, real__filename, work;
         parsedPreludeByLang = {};
         if (typeof __filename !== "undefined" && __filename !== null) {
           real__filename = fs.realpathSync(__filename);
@@ -32120,7 +32320,9 @@
         }
         preludePromisesByLang = {};
         work = __promise(function (lang, sync) {
-          var _e, _send, _state, _step, _throw, cachePrelude, e, errored, parsedPrelude, prelude, preludeCachePath, preludeCacheStat, preludeSrcPath, preludeSrcStat;
+          var _e, _send, _state, _step, _throw, cachePrelude, e, errored,
+              parsedPrelude, prelude, preludeCachePath, preludeCacheStat,
+              preludeSrcPath, preludeSrcStat;
           _state = 0;
           function _close() {
             _state = 30;
@@ -32529,7 +32731,8 @@
         return joinedParsed;
       }
       exports.ast = __promise(function (source, options) {
-        var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, _tmp, _tmp2, array, item, parsed, startTime, sync, translated, translator;
+        var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, _tmp, _tmp2,
+            array, item, parsed, startTime, sync, translated, translator;
         _state = 0;
         function _close() {
           _state = 15;
@@ -32748,7 +32951,8 @@
         return exports.compile.sync(source, options);
       };
       function evaluate(code, options) {
-        var _arr, _i, _module, _obj, _ref, _require, fun, k, Module, r, sandbox, Script, v;
+        var _arr, _i, _module, _obj, _ref, _require, fun, k, Module, r, sandbox,
+            Script, v;
         if (typeof require === "function" && (_ref = require("vm")) != null) {
           Script = _ref.Script;
         }
@@ -33060,7 +33264,8 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __async, __fromPromise, __isArray, __num, __once, __slice, __toArray, __typeof, GorillaScript, runScripts, setImmediate;
+      var __async, __fromPromise, __isArray, __num, __once, __slice, __toArray,
+          __typeof, GorillaScript, runScripts, setImmediate;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {

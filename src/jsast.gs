@@ -3,6 +3,11 @@ let inspect = util?.inspect
 let {pad-left} = require './utils'
 let {is-acceptable-ident, to-JS-source} = require './jsutils'
 
+// how long `var x, y, z;` lines can be, including indents.
+const VAR_LINE_LENGTH = 80_chars
+
+const INDENT = "  "
+
 enum Level
   def block // { f(); `...`; g(); }
   def inside-parentheses // f() + (`...`) + g() or f[`...`]
@@ -23,8 +28,6 @@ enum Level
   def increment // ++`...` or `...`++ or --`...` or `...`--
   def call-or-access // `...`() or `...`[0] `...`.item
   def new-call // new `...`()
-
-let INDENT = "  "
 
 let inc-indent(options)
   let clone = { extends options }
@@ -1197,6 +1200,12 @@ let validate-func-params-and-variables(params, variables)!
       throw Error "Duplicate variable: $variable"
     names.push variable
 
+let to-JS-ident = do
+  let unicode-replacer(m)
+    "\\u$(pad-left m.char-code-at(0).to-string(16), 4, '0')"
+  #(name as String) as String
+    name.replace r"[\u0000-\u001f\u0080-\uffff]"g, unicode-replacer
+
 let compile-func-body(options, sb, declarations, variables, body, mutable line-start)!
   let minify = options.minify
   for declaration in declarations
@@ -1210,15 +1219,27 @@ let compile-func-body(options, sb, declarations, variables, body, mutable line-s
       line-start := true
   
   if variables.length > 0
+    let mutable column = 0
     if not minify
       sb.indent options.indent
+      column := 4 + INDENT.length * options.indent
     sb "var "
     for variable, i in variables
+      let name = to-JS-ident(variables[i])
       if i > 0
-        sb ","
-        if not minify
-          sb " "
-      Ident(body.pos, variables[i], true).compile options, Level.inside-parentheses, false, sb
+        if minify
+          sb ","
+        else
+          if column + 2 + name.length < VAR_LINE_LENGTH
+            sb ", "
+            column += 2
+          else
+            sb ",\n"
+            sb.indent options.indent
+            sb "    "
+            column := 4 + INDENT.length * options.indent
+      sb name
+      column += name.length
     sb ";"
     line-start := false
     if not minify
@@ -1308,11 +1329,10 @@ exports.Ident := class Ident extends Expression
     unless allow-unacceptable or is-acceptable-ident name, true
       throw Error "Not an acceptable identifier name: $name"
   
-  let unicode-replacer(m)
-    "\\u$(pad-left m.char-code-at(0).to-string(16), 4, '0')"
+  
   def compile(options, level, line-start, sb)!
     options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
-    sb @name.replace r"[\u0000-\u001f\u0080-\uffff]"g, unicode-replacer
+    sb to-JS-ident @name
   
   def compile-as-block(options, level, line-start, sb)!
     Noop(@pos).compile-as-block(options, level, line-start, sb)
