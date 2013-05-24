@@ -488,17 +488,21 @@ define operator unary typeof! with type: \string
   else
     @mutate-last node or @noop(), (#(n)@ -> ASTE __typeof($n)), true
 
+define helper __first = #(x) -> x
+
 macro first!(head)
   // FIXME: this is hackish, macro should be (head, ...tail)
-  let tail = arguments[0].macroData.slice(1)
+  let mutable tail = arguments[0].macroData.slice(1)
   if tail.length == 0
     ASTE $head
+  else if @position == \statement
+    let tmp = @tmp \ref
+    AST
+      let $tmp = $head
+      $tail
+      $tmp
   else
-    @maybe-cache head, #(set-head, head)@
-      AST
-        $set-head
-        $tail
-        $head
+    AST __first($head, $tail)
 
 macro last!()
   // FIXME: this is hackish, macro should be (...start, finish)
