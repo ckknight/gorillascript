@@ -433,6 +433,20 @@ class GeneratorBuilder
     }
     state
   
+  let calculate-ranges(state-ids)
+    let mutable ranges = []
+    let mutable range-start = -Infinity
+    let mutable last-range-id = -1
+    for id, i, len in state-ids
+      if id != last-range-id + 1
+        if last-range-id != -1
+          ranges.push { start: range-start, finish: last-range-id }
+        range-start := id
+      last-range-id := id
+    if last-range-id != -1
+      ranges.push { start: range-start, finish: last-range-id }
+    ranges
+  
   def create()
     if @current-catch.length
       throw Error "Cannot create a generator if there are stray catches"
@@ -488,10 +502,28 @@ class GeneratorBuilder
     body.push ast.Func @pos, throw-ident, [err], [], for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Call(@pos, close, []), ast.Throw @pos, err]
       let err-ident = catch-info.t-ident()
       @scope.add-variable err-ident
+      let try-state-ids = for state in catch-info.try-states
+        if not @redirects.has state
+          state.case-id()
+      try-state-ids.sort (<=>)
+      let try-state-ranges = calculate-ranges try-state-ids
       ast.If @pos,
-        ast.Or @pos, ...(for state in catch-info.try-states
-          if not @redirects.has state
-            ast.Binary(@pos, state-ident, "===", ast.Const(@pos, state.case-id())))
+        ast.Or @pos, ...(for {start, finish} in try-state-ranges
+          if start == -Infinity
+            if finish == 0
+              ast.Binary @pos, state-ident, "===", ast.Const @pos, 0
+            else
+              ast.Binary @pos, state-ident, "<=", ast.Const @pos, finish
+          else if finish == start
+            ast.Binary @pos, state-ident, "===", ast.Const @pos, start
+          else if finish == start + 1
+            ast.Or @pos,
+              ast.Binary @pos, state-ident, "===", ast.Const @pos, start
+              ast.Binary @pos, state-ident, "===", ast.Const @pos, finish
+          else
+            ast.And @pos,
+              ast.Binary @pos, state-ident, ">=", ast.Const @pos, start
+              ast.Binary @pos, state-ident, "<=", ast.Const @pos, finish)
         ast.Block @pos,
           * ast.Assign @pos, err-ident, err
           * ast.Assign @pos, state-ident, ast.Const(@pos, catch-info.catch-state.case-id())
