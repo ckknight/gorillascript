@@ -2821,6 +2821,9 @@ macro class
     else
       name := @tmp \class, false, \function
     
+    if @is-ident(superclass) and @name(superclass) == \Object
+      superclass := null
+    
     let has-superclass = not not superclass
     let sup = superclass and if @is-ident(superclass) then superclass else @tmp \super, false, \function
     let init = []
