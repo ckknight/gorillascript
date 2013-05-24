@@ -16,7 +16,7 @@
   },
   "readmeFilename": "README",
   "devDependencies": {
-    "gorillascript": ">=0.7.5",
-    "uglify-js": ">=2.0.0"
+    "gorillascript": "~0.7.5",
+    "uglify-js": "~2.3.4"
   }
 }

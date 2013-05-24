@@ -40,6 +40,7 @@
       <li><a href="#lexical-scope">Lexical scoping in loops</a>
       <li><a href="#array-slicing">Array slicing</a>
       <li><a href="#array-negative-index">Array negative indexing</a>
+      <li><a href="#cascades">Cascades</a>
       <li><a href="#expressions">Everything is an expression (mostly)</a>
       <li><a href="#existential">Existential operator</a>
       <li><a href="#in"><code>in</code> operator</a>
@@ -851,6 +852,20 @@ assert array[* \ 2] == \c // halfway point in the array
 </code></pre>
 
     <p>When a standalone <code class="language-gorillascript">*</code> is encountered in an index, it is converted to the current array&#8217;s <code class="language-gorillascript">.length</code>.</p>
+  </section>
+  
+  <section id="cascades">
+    <h2>Cascades</h2>
+
+    <p>Cascades are a way to repeatedly send messages to an object that would otherwise not have a fluent interface (i.e. returning <code class="language-gorillascript">this</code>).</p>
+
+    <pre class="gs-code"><code class="language-gorillascript">let array = [\a, \b, \c, \d, \e]
+  ..push \f
+  ..reverse()
+  ..sort (<=>)
+
+assert array.length == 6
+</code></pre>
   </section>
   
   <section id="expressions">
