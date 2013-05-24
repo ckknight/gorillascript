@@ -830,7 +830,7 @@ describe "classes", #
     class Base
       @children := []
       @extended := #(child as ->)
-        expect(child).to.be.an.instanceof Base
+        expect(child.prototype).to.be.an.instanceof Base
         expect(child::constructor).to.equal child
         @children.push child
     
