@@ -1225,7 +1225,7 @@ let compile-func-body(options, sb, declarations, variables, body, mutable line-s
       sb.indent options.indent
       column := 4 + INDENT.length * options.indent
     sb "var "
-    for variable, i in variables
+    for variable, i in variables.sort #(a, b) -> a.to-lower-case() <=> b.to-lower-case() or a <=> b
       let name = to-JS-ident(variables[i])
       if i > 0
         if minify
