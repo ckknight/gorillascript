@@ -7911,43 +7911,45 @@
           __isObject, __lt, __lte, __name, __num, __owns, __promise, __slice, __str,
           __strnum, __toArray, __typeof, _arr, _Block, _DefineMacro, _FunctionBody,
           _i, _len, _Name, _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol,
-          AccessMultiNode, AccessNode, addParamToScope, AnyArrayLiteral,
-          AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode,
-          ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast,
-          AsterixChar, AstExpression, AstStatement, AtSignChar, BackslashChar,
-          BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess,
-          BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block,
-          BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd,
-          BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode,
-          CaretChar, CheckStop, CloseCurlyBrace, CloseCurlyBraceChar,
-          ClosedArguments, CloseParenthesis, CloseSquareBracket, Colon, ColonChar,
-          ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline,
-          Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent,
-          CommentNode, concat, cons, ConstantLiteral, ConstantLiteralAccessPart,
-          ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess,
-          CountIndent, CurrentArrayLength, CustomOperatorCloseParenthesis,
-          DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody,
-          DefineConstLiteral, DefineHelper, DefineMacro, DefineOperator,
-          DefineSyntax, DefNode, disallowEmbeddedText, DollarSign, DollarSignChar,
-          DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral,
+          AccessMultiNode, AccessNode, addParamToScope, allowSpaceBeforeAccess,
+          AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral,
+          ArrayLiteral, ArrayNode, ArrayParameter, ArrayType,
+          AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression,
+          AstStatement, AtSignChar, BackslashChar, BackslashEscapeSequence,
+          BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode,
+          BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body,
+          BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box,
+          BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop,
+          CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis,
+          CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose,
+          ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar,
+          CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat,
+          cons, ConstantLiteral, ConstantLiteralAccessPart, ConstNode,
+          ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent,
+          CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode,
+          DecimalDigit, DecimalNumber, DedentedBody, DefineConstLiteral,
+          DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode,
+          disallowEmbeddedText, disallowSpaceBeforeAccess, DollarSign,
+          DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral,
           DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey,
           EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite,
           EmbeddedLiteralText, EmbeddedLiteralTextInnerPart,
           EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment,
           EmbeddedOpenWrite, EmbeddedRootGeneratorP, EmbeddedRootInnerP,
           EmbeddedRootP, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine,
-          EmptyLines, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval,
-          EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement,
-          ExpressionOrAssignment, ExpressionOrAssignmentOrBody, ForInNode, ForNode,
-          fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph,
-          FunctionLiteral, FunctionNode, FunctionType, GeneratorBody,
-          GeneratorBodyNoEnd, GeneratorFunctionBody, getPackageVersion,
-          getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar,
-          HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier,
-          IdentifierNameConst, IdentifierNameConstOrNumberLiteral,
-          IdentifierOrAccess, IdentifierOrSimpleAccess,
-          IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart,
-          IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, inAst,
+          EmptyLines, EmptyLinesSpace, EndNoIndent, EqualChar, EqualSign,
+          EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression,
+          ExpressionAsStatement, ExpressionOrAssignment,
+          ExpressionOrAssignmentOrBody, ForInNode, ForNode, fromCharCode,
+          FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral,
+          FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd,
+          GeneratorFunctionBody, getPackageVersion, getReservedIdents, GetSetToken,
+          GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence,
+          HexNumber, Identifier, IdentifierNameConst,
+          IdentifierNameConstOrNumberLiteral, IdentifierOrAccess,
+          IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart,
+          IdentifierOrSimpleAccessStart, IdentifierOrThisAccess,
+          IdentifierParameter, IdentNode, IfNode, inAst,
           IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner,
           IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner,
           INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro,
@@ -10704,6 +10706,7 @@
       EmptyLine = cache(withSpace(Newline));
       EmptyLines = cache(zeroOrMore(EmptyLine, true));
       SomeEmptyLines = cache(oneOrMore(EmptyLine, true));
+      EmptyLinesSpace = sequential(EmptyLines, Space);
       NoSpaceNewline = except(EmptyLine);
       OpenParenthesis = cache(withSpace(character('"("', 40)));
       CloseParenthesis = cache(withSpace(character('")"', 41)));
@@ -11088,13 +11091,14 @@
           return node;
         }
       })(_ref)));
+      allowSpaceBeforeAccess = makeAlterStack.generic(Boolean)("disallowSpaceBeforeAccess", false);
       ClosedArguments = cache(sequential(
         NoSpace,
         OpenParenthesis,
         Space,
         [
           "this",
-          concat.generic(Node)(
+          allowSpaceBeforeAccess(concat.generic(Node)(
             maybe(
               sequential(
                 [
@@ -11131,11 +11135,12 @@
                 return [];
               }
             )
-          )
+          ))
         ],
         CloseParenthesis
       ));
-      UnclosedArguments = cache(sequential(
+      disallowSpaceBeforeAccess = makeAlterStack.generic(Boolean)("disallowSpaceBeforeAccess", true);
+      UnclosedArguments = cache(disallowSpaceBeforeAccess(sequential(
         oneOf(
           sequential(SpaceChar, Space),
           check(Newline)
@@ -11164,7 +11169,7 @@
             )
           )
         ]
-      ));
+      )));
       InvocationArguments = cache(oneOf(ClosedArguments, UnclosedArguments));
       Identifier = cache(oneOf(
         (_ref = sequential(
@@ -11547,7 +11552,7 @@
           OpenParenthesis,
           [
             "this",
-            oneOf(Expression, Nothing)
+            allowSpaceBeforeAccess(oneOf(Expression, Nothing))
           ],
           CloseParenthesis
         ))
@@ -11829,7 +11834,7 @@
         DoubleStringLiteral,
         DoubleStringArrayLiteral
       )));
-      RegexLiteral = cache((function () {
+      RegexLiteral = (function () {
         var _ref, _ref2, LowerR, NOTHING, RegexComment, RegexFlags, RegexSpace;
         LowerR = character('"r"', 114);
         _ref = zeroOrMore(NameChar);
@@ -11945,12 +11950,12 @@
           }
           return parser.Regexp(index, text, flags);
         })(_ref)));
-      }()));
+      }());
       ConstantLiteralAccessPart = oneOf(
         sequential(Period, ["this", IdentifierNameConstOrNumberLiteral]),
         sequential(
           OpenSquareBracketChar,
-          ["this", Expression],
+          ["this", allowSpaceBeforeAccess(Expression)],
           CloseSquareBracket
         )
       );
@@ -12047,7 +12052,7 @@
           ["parent", ThisOrShorthandLiteral],
           ["isProto", maybe(DoubleColonChar)],
           OpenSquareBracketChar,
-          ["child", Expression],
+          ["child", allowSpaceBeforeAccess(Expression)],
           CloseSquareBracket
         ), mutate(function (_p, parser, index) {
           var child, isProto, parent;
@@ -12072,7 +12077,7 @@
         sequential(
           ["type", maybe(DoubleColonChar)],
           OpenSquareBracketChar,
-          ["child", Expression],
+          ["child", allowSpaceBeforeAccess(Expression)],
           CloseSquareBracket
         )
       );
@@ -12121,7 +12126,7 @@
       };
       ArrayType = cache((_ref = sequential(
         OpenSquareBracket,
-        ["this", maybe(TypeReference)],
+        ["this", maybe(allowSpaceBeforeAccess(TypeReference))],
         CloseSquareBracket
       ), mutate(function (subtype, parser, index) {
         var arrayIdent;
@@ -12146,12 +12151,12 @@
         OpenCurlyBrace,
         [
           "this",
-          maybe(
+          allowSpaceBeforeAccess(maybe(
             separatedList(ObjectTypePair, CommaOrNewline),
             function () {
               return [];
             }
-          )
+          ))
         ],
         MaybeComma,
         CloseCurlyBrace
@@ -12180,7 +12185,7 @@
         oneOf(
           sequential(
             OpenParenthesis,
-            separatedList(TypeReference, CommaOrNewline),
+            allowSpaceBeforeAccess(separatedList(TypeReference, CommaOrNewline)),
             CloseParenthesis
           ),
           inFunctionTypeParams(TypeReference),
@@ -12208,9 +12213,9 @@
           OpenParenthesis,
           [
             "this",
-            notInFunctionTypeParams(function (parser, index) {
+            allowSpaceBeforeAccess(notInFunctionTypeParams(function (parser, index) {
               return TypeReference(parser, index);
-            })
+            }))
           ],
           CloseParenthesis
         ),
@@ -12272,7 +12277,7 @@
       MaybeAsType = maybe(sequential(word("as"), SHORT_CIRCUIT, ["this", TypeReference]));
       BracketedObjectKey = cache(sequential(
         OpenSquareBracket,
-        ["this", ExpressionOrAssignment],
+        ["this", allowSpaceBeforeAccess(ExpressionOrAssignment)],
         CloseSquareBracket
       ));
       ConstObjectKey = oneOf(
@@ -12388,9 +12393,9 @@
         EmptyLines,
         [
           "this",
-          function (parser, index) {
+          allowSpaceBeforeAccess(function (parser, index) {
             return Parameters(parser, index);
-          }
+          })
         ],
         EmptyLines,
         CloseSquareBracket
@@ -12424,7 +12429,7 @@
         EmptyLines,
         [
           "this",
-          separatedList(KvpParameter, CommaOrNewline)
+          allowSpaceBeforeAccess(separatedList(KvpParameter, CommaOrNewline))
         ],
         EmptyLines,
         CloseCurlyBrace
@@ -12443,10 +12448,9 @@
       })(_ref);
       Parameter = oneOf(IdentifierParameter, ArrayParameter, ObjectParameter);
       ParameterOrNothing = oneOf(Parameter, Nothing);
-      _ref = separatedList(ParameterOrNothing, CommaOrNewline);
-      Parameters = mutate(function (params, parser, index) {
+      Parameters = allowSpaceBeforeAccess((_ref = separatedList(ParameterOrNothing, CommaOrNewline), mutate(function (params, parser, index) {
         return validateSpreadParameters(removeTrailingNothings(params), parser);
-      })(_ref);
+      })(_ref)));
       _ref = sequential(
         OpenParenthesis,
         SHORT_CIRCUIT,
@@ -12567,7 +12571,7 @@
             return FunctionBody;
           }
         }
-        return function (parser, index) {
+        return allowSpaceBeforeAccess(function (parser, index) {
           var _arr, _i, asType, body, flags, flagsValue, func, generic, param,
               params, result, scope;
           generic = GenericDefinitionPart(parser, index);
@@ -12599,7 +12603,7 @@
           result = mutateFunction(func, parser, index);
           parser.popScope();
           return Box(body.index, result);
-        };
+        });
       }());
       FunctionLiteral = cache(sequential(Space, HashSignChar, ["this", FunctionDeclaration]));
       preventUnclosedObjectLiteral = makeAlterStack.generic(Boolean)("preventUnclosedObjectLiteral", true);
@@ -12608,7 +12612,7 @@
         Space,
         [
           "this",
-          concat(
+          allowSpaceBeforeAccess(concat(
             maybe(
               sequential(
                 [
@@ -12644,7 +12648,7 @@
                 return [];
               }
             )
-          )
+          ))
         ],
         CloseSquareBracket
       ), mutate(function (items, parser, index) {
@@ -12782,7 +12786,7 @@
           };
         })(_ref))
       ));
-      ObjectLiteral = cache((_ref = sequential(
+      ObjectLiteral = cache(allowSpaceBeforeAccess((_ref = sequential(
         OpenCurlyBrace,
         Space,
         [
@@ -12839,7 +12843,7 @@
         CloseCurlyBrace
       ), mutate(function (x, parser, index) {
         return parser.object(index, x.pairs, x.prototype);
-      })(_ref)));
+      })(_ref))));
       MapLiteral = cache((_ref = sequential(
         PercentSign,
         OpenCurlyBraceChar,
@@ -12847,7 +12851,7 @@
         Space,
         [
           "this",
-          concat(
+          allowSpaceBeforeAccess(concat(
             maybe(
               sequential(
                 [
@@ -12882,7 +12886,7 @@
                 return [];
               }
             )
-          )
+          ))
         ],
         EmptyLines,
         MaybeCommaOrNewline,
@@ -13045,7 +13049,7 @@
           return Box(op.index, { op: op.value, operator: operator, inverted: inverted });
         }
       }
-      Parenthetical = cache(sequential(OpenParenthesis, [
+      Parenthetical = cache(allowSpaceBeforeAccess(sequential(OpenParenthesis, [
         "this",
         oneOf.generic(Node)(
           sequential(
@@ -13146,7 +13150,7 @@
             return result;
           })(_ref))
         )
-      ]));
+      ])));
       CurrentArrayLength = cache(function (parser, index) {
         var asterix;
         if (parser.asterixAsArrayLength.peek()) {
@@ -13633,7 +13637,7 @@
           );
         };
       }());
-      InvocationOrAccessPart = cache(oneOf(
+      InvocationOrAccessPart = oneOf(
         (_ref = sequential(
           LessThanChar,
           [
@@ -13653,8 +13657,13 @@
           ["existential", MaybeQuestionMarkChar],
           ["owns", MaybeExclamationPointChar],
           ["bind", MaybeAtSignChar],
-          EmptyLines,
-          Space,
+          function (parser, index) {
+            if (parser.disallowSpaceBeforeAccess.peek()) {
+              return Box(index);
+            } else {
+              return EmptyLinesSpace(parser, index);
+            }
+          },
           ["type", PeriodOrDoubleColonChar],
           ["child", IdentifierNameConstOrNumberLiteral]
         ), mutate(function (x) {
@@ -13674,7 +13683,7 @@
           OpenSquareBracketChar,
           [
             "child",
-            (_ref2 = separatedList(
+            allowSpaceBeforeAccess((_ref2 = separatedList(
               makeAlterStack.generic(Boolean)("asterixAsArrayLength", true)(Expression),
               CommaOrNewline
             ), mutate(function (nodes) {
@@ -13683,7 +13692,7 @@
               } else {
                 return { type: "single", node: nodes[0] };
               }
-            })(_ref2))
+            })(_ref2)))
           ],
           CloseSquareBracket
         ), mutate(function (x, parser, index) {
@@ -13721,7 +13730,7 @@
             isApply: x.isApply
           };
         })(_ref))
-      ));
+      );
       _ref = sequential(
         ["isNew", bool(maybe(word("new")))],
         [
@@ -13768,7 +13777,7 @@
             sequential(EmptyLines, Space, Period, ["this", IdentifierNameConstOrNumberLiteral]),
             sequential(
               OpenSquareBracketChar,
-              ["this", Expression],
+              ["this", allowSpaceBeforeAccess(Expression)],
               CloseSquareBracket
             )
           ))
@@ -13997,7 +14006,7 @@
         ],
         Space
       ));
-      _ref = sequential(
+      MacroSyntaxParameterType = allowSpaceBeforeAccess((_ref = sequential(
         [
           "type",
           oneOf(
@@ -14038,8 +14047,7 @@
           "multiplier",
           maybe(oneOf(symbol("?"), symbol("*"), symbol("+")))
         ]
-      );
-      MacroSyntaxParameterType = mutate(function (_p, parser, index) {
+      ), mutate(function (_p, parser, index) {
         var multiplier, type;
         type = _p.type;
         multiplier = _p.multiplier;
@@ -14048,7 +14056,7 @@
         } else {
           return type;
         }
-      })(_ref);
+      })(_ref)));
       MacroSyntaxParameter = oneOf(StringLiteral, (_ref = sequential(
         [
           "ident",
@@ -15138,6 +15146,7 @@
           _this.inAst = Stack.generic(Boolean)(false);
           _this.inEvilAst = Stack.generic(Boolean)(false);
           _this.asterixAsArrayLength = Stack.generic(Boolean)(false);
+          _this.disallowSpaceBeforeAccess = Stack.generic(Boolean)(false);
           _this.scope = Stack.generic(Scope)(Scope(null, true));
           _this.failureMessages = [];
           _this.failureIndex = -1;

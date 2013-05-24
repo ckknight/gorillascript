@@ -1810,6 +1810,7 @@ define NoSpace = except SpaceChar
 define EmptyLine = with-space Newline
 define EmptyLines = zero-or-more EmptyLine, true
 define SomeEmptyLines = one-or-more EmptyLine, true
+let EmptyLinesSpace = sequential(EmptyLines, Space)
 let NoSpaceNewline = except EmptyLine
 
 define OpenParenthesis = with-space character! "("
@@ -2111,11 +2112,12 @@ define SpreadOrExpression = sequential(
   else
     node
 
+let allow-space-before-access = make-alter-stack<Boolean> \disallow-space-before-access, false
 define ClosedArguments = sequential(
   NoSpace
   OpenParenthesis
   Space
-  [\this, concat<Node>(
+  [\this, allow-space-before-access concat<Node>(
     maybe(sequential(
       [\this, separated-list<Node>(
         SpreadOrExpression
@@ -2134,7 +2136,8 @@ define ClosedArguments = sequential(
       PopIndent)), #-> []))]
   CloseParenthesis)
 
-define UnclosedArguments = sequential(
+let disallow-space-before-access = make-alter-stack<Boolean> \disallow-space-before-access, true
+define UnclosedArguments = disallow-space-before-access sequential(
   one-of(
     sequential(
       SpaceChar
@@ -2398,7 +2401,7 @@ let StringInterpolation = sequential(
     Identifier
     sequential(
       OpenParenthesis
-      [\this, one-of(
+      [\this, allow-space-before-access one-of(
         Expression
         Nothing)]
       CloseParenthesis))])
@@ -2605,7 +2608,7 @@ define StringLiteral = with-space(one-of(
   DoubleStringLiteral
   DoubleStringArrayLiteral))
 
-define RegexLiteral = do
+let RegexLiteral = do
   let LowerR = character! "r"
   let RegexFlags = zero-or-more(NameChar) |> mutate codes-to-string
   let NOTHING = {}
@@ -2695,7 +2698,7 @@ let ConstantLiteralAccessPart = one-of(
     [\this, IdentifierNameConstOrNumberLiteral])
   sequential(
     OpenSquareBracketChar
-    [\this, Expression]
+    [\this, allow-space-before-access Expression]
     CloseSquareBracket))
 let CustomConstantLiteral(parser, index)
   let name = Name parser, index
@@ -2789,7 +2792,7 @@ let IdentifierOrSimpleAccessStart = one-of(
     [\parent, ThisOrShorthandLiteral]
     [\is-proto, maybe DoubleColonChar]
     OpenSquareBracketChar
-    [\child, Expression]
+    [\child, allow-space-before-access Expression]
     CloseSquareBracket) |> mutate #({parent, is-proto, child}, parser, index)
       parser.Access index,
         if is-proto
@@ -2807,7 +2810,7 @@ let IdentifierOrSimpleAccessPart = one-of(
   sequential(
     [\type, maybe DoubleColonChar]
     OpenSquareBracketChar
-    [\child, Expression]
+    [\child, allow-space-before-access Expression]
     CloseSquareBracket)) |> mutate #({type, child}, parser, child-index)
   let is-proto = type == "::"
   #(parent, parser, index)
@@ -2840,7 +2843,7 @@ let mutable TypeReference = #(parser, index) -> TypeReference(parser, index)
 
 define ArrayType = sequential(
   OpenSquareBracket
-  [\this, maybe TypeReference]
+  [\this, maybe allow-space-before-access TypeReference]
   CloseSquareBracket) |> mutate #(subtype, parser, index)
   let array-ident = parser.Ident index, \Array
   if subtype
@@ -2855,7 +2858,7 @@ let ObjectTypePair = sequential(
 
 define ObjectType = sequential(
   OpenCurlyBrace
-  [\this, maybe (separated-list ObjectTypePair, CommaOrNewline), #-> []]
+  [\this, allow-space-before-access maybe (separated-list ObjectTypePair, CommaOrNewline), #-> []]
   MaybeComma
   CloseCurlyBrace) |> mutate #(pairs, parser, index)
   if pairs.length == 0
@@ -2876,7 +2879,7 @@ let FunctionType = sequential(
   one-of(
     sequential(
       OpenParenthesis
-      separated-list(TypeReference, CommaOrNewline)
+      allow-space-before-access separated-list(TypeReference, CommaOrNewline)
       CloseParenthesis
     )
     in-function-type-params TypeReference
@@ -2894,7 +2897,7 @@ let NonUnionType = one-of(
     FunctionType parser, index
   sequential(
     OpenParenthesis
-    [\this, not-in-function-type-params #(parser, index) -> TypeReference parser, index]
+    [\this, allow-space-before-access not-in-function-type-params #(parser, index) -> TypeReference parser, index]
     CloseParenthesis)
   ArrayType
   ObjectType
@@ -2935,7 +2938,7 @@ let MaybeAsType = maybe sequential(
 
 define BracketedObjectKey = sequential(
   OpenSquareBracket
-  [\this, ExpressionOrAssignment]
+  [\this, allow-space-before-access ExpressionOrAssignment]
   CloseSquareBracket)
 
 let ConstObjectKey = one-of(
@@ -3015,7 +3018,7 @@ let mutable Parameter = #(parser, index) -> Parameter parser, index
 let ArrayParameter = sequential(
   OpenSquareBracket
   EmptyLines
-  [\this, #(parser, index) -> Parameters parser, index]
+  [\this, allow-space-before-access #(parser, index) -> Parameters parser, index]
   EmptyLines
   CloseSquareBracket) |> mutate #(params, parser, index)
   parser.Array index, params
@@ -3041,7 +3044,7 @@ let KvpParameter = maybe one-of(ParamDualObjectKey, ParamSingularObjectKey)
 let ObjectParameter = sequential(
   OpenCurlyBrace
   EmptyLines
-  [\this, separated-list(KvpParameter, CommaOrNewline)]
+  [\this, allow-space-before-access separated-list(KvpParameter, CommaOrNewline)]
   EmptyLines
   CloseCurlyBrace) |> mutate #(params, parser, index)
   parser.object index, (for filter param in params; param)
@@ -3052,7 +3055,7 @@ Parameter := one-of(
   ObjectParameter)
 
 let ParameterOrNothing = one-of(Parameter, Nothing)
-let Parameters = separated-list(
+let Parameters = allow-space-before-access separated-list(
   ParameterOrNothing
   CommaOrNewline) |> mutate #(params, parser, index)
     validate-spread-parameters remove-trailing-nothings(params), parser
@@ -3135,7 +3138,7 @@ let FunctionDeclaration = do
       GeneratorFunctionBody
     else
       FunctionBody
-  #(parser, index)
+  allow-space-before-access #(parser, index)
     let generic = GenericDefinitionPart parser, index
     let scope = parser.push-scope(true)
     let params = params-rule parser, generic.index
@@ -3170,7 +3173,7 @@ let prevent-unclosed-object-literal = make-alter-stack<Boolean> \prevent-unclose
 define ArrayLiteral = prevent-unclosed-object-literal sequential(
   OpenSquareBracket
   Space
-  [\this, concat(
+  [\this, allow-space-before-access concat(
     maybe sequential(
       [\this, separated-list(
         SpreadOrExpression
@@ -3292,7 +3295,7 @@ define KeyValuePair = one-of(
     [\key, IdentifierNameConst]) |> mutate #({bool, key}, parser, index)
     { key, value: parser.Const index, bool == C("+") })
 
-define ObjectLiteral = sequential(
+define ObjectLiteral = allow-space-before-access sequential(
   OpenCurlyBrace
   Space
   [\prototype, maybe sequential(
@@ -3325,7 +3328,7 @@ define MapLiteral = sequential(
   OpenCurlyBraceChar
   SHORT_CIRCUIT
   Space
-  [\this, concat(
+  [\this, allow-space-before-access concat(
     maybe sequential(
       [\this, separated-list(DualObjectKey, Comma)]
       MaybeComma), #-> []
@@ -3449,7 +3452,7 @@ let CustomBinaryOperator(parser, index)
       inverted
     }
 
-define Parenthetical = sequential(
+define Parenthetical = allow-space-before-access sequential(
   OpenParenthesis
   [\this, one-of<Node>(
     sequential(
@@ -3811,7 +3814,7 @@ let convert-invocation-or-access = do
     
     convert-call-chain parser, index, head.node, 0, links
 
-define InvocationOrAccessPart = one-of(
+let InvocationOrAccessPart = one-of(
   sequential(
     LessThanChar
     [\this, separated-list(
@@ -3825,8 +3828,11 @@ define InvocationOrAccessPart = one-of(
     [\existential, MaybeQuestionMarkChar]
     [\owns, MaybeExclamationPointChar]
     [\bind, MaybeAtSignChar]
-    EmptyLines
-    Space
+    #(parser, index)
+      if parser.disallow-space-before-access.peek()
+        Box index
+      else
+        EmptyLinesSpace parser, index
     [\type, PeriodOrDoubleColonChar]
     [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x) -> {
       type: if x.type == "::" then \proto-access else \access
@@ -3841,7 +3847,7 @@ define InvocationOrAccessPart = one-of(
     [\bind, MaybeAtSignChar]
     [\type, maybe DoubleColonChar]
     OpenSquareBracketChar
-    [\child, separated-list(
+    [\child, allow-space-before-access separated-list(
       Expression |> make-alter-stack<Boolean>(\asterix-as-array-length, true)
       CommaOrNewline) |> mutate #(nodes)
       if nodes.length > 1
@@ -3904,7 +3910,7 @@ define SuperInvocation = sequential(
       [\this, IdentifierNameConstOrNumberLiteral])
     sequential(
       OpenSquareBracketChar
-      [\this, Expression]
+      [\this, allow-space-before-access Expression]
       CloseSquareBracket))]
   [\args, InvocationArguments]) |> mutate #({child, args}, parser, index)
   parser.Super index, child, args
@@ -4075,7 +4081,7 @@ define LicenseComment = sequential(
         line.push ch]
   Space)
 
-let MacroSyntaxParameterType = sequential(
+let MacroSyntaxParameterType = allow-space-before-access sequential(
   [\type, one-of(
     Identifier
     StringLiteral
@@ -4679,6 +4685,7 @@ class Parser
     @in-ast := Stack<Boolean>(false)
     @in-evil-ast := Stack<Boolean>(false)
     @asterix-as-array-length := Stack<Boolean>(false)
+    @disallow-space-before-access := Stack<Boolean>(false)
     @scope := Stack<Scope>(Scope(null, true))
     @failure-messages := []
     @failure-index := -1

@@ -84,6 +84,28 @@ describe "function invocation", #
       
       expect(get-args 1, 2, 3,
         4).to.eql [1, 2, 3, 4]
+  
+  describe "paren-free chaining", #
+    it "works on a single line", #
+      let bravo = spy()
+      let delta = spy()
+      let charlie = stub().with-args(delta).returns(\echo)
+      let alpha = stub().with-args(bravo).returns({charlie})
+      let x = alpha bravo .charlie delta
+      expect(x).to.equal(\echo)
+      expect(alpha).to.be.called-once
+      expect(charlie).to.be.called-once
+    
+    it "works on multiple lines", #
+      let bravo = spy()
+      let delta = spy()
+      let charlie = stub().with-args(delta).returns(\echo)
+      let alpha = stub().with-args(bravo).returns({charlie})
+      let x = alpha bravo
+        .charlie delta
+      expect(x).to.equal(\echo)
+      expect(alpha).to.be.called-once
+      expect(charlie).to.be.called-once
 
 describe "function apply", #
   describe "with zero arguments", #->
