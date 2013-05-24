@@ -3959,3 +3959,14 @@ macro __DATEMSEC__
 macro __VERSION__
   syntax "" with type: \string
     @const @version()
+
+define operator unary cascade! with label: \cascade
+  if not node.cascades or not node.cascades.length
+    @error "cascade! can only be used on a CascadeNode.", node
+  let top = node.node
+  @maybe-cache top, #(set-top, top)
+    let parts = for cascade, i in node.cascades
+      cascade(if i == 0 then set-top else top)
+    AST
+      $parts
+      $top

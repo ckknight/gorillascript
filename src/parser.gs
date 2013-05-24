@@ -2102,7 +2102,8 @@ let get-reserved-idents = do
     else
       RESERVED_IDENTS
 
-define MaybeSpreadToken = maybe with-space sequential(Period, Period, Period) |> mutate "..."
+define SpreadToken = with-space sequential(Period, Period, Period) |> mutate "..."
+define MaybeSpreadToken = maybe SpreadToken
 
 define SpreadOrExpression = sequential(
   [\spread, MaybeSpreadToken]
@@ -3351,23 +3352,31 @@ define MapLiteral = sequential(
     node: parser.object index, pairs
   }, parser, index
 
-let Assignment(parser, index)
-  let left = IdentifierOrAccess parser, index
-  if not left
-    return
+let RighthandAssignment(parser, index)
+  let make-func(op, right)
+    #(left, start-index) -> operator.func {
+      left
+      op
+      right
+    }, parser, start-index
   for operator in parser.assign-operators() by -1
     let {rule} = operator
-    let op = rule parser, left.index
+    let op = rule parser, index
     if not op
       continue
     let right = ExpressionOrAssignmentOrBody parser, op.index
     if not right
       continue
-    return Box right.index, operator.func {
-      left: left.value
-      op: op.value
-      right: right.value
-    }, parser, index
+    return Box right.index, make-func(op.value, right.value)
+
+let Assignment(parser, index)
+  let left = IdentifierOrAccess parser, index
+  if not left
+    return
+  let right = RighthandAssignment(parser, left.index)
+  if not right
+    return
+  Box right.index, right.value left.value, index
 
 let CustomOperatorCloseParenthesis = do
   let handle-unary-operator(operator, parser, index)
@@ -3814,6 +3823,12 @@ let convert-invocation-or-access = do
     
     convert-call-chain parser, index, head.node, 0, links
 
+let EmptyLinesSpaceBeforeAccess = #(parser, index)
+  if parser.disallow-space-before-access.peek()
+    Box index
+  else
+    EmptyLinesSpace parser, index
+
 let InvocationOrAccessPart = one-of(
   sequential(
     LessThanChar
@@ -3828,11 +3843,7 @@ let InvocationOrAccessPart = one-of(
     [\existential, MaybeQuestionMarkChar]
     [\owns, MaybeExclamationPointChar]
     [\bind, MaybeAtSignChar]
-    #(parser, index)
-      if parser.disallow-space-before-access.peek()
-        Box index
-      else
-        EmptyLinesSpace parser, index
+    EmptyLinesSpaceBeforeAccess
     [\type, PeriodOrDoubleColonChar]
     [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x) -> {
       type: if x.type == "::" then \proto-access else \access
@@ -3946,8 +3957,40 @@ define InvocationOrAccess = one-of(
   SuperInvocation
   Eval)
 
+let in-cascade = make-alter-stack<Boolean> \in-cascade, true
+define Cascade = sequential(
+  [\head, InvocationOrAccess]
+  [\tail, one-of(
+    #(parser, index)
+      if parser.in-cascade.peek()
+        Box index, []
+    zero-or-more sequential(
+      EmptyLinesSpaceBeforeAccess
+      except SpreadToken
+      Period
+      check Period
+      [\accesses, zero-or-more InvocationOrAccessPart]
+      [\assignment, maybe in-cascade RighthandAssignment]))]) |> mutate #({head, tail}, parser, index)
+  if tail.length
+    let mutate-function-macro = parser.get-macro-by-label \cascade
+    if not mutate-function-macro
+      throw ParserError "Cannot use cascades until the cascade macro has been defined", parser, index
+    mutate-function-macro.func {
+      op: ""
+      node: parser.Cascade index, head,
+        for {accesses, assignment} in tail
+          #(node)
+            let access = convert-invocation-or-access false, { type: \normal, node }, accesses, parser, index
+            if assignment?
+              assignment access, index
+            else
+              access
+    }, parser, index
+  else
+    head
+
 define PostfixUnaryOperation(parser, index)
-  let mutable node = InvocationOrAccess parser, index
+  let mutable node = Cascade parser, index
   if not node
     return
   
@@ -4686,6 +4729,7 @@ class Parser
     @in-evil-ast := Stack<Boolean>(false)
     @asterix-as-array-length := Stack<Boolean>(false)
     @disallow-space-before-access := Stack<Boolean>(false)
+    @in-cascade := Stack<Boolean>(false)
     @scope := Stack<Scope>(Scope(null, true))
     @failure-messages := []
     @failure-index := -1
@@ -5670,6 +5714,7 @@ for node-type in [
       'Block',
       'Break',
       'Call',
+      'Cascade',
       'Comment',
       'Const',
       'Continue',

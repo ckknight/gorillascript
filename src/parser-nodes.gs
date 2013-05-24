@@ -961,10 +961,13 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
         CallNode @line, @column, @scope, func, args, @is-new, @is-apply
       else
         this
+
+node-class CascadeNode(node as Node, cascades as [])
+
 node-class CommentNode(text as String)
   def type() -> Type.undefined
   def cacheable = false
-  def is-count() -> true
+  def is-const() -> true
   def const-value() -> void
   def _is-noop() -> true
 node-class ConstNode(value as Number|String|Boolean|void|null)

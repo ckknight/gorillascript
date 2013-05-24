@@ -7938,21 +7938,21 @@
           BackslashStringLiteral, BasicInvocationOrAccess, BinaryDigit, BinaryNode,
           BinaryNumber, BinaryOperationByPrecedence, Block, BlockNode, Body,
           BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box,
-          BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, CheckStop,
-          CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments, CloseParenthesis,
-          CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose,
-          ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar,
-          CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent, CommentNode, concat,
-          cons, ConstantLiteral, ConstantLiteralAccessPart, ConstNode,
-          ConstObjectKey, ContinueNode, convertInvocationOrAccess, CountIndent,
-          CurrentArrayLength, CustomOperatorCloseParenthesis, DebuggerNode,
-          DecimalDigit, DecimalNumber, DedentedBody, DefineConstLiteral,
-          DefineHelper, DefineMacro, DefineOperator, DefineSyntax, DefNode,
-          disallowEmbeddedText, disallowSpaceBeforeAccess, DollarSign,
-          DollarSignChar, DoubleColonChar, DoubleQuote, DoubleStringArrayLiteral,
-          DoubleStringLiteral, DoubleStringLiteralInner, DualObjectKey,
-          EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment, EmbeddedCloseWrite,
-          EmbeddedLiteralText, EmbeddedLiteralTextInnerPart,
+          BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, Cascade,
+          CheckStop, CloseCurlyBrace, CloseCurlyBraceChar, ClosedArguments,
+          CloseParenthesis, CloseSquareBracket, Colon, ColonChar,
+          ColonEmbeddedClose, ColonEmbeddedCloseWrite, ColonEqual, ColonNewline,
+          Comma, CommaChar, CommaOrNewline, CommaOrSomeEmptyLinesWithCheckIndent,
+          CommentNode, concat, cons, ConstantLiteral, ConstantLiteralAccessPart,
+          ConstNode, ConstObjectKey, ContinueNode, convertInvocationOrAccess,
+          CountIndent, CurrentArrayLength, CustomOperatorCloseParenthesis,
+          DebuggerNode, DecimalDigit, DecimalNumber, DedentedBody,
+          DefineConstLiteral, DefineHelper, DefineMacro, DefineOperator,
+          DefineSyntax, DefNode, disallowEmbeddedText, disallowSpaceBeforeAccess,
+          DollarSign, DollarSignChar, DoubleColonChar, DoubleQuote,
+          DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner,
+          DualObjectKey, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment,
+          EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart,
           EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment,
           EmbeddedOpenWrite, EmbeddedRootGeneratorP, EmbeddedRootInnerP,
           EmbeddedRootP, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine,
@@ -7968,7 +7968,7 @@
           IdentifierNameConstOrNumberLiteral, IdentifierOrAccess,
           IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart,
           IdentifierOrSimpleAccessStart, IdentifierOrThisAccess,
-          IdentifierParameter, IdentNode, IfNode, inAst,
+          IdentifierParameter, IdentNode, IfNode, inAst, inCascade,
           IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner,
           IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner,
           INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro,
@@ -8003,13 +8003,14 @@
           separatedList, sequential, setImmediate, SetLiteral, Shebang,
           SHORT_CIRCUIT, SingleEscapeCharacter, SingleQuote, SingleStringLiteral,
           SingularObjectKey, SomeEmptyLines, SomeEmptyLinesWithCheckIndent, Space,
-          SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, Stack, Statement,
-          StringInterpolation, StringLiteral, stringRepeat, SuperInvocation,
-          SuperNode, SwitchNode, Symbol, symbol, SymbolChar, SyntaxChoiceNode,
-          SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisLiteral,
-          ThisNode, ThisOrShorthandLiteral, ThisOrShorthandLiteralPeriod,
-          ThisShorthandLiteral, ThrowNode, TmpNode, TmpWrapperNode, trimRight,
-          TripleDoubleQuote, TripleDoubleStringArrayLiteral, TripleDoubleStringLine,
+          SpaceChar, SpaceChars, SpreadNode, SpreadOrExpression, SpreadToken, Stack,
+          Statement, StringInterpolation, StringLiteral, stringRepeat,
+          SuperInvocation, SuperNode, SwitchNode, Symbol, symbol, SymbolChar,
+          SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode,
+          ThisLiteral, ThisNode, ThisOrShorthandLiteral,
+          ThisOrShorthandLiteralPeriod, ThisShorthandLiteral, ThrowNode, TmpNode,
+          TmpWrapperNode, trimRight, TripleDoubleQuote,
+          TripleDoubleStringArrayLiteral, TripleDoubleStringLine,
           TripleDoubleStringLiteral, TripleSingleQuote, TripleSingleStringLine,
           TripleSingleStringLiteral, TryCatchNode, TryFinallyNode, Type,
           TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeReference,
@@ -11096,7 +11097,8 @@
           }
         };
       }());
-      MaybeSpreadToken = cache(maybe(withSpace((_ref = sequential(Period, Period, Period), mutate("...")(_ref)))));
+      SpreadToken = cache(withSpace((_ref = sequential(Period, Period, Period), mutate("...")(_ref))));
+      MaybeSpreadToken = cache(maybe(SpreadToken));
       SpreadOrExpression = cache((_ref = sequential(
         ["spread", MaybeSpreadToken],
         ["node", Expression]
@@ -12926,16 +12928,21 @@
           index
         );
       })(_ref)));
-      function Assignment(parser, index) {
-        var _arr, _i, left, op, operator, right, rule;
-        left = IdentifierOrAccess(parser, index);
-        if (!left) {
-          return;
+      function RighthandAssignment(parser, index) {
+        var _arr, _i, op, operator, right, rule;
+        function makeFunc(op, right) {
+          return function (left, startIndex) {
+            return operator.func(
+              { left: left, op: op, right: right },
+              parser,
+              startIndex
+            );
+          };
         }
         for (_arr = __toArray(parser.assignOperators()), _i = _arr.length; _i--; ) {
           operator = _arr[_i];
           rule = operator.rule;
-          op = rule(parser, left.index);
+          op = rule(parser, index);
           if (!op) {
             continue;
           }
@@ -12943,12 +12950,20 @@
           if (!right) {
             continue;
           }
-          return Box(right.index, operator.func(
-            { left: left.value, op: op.value, right: right.value },
-            parser,
-            index
-          ));
+          return Box(right.index, makeFunc(op.value, right.value));
         }
+      }
+      function Assignment(parser, index) {
+        var left, right;
+        left = IdentifierOrAccess(parser, index);
+        if (!left) {
+          return;
+        }
+        right = RighthandAssignment(parser, left.index);
+        if (!right) {
+          return;
+        }
+        return Box(right.index, right.value(left.value, index));
       }
       CustomOperatorCloseParenthesis = (function () {
         function handleUnaryOperator(operator, parser, index) {
@@ -13656,6 +13671,13 @@
           );
         };
       }());
+      function EmptyLinesSpaceBeforeAccess(parser, index) {
+        if (parser.disallowSpaceBeforeAccess.peek()) {
+          return Box(index);
+        } else {
+          return EmptyLinesSpace(parser, index);
+        }
+      }
       InvocationOrAccessPart = oneOf(
         (_ref = sequential(
           LessThanChar,
@@ -13676,13 +13698,7 @@
           ["existential", MaybeQuestionMarkChar],
           ["owns", MaybeExclamationPointChar],
           ["bind", MaybeAtSignChar],
-          function (parser, index) {
-            if (parser.disallowSpaceBeforeAccess.peek()) {
-              return Box(index);
-            } else {
-              return EmptyLinesSpace(parser, index);
-            }
-          },
+          EmptyLinesSpaceBeforeAccess,
           ["type", PeriodOrDoubleColonChar],
           ["child", IdentifierNameConstOrNumberLiteral]
         ), mutate(function (x) {
@@ -13844,9 +13860,77 @@
         SuperInvocation,
         Eval
       ));
+      inCascade = makeAlterStack.generic(Boolean)("inCascade", true);
+      Cascade = cache((_ref = sequential(
+        ["head", InvocationOrAccess],
+        [
+          "tail",
+          oneOf(
+            function (parser, index) {
+              if (parser.inCascade.peek()) {
+                return Box(index, []);
+              }
+            },
+            zeroOrMore(sequential(
+              EmptyLinesSpaceBeforeAccess,
+              except(SpreadToken),
+              Period,
+              check(Period),
+              ["accesses", zeroOrMore(InvocationOrAccessPart)],
+              ["assignment", maybe(inCascade(RighthandAssignment))]
+            ))
+          )
+        ]
+      ), mutate(function (_p, parser, index) {
+        var _this, head, mutateFunctionMacro, tail;
+        _this = this;
+        head = _p.head;
+        tail = _p.tail;
+        if (tail.length) {
+          mutateFunctionMacro = parser.getMacroByLabel("cascade");
+          if (!mutateFunctionMacro) {
+            throw ParserError("Cannot use cascades until the cascade macro has been defined", parser, index);
+          }
+          return mutateFunctionMacro.func(
+            {
+              op: "",
+              node: parser.Cascade(index, head, (function () {
+                var _arr, _arr2, _f, _i, _len;
+                for (_arr = [], _arr2 = __toArray(tail), _i = 0, _len = _arr2.length, _f = function (_v) {
+                  var accesses, assignment;
+                  accesses = _v.accesses;
+                  assignment = _v.assignment;
+                  return function (node) {
+                    var access;
+                    access = convertInvocationOrAccess(
+                      false,
+                      { type: "normal", node: node },
+                      accesses,
+                      parser,
+                      index
+                    );
+                    if (assignment != null) {
+                      return assignment(access, index);
+                    } else {
+                      return access;
+                    }
+                  };
+                }; _i < _len; ++_i) {
+                  _arr.push(_f.call(_this, _arr2[_i]));
+                }
+                return _arr;
+              }()))
+            },
+            parser,
+            index
+          );
+        } else {
+          return head;
+        }
+      })(_ref)));
       PostfixUnaryOperation = cache(function (parser, index) {
         var _arr, _i, found, node, op, operator, rule;
-        node = InvocationOrAccess(parser, index);
+        node = Cascade(parser, index);
         if (!node) {
           return;
         }
@@ -15166,6 +15250,7 @@
           _this.inEvilAst = Stack.generic(Boolean)(false);
           _this.asterixAsArrayLength = Stack.generic(Boolean)(false);
           _this.disallowSpaceBeforeAccess = Stack.generic(Boolean)(false);
+          _this.inCascade = Stack.generic(Boolean)(false);
           _this.scope = Stack.generic(Scope)(Scope(null, true));
           _this.failureMessages = [];
           _this.failureIndex = -1;
@@ -17057,6 +17142,7 @@
         "Block",
         "Break",
         "Call",
+        "Cascade",
         "Comment",
         "Const",
         "Continue",
@@ -17848,15 +17934,15 @@
       var __async, __create, __curry, __in, __isArray, __keys, __name, __num,
           __once, __owns, __slice, __strnum, __toArray, __typeof, _ref,
           AccessMultiNode, AccessNode, ArgsNode, ArrayNode, AssignNode, BinaryNode,
-          BlockNode, BreakNode, CallNode, CommentNode, ConstNode, ContinueNode,
-          DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode, ForNode,
-          FunctionNode, IdentNode, IfNode, inspect, MacroAccessNode, MacroConstNode,
-          mapAsync, Node, nodeToType, NothingNode, ObjectNode, ParamNode, quote,
-          RegexpNode, ReturnNode, RootNode, SpreadNode, SuperNode, SwitchNode,
-          SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode,
-          ThisNode, ThrowNode, TmpNode, TmpWrapperNode, TryCatchNode,
-          TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode,
-          TypeUnionNode, UnaryNode, VarNode, YieldNode;
+          BlockNode, BreakNode, CallNode, CascadeNode, CommentNode, ConstNode,
+          ContinueNode, DebuggerNode, DefNode, EmbedWriteNode, EvalNode, ForInNode,
+          ForNode, FunctionNode, IdentNode, IfNode, inspect, MacroAccessNode,
+          MacroConstNode, mapAsync, Node, nodeToType, NothingNode, ObjectNode,
+          ParamNode, quote, RegexpNode, ReturnNode, RootNode, SpreadNode, SuperNode,
+          SwitchNode, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode,
+          SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode, TmpWrapperNode,
+          TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode,
+          TypeObjectNode, TypeUnionNode, UnaryNode, VarNode, YieldNode;
       __async = function (limit, length, hasResult, onValue, onComplete) {
         var broken, completed, index, result, slotsUsed, sync;
         if (typeof limit !== "number") {
@@ -20415,6 +20501,92 @@
         };
         return CallNode;
       }(Node));
+      Node.Cascade = CascadeNode = (function (Node) {
+        var _CascadeNode_prototype, _Node_prototype;
+        function CascadeNode(line, column, scope, node, cascades) {
+          var _this;
+          _this = this instanceof CascadeNode ? this : __create(_CascadeNode_prototype);
+          if (typeof line !== "number") {
+            throw TypeError("Expected line to be a Number, got " + __typeof(line));
+          }
+          if (typeof column !== "number") {
+            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          }
+          if (!(node instanceof Node)) {
+            throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
+          }
+          if (!__isArray(cascades)) {
+            throw TypeError("Expected cascades to be an Array, got " + __typeof(cascades));
+          }
+          _this.line = line;
+          _this.column = column;
+          _this.scope = scope;
+          _this._reduced = void 0;
+          _this._macroExpanded = void 0;
+          _this._macroExpandAlled = void 0;
+          _this.node = node;
+          _this.cascades = cascades;
+          return _this;
+        }
+        _Node_prototype = Node.prototype;
+        _CascadeNode_prototype = CascadeNode.prototype = __create(_Node_prototype);
+        _CascadeNode_prototype.constructor = CascadeNode;
+        CascadeNode.displayName = "CascadeNode";
+        if (typeof Node.extended === "function") {
+          Node.extended(CascadeNode);
+        }
+        CascadeNode.cappedName = "Cascade";
+        CascadeNode.argNames = ["node", "cascades"];
+        _CascadeNode_prototype.inspect = function (depth) {
+          return inspectHelper(
+            depth,
+            "CascadeNode",
+            this.line,
+            this.column,
+            this.node,
+            this.cascades
+          );
+        };
+        _CascadeNode_prototype.walk = function (f) {
+          var node;
+          node = f(this.node);
+          if (node !== this.node) {
+            return CascadeNode(
+              this.line,
+              this.column,
+              this.scope,
+              node,
+              this.cascades
+            );
+          } else {
+            return this;
+          }
+        };
+        _CascadeNode_prototype.walkAsync = function (f, callback) {
+          var _once, _this;
+          _this = this;
+          return f(this.node, (_once = false, function (_e, node) {
+            if (_once) {
+              throw Error("Attempted to call function more than once");
+            } else {
+              _once = true;
+            }
+            if (_e != null) {
+              return callback(_e);
+            }
+            return callback(null, node !== _this.node
+              ? CascadeNode(
+                _this.line,
+                _this.column,
+                _this.scope,
+                node,
+                _this.cascades
+              )
+              : _this);
+          }));
+        };
+        return CascadeNode;
+      }(Node));
       Node.Comment = CommentNode = (function (Node) {
         var _CommentNode_prototype, _Node_prototype;
         function CommentNode(line, column, scope, text) {
@@ -20451,7 +20623,7 @@
           return Type["undefined"];
         };
         _CommentNode_prototype.cacheable = false;
-        _CommentNode_prototype.isCount = function () {
+        _CommentNode_prototype.isConst = function () {
           return true;
         };
         _CommentNode_prototype.constValue = function () {
@@ -32505,7 +32677,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.6";
+      exports.version = "0.7.7";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -35979,6 +36151,12 @@
           operators: "map!",
           options: {type: "object", label: "constructMap"},
           id: 153
+        },
+        {
+          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var node,op,top;op=macroData.op;node=macroData.node;if(!node.cascades||!node.cascades.length){this.error("cascade! can only be used on a CascadeNode.",node);}top=node.node;return this.maybeCache(top,function(setTop,top){var _arr,_arr2,_len,cascade,i,parts;for(_arr=[], _arr2=__toArray(node.cascades), i=0, _len=_arr2.length;i<_len;++i){cascade=_arr2[i];_arr.push(cascade(i===0?setTop:top));}parts=_arr;return __node("Block",3971,1,[__wrap(parts),__wrap(top)],null);});};}.call(this));',
+          operators: "cascade!",
+          options: {label: "cascade"},
+          id: 171
         }
       ],
       helpers: {
