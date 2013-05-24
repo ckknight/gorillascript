@@ -688,4 +688,17 @@ describe "yield without a value", #
     expect(start).to.be.called-once
     expect(middle).to.be.called-once
     expect(finish).to.be.called-once
-    
+
+describe "yield* returns the expected expression", #
+  let iter()*
+    yield \alpha
+    yield \bravo
+    yield \charlie
+    return \delta
+  
+  let fun()*
+    yield \echo
+    let x = yield* iter()
+    yield x
+  
+  expect(to-array fun()).to.eql [\echo, \alpha, \bravo, \charlie, \delta]
