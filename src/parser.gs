@@ -7,7 +7,7 @@ let {string-repeat} = require('./utils')
 let {add-param-to-scope} = require('./parser-utils')
 let {quote, unique, get-package-version} = require './utils'
 
-const DEBUG = false
+const DEBUG = true
 
 const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 const EMBED_OPEN_DEFAULT = "<%"
@@ -3829,6 +3829,12 @@ let EmptyLinesSpaceBeforeAccess = #(parser, index)
   else
     EmptyLinesSpace parser, index
 
+let SpaceBeforeAccess = #(parser, index)
+  if parser.disallow-space-before-access.peek()
+    Box index
+  else
+    Space parser, index
+
 let InvocationOrAccessPart = one-of(
   sequential(
     LessThanChar
@@ -3958,34 +3964,69 @@ define InvocationOrAccess = one-of(
   Eval)
 
 let in-cascade = make-alter-stack<Boolean> \in-cascade, true
+define CascadePart = sequential(
+  except SpreadToken
+  Period
+  check Period
+  [\accesses, zero-or-more InvocationOrAccessPart]
+  [\assignment, maybe in-cascade RighthandAssignment])
+
+let mutable CascadePartWithCascade = #(parser, index) -> CascadePartWithCascade parser, index
+redefine CascadePartWithCascade = sequential(
+  [\main, CascadePart]
+  [\subcascades, maybe (retain-indent sequential(
+    SomeEmptyLines
+    Advance
+    CheckIndent
+    [\this, separated-list(
+      CascadePartWithCascade
+      SomeEmptyLinesWithCheckIndent)]
+    PopIndent)), #-> []])
+
 define Cascade = sequential(
   [\head, InvocationOrAccess]
   [\tail, one-of(
     #(parser, index)
       if parser.in-cascade.peek()
         Box index, []
-    zero-or-more sequential(
-      EmptyLinesSpaceBeforeAccess
-      except SpreadToken
-      Period
-      check Period
-      [\accesses, zero-or-more InvocationOrAccessPart]
-      [\assignment, maybe in-cascade RighthandAssignment]))]) |> mutate #({head, tail}, parser, index)
+    concat(
+      zero-or-more sequential(
+        SpaceBeforeAccess
+        [\this, CascadePart |> mutate #(main) -> {main, subcascades: []}])
+      maybe sequential(
+        IndentationRequired
+        SomeEmptyLines
+        [\this, retain-indent sequential(
+          Advance
+          CheckIndent
+          [\this, separated-list(
+            CascadePartWithCascade
+            SomeEmptyLinesWithCheckIndent)]
+          PopIndent)]), #-> []))]) |> mutate #({head, tail}, parser, index)
   if tail.length
     let mutate-function-macro = parser.get-macro-by-label \cascade
     if not mutate-function-macro
       throw ParserError "Cannot use cascades until the cascade macro has been defined", parser, index
-    mutate-function-macro.func {
-      op: ""
-      node: parser.Cascade index, head,
-        for {accesses, assignment} in tail
-          #(node)
-            let access = convert-invocation-or-access false, { type: \normal, node }, accesses, parser, index
-            if assignment?
-              assignment access, index
-            else
-              access
-    }, parser, index
+    let handle(head, tail, index)
+      if tail.length
+        mutate-function-macro.func {
+          op: ""
+          node: parser.Cascade index, head,
+            for {main: {accesses, assignment}, subcascades} in tail
+              #(node)
+                let access = convert-invocation-or-access false, { type: \normal, node }, accesses, parser, index
+                let ret = if assignment?
+                  assignment access, index
+                else
+                  access
+                if subcascades
+                  handle ret, subcascades, index
+                else
+                  ret
+        }, parser, index
+      else
+        head
+    handle(head, tail, index)
   else
     head
 

@@ -3962,7 +3962,7 @@ macro __VERSION__
 
 define operator unary cascade! with label: \cascade
   if not node.cascades or not node.cascades.length
-    @error "cascade! can only be used on a CascadeNode.", node
+    @error "cascade! can only be used on a CascadeNode, got $(typeof! node)", node
   let top = node.node
   @maybe-cache top, #(set-top, top)
     let parts = for cascade, i in node.cascades

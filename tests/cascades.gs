@@ -114,3 +114,28 @@ describe "cascades", #
     expect(x).to.equal obj
     expect(x.alpha).to.equal \bravo
     expect(x.charlie).to.equal \delta
+  
+  it "can have multiple levels", #
+    let obj = {
+      alpha: {
+        bravo: spy().with-args(\charlie)
+        delta: spy().with-args(\echo)
+      }
+      foxtrot: spy().with-args(\golf)
+    }
+    let get-obj = stub().returns obj
+    
+    let x = get-obj()
+      ..alpha
+        ..bravo \charlie
+        ..hotel := \india
+        ..delta \echo
+      ..foxtrot \golf
+      ..juliet := \kilo
+    
+    expect(x).to.equal obj
+    expect(x.juliet).to.equal \kilo
+    expect(x.alpha.hotel).to.equal \india
+    expect(obj.alpha.bravo.with-args(\charlie)).to.be.called-once
+    expect(obj.alpha.delta.with-args(\echo)).to.be.called-once
+    expect(obj.foxtrot.with-args(\golf)).to.be.called-once
