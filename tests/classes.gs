@@ -825,3 +825,23 @@ describe "classes", #
     check check, Class, Class<Function>().run<Function>(check, Class)
     expect(#-> Class<String>().run<Number>(1234, 1234)).throws TypeError, "Expected x to be a String, got Number"
     expect(#-> Class<String>().run<Number>("Hello", "There")).throws TypeError, "Expected y to be a Number, got String"
+  
+  it "calls .extended on its superclass", #
+    class Base
+      @children := []
+      @extended := #(child as ->)
+        expect(child).to.be.an.instanceof Base
+        expect(child::constructor).to.equal child
+        @children.push child
+    
+    expect(Base.children).to.eql []
+    
+    class Child extends Base
+      expect(Base.children).to.eql [Child]
+    
+    expect(Base.children).to.eql [Child]
+    
+    class OtherChild extends Base
+      expect(Base.children).to.eql [Child, OtherChild]
+    
+    expect(Base.children).to.eql [Child, OtherChild]
