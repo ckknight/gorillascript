@@ -195,15 +195,15 @@ exports.start := #(options = {})
     let code = backlog
     backlog := ""
     if pipe
-      async err, compiled <- (from-promise! gorilla.compile code, { eval: true, filename: \repl, modulename: \repl })()
-      pipe.stdin.write compiled.code
+      promise!
+        let compiled = yield gorilla.compile code, { eval: true, filename: \repl, modulename: \repl }
+        pipe.stdin.write compiled.code
     else
-      async err, ret <- (from-promise! gorilla.eval code, { sandbox, filename: \repl, modulename: \repl })()
-      if err
-        error err
-      else if not is-void! ret
-        process.stdout.write util.inspect(ret, false, 2, enable-colors) & "\n"
-      repl.prompt()
+      promise!
+        let ret = yield gorilla.eval code, { sandbox, filename: \repl, modulename: \repl }
+        if not is-void! ret
+          process.stdout.write util.inspect(ret, false, 2, enable-colors) & "\n"
+        repl.prompt()
 
   repl.set-prompt REPL_PROMPT
   repl.prompt()
