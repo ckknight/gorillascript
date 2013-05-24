@@ -102,6 +102,7 @@
       <li><a href="#maps-and-sets">Maps and Sets</a>
       <li><a href="#lexical-scope">Lexical scoping in loops</a>
       <li><a href="#array-slicing">Array slicing</a>
+      <li><a href="#cascades">Cascades</a>
       <li><a href="#classes">Classes</a>
       <li><a href="#destructuring">Destructuring</a>
       <li><a href="#switch">Topicless switch</a>
@@ -862,9 +863,18 @@ assert array[* \ 2] == \c // halfway point in the array
     <pre class="gs-code"><code class="language-gorillascript">let array = [\a, \b, \c, \d, \e]
   ..push \f
   ..reverse()
-  ..sort (<=>)
+  ..sort()
 
 assert array.length == 6
+</code></pre>
+
+    <p>Cascades can also be nested as such:</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">document.query-selector \h1
+  ..style
+    ..color := \red
+    ..font-size := "200%"
+  ..inner-HTML := "Hello, world!"
 </code></pre>
   </section>
   
