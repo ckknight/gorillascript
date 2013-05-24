@@ -3966,7 +3966,8 @@ define operator unary cascade! with label: \cascade
   let top = node.node
   @maybe-cache top, #(set-top, top)
     let parts = for cascade, i in node.cascades
-      cascade(if i == 0 then set-top else top)
+      cascade(top)
     AST
+      $set-top
       $parts
       $top

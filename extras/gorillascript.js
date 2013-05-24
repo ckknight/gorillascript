@@ -14383,18 +14383,27 @@
                 })(CascadePart)
               ])),
               maybe(
-                sequential(IndentationRequired, SomeEmptyLines, [
-                  "this",
-                  retainIndent(sequential(
-                    Advance,
-                    CheckIndent,
-                    [
-                      "this",
-                      separatedList(CascadePartWithCascade, SomeEmptyLinesWithCheckIndent)
-                    ],
-                    PopIndent
-                  ))
-                ]),
+                sequential(
+                  IndentationRequired,
+                  function (parser, index) {
+                    if (!parser.disallowSpaceBeforeAccess.peek()) {
+                      return Box(index);
+                    }
+                  },
+                  SomeEmptyLines,
+                  [
+                    "this",
+                    retainIndent(sequential(
+                      Advance,
+                      CheckIndent,
+                      [
+                        "this",
+                        separatedList(CascadePartWithCascade, SomeEmptyLinesWithCheckIndent)
+                      ],
+                      PopIndent
+                    ))
+                  ]
+                ),
                 function () {
                   return [];
                 }
@@ -33218,7 +33227,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.8";
+      exports.version = "0.7.9";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -36694,7 +36703,7 @@
           id: 153
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var node,op,top;op=macroData.op;node=macroData.node;if(!node.cascades||!node.cascades.length){this.error("cascade! can only be used on a CascadeNode, got "+__typeof(node),node);}top=node.node;return this.maybeCache(top,function(setTop,top){var _arr,_arr2,_len,cascade,i,parts;for(_arr=[], _arr2=__toArray(node.cascades), i=0, _len=_arr2.length;i<_len;++i){cascade=_arr2[i];_arr.push(cascade(i===0?setTop:top));}parts=_arr;return __node("Block",3971,1,[__wrap(parts),__wrap(top)],null);});};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var node,op,top;op=macroData.op;node=macroData.node;if(!node.cascades||!node.cascades.length){this.error("cascade! can only be used on a CascadeNode, got "+__typeof(node),node);}top=node.node;return this.maybeCache(top,function(setTop,top){var _arr,_arr2,_len,cascade,i,parts;for(_arr=[], _arr2=__toArray(node.cascades), i=0, _len=_arr2.length;i<_len;++i){cascade=_arr2[i];_arr.push(cascade(top));}parts=_arr;return __node("Block",3971,1,[__wrap(setTop),__wrap(parts),__wrap(top)],null);});};}.call(this));',
           operators: "cascade!",
           options: {label: "cascade"},
           id: 171

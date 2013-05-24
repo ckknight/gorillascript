@@ -3995,6 +3995,9 @@ define Cascade = sequential(
         [\this, CascadePart |> mutate #(main) -> {main, subcascades: []}])
       maybe sequential(
         IndentationRequired
+        #(parser, index)
+          if not parser.disallow-space-before-access.peek()
+            Box index
         SomeEmptyLines
         [\this, retain-indent sequential(
           Advance
