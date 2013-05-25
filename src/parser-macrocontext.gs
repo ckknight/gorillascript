@@ -72,18 +72,20 @@ class MacroContext
     throw @parser.build-error message, node or @index
   
   def scope() -> @parser.scope.peek()
-  
+    
   def line(node)
-    if node instanceof Node
-      node.line
+    let index = if node instanceof Node
+      node.index
     else
-      @parser.get-position(@index).line
+      @index
+    @parser.get-position(index).line
   
   def column(node)
-    if node instanceof Node
-      node.column
+    let index = if node instanceof Node
+      node.index
     else
-      @parser.get-position(@index).column
+      @index
+    @parser.get-position(index).column
   
   def file()
     @parser.options.filename or ""
@@ -103,27 +105,27 @@ class MacroContext
     @scope().is-mutable(ident)
   
   def var(ident as IdentNode|TmpNode, is-mutable as Boolean) -> @parser.Var @index, ident, is-mutable
-  def def(key as Node = NothingNode(0, 0, @scope()), value as Node|void) -> @parser.Def @index, key, @do-wrap(value)
+  def def(key as Node = NothingNode(0, @scope()), value as Node|void) -> @parser.Def @index, key, @do-wrap(value)
   def noop() -> @parser.Nothing @index
   def block(nodes as [Node], label as IdentNode|TmpNode|null) -> @parser.Block(@index, nodes, label).reduce(@parser)
-  def if(test as Node = NothingNode(0, 0, @scope()), when-true as Node = NothingNode(0, 0, @scope()), when-false as Node|null, label as IdentNode|TmpNode|null) -> @parser.If(@index, @do-wrap(test), when-true, when-false, label).reduce(@parser)
-  def switch(node as Node = NothingNode(0, 0, @scope()), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null) -> @parser.Switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case, label).reduce(@parser)
-  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, 0, @scope()), label as IdentNode|TmpNode|null) -> @parser.For(@index, @do-wrap(init), @do-wrap(test), @do-wrap(step), body, label).reduce(@parser)
-  def for-in(key as IdentNode, object as Node = NothingNode(0, 0), body as Node = NothingNode(0, 0, @scope()), label as IdentNode|TmpNode|null) -> @parser.ForIn(@index, key, @do-wrap(object), body, label).reduce(@parser)
-  def try-catch(try-body as Node = NothingNode(0, 0, @scope()), catch-ident as Node = NothingNode(0, 0, @scope()), catch-body as Node = NothingNode(0, 0, @scope()), label as IdentNode|TmpNode|null) -> @parser.TryCatch(@index, try-body, catch-ident, catch-body, label).reduce(@parser)
-  def try-finally(try-body as Node = NothingNode(0, 0, @scope()), finally-body as Node = NothingNode(0, 0, @scope()), label as IdentNode|TmpNode|null) -> @parser.TryFinally(@index, try-body, finally-body, label).reduce(@parser)
-  def assign(left as Node = NothingNode(0, 0, @scope()), op as String, right as Node = NothingNode(0, 0, @scope())) -> @parser.Assign(@index, left, op, @do-wrap(right)).reduce(@parser)
-  def binary(left as Node = NothingNode(0, 0, @scope()), op as String, right as Node = NothingNode(0, 0, @scope())) -> @parser.Binary(@index, @do-wrap(left), op, @do-wrap(right)).reduce(@parser)
+  def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node|null, label as IdentNode|TmpNode|null) -> @parser.If(@index, @do-wrap(test), when-true, when-false, label).reduce(@parser)
+  def switch(node as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null) -> @parser.Switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case, label).reduce(@parser)
+  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null) -> @parser.For(@index, @do-wrap(init), @do-wrap(test), @do-wrap(step), body, label).reduce(@parser)
+  def for-in(key as IdentNode, object as Node = NothingNode(0), body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null) -> @parser.ForIn(@index, key, @do-wrap(object), body, label).reduce(@parser)
+  def try-catch(try-body as Node = NothingNode(0, @scope()), catch-ident as Node = NothingNode(0, @scope()), catch-body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null) -> @parser.TryCatch(@index, try-body, catch-ident, catch-body, label).reduce(@parser)
+  def try-finally(try-body as Node = NothingNode(0, @scope()), finally-body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null) -> @parser.TryFinally(@index, try-body, finally-body, label).reduce(@parser)
+  def assign(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope())) -> @parser.Assign(@index, left, op, @do-wrap(right)).reduce(@parser)
+  def binary(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope())) -> @parser.Binary(@index, @do-wrap(left), op, @do-wrap(right)).reduce(@parser)
   def binary-chain(op as String, nodes as [Node])
     if nodes.length == 0
       throw Error "Expected nodes to at least have a length of 1"
     let result = for reduce right in nodes[1 to -1], left = @do-wrap(nodes[0])
       @parser.Binary(@index, left, op, @do-wrap(right))
     result.reduce(@parser)
-  def unary(op as String, node as Node = NothingNode(0, 0, @scope())) -> @parser.Unary(@index, op, @do-wrap(node)).reduce(@parser)
-  def throw(node as Node = NothingNode(0, 0, @scope())) -> @parser.Throw(@index, @do-wrap(node)).reduce(@parser)
+  def unary(op as String, node as Node = NothingNode(0, @scope())) -> @parser.Unary(@index, op, @do-wrap(node)).reduce(@parser)
+  def throw(node as Node = NothingNode(0, @scope())) -> @parser.Throw(@index, @do-wrap(node)).reduce(@parser)
   def return(node as Node|void) -> @parser.Return(@index, @do-wrap(node)).reduce(@parser)
-  def yield(node as Node = NothingNode(0, 0, @scope())) -> @parser.Yield(@index, @do-wrap(node)).reduce(@parser)
+  def yield(node as Node = NothingNode(0, @scope())) -> @parser.Yield(@index, @do-wrap(node)).reduce(@parser)
   def debugger() -> @parser.Debugger(@index)
   def break(label as IdentNode|TmpNode|null) -> @parser.Break(@index, label)
   def continue(label as IdentNode|TmpNode|null) -> @parser.Continue(@index, label)
@@ -140,9 +142,9 @@ class MacroContext
     old-node := @macro-expand-1(old-node)
     if old-node instanceof TmpWrapperNode
       if new-node instanceof TmpWrapperNode
-        TmpWrapperNode new-node.line, new-node.column, new-node.scope, new-node, old-node.tmps.concat(new-node.tmps)
+        TmpWrapperNode new-node.index, new-node.scope, new-node, old-node.tmps.concat(new-node.tmps)
       else
-        TmpWrapperNode new-node.line, new-node.column, new-node.scope, new-node, old-node.tmps.slice()
+        TmpWrapperNode new-node.index, new-node.scope, new-node, old-node.tmps.slice()
     else
       new-node
   
@@ -287,7 +289,7 @@ class MacroContext
     if is-new and is-apply
       throw Error "Cannot specify both is-new and is-apply"
     
-    CallNode(func.line, func.column, @scope(), @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new, is-apply).reduce(@parser)
+    CallNode(func.index, @scope(), @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new, is-apply).reduce(@parser)
   
   def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
     let scope = @parser.push-scope(true)
@@ -295,7 +297,7 @@ class MacroContext
       let p = param.rescope scope
       add-param-to-scope scope, p
       p
-    let func = FunctionNode(body.line, body.column, scope.parent, params, body.rescope(scope), auto-return, bound, curry, as-type, generator, generic).reduce(@parser)
+    let func = FunctionNode(body.index, scope.parent, params, body.rescope(scope), auto-return, bound, curry, as-type, generator, generic).reduce(@parser)
     @parser.pop-scope()
     func
   
@@ -329,7 +331,7 @@ class MacroContext
       []
   
   def param(ident as Node, default-value, spread, is-mutable, as-type)
-    ParamNode(ident.line, ident.column, ident.scope, ident, default-value, spread, is-mutable, as-type).reduce(@parser)
+    ParamNode(ident.index, ident.scope, ident, default-value, spread, is-mutable, as-type).reduce(@parser)
   
   def is-param(node) -> @real(node) instanceof ParamNode
   def param-ident(mutable node)
@@ -524,49 +526,48 @@ class MacroContext
     else
       node instanceof NothingNode
   
-  let constify-object(obj, line, column, scope as Scope)
+  let constify-object(obj, index, scope as Scope)
     if not is-object! obj or obj instanceof RegExp
-      ConstNode line, column, scope, obj
+      ConstNode index, scope, obj
     else if is-array! obj
-      ArrayNode line, column, scope, for item in obj
-        constify-object item, line, column, scope
+      ArrayNode index, scope, for item in obj
+        constify-object item, index, scope
     else if obj instanceof IdentNode and obj.name.length > 1 and obj.name.char-code-at(0) == '$'.char-code-at(0)
-      CallNode obj.line, obj.column, scope,
-        IdentNode obj.line, obj.column, scope, \__wrap
+      CallNode obj.index, scope,
+        IdentNode obj.index, scope, \__wrap
         [
-          IdentNode obj.line, obj.column, scope, obj.name.substring 1
+          IdentNode obj.index, scope, obj.name.substring 1
         ]
     else if obj instanceof CallNode and not obj.is-new and not obj.is-apply and obj.func instanceof IdentNode and obj.func.name == '$'
       if obj.args.length != 1 or obj.args[0] instanceof SpreadNode
         throw Error "Can only use \$() in an AST if it has one argument."
-      CallNode obj.line, obj.column, scope,
-        IdentNode obj.line, obj.column, scope, \__wrap
+      CallNode obj.index, scope,
+        IdentNode obj.index, scope, \__wrap
         [
           obj.args[0]
         ]
     else if obj instanceof MacroConstNode
-      CallNode obj.line, obj.column, scope,
-        IdentNode obj.line, obj.column, scope, \__const
+      CallNode obj.index, scope,
+        IdentNode obj.index, scope, \__const
         [
-          ConstNode obj.line, obj.column, scope, obj.name
+          ConstNode obj.index, scope, obj.name
         ]
     else if obj instanceof Node
       if obj.constructor == Node
         throw Error "Cannot constify a raw node"
       
-      CallNode obj.line, obj.column, scope,
-        IdentNode obj.line, obj.column, scope, \__node
+      CallNode obj.index, scope,
+        IdentNode obj.index, scope, \__node
         [
-          ConstNode obj.line, obj.column, scope, obj.constructor.capped-name
-          ConstNode obj.line, obj.column, scope, obj.line
-          ConstNode obj.line, obj.column, scope, obj.column
+          ConstNode obj.index, scope, obj.constructor.capped-name
+          ConstNode obj.index, scope, obj.index
           ...(for k in obj.constructor.arg-names
-            constify-object obj[k], obj.line, obj.column, scope)
+            constify-object obj[k], obj.index, scope)
         ]
     else
-      ObjectNode line, column, scope, for k, v of obj
-        key: ConstNode line, column, scope, k
-        value: constify-object v, line, column, scope
+      ObjectNode index, scope, for k, v of obj
+        key: ConstNode index, scope, k
+        value: constify-object v, index, scope
   @constify-object := constify-object
   
   let walk(node, func)
@@ -581,30 +582,30 @@ class MacroContext
   
   def wrap(value)
     if is-array! value
-      BlockNode(0, 0, @scope(), value).reduce(@parser)
+      BlockNode(0, @scope(), value).reduce(@parser)
     else if value instanceof Node
       value
     else if not value?
-      NothingNode(0, 0, @scope())
+      NothingNode(0, @scope())
     else if value instanceof RegExp or typeof value in [\string, \boolean, \number]
-      ConstNode(0, 0, @scope(), value)
+      ConstNode(0, @scope(), value)
     else
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
   
-  def node(type, line, column, ...args)
+  def node(type, index, ...args)
     if type == "MacroAccess"
-      @macro line, column, ...args
+      @macro index, ...args
     else
-      Node[type](line, column, @scope(), ...args).reduce(@parser)
+      Node[type](index, @scope(), ...args).reduce(@parser)
   
   def get-const(name as String)
     let c = @parser.get-const(name)
     if not c
       throw Error "Unknown const '$name'"
-    ConstNode 0, 0, @scope(), c.value
+    ConstNode 0, @scope(), c.value
   
-  def macro(line, column, id, call-line, data, position, in-generator, in-evil-ast)
-    Node.MacroAccess(line, column, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
+  def macro(index, id, call-line, data, position, in-generator, in-evil-ast)
+    Node.MacroAccess(index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
   
   def walk(node as Node|void|null, func as Node -> Node)
     if node?
@@ -653,13 +654,13 @@ class MacroContext
       if len != 0
         let last-node = @mutate-last(nodes[len - 1], func)
         if last-node != nodes[len - 1]
-          return BlockNode x.line, x.column, x.scope, [...nodes[0 til -1], last-node], x.label
+          return BlockNode x.index, x.scope, [...nodes[0 til -1], last-node], x.label
       x
     If: #(x, func)
       let when-true = @mutate-last x.when-true, func
       let when-false = @mutate-last x.when-false, func
       if when-true != x.when-true or when-false != x.when-false
-        IfNode x.line, x.column, x.scope, x.test, when-true, when-false, x.label
+        IfNode x.index, x.scope, x.test, when-true, when-false, x.label
       else
         x
     Switch: #(x, func)
@@ -674,13 +675,13 @@ class MacroContext
             case_
       let default-case = @mutate-last (x.default-case or @noop()), func
       if cases != x.cases or default-case != x.default-case
-        SwitchNode x.line, x.column, x.scope, x.node, cases, default-case, x.label
+        SwitchNode x.index, x.scope, x.node, cases, default-case, x.label
       else
         x
     TmpWrapper: #(x, func)
       let node = @mutate-last x.node, func
       if node != x.node
-        TmpWrapperNode x.line, x.column, x.scope, node, x.tmps
+        TmpWrapperNode x.index, x.scope, node, x.tmps
       else
         x
     MacroAccess: #(x, func)
@@ -689,7 +690,7 @@ class MacroContext
       let try-body = @mutate-last x.try-body, func
       let catch-body = @mutate-last x.catch-body, func
       if try-body != x.try-body or catch-body != x.catch-body
-        TryCatchNode x.line, x.column, x.scope, try-body, x.catch-ident, catch-body, x.label
+        TryCatchNode x.index, x.scope, try-body, x.catch-ident, catch-body, x.label
       else
         x
     Break: identity

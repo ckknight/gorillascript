@@ -26,7 +26,7 @@ class Node
   def walk-async(f, callback) -> callback(null, this)
   def cacheable = true
   def with-label(label as IdentNode|TmpNode|null)
-    BlockNode @line, @column, @scope, [this], label
+    BlockNode @index, @scope, [this], label
   def _reduce(parser)
     @walk #(node) -> node.reduce(parser)
   def reduce(parser)
@@ -67,13 +67,13 @@ class Node
   def do-wrap(parser)
     if @is-statement()
       let inner-scope = parser.push-scope(true, @scope)
-      let result = CallNode(@line, @column, @scope, FunctionNode(@line, @column, @scope, [], @rescope(inner-scope), true, true), [])
+      let result = CallNode(@index, @scope, FunctionNode(@index, @scope, [], @rescope(inner-scope), true, true), [])
       parser.pop-scope()
       result
     else
       this
 
-let inspect-helper(depth, name, line, column, ...args)
+let inspect-helper(depth, name, index, ...args)
   let d = if depth? then depth - 1 else null
   let mutable found = false
   for arg in args by -1
@@ -96,8 +96,7 @@ macro node-class
   syntax ident as Identifier, args as ("(", head as Parameter, tail as (",", this as Parameter)*, ")")?, body as Body?
     
     let params =
-      * @param AST line, null, null, null, AST Number
-      * @param AST column, null, null, null, AST Number
+      * @param AST index, null, null, null, AST Number
       * @param AST scope, null, null, null
     let full-name = @name(ident)
     if full-name.slice(-4) != "Node"
@@ -106,8 +105,7 @@ macro node-class
     let lower-name = capped-name.char-at(0).to-lower-case() & capped-name.substring(1)
     let type = @ident(full-name)
     let mutable ctor-body = AST
-      @line := line
-      @column := column
+      @index := index
       @scope := scope
       @_reduced := void
       @_macro-expanded := void
@@ -157,7 +155,7 @@ macro node-class
     
     let add-methods = []
     if not find-def \inspect
-      add-methods.push AST def inspect(depth) -> inspect-helper depth, $full-name, @line, @column, ...$(@array inspect-parts)
+      add-methods.push AST def inspect(depth) -> inspect-helper depth, $full-name, @index, ...$(@array inspect-parts)
     if args.length and not find-def \walk
       let walk-init = []
       let mutable walk-check = AST false
@@ -183,7 +181,7 @@ macro node-class
       let walk-func = @func [@param(AST f)], AST
         $walk-init
         if $walk-check
-          $type @line, @column, @scope, ...$walk-args
+          $type @index, @scope, ...$walk-args
         else
           this
       add-methods.push AST def walk = mutate-function! $walk-func
@@ -202,7 +200,7 @@ macro node-class
       walk-args := @array walk-args
       let walk-async-body = for reduce arg in args by -1, current = (AST
           callback null, if $walk-check
-            $type @line, @column, @scope, ...$walk-args
+            $type @index, @scope, ...$walk-args
           else
             this)
         let ident = @param-ident arg
@@ -277,22 +275,22 @@ node-class AccessNode(parent as Node, child as Node)
     let replace-length-ident(node)
       if node instanceof IdentNode and node.name == CURRENT_ARRAY_LENGTH_NAME
         if parent.cacheable and not cached-parent?
-          cached-parent := o.make-tmp o.index-from-position(node.line, node.column), \ref, parent.type(o)
+          cached-parent := o.make-tmp node.index, \ref, parent.type(o)
           cached-parent.scope := node.scope
-        AccessNode node.line, node.column, node.scope, cached-parent ? parent, ConstNode node.line, node.column, node.scope, \length
+        AccessNode node.index, node.scope, cached-parent ? parent, ConstNode node.index, node.scope, \length
       else if node instanceof AccessNode
         let node-parent = replace-length-ident node.parent
         if node-parent != node.parent
-          AccessNode(node.line, node.column, node.scope, node-parent, node.child).walk replace-length-ident
+          AccessNode(node.index, node.scope, node-parent, node.child).walk replace-length-ident
         else
           node.walk replace-length-ident
       else
         node.walk replace-length-ident
     let child = replace-length-ident @child.reduce(o).do-wrap(o)
     if cached-parent?
-      return TmpWrapperNode(@line, @column, @scope
-        AccessNode(@line, @column, @scope
-          AssignNode(@line, @column, @scope, cached-parent, "=", parent)
+      return TmpWrapperNode(@index, @scope
+        AccessNode(@index, @scope
+          AssignNode(@index, @scope, cached-parent, "=", parent)
           child)
         [cached-parent.id])
     
@@ -302,7 +300,7 @@ node-class AccessNode(parent as Node, child as Node)
       if Object(p-value) haskey c-value
         let value = p-value[c-value]
         if is-null! value or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
-          return ConstNode @line, @column, @scope, value
+          return ConstNode @index, @scope, value
     if child instanceof CallNode and child.func instanceof IdentNode and child.func.name == \__range
       let [start, mutable end, step, inclusive] = child.args
       let has-step = not step.is-const() or step.const-value() != 1
@@ -310,25 +308,25 @@ node-class AccessNode(parent as Node, child as Node)
         if inclusive.is-const()
           if inclusive.const-value()
             end := if end.is-const() and is-number! end.const-value()
-              ConstNode end.line, end.column, end.scope, end.const-value() + 1 or Infinity
+              ConstNode end.index, end.scope, end.const-value() + 1 or Infinity
             else
-              BinaryNode end.line, end.column, end.scope,
-                BinaryNode end.line, end.column, end.scope,
+              BinaryNode end.index, end.scope,
+                BinaryNode end.index, end.scope,
                   end
                   "+"
-                  ConstNode inclusive.line, inclusive.column, inclusive.scope, 1
+                  ConstNode inclusive.index, inclusive.scope, 1
                 "||"
-                ConstNode end.line, end.column, end.scope, Infinity
+                ConstNode end.index, end.scope, Infinity
         else
-          end := IfNode end.line, end.column, end.scope,
+          end := IfNode end.index, end.scope,
             inclusive
-            BinaryNode end.line, end.column, end.scope,
-              BinaryNode end.line, end.column, end.scope,
+            BinaryNode end.index, end.scope,
+              BinaryNode end.index, end.scope,
                 end
                 "+"
-                ConstNode inclusive.line, inclusive.column, inclusive.scope, 1
+                ConstNode inclusive.index, inclusive.scope, 1
               "||"
-              ConstNode end.line, end.column, end.scope, Infinity
+              ConstNode end.index, end.scope, Infinity
             end
       let args = [parent]
       let has-end = not end.is-const() or end.const-value() not in [void, Infinity]
@@ -340,13 +338,13 @@ node-class AccessNode(parent as Node, child as Node)
         args.push step
         if not inclusive.is-const() or inclusive.const-value()
           args.push inclusive
-      (CallNode @line, @column, @scope,
-        IdentNode @line, @column, @scope, if has-step then \__slice-step else \__slice
+      (CallNode @index, @scope,
+        IdentNode @index, @scope, if has-step then \__slice-step else \__slice
         args
         false
         not has-step).reduce(o)
     else if parent != @parent or child != @child
-      AccessNode @line, @column, @scope, parent, child
+      AccessNode @index, @scope, parent, child
     else
       this
   def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
@@ -357,15 +355,15 @@ node-class AccessMultiNode(parent as Node, elements as [Node])
     let mutable set-parent = parent
     let tmp-ids = []
     if parent.cacheable
-      let tmp = o.make-tmp o.index-from-position(@line, @column), \ref, parent.type(o)
+      let tmp = o.make-tmp o.index-from-position(@index), \ref, parent.type(o)
       tmp.scope := @scope
       tmp-ids.push tmp.id
-      set-parent := AssignNode(@line, @column, @scope, tmp, "=", parent.do-wrap(o))
+      set-parent := AssignNode(@index, @scope, tmp, "=", parent.do-wrap(o))
       parent := tmp
-    let result = ArrayNode(@line, @column, @scope, for element, j in @elements
-      AccessNode(@line, @column, @scope, if j == 0 then set-parent else parent, element.reduce(o)))
+    let result = ArrayNode(@index, @scope, for element, j in @elements
+      AccessNode(@index, @scope, if j == 0 then set-parent else parent, element.reduce(o)))
     if tmp-ids.length
-      TmpWrapperNode(@line, @column, @scope, result, tmp-ids)
+      TmpWrapperNode(@index, @scope, result, tmp-ids)
     else
       result
 node-class ArgsNode
@@ -377,7 +375,7 @@ node-class ArrayNode(elements as [Node])
   def _reduce(o)
     let elements = map @elements, #(x) -> x.reduce(o).do-wrap(o)
     if elements != @elements
-      ArrayNode @line, @column, @scope, elements
+      ArrayNode @index, @scope, elements
     else
       this
   def _is-noop(o) -> @__is-noop ?= for every element in @elements; element.is-noop(o)
@@ -416,7 +414,7 @@ node-class AssignNode(left as Node, op as String, right as Node)
     let left = @left.reduce(o)
     let right = @right.reduce(o).do-wrap(o)
     if left != @left or right != @right
-      AssignNode @line, @column, @scope, left, @op, right
+      AssignNode @index, @scope, left, @op, right
     else
       this
 node-class BinaryNode(left as Node, op as String, right as Node)
@@ -491,31 +489,31 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "||": (or)
     let left-const-nan(x, y)
       if x.const-value() is NaN
-        BlockNode @line, @column, @scope, [y, x]
+        BlockNode @index, @scope, [y, x]
     let left-const-ops =
       "*": #(x, y)
         if x.const-value() == 1
-          UnaryNode @line, @column, @scope, "+", y
+          UnaryNode @index, @scope, "+", y
         else if x.const-value() == -1
-          UnaryNode @line, @column, @scope, "-", y
+          UnaryNode @index, @scope, "-", y
         else if x.const-value() is NaN
-          BlockNode @line, @column, @scope, [y, x]
+          BlockNode @index, @scope, [y, x]
       "/": left-const-nan
       "%": left-const-nan
       "+": #(x, y, o)
         if x.const-value() == 0 and y.type(o).is-subset-of(Type.number)
-          UnaryNode @line, @column, @scope, "+", y
+          UnaryNode @index, @scope, "+", y
         else if x.const-value() == "" and y.type(o).is-subset-of(Type.string)
           y
         else if is-string! x.const-value() and y instanceof BinaryNode and y.op == "+" and y.left.is-const() and is-string! y.left.const-value()
-          BinaryNode @line, @column, @scope, ConstNode(x.line, x.column, @scope, x.const-value() & y.left.const-value()), "+", y.right
+          BinaryNode @index, @scope, ConstNode(x.index, @scope, x.const-value() & y.left.const-value()), "+", y.right
         else if x.const-value() is NaN
-          BlockNode @line, @column, @scope, [y, x]
+          BlockNode @index, @scope, [y, x]
       "-": #(x, y)
         if x.const-value() == 0
-          UnaryNode @line, @column, @scope, "-", y
+          UnaryNode @index, @scope, "-", y
         else if x.const-value() is NaN
-          BlockNode @line, @column, @scope, [y, x]
+          BlockNode @index, @scope, [y, x]
       "<<": left-const-nan
       ">>": left-const-nan
       ">>>": left-const-nan
@@ -526,41 +524,41 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "||": #(x, y) -> if x.const-value() then x else y
     let right-const-nan = #(x, y)
       if y.const-value() is NaN
-        BlockNode @line, @column, @scope, [x, y]
+        BlockNode @index, @scope, [x, y]
     let right-const-ops =
       "*": #(x, y)
         if y.const-value() == 1
-          UnaryNode @line, @column, @scope, "+", x
+          UnaryNode @index, @scope, "+", x
         else if y.const-value() == -1
-          UnaryNode @line, @column, @scope, "-", x
+          UnaryNode @index, @scope, "-", x
         else if y.const-value() is NaN
-          BlockNode @line, @column, @scope, [x, y]
+          BlockNode @index, @scope, [x, y]
       "/": #(x, y)
         if y.const-value() == 1
-          UnaryNode @line, @column, @scope, "+", x
+          UnaryNode @index, @scope, "+", x
         else if y.const-value() == -1
-          UnaryNode @line, @column, @scope, "-", x
+          UnaryNode @index, @scope, "-", x
         else if y.const-value() is NaN
-          BlockNode @line, @column, @scope, [x, y]
+          BlockNode @index, @scope, [x, y]
       "%": right-const-nan
       "+": #(x, y, o)
         if y.const-value() == 0 and x.type(o).is-subset-of(Type.number)
-          UnaryNode @line, @column, @scope, "+", x
+          UnaryNode @index, @scope, "+", x
         else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
-          BinaryNode @line, @column, @scope, x, "-", ConstNode(y.line, y.column, @scope, -y.const-value())
+          BinaryNode @index, @scope, x, "-", ConstNode(y.index, @scope, -y.const-value())
         else if y.const-value() == "" and x.type(o).is-subset-of(Type.string)
           x
         else if is-string! y.const-value() and x instanceof BinaryNode and x.op == "+" and x.right.is-const() and is-string! x.right.const-value()
-          BinaryNode @line, @column, @scope, x.left, "+", ConstNode(x.right.line, x.right.column, @scope, x.right.const-value() & y.const-value())
+          BinaryNode @index, @scope, x.left, "+", ConstNode(x.right.index, @scope, x.right.const-value() & y.const-value())
         else if y.const-value() is NaN
-          BlockNode @line, @column, @scope, [x, y]
+          BlockNode @index, @scope, [x, y]
       "-": #(x, y, o)
         if y.const-value() == 0
-          UnaryNode @line, @column, @scope, "+", x
+          UnaryNode @index, @scope, "+", x
         else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
-          BinaryNode @line, @column, @scope, x, "+", ConstNode(y.line, y.column, @scope, -y.const-value())
+          BinaryNode @index, @scope, x, "+", ConstNode(y.index, @scope, -y.const-value())
         else if y.const-value() is NaN
-          BlockNode @line, @column, @scope, [x, y]
+          BlockNode @index, @scope, [x, y]
       "<<": right-const-nan
       ">>": right-const-nan
       ">>>": right-const-nan
@@ -571,7 +569,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "&&": #(x, y, o)
         let x-type = x.type(o)
         if x-type.is-subset-of(Type.always-truthy)
-          BlockNode @line, @column, @scope, [x, y]
+          BlockNode @index, @scope, [x, y]
         else if x-type.is-subset-of(Type.always-falsy)
           x
         else if x instanceof BinaryNode and x.op == "&&"
@@ -586,7 +584,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
             else
               null
           if truthy == true
-            BinaryNode @line, @column, @scope, x.left, "&&", BlockNode x.right.line, x.right.column, @scope, [x.right, y]
+            BinaryNode @index, @scope, x.left, "&&", BlockNode x.right.index, @scope, [x.right, y]
           else if truthy == false
             x
       "||": #(x, y, o)
@@ -594,7 +592,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         if x-type.is-subset-of(Type.always-truthy)
           x
         else if x-type.is-subset-of(Type.always-falsy)
-          BlockNode @line, @column, @scope, [x, y]
+          BlockNode @index, @scope, [x, y]
         else if x instanceof BinaryNode and x.op == "||"
           let truthy = if x.right.is-const()
             not not x.right.const-value()
@@ -609,15 +607,15 @@ node-class BinaryNode(left as Node, op as String, right as Node)
           if truthy == true
             x
           else if truthy == false
-            BinaryNode @line, @column, @scope, x.left, "||", BlockNode x.right.line, x.right.column, @scope, [x.right, y]
+            BinaryNode @index, @scope, x.left, "||", BlockNode x.right.index, @scope, [x.right, y]
         else if x instanceof IfNode and x.when-false.is-const() and not x.when-false.const-value()
           let mutable test = x.test
           let mutable when-true = x.when-true
           while when-true instanceof IfNode and when-true.when-false.is-const() and not when-true.when-false.const-value()
-            test := BinaryNode x.line, x.column, x.scope, test, "&&", when-true.test
+            test := BinaryNode x.index, x.scope, test, "&&", when-true.test
             when-true := when-true.when-true
-          BinaryNode(@line, @column, @scope
-            BinaryNode x.line, x.column, x.scope, test, "&&", when-true
+          BinaryNode(@index, @scope
+            BinaryNode x.index, x.scope, test, "&&", when-true
             "||"
             y)
     #(o)
@@ -626,7 +624,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       let op = @op
       if left.is-const()
         if right.is-const() and const-ops ownskey op
-          return ConstNode @line, @column, @scope, const-ops[op](left.const-value(), right.const-value())
+          return ConstNode @index, @scope, const-ops[op](left.const-value(), right.const-value())
         return? left-const-ops![op]@(this, left, right, o)
       if right.is-const()
         return? right-const-ops![op]@(this, left, right, o)
@@ -634,7 +632,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       return? non-const-ops![op]@(this, left, right, o)
       
       if left != @left or right != @right
-        BinaryNode @line, @column, @scope, left, op, right
+        BinaryNode @index, @scope, left, op, right
       else
         this
   def _is-noop(o) -> @__is-noop ?= @left.is-noop(o) and @right.is-noop(o)
@@ -651,8 +649,8 @@ node-class BlockNode(nodes as [Node], label as IdentNode|TmpNode|null)
         return @nodes[0].with-label label, o
       else if @nodes.length > 1 and @nodes[* - 1] instanceof ForInNode
         if for every node in @nodes[0 til -1]; node instanceofsome [AssignNode, VarNode]
-          return BlockNode @line, @column, @scope, @nodes[0 til -1].concat([@nodes[* - 1].with-label(label, o)])
-    BlockNode @line, @column, @scope, @nodes, label
+          return BlockNode @index, @scope, @nodes[0 til -1].concat([@nodes[* - 1].with-label(label, o)])
+    BlockNode @index, @scope, @nodes, label
   def _reduce(o)
     let mutable changed = false
     let body = []
@@ -674,12 +672,12 @@ node-class BlockNode(nodes as [Node], label as IdentNode|TmpNode|null)
           changed := true
     let label = if @label? then @label.reduce(o) else @label
     if body.length == 0
-      NothingNode @line, @column, @scope
+      NothingNode @index, @scope
     else if not label? and body.length == 1
       body[0]
     else
       if changed or label != @label
-        BlockNode @line, @column, @scope, body, label
+        BlockNode @index, @scope, body, label
       else
         this
   def is-statement() -> for some node in @nodes by -1; node.is-statement()
@@ -688,7 +686,7 @@ node-class BreakNode(label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
-    BreakNode @line, @column, @scope, label
+    BreakNode @index, @scope, label
 node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as Boolean)
   def type = do
     let PRIMORDIAL_FUNCTIONS =
@@ -933,7 +931,7 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
             if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name
               try
                 let value = GLOBAL[func.name]@ void, ...const-args
-                return ConstNode @line, @column, @scope, value
+                return ConstNode @index, @scope, value
               catch e
                 // TODO: do something here to alert the user
                 void
@@ -945,7 +943,7 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
               if is-function! p-value[c-value]
                 try
                   let value = p-value[c-value] ...const-args
-                  return ConstNode @line, @column, @scope, value
+                  return ConstNode @index, @scope, value
                 catch e
                   // TODO: do something here to alert the user
                   void
@@ -953,12 +951,12 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
               if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
                 try
                   let value = GLOBAL[parent.name][c-value] ...const-args
-                  return ConstNode @line, @column, @scope, value
+                  return ConstNode @index, @scope, value
                 catch e
                   // TODO: do something here to alert the user
                   void
       if func != @func or args != @args
-        CallNode @line, @column, @scope, func, args, @is-new, @is-apply
+        CallNode @index, @scope, func, args, @is-new, @is-apply
       else
         this
 
@@ -994,7 +992,7 @@ node-class ContinueNode(label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
-    ContinueNode @line, @column, @scope, label
+    ContinueNode @index, @scope, label
 node-class DebuggerNode
   def type() -> Type.undefined
   def is-statement() -> true
@@ -1003,10 +1001,10 @@ node-class DefNode(left as Node, right as Node|void)
 node-class EmbedWriteNode(text as Node, escape as Boolean)
 node-class EvalNode(code as Node)
   let simplifiers = {
-    "true": #-> ConstNode @line, @column, @scope, true
-    "false": #-> ConstNode @line, @column, @scope, false
-    "void 0": #-> ConstNode @line, @column, @scope, void
-    "null": #-> ConstNode @line, @column, @scope, null
+    "true": #-> ConstNode @index, @scope, true
+    "false": #-> ConstNode @index, @scope, false
+    "void 0": #-> ConstNode @index, @scope, void
+    "null": #-> ConstNode @index, @scope, null
   }
   def _reduce(o)
     let code = @code.reduce(o).do-wrap()
@@ -1016,19 +1014,19 @@ node-class EvalNode(code as Node)
         return simplifier@ this
     
     if code != @code
-      EvalNode @line, @column, @scope, code
+      EvalNode @index, @scope, code
     else
       this
-node-class ForNode(init as Node = NothingNode(0, 0, scope), test as Node = ConstNode(0, 0, scope, true), step as Node = NothingNode(0, 0, scope), body as Node, label as IdentNode|TmpNode|null)
+node-class ForNode(init as Node = NothingNode(0, scope), test as Node = ConstNode(0, scope, true), step as Node = NothingNode(0, scope), body as Node, label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
-    ForNode @line, @column, @scope, @init, @test, @step, @body, label
+    ForNode @index, @scope, @init, @test, @step, @body, label
 node-class ForInNode(key as Node, object as Node, body as Node, label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
-    ForInNode @line, @column, @scope, @key, @object, @body, label
+    ForInNode @index, @scope, @key, @object, @body, label
 node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
   def type(o) -> @_type ?=
     // TODO: handle generator types
@@ -1068,17 +1066,17 @@ node-class IdentNode(name as String)
       Type.any
   def _is-noop(o) -> true
   def is-primordial() -> is-primordial(@name)
-node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, 0, scope), label as IdentNode|TmpNode|null)
+node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, scope), label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
   def with-label(label as IdentNode|TmpNode|null)
-    IfNode @line, @column, @scope, @test, @when-true, @when-false, label
+    IfNode @index, @scope, @test, @when-true, @when-false, label
   def _reduce(o)
     let test = @test.reduce(o)
     let when-true = @when-true.reduce(o)
     let when-false = @when-false.reduce(o)
     let label = if @label? then @label.reduce(o) else @label
     if test.is-const()
-      BlockNode(@line, @column, @scope,
+      BlockNode(@index, @scope,
         [if test.const-value()
           when-true
         else
@@ -1087,11 +1085,11 @@ node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingN
     else
       let test-type = test.type(o)
       if test-type.is-subset-of(Type.always-truthy)
-        BlockNode(@line, @column, @scope, [test, when-true], label).reduce(o)
+        BlockNode(@index, @scope, [test, when-true], label).reduce(o)
       else if test-type.is-subset-of(Type.always-falsy)
-        BlockNode(@line, @column, @scope, [test, when-false], label).reduce(o)
+        BlockNode(@index, @scope, [test, when-false], label).reduce(o)
       else if test != @test or when-true != @when-true or when-false != @when-false or label != @label
-        IfNode(@line, @column, @scope, test, when-true, when-false, label)
+        IfNode(@index, @scope, test, when-true, when-false, label)
       else
         this
   def is-statement() -> @_is-statement ?= @when-true.is-statement() or @when-false.is-statement()
@@ -1099,7 +1097,7 @@ node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingN
     let when-true = @when-true.do-wrap(o)
     let when-false = @when-false.do-wrap(o)
     if when-true != @when-true or when-false != @when-false
-      IfNode @line, @column, @scope, @test, when-true, when-false, @label
+      IfNode @index, @scope, @test, when-true, when-false, @label
     else
       this
   def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
@@ -1140,7 +1138,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
     #(func)
       let data = walk-item(@data, func)
       if data != @data
-        MacroAccessNode @line, @column, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast, @do-wrapped
+        MacroAccessNode @index, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast, @do-wrapped
       else
         this
   def walk-async = do
@@ -1172,7 +1170,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
     #(func, callback)
       async! callback, data <- walk-item @data, func
       callback null, if data != @data
-        MacroAccessNode @line, @column, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast, @do-wrapped
+        MacroAccessNode @index, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast, @do-wrapped
       else
         this
   def _is-noop(o) -> o.macro-expand-1(this).is-noop(o)
@@ -1180,7 +1178,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
     if @do-wrapped
       this
     else
-      MacroAccessNode @line, @column, @scope, @id, @call-line, @data, @position, @in-generator, @in-evil-ast, true
+      MacroAccessNode @index, @scope, @id, @call-line, @data, @position, @in-generator, @in-evil-ast, true
 node-class MacroConstNode(name as String)
   def type(o) -> @_type ?=
     let c = o.get-const(@name)
@@ -1200,7 +1198,7 @@ node-class MacroConstNode(name as String)
           throw Error("Unknown type for $(String c.value)")
   def _is-noop(o) -> true
   def to-const(o)
-    ConstNode @line, @column, @scope, o.get-const(@name)?.value
+    ConstNode @index, @scope, o.get-const(@name)?.value
 node-class NothingNode
   def type() -> Type.undefined
   def cacheable = false
@@ -1228,7 +1226,7 @@ node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void 
       let pairs = map @pairs, walk-pair, func
       let prototype = if @prototype? then func @prototype else @prototype
       if pairs != @pairs or prototype != @prototype
-        ObjectNode @line, @column, @scope, pairs, prototype
+        ObjectNode @index, @scope, pairs, prototype
       else
         this
   def walk-async = do
@@ -1247,7 +1245,7 @@ node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void 
       else
         next(@prototype)
       callback null, if pairs != @pairs or prototype != @prototype
-        ObjectNode @line, @column, @scope, pairs, prototype
+        ObjectNode @index, @scope, pairs, prototype
       else
         this
   def _reduce = do
@@ -1262,7 +1260,7 @@ node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void 
       let pairs = map @pairs, reduce-pair, o
       let prototype = if @prototype? then @prototype.reduce(o) else @prototype
       if pairs != @pairs or prototype != @prototype
-        ObjectNode @line, @column, @scope, pairs, prototype
+        ObjectNode @index, @scope, pairs, prototype
       else
         this
   def _is-noop(o) -> @__is-noop ?= for every {key, value} in @pairs; key.is-noop(o) and value.is-noop(o)
@@ -1285,7 +1283,7 @@ Node.object := #(index, pairs, prototype)
         continue
       else if key-value in known-keys
         let {ParserError} = require('./parser')
-        throw ParserError "Duplicate key $(quote key-value) in object", this, @index-from-position(key.line, key.column)
+        throw ParserError "Duplicate key $(quote key-value) in object", this, key.index
       known-keys.push key-value
       if property in [\get, \set]
         last-property-pair := {key: key-value, property}
@@ -1302,21 +1300,21 @@ node-class RegexpNode(source as Node, flags as String)
   def _reduce(o)
     let source = @source.reduce(o).do-wrap(o)
     if not source.is-const()
-      CallNode @line, @column, @scope, IdentNode(@line, @column, @scope, "RegExp"), [
+      CallNode @index, @scope, IdentNode(@index, @scope, "RegExp"), [
         source
-        ConstNode @line, @column, @scope, @flags
+        ConstNode @index, @scope, @flags
       ]
     else if source != @source
-      RegexpNode @line, @column, @scope, source, @flags
+      RegexpNode @index, @scope, source, @flags
     else
       this
-node-class ReturnNode(node as Node = ConstNode(line, column, scope, void))
+node-class ReturnNode(node as Node = ConstNode(index, scope, void))
   def type(o) -> @node.type(o)
   def is-statement() -> true
   def _reduce(o)
     let node = @node.reduce(o).do-wrap(o)
     if node != @node
-      ReturnNode @line, @column, @scope, node
+      ReturnNode @index, @scope, node
     else
       this
 node-class RootNode(file as String|void, body as Node, is-embedded as Boolean, is-generator as Boolean)
@@ -1325,7 +1323,7 @@ node-class SpreadNode(node as Node)
   def _reduce(o)
     let node = @node.reduce(o).do-wrap(o)
     if node != @node
-      SpreadNode @line, @column, @scope, node
+      SpreadNode @index, @scope, node
     else
       this
 Node.string := #(index, mutable parts as [Node])
@@ -1339,21 +1337,21 @@ Node.string := #(index, mutable parts as [Node])
       left: @Const index, ""
       op: ""
       right: parts[0]
-    }, this, index, @get-line(index)
+    }, this, index
   else
     for reduce part in parts[1 to -1], current = parts[0]
       concat-op.func {
         left: current
         op: ""
         right: part
-      }, this, index, @get-line(index)
+      }, this, index
 
 node-class SuperNode(child as Node|void, args as [Node])
   def _reduce(o)
     let child = if @child? then @child.reduce(o).do-wrap(o) else @child
     let args = map @args, #(node, o) -> node.reduce(o).do-wrap(o), o
     if child != @child or args != @args
-      SuperNode @line, @column, @scope, child, args
+      SuperNode @index, @scope, child, args
     else
       this
 node-class SwitchNode(node as Node, cases as [], default-case as Node|void, label as IdentNode|TmpNode|null)
@@ -1364,7 +1362,7 @@ node-class SwitchNode(node as Node, cases as [], default-case as Node|void, labe
       else
         type.union case_.body.type(o)
   def with-label(label as IdentNode|TmpNode|null)
-    SwitchNode @line, @column, @scope, @node, @cases, @default-case, label
+    SwitchNode @index, @scope, @node, @cases, @default-case, label
   def walk(f)
     let node = f @node
     let cases = map @cases, #(case_)
@@ -1377,7 +1375,7 @@ node-class SwitchNode(node as Node, cases as [], default-case as Node|void, labe
     let default-case = if @default-case then f @default-case else @default-case
     let label = if @label? then f @label else @label
     if node != @node or cases != @cases or default-case != @default-case or label != @label
-      SwitchNode @line, @column, @scope, node, cases, default-case, label
+      SwitchNode @index, @scope, node, cases, default-case, label
     else
       this
   def walk-async(f, callback)
@@ -1400,7 +1398,7 @@ node-class SwitchNode(node as Node, cases as [], default-case as Node|void, labe
     else
       next(@label)
     callback null, if node != @node or cases != @cases or default-case != @default-case or label != @label
-      SwitchNode @line, @column, @scope, node, cases, default-case, label
+      SwitchNode @index, @scope, node, cases, default-case, label
     else
       this
   def is-statement() -> true
@@ -1417,12 +1415,12 @@ node-class ThrowNode(node as Node)
   def _reduce(o)
     let node = @node.reduce(o).do-wrap(o)
     if node != @node
-      ThrowNode @line, @column, @scope, node
+      ThrowNode @index, @scope, node
     else
       this
   def do-wrap(o)
-    CallNode @line, @column, @scope,
-      IdentNode @line, @column, @scope, \__throw
+    CallNode @index, @scope,
+      IdentNode @index, @scope, \__throw
       [@node]
 node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def cacheable = false
@@ -1431,13 +1429,13 @@ node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
 node-class TmpWrapperNode(node as Node, tmps as [])
   def type(o) -> @node.type(o)
   def with-label(label as IdentNode|TmpNode|null, o)
-    TmpWrapperNode @line, @column, @scope, @node.with-label(label, o), @tmps
+    TmpWrapperNode @index, @scope, @node.with-label(label, o), @tmps
   def _reduce(o)
     let node = @node.reduce(o)
     if @tmps.length == 0
       node
     else if @node != node
-      TmpWrapperNode @line, @column, @scope, node, @tmps
+      TmpWrapperNode @index, @scope, node, @tmps
     else
       this
   def is-statement() -> @node.is-statement()
@@ -1445,7 +1443,7 @@ node-class TmpWrapperNode(node as Node, tmps as [])
   def do-wrap(o)
     let node = @node.do-wrap(o)
     if node != @node
-      TmpWrapperNode @line, @column, @scope, node, @tmps
+      TmpWrapperNode @index, @scope, node, @tmps
     else
       this
 node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Node, label as IdentNode|TmpNode|null)
@@ -1453,7 +1451,7 @@ node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Nod
   def is-statement() -> true
   def _is-noop(o) -> @try-body.is-noop(o)
   def with-label(label as IdentNode|TmpNode|null)
-    TryCatchNode @line, @column, @scope, @try-body, @catch-ident, @catch-body, label
+    TryCatchNode @index, @scope, @try-body, @catch-ident, @catch-body, label
 node-class TryFinallyNode(try-body as Node, finally-body as Node, label as IdentNode|TmpNode|null)
   def type(o) -> @try-body.type(o)
   def _reduce(o)
@@ -1461,17 +1459,17 @@ node-class TryFinallyNode(try-body as Node, finally-body as Node, label as Ident
     let finally-body = @finally-body.reduce(o)
     let label = if @label? then @label.reduce(o) else @label
     if finally-body instanceof NothingNode
-      BlockNode(@line, @column, @scope-if [try-body], label).reduce(o)
+      BlockNode(@index, @scope-if [try-body], label).reduce(o)
     else if try-body instanceof NothingNode
-      BlockNode(@line, @column, @scope-if [finally-body], label).reduce(o)
+      BlockNode(@index, @scope-if [finally-body], label).reduce(o)
     else if try-body != @try-body or finally-body != @finally-body or label != @label
-      TryFinallyNode @line, @column, @scope, try-body, finally-body, label
+      TryFinallyNode @index, @scope, try-body, finally-body, label
     else
       this
   def is-statement() -> true
   def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
   def with-label(label as IdentNode|TmpNode|null)
-    TryFinallyNode @line, @column, @scope, @try-body, @finally-body, label
+    TryFinallyNode @index, @scope, @try-body, @finally-body, label
 node-class TypeFunctionNode(return-type as Node)
 node-class TypeGenericNode(basetype as Node, args as [Node])
 node-class TypeObjectNode(pairs as [])
@@ -1485,7 +1483,7 @@ node-class TypeObjectNode(pairs as [])
   def _reduce(o)
     let pairs = map @pairs, reduce-pair, o
     if pairs != @pairs
-      TypeObjectNode @line, @column, @scope, pairs
+      TypeObjectNode @index, @scope, pairs
     else
       this
 node-class TypeUnionNode(types as [Node])
@@ -1517,12 +1515,12 @@ node-class UnaryNode(op as String, node as Node)
       "-": #(node)
         if node instanceof UnaryNode
           if node.op in ["-", "+"]
-            UnaryNode @line, @column, @scope, if node.op == "-" then "+" else "-", node.node
+            UnaryNode @index, @scope, if node.op == "-" then "+" else "-", node.node
         else if node instanceof BinaryNode
           if node.op in ["-", "+"]
-            BinaryNode @line, @column, @scope, node.left, if node.op == "-" then "+" else "-", node.right
+            BinaryNode @index, @scope, node.left, if node.op == "-" then "+" else "-", node.right
           else if node.op in ["*", "/"]
-            BinaryNode @line, @column, @scope, UnaryNode(node.left.line, node.left.column, node.left.scope, "-", node.left), node.op, node.right
+            BinaryNode @index, @scope, UnaryNode(node.left.index, node.left.scope, "-", node.left), node.op, node.right
       "!": do
         let invertible-binary-ops =
           "<": ">="
@@ -1533,8 +1531,8 @@ node-class UnaryNode(op as String, node as Node)
           "!=": "=="
           "===": "!=="
           "!==": "==="
-          "&&": #(x, y) -> BinaryNode @line, @column, @scope, UnaryNode(x.line, x.column, x.scope, "!", x), "||", UnaryNode(y.line, y.column, y.scope, "!", y)
-          "||": #(x, y) -> BinaryNode @line, @column, @scope, UnaryNode(x.line, x.column, x.scope, "!", x), "&&", UnaryNode(y.line, y.column, y.scope, "!", y)
+          "&&": #(x, y) -> BinaryNode @index, @scope, UnaryNode(x.index, x.scope, "!", x), "||", UnaryNode(y.index, y.scope, "!", y)
+          "||": #(x, y) -> BinaryNode @index, @scope, UnaryNode(x.index, x.scope, "!", x), "&&", UnaryNode(y.index, y.scope, "!", y)
         #(node, o)
           if node instanceof UnaryNode
             if node.op == "!" and node.node.type(o).is-subset-of(Type.boolean)
@@ -1545,36 +1543,36 @@ node-class UnaryNode(op as String, node as Node)
               if is-function! invert
                 invert@ this, node.left, node.right
               else
-                BinaryNode @line, @column, @scope, node.left, invert, node.right
+                BinaryNode @index, @scope, node.left, invert, node.right
       typeof: do
         let object-type = Type.null.union(Type.object).union(Type.array-like).union(Type.regexp).union(Type.date).union(Type.error)
         #(node, o)
           if node.is-noop(o)
             let type = node.type(o)
             if type.is-subset-of(Type.number)
-              ConstNode @line, @column, @scope, \number
+              ConstNode @index, @scope, \number
             else if type.is-subset-of(Type.string)
-              ConstNode @line, @column, @scope, \string
+              ConstNode @index, @scope, \string
             else if type.is-subset-of(Type.boolean)
-              ConstNode @line, @column, @scope, \boolean
+              ConstNode @index, @scope, \boolean
             else if type.is-subset-of(Type.undefined)
-              ConstNode @line, @column, @scope, \undefined
+              ConstNode @index, @scope, \undefined
             else if type.is-subset-of(Type.function)
-              ConstNode @line, @column, @scope, \function
+              ConstNode @index, @scope, \function
             else if type.is-subset-of(object-type)
-              ConstNode @line, @column, @scope, \object
+              ConstNode @index, @scope, \object
     #(o)
       let node = @node.reduce(o).do-wrap(o)
       let op = @op
       if node.is-const() and const-ops ownskey op
-        return ConstNode @line, @column, @scope, const-ops[op](node.const-value())
+        return ConstNode @index, @scope, const-ops[op](node.const-value())
       
       let result = nonconst-ops![op]@ this, node, o
       if result?
         return result.reduce(o)
       
       if node != @node
-        UnaryNode @line, @column, @scope, op, node
+        UnaryNode @index, @scope, op, node
       else
         this
   def _is-noop(o) -> @__is-noop ?= @op not in ["++", "--", "++post", "--post", "delete"] and @node.is-noop(o)
@@ -1583,7 +1581,7 @@ node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
   def _reduce(o)
     let ident = @ident.reduce(o)
     if ident != @ident
-      VarNode @line, @column, @scope, ident, @is-mutable
+      VarNode @index, @scope, ident, @is-mutable
     else
       this
 node-class YieldNode(node as Node)
@@ -1591,7 +1589,7 @@ node-class YieldNode(node as Node)
   def _reduce(o)
     let node = @node.reduce(o).do-wrap(o)
     if node != @node
-      YieldNode @line, @column, @scope, node
+      YieldNode @index, @scope, node
     else
       this
 

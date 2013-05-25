@@ -158,7 +158,7 @@ exports.ast := promise! #(source, options = {})*
       exports.parse-sync source, options
     else
       yield exports.parse source, options
-  let translated = translator(parsed.result, parsed.macros, options)
+  let translated = translator(parsed.result, parsed.macros, parsed.get-position, options)
   
   return {
     translated.node

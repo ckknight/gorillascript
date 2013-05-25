@@ -12865,7 +12865,7 @@
           if (param instanceof ParamNode && param.spread) {
             ++spreadCount;
             if (spreadCount > 1) {
-              throw ParserError("Cannot have more than one spread parameter", parser, parser.indexFromPosition(param.line, param.column));
+              throw ParserError("Cannot have more than one spread parameter", parser, param.index);
             }
           }
         }
@@ -13020,7 +13020,7 @@
               throw Error("Unknown param ident type: " + __typeof(param));
             }
             if (__in(name, names)) {
-              throw ParserError("Duplicate parameter name: " + __strnum(quote(name)), parser, parser.indexFromPosition(ident.line, ident.column));
+              throw ParserError("Duplicate parameter name: " + __strnum(quote(name)), parser, ident.index);
             } else {
               names.push(name);
             }
@@ -13842,9 +13842,7 @@
         ]
       );
       Ast = cache((_ref = oneOf(AstExpression, AstStatement), mutate(function (node, parser, index) {
-        var position;
-        position = parser.getPosition(index);
-        return MacroContext.constifyObject(node, position.line, position.column, parser.scope.peek());
+        return MacroContext.constifyObject(node, index, parser.scope.peek());
       })(_ref)));
       PrimaryExpression = cache(oneOf.generic(Node)(
         UnclosedObjectLiteral,
@@ -15885,7 +15883,7 @@
           if (typeof node === "number") {
             index = node;
           } else {
-            index = this.indexFromPosition(node.line, node.column);
+            index = node.index;
           }
           return MacroError(message, this, index);
         };
@@ -15900,6 +15898,32 @@
           }
           return this.Tmp(index, this.currentTmpId = __num(this.currentTmpId) + 1, name, type);
         };
+        function makeGetPosition(lineInfo) {
+          return function (index) {
+            var current, i, left, right;
+            if (typeof index !== "number") {
+              throw TypeError("Expected index to be a Number, got " + __typeof(index));
+            }
+            left = 0;
+            right = lineInfo.length;
+            while (left !== right) {
+              i = Math.floor((left + right) / 2);
+              current = lineInfo[i];
+              if (current > index) {
+                right = i;
+              } else if (current < index) {
+                if (left === i) {
+                  break;
+                }
+                left = i;
+              } else {
+                left = i;
+                break;
+              }
+            }
+            return { line: left + 1, column: index - __num(lineInfo[left]) + 1 };
+          };
+        }
         _Parser_prototype.calculateLineInfo = function () {
           var index, lineInfo, match, newlineRegex, source;
           newlineRegex = /(?:\r\n?|[\n\u2028\u2029])/g;
@@ -15915,6 +15939,7 @@
             index = __num(match.index) + __num(match[0].length);
             lineInfo.push(index);
           }
+          this.getPosition = makeGetPosition(lineInfo);
         };
         _Parser_prototype.indexFromPosition = function (line, column) {
           var lineInfo;
@@ -15932,29 +15957,10 @@
           }
         };
         _Parser_prototype.getPosition = function (index) {
-          var current, i, left, lineInfo, right;
           if (typeof index !== "number") {
             throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
-          lineInfo = this.lineInfo;
-          left = 0;
-          right = lineInfo.length;
-          while (left !== right) {
-            i = Math.floor((left + right) / 2);
-            current = lineInfo[i];
-            if (current > index) {
-              right = i;
-            } else if (current < index) {
-              if (left === i) {
-                break;
-              }
-              left = i;
-            } else {
-              left = i;
-              break;
-            }
-          }
-          return { line: left + 1, column: index - __num(lineInfo[left]) + 1 };
+          throw Error("line-info not initialized");
         };
         _Parser_prototype.getLine = function (index) {
           if (index == null) {
@@ -15963,6 +15969,14 @@
             throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           return this.getPosition(index).line;
+        };
+        _Parser_prototype.getColumn = function (index) {
+          if (index == null) {
+            index = this.index;
+          } else if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
+          }
+          return this.getPosition(index).column;
         };
         _Parser_prototype.fail = function (message, index) {
           if (typeof message !== "string") {
@@ -16096,7 +16110,13 @@
           translator = require("./jstranslator");
           node = this.macroExpandAll(value).reduce(this);
           type = node.type(this);
-          _ref = translator.defineHelper(this.macros, name, node, type);
+          _ref = translator.defineHelper(
+            this.macros,
+            this.getPosition,
+            name,
+            node,
+            type
+          );
           helper = _ref.helper;
           dependencies = _ref.dependencies;
           if (this.options.serializeMacros) {
@@ -16235,17 +16255,17 @@
           var deserializeParamTypeByType;
           deserializeParamTypeByType = {
             ident: function (scope, name) {
-              return IdentNode(0, 0, scope, name);
+              return IdentNode(0, scope, name);
             },
             sequence: function (scope) {
               var items;
               items = __slice.call(arguments, 1);
-              return SyntaxSequenceNode(0, 0, scope, deserializeParams(items, scope));
+              return SyntaxSequenceNode(0, scope, deserializeParams(items, scope));
             },
             choice: function (scope) {
               var choices;
               choices = __slice.call(arguments, 1);
-              return SyntaxChoiceNode(0, 0, scope, (function () {
+              return SyntaxChoiceNode(0, scope, (function () {
                 var _arr, _i, _len, choice;
                 for (_arr = [], _i = 0, _len = choices.length; _i < _len; ++_i) {
                   choice = choices[_i];
@@ -16255,13 +16275,12 @@
               }()));
             },
             "const": function (scope, value) {
-              return ConstNode(0, 0, scope, value);
+              return ConstNode(0, scope, value);
             },
             many: function (scope, multiplier) {
               var inner;
               inner = __slice.call(arguments, 2);
               return SyntaxManyNode(
-                0,
                 0,
                 scope,
                 deserializeParamType(inner, scope),
@@ -16292,16 +16311,15 @@
           var deserializeParamByType;
           deserializeParamByType = {
             "const": function (scope, value) {
-              return ConstNode(0, 0, scope, value);
+              return ConstNode(0, scope, value);
             },
             ident: function (scope, name) {
               var asType;
               asType = __slice.call(arguments, 2);
               return SyntaxParamNode(
                 0,
-                0,
                 scope,
-                IdentNode(0, 0, scope, name),
+                IdentNode(0, scope, name),
                 deserializeParamType(asType, scope)
               );
             },
@@ -16310,9 +16328,8 @@
               asType = __slice.call(arguments, 1);
               return SyntaxParamNode(
                 0,
-                0,
                 scope,
-                ThisNode(0, 0, scope),
+                ThisNode(0, scope),
                 deserializeParamType(asType, scope)
               );
             }
@@ -16401,7 +16418,7 @@
               if ((_ref = param.asType) != null) {
                 type = _ref;
               } else {
-                type = IdentNode(0, 0, param.scope, "Expression");
+                type = IdentNode(0, param.scope, "Expression");
               }
               sequence.push([
                 key,
@@ -16491,7 +16508,7 @@
               [body]
             ));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, this.getPosition, { "return": true });
             compilation = translated.node.toString(getCompilationOptions(stateOptions));
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -16552,7 +16569,7 @@
                   return _arr;
                 }()).concat([body]));
                 rawFunc = makeMacroRoot.call(_this, index, funcParam, body);
-                translated = translator(_this.macroExpandAll(rawFunc).reduce(state), _this.macros, { "return": true });
+                translated = translator(_this.macroExpandAll(rawFunc).reduce(state), _this.macros, _this.getPosition, { "return": true });
                 compilation = translated.node.toString(getCompilationOptions(stateOptions));
                 if (stateOptions.serializeMacros) {
                   serialization = compilation;
@@ -16622,7 +16639,7 @@
               [body]
             ));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, this.getPosition, { "return": true });
             compilation = translated.node.toString(getCompilationOptions(stateOptions));
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -16673,7 +16690,7 @@
               return _arr;
             }()).concat([body]));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, this.getPosition, { "return": true });
             compilation = translated.node.toString(getCompilationOptions(stateOptions));
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -16690,13 +16707,7 @@
                   rest = __slice.call(arguments, 1);
                   result = inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest)));
                   if (args.inverted) {
-                    return UnaryNode(
-                      result.line,
-                      result.column,
-                      result.scope,
-                      "!",
-                      result
-                    ).reduce(state);
+                    return UnaryNode(result.index, result.scope, "!", result).reduce(state);
                   } else {
                     return result.reduce(state);
                   }
@@ -16745,7 +16756,7 @@
               return _arr;
             }()).concat([body]));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, this.getPosition, { "return": true });
             compilation = translated.node.toString(getCompilationOptions(stateOptions));
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -16796,7 +16807,7 @@
               return _arr;
             }()).concat([body]));
             rawFunc = makeMacroRoot.call(this, index, funcParam, body);
-            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, { "return": true });
+            translated = translator(this.macroExpandAll(rawFunc).reduce(this), this.macros, this.getPosition, { "return": true });
             compilation = translated.node.toString(getCompilationOptions(stateOptions));
             if (stateOptions.serializeMacros) {
               serialization = compilation;
@@ -16970,13 +16981,7 @@
                   rest = __slice.call(arguments, 1);
                   result = inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest)));
                   if (args.inverted) {
-                    return UnaryNode(
-                      result.line,
-                      result.column,
-                      result.scope,
-                      "!",
-                      result
-                    ).reduce(state);
+                    return UnaryNode(result.index, result.scope, "!", result).reduce(state);
                   } else {
                     return result.reduce(state);
                   }
@@ -17462,7 +17467,7 @@
               this.expandingMacros = true;
               result = void 0;
               try {
-                result = this.macros.getById(node.id)(node.data, this, this.indexFromPosition(node.line, node.column));
+                result = this.macros.getById(node.id)(node.data, this, node.index);
               } catch (e) {
                 if (e instanceof MacroError) {
                   e.setPosition(node.callLine, 0);
@@ -17582,10 +17587,9 @@
         };
         Parser.addNodeFactory = function (name, type) {
           Parser.prototype[name] = function (index) {
-            var args, pos;
+            var args;
             args = __slice.call(arguments, 1);
-            pos = this.getPosition(index);
-            return type.apply(void 0, [pos.line, pos.column, this.scope.peek()].concat(__toArray(args)));
+            return type.apply(void 0, [index, this.scope.peek()].concat(__toArray(args)));
           };
         };
         return Parser;
@@ -17676,6 +17680,7 @@
                 value: {
                   result: reduced,
                   macros: parser.macros,
+                  getPosition: parser.getPosition,
                   parseTime: __num(endParseTime) - __num(startTime),
                   macroExpandTime: __num(endExpandTime) - __num(endParseTime),
                   reduceTime: __num(endReduceTime) - __num(endExpandTime),
@@ -17736,7 +17741,7 @@
         parser = Parser();
         parser.macros.deserialize(parsed, parser, {});
         return {
-          result: NothingNode(0, 0, parser.scope.peek()),
+          result: NothingNode(0, parser.scope.peek()),
           macros: parser.macros
         };
       };
@@ -18098,7 +18103,7 @@
               throw Error("Expected constant access: " + __typeof(param.ident.child));
             }
             scope.add(
-              Node.Ident(param.line, param.column, param.scope, param.ident.child.value),
+              Node.Ident(param.index, param.scope, param.ident.child.value),
               forceMutable || param.isMutable,
               param.asType ? nodeToType(param.asType) : param.spread ? Type.array : Type.any
             );
@@ -18831,13 +18836,7 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          return BlockNode(
-            this.line,
-            this.column,
-            this.scope,
-            [this],
-            label
-          );
+          return BlockNode(this.index, this.scope, [this], label);
         };
         _Node_prototype._reduce = function (parser) {
           return this.walk(function (node) {
@@ -18913,12 +18912,10 @@
           if (this.isStatement()) {
             innerScope = parser.pushScope(true, this.scope);
             result = CallNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               FunctionNode(
-                this.line,
-                this.column,
+                this.index,
                 this.scope,
                 [],
                 this.rescope(innerScope),
@@ -18935,9 +18932,9 @@
         };
         return Node;
       }());
-      function inspectHelper(depth, name, line, column) {
+      function inspectHelper(depth, name, index) {
         var _arr, _i, _len, _some, arg, args, d, found, hasLarge, part, parts;
-        args = __slice.call(arguments, 4);
+        args = __slice.call(arguments, 3);
         if (depth != null) {
           d = __num(depth) - 1;
         } else {
@@ -18979,14 +18976,11 @@
       }
       Node.Access = AccessNode = (function (Node) {
         var _AccessNode_prototype, _Node_prototype;
-        function AccessNode(line, column, scope, parent, child) {
+        function AccessNode(index, scope, parent, child) {
           var _this;
           _this = this instanceof AccessNode ? this : __create(_AccessNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(parent instanceof Node)) {
             throw TypeError("Expected parent to be a " + __name(Node) + ", got " + __typeof(parent));
@@ -18994,8 +18988,7 @@
           if (!(child instanceof Node)) {
             throw TypeError("Expected child to be a " + __name(Node) + ", got " + __typeof(child));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -19073,30 +19066,19 @@
             var nodeParent;
             if (node instanceof IdentNode && node.name === "__currentArrayLength") {
               if (parent.cacheable && cachedParent == null) {
-                cachedParent = o.makeTmp(
-                  o.indexFromPosition(node.line, node.column),
-                  "ref",
-                  parent.type(o)
-                );
+                cachedParent = o.makeTmp(node.index, "ref", parent.type(o));
                 cachedParent.scope = node.scope;
               }
               return AccessNode(
-                node.line,
-                node.column,
+                node.index,
                 node.scope,
                 cachedParent != null ? cachedParent : parent,
-                ConstNode(node.line, node.column, node.scope, "length")
+                ConstNode(node.index, node.scope, "length")
               );
             } else if (node instanceof AccessNode) {
               nodeParent = replaceLengthIdent(node.parent);
               if (nodeParent !== node.parent) {
-                return AccessNode(
-                  node.line,
-                  node.column,
-                  node.scope,
-                  nodeParent,
-                  node.child
-                ).walk(replaceLengthIdent);
+                return AccessNode(node.index, node.scope, nodeParent, node.child).walk(replaceLengthIdent);
               } else {
                 return node.walk(replaceLengthIdent);
               }
@@ -19107,16 +19089,13 @@
           child = replaceLengthIdent(this.child.reduce(o).doWrap(o));
           if (cachedParent != null) {
             return TmpWrapperNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               AccessNode(
-                this.line,
-                this.column,
+                this.index,
                 this.scope,
                 AssignNode(
-                  this.line,
-                  this.column,
+                  this.index,
                   this.scope,
                   cachedParent,
                   "=",
@@ -19133,7 +19112,7 @@
             if (cValue in Object(pValue)) {
               value = pValue[cValue];
               if (value === null || value instanceof RegExp || (_ref = typeof value) === "string" || _ref === "number" || _ref === "boolean" || _ref === "undefined") {
-                return ConstNode(this.line, this.column, this.scope, value);
+                return ConstNode(this.index, this.scope, value);
               }
             }
           }
@@ -19148,45 +19127,40 @@
               if (inclusive.isConst()) {
                 if (inclusive.constValue()) {
                   if (end.isConst() && typeof end.constValue() === "number") {
-                    end = ConstNode(end.line, end.column, end.scope, __num(end.constValue()) + 1 || 1/0);
+                    end = ConstNode(end.index, end.scope, __num(end.constValue()) + 1 || 1/0);
                   } else {
                     end = BinaryNode(
-                      end.line,
-                      end.column,
+                      end.index,
                       end.scope,
                       BinaryNode(
-                        end.line,
-                        end.column,
+                        end.index,
                         end.scope,
                         end,
                         "+",
-                        ConstNode(inclusive.line, inclusive.column, inclusive.scope, 1)
+                        ConstNode(inclusive.index, inclusive.scope, 1)
                       ),
                       "||",
-                      ConstNode(end.line, end.column, end.scope, 1/0)
+                      ConstNode(end.index, end.scope, 1/0)
                     );
                   }
                 }
               } else {
                 end = IfNode(
-                  end.line,
-                  end.column,
+                  end.index,
                   end.scope,
                   inclusive,
                   BinaryNode(
-                    end.line,
-                    end.column,
+                    end.index,
                     end.scope,
                     BinaryNode(
-                      end.line,
-                      end.column,
+                      end.index,
                       end.scope,
                       end,
                       "+",
-                      ConstNode(inclusive.line, inclusive.column, inclusive.scope, 1)
+                      ConstNode(inclusive.index, inclusive.scope, 1)
                     ),
                     "||",
-                    ConstNode(end.line, end.column, end.scope, 1/0)
+                    ConstNode(end.index, end.scope, 1/0)
                   ),
                   end
                 );
@@ -19207,22 +19181,15 @@
               }
             }
             return CallNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
-              IdentNode(this.line, this.column, this.scope, hasStep ? "__sliceStep" : "__slice"),
+              IdentNode(this.index, this.scope, hasStep ? "__sliceStep" : "__slice"),
               args,
               false,
               !hasStep
             ).reduce(o);
           } else if (parent !== this.parent || child !== this.child) {
-            return AccessNode(
-              this.line,
-              this.column,
-              this.scope,
-              parent,
-              child
-            );
+            return AccessNode(this.index, this.scope, parent, child);
           } else {
             return this;
           }
@@ -19239,8 +19206,7 @@
           return inspectHelper(
             depth,
             "AccessNode",
-            this.line,
-            this.column,
+            this.index,
             this.parent,
             this.child
           );
@@ -19250,13 +19216,7 @@
           parent = f(this.parent);
           child = f(this.child);
           if (parent !== this.parent || child !== this.child) {
-            return AccessNode(
-              this.line,
-              this.column,
-              this.scope,
-              parent,
-              child
-            );
+            return AccessNode(this.index, this.scope, parent, child);
           } else {
             return this;
           }
@@ -19283,15 +19243,7 @@
               if (_e2 != null) {
                 return callback(_e2);
               }
-              return callback(null, parent !== _this.parent || child !== _this.child
-                ? AccessNode(
-                  _this.line,
-                  _this.column,
-                  _this.scope,
-                  parent,
-                  child
-                )
-                : _this);
+              return callback(null, parent !== _this.parent || child !== _this.child ? AccessNode(_this.index, _this.scope, parent, child) : _this);
             }));
           }));
         };
@@ -19299,14 +19251,11 @@
       }(Node));
       Node.AccessMulti = AccessMultiNode = (function (Node) {
         var _AccessMultiNode_prototype, _Node_prototype;
-        function AccessMultiNode(line, column, scope, parent, elements) {
+        function AccessMultiNode(index, scope, parent, elements) {
           var _i, _this;
           _this = this instanceof AccessMultiNode ? this : __create(_AccessMultiNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(parent instanceof Node)) {
             throw TypeError("Expected parent to be a " + __name(Node) + ", got " + __typeof(parent));
@@ -19320,8 +19269,7 @@
               }
             }
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -19349,16 +19297,11 @@
           setParent = parent;
           tmpIds = [];
           if (parent.cacheable) {
-            tmp = o.makeTmp(
-              o.indexFromPosition(this.line, this.column),
-              "ref",
-              parent.type(o)
-            );
+            tmp = o.makeTmp(o.indexFromPosition(this.index), "ref", parent.type(o));
             tmp.scope = this.scope;
             tmpIds.push(tmp.id);
             setParent = AssignNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               tmp,
               "=",
@@ -19366,13 +19309,12 @@
             );
             parent = tmp;
           }
-          result = ArrayNode(this.line, this.column, this.scope, (function () {
+          result = ArrayNode(this.index, this.scope, (function () {
             var _arr, _arr2, _len, element, j;
             for (_arr = [], _arr2 = __toArray(_this.elements), j = 0, _len = _arr2.length; j < _len; ++j) {
               element = _arr2[j];
               _arr.push(AccessNode(
-                _this.line,
-                _this.column,
+                _this.index,
                 _this.scope,
                 j === 0 ? setParent : parent,
                 element.reduce(o)
@@ -19381,13 +19323,7 @@
             return _arr;
           }()));
           if (tmpIds.length) {
-            return TmpWrapperNode(
-              this.line,
-              this.column,
-              this.scope,
-              result,
-              tmpIds
-            );
+            return TmpWrapperNode(this.index, this.scope, result, tmpIds);
           } else {
             return result;
           }
@@ -19396,8 +19332,7 @@
           return inspectHelper(
             depth,
             "AccessMultiNode",
-            this.line,
-            this.column,
+            this.index,
             this.parent,
             this.elements
           );
@@ -19407,13 +19342,7 @@
           parent = f(this.parent);
           elements = map(this.elements, f);
           if (parent !== this.parent || elements !== this.elements) {
-            return AccessMultiNode(
-              this.line,
-              this.column,
-              this.scope,
-              parent,
-              elements
-            );
+            return AccessMultiNode(this.index, this.scope, parent, elements);
           } else {
             return this;
           }
@@ -19440,15 +19369,7 @@
               if (_e2 != null) {
                 return callback(_e2);
               }
-              return callback(null, parent !== _this.parent || elements !== _this.elements
-                ? AccessMultiNode(
-                  _this.line,
-                  _this.column,
-                  _this.scope,
-                  parent,
-                  elements
-                )
-                : _this);
+              return callback(null, parent !== _this.parent || elements !== _this.elements ? AccessMultiNode(_this.index, _this.scope, parent, elements) : _this);
             }));
           }));
         };
@@ -19456,17 +19377,13 @@
       }(Node));
       Node.Args = ArgsNode = (function (Node) {
         var _ArgsNode_prototype, _Node_prototype;
-        function ArgsNode(line, column, scope) {
+        function ArgsNode(index, scope) {
           var _this;
           _this = this instanceof ArgsNode ? this : __create(_ArgsNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
-          }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -19490,20 +19407,17 @@
           return true;
         };
         _ArgsNode_prototype.inspect = function (depth) {
-          return inspectHelper(depth, "ArgsNode", this.line, this.column);
+          return inspectHelper(depth, "ArgsNode", this.index);
         };
         return ArgsNode;
       }(Node));
       Node.Array = ArrayNode = (function (Node) {
         var _ArrayNode_prototype, _Node_prototype;
-        function ArrayNode(line, column, scope, elements) {
+        function ArrayNode(index, scope, elements) {
           var _i, _this;
           _this = this instanceof ArrayNode ? this : __create(_ArrayNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!__isArray(elements)) {
             throw TypeError("Expected elements to be an Array, got " + __typeof(elements));
@@ -19514,8 +19428,7 @@
               }
             }
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -19541,7 +19454,7 @@
             return x.reduce(o).doWrap(o);
           });
           if (elements !== this.elements) {
-            return ArrayNode(this.line, this.column, this.scope, elements);
+            return ArrayNode(this.index, this.scope, elements);
           } else {
             return this;
           }
@@ -19587,19 +19500,13 @@
           return _arr;
         };
         _ArrayNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "ArrayNode",
-            this.line,
-            this.column,
-            this.elements
-          );
+          return inspectHelper(depth, "ArrayNode", this.index, this.elements);
         };
         _ArrayNode_prototype.walk = function (f) {
           var elements;
           elements = map(this.elements, f);
           if (elements !== this.elements) {
-            return ArrayNode(this.line, this.column, this.scope, elements);
+            return ArrayNode(this.index, this.scope, elements);
           } else {
             return this;
           }
@@ -19616,21 +19523,18 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, elements !== _this.elements ? ArrayNode(_this.line, _this.column, _this.scope, elements) : _this);
+            return callback(null, elements !== _this.elements ? ArrayNode(_this.index, _this.scope, elements) : _this);
           }));
         };
         return ArrayNode;
       }(Node));
       Node.Assign = AssignNode = (function (Node) {
         var _AssignNode_prototype, _Node_prototype;
-        function AssignNode(line, column, scope, left, op, right) {
+        function AssignNode(index, scope, left, op, right) {
           var _this;
           _this = this instanceof AssignNode ? this : __create(_AssignNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(left instanceof Node)) {
             throw TypeError("Expected left to be a " + __name(Node) + ", got " + __typeof(left));
@@ -19641,8 +19545,7 @@
           if (!(right instanceof Node)) {
             throw TypeError("Expected right to be a " + __name(Node) + ", got " + __typeof(right));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -19711,8 +19614,7 @@
           right = this.right.reduce(o).doWrap(o);
           if (left !== this.left || right !== this.right) {
             return AssignNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               left,
               this.op,
@@ -19726,8 +19628,7 @@
           return inspectHelper(
             depth,
             "AssignNode",
-            this.line,
-            this.column,
+            this.index,
             this.left,
             this.op,
             this.right
@@ -19739,8 +19640,7 @@
           right = f(this.right);
           if (left !== this.left || right !== this.right) {
             return AssignNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               left,
               this.op,
@@ -19774,8 +19674,7 @@
               }
               return callback(null, left !== _this.left || right !== _this.right
                 ? AssignNode(
-                  _this.line,
-                  _this.column,
+                  _this.index,
                   _this.scope,
                   left,
                   _this.op,
@@ -19789,14 +19688,11 @@
       }(Node));
       Node.Binary = BinaryNode = (function (Node) {
         var _BinaryNode_prototype, _Node_prototype;
-        function BinaryNode(line, column, scope, left, op, right) {
+        function BinaryNode(index, scope, left, op, right) {
           var _this;
           _this = this instanceof BinaryNode ? this : __create(_BinaryNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(left instanceof Node)) {
             throw TypeError("Expected left to be a " + __name(Node) + ", got " + __typeof(left));
@@ -19807,8 +19703,7 @@
           if (!(right instanceof Node)) {
             throw TypeError("Expected right to be a " + __name(Node) + ", got " + __typeof(right));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -19964,30 +19859,18 @@
           function leftConstNan(x, y) {
             var _ref;
             if ((_ref = x.constValue()) !== _ref) {
-              return BlockNode(this.line, this.column, this.scope, [y, x]);
+              return BlockNode(this.index, this.scope, [y, x]);
             }
           }
           leftConstOps = {
             "*": function (x, y) {
               var _ref;
               if (x.constValue() === 1) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "+",
-                  y
-                );
+                return UnaryNode(this.index, this.scope, "+", y);
               } else if (x.constValue() === -1) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "-",
-                  y
-                );
+                return UnaryNode(this.index, this.scope, "-", y);
               } else if ((_ref = x.constValue()) !== _ref) {
-                return BlockNode(this.line, this.column, this.scope, [y, x]);
+                return BlockNode(this.index, this.scope, [y, x]);
               }
             },
             "/": leftConstNan,
@@ -19995,40 +19878,27 @@
             "+": function (x, y, o) {
               var _ref;
               if (x.constValue() === 0 && y.type(o).isSubsetOf(Type.number)) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "+",
-                  y
-                );
+                return UnaryNode(this.index, this.scope, "+", y);
               } else if (x.constValue() === "" && y.type(o).isSubsetOf(Type.string)) {
                 return y;
               } else if (typeof x.constValue() === "string" && y instanceof BinaryNode && y.op === "+" && y.left.isConst() && typeof y.left.constValue() === "string") {
                 return BinaryNode(
-                  this.line,
-                  this.column,
+                  this.index,
                   this.scope,
-                  ConstNode(x.line, x.column, this.scope, __strnum(x.constValue()) + __strnum(y.left.constValue())),
+                  ConstNode(x.index, this.scope, __strnum(x.constValue()) + __strnum(y.left.constValue())),
                   "+",
                   y.right
                 );
               } else if ((_ref = x.constValue()) !== _ref) {
-                return BlockNode(this.line, this.column, this.scope, [y, x]);
+                return BlockNode(this.index, this.scope, [y, x]);
               }
             },
             "-": function (x, y) {
               var _ref;
               if (x.constValue() === 0) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "-",
-                  y
-                );
+                return UnaryNode(this.index, this.scope, "-", y);
               } else if ((_ref = x.constValue()) !== _ref) {
-                return BlockNode(this.line, this.column, this.scope, [y, x]);
+                return BlockNode(this.index, this.scope, [y, x]);
               }
             },
             "<<": leftConstNan,
@@ -20055,110 +19925,71 @@
           function rightConstNan(x, y) {
             var _ref;
             if ((_ref = y.constValue()) !== _ref) {
-              return BlockNode(this.line, this.column, this.scope, [x, y]);
+              return BlockNode(this.index, this.scope, [x, y]);
             }
           }
           rightConstOps = {
             "*": function (x, y) {
               var _ref;
               if (y.constValue() === 1) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "+",
-                  x
-                );
+                return UnaryNode(this.index, this.scope, "+", x);
               } else if (y.constValue() === -1) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "-",
-                  x
-                );
+                return UnaryNode(this.index, this.scope, "-", x);
               } else if ((_ref = y.constValue()) !== _ref) {
-                return BlockNode(this.line, this.column, this.scope, [x, y]);
+                return BlockNode(this.index, this.scope, [x, y]);
               }
             },
             "/": function (x, y) {
               var _ref;
               if (y.constValue() === 1) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "+",
-                  x
-                );
+                return UnaryNode(this.index, this.scope, "+", x);
               } else if (y.constValue() === -1) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "-",
-                  x
-                );
+                return UnaryNode(this.index, this.scope, "-", x);
               } else if ((_ref = y.constValue()) !== _ref) {
-                return BlockNode(this.line, this.column, this.scope, [x, y]);
+                return BlockNode(this.index, this.scope, [x, y]);
               }
             },
             "%": rightConstNan,
             "+": function (x, y, o) {
               var _ref;
               if (y.constValue() === 0 && x.type(o).isSubsetOf(Type.number)) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "+",
-                  x
-                );
+                return UnaryNode(this.index, this.scope, "+", x);
               } else if (typeof y.constValue() === "number" && __num(y.constValue()) < 0 && x.type(o).isSubsetOf(Type.number)) {
                 return BinaryNode(
-                  this.line,
-                  this.column,
+                  this.index,
                   this.scope,
                   x,
                   "-",
-                  ConstNode(y.line, y.column, this.scope, -__num(y.constValue()))
+                  ConstNode(y.index, this.scope, -__num(y.constValue()))
                 );
               } else if (y.constValue() === "" && x.type(o).isSubsetOf(Type.string)) {
                 return x;
               } else if (typeof y.constValue() === "string" && x instanceof BinaryNode && x.op === "+" && x.right.isConst() && typeof x.right.constValue() === "string") {
                 return BinaryNode(
-                  this.line,
-                  this.column,
+                  this.index,
                   this.scope,
                   x.left,
                   "+",
-                  ConstNode(x.right.line, x.right.column, this.scope, __strnum(x.right.constValue()) + __strnum(y.constValue()))
+                  ConstNode(x.right.index, this.scope, __strnum(x.right.constValue()) + __strnum(y.constValue()))
                 );
               } else if ((_ref = y.constValue()) !== _ref) {
-                return BlockNode(this.line, this.column, this.scope, [x, y]);
+                return BlockNode(this.index, this.scope, [x, y]);
               }
             },
             "-": function (x, y, o) {
               var _ref;
               if (y.constValue() === 0) {
-                return UnaryNode(
-                  this.line,
-                  this.column,
-                  this.scope,
-                  "+",
-                  x
-                );
+                return UnaryNode(this.index, this.scope, "+", x);
               } else if (typeof y.constValue() === "number" && __num(y.constValue()) < 0 && x.type(o).isSubsetOf(Type.number)) {
                 return BinaryNode(
-                  this.line,
-                  this.column,
+                  this.index,
                   this.scope,
                   x,
                   "+",
-                  ConstNode(y.line, y.column, this.scope, -__num(y.constValue()))
+                  ConstNode(y.index, this.scope, -__num(y.constValue()))
                 );
               } else if ((_ref = y.constValue()) !== _ref) {
-                return BlockNode(this.line, this.column, this.scope, [x, y]);
+                return BlockNode(this.index, this.scope, [x, y]);
               }
             },
             "<<": rightConstNan,
@@ -20173,7 +20004,7 @@
               var truthy, xRightType, xType;
               xType = x.type(o);
               if (xType.isSubsetOf(Type.alwaysTruthy)) {
-                return BlockNode(this.line, this.column, this.scope, [x, y]);
+                return BlockNode(this.index, this.scope, [x, y]);
               } else if (xType.isSubsetOf(Type.alwaysFalsy)) {
                 return x;
               } else if (x instanceof BinaryNode && x.op === "&&") {
@@ -20191,12 +20022,11 @@
                 }
                 if (truthy === true) {
                   return BinaryNode(
-                    this.line,
-                    this.column,
+                    this.index,
                     this.scope,
                     x.left,
                     "&&",
-                    BlockNode(x.right.line, x.right.column, this.scope, [x.right, y])
+                    BlockNode(x.right.index, this.scope, [x.right, y])
                   );
                 } else if (truthy === false) {
                   return x;
@@ -20209,7 +20039,7 @@
               if (xType.isSubsetOf(Type.alwaysTruthy)) {
                 return x;
               } else if (xType.isSubsetOf(Type.alwaysFalsy)) {
-                return BlockNode(this.line, this.column, this.scope, [x, y]);
+                return BlockNode(this.index, this.scope, [x, y]);
               } else if (x instanceof BinaryNode && x.op === "||") {
                 if (x.right.isConst()) {
                   truthy = !!x.right.constValue();
@@ -20227,12 +20057,11 @@
                   return x;
                 } else if (truthy === false) {
                   return BinaryNode(
-                    this.line,
-                    this.column,
+                    this.index,
                     this.scope,
                     x.left,
                     "||",
-                    BlockNode(x.right.line, x.right.column, this.scope, [x.right, y])
+                    BlockNode(x.right.index, this.scope, [x.right, y])
                   );
                 }
               } else if (x instanceof IfNode && x.whenFalse.isConst() && !x.whenFalse.constValue()) {
@@ -20240,8 +20069,7 @@
                 whenTrue = x.whenTrue;
                 while (whenTrue instanceof IfNode && whenTrue.whenFalse.isConst() && !whenTrue.whenFalse.constValue()) {
                   test = BinaryNode(
-                    x.line,
-                    x.column,
+                    x.index,
                     x.scope,
                     test,
                     "&&",
@@ -20250,12 +20078,10 @@
                   whenTrue = whenTrue.whenTrue;
                 }
                 return BinaryNode(
-                  this.line,
-                  this.column,
+                  this.index,
                   this.scope,
                   BinaryNode(
-                    x.line,
-                    x.column,
+                    x.index,
                     x.scope,
                     test,
                     "&&",
@@ -20274,7 +20100,7 @@
             op = this.op;
             if (left.isConst()) {
               if (right.isConst() && __owns.call(constOps, op)) {
-                return ConstNode(this.line, this.column, this.scope, constOps[op](left.constValue(), right.constValue()));
+                return ConstNode(this.index, this.scope, constOps[op](left.constValue(), right.constValue()));
               }
               if (__owns.call(leftConstOps, op) && (_ref = leftConstOps[op].call(this, left, right, o)) != null) {
                 return _ref;
@@ -20288,8 +20114,7 @@
             }
             if (left !== this.left || right !== this.right) {
               return BinaryNode(
-                this.line,
-                this.column,
+                this.index,
                 this.scope,
                 left,
                 op,
@@ -20312,8 +20137,7 @@
           return inspectHelper(
             depth,
             "BinaryNode",
-            this.line,
-            this.column,
+            this.index,
             this.left,
             this.op,
             this.right
@@ -20325,8 +20149,7 @@
           right = f(this.right);
           if (left !== this.left || right !== this.right) {
             return BinaryNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               left,
               this.op,
@@ -20360,8 +20183,7 @@
               }
               return callback(null, left !== _this.left || right !== _this.right
                 ? BinaryNode(
-                  _this.line,
-                  _this.column,
+                  _this.index,
                   _this.scope,
                   left,
                   _this.op,
@@ -20375,14 +20197,11 @@
       }(Node));
       Node.Block = BlockNode = (function (Node) {
         var _BlockNode_prototype, _Node_prototype;
-        function BlockNode(line, column, scope, nodes, label) {
+        function BlockNode(index, scope, nodes, label) {
           var _i, _this;
           _this = this instanceof BlockNode ? this : __create(_BlockNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!__isArray(nodes)) {
             throw TypeError("Expected nodes to be an Array, got " + __typeof(nodes));
@@ -20398,8 +20217,7 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -20449,16 +20267,10 @@
               }
               return _every;
             }())) {
-              return BlockNode(this.line, this.column, this.scope, __slice.call(this.nodes, 0, -1).concat([(_ref = this.nodes)[__num(_ref.length) - 1].withLabel(label, o)]));
+              return BlockNode(this.index, this.scope, __slice.call(this.nodes, 0, -1).concat([(_ref = this.nodes)[__num(_ref.length) - 1].withLabel(label, o)]));
             }
           }
-          return BlockNode(
-            this.line,
-            this.column,
-            this.scope,
-            this.nodes,
-            label
-          );
+          return BlockNode(this.index, this.scope, this.nodes, label);
         };
         _BlockNode_prototype._reduce = function (o) {
           var _arr, body, changed, i, label, len, node, reduced;
@@ -20491,17 +20303,11 @@
             label = this.label;
           }
           if (body.length === 0) {
-            return NothingNode(this.line, this.column, this.scope);
+            return NothingNode(this.index, this.scope);
           } else if (label == null && body.length === 1) {
             return body[0];
           } else if (changed || label !== this.label) {
-            return BlockNode(
-              this.line,
-              this.column,
-              this.scope,
-              body,
-              label
-            );
+            return BlockNode(this.index, this.scope, body, label);
           } else {
             return this;
           }
@@ -20538,8 +20344,7 @@
           return inspectHelper(
             depth,
             "BlockNode",
-            this.line,
-            this.column,
+            this.index,
             this.nodes,
             this.label
           );
@@ -20553,13 +20358,7 @@
             label = this.label;
           }
           if (nodes !== this.nodes || label !== this.label) {
-            return BlockNode(
-              this.line,
-              this.column,
-              this.scope,
-              nodes,
-              label
-            );
+            return BlockNode(this.index, this.scope, nodes, label);
           } else {
             return this;
           }
@@ -20594,15 +20393,7 @@
               : function (next) {
                 return next(_this.label);
               })(function (label) {
-              return callback(null, nodes !== _this.nodes || label !== _this.label
-                ? BlockNode(
-                  _this.line,
-                  _this.column,
-                  _this.scope,
-                  nodes,
-                  label
-                )
-                : _this);
+              return callback(null, nodes !== _this.nodes || label !== _this.label ? BlockNode(_this.index, _this.scope, nodes, label) : _this);
             });
           }));
         };
@@ -20610,22 +20401,18 @@
       }(Node));
       Node.Break = BreakNode = (function (Node) {
         var _BreakNode_prototype, _Node_prototype;
-        function BreakNode(line, column, scope, label) {
+        function BreakNode(index, scope, label) {
           var _this;
           _this = this instanceof BreakNode ? this : __create(_BreakNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (label == null) {
             label = null;
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -20654,16 +20441,10 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          return BreakNode(this.line, this.column, this.scope, label);
+          return BreakNode(this.index, this.scope, label);
         };
         _BreakNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "BreakNode",
-            this.line,
-            this.column,
-            this.label
-          );
+          return inspectHelper(depth, "BreakNode", this.index, this.label);
         };
         _BreakNode_prototype.walk = function (f) {
           var label;
@@ -20673,7 +20454,7 @@
             label = this.label;
           }
           if (label !== this.label) {
-            return BreakNode(this.line, this.column, this.scope, label);
+            return BreakNode(this.index, this.scope, label);
           } else {
             return this;
           }
@@ -20699,21 +20480,18 @@
             : function (next) {
               return next(_this.label);
             })(function (label) {
-            return callback(null, label !== _this.label ? BreakNode(_this.line, _this.column, _this.scope, label) : _this);
+            return callback(null, label !== _this.label ? BreakNode(_this.index, _this.scope, label) : _this);
           });
         };
         return BreakNode;
       }(Node));
       Node.Call = CallNode = (function (Node) {
         var _CallNode_prototype, _Node_prototype;
-        function CallNode(line, column, scope, func, args, isNew, isApply) {
+        function CallNode(index, scope, func, args, isNew, isApply) {
           var _i, _this;
           _this = this instanceof CallNode ? this : __create(_CallNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(func instanceof Node)) {
             throw TypeError("Expected func to be a " + __name(Node) + ", got " + __typeof(func));
@@ -20737,8 +20515,7 @@
           } else if (typeof isApply !== "boolean") {
             throw TypeError("Expected isApply to be a Boolean, got " + __typeof(isApply));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21015,7 +20792,7 @@
                   if (__owns.call(PURE_PRIMORDIAL_FUNCTIONS, func.name)) {
                     try {
                       value = GLOBAL[func.name].apply(void 0, __toArray(constArgs));
-                      return ConstNode(this.line, this.column, this.scope, value);
+                      return ConstNode(this.index, this.scope, value);
                     } catch (e) {}
                   }
                 } else if (func instanceof AccessNode && func.child.isConst()) {
@@ -21027,13 +20804,13 @@
                     if (typeof pValue[cValue] === "function") {
                       try {
                         value = pValue[cValue].apply(pValue, __toArray(constArgs));
-                        return ConstNode(this.line, this.column, this.scope, value);
+                        return ConstNode(this.index, this.scope, value);
                       } catch (e) {}
                     }
                   } else if (parent instanceof IdentNode && (__owns.call(PURE_PRIMORDIAL_SUBFUNCTIONS, _ref = parent.name) && __owns.call(_ref2 = PURE_PRIMORDIAL_SUBFUNCTIONS[_ref], _ref3 = child.value) ? _ref2[_ref3] : void 0)) {
                     try {
                       value = (_ref = GLOBAL[parent.name])[cValue].apply(_ref, __toArray(constArgs));
-                      return ConstNode(this.line, this.column, this.scope, value);
+                      return ConstNode(this.index, this.scope, value);
                     } catch (e) {}
                   }
                 }
@@ -21041,8 +20818,7 @@
             }
             if (func !== this.func || args !== this.args) {
               return CallNode(
-                this.line,
-                this.column,
+                this.index,
                 this.scope,
                 func,
                 args,
@@ -21058,8 +20834,7 @@
           return inspectHelper(
             depth,
             "CallNode",
-            this.line,
-            this.column,
+            this.index,
             this.func,
             this.args,
             this.isNew,
@@ -21072,8 +20847,7 @@
           args = map(this.args, f);
           if (func !== this.func || args !== this.args) {
             return CallNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               func,
               args,
@@ -21108,8 +20882,7 @@
               }
               return callback(null, func !== _this.func || args !== _this.args
                 ? CallNode(
-                  _this.line,
-                  _this.column,
+                  _this.index,
                   _this.scope,
                   func,
                   args,
@@ -21124,14 +20897,11 @@
       }(Node));
       Node.Cascade = CascadeNode = (function (Node) {
         var _CascadeNode_prototype, _Node_prototype;
-        function CascadeNode(line, column, scope, node, cascades) {
+        function CascadeNode(index, scope, node, cascades) {
           var _this;
           _this = this instanceof CascadeNode ? this : __create(_CascadeNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
@@ -21139,8 +20909,7 @@
           if (!__isArray(cascades)) {
             throw TypeError("Expected cascades to be an Array, got " + __typeof(cascades));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21162,8 +20931,7 @@
           return inspectHelper(
             depth,
             "CascadeNode",
-            this.line,
-            this.column,
+            this.index,
             this.node,
             this.cascades
           );
@@ -21172,13 +20940,7 @@
           var node;
           node = f(this.node);
           if (node !== this.node) {
-            return CascadeNode(
-              this.line,
-              this.column,
-              this.scope,
-              node,
-              this.cascades
-            );
+            return CascadeNode(this.index, this.scope, node, this.cascades);
           } else {
             return this;
           }
@@ -21195,35 +20957,23 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, node !== _this.node
-              ? CascadeNode(
-                _this.line,
-                _this.column,
-                _this.scope,
-                node,
-                _this.cascades
-              )
-              : _this);
+            return callback(null, node !== _this.node ? CascadeNode(_this.index, _this.scope, node, _this.cascades) : _this);
           }));
         };
         return CascadeNode;
       }(Node));
       Node.Comment = CommentNode = (function (Node) {
         var _CommentNode_prototype, _Node_prototype;
-        function CommentNode(line, column, scope, text) {
+        function CommentNode(index, scope, text) {
           var _this;
           _this = this instanceof CommentNode ? this : __create(_CommentNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (typeof text !== "string") {
             throw TypeError("Expected text to be a String, got " + __typeof(text));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21254,13 +21004,7 @@
           return true;
         };
         _CommentNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "CommentNode",
-            this.line,
-            this.column,
-            this.text
-          );
+          return inspectHelper(depth, "CommentNode", this.index, this.text);
         };
         _CommentNode_prototype.walk = function (f) {
           return this;
@@ -21272,20 +21016,16 @@
       }(Node));
       Node.Const = ConstNode = (function (Node) {
         var _ConstNode_prototype, _Node_prototype;
-        function ConstNode(line, column, scope, value) {
+        function ConstNode(index, scope, value) {
           var _this;
           _this = this instanceof ConstNode ? this : __create(_ConstNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (value != null && typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean") {
             throw TypeError("Expected value to be one of Number or String or Boolean or undefined or null, got " + __typeof(value));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21346,22 +21086,18 @@
       }(Node));
       Node.Continue = ContinueNode = (function (Node) {
         var _ContinueNode_prototype, _Node_prototype;
-        function ContinueNode(line, column, scope, label) {
+        function ContinueNode(index, scope, label) {
           var _this;
           _this = this instanceof ContinueNode ? this : __create(_ContinueNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (label == null) {
             label = null;
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21390,16 +21126,10 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          return ContinueNode(this.line, this.column, this.scope, label);
+          return ContinueNode(this.index, this.scope, label);
         };
         _ContinueNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "ContinueNode",
-            this.line,
-            this.column,
-            this.label
-          );
+          return inspectHelper(depth, "ContinueNode", this.index, this.label);
         };
         _ContinueNode_prototype.walk = function (f) {
           var label;
@@ -21409,7 +21139,7 @@
             label = this.label;
           }
           if (label !== this.label) {
-            return ContinueNode(this.line, this.column, this.scope, label);
+            return ContinueNode(this.index, this.scope, label);
           } else {
             return this;
           }
@@ -21435,24 +21165,20 @@
             : function (next) {
               return next(_this.label);
             })(function (label) {
-            return callback(null, label !== _this.label ? ContinueNode(_this.line, _this.column, _this.scope, label) : _this);
+            return callback(null, label !== _this.label ? ContinueNode(_this.index, _this.scope, label) : _this);
           });
         };
         return ContinueNode;
       }(Node));
       Node.Debugger = DebuggerNode = (function (Node) {
         var _DebuggerNode_prototype, _Node_prototype;
-        function DebuggerNode(line, column, scope) {
+        function DebuggerNode(index, scope) {
           var _this;
           _this = this instanceof DebuggerNode ? this : __create(_DebuggerNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
-          }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21475,20 +21201,17 @@
           return true;
         };
         _DebuggerNode_prototype.inspect = function (depth) {
-          return inspectHelper(depth, "DebuggerNode", this.line, this.column);
+          return inspectHelper(depth, "DebuggerNode", this.index);
         };
         return DebuggerNode;
       }(Node));
       Node.Def = DefNode = (function (Node) {
         var _DefNode_prototype, _Node_prototype;
-        function DefNode(line, column, scope, left, right) {
+        function DefNode(index, scope, left, right) {
           var _this;
           _this = this instanceof DefNode ? this : __create(_DefNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(left instanceof Node)) {
             throw TypeError("Expected left to be a " + __name(Node) + ", got " + __typeof(left));
@@ -21498,8 +21221,7 @@
           } else if (!(right instanceof Node)) {
             throw TypeError("Expected right to be one of " + (__name(Node) + " or undefined") + ", got " + __typeof(right));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21528,8 +21250,7 @@
           return inspectHelper(
             depth,
             "DefNode",
-            this.line,
-            this.column,
+            this.index,
             this.left,
             this.right
           );
@@ -21543,13 +21264,7 @@
             right = this.right;
           }
           if (left !== this.left || right !== this.right) {
-            return DefNode(
-              this.line,
-              this.column,
-              this.scope,
-              left,
-              right
-            );
+            return DefNode(this.index, this.scope, left, right);
           } else {
             return this;
           }
@@ -21584,15 +21299,7 @@
               : function (next) {
                 return next(_this.right);
               })(function (right) {
-              return callback(null, left !== _this.left || right !== _this.right
-                ? DefNode(
-                  _this.line,
-                  _this.column,
-                  _this.scope,
-                  left,
-                  right
-                )
-                : _this);
+              return callback(null, left !== _this.left || right !== _this.right ? DefNode(_this.index, _this.scope, left, right) : _this);
             });
           }));
         };
@@ -21600,14 +21307,11 @@
       }(Node));
       Node.EmbedWrite = EmbedWriteNode = (function (Node) {
         var _EmbedWriteNode_prototype, _Node_prototype;
-        function EmbedWriteNode(line, column, scope, text, escape) {
+        function EmbedWriteNode(index, scope, text, escape) {
           var _this;
           _this = this instanceof EmbedWriteNode ? this : __create(_EmbedWriteNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(text instanceof Node)) {
             throw TypeError("Expected text to be a " + __name(Node) + ", got " + __typeof(text));
@@ -21617,8 +21321,7 @@
           } else if (typeof escape !== "boolean") {
             throw TypeError("Expected escape to be a Boolean, got " + __typeof(escape));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21640,8 +21343,7 @@
           return inspectHelper(
             depth,
             "EmbedWriteNode",
-            this.line,
-            this.column,
+            this.index,
             this.text,
             this.escape
           );
@@ -21650,13 +21352,7 @@
           var text;
           text = f(this.text);
           if (text !== this.text) {
-            return EmbedWriteNode(
-              this.line,
-              this.column,
-              this.scope,
-              text,
-              this.escape
-            );
+            return EmbedWriteNode(this.index, this.scope, text, this.escape);
           } else {
             return this;
           }
@@ -21673,35 +21369,23 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, text !== _this.text
-              ? EmbedWriteNode(
-                _this.line,
-                _this.column,
-                _this.scope,
-                text,
-                _this.escape
-              )
-              : _this);
+            return callback(null, text !== _this.text ? EmbedWriteNode(_this.index, _this.scope, text, _this.escape) : _this);
           }));
         };
         return EmbedWriteNode;
       }(Node));
       Node.Eval = EvalNode = (function (Node) {
         var _EvalNode_prototype, _Node_prototype, simplifiers;
-        function EvalNode(line, column, scope, code) {
+        function EvalNode(index, scope, code) {
           var _this;
           _this = this instanceof EvalNode ? this : __create(_EvalNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(code instanceof Node)) {
             throw TypeError("Expected code to be a " + __name(Node) + ", got " + __typeof(code));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21720,16 +21404,16 @@
         EvalNode.argNames = ["code"];
         simplifiers = {
           "true": function () {
-            return ConstNode(this.line, this.column, this.scope, true);
+            return ConstNode(this.index, this.scope, true);
           },
           "false": function () {
-            return ConstNode(this.line, this.column, this.scope, false);
+            return ConstNode(this.index, this.scope, false);
           },
           "void 0": function () {
-            return ConstNode(this.line, this.column, this.scope, void 0);
+            return ConstNode(this.index, this.scope, void 0);
           },
           "null": function () {
-            return ConstNode(this.line, this.column, this.scope, null);
+            return ConstNode(this.index, this.scope, null);
           }
         };
         _EvalNode_prototype._reduce = function (o) {
@@ -21744,25 +21428,19 @@
             }
           }
           if (code !== this.code) {
-            return EvalNode(this.line, this.column, this.scope, code);
+            return EvalNode(this.index, this.scope, code);
           } else {
             return this;
           }
         };
         _EvalNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "EvalNode",
-            this.line,
-            this.column,
-            this.code
-          );
+          return inspectHelper(depth, "EvalNode", this.index, this.code);
         };
         _EvalNode_prototype.walk = function (f) {
           var code;
           code = f(this.code);
           if (code !== this.code) {
-            return EvalNode(this.line, this.column, this.scope, code);
+            return EvalNode(this.index, this.scope, code);
           } else {
             return this;
           }
@@ -21779,34 +21457,31 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, code !== _this.code ? EvalNode(_this.line, _this.column, _this.scope, code) : _this);
+            return callback(null, code !== _this.code ? EvalNode(_this.index, _this.scope, code) : _this);
           }));
         };
         return EvalNode;
       }(Node));
       Node.For = ForNode = (function (Node) {
         var _ForNode_prototype, _Node_prototype;
-        function ForNode(line, column, scope, init, test, step, body, label) {
+        function ForNode(index, scope, init, test, step, body, label) {
           var _this;
           _this = this instanceof ForNode ? this : __create(_ForNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (init == null) {
-            init = NothingNode(0, 0, scope);
+            init = NothingNode(0, scope);
           } else if (!(init instanceof Node)) {
             throw TypeError("Expected init to be a " + __name(Node) + ", got " + __typeof(init));
           }
           if (test == null) {
-            test = ConstNode(0, 0, scope, true);
+            test = ConstNode(0, scope, true);
           } else if (!(test instanceof Node)) {
             throw TypeError("Expected test to be a " + __name(Node) + ", got " + __typeof(test));
           }
           if (step == null) {
-            step = NothingNode(0, 0, scope);
+            step = NothingNode(0, scope);
           } else if (!(step instanceof Node)) {
             throw TypeError("Expected step to be a " + __name(Node) + ", got " + __typeof(step));
           }
@@ -21818,8 +21493,7 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -21859,8 +21533,7 @@
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
           return ForNode(
-            this.line,
-            this.column,
+            this.index,
             this.scope,
             this.init,
             this.test,
@@ -21873,8 +21546,7 @@
           return inspectHelper(
             depth,
             "ForNode",
-            this.line,
-            this.column,
+            this.index,
             this.init,
             this.test,
             this.step,
@@ -21895,8 +21567,7 @@
           }
           if (init !== this.init || test !== this.test || step !== this.step || body !== this.body || label !== this.label) {
             return ForNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               init,
               test,
@@ -21970,8 +21641,7 @@
                     })(function (label) {
                     return callback(null, init !== _this.init || test !== _this.test || step !== _this.step || body !== _this.body || label !== _this.label
                       ? ForNode(
-                        _this.line,
-                        _this.column,
+                        _this.index,
                         _this.scope,
                         init,
                         test,
@@ -21990,14 +21660,11 @@
       }(Node));
       Node.ForIn = ForInNode = (function (Node) {
         var _ForInNode_prototype, _Node_prototype;
-        function ForInNode(line, column, scope, key, object, body, label) {
+        function ForInNode(index, scope, key, object, body, label) {
           var _this;
           _this = this instanceof ForInNode ? this : __create(_ForInNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(key instanceof Node)) {
             throw TypeError("Expected key to be a " + __name(Node) + ", got " + __typeof(key));
@@ -22013,8 +21680,7 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -22047,8 +21713,7 @@
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
           return ForInNode(
-            this.line,
-            this.column,
+            this.index,
             this.scope,
             this.key,
             this.object,
@@ -22060,8 +21725,7 @@
           return inspectHelper(
             depth,
             "ForInNode",
-            this.line,
-            this.column,
+            this.index,
             this.key,
             this.object,
             this.body,
@@ -22080,8 +21744,7 @@
           }
           if (key !== this.key || object !== this.object || body !== this.body || label !== this.label) {
             return ForInNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               key,
               object,
@@ -22144,8 +21807,7 @@
                   })(function (label) {
                   return callback(null, key !== _this.key || object !== _this.object || body !== _this.body || label !== _this.label
                     ? ForInNode(
-                      _this.line,
-                      _this.column,
+                      _this.index,
                       _this.scope,
                       key,
                       object,
@@ -22162,14 +21824,11 @@
       }(Node));
       Node.Function = FunctionNode = (function (Node) {
         var _FunctionNode_prototype, _Node_prototype;
-        function FunctionNode(line, column, scope, params, body, autoReturn, bound, curry, asType, generator, generic) {
+        function FunctionNode(index, scope, params, body, autoReturn, bound, curry, asType, generator, generic) {
           var _i, _i2, _this;
           _this = this instanceof FunctionNode ? this : __create(_FunctionNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!__isArray(params)) {
             throw TypeError("Expected params to be an Array, got " + __typeof(params));
@@ -22219,8 +21878,7 @@
               }
             }
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -22298,8 +21956,7 @@
           return inspectHelper(
             depth,
             "FunctionNode",
-            this.line,
-            this.column,
+            this.index,
             this.params,
             this.body,
             this.autoReturn,
@@ -22326,8 +21983,7 @@
           }
           if (params !== this.params || body !== this.body || bound !== this.bound || asType !== this.asType) {
             return FunctionNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               params,
               body,
@@ -22402,8 +22058,7 @@
                   })(function (asType) {
                   return callback(null, params !== _this.params || body !== _this.body || bound !== _this.bound || asType !== _this.asType
                     ? FunctionNode(
-                      _this.line,
-                      _this.column,
+                      _this.index,
                       _this.scope,
                       params,
                       body,
@@ -22424,20 +22079,16 @@
       }(Node));
       Node.Ident = IdentNode = (function (Node) {
         var _IdentNode_prototype, _Node_prototype;
-        function IdentNode(line, column, scope, name) {
+        function IdentNode(index, scope, name) {
           var _this;
           _this = this instanceof IdentNode ? this : __create(_IdentNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -22471,13 +22122,7 @@
           return isPrimordial(this.name);
         };
         _IdentNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "IdentNode",
-            this.line,
-            this.column,
-            this.name
-          );
+          return inspectHelper(depth, "IdentNode", this.index, this.name);
         };
         _IdentNode_prototype.walk = function (f) {
           return this;
@@ -22489,14 +22134,11 @@
       }(Node));
       Node.If = IfNode = (function (Node) {
         var _IfNode_prototype, _Node_prototype;
-        function IfNode(line, column, scope, test, whenTrue, whenFalse, label) {
+        function IfNode(index, scope, test, whenTrue, whenFalse, label) {
           var _this;
           _this = this instanceof IfNode ? this : __create(_IfNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(test instanceof Node)) {
             throw TypeError("Expected test to be a " + __name(Node) + ", got " + __typeof(test));
@@ -22505,7 +22147,7 @@
             throw TypeError("Expected whenTrue to be a " + __name(Node) + ", got " + __typeof(whenTrue));
           }
           if (whenFalse == null) {
-            whenFalse = NothingNode(0, 0, scope);
+            whenFalse = NothingNode(0, scope);
           } else if (!(whenFalse instanceof Node)) {
             throw TypeError("Expected whenFalse to be a " + __name(Node) + ", got " + __typeof(whenFalse));
           }
@@ -22514,8 +22156,7 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -22550,8 +22191,7 @@
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
           return IfNode(
-            this.line,
-            this.column,
+            this.index,
             this.scope,
             this.test,
             this.whenTrue,
@@ -22571,8 +22211,7 @@
           }
           if (test.isConst()) {
             return BlockNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               [test.constValue() ? whenTrue : whenFalse],
               label
@@ -22581,24 +22220,21 @@
             testType = test.type(o);
             if (testType.isSubsetOf(Type.alwaysTruthy)) {
               return BlockNode(
-                this.line,
-                this.column,
+                this.index,
                 this.scope,
                 [test, whenTrue],
                 label
               ).reduce(o);
             } else if (testType.isSubsetOf(Type.alwaysFalsy)) {
               return BlockNode(
-                this.line,
-                this.column,
+                this.index,
                 this.scope,
                 [test, whenFalse],
                 label
               ).reduce(o);
             } else if (test !== this.test || whenTrue !== this.whenTrue || whenFalse !== this.whenFalse || label !== this.label) {
               return IfNode(
-                this.line,
-                this.column,
+                this.index,
                 this.scope,
                 test,
                 whenTrue,
@@ -22624,8 +22260,7 @@
           whenFalse = this.whenFalse.doWrap(o);
           if (whenTrue !== this.whenTrue || whenFalse !== this.whenFalse) {
             return IfNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               this.test,
               whenTrue,
@@ -22648,8 +22283,7 @@
           return inspectHelper(
             depth,
             "IfNode",
-            this.line,
-            this.column,
+            this.index,
             this.test,
             this.whenTrue,
             this.whenFalse,
@@ -22668,8 +22302,7 @@
           }
           if (test !== this.test || whenTrue !== this.whenTrue || whenFalse !== this.whenFalse || label !== this.label) {
             return IfNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               test,
               whenTrue,
@@ -22732,8 +22365,7 @@
                   })(function (label) {
                   return callback(null, test !== _this.test || whenTrue !== _this.whenTrue || whenFalse !== _this.whenFalse || label !== _this.label
                     ? IfNode(
-                      _this.line,
-                      _this.column,
+                      _this.index,
                       _this.scope,
                       test,
                       whenTrue,
@@ -22750,14 +22382,11 @@
       }(Node));
       Node.MacroAccess = MacroAccessNode = (function (Node) {
         var _MacroAccessNode_prototype, _Node_prototype;
-        function MacroAccessNode(line, column, scope, id, callLine, data, position, inGenerator, inEvilAst, doWrapped) {
+        function MacroAccessNode(index, scope, id, callLine, data, position, inGenerator, inEvilAst, doWrapped) {
           var _this;
           _this = this instanceof MacroAccessNode ? this : __create(_MacroAccessNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (typeof id !== "number") {
             throw TypeError("Expected id to be a Number, got " + __typeof(id));
@@ -22786,8 +22415,7 @@
           } else if (typeof doWrapped !== "boolean") {
             throw TypeError("Expected doWrapped to be a Boolean, got " + __typeof(doWrapped));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -22882,8 +22510,7 @@
             data = walkItem(this.data, func);
             if (data !== this.data) {
               return MacroAccessNode(
-                this.line,
-                this.column,
+                this.index,
                 this.scope,
                 this.id,
                 this.callLine,
@@ -22968,8 +22595,7 @@
               }
               return callback(null, data !== _this.data
                 ? MacroAccessNode(
-                  _this.line,
-                  _this.column,
+                  _this.index,
                   _this.scope,
                   _this.id,
                   _this.callLine,
@@ -22991,8 +22617,7 @@
             return this;
           } else {
             return MacroAccessNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               this.id,
               this.callLine,
@@ -23008,8 +22633,7 @@
           return inspectHelper(
             depth,
             "MacroAccessNode",
-            this.line,
-            this.column,
+            this.index,
             this.id,
             this.callLine,
             this.data,
@@ -23023,20 +22647,16 @@
       }(Node));
       Node.MacroConst = MacroConstNode = (function (Node) {
         var _MacroConstNode_prototype, _Node_prototype;
-        function MacroConstNode(line, column, scope, name) {
+        function MacroConstNode(index, scope, name) {
           var _this;
           _this = this instanceof MacroConstNode ? this : __create(_MacroConstNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -23082,16 +22702,10 @@
         };
         _MacroConstNode_prototype.toConst = function (o) {
           var _ref;
-          return ConstNode(this.line, this.column, this.scope, (_ref = o.getConst(this.name)) != null ? _ref.value : void 0);
+          return ConstNode(this.index, this.scope, (_ref = o.getConst(this.name)) != null ? _ref.value : void 0);
         };
         _MacroConstNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "MacroConstNode",
-            this.line,
-            this.column,
-            this.name
-          );
+          return inspectHelper(depth, "MacroConstNode", this.index, this.name);
         };
         _MacroConstNode_prototype.walk = function (f) {
           return this;
@@ -23103,17 +22717,13 @@
       }(Node));
       Node.Nothing = NothingNode = (function (Node) {
         var _Node_prototype, _NothingNode_prototype;
-        function NothingNode(line, column, scope) {
+        function NothingNode(index, scope) {
           var _this;
           _this = this instanceof NothingNode ? this : __create(_NothingNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
-          }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -23149,20 +22759,17 @@
           return true;
         };
         _NothingNode_prototype.inspect = function (depth) {
-          return inspectHelper(depth, "NothingNode", this.line, this.column);
+          return inspectHelper(depth, "NothingNode", this.index);
         };
         return NothingNode;
       }(Node));
       Node.Object = ObjectNode = (function (Node) {
         var _Node_prototype, _ObjectNode_prototype;
-        function ObjectNode(line, column, scope, pairs, prototype) {
+        function ObjectNode(index, scope, pairs, prototype) {
           var _i, _this;
           _this = this instanceof ObjectNode ? this : __create(_ObjectNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!__isArray(pairs)) {
             throw TypeError("Expected pairs to be an Array, got " + __typeof(pairs));
@@ -23190,8 +22797,7 @@
           } else if (!(prototype instanceof Node)) {
             throw TypeError("Expected prototype to be one of " + (__name(Node) + " or undefined") + ", got " + __typeof(prototype));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -23246,13 +22852,7 @@
               prototype = this.prototype;
             }
             if (pairs !== this.pairs || prototype !== this.prototype) {
-              return ObjectNode(
-                this.line,
-                this.column,
-                this.scope,
-                pairs,
-                prototype
-              );
+              return ObjectNode(this.index, this.scope, pairs, prototype);
             } else {
               return this;
             }
@@ -23314,15 +22914,7 @@
                 : function (next) {
                   return next(_this.prototype);
                 })(function (prototype) {
-                return callback(null, pairs !== _this.pairs || prototype !== _this.prototype
-                  ? ObjectNode(
-                    _this.line,
-                    _this.column,
-                    _this.scope,
-                    pairs,
-                    prototype
-                  )
-                  : _this);
+                return callback(null, pairs !== _this.pairs || prototype !== _this.prototype ? ObjectNode(_this.index, _this.scope, pairs, prototype) : _this);
               });
             }));
           };
@@ -23347,13 +22939,7 @@
               prototype = this.prototype;
             }
             if (pairs !== this.pairs || prototype !== this.prototype) {
-              return ObjectNode(
-                this.line,
-                this.column,
-                this.scope,
-                pairs,
-                prototype
-              );
+              return ObjectNode(this.index, this.scope, pairs, prototype);
             } else {
               return this;
             }
@@ -23417,8 +23003,7 @@
           return inspectHelper(
             depth,
             "ObjectNode",
-            this.line,
-            this.column,
+            this.index,
             this.pairs,
             this.prototype
           );
@@ -23441,7 +23026,7 @@
               continue;
             } else if (__in(keyValue, knownKeys)) {
               ParserError = require("./parser").ParserError;
-              throw ParserError("Duplicate key " + __strnum(quote(keyValue)) + " in object", this, this.indexFromPosition(key.line, key.column));
+              throw ParserError("Duplicate key " + __strnum(quote(keyValue)) + " in object", this, key.index);
             }
             knownKeys.push(keyValue);
             if (property === "get" || property === "set") {
@@ -23458,14 +23043,11 @@
       Node.objectParam = Node.object;
       Node.Param = ParamNode = (function (Node) {
         var _Node_prototype, _ParamNode_prototype;
-        function ParamNode(line, column, scope, ident, defaultValue, spread, isMutable, asType) {
+        function ParamNode(index, scope, ident, defaultValue, spread, isMutable, asType) {
           var _this;
           _this = this instanceof ParamNode ? this : __create(_ParamNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(ident instanceof Node)) {
             throw TypeError("Expected ident to be a " + __name(Node) + ", got " + __typeof(ident));
@@ -23490,8 +23072,7 @@
           } else if (!(asType instanceof Node)) {
             throw TypeError("Expected asType to be one of " + (__name(Node) + " or undefined") + ", got " + __typeof(asType));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -23522,8 +23103,7 @@
           return inspectHelper(
             depth,
             "ParamNode",
-            this.line,
-            this.column,
+            this.index,
             this.ident,
             this.defaultValue,
             this.spread,
@@ -23546,8 +23126,7 @@
           }
           if (ident !== this.ident || defaultValue !== this.defaultValue || asType !== this.asType) {
             return ParamNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               ident,
               defaultValue,
@@ -23609,8 +23188,7 @@
                 })(function (asType) {
                 return callback(null, ident !== _this.ident || defaultValue !== _this.defaultValue || asType !== _this.asType
                   ? ParamNode(
-                    _this.line,
-                    _this.column,
+                    _this.index,
                     _this.scope,
                     ident,
                     defaultValue,
@@ -23627,14 +23205,11 @@
       }(Node));
       Node.Regexp = RegexpNode = (function (Node) {
         var _Node_prototype, _RegexpNode_prototype;
-        function RegexpNode(line, column, scope, source, flags) {
+        function RegexpNode(index, scope, source, flags) {
           var _this;
           _this = this instanceof RegexpNode ? this : __create(_RegexpNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(source instanceof Node)) {
             throw TypeError("Expected source to be a " + __name(Node) + ", got " + __typeof(source));
@@ -23642,8 +23217,7 @@
           if (typeof flags !== "string") {
             throw TypeError("Expected flags to be a String, got " + __typeof(flags));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -23672,23 +23246,16 @@
           source = this.source.reduce(o).doWrap(o);
           if (!source.isConst()) {
             return CallNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
-              IdentNode(this.line, this.column, this.scope, "RegExp"),
+              IdentNode(this.index, this.scope, "RegExp"),
               [
                 source,
-                ConstNode(this.line, this.column, this.scope, this.flags)
+                ConstNode(this.index, this.scope, this.flags)
               ]
             );
           } else if (source !== this.source) {
-            return RegexpNode(
-              this.line,
-              this.column,
-              this.scope,
-              source,
-              this.flags
-            );
+            return RegexpNode(this.index, this.scope, source, this.flags);
           } else {
             return this;
           }
@@ -23697,8 +23264,7 @@
           return inspectHelper(
             depth,
             "RegexpNode",
-            this.line,
-            this.column,
+            this.index,
             this.source,
             this.flags
           );
@@ -23707,13 +23273,7 @@
           var source;
           source = f(this.source);
           if (source !== this.source) {
-            return RegexpNode(
-              this.line,
-              this.column,
-              this.scope,
-              source,
-              this.flags
-            );
+            return RegexpNode(this.index, this.scope, source, this.flags);
           } else {
             return this;
           }
@@ -23730,37 +23290,25 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, source !== _this.source
-              ? RegexpNode(
-                _this.line,
-                _this.column,
-                _this.scope,
-                source,
-                _this.flags
-              )
-              : _this);
+            return callback(null, source !== _this.source ? RegexpNode(_this.index, _this.scope, source, _this.flags) : _this);
           }));
         };
         return RegexpNode;
       }(Node));
       Node.Return = ReturnNode = (function (Node) {
         var _Node_prototype, _ReturnNode_prototype;
-        function ReturnNode(line, column, scope, node) {
+        function ReturnNode(index, scope, node) {
           var _this;
           _this = this instanceof ReturnNode ? this : __create(_ReturnNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (node == null) {
-            node = ConstNode(line, column, scope, void 0);
+            node = ConstNode(index, scope, void 0);
           } else if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -23787,25 +23335,19 @@
           var node;
           node = this.node.reduce(o).doWrap(o);
           if (node !== this.node) {
-            return ReturnNode(this.line, this.column, this.scope, node);
+            return ReturnNode(this.index, this.scope, node);
           } else {
             return this;
           }
         };
         _ReturnNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "ReturnNode",
-            this.line,
-            this.column,
-            this.node
-          );
+          return inspectHelper(depth, "ReturnNode", this.index, this.node);
         };
         _ReturnNode_prototype.walk = function (f) {
           var node;
           node = f(this.node);
           if (node !== this.node) {
-            return ReturnNode(this.line, this.column, this.scope, node);
+            return ReturnNode(this.index, this.scope, node);
           } else {
             return this;
           }
@@ -23822,21 +23364,18 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, node !== _this.node ? ReturnNode(_this.line, _this.column, _this.scope, node) : _this);
+            return callback(null, node !== _this.node ? ReturnNode(_this.index, _this.scope, node) : _this);
           }));
         };
         return ReturnNode;
       }(Node));
       Node.Root = RootNode = (function (Node) {
         var _Node_prototype, _RootNode_prototype;
-        function RootNode(line, column, scope, file, body, isEmbedded, isGenerator) {
+        function RootNode(index, scope, file, body, isEmbedded, isGenerator) {
           var _this;
           _this = this instanceof RootNode ? this : __create(_RootNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (file == null) {
             file = void 0;
@@ -23856,8 +23395,7 @@
           } else if (typeof isGenerator !== "boolean") {
             throw TypeError("Expected isGenerator to be a Boolean, got " + __typeof(isGenerator));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -23884,8 +23422,7 @@
           return inspectHelper(
             depth,
             "RootNode",
-            this.line,
-            this.column,
+            this.index,
             this.file,
             this.body,
             this.isEmbedded,
@@ -23897,8 +23434,7 @@
           body = f(this.body);
           if (body !== this.body) {
             return RootNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               this.file,
               body,
@@ -23923,8 +23459,7 @@
             }
             return callback(null, body !== _this.body
               ? RootNode(
-                _this.line,
-                _this.column,
+                _this.index,
                 _this.scope,
                 _this.file,
                 body,
@@ -23938,20 +23473,16 @@
       }(Node));
       Node.Spread = SpreadNode = (function (Node) {
         var _Node_prototype, _SpreadNode_prototype;
-        function SpreadNode(line, column, scope, node) {
+        function SpreadNode(index, scope, node) {
           var _this;
           _this = this instanceof SpreadNode ? this : __create(_SpreadNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -23972,25 +23503,19 @@
           var node;
           node = this.node.reduce(o).doWrap(o);
           if (node !== this.node) {
-            return SpreadNode(this.line, this.column, this.scope, node);
+            return SpreadNode(this.index, this.scope, node);
           } else {
             return this;
           }
         };
         _SpreadNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "SpreadNode",
-            this.line,
-            this.column,
-            this.node
-          );
+          return inspectHelper(depth, "SpreadNode", this.index, this.node);
         };
         _SpreadNode_prototype.walk = function (f) {
           var node;
           node = f(this.node);
           if (node !== this.node) {
-            return SpreadNode(this.line, this.column, this.scope, node);
+            return SpreadNode(this.index, this.scope, node);
           } else {
             return this;
           }
@@ -24007,7 +23532,7 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, node !== _this.node ? SpreadNode(_this.line, _this.column, _this.scope, node) : _this);
+            return callback(null, node !== _this.node ? SpreadNode(_this.index, _this.scope, node) : _this);
           }));
         };
         return SpreadNode;
@@ -24037,8 +23562,7 @@
               right: parts[0]
             },
             this,
-            index,
-            this.getLine(index)
+            index
           );
         } else {
           current = parts[0];
@@ -24047,8 +23571,7 @@
             current = concatOp.func(
               { left: current, op: "", right: part },
               this,
-              index,
-              this.getLine(index)
+              index
             );
           }
           return current;
@@ -24056,14 +23579,11 @@
       };
       Node.Super = SuperNode = (function (Node) {
         var _Node_prototype, _SuperNode_prototype;
-        function SuperNode(line, column, scope, child, args) {
+        function SuperNode(index, scope, child, args) {
           var _i, _this;
           _this = this instanceof SuperNode ? this : __create(_SuperNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (child == null) {
             child = void 0;
@@ -24079,8 +23599,7 @@
               }
             }
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -24113,13 +23632,7 @@
             o
           );
           if (child !== this.child || args !== this.args) {
-            return SuperNode(
-              this.line,
-              this.column,
-              this.scope,
-              child,
-              args
-            );
+            return SuperNode(this.index, this.scope, child, args);
           } else {
             return this;
           }
@@ -24128,8 +23641,7 @@
           return inspectHelper(
             depth,
             "SuperNode",
-            this.line,
-            this.column,
+            this.index,
             this.child,
             this.args
           );
@@ -24143,13 +23655,7 @@
           }
           args = map(this.args, f);
           if (child !== this.child || args !== this.args) {
-            return SuperNode(
-              this.line,
-              this.column,
-              this.scope,
-              child,
-              args
-            );
+            return SuperNode(this.index, this.scope, child, args);
           } else {
             return this;
           }
@@ -24185,15 +23691,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return callback(null, child !== _this.child || args !== _this.args
-                ? SuperNode(
-                  _this.line,
-                  _this.column,
-                  _this.scope,
-                  child,
-                  args
-                )
-                : _this);
+              return callback(null, child !== _this.child || args !== _this.args ? SuperNode(_this.index, _this.scope, child, args) : _this);
             }));
           });
         };
@@ -24201,14 +23699,11 @@
       }(Node));
       Node.Switch = SwitchNode = (function (Node) {
         var _Node_prototype, _SwitchNode_prototype;
-        function SwitchNode(line, column, scope, node, cases, defaultCase, label) {
+        function SwitchNode(index, scope, node, cases, defaultCase, label) {
           var _this;
           _this = this instanceof SwitchNode ? this : __create(_SwitchNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
@@ -24226,8 +23721,7 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -24275,8 +23769,7 @@
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
           return SwitchNode(
-            this.line,
-            this.column,
+            this.index,
             this.scope,
             this.node,
             this.cases,
@@ -24309,8 +23802,7 @@
           }
           if (node !== this.node || cases !== this.cases || defaultCase !== this.defaultCase || label !== this.label) {
             return SwitchNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               node,
               cases,
@@ -24408,8 +23900,7 @@
                     })(function (label) {
                     return callback(null, node !== _this.node || cases !== _this.cases || defaultCase !== _this.defaultCase || label !== _this.label
                       ? SwitchNode(
-                        _this.line,
-                        _this.column,
+                        _this.index,
                         _this.scope,
                         node,
                         cases,
@@ -24430,8 +23921,7 @@
           return inspectHelper(
             depth,
             "SwitchNode",
-            this.line,
-            this.column,
+            this.index,
             this.node,
             this.cases,
             this.defaultCase,
@@ -24442,14 +23932,11 @@
       }(Node));
       Node.SyntaxChoice = SyntaxChoiceNode = (function (Node) {
         var _Node_prototype, _SyntaxChoiceNode_prototype;
-        function SyntaxChoiceNode(line, column, scope, choices) {
+        function SyntaxChoiceNode(index, scope, choices) {
           var _i, _this;
           _this = this instanceof SyntaxChoiceNode ? this : __create(_SyntaxChoiceNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!__isArray(choices)) {
             throw TypeError("Expected choices to be an Array, got " + __typeof(choices));
@@ -24460,8 +23947,7 @@
               }
             }
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -24479,19 +23965,13 @@
         SyntaxChoiceNode.cappedName = "SyntaxChoice";
         SyntaxChoiceNode.argNames = ["choices"];
         _SyntaxChoiceNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "SyntaxChoiceNode",
-            this.line,
-            this.column,
-            this.choices
-          );
+          return inspectHelper(depth, "SyntaxChoiceNode", this.index, this.choices);
         };
         _SyntaxChoiceNode_prototype.walk = function (f) {
           var choices;
           choices = map(this.choices, f);
           if (choices !== this.choices) {
-            return SyntaxChoiceNode(this.line, this.column, this.scope, choices);
+            return SyntaxChoiceNode(this.index, this.scope, choices);
           } else {
             return this;
           }
@@ -24508,21 +23988,18 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, choices !== _this.choices ? SyntaxChoiceNode(_this.line, _this.column, _this.scope, choices) : _this);
+            return callback(null, choices !== _this.choices ? SyntaxChoiceNode(_this.index, _this.scope, choices) : _this);
           }));
         };
         return SyntaxChoiceNode;
       }(Node));
       Node.SyntaxMany = SyntaxManyNode = (function (Node) {
         var _Node_prototype, _SyntaxManyNode_prototype;
-        function SyntaxManyNode(line, column, scope, inner, multiplier) {
+        function SyntaxManyNode(index, scope, inner, multiplier) {
           var _this;
           _this = this instanceof SyntaxManyNode ? this : __create(_SyntaxManyNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(inner instanceof Node)) {
             throw TypeError("Expected inner to be a " + __name(Node) + ", got " + __typeof(inner));
@@ -24530,8 +24007,7 @@
           if (typeof multiplier !== "string") {
             throw TypeError("Expected multiplier to be a String, got " + __typeof(multiplier));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -24553,8 +24029,7 @@
           return inspectHelper(
             depth,
             "SyntaxManyNode",
-            this.line,
-            this.column,
+            this.index,
             this.inner,
             this.multiplier
           );
@@ -24563,13 +24038,7 @@
           var inner;
           inner = f(this.inner);
           if (inner !== this.inner) {
-            return SyntaxManyNode(
-              this.line,
-              this.column,
-              this.scope,
-              inner,
-              this.multiplier
-            );
+            return SyntaxManyNode(this.index, this.scope, inner, this.multiplier);
           } else {
             return this;
           }
@@ -24586,29 +24055,18 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, inner !== _this.inner
-              ? SyntaxManyNode(
-                _this.line,
-                _this.column,
-                _this.scope,
-                inner,
-                _this.multiplier
-              )
-              : _this);
+            return callback(null, inner !== _this.inner ? SyntaxManyNode(_this.index, _this.scope, inner, _this.multiplier) : _this);
           }));
         };
         return SyntaxManyNode;
       }(Node));
       Node.SyntaxParam = SyntaxParamNode = (function (Node) {
         var _Node_prototype, _SyntaxParamNode_prototype;
-        function SyntaxParamNode(line, column, scope, ident, asType) {
+        function SyntaxParamNode(index, scope, ident, asType) {
           var _this;
           _this = this instanceof SyntaxParamNode ? this : __create(_SyntaxParamNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(ident instanceof Node)) {
             throw TypeError("Expected ident to be a " + __name(Node) + ", got " + __typeof(ident));
@@ -24618,8 +24076,7 @@
           } else if (!(asType instanceof Node)) {
             throw TypeError("Expected asType to be one of " + (__name(Node) + " or undefined") + ", got " + __typeof(asType));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -24641,8 +24098,7 @@
           return inspectHelper(
             depth,
             "SyntaxParamNode",
-            this.line,
-            this.column,
+            this.index,
             this.ident,
             this.asType
           );
@@ -24656,13 +24112,7 @@
             asType = this.asType;
           }
           if (ident !== this.ident || asType !== this.asType) {
-            return SyntaxParamNode(
-              this.line,
-              this.column,
-              this.scope,
-              ident,
-              asType
-            );
+            return SyntaxParamNode(this.index, this.scope, ident, asType);
           } else {
             return this;
           }
@@ -24697,15 +24147,7 @@
               : function (next) {
                 return next(_this.asType);
               })(function (asType) {
-              return callback(null, ident !== _this.ident || asType !== _this.asType
-                ? SyntaxParamNode(
-                  _this.line,
-                  _this.column,
-                  _this.scope,
-                  ident,
-                  asType
-                )
-                : _this);
+              return callback(null, ident !== _this.ident || asType !== _this.asType ? SyntaxParamNode(_this.index, _this.scope, ident, asType) : _this);
             });
           }));
         };
@@ -24713,14 +24155,11 @@
       }(Node));
       Node.SyntaxSequence = SyntaxSequenceNode = (function (Node) {
         var _Node_prototype, _SyntaxSequenceNode_prototype;
-        function SyntaxSequenceNode(line, column, scope, params) {
+        function SyntaxSequenceNode(index, scope, params) {
           var _i, _this;
           _this = this instanceof SyntaxSequenceNode ? this : __create(_SyntaxSequenceNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!__isArray(params)) {
             throw TypeError("Expected params to be an Array, got " + __typeof(params));
@@ -24731,8 +24170,7 @@
               }
             }
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -24750,19 +24188,13 @@
         SyntaxSequenceNode.cappedName = "SyntaxSequence";
         SyntaxSequenceNode.argNames = ["params"];
         _SyntaxSequenceNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "SyntaxSequenceNode",
-            this.line,
-            this.column,
-            this.params
-          );
+          return inspectHelper(depth, "SyntaxSequenceNode", this.index, this.params);
         };
         _SyntaxSequenceNode_prototype.walk = function (f) {
           var params;
           params = map(this.params, f);
           if (params !== this.params) {
-            return SyntaxSequenceNode(this.line, this.column, this.scope, params);
+            return SyntaxSequenceNode(this.index, this.scope, params);
           } else {
             return this;
           }
@@ -24779,24 +24211,20 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, params !== _this.params ? SyntaxSequenceNode(_this.line, _this.column, _this.scope, params) : _this);
+            return callback(null, params !== _this.params ? SyntaxSequenceNode(_this.index, _this.scope, params) : _this);
           }));
         };
         return SyntaxSequenceNode;
       }(Node));
       Node.This = ThisNode = (function (Node) {
         var _Node_prototype, _ThisNode_prototype;
-        function ThisNode(line, column, scope) {
+        function ThisNode(index, scope) {
           var _this;
           _this = this instanceof ThisNode ? this : __create(_ThisNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
-          }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -24817,26 +24245,22 @@
           return true;
         };
         _ThisNode_prototype.inspect = function (depth) {
-          return inspectHelper(depth, "ThisNode", this.line, this.column);
+          return inspectHelper(depth, "ThisNode", this.index);
         };
         return ThisNode;
       }(Node));
       Node.Throw = ThrowNode = (function (Node) {
         var _Node_prototype, _ThrowNode_prototype;
-        function ThrowNode(line, column, scope, node) {
+        function ThrowNode(index, scope, node) {
           var _this;
           _this = this instanceof ThrowNode ? this : __create(_ThrowNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -24863,34 +24287,27 @@
           var node;
           node = this.node.reduce(o).doWrap(o);
           if (node !== this.node) {
-            return ThrowNode(this.line, this.column, this.scope, node);
+            return ThrowNode(this.index, this.scope, node);
           } else {
             return this;
           }
         };
         _ThrowNode_prototype.doWrap = function (o) {
           return CallNode(
-            this.line,
-            this.column,
+            this.index,
             this.scope,
-            IdentNode(this.line, this.column, this.scope, "__throw"),
+            IdentNode(this.index, this.scope, "__throw"),
             [this.node]
           );
         };
         _ThrowNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "ThrowNode",
-            this.line,
-            this.column,
-            this.node
-          );
+          return inspectHelper(depth, "ThrowNode", this.index, this.node);
         };
         _ThrowNode_prototype.walk = function (f) {
           var node;
           node = f(this.node);
           if (node !== this.node) {
-            return ThrowNode(this.line, this.column, this.scope, node);
+            return ThrowNode(this.index, this.scope, node);
           } else {
             return this;
           }
@@ -24907,21 +24324,18 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, node !== _this.node ? ThrowNode(_this.line, _this.column, _this.scope, node) : _this);
+            return callback(null, node !== _this.node ? ThrowNode(_this.index, _this.scope, node) : _this);
           }));
         };
         return ThrowNode;
       }(Node));
       Node.Tmp = TmpNode = (function (Node) {
         var _Node_prototype, _TmpNode_prototype;
-        function TmpNode(line, column, scope, id, name, _type) {
+        function TmpNode(index, scope, id, name, _type) {
           var _this;
           _this = this instanceof TmpNode ? this : __create(_TmpNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (typeof id !== "number") {
             throw TypeError("Expected id to be a Number, got " + __typeof(id));
@@ -24934,8 +24348,7 @@
           } else if (!(_type instanceof Type)) {
             throw TypeError("Expected _type to be a " + __name(Type) + ", got " + __typeof(_type));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -24965,8 +24378,7 @@
           return inspectHelper(
             depth,
             "TmpNode",
-            this.line,
-            this.column,
+            this.index,
             this.id,
             this.name,
             this._type
@@ -24982,14 +24394,11 @@
       }(Node));
       Node.TmpWrapper = TmpWrapperNode = (function (Node) {
         var _Node_prototype, _TmpWrapperNode_prototype;
-        function TmpWrapperNode(line, column, scope, node, tmps) {
+        function TmpWrapperNode(index, scope, node, tmps) {
           var _this;
           _this = this instanceof TmpWrapperNode ? this : __create(_TmpWrapperNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
@@ -24997,8 +24406,7 @@
           if (!__isArray(tmps)) {
             throw TypeError("Expected tmps to be an Array, got " + __typeof(tmps));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -25026,8 +24434,7 @@
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
           return TmpWrapperNode(
-            this.line,
-            this.column,
+            this.index,
             this.scope,
             this.node.withLabel(label, o),
             this.tmps
@@ -25039,13 +24446,7 @@
           if (this.tmps.length === 0) {
             return node;
           } else if (this.node !== node) {
-            return TmpWrapperNode(
-              this.line,
-              this.column,
-              this.scope,
-              node,
-              this.tmps
-            );
+            return TmpWrapperNode(this.index, this.scope, node, this.tmps);
           } else {
             return this;
           }
@@ -25060,13 +24461,7 @@
           var node;
           node = this.node.doWrap(o);
           if (node !== this.node) {
-            return TmpWrapperNode(
-              this.line,
-              this.column,
-              this.scope,
-              node,
-              this.tmps
-            );
+            return TmpWrapperNode(this.index, this.scope, node, this.tmps);
           } else {
             return this;
           }
@@ -25075,8 +24470,7 @@
           return inspectHelper(
             depth,
             "TmpWrapperNode",
-            this.line,
-            this.column,
+            this.index,
             this.node,
             this.tmps
           );
@@ -25085,13 +24479,7 @@
           var node;
           node = f(this.node);
           if (node !== this.node) {
-            return TmpWrapperNode(
-              this.line,
-              this.column,
-              this.scope,
-              node,
-              this.tmps
-            );
+            return TmpWrapperNode(this.index, this.scope, node, this.tmps);
           } else {
             return this;
           }
@@ -25108,29 +24496,18 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, node !== _this.node
-              ? TmpWrapperNode(
-                _this.line,
-                _this.column,
-                _this.scope,
-                node,
-                _this.tmps
-              )
-              : _this);
+            return callback(null, node !== _this.node ? TmpWrapperNode(_this.index, _this.scope, node, _this.tmps) : _this);
           }));
         };
         return TmpWrapperNode;
       }(Node));
       Node.TryCatch = TryCatchNode = (function (Node) {
         var _Node_prototype, _TryCatchNode_prototype;
-        function TryCatchNode(line, column, scope, tryBody, catchIdent, catchBody, label) {
+        function TryCatchNode(index, scope, tryBody, catchIdent, catchBody, label) {
           var _this;
           _this = this instanceof TryCatchNode ? this : __create(_TryCatchNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(tryBody instanceof Node)) {
             throw TypeError("Expected tryBody to be a " + __name(Node) + ", got " + __typeof(tryBody));
@@ -25146,8 +24523,7 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -25188,8 +24564,7 @@
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
           return TryCatchNode(
-            this.line,
-            this.column,
+            this.index,
             this.scope,
             this.tryBody,
             this.catchIdent,
@@ -25201,8 +24576,7 @@
           return inspectHelper(
             depth,
             "TryCatchNode",
-            this.line,
-            this.column,
+            this.index,
             this.tryBody,
             this.catchIdent,
             this.catchBody,
@@ -25221,8 +24595,7 @@
           }
           if (tryBody !== this.tryBody || catchIdent !== this.catchIdent || catchBody !== this.catchBody || label !== this.label) {
             return TryCatchNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               tryBody,
               catchIdent,
@@ -25285,8 +24658,7 @@
                   })(function (label) {
                   return callback(null, tryBody !== _this.tryBody || catchIdent !== _this.catchIdent || catchBody !== _this.catchBody || label !== _this.label
                     ? TryCatchNode(
-                      _this.line,
-                      _this.column,
+                      _this.index,
                       _this.scope,
                       tryBody,
                       catchIdent,
@@ -25303,14 +24675,11 @@
       }(Node));
       Node.TryFinally = TryFinallyNode = (function (Node) {
         var _Node_prototype, _TryFinallyNode_prototype;
-        function TryFinallyNode(line, column, scope, tryBody, finallyBody, label) {
+        function TryFinallyNode(index, scope, tryBody, finallyBody, label) {
           var _this;
           _this = this instanceof TryFinallyNode ? this : __create(_TryFinallyNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(tryBody instanceof Node)) {
             throw TypeError("Expected tryBody to be a " + __name(Node) + ", got " + __typeof(tryBody));
@@ -25323,8 +24692,7 @@
           } else if (!(label instanceof IdentNode) && !(label instanceof TmpNode)) {
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -25356,13 +24724,12 @@
             label = this.label;
           }
           if (finallyBody instanceof NothingNode) {
-            return BlockNode(this.line, this.column, this.scopeIf([tryBody], label)).reduce(o);
+            return BlockNode(this.index, this.scopeIf([tryBody], label)).reduce(o);
           } else if (tryBody instanceof NothingNode) {
-            return BlockNode(this.line, this.column, this.scopeIf([finallyBody], label)).reduce(o);
+            return BlockNode(this.index, this.scopeIf([finallyBody], label)).reduce(o);
           } else if (tryBody !== this.tryBody || finallyBody !== this.finallyBody || label !== this.label) {
             return TryFinallyNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               tryBody,
               finallyBody,
@@ -25390,8 +24757,7 @@
             throw TypeError("Expected label to be one of " + (__name(IdentNode) + " or " + __name(TmpNode) + " or null") + ", got " + __typeof(label));
           }
           return TryFinallyNode(
-            this.line,
-            this.column,
+            this.index,
             this.scope,
             this.tryBody,
             this.finallyBody,
@@ -25402,8 +24768,7 @@
           return inspectHelper(
             depth,
             "TryFinallyNode",
-            this.line,
-            this.column,
+            this.index,
             this.tryBody,
             this.finallyBody,
             this.label
@@ -25420,8 +24785,7 @@
           }
           if (tryBody !== this.tryBody || finallyBody !== this.finallyBody || label !== this.label) {
             return TryFinallyNode(
-              this.line,
-              this.column,
+              this.index,
               this.scope,
               tryBody,
               finallyBody,
@@ -25473,8 +24837,7 @@
                 })(function (label) {
                 return callback(null, tryBody !== _this.tryBody || finallyBody !== _this.finallyBody || label !== _this.label
                   ? TryFinallyNode(
-                    _this.line,
-                    _this.column,
+                    _this.index,
                     _this.scope,
                     tryBody,
                     finallyBody,
@@ -25489,20 +24852,16 @@
       }(Node));
       Node.TypeFunction = TypeFunctionNode = (function (Node) {
         var _Node_prototype, _TypeFunctionNode_prototype;
-        function TypeFunctionNode(line, column, scope, returnType) {
+        function TypeFunctionNode(index, scope, returnType) {
           var _this;
           _this = this instanceof TypeFunctionNode ? this : __create(_TypeFunctionNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(returnType instanceof Node)) {
             throw TypeError("Expected returnType to be a " + __name(Node) + ", got " + __typeof(returnType));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -25520,19 +24879,13 @@
         TypeFunctionNode.cappedName = "TypeFunction";
         TypeFunctionNode.argNames = ["returnType"];
         _TypeFunctionNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "TypeFunctionNode",
-            this.line,
-            this.column,
-            this.returnType
-          );
+          return inspectHelper(depth, "TypeFunctionNode", this.index, this.returnType);
         };
         _TypeFunctionNode_prototype.walk = function (f) {
           var returnType;
           returnType = f(this.returnType);
           if (returnType !== this.returnType) {
-            return TypeFunctionNode(this.line, this.column, this.scope, returnType);
+            return TypeFunctionNode(this.index, this.scope, returnType);
           } else {
             return this;
           }
@@ -25549,21 +24902,18 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, returnType !== _this.returnType ? TypeFunctionNode(_this.line, _this.column, _this.scope, returnType) : _this);
+            return callback(null, returnType !== _this.returnType ? TypeFunctionNode(_this.index, _this.scope, returnType) : _this);
           }));
         };
         return TypeFunctionNode;
       }(Node));
       Node.TypeGeneric = TypeGenericNode = (function (Node) {
         var _Node_prototype, _TypeGenericNode_prototype;
-        function TypeGenericNode(line, column, scope, basetype, args) {
+        function TypeGenericNode(index, scope, basetype, args) {
           var _i, _this;
           _this = this instanceof TypeGenericNode ? this : __create(_TypeGenericNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(basetype instanceof Node)) {
             throw TypeError("Expected basetype to be a " + __name(Node) + ", got " + __typeof(basetype));
@@ -25577,8 +24927,7 @@
               }
             }
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -25600,8 +24949,7 @@
           return inspectHelper(
             depth,
             "TypeGenericNode",
-            this.line,
-            this.column,
+            this.index,
             this.basetype,
             this.args
           );
@@ -25611,13 +24959,7 @@
           basetype = f(this.basetype);
           args = map(this.args, f);
           if (basetype !== this.basetype || args !== this.args) {
-            return TypeGenericNode(
-              this.line,
-              this.column,
-              this.scope,
-              basetype,
-              args
-            );
+            return TypeGenericNode(this.index, this.scope, basetype, args);
           } else {
             return this;
           }
@@ -25644,15 +24986,7 @@
               if (_e2 != null) {
                 return callback(_e2);
               }
-              return callback(null, basetype !== _this.basetype || args !== _this.args
-                ? TypeGenericNode(
-                  _this.line,
-                  _this.column,
-                  _this.scope,
-                  basetype,
-                  args
-                )
-                : _this);
+              return callback(null, basetype !== _this.basetype || args !== _this.args ? TypeGenericNode(_this.index, _this.scope, basetype, args) : _this);
             }));
           }));
         };
@@ -25660,20 +24994,16 @@
       }(Node));
       Node.TypeObject = TypeObjectNode = (function (Node) {
         var _Node_prototype, _TypeObjectNode_prototype;
-        function TypeObjectNode(line, column, scope, pairs) {
+        function TypeObjectNode(index, scope, pairs) {
           var _this;
           _this = this instanceof TypeObjectNode ? this : __create(_TypeObjectNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!__isArray(pairs)) {
             throw TypeError("Expected pairs to be an Array, got " + __typeof(pairs));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -25704,19 +25034,13 @@
           var pairs;
           pairs = map(this.pairs, reducePair, o);
           if (pairs !== this.pairs) {
-            return TypeObjectNode(this.line, this.column, this.scope, pairs);
+            return TypeObjectNode(this.index, this.scope, pairs);
           } else {
             return this;
           }
         };
         _TypeObjectNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "TypeObjectNode",
-            this.line,
-            this.column,
-            this.pairs
-          );
+          return inspectHelper(depth, "TypeObjectNode", this.index, this.pairs);
         };
         _TypeObjectNode_prototype.walk = function (f) {
           return this;
@@ -25728,14 +25052,11 @@
       }(Node));
       Node.TypeUnion = TypeUnionNode = (function (Node) {
         var _Node_prototype, _TypeUnionNode_prototype;
-        function TypeUnionNode(line, column, scope, types) {
+        function TypeUnionNode(index, scope, types) {
           var _i, _this;
           _this = this instanceof TypeUnionNode ? this : __create(_TypeUnionNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!__isArray(types)) {
             throw TypeError("Expected types to be an Array, got " + __typeof(types));
@@ -25746,8 +25067,7 @@
               }
             }
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -25765,19 +25085,13 @@
         TypeUnionNode.cappedName = "TypeUnion";
         TypeUnionNode.argNames = ["types"];
         _TypeUnionNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "TypeUnionNode",
-            this.line,
-            this.column,
-            this.types
-          );
+          return inspectHelper(depth, "TypeUnionNode", this.index, this.types);
         };
         _TypeUnionNode_prototype.walk = function (f) {
           var types;
           types = map(this.types, f);
           if (types !== this.types) {
-            return TypeUnionNode(this.line, this.column, this.scope, types);
+            return TypeUnionNode(this.index, this.scope, types);
           } else {
             return this;
           }
@@ -25794,21 +25108,18 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, types !== _this.types ? TypeUnionNode(_this.line, _this.column, _this.scope, types) : _this);
+            return callback(null, types !== _this.types ? TypeUnionNode(_this.index, _this.scope, types) : _this);
           }));
         };
         return TypeUnionNode;
       }(Node));
       Node.Unary = UnaryNode = (function (Node) {
         var _Node_prototype, _UnaryNode_prototype;
-        function UnaryNode(line, column, scope, op, node) {
+        function UnaryNode(index, scope, op, node) {
           var _this;
           _this = this instanceof UnaryNode ? this : __create(_UnaryNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (typeof op !== "string") {
             throw TypeError("Expected op to be a String, got " + __typeof(op));
@@ -25816,8 +25127,7 @@
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -25884,8 +25194,7 @@
               if (node instanceof UnaryNode) {
                 if ((_ref = node.op) === "-" || _ref === "+") {
                   return UnaryNode(
-                    this.line,
-                    this.column,
+                    this.index,
                     this.scope,
                     node.op === "-" ? "+" : "-",
                     node.node
@@ -25894,8 +25203,7 @@
               } else if (node instanceof BinaryNode) {
                 if ((_ref = node.op) === "-" || _ref === "+") {
                   return BinaryNode(
-                    this.line,
-                    this.column,
+                    this.index,
                     this.scope,
                     node.left,
                     node.op === "-" ? "+" : "-",
@@ -25903,16 +25211,9 @@
                   );
                 } else if ((_ref = node.op) === "*" || _ref === "/") {
                   return BinaryNode(
-                    this.line,
-                    this.column,
+                    this.index,
                     this.scope,
-                    UnaryNode(
-                      node.left.line,
-                      node.left.column,
-                      node.left.scope,
-                      "-",
-                      node.left
-                    ),
+                    UnaryNode(node.left.index, node.left.scope, "-", node.left),
                     node.op,
                     node.right
                   );
@@ -25932,46 +25233,20 @@
                 "!==": "===",
                 "&&": function (x, y) {
                   return BinaryNode(
-                    this.line,
-                    this.column,
+                    this.index,
                     this.scope,
-                    UnaryNode(
-                      x.line,
-                      x.column,
-                      x.scope,
-                      "!",
-                      x
-                    ),
+                    UnaryNode(x.index, x.scope, "!", x),
                     "||",
-                    UnaryNode(
-                      y.line,
-                      y.column,
-                      y.scope,
-                      "!",
-                      y
-                    )
+                    UnaryNode(y.index, y.scope, "!", y)
                   );
                 },
                 "||": function (x, y) {
                   return BinaryNode(
-                    this.line,
-                    this.column,
+                    this.index,
                     this.scope,
-                    UnaryNode(
-                      x.line,
-                      x.column,
-                      x.scope,
-                      "!",
-                      x
-                    ),
+                    UnaryNode(x.index, x.scope, "!", x),
                     "&&",
-                    UnaryNode(
-                      y.line,
-                      y.column,
-                      y.scope,
-                      "!",
-                      y
-                    )
+                    UnaryNode(y.index, y.scope, "!", y)
                   );
                 }
               };
@@ -25987,8 +25262,7 @@
                     return invert.call(this, node.left, node.right);
                   } else {
                     return BinaryNode(
-                      this.line,
-                      this.column,
+                      this.index,
                       this.scope,
                       node.left,
                       invert,
@@ -26006,17 +25280,17 @@
                 if (node.isNoop(o)) {
                   type = node.type(o);
                   if (type.isSubsetOf(Type.number)) {
-                    return ConstNode(this.line, this.column, this.scope, "number");
+                    return ConstNode(this.index, this.scope, "number");
                   } else if (type.isSubsetOf(Type.string)) {
-                    return ConstNode(this.line, this.column, this.scope, "string");
+                    return ConstNode(this.index, this.scope, "string");
                   } else if (type.isSubsetOf(Type.boolean)) {
-                    return ConstNode(this.line, this.column, this.scope, "boolean");
+                    return ConstNode(this.index, this.scope, "boolean");
                   } else if (type.isSubsetOf(Type["undefined"])) {
-                    return ConstNode(this.line, this.column, this.scope, "undefined");
+                    return ConstNode(this.index, this.scope, "undefined");
                   } else if (type.isSubsetOf(Type["function"])) {
-                    return ConstNode(this.line, this.column, this.scope, "function");
+                    return ConstNode(this.index, this.scope, "function");
                   } else if (type.isSubsetOf(objectType)) {
-                    return ConstNode(this.line, this.column, this.scope, "object");
+                    return ConstNode(this.index, this.scope, "object");
                   }
                 }
               };
@@ -26027,7 +25301,7 @@
             node = this.node.reduce(o).doWrap(o);
             op = this.op;
             if (node.isConst() && __owns.call(constOps, op)) {
-              return ConstNode(this.line, this.column, this.scope, constOps[op](node.constValue()));
+              return ConstNode(this.index, this.scope, constOps[op](node.constValue()));
             }
             if (__owns.call(nonconstOps, op)) {
               result = nonconstOps[op].call(this, node, o);
@@ -26036,13 +25310,7 @@
               return result.reduce(o);
             }
             if (node !== this.node) {
-              return UnaryNode(
-                this.line,
-                this.column,
-                this.scope,
-                op,
-                node
-              );
+              return UnaryNode(this.index, this.scope, op, node);
             } else {
               return this;
             }
@@ -26060,8 +25328,7 @@
           return inspectHelper(
             depth,
             "UnaryNode",
-            this.line,
-            this.column,
+            this.index,
             this.op,
             this.node
           );
@@ -26070,13 +25337,7 @@
           var node;
           node = f(this.node);
           if (node !== this.node) {
-            return UnaryNode(
-              this.line,
-              this.column,
-              this.scope,
-              this.op,
-              node
-            );
+            return UnaryNode(this.index, this.scope, this.op, node);
           } else {
             return this;
           }
@@ -26093,29 +25354,18 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, node !== _this.node
-              ? UnaryNode(
-                _this.line,
-                _this.column,
-                _this.scope,
-                _this.op,
-                node
-              )
-              : _this);
+            return callback(null, node !== _this.node ? UnaryNode(_this.index, _this.scope, _this.op, node) : _this);
           }));
         };
         return UnaryNode;
       }(Node));
       Node.Var = VarNode = (function (Node) {
         var _Node_prototype, _VarNode_prototype;
-        function VarNode(line, column, scope, ident, isMutable) {
+        function VarNode(index, scope, ident, isMutable) {
           var _this;
           _this = this instanceof VarNode ? this : __create(_VarNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(ident instanceof IdentNode) && !(ident instanceof TmpNode)) {
             throw TypeError("Expected ident to be one of " + (__name(IdentNode) + " or " + __name(TmpNode)) + ", got " + __typeof(ident));
@@ -26125,8 +25375,7 @@
           } else if (typeof isMutable !== "boolean") {
             throw TypeError("Expected isMutable to be a Boolean, got " + __typeof(isMutable));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -26151,13 +25400,7 @@
           var ident;
           ident = this.ident.reduce(o);
           if (ident !== this.ident) {
-            return VarNode(
-              this.line,
-              this.column,
-              this.scope,
-              ident,
-              this.isMutable
-            );
+            return VarNode(this.index, this.scope, ident, this.isMutable);
           } else {
             return this;
           }
@@ -26166,8 +25409,7 @@
           return inspectHelper(
             depth,
             "VarNode",
-            this.line,
-            this.column,
+            this.index,
             this.ident,
             this.isMutable
           );
@@ -26176,13 +25418,7 @@
           var ident;
           ident = f(this.ident);
           if (ident !== this.ident) {
-            return VarNode(
-              this.line,
-              this.column,
-              this.scope,
-              ident,
-              this.isMutable
-            );
+            return VarNode(this.index, this.scope, ident, this.isMutable);
           } else {
             return this;
           }
@@ -26199,35 +25435,23 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, ident !== _this.ident
-              ? VarNode(
-                _this.line,
-                _this.column,
-                _this.scope,
-                ident,
-                _this.isMutable
-              )
-              : _this);
+            return callback(null, ident !== _this.ident ? VarNode(_this.index, _this.scope, ident, _this.isMutable) : _this);
           }));
         };
         return VarNode;
       }(Node));
       Node.Yield = YieldNode = (function (Node) {
         var _Node_prototype, _YieldNode_prototype;
-        function YieldNode(line, column, scope, node) {
+        function YieldNode(index, scope, node) {
           var _this;
           _this = this instanceof YieldNode ? this : __create(_YieldNode_prototype);
-          if (typeof line !== "number") {
-            throw TypeError("Expected line to be a Number, got " + __typeof(line));
-          }
-          if (typeof column !== "number") {
-            throw TypeError("Expected column to be a Number, got " + __typeof(column));
+          if (typeof index !== "number") {
+            throw TypeError("Expected index to be a Number, got " + __typeof(index));
           }
           if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
-          _this.line = line;
-          _this.column = column;
+          _this.index = index;
           _this.scope = scope;
           _this._reduced = void 0;
           _this._macroExpanded = void 0;
@@ -26251,25 +25475,19 @@
           var node;
           node = this.node.reduce(o).doWrap(o);
           if (node !== this.node) {
-            return YieldNode(this.line, this.column, this.scope, node);
+            return YieldNode(this.index, this.scope, node);
           } else {
             return this;
           }
         };
         _YieldNode_prototype.inspect = function (depth) {
-          return inspectHelper(
-            depth,
-            "YieldNode",
-            this.line,
-            this.column,
-            this.node
-          );
+          return inspectHelper(depth, "YieldNode", this.index, this.node);
         };
         _YieldNode_prototype.walk = function (f) {
           var node;
           node = f(this.node);
           if (node !== this.node) {
-            return YieldNode(this.line, this.column, this.scope, node);
+            return YieldNode(this.index, this.scope, node);
           } else {
             return this;
           }
@@ -26286,7 +25504,7 @@
             if (_e != null) {
               return callback(_e);
             }
-            return callback(null, node !== _this.node ? YieldNode(_this.line, _this.column, _this.scope, node) : _this);
+            return callback(null, node !== _this.node ? YieldNode(_this.index, _this.scope, node) : _this);
           }));
         };
         return YieldNode;
@@ -27120,18 +26338,22 @@
           return this.parser.scope.peek();
         };
         _MacroContext_prototype.line = function (node) {
+          var index;
           if (node instanceof Node) {
-            return node.line;
+            index = node.index;
           } else {
-            return this.parser.getPosition(this.index).line;
+            index = this.index;
           }
+          return this.parser.getPosition(index).line;
         };
         _MacroContext_prototype.column = function (node) {
+          var index;
           if (node instanceof Node) {
-            return node.column;
+            index = node.index;
           } else {
-            return this.parser.getPosition(this.index).column;
+            index = this.index;
           }
+          return this.parser.getPosition(index).column;
         };
         _MacroContext_prototype.file = function () {
           return this.parser.options.filename || "";
@@ -27183,7 +26405,7 @@
         };
         _MacroContext_prototype.def = function (key, value) {
           if (key == null) {
-            key = NothingNode(0, 0, this.scope());
+            key = NothingNode(0, this.scope());
           } else if (!(key instanceof Node)) {
             throw TypeError("Expected key to be a " + __name(Node) + ", got " + __typeof(key));
           }
@@ -27217,12 +26439,12 @@
         };
         _MacroContext_prototype["if"] = function (test, whenTrue, whenFalse, label) {
           if (test == null) {
-            test = NothingNode(0, 0, this.scope());
+            test = NothingNode(0, this.scope());
           } else if (!(test instanceof Node)) {
             throw TypeError("Expected test to be a " + __name(Node) + ", got " + __typeof(test));
           }
           if (whenTrue == null) {
-            whenTrue = NothingNode(0, 0, this.scope());
+            whenTrue = NothingNode(0, this.scope());
           } else if (!(whenTrue instanceof Node)) {
             throw TypeError("Expected whenTrue to be a " + __name(Node) + ", got " + __typeof(whenTrue));
           }
@@ -27248,7 +26470,7 @@
           var _this;
           _this = this;
           if (node == null) {
-            node = NothingNode(0, 0, this.scope());
+            node = NothingNode(0, this.scope());
           } else if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
@@ -27297,7 +26519,7 @@
             throw TypeError("Expected step to be one of " + (__name(Node) + " or null") + ", got " + __typeof(step));
           }
           if (body == null) {
-            body = NothingNode(0, 0, this.scope());
+            body = NothingNode(0, this.scope());
           } else if (!(body instanceof Node)) {
             throw TypeError("Expected body to be a " + __name(Node) + ", got " + __typeof(body));
           }
@@ -27320,12 +26542,12 @@
             throw TypeError("Expected key to be a " + __name(IdentNode) + ", got " + __typeof(key));
           }
           if (object == null) {
-            object = NothingNode(0, 0);
+            object = NothingNode(0);
           } else if (!(object instanceof Node)) {
             throw TypeError("Expected object to be a " + __name(Node) + ", got " + __typeof(object));
           }
           if (body == null) {
-            body = NothingNode(0, 0, this.scope());
+            body = NothingNode(0, this.scope());
           } else if (!(body instanceof Node)) {
             throw TypeError("Expected body to be a " + __name(Node) + ", got " + __typeof(body));
           }
@@ -27344,17 +26566,17 @@
         };
         _MacroContext_prototype.tryCatch = function (tryBody, catchIdent, catchBody, label) {
           if (tryBody == null) {
-            tryBody = NothingNode(0, 0, this.scope());
+            tryBody = NothingNode(0, this.scope());
           } else if (!(tryBody instanceof Node)) {
             throw TypeError("Expected tryBody to be a " + __name(Node) + ", got " + __typeof(tryBody));
           }
           if (catchIdent == null) {
-            catchIdent = NothingNode(0, 0, this.scope());
+            catchIdent = NothingNode(0, this.scope());
           } else if (!(catchIdent instanceof Node)) {
             throw TypeError("Expected catchIdent to be a " + __name(Node) + ", got " + __typeof(catchIdent));
           }
           if (catchBody == null) {
-            catchBody = NothingNode(0, 0, this.scope());
+            catchBody = NothingNode(0, this.scope());
           } else if (!(catchBody instanceof Node)) {
             throw TypeError("Expected catchBody to be a " + __name(Node) + ", got " + __typeof(catchBody));
           }
@@ -27373,12 +26595,12 @@
         };
         _MacroContext_prototype.tryFinally = function (tryBody, finallyBody, label) {
           if (tryBody == null) {
-            tryBody = NothingNode(0, 0, this.scope());
+            tryBody = NothingNode(0, this.scope());
           } else if (!(tryBody instanceof Node)) {
             throw TypeError("Expected tryBody to be a " + __name(Node) + ", got " + __typeof(tryBody));
           }
           if (finallyBody == null) {
-            finallyBody = NothingNode(0, 0, this.scope());
+            finallyBody = NothingNode(0, this.scope());
           } else if (!(finallyBody instanceof Node)) {
             throw TypeError("Expected finallyBody to be a " + __name(Node) + ", got " + __typeof(finallyBody));
           }
@@ -27391,7 +26613,7 @@
         };
         _MacroContext_prototype.assign = function (left, op, right) {
           if (left == null) {
-            left = NothingNode(0, 0, this.scope());
+            left = NothingNode(0, this.scope());
           } else if (!(left instanceof Node)) {
             throw TypeError("Expected left to be a " + __name(Node) + ", got " + __typeof(left));
           }
@@ -27399,7 +26621,7 @@
             throw TypeError("Expected op to be a String, got " + __typeof(op));
           }
           if (right == null) {
-            right = NothingNode(0, 0, this.scope());
+            right = NothingNode(0, this.scope());
           } else if (!(right instanceof Node)) {
             throw TypeError("Expected right to be a " + __name(Node) + ", got " + __typeof(right));
           }
@@ -27407,7 +26629,7 @@
         };
         _MacroContext_prototype.binary = function (left, op, right) {
           if (left == null) {
-            left = NothingNode(0, 0, this.scope());
+            left = NothingNode(0, this.scope());
           } else if (!(left instanceof Node)) {
             throw TypeError("Expected left to be a " + __name(Node) + ", got " + __typeof(left));
           }
@@ -27415,7 +26637,7 @@
             throw TypeError("Expected op to be a String, got " + __typeof(op));
           }
           if (right == null) {
-            right = NothingNode(0, 0, this.scope());
+            right = NothingNode(0, this.scope());
           } else if (!(right instanceof Node)) {
             throw TypeError("Expected right to be a " + __name(Node) + ", got " + __typeof(right));
           }
@@ -27451,7 +26673,7 @@
             throw TypeError("Expected op to be a String, got " + __typeof(op));
           }
           if (node == null) {
-            node = NothingNode(0, 0, this.scope());
+            node = NothingNode(0, this.scope());
           } else if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
@@ -27459,7 +26681,7 @@
         };
         _MacroContext_prototype["throw"] = function (node) {
           if (node == null) {
-            node = NothingNode(0, 0, this.scope());
+            node = NothingNode(0, this.scope());
           } else if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
@@ -27475,7 +26697,7 @@
         };
         _MacroContext_prototype["yield"] = function (node) {
           if (node == null) {
-            node = NothingNode(0, 0, this.scope());
+            node = NothingNode(0, this.scope());
           } else if (!(node instanceof Node)) {
             throw TypeError("Expected node to be a " + __name(Node) + ", got " + __typeof(node));
           }
@@ -27518,21 +26740,9 @@
           oldNode = this.macroExpand1(oldNode);
           if (oldNode instanceof TmpWrapperNode) {
             if (newNode instanceof TmpWrapperNode) {
-              return TmpWrapperNode(
-                newNode.line,
-                newNode.column,
-                newNode.scope,
-                newNode,
-                oldNode.tmps.concat(newNode.tmps)
-              );
+              return TmpWrapperNode(newNode.index, newNode.scope, newNode, oldNode.tmps.concat(newNode.tmps));
             } else {
-              return TmpWrapperNode(
-                newNode.line,
-                newNode.column,
-                newNode.scope,
-                newNode,
-                oldNode.tmps.slice()
-              );
+              return TmpWrapperNode(newNode.index, newNode.scope, newNode, oldNode.tmps.slice());
             }
           } else {
             return newNode;
@@ -27770,8 +26980,7 @@
             throw Error("Cannot specify both is-new and is-apply");
           }
           return CallNode(
-            func.line,
-            func.column,
+            func.index,
             this.scope(),
             this.doWrap(func),
             (function () {
@@ -27836,8 +27045,7 @@
           }
           params = _arr;
           func = FunctionNode(
-            body.line,
-            body.column,
+            body.index,
             scope.parent,
             params,
             body.rescope(scope),
@@ -27909,8 +27117,7 @@
             throw TypeError("Expected ident to be a " + __name(Node) + ", got " + __typeof(ident));
           }
           return ParamNode(
-            ident.line,
-            ident.column,
+            ident.index,
             ident.scope,
             ident,
             defaultValue,
@@ -28317,80 +27524,75 @@
             return node instanceof NothingNode;
           }
         };
-        function constifyObject(obj, line, column, scope) {
+        function constifyObject(obj, index, scope) {
           if (!(scope instanceof Scope)) {
             throw TypeError("Expected scope to be a " + __name(Scope) + ", got " + __typeof(scope));
           }
           if (typeof obj !== "object" || obj === null || obj instanceof RegExp) {
-            return ConstNode(line, column, scope, obj);
+            return ConstNode(index, scope, obj);
           } else if (__isArray(obj)) {
-            return ArrayNode(line, column, scope, (function () {
+            return ArrayNode(index, scope, (function () {
               var _arr, _arr2, _i, _len, item;
               for (_arr = [], _arr2 = __toArray(obj), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
                 item = _arr2[_i];
-                _arr.push(constifyObject(item, line, column, scope));
+                _arr.push(constifyObject(item, index, scope));
               }
               return _arr;
             }()));
           } else if (obj instanceof IdentNode && __num(obj.name.length) > 1 && obj.name.charCodeAt(0) === 36) {
             return CallNode(
-              obj.line,
-              obj.column,
+              obj.index,
               scope,
-              IdentNode(obj.line, obj.column, scope, "__wrap"),
-              [IdentNode(obj.line, obj.column, scope, obj.name.substring(1))]
+              IdentNode(obj.index, scope, "__wrap"),
+              [IdentNode(obj.index, scope, obj.name.substring(1))]
             );
           } else if (obj instanceof CallNode && !obj.isNew && !obj.isApply && obj.func instanceof IdentNode && obj.func.name === "$") {
             if (obj.args.length !== 1 || obj.args[0] instanceof SpreadNode) {
               throw Error("Can only use $() in an AST if it has one argument.");
             }
             return CallNode(
-              obj.line,
-              obj.column,
+              obj.index,
               scope,
-              IdentNode(obj.line, obj.column, scope, "__wrap"),
+              IdentNode(obj.index, scope, "__wrap"),
               [obj.args[0]]
             );
           } else if (obj instanceof MacroConstNode) {
             return CallNode(
-              obj.line,
-              obj.column,
+              obj.index,
               scope,
-              IdentNode(obj.line, obj.column, scope, "__const"),
-              [ConstNode(obj.line, obj.column, scope, obj.name)]
+              IdentNode(obj.index, scope, "__const"),
+              [ConstNode(obj.index, scope, obj.name)]
             );
           } else if (obj instanceof Node) {
             if (obj.constructor === Node) {
               throw Error("Cannot constify a raw node");
             }
             return CallNode(
-              obj.line,
-              obj.column,
+              obj.index,
               scope,
-              IdentNode(obj.line, obj.column, scope, "__node"),
+              IdentNode(obj.index, scope, "__node"),
               [
-                ConstNode(obj.line, obj.column, scope, obj.constructor.cappedName),
-                ConstNode(obj.line, obj.column, scope, obj.line),
-                ConstNode(obj.line, obj.column, scope, obj.column)
+                ConstNode(obj.index, scope, obj.constructor.cappedName),
+                ConstNode(obj.index, scope, obj.index)
               ].concat((function () {
                 var _arr, _arr2, _i, _len, k;
                 for (_arr = [], _arr2 = __toArray(obj.constructor.argNames), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
                   k = _arr2[_i];
-                  _arr.push(constifyObject(obj[k], obj.line, obj.column, scope));
+                  _arr.push(constifyObject(obj[k], obj.index, scope));
                 }
                 return _arr;
               }()))
             );
           } else {
-            return ObjectNode(line, column, scope, (function () {
+            return ObjectNode(index, scope, (function () {
               var _arr, k, v;
               _arr = [];
               for (k in obj) {
                 if (__owns.call(obj, k)) {
                   v = obj[k];
                   _arr.push({
-                    key: ConstNode(line, column, scope, k),
-                    value: constifyObject(v, line, column, scope)
+                    key: ConstNode(index, scope, k),
+                    value: constifyObject(v, index, scope)
                   });
                 }
               }
@@ -28417,24 +27619,24 @@
         _MacroContext_prototype.wrap = function (value) {
           var _ref;
           if (__isArray(value)) {
-            return BlockNode(0, 0, this.scope(), value).reduce(this.parser);
+            return BlockNode(0, this.scope(), value).reduce(this.parser);
           } else if (value instanceof Node) {
             return value;
           } else if (value == null) {
-            return NothingNode(0, 0, this.scope());
+            return NothingNode(0, this.scope());
           } else if (value instanceof RegExp || (_ref = typeof value) === "string" || _ref === "boolean" || _ref === "number") {
-            return ConstNode(0, 0, this.scope(), value);
+            return ConstNode(0, this.scope(), value);
           } else {
             return value;
           }
         };
-        _MacroContext_prototype.node = function (type, line, column) {
+        _MacroContext_prototype.node = function (type, index) {
           var args;
-          args = __slice.call(arguments, 3);
+          args = __slice.call(arguments, 2);
           if (type === "MacroAccess") {
-            return this.macro.apply(this, [line, column].concat(__toArray(args)));
+            return this.macro.apply(this, [index].concat(__toArray(args)));
           } else {
-            return Node[type].apply(Node, [line, column, this.scope()].concat(__toArray(args))).reduce(this.parser);
+            return Node[type].apply(Node, [index, this.scope()].concat(__toArray(args))).reduce(this.parser);
           }
         };
         _MacroContext_prototype.getConst = function (name) {
@@ -28446,12 +27648,11 @@
           if (!c) {
             throw Error("Unknown const '" + name + "'");
           }
-          return ConstNode(0, 0, this.scope(), c.value);
+          return ConstNode(0, this.scope(), c.value);
         };
-        _MacroContext_prototype.macro = function (line, column, id, callLine, data, position, inGenerator, inEvilAst) {
+        _MacroContext_prototype.macro = function (index, id, callLine, data, position, inGenerator, inEvilAst) {
           return Node.MacroAccess(
-            line,
-            column,
+            index,
             this.scope(),
             id,
             callLine,
@@ -28537,8 +27738,7 @@
               lastNode = this.mutateLast(nodes[__num(len) - 1], func);
               if (lastNode !== nodes[__num(len) - 1]) {
                 return BlockNode(
-                  x.line,
-                  x.column,
+                  x.index,
                   x.scope,
                   __toArray(__slice.call(nodes, 0, -1)).concat([lastNode]),
                   x.label
@@ -28553,8 +27753,7 @@
             whenFalse = this.mutateLast(x.whenFalse, func);
             if (whenTrue !== x.whenTrue || whenFalse !== x.whenFalse) {
               return IfNode(
-                x.line,
-                x.column,
+                x.index,
                 x.scope,
                 x.test,
                 whenTrue,
@@ -28584,8 +27783,7 @@
             defaultCase = this.mutateLast(x.defaultCase || this.noop(), func);
             if (cases !== x.cases || defaultCase !== x.defaultCase) {
               return SwitchNode(
-                x.line,
-                x.column,
+                x.index,
                 x.scope,
                 x.node,
                 cases,
@@ -28600,13 +27798,7 @@
             var node;
             node = this.mutateLast(x.node, func);
             if (node !== x.node) {
-              return TmpWrapperNode(
-                x.line,
-                x.column,
-                x.scope,
-                node,
-                x.tmps
-              );
+              return TmpWrapperNode(x.index, x.scope, node, x.tmps);
             } else {
               return x;
             }
@@ -28620,8 +27812,7 @@
             catchBody = this.mutateLast(x.catchBody, func);
             if (tryBody !== x.tryBody || catchBody !== x.catchBody) {
               return TryCatchNode(
-                x.line,
-                x.column,
+                x.index,
                 x.scope,
                 tryBody,
                 x.catchIdent,
@@ -28678,8 +27869,8 @@
       var __arrayToIter, __cmp, __create, __curry, __first, __import,
           __indexOfIdentical, __isArray, __iter, __name, __num, __owns, __slice,
           __strnum, __throw, __toArray, __typeof, _ref, ast, AstNode, Cache,
-          GeneratorBuilder, GeneratorState, generatorTranslate, isPrimordial,
-          MacroHolder, Map, ParserNode, Scope, translators, Type;
+          GeneratorBuilder, GeneratorState, generatorTranslate, getPos,
+          isPrimordial, MacroHolder, Map, ParserNode, Scope, translators, Type;
       __arrayToIter = (function () {
         var proto;
         proto = {
@@ -30309,12 +29500,12 @@
         }
         return pos;
       }
-      function getPos(node) {
+      getPos = function (node) {
         if (!(node instanceof ParserNode)) {
           throw TypeError("Expected node to be a " + __name(ParserNode) + ", got " + __typeof(node));
         }
-        return makePos(node.line, node.column, node.file);
-      }
+        throw Error("get-pos must be overridden");
+      };
       function doNothing() {}
       generatorTranslate = (function () {
         var expressions, statements;
@@ -32977,15 +32168,32 @@
           );
         }
       }
-      module.exports = function (node, macros, options) {
+      function makeGetPos(getPosition) {
+        if (typeof getPosition !== "function") {
+          throw TypeError("Expected getPosition to be a Function, got " + __typeof(getPosition));
+        }
+        return function (node) {
+          var pos;
+          if (!(node instanceof ParserNode)) {
+            throw TypeError("Expected node to be a " + __name(ParserNode) + ", got " + __typeof(node));
+          }
+          pos = getPosition(node.index);
+          return makePos(pos.line, pos.column, node.file);
+        };
+      }
+      module.exports = function (node, macros, getPosition, options) {
         var endTime, result, scope, startTime;
         if (!(macros instanceof MacroHolder)) {
           throw TypeError("Expected macros to be a " + __name(MacroHolder) + ", got " + __typeof(macros));
+        }
+        if (typeof getPosition !== "function") {
+          throw TypeError("Expected getPosition to be a Function, got " + __typeof(getPosition));
         }
         if (options == null) {
           options = {};
         }
         startTime = new Date().getTime();
+        getPos = makeGetPos(getPosition);
         try {
           scope = Scope(options, macros, false);
           result = translateRoot(node, scope);
@@ -33001,17 +32209,22 @@
         if (typeof options.progress === "function") {
           options.progress("translate", __num(endTime) - __num(startTime));
         }
+        getPos = null;
         return { node: result, time: __num(endTime) - __num(startTime) };
       };
-      module.exports.defineHelper = function (macros, name, value, type, dependencies) {
+      module.exports.defineHelper = function (macros, getPosition, name, value, type, dependencies) {
         var helper, ident, scope;
         if (!(macros instanceof MacroHolder)) {
           throw TypeError("Expected macros to be a " + __name(MacroHolder) + ", got " + __typeof(macros));
+        }
+        if (typeof getPosition !== "function") {
+          throw TypeError("Expected getPosition to be a Function, got " + __typeof(getPosition));
         }
         if (!(type instanceof Type)) {
           throw TypeError("Expected type to be a " + __name(Type) + ", got " + __typeof(type));
         }
         scope = Scope({}, macros, false);
+        getPos = makeGetPos(getPosition);
         if (typeof name === "string") {
           ident = ast.Ident(
             makePos(0, 0),
@@ -33036,6 +32249,7 @@
           dependencies = scope.getHelpers();
         }
         macros.addHelper(ident.name, helper, type, dependencies);
+        getPos = null;
         return { helper: helper, dependencies: dependencies };
       };
     }.call(this, typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : this));
@@ -33340,7 +32554,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.13";
+      exports.version = "0.7.14";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -33869,7 +33083,7 @@
               parsed = _received;
               ++_state;
             case 14:
-              translated = translator(parsed.result, parsed.macros, options);
+              translated = translator(parsed.result, parsed.macros, parsed.getPosition, options);
               ++_state;
               return {
                 done: true,
@@ -34602,7 +33816,7 @@
       },
       syntax: [
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;body=macroData.body;return __node("Call",9,9,__node("Function",9,12,[],__wrap(body),true,true,false,void 0,false,[]),[],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,macroData,macroName;macroName=macroFullData.macroName;macroData=macroFullData.macroData;body=macroData.body;return __node("Call",200,__node("Function",203,[],__wrap(body),true,true,false,void 0,false,[]),[],false,false);};}.call(this));',
           params: [[
             "ident",
             "body",
@@ -34633,7 +33847,7 @@
           id: 15
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,body,elseBody,elseIfs,macroData,macroName,test;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;function dec(x){return x - 1;};function f(i,current){return i>=0&&f(dec(i),_this["if"](elseIfs[i].test,elseIfs[i].body,current))||current;};return this["if"](macroName==="unless"&&__node("MacroAccess",90,40,3,90,{op:"not",node:__wrap(test)},"expression",false,false,false)||test,body,f(dec(elseIfs.length),elseBody));};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,body,elseBody,elseIfs,macroData,macroName,test;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;function dec(x){return x - 1;};function f(i,current){return i>=0&&f(dec(i),_this["if"](elseIfs[i].test,elseIfs[i].body,current))||current;};return this["if"](macroName==="unless"&&__node("MacroAccess",2855,3,90,{op:"not",node:__wrap(test)},"expression",false,false,false)||test,body,f(dec(elseIfs.length),elseBody));};}.call(this));',
           params: [
             ["ident", "test", "ident", "Logic"],
             ["const", "then"],
@@ -34664,7 +33878,7 @@
           id: 16
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,body,elseBody,elseIfs,macroData,macroName,test;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;function dec(x){return x - 1;};function f(i,current){if(i>=0){return f(dec(i),_this["if"](elseIfs[i].type==="unless"?__node("MacroAccess",95,80,3,95,{op:"not",node:__wrap(elseIfs[i].test)},"expression",false,false,false):elseIfs[i].test,elseIfs[i].body,current));}else{return current;}};return this["if"](macroName==="unless"?__node("MacroAccess",96,43,3,96,{op:"not",node:__wrap(test)},"expression",false,false,false):test,body,f(dec(elseIfs.length),elseBody));};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,body,elseBody,elseIfs,macroData,macroName,test;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;function dec(x){return x - 1;};function f(i,current){if(i>=0){return f(dec(i),_this["if"](elseIfs[i].type==="unless"?__node("MacroAccess",3327,3,95,{op:"not",node:__wrap(elseIfs[i].test)},"expression",false,false,false):elseIfs[i].test,elseIfs[i].body,current));}else{return current;}};return this["if"](macroName==="unless"?__node("MacroAccess",3460,3,96,{op:"not",node:__wrap(test)},"expression",false,false,false):test,body,f(dec(elseIfs.length),elseBody));};}.call(this));',
           params: [
             ["ident", "test", "ident", "Logic"],
             [
@@ -34755,7 +33969,7 @@
           id: 19
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,_this,declarable,handle,handleItem,macroData,macroName,numRealElements,value;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;declarable=macroData.declarable;value=macroData.value;function inc(x){return x + 1;};declarable=this.macroExpand1(declarable);if(!declarable){this.error("Unknown declarable: "+String(declarable));}if(declarable.type==="ident"){if(this.isPrimordial(declarable.ident)){this.error("Cannot declare primordial \'"+this.name(declarable.ident)+"\'",declarable.ident);}this["let"](declarable.ident,declarable.isMutable,declarable.asType?this.toType(declarable.asType):this.type(value));return this.block([this["var"](declarable.ident,declarable.isMutable),this.mutateLast(value||this.noop(),function(n){return _this.assign(declarable.ident,"=",n);},true)]);}else if(declarable.type==="array"){numRealElements=function(i,acc){if(i<declarable.elements.length){return numRealElements(inc(i),declarable.elements[i]?inc(acc):acc);}else{return acc;}};if(numRealElements(0,0)<=1){handleItem=function(element,index){return _this.macroExpand1(__node("MacroAccess",219,30,38,219,{macroName:"let",macroData:{declarable:__node("MacroAccess",219,34,37,219,__node("MacroAccess",219,34,31,219,{ident:__wrap(element)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",219,45,__wrap(value),__wrap(index))}},"statement",false,false,false));};handle=function(i){if(i<declarable.elements.length){if(declarable.elements[i]){return handleItem(declarable.elements[i],_this["const"](i));}else{return handle(inc(i));}}else{return value;}};return handle(0);}else{return this.maybeCache(value,function(setValue,value){function handleItem(i,element,index,block){block.push(_this.macroExpand1(__node("MacroAccess",232,43,38,232,{macroName:"let",macroData:{declarable:__node("MacroAccess",232,47,37,232,__node("MacroAccess",232,47,31,232,{ident:__wrap(element)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",232,58,__wrap(value),__wrap(index))}},"statement",false,false,false)));return handle(inc(i),block);};function handle(i,block){if(i<declarable.elements.length){if(declarable.elements[i]){return handleItem(i,declarable.elements[i],_this["const"](i),block);}else{return handle(inc(i),block);}}else{block.push(value);return _this.block(block);}};return handle(0,[setValue]);});}}else if(declarable.type==="object"){if(declarable.pairs.length===1){handleItem=function(left,key){return _this.macroExpand1(__node("MacroAccess",247,30,38,247,{macroName:"let",macroData:{declarable:__node("MacroAccess",247,34,37,247,__node("MacroAccess",247,34,31,247,{ident:__wrap(left)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",247,42,__wrap(value),__wrap(key))}},"statement",false,false,false));};handle=function(pair){return handleItem(pair.value,pair.key);};return handle(this.macroExpand1(declarable.pairs[0]));}else{return this.maybeCache(value,function(setValue,value){function handleItem(i,left,key,block){block.push(_this.macroExpand1(__node("MacroAccess",254,43,38,254,{macroName:"let",macroData:{declarable:__node("MacroAccess",254,47,37,254,__node("MacroAccess",254,47,31,254,{ident:__wrap(left)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",254,55,__wrap(value),__wrap(key))}},"statement",false,false,false)));return handle(inc(i),block);};function handlePair(i,pair,block){return handleItem(i,pair.value,pair.key,block);};function handle(i,block){if(i<declarable.pairs.length){return handlePair(i,_this.macroExpand1(declarable.pairs[i]),block);}else{block.push(value);return _this.block(block);}};return handle(0,[setValue]);});}}else{return this.error("Unknown declarable: "+String(declarable+" "+String(declarable!=null&&(_ref=declarable.constructor)!=null?_ref.name:void 0)));}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,_this,declarable,handle,handleItem,macroData,macroName,numRealElements,value;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;declarable=macroData.declarable;value=macroData.value;function inc(x){return x + 1;};declarable=this.macroExpand1(declarable);if(!declarable){this.error("Unknown declarable: "+String(declarable));}if(declarable.type==="ident"){if(this.isPrimordial(declarable.ident)){this.error("Cannot declare primordial \'"+this.name(declarable.ident)+"\'",declarable.ident);}this["let"](declarable.ident,declarable.isMutable,declarable.asType?this.toType(declarable.asType):this.type(value));return this.block([this["var"](declarable.ident,declarable.isMutable),this.mutateLast(value||this.noop(),function(n){return _this.assign(declarable.ident,"=",n);},true)]);}else if(declarable.type==="array"){numRealElements=function(i,acc){if(i<declarable.elements.length){return numRealElements(inc(i),declarable.elements[i]?inc(acc):acc);}else{return acc;}};if(numRealElements(0,0)<=1){handleItem=function(element,index){return _this.macroExpand1(__node("MacroAccess",8064,38,219,{macroName:"let",macroData:{declarable:__node("MacroAccess",8068,37,219,__node("MacroAccess",8068,31,219,{ident:__wrap(element)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",8079,__wrap(value),__wrap(index))}},"statement",false,false,false));};handle=function(i){if(i<declarable.elements.length){if(declarable.elements[i]){return handleItem(declarable.elements[i],_this["const"](i));}else{return handle(inc(i));}}else{return value;}};return handle(0);}else{return this.maybeCache(value,function(setValue,value){function handleItem(i,element,index,block){block.push(_this.macroExpand1(__node("MacroAccess",8512,38,232,{macroName:"let",macroData:{declarable:__node("MacroAccess",8516,37,232,__node("MacroAccess",8516,31,232,{ident:__wrap(element)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",8527,__wrap(value),__wrap(index))}},"statement",false,false,false)));return handle(inc(i),block);};function handle(i,block){if(i<declarable.elements.length){if(declarable.elements[i]){return handleItem(i,declarable.elements[i],_this["const"](i),block);}else{return handle(inc(i),block);}}else{block.push(value);return _this.block(block);}};return handle(0,[setValue]);});}}else if(declarable.type==="object"){if(declarable.pairs.length===1){handleItem=function(left,key){return _this.macroExpand1(__node("MacroAccess",9072,38,247,{macroName:"let",macroData:{declarable:__node("MacroAccess",9076,37,247,__node("MacroAccess",9076,31,247,{ident:__wrap(left)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",9084,__wrap(value),__wrap(key))}},"statement",false,false,false));};handle=function(pair){return handleItem(pair.value,pair.key);};return handle(this.macroExpand1(declarable.pairs[0]));}else{return this.maybeCache(value,function(setValue,value){function handleItem(i,left,key,block){block.push(_this.macroExpand1(__node("MacroAccess",9371,38,254,{macroName:"let",macroData:{declarable:__node("MacroAccess",9375,37,254,__node("MacroAccess",9375,31,254,{ident:__wrap(left)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",9383,__wrap(value),__wrap(key))}},"statement",false,false,false)));return handle(inc(i),block);};function handlePair(i,pair,block){return handleItem(i,pair.value,pair.key,block);};function handle(i,block){if(i<declarable.pairs.length){return handlePair(i,_this.macroExpand1(declarable.pairs[i]),block);}else{block.push(value);return _this.block(block);}};return handle(0,[setValue]);});}}else{return this.error("Unknown declarable: "+String(declarable+" "+String(declarable!=null&&(_ref=declarable.constructor)!=null?_ref.name:void 0)));}};}.call(this));',
           params: [
             ["ident", "declarable", "ident", "Declarable"],
             ["const", "="],
@@ -34771,19 +33985,19 @@
           id: 39
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return _this.maybeCache(n,function(setN,n){return __node("MacroAccess",280,1,17,280,{macroName:"if",macroData:{test:__node("MacroAccess",280,13,20,280,{op:"?",node:__wrap(setN)},"statement",false,false,false),body:__node("MacroAccess",281,1,39,281,{macroName:"return",macroData:{node:__wrap(n)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});},true);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return _this.maybeCache(n,function(setN,n){return __node("MacroAccess",10173,17,280,{macroName:"if",macroData:{test:__node("MacroAccess",10185,20,280,{op:"?",node:__wrap(setN)},"statement",false,false,false),body:__node("MacroAccess",10194,39,281,{macroName:"return",macroData:{node:__wrap(n)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});},true);};}.call(this));',
           params: [["ident", "node", "ident", "Expression"]],
           names: "return?",
           id: 40
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){if(_this.isType(n,"boolean")){return __node("MacroAccess",288,1,17,288,{macroName:"if",macroData:{test:__wrap(n),body:__node("MacroAccess",289,1,39,289,{macroName:"return",macroData:{node:__const("true")}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}else{return _this.maybeCache(n,function(setN,n){return __node("MacroAccess",293,1,17,293,{macroName:"if",macroData:{test:__wrap(setN),body:__node("MacroAccess",294,1,39,294,{macroName:"return",macroData:{node:__wrap(n)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});}},true);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){if(_this.isType(n,"boolean")){return __node("MacroAccess",10350,17,288,{macroName:"if",macroData:{test:__wrap(n),body:__node("MacroAccess",10366,39,289,{macroName:"return",macroData:{node:__const("true")}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}else{return _this.maybeCache(n,function(setN,n){return __node("MacroAccess",10452,17,293,{macroName:"if",macroData:{test:__wrap(setN),body:__node("MacroAccess",10474,39,294,{macroName:"return",macroData:{node:__wrap(n)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});}},true);};}.call(this));',
           params: [["ident", "node", "ident", "Expression"]],
           names: "returnif",
           id: 41
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){if(_this.isType(n,"boolean")){return __node("MacroAccess",301,1,17,301,{macroName:"unless",macroData:{test:__wrap(n),body:__node("MacroAccess",302,1,39,302,{macroName:"return",macroData:{node:__const("false")}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}else{return _this.maybeCache(n,function(setN,n){return __node("MacroAccess",306,1,17,306,{macroName:"unless",macroData:{test:__wrap(setN),body:__node("MacroAccess",307,1,39,307,{macroName:"return",macroData:{node:__wrap(n)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});}},true);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){if(_this.isType(n,"boolean")){return __node("MacroAccess",10636,17,301,{macroName:"unless",macroData:{test:__wrap(n),body:__node("MacroAccess",10656,39,302,{macroName:"return",macroData:{node:__const("false")}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}else{return _this.maybeCache(n,function(setN,n){return __node("MacroAccess",10743,17,306,{macroName:"unless",macroData:{test:__wrap(setN),body:__node("MacroAccess",10769,39,307,{macroName:"return",macroData:{node:__wrap(n)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});}},true);};}.call(this));',
           params: [["ident", "node", "ident", "Expression"]],
           names: "returnunless",
           id: 42
@@ -34828,7 +34042,7 @@
           id: 104
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,func,macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;body=macroData.body;func=__node("Function",961,22,[],__wrap(body),true,false,false,void 0,false,[]);return __node("Call",962,9,__wrap(func),[__wrap(node)],false,true);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,func,macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;body=macroData.body;func=__node("Function",30670,[],__wrap(body),true,false,false,void 0,false,[]);return __node("Call",30687,__wrap(func),[__wrap(node)],false,true);};}.call(this));',
           params: [
             ["ident", "node", "ident", "Expression"],
             [
@@ -34847,7 +34061,7 @@
           id: 105
         },
         {
-          code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var arr,body,elseBody,every,init,loop,macroData,macroName,reducer,result,runElse,some,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;init=macroData.init;test=macroData.test;step=macroData.step;body=macroData.body;elseBody=macroData.elseBody;if(init==null){init=this.noop();}if(test==null){test=__const("true");}if(step==null){step=this.noop();}if(reducer){if(reducer==="first"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1015,62,39,1015,{macroName:"return",macroData:{node:__wrap(node)}},"statement",false,false,false);});loop=this["for"](init,test,step,body);return __node("MacroAccess",1017,13,0,1017,{macroName:"do",macroData:{body:__node("Block",1018,1,[__wrap(loop),__wrap(elseBody)],null)}},"expression",false,false,false);}else{if(elseBody){this.error("Cannot use a for loop with an else with "+__strnum(reducer),elseBody);}if(reducer==="some"){some=this.tmp("some",false,"boolean");result=[];result.push(__node("MacroAccess",1026,26,38,1026,{macroName:"let",macroData:{declarable:__node("MacroAccess",1026,30,37,1026,__node("MacroAccess",1026,30,31,1026,{ident:__wrap(some)},"statement",false,false,false),"statement",false,false,false),value:__const("false")}},"statement",false,false,false));result.push(this["for"](init,test,step,this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1028,1,17,1028,{macroName:"if",macroData:{test:__wrap(node),body:__node("Block",1029,1,[__node("MacroAccess",1029,1,30,1029,{left:__wrap(some),op:":=",right:__const("true")},"statement",false,false,false),__node("MacroAccess",1030,1,19,1030,{macroName:"break",macroData:{}},"statement",false,false,false)],null),elseIfs:[]}},"statement",false,false,false);})));result.push(some);if(this.position==="expression"){return __wrap(result);}else{return __wrap(result);}}else if(reducer==="every"){every=this.tmp("every",false,"boolean");result=[];result.push(__node("MacroAccess",1039,26,38,1039,{macroName:"let",macroData:{declarable:__node("MacroAccess",1039,30,37,1039,__node("MacroAccess",1039,30,31,1039,{ident:__wrap(every)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false));result.push(this["for"](init,test,step,this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1041,1,17,1041,{macroName:"if",macroData:{test:__node("MacroAccess",1041,15,3,1041,{op:"not",node:__wrap(node)},"statement",false,false,false),body:__node("Block",1042,1,[__node("MacroAccess",1042,1,30,1042,{left:__wrap(every),op:":=",right:__const("false")},"statement",false,false,false),__node("MacroAccess",1043,1,19,1043,{macroName:"break",macroData:{}},"statement",false,false,false)],null),elseIfs:[]}},"statement",false,false,false);})));result.push(every);if(this.position==="expression"){return __wrap(result);}else{return __wrap(result);}}else{return this.error("Unknown reducer: "+__strnum(reducer));}}}else if(elseBody){if(this.position==="expression"){this.error("Cannot use a for loop with an else with as an expression",elseBody);}runElse=this.tmp("else",false,"boolean");body=__node("Block",1056,1,[__node("MacroAccess",1056,1,30,1056,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__wrap(body)],null);init=__node("Block",1059,1,[__node("MacroAccess",1059,1,30,1059,{left:__wrap(runElse),op:":=",right:__const("true")},"statement",false,false,false),__wrap(init)],null);loop=this["for"](init,test,step,body);return __node("Block",1063,1,[__wrap(loop),__node("MacroAccess",1064,1,17,1064,{macroName:"if",macroData:{test:__wrap(runElse),body:__wrap(elseBody),elseIfs:[]}},"statement",false,false,false)],null);}else if(this.position==="expression"){arr=this.tmp("arr",false,this.type(body).array());body=this.mutateLast(body||this.noop(),function(node){return __node("Call",1068,61,__node("Access",1068,61,__wrap(arr),__node("Const",1068,67,"push")),[__wrap(node)],false,false);});init=__node("Block",1070,1,[__node("MacroAccess",1070,1,30,1070,{left:__wrap(arr),op:":=",right:__node("Array",1070,16,[])},"statement",false,false,false),__wrap(init)],null);loop=this["for"](init,test,step,body);return __node("Block",1074,1,[__wrap(loop),__wrap(arr)],null);}else{return this["for"](init,test,step,body);}};}.call(this));',
+          code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var arr,body,elseBody,every,init,loop,macroData,macroName,reducer,result,runElse,some,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;init=macroData.init;test=macroData.test;step=macroData.step;body=macroData.body;elseBody=macroData.elseBody;if(init==null){init=this.noop();}if(test==null){test=__const("true");}if(step==null){step=this.noop();}if(reducer){if(reducer==="first"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",32135,39,1015,{macroName:"return",macroData:{node:__wrap(node)}},"statement",false,false,false);});loop=this["for"](init,test,step,body);return __node("MacroAccess",32210,0,1017,{macroName:"do",macroData:{body:__node("Block",32214,[__wrap(loop),__wrap(elseBody)],null)}},"expression",false,false,false);}else{if(elseBody){this.error("Cannot use a for loop with an else with "+__strnum(reducer),elseBody);}if(reducer==="some"){some=this.tmp("some",false,"boolean");result=[];result.push(__node("MacroAccess",32492,38,1026,{macroName:"let",macroData:{declarable:__node("MacroAccess",32496,37,1026,__node("MacroAccess",32496,31,1026,{ident:__wrap(some)},"statement",false,false,false),"statement",false,false,false),value:__const("false")}},"statement",false,false,false));result.push(this["for"](init,test,step,this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",32601,17,1028,{macroName:"if",macroData:{test:__wrap(node),body:__node("Block",32622,[__node("MacroAccess",32622,30,1029,{left:__wrap(some),op:":=",right:__const("true")},"statement",false,false,false),__node("MacroAccess",32650,19,1030,{macroName:"break",macroData:{}},"statement",false,false,false)],null),elseIfs:[]}},"statement",false,false,false);})));result.push(some);if(this.position==="expression"){return __wrap(result);}else{return __wrap(result);}}else if(reducer==="every"){every=this.tmp("every",false,"boolean");result=[];result.push(__node("MacroAccess",32935,38,1039,{macroName:"let",macroData:{declarable:__node("MacroAccess",32939,37,1039,__node("MacroAccess",32939,31,1039,{ident:__wrap(every)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false));result.push(this["for"](init,test,step,this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",33044,17,1041,{macroName:"if",macroData:{test:__node("MacroAccess",33058,3,1041,{op:"not",node:__wrap(node)},"statement",false,false,false),body:__node("Block",33069,[__node("MacroAccess",33069,30,1042,{left:__wrap(every),op:":=",right:__const("false")},"statement",false,false,false),__node("MacroAccess",33099,19,1043,{macroName:"break",macroData:{}},"statement",false,false,false)],null),elseIfs:[]}},"statement",false,false,false);})));result.push(every);if(this.position==="expression"){return __wrap(result);}else{return __wrap(result);}}else{return this.error("Unknown reducer: "+__strnum(reducer));}}}else if(elseBody){if(this.position==="expression"){this.error("Cannot use a for loop with an else with as an expression",elseBody);}runElse=this.tmp("else",false,"boolean");body=__node("Block",33515,[__node("MacroAccess",33515,30,1056,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__wrap(body)],null);init=__node("Block",33574,[__node("MacroAccess",33574,30,1059,{left:__wrap(runElse),op:":=",right:__const("true")},"statement",false,false,false),__wrap(init)],null);loop=this["for"](init,test,step,body);return __node("Block",33670,[__wrap(loop),__node("MacroAccess",33684,17,1064,{macroName:"if",macroData:{test:__wrap(runElse),body:__wrap(elseBody),elseIfs:[]}},"statement",false,false,false)],null);}else if(this.position==="expression"){arr=this.tmp("arr",false,this.type(body).array());body=this.mutateLast(body||this.noop(),function(node){return __node("Call",33877,__node("Access",33877,__wrap(arr),__node("Const",33883,"push")),[__wrap(node)],false,false);});init=__node("Block",33913,[__node("MacroAccess",33913,30,1070,{left:__wrap(arr),op:":=",right:__node("Array",33928,[])},"statement",false,false,false),__wrap(init)],null);loop=this["for"](init,test,step,body);return __node("Block",34002,[__wrap(loop),__wrap(arr)],null);}else{return this["for"](init,test,step,body);}};}.call(this));',
           params: [
             [
               "ident",
@@ -34918,7 +34132,7 @@
           id: 106
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,current,currentStart,init,macroData,macroName,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;init=macroData.init;test=macroData.test;step=macroData.step;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;if(init==null){init=this.noop();}if(test==null){test=__const("true");}if(step==null){step=this.noop();}body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1084,59,30,1084,{left:__wrap(current),op:":=",right:__wrap(node)},"expression",false,false,false);});return __node("Block",1086,1,[__node("MacroAccess",1086,1,38,1086,{macroName:"let",macroData:{declarable:__node("MacroAccess",1086,10,37,1086,__node("MacroAccess",1086,10,31,1086,{isMutable:"mutable",ident:__wrap(current)},"statement",false,false,false),"statement",false,false,false),value:__wrap(currentStart)}},"statement",false,false,false),__node("MacroAccess",1087,1,106,1087,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(step),body:__wrap(body)}},"statement",false,false,false),__wrap(current)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,current,currentStart,init,macroData,macroName,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;init=macroData.init;test=macroData.test;step=macroData.step;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;if(init==null){init=this.noop();}if(test==null){test=__const("true");}if(step==null){step=this.noop();}body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",34389,30,1084,{left:__wrap(current),op:":=",right:__wrap(node)},"expression",false,false,false);});return __node("Block",34417,[__node("MacroAccess",34417,38,1086,{macroName:"let",macroData:{declarable:__node("MacroAccess",34426,37,1086,__node("MacroAccess",34426,31,1086,{isMutable:"mutable",ident:__wrap(current)},"statement",false,false,false),"statement",false,false,false),value:__wrap(currentStart)}},"statement",false,false,false),__node("MacroAccess",34461,106,1087,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(step),body:__wrap(body)}},"statement",false,false,false),__wrap(current)],null);};}.call(this));',
           params: [
             ["const", "reduce"],
             [
@@ -34964,7 +34178,7 @@
           id: 107
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,elseBody,macroData,macroName,reducer,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;test=macroData.test;step=macroData.step;body=macroData.body;elseBody=macroData.elseBody;if(macroName==="until"){test=__node("MacroAccess",1094,19,3,1094,{op:"not",node:__wrap(test)},"expression",false,false,false);}if(reducer==="every"){return __node("MacroAccess",1097,11,106,1097,{macroName:"for",macroData:{reducer:"every",test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="some"){return __node("MacroAccess",1102,11,106,1102,{macroName:"for",macroData:{reducer:"some",test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="first"){return __node("MacroAccess",1107,11,106,1107,{macroName:"for",macroData:{reducer:"first",test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(this.position==="expression"){return __node("MacroAccess",1112,11,106,1112,{macroName:"for",macroData:{test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else{return __node("MacroAccess",1118,1,106,1118,{macroName:"for",macroData:{test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"statement",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,elseBody,macroData,macroName,reducer,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;test=macroData.test;step=macroData.step;body=macroData.body;elseBody=macroData.elseBody;if(macroName==="until"){test=__node("MacroAccess",34829,3,1094,{op:"not",node:__wrap(test)},"expression",false,false,false);}if(reducer==="every"){return __node("MacroAccess",34880,106,1097,{macroName:"for",macroData:{reducer:"every",test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="some"){return __node("MacroAccess",34989,106,1102,{macroName:"for",macroData:{reducer:"some",test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="first"){return __node("MacroAccess",35098,106,1107,{macroName:"for",macroData:{reducer:"first",test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(this.position==="expression"){return __node("MacroAccess",35215,106,1112,{macroName:"for",macroData:{test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else{return __node("MacroAccess",35298,106,1118,{macroName:"for",macroData:{test:__wrap(test),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"statement",false,false,false);}};}.call(this));',
           params: [
             [
               "ident",
@@ -35022,7 +34236,7 @@
           id: 108
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,current,currentStart,macroData,macroName,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;test=macroData.test;step=macroData.step;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;if(macroName==="until"){test=__node("MacroAccess",1125,19,3,1125,{op:"not",node:__wrap(test)},"expression",false,false,false);}return __node("MacroAccess",1128,1,107,1128,{macroName:"for",macroData:{test:__wrap(test),step:__wrap(step),current:__wrap(current),currentStart:__wrap(currentStart),body:__wrap(body)}},"statement",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,current,currentStart,macroData,macroName,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;test=macroData.test;step=macroData.step;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;if(macroName==="until"){test=__node("MacroAccess",35596,3,1125,{op:"not",node:__wrap(test)},"expression",false,false,false);}return __node("MacroAccess",35620,107,1128,{macroName:"for",macroData:{test:__wrap(test),step:__wrap(step),current:__wrap(current),currentStart:__wrap(currentStart),body:__wrap(body)}},"statement",false,false,false);};}.call(this));',
           params: [
             ["const", "reduce"],
             ["ident", "test", "ident", "Logic"],
@@ -35055,7 +34269,7 @@
           id: 109
         },
         {
-          code: 'return (function(){"use strict";var __num,__strnum,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _ref,_ref2,args,array,body,elseBody,end,func,hasIndex,hasLength,inclusive,increment,index,init,isString,length,letIndex,letLength,letValue,macroData,macroName,reducer,start,step,test,tmp,value,valueExpr,valueIdent;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;elseBody=macroData.elseBody;value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__toArray"&&!this.callIsApply(array)){array=this.callArgs(array)[0];}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){this.error("Cannot assign a number to a complex declarable",value);}value=value.ident;_ref=this.callArgs(array);start=_ref[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];init=[];if(this.isConst(start)){if(typeof this.value(start)!=="number"){this.error("Cannot start with a non-number: "+__strnum(this.value(start)),start);}}else{start=__node("MacroAccess",1187,22,60,1187,{op:"+",node:__wrap(start)},"expression",false,false,false);}init.push(this.macroExpandAll(__node("MacroAccess",1188,38,38,1188,{macroName:"let",macroData:{declarable:__node("MacroAccess",1188,42,37,1188,__node("MacroAccess",1188,42,31,1188,{isMutable:"mutable",ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(start)}},"statement",false,false,false)));if(this.isConst(end)){if(typeof this.value(end)!=="number"){this.error("Cannot end with a non-number: "+__strnum(this.value(end)),end);}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",1194,28,60,1194,{op:"+",node:__wrap(end)},"expression",false,false,false),init,"end",false);}else{init.push(__node("MacroAccess",1196,23,60,1196,{op:"+",node:__wrap(end)},"expression",false,false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){this.error("Cannot step with a non-number: "+__strnum(this.value(step)),step);}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",1202,29,60,1202,{op:"+",node:__wrap(step)},"expression",false,false,false),init,"step",false);}else{init.push(__node("MacroAccess",1204,23,60,1204,{op:"+",node:__wrap(step)},"expression",false,false,false));}if(this.isComplex(inclusive)){inclusive=this.cache(__wrap(inclusive),init,"incl",false);}if(this.isConst(step)){if(__num(this.value(step))>0){if(this.isConst(end)&&this.value(end)===1/0){test=__const("true");}else{test=__node("MacroAccess",1214,17,16,1214,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1214,36,9,1214,{left:__wrap(value),inverted:false,op:"~<=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1214,57,9,1214,{left:__wrap(value),inverted:false,op:"~<",right:__wrap(end)},"expression",false,false,false)}},"expression",false,false,false);}}else if(this.isConst(end)&&this.value(end)===-1/0){test=__const("true");}else{test=__node("MacroAccess",1219,17,16,1219,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1219,36,10,1219,{left:__wrap(value),inverted:false,op:"~>=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1219,57,10,1219,{left:__wrap(value),inverted:false,op:"~>",right:__wrap(end)},"expression",false,false,false)}},"expression",false,false,false);}}else{test=__node("MacroAccess",1221,13,17,1221,{macroName:"if",macroData:{test:__node("MacroAccess",1221,16,10,1221,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",1221,26,0)},"expression",false,false,false),body:__node("MacroAccess",1222,1,16,1222,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1222,29,9,1222,{left:__wrap(value),inverted:false,op:"~<=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1222,50,9,1222,{left:__wrap(value),inverted:false,op:"~<",right:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1224,1,16,1224,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1224,29,10,1224,{left:__wrap(value),inverted:false,op:"~>=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1224,50,10,1224,{left:__wrap(value),inverted:false,op:"~>",right:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)}},"expression",false,false,false);}increment=__node("MacroAccess",1226,35,52,1226,{left:__wrap(value),op:"~+=",right:__wrap(step)},"expression",false,false,false);if(length){init.push(this.macroExpandAll(__node("MacroAccess",1229,40,38,1229,{macroName:"let",macroData:{declarable:__node("MacroAccess",1229,44,37,1229,__node("MacroAccess",1229,44,31,1229,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1229,54,17,1229,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1230,1,45,1230,{left:__node("MacroAccess",1230,12,49,1230,{left:__node("MacroAccess",1230,12,49,1230,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1232,1,45,1232,{left:__node("MacroAccess",1232,12,49,1232,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)));}if(index){init.push(this.macroExpandAll(__node("MacroAccess",1235,40,38,1235,{macroName:"let",macroData:{declarable:__node("MacroAccess",1235,44,37,1235,__node("MacroAccess",1235,44,31,1235,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",1235,62,0)}},"statement",false,false,false)));increment=__node("Block",1237,1,[__wrap(increment),__node("MacroAccess",1238,1,103,1238,{left:__wrap(index),op:"+=",right:__node("Const",1238,21,1)},"statement",false,false,false)],null);if(this.hasFunc(body)){func=this.tmp("f",false,"function");init.push(__node("MacroAccess",1241,25,38,1241,{macroName:"let",macroData:{declarable:__node("MacroAccess",1241,29,37,1241,__node("MacroAccess",1241,29,31,1241,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",1241,39,[__node("Param",1241,40,__wrap(value),void 0,false,false,void 0),__node("Param",1241,47,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",1242,24,__wrap(func),[__node("This",1242,32),__wrap(value),__wrap(index)],false,true);}}else if(this.hasFunc(body)){func=this.tmp("f",false,"function");init.push(__node("MacroAccess",1245,23,38,1245,{macroName:"let",macroData:{declarable:__node("MacroAccess",1245,27,37,1245,__node("MacroAccess",1245,27,31,1245,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",1245,37,[__node("Param",1245,38,__wrap(value),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",1246,22,__wrap(func),[__node("This",1246,30),__wrap(value)],false,true);}if(reducer==="every"){return __node("MacroAccess",1249,13,106,1249,{macroName:"for",macroData:{reducer:"every",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="some"){return __node("MacroAccess",1254,13,106,1254,{macroName:"for",macroData:{reducer:"some",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="first"){return __node("MacroAccess",1259,13,106,1259,{macroName:"for",macroData:{reducer:"first",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="filter"){body=this.mutateLast(body,function(node){return __node("MacroAccess",1265,14,17,1265,{macroName:"if",macroData:{test:__wrap(node),body:__wrap(value),elseIfs:[]}},"statement",false,false,false);});return __node("MacroAccess",1267,13,106,1267,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(this.position==="expression"){return __node("MacroAccess",1272,13,106,1272,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else{return __node("MacroAccess",1278,1,106,1278,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"statement",false,false,false);}}else{init=[];isString=this.isType(array,"string");hasIndex=index!=null;if(index==null){index=this.tmp("i",false,"number");}hasLength=length!=null;if(length==null){length=this.tmp("len",false,"number");}this.macroExpandAll(__node("MacroAccess",1291,28,38,1291,{macroName:"let",macroData:{declarable:__node("MacroAccess",1291,32,37,1291,__node("MacroAccess",1291,32,31,1291,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",1291,43,0)}},"statement",false,false,false));array=this.macroExpandAll(array);step=__node("Const",1295,31,1);start=__node("Const",1296,32,0);end=__const("Infinity");inclusive=__const("false");if(this.isCall(array)&&this.isIdent(this.callFunc(array))){if(this.name(this.callFunc(array))==="__step"&&!this.callIsApply(array)){args=this.callArgs(array);array=args[0];step=args[1];if(this.isConst(step)){if(__num(this.value(step))>=0){start=__node("Const",1306,29,0);end=__const("Infinity");}else{start=__const("Infinity");end=__node("Const",1310,27,0);}}else{start=void 0;end=void 0;}inclusive=__const("true");}else if(this.name(this.callFunc(array))==="__slice"&&this.callIsApply(array)){args=this.callArgs(array);array=args[0];start=args[1];end=args[2];if(this.isConst(end)&&this.value(end)===void 0){end=__const("Infinity");}}else if(this.name(this.callFunc(array))==="__sliceStep"&&!this.callIsApply(array)){args=this.callArgs(array);array=args[0];start=args[1];end=args[2];step=args[3];inclusive=args[4];}}if(this.isConst(step)){if(typeof this.value(step)!=="number"){this.error("Expected step to be a number, got "+__typeof(this.value(step)),step);}else if(__num(this.value(step))%1!==0){this.error("Expected step to be an integer, got "+__strnum(this.value(step)),step);}else if(this.value(step)===0){this.error("Expected step to non-zero",step);}}if(start&&this.isConst(start)&&this.value(start)!==1/0&&(typeof this.value(start)!=="number"||__num(this.value(start))%1!==0)){this.error("Expected start to be an integer, got "+__typeof(this.value(start))+" ("+String(this.value(start))+")",start);}if(end&&this.isConst(end)&&this.value(end)!==1/0&&(typeof this.value(end)!=="number"||__num(this.value(end))%1!==0)){this.error("Expected end to be an integer, got "+__typeof(this.value(end))+" ("+String(this.value(end))+")",end);}if(!isString&&!this.isType(array,"arrayLike")){array=__node("Call",1342,22,__node("Ident",1342,22,"__toArray"),[__wrap(array)],false,false);}array=this.cache(array,init,isString?"str":"arr",false);valueExpr=__node("MacroAccess",1345,28,16,1345,{macroName:"if",macroData:{test:__wrap(isString),body:__node("Call",1345,47,__node("Access",1345,47,__wrap(array),__node("Const",1345,55,"charAt")),[__wrap(index)],false,false),elseIfs:[],elseBody:__node("Access",1345,75,__wrap(array),__wrap(index))}},"expression",false,false,false);letIndex=this.macroExpandAll(__node("MacroAccess",1346,44,38,1346,{macroName:"let",macroData:{declarable:__node("MacroAccess",1346,48,37,1346,__node("MacroAccess",1346,48,31,1346,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",1346,66,0)}},"statement",false,false,false));if(value&&value.type==="ident"&&!value.isMutable){valueIdent=value.ident;}else{valueIdent=this.tmp("v",false);}letValue=this.macroExpandAll(__node("MacroAccess",1348,44,38,1348,{macroName:"let",macroData:{declarable:__node("MacroAccess",1348,48,37,1348,__node("MacroAccess",1348,48,31,1348,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueExpr)}},"statement",false,false,false));letLength=this.macroExpandAll(__node("MacroAccess",1349,45,38,1349,{macroName:"let",macroData:{declarable:__node("MacroAccess",1349,49,37,1349,__node("MacroAccess",1349,49,31,1349,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1349,59,60,1349,{op:"+",node:__node("Access",1349,61,__wrap(array),__node("Const",1349,68,"length"))},"expression",false,false,false)}},"statement",false,false,false));_ref=this.isConst(step)?__num(this.value(step))>0?(this.isConst(start)?__num(this.value(start))>=0?(init.push(__node("MacroAccess",1355,28,38,1355,{macroName:"let",macroData:{declarable:__node("MacroAccess",1355,32,37,1355,__node("MacroAccess",1355,32,31,1355,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__wrap(start)}},"statement",false,false,false)),init.push(letLength)):(init.push(letLength),init.push(__node("MacroAccess",1359,28,38,1359,{macroName:"let",macroData:{declarable:__node("MacroAccess",1359,32,37,1359,__node("MacroAccess",1359,32,31,1359,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1359,49,66,1359,{left:__wrap(length),inverted:false,op:"+",right:__wrap(start)},"expression",false,false,false)}},"statement",false,false,false))):(init.push(letLength),init.push(__node("MacroAccess",1362,26,38,1362,{macroName:"let",macroData:{declarable:__node("MacroAccess",1362,30,37,1362,__node("MacroAccess",1362,30,31,1362,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",1362,47,__node("Ident",1362,47,"__int"),[__wrap(start)],false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",1363,27,16,1363,{macroName:"if",macroData:{test:__node("MacroAccess",1363,30,9,1363,{left:__wrap(index),inverted:false,op:"~<",right:__node("Const",1363,41,0)},"expression",false,false,false),body:__node("MacroAccess",1363,49,103,1363,{left:__wrap(index),op:"+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[]}},"expression",false,false,false))),this.isConst(end)&&(this.value(end)===1/0||this.isConst(inclusive)&&this.value(inclusive)&&this.value(end)===-1)?[__node("MacroAccess",1365,18,9,1365,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(length)},"expression",false,false,false),__node("MacroAccess",1365,44,52,1365,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]:(tmp=this.tmp("end",false,"number"),init.push(__node("MacroAccess",1368,26,38,1368,{macroName:"let",macroData:{declarable:__node("MacroAccess",1368,30,37,1368,__node("MacroAccess",1368,30,31,1368,{isMutable:"mutable",ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1368,45,60,1368,{op:"+",node:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)),!this.isConst(end)?init.push(__node("MacroAccess",1370,29,16,1370,{macroName:"if",macroData:{test:__node("MacroAccess",1370,32,9,1370,{left:__wrap(tmp),inverted:false,op:"~<",right:__node("Const",1370,41,0)},"expression",false,false,false),body:__node("MacroAccess",1370,49,52,1370,{left:__wrap(tmp),op:"~+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[]}},"expression",false,false,false)):__num(this.value(end))<0?init.push(__node("MacroAccess",1372,29,52,1372,{left:__wrap(tmp),op:"~+=",right:__wrap(length)},"expression",false,false,false)):void 0,init.push(__node("MacroAccess",1373,27,16,1373,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1373,48,30,1373,{left:__wrap(tmp),op:":=",right:__node("MacroAccess",1373,55,2,1373,{left:__node("MacroAccess",1373,55,66,1373,{left:__wrap(tmp),inverted:false,op:"+",right:__node("Const",1373,63,1)},"expression",false,false,false),inverted:false,op:"or",right:__const("Infinity")},"expression",false,false,false)},"expression",false,false,false),elseIfs:[]}},"expression",false,false,false)),init.push(__node("MacroAccess",1374,27,86,1374,{left:__wrap(tmp),op:"~min=",right:__wrap(length)},"expression",false,false,false)),[__node("MacroAccess",1375,18,9,1375,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(tmp)},"expression",false,false,false),__node("MacroAccess",1375,39,52,1375,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)])):this.value(step)===-1&&(!start||this.isConst(start)&&((_ref2=this.value(start))===-1||_ref2===1/0)&&this.isConst(end)&&this.value(end)===0&&this.isConst(inclusive)&&this.value(inclusive))?(hasLength?(init.push(letLength),init.push(__node("MacroAccess",1379,26,38,1379,{macroName:"let",macroData:{declarable:__node("MacroAccess",1379,30,37,1379,__node("MacroAccess",1379,30,31,1379,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__wrap(length)}},"statement",false,false,false))):init.push(__node("MacroAccess",1381,26,38,1381,{macroName:"let",macroData:{declarable:__node("MacroAccess",1381,30,37,1381,__node("MacroAccess",1381,30,31,1381,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1381,47,60,1381,{op:"+",node:__node("Access",1381,49,__wrap(array),__node("Const",1381,56,"length"))},"expression",false,false,false)}},"statement",false,false,false)),[__node("MacroAccess",1382,16,13,1382,{op:"postDec!",node:__wrap(index)},"expression",false,false,false),this.noop()]):(!this.isConst(end)||__num(this.value(end))<0?(hasLength=true):void 0,this.isConst(start)?(_ref2=this.value(start))===-1||_ref2===1/0?hasLength?(init.push(letLength),init.push(__node("MacroAccess",1390,30,38,1390,{macroName:"let",macroData:{declarable:__node("MacroAccess",1390,34,37,1390,__node("MacroAccess",1390,34,31,1390,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1390,51,49,1390,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",1390,63,1)},"expression",false,false,false)}},"statement",false,false,false))):init.push(__node("MacroAccess",1392,30,38,1392,{macroName:"let",macroData:{declarable:__node("MacroAccess",1392,34,37,1392,__node("MacroAccess",1392,34,31,1392,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1392,51,49,1392,{left:__node("MacroAccess",1392,51,60,1392,{op:"+",node:__node("Access",1392,53,__wrap(array),__node("Const",1392,60,"length"))},"expression",false,false,false),inverted:false,op:"~-",right:__node("Const",1392,70,1)},"expression",false,false,false)}},"statement",false,false,false)):(init.push(letLength),__num(this.value(start))>=0?init.push(__node("MacroAccess",1396,30,38,1396,{macroName:"let",macroData:{declarable:__node("MacroAccess",1396,34,37,1396,__node("MacroAccess",1396,34,31,1396,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1396,51,16,1396,{macroName:"if",macroData:{test:__node("MacroAccess",1396,54,9,1396,{left:__wrap(start),inverted:false,op:"~<",right:__wrap(length)},"expression",false,false,false),body:__wrap(start),elseIfs:[],elseBody:__node("MacroAccess",1396,89,49,1396,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",1396,101,1)},"expression",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)):init.push(__node("MacroAccess",1398,30,38,1398,{macroName:"let",macroData:{declarable:__node("MacroAccess",1398,34,37,1398,__node("MacroAccess",1398,34,31,1398,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1398,51,49,1398,{left:__wrap(length),inverted:false,op:"~+",right:__node("MacroAccess",1398,62,60,1398,{op:"+",node:__wrap(start)},"expression",false,false,false)},"expression",false,false,false)}},"statement",false,false,false))):(init.push(letLength),init.push(__node("MacroAccess",1401,26,38,1401,{macroName:"let",macroData:{declarable:__node("MacroAccess",1401,30,37,1401,__node("MacroAccess",1401,30,31,1401,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1401,47,60,1401,{op:"+",node:__wrap(start)},"expression",false,false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",1402,26,16,1402,{macroName:"if",macroData:{test:__node("MacroAccess",1402,29,9,1402,{left:__wrap(index),inverted:false,op:"~<",right:__node("Const",1402,40,0)},"statement",false,false,false),body:__node("MacroAccess",1402,48,52,1402,{left:__wrap(index),op:"~+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1402,74,86,1402,{left:__wrap(index),op:"~min=",right:__wrap(length)},"expression",false,false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",1403,26,53,1403,{left:__wrap(index),op:"~-=",right:__node("Const",1403,38,1)},"statement",false,false,false))),this.isConst(end)?__num(this.value(end))>=0?[__node("MacroAccess",1406,20,16,1406,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1406,39,10,1406,{left:__wrap(index),inverted:false,op:"~>=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1406,60,10,1406,{left:__wrap(index),inverted:false,op:"~>",right:__wrap(end)},"expression",false,false,false)}},"expression",false,false,false),__node("MacroAccess",1406,81,52,1406,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]:[__node("MacroAccess",1408,20,16,1408,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1408,39,10,1408,{left:__wrap(index),inverted:false,op:"~>=",right:__node("MacroAccess",1408,50,66,1408,{left:__wrap(end),inverted:false,op:"+",right:__wrap(length)},"expression",false,false,false)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1408,70,10,1408,{left:__wrap(index),inverted:false,op:"~>",right:__node("MacroAccess",1408,80,66,1408,{left:__wrap(end),inverted:false,op:"+",right:__wrap(length)},"expression",false,false,false)},"expression",false,false,false)}},"expression",false,false,false),__node("MacroAccess",1408,101,52,1408,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]:(tmp=this.tmp("end",false,"number"),init.push(__node("MacroAccess",1411,26,38,1411,{macroName:"let",macroData:{declarable:__node("MacroAccess",1411,30,37,1411,__node("MacroAccess",1411,30,31,1411,{isMutable:"mutable",ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1411,45,60,1411,{op:"+",node:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",1412,26,16,1412,{macroName:"if",macroData:{test:__node("MacroAccess",1412,29,9,1412,{left:__wrap(tmp),inverted:false,op:"~<",right:__node("Const",1412,38,0)},"statement",false,false,false),body:__node("MacroAccess",1412,46,52,1412,{left:__wrap(tmp),op:"~+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[]}},"statement",false,false,false)),[__node("MacroAccess",1413,18,16,1413,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1413,37,10,1413,{left:__wrap(index),inverted:false,op:"~>=",right:__wrap(tmp)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1413,58,10,1413,{left:__wrap(index),inverted:false,op:"~>",right:__wrap(tmp)},"expression",false,false,false)}},"expression",false,false,false),__node("MacroAccess",1413,79,52,1413,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)])):(this.isComplex(step)?(step=this.cache(__node("Call",1416,31,__node("Ident",1416,31,"__int"),[__node("Call",1416,38,__node("Ident",1416,38,"__nonzero"),[__wrap(step)],false,false)],false,false),init,"step",false)):init.unshift(__node("Call",1418,28,__node("Ident",1418,28,"__int"),[__node("Call",1418,35,__node("Ident",1418,35,"__nonzero"),[__wrap(step)],false,false)],false,false)),init.push(letLength),!start?(init.push(__node("MacroAccess",1421,24,38,1421,{macroName:"let",macroData:{declarable:__node("MacroAccess",1421,28,37,1421,__node("MacroAccess",1421,28,31,1421,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1421,45,16,1421,{macroName:"if",macroData:{test:__node("MacroAccess",1421,48,10,1421,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",1421,58,0)},"expression",false,false,false),body:__node("Const",1421,65,0),elseIfs:[],elseBody:__node("MacroAccess",1421,71,49,1421,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",1421,83,1)},"expression",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)),[__node("MacroAccess",1423,17,16,1423,{macroName:"if",macroData:{test:__node("MacroAccess",1423,20,10,1423,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",1423,30,0)},"expression",false,false,false),body:__node("MacroAccess",1423,36,9,1423,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(length)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1423,59,10,1423,{left:__wrap(index),inverted:false,op:"~>=",right:__node("Const",1423,71,0)},"expression",false,false,false)}},"expression",false,false,false),__node("MacroAccess",1424,17,52,1424,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]):(this.isConst(start)?this.value(start)===1/0?init.push(__node("MacroAccess",1429,28,38,1429,{macroName:"let",macroData:{declarable:__node("MacroAccess",1429,32,37,1429,__node("MacroAccess",1429,32,31,1429,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1429,49,49,1429,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",1429,61,1)},"expression",false,false,false)}},"statement",false,false,false)):init.push(__node("MacroAccess",1431,28,38,1431,{macroName:"let",macroData:{declarable:__node("MacroAccess",1431,32,37,1431,__node("MacroAccess",1431,32,31,1431,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1431,49,16,1431,{macroName:"if",macroData:{test:__node("MacroAccess",1431,52,10,1431,{left:__wrap(start),inverted:false,op:"~>=",right:__node("Const",1431,64,0)},"expression",false,false,false),body:__wrap(start),elseIfs:[],elseBody:__node("MacroAccess",1431,82,66,1431,{left:__wrap(start),inverted:false,op:"+",right:__wrap(length)},"expression",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)):(init.push(__node("MacroAccess",1433,26,38,1433,{macroName:"let",macroData:{declarable:__node("MacroAccess",1433,30,37,1433,__node("MacroAccess",1433,30,31,1433,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__wrap(start)}},"statement",false,false,false)),init.push(__node("MacroAccess",1434,26,16,1434,{macroName:"if",macroData:{test:__node("MacroAccess",1434,29,9,1434,{left:__wrap(index),inverted:false,op:"~<",right:__node("Const",1434,40,0)},"statement",false,false,false),body:__node("MacroAccess",1434,48,103,1434,{left:__wrap(index),op:"+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[{test:__node("MacroAccess",1434,74,9,1434,{left:__wrap(step),inverted:false,op:"~<",right:__node("Const",1434,84,0)},"statement",false,false,false),body:__node("MacroAccess",1434,92,86,1434,{left:__wrap(index),op:"~min=",right:__wrap(length)},"expression",false,false,false)}]}},"statement",false,false,false))),tmp=this.tmp("end",false,"number"),this.isConst(end)?init.push(__node("MacroAccess",1437,26,38,1437,{macroName:"let",macroData:{declarable:__node("MacroAccess",1437,30,37,1437,__node("MacroAccess",1437,30,31,1437,{isMutable:"mutable",ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1437,45,16,1437,{macroName:"if",macroData:{test:__node("MacroAccess",1437,48,9,1437,{left:__wrap(end),inverted:false,op:"~<",right:__node("Const",1437,57,0)},"expression",false,false,false),body:__node("MacroAccess",1437,63,49,1437,{left:__wrap(end),inverted:false,op:"~+",right:__wrap(length)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1437,84,83,1437,{left:__wrap(end),inverted:false,op:"max",right:__node("MacroAccess",1437,95,16,1437,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1437,113,49,1437,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",1437,125,1)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(length)}},"expression",false,false,false)},"expression",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)):(init.push(__node("MacroAccess",1439,26,38,1439,{macroName:"let",macroData:{declarable:__node("MacroAccess",1439,30,37,1439,__node("MacroAccess",1439,30,31,1439,{isMutable:"mutable",ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1439,45,60,1439,{op:"+",node:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",1440,26,16,1440,{macroName:"if",macroData:{test:__node("MacroAccess",1440,29,9,1440,{left:__wrap(tmp),inverted:false,op:"~<",right:__node("Const",1440,38,0)},"statement",false,false,false),body:__node("MacroAccess",1440,46,103,1440,{left:__wrap(tmp),op:"+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[{test:__node("MacroAccess",1440,70,10,1440,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",1440,80,0)},"statement",false,false,false),body:__node("MacroAccess",1440,88,86,1440,{left:__wrap(tmp),op:"~min=",right:__node("MacroAccess",1440,98,16,1440,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1440,117,49,1440,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",1440,129,1)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(length)}},"expression",false,false,false)},"expression",false,false,false)}],elseBody:__node("MacroAccess",1440,151,87,1440,{left:__wrap(tmp),op:"~max=",right:__node("MacroAccess",1440,163,16,1440,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("Const",1440,182,0),elseIfs:[],elseBody:__node("MacroAccess",1440,188,61,1440,{op:"-",node:__node("Const",1440,190,1)},"expression",false,false,false)}},"expression",false,false,false)},"expression",false,false,false)}},"statement",false,false,false))),end=tmp,[__node("MacroAccess",1443,17,17,1443,{macroName:"if",macroData:{test:__node("MacroAccess",1443,20,10,1443,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",1443,30,0)},"expression",false,false,false),body:__node("MacroAccess",1444,1,16,1444,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1444,33,9,1444,{left:__wrap(index),inverted:false,op:"~<=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1444,54,9,1444,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1446,1,16,1446,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",1446,33,10,1446,{left:__wrap(index),inverted:false,op:"~>=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1446,54,9,1446,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)}},"expression",false,false,false),__node("MacroAccess",1447,17,52,1447,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]));test=_ref[0];increment=_ref[1];if(this.hasFunc(body)){func=this.tmp("f",false,"function");if(value&&valueIdent!==value.ident){body=__node("Block",1454,1,[__node("MacroAccess",1454,1,38,1454,{macroName:"let",macroData:{declarable:__node("MacroAccess",1454,16,37,1454,__node("MacroAccess",1454,16,31,1454,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueIdent)}},"statement",false,false,false),__wrap(body)],null);}if(hasIndex){init.push(__node("MacroAccess",1457,24,38,1457,{macroName:"let",macroData:{declarable:__node("MacroAccess",1457,28,37,1457,__node("MacroAccess",1457,28,31,1457,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",1457,38,[__node("Param",1457,39,__wrap(valueIdent),void 0,false,false,void 0),__node("Param",1457,52,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",1458,23,__wrap(func),[__node("This",1458,31),__wrap(valueExpr),__wrap(index)],false,true);}else{init.push(__node("MacroAccess",1460,24,38,1460,{macroName:"let",macroData:{declarable:__node("MacroAccess",1460,28,37,1460,__node("MacroAccess",1460,28,31,1460,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",1460,38,[__node("Param",1460,39,__wrap(valueIdent),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",1461,23,__wrap(func),[__node("This",1461,31),__wrap(valueExpr)],false,true);}}else if(valueIdent===value.ident||reducer!=="filter"){body=__node("Block",1464,1,[__node("MacroAccess",1464,1,38,1464,{macroName:"let",macroData:{declarable:__node("MacroAccess",1464,14,37,1464,__node("MacroAccess",1464,14,31,1464,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueExpr)}},"statement",false,false,false),__wrap(body)],null);}else{body=__node("Block",1468,1,[__node("MacroAccess",1468,1,38,1468,{macroName:"let",macroData:{declarable:__node("MacroAccess",1468,14,37,1468,__node("MacroAccess",1468,14,31,1468,{ident:__wrap(valueIdent)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueExpr)}},"statement",false,false,false),__node("MacroAccess",1469,1,38,1469,{macroName:"let",macroData:{declarable:__node("MacroAccess",1469,14,37,1469,__node("MacroAccess",1469,14,31,1469,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueIdent)}},"statement",false,false,false),__wrap(body)],null);}if(reducer==="every"){return __node("MacroAccess",1473,13,106,1473,{macroName:"for",macroData:{reducer:"every",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="some"){return __node("MacroAccess",1478,13,106,1478,{macroName:"for",macroData:{reducer:"some",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="first"){return __node("MacroAccess",1483,13,106,1483,{macroName:"for",macroData:{reducer:"first",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="filter"){body=this.mutateLast(body,function(node){return __node("MacroAccess",1489,14,17,1489,{macroName:"if",macroData:{test:__wrap(node),body:__wrap(valueIdent),elseIfs:[]}},"statement",false,false,false);});return __node("MacroAccess",1491,13,106,1491,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(this.position==="expression"){return __node("MacroAccess",1496,13,106,1496,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else{return __node("MacroAccess",1502,1,106,1502,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"statement",false,false,false);}}};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__strnum,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _ref,_ref2,args,array,body,elseBody,end,func,hasIndex,hasLength,inclusive,increment,index,init,isString,length,letIndex,letLength,letValue,macroData,macroName,reducer,start,step,test,tmp,value,valueExpr,valueIdent;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;elseBody=macroData.elseBody;value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__toArray"&&!this.callIsApply(array)){array=this.callArgs(array)[0];}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){this.error("Cannot assign a number to a complex declarable",value);}value=value.ident;_ref=this.callArgs(array);start=_ref[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];init=[];if(this.isConst(start)){if(typeof this.value(start)!=="number"){this.error("Cannot start with a non-number: "+__strnum(this.value(start)),start);}}else{start=__node("MacroAccess",38123,60,1187,{op:"+",node:__wrap(start)},"expression",false,false,false);}init.push(this.macroExpandAll(__node("MacroAccess",38169,38,1188,{macroName:"let",macroData:{declarable:__node("MacroAccess",38173,37,1188,__node("MacroAccess",38173,31,1188,{isMutable:"mutable",ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(start)}},"statement",false,false,false)));if(this.isConst(end)){if(typeof this.value(end)!=="number"){this.error("Cannot end with a non-number: "+__strnum(this.value(end)),end);}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",38387,60,1194,{op:"+",node:__wrap(end)},"expression",false,false,false),init,"end",false);}else{init.push(__node("MacroAccess",38447,60,1196,{op:"+",node:__wrap(end)},"expression",false,false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){this.error("Cannot step with a non-number: "+__strnum(this.value(step)),step);}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",38650,60,1202,{op:"+",node:__wrap(step)},"expression",false,false,false),init,"step",false);}else{init.push(__node("MacroAccess",38712,60,1204,{op:"+",node:__wrap(step)},"expression",false,false,false));}if(this.isComplex(inclusive)){inclusive=this.cache(__wrap(inclusive),init,"incl",false);}if(this.isConst(step)){if(__num(this.value(step))>0){if(this.isConst(end)&&this.value(end)===1/0){test=__const("true");}else{test=__node("MacroAccess",39001,16,1214,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",39020,9,1214,{left:__wrap(value),inverted:false,op:"~<=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",39041,9,1214,{left:__wrap(value),inverted:false,op:"~<",right:__wrap(end)},"expression",false,false,false)}},"expression",false,false,false);}}else if(this.isConst(end)&&this.value(end)===-1/0){test=__const("true");}else{test=__node("MacroAccess",39180,16,1219,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",39199,10,1219,{left:__wrap(value),inverted:false,op:"~>=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",39220,10,1219,{left:__wrap(value),inverted:false,op:"~>",right:__wrap(end)},"expression",false,false,false)}},"expression",false,false,false);}}else{test=__node("MacroAccess",39259,17,1221,{macroName:"if",macroData:{test:__node("MacroAccess",39262,10,1221,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",39272,0)},"expression",false,false,false),body:__node("MacroAccess",39274,16,1222,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",39302,9,1222,{left:__wrap(value),inverted:false,op:"~<=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",39323,9,1222,{left:__wrap(value),inverted:false,op:"~<",right:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",39352,16,1224,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",39380,10,1224,{left:__wrap(value),inverted:false,op:"~>=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",39401,10,1224,{left:__wrap(value),inverted:false,op:"~>",right:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)}},"expression",false,false,false);}increment=__node("MacroAccess",39456,52,1226,{left:__wrap(value),op:"~+=",right:__wrap(step)},"expression",false,false,false);if(length){init.push(this.macroExpandAll(__node("MacroAccess",39534,38,1229,{macroName:"let",macroData:{declarable:__node("MacroAccess",39538,37,1229,__node("MacroAccess",39538,31,1229,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",39548,17,1229,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",39563,45,1230,{left:__node("MacroAccess",39574,49,1230,{left:__node("MacroAccess",39574,49,1230,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",39621,45,1232,{left:__node("MacroAccess",39632,49,1232,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)));}if(index){init.push(this.macroExpandAll(__node("MacroAccess",39716,38,1235,{macroName:"let",macroData:{declarable:__node("MacroAccess",39720,37,1235,__node("MacroAccess",39720,31,1235,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",39738,0)}},"statement",false,false,false)));increment=__node("Block",39765,[__wrap(increment),__node("MacroAccess",39786,103,1238,{left:__wrap(index),op:"+=",right:__node("Const",39806,1)},"statement",false,false,false)],null);if(this.hasFunc(body)){func=this.tmp("f",false,"function");init.push(__node("MacroAccess",39906,38,1241,{macroName:"let",macroData:{declarable:__node("MacroAccess",39910,37,1241,__node("MacroAccess",39910,31,1241,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",39920,[__node("Param",39921,__wrap(value),void 0,false,false,void 0),__node("Param",39928,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",39970,__wrap(func),[__node("This",39978),__wrap(value),__wrap(index)],false,true);}}else if(this.hasFunc(body)){func=this.tmp("f",false,"function");init.push(__node("MacroAccess",40098,38,1245,{macroName:"let",macroData:{declarable:__node("MacroAccess",40102,37,1245,__node("MacroAccess",40102,31,1245,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",40112,[__node("Param",40113,__wrap(value),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",40152,__wrap(func),[__node("This",40160),__wrap(value)],false,true);}if(reducer==="every"){return __node("MacroAccess",40219,106,1249,{macroName:"for",macroData:{reducer:"every",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="some"){return __node("MacroAccess",40348,106,1254,{macroName:"for",macroData:{reducer:"some",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="first"){return __node("MacroAccess",40477,106,1259,{macroName:"for",macroData:{reducer:"first",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="filter"){body=this.mutateLast(body,function(node){return __node("MacroAccess",40652,17,1265,{macroName:"if",macroData:{test:__wrap(node),body:__wrap(value),elseIfs:[]}},"statement",false,false,false);});return __node("MacroAccess",40693,106,1267,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(this.position==="expression"){return __node("MacroAccess",40825,106,1272,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else{return __node("MacroAccess",40928,106,1278,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"statement",false,false,false);}}else{init=[];isString=this.isType(array,"string");hasIndex=index!=null;if(index==null){index=this.tmp("i",false,"number");}hasLength=length!=null;if(length==null){length=this.tmp("len",false,"number");}this.macroExpandAll(__node("MacroAccess",41282,38,1291,{macroName:"let",macroData:{declarable:__node("MacroAccess",41286,37,1291,__node("MacroAccess",41286,31,1291,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",41297,0)}},"statement",false,false,false));array=this.macroExpandAll(array);step=__node("Const",41383,1);start=__node("Const",41416,0);end=__const("Infinity");inclusive=__const("false");if(this.isCall(array)&&this.isIdent(this.callFunc(array))){if(this.name(this.callFunc(array))==="__step"&&!this.callIsApply(array)){args=this.callArgs(array);array=args[0];step=args[1];if(this.isConst(step)){if(__num(this.value(step))>=0){start=__node("Const",41814,0);end=__const("Infinity");}else{start=__const("Infinity");end=__node("Const",41931,0);}}else{start=void 0;end=void 0;}inclusive=__const("true");}else if(this.name(this.callFunc(array))==="__slice"&&this.callIsApply(array)){args=this.callArgs(array);array=args[0];start=args[1];end=args[2];if(this.isConst(end)&&this.value(end)===void 0){end=__const("Infinity");}}else if(this.name(this.callFunc(array))==="__sliceStep"&&!this.callIsApply(array)){args=this.callArgs(array);array=args[0];start=args[1];end=args[2];step=args[3];inclusive=args[4];}}if(this.isConst(step)){if(typeof this.value(step)!=="number"){this.error("Expected step to be a number, got "+__typeof(this.value(step)),step);}else if(__num(this.value(step))%1!==0){this.error("Expected step to be an integer, got "+__strnum(this.value(step)),step);}else if(this.value(step)===0){this.error("Expected step to non-zero",step);}}if(start&&this.isConst(start)&&this.value(start)!==1/0&&(typeof this.value(start)!=="number"||__num(this.value(start))%1!==0)){this.error("Expected start to be an integer, got "+__typeof(this.value(start))+" ("+String(this.value(start))+")",start);}if(end&&this.isConst(end)&&this.value(end)!==1/0&&(typeof this.value(end)!=="number"||__num(this.value(end))%1!==0)){this.error("Expected end to be an integer, got "+__typeof(this.value(end))+" ("+String(this.value(end))+")",end);}if(!isString&&!this.isType(array,"arrayLike")){array=__node("Call",43469,__node("Ident",43469,"__toArray"),[__wrap(array)],false,false);}array=this.cache(array,init,isString?"str":"arr",false);valueExpr=__node("MacroAccess",43597,16,1345,{macroName:"if",macroData:{test:__wrap(isString),body:__node("Call",43616,__node("Access",43616,__wrap(array),__node("Const",43624,"charAt")),[__wrap(index)],false,false),elseIfs:[],elseBody:__node("Access",43644,__wrap(array),__wrap(index))}},"expression",false,false,false);letIndex=this.macroExpandAll(__node("MacroAccess",43703,38,1346,{macroName:"let",macroData:{declarable:__node("MacroAccess",43707,37,1346,__node("MacroAccess",43707,31,1346,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",43725,0)}},"statement",false,false,false));if(value&&value.type==="ident"&&!value.isMutable){valueIdent=value.ident;}else{valueIdent=this.tmp("v",false);}letValue=this.macroExpandAll(__node("MacroAccess",43890,38,1348,{macroName:"let",macroData:{declarable:__node("MacroAccess",43894,37,1348,__node("MacroAccess",43894,31,1348,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueExpr)}},"statement",false,false,false));letLength=this.macroExpandAll(__node("MacroAccess",43960,38,1349,{macroName:"let",macroData:{declarable:__node("MacroAccess",43964,37,1349,__node("MacroAccess",43964,31,1349,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",43974,60,1349,{op:"+",node:__node("Access",43976,__wrap(array),__node("Const",43983,"length"))},"expression",false,false,false)}},"statement",false,false,false));_ref=this.isConst(step)?__num(this.value(step))>0?(this.isConst(start)?__num(this.value(start))>=0?(init.push(__node("MacroAccess",44165,38,1355,{macroName:"let",macroData:{declarable:__node("MacroAccess",44169,37,1355,__node("MacroAccess",44169,31,1355,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__wrap(start)}},"statement",false,false,false)),init.push(letLength)):(init.push(letLength),init.push(__node("MacroAccess",44308,38,1359,{macroName:"let",macroData:{declarable:__node("MacroAccess",44312,37,1359,__node("MacroAccess",44312,31,1359,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",44329,66,1359,{left:__wrap(length),inverted:false,op:"+",right:__wrap(start)},"expression",false,false,false)}},"statement",false,false,false))):(init.push(letLength),init.push(__node("MacroAccess",44420,38,1362,{macroName:"let",macroData:{declarable:__node("MacroAccess",44424,37,1362,__node("MacroAccess",44424,31,1362,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",44441,__node("Ident",44441,"__int"),[__wrap(start)],false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",44482,16,1363,{macroName:"if",macroData:{test:__node("MacroAccess",44485,9,1363,{left:__wrap(index),inverted:false,op:"~<",right:__node("Const",44496,0)},"expression",false,false,false),body:__node("MacroAccess",44504,103,1363,{left:__wrap(index),op:"+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[]}},"expression",false,false,false))),this.isConst(end)&&(this.value(end)===1/0||this.isConst(inclusive)&&this.value(inclusive)&&this.value(end)===-1)?[__node("MacroAccess",44668,9,1365,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(length)},"expression",false,false,false),__node("MacroAccess",44694,52,1365,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]:(tmp=this.tmp("end",false,"number"),init.push(__node("MacroAccess",44801,38,1368,{macroName:"let",macroData:{declarable:__node("MacroAccess",44805,37,1368,__node("MacroAccess",44805,31,1368,{isMutable:"mutable",ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",44820,60,1368,{op:"+",node:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)),!this.isConst(end)?init.push(__node("MacroAccess",44889,16,1370,{macroName:"if",macroData:{test:__node("MacroAccess",44892,9,1370,{left:__wrap(tmp),inverted:false,op:"~<",right:__node("Const",44901,0)},"expression",false,false,false),body:__node("MacroAccess",44909,52,1370,{left:__wrap(tmp),op:"~+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[]}},"expression",false,false,false)):__num(this.value(end))<0?init.push(__node("MacroAccess",44991,52,1372,{left:__wrap(tmp),op:"~+=",right:__wrap(length)},"expression",false,false,false)):void 0,init.push(__node("MacroAccess",45035,16,1373,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",45056,30,1373,{left:__wrap(tmp),op:":=",right:__node("MacroAccess",45063,2,1373,{left:__node("MacroAccess",45063,66,1373,{left:__wrap(tmp),inverted:false,op:"+",right:__node("Const",45071,1)},"expression",false,false,false),inverted:false,op:"or",right:__const("Infinity")},"expression",false,false,false)},"expression",false,false,false),elseIfs:[]}},"expression",false,false,false)),init.push(__node("MacroAccess",45112,86,1374,{left:__wrap(tmp),op:"~min=",right:__wrap(length)},"expression",false,false,false)),[__node("MacroAccess",45149,9,1375,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(tmp)},"expression",false,false,false),__node("MacroAccess",45170,52,1375,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)])):this.value(step)===-1&&(!start||this.isConst(start)&&((_ref2=this.value(start))===-1||_ref2===1/0)&&this.isConst(end)&&this.value(end)===0&&this.isConst(inclusive)&&this.value(inclusive))?(hasLength?(init.push(letLength),init.push(__node("MacroAccess",45467,38,1379,{macroName:"let",macroData:{declarable:__node("MacroAccess",45471,37,1379,__node("MacroAccess",45471,31,1379,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__wrap(length)}},"statement",false,false,false))):init.push(__node("MacroAccess",45537,38,1381,{macroName:"let",macroData:{declarable:__node("MacroAccess",45541,37,1381,__node("MacroAccess",45541,31,1381,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",45558,60,1381,{op:"+",node:__node("Access",45560,__wrap(array),__node("Const",45567,"length"))},"expression",false,false,false)}},"statement",false,false,false)),[__node("MacroAccess",45589,13,1382,{op:"postDec!",node:__wrap(index)},"expression",false,false,false),this.noop()]):(!this.isConst(end)||__num(this.value(end))<0?(hasLength=true):void 0,this.isConst(start)?(_ref2=this.value(start))===-1||_ref2===1/0?hasLength?(init.push(letLength),init.push(__node("MacroAccess",45883,38,1390,{macroName:"let",macroData:{declarable:__node("MacroAccess",45887,37,1390,__node("MacroAccess",45887,31,1390,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",45904,49,1390,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",45916,1)},"expression",false,false,false)}},"statement",false,false,false))):init.push(__node("MacroAccess",45966,38,1392,{macroName:"let",macroData:{declarable:__node("MacroAccess",45970,37,1392,__node("MacroAccess",45970,31,1392,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",45987,49,1392,{left:__node("MacroAccess",45987,60,1392,{op:"+",node:__node("Access",45989,__wrap(array),__node("Const",45996,"length"))},"expression",false,false,false),inverted:false,op:"~-",right:__node("Const",46006,1)},"expression",false,false,false)}},"statement",false,false,false)):(init.push(letLength),__num(this.value(start))>=0?init.push(__node("MacroAccess",46125,38,1396,{macroName:"let",macroData:{declarable:__node("MacroAccess",46129,37,1396,__node("MacroAccess",46129,31,1396,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",46146,16,1396,{macroName:"if",macroData:{test:__node("MacroAccess",46149,9,1396,{left:__wrap(start),inverted:false,op:"~<",right:__wrap(length)},"expression",false,false,false),body:__wrap(start),elseIfs:[],elseBody:__node("MacroAccess",46184,49,1396,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",46196,1)},"expression",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)):init.push(__node("MacroAccess",46246,38,1398,{macroName:"let",macroData:{declarable:__node("MacroAccess",46250,37,1398,__node("MacroAccess",46250,31,1398,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",46267,49,1398,{left:__wrap(length),inverted:false,op:"~+",right:__node("MacroAccess",46278,60,1398,{op:"+",node:__wrap(start)},"expression",false,false,false)},"expression",false,false,false)}},"statement",false,false,false))):(init.push(letLength),init.push(__node("MacroAccess",46360,38,1401,{macroName:"let",macroData:{declarable:__node("MacroAccess",46364,37,1401,__node("MacroAccess",46364,31,1401,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",46381,60,1401,{op:"+",node:__wrap(start)},"expression",false,false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",46415,16,1402,{macroName:"if",macroData:{test:__node("MacroAccess",46418,9,1402,{left:__wrap(index),inverted:false,op:"~<",right:__node("Const",46429,0)},"statement",false,false,false),body:__node("MacroAccess",46437,52,1402,{left:__wrap(index),op:"~+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",46463,86,1402,{left:__wrap(index),op:"~min=",right:__wrap(length)},"expression",false,false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",46510,53,1403,{left:__wrap(index),op:"~-=",right:__node("Const",46522,1)},"statement",false,false,false))),this.isConst(end)?__num(this.value(end))>=0?[__node("MacroAccess",46603,16,1406,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",46622,10,1406,{left:__wrap(index),inverted:false,op:"~>=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",46643,10,1406,{left:__wrap(index),inverted:false,op:"~>",right:__wrap(end)},"expression",false,false,false)}},"expression",false,false,false),__node("MacroAccess",46664,52,1406,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]:[__node("MacroAccess",46719,16,1408,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",46738,10,1408,{left:__wrap(index),inverted:false,op:"~>=",right:__node("MacroAccess",46749,66,1408,{left:__wrap(end),inverted:false,op:"+",right:__wrap(length)},"expression",false,false,false)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",46769,10,1408,{left:__wrap(index),inverted:false,op:"~>",right:__node("MacroAccess",46779,66,1408,{left:__wrap(end),inverted:false,op:"+",right:__wrap(length)},"expression",false,false,false)},"expression",false,false,false)}},"expression",false,false,false),__node("MacroAccess",46800,52,1408,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]:(tmp=this.tmp("end",false,"number"),init.push(__node("MacroAccess",46907,38,1411,{macroName:"let",macroData:{declarable:__node("MacroAccess",46911,37,1411,__node("MacroAccess",46911,31,1411,{isMutable:"mutable",ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",46926,60,1411,{op:"+",node:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",46958,16,1412,{macroName:"if",macroData:{test:__node("MacroAccess",46961,9,1412,{left:__wrap(tmp),inverted:false,op:"~<",right:__node("Const",46970,0)},"statement",false,false,false),body:__node("MacroAccess",46978,52,1412,{left:__wrap(tmp),op:"~+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[]}},"statement",false,false,false)),[__node("MacroAccess",47013,16,1413,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",47032,10,1413,{left:__wrap(index),inverted:false,op:"~>=",right:__wrap(tmp)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",47053,10,1413,{left:__wrap(index),inverted:false,op:"~>",right:__wrap(tmp)},"expression",false,false,false)}},"expression",false,false,false),__node("MacroAccess",47074,52,1413,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)])):(this.isComplex(step)?(step=this.cache(__node("Call",47163,__node("Ident",47163,"__int"),[__node("Call",47170,__node("Ident",47170,"__nonzero"),[__wrap(step)],false,false)],false,false),init,"step",false)):init.unshift(__node("Call",47249,__node("Ident",47249,"__int"),[__node("Call",47256,__node("Ident",47256,"__nonzero"),[__wrap(step)],false,false)],false,false)),init.push(letLength),!start?(init.push(__node("MacroAccess",47347,38,1421,{macroName:"let",macroData:{declarable:__node("MacroAccess",47351,37,1421,__node("MacroAccess",47351,31,1421,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",47368,16,1421,{macroName:"if",macroData:{test:__node("MacroAccess",47371,10,1421,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",47381,0)},"expression",false,false,false),body:__node("Const",47388,0),elseIfs:[],elseBody:__node("MacroAccess",47394,49,1421,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",47406,1)},"expression",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)),[__node("MacroAccess",47436,16,1423,{macroName:"if",macroData:{test:__node("MacroAccess",47439,10,1423,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",47449,0)},"expression",false,false,false),body:__node("MacroAccess",47455,9,1423,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(length)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",47478,10,1423,{left:__wrap(index),inverted:false,op:"~>=",right:__node("Const",47490,0)},"expression",false,false,false)}},"expression",false,false,false),__node("MacroAccess",47508,52,1424,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]):(this.isConst(start)?this.value(start)===1/0?init.push(__node("MacroAccess",47649,38,1429,{macroName:"let",macroData:{declarable:__node("MacroAccess",47653,37,1429,__node("MacroAccess",47653,31,1429,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",47670,49,1429,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",47682,1)},"expression",false,false,false)}},"statement",false,false,false)):init.push(__node("MacroAccess",47728,38,1431,{macroName:"let",macroData:{declarable:__node("MacroAccess",47732,37,1431,__node("MacroAccess",47732,31,1431,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",47749,16,1431,{macroName:"if",macroData:{test:__node("MacroAccess",47752,10,1431,{left:__wrap(start),inverted:false,op:"~>=",right:__node("Const",47764,0)},"expression",false,false,false),body:__wrap(start),elseIfs:[],elseBody:__node("MacroAccess",47782,66,1431,{left:__wrap(start),inverted:false,op:"+",right:__wrap(length)},"expression",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)):(init.push(__node("MacroAccess",47840,38,1433,{macroName:"let",macroData:{declarable:__node("MacroAccess",47844,37,1433,__node("MacroAccess",47844,31,1433,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__wrap(start)}},"statement",false,false,false)),init.push(__node("MacroAccess",47894,16,1434,{macroName:"if",macroData:{test:__node("MacroAccess",47897,9,1434,{left:__wrap(index),inverted:false,op:"~<",right:__node("Const",47908,0)},"statement",false,false,false),body:__node("MacroAccess",47916,103,1434,{left:__wrap(index),op:"+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[{test:__node("MacroAccess",47942,9,1434,{left:__wrap(step),inverted:false,op:"~<",right:__node("Const",47952,0)},"statement",false,false,false),body:__node("MacroAccess",47960,86,1434,{left:__wrap(index),op:"~min=",right:__wrap(length)},"expression",false,false,false)}]}},"statement",false,false,false))),tmp=this.tmp("end",false,"number"),this.isConst(end)?init.push(__node("MacroAccess",48081,38,1437,{macroName:"let",macroData:{declarable:__node("MacroAccess",48085,37,1437,__node("MacroAccess",48085,31,1437,{isMutable:"mutable",ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",48100,16,1437,{macroName:"if",macroData:{test:__node("MacroAccess",48103,9,1437,{left:__wrap(end),inverted:false,op:"~<",right:__node("Const",48112,0)},"expression",false,false,false),body:__node("MacroAccess",48118,49,1437,{left:__wrap(end),inverted:false,op:"~+",right:__wrap(length)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",48139,83,1437,{left:__wrap(end),inverted:false,op:"max",right:__node("MacroAccess",48150,16,1437,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",48168,49,1437,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",48180,1)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(length)}},"expression",false,false,false)},"expression",false,false,false)}},"expression",false,false,false)}},"statement",false,false,false)):(init.push(__node("MacroAccess",48236,38,1439,{macroName:"let",macroData:{declarable:__node("MacroAccess",48240,37,1439,__node("MacroAccess",48240,31,1439,{isMutable:"mutable",ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",48255,60,1439,{op:"+",node:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)),init.push(__node("MacroAccess",48287,16,1440,{macroName:"if",macroData:{test:__node("MacroAccess",48290,9,1440,{left:__wrap(tmp),inverted:false,op:"~<",right:__node("Const",48299,0)},"statement",false,false,false),body:__node("MacroAccess",48307,103,1440,{left:__wrap(tmp),op:"+=",right:__wrap(length)},"expression",false,false,false),elseIfs:[{test:__node("MacroAccess",48331,10,1440,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",48341,0)},"statement",false,false,false),body:__node("MacroAccess",48349,86,1440,{left:__wrap(tmp),op:"~min=",right:__node("MacroAccess",48359,16,1440,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",48378,49,1440,{left:__wrap(length),inverted:false,op:"~-",right:__node("Const",48390,1)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(length)}},"expression",false,false,false)},"expression",false,false,false)}],elseBody:__node("MacroAccess",48412,87,1440,{left:__wrap(tmp),op:"~max=",right:__node("MacroAccess",48424,16,1440,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("Const",48443,0),elseIfs:[],elseBody:__node("MacroAccess",48449,61,1440,{op:"-",node:__node("Const",48451,1)},"expression",false,false,false)}},"expression",false,false,false)},"expression",false,false,false)}},"statement",false,false,false))),end=tmp,[__node("MacroAccess",48504,17,1443,{macroName:"if",macroData:{test:__node("MacroAccess",48507,10,1443,{left:__wrap(step),inverted:false,op:"~>",right:__node("Const",48517,0)},"expression",false,false,false),body:__node("MacroAccess",48519,16,1444,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",48551,9,1444,{left:__wrap(index),inverted:false,op:"~<=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",48572,9,1444,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",48605,16,1446,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",48637,10,1446,{left:__wrap(index),inverted:false,op:"~>=",right:__wrap(end)},"expression",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",48658,9,1446,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(end)},"expression",false,false,false)}},"statement",false,false,false)}},"expression",false,false,false),__node("MacroAccess",48690,52,1447,{left:__wrap(index),op:"~+=",right:__wrap(step)},"expression",false,false,false)]));test=_ref[0];increment=_ref[1];if(this.hasFunc(body)){func=this.tmp("f",false,"function");if(value&&valueIdent!==value.ident){body=__node("Block",48865,[__node("MacroAccess",48865,38,1454,{macroName:"let",macroData:{declarable:__node("MacroAccess",48880,37,1454,__node("MacroAccess",48880,31,1454,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueIdent)}},"statement",false,false,false),__wrap(body)],null);}if(hasIndex){init.push(__node("MacroAccess",48965,38,1457,{macroName:"let",macroData:{declarable:__node("MacroAccess",48969,37,1457,__node("MacroAccess",48969,31,1457,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",48979,[__node("Param",48980,__wrap(valueIdent),void 0,false,false,void 0),__node("Param",48993,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",49033,__wrap(func),[__node("This",49041),__wrap(valueExpr),__wrap(index)],false,true);}else{init.push(__node("MacroAccess",49104,38,1460,{macroName:"let",macroData:{declarable:__node("MacroAccess",49108,37,1460,__node("MacroAccess",49108,31,1460,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",49118,[__node("Param",49119,__wrap(valueIdent),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",49164,__wrap(func),[__node("This",49172),__wrap(valueExpr)],false,true);}}else if(valueIdent===value.ident||reducer!=="filter"){body=__node("Block",49274,[__node("MacroAccess",49274,38,1464,{macroName:"let",macroData:{declarable:__node("MacroAccess",49287,37,1464,__node("MacroAccess",49287,31,1464,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueExpr)}},"statement",false,false,false),__wrap(body)],null);}else{body=__node("Block",49356,[__node("MacroAccess",49356,38,1468,{macroName:"let",macroData:{declarable:__node("MacroAccess",49369,37,1468,__node("MacroAccess",49369,31,1468,{ident:__wrap(valueIdent)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueExpr)}},"statement",false,false,false),__node("MacroAccess",49397,38,1469,{macroName:"let",macroData:{declarable:__node("MacroAccess",49410,37,1469,__node("MacroAccess",49410,31,1469,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueIdent)}},"statement",false,false,false),__wrap(body)],null);}if(reducer==="every"){return __node("MacroAccess",49491,106,1473,{macroName:"for",macroData:{reducer:"every",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="some"){return __node("MacroAccess",49620,106,1478,{macroName:"for",macroData:{reducer:"some",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="first"){return __node("MacroAccess",49749,106,1483,{macroName:"for",macroData:{reducer:"first",init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="filter"){body=this.mutateLast(body,function(node){return __node("MacroAccess",49924,17,1489,{macroName:"if",macroData:{test:__wrap(node),body:__wrap(valueIdent),elseIfs:[]}},"statement",false,false,false);});return __node("MacroAccess",49971,106,1491,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(this.position==="expression"){return __node("MacroAccess",50102,106,1496,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else{return __node("MacroAccess",50205,106,1502,{macroName:"for",macroData:{init:__wrap(init),test:__wrap(test),step:__wrap(increment),body:__wrap(body),elseBody:__wrap(elseBody)}},"statement",false,false,false);}}};}.call(this));',
           params: [
             [
               "ident",
@@ -35125,7 +34339,7 @@
           id: 113
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var array,body,current,currentStart,index,length,macroData,macroName,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;value=macroData.value;index=macroData.index;array=macroData.array;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;value=this.macroExpand1(value);body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1509,59,30,1509,{left:__wrap(current),op:":=",right:__wrap(node)},"expression",false,false,false);});if(index!=null){length=index.length;}if(index!=null){index=index.value;}return __node("Block",1513,1,[__node("MacroAccess",1513,1,38,1513,{macroName:"let",macroData:{declarable:__node("MacroAccess",1513,10,37,1513,__node("MacroAccess",1513,10,31,1513,{isMutable:"mutable",ident:__wrap(current)},"statement",false,false,false),"statement",false,false,false),value:__wrap(currentStart)}},"statement",false,false,false),__node("MacroAccess",1514,1,113,1514,{macroName:"for",macroData:{value:__node("MacroAccess",1514,10,37,1514,__node("MacroAccess",1514,10,31,1514,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),index:{value:__wrap(index),length:__wrap(length)},array:__wrap(array),body:__wrap(body)}},"statement",false,false,false),__wrap(current)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var array,body,current,currentStart,index,length,macroData,macroName,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;value=macroData.value;index=macroData.index;array=macroData.array;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;value=this.macroExpand1(value);body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",50623,30,1509,{left:__wrap(current),op:":=",right:__wrap(node)},"expression",false,false,false);});if(index!=null){length=index.length;}if(index!=null){index=index.value;}return __node("Block",50708,[__node("MacroAccess",50708,38,1513,{macroName:"let",macroData:{declarable:__node("MacroAccess",50717,37,1513,__node("MacroAccess",50717,31,1513,{isMutable:"mutable",ident:__wrap(current)},"statement",false,false,false),"statement",false,false,false),value:__wrap(currentStart)}},"statement",false,false,false),__node("MacroAccess",50752,113,1514,{macroName:"for",macroData:{value:__node("MacroAccess",50761,37,1514,__node("MacroAccess",50761,31,1514,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),index:{value:__wrap(index),length:__wrap(length)},array:__wrap(array),body:__wrap(body)}},"statement",false,false,false),__wrap(current)],null);};}.call(this));',
           params: [
             ["const", "reduce"],
             ["ident", "value", "ident", "Declarable"],
@@ -35169,7 +34383,7 @@
           id: 114
         },
         {
-          code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var arr,body,elseBody,func,index,init,key,letIndex,letValue,loop,macroData,macroName,object,own,post,reducer,runElse,type,value,valueIdent;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;elseBody=macroData.elseBody;index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}own=type==="of";init=[];if(own||value){object=this.cache(object,init,"obj",false);}this["let"](key,false,this.type("string"));letValue=value&&this.macroExpandAll(__node("MacroAccess",1530,52,38,1530,{macroName:"let",macroData:{declarable:__node("MacroAccess",1530,56,37,1530,__node("MacroAccess",1530,56,31,1530,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",1530,65,__wrap(object),__wrap(key))}},"statement",false,false,false));letIndex=index&&this.macroExpandAll(__node("MacroAccess",1531,52,38,1531,{macroName:"let",macroData:{declarable:__node("MacroAccess",1531,56,37,1531,__node("MacroAccess",1531,56,31,1531,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1531,73,61,1531,{op:"-",node:__node("Const",1531,75,1)},"expression",false,false,false)}},"statement",false,false,false));if(this.hasFunc(body)){func=this.tmp("f",false,"function");if(value){if(value.type==="ident"){valueIdent=value.ident;}else{valueIdent=this.tmp("v",false);}}if(value&&valueIdent!==value.ident){body=__node("Block",1537,1,[__node("MacroAccess",1537,1,38,1537,{macroName:"let",macroData:{declarable:__node("MacroAccess",1537,14,37,1537,__node("MacroAccess",1537,14,31,1537,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueIdent)}},"statement",false,false,false),__wrap(body)],null);}if(index){init.push(__node("MacroAccess",1540,23,38,1540,{macroName:"let",macroData:{declarable:__node("MacroAccess",1540,27,37,1540,__node("MacroAccess",1540,27,31,1540,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",1540,37,[__node("Param",1540,38,__wrap(key),void 0,false,false,void 0),__node("Param",1540,43,__wrap(valueIdent),void 0,false,false,void 0),__node("Param",1540,57,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",1541,22,__wrap(func),[__node("This",1541,30),__wrap(key),__node("Access",1541,41,__wrap(object),__wrap(key)),__wrap(index)],false,true);}else if(value){init.push(__node("MacroAccess",1543,23,38,1543,{macroName:"let",macroData:{declarable:__node("MacroAccess",1543,27,37,1543,__node("MacroAccess",1543,27,31,1543,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",1543,37,[__node("Param",1543,38,__wrap(key),void 0,false,false,void 0),__node("Param",1543,43,__wrap(valueIdent),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",1544,22,__wrap(func),[__node("This",1544,30),__wrap(key),__node("Access",1544,41,__wrap(object),__wrap(key))],false,true);}else{init.push(__node("MacroAccess",1546,23,38,1546,{macroName:"let",macroData:{declarable:__node("MacroAccess",1546,27,37,1546,__node("MacroAccess",1546,27,31,1546,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",1546,37,[__node("Param",1546,38,__wrap(key),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",1547,22,__wrap(func),[__node("This",1547,30),__wrap(key)],false,true);}}else if(value){body=__node("Block",1550,1,[__wrap(letValue),__wrap(body)],null);}post=[];if(elseBody){runElse=this.tmp("else",false,"boolean");init.push(__node("MacroAccess",1556,21,38,1556,{macroName:"let",macroData:{declarable:__node("MacroAccess",1556,25,37,1556,__node("MacroAccess",1556,25,31,1556,{ident:__wrap(runElse)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false));body=__node("Block",1558,1,[__node("MacroAccess",1558,1,30,1558,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__wrap(body)],null);post.push(__node("MacroAccess",1561,1,17,1561,{macroName:"if",macroData:{test:__wrap(runElse),body:__wrap(elseBody),elseIfs:[]}},"statement",false,false,false));}if(index){init.push(letIndex);body=__node("Block",1567,1,[__node("MacroAccess",1567,1,52,1567,{left:__wrap(index),op:"~+=",right:__node("Const",1567,20,1)},"statement",false,false,false),__wrap(body)],null);}if(own){body=__node("MacroAccess",1572,1,17,1572,{macroName:"if",macroData:{test:__node("MacroAccess",1572,11,73,1572,{left:__wrap(object),inverted:false,op:"ownskey",right:__wrap(key)},"statement",false,false,false),body:__wrap(body),elseIfs:[]}},"statement",false,false,false);}if(reducer){if(reducer==="first"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1577,62,39,1577,{macroName:"return",macroData:{node:__wrap(node)}},"statement",false,false,false);});loop=this.forIn(key,object,body);return __node("MacroAccess",1579,12,0,1579,{macroName:"do",macroData:{body:__node("Block",1580,1,[__wrap(init),__wrap(loop),__wrap(elseBody)],null)}},"statement",false,false,false);}else{if(elseBody){this.error("Cannot use a for loop with an else with "+__strnum(reducer),elseBody);}if(reducer==="some"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1588,1,17,1588,{macroName:"if",macroData:{test:__wrap(node),body:__node("MacroAccess",1589,1,39,1589,{macroName:"return",macroData:{node:__const("true")}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});loop=this.forIn(key,object,body);return __node("MacroAccess",1591,14,0,1591,{macroName:"do",macroData:{body:__node("Block",1592,1,[__wrap(init),__wrap(loop),__const("false")],null)}},"statement",false,false,false);}else if(reducer==="every"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1597,1,17,1597,{macroName:"if",macroData:{test:__node("MacroAccess",1597,15,3,1597,{op:"not",node:__wrap(node)},"statement",false,false,false),body:__node("MacroAccess",1598,1,39,1598,{macroName:"return",macroData:{node:__const("false")}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});loop=this.forIn(key,object,body);return __node("MacroAccess",1600,14,0,1600,{macroName:"do",macroData:{body:__node("Block",1601,1,[__wrap(init),__wrap(loop),__const("true")],null)}},"statement",false,false,false);}else{return this.error("Unknown reducer: "+__strnum(reducer));}}}else if(this.position==="expression"){if(elseBody){this.error("Cannot use a for loop with an else as an expression",elseBody);}arr=this.tmp("arr",false,this.type(body).array());body=this.mutateLast(body||this.noop(),function(node){return __node("Call",1610,61,__node("Access",1610,61,__wrap(arr),__node("Const",1610,67,"push")),[__wrap(node)],false,false);});init.unshift(__node("MacroAccess",1611,23,38,1611,{macroName:"let",macroData:{declarable:__node("MacroAccess",1611,27,37,1611,__node("MacroAccess",1611,27,31,1611,{ident:__wrap(arr)},"statement",false,false,false),"statement",false,false,false),value:__node("Array",1611,34,[])}},"statement",false,false,false));loop=this.forIn(key,object,body);return __node("Block",1614,1,[__wrap(init),__wrap(loop),__wrap(arr)],null);}else{loop=this.forIn(key,object,body);return __node("Block",1620,1,[__wrap(init),__wrap(loop),__wrap(post)],null);}};}.call(this));',
+          code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var arr,body,elseBody,func,index,init,key,letIndex,letValue,loop,macroData,macroName,object,own,post,reducer,runElse,type,value,valueIdent;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;elseBody=macroData.elseBody;index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}own=type==="of";init=[];if(own||value){object=this.cache(object,init,"obj",false);}this["let"](key,false,this.type("string"));letValue=value&&this.macroExpandAll(__node("MacroAccess",51465,38,1530,{macroName:"let",macroData:{declarable:__node("MacroAccess",51469,37,1530,__node("MacroAccess",51469,31,1530,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",51478,__wrap(object),__wrap(key))}},"statement",false,false,false));letIndex=index&&this.macroExpandAll(__node("MacroAccess",51544,38,1531,{macroName:"let",macroData:{declarable:__node("MacroAccess",51548,37,1531,__node("MacroAccess",51548,31,1531,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",51565,61,1531,{op:"-",node:__node("Const",51567,1)},"expression",false,false,false)}},"statement",false,false,false));if(this.hasFunc(body)){func=this.tmp("f",false,"function");if(value){if(value.type==="ident"){valueIdent=value.ident;}else{valueIdent=this.tmp("v",false);}}if(value&&valueIdent!==value.ident){body=__node("Block",51802,[__node("MacroAccess",51802,38,1537,{macroName:"let",macroData:{declarable:__node("MacroAccess",51815,37,1537,__node("MacroAccess",51815,31,1537,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__wrap(valueIdent)}},"statement",false,false,false),__wrap(body)],null);}if(index){init.push(__node("MacroAccess",51891,38,1540,{macroName:"let",macroData:{declarable:__node("MacroAccess",51895,37,1540,__node("MacroAccess",51895,31,1540,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",51905,[__node("Param",51906,__wrap(key),void 0,false,false,void 0),__node("Param",51911,__wrap(valueIdent),void 0,false,false,void 0),__node("Param",51925,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",51965,__wrap(func),[__node("This",51973),__wrap(key),__node("Access",51984,__wrap(object),__wrap(key)),__wrap(index)],false,true);}else if(value){init.push(__node("MacroAccess",52051,38,1543,{macroName:"let",macroData:{declarable:__node("MacroAccess",52055,37,1543,__node("MacroAccess",52055,31,1543,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",52065,[__node("Param",52066,__wrap(key),void 0,false,false,void 0),__node("Param",52071,__wrap(valueIdent),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",52117,__wrap(func),[__node("This",52125),__wrap(key),__node("Access",52136,__wrap(object),__wrap(key))],false,true);}else{init.push(__node("MacroAccess",52186,38,1546,{macroName:"let",macroData:{declarable:__node("MacroAccess",52190,37,1546,__node("MacroAccess",52190,31,1546,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("Function",52200,[__node("Param",52201,__wrap(key),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])}},"statement",false,false,false));body=__node("Call",52238,__wrap(func),[__node("This",52246),__wrap(key)],false,true);}}else if(value){body=__node("Block",52295,[__wrap(letValue),__wrap(body)],null);}post=[];if(elseBody){runElse=this.tmp("else",false,"boolean");init.push(__node("MacroAccess",52433,38,1556,{macroName:"let",macroData:{declarable:__node("MacroAccess",52437,37,1556,__node("MacroAccess",52437,31,1556,{ident:__wrap(runElse)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false));body=__node("Block",52474,[__node("MacroAccess",52474,30,1558,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__wrap(body)],null);post.push(__node("MacroAccess",52535,17,1561,{macroName:"if",macroData:{test:__wrap(runElse),body:__wrap(elseBody),elseIfs:[]}},"statement",false,false,false));}if(index){init.push(letIndex);body=__node("Block",52637,[__node("MacroAccess",52637,52,1567,{left:__wrap(index),op:"~+=",right:__node("Const",52656,1)},"statement",false,false,false),__wrap(body)],null);}if(own){body=__node("MacroAccess",52704,17,1572,{macroName:"if",macroData:{test:__node("MacroAccess",52714,73,1572,{left:__wrap(object),inverted:false,op:"ownskey",right:__wrap(key)},"statement",false,false,false),body:__wrap(body),elseIfs:[]}},"statement",false,false,false);}if(reducer){if(reducer==="first"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",52858,39,1577,{macroName:"return",macroData:{node:__wrap(node)}},"statement",false,false,false);});loop=this.forIn(key,object,body);return __node("MacroAccess",52930,0,1579,{macroName:"do",macroData:{body:__node("Block",52934,[__wrap(init),__wrap(loop),__wrap(elseBody)],null)}},"statement",false,false,false);}else{if(elseBody){this.error("Cannot use a for loop with an else with "+__strnum(reducer),elseBody);}if(reducer==="some"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",53191,17,1588,{macroName:"if",macroData:{test:__wrap(node),body:__node("MacroAccess",53212,39,1589,{macroName:"return",macroData:{node:__const("true")}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});loop=this.forIn(key,object,body);return __node("MacroAccess",53299,0,1591,{macroName:"do",macroData:{body:__node("Block",53303,[__wrap(init),__wrap(loop),__const("false")],null)}},"statement",false,false,false);}else if(reducer==="every"){body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",53454,17,1597,{macroName:"if",macroData:{test:__node("MacroAccess",53468,3,1597,{op:"not",node:__wrap(node)},"statement",false,false,false),body:__node("MacroAccess",53479,39,1598,{macroName:"return",macroData:{node:__const("false")}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);});loop=this.forIn(key,object,body);return __node("MacroAccess",53567,0,1600,{macroName:"do",macroData:{body:__node("Block",53571,[__wrap(init),__wrap(loop),__const("true")],null)}},"statement",false,false,false);}else{return this.error("Unknown reducer: "+__strnum(reducer));}}}else if(this.position==="expression"){if(elseBody){this.error("Cannot use a for loop with an else as an expression",elseBody);}arr=this.tmp("arr",false,this.type(body).array());body=this.mutateLast(body||this.noop(),function(node){return __node("Call",53932,__node("Access",53932,__wrap(arr),__node("Const",53938,"push")),[__wrap(node)],false,false);});init.unshift(__node("MacroAccess",53972,38,1611,{macroName:"let",macroData:{declarable:__node("MacroAccess",53976,37,1611,__node("MacroAccess",53976,31,1611,{ident:__wrap(arr)},"statement",false,false,false),"statement",false,false,false),value:__node("Array",53983,[])}},"statement",false,false,false));loop=this.forIn(key,object,body);return __node("Block",54041,[__wrap(init),__wrap(loop),__wrap(arr)],null);}else{loop=this.forIn(key,object,body);return __node("Block",54145,[__wrap(init),__wrap(loop),__wrap(post)],null);}};}.call(this));',
           params: [
             [
               "ident",
@@ -35244,7 +34458,7 @@
           id: 115
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,current,currentStart,index,key,loop,macroData,macroName,object,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",1625,59,30,1625,{left:__wrap(current),op:":=",right:__wrap(node)},"expression",false,false,false);});if(value!=null){index=value.index;}if(value!=null){value=value.value;}if(type==="of"){loop=__node("MacroAccess",1629,10,115,1629,{macroName:"for",macroData:{key:__wrap(key),value:{value:__node("MacroAccess",1629,20,37,1629,__node("MacroAccess",1629,20,31,1629,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),index:__wrap(index)},type:"of",object:__wrap(object),body:__wrap(body)}},"statement",false,false,false);}else{loop=__node("MacroAccess",1632,10,115,1632,{macroName:"for",macroData:{key:__wrap(key),value:{value:__node("MacroAccess",1632,20,37,1632,__node("MacroAccess",1632,20,31,1632,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),index:__wrap(index)},type:"ofall",object:__wrap(object),body:__wrap(body)}},"statement",false,false,false);}return __node("Block",1635,1,[__node("MacroAccess",1635,1,38,1635,{macroName:"let",macroData:{declarable:__node("MacroAccess",1635,10,37,1635,__node("MacroAccess",1635,10,31,1635,{isMutable:"mutable",ident:__wrap(current)},"statement",false,false,false),"statement",false,false,false),value:__wrap(currentStart)}},"statement",false,false,false),__wrap(loop),__wrap(current)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,current,currentStart,index,key,loop,macroData,macroName,object,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",54494,30,1625,{left:__wrap(current),op:":=",right:__wrap(node)},"expression",false,false,false);});if(value!=null){index=value.index;}if(value!=null){value=value.value;}if(type==="of"){loop=__node("MacroAccess",54609,115,1629,{macroName:"for",macroData:{key:__wrap(key),value:{value:__node("MacroAccess",54619,37,1629,__node("MacroAccess",54619,31,1629,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),index:__wrap(index)},type:"of",object:__wrap(object),body:__wrap(body)}},"statement",false,false,false);}else{loop=__node("MacroAccess",54678,115,1632,{macroName:"for",macroData:{key:__wrap(key),value:{value:__node("MacroAccess",54688,37,1632,__node("MacroAccess",54688,31,1632,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),index:__wrap(index)},type:"ofall",object:__wrap(object),body:__wrap(body)}},"statement",false,false,false);}return __node("Block",54740,[__node("MacroAccess",54740,38,1635,{macroName:"let",macroData:{declarable:__node("MacroAccess",54749,37,1635,__node("MacroAccess",54749,31,1635,{isMutable:"mutable",ident:__wrap(current)},"statement",false,false,false),"statement",false,false,false),value:__wrap(currentStart)}},"statement",false,false,false),__wrap(loop),__wrap(current)],null);};}.call(this));',
           params: [
             ["const", "reduce"],
             ["ident", "key", "ident", "Identifier"],
@@ -35294,7 +34508,7 @@
           id: 116
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _arr,_f,_i,catchBody,catchIdent,catchPart,current,elseBody,finallyBody,hasElse,init,macroData,macroName,runElse,tryBody,typedCatches;macroName=macroFullData.macroName;macroData=macroFullData.macroData;tryBody=macroData.tryBody;typedCatches=macroData.typedCatches;catchPart=macroData.catchPart;elseBody=macroData.elseBody;finallyBody=macroData.finallyBody;hasElse=!!elseBody;if(typedCatches.length===0&&!catchPart&&!hasElse&&!finallyBody){this.error("Must provide at least a catch, else, or finally to a try block");}if(catchPart!=null){catchIdent=catchPart.ident;}if(catchPart!=null){catchBody=catchPart.body;}if(typedCatches.length!==0){if(!catchIdent){catchIdent=typedCatches[0].ident;}current=catchBody||__node("MacroAccess",2043,94,11,2043,{op:"throw",node:__wrap(catchIdent)},"statement",false,false,false);for(_arr=__toArray(typedCatches), _i=_arr.length, _f=function(typeCatch){var _this,letErr,typeIdent,types,value;_this=this;typeIdent=typeCatch.ident;if(this.name(typeIdent)!==this.name(catchIdent)){letErr=__node("MacroAccess",2046,14,38,2046,{macroName:"let",macroData:{declarable:__node("MacroAccess",2046,18,37,2046,__node("MacroAccess",2046,18,31,2046,{ident:__wrap(typeIdent)},"statement",false,false,false),"statement",false,false,false),value:__wrap(catchIdent)}},"statement",false,false,false);}else{letErr=this.noop();}if(typeCatch.check.type==="as"){types=this.array((function(){var _arr,_arr2,_i,_len,type;for(_arr=[], _arr2=__toArray(_this.isTypeUnion(typeCatch.check.value)?_this.types(typeCatch.check.value):[typeCatch.check.value]), _i=0, _len=_arr2.length;_i<_len;++_i){type=_arr2[_i];if(_this.isTypeArray(type)){_this.error("Expected a normal type, cannot use an array type",type);}else if(_this.isTypeGeneric(type)){_this.error("Expected a normal type, cannot use a generic type",type);}else if(_this.isTypeFunction(type)){_this.error("Expected a normal type, cannot use a function type",type);}else if(_this.isTypeObject(type)){_this.error("Expected a normal type, cannot use an object type",type);}_arr.push(type);}return _arr;}()));return current=__node("MacroAccess",2061,1,17,2061,{macroName:"if",macroData:{test:__node("MacroAccess",2061,15,118,2061,{left:__wrap(catchIdent),inverted:false,op:"instanceofsome",right:__wrap(types)},"statement",false,false,false),body:__node("Block",2062,1,[__wrap(letErr),__wrap(typeCatch.body)],null),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);}else{value=typeCatch.check.value;return current=__node("MacroAccess",2069,1,17,2069,{macroName:"if",macroData:{test:__node("MacroAccess",2069,15,5,2069,{left:__wrap(catchIdent),inverted:false,op:"==",right:__wrap(value)},"statement",false,false,false),body:__node("Block",2070,1,[__wrap(letErr),__wrap(typeCatch.body)],null),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);}};_i--;){_f.call(this,_arr[_i]);}catchBody=current;}init=[];if(hasElse){runElse=this.tmp("else",false,"boolean");init.push(__node("MacroAccess",2078,20,38,2078,{macroName:"let",macroData:{declarable:__node("MacroAccess",2078,24,37,2078,__node("MacroAccess",2078,24,31,2078,{ident:__wrap(runElse)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false));if(catchBody){catchBody=__node("Block",2081,1,[__node("MacroAccess",2081,1,30,2081,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__wrap(catchBody)],null);}else{catchIdent=this.tmp("err");catchBody=__node("Block",2086,1,[__node("MacroAccess",2086,1,30,2086,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__node("MacroAccess",2087,1,11,2087,{op:"throw",node:__wrap(catchIdent)},"statement",false,false,false)],null);}}current=tryBody;if(catchBody){current=this.tryCatch(current,catchIdent||this.tmp("err"),catchBody);}if(hasElse){current=this.tryFinally(current,__node("MacroAccess",2094,1,17,2094,{macroName:"if",macroData:{test:__wrap(runElse),body:__wrap(elseBody),elseIfs:[]}},"statement",false,false,false));}if(finallyBody){current=this.tryFinally(current,finallyBody);}return __node("Block",2100,1,[__wrap(init),__wrap(current)],null);};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _arr,_f,_i,catchBody,catchIdent,catchPart,current,elseBody,finallyBody,hasElse,init,macroData,macroName,runElse,tryBody,typedCatches;macroName=macroFullData.macroName;macroData=macroFullData.macroData;tryBody=macroData.tryBody;typedCatches=macroData.typedCatches;catchPart=macroData.catchPart;elseBody=macroData.elseBody;finallyBody=macroData.finallyBody;hasElse=!!elseBody;if(typedCatches.length===0&&!catchPart&&!hasElse&&!finallyBody){this.error("Must provide at least a catch, else, or finally to a try block");}if(catchPart!=null){catchIdent=catchPart.ident;}if(catchPart!=null){catchBody=catchPart.body;}if(typedCatches.length!==0){if(!catchIdent){catchIdent=typedCatches[0].ident;}current=catchBody||__node("MacroAccess",69465,11,2043,{op:"throw",node:__wrap(catchIdent)},"statement",false,false,false);for(_arr=__toArray(typedCatches), _i=_arr.length, _f=function(typeCatch){var _this,letErr,typeIdent,types,value;_this=this;typeIdent=typeCatch.ident;if(this.name(typeIdent)!==this.name(catchIdent)){letErr=__node("MacroAccess",69605,38,2046,{macroName:"let",macroData:{declarable:__node("MacroAccess",69609,37,2046,__node("MacroAccess",69609,31,2046,{ident:__wrap(typeIdent)},"statement",false,false,false),"statement",false,false,false),value:__wrap(catchIdent)}},"statement",false,false,false);}else{letErr=this.noop();}if(typeCatch.check.type==="as"){types=this.array((function(){var _arr,_arr2,_i,_len,type;for(_arr=[], _arr2=__toArray(_this.isTypeUnion(typeCatch.check.value)?_this.types(typeCatch.check.value):[typeCatch.check.value]), _i=0, _len=_arr2.length;_i<_len;++_i){type=_arr2[_i];if(_this.isTypeArray(type)){_this.error("Expected a normal type, cannot use an array type",type);}else if(_this.isTypeGeneric(type)){_this.error("Expected a normal type, cannot use a generic type",type);}else if(_this.isTypeFunction(type)){_this.error("Expected a normal type, cannot use a function type",type);}else if(_this.isTypeObject(type)){_this.error("Expected a normal type, cannot use an object type",type);}_arr.push(type);}return _arr;}()));return current=__node("MacroAccess",70372,17,2061,{macroName:"if",macroData:{test:__node("MacroAccess",70386,118,2061,{left:__wrap(catchIdent),inverted:false,op:"instanceofsome",right:__wrap(types)},"statement",false,false,false),body:__node("Block",70422,[__wrap(letErr),__wrap(typeCatch.body)],null),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);}else{value=typeCatch.check.value;return current=__node("MacroAccess",70590,17,2069,{macroName:"if",macroData:{test:__node("MacroAccess",70604,5,2069,{left:__wrap(catchIdent),inverted:false,op:"==",right:__wrap(value)},"statement",false,false,false),body:__node("Block",70628,[__wrap(letErr),__wrap(typeCatch.body)],null),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);}};_i--;){_f.call(this,_arr[_i]);}catchBody=current;}init=[];if(hasElse){runElse=this.tmp("else",false,"boolean");init.push(__node("MacroAccess",70855,38,2078,{macroName:"let",macroData:{declarable:__node("MacroAccess",70859,37,2078,__node("MacroAccess",70859,31,2078,{ident:__wrap(runElse)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false));if(catchBody){catchBody=__node("Block",70923,[__node("MacroAccess",70923,30,2081,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__wrap(catchBody)],null);}else{catchIdent=this.tmp("err");catchBody=__node("Block",71044,[__node("MacroAccess",71044,30,2086,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__node("MacroAccess",71073,11,2087,{op:"throw",node:__wrap(catchIdent)},"statement",false,false,false)],null);}}current=tryBody;if(catchBody){current=this.tryCatch(current,catchIdent||this.tmp("err"),catchBody);}if(hasElse){current=this.tryFinally(current,__node("MacroAccess",71291,17,2094,{macroName:"if",macroData:{test:__wrap(runElse),body:__wrap(elseBody),elseIfs:[]}},"statement",false,false,false));}if(finallyBody){current=this.tryFinally(current,finallyBody);}return __node("Block",71415,[__wrap(init),__wrap(current)],null);};}.call(this));',
           params: [
             [
               "ident",
@@ -35408,7 +34622,7 @@
           id: 119
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,captureValue,elseBody,err,func,index,init,item,iterable,iterator,macroData,macroName,main,post,reducer,runElse,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;value=macroData.value;index=macroData.index;iterable=macroData.iterable;body=macroData.body;elseBody=macroData.elseBody;init=[];iterator=this.cache(__node("Call",2136,30,__node("Ident",2136,30,"__iter"),[__wrap(iterable)],false,false),init,"iter",false);item=this.tmp("item",false);err=this.tmp("e",true);step=[];if(index){init.push(__node("MacroAccess",2142,20,38,2142,{macroName:"let",macroData:{declarable:__node("MacroAccess",2142,24,37,2142,__node("MacroAccess",2142,24,31,2142,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",2142,42,0)}},"statement",false,false,false));step.push(__node("MacroAccess",2143,21,52,2143,{left:__wrap(index),op:"~+=",right:__node("Const",2143,33,1)},"expression",false,false,false));}captureValue=__node("Block",2146,1,[__node("MacroAccess",2146,1,38,2146,{macroName:"let",macroData:{declarable:__node("MacroAccess",2146,10,37,2146,__node("MacroAccess",2146,10,31,2146,{ident:__wrap(item)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",2146,18,__node("Access",2146,18,__wrap(iterator),__node("Const",2146,29,"next")),[],false,false)}},"statement",false,false,false),__node("MacroAccess",2147,1,17,2147,{macroName:"if",macroData:{test:__node("Access",2147,9,__wrap(item),__node("Const",2147,16,"done")),body:__node("MacroAccess",2148,1,19,2148,{macroName:"break",macroData:{}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",2149,1,38,2149,{macroName:"let",macroData:{declarable:__node("MacroAccess",2149,10,37,2149,__node("MacroAccess",2149,10,31,2149,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",2149,19,__wrap(item),__node("Const",2149,26,"value"))}},"statement",false,false,false)],null);post=[];if(elseBody&&!reducer&&this.position!=="expression"){runElse=this.tmp("else",false,"boolean");init.push(__node("MacroAccess",2154,21,38,2154,{macroName:"let",macroData:{declarable:__node("MacroAccess",2154,25,37,2154,__node("MacroAccess",2154,25,31,2154,{ident:__wrap(runElse)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false));body=__node("Block",2156,1,[__node("MacroAccess",2156,1,30,2156,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__wrap(body)],null);post.push(__node("MacroAccess",2159,1,17,2159,{macroName:"if",macroData:{test:__wrap(runElse),body:__wrap(elseBody),elseIfs:[]}},"statement",false,false,false));}if(this.hasFunc(body)){func=this.tmp("f",false,"function");if(!index){init.push(__node("MacroAccess",2165,22,38,2165,{macroName:"let",macroData:{declarable:__node("MacroAccess",2165,26,37,2165,__node("MacroAccess",2165,26,31,2165,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",2165,36,117,2165,{op:"",node:__node("Function",2165,36,[__node("Param",2165,37,__wrap(value),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])},"expression",false,false,false)}},"statement",false,false,false));body=__node("Block",2167,1,[__wrap(captureValue),__node("Call",2168,1,__wrap(func),[__node("This",2168,18),__wrap(value)],false,true)],null);}else{init.push(__node("MacroAccess",2170,22,38,2170,{macroName:"let",macroData:{declarable:__node("MacroAccess",2170,26,37,2170,__node("MacroAccess",2170,26,31,2170,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",2170,36,117,2170,{op:"",node:__node("Function",2170,36,[__node("Param",2170,37,__wrap(value),void 0,false,false,void 0),__node("Param",2170,44,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])},"expression",false,false,false)}},"statement",false,false,false));body=__node("Block",2172,1,[__wrap(captureValue),__node("Call",2173,1,__wrap(func),[__node("This",2173,18),__wrap(value),__wrap(index)],false,true)],null);}}else{body=__node("Block",2176,1,[__wrap(captureValue),__wrap(body)],null);}if(reducer==="every"){main=__node("MacroAccess",2180,11,106,2180,{macroName:"for",macroData:{reducer:"every",init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="some"){main=__node("MacroAccess",2185,11,106,2185,{macroName:"for",macroData:{reducer:"some",init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="first"){main=__node("MacroAccess",2190,11,106,2190,{macroName:"for",macroData:{reducer:"first",init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="filter"){body=this.mutateLast(body,function(node){return __node("MacroAccess",2196,12,17,2196,{macroName:"if",macroData:{test:__wrap(node),body:__wrap(value),elseIfs:[]}},"statement",false,false,false);});main=__node("MacroAccess",2198,11,106,2198,{macroName:"for",macroData:{init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(this.position==="expression"){main=__node("MacroAccess",2203,11,106,2203,{macroName:"for",macroData:{init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else{main=__node("Block",2209,1,[__node("MacroAccess",2209,1,106,2209,{macroName:"for",macroData:{init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body)}},"statement",false,false,false),__wrap(post)],null);}return __node("MacroAccess",2213,8,119,2213,{macroName:"try",macroData:{tryBody:__wrap(main),typedCatches:[],finallyBody:__node("MacroAccess",2216,1,119,2216,{macroName:"try",macroData:{tryBody:__node("Call",2217,1,__node("Access",2217,1,__wrap(iterator),__node("Const",2217,19,"close")),[],false,false),typedCatches:[],catchPart:{ident:__wrap(err),body:__const("void")}}},"statement",false,false,false)}},"statement",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,captureValue,elseBody,err,func,index,init,item,iterable,iterator,macroData,macroName,main,post,reducer,runElse,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;reducer=macroData.reducer;value=macroData.value;index=macroData.index;iterable=macroData.iterable;body=macroData.body;elseBody=macroData.elseBody;init=[];iterator=this.cache(__node("Call",72592,__node("Ident",72592,"__iter"),[__wrap(iterable)],false,false),init,"iter",false);item=this.tmp("item",false);err=this.tmp("e",true);step=[];if(index){init.push(__node("MacroAccess",72747,38,2142,{macroName:"let",macroData:{declarable:__node("MacroAccess",72751,37,2142,__node("MacroAccess",72751,31,2142,{isMutable:"mutable",ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",72769,0)}},"statement",false,false,false));step.push(__node("MacroAccess",72791,52,2143,{left:__wrap(index),op:"~+=",right:__node("Const",72803,1)},"expression",false,false,false));}captureValue=__node("Block",72836,[__node("MacroAccess",72836,38,2146,{macroName:"let",macroData:{declarable:__node("MacroAccess",72845,37,2146,__node("MacroAccess",72845,31,2146,{ident:__wrap(item)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",72853,__node("Access",72853,__wrap(iterator),__node("Const",72864,"next")),[],false,false)}},"statement",false,false,false),__node("MacroAccess",72871,17,2147,{macroName:"if",macroData:{test:__node("Access",72879,__wrap(item),__node("Const",72886,"done")),body:__node("MacroAccess",72891,19,2148,{macroName:"break",macroData:{}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",72905,38,2149,{macroName:"let",macroData:{declarable:__node("MacroAccess",72914,37,2149,__node("MacroAccess",72914,31,2149,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",72923,__wrap(item),__node("Const",72930,"value"))}},"statement",false,false,false)],null);post=[];if(elseBody&&!reducer&&this.position!=="expression"){runElse=this.tmp("else",false,"boolean");init.push(__node("MacroAccess",73088,38,2154,{macroName:"let",macroData:{declarable:__node("MacroAccess",73092,37,2154,__node("MacroAccess",73092,31,2154,{ident:__wrap(runElse)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false));body=__node("Block",73129,[__node("MacroAccess",73129,30,2156,{left:__wrap(runElse),op:":=",right:__const("false")},"statement",false,false,false),__wrap(body)],null);post.push(__node("MacroAccess",73190,17,2159,{macroName:"if",macroData:{test:__wrap(runElse),body:__wrap(elseBody),elseIfs:[]}},"statement",false,false,false));}if(this.hasFunc(body)){func=this.tmp("f",false,"function");if(!index){init.push(__node("MacroAccess",73339,38,2165,{macroName:"let",macroData:{declarable:__node("MacroAccess",73343,37,2165,__node("MacroAccess",73343,31,2165,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",73353,117,2165,{op:"",node:__node("Function",73353,[__node("Param",73354,__wrap(value),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])},"expression",false,false,false)}},"statement",false,false,false));body=__node("Block",73391,[__wrap(captureValue),__node("Call",73416,__wrap(func),[__node("This",73433),__wrap(value)],false,true)],null);}else{init.push(__node("MacroAccess",73479,38,2170,{macroName:"let",macroData:{declarable:__node("MacroAccess",73483,37,2170,__node("MacroAccess",73483,31,2170,{ident:__wrap(func)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",73493,117,2170,{op:"",node:__node("Function",73493,[__node("Param",73494,__wrap(value),void 0,false,false,void 0),__node("Param",73501,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,false,[])},"expression",false,false,false)}},"statement",false,false,false));body=__node("Block",73539,[__wrap(captureValue),__node("Call",73564,__wrap(func),[__node("This",73581),__wrap(value),__wrap(index)],false,true)],null);}}else{body=__node("Block",73630,[__wrap(captureValue),__wrap(body)],null);}if(reducer==="every"){main=__node("MacroAccess",73714,106,2180,{macroName:"for",macroData:{reducer:"every",init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="some"){main=__node("MacroAccess",73827,106,2185,{macroName:"for",macroData:{reducer:"some",init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="first"){main=__node("MacroAccess",73940,106,2190,{macroName:"for",macroData:{reducer:"first",init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(reducer==="filter"){body=this.mutateLast(body,function(node){return __node("MacroAccess",74097,17,2196,{macroName:"if",macroData:{test:__wrap(node),body:__wrap(value),elseIfs:[]}},"statement",false,false,false);});main=__node("MacroAccess",74134,106,2198,{macroName:"for",macroData:{init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else if(this.position==="expression"){main=__node("MacroAccess",74249,106,2203,{macroName:"for",macroData:{init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body),elseBody:__wrap(elseBody)}},"expression",false,false,false);}else{main=__node("Block",74336,[__node("MacroAccess",74336,106,2209,{macroName:"for",macroData:{init:__wrap(init),test:__const("true"),step:__wrap(step),body:__wrap(body)}},"statement",false,false,false),__wrap(post)],null);}return __node("MacroAccess",74409,119,2213,{macroName:"try",macroData:{tryBody:__wrap(main),typedCatches:[],finallyBody:__node("MacroAccess",74438,119,2216,{macroName:"try",macroData:{tryBody:__node("Call",74448,__node("Access",74448,__wrap(iterator),__node("Const",74466,"close")),[],false,false),typedCatches:[],catchPart:{ident:__wrap(err),body:__const("void")}}},"statement",false,false,false)}},"statement",false,false,false);};}.call(this));',
           params: [
             [
               "ident",
@@ -35469,7 +34683,7 @@
           id: 120
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,current,currentStart,index,iterator,macroData,macroName,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;value=macroData.value;index=macroData.index;iterator=macroData.iterator;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",2222,59,30,2222,{left:__wrap(current),op:":=",right:__wrap(node)},"expression",false,false,false);});return __node("Block",2224,1,[__node("MacroAccess",2224,1,38,2224,{macroName:"let",macroData:{declarable:__node("MacroAccess",2224,10,37,2224,__node("MacroAccess",2224,10,31,2224,{isMutable:"mutable",ident:__wrap(current)},"statement",false,false,false),"statement",false,false,false),value:__wrap(currentStart)}},"statement",false,false,false),__node("MacroAccess",2225,1,120,2225,{macroName:"for",macroData:{value:__wrap(value),index:__wrap(index),iterable:__wrap(iterator),body:__wrap(body)}},"statement",false,false,false),__wrap(current)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,current,currentStart,index,iterator,macroData,macroName,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;value=macroData.value;index=macroData.index;iterator=macroData.iterator;current=macroData.current;currentStart=macroData.currentStart;body=macroData.body;body=this.mutateLast(body||this.noop(),function(node){return __node("MacroAccess",74757,30,2222,{left:__wrap(current),op:":=",right:__wrap(node)},"expression",false,false,false);});return __node("Block",74785,[__node("MacroAccess",74785,38,2224,{macroName:"let",macroData:{declarable:__node("MacroAccess",74794,37,2224,__node("MacroAccess",74794,31,2224,{isMutable:"mutable",ident:__wrap(current)},"statement",false,false,false),"statement",false,false,false),value:__wrap(currentStart)}},"statement",false,false,false),__node("MacroAccess",74829,120,2225,{macroName:"for",macroData:{value:__wrap(value),index:__wrap(index),iterable:__wrap(iterator),body:__wrap(body)}},"statement",false,false,false),__wrap(current)],null);};}.call(this));',
           params: [
             ["const", "reduce"],
             ["ident", "value", "ident", "Identifier"],
@@ -35566,7 +34780,7 @@
           id: 122
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__num,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _arr,_i,body,case_,cases,current,defaultCase,fall,isFallthrough,lastNode,macroData,macroName,nodes,result,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;cases=macroData.cases;defaultCase=macroData.defaultCase;current=defaultCase;for(_arr=__toArray(cases), _i=_arr.length;_i--;){case_=_arr[_i];test=case_.test;body=case_.body;isFallthrough=false;result=void 0;if(this.isBlock(body)){nodes=this.nodes(body);lastNode=nodes[__num(nodes.length)-1];if(this.isIdent(lastNode)&&this.name(lastNode)==="fallthrough"){body=this.block(nodes.slice(0,-1));if(this.isIf(current)){fall=this.tmp("fall",false,"boolean");result=__node("Block",2271,1,[__node("MacroAccess",2271,1,38,2271,{macroName:"let",macroData:{declarable:__node("MacroAccess",2271,18,37,2271,__node("MacroAccess",2271,18,31,2271,{isMutable:"mutable",ident:__wrap(fall)},"statement",false,false,false),"statement",false,false,false),value:__const("false")}},"statement",false,false,false),__node("MacroAccess",2272,1,17,2272,{macroName:"if",macroData:{test:__wrap(test),body:__node("Block",2273,1,[__node("MacroAccess",2273,1,30,2273,{left:__wrap(fall),op:":=",right:__const("true")},"statement",false,false,false),__wrap(body)],null),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",2275,1,17,2275,{macroName:"if",macroData:{test:__node("MacroAccess",2275,17,2,2275,{left:__wrap(fall),inverted:false,op:"or",right:__wrap(this.test(current))},"statement",false,false,false),body:__wrap(this.whenTrue(current)),elseIfs:[],elseBody:__wrap(this.whenFalse(current))}},"statement",false,false,false)],null);}else{result=__node("Block",2281,1,[__node("MacroAccess",2281,1,17,2281,{macroName:"if",macroData:{test:__wrap(test),body:__wrap(body),elseIfs:[]}},"statement",false,false,false),__wrap(current)],null);}}}else if(this.isIdent(body)&&this.name(body)==="fallthrough"){if(this.isIf(current)){result=__node("MacroAccess",2286,24,17,2286,{macroName:"if",macroData:{test:__node("MacroAccess",2286,27,2,2286,{left:__wrap(test),inverted:false,op:"or",right:__wrap(this.test(current))},"statement",false,false,false),body:__wrap(this.whenTrue(current)),elseIfs:[],elseBody:__wrap(this.whenFalse(current))}},"statement",false,false,false);}else{result=__node("Block",2292,1,[__wrap(test),__wrap(current)],null);}}current=result||__node("MacroAccess",2295,20,17,2295,{macroName:"if",macroData:{test:__wrap(case_.test),body:__wrap(body),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);}return current;};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__num,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _arr,_i,body,case_,cases,current,defaultCase,fall,isFallthrough,lastNode,macroData,macroName,nodes,result,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;cases=macroData.cases;defaultCase=macroData.defaultCase;current=defaultCase;for(_arr=__toArray(cases), _i=_arr.length;_i--;){case_=_arr[_i];test=case_.test;body=case_.body;isFallthrough=false;result=void 0;if(this.isBlock(body)){nodes=this.nodes(body);lastNode=nodes[__num(nodes.length)-1];if(this.isIdent(lastNode)&&this.name(lastNode)==="fallthrough"){body=this.block(nodes.slice(0,-1));if(this.isIf(current)){fall=this.tmp("fall",false,"boolean");result=__node("Block",76722,[__node("MacroAccess",76722,38,2271,{macroName:"let",macroData:{declarable:__node("MacroAccess",76739,37,2271,__node("MacroAccess",76739,31,2271,{isMutable:"mutable",ident:__wrap(fall)},"statement",false,false,false),"statement",false,false,false),value:__const("false")}},"statement",false,false,false),__node("MacroAccess",76762,17,2272,{macroName:"if",macroData:{test:__wrap(test),body:__node("Block",76785,[__node("MacroAccess",76785,30,2273,{left:__wrap(fall),op:":=",right:__const("true")},"statement",false,false,false),__wrap(body)],null),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",76837,17,2275,{macroName:"if",macroData:{test:__node("MacroAccess",76853,2,2275,{left:__wrap(fall),inverted:false,op:"or",right:__wrap(this.test(current))},"statement",false,false,false),body:__wrap(this.whenTrue(current)),elseIfs:[],elseBody:__wrap(this.whenFalse(current))}},"statement",false,false,false)],null);}else{result=__node("Block",77010,[__node("MacroAccess",77010,17,2281,{macroName:"if",macroData:{test:__wrap(test),body:__wrap(body),elseIfs:[]}},"statement",false,false,false),__wrap(current)],null);}}}else if(this.isIdent(body)&&this.name(body)==="fallthrough"){if(this.isIf(current)){result=__node("MacroAccess",77190,17,2286,{macroName:"if",macroData:{test:__node("MacroAccess",77193,2,2286,{left:__wrap(test),inverted:false,op:"or",right:__wrap(this.test(current))},"statement",false,false,false),body:__wrap(this.whenTrue(current)),elseIfs:[],elseBody:__wrap(this.whenFalse(current))}},"statement",false,false,false);}else{result=__node("Block",77344,[__wrap(test),__wrap(current)],null);}}current=result||__node("MacroAccess",77415,17,2295,{macroName:"if",macroData:{test:__wrap(case_.test),body:__wrap(body),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);}return current;};}.call(this));',
           params: [
             [
               "ident",
@@ -35618,7 +34832,7 @@
           id: 123
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,call,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){this.error("async call expression must be a call",call);}if(body==null){body=this.noop();}if(params){params=[params.head].concat(params.tail);}else{params=[];}func=this.func(params,body,true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",2411,58,126,2411,{macroName:"once!",macroData:[__node("MacroAccess",2411,66,117,2411,{op:"mutateFunction!",node:__wrap(func)},"expression",false,false,false)]},"expression",false,false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,call,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){this.error("async call expression must be a call",call);}if(body==null){body=this.noop();}if(params){params=[params.head].concat(params.tail);}else{params=[];}func=this.func(params,body,true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",80480,126,2411,{macroName:"once!",macroData:[__node("MacroAccess",80488,117,2411,{op:"mutateFunction!",node:__wrap(func)},"expression",false,false,false)]},"expression",false,false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
           params: [
             [
               "ident",
@@ -35645,7 +34859,7 @@
           id: 127
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,call,callback,error,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;callback=macroData.callback;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){this.error("async! call expression must be a call",call);}if(body==null){body=this.noop();}error=this.tmp("e",false);params=[this.param(error)].concat(params);func=this.func(params,callback==="throw"?__node("Block",2425,1,[__node("MacroAccess",2425,1,102,2425,{op:"throw?",node:__wrap(error)},"statement",false,false,false),__wrap(body)],null):__node("Block",2429,1,[__node("MacroAccess",2429,1,17,2429,{macroName:"if",macroData:{test:__node("MacroAccess",2429,13,20,2429,{op:"?",node:__wrap(error)},"statement",false,false,false),body:__node("MacroAccess",2430,1,39,2430,{macroName:"return",macroData:{node:__node("Call",2430,19,__wrap(callback),[__wrap(error)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__wrap(body)],null),true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",2434,58,126,2434,{macroName:"once!",macroData:[__node("MacroAccess",2434,66,117,2434,{op:"mutateFunction!",node:__wrap(func)},"expression",false,false,false)]},"expression",false,false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,call,callback,error,func,macroData,macroName,params;macroName=macroFullData.macroName;macroData=macroFullData.macroData;callback=macroData.callback;params=macroData.params;call=macroData.call;body=macroData.body;if(!this.isCall(call)){this.error("async! call expression must be a call",call);}if(body==null){body=this.noop();}error=this.tmp("e",false);params=[this.param(error)].concat(params);func=this.func(params,callback==="throw"?__node("Block",80960,[__node("MacroAccess",80960,102,2425,{op:"throw?",node:__wrap(error)},"statement",false,false,false),__wrap(body)],null):__node("Block",81023,[__node("MacroAccess",81023,17,2429,{macroName:"if",macroData:{test:__node("MacroAccess",81035,20,2429,{op:"?",node:__wrap(error)},"statement",false,false,false),body:__node("MacroAccess",81044,39,2430,{macroName:"return",macroData:{node:__node("Call",81062,__wrap(callback),[__wrap(error)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__wrap(body)],null),true,true);return this.call(this.callFunc(call),this.callArgs(call).concat([__node("MacroAccess",81175,126,2434,{macroName:"once!",macroData:[__node("MacroAccess",81183,117,2434,{op:"mutateFunction!",node:__wrap(func)},"expression",false,false,false)]},"expression",false,false,false)]),this.callIsNew(call),this.callIsApply(call));};}.call(this));',
           params: [
             [
               "ident",
@@ -35671,13 +34885,13 @@
           id: 128
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__num,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _arr,_i,_len,ident,identName,key,macroData,macroName,name,obj,path,requires,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;if(this.isConst(name)&&typeof this.value(name)!=="string"){this.error("Expected a constant string, got "+__typeof(this.value(name)),name);}if(this.isConst(name)){identName=this.value(name);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);return __node("MacroAccess",2447,10,38,2447,{macroName:"let",macroData:{declarable:__node("MacroAccess",2447,14,37,2447,__node("MacroAccess",2447,14,31,2447,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",2447,23,__node("Ident",2447,23,"require"),[__wrap(name)],false,false)}},"statement",false,false,false);}else if(this.isIdent(name)){path=this.name(name);return __node("MacroAccess",2450,10,38,2450,{macroName:"let",macroData:{declarable:__node("MacroAccess",2450,14,37,2450,__node("MacroAccess",2450,14,31,2450,{ident:__wrap(name)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",2450,22,__node("Ident",2450,22,"require"),[__wrap(path)],false,false)}},"statement",false,false,false);}else if(this.isObject(name)){requires=[];for(_arr=__toArray(this.pairs(name)), _i=0, _len=_arr.length;_i<_len;++_i){obj=_arr[_i];key=obj.key;value=obj.value;if(!this.isConst(key)){this.error("If providing an object to require!, all keys must be constant strings",key);}identName=this.value(key);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);if(this.isConst(value)){requires.push(__node("MacroAccess",2462,28,38,2462,{macroName:"let",macroData:{declarable:__node("MacroAccess",2462,32,37,2462,__node("MacroAccess",2462,32,31,2462,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",2462,41,__node("Ident",2462,41,"require"),[__wrap(value)],false,false)}},"statement",false,false,false));}else if(this.isIdent(value)){path=this.name(value);requires.push(__node("MacroAccess",2465,28,38,2465,{macroName:"let",macroData:{declarable:__node("MacroAccess",2465,32,37,2465,__node("MacroAccess",2465,32,31,2465,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",2465,41,__node("Ident",2465,41,"require"),[__wrap(path)],false,false)}},"statement",false,false,false));}else{this.error("If providing an object to require!, all values must be constant strings or idents",value);}}return this.block(requires);}else{return this.error("Expected either a constant string or ident or object",name);}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__num,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _arr,_i,_len,ident,identName,key,macroData,macroName,name,obj,path,requires,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;if(this.isConst(name)&&typeof this.value(name)!=="string"){this.error("Expected a constant string, got "+__typeof(this.value(name)),name);}if(this.isConst(name)){identName=this.value(name);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);return __node("MacroAccess",81666,38,2447,{macroName:"let",macroData:{declarable:__node("MacroAccess",81670,37,2447,__node("MacroAccess",81670,31,2447,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",81679,__node("Ident",81679,"require"),[__wrap(name)],false,false)}},"statement",false,false,false);}else if(this.isIdent(name)){path=this.name(name);return __node("MacroAccess",81758,38,2450,{macroName:"let",macroData:{declarable:__node("MacroAccess",81762,37,2450,__node("MacroAccess",81762,31,2450,{ident:__wrap(name)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",81770,__node("Ident",81770,"require"),[__wrap(path)],false,false)}},"statement",false,false,false);}else if(this.isObject(name)){requires=[];for(_arr=__toArray(this.pairs(name)), _i=0, _len=_arr.length;_i<_len;++_i){obj=_arr[_i];key=obj.key;value=obj.value;if(!this.isConst(key)){this.error("If providing an object to require!, all keys must be constant strings",key);}identName=this.value(key);if(identName.indexOf("/")!==-1){identName=identName.substring(__num(identName.lastIndexOf("/"))+1);}ident=this.ident(identName);if(this.isConst(value)){requires.push(__node("MacroAccess",82279,38,2462,{macroName:"let",macroData:{declarable:__node("MacroAccess",82283,37,2462,__node("MacroAccess",82283,31,2462,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",82292,__node("Ident",82292,"require"),[__wrap(value)],false,false)}},"statement",false,false,false));}else if(this.isIdent(value)){path=this.name(value);requires.push(__node("MacroAccess",82400,38,2465,{macroName:"let",macroData:{declarable:__node("MacroAccess",82404,37,2465,__node("MacroAccess",82404,31,2465,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",82413,__node("Ident",82413,"require"),[__wrap(path)],false,false)}},"statement",false,false,false));}else{this.error("If providing an object to require!, all values must be constant strings or idents",value);}}return this.block(requires);}else{return this.error("Expected either a constant string or ident or object",name);}};}.call(this));',
           params: [["ident", "name", "ident", "Expression"]],
           names: "require!",
           id: 129
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,arr,body,done,err,first,init,macroData,macroName,next,rest,result,results,step,test,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;init=macroData.init;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;_ref=results!=null?results:{};err=_ref.err;result=_ref.result;if(err==null){err=this.tmp("err",true);}if(init==null){init=this.noop();}if(test==null){test=__const("true");}if(step==null){step=this.noop();}if(rest==null){rest=this.noop();}done=this.tmp("done",true,"function");if(!result){if(!step){return __node("Block",2575,1,[__wrap(init),__node("MacroAccess",2576,1,15,2576,{macroName:"let",macroData:{ident:__wrap(next),func:__node("MacroAccess",2576,20,117,2576,{op:"",node:__node("Function",2576,20,[__node("Param",2576,21,__wrap(err),void 0,false,false,void 0)],__node("Block",2577,1,[__node("MacroAccess",2577,1,17,2577,{macroName:"if",macroData:{test:__node("MacroAccess",2577,15,20,2577,{op:"?",node:__wrap(err)},"statement",false,false,false),body:__node("MacroAccess",2578,1,39,2578,{macroName:"return",macroData:{node:__node("Call",2578,21,__wrap(done),[__wrap(err)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",2579,1,17,2579,{macroName:"unless",macroData:{test:__wrap(test),body:__node("MacroAccess",2580,1,39,2580,{macroName:"return",macroData:{node:__node("Call",2580,21,__wrap(done),[__const("null")],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__wrap(body)],null),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("MacroAccess",2582,1,15,2582,{macroName:"let",macroData:{ident:__wrap(done),func:__node("MacroAccess",2582,20,117,2582,{op:"",node:__node("Function",2582,20,[__node("Param",2582,21,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("Call",2584,1,__wrap(next),[],false,false)],null);}else{first=this.tmp("first",true,"boolean");return __node("Block",2588,1,[__wrap(init),__node("MacroAccess",2589,1,38,2589,{macroName:"let",macroData:{declarable:__node("MacroAccess",2589,14,37,2589,__node("MacroAccess",2589,14,31,2589,{ident:__wrap(first)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false),__node("MacroAccess",2590,1,15,2590,{macroName:"let",macroData:{ident:__wrap(next),func:__node("MacroAccess",2590,20,117,2590,{op:"",node:__node("Function",2590,20,[__node("Param",2590,21,__wrap(err),void 0,false,false,void 0)],__node("Block",2591,1,[__node("MacroAccess",2591,1,17,2591,{macroName:"if",macroData:{test:__node("MacroAccess",2591,15,20,2591,{op:"?",node:__wrap(err)},"statement",false,false,false),body:__node("MacroAccess",2592,1,39,2592,{macroName:"return",macroData:{node:__node("Call",2592,21,__wrap(done),[__wrap(err)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",2593,1,17,2593,{macroName:"if",macroData:{test:__wrap(first),body:__node("MacroAccess",2594,1,30,2594,{left:__wrap(first),op:":=",right:__const("false")},"statement",false,false,false),elseIfs:[],elseBody:__wrap(step)}},"statement",false,false,false),__node("MacroAccess",2597,1,17,2597,{macroName:"unless",macroData:{test:__wrap(test),body:__node("MacroAccess",2598,1,39,2598,{macroName:"return",macroData:{node:__node("Call",2598,21,__wrap(done),[__const("null")],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__wrap(body)],null),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("MacroAccess",2600,1,15,2600,{macroName:"let",macroData:{ident:__wrap(done),func:__node("MacroAccess",2600,20,117,2600,{op:"",node:__node("Function",2600,20,[__node("Param",2600,21,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("Call",2602,1,__wrap(next),[],false,false)],null);}}else{first=this.tmp("first",true,"boolean");value=this.tmp("value",true);arr=this.tmp("arr",true);return __node("Block",2608,1,[__wrap(init),__node("MacroAccess",2609,1,38,2609,{macroName:"let",macroData:{declarable:__node("MacroAccess",2609,12,37,2609,__node("MacroAccess",2609,12,31,2609,{ident:__wrap(first)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false),__node("MacroAccess",2610,1,38,2610,{macroName:"let",macroData:{declarable:__node("MacroAccess",2610,12,37,2610,__node("MacroAccess",2610,12,31,2610,{ident:__wrap(arr)},"statement",false,false,false),"statement",false,false,false),value:__node("Array",2610,19,[])}},"statement",false,false,false),__node("MacroAccess",2611,1,15,2611,{macroName:"let",macroData:{ident:__wrap(next),func:__node("MacroAccess",2611,18,117,2611,{op:"",node:__node("Function",2611,18,[__node("Param",2611,19,__wrap(err),void 0,false,false,void 0),__node("Param",2611,24,__wrap(value),void 0,false,false,void 0)],__node("Block",2612,1,[__node("MacroAccess",2612,1,17,2612,{macroName:"if",macroData:{test:__node("MacroAccess",2612,13,20,2612,{op:"?",node:__wrap(err)},"statement",false,false,false),body:__node("MacroAccess",2613,1,39,2613,{macroName:"return",macroData:{node:__node("Call",2613,19,__wrap(done),[__wrap(err)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",2614,1,17,2614,{macroName:"if",macroData:{test:__wrap(first),body:__node("MacroAccess",2615,1,30,2615,{left:__wrap(first),op:":=",right:__const("false")},"statement",false,false,false),elseIfs:[],elseBody:__node("Block",2617,1,[__wrap(step),__node("MacroAccess",2618,1,17,2618,{macroName:"if",macroData:{test:__node("MacroAccess",2618,15,10,2618,{left:__node("Access",2618,15,__node("Args",2618,15),__node("Const",2618,26,"length")),inverted:false,op:"~>",right:__node("Const",2618,36,1)},"statement",false,false,false),body:__node("Call",2619,1,__node("Access",2619,1,__wrap(arr),__node("Const",2619,20,"push")),[__wrap(value)],false,false),elseIfs:[]}},"statement",false,false,false)],null)}},"statement",false,false,false),__node("MacroAccess",2620,1,17,2620,{macroName:"unless",macroData:{test:__wrap(test),body:__node("MacroAccess",2621,1,39,2621,{macroName:"return",macroData:{node:__node("Call",2621,19,__wrap(done),[__const("null"),__wrap(arr)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__wrap(body)],null),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("MacroAccess",2623,1,15,2623,{macroName:"let",macroData:{ident:__wrap(done),func:__node("MacroAccess",2623,18,117,2623,{op:"",node:__node("Function",2623,18,[__node("Param",2623,19,__wrap(err),void 0,false,false,void 0),__node("Param",2623,24,__wrap(result),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("Call",2625,1,__wrap(next),[],false,false)],null);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,arr,body,done,err,first,init,macroData,macroName,next,rest,result,results,step,test,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;init=macroData.init;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;_ref=results!=null?results:{};err=_ref.err;result=_ref.result;if(err==null){err=this.tmp("err",true);}if(init==null){init=this.noop();}if(test==null){test=__const("true");}if(step==null){step=this.noop();}if(rest==null){rest=this.noop();}done=this.tmp("done",true,"function");if(!result){if(!step){return __node("Block",85663,[__wrap(init),__node("MacroAccess",85679,15,2576,{macroName:"let",macroData:{ident:__wrap(next),func:__node("MacroAccess",85698,117,2576,{op:"",node:__node("Function",85698,[__node("Param",85699,__wrap(err),void 0,false,false,void 0)],__node("Block",85706,[__node("MacroAccess",85706,17,2577,{macroName:"if",macroData:{test:__node("MacroAccess",85720,20,2577,{op:"?",node:__wrap(err)},"statement",false,false,false),body:__node("MacroAccess",85727,39,2578,{macroName:"return",macroData:{node:__node("Call",85747,__wrap(done),[__wrap(err)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",85760,17,2579,{macroName:"unless",macroData:{test:__wrap(test),body:__node("MacroAccess",85785,39,2580,{macroName:"return",macroData:{node:__node("Call",85805,__wrap(done),[__const("null")],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__wrap(body)],null),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("MacroAccess",85836,15,2582,{macroName:"let",macroData:{ident:__wrap(done),func:__node("MacroAccess",85855,117,2582,{op:"",node:__node("Function",85855,[__node("Param",85856,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("Call",85881,__wrap(next),[],false,false)],null);}else{first=this.tmp("first",true,"boolean");return __node("Block",85970,[__wrap(init),__node("MacroAccess",85986,38,2589,{macroName:"let",macroData:{declarable:__node("MacroAccess",85999,37,2589,__node("MacroAccess",85999,31,2589,{ident:__wrap(first)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false),__node("MacroAccess",86014,15,2590,{macroName:"let",macroData:{ident:__wrap(next),func:__node("MacroAccess",86033,117,2590,{op:"",node:__node("Function",86033,[__node("Param",86034,__wrap(err),void 0,false,false,void 0)],__node("Block",86041,[__node("MacroAccess",86041,17,2591,{macroName:"if",macroData:{test:__node("MacroAccess",86055,20,2591,{op:"?",node:__wrap(err)},"statement",false,false,false),body:__node("MacroAccess",86062,39,2592,{macroName:"return",macroData:{node:__node("Call",86082,__wrap(done),[__wrap(err)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",86095,17,2593,{macroName:"if",macroData:{test:__wrap(first),body:__node("MacroAccess",86117,30,2594,{left:__wrap(first),op:":=",right:__const("false")},"statement",false,false,false),elseIfs:[],elseBody:__wrap(step)}},"statement",false,false,false),__node("MacroAccess",86184,17,2597,{macroName:"unless",macroData:{test:__wrap(test),body:__node("MacroAccess",86209,39,2598,{macroName:"return",macroData:{node:__node("Call",86229,__wrap(done),[__const("null")],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__wrap(body)],null),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("MacroAccess",86260,15,2600,{macroName:"let",macroData:{ident:__wrap(done),func:__node("MacroAccess",86279,117,2600,{op:"",node:__node("Function",86279,[__node("Param",86280,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("Call",86305,__wrap(next),[],false,false)],null);}}else{first=this.tmp("first",true,"boolean");value=this.tmp("value",true);arr=this.tmp("arr",true);return __node("Block",86456,[__wrap(init),__node("MacroAccess",86470,38,2609,{macroName:"let",macroData:{declarable:__node("MacroAccess",86481,37,2609,__node("MacroAccess",86481,31,2609,{ident:__wrap(first)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false),__node("MacroAccess",86496,38,2610,{macroName:"let",macroData:{declarable:__node("MacroAccess",86507,37,2610,__node("MacroAccess",86507,31,2610,{ident:__wrap(arr)},"statement",false,false,false),"statement",false,false,false),value:__node("Array",86514,[])}},"statement",false,false,false),__node("MacroAccess",86518,15,2611,{macroName:"let",macroData:{ident:__wrap(next),func:__node("MacroAccess",86535,117,2611,{op:"",node:__node("Function",86535,[__node("Param",86536,__wrap(err),void 0,false,false,void 0),__node("Param",86541,__wrap(value),void 0,false,false,void 0)],__node("Block",86551,[__node("MacroAccess",86551,17,2612,{macroName:"if",macroData:{test:__node("MacroAccess",86563,20,2612,{op:"?",node:__wrap(err)},"statement",false,false,false),body:__node("MacroAccess",86570,39,2613,{macroName:"return",macroData:{node:__node("Call",86588,__wrap(done),[__wrap(err)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",86601,17,2614,{macroName:"if",macroData:{test:__wrap(first),body:__node("MacroAccess",86621,30,2615,{left:__wrap(first),op:":=",right:__const("false")},"statement",false,false,false),elseIfs:[],elseBody:__node("Block",86664,[__wrap(step),__node("MacroAccess",86682,17,2618,{macroName:"if",macroData:{test:__node("MacroAccess",86696,10,2618,{left:__node("Access",86696,__node("Args",86696),__node("Const",86707,"length")),inverted:false,op:"~>",right:__node("Const",86717,1)},"statement",false,false,false),body:__node("Call",86719,__node("Access",86719,__wrap(arr),__node("Const",86738,"push")),[__wrap(value)],false,false),elseIfs:[]}},"statement",false,false,false)],null)}},"statement",false,false,false),__node("MacroAccess",86750,17,2620,{macroName:"unless",macroData:{test:__wrap(test),body:__node("MacroAccess",86773,39,2621,{macroName:"return",macroData:{node:__node("Call",86791,__wrap(done),[__const("null"),__wrap(arr)],false,false)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__wrap(body)],null),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("MacroAccess",86826,15,2623,{macroName:"let",macroData:{ident:__wrap(done),func:__node("MacroAccess",86843,117,2623,{op:"",node:__node("Function",86843,[__node("Param",86844,__wrap(err),void 0,false,false,void 0),__node("Param",86849,__wrap(result),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false),__node("Call",86876,__wrap(next),[],false,false)],null);}};}.call(this));',
           params: [
             [
               "ident",
@@ -35740,7 +34954,7 @@
           id: 130
         },
         {
-          code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _ref,array,body,end,err,hasResult,inclusive,index,init,length,lengthCalc,macroData,macroName,next,parallelism,rest,result,results,start,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;rest=macroData.rest;_ref=results!=null?results:{};err=_ref.err;result=_ref.result;hasResult=!!result;if(err==null){err=this.tmp("err",true);}init=[];if(rest==null){rest=this.noop();}value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(parallelism==null){parallelism=__node("Const",2641,25,1);}if(index==null){index=this.tmp("i",true,"number");}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){this.error("Cannot assign a number to a complex declarable",value);}value=value.ident;_ref=this.callArgs(array);start=_ref[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];if(this.isConst(start)){if(typeof this.value(start)!=="number"){this.error("Cannot start with a non-number: "+__strnum(this.value(start)),start);}}else{start=__node("MacroAccess",2654,22,60,2654,{op:"+",node:__wrap(start)},"expression",false,false,false);}if(this.isConst(end)){if(typeof this.value(end)!=="number"){this.error("Cannot end with a non-number: "+__strnum(this.value(end)),end);}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",2660,28,60,2660,{op:"+",node:__wrap(end)},"expression",false,false,false),init,"end",false);}else{init.push(__node("MacroAccess",2662,23,60,2662,{op:"+",node:__wrap(end)},"expression",false,false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){this.error("Cannot step with a non-number: "+__strnum(this.value(step)),step);}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",2668,29,60,2668,{op:"+",node:__wrap(step)},"expression",false,false,false),init,"step",false);}else{init.push(__node("MacroAccess",2670,23,60,2670,{op:"+",node:__wrap(step)},"expression",false,false,false));}body=__node("Block",2673,1,[__node("MacroAccess",2673,1,38,2673,{macroName:"let",macroData:{declarable:__node("MacroAccess",2673,12,37,2673,__node("MacroAccess",2673,12,31,2673,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",2673,21,49,2673,{left:__node("MacroAccess",2673,21,45,2673,{left:__wrap(index),inverted:false,op:"~*",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(start)},"expression",false,false,false)}},"statement",false,false,false),__wrap(body)],null);lengthCalc=__node("MacroAccess",2676,29,17,2676,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",2677,1,45,2677,{left:__node("MacroAccess",2677,10,49,2677,{left:__node("MacroAccess",2677,10,49,2677,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",2679,1,45,2679,{left:__node("MacroAccess",2679,10,49,2679,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false)}},"expression",false,false,false);if(!length){length=lengthCalc;}else{init.push(__node("MacroAccess",2683,22,38,2683,{macroName:"let",macroData:{declarable:__node("MacroAccess",2683,26,37,2683,__node("MacroAccess",2683,26,31,2683,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__wrap(lengthCalc)}},"statement",false,false,false));}}else{array=this.cache(array,init,"arr",true);body=__node("Block",2688,1,[__node("MacroAccess",2688,1,38,2688,{macroName:"let",macroData:{declarable:__node("MacroAccess",2688,12,37,2688,__node("MacroAccess",2688,12,31,2688,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",2688,21,__wrap(array),__wrap(index))}},"statement",false,false,false),__wrap(body)],null);if(!length){length=__node("MacroAccess",2692,23,60,2692,{op:"+",node:__node("Access",2692,25,__wrap(array),__node("Const",2692,32,"length"))},"expression",false,false,false);}else{init.push(__node("MacroAccess",2694,22,38,2694,{macroName:"let",macroData:{declarable:__node("MacroAccess",2694,26,37,2694,__node("MacroAccess",2694,26,31,2694,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",2694,36,60,2694,{op:"+",node:__node("Access",2694,38,__wrap(array),__node("Const",2694,45,"length"))},"expression",false,false,false)}},"statement",false,false,false));}}return __node("Block",2697,1,[__wrap(init),__node("Call",2698,1,__node("Ident",2698,1,"__async"),[__node("MacroAccess",2698,15,60,2698,{op:"+",node:__wrap(parallelism)},"expression",false,false,false),__wrap(length),__wrap(hasResult),__node("MacroAccess",2699,10,117,2699,{op:"",node:__node("Function",2699,10,[__node("Param",2699,11,__wrap(index),void 0,false,false,void 0),__node("Param",2699,18,__wrap(next),void 0,false,false,void 0)],__wrap(body),true,true,false,void 0,false,[])},"expression",false,false,false),__node("MacroAccess",2700,9,17,2700,{macroName:"if",macroData:{test:__wrap(hasResult),body:__node("MacroAccess",2701,12,117,2701,{op:"",node:__node("Function",2701,12,[__node("Param",2701,13,__wrap(err),void 0,false,false,void 0),__node("Param",2701,18,__wrap(result),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",2703,12,117,2703,{op:"",node:__node("Function",2703,12,[__node("Param",2703,13,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"expression",false,false,false)],false,false)],null);};}.call(this));',
+          code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _ref,array,body,end,err,hasResult,inclusive,index,init,length,lengthCalc,macroData,macroName,next,parallelism,rest,result,results,start,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;rest=macroData.rest;_ref=results!=null?results:{};err=_ref.err;result=_ref.result;hasResult=!!result;if(err==null){err=this.tmp("err",true);}init=[];if(rest==null){rest=this.noop();}value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(parallelism==null){parallelism=__node("Const",87560,1);}if(index==null){index=this.tmp("i",true,"number");}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){this.error("Cannot assign a number to a complex declarable",value);}value=value.ident;_ref=this.callArgs(array);start=_ref[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];if(this.isConst(start)){if(typeof this.value(start)!=="number"){this.error("Cannot start with a non-number: "+__strnum(this.value(start)),start);}}else{start=__node("MacroAccess",88146,60,2654,{op:"+",node:__wrap(start)},"expression",false,false,false);}if(this.isConst(end)){if(typeof this.value(end)!=="number"){this.error("Cannot end with a non-number: "+__strnum(this.value(end)),end);}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",88344,60,2660,{op:"+",node:__wrap(end)},"expression",false,false,false),init,"end",false);}else{init.push(__node("MacroAccess",88404,60,2662,{op:"+",node:__wrap(end)},"expression",false,false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){this.error("Cannot step with a non-number: "+__strnum(this.value(step)),step);}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",88607,60,2668,{op:"+",node:__wrap(step)},"expression",false,false,false),init,"step",false);}else{init.push(__node("MacroAccess",88669,60,2670,{op:"+",node:__wrap(step)},"expression",false,false,false));}body=__node("Block",88702,[__node("MacroAccess",88702,38,2673,{macroName:"let",macroData:{declarable:__node("MacroAccess",88713,37,2673,__node("MacroAccess",88713,31,2673,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",88722,49,2673,{left:__node("MacroAccess",88722,45,2673,{left:__wrap(index),inverted:false,op:"~*",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(start)},"expression",false,false,false)}},"statement",false,false,false),__wrap(body)],null);lengthCalc=__node("MacroAccess",88792,17,2676,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",88807,45,2677,{left:__node("MacroAccess",88816,49,2677,{left:__node("MacroAccess",88816,49,2677,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",88861,45,2679,{left:__node("MacroAccess",88870,49,2679,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false)}},"expression",false,false,false);if(!length){length=lengthCalc;}else{init.push(__node("MacroAccess",88977,38,2683,{macroName:"let",macroData:{declarable:__node("MacroAccess",88981,37,2683,__node("MacroAccess",88981,31,2683,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__wrap(lengthCalc)}},"statement",false,false,false));}}else{array=this.cache(array,init,"arr",true);body=__node("Block",89079,[__node("MacroAccess",89079,38,2688,{macroName:"let",macroData:{declarable:__node("MacroAccess",89090,37,2688,__node("MacroAccess",89090,31,2688,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",89099,__wrap(array),__wrap(index))}},"statement",false,false,false),__wrap(body)],null);if(!length){length=__node("MacroAccess",89178,60,2692,{op:"+",node:__node("Access",89180,__wrap(array),__node("Const",89187,"length"))},"expression",false,false,false);}else{init.push(__node("MacroAccess",89226,38,2694,{macroName:"let",macroData:{declarable:__node("MacroAccess",89230,37,2694,__node("MacroAccess",89230,31,2694,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",89240,60,2694,{op:"+",node:__node("Access",89242,__wrap(array),__node("Const",89249,"length"))},"expression",false,false,false)}},"statement",false,false,false));}}return __node("Block",89269,[__wrap(init),__node("Call",89281,__node("Ident",89281,"__async"),[__node("MacroAccess",89295,60,2698,{op:"+",node:__wrap(parallelism)},"expression",false,false,false),__wrap(length),__wrap(hasResult),__node("MacroAccess",89341,117,2699,{op:"",node:__node("Function",89341,[__node("Param",89342,__wrap(index),void 0,false,false,void 0),__node("Param",89349,__wrap(next),void 0,false,false,void 0)],__wrap(body),true,true,false,void 0,false,[])},"expression",false,false,false),__node("MacroAccess",89375,17,2700,{macroName:"if",macroData:{test:__wrap(hasResult),body:__node("MacroAccess",89401,117,2701,{op:"",node:__node("Function",89401,[__node("Param",89402,__wrap(err),void 0,false,false,void 0),__node("Param",89407,__wrap(result),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",89452,117,2703,{op:"",node:__node("Function",89452,[__node("Param",89453,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"expression",false,false,false)],false,false)],null);};}.call(this));',
           params: [
             [
               "ident",
@@ -35811,7 +35025,7 @@
           id: 131
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,body,err,index,init,key,keys,macroData,macroName,next,object,own,parallelism,rest,result,results,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;rest=macroData.rest;_ref=results!=null?results:{};err=_ref.err;result=_ref.result;own=type==="of";init=[];object=this.cache(object,init,"obj",true);if(rest==null){rest=this.noop();}index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}if(value){body=__node("Block",2719,1,[__node("MacroAccess",2719,1,38,2719,{macroName:"let",macroData:{declarable:__node("MacroAccess",2719,12,37,2719,__node("MacroAccess",2719,12,31,2719,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",2719,21,__wrap(object),__wrap(key))}},"statement",false,false,false),__wrap(body)],null);}keys=this.tmp("keys",true,"stringArray");return __node("Block",2724,1,[__wrap(init),__node("MacroAccess",2725,1,38,2725,{macroName:"let",macroData:{declarable:__node("MacroAccess",2725,10,37,2725,__node("MacroAccess",2725,10,31,2725,{ident:__wrap(keys)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",2725,18,17,2725,{macroName:"if",macroData:{test:__wrap(own),body:__node("Call",2726,1,__node("Ident",2726,1,"__keys"),[__wrap(object)],false,false),elseIfs:[],elseBody:__node("Call",2728,1,__node("Ident",2728,1,"__allkeys"),[__wrap(object)],false,false)}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",2729,1,131,2729,{macroName:"asyncfor",macroData:{parallelism:__wrap(parallelism),results:{err:__wrap(err),result:__wrap(result)},next:__wrap(next),value:__node("MacroAccess",2729,53,37,2729,__node("MacroAccess",2729,53,31,2729,{ident:__wrap(key)},"statement",false,false,false),"statement",false,false,false),index:{value:__wrap(index)},array:__wrap(keys),body:__wrap(body),rest:__wrap(rest)}},"statement",false,false,false)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,body,err,index,init,key,keys,macroData,macroName,next,object,own,parallelism,rest,result,results,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;rest=macroData.rest;_ref=results!=null?results:{};err=_ref.err;result=_ref.result;own=type==="of";init=[];object=this.cache(object,init,"obj",true);if(rest==null){rest=this.noop();}index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}if(value){body=__node("Block",90137,[__node("MacroAccess",90137,38,2719,{macroName:"let",macroData:{declarable:__node("MacroAccess",90148,37,2719,__node("MacroAccess",90148,31,2719,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",90157,__wrap(object),__wrap(key))}},"statement",false,false,false),__wrap(body)],null);}keys=this.tmp("keys",true,"stringArray");return __node("Block",90246,[__wrap(init),__node("MacroAccess",90258,38,2725,{macroName:"let",macroData:{declarable:__node("MacroAccess",90267,37,2725,__node("MacroAccess",90267,31,2725,{ident:__wrap(keys)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",90275,17,2725,{macroName:"if",macroData:{test:__wrap(own),body:__node("Call",90284,__node("Ident",90284,"__keys"),[__wrap(object)],false,false),elseIfs:[],elseBody:__node("Call",90318,__node("Ident",90318,"__allkeys"),[__wrap(object)],false,false)}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",90344,131,2729,{macroName:"asyncfor",macroData:{parallelism:__wrap(parallelism),results:{err:__wrap(err),result:__wrap(result)},next:__wrap(next),value:__node("MacroAccess",90396,37,2729,__node("MacroAccess",90396,31,2729,{ident:__wrap(key)},"statement",false,false,false),"statement",false,false,false),index:{value:__wrap(index)},array:__wrap(keys),body:__wrap(body),rest:__wrap(rest)}},"statement",false,false,false)],null);};}.call(this));',
           params: [
             [
               "ident",
@@ -35888,7 +35102,7 @@
           id: 132
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,body,err,hasResult,index,iterator,macroData,macroName,next,parallelism,rest,result,results,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;iterator=macroData.iterator;body=macroData.body;rest=macroData.rest;_ref=results!=null?results:{};err=_ref.err;result=_ref.result;hasResult=!!result;if(rest==null){rest=this.noop();}if(index==null){index=this.tmp("i",true);}if(err==null){err=this.tmp("err",true);}if(parallelism==null){parallelism=__node("Const",2741,25,1);}return __node("Call",2743,9,__node("Ident",2743,9,"__asyncIter"),[__node("MacroAccess",2743,23,60,2743,{op:"+",node:__wrap(parallelism)},"expression",false,false,false),__node("Call",2743,37,__node("Ident",2743,37,"__iter"),[__wrap(iterator)],false,false),__wrap(hasResult),__node("MacroAccess",2744,8,117,2744,{op:"",node:__node("Function",2744,8,[__node("Param",2744,9,__wrap(value),void 0,false,false,void 0),__node("Param",2744,16,__wrap(index),void 0,false,false,void 0),__node("Param",2744,24,__wrap(next),void 0,false,false,void 0)],__wrap(body),true,true,false,void 0,false,[])},"expression",false,false,false),__node("MacroAccess",2745,7,17,2745,{macroName:"if",macroData:{test:__wrap(hasResult),body:__node("MacroAccess",2746,10,117,2746,{op:"",node:__node("Function",2746,10,[__node("Param",2746,11,__wrap(err),void 0,false,false,void 0),__node("Param",2746,16,__wrap(result),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",2748,10,117,2748,{op:"",node:__node("Function",2748,10,[__node("Param",2748,11,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"expression",false,false,false)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,body,err,hasResult,index,iterator,macroData,macroName,next,parallelism,rest,result,results,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;results=macroData.results;next=macroData.next;value=macroData.value;index=macroData.index;iterator=macroData.iterator;body=macroData.body;rest=macroData.rest;_ref=results!=null?results:{};err=_ref.err;result=_ref.result;hasResult=!!result;if(rest==null){rest=this.noop();}if(index==null){index=this.tmp("i",true);}if(err==null){err=this.tmp("err",true);}if(parallelism==null){parallelism=__node("Const",90948,1);}return __node("Call",90963,__node("Ident",90963,"__asyncIter"),[__node("MacroAccess",90977,60,2743,{op:"+",node:__wrap(parallelism)},"expression",false,false,false),__node("Call",90991,__node("Ident",90991,"__iter"),[__wrap(iterator)],false,false),__wrap(hasResult),__node("MacroAccess",91031,117,2744,{op:"",node:__node("Function",91031,[__node("Param",91032,__wrap(value),void 0,false,false,void 0),__node("Param",91039,__wrap(index),void 0,false,false,void 0),__node("Param",91047,__wrap(next),void 0,false,false,void 0)],__wrap(body),true,true,false,void 0,false,[])},"expression",false,false,false),__node("MacroAccess",91071,17,2745,{macroName:"if",macroData:{test:__wrap(hasResult),body:__node("MacroAccess",91095,117,2746,{op:"",node:__node("Function",91095,[__node("Param",91096,__wrap(err),void 0,false,false,void 0),__node("Param",91101,__wrap(result),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",91141,117,2748,{op:"",node:__node("Function",91141,[__node("Param",91142,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"statement",false,false,false)}},"expression",false,false,false)],false,false);};}.call(this));',
           params: [
             [
               "ident",
@@ -35950,7 +35164,7 @@
           id: 133
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,body,err,macroData,macroName,next,rest,result,results,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;if(macroName==="asyncuntil"){test=__node("MacroAccess",2753,19,3,2753,{op:"not",node:__wrap(test)},"expression",false,false,false);}if(rest==null){rest=this.noop();}_ref=results!=null?results:{};err=_ref.err;result=_ref.result;return __node("MacroAccess",2759,1,130,2759,{macroName:"asyncfor",macroData:{results:{err:__wrap(err),result:__wrap(result)},next:__wrap(next),test:__wrap(test),step:__wrap(step),body:__wrap(body),rest:__wrap(rest)}},"statement",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,body,err,macroData,macroName,next,rest,result,results,step,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;next=macroData.next;test=macroData.test;step=macroData.step;body=macroData.body;rest=macroData.rest;if(macroName==="asyncuntil"){test=__node("MacroAccess",91476,3,2753,{op:"not",node:__wrap(test)},"expression",false,false,false);}if(rest==null){rest=this.noop();}_ref=results!=null?results:{};err=_ref.err;result=_ref.result;return __node("MacroAccess",91562,130,2759,{macroName:"asyncfor",macroData:{results:{err:__wrap(err),result:__wrap(result)},next:__wrap(next),test:__wrap(test),step:__wrap(step),body:__wrap(body),rest:__wrap(rest)}},"statement",false,false,false);};}.call(this));',
           params: [
             [
               "ident",
@@ -36000,7 +35214,7 @@
           id: 134
         },
         {
-          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _ref,body,current,done,elseBody,elseIf,elseIfs,err,i,innerTest,macroData,macroName,rest,result,results,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;done=macroData.done;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;rest=macroData.rest;if(macroName==="asyncunless"){test=__node("MacroAccess",2766,19,3,2766,{op:"not",node:__wrap(test)},"expression",false,false,false);}_ref=results!=null?results:{};err=_ref.err;result=_ref.result;if(rest==null){rest=this.noop();}if(elseBody){current=__node("MacroAccess",2772,13,117,2772,{op:"",node:__node("Function",2772,13,[__node("Param",2772,14,__wrap(done),void 0,false,false,void 0)],__wrap(elseBody),true,true,false,void 0,false,[])},"expression",false,false,false);}else{current=__node("MacroAccess",2774,13,117,2774,{op:"",node:__node("Function",2774,13,[__node("Param",2774,14,__wrap(done),void 0,false,false,void 0)],__node("Call",2774,24,__wrap(done),[],false,false),true,true,false,void 0,false,[])},"expression",false,false,false);}i=__num(elseIfs.length)-1;for(;i>=0;--i){elseIf=elseIfs[i];innerTest=elseIf.test;if(elseIf.type==="unless"){innerTest=__node("MacroAccess",2781,27,3,2781,{op:"not",node:__wrap(innerTest)},"expression",false,false,false);}current=__node("MacroAccess",2782,21,17,2782,{macroName:"if",macroData:{test:__wrap(innerTest),body:__node("MacroAccess",2783,10,117,2783,{op:"",node:__node("Function",2783,10,[__node("Param",2783,11,__wrap(done),void 0,false,false,void 0)],__wrap(elseIf.body),true,true,false,void 0,false,[])},"statement",false,false,false),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);}current=__node("MacroAccess",2787,19,17,2787,{macroName:"if",macroData:{test:__wrap(test),body:__node("MacroAccess",2788,8,117,2788,{op:"",node:__node("Function",2788,8,[__node("Param",2788,9,__wrap(done),void 0,false,false,void 0)],__wrap(body),true,true,false,void 0,false,[])},"statement",false,false,false),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);if(!err&&!result){return __node("Call",2794,1,__wrap(current),[__node("MacroAccess",2794,19,117,2794,{op:"",node:__node("Function",2794,19,[],__wrap(rest),true,true,false,void 0,false,[])},"expression",false,false,false)],false,false);}else if(!result){return __node("Call",2797,1,__wrap(current),[__node("MacroAccess",2797,19,117,2797,{op:"",node:__node("Function",2797,19,[__node("Param",2797,20,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"expression",false,false,false)],false,false);}else{if(err==null){err=this.tmp("err",true);}return __node("Call",2801,1,__wrap(current),[__node("MacroAccess",2801,19,117,2801,{op:"",node:__node("Function",2801,19,[__node("Param",2801,20,__wrap(err),void 0,false,false,void 0),__node("Param",2801,25,__wrap(result),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"expression",false,false,false)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _ref,body,current,done,elseBody,elseIf,elseIfs,err,i,innerTest,macroData,macroName,rest,result,results,test;macroName=macroFullData.macroName;macroData=macroFullData.macroData;results=macroData.results;done=macroData.done;test=macroData.test;body=macroData.body;elseIfs=macroData.elseIfs;elseBody=macroData.elseBody;rest=macroData.rest;if(macroName==="asyncunless"){test=__node("MacroAccess",92121,3,2766,{op:"not",node:__wrap(test)},"expression",false,false,false);}_ref=results!=null?results:{};err=_ref.err;result=_ref.result;if(rest==null){rest=this.noop();}if(elseBody){current=__node("MacroAccess",92258,117,2772,{op:"",node:__node("Function",92258,[__node("Param",92259,__wrap(done),void 0,false,false,void 0)],__wrap(elseBody),true,true,false,void 0,false,[])},"expression",false,false,false);}else{current=__node("MacroAccess",92302,117,2774,{op:"",node:__node("Function",92302,[__node("Param",92303,__wrap(done),void 0,false,false,void 0)],__node("Call",92313,__wrap(done),[],false,false),true,true,false,void 0,false,[])},"expression",false,false,false);}i=__num(elseIfs.length)-1;for(;i>=0;--i){elseIf=elseIfs[i];innerTest=elseIf.test;if(elseIf.type==="unless"){innerTest=__node("MacroAccess",92528,3,2781,{op:"not",node:__wrap(innerTest)},"expression",false,false,false);}current=__node("MacroAccess",92565,17,2782,{macroName:"if",macroData:{test:__wrap(innerTest),body:__node("MacroAccess",92590,117,2783,{op:"",node:__node("Function",92590,[__node("Param",92591,__wrap(done),void 0,false,false,void 0)],__wrap(elseIf.body),true,true,false,void 0,false,[])},"statement",false,false,false),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);}current=__node("MacroAccess",92669,17,2787,{macroName:"if",macroData:{test:__wrap(test),body:__node("MacroAccess",92686,117,2788,{op:"",node:__node("Function",92686,[__node("Param",92687,__wrap(done),void 0,false,false,void 0)],__wrap(body),true,true,false,void 0,false,[])},"statement",false,false,false),elseIfs:[],elseBody:__wrap(current)}},"statement",false,false,false);if(!err&&!result){return __node("Call",92773,__wrap(current),[__node("MacroAccess",92791,117,2794,{op:"",node:__node("Function",92791,[],__wrap(rest),true,true,false,void 0,false,[])},"expression",false,false,false)],false,false);}else if(!result){return __node("Call",92835,__wrap(current),[__node("MacroAccess",92853,117,2797,{op:"",node:__node("Function",92853,[__node("Param",92854,__wrap(err),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"expression",false,false,false)],false,false);}else{if(err==null){err=this.tmp("err",true);}return __node("Call",92919,__wrap(current),[__node("MacroAccess",92937,117,2801,{op:"",node:__node("Function",92937,[__node("Param",92938,__wrap(err),void 0,false,false,void 0),__node("Param",92943,__wrap(result),void 0,false,false,void 0)],__wrap(rest),true,true,false,void 0,false,[])},"expression",false,false,false)],false,false);}};}.call(this));',
           params: [
             [
               "ident",
@@ -36113,7 +35327,7 @@
           id: 138
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__owns,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__owns=Object.prototype.hasOwnProperty;__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _arr,_i,_len,_ref,_this,assignment,body,constructorCount,ctor,declaration,displayName,generic,genericArg,genericArgs,genericCache,genericParams,hasSuperclass,hasTopLevelConstructor,i,init,instanceofLets,instanceofs,item,key,macroData,macroName,makeClassFunc,makeClassIdent,name,parts,prototype,result,self,sup,superclass,superproto;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;generic=macroData.generic;superclass=macroData.superclass;body=macroData.body;if(generic!=null){genericArgs=[generic.head].concat(__toArray(generic.tail));}else{genericArgs=[];}if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){if((_ref=this.ident(this.value(this.child(name))))!=null){name=_ref;}else{name=this.tmp("class",false,"function");}}else{name=this.tmp("class",false,"function");}}else{name=this.tmp("class",false,"function");}if(this.isIdent(superclass)&&this.name(superclass)==="Object"){superclass=null;}hasSuperclass=!!superclass;sup=superclass&&(this.isIdent(superclass)?superclass:this.tmp("super",false,"function"));init=[];if(!superclass){superproto=__node("Access",2836,11,__node("Ident",2836,11,"Object"),__node("Const",2836,19,"prototype"));}else{superproto=this.tmp(this.isIdent(sup)?__strnum(this.name(sup))+"_prototype":"super_prototype",false,"object");}prototype=this.tmp(this.isIdent(name)?__strnum(this.name(name))+"_prototype":"prototype",false,"object");if(superclass){init.push(__node("MacroAccess",2841,20,38,2841,{macroName:"let",macroData:{declarable:__node("MacroAccess",2841,24,37,2841,__node("MacroAccess",2841,24,31,2841,{ident:__wrap(superproto)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",2841,38,__wrap(sup),__node("Const",2841,44,"prototype"))}},"statement",false,false,false));init.push(__node("MacroAccess",2842,20,38,2842,{macroName:"let",macroData:{declarable:__node("MacroAccess",2842,24,37,2842,__node("MacroAccess",2842,24,31,2842,{ident:__wrap(prototype)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",2842,37,30,2842,{left:__node("Access",2842,37,__wrap(name),__node("Const",2842,44,"prototype")),op:":=",right:__node("Object",2842,56,[],__wrap(superproto))},"expression",false,false,false)}},"statement",false,false,false));init.push(__node("MacroAccess",2843,21,30,2843,{left:__node("Access",2843,21,__wrap(prototype),__node("Const",2843,33,"constructor")),op:":=",right:__wrap(name)},"expression",false,false,false));}else{init.push(__node("MacroAccess",2845,20,38,2845,{macroName:"let",macroData:{declarable:__node("MacroAccess",2845,24,37,2845,__node("MacroAccess",2845,24,31,2845,{ident:__wrap(prototype)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",2845,37,__wrap(name),__node("Const",2845,44,"prototype"))}},"statement",false,false,false));}if(this.isIdent(name)){displayName=this["const"](this.name(name));}if(displayName!=null){if(genericArgs.length>0){parts=[displayName,this["const"]("<")];for(i=0, _len=genericArgs.length;i<_len;++i){genericArg=genericArgs[i];if(i>0){parts.push(this["const"](", "));}parts.push(__node("MacroAccess",2854,26,16,2854,{macroName:"if",macroData:{test:__node("MacroAccess",2854,29,8,2854,{left:__wrap(genericArg),inverted:false,op:"!~=",right:__const("null")},"expression",false,false,false),body:__node("Call",2854,56,__node("Ident",2854,56,"__name"),[__wrap(genericArg)],false,false),elseIfs:[],elseBody:__node("Const",2854,82,"")}},"expression",false,false,false));}parts.push(this["const"](">"));displayName=this.binaryChain("+",parts);}init.push(__node("MacroAccess",2857,21,30,2857,{left:__node("Access",2857,21,__wrap(name),__node("Const",2857,28,"displayName")),op:":=",right:__wrap(displayName)},"expression",false,false,false));}if(superclass){init.push(__node("If",2860,20,__node("Binary",2860,20,__node("Unary",2860,20,"typeof",__node("Access",2860,20,__wrap(sup),__node("Const",2860,26,"extended"))),"===",__node("Const",2860,20,"function")),__node("Call",2860,20,__node("Access",2860,20,__wrap(sup),__node("Const",2860,26,"extended")),[__wrap(name)],false,false),__node("Nothing",0,0),null));}function fixSupers(node){return _this.walk(node,function(node){var _arr,_arr2,_i,_len,args,child,superArg;if(_this.isSuper(node)){child=_this.superChild(node);if(child!=null){child=fixSupers(child);}for(_arr=[], _arr2=__toArray(_this.superArgs(node)), _i=0, _len=_arr2.length;_i<_len;++_i){superArg=_arr2[_i];_arr.push(fixSupers(superArg));}args=_arr;return _this.call(child!=null?__node("Access",2872,17,__wrap(superproto),__wrap(child)):!superclass?__node("Ident",2874,17,"Object"):__wrap(sup),[__node("This",2877,16)].concat(args),false,true);}});};body=fixSupers(this.macroExpandAll(body));constructorCount=0;this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){++constructorCount;}}return;});hasTopLevelConstructor=false;if(constructorCount===1){this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"&&_this.isFunc(_this.right(node))&&!_this.funcIsCurried(_this.right(node))){hasTopLevelConstructor=true;}return node;}else{return node;}});}self=this.tmp("this");if(hasTopLevelConstructor){body=this.walk(body,function(node){var constructor,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",2914,18,16,2914,{macroName:"if",macroData:{test:__node("MacroAccess",2914,21,74,2914,{left:__node("Eval",2914,21,__node("Const",2914,27,"this")),inverted:false,op:"instanceof",right:__wrap(name)},"statement",false,false,false),body:__node("Eval",2914,56,__node("Const",2914,62,"this")),elseIfs:[],elseBody:__node("Object",2914,74,[],__wrap(prototype))}},"statement",false,false,false)),value);init.unshift(__node("MacroAccess",2915,29,38,2915,{macroName:"let",macroData:{declarable:__node("MacroAccess",2915,33,37,2915,__node("MacroAccess",2915,33,31,2915,{ident:__wrap(name)},"statement",false,false,false),"statement",false,false,false),value:__wrap(constructor)}},"statement",false,false,false));return _this.noop();}}else{return node;}});}else if(constructorCount!==0){ctor=this.tmp("ctor",false,"function");result=this.tmp("ref");init.push(__node("Block",2923,1,[__node("MacroAccess",2923,1,38,2923,{macroName:"let",macroData:{declarable:__node("MacroAccess",2923,12,37,2923,__node("MacroAccess",2923,12,31,2923,{isMutable:"mutable",ident:__wrap(ctor)},"statement",false,false,false),"statement",false,false,false),value:__const("void")}},"statement",false,false,false),__node("MacroAccess",2924,1,15,2924,{macroName:"let",macroData:{ident:__wrap(name),func:__node("MacroAccess",2924,18,117,2924,{op:"",node:__node("Function",2924,18,[],__node("Block",2925,1,[__node("MacroAccess",2925,1,38,2925,{macroName:"let",macroData:{declarable:__node("MacroAccess",2925,14,37,2925,__node("MacroAccess",2925,14,31,2925,{ident:__wrap(self)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",2925,22,16,2925,{macroName:"if",macroData:{test:__node("MacroAccess",2925,25,74,2925,{left:__node("This",2925,25),inverted:false,op:"instanceof",right:__wrap(name)},"expression",false,false,false),body:__node("This",2925,52),elseIfs:[],elseBody:__node("Object",2925,62,[],__wrap(prototype))}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",2927,1,17,2927,{macroName:"if",macroData:{test:__node("MacroAccess",2927,13,26,2927,{op:"isFunction!",node:__wrap(ctor)},"statement",false,false,false),body:__node("Block",2928,1,[__node("MacroAccess",2928,1,38,2928,{macroName:"let",macroData:{declarable:__node("MacroAccess",2928,16,37,2928,__node("MacroAccess",2928,16,31,2928,{ident:__wrap(result)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",2928,26,__wrap(ctor),[__wrap(self),__node("Spread",2928,40,__node("Args",2928,44))],false,true)}},"statement",false,false,false),__node("MacroAccess",2929,1,17,2929,{macroName:"if",macroData:{test:__node("MacroAccess",2929,15,5,2929,{left:__node("Call",2929,15,__node("Ident",2929,15,"Object"),[__wrap(result)],false,false),inverted:false,op:"==",right:__wrap(result)},"statement",false,false,false),body:__node("MacroAccess",2930,1,39,2930,{macroName:"return",macroData:{node:__wrap(result)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false)],null),elseIfs:[{type:"if",test:__wrap(hasSuperclass),body:__node("Block",2932,1,[__node("MacroAccess",2932,1,38,2932,{macroName:"let",macroData:{declarable:__node("MacroAccess",2932,16,37,2932,__node("MacroAccess",2932,16,31,2932,{ident:__wrap(result)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",2932,26,__wrap(sup),[__wrap(self),__node("Spread",2932,39,__node("Args",2932,43))],false,true)}},"statement",false,false,false),__node("MacroAccess",2933,1,17,2933,{macroName:"if",macroData:{test:__node("MacroAccess",2933,15,5,2933,{left:__node("Call",2933,15,__node("Ident",2933,15,"Object"),[__wrap(result)],false,false),inverted:false,op:"==",right:__wrap(result)},"statement",false,false,false),body:__node("MacroAccess",2934,1,39,2934,{macroName:"return",macroData:{node:__wrap(result)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false)],null)}]}},"statement",false,false,false),__wrap(self)],null),true,false,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false)],null));body=this.walk(body,function(node){var constructor,firstArg,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);if(_this.isCall(value)&&_this.isIdent(_this.callFunc(value))&&_this.name(_this.callFunc(value))==="__curry"&&_this.callArgs(value).length===2&&_this.isFunc(_this.callArgs(value)[1])){firstArg=_this.callArgs(value)[0];constructor=_this.callArgs(value)[1];constructor=_this.rewrap(_this.func(_this.funcParams(constructor),_this.funcBody(constructor),false,__node("MacroAccess",2948,20,16,2948,{macroName:"if",macroData:{test:__node("MacroAccess",2948,23,74,2948,{left:__node("Eval",2948,23,__node("Const",2948,29,"this")),inverted:false,op:"instanceof",right:__wrap(name)},"statement",false,false,false),body:__node("Eval",2948,58,__node("Const",2948,64,"this")),elseIfs:[],elseBody:__node("Object",2948,76,[],__wrap(prototype))}},"statement",false,false,false),false),value);return __node("MacroAccess",2950,19,30,2950,{left:__wrap(ctor),op:":=",right:__node("Call",2950,28,__node("Ident",2950,28,"__curry"),[__wrap(firstArg),__wrap(constructor)],false,false)},"expression",false,false,false);}else if(_this.isFunc(value)){constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",2956,20,16,2956,{macroName:"if",macroData:{test:__node("MacroAccess",2956,23,74,2956,{left:__node("Eval",2956,23,__node("Const",2956,29,"this")),inverted:false,op:"instanceof",right:__wrap(name)},"statement",false,false,false),body:__node("Eval",2956,58,__node("Const",2956,64,"this")),elseIfs:[],elseBody:__node("Object",2956,76,[],__wrap(prototype))}},"statement",false,false,false),_this.funcIsCurried(value)),value);return __node("MacroAccess",2958,19,30,2958,{left:__wrap(ctor),op:":=",right:__wrap(constructor)},"expression",false,false,false);}else{return __node("MacroAccess",2960,19,30,2960,{left:__wrap(ctor),op:":=",right:__wrap(value)},"expression",false,false,false);}}}});}else if(!superclass){init.push(__node("MacroAccess",2964,1,15,2964,{macroName:"let",macroData:{ident:__wrap(name),func:__node("MacroAccess",2964,20,117,2964,{op:"",node:__node("Function",2964,20,[],__node("MacroAccess",2964,25,16,2964,{macroName:"if",macroData:{test:__node("MacroAccess",2964,28,74,2964,{left:__node("This",2964,28),inverted:false,op:"instanceof",right:__wrap(name)},"statement",false,false,false),body:__node("This",2964,55),elseIfs:[],elseBody:__node("Object",2964,65,[],__wrap(prototype))}},"statement",false,false,false),true,false,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false));}else{result=this.tmp("ref");init.push(__node("MacroAccess",2968,1,15,2968,{macroName:"let",macroData:{ident:__wrap(name),func:__node("MacroAccess",2968,20,117,2968,{op:"",node:__node("Function",2968,20,[],__node("Block",2969,1,[__node("MacroAccess",2969,1,38,2969,{macroName:"let",macroData:{declarable:__node("MacroAccess",2969,16,37,2969,__node("MacroAccess",2969,16,31,2969,{ident:__wrap(self)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",2969,24,16,2969,{macroName:"if",macroData:{test:__node("MacroAccess",2969,27,74,2969,{left:__node("This",2969,27),inverted:false,op:"instanceof",right:__wrap(name)},"expression",false,false,false),body:__node("This",2969,54),elseIfs:[],elseBody:__node("Object",2969,64,[],__wrap(prototype))}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",2970,1,38,2970,{macroName:"let",macroData:{declarable:__node("MacroAccess",2970,16,37,2970,__node("MacroAccess",2970,16,31,2970,{ident:__wrap(result)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",2970,26,__wrap(sup),[__wrap(self),__node("Spread",2970,39,__node("Args",2970,43))],false,true)}},"statement",false,false,false),__node("MacroAccess",2971,1,17,2971,{macroName:"if",macroData:{test:__node("MacroAccess",2971,15,5,2971,{left:__node("Call",2971,15,__node("Ident",2971,15,"Object"),[__wrap(result)],false,false),inverted:false,op:"==",right:__wrap(result)},"statement",false,false,false),body:__wrap(result),elseIfs:[],elseBody:__wrap(self)}},"statement",false,false,false)],null),true,false,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false));}function changeDefs(node){return _this.walk(node,function(node){var _ref,key,value;if(_this.isDef(node)){key=_this.left(node);if((_ref=_this.right(node))!=null){value=_ref;}else{value=__node("MacroAccess",2979,42,117,2979,{op:"",node:__node("Function",2979,42,[],__node("MacroAccess",2979,44,11,2979,{op:"throw",node:__node("Call",2979,50,__node("Ident",2979,50,"Error"),[__node("MacroAccess",2979,57,69,2979,{left:__node("MacroAccess",2979,57,69,2979,{left:__node("MacroAccess",2979,57,69,2979,{left:__node("MacroAccess",2979,57,69,2979,{left:__node("Const",2979,57,"Not implemented: "),op:"",right:__node("Call",2979,77,__node("Ident",2979,77,"__name"),[__node("Access",2979,84,__node("This",2979,84),__node("Const",2979,85,"constructor"))],false,false)},"expression",false,false,false),op:"",right:__node("Const",2979,57,".")},"expression",false,false,false),op:"",right:__wrap(key)},"expression",false,false,false),op:"",right:__node("Const",2979,57,"()")},"expression",false,false,false)],false,false)},"statement",false,false,false),true,false,false,void 0,false,[])},"expression",false,false,false);}return changeDefs(__node("MacroAccess",2980,25,30,2980,{left:__node("Access",2980,25,__wrap(prototype),__wrap(key)),op:":=",right:__wrap(value)},"expression",false,false,false));}});};body=changeDefs(body);body=this.walk(body,function(node){if(_this.isFunc(node)){if(!_this.funcIsBound(node)){return node;}}else if(_this.isThis(node)){return name;}});result=__node("MacroAccess",2990,29,104,2990,{macroName:"do",macroData:{locals:{ident:__wrap(sup),value:__wrap(superclass),rest:[]},body:__node("Block",2991,1,[__wrap(init),__wrap(body),__node("MacroAccess",2993,1,39,2993,{macroName:"return",macroData:{node:__wrap(name)}},"statement",false,false,false)],null)}},"statement",false,false,false);if(genericArgs.length>0){genericCache=this.tmp("cache",false,"object");for(_arr=[], _i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];_arr.push(this.param(genericArg));}genericParams=_arr;makeClassIdent=this.tmp("make",false,"function");instanceofs={};for(_i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];name=this.name(genericArg);key=this.tmp("instanceof_"+__strnum(name),false,"function");instanceofs[name]={key:key,"let":__node("MacroAccess",3005,19,38,3005,{macroName:"let",macroData:{declarable:__node("MacroAccess",3005,23,37,3005,__node("MacroAccess",3005,23,31,3005,{ident:__wrap(key)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",3005,30,__node("Ident",3005,30,"__getInstanceof"),[__wrap(genericArg)],false,false)}},"statement",false,false,false),used:false};}result=this.walk(this.macroExpandAll(result),function(node){var func,left,name,right;if(_this.isBinary(node)&&_this.op(node)==="instanceof"){right=_this.right(node);if(_this.isIdent(right)){name=_this.name(right);if(__owns.call(instanceofs,name)){func=instanceofs[name].key;instanceofs[name].used=true;left=_this.left(node);return __node("Call",3017,26,__wrap(func),[__wrap(left)],false,false);}}}});_arr=[];for(name in instanceofs){if(__owns.call(instanceofs,name)){item=instanceofs[name];if(item.used){_arr.push(item["let"]);}}}instanceofLets=_arr;if(instanceofLets.length){result=__node("Block",3023,1,[__wrap(instanceofLets),__wrap(result)],null);}makeClassFunc=this.func(genericParams,result,true,false);result=__node("Call",3026,20,__node("Ident",3026,20,"__genericFunc"),[__wrap(genericArgs.length),__wrap(makeClassFunc)],false,false);}if(declaration!=null){return __node("MacroAccess",3029,10,38,3029,{macroName:"let",macroData:{declarable:__node("MacroAccess",3029,14,37,3029,__node("MacroAccess",3029,14,31,3029,{ident:__wrap(declaration)},"statement",false,false,false),"statement",false,false,false),value:__wrap(result)}},"statement",false,false,false);}else if(assignment!=null){return __node("MacroAccess",3031,11,30,3031,{left:__wrap(assignment),op:":=",right:__wrap(result)},"expression",false,false,false);}else{return result;}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__owns,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__owns=Object.prototype.hasOwnProperty;__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _arr,_i,_len,_ref,_this,assignment,body,constructorCount,ctor,declaration,displayName,generic,genericArg,genericArgs,genericCache,genericParams,hasSuperclass,hasTopLevelConstructor,i,init,instanceofLets,instanceofs,item,key,macroData,macroName,makeClassFunc,makeClassIdent,name,parts,prototype,result,self,sup,superclass,superproto;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;name=macroData.name;generic=macroData.generic;superclass=macroData.superclass;body=macroData.body;if(generic!=null){genericArgs=[generic.head].concat(__toArray(generic.tail));}else{genericArgs=[];}if(this.isIdent(name)){declaration=name;}else if(this.isAccess(name)){assignment=name;if(this.isConst(this.child(name))&&typeof this.value(this.child(name))==="string"){if((_ref=this.ident(this.value(this.child(name))))!=null){name=_ref;}else{name=this.tmp("class",false,"function");}}else{name=this.tmp("class",false,"function");}}else{name=this.tmp("class",false,"function");}if(this.isIdent(superclass)&&this.name(superclass)==="Object"){superclass=null;}hasSuperclass=!!superclass;sup=superclass&&(this.isIdent(superclass)?superclass:this.tmp("super",false,"function"));init=[];if(!superclass){superproto=__node("Access",94182,__node("Ident",94182,"Object"),__node("Const",94190,"prototype"));}else{superproto=this.tmp(this.isIdent(sup)?__strnum(this.name(sup))+"_prototype":"super_prototype",false,"object");}prototype=this.tmp(this.isIdent(name)?__strnum(this.name(name))+"_prototype":"prototype",false,"object");if(superclass){init.push(__node("MacroAccess",94454,38,2841,{macroName:"let",macroData:{declarable:__node("MacroAccess",94458,37,2841,__node("MacroAccess",94458,31,2841,{ident:__wrap(superproto)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",94472,__wrap(sup),__node("Const",94478,"prototype"))}},"statement",false,false,false));init.push(__node("MacroAccess",94507,38,2842,{macroName:"let",macroData:{declarable:__node("MacroAccess",94511,37,2842,__node("MacroAccess",94511,31,2842,{ident:__wrap(prototype)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",94524,30,2842,{left:__node("Access",94524,__wrap(name),__node("Const",94531,"prototype")),op:":=",right:__node("Object",94543,[],__wrap(superproto))},"expression",false,false,false)}},"statement",false,false,false));init.push(__node("MacroAccess",94588,30,2843,{left:__node("Access",94588,__wrap(prototype),__node("Const",94600,"constructor")),op:":=",right:__wrap(name)},"expression",false,false,false));}else{init.push(__node("MacroAccess",94649,38,2845,{macroName:"let",macroData:{declarable:__node("MacroAccess",94653,37,2845,__node("MacroAccess",94653,31,2845,{ident:__wrap(prototype)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",94666,__wrap(name),__node("Const",94673,"prototype"))}},"statement",false,false,false));}if(this.isIdent(name)){displayName=this["const"](this.name(name));}if(displayName!=null){if(genericArgs.length>0){parts=[displayName,this["const"]("<")];for(i=0, _len=genericArgs.length;i<_len;++i){genericArg=genericArgs[i];if(i>0){parts.push(this["const"](", "));}parts.push(__node("MacroAccess",94988,16,2854,{macroName:"if",macroData:{test:__node("MacroAccess",94991,8,2854,{left:__wrap(genericArg),inverted:false,op:"!~=",right:__const("null")},"expression",false,false,false),body:__node("Call",95018,__node("Ident",95018,"__name"),[__wrap(genericArg)],false,false),elseIfs:[],elseBody:__node("Const",95044,"")}},"expression",false,false,false));}parts.push(this["const"](">"));displayName=this.binaryChain("+",parts);}init.push(__node("MacroAccess",95147,30,2857,{left:__node("Access",95147,__wrap(name),__node("Const",95154,"displayName")),op:":=",right:__wrap(displayName)},"expression",false,false,false));}if(superclass){init.push(__node("If",95226,__node("Binary",95226,__node("Unary",95226,"typeof",__node("Access",95226,__wrap(sup),__node("Const",95232,"extended"))),"===",__node("Const",95226,"function")),__node("Call",95226,__node("Access",95226,__wrap(sup),__node("Const",95232,"extended")),[__wrap(name)],false,false),__node("Nothing",0),null));}function fixSupers(node){return _this.walk(node,function(node){var _arr,_arr2,_i,_len,args,child,superArg;if(_this.isSuper(node)){child=_this.superChild(node);if(child!=null){child=fixSupers(child);}for(_arr=[], _arr2=__toArray(_this.superArgs(node)), _i=0, _len=_arr2.length;_i<_len;++_i){superArg=_arr2[_i];_arr.push(fixSupers(superArg));}args=_arr;return _this.call(child!=null?__node("Access",95574,__wrap(superproto),__wrap(child)):!superclass?__node("Ident",95644,"Object"):__wrap(sup),[__node("This",95704)].concat(args),false,true);}});};body=fixSupers(this.macroExpandAll(body));constructorCount=0;this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){++constructorCount;}}return;});hasTopLevelConstructor=false;if(constructorCount===1){this.walk(body,function(node){var key;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"&&_this.isFunc(_this.right(node))&&!_this.funcIsCurried(_this.right(node))){hasTopLevelConstructor=true;}return node;}else{return node;}});}self=this.tmp("this");if(hasTopLevelConstructor){body=this.walk(body,function(node){var constructor,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",96951,16,2914,{macroName:"if",macroData:{test:__node("MacroAccess",96954,74,2914,{left:__node("Eval",96954,__node("Const",96960,"this")),inverted:false,op:"instanceof",right:__wrap(name)},"statement",false,false,false),body:__node("Eval",96989,__node("Const",96995,"this")),elseIfs:[],elseBody:__node("Object",97007,[],__wrap(prototype))}},"statement",false,false,false)),value);init.unshift(__node("MacroAccess",97068,38,2915,{macroName:"let",macroData:{declarable:__node("MacroAccess",97072,37,2915,__node("MacroAccess",97072,31,2915,{ident:__wrap(name)},"statement",false,false,false),"statement",false,false,false),value:__wrap(constructor)}},"statement",false,false,false));return _this.noop();}}else{return node;}});}else if(constructorCount!==0){ctor=this.tmp("ctor",false,"function");result=this.tmp("ref");init.push(__node("Block",97272,[__node("MacroAccess",97272,38,2923,{macroName:"let",macroData:{declarable:__node("MacroAccess",97283,37,2923,__node("MacroAccess",97283,31,2923,{isMutable:"mutable",ident:__wrap(ctor)},"statement",false,false,false),"statement",false,false,false),value:__const("void")}},"statement",false,false,false),__node("MacroAccess",97305,15,2924,{macroName:"let",macroData:{ident:__wrap(name),func:__node("MacroAccess",97322,117,2924,{op:"",node:__node("Function",97322,[],__node("Block",97325,[__node("MacroAccess",97325,38,2925,{macroName:"let",macroData:{declarable:__node("MacroAccess",97338,37,2925,__node("MacroAccess",97338,31,2925,{ident:__wrap(self)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",97346,16,2925,{macroName:"if",macroData:{test:__node("MacroAccess",97349,74,2925,{left:__node("This",97349),inverted:false,op:"instanceof",right:__wrap(name)},"expression",false,false,false),body:__node("This",97376),elseIfs:[],elseBody:__node("Object",97386,[],__wrap(prototype))}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",97421,17,2927,{macroName:"if",macroData:{test:__node("MacroAccess",97433,26,2927,{op:"isFunction!",node:__wrap(ctor)},"statement",false,false,false),body:__node("Block",97453,[__node("MacroAccess",97453,38,2928,{macroName:"let",macroData:{declarable:__node("MacroAccess",97468,37,2928,__node("MacroAccess",97468,31,2928,{ident:__wrap(result)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",97478,__wrap(ctor),[__wrap(self),__node("Spread",97492,__node("Args",97496))],false,true)}},"statement",false,false,false),__node("MacroAccess",97506,17,2929,{macroName:"if",macroData:{test:__node("MacroAccess",97520,5,2929,{left:__node("Call",97520,__node("Ident",97520,"Object"),[__wrap(result)],false,false),inverted:false,op:"==",right:__wrap(result)},"statement",false,false,false),body:__node("MacroAccess",97548,39,2930,{macroName:"return",macroData:{node:__wrap(result)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false)],null),elseIfs:[{type:"if",test:__wrap(hasSuperclass),body:__node("Block",97611,[__node("MacroAccess",97611,38,2932,{macroName:"let",macroData:{declarable:__node("MacroAccess",97626,37,2932,__node("MacroAccess",97626,31,2932,{ident:__wrap(result)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",97636,__wrap(sup),[__wrap(self),__node("Spread",97649,__node("Args",97653))],false,true)}},"statement",false,false,false),__node("MacroAccess",97663,17,2933,{macroName:"if",macroData:{test:__node("MacroAccess",97677,5,2933,{left:__node("Call",97677,__node("Ident",97677,"Object"),[__wrap(result)],false,false),inverted:false,op:"==",right:__wrap(result)},"statement",false,false,false),body:__node("MacroAccess",97705,39,2934,{macroName:"return",macroData:{node:__wrap(result)}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false)],null)}]}},"statement",false,false,false),__wrap(self)],null),true,false,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false)],null));body=this.walk(body,function(node){var constructor,firstArg,key,value;if(_this.isDef(node)){key=_this.left(node);if(_this.isConst(key)&&_this.value(key)==="constructor"){value=_this.right(node);if(_this.isCall(value)&&_this.isIdent(_this.callFunc(value))&&_this.name(_this.callFunc(value))==="__curry"&&_this.callArgs(value).length===2&&_this.isFunc(_this.callArgs(value)[1])){firstArg=_this.callArgs(value)[0];constructor=_this.callArgs(value)[1];constructor=_this.rewrap(_this.func(_this.funcParams(constructor),_this.funcBody(constructor),false,__node("MacroAccess",98390,16,2948,{macroName:"if",macroData:{test:__node("MacroAccess",98393,74,2948,{left:__node("Eval",98393,__node("Const",98399,"this")),inverted:false,op:"instanceof",right:__wrap(name)},"statement",false,false,false),body:__node("Eval",98428,__node("Const",98434,"this")),elseIfs:[],elseBody:__node("Object",98446,[],__wrap(prototype))}},"statement",false,false,false),false),value);return __node("MacroAccess",98519,30,2950,{left:__wrap(ctor),op:":=",right:__node("Call",98528,__node("Ident",98528,"__curry"),[__wrap(firstArg),__wrap(constructor)],false,false)},"expression",false,false,false);}else if(_this.isFunc(value)){constructor=_this.rewrap(_this.func(_this.funcParams(value),_this.funcBody(value),false,__node("MacroAccess",98753,16,2956,{macroName:"if",macroData:{test:__node("MacroAccess",98756,74,2956,{left:__node("Eval",98756,__node("Const",98762,"this")),inverted:false,op:"instanceof",right:__wrap(name)},"statement",false,false,false),body:__node("Eval",98791,__node("Const",98797,"this")),elseIfs:[],elseBody:__node("Object",98809,[],__wrap(prototype))}},"statement",false,false,false),_this.funcIsCurried(value)),value);return __node("MacroAccess",98899,30,2958,{left:__wrap(ctor),op:":=",right:__wrap(constructor)},"expression",false,false,false);}else{return __node("MacroAccess",98957,30,2960,{left:__wrap(ctor),op:":=",right:__wrap(value)},"expression",false,false,false);}}}});}else if(!superclass){init.push(__node("MacroAccess",99029,15,2964,{macroName:"let",macroData:{ident:__wrap(name),func:__node("MacroAccess",99048,117,2964,{op:"",node:__node("Function",99048,[],__node("MacroAccess",99053,16,2964,{macroName:"if",macroData:{test:__node("MacroAccess",99056,74,2964,{left:__node("This",99056),inverted:false,op:"instanceof",right:__wrap(name)},"statement",false,false,false),body:__node("This",99083),elseIfs:[],elseBody:__node("Object",99093,[],__wrap(prototype))}},"statement",false,false,false),true,false,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false));}else{result=this.tmp("ref");init.push(__node("MacroAccess",99181,15,2968,{macroName:"let",macroData:{ident:__wrap(name),func:__node("MacroAccess",99200,117,2968,{op:"",node:__node("Function",99200,[],__node("Block",99203,[__node("MacroAccess",99203,38,2969,{macroName:"let",macroData:{declarable:__node("MacroAccess",99218,37,2969,__node("MacroAccess",99218,31,2969,{ident:__wrap(self)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",99226,16,2969,{macroName:"if",macroData:{test:__node("MacroAccess",99229,74,2969,{left:__node("This",99229),inverted:false,op:"instanceof",right:__wrap(name)},"expression",false,false,false),body:__node("This",99256),elseIfs:[],elseBody:__node("Object",99266,[],__wrap(prototype))}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",99290,38,2970,{macroName:"let",macroData:{declarable:__node("MacroAccess",99305,37,2970,__node("MacroAccess",99305,31,2970,{ident:__wrap(result)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",99315,__wrap(sup),[__wrap(self),__node("Spread",99328,__node("Args",99332))],false,true)}},"statement",false,false,false),__node("MacroAccess",99342,17,2971,{macroName:"if",macroData:{test:__node("MacroAccess",99356,5,2971,{left:__node("Call",99356,__node("Ident",99356,"Object"),[__wrap(result)],false,false),inverted:false,op:"==",right:__wrap(result)},"statement",false,false,false),body:__wrap(result),elseIfs:[],elseBody:__wrap(self)}},"statement",false,false,false)],null),true,false,false,void 0,false,[])},"statement",false,false,false)}},"statement",false,false,false));}function changeDefs(node){return _this.walk(node,function(node){var _ref,key,value;if(_this.isDef(node)){key=_this.left(node);if((_ref=_this.right(node))!=null){value=_ref;}else{value=__node("MacroAccess",99593,117,2979,{op:"",node:__node("Function",99593,[],__node("MacroAccess",99595,11,2979,{op:"throw",node:__node("Call",99601,__node("Ident",99601,"Error"),[__node("MacroAccess",99608,69,2979,{left:__node("MacroAccess",99608,69,2979,{left:__node("MacroAccess",99608,69,2979,{left:__node("MacroAccess",99608,69,2979,{left:__node("Const",99608,"Not implemented: "),op:"",right:__node("Call",99628,__node("Ident",99628,"__name"),[__node("Access",99635,__node("This",99635),__node("Const",99636,"constructor"))],false,false)},"expression",false,false,false),op:"",right:__node("Const",99608,".")},"expression",false,false,false),op:"",right:__wrap(key)},"expression",false,false,false),op:"",right:__node("Const",99608,"()")},"expression",false,false,false)],false,false)},"statement",false,false,false),true,false,false,void 0,false,[])},"expression",false,false,false);}return changeDefs(__node("MacroAccess",99684,30,2980,{left:__node("Access",99684,__wrap(prototype),__wrap(key)),op:":=",right:__wrap(value)},"expression",false,false,false));}});};body=changeDefs(body);body=this.walk(body,function(node){if(_this.isFunc(node)){if(!_this.funcIsBound(node)){return node;}}else if(_this.isThis(node)){return name;}});result=__node("MacroAccess",99929,104,2990,{macroName:"do",macroData:{locals:{ident:__wrap(sup),value:__wrap(superclass),rest:[]},body:__node("Block",99952,[__wrap(init),__wrap(body),__node("MacroAccess",99976,39,2993,{macroName:"return",macroData:{node:__wrap(name)}},"statement",false,false,false)],null)}},"statement",false,false,false);if(genericArgs.length>0){genericCache=this.tmp("cache",false,"object");for(_arr=[], _i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];_arr.push(this.param(genericArg));}genericParams=_arr;makeClassIdent=this.tmp("make",false,"function");instanceofs={};for(_i=0, _len=genericArgs.length;_i<_len;++_i){genericArg=genericArgs[_i];name=this.name(genericArg);key=this.tmp("instanceof_"+__strnum(name),false,"function");instanceofs[name]={key:key,"let":__node("MacroAccess",100451,38,3005,{macroName:"let",macroData:{declarable:__node("MacroAccess",100455,37,3005,__node("MacroAccess",100455,31,3005,{ident:__wrap(key)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",100462,__node("Ident",100462,"__getInstanceof"),[__wrap(genericArg)],false,false)}},"statement",false,false,false),used:false};}result=this.walk(this.macroExpandAll(result),function(node){var func,left,name,right;if(_this.isBinary(node)&&_this.op(node)==="instanceof"){right=_this.right(node);if(_this.isIdent(right)){name=_this.name(right);if(__owns.call(instanceofs,name)){func=instanceofs[name].key;instanceofs[name].used=true;left=_this.left(node);return __node("Call",100936,__wrap(func),[__wrap(left)],false,false);}}}});_arr=[];for(name in instanceofs){if(__owns.call(instanceofs,name)){item=instanceofs[name];if(item.used){_arr.push(item["let"]);}}}instanceofLets=_arr;if(instanceofLets.length){result=__node("Block",101102,[__wrap(instanceofLets),__wrap(result)],null);}makeClassFunc=this.func(genericParams,result,true,false);result=__node("Call",101237,__node("Ident",101237,"__genericFunc"),[__wrap(genericArgs.length),__wrap(makeClassFunc)],false,false);}if(declaration!=null){return __node("MacroAccess",101328,38,3029,{macroName:"let",macroData:{declarable:__node("MacroAccess",101332,37,3029,__node("MacroAccess",101332,31,3029,{ident:__wrap(declaration)},"statement",false,false,false),"statement",false,false,false),value:__wrap(result)}},"statement",false,false,false);}else if(assignment!=null){return __node("MacroAccess",101390,30,3031,{left:__wrap(assignment),op:":=",right:__wrap(result)},"expression",false,false,false);}else{return result;}};}.call(this));',
           params: [
             ["ident", "name", "many", "?", "ident", "SimpleAssignable"],
             [
@@ -36156,13 +35370,13 @@
           id: 140
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var err,index,init,item,iterator,length,macroData,macroName,node,received,send;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(!this.inGenerator){this.error("Can only use yield* in a generator function");}init=[];if(this.isType(node,"arrayLike")){index=this.tmp("i",false,"number");init.push(__node("MacroAccess",3048,20,38,3048,{macroName:"let",macroData:{declarable:__node("MacroAccess",3048,24,37,3048,__node("MacroAccess",3048,24,31,3048,{ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",3048,34,0)}},"statement",false,false,false));length=this.tmp("len",false,"number");node=this.cache(node,init,"arr",false);init.push(__node("MacroAccess",3051,20,38,3051,{macroName:"let",macroData:{declarable:__node("MacroAccess",3051,24,37,3051,__node("MacroAccess",3051,24,31,3051,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",3051,34,__wrap(node),__node("Const",3051,41,"length"))}},"statement",false,false,false));return __node("Block",3053,1,[__node("MacroAccess",3053,1,106,3053,{macroName:"for",macroData:{init:__wrap(init),test:__node("MacroAccess",3053,19,9,3053,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(length)},"statement",false,false,false),step:__node("MacroAccess",3053,38,103,3053,{left:__wrap(index),op:"+=",right:__node("Const",3053,49,1)},"expression",false,false,false),body:__node("MacroAccess",3054,1,140,3054,{macroName:"yield",macroData:{node:__node("Access",3054,16,__wrap(node),__wrap(index))}},"statement",false,false,false)}},"statement",false,false,false),__const("void")],null);}else{iterator=this.cache(__node("Call",3057,33,__node("Ident",3057,33,"__iter"),[__wrap(node)],false,false),init,"iter",false);err=this.tmp("e",true);send=this.tmp("send");item=this.tmp("item");received=this.tmp("tmp");return __node("Block",3063,1,[__wrap(init),__node("MacroAccess",3064,1,38,3064,{macroName:"let",macroData:{declarable:__node("MacroAccess",3064,12,37,3064,__node("MacroAccess",3064,12,31,3064,{isMutable:"mutable",ident:__wrap(received)},"statement",false,false,false),"statement",false,false,false),value:__const("void")}},"statement",false,false,false),__node("MacroAccess",3065,1,38,3065,{macroName:"let",macroData:{declarable:__node("MacroAccess",3065,12,37,3065,__node("MacroAccess",3065,12,31,3065,{isMutable:"mutable",ident:__wrap(send)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false),__node("MacroAccess",3067,1,108,3067,{macroName:"while",macroData:{test:__const("true"),body:__node("Block",3068,1,[__node("MacroAccess",3068,1,38,3068,{macroName:"let",macroData:{declarable:__node("MacroAccess",3068,14,37,3068,__node("MacroAccess",3068,14,31,3068,{ident:__wrap(item)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",3068,22,16,3068,{macroName:"if",macroData:{test:__wrap(send),body:__node("Call",3068,36,__node("Access",3068,36,__wrap(iterator),__node("Const",3068,47,"send")),[__wrap(received)],false,false),elseIfs:[],elseBody:__node("Call",3068,67,__node("Access",3068,67,__wrap(iterator),__node("Const",3068,78,"throw")),[__wrap(received)],false,false)}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",3069,1,17,3069,{macroName:"if",macroData:{test:__node("Access",3069,13,__wrap(item),__node("Const",3069,20,"done")),body:__node("MacroAccess",3070,1,19,3070,{macroName:"break",macroData:{}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",3071,1,119,3071,{macroName:"try",macroData:{tryBody:__node("Block",3072,1,[__node("MacroAccess",3072,1,30,3072,{left:__wrap(received),op:":=",right:__node("MacroAccess",3072,25,140,3072,{macroName:"yield",macroData:{node:__node("Access",3072,31,__wrap(item),__node("Const",3072,38,"value"))}},"expression",false,false,false)},"statement",false,false,false),__node("MacroAccess",3073,1,30,3073,{left:__wrap(send),op:":=",right:__const("true")},"statement",false,false,false)],null),typedCatches:[],catchPart:{ident:__wrap(err),body:__node("Block",3075,1,[__node("MacroAccess",3075,1,30,3075,{left:__wrap(received),op:":=",right:__wrap(err)},"statement",false,false,false),__node("MacroAccess",3076,1,30,3076,{left:__wrap(send),op:":=",right:__const("false")},"statement",false,false,false)],null)}}},"statement",false,false,false)],null)}},"statement",false,false,false),__node("MacroAccess",3077,1,119,3077,{macroName:"try",macroData:{tryBody:__node("Call",3078,1,__node("Access",3078,1,__wrap(iterator),__node("Const",3078,21,"close")),[],false,false),typedCatches:[],catchPart:{ident:__wrap(err),body:__const("void")}}},"statement",false,false,false),__node("Access",3081,1,__wrap(item),__node("Const",3081,15,"value"))],null);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var err,index,init,item,iterator,length,macroData,macroName,node,received,send;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;if(!this.inGenerator){this.error("Can only use yield* in a generator function");}init=[];if(this.isType(node,"arrayLike")){index=this.tmp("i",false,"number");init.push(__node("MacroAccess",101860,38,3048,{macroName:"let",macroData:{declarable:__node("MacroAccess",101864,37,3048,__node("MacroAccess",101864,31,3048,{ident:__wrap(index)},"statement",false,false,false),"statement",false,false,false),value:__node("Const",101874,0)}},"statement",false,false,false));length=this.tmp("len",false,"number");node=this.cache(node,init,"arr",false);init.push(__node("MacroAccess",101985,38,3051,{macroName:"let",macroData:{declarable:__node("MacroAccess",101989,37,3051,__node("MacroAccess",101989,31,3051,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",101999,__wrap(node),__node("Const",102006,"length"))}},"statement",false,false,false));return __node("Block",102023,[__node("MacroAccess",102023,106,3053,{macroName:"for",macroData:{init:__wrap(init),test:__node("MacroAccess",102041,9,3053,{left:__wrap(index),inverted:false,op:"~<",right:__wrap(length)},"statement",false,false,false),step:__node("MacroAccess",102060,103,3053,{left:__wrap(index),op:"+=",right:__node("Const",102071,1)},"expression",false,false,false),body:__node("MacroAccess",102073,140,3054,{macroName:"yield",macroData:{node:__node("Access",102088,__wrap(node),__wrap(index))}},"statement",false,false,false)}},"statement",false,false,false),__const("void")],null);}else{iterator=this.cache(__node("Call",102157,__node("Ident",102157,"__iter"),[__wrap(node)],false,false),init,"iter",false);err=this.tmp("e",true);send=this.tmp("send");item=this.tmp("item");received=this.tmp("tmp");return __node("Block",102319,[__wrap(init),__node("MacroAccess",102333,38,3064,{macroName:"let",macroData:{declarable:__node("MacroAccess",102344,37,3064,__node("MacroAccess",102344,31,3064,{isMutable:"mutable",ident:__wrap(received)},"statement",false,false,false),"statement",false,false,false),value:__const("void")}},"statement",false,false,false),__node("MacroAccess",102370,38,3065,{macroName:"let",macroData:{declarable:__node("MacroAccess",102381,37,3065,__node("MacroAccess",102381,31,3065,{isMutable:"mutable",ident:__wrap(send)},"statement",false,false,false),"statement",false,false,false),value:__const("true")}},"statement",false,false,false),__node("MacroAccess",102412,108,3067,{macroName:"while",macroData:{test:__const("true"),body:__node("Block",102431,[__node("MacroAccess",102431,38,3068,{macroName:"let",macroData:{declarable:__node("MacroAccess",102444,37,3068,__node("MacroAccess",102444,31,3068,{ident:__wrap(item)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",102452,16,3068,{macroName:"if",macroData:{test:__wrap(send),body:__node("Call",102466,__node("Access",102466,__wrap(iterator),__node("Const",102477,"send")),[__wrap(received)],false,false),elseIfs:[],elseBody:__node("Call",102497,__node("Access",102497,__wrap(iterator),__node("Const",102508,"throw")),[__wrap(received)],false,false)}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",102525,17,3069,{macroName:"if",macroData:{test:__node("Access",102537,__wrap(item),__node("Const",102544,"done")),body:__node("MacroAccess",102549,19,3070,{macroName:"break",macroData:{}},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false),__node("MacroAccess",102567,119,3071,{macroName:"try",macroData:{tryBody:__node("Block",102581,[__node("MacroAccess",102581,30,3072,{left:__wrap(received),op:":=",right:__node("MacroAccess",102605,140,3072,{macroName:"yield",macroData:{node:__node("Access",102611,__wrap(item),__node("Const",102618,"value"))}},"expression",false,false,false)},"statement",false,false,false),__node("MacroAccess",102624,30,3073,{left:__wrap(send),op:":=",right:__const("true")},"statement",false,false,false)],null),typedCatches:[],catchPart:{ident:__wrap(err),body:__node("Block",102671,[__node("MacroAccess",102671,30,3075,{left:__wrap(received),op:":=",right:__wrap(err)},"statement",false,false,false),__node("MacroAccess",102701,30,3076,{left:__wrap(send),op:":=",right:__const("false")},"statement",false,false,false)],null)}}},"statement",false,false,false)],null)}},"statement",false,false,false),__node("MacroAccess",102728,119,3077,{macroName:"try",macroData:{tryBody:__node("Call",102740,__node("Access",102740,__wrap(iterator),__node("Const",102760,"close")),[],false,false),typedCatches:[],catchPart:{ident:__wrap(err),body:__const("void")}}},"statement",false,false,false),__node("Access",102802,__wrap(item),__node("Const",102816,"value"))],null);}};}.call(this));',
           params: [["ident", "node", "ident", "Expression"]],
           names: "yield*",
           id: 141
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node,rest;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;rest=macroData.rest;if(rest==null){rest=this.noop();}return __node("Block",3087,1,[__wrap(rest),__node("MacroAccess",3088,1,39,3088,{macroName:"return",macroData:{node:__wrap(node)}},"statement",false,false,false)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node,rest;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData.node;rest=macroData.rest;if(rest==null){rest=this.noop();}return __node("Block",102917,[__wrap(rest),__node("MacroAccess",102929,39,3088,{macroName:"return",macroData:{node:__wrap(node)}},"statement",false,false,false)],null);};}.call(this));',
           params: [
             ["ident", "node", "ident", "Expression"],
             ["ident", "rest", "ident", "DedentedBody"]
@@ -36186,7 +35400,7 @@
           id: 145
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node,sync;macroName=macroFullData.macroName;macroData=macroFullData.macroData;sync=macroData.sync;node=macroData.node;if(this.isFunc(node)&&!this.funcIsGenerator(node)){this.error("promise! must be used with a generator function",node);}if(sync&&this.isFunc(node)){this.error("Use .sync() to retrieve asynchronously",sync);}if(!sync||this.isConst(sync)&&!this.value(sync)){return __node("Call",3621,11,__node("Ident",3621,11,"__promise"),[__wrap(node)],false,false);}else{return __node("Call",3623,11,__node("Ident",3623,11,"__promise"),[__wrap(node),__wrap(sync)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node,sync;macroName=macroFullData.macroName;macroData=macroFullData.macroData;sync=macroData.sync;node=macroData.node;if(this.isFunc(node)&&!this.funcIsGenerator(node)){this.error("promise! must be used with a generator function",node);}if(sync&&this.isFunc(node)){this.error("Use .sync() to retrieve asynchronously",sync);}if(!sync||this.isConst(sync)&&!this.value(sync)){return __node("Call",118220,__node("Ident",118220,"__promise"),[__wrap(node)],false,false);}else{return __node("Call",118257,__node("Ident",118257,"__promise"),[__wrap(node),__wrap(sync)],false,false);}};}.call(this));',
           params: [
             [
               "ident",
@@ -36204,7 +35418,7 @@
           id: 154
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,func,macroData,macroName,sync;macroName=macroFullData.macroName;macroData=macroFullData.macroData;sync=macroData.sync;body=macroData.body;func=this.rewrap(this.func([],body,true,true,false,null,true),body);if(!sync||this.isConst(sync)&&!this.value(sync)){return __node("Call",3635,11,__node("Ident",3635,11,"__generatorToPromise"),[__node("Call",3635,35,__wrap(func),[],false,false)],false,false);}else{return __node("Call",3637,11,__node("Ident",3637,11,"__generatorToPromise"),[__node("Call",3637,35,__wrap(func),[],false,false),__wrap(sync)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,func,macroData,macroName,sync;macroName=macroFullData.macroName;macroData=macroFullData.macroData;sync=macroData.sync;body=macroData.body;func=this.rewrap(this.func([],body,true,true,false,null,true),body);if(!sync||this.isConst(sync)&&!this.value(sync)){return __node("Call",118537,__node("Ident",118537,"__generatorToPromise"),[__node("Call",118561,__wrap(func),[],false,false)],false,false);}else{return __node("Call",118589,__node("Ident",118589,"__generatorToPromise"),[__node("Call",118613,__wrap(func),[],false,false),__wrap(sync)],false,false);}};}.call(this));',
           params: [
             [
               "ident",
@@ -36222,7 +35436,7 @@
           id: 155
         },
         {
-          code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _ref,array,body,end,inclusive,index,init,length,lengthCalc,macroData,macroName,parallelism,start,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;init=[];value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(parallelism==null){parallelism=__node("Const",3859,25,1);}if(index==null){index=this.tmp("i",true,"number");}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){this.error("Cannot assign a number to a complex declarable",value);}value=value.ident;_ref=this.callArgs(array);start=_ref[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];if(this.isConst(start)){if(typeof this.value(start)!=="number"){this.error("Cannot start with a non-number: "+__strnum(this.value(start)),start);}}else{start=__node("MacroAccess",3872,22,60,3872,{op:"+",node:__wrap(start)},"expression",false,false,false);}if(this.isConst(end)){if(typeof this.value(end)!=="number"){this.error("Cannot end with a non-number: "+__strnum(this.value(end)),end);}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",3878,28,60,3878,{op:"+",node:__wrap(end)},"expression",false,false,false),init,"end",false);}else{init.push(__node("MacroAccess",3880,23,60,3880,{op:"+",node:__wrap(end)},"expression",false,false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){this.error("Cannot step with a non-number: "+__strnum(this.value(step)),step);}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",3886,29,60,3886,{op:"+",node:__wrap(step)},"expression",false,false,false),init,"step",false);}else{init.push(__node("MacroAccess",3888,23,60,3888,{op:"+",node:__wrap(step)},"expression",false,false,false));}body=__node("Block",3891,1,[__node("MacroAccess",3891,1,38,3891,{macroName:"let",macroData:{declarable:__node("MacroAccess",3891,12,37,3891,__node("MacroAccess",3891,12,31,3891,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",3891,21,49,3891,{left:__node("MacroAccess",3891,21,45,3891,{left:__wrap(index),inverted:false,op:"~*",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(start)},"expression",false,false,false)}},"statement",false,false,false),__wrap(body)],null);lengthCalc=__node("MacroAccess",3894,29,17,3894,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",3895,1,45,3895,{left:__node("MacroAccess",3895,10,49,3895,{left:__node("MacroAccess",3895,10,49,3895,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",3897,1,45,3897,{left:__node("MacroAccess",3897,10,49,3897,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false)}},"expression",false,false,false);if(!length){length=lengthCalc;}else{init.push(__node("MacroAccess",3901,22,38,3901,{macroName:"let",macroData:{declarable:__node("MacroAccess",3901,26,37,3901,__node("MacroAccess",3901,26,31,3901,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__wrap(lengthCalc)}},"statement",false,false,false));}}else{array=this.cache(array,init,"arr",true);body=__node("Block",3906,1,[__node("MacroAccess",3906,1,38,3906,{macroName:"let",macroData:{declarable:__node("MacroAccess",3906,12,37,3906,__node("MacroAccess",3906,12,31,3906,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",3906,21,__wrap(array),__wrap(index))}},"statement",false,false,false),__wrap(body)],null);if(!length){length=__node("MacroAccess",3910,23,60,3910,{op:"+",node:__node("Access",3910,25,__wrap(array),__node("Const",3910,32,"length"))},"expression",false,false,false);}else{init.push(__node("MacroAccess",3912,22,38,3912,{macroName:"let",macroData:{declarable:__node("MacroAccess",3912,26,37,3912,__node("MacroAccess",3912,26,31,3912,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",3912,36,60,3912,{op:"+",node:__node("Access",3912,38,__wrap(array),__node("Const",3912,45,"length"))},"expression",false,false,false)}},"statement",false,false,false));}}return __node("Block",3915,1,[__wrap(init),__node("Call",3916,1,__node("Ident",3916,1,"__promiseLoop"),[__node("MacroAccess",3916,22,60,3916,{op:"+",node:__wrap(parallelism)},"expression",false,false,false),__wrap(length),__node("Call",3916,45,__node("Ident",3916,45,"__promise"),[__node("MacroAccess",3916,57,117,3916,{op:"",node:__node("Function",3916,57,[__node("Param",3916,58,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,true,[])},"expression",false,false,false)],false,false)],false,false)],null);};}.call(this));',
+          code: 'return (function(){"use strict";var __strnum,__typeof;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _ref,array,body,end,inclusive,index,init,length,lengthCalc,macroData,macroName,parallelism,start,step,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;value=macroData.value;index=macroData.index;array=macroData.array;body=macroData.body;init=[];value=this.macroExpand1(value);length=null;if(index){length=index.length;index=index.value;}if(parallelism==null){parallelism=__node("Const",124712,1);}if(index==null){index=this.tmp("i",true,"number");}if(this.isCall(array)&&this.isIdent(this.callFunc(array))&&this.name(this.callFunc(array))==="__range"&&!this.callIsApply(array)){if(this.isArray(value)||this.isObject(value)){this.error("Cannot assign a number to a complex declarable",value);}value=value.ident;_ref=this.callArgs(array);start=_ref[0];end=_ref[1];step=_ref[2];inclusive=_ref[3];if(this.isConst(start)){if(typeof this.value(start)!=="number"){this.error("Cannot start with a non-number: "+__strnum(this.value(start)),start);}}else{start=__node("MacroAccess",125298,60,3872,{op:"+",node:__wrap(start)},"expression",false,false,false);}if(this.isConst(end)){if(typeof this.value(end)!=="number"){this.error("Cannot end with a non-number: "+__strnum(this.value(end)),end);}}else if(this.isComplex(end)){end=this.cache(__node("MacroAccess",125496,60,3878,{op:"+",node:__wrap(end)},"expression",false,false,false),init,"end",false);}else{init.push(__node("MacroAccess",125556,60,3880,{op:"+",node:__wrap(end)},"expression",false,false,false));}if(this.isConst(step)){if(typeof this.value(step)!=="number"){this.error("Cannot step with a non-number: "+__strnum(this.value(step)),step);}}else if(this.isComplex(step)){step=this.cache(__node("MacroAccess",125759,60,3886,{op:"+",node:__wrap(step)},"expression",false,false,false),init,"step",false);}else{init.push(__node("MacroAccess",125821,60,3888,{op:"+",node:__wrap(step)},"expression",false,false,false));}body=__node("Block",125854,[__node("MacroAccess",125854,38,3891,{macroName:"let",macroData:{declarable:__node("MacroAccess",125865,37,3891,__node("MacroAccess",125865,31,3891,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",125874,49,3891,{left:__node("MacroAccess",125874,45,3891,{left:__wrap(index),inverted:false,op:"~*",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(start)},"expression",false,false,false)}},"statement",false,false,false),__wrap(body)],null);lengthCalc=__node("MacroAccess",125944,17,3894,{macroName:"if",macroData:{test:__wrap(inclusive),body:__node("MacroAccess",125959,45,3895,{left:__node("MacroAccess",125968,49,3895,{left:__node("MacroAccess",125968,49,3895,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~+",right:__wrap(step)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",126013,45,3897,{left:__node("MacroAccess",126022,49,3897,{left:__wrap(end),inverted:false,op:"~-",right:__wrap(start)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__wrap(step)},"statement",false,false,false)}},"expression",false,false,false);if(!length){length=lengthCalc;}else{init.push(__node("MacroAccess",126129,38,3901,{macroName:"let",macroData:{declarable:__node("MacroAccess",126133,37,3901,__node("MacroAccess",126133,31,3901,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__wrap(lengthCalc)}},"statement",false,false,false));}}else{array=this.cache(array,init,"arr",true);body=__node("Block",126231,[__node("MacroAccess",126231,38,3906,{macroName:"let",macroData:{declarable:__node("MacroAccess",126242,37,3906,__node("MacroAccess",126242,31,3906,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",126251,__wrap(array),__wrap(index))}},"statement",false,false,false),__wrap(body)],null);if(!length){length=__node("MacroAccess",126330,60,3910,{op:"+",node:__node("Access",126332,__wrap(array),__node("Const",126339,"length"))},"expression",false,false,false);}else{init.push(__node("MacroAccess",126378,38,3912,{macroName:"let",macroData:{declarable:__node("MacroAccess",126382,37,3912,__node("MacroAccess",126382,31,3912,{ident:__wrap(length)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",126392,60,3912,{op:"+",node:__node("Access",126394,__wrap(array),__node("Const",126401,"length"))},"expression",false,false,false)}},"statement",false,false,false));}}return __node("Block",126421,[__wrap(init),__node("Call",126433,__node("Ident",126433,"__promiseLoop"),[__node("MacroAccess",126454,60,3916,{op:"+",node:__wrap(parallelism)},"expression",false,false,false),__wrap(length),__node("Call",126477,__node("Ident",126477,"__promise"),[__node("MacroAccess",126489,117,3916,{op:"",node:__node("Function",126489,[__node("Param",126490,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,true,[])},"expression",false,false,false)],false,false)],false,false)],null);};}.call(this));',
           params: [
             ["const", "("],
             ["ident", "parallelism", "ident", "Expression"],
@@ -36254,7 +35468,7 @@
           id: 163
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,index,init,key,keys,macroData,macroName,object,own,parallelism,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;own=type==="of";init=[];object=this.cache(object,init,"obj",true);index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}if(value){body=__node("Block",3929,1,[__node("MacroAccess",3929,1,38,3929,{macroName:"let",macroData:{declarable:__node("MacroAccess",3929,14,37,3929,__node("MacroAccess",3929,14,31,3929,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",3929,23,__wrap(object),__wrap(key))}},"statement",false,false,false),__wrap(body)],null);}keys=this.tmp("keys",true,"stringArray");return __node("Block",3934,1,[__wrap(init),__node("MacroAccess",3935,1,38,3935,{macroName:"let",macroData:{declarable:__node("MacroAccess",3935,12,37,3935,__node("MacroAccess",3935,12,31,3935,{ident:__wrap(keys)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",3935,20,17,3935,{macroName:"if",macroData:{test:__wrap(own),body:__node("Call",3936,1,__node("Ident",3936,1,"__keys"),[__wrap(object)],false,false),elseIfs:[],elseBody:__node("Call",3938,1,__node("Ident",3938,1,"__allkeys"),[__wrap(object)],false,false)}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",3939,1,163,3939,{macroName:"promisefor",macroData:{parallelism:__wrap(parallelism),value:__node("MacroAccess",3939,33,37,3939,__node("MacroAccess",3939,33,31,3939,{ident:__wrap(key)},"statement",false,false,false),"statement",false,false,false),index:{value:__wrap(index)},array:__wrap(keys),body:__wrap(body)}},"statement",false,false,false)],null);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,index,init,key,keys,macroData,macroName,object,own,parallelism,type,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;key=macroData.key;value=macroData.value;type=macroData.type;object=macroData.object;body=macroData.body;own=type==="of";init=[];object=this.cache(object,init,"obj",true);index=null;if(value){index=value.index;value=this.macroExpand1(value.value);}if(value){body=__node("Block",126968,[__node("MacroAccess",126968,38,3929,{macroName:"let",macroData:{declarable:__node("MacroAccess",126981,37,3929,__node("MacroAccess",126981,31,3929,{ident:__wrap(value)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",126990,__wrap(object),__wrap(key))}},"statement",false,false,false),__wrap(body)],null);}keys=this.tmp("keys",true,"stringArray");return __node("Block",127085,[__wrap(init),__node("MacroAccess",127099,38,3935,{macroName:"let",macroData:{declarable:__node("MacroAccess",127110,37,3935,__node("MacroAccess",127110,31,3935,{ident:__wrap(keys)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",127118,17,3935,{macroName:"if",macroData:{test:__wrap(own),body:__node("Call",127127,__node("Ident",127127,"__keys"),[__wrap(object)],false,false),elseIfs:[],elseBody:__node("Call",127165,__node("Ident",127165,"__allkeys"),[__wrap(object)],false,false)}},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",127193,163,3939,{macroName:"promisefor",macroData:{parallelism:__wrap(parallelism),value:__node("MacroAccess",127225,37,3939,__node("MacroAccess",127225,31,3939,{ident:__wrap(key)},"statement",false,false,false),"statement",false,false,false),index:{value:__wrap(index)},array:__wrap(keys),body:__wrap(body)}},"statement",false,false,false)],null);};}.call(this));',
           params: [
             ["const", "("],
             ["ident", "parallelism", "ident", "Expression"],
@@ -36292,7 +35506,7 @@
           id: 164
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,index,iterator,macroData,macroName,parallelism,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;value=macroData.value;index=macroData.index;iterator=macroData.iterator;body=macroData.body;if(index==null){index=this.tmp("i",true);}return __node("Call",3946,1,__node("Ident",3946,1,"__promiseIter"),[__node("MacroAccess",3946,22,60,3946,{op:"+",node:__wrap(parallelism)},"expression",false,false,false),__node("Call",3946,36,__node("Ident",3946,36,"__iter"),[__wrap(iterator)],false,false),__node("Call",3946,55,__node("Ident",3946,55,"__promise"),[__node("MacroAccess",3946,67,117,3946,{op:"",node:__node("Function",3946,67,[__node("Param",3946,68,__wrap(value),void 0,false,false,void 0),__node("Param",3946,75,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,true,[])},"expression",false,false,false)],false,false)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,index,iterator,macroData,macroName,parallelism,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;parallelism=macroData.parallelism;value=macroData.value;index=macroData.index;iterator=macroData.iterator;body=macroData.body;if(index==null){index=this.tmp("i",true);}return __node("Call",127451,__node("Ident",127451,"__promiseIter"),[__node("MacroAccess",127472,60,3946,{op:"+",node:__wrap(parallelism)},"expression",false,false,false),__node("Call",127486,__node("Ident",127486,"__iter"),[__wrap(iterator)],false,false),__node("Call",127505,__node("Ident",127505,"__promise"),[__node("MacroAccess",127517,117,3946,{op:"",node:__node("Function",127517,[__node("Param",127518,__wrap(value),void 0,false,false,void 0),__node("Param",127525,__wrap(index),void 0,false,false,void 0)],__wrap(body),true,false,false,void 0,true,[])},"expression",false,false,false)],false,false)],false,false);};}.call(this));',
           params: [
             ["const", "("],
             ["ident", "parallelism", "ident", "Expression"],
@@ -36370,7 +35584,7 @@
           id: 5
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",43,7,3,43,{op:"not",node:__node("MacroAccess",43,13,5,43,{left:__wrap(left),inverted:false,op:"==",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",1163,3,43,{op:"not",node:__node("MacroAccess",1169,5,43,{left:__wrap(left),inverted:false,op:"==",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
           operators: "!=",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 6
@@ -36382,7 +35596,7 @@
           id: 7
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",49,7,3,49,{op:"not",node:__node("MacroAccess",49,13,7,49,{left:__wrap(left),inverted:false,op:"~=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",1369,3,49,{op:"not",node:__node("MacroAccess",1375,7,49,{left:__wrap(left),inverted:false,op:"~=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
           operators: "!~=",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 8
@@ -36394,7 +35608,7 @@
           id: 9
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return op==="~>"&&__node("MacroAccess",57,23,3,57,{op:"not",node:__node("MacroAccess",57,29,9,57,{left:__wrap(left),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false)||__node("MacroAccess",57,55,3,57,{op:"not",node:__node("MacroAccess",57,61,9,57,{left:__wrap(left),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return op==="~>"&&__node("MacroAccess",1694,3,57,{op:"not",node:__node("MacroAccess",1700,9,57,{left:__wrap(left),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false)||__node("MacroAccess",1726,3,57,{op:"not",node:__node("MacroAccess",1732,9,57,{left:__wrap(left),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
           operators: ["~>", "~>="],
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 10
@@ -36406,19 +35620,19 @@
           id: 29
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="~\\\\"){return __node("Call",320,9,__node("Access",320,9,__node("Ident",320,9,"Math"),__node("Const",320,15,"floor")),[__wrap(this.binary(left,"/",right))],false,false);}else if(op==="~*"){return this.binary(left,"*",right);}else if(op==="~/"){return this.binary(left,"/",right);}else{return this.binary(left,"%",right);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="~\\\\"){return __node("Call",11176,__node("Access",11176,__node("Ident",11176,"Math"),__node("Const",11182,"floor")),[__wrap(this.binary(left,"/",right))],false,false);}else if(op==="~*"){return this.binary(left,"*",right);}else if(op==="~/"){return this.binary(left,"/",right);}else{return this.binary(left,"%",right);}};}.call(this));',
           operators: ["~*", "~/", "~%", "~\\"],
           options: {precedence: 11, type: "number"},
           id: 45
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="~+"){if(!this.isType(right,"numeric")){return this.binary(left,"-",__node("MacroAccess",365,30,48,365,{op:"~-",node:__wrap(right)},"expression",false,false,false));}else{if(!this.isType(left,"numeric")){left=__node("MacroAccess",368,21,48,368,{op:"~+",node:__wrap(left)},"expression",false,false,false);}return this.binary(left,"+",right);}}else{return this.binary(left,"-",right);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="~+"){if(!this.isType(right,"numeric")){return this.binary(left,"-",__node("MacroAccess",12451,48,365,{op:"~-",node:__wrap(right)},"expression",false,false,false));}else{if(!this.isType(left,"numeric")){left=__node("MacroAccess",12529,48,368,{op:"~+",node:__wrap(left)},"expression",false,false,false);}return this.binary(left,"+",right);}}else{return this.binary(left,"-",right);}};}.call(this));',
           operators: ["~+", "~-"],
           options: {precedence: 10, type: "number"},
           id: 49
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right,value;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isConst(right)){value=this.value(right);if(value===0){return __node("Block",378,1,[__wrap(left),__node("Const",379,9,1)],null);}else if(value===0.5){return __node("Call",381,18,__node("Access",381,18,__node("Ident",381,18,"Math"),__node("Const",381,24,"sqrt")),[__wrap(left)],false,false);}else if(value===1){return __node("MacroAccess",383,18,48,383,{op:"~+",node:__wrap(left)},"expression",false,false,false);}else if(value===2){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",386,13,45,386,{left:__wrap(setLeft),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false);});}else if(value===3){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",389,13,45,389,{left:__node("MacroAccess",389,13,45,389,{left:__wrap(setLeft),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false);});}else if(value===-0.5){return __node("MacroAccess",391,18,45,391,{left:__node("Const",391,19,1),inverted:false,op:"~/",right:__node("Call",391,23,__node("Access",391,23,__node("Ident",391,23,"Math"),__node("Const",391,29,"sqrt")),[__wrap(left)],false,false)},"expression",false,false,false);}else if(value===-1){return __node("MacroAccess",393,18,45,393,{left:__node("Const",393,19,1),inverted:false,op:"~/",right:__wrap(left)},"expression",false,false,false);}else if(value===-2){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",396,13,45,396,{left:__node("Const",396,14,1),inverted:false,op:"~/",right:__node("MacroAccess",396,20,45,396,{left:__wrap(setLeft),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false)},"expression",false,false,false);});}else if(value===-3){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",399,13,45,399,{left:__node("Const",399,14,1),inverted:false,op:"~/",right:__node("MacroAccess",399,20,45,399,{left:__node("MacroAccess",399,20,45,399,{left:__wrap(setLeft),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false)},"expression",false,false,false);});}}return __node("Call",400,7,__node("Access",400,7,__node("Ident",400,7,"Math"),__node("Const",400,13,"pow")),[__wrap(left),__wrap(right)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right,value;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isConst(right)){value=this.value(right);if(value===0){return __node("Block",12777,[__wrap(left),__node("Const",12799,1)],null);}else if(value===0.5){return __node("Call",12843,__node("Access",12843,__node("Ident",12843,"Math"),__node("Const",12849,"sqrt")),[__wrap(left)],false,false);}else if(value===1){return __node("MacroAccess",12900,48,383,{op:"~+",node:__wrap(left)},"expression",false,false,false);}else if(value===2){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",12994,45,386,{left:__wrap(setLeft),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false);});}else if(value===3){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",13099,45,389,{left:__node("MacroAccess",13099,45,389,{left:__wrap(setLeft),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false);});}else if(value===-0.5){return __node("MacroAccess",13172,45,391,{left:__node("Const",13173,1),inverted:false,op:"~/",right:__node("Call",13177,__node("Access",13177,__node("Ident",13177,"Math"),__node("Const",13183,"sqrt")),[__wrap(left)],false,false)},"expression",false,false,false);}else if(value===-1){return __node("MacroAccess",13237,45,393,{left:__node("Const",13238,1),inverted:false,op:"~/",right:__wrap(left)},"expression",false,false,false);}else if(value===-2){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",13336,45,396,{left:__node("Const",13337,1),inverted:false,op:"~/",right:__node("MacroAccess",13343,45,396,{left:__wrap(setLeft),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false)},"expression",false,false,false);});}else if(value===-3){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",13450,45,399,{left:__node("Const",13451,1),inverted:false,op:"~/",right:__node("MacroAccess",13457,45,399,{left:__node("MacroAccess",13457,45,399,{left:__wrap(setLeft),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false),inverted:false,op:"~*",right:__wrap(left)},"expression",false,false,false)},"expression",false,false,false);});}}return __node("Call",13492,__node("Access",13492,__node("Ident",13492,"Math"),__node("Const",13498,"pow")),[__wrap(left),__wrap(right)],false,false);};}.call(this));',
           operators: "~^",
           options: {precedence: 12, rightToLeft: true, type: "number"},
           id: 50
@@ -36430,37 +35644,37 @@
           id: 54
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",560,7,50,560,{left:__node("MacroAccess",560,7,60,560,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~^",right:__node("MacroAccess",560,17,60,560,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",18190,50,560,{left:__node("MacroAccess",18190,60,560,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~^",right:__node("MacroAccess",18200,60,560,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
           operators: "^",
           options: {precedence: 12, rightToLeft: true, type: "number"},
           id: 62
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="*"){return __node("MacroAccess",568,9,45,568,{left:__node("MacroAccess",568,9,60,568,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~*",right:__node("MacroAccess",568,19,60,568,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="/"){return __node("MacroAccess",570,9,45,570,{left:__node("MacroAccess",570,9,60,570,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~/",right:__node("MacroAccess",570,19,60,570,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="%"){return __node("MacroAccess",572,9,45,572,{left:__node("MacroAccess",572,9,60,572,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~%",right:__node("MacroAccess",572,19,60,572,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",574,9,45,574,{left:__node("MacroAccess",574,9,60,574,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__node("MacroAccess",574,19,60,574,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="*"){return __node("MacroAccess",18432,45,568,{left:__node("MacroAccess",18432,60,568,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~*",right:__node("MacroAccess",18442,60,568,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="/"){return __node("MacroAccess",18479,45,570,{left:__node("MacroAccess",18479,60,570,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~/",right:__node("MacroAccess",18489,60,570,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="%"){return __node("MacroAccess",18526,45,572,{left:__node("MacroAccess",18526,60,572,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~%",right:__node("MacroAccess",18536,60,572,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",18560,45,574,{left:__node("MacroAccess",18560,60,574,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~\\\\",right:__node("MacroAccess",18570,60,574,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
           operators: ["*", "/", "%", "\\"],
           options: {precedence: 11, type: "number"},
           id: 64
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="+"){return __node("MacroAccess",581,9,49,581,{left:__node("MacroAccess",581,9,60,581,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~+",right:__node("MacroAccess",581,19,60,581,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",583,9,49,583,{left:__node("MacroAccess",583,9,60,583,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~-",right:__node("MacroAccess",583,19,60,583,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="+"){return __node("MacroAccess",18744,49,581,{left:__node("MacroAccess",18744,60,581,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~+",right:__node("MacroAccess",18754,60,581,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",18778,49,583,{left:__node("MacroAccess",18778,60,583,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~-",right:__node("MacroAccess",18788,60,583,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
           operators: ["+", "-"],
           options: {precedence: 10, type: "number"},
           id: 66
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="bitlshift"){return __node("MacroAccess",587,9,54,587,{left:__node("MacroAccess",587,9,60,587,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitlshift",right:__node("MacroAccess",587,27,60,587,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitrshift"){return __node("MacroAccess",589,9,54,589,{left:__node("MacroAccess",589,9,60,589,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitrshift",right:__node("MacroAccess",589,27,60,589,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",591,9,54,591,{left:__node("MacroAccess",591,9,60,591,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~biturshift",right:__node("MacroAccess",591,28,60,591,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op==="bitlshift"){return __node("MacroAccess",18931,54,587,{left:__node("MacroAccess",18931,60,587,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitlshift",right:__node("MacroAccess",18949,60,587,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitrshift"){return __node("MacroAccess",18994,54,589,{left:__node("MacroAccess",18994,60,589,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitrshift",right:__node("MacroAccess",19012,60,589,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",19036,54,591,{left:__node("MacroAccess",19036,60,591,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~biturshift",right:__node("MacroAccess",19055,60,591,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
           operators: ["bitlshift", "bitrshift", "biturshift"],
           options: {precedence: 9, maximum: 1, type: "number"},
           id: 67
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isType(left,"stringOrNumber")){if(!this.hasType(left,"number")){left=__node("Call",600,11,__node("Ident",600,11,"__str"),[__wrap(left)],false,false);}else{left=__node("Call",602,11,__node("Ident",602,11,"__strnum"),[__wrap(left)],false,false);}}if(!this.isType(right,"stringOrNumber")){if(!this.hasType(right,"number")){right=__node("Call",605,11,__node("Ident",605,11,"__str"),[__wrap(right)],false,false);}else{right=__node("Call",607,11,__node("Ident",607,11,"__strnum"),[__wrap(right)],false,false);}}return __node("MacroAccess",608,7,29,608,{left:__wrap(left),inverted:false,op:"~&",right:__wrap(right)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isType(left,"stringOrNumber")){if(!this.hasType(left,"number")){left=__node("Call",19372,__node("Ident",19372,"__str"),[__wrap(left)],false,false);}else{left=__node("Call",19404,__node("Ident",19404,"__strnum"),[__wrap(left)],false,false);}}if(!this.isType(right,"stringOrNumber")){if(!this.hasType(right,"number")){right=__node("Call",19518,__node("Ident",19518,"__str"),[__wrap(right)],false,false);}else{right=__node("Call",19551,__node("Ident",19551,"__strnum"),[__wrap(right)],false,false);}}return __node("MacroAccess",19574,29,608,{left:__wrap(left),inverted:false,op:"~&",right:__wrap(right)},"expression",false,false,false);};}.call(this));',
           operators: "&",
           options: {precedence: 7, type: "string", label: "stringConcat"},
           id: 69
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var elements,f,left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isArray(right)){elements=this.elements(right);if(elements.length===0){if(this.isComplex(left)){return __node("Block",623,1,[__wrap(left),__const("false")],null);}else{return __const("false");}}else if(elements.length===1){return __node("MacroAccess",628,11,5,628,{left:__wrap(left),inverted:false,op:"==",right:__wrap(elements[0])},"expression",false,false,false);}else{f=function(i,current,left){if(i<elements.length){return f(+i+1,__node("MacroAccess",632,25,2,632,{left:__wrap(current),inverted:false,op:"or",right:__node("MacroAccess",632,37,5,632,{left:__wrap(left),inverted:false,op:"==",right:__wrap(elements[i])},"expression",false,false,false)},"expression",false,false,false),left);}else{return current;}};return this.maybeCache(left,function(setLeft,left){return f(1,__node("MacroAccess",636,18,5,636,{left:__wrap(setLeft),inverted:false,op:"==",right:__wrap(elements[0])},"expression",false,false,false),left);});}}else{return __node("Call",638,9,__node("Ident",638,9,"__in"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var elements,f,left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isArray(right)){elements=this.elements(right);if(elements.length===0){if(this.isComplex(left)){return __node("Block",20008,[__wrap(left),__const("false")],null);}else{return __const("false");}}else if(elements.length===1){return __node("MacroAccess",20113,5,628,{left:__wrap(left),inverted:false,op:"==",right:__wrap(elements[0])},"expression",false,false,false);}else{f=function(i,current,left){if(i<elements.length){return f(+i+1,__node("MacroAccess",20233,2,632,{left:__wrap(current),inverted:false,op:"or",right:__node("MacroAccess",20245,5,632,{left:__wrap(left),inverted:false,op:"==",right:__wrap(elements[i])},"expression",false,false,false)},"expression",false,false,false),left);}else{return current;}};return this.maybeCache(left,function(setLeft,left){return f(1,__node("MacroAccess",20368,5,636,{left:__wrap(setLeft),inverted:false,op:"==",right:__wrap(elements[0])},"expression",false,false,false),left);});}}else{return __node("Call",20419,__node("Ident",20419,"__in"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
           operators: "in",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 71
@@ -36472,79 +35686,79 @@
           id: 72
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",646,7,__node("Ident",646,7,"__owns"),[__wrap(left),__wrap(right)],false,true);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",20743,__node("Ident",20743,"__owns"),[__wrap(left),__wrap(right)],false,true);};}.call(this));',
           operators: "ownskey",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean", label: "ownership"},
           id: 73
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isIdent(right)){if(this.name(right)==="String"){return __node("MacroAccess",651,18,23,651,{op:"isString!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Number"){return __node("MacroAccess",653,18,24,653,{op:"isNumber!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Boolean"){return __node("MacroAccess",655,18,25,655,{op:"isBoolean!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Function"){return __node("MacroAccess",657,18,26,657,{op:"isFunction!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Array"){return __node("MacroAccess",659,18,27,659,{op:"isArray!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Object"){return __node("MacroAccess",661,18,28,661,{op:"isObject!",node:__wrap(left)},"expression",false,false,false);}}return this.binary(left,"instanceof",right);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isIdent(right)){if(this.name(right)==="String"){return __node("MacroAccess",20937,23,651,{op:"isString!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Number"){return __node("MacroAccess",21008,24,653,{op:"isNumber!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Boolean"){return __node("MacroAccess",21080,25,655,{op:"isBoolean!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Function"){return __node("MacroAccess",21154,26,657,{op:"isFunction!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Array"){return __node("MacroAccess",21226,27,659,{op:"isArray!",node:__wrap(left)},"expression",false,false,false);}else if(this.name(right)==="Object"){return __node("MacroAccess",21296,28,661,{op:"isObject!",node:__wrap(left)},"expression",false,false,false);}}return this.binary(left,"instanceof",right);};}.call(this));',
           operators: "instanceof",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 74
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",679,7,__node("Ident",679,7,"__cmp"),[__wrap(left),__wrap(right)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",21836,__node("Ident",21836,"__cmp"),[__wrap(left),__wrap(right)],false,false);};}.call(this));',
           operators: "<=>",
           options: {precedence: 5, maximum: 1, type: "number"},
           id: 75
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",682,7,5,682,{left:__node("MacroAccess",682,7,64,682,{left:__wrap(left),inverted:false,op:"%",right:__wrap(right)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",682,26,0)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",21956,5,682,{left:__node("MacroAccess",21956,64,682,{left:__wrap(left),inverted:false,op:"%",right:__wrap(right)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",21975,0)},"expression",false,false,false);};}.call(this));',
           operators: "%%",
           options: {precedence: 2, maximum: 1, invertible: true, type: "boolean"},
           id: 76
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",685,7,5,685,{left:__node("MacroAccess",685,7,45,685,{left:__wrap(left),inverted:false,op:"~%",right:__wrap(right)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",685,27,0)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",22076,5,685,{left:__node("MacroAccess",22076,45,685,{left:__wrap(left),inverted:false,op:"~%",right:__wrap(right)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",22096,0)},"expression",false,false,false);};}.call(this));',
           operators: "~%%",
           options: {precedence: 2, maximum: 1, invertible: true, type: "boolean"},
           id: 77
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isType(left,"number")){if(this.isType(right,"number")){if(op==="<"){return __node("MacroAccess",723,13,9,723,{left:__wrap(left),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false);}else{return __node("MacroAccess",725,13,9,725,{left:__wrap(left),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false);}}else if(op==="<"){return __node("MacroAccess",728,13,9,728,{left:__wrap(left),inverted:false,op:"~<",right:__node("Call",728,22,__node("Ident",728,22,"__num"),[__wrap(right)],false,false)},"expression",false,false,false);}else{return __node("MacroAccess",730,13,9,730,{left:__wrap(left),inverted:false,op:"~<=",right:__node("Call",730,23,__node("Ident",730,23,"__num"),[__wrap(right)],false,false)},"expression",false,false,false);}}else if(this.isType(left,"string")){if(this.isType(right,"string")){if(op==="<"){return __node("MacroAccess",734,13,9,734,{left:__wrap(left),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false);}else{return __node("MacroAccess",736,13,9,736,{left:__wrap(left),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false);}}else if(op==="<"){return __node("MacroAccess",739,13,9,739,{left:__wrap(left),inverted:false,op:"~<",right:__node("Call",739,22,__node("Ident",739,22,"__str"),[__wrap(right)],false,false)},"expression",false,false,false);}else{return __node("MacroAccess",741,13,9,741,{left:__wrap(left),inverted:false,op:"~<=",right:__node("Call",741,23,__node("Ident",741,23,"__str"),[__wrap(right)],false,false)},"expression",false,false,false);}}else if(this.isType(right,"number")){if(op==="<"){return __node("MacroAccess",744,11,9,744,{left:__node("Call",744,11,__node("Ident",744,11,"__num"),[__wrap(left)],false,false),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false);}else{return __node("MacroAccess",746,11,9,746,{left:__node("Call",746,11,__node("Ident",746,11,"__num"),[__wrap(left)],false,false),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false);}}else if(this.isType(right,"string")){if(op==="<"){return __node("MacroAccess",749,11,9,749,{left:__node("Call",749,11,__node("Ident",749,11,"__str"),[__wrap(left)],false,false),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false);}else{return __node("MacroAccess",751,11,9,751,{left:__node("Call",751,11,__node("Ident",751,11,"__str"),[__wrap(left)],false,false),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false);}}else if(op==="<"){return __node("Call",753,9,__node("Ident",753,9,"__lt"),[__wrap(left),__wrap(right)],false,false);}else{return __node("Call",755,9,__node("Ident",755,9,"__lte"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isType(left,"number")){if(this.isType(right,"number")){if(op==="<"){return __node("MacroAccess",23226,9,723,{left:__wrap(left),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false);}else{return __node("MacroAccess",23266,9,725,{left:__wrap(left),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false);}}else if(op==="<"){return __node("MacroAccess",23324,9,728,{left:__wrap(left),inverted:false,op:"~<",right:__node("Call",23333,__node("Ident",23333,"__num"),[__wrap(right)],false,false)},"expression",false,false,false);}else{return __node("MacroAccess",23371,9,730,{left:__wrap(left),inverted:false,op:"~<=",right:__node("Call",23381,__node("Ident",23381,"__num"),[__wrap(right)],false,false)},"expression",false,false,false);}}else if(this.isType(left,"string")){if(this.isType(right,"string")){if(op==="<"){return __node("MacroAccess",23491,9,734,{left:__wrap(left),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false);}else{return __node("MacroAccess",23531,9,736,{left:__wrap(left),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false);}}else if(op==="<"){return __node("MacroAccess",23589,9,739,{left:__wrap(left),inverted:false,op:"~<",right:__node("Call",23598,__node("Ident",23598,"__str"),[__wrap(right)],false,false)},"expression",false,false,false);}else{return __node("MacroAccess",23636,9,741,{left:__wrap(left),inverted:false,op:"~<=",right:__node("Call",23646,__node("Ident",23646,"__str"),[__wrap(right)],false,false)},"expression",false,false,false);}}else if(this.isType(right,"number")){if(op==="<"){return __node("MacroAccess",23722,9,744,{left:__node("Call",23722,__node("Ident",23722,"__num"),[__wrap(left)],false,false),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false);}else{return __node("MacroAccess",23765,9,746,{left:__node("Call",23765,__node("Ident",23765,"__num"),[__wrap(left)],false,false),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false);}}else if(this.isType(right,"string")){if(op==="<"){return __node("MacroAccess",23851,9,749,{left:__node("Call",23851,__node("Ident",23851,"__str"),[__wrap(left)],false,false),inverted:false,op:"~<",right:__wrap(right)},"expression",false,false,false);}else{return __node("MacroAccess",23894,9,751,{left:__node("Call",23894,__node("Ident",23894,"__str"),[__wrap(left)],false,false),inverted:false,op:"~<=",right:__wrap(right)},"expression",false,false,false);}}else if(op==="<"){return __node("Call",23947,__node("Ident",23947,"__lt"),[__wrap(left),__wrap(right)],false,false);}else{return __node("Call",23983,__node("Ident",23983,"__lte"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
           operators: ["<", "<="],
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 78
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op===">"){return __node("MacroAccess",759,9,3,759,{op:"not",node:__node("MacroAccess",759,15,78,759,{left:__wrap(left),inverted:false,op:"<=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",761,9,3,761,{op:"not",node:__node("MacroAccess",761,15,78,761,{left:__wrap(left),inverted:false,op:"<",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(op===">"){return __node("MacroAccess",24105,3,759,{op:"not",node:__node("MacroAccess",24111,78,759,{left:__wrap(left),inverted:false,op:"<=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",24143,3,761,{op:"not",node:__node("MacroAccess",24149,78,761,{left:__wrap(left),inverted:false,op:"<",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
           operators: [">", ">="],
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 79
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",766,11,16,766,{macroName:"if",macroData:{test:__node("MacroAccess",766,14,9,766,{left:__wrap(setLeft),inverted:false,op:"~<",right:__wrap(setRight)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",24308,16,766,{macroName:"if",macroData:{test:__node("MacroAccess",24311,9,766,{left:__wrap(setLeft),inverted:false,op:"~<",right:__wrap(setRight)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});});};}.call(this));',
           operators: "~min",
           options: {precedence: 8},
           id: 80
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",771,11,16,771,{macroName:"if",macroData:{test:__node("MacroAccess",771,14,10,771,{left:__wrap(setLeft),inverted:false,op:"~>",right:__wrap(setRight)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",24502,16,771,{macroName:"if",macroData:{test:__node("MacroAccess",24505,10,771,{left:__wrap(setLeft),inverted:false,op:"~>",right:__wrap(setRight)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});});};}.call(this));',
           operators: "~max",
           options: {precedence: 8},
           id: 81
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",776,11,16,776,{macroName:"if",macroData:{test:__node("MacroAccess",776,14,78,776,{left:__wrap(setLeft),inverted:false,op:"<",right:__wrap(setRight)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",24695,16,776,{macroName:"if",macroData:{test:__node("MacroAccess",24698,78,776,{left:__wrap(setLeft),inverted:false,op:"<",right:__wrap(setRight)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});});};}.call(this));',
           operators: "min",
           options: {precedence: 8},
           id: 82
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",781,11,16,781,{macroName:"if",macroData:{test:__node("MacroAccess",781,14,79,781,{left:__wrap(setLeft),inverted:false,op:">",right:__wrap(setRight)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",24887,16,781,{macroName:"if",macroData:{test:__node("MacroAccess",24890,79,781,{left:__wrap(setLeft),inverted:false,op:">",right:__wrap(setRight)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});});};}.call(this));',
           operators: "max",
           options: {precedence: 8},
           id: 83
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",784,7,__node("Ident",784,7,"__xor"),[__wrap(left),__wrap(right)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",24990,__node("Ident",24990,"__xor"),[__wrap(left),__wrap(right)],false,false);};}.call(this));',
           operators: "xor",
           options: {precedence: 1},
           id: 84
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",788,9,16,788,{macroName:"if",macroData:{test:__node("MacroAccess",788,12,20,788,{op:"?",node:__wrap(setLeft)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",25105,16,788,{macroName:"if",macroData:{test:__node("MacroAccess",25108,20,788,{op:"?",node:__wrap(setLeft)},"expression",false,false,false),body:__wrap(left),elseIfs:[],elseBody:__wrap(right)}},"expression",false,false,false);});};}.call(this));',
           operators: "?",
           options: {precedence: 1},
           id: 85
@@ -36568,91 +35782,91 @@
           id: 94
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",856,7,92,856,{left:__node("MacroAccess",856,7,60,856,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitand",right:__node("MacroAccess",856,22,60,856,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",27453,92,856,{left:__node("MacroAccess",27453,60,856,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitand",right:__node("MacroAccess",27468,60,856,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
           operators: "bitand",
           options: {precedence: 1, type: "number"},
           id: 96
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",859,7,93,859,{left:__node("MacroAccess",859,7,60,859,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitor",right:__node("MacroAccess",859,21,60,859,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",27547,93,859,{left:__node("MacroAccess",27547,60,859,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitor",right:__node("MacroAccess",27561,60,859,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
           operators: "bitor",
           options: {precedence: 1, type: "number"},
           id: 97
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",862,7,94,862,{left:__node("MacroAccess",862,7,60,862,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitxor",right:__node("MacroAccess",862,22,60,862,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",27641,94,862,{left:__node("MacroAccess",27641,60,862,{op:"+",node:__wrap(left)},"expression",false,false,false),inverted:false,op:"~bitxor",right:__node("MacroAccess",27656,60,862,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
           operators: "bitxor",
           options: {precedence: 1, type: "number"},
           id: 98
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",1132,7,__node("Ident",1132,7,"__range"),[__wrap(left),__wrap(right),__node("Const",1132,31,1),__const("true")],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",35771,__node("Ident",35771,"__range"),[__wrap(left),__wrap(right),__node("Const",35795,1),__const("true")],false,false);};}.call(this));',
           operators: "to",
           options: {maximum: 1, precedence: 4, type: "array"},
           id: 110
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",1135,7,__node("Ident",1135,7,"__range"),[__wrap(left),__wrap(right),__node("Const",1135,31,1),__const("false")],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",35883,__node("Ident",35883,"__range"),[__wrap(left),__wrap(right),__node("Const",35907,1),__const("false")],false,false);};}.call(this));',
           operators: "til",
           options: {maximum: 1, precedence: 4, type: "array"},
           id: 111
         },
         {
-          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var callArgs,left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.hasType(right,"number")){this.error("Must provide a number to the \'by\' operator",right);}if(this.isConst(right)&&this.value(right)===0){this.error("\'by\' step must be non-zero",right);}if(this.isCall(left)&&this.isIdent(this.callFunc(left))&&this.name(this.callFunc(left))==="__range"&&!this.callIsApply(left)){callArgs=this.callArgs(left);return __node("Call",1144,9,__node("Ident",1144,9,"__range"),[__wrap(callArgs[0]),__wrap(callArgs[1]),__wrap(right),__wrap(callArgs[3])],false,false);}else{if(this.isConst(right)&&__num(this.value(right))%1!==0){this.error("\'by\' step must be an integer",right);}return __node("Call",1148,9,__node("Ident",1148,9,"__step"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var callArgs,left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.hasType(right,"number")){this.error("Must provide a number to the \'by\' operator",right);}if(this.isConst(right)&&this.value(right)===0){this.error("\'by\' step must be non-zero",right);}if(this.isCall(left)&&this.isIdent(this.callFunc(left))&&this.name(this.callFunc(left))==="__range"&&!this.callIsApply(left)){callArgs=this.callArgs(left);return __node("Call",36345,__node("Ident",36345,"__range"),[__wrap(callArgs[0]),__wrap(callArgs[1]),__wrap(right),__wrap(callArgs[3])],false,false);}else{if(this.isConst(right)&&__num(this.value(right))%1!==0){this.error("\'by\' step must be an integer",right);}return __node("Call",36530,__node("Ident",36530,"__step"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
           operators: "by",
           options: {maximum: 1, precedence: 3, type: "array"},
           id: 112
         },
         {
-          code: 'return (function(){"use strict";var __lt,__num,__typeof;__lt=function(x,y){var type;type=typeof x;if(type!=="number"&&type!=="string"){throw TypeError("Cannot compare a non-number/string: "+type);}else if(type!==typeof y){throw TypeError("Cannot compare elements of different types: "+type+" vs "+typeof y);}else{return x<y;}};__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var element,elements,f,left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isArray(right)){elements=this.elements(right);if(elements.length===0){if(this.isComplex(left)){return __node("Block",2012,1,[__wrap(left),__const("false")],null);}else{return __const("false");}}else if(elements.length===1){element=elements[0];return __node("MacroAccess",2018,11,74,2018,{left:__wrap(left),inverted:false,op:"instanceof",right:__wrap(element)},"expression",false,false,false);}else{f=function(i,current,left){var element;if(__lt(i,elements.length)){element=elements[i];return f(__num(i)+1,__node("MacroAccess",2023,24,2,2023,{left:__wrap(current),inverted:false,op:"or",right:__node("MacroAccess",2023,36,74,2023,{left:__wrap(left),inverted:false,op:"instanceof",right:__wrap(element)},"expression",false,false,false)},"expression",false,false,false),left);}else{return current;}};return this.maybeCache(left,function(setLeft,left){var element;element=elements[0];return f(1,__node("MacroAccess",2028,18,74,2028,{left:__wrap(setLeft),inverted:false,op:"instanceof",right:__wrap(element)},"expression",false,false,false),left);});}}else{return __node("Call",2030,9,__node("Ident",2030,9,"__instanceofsome"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";var __lt,__num,__typeof;__lt=function(x,y){var type;type=typeof x;if(type!=="number"&&type!=="string"){throw TypeError("Cannot compare a non-number/string: "+type);}else if(type!==typeof y){throw TypeError("Cannot compare elements of different types: "+type+" vs "+typeof y);}else{return x<y;}};__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var element,elements,f,left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isArray(right)){elements=this.elements(right);if(elements.length===0){if(this.isComplex(left)){return __node("Block",67894,[__wrap(left),__const("false")],null);}else{return __const("false");}}else if(elements.length===1){element=elements[0];return __node("MacroAccess",68031,74,2018,{left:__wrap(left),inverted:false,op:"instanceof",right:__wrap(element)},"expression",false,false,false);}else{f=function(i,current,left){var element;if(__lt(i,elements.length)){element=elements[i];return f(__num(i)+1,__node("MacroAccess",68187,2,2023,{left:__wrap(current),inverted:false,op:"or",right:__node("MacroAccess",68199,74,2023,{left:__wrap(left),inverted:false,op:"instanceof",right:__wrap(element)},"expression",false,false,false)},"expression",false,false,false),left);}else{return current;}};return this.maybeCache(left,function(setLeft,left){var element;element=elements[0];return f(1,__node("MacroAccess",68358,74,2028,{left:__wrap(setLeft),inverted:false,op:"instanceof",right:__wrap(element)},"expression",false,false,false),left);});}}else{return __node("Call",68411,__node("Ident",68411,"__instanceofsome"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
           operators: "instanceofsome",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 118
         },
         {
-          code: 'return (function(){"use strict";var __is,__num,__typeof;__is=typeof Object.is==="function"?Object.is:function(x,y){if(x===y){return x!==0||1/x===1/y;}else{return x!==x&&y!==y;}};__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var _this,left,op,result,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.hasType(left,"number")&&this.hasType(right,"number")){if(this.isConst(left)){if(this.isConst(right)){result=__is(this.value(left),this.value(right));return __wrap(result);}else if(typeof this.value(left)==="number"&&isNaN(this.value(left))){return this.maybeCache(right,function(setRight,right){return __node("MacroAccess",3108,17,6,3108,{left:__wrap(setRight),inverted:false,op:"!=",right:__wrap(right)},"expression",false,false,false);});}else if(this.value(left)===0){return this.maybeCache(right,function(setRight,right){if(1/__num(_this.value(left))<0){return __node("MacroAccess",3112,19,1,3112,{left:__node("MacroAccess",3112,19,5,3112,{left:__wrap(setRight),inverted:false,op:"==",right:__node("Const",3112,34,0)},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",3112,39,78,3112,{left:__node("MacroAccess",3112,39,45,3112,{left:__node("Const",3112,40,1),inverted:false,op:"~/",right:__wrap(right)},"expression",false,false,false),inverted:false,op:"<",right:__node("Const",3112,54,0)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",3114,19,1,3114,{left:__node("MacroAccess",3114,19,5,3114,{left:__wrap(setRight),inverted:false,op:"==",right:__node("Const",3114,34,0)},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",3114,39,79,3114,{left:__node("MacroAccess",3114,39,45,3114,{left:__node("Const",3114,40,1),inverted:false,op:"~/",right:__wrap(right)},"expression",false,false,false),inverted:false,op:">",right:__node("Const",3114,54,0)},"expression",false,false,false)},"expression",false,false,false);}});}else{return __node("MacroAccess",3116,15,5,3116,{left:__wrap(left),inverted:false,op:"==",right:__wrap(right)},"expression",false,false,false);}}else if(this.isConst(right)){if(typeof this.value(right)==="number"&&isNaN(this.value(right))){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",3120,15,6,3120,{left:__wrap(setLeft),inverted:false,op:"!=",right:__wrap(left)},"expression",false,false,false);});}else if(this.value(right)===0){return this.maybeCache(left,function(setLeft,left){if(1/__num(_this.value(right))<0){return __node("MacroAccess",3124,17,1,3124,{left:__node("MacroAccess",3124,17,5,3124,{left:__wrap(setLeft),inverted:false,op:"==",right:__node("Const",3124,31,0)},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",3124,36,78,3124,{left:__node("MacroAccess",3124,36,45,3124,{left:__node("Const",3124,37,1),inverted:false,op:"~/",right:__wrap(left)},"expression",false,false,false),inverted:false,op:"<",right:__node("Const",3124,50,0)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",3126,17,1,3126,{left:__node("MacroAccess",3126,17,5,3126,{left:__wrap(setLeft),inverted:false,op:"==",right:__node("Const",3126,31,0)},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",3126,36,79,3126,{left:__node("MacroAccess",3126,36,45,3126,{left:__node("Const",3126,37,1),inverted:false,op:"~/",right:__wrap(left)},"expression",false,false,false),inverted:false,op:">",right:__node("Const",3126,50,0)},"expression",false,false,false)},"expression",false,false,false);}});}else{return __node("MacroAccess",3128,13,5,3128,{left:__wrap(left),inverted:false,op:"==",right:__wrap(right)},"expression",false,false,false);}}else{return __node("Call",3130,11,__node("Ident",3130,11,"__is"),[__wrap(left),__wrap(right)],false,false);}}else{return __node("MacroAccess",3132,9,5,3132,{left:__wrap(left),inverted:false,op:"==",right:__wrap(right)},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";var __is,__num,__typeof;__is=typeof Object.is==="function"?Object.is:function(x,y){if(x===y){return x!==0||1/x===1/y;}else{return x!==x&&y!==y;}};__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var _this,left,op,result,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.hasType(left,"number")&&this.hasType(right,"number")){if(this.isConst(left)){if(this.isConst(right)){result=__is(this.value(left),this.value(right));return __wrap(result);}else if(typeof this.value(left)==="number"&&isNaN(this.value(left))){return this.maybeCache(right,function(setRight,right){return __node("MacroAccess",103511,6,3108,{left:__wrap(setRight),inverted:false,op:"!=",right:__wrap(right)},"expression",false,false,false);});}else if(this.value(left)===0){return this.maybeCache(right,function(setRight,right){if(1/__num(_this.value(left))<0){return __node("MacroAccess",103672,1,3112,{left:__node("MacroAccess",103672,5,3112,{left:__wrap(setRight),inverted:false,op:"==",right:__node("Const",103687,0)},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",103692,78,3112,{left:__node("MacroAccess",103692,45,3112,{left:__node("Const",103693,1),inverted:false,op:"~/",right:__wrap(right)},"expression",false,false,false),inverted:false,op:"<",right:__node("Const",103707,0)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",103744,1,3114,{left:__node("MacroAccess",103744,5,3114,{left:__wrap(setRight),inverted:false,op:"==",right:__node("Const",103759,0)},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",103764,79,3114,{left:__node("MacroAccess",103764,45,3114,{left:__node("Const",103765,1),inverted:false,op:"~/",right:__wrap(right)},"expression",false,false,false),inverted:false,op:">",right:__node("Const",103779,0)},"expression",false,false,false)},"expression",false,false,false);}});}else{return __node("MacroAccess",103808,5,3116,{left:__wrap(left),inverted:false,op:"==",right:__wrap(right)},"expression",false,false,false);}}else if(this.isConst(right)){if(typeof this.value(right)==="number"&&isNaN(this.value(right))){return this.maybeCache(left,function(setLeft,left){return __node("MacroAccess",103972,6,3120,{left:__wrap(setLeft),inverted:false,op:"!=",right:__wrap(left)},"expression",false,false,false);});}else if(this.value(right)===0){return this.maybeCache(left,function(setLeft,left){if(1/__num(_this.value(right))<0){return __node("MacroAccess",104122,1,3124,{left:__node("MacroAccess",104122,5,3124,{left:__wrap(setLeft),inverted:false,op:"==",right:__node("Const",104136,0)},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",104141,78,3124,{left:__node("MacroAccess",104141,45,3124,{left:__node("Const",104142,1),inverted:false,op:"~/",right:__wrap(left)},"expression",false,false,false),inverted:false,op:"<",right:__node("Const",104155,0)},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",104188,1,3126,{left:__node("MacroAccess",104188,5,3126,{left:__wrap(setLeft),inverted:false,op:"==",right:__node("Const",104202,0)},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",104207,79,3126,{left:__node("MacroAccess",104207,45,3126,{left:__node("Const",104208,1),inverted:false,op:"~/",right:__wrap(left)},"expression",false,false,false),inverted:false,op:">",right:__node("Const",104221,0)},"expression",false,false,false)},"expression",false,false,false);}});}else{return __node("MacroAccess",104246,5,3128,{left:__wrap(left),inverted:false,op:"==",right:__wrap(right)},"expression",false,false,false);}}else{return __node("Call",104282,__node("Ident",104282,"__is"),[__wrap(left),__wrap(right)],false,false);}}else{return __node("MacroAccess",104317,5,3132,{left:__wrap(left),inverted:false,op:"==",right:__wrap(right)},"expression",false,false,false);}};}.call(this));',
           operators: "is",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 143
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",3135,7,3,3135,{op:"not",node:__node("MacroAccess",3135,13,143,3135,{left:__wrap(left),inverted:false,op:"is",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("MacroAccess",104416,3,3135,{op:"not",node:__node("MacroAccess",104422,143,3135,{left:__wrap(left),inverted:false,op:"is",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
           operators: "isnt",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 144
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",3194,7,__node("Ident",3194,7,"__compose"),[__wrap(left),__wrap(right)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",106571,__node("Ident",106571,"__compose"),[__wrap(left),__wrap(right)],false,false);};}.call(this));',
           operators: "<<",
           options: {precedence: 13, type: "function"},
           id: 146
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3200,1,[__node("MacroAccess",3200,1,38,3200,{macroName:"let",macroData:{declarable:__node("MacroAccess",3200,10,37,3200,__node("MacroAccess",3200,10,31,3200,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(left)}},"statement",false,false,false),__node("Call",3201,1,__node("Ident",3201,1,"__compose"),[__wrap(right),__wrap(tmp)],false,false)],null);}else{return __node("Call",3203,9,__node("Ident",3203,9,"__compose"),[__wrap(right),__wrap(left)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",106761,[__node("MacroAccess",106761,38,3200,{macroName:"let",macroData:{declarable:__node("MacroAccess",106770,37,3200,__node("MacroAccess",106770,31,3200,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(left)}},"statement",false,false,false),__node("Call",106784,__node("Ident",106784,"__compose"),[__wrap(right),__wrap(tmp)],false,false)],null);}else{return __node("Call",106828,__node("Ident",106828,"__compose"),[__wrap(right),__wrap(left)],false,false);}};}.call(this));',
           operators: ">>",
           options: {precedence: 13, type: "function", rightToLeft: true},
           id: 147
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",3222,7,__wrap(left),[__wrap(right)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return __node("Call",107285,__wrap(left),[__wrap(right)],false,false);};}.call(this));',
           operators: "<|",
           options: {precedence: 0, rightToLeft: true},
           id: 148
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3228,1,[__node("MacroAccess",3228,1,38,3228,{macroName:"let",macroData:{declarable:__node("MacroAccess",3228,10,37,3228,__node("MacroAccess",3228,10,31,3228,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(left)}},"statement",false,false,false),__node("Call",3229,1,__wrap(right),[__wrap(tmp)],false,false)],null);}else{return __node("Call",3231,9,__wrap(right),[__wrap(left)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",107426,[__node("MacroAccess",107426,38,3228,{macroName:"let",macroData:{declarable:__node("MacroAccess",107435,37,3228,__node("MacroAccess",107435,31,3228,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(left)}},"statement",false,false,false),__node("Call",107449,__wrap(right),[__wrap(tmp)],false,false)],null);}else{return __node("Call",107483,__wrap(right),[__wrap(left)],false,false);}};}.call(this));',
           operators: "|>",
           options: {precedence: 0},
           id: 149
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isObject(right)){return this.maybeCache(left,function(setLeft,nextLeft){var _arr,_ref,block,currentLeft,descriptor,i,key,len,pairs,property,value;currentLeft=setLeft;block=[];pairs=_this.pairs(right);for(_arr=__toArray(pairs), i=0, len=_arr.length;i<len;++i){_ref=_arr[i];key=_ref.key;value=_ref.value;property=_ref.property;if(property!=null){if((property==="get"||property==="set")&&i<len-1&&pairs[i+1].property!=null&&_this.eq(key,pairs[i+1].key)&&pairs[i+1].property!==property&&((_ref=pairs[i+1].property)==="get"||_ref==="set")){continue;}if(property==="property"){block.push(__node("Call",3250,27,__node("Ident",3250,27,"__defProp"),[__wrap(currentLeft),__wrap(key),__wrap(value)],false,false));}else if(property==="get"||property==="set"){if(i>0&&pairs[i-1].property!=null&&_this.eq(key,pairs[i-1].key)&&pairs[i-1].property!==property&&((_ref=pairs[i-1].property)==="get"||_ref==="set")){descriptor=__node("Object",3253,19,[{key:__wrap(pairs[i-1].property),value:__wrap(pairs[i-1].value),property:void 0},{key:__wrap(property),value:__wrap(value),property:void 0},{key:__node("Const",3256,17,"enumerable"),value:__const("true"),property:void 0},{key:__node("Const",3257,17,"configurable"),value:__const("true"),property:void 0}],void 0);}else{descriptor=__node("Object",3260,19,[{key:__wrap(property),value:__wrap(value),property:void 0},{key:__node("Const",3262,17,"enumerable"),value:__const("true"),property:void 0},{key:__node("Const",3263,17,"configurable"),value:__const("true"),property:void 0}],void 0);}block.push(__node("Call",3265,27,__node("Ident",3265,27,"__defProp"),[__wrap(currentLeft),__wrap(key),__wrap(descriptor)],false,false));}else{_this.error("Unknown property: "+__strnum(property),key);}}else{block.push(__node("MacroAccess",3269,25,30,3269,{left:__node("Access",3269,25,__wrap(currentLeft),__wrap(key)),op:":=",right:__wrap(value)},"statement",false,false,false));}currentLeft=nextLeft;}block.push(__wrap(currentLeft));return __wrap(block);});}else{return __node("Call",3274,9,__node("Ident",3274,9,"__import"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__strnum,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isObject(right)){return this.maybeCache(left,function(setLeft,nextLeft){var _arr,_ref,block,currentLeft,descriptor,i,key,len,pairs,property,value;currentLeft=setLeft;block=[];pairs=_this.pairs(right);for(_arr=__toArray(pairs), i=0, len=_arr.length;i<len;++i){_ref=_arr[i];key=_ref.key;value=_ref.value;property=_ref.property;if(property!=null){if((property==="get"||property==="set")&&i<len-1&&pairs[i+1].property!=null&&_this.eq(key,pairs[i+1].key)&&pairs[i+1].property!==property&&((_ref=pairs[i+1].property)==="get"||_ref==="set")){continue;}if(property==="property"){block.push(__node("Call",108164,__node("Ident",108164,"__defProp"),[__wrap(currentLeft),__wrap(key),__wrap(value)],false,false));}else if(property==="get"||property==="set"){if(i>0&&pairs[i-1].property!=null&&_this.eq(key,pairs[i-1].key)&&pairs[i-1].property!==property&&((_ref=pairs[i-1].property)==="get"||_ref==="set")){descriptor=__node("Object",108441,[{key:__wrap(pairs[i-1].property),value:__wrap(pairs[i-1].value),property:void 0},{key:__wrap(property),value:__wrap(value),property:void 0},{key:__node("Const",108562,"enumerable"),value:__const("true"),property:void 0},{key:__node("Const",108595,"configurable"),value:__const("true"),property:void 0}],void 0);}else{descriptor=__node("Object",108665,[{key:__wrap(property),value:__wrap(value),property:void 0},{key:__node("Const",108720,"enumerable"),value:__const("true"),property:void 0},{key:__node("Const",108753,"configurable"),value:__const("true"),property:void 0}],void 0);}block.push(__node("Call",108814,__node("Ident",108814,"__defProp"),[__wrap(currentLeft),__wrap(key),__wrap(descriptor)],false,false));}else{_this.error("Unknown property: "+__strnum(property),key);}}else{block.push(__node("MacroAccess",108965,30,3269,{left:__node("Access",108965,__wrap(currentLeft),__wrap(key)),op:":=",right:__wrap(value)},"statement",false,false,false));}currentLeft=nextLeft;}block.push(__wrap(currentLeft));return __wrap(block);});}else{return __node("Call",109098,__node("Ident",109098,"__import"),[__wrap(left),__wrap(right)],false,false);}};}.call(this));',
           operators: "<<<",
           options: {precedence: 6},
           id: 150
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",3280,1,[__node("MacroAccess",3280,1,38,3280,{macroName:"let",macroData:{declarable:__node("MacroAccess",3280,10,37,3280,__node("MacroAccess",3280,10,31,3280,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(left)}},"statement",false,false,false),__node("MacroAccess",3281,1,150,3281,{left:__wrap(right),inverted:false,op:"<<<",right:__wrap(tmp)},"statement",false,false,false)],null);}else{return __node("MacroAccess",3283,9,150,3283,{left:__wrap(right),inverted:false,op:"<<<",right:__wrap(left)},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right,tmp;left=macroData.left;op=macroData.op;right=macroData.right;if(!this.isNoop(left)&&!this.isNoop(right)){tmp=this.tmp("ref");return __node("Block",109270,[__node("MacroAccess",109270,38,3280,{macroName:"let",macroData:{declarable:__node("MacroAccess",109279,37,3280,__node("MacroAccess",109279,31,3280,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(left)}},"statement",false,false,false),__node("MacroAccess",109293,150,3281,{left:__wrap(right),inverted:false,op:"<<<",right:__wrap(tmp)},"statement",false,false,false)],null);}else{return __node("MacroAccess",109330,150,3283,{left:__wrap(right),inverted:false,op:"<<<",right:__wrap(left)},"expression",false,false,false);}};}.call(this));',
           operators: ">>>",
           options: {precedence: 6, rightToLeft: true},
           id: 151
@@ -36690,55 +35904,55 @@
           id: 13
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",112,9,1,112,{left:__node("MacroAccess",112,9,6,112,{left:__node("MacroAccess",112,9,4,112,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"!=",right:__node("Const",112,27,"undefined")},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",112,40,6,112,{left:__wrap(node),inverted:false,op:"!=",right:__const("null")},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",114,9,8,114,{left:__wrap(node),inverted:false,op:"!~=",right:__const("null")},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",3994,1,112,{left:__node("MacroAccess",3994,6,112,{left:__node("MacroAccess",3994,4,112,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"!=",right:__node("Const",4012,"undefined")},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",4025,6,112,{left:__wrap(node),inverted:false,op:"!=",right:__const("null")},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",4055,8,114,{left:__wrap(node),inverted:false,op:"!~=",right:__const("null")},"expression",false,false,false);}};}.call(this));',
           operators: "?",
           options: {postfix: true, type: "boolean", label: "existential"},
           id: 20
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",118,9,5,118,{left:__node("MacroAccess",118,9,4,118,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",118,27,"undefined")},"expression",false,false,false);}else{return __node("MacroAccess",120,9,5,120,{left:__wrap(node),inverted:false,op:"==",right:__const("void")},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",4202,5,118,{left:__node("MacroAccess",4202,4,118,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",4220,"undefined")},"expression",false,false,false);}else{return __node("MacroAccess",4245,5,120,{left:__wrap(node),inverted:false,op:"==",right:__const("void")},"expression",false,false,false);}};}.call(this));',
           operators: ["isVoid!", "isUndefined!"],
           options: {type: "boolean"},
           id: 21
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",124,9,1,124,{left:__node("MacroAccess",124,9,6,124,{left:__node("MacroAccess",124,9,4,124,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"!=",right:__node("Const",124,27,"undefined")},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",124,40,5,124,{left:__wrap(node),inverted:false,op:"==",right:__const("null")},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",126,9,5,126,{left:__wrap(node),inverted:false,op:"==",right:__const("null")},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",4376,1,124,{left:__node("MacroAccess",4376,6,124,{left:__node("MacroAccess",4376,4,124,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"!=",right:__node("Const",4394,"undefined")},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",4407,5,124,{left:__wrap(node),inverted:false,op:"==",right:__const("null")},"expression",false,false,false)},"expression",false,false,false);}else{return __node("MacroAccess",4437,5,126,{left:__wrap(node),inverted:false,op:"==",right:__const("null")},"expression",false,false,false);}};}.call(this));',
           operators: "isNull!",
           options: {type: "boolean"},
           id: 22
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",129,7,5,129,{left:__node("MacroAccess",129,7,4,129,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",129,25,"string")},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",4512,5,129,{left:__node("MacroAccess",4512,4,129,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",4530,"string")},"expression",false,false,false);};}.call(this));',
           operators: "isString!",
           options: {type: "boolean"},
           id: 23
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",132,7,5,132,{left:__node("MacroAccess",132,7,4,132,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",132,25,"number")},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",4597,5,132,{left:__node("MacroAccess",4597,4,132,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",4615,"number")},"expression",false,false,false);};}.call(this));',
           operators: "isNumber!",
           options: {type: "boolean"},
           id: 24
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",135,7,5,135,{left:__node("MacroAccess",135,7,4,135,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",135,25,"boolean")},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",4683,5,135,{left:__node("MacroAccess",4683,4,135,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",4701,"boolean")},"expression",false,false,false);};}.call(this));',
           operators: "isBoolean!",
           options: {type: "boolean"},
           id: 25
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",138,7,5,138,{left:__node("MacroAccess",138,7,4,138,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",138,25,"function")},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",4771,5,138,{left:__node("MacroAccess",4771,4,138,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",4789,"function")},"expression",false,false,false);};}.call(this));',
           operators: "isFunction!",
           options: {type: "boolean"},
           id: 26
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return _this.isIdentOrTmp(n)&&!_this.hasVariable(n)&&__node("MacroAccess",141,97,1,141,{left:__node("MacroAccess",141,97,5,141,{left:__node("MacroAccess",141,97,4,141,{op:"typeof",node:__wrap(n)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",141,112,"object")},"expression",false,false,false),inverted:false,op:"and",right:__node("Call",141,122,__node("Ident",141,122,"__isArray"),[__wrap(n)],false,false)},"expression",false,false,false)||__node("Call",141,146,__node("Ident",141,146,"__isArray"),[__wrap(n)],false,false);},true);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return _this.isIdentOrTmp(n)&&!_this.hasVariable(n)&&__node("MacroAccess",4947,1,141,{left:__node("MacroAccess",4947,5,141,{left:__node("MacroAccess",4947,4,141,{op:"typeof",node:__wrap(n)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",4962,"object")},"expression",false,false,false),inverted:false,op:"and",right:__node("Call",4972,__node("Ident",4972,"__isArray"),[__wrap(n)],false,false)},"expression",false,false,false)||__node("Call",4996,__node("Ident",4996,"__isArray"),[__wrap(n)],false,false);},true);};}.call(this));',
           operators: "isArray!",
           options: {type: "boolean"},
           id: 27
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return __node("MacroAccess",144,47,1,144,{left:__node("MacroAccess",144,47,5,144,{left:__node("MacroAccess",144,47,4,144,{op:"typeof",node:__wrap(n)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",144,62,"object")},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",144,72,6,144,{left:__wrap(n),inverted:false,op:"!=",right:__const("null")},"expression",false,false,false)},"expression",false,false,false);},true);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){return __node("MacroAccess",5119,1,144,{left:__node("MacroAccess",5119,5,144,{left:__node("MacroAccess",5119,4,144,{op:"typeof",node:__wrap(n)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",5134,"object")},"expression",false,false,false),inverted:false,op:"and",right:__node("MacroAccess",5144,6,144,{left:__wrap(n),inverted:false,op:"!=",right:__const("null")},"expression",false,false,false)},"expression",false,false,false);},true);};}.call(this));',
           operators: "isObject!",
           options: {type: "boolean"},
           id: 28
@@ -36750,25 +35964,25 @@
           id: 48
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",492,9,16,492,{macroName:"if",macroData:{test:__node("MacroAccess",492,12,5,492,{left:__node("MacroAccess",492,12,4,492,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",492,30,"undefined")},"expression",false,false,false),body:__node("Const",492,45,"Undefined"),elseIfs:[],elseBody:__node("Call",492,61,__node("Ident",492,61,"__typeof"),[__wrap(node)],false,false)}},"expression",false,false,false);}else{return this.mutateLast(node||this.noop(),function(n){return __node("Call",494,49,__node("Ident",494,49,"__typeof"),[__wrap(n)],false,false);},true);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;if(this.isIdentOrTmp(node)&&!this.hasVariable(node)){return __node("MacroAccess",16440,16,492,{macroName:"if",macroData:{test:__node("MacroAccess",16443,5,492,{left:__node("MacroAccess",16443,4,492,{op:"typeof",node:__wrap(node)},"expression",false,false,false),inverted:false,op:"==",right:__node("Const",16461,"undefined")},"expression",false,false,false),body:__node("Const",16476,"Undefined"),elseIfs:[],elseBody:__node("Call",16492,__node("Ident",16492,"__typeof"),[__wrap(node)],false,false)}},"expression",false,false,false);}else{return this.mutateLast(node||this.noop(),function(n){return __node("Call",16564,__node("Ident",16564,"__typeof"),[__wrap(n)],false,false);},true);}};}.call(this));',
           operators: "typeof!",
           options: {type: "string"},
           id: 57
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){if(_this.isType(n,"number")){return n;}else{return __node("Call",551,11,__node("Ident",551,11,"__num"),[__wrap(n)],false,false);}},true);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;return this.mutateLast(node||this.noop(),function(n){if(_this.isType(n,"number")){return n;}else{return __node("Call",17937,__node("Ident",17937,"__num"),[__wrap(n)],false,false);}},true);};}.call(this));',
           operators: "+",
           options: {type: "number"},
           id: 60
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;if(this.isConst(node)&&typeof this.value(node)==="number"){return this["const"](-this.value(node));}else{return __node("MacroAccess",557,9,48,557,{op:"~-",node:__node("MacroAccess",557,13,60,557,{op:"+",node:__wrap(node)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;if(this.isConst(node)&&typeof this.value(node)==="number"){return this["const"](-this.value(node));}else{return __node("MacroAccess",18090,48,557,{op:"~-",node:__node("MacroAccess",18094,60,557,{op:"+",node:__wrap(node)},"expression",false,false,false)},"expression",false,false,false);}};}.call(this));',
           operators: "-",
           options: {type: "number"},
           id: 61
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",577,7,64,577,{left:__wrap(node),inverted:false,op:"/",right:__node("Const",577,16,100)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",18644,64,577,{left:__wrap(node),inverted:false,op:"/",right:__node("Const",18653,100)},"expression",false,false,false);};}.call(this));',
           operators: "%",
           options: {postfix: true, type: "number"},
           id: 65
@@ -36780,53 +35994,53 @@
           id: 99
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",868,7,99,868,{op:"~bitnot",node:__node("MacroAccess",868,15,60,868,{op:"+",node:__wrap(node)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("MacroAccess",27833,99,868,{op:"~bitnot",node:__node("MacroAccess",27841,60,868,{op:"+",node:__wrap(node)},"expression",false,false,false)},"expression",false,false,false);};}.call(this));',
           operators: "bitnot",
           options: {type: "number"},
           id: 100
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;if(!this.isAccess(node)){this.error("Can only use delete on an access");}if(this.position==="expression"){return this.maybeCacheAccess(node,function(setNode,node){var del,tmp;tmp=_this.tmp("ref");del=_this.unary("delete",node);return __node("Block",878,1,[__node("MacroAccess",878,1,38,878,{macroName:"let",macroData:{declarable:__node("MacroAccess",878,12,37,878,__node("MacroAccess",878,12,31,878,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(setNode)}},"statement",false,false,false),__wrap(del),__wrap(tmp)],null);});}else{return this.unary("delete",node);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,node,op;_this=this;op=macroData.op;node=macroData.node;if(!this.isAccess(node)){this.error("Can only use delete on an access");}if(this.position==="expression"){return this.maybeCacheAccess(node,function(setNode,node){var del,tmp;tmp=_this.tmp("ref");del=_this.unary("delete",node);return __node("Block",28127,[__node("MacroAccess",28127,38,878,{macroName:"let",macroData:{declarable:__node("MacroAccess",28138,37,878,__node("MacroAccess",28138,31,878,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(setNode)}},"statement",false,false,false),__wrap(del),__wrap(tmp)],null);});}else{return this.unary("delete",node);}};}.call(this));',
           operators: "delete",
           options: {standalone: false},
           id: 101
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return this.maybeCache(node,function(setNode,node){return __node("MacroAccess",886,9,16,886,{macroName:"if",macroData:{test:__node("MacroAccess",886,12,20,886,{op:"?",node:__wrap(setNode)},"expression",false,false,false),body:__node("MacroAccess",886,28,11,886,{op:"throw",node:__wrap(node)},"expression",false,false,false),elseIfs:[]}},"expression",false,false,false);});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return this.maybeCache(node,function(setNode,node){return __node("MacroAccess",28314,16,886,{macroName:"if",macroData:{test:__node("MacroAccess",28317,20,886,{op:"?",node:__wrap(setNode)},"expression",false,false,false),body:__node("MacroAccess",28333,11,886,{op:"throw",node:__wrap(node)},"expression",false,false,false),elseIfs:[]}},"expression",false,false,false);});};}.call(this));',
           operators: "throw?",
           options: {type: "undefined"},
           id: 102
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__num,__owns,__slice,__strnum,__toArray,__typeof,__xor;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__owns=Object.prototype.hasOwnProperty;__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());__xor=function(x,y){if(x){return !y&&x;}else{return y||x;}};return function(macroData,__wrap,__node,__const){var _arr,_arr2,_i,_len,_this,body,changed,foundSpread,genericArg,genericArgs,genericCache,genericParams,i,ident,init,initIndex,instanceofLets,instanceofs,item,key,len,makeFunctionFunc,makeFunctionIdent,name,node,op,p,param,params,PRIMORDIAL_TYPES,result,spreadCounter;_this=this;op=macroData.op;node=macroData.node;function article(text){if(/^[aeiou]/i.test(text)){return "an";}else{return "a";}};function withArticle(text){return article(text)+" "+__strnum(text);};PRIMORDIAL_TYPES={Number:true,String:true,Boolean:true,Function:true,Array:true,Object:true};function translateGenericType(type){var _ref,basetype,typeArguments;if(!_this.isTypeGeneric(type)){return type;}else{basetype=_this.basetype(type);if((_ref=_this.name(basetype))==="Array"||_ref==="Function"){return basetype;}else{typeArguments=_this.array((function(){var _arr,_arr2,_i,_len,subtype;for(_arr=[], _arr2=__toArray(_this.typeArguments(type)), _i=0, _len=_arr2.length;_i<_len;++_i){subtype=_arr2[_i];_arr.push(translateGenericType(subtype));}return _arr;}()));return __node("Call",1681,13,__node("Access",1681,13,__wrap(basetype),__node("Const",1681,24,"generic")),[__node("Spread",1681,32,__wrap(typeArguments))],false,false);}}};function translateTypeCheck(value,valueName,type,hasDefaultValue){var _arr,_arr2,_i,_len,_ref,check,checks,current,genericType,hasBoolean,hasNull,hasVoid,index,key,name,names,pairValue,result,subCheck,t,test,tests,typeNames;if(_this.isIdent(type)){if(__owns.call(PRIMORDIAL_TYPES,_this.name(type))){result=__node("MacroAccess",1686,1,17,1686,{macroName:"if",macroData:{test:__node("MacroAccess",1686,13,74,1686,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(type)},"statement",false,false,false),body:__node("MacroAccess",1687,1,11,1687,{op:"throw",node:__node("Call",1687,18,__node("Ident",1687,18,"TypeError"),[__node("MacroAccess",1687,29,69,1687,{left:__node("MacroAccess",1687,29,69,1687,{left:__node("MacroAccess",1687,29,69,1687,{left:__node("MacroAccess",1687,29,69,1687,{left:__node("MacroAccess",1687,29,69,1687,{left:__node("Const",1687,29,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",1687,29," to be ")},"expression",false,false,false),op:"",right:__wrap(withArticle(_this.name(type)))},"expression",false,false,false),op:"",right:__node("Const",1687,29,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",1687,98,57,1687,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}else{result=__node("MacroAccess",1690,1,17,1690,{macroName:"if",macroData:{test:__node("MacroAccess",1690,13,74,1690,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(type)},"statement",false,false,false),body:__node("MacroAccess",1691,1,11,1691,{op:"throw",node:__node("Call",1691,18,__node("Ident",1691,18,"TypeError"),[__node("MacroAccess",1691,29,69,1691,{left:__node("MacroAccess",1691,29,69,1691,{left:__node("MacroAccess",1691,29,69,1691,{left:__node("MacroAccess",1691,29,69,1691,{left:__node("MacroAccess",1691,29,69,1691,{left:__node("Const",1691,29,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",1691,29," to be a ")},"expression",false,false,false),op:"",right:__node("Call",1691,64,__node("Ident",1691,64,"__name"),[__wrap(type)],false,false)},"expression",false,false,false),op:"",right:__node("Const",1691,29,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",1691,85,57,1691,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}if(!hasDefaultValue&&_this.name(type)==="Boolean"){return __node("MacroAccess",1693,13,17,1693,{macroName:"if",macroData:{test:__node("MacroAccess",1693,16,3,1693,{op:"not",node:__node("MacroAccess",1693,20,20,1693,{op:"?",node:__wrap(value)},"statement",false,true,false)},"statement",false,true,false),body:__node("MacroAccess",1694,1,30,1694,{left:__wrap(value),op:":=",right:__const("false")},"statement",false,true,false),elseIfs:[],elseBody:__wrap(result)}},"statement",false,true,false);}else{return result;}}else if(_this.isAccess(type)){return __node("MacroAccess",1701,1,17,1701,{macroName:"if",macroData:{test:__node("MacroAccess",1701,11,74,1701,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(type)},"statement",false,false,false),body:__node("MacroAccess",1702,1,11,1702,{op:"throw",node:__node("Call",1702,16,__node("Ident",1702,16,"TypeError"),[__node("MacroAccess",1702,27,69,1702,{left:__node("MacroAccess",1702,27,69,1702,{left:__node("MacroAccess",1702,27,69,1702,{left:__node("MacroAccess",1702,27,69,1702,{left:__node("MacroAccess",1702,27,69,1702,{left:__node("Const",1702,27,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",1702,27," to be ")},"expression",false,false,false),op:"",right:__wrap(withArticle(_this.value(_this.child(type))))},"expression",false,false,false),op:"",right:__node("Const",1702,27,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",1702,105,57,1702,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}else if(_this.isTypeUnion(type)){hasBoolean=false;hasVoid=false;hasNull=false;names=[];tests=[];for(_arr=__toArray(_this.types(type)), _i=0, _len=_arr.length;_i<_len;++_i){t=_arr[_i];if(_this.isConst(t)){if(_this.value(t)===null){hasNull=true;names.push(_this["const"]("null"));}else if(_this.value(t)===void 0){hasVoid=true;names.push(_this["const"]("undefined"));}else{_this.error("Unknown const for type-checking: "+String(_this.value(t)),t);}}else if(_this.isIdent(t)){if(_this.name(t)==="Boolean"){hasBoolean=true;}if(__owns.call(PRIMORDIAL_TYPES,_this.name(t))){names.push(_this["const"](_this.name(t)));}else{names.push(__node("Call",1726,28,__node("Ident",1726,28,"__name"),[__wrap(t)],false,false));}tests.push(__node("MacroAccess",1727,26,74,1727,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(t)},"expression",false,false,false));}else{_this.error("Not implemented: typechecking for non-idents/consts within a type-union",t);}}if(tests.length){test=_this.binaryChain("&&",tests);}else{test=__const("true");}current=names[0];for(_i=1, _len=names.length;_i<_len;++_i){name=names[_i];current=__node("MacroAccess",1736,14,69,1736,{left:__node("MacroAccess",1736,14,69,1736,{left:__wrap(current),op:"",right:__node("Const",1736,14," or ")},"expression",false,false,false),op:"",right:__wrap(name)},"expression",false,false,false);}typeNames=current;result=__node("MacroAccess",1737,31,17,1737,{macroName:"if",macroData:{test:__wrap(test),body:__node("MacroAccess",1738,1,11,1738,{op:"throw",node:__node("Call",1738,14,__node("Ident",1738,14,"TypeError"),[__node("MacroAccess",1738,25,69,1738,{left:__node("MacroAccess",1738,25,69,1738,{left:__node("MacroAccess",1738,25,69,1738,{left:__node("MacroAccess",1738,25,69,1738,{left:__node("MacroAccess",1738,25,69,1738,{left:__node("Const",1738,25,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",1738,25," to be one of ")},"expression",false,false,false),op:"",right:__wrap(typeNames)},"expression",false,false,false),op:"",right:__node("Const",1738,25,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",1738,85,57,1738,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);if(!hasDefaultValue){if(hasNull||hasVoid){if(__xor(hasNull,hasVoid)){result=__node("MacroAccess",1743,27,17,1743,{macroName:"if",macroData:{test:__node("MacroAccess",1743,30,3,1743,{op:"not",node:__node("MacroAccess",1743,34,20,1743,{op:"?",node:__wrap(value)},"statement",false,true,false)},"statement",false,true,false),body:__node("MacroAccess",1744,1,30,1744,{left:__wrap(value),op:":=",right:__node("MacroAccess",1744,24,16,1744,{macroName:"if",macroData:{test:__wrap(hasNull),body:__const("null"),elseIfs:[],elseBody:__const("void")}},"expression",false,true,false)},"statement",false,true,false),elseIfs:[],elseBody:__wrap(result)}},"statement",false,true,false);}else{result=__node("MacroAccess",1748,26,17,1748,{macroName:"if",macroData:{test:__node("MacroAccess",1748,29,20,1748,{op:"?",node:__wrap(value)},"statement",false,false,false),body:__wrap(result),elseIfs:[]}},"statement",false,false,false);}}else if(hasBoolean){result=__node("MacroAccess",1751,25,17,1751,{macroName:"if",macroData:{test:__node("MacroAccess",1751,28,3,1751,{op:"not",node:__node("MacroAccess",1751,32,20,1751,{op:"?",node:__wrap(value)},"statement",false,true,false)},"statement",false,true,false),body:__node("MacroAccess",1752,1,30,1752,{left:__wrap(value),op:":=",right:__const("false")},"statement",false,true,false),elseIfs:[],elseBody:__wrap(result)}},"statement",false,true,false);}}return result;}else if(_this.isTypeGeneric(type)){if(_this.name(_this.basetype(type))==="Array"){index=_this.tmp("i",false,"number");subCheck=translateTypeCheck(__node("Access",1759,51,__wrap(value),__wrap(index)),__node("MacroAccess",1759,74,69,1759,{left:__node("MacroAccess",1759,74,69,1759,{left:__node("MacroAccess",1759,74,69,1759,{left:__wrap(valueName),inverted:false,op:"&",right:__node("Const",1759,89,"[")},"expression",false,false,false),inverted:false,op:"&",right:__wrap(index)},"expression",false,false,false),inverted:false,op:"&",right:__node("Const",1759,104,"]")},"expression",false,false,false),_this.typeArguments(type)[0],false);return __node("MacroAccess",1760,12,17,1760,{macroName:"if",macroData:{test:__node("MacroAccess",1760,15,3,1760,{op:"not",node:__node("MacroAccess",1760,19,27,1760,{op:"isArray!",node:__wrap(value)},"statement",false,false,false)},"statement",false,false,false),body:__node("MacroAccess",1761,1,11,1761,{op:"throw",node:__node("Call",1761,16,__node("Ident",1761,16,"TypeError"),[__node("MacroAccess",1761,27,69,1761,{left:__node("MacroAccess",1761,27,69,1761,{left:__node("MacroAccess",1761,27,69,1761,{left:__node("Const",1761,27,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",1761,27," to be an Array, got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",1761,74,57,1761,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",1763,1,106,1763,{macroName:"for",macroData:{init:__node("MacroAccess",1763,16,38,1763,{macroName:"let",macroData:{declarable:__node("MacroAccess",1763,19,37,1763,__node("MacroAccess",1763,19,31,1763,{isMutable:"mutable",ident:__wrap(index)},"expression",false,false,false),"expression",false,false,false),value:__node("Access",1763,36,__wrap(value),__node("Const",1763,44,"length"))}},"expression",false,false,false),test:__node("MacroAccess",1763,52,13,1763,{op:"postDec!",node:__wrap(index)},"statement",false,false,false),body:__wrap(subCheck)}},"statement",false,false,false)}},"statement",false,false,false);}else if(_this.name(_this.basetype(type))==="Function"){return translateTypeCheck(value,valueName,_this.basetype(type),hasDefaultValue);}else{genericType=translateGenericType(type);return __node("MacroAccess",1770,1,17,1770,{macroName:"if",macroData:{test:__node("MacroAccess",1770,13,74,1770,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(genericType)},"statement",false,false,false),body:__node("MacroAccess",1771,1,11,1771,{op:"throw",node:__node("Call",1771,18,__node("Ident",1771,18,"TypeError"),[__node("MacroAccess",1771,29,69,1771,{left:__node("MacroAccess",1771,29,69,1771,{left:__node("MacroAccess",1771,29,69,1771,{left:__node("MacroAccess",1771,29,69,1771,{left:__node("MacroAccess",1771,29,69,1771,{left:__node("Const",1771,29,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",1771,29," to be a ")},"expression",false,false,false),op:"",right:__node("Call",1771,64,__node("Ident",1771,64,"__name"),[__wrap(genericType)],false,false)},"expression",false,false,false),op:"",right:__node("Const",1771,29,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",1771,93,57,1771,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}}else if(_this.isTypeObject(type)){for(_arr=[], _arr2=__toArray(_this.pairs(type)), _i=0, _len=_arr2.length;_i<_len;++_i){_ref=_arr2[_i];key=_ref.key;pairValue=_ref.value;_arr.push(translateTypeCheck(__node("Access",1774,35,__wrap(value),__wrap(key)),__node("MacroAccess",1774,56,69,1774,{left:__node("MacroAccess",1774,56,69,1774,{left:__wrap(valueName),inverted:false,op:"&",right:__node("Const",1774,71,".")},"expression",false,false,false),inverted:false,op:"&",right:__wrap(key)},"expression",false,false,false),pairValue,false));}checks=_arr;return __node("MacroAccess",1775,10,17,1775,{macroName:"if",macroData:{test:__node("MacroAccess",1775,13,3,1775,{op:"not",node:__node("MacroAccess",1775,17,28,1775,{op:"isObject!",node:__wrap(value)},"statement",false,false,false)},"statement",false,false,false),body:__node("MacroAccess",1776,1,11,1776,{op:"throw",node:__node("Call",1776,14,__node("Ident",1776,14,"TypeError"),[__node("MacroAccess",1776,25,69,1776,{left:__node("MacroAccess",1776,25,69,1776,{left:__node("MacroAccess",1776,25,69,1776,{left:__node("Const",1776,25,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",1776,25," to be an Object, got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",1776,73,57,1776,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[],elseBody:__wrap(checks)}},"statement",false,false,false);}else{return _this.error("Unknown type to translate: "+__typeof(type),type);}};init=[];changed=false;function translateParam(param,inDestructure){var _arr,_i,_len,arrayIdent,asType,blankIdent,defaultValue,element,elementIdent,elementParam,foundSpread,i,ident,initIndex,key,len,objectIdent,pair,paramIdent,spreadCounter,typeCheck,value,valueIdent;if(_this.isArray(param)){changed=true;arrayIdent=_this.tmp("p",false,"array");foundSpread=-1;for(_arr=__toArray(_this.elements(param)), i=0, len=_arr.length;i<len;++i){element=_arr[i];initIndex=init.length;elementParam=translateParam(element,true);if(elementParam!=null){elementIdent=_this.paramIdent(elementParam);if(!_this.paramIsSpread(elementParam)){if(foundSpread===-1){init.splice(initIndex,0,__node("MacroAccess",1796,45,38,1796,{macroName:"let",macroData:{declarable:__node("MacroAccess",1796,49,37,1796,__node("MacroAccess",1796,49,31,1796,{ident:__wrap(elementIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",1796,66,__wrap(arrayIdent),__wrap(i))}},"statement",false,false,false));}else{init.splice(initIndex,0,__node("MacroAccess",1798,45,38,1798,{macroName:"let",macroData:{declarable:__node("MacroAccess",1798,49,37,1798,__node("MacroAccess",1798,49,31,1798,{ident:__wrap(elementIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",1798,66,__wrap(arrayIdent),__node("MacroAccess",1798,80,66,1798,{left:__wrap(spreadCounter),inverted:false,op:"+",right:__node("MacroAccess",1798,99,66,1798,{left:__node("MacroAccess",1798,99,66,1798,{left:__wrap(i),inverted:false,op:"-",right:__wrap(foundSpread)},"expression",false,false,false),inverted:false,op:"-",right:__node("Const",1798,120,1)},"expression",false,false,false)},"expression",false,false,false))}},"statement",false,false,false));}}else{if(foundSpread!==-1){_this.error("Cannot have multiple spread parameters in an array destructure",element);}foundSpread=i;if(i===len-1){init.splice(initIndex,0,__node("MacroAccess",1804,45,38,1804,{macroName:"let",macroData:{declarable:__node("MacroAccess",1804,49,37,1804,__node("MacroAccess",1804,49,31,1804,{ident:__wrap(elementIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",1804,66,__node("Ident",1804,66,"__slice"),[__wrap(arrayIdent),__node("Spread",1804,89,__node("MacroAccess",1804,94,16,1804,{macroName:"if",macroData:{test:__node("MacroAccess",1804,96,5,1804,{left:__wrap(i),inverted:false,op:"==",right:__node("Const",1804,103,0)},"expression",false,false,false),body:__node("Array",1804,109,[]),elseIfs:[],elseBody:__node("Array",1804,117,[__wrap(i)])}},"expression",false,false,false))],false,true)}},"statement",false,false,false));}else{spreadCounter=_this.tmp("i",false,"number");init.splice(initIndex,0,__node("Block",1808,1,[__node("MacroAccess",1808,1,38,1808,{macroName:"let",macroData:{declarable:__node("MacroAccess",1808,20,37,1808,__node("MacroAccess",1808,20,31,1808,{isMutable:"mutable",ident:__wrap(spreadCounter)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1808,46,66,1808,{left:__node("Access",1808,46,__wrap(arrayIdent),__node("Const",1808,60,"length")),inverted:false,op:"-",right:__node("MacroAccess",1808,70,66,1808,{left:__node("MacroAccess",1808,70,66,1808,{left:__wrap(len),inverted:false,op:"-",right:__wrap(i)},"expression",false,false,false),inverted:false,op:"-",right:__node("Const",1808,82,1)},"expression",false,false,false)},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",1809,1,38,1809,{macroName:"let",macroData:{declarable:__node("MacroAccess",1809,20,37,1809,__node("MacroAccess",1809,20,31,1809,{ident:__wrap(elementIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1809,37,17,1809,{macroName:"if",macroData:{test:__node("MacroAccess",1809,40,79,1809,{left:__wrap(spreadCounter),inverted:false,op:">",right:__wrap(i)},"expression",false,false,false),body:__node("Call",1810,1,__node("Ident",1810,1,"__slice"),[__wrap(arrayIdent),__wrap(i),__wrap(spreadCounter)],false,true),elseIfs:[],elseBody:__node("Block",1812,1,[__node("MacroAccess",1812,1,30,1812,{left:__wrap(spreadCounter),op:":=",right:__wrap(i)},"statement",false,false,false),__node("Array",1813,1,[])],null)}},"expression",false,false,false)}},"statement",false,false,false)],null));}}}}return _this.rewrap(_this.param(arrayIdent,null,false,false,null),param);}else if(_this.isObject(param)){changed=true;objectIdent=_this.tmp("p",false,"object");for(_arr=__toArray(_this.pairs(param)), _i=0, _len=_arr.length;_i<_len;++_i){pair=_arr[_i];initIndex=init.length;value=translateParam(pair.value,true);if(value!=null){valueIdent=_this.paramIdent(value);key=pair.key;init.splice(initIndex,0,__node("MacroAccess",1825,41,38,1825,{macroName:"let",macroData:{declarable:__node("MacroAccess",1825,45,37,1825,__node("MacroAccess",1825,45,31,1825,{ident:__wrap(valueIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",1825,60,__wrap(objectIdent),__wrap(key))}},"statement",false,false,false));}}return _this.rewrap(_this.param(objectIdent,null,false,false,null),param);}else if(_this.isParam(param)){defaultValue=_this.paramDefaultValue(param);asType=_this.paramType(param);paramIdent=_this.paramIdent(param);if(defaultValue!=null||asType!=null||!_this.isIdentOrTmp(paramIdent)){changed=true;if(_this.isIdentOrTmp(paramIdent)){ident=paramIdent;}else if(_this.isAccess(paramIdent)){ident=_this.ident(_this.value(_this.child(paramIdent)));}else{ident=_this.error("Not an ident or this-access: "+__typeof(paramIdent)+" "+__strnum(paramIdent.inspect()),paramIdent);}if(asType!=null){typeCheck=translateTypeCheck(ident,_this.name(ident),asType,defaultValue!=null);}else{typeCheck=_this.noop();}init.push(defaultValue!=null?__node("MacroAccess",1846,1,17,1846,{macroName:"if",macroData:{test:__node("MacroAccess",1846,15,3,1846,{op:"not",node:__node("MacroAccess",1846,19,20,1846,{op:"?",node:__wrap(ident)},"statement",false,true,false)},"statement",false,true,false),body:__node("MacroAccess",1847,1,30,1847,{left:__wrap(ident),op:":=",right:__wrap(defaultValue)},"statement",false,true,false),elseIfs:[],elseBody:__wrap(typeCheck)}},"statement",false,true,false):typeCheck);if(paramIdent!==ident){init.push(__node("MacroAccess",1853,24,30,1853,{left:__wrap(paramIdent),op:":=",right:__wrap(ident)},"statement",false,false,false));}return _this.rewrap(_this.param(ident,null,_this.paramIsSpread(param),_this.paramIsMutable(param),null),param);}else{return param;}}else if(_this.isNothing(param)){changed=true;if(inDestructure){return null;}else{blankIdent=_this.tmp("p",false,"object");return _this.rewrap(_this.param(blankIdent,null,false,false,null),param);}}else{return _this.error("Unknown param type: "+__typeof(param),param);}};foundSpread=-1;params=[];for(_arr=__toArray(this.funcParams(node)), i=0, len=_arr.length;i<len;++i){param=_arr[i];initIndex=init.length;p=translateParam(param,false);ident=this.paramIdent(p);if(this.paramIsSpread(p)){if(foundSpread!==-1){this.error("Cannot have two spread parameters",p);}changed=true;foundSpread=i;if(i===len-1){init.splice(initIndex,0,__node("MacroAccess",1881,1,38,1881,{macroName:"let",macroData:{declarable:__node("MacroAccess",1881,14,37,1881,__node("MacroAccess",1881,14,31,1881,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",1881,23,__node("Ident",1881,23,"__slice"),[__node("Args",1881,33),__node("Spread",1881,43,__node("MacroAccess",1881,48,16,1881,{macroName:"if",macroData:{test:__node("MacroAccess",1881,50,5,1881,{left:__wrap(i),inverted:false,op:"==",right:__node("Const",1881,57,0)},"expression",false,false,false),body:__node("Array",1881,63,[]),elseIfs:[],elseBody:__node("Array",1881,71,[__wrap(i)])}},"expression",false,false,false))],false,true)}},"statement",false,false,false));}else{spreadCounter=this.tmp("i",false,"number");init.splice(initIndex,0,__node("Block",1885,1,[__node("MacroAccess",1885,1,38,1885,{macroName:"let",macroData:{declarable:__node("MacroAccess",1885,14,37,1885,__node("MacroAccess",1885,14,31,1885,{isMutable:"mutable",ident:__wrap(spreadCounter)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1885,40,66,1885,{left:__node("Access",1885,40,__node("Args",1885,40),__node("Const",1885,51,"length")),inverted:false,op:"-",right:__node("MacroAccess",1885,61,66,1885,{left:__node("MacroAccess",1885,61,66,1885,{left:__wrap(len),inverted:false,op:"-",right:__wrap(i)},"expression",false,false,false),inverted:false,op:"-",right:__node("Const",1885,73,1)},"expression",false,false,false)},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",1886,1,38,1886,{macroName:"let",macroData:{declarable:__node("MacroAccess",1886,14,37,1886,__node("MacroAccess",1886,14,31,1886,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",1886,23,17,1886,{macroName:"if",macroData:{test:__node("MacroAccess",1886,26,79,1886,{left:__wrap(spreadCounter),inverted:false,op:">",right:__wrap(i)},"expression",false,false,false),body:__node("Call",1887,1,__node("Ident",1887,1,"__slice"),[__node("Args",1887,22),__wrap(i),__wrap(spreadCounter)],false,true),elseIfs:[],elseBody:__node("Block",1889,1,[__node("MacroAccess",1889,1,30,1889,{left:__wrap(spreadCounter),op:":=",right:__wrap(i)},"statement",false,false,false),__node("Array",1890,1,[])],null)}},"expression",false,false,false)}},"statement",false,false,false)],null));}}else if(foundSpread===-1){params.push(p);}else{init.splice(initIndex,0,__node("MacroAccess",1896,1,38,1896,{macroName:"let",macroData:{declarable:__node("MacroAccess",1896,14,37,1896,__node("MacroAccess",1896,14,31,1896,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",1896,23,__node("Args",1896,23),__node("MacroAccess",1896,34,66,1896,{left:__wrap(spreadCounter),inverted:false,op:"+",right:__node("MacroAccess",1896,53,66,1896,{left:__node("MacroAccess",1896,53,66,1896,{left:__wrap(i),inverted:false,op:"-",right:__wrap(foundSpread)},"expression",false,false,false),inverted:false,op:"-",right:__node("Const",1896,74,1)},"expression",false,false,false)},"expression",false,false,false))}},"statement",false,false,false));}}if(init.length||changed||this.funcIsCurried(node)){body=this.funcBody(node);result=this.rewrap(this.func(params,__node("Block",1902,1,[__wrap(init),__wrap(body)],null),this.funcIsAutoReturn(node)&&!this.isNothing(body),this.funcIsBound(node),false,this.funcAsType(node),this.funcIsGenerator(node),this.funcGeneric(node)),node);}else{result=node;}if(this.funcIsCurried(node)){result=__node("Call",1914,19,__node("Ident",1914,19,"__curry"),[__wrap(params.length),__wrap(result)],false,false);}genericArgs=this.funcGeneric(node);if(__num(genericArgs.length)>0){genericCache=this.tmp("cache",false,"object");for(_arr=[], _arr2=__toArray(genericArgs), _i=0, _len=_arr2.length;_i<_len;++_i){genericArg=_arr2[_i];_arr.push(this.param(genericArg));}genericParams=_arr;makeFunctionIdent=this.tmp("make",false,"function");instanceofs={};for(_arr=__toArray(genericArgs), _i=0, _len=_arr.length;_i<_len;++_i){genericArg=_arr[_i];name=this.name(genericArg);key=this.tmp("instanceof_"+__strnum(name),false,"function");instanceofs[name]={key:key,"let":__node("MacroAccess",1927,17,38,1927,{macroName:"let",macroData:{declarable:__node("MacroAccess",1927,21,37,1927,__node("MacroAccess",1927,21,31,1927,{ident:__wrap(key)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",1927,28,__node("Ident",1927,28,"__getInstanceof"),[__wrap(genericArg)],false,false)}},"statement",false,false,false),used:false};}result=this.walk(this.macroExpandAll(result),function(node){var func,left,name,right;if(_this.isBinary(node)&&_this.op(node)==="instanceof"){right=_this.right(node);if(_this.isIdent(right)){name=_this.name(right);if(__owns.call(instanceofs,name)){func=instanceofs[name].key;instanceofs[name].used=true;left=_this.left(node);return __node("Call",1939,24,__wrap(func),[__wrap(left)],false,false);}}}});_arr=[];for(name in instanceofs){if(__owns.call(instanceofs,name)){item=instanceofs[name];if(item.used){_arr.push(item["let"]);}}}instanceofLets=_arr;if(instanceofLets.length){result=__node("Block",1945,1,[__wrap(instanceofLets),__wrap(result)],null);}makeFunctionFunc=this.func(genericParams,result,true,false);result=__node("Call",1948,18,__node("Ident",1948,18,"__genericFunc"),[__wrap(genericArgs.length),__wrap(makeFunctionFunc)],false,false);}return result;};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__num,__owns,__slice,__strnum,__toArray,__typeof,__xor;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__owns=Object.prototype.hasOwnProperty;__slice=Array.prototype.slice;__strnum=function(strnum){var type;type=typeof strnum;if(type==="string"){return strnum;}else if(type==="number"){return String(strnum);}else{throw TypeError("Expected a string or number, got "+__typeof(strnum));}};__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());__xor=function(x,y){if(x){return !y&&x;}else{return y||x;}};return function(macroData,__wrap,__node,__const){var _arr,_arr2,_i,_len,_this,body,changed,foundSpread,genericArg,genericArgs,genericCache,genericParams,i,ident,init,initIndex,instanceofLets,instanceofs,item,key,len,makeFunctionFunc,makeFunctionIdent,name,node,op,p,param,params,PRIMORDIAL_TYPES,result,spreadCounter;_this=this;op=macroData.op;node=macroData.node;function article(text){if(/^[aeiou]/i.test(text)){return "an";}else{return "a";}};function withArticle(text){return article(text)+" "+__strnum(text);};PRIMORDIAL_TYPES={Number:true,String:true,Boolean:true,Function:true,Array:true,Object:true};function translateGenericType(type){var _ref,basetype,typeArguments;if(!_this.isTypeGeneric(type)){return type;}else{basetype=_this.basetype(type);if((_ref=_this.name(basetype))==="Array"||_ref==="Function"){return basetype;}else{typeArguments=_this.array((function(){var _arr,_arr2,_i,_len,subtype;for(_arr=[], _arr2=__toArray(_this.typeArguments(type)), _i=0, _len=_arr2.length;_i<_len;++_i){subtype=_arr2[_i];_arr.push(translateGenericType(subtype));}return _arr;}()));return __node("Call",55933,__node("Access",55933,__wrap(basetype),__node("Const",55944,"generic")),[__node("Spread",55952,__wrap(typeArguments))],false,false);}}};function translateTypeCheck(value,valueName,type,hasDefaultValue){var _arr,_arr2,_i,_len,_ref,check,checks,current,genericType,hasBoolean,hasNull,hasVoid,index,key,name,names,pairValue,result,subCheck,t,test,tests,typeNames;if(_this.isIdent(type)){if(__owns.call(PRIMORDIAL_TYPES,_this.name(type))){result=__node("MacroAccess",56138,17,1686,{macroName:"if",macroData:{test:__node("MacroAccess",56150,74,1686,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(type)},"statement",false,false,false),body:__node("MacroAccess",56179,11,1687,{op:"throw",node:__node("Call",56196,__node("Ident",56196,"TypeError"),[__node("MacroAccess",56207,69,1687,{left:__node("MacroAccess",56207,69,1687,{left:__node("MacroAccess",56207,69,1687,{left:__node("MacroAccess",56207,69,1687,{left:__node("MacroAccess",56207,69,1687,{left:__node("Const",56207,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",56207," to be ")},"expression",false,false,false),op:"",right:__wrap(withArticle(_this.name(type)))},"expression",false,false,false),op:"",right:__node("Const",56207,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",56276,57,1687,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}else{result=__node("MacroAccess",56316,17,1690,{macroName:"if",macroData:{test:__node("MacroAccess",56328,74,1690,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(type)},"statement",false,false,false),body:__node("MacroAccess",56357,11,1691,{op:"throw",node:__node("Call",56374,__node("Ident",56374,"TypeError"),[__node("MacroAccess",56385,69,1691,{left:__node("MacroAccess",56385,69,1691,{left:__node("MacroAccess",56385,69,1691,{left:__node("MacroAccess",56385,69,1691,{left:__node("MacroAccess",56385,69,1691,{left:__node("Const",56385,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",56385," to be a ")},"expression",false,false,false),op:"",right:__node("Call",56420,__node("Ident",56420,"__name"),[__wrap(type)],false,false)},"expression",false,false,false),op:"",right:__node("Const",56385,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",56441,57,1691,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}if(!hasDefaultValue&&_this.name(type)==="Boolean"){return __node("MacroAccess",56529,17,1693,{macroName:"if",macroData:{test:__node("MacroAccess",56532,3,1693,{op:"not",node:__node("MacroAccess",56536,20,1693,{op:"?",node:__wrap(value)},"statement",false,true,false)},"statement",false,true,false),body:__node("MacroAccess",56545,30,1694,{left:__wrap(value),op:":=",right:__const("false")},"statement",false,true,false),elseIfs:[],elseBody:__wrap(result)}},"statement",false,true,false);}else{return result;}}else if(_this.isAccess(type)){return __node("MacroAccess",56667,17,1701,{macroName:"if",macroData:{test:__node("MacroAccess",56677,74,1701,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(type)},"statement",false,false,false),body:__node("MacroAccess",56706,11,1702,{op:"throw",node:__node("Call",56721,__node("Ident",56721,"TypeError"),[__node("MacroAccess",56732,69,1702,{left:__node("MacroAccess",56732,69,1702,{left:__node("MacroAccess",56732,69,1702,{left:__node("MacroAccess",56732,69,1702,{left:__node("MacroAccess",56732,69,1702,{left:__node("Const",56732,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",56732," to be ")},"expression",false,false,false),op:"",right:__wrap(withArticle(_this.value(_this.child(type))))},"expression",false,false,false),op:"",right:__node("Const",56732,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",56810,57,1702,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}else if(_this.isTypeUnion(type)){hasBoolean=false;hasVoid=false;hasNull=false;names=[];tests=[];for(_arr=__toArray(_this.types(type)), _i=0, _len=_arr.length;_i<_len;++_i){t=_arr[_i];if(_this.isConst(t)){if(_this.value(t)===null){hasNull=true;names.push(_this["const"]("null"));}else if(_this.value(t)===void 0){hasVoid=true;names.push(_this["const"]("undefined"));}else{_this.error("Unknown const for type-checking: "+String(_this.value(t)),t);}}else if(_this.isIdent(t)){if(_this.name(t)==="Boolean"){hasBoolean=true;}if(__owns.call(PRIMORDIAL_TYPES,_this.name(t))){names.push(_this["const"](_this.name(t)));}else{names.push(__node("Call",57613,__node("Ident",57613,"__name"),[__wrap(t)],false,false));}tests.push(__node("MacroAccess",57649,74,1727,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(t)},"expression",false,false,false));}else{_this.error("Not implemented: typechecking for non-idents/consts within a type-union",t);}}if(tests.length){test=_this.binaryChain("&&",tests);}else{test=__const("true");}current=names[0];for(_i=1, _len=names.length;_i<_len;++_i){name=names[_i];current=__node("MacroAccess",57976,69,1736,{left:__node("MacroAccess",57976,69,1736,{left:__wrap(current),op:"",right:__node("Const",57976," or ")},"expression",false,false,false),op:"",right:__wrap(name)},"expression",false,false,false);}typeNames=current;result=__node("MacroAccess",58032,17,1737,{macroName:"if",macroData:{test:__wrap(test),body:__node("MacroAccess",58042,11,1738,{op:"throw",node:__node("Call",58055,__node("Ident",58055,"TypeError"),[__node("MacroAccess",58066,69,1738,{left:__node("MacroAccess",58066,69,1738,{left:__node("MacroAccess",58066,69,1738,{left:__node("MacroAccess",58066,69,1738,{left:__node("MacroAccess",58066,69,1738,{left:__node("Const",58066,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",58066," to be one of ")},"expression",false,false,false),op:"",right:__wrap(typeNames)},"expression",false,false,false),op:"",right:__node("Const",58066,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",58126,57,1738,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);if(!hasDefaultValue){if(hasNull||hasVoid){if(__xor(hasNull,hasVoid)){result=__node("MacroAccess",58268,17,1743,{macroName:"if",macroData:{test:__node("MacroAccess",58271,3,1743,{op:"not",node:__node("MacroAccess",58275,20,1743,{op:"?",node:__wrap(value)},"statement",false,true,false)},"statement",false,true,false),body:__node("MacroAccess",58284,30,1744,{left:__wrap(value),op:":=",right:__node("MacroAccess",58307,16,1744,{macroName:"if",macroData:{test:__wrap(hasNull),body:__const("null"),elseIfs:[],elseBody:__const("void")}},"expression",false,true,false)},"statement",false,true,false),elseIfs:[],elseBody:__wrap(result)}},"statement",false,true,false);}else{result=__node("MacroAccess",58420,17,1748,{macroName:"if",macroData:{test:__node("MacroAccess",58423,20,1748,{op:"?",node:__wrap(value)},"statement",false,false,false),body:__wrap(result),elseIfs:[]}},"statement",false,false,false);}}else if(hasBoolean){result=__node("MacroAccess",58506,17,1751,{macroName:"if",macroData:{test:__node("MacroAccess",58509,3,1751,{op:"not",node:__node("MacroAccess",58513,20,1751,{op:"?",node:__wrap(value)},"statement",false,true,false)},"statement",false,true,false),body:__node("MacroAccess",58522,30,1752,{left:__wrap(value),op:":=",right:__const("false")},"statement",false,true,false),elseIfs:[],elseBody:__wrap(result)}},"statement",false,true,false);}}return result;}else if(_this.isTypeGeneric(type)){if(_this.name(_this.basetype(type))==="Array"){index=_this.tmp("i",false,"number");subCheck=translateTypeCheck(__node("Access",58769,__wrap(value),__wrap(index)),__node("MacroAccess",58792,69,1759,{left:__node("MacroAccess",58792,69,1759,{left:__node("MacroAccess",58792,69,1759,{left:__wrap(valueName),inverted:false,op:"&",right:__node("Const",58807,"[")},"expression",false,false,false),inverted:false,op:"&",right:__wrap(index)},"expression",false,false,false),inverted:false,op:"&",right:__node("Const",58822,"]")},"expression",false,false,false),_this.typeArguments(type)[0],false);return __node("MacroAccess",58871,17,1760,{macroName:"if",macroData:{test:__node("MacroAccess",58874,3,1760,{op:"not",node:__node("MacroAccess",58878,27,1760,{op:"isArray!",node:__wrap(value)},"statement",false,false,false)},"statement",false,false,false),body:__node("MacroAccess",58896,11,1761,{op:"throw",node:__node("Call",58911,__node("Ident",58911,"TypeError"),[__node("MacroAccess",58922,69,1761,{left:__node("MacroAccess",58922,69,1761,{left:__node("MacroAccess",58922,69,1761,{left:__node("Const",58922,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",58922," to be an Array, got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",58969,57,1761,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",58999,106,1763,{macroName:"for",macroData:{init:__node("MacroAccess",59014,38,1763,{macroName:"let",macroData:{declarable:__node("MacroAccess",59017,37,1763,__node("MacroAccess",59017,31,1763,{isMutable:"mutable",ident:__wrap(index)},"expression",false,false,false),"expression",false,false,false),value:__node("Access",59034,__wrap(value),__node("Const",59042,"length"))}},"expression",false,false,false),test:__node("MacroAccess",59050,13,1763,{op:"postDec!",node:__wrap(index)},"statement",false,false,false),body:__wrap(subCheck)}},"statement",false,false,false)}},"statement",false,false,false);}else if(_this.name(_this.basetype(type))==="Function"){return translateTypeCheck(value,valueName,_this.basetype(type),hasDefaultValue);}else{genericType=translateGenericType(type);return __node("MacroAccess",59305,17,1770,{macroName:"if",macroData:{test:__node("MacroAccess",59317,74,1770,{left:__wrap(value),inverted:true,op:"instanceof",right:__wrap(genericType)},"statement",false,false,false),body:__node("MacroAccess",59354,11,1771,{op:"throw",node:__node("Call",59371,__node("Ident",59371,"TypeError"),[__node("MacroAccess",59382,69,1771,{left:__node("MacroAccess",59382,69,1771,{left:__node("MacroAccess",59382,69,1771,{left:__node("MacroAccess",59382,69,1771,{left:__node("MacroAccess",59382,69,1771,{left:__node("Const",59382,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",59382," to be a ")},"expression",false,false,false),op:"",right:__node("Call",59417,__node("Ident",59417,"__name"),[__wrap(genericType)],false,false)},"expression",false,false,false),op:"",right:__node("Const",59382,", got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",59446,57,1771,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[]}},"statement",false,false,false);}}else if(_this.isTypeObject(type)){for(_arr=[], _arr2=__toArray(_this.pairs(type)), _i=0, _len=_arr2.length;_i<_len;++_i){_ref=_arr2[_i];key=_ref.key;pairValue=_ref.value;_arr.push(translateTypeCheck(__node("Access",59595,__wrap(value),__wrap(key)),__node("MacroAccess",59616,69,1774,{left:__node("MacroAccess",59616,69,1774,{left:__wrap(valueName),inverted:false,op:"&",right:__node("Const",59631,".")},"expression",false,false,false),inverted:false,op:"&",right:__wrap(key)},"expression",false,false,false),pairValue,false));}checks=_arr;return __node("MacroAccess",59671,17,1775,{macroName:"if",macroData:{test:__node("MacroAccess",59674,3,1775,{op:"not",node:__node("MacroAccess",59678,28,1775,{op:"isObject!",node:__wrap(value)},"statement",false,false,false)},"statement",false,false,false),body:__node("MacroAccess",59697,11,1776,{op:"throw",node:__node("Call",59710,__node("Ident",59710,"TypeError"),[__node("MacroAccess",59721,69,1776,{left:__node("MacroAccess",59721,69,1776,{left:__node("MacroAccess",59721,69,1776,{left:__node("Const",59721,"Expected "),op:"",right:__wrap(valueName)},"expression",false,false,false),op:"",right:__node("Const",59721," to be an Object, got ")},"expression",false,false,false),op:"",right:__node("MacroAccess",59769,57,1776,{op:"typeof!",node:__wrap(value)},"expression",false,false,false)},"expression",false,false,false)],false,false)},"statement",false,false,false),elseIfs:[],elseBody:__wrap(checks)}},"statement",false,false,false);}else{return _this.error("Unknown type to translate: "+__typeof(type),type);}};init=[];changed=false;function translateParam(param,inDestructure){var _arr,_i,_len,arrayIdent,asType,blankIdent,defaultValue,element,elementIdent,elementParam,foundSpread,i,ident,initIndex,key,len,objectIdent,pair,paramIdent,spreadCounter,typeCheck,value,valueIdent;if(_this.isArray(param)){changed=true;arrayIdent=_this.tmp("p",false,"array");foundSpread=-1;for(_arr=__toArray(_this.elements(param)), i=0, len=_arr.length;i<len;++i){element=_arr[i];initIndex=init.length;elementParam=translateParam(element,true);if(elementParam!=null){elementIdent=_this.paramIdent(elementParam);if(!_this.paramIsSpread(elementParam)){if(foundSpread===-1){init.splice(initIndex,0,__node("MacroAccess",60499,38,1796,{macroName:"let",macroData:{declarable:__node("MacroAccess",60503,37,1796,__node("MacroAccess",60503,31,1796,{ident:__wrap(elementIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",60520,__wrap(arrayIdent),__wrap(i))}},"statement",false,false,false));}else{init.splice(initIndex,0,__node("MacroAccess",60599,38,1798,{macroName:"let",macroData:{declarable:__node("MacroAccess",60603,37,1798,__node("MacroAccess",60603,31,1798,{ident:__wrap(elementIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",60620,__wrap(arrayIdent),__node("MacroAccess",60634,66,1798,{left:__wrap(spreadCounter),inverted:false,op:"+",right:__node("MacroAccess",60653,66,1798,{left:__node("MacroAccess",60653,66,1798,{left:__wrap(i),inverted:false,op:"-",right:__wrap(foundSpread)},"expression",false,false,false),inverted:false,op:"-",right:__node("Const",60674,1)},"expression",false,false,false)},"expression",false,false,false))}},"statement",false,false,false));}}else{if(foundSpread!==-1){_this.error("Cannot have multiple spread parameters in an array destructure",element);}foundSpread=i;if(i===len-1){init.splice(initIndex,0,__node("MacroAccess",60924,38,1804,{macroName:"let",macroData:{declarable:__node("MacroAccess",60928,37,1804,__node("MacroAccess",60928,31,1804,{ident:__wrap(elementIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",60945,__node("Ident",60945,"__slice"),[__wrap(arrayIdent),__node("Spread",60968,__node("MacroAccess",60973,16,1804,{macroName:"if",macroData:{test:__node("MacroAccess",60975,5,1804,{left:__wrap(i),inverted:false,op:"==",right:__node("Const",60982,0)},"expression",false,false,false),body:__node("Array",60988,[]),elseIfs:[],elseBody:__node("Array",60996,[__wrap(i)])}},"expression",false,false,false))],false,true)}},"statement",false,false,false));}else{spreadCounter=_this.tmp("i",false,"number");init.splice(initIndex,0,__node("Block",61121,[__node("MacroAccess",61121,38,1808,{macroName:"let",macroData:{declarable:__node("MacroAccess",61140,37,1808,__node("MacroAccess",61140,31,1808,{isMutable:"mutable",ident:__wrap(spreadCounter)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",61166,66,1808,{left:__node("Access",61166,__wrap(arrayIdent),__node("Const",61180,"length")),inverted:false,op:"-",right:__node("MacroAccess",61190,66,1808,{left:__node("MacroAccess",61190,66,1808,{left:__wrap(len),inverted:false,op:"-",right:__wrap(i)},"expression",false,false,false),inverted:false,op:"-",right:__node("Const",61202,1)},"expression",false,false,false)},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",61205,38,1809,{macroName:"let",macroData:{declarable:__node("MacroAccess",61224,37,1809,__node("MacroAccess",61224,31,1809,{ident:__wrap(elementIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",61241,17,1809,{macroName:"if",macroData:{test:__node("MacroAccess",61244,79,1809,{left:__wrap(spreadCounter),inverted:false,op:">",right:__wrap(i)},"expression",false,false,false),body:__node("Call",61266,__node("Ident",61266,"__slice"),[__wrap(arrayIdent),__wrap(i),__wrap(spreadCounter)],false,true),elseIfs:[],elseBody:__node("Block",61348,[__node("MacroAccess",61348,30,1812,{left:__wrap(spreadCounter),op:":=",right:__wrap(i)},"statement",false,false,false),__node("Array",61388,[])],null)}},"expression",false,false,false)}},"statement",false,false,false)],null));}}}}return _this.rewrap(_this.param(arrayIdent,null,false,false,null),param);}else if(_this.isObject(param)){changed=true;objectIdent=_this.tmp("p",false,"object");for(_arr=__toArray(_this.pairs(param)), _i=0, _len=_arr.length;_i<_len;++_i){pair=_arr[_i];initIndex=init.length;value=translateParam(pair.value,true);if(value!=null){valueIdent=_this.paramIdent(value);key=pair.key;init.splice(initIndex,0,__node("MacroAccess",61842,38,1825,{macroName:"let",macroData:{declarable:__node("MacroAccess",61846,37,1825,__node("MacroAccess",61846,31,1825,{ident:__wrap(valueIdent)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",61861,__wrap(objectIdent),__wrap(key))}},"statement",false,false,false));}}return _this.rewrap(_this.param(objectIdent,null,false,false,null),param);}else if(_this.isParam(param)){defaultValue=_this.paramDefaultValue(param);asType=_this.paramType(param);paramIdent=_this.paramIdent(param);if(defaultValue!=null||asType!=null||!_this.isIdentOrTmp(paramIdent)){changed=true;if(_this.isIdentOrTmp(paramIdent)){ident=paramIdent;}else if(_this.isAccess(paramIdent)){ident=_this.ident(_this.value(_this.child(paramIdent)));}else{ident=_this.error("Not an ident or this-access: "+__typeof(paramIdent)+" "+__strnum(paramIdent.inspect()),paramIdent);}if(asType!=null){typeCheck=translateTypeCheck(ident,_this.name(ident),asType,defaultValue!=null);}else{typeCheck=_this.noop();}init.push(defaultValue!=null?__node("MacroAccess",62699,17,1846,{macroName:"if",macroData:{test:__node("MacroAccess",62713,3,1846,{op:"not",node:__node("MacroAccess",62717,20,1846,{op:"?",node:__wrap(ident)},"statement",false,true,false)},"statement",false,true,false),body:__node("MacroAccess",62726,30,1847,{left:__wrap(ident),op:":=",right:__wrap(defaultValue)},"statement",false,true,false),elseIfs:[],elseBody:__wrap(typeCheck)}},"statement",false,true,false):typeCheck);if(paramIdent!==ident){init.push(__node("MacroAccess",62897,30,1853,{left:__wrap(paramIdent),op:":=",right:__wrap(ident)},"statement",false,false,false));}return _this.rewrap(_this.param(ident,null,_this.paramIsSpread(param),_this.paramIsMutable(param),null),param);}else{return param;}}else if(_this.isNothing(param)){changed=true;if(inDestructure){return null;}else{blankIdent=_this.tmp("p",false,"object");return _this.rewrap(_this.param(blankIdent,null,false,false,null),param);}}else{return _this.error("Unknown param type: "+__typeof(param),param);}};foundSpread=-1;params=[];for(_arr=__toArray(this.funcParams(node)), i=0, len=_arr.length;i<len;++i){param=_arr[i];initIndex=init.length;p=translateParam(param,false);ident=this.paramIdent(p);if(this.paramIsSpread(p)){if(foundSpread!==-1){this.error("Cannot have two spread parameters",p);}changed=true;foundSpread=i;if(i===len-1){init.splice(initIndex,0,__node("MacroAccess",63788,38,1881,{macroName:"let",macroData:{declarable:__node("MacroAccess",63801,37,1881,__node("MacroAccess",63801,31,1881,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",63810,__node("Ident",63810,"__slice"),[__node("Args",63820),__node("Spread",63830,__node("MacroAccess",63835,16,1881,{macroName:"if",macroData:{test:__node("MacroAccess",63837,5,1881,{left:__wrap(i),inverted:false,op:"==",right:__node("Const",63844,0)},"expression",false,false,false),body:__node("Array",63850,[]),elseIfs:[],elseBody:__node("Array",63858,[__wrap(i)])}},"expression",false,false,false))],false,true)}},"statement",false,false,false));}else{spreadCounter=this.tmp("i",false,"number");init.splice(initIndex,0,__node("Block",63965,[__node("MacroAccess",63965,38,1885,{macroName:"let",macroData:{declarable:__node("MacroAccess",63978,37,1885,__node("MacroAccess",63978,31,1885,{isMutable:"mutable",ident:__wrap(spreadCounter)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",64004,66,1885,{left:__node("Access",64004,__node("Args",64004),__node("Const",64015,"length")),inverted:false,op:"-",right:__node("MacroAccess",64025,66,1885,{left:__node("MacroAccess",64025,66,1885,{left:__wrap(len),inverted:false,op:"-",right:__wrap(i)},"expression",false,false,false),inverted:false,op:"-",right:__node("Const",64037,1)},"expression",false,false,false)},"expression",false,false,false)}},"statement",false,false,false),__node("MacroAccess",64040,38,1886,{macroName:"let",macroData:{declarable:__node("MacroAccess",64053,37,1886,__node("MacroAccess",64053,31,1886,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("MacroAccess",64062,17,1886,{macroName:"if",macroData:{test:__node("MacroAccess",64065,79,1886,{left:__wrap(spreadCounter),inverted:false,op:">",right:__wrap(i)},"expression",false,false,false),body:__node("Call",64087,__node("Ident",64087,"__slice"),[__node("Args",64108),__wrap(i),__wrap(spreadCounter)],false,true),elseIfs:[],elseBody:__node("Block",64154,[__node("MacroAccess",64154,30,1889,{left:__wrap(spreadCounter),op:":=",right:__wrap(i)},"statement",false,false,false),__node("Array",64188,[])],null)}},"expression",false,false,false)}},"statement",false,false,false)],null));}}else if(foundSpread===-1){params.push(p);}else{init.splice(initIndex,0,__node("MacroAccess",64312,38,1896,{macroName:"let",macroData:{declarable:__node("MacroAccess",64325,37,1896,__node("MacroAccess",64325,31,1896,{ident:__wrap(ident)},"statement",false,false,false),"statement",false,false,false),value:__node("Access",64334,__node("Args",64334),__node("MacroAccess",64345,66,1896,{left:__wrap(spreadCounter),inverted:false,op:"+",right:__node("MacroAccess",64364,66,1896,{left:__node("MacroAccess",64364,66,1896,{left:__wrap(i),inverted:false,op:"-",right:__wrap(foundSpread)},"expression",false,false,false),inverted:false,op:"-",right:__node("Const",64385,1)},"expression",false,false,false)},"expression",false,false,false))}},"statement",false,false,false));}}if(init.length||changed||this.funcIsCurried(node)){body=this.funcBody(node);result=this.rewrap(this.func(params,__node("Block",64534,[__wrap(init),__wrap(body)],null),this.funcIsAutoReturn(node)&&!this.isNothing(body),this.funcIsBound(node),false,this.funcAsType(node),this.funcIsGenerator(node),this.funcGeneric(node)),node);}else{result=node;}if(this.funcIsCurried(node)){result=__node("Call",64816,__node("Ident",64816,"__curry"),[__wrap(params.length),__wrap(result)],false,false);}genericArgs=this.funcGeneric(node);if(__num(genericArgs.length)>0){genericCache=this.tmp("cache",false,"object");for(_arr=[], _arr2=__toArray(genericArgs), _i=0, _len=_arr2.length;_i<_len;++_i){genericArg=_arr2[_i];_arr.push(this.param(genericArg));}genericParams=_arr;makeFunctionIdent=this.tmp("make",false,"function");instanceofs={};for(_arr=__toArray(genericArgs), _i=0, _len=_arr.length;_i<_len;++_i){genericArg=_arr[_i];name=this.name(genericArg);key=this.tmp("instanceof_"+__strnum(name),false,"function");instanceofs[name]={key:key,"let":__node("MacroAccess",65327,38,1927,{macroName:"let",macroData:{declarable:__node("MacroAccess",65331,37,1927,__node("MacroAccess",65331,31,1927,{ident:__wrap(key)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",65338,__node("Ident",65338,"__getInstanceof"),[__wrap(genericArg)],false,false)}},"statement",false,false,false),used:false};}result=this.walk(this.macroExpandAll(result),function(node){var func,left,name,right;if(_this.isBinary(node)&&_this.op(node)==="instanceof"){right=_this.right(node);if(_this.isIdent(right)){name=_this.name(right);if(__owns.call(instanceofs,name)){func=instanceofs[name].key;instanceofs[name].used=true;left=_this.left(node);return __node("Call",65788,__wrap(func),[__wrap(left)],false,false);}}}});_arr=[];for(name in instanceofs){if(__owns.call(instanceofs,name)){item=instanceofs[name];if(item.used){_arr.push(item["let"]);}}}instanceofLets=_arr;if(instanceofLets.length){result=__node("Block",65944,[__wrap(instanceofLets),__wrap(result)],null);}makeFunctionFunc=this.func(genericParams,result,true,false);result=__node("Call",66074,__node("Ident",66074,"__genericFunc"),[__wrap(genericArgs.length),__wrap(makeFunctionFunc)],false,false);}return result;};}.call(this));',
           operators: "mutateFunction!",
           options: {type: "node", label: "mutateFunction"},
           id: 117
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("Call",2310,7,__node("Ident",2310,7,"__keys"),[__wrap(node)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("Call",77664,__node("Ident",77664,"__keys"),[__wrap(node)],false,false);};}.call(this));',
           operators: "keys!",
           id: 124
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("Call",2319,7,__node("Ident",2319,7,"__allkeys"),[__wrap(node)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var node,op;op=macroData.op;node=macroData.node;return __node("Call",77820,__node("Ident",77820,"__allkeys"),[__wrap(node)],false,false);};}.call(this));',
           operators: "allkeys!",
           id: 125
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var _arr,_i,_len,element,item,node,op,parts,set;op=macroData.op;node=macroData.node;set=this.tmp("s",false,"object");if(this.isArray(node)&&!this.arrayHasSpread(node)){if(this.elements(node).length===0){return __node("Call",3461,11,__node("Ident",3461,11,"Set"),[],false,false);}else{parts=[];for(_arr=__toArray(this.elements(node)), _i=0, _len=_arr.length;_i<_len;++_i){element=_arr[_i];parts.push(__node("Call",3465,23,__node("Access",3465,23,__wrap(set),__node("Const",3465,29,"add")),[__wrap(element)],false,false));}return __node("Block",3467,1,[__node("MacroAccess",3467,1,38,3467,{macroName:"let",macroData:{declarable:__node("MacroAccess",3467,12,37,3467,__node("MacroAccess",3467,12,31,3467,{ident:__wrap(set)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",3467,19,__node("Ident",3467,19,"Set"),[],false,false)}},"statement",false,false,false),__wrap(parts),__wrap(set)],null);}}else{item=this.tmp("x",false,"any");return __node("Block",3473,1,[__node("MacroAccess",3473,1,38,3473,{macroName:"let",macroData:{declarable:__node("MacroAccess",3473,10,37,3473,__node("MacroAccess",3473,10,31,3473,{ident:__wrap(set)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",3473,17,__node("Ident",3473,17,"Set"),[],false,false)}},"statement",false,false,false),__node("MacroAccess",3474,1,113,3474,{macroName:"for",macroData:{value:__node("MacroAccess",3474,10,37,3474,__node("MacroAccess",3474,10,31,3474,{ident:__wrap(item)},"statement",false,false,false),"statement",false,false,false),array:__wrap(node),body:__node("Call",3475,1,__node("Access",3475,1,__wrap(set),__node("Const",3475,14,"add")),[__wrap(item)],false,false)}},"statement",false,false,false),__wrap(set)],null);}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var _arr,_i,_len,element,item,node,op,parts,set;op=macroData.op;node=macroData.node;set=this.tmp("s",false,"object");if(this.isArray(node)&&!this.arrayHasSpread(node)){if(this.elements(node).length===0){return __node("Call",113722,__node("Ident",113722,"Set"),[],false,false);}else{parts=[];for(_arr=__toArray(this.elements(node)), _i=0, _len=_arr.length;_i<_len;++_i){element=_arr[_i];parts.push(__node("Call",113818,__node("Access",113818,__wrap(set),__node("Const",113824,"add")),[__wrap(element)],false,false));}return __node("Block",113847,[__node("MacroAccess",113847,38,3467,{macroName:"let",macroData:{declarable:__node("MacroAccess",113858,37,3467,__node("MacroAccess",113858,31,3467,{ident:__wrap(set)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",113865,__node("Ident",113865,"Set"),[],false,false)}},"statement",false,false,false),__wrap(parts),__wrap(set)],null);}}else{item=this.tmp("x",false,"any");return __node("Block",113951,[__node("MacroAccess",113951,38,3473,{macroName:"let",macroData:{declarable:__node("MacroAccess",113960,37,3473,__node("MacroAccess",113960,31,3473,{ident:__wrap(set)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",113967,__node("Ident",113967,"Set"),[],false,false)}},"statement",false,false,false),__node("MacroAccess",113974,113,3474,{macroName:"for",macroData:{value:__node("MacroAccess",113983,37,3474,__node("MacroAccess",113983,31,3474,{ident:__wrap(item)},"statement",false,false,false),"statement",false,false,false),array:__wrap(node),body:__node("Call",113999,__node("Access",113999,__wrap(set),__node("Const",114012,"add")),[__wrap(item)],false,false)}},"statement",false,false,false),__wrap(set)],null);}};}.call(this));',
           operators: "set!",
           options: {type: "object", label: "constructSet"},
           id: 152
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var _arr,_i,_len,_ref,key,map,node,op,pairs,parts,property,value;op=macroData.op;node=macroData.node;if(!this.isObject(node)){this.error("map! can only be used on literal objects",node);}pairs=this.pairs(node);if(pairs.length===0){return __node("Call",3484,9,__node("Ident",3484,9,"Map"),[],false,false);}else{map=this.tmp("m",false,"object");parts=[];for(_arr=__toArray(pairs), _i=0, _len=_arr.length;_i<_len;++_i){_ref=_arr[_i];key=_ref.key;value=_ref.value;property=_ref.property;if(property!=null){this.error("Cannot use map! on an object with custom properties",key);}parts.push(__node("Call",3491,21,__node("Access",3491,21,__wrap(map),__node("Const",3491,27,"set")),[__wrap(key),__wrap(value)],false,false));}return __node("Block",3493,1,[__node("MacroAccess",3493,1,38,3493,{macroName:"let",macroData:{declarable:__node("MacroAccess",3493,10,37,3493,__node("MacroAccess",3493,10,31,3493,{ident:__wrap(map)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",3493,17,__node("Ident",3493,17,"Map"),[],false,false)}},"statement",false,false,false),__wrap(parts),__wrap(map)],null);}};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var _arr,_i,_len,_ref,key,map,node,op,pairs,parts,property,value;op=macroData.op;node=macroData.node;if(!this.isObject(node)){this.error("map! can only be used on literal objects",node);}pairs=this.pairs(node);if(pairs.length===0){return __node("Call",114250,__node("Ident",114250,"Map"),[],false,false);}else{map=this.tmp("m",false,"object");parts=[];for(_arr=__toArray(pairs), _i=0, _len=_arr.length;_i<_len;++_i){_ref=_arr[_i];key=_ref.key;value=_ref.value;property=_ref.property;if(property!=null){this.error("Cannot use map! on an object with custom properties",key);}parts.push(__node("Call",114474,__node("Access",114474,__wrap(map),__node("Const",114480,"set")),[__wrap(key),__wrap(value)],false,false));}return __node("Block",114505,[__node("MacroAccess",114505,38,3493,{macroName:"let",macroData:{declarable:__node("MacroAccess",114514,37,3493,__node("MacroAccess",114514,31,3493,{ident:__wrap(map)},"statement",false,false,false),"statement",false,false,false),value:__node("Call",114521,__node("Ident",114521,"Map"),[],false,false)}},"statement",false,false,false),__wrap(parts),__wrap(map)],null);}};}.call(this));',
           operators: "map!",
           options: {type: "object", label: "constructMap"},
           id: 153
         },
         {
-          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var node,op,top;op=macroData.op;node=macroData.node;if(!node.cascades||!node.cascades.length){this.error("cascade! can only be used on a CascadeNode, got "+__typeof(node),node);}top=node.node;return this.maybeCache(top,function(setTop,top){var _arr,_arr2,_len,cascade,i,parts;for(_arr=[], _arr2=__toArray(node.cascades), i=0, _len=_arr2.length;i<_len;++i){cascade=_arr2[i];_arr.push(cascade(top));}parts=_arr;return __node("Block",3976,1,[__wrap(setTop),__wrap(parts),__wrap(top)],null);});};}.call(this));',
+          code: 'return (function(){"use strict";var __isArray,__slice,__toArray,__typeof;__isArray=typeof Array.isArray==="function"?Array.isArray:(function(){var _toString;_toString=Object.prototype.toString;return function(x){return _toString.call(x)==="[object Array]";};}());__slice=Array.prototype.slice;__toArray=function(x){if(x==null){throw TypeError("Expected an object, got "+__typeof(x));}else if(__isArray(x)){return x;}else if(typeof x==="string"){return x.split("");}else{return __slice.call(x);}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroData,__wrap,__node,__const){var node,op,top;op=macroData.op;node=macroData.node;if(!node.cascades||!node.cascades.length){this.error("cascade! can only be used on a CascadeNode, got "+__typeof(node),node);}top=node.node;return this.maybeCache(top,function(setTop,top){var _arr,_arr2,_len,cascade,i,parts;for(_arr=[], _arr2=__toArray(node.cascades), i=0, _len=_arr2.length;i<_len;++i){cascade=_arr2[i];_arr.push(cascade(top));}parts=_arr;return __node("Block",128223,[__wrap(setTop),__wrap(parts),__wrap(top)],null);});};}.call(this));',
           operators: "cascade!",
           options: {label: "cascade"},
           id: 171
@@ -37067,8 +36281,8 @@
                   ["Ident", 483, 16, 0, "o"],
                   "===",
                   "Const",
-                  0,
-                  0,
+                  1,
+                  1,
                   0
                 ],
                 [
@@ -37095,8 +36309,8 @@
                   ["Ident", 485, 21, 0, "o"],
                   "===",
                   "Const",
-                  0,
-                  0,
+                  1,
+                  1,
                   0,
                   null
                 ],
@@ -38521,8 +37735,8 @@
                 ],
                 "!=",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -38799,8 +38013,8 @@
               ["Ident", 986, 9, 0, "x"],
               "==",
               "Const",
-              0,
-              0,
+              1,
+              1,
               0,
               null
             ],
@@ -39584,8 +38798,8 @@
                     ],
                     "!=",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -39655,8 +38869,8 @@
                     ["Ident", 1646, 13, 0, "item"],
                     "==",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -40038,8 +39252,8 @@
                 ["Ident", 1951, 74, 0, "inclusive"],
                 "==",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -40051,8 +39265,8 @@
                 ["Ident", 1951, 74, 0, "inclusive"],
                 "=",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 false
               ],
@@ -41739,8 +40953,8 @@
               ["Ident", 2122, 9, 0, "iterable"],
               "==",
               "Const",
-              0,
-              0,
+              1,
+              1,
               0,
               null
             ],
@@ -42344,8 +41558,8 @@
                       0,
                       [
                         "BlockExpression",
-                        0,
-                        0,
+                        1,
+                        1,
                         0,
                         [
                           "Binary",
@@ -42589,8 +41803,8 @@
               ["Ident", 1478, 13, 0, "_some"],
               "=",
               "Const",
-              0,
-              0,
+              1,
+              1,
               0,
               false
             ],
@@ -42602,8 +41816,8 @@
               0,
               [
                 "BlockExpression",
-                0,
-                0,
+                1,
+                1,
                 0,
                 [
                   "Binary",
@@ -42710,8 +41924,8 @@
                     ["Ident", 1478, 13, 0, "_some"],
                     "=",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     true
                   ],
@@ -42943,8 +42157,8 @@
                   ["Ident", 2350, 11, 0, "ctor"],
                   "==",
                   "Const",
-                  0,
-                  0,
+                  1,
+                  1,
                   0,
                   null
                 ],
@@ -43363,8 +42577,8 @@
                     ["Ident", 2367, 24, 0, "silentFail"],
                     "==",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -43376,8 +42590,8 @@
                     ["Ident", 2367, 24, 0, "silentFail"],
                     "=",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     false
                   ],
@@ -43686,8 +42900,8 @@
                 ["Ident", 2472, 69, 0, "hasResult"],
                 "==",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -43699,8 +42913,8 @@
                 ["Ident", 2472, 69, 0, "hasResult"],
                 "=",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 false
               ],
@@ -44112,8 +43326,8 @@
                     ["Ident", 2487, 7, 0, "err"],
                     "!=",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -44125,8 +43339,8 @@
                   ["Ident", 2487, 20, 0, "broken"],
                   "==",
                   "Const",
-                  0,
-                  0,
+                  1,
+                  1,
                   0,
                   null
                 ],
@@ -44169,8 +43383,8 @@
                     ["Ident", 2489, 26, 0, "broken"],
                     "==",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -44318,8 +43532,8 @@
                       ["Ident", 2495, 32, 0, "broken"],
                       "==",
                       "Const",
-                      0,
-                      0,
+                      1,
+                      1,
                       0,
                       null
                     ],
@@ -44459,8 +43673,8 @@
                     ["Ident", 2500, 27, 0, "broken"],
                     "!=",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -44510,8 +43724,8 @@
                       ["Ident", 2502, 9, 0, "broken"],
                       "!=",
                       "Const",
-                      0,
-                      0,
+                      1,
+                      1,
                       0,
                       null
                     ],
@@ -44679,8 +43893,8 @@
                 ["Ident", 2508, 56, 0, "iterator"],
                 "===",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -44800,8 +44014,8 @@
                 ["Ident", 2508, 86, 0, "hasResult"],
                 "==",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -44813,8 +44027,8 @@
                 ["Ident", 2508, 86, 0, "hasResult"],
                 "=",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 false
               ],
@@ -45192,8 +44406,8 @@
                     ["Ident", 2520, 7, 0, "err"],
                     "!=",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -45205,8 +44419,8 @@
                   ["Ident", 2520, 20, 0, "broken"],
                   "==",
                   "Const",
-                  0,
-                  0,
+                  1,
+                  1,
                   0,
                   null
                 ],
@@ -45249,8 +44463,8 @@
                     ["Ident", 2522, 26, 0, "broken"],
                     "==",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -45488,8 +44702,8 @@
                       ["Ident", 2535, 32, 0, "broken"],
                       "==",
                       "Const",
-                      0,
-                      0,
+                      1,
+                      1,
                       0,
                       null
                     ],
@@ -45767,8 +44981,8 @@
                     ["Ident", 2554, 27, 0, "broken"],
                     "!=",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -45826,8 +45040,8 @@
                       ["Ident", 2557, 9, 0, "broken"],
                       "!=",
                       "Const",
-                      0,
-                      0,
+                      1,
+                      1,
                       0,
                       null
                     ],
@@ -46064,8 +45278,8 @@
                 ["Ident", 3138, 9, 0, "parent"],
                 "==",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -46655,8 +45869,8 @@
                         ["Ident", 3161, 7, 0, "object"],
                         "===",
                         "Const",
-                        0,
-                        0,
+                        1,
+                        1,
                         0,
                         null
                       ],
@@ -46819,8 +46033,8 @@
                       ["Ident", 3161, 43, 0, "descriptor"],
                       "===",
                       "Const",
-                      0,
-                      0,
+                      1,
+                      1,
                       0,
                       null
                     ],
@@ -50103,8 +49317,8 @@
                     0,
                     [
                       "BlockExpression",
-                      0,
-                      0,
+                      1,
+                      1,
                       0,
                       [
                         "Binary",
@@ -50273,8 +49487,8 @@
                     0,
                     [
                       "BlockExpression",
-                      0,
-                      0,
+                      1,
+                      1,
                       0,
                       [
                         "Binary",
@@ -50647,8 +49861,8 @@
                     ["Ident", 3386, 7, 0, "iterable"],
                     "!=",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -50679,7 +49893,7 @@
                         0,
                         ["Ident", 3387, 17, 0, "iterable"]
                       ],
-                      ["Const", 0, 0, 0, true],
+                      ["Const", 1, 1, 0, true],
                       0,
                       "BlockStatement",
                       2176,
@@ -50826,8 +50040,8 @@
                     ],
                     ["Ident", 3387, 1, 0, "_e"],
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0
                   ]
                 ],
@@ -51520,14 +50734,14 @@
                   0,
                   0,
                   ["Ident", 3417, 11, 0, "_state"],
-                  0,
-                  0,
+                  1,
+                  1,
                   null,
-                  ["Const", 0, 0, 0, 0],
+                  ["Const", 1, 1, 0, 0],
                   [
                     "BlockStatement",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     0,
                     [
@@ -52034,14 +51248,14 @@
                   0,
                   0,
                   ["Ident", 3421, 13, 0, "_state"],
-                  0,
-                  0,
+                  1,
+                  1,
                   null,
-                  ["Const", 0, 0, 0, 0],
+                  ["Const", 1, 1, 0, 0],
                   [
                     "BlockStatement",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     0,
                     [
@@ -53220,8 +52434,8 @@
                     ["Ident", 3434, 7, 0, "iterable"],
                     "!=",
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     null
                   ],
@@ -53252,7 +52466,7 @@
                         0,
                         ["Ident", 3435, 20, 0, "iterable"]
                       ],
-                      ["Const", 0, 0, 0, true],
+                      ["Const", 1, 1, 0, true],
                       0,
                       "BlockStatement",
                       2176,
@@ -53374,8 +52588,8 @@
                     ],
                     ["Ident", 3435, 1, 0, "_e"],
                     "Const",
-                    0,
-                    0,
+                    1,
+                    1,
                     0
                   ]
                 ],
@@ -53830,14 +53044,14 @@
                   0,
                   0,
                   ["Ident", 3452, 13, 0, "_state"],
-                  0,
-                  0,
+                  1,
+                  1,
                   null,
-                  ["Const", 0, 0, 0, 0],
+                  ["Const", 1, 1, 0, 0],
                   [
                     "BlockStatement",
-                    0,
-                    0,
+                    1,
+                    1,
                     0,
                     0,
                     [
@@ -54545,7 +53759,7 @@
                     ],
                     0,
                     ["Arguments", 1881, 33, 0],
-                    ["Const", 0, 0, 0, 1]
+                    ["Const", 1, 1, 0, 1]
                   ],
                   [
                     "IfStatement",
@@ -54729,7 +53943,7 @@
               ],
               0,
               ["Arguments", 1881, 33, 0],
-              ["Const", 0, 0, 0, 1]
+              ["Const", 1, 1, 0, 1]
             ],
             [
               "IfStatement",
@@ -55005,8 +54219,8 @@
                           0,
                           [
                             "BlockExpression",
-                            0,
-                            0,
+                            1,
+                            1,
                             0,
                             [
                               "Binary",
@@ -55189,8 +54403,8 @@
                         ["Ident", 3536, 1, 0, "_ref"],
                         ".",
                         "Const",
-                        0,
-                        0,
+                        1,
+                        1,
                         0,
                         "promise"
                       ],
@@ -55208,8 +54422,8 @@
                         ["Ident", 3536, 1, 0, "_ref"],
                         ".",
                         "Const",
-                        0,
-                        0,
+                        1,
+                        1,
                         0,
                         "fulfill"
                       ],
@@ -55227,8 +54441,8 @@
                         ["Ident", 3536, 1, 0, "_ref"],
                         ".",
                         "Const",
-                        0,
-                        0,
+                        1,
+                        1,
                         0,
                         "reject"
                       ],
@@ -56035,8 +55249,8 @@
                 ["Ident", 3591, 42, 0, "generator"],
                 "===",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -56068,8 +55282,8 @@
                 ]
               ],
               "BlockStatement",
-              0,
-              0,
+              1,
+              1,
               0,
               0,
               [
@@ -56239,8 +55453,8 @@
                 ["Ident", 3591, 83, 0, "allowSync"],
                 "==",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -56252,8 +55466,8 @@
                 ["Ident", 3591, 83, 0, "allowSync"],
                 "=",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 false
               ],
@@ -56577,8 +55791,8 @@
                 ["Ident", 3605, 43, 0, "allowSync"],
                 "==",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -56590,8 +55804,8 @@
                 ["Ident", 3605, 43, 0, "allowSync"],
                 "=",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 false
               ],
@@ -56903,8 +56117,8 @@
                 ["Ident", 3649, 34, 0, "promise"],
                 "===",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -57262,8 +56476,8 @@
                       ["Ident", 3662, 7, 0, "err"],
                       "!=",
                       "Const",
-                      0,
-                      0,
+                      1,
+                      1,
                       0,
                       null
                     ],
@@ -57934,8 +57148,8 @@
                 ["Ident", 3731, 35, 0, "promises"],
                 "===",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -59407,8 +58621,8 @@
                 ["Ident", 3807, 58, 0, "iterator"],
                 "===",
                 "Const",
-                0,
-                0,
+                1,
+                1,
                 0,
                 null
               ],
@@ -60267,12 +59481,12 @@
           id: 30
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",311,9,1,311,{left:__wrap(setLeft),inverted:false,op:"and",right:__node("MacroAccess",311,25,30,311,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",10884,1,311,{left:__wrap(setLeft),inverted:false,op:"and",right:__node("MacroAccess",10900,30,311,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
           operators: "and=",
           id: 43
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",315,9,2,315,{left:__wrap(setLeft),inverted:false,op:"or",right:__node("MacroAccess",315,24,30,315,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",11000,2,315,{left:__wrap(setLeft),inverted:false,op:"or",right:__node("MacroAccess",11015,30,315,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
           operators: "or=",
           id: 44
         },
@@ -60283,19 +59497,19 @@
           id: 46
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",350,9,30,350,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",350,22,45,350,{left:__wrap(left),inverted:false,op:"~\\\\",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",11962,30,350,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",11975,45,350,{left:__wrap(left),inverted:false,op:"~\\\\",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
           operators: "~\\=",
           options: {type: "number"},
           id: 47
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",404,9,30,404,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",404,22,50,404,{left:__wrap(left),inverted:false,op:"~^",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var left,op,right;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",13617,30,404,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",13630,50,404,{left:__wrap(left),inverted:false,op:"~^",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
           operators: "~^=",
           options: {type: "number"},
           id: 51
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right,value;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isConst(right)){value=this.value(right);if(value===1){return this.unary("++",left);}else if(value===-1){return this.unary("--",left);}else if(typeof value==="number"&&!this.isType(left,"numeric")){return this.assign(left,"-=",this["const"](-value));}}if(this.isType(left,"numeric")){if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){if(!_this.isType(n,"numeric")){n=__node("MacroAccess",420,20,48,420,{op:"~+",node:__wrap(n)},"expression",false,false,false);}return _this.assign(left,"+=",n);},true);}else{if(!this.isType(right,"numeric")){right=__node("MacroAccess",424,22,48,424,{op:"~+",node:__wrap(right)},"expression",false,false,false);}return this.assign(left,"+=",right);}}else if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){return _this.assign(left,"-=",__node("MacroAccess",428,72,48,428,{op:"~-",node:__wrap(n)},"expression",false,false,false));},true);}else{return this.assign(left,"-=",__node("MacroAccess",430,31,48,430,{op:"~-",node:__wrap(right)},"expression",false,false,false));}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right,value;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isConst(right)){value=this.value(right);if(value===1){return this.unary("++",left);}else if(value===-1){return this.unary("--",left);}else if(typeof value==="number"&&!this.isType(left,"numeric")){return this.assign(left,"-=",this["const"](-value));}}if(this.isType(left,"numeric")){if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){if(!_this.isType(n,"numeric")){n=__node("MacroAccess",14158,48,420,{op:"~+",node:__wrap(n)},"expression",false,false,false);}return _this.assign(left,"+=",n);},true);}else{if(!this.isType(right,"numeric")){right=__node("MacroAccess",14269,48,424,{op:"~+",node:__wrap(right)},"expression",false,false,false);}return this.assign(left,"+=",right);}}else if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){return _this.assign(left,"-=",__node("MacroAccess",14447,48,428,{op:"~-",node:__wrap(n)},"expression",false,false,false));},true);}else{return this.assign(left,"-=",__node("MacroAccess",14499,48,430,{op:"~-",node:__wrap(right)},"expression",false,false,false));}};}.call(this));',
           operators: "~+=",
           options: {type: "number"},
           id: 52
@@ -60313,56 +59527,56 @@
           id: 55
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){if(_this.hasType(left,"numeric")&&_this.hasType(n,"numeric")){n=__node("MacroAccess",473,18,29,473,{left:__node("Const",473,19,""),inverted:false,op:"~&",right:__node("Ident",473,24,"n")},"expression",false,false,false);}return _this.assign(left,"+=",n);},true);}else{if(this.hasType(left,"numeric")&&this.hasType(right,"numeric")){right=__node("MacroAccess",477,20,29,477,{left:__node("Const",477,21,""),inverted:false,op:"~&",right:__node("Ident",477,26,"right")},"expression",false,false,false);}return this.assign(left,"+=",right);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.canMutateLast(right)&&this.isIdentOrTmp(left)){return this.mutateLast(right||this.noop(),function(n){if(_this.hasType(left,"numeric")&&_this.hasType(n,"numeric")){n=__node("MacroAccess",15899,29,473,{left:__node("Const",15900,""),inverted:false,op:"~&",right:__node("Ident",15905,"n")},"expression",false,false,false);}return _this.assign(left,"+=",n);},true);}else{if(this.hasType(left,"numeric")&&this.hasType(right,"numeric")){right=__node("MacroAccess",16033,29,477,{left:__node("Const",16034,""),inverted:false,op:"~&",right:__node("Ident",16039,"right")},"expression",false,false,false);}return this.assign(left,"+=",right);}};}.call(this));',
           operators: "~&=",
           options: {type: "string"},
           id: 56
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",564,9,30,564,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",564,22,62,564,{left:__wrap(left),inverted:false,op:"^",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",18310,30,564,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",18323,62,564,{left:__wrap(left),inverted:false,op:"^",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
           operators: "^=",
           options: {type: "number"},
           id: 63
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",595,9,30,595,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",595,22,64,595,{left:__wrap(left),inverted:false,op:"\\\\",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",19165,30,595,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",19178,64,595,{left:__wrap(left),inverted:false,op:"\\\\",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
           operators: "\\=",
           options: {type: "number"},
           id: 68
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isType(left,"string")){return __node("MacroAccess",612,9,56,612,{left:__wrap(left),op:"~&=",right:__node("MacroAccess",612,19,69,612,{left:__node("Const",612,20,""),inverted:false,op:"&",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",615,11,30,615,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",615,24,69,615,{left:__wrap(left),inverted:false,op:"&",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isType(left,"string")){return __node("MacroAccess",19673,56,612,{left:__wrap(left),op:"~&=",right:__node("MacroAccess",19683,69,612,{left:__node("Const",19684,""),inverted:false,op:"&",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",19762,30,615,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",19775,69,615,{left:__wrap(left),inverted:false,op:"&",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});}};}.call(this));',
           operators: "&=",
           options: {type: "string"},
           id: 70
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",794,13,16,794,{macroName:"if",macroData:{test:__node("MacroAccess",794,16,10,794,{left:__wrap(setLeft),inverted:false,op:"~>",right:__wrap(setRight)},"expression",false,false,false),body:__node("MacroAccess",794,47,30,794,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"expression",false,false,false);});});});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",25331,16,794,{macroName:"if",macroData:{test:__node("MacroAccess",25334,10,794,{left:__wrap(setLeft),inverted:false,op:"~>",right:__wrap(setRight)},"expression",false,false,false),body:__node("MacroAccess",25365,30,794,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"expression",false,false,false);});});});};}.call(this));',
           operators: "~min=",
           id: 86
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",800,13,16,800,{macroName:"if",macroData:{test:__node("MacroAccess",800,16,9,800,{left:__wrap(setLeft),inverted:false,op:"~<",right:__wrap(setRight)},"expression",false,false,false),body:__node("MacroAccess",800,47,30,800,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"expression",false,false,false);});});});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",25587,16,800,{macroName:"if",macroData:{test:__node("MacroAccess",25590,9,800,{left:__wrap(setLeft),inverted:false,op:"~<",right:__wrap(setRight)},"expression",false,false,false),body:__node("MacroAccess",25621,30,800,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"expression",false,false,false);});});});};}.call(this));',
           operators: "~max=",
           id: 87
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",806,13,16,806,{macroName:"if",macroData:{test:__node("MacroAccess",806,16,79,806,{left:__wrap(setLeft),inverted:false,op:">",right:__wrap(setRight)},"expression",false,false,false),body:__node("MacroAccess",806,46,30,806,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"expression",false,false,false);});});});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",25842,16,806,{macroName:"if",macroData:{test:__node("MacroAccess",25845,79,806,{left:__wrap(setLeft),inverted:false,op:">",right:__wrap(setRight)},"expression",false,false,false),body:__node("MacroAccess",25875,30,806,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"expression",false,false,false);});});});};}.call(this));',
           operators: "min=",
           id: 88
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",812,13,16,812,{macroName:"if",macroData:{test:__node("MacroAccess",812,16,78,812,{left:__wrap(setLeft),inverted:false,op:"<",right:__wrap(setRight)},"expression",false,false,false),body:__node("MacroAccess",812,46,30,812,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"expression",false,false,false);});});});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){return _this.maybeCache(right,function(setRight,right){return __node("MacroAccess",26096,16,812,{macroName:"if",macroData:{test:__node("MacroAccess",26099,78,812,{left:__wrap(setLeft),inverted:false,op:"<",right:__wrap(setRight)},"expression",false,false,false),body:__node("MacroAccess",26129,30,812,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"expression",false,false,false);});});});};}.call(this));',
           operators: "max=",
           id: 89
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",816,9,30,816,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",816,22,84,816,{left:__wrap(left),inverted:false,op:"xor",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return __node("MacroAccess",26247,30,816,{left:__wrap(setLeft),op:":=",right:__node("MacroAccess",26260,84,816,{left:__wrap(left),inverted:false,op:"xor",right:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);});};}.call(this));',
           operators: "xor=",
           id: 90
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){if(_this.position==="expression"){return __node("MacroAccess",822,13,16,822,{macroName:"if",macroData:{test:__node("MacroAccess",822,16,20,822,{op:"?",node:__wrap(setLeft)},"expression",false,false,false),body:__wrap(leftValue),elseIfs:[],elseBody:__node("MacroAccess",822,51,30,822,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false)}},"expression",false,false,false);}else{return __node("MacroAccess",824,12,17,824,{macroName:"if",macroData:{test:__node("MacroAccess",824,15,3,824,{op:"not",node:__node("MacroAccess",824,19,20,824,{op:"?",node:__wrap(setLeft)},"statement",false,false,false)},"statement",false,false,false),body:__node("MacroAccess",825,1,30,825,{left:__wrap(left),op:":=",right:__wrap(right)},"statement",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"statement",false,false,false);}});});};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;return this.maybeCacheAccess(left,function(setLeft,left){return _this.maybeCache(setLeft,function(setLeft,leftValue){if(_this.position==="expression"){return __node("MacroAccess",26450,16,822,{macroName:"if",macroData:{test:__node("MacroAccess",26453,20,822,{op:"?",node:__wrap(setLeft)},"expression",false,false,false),body:__wrap(leftValue),elseIfs:[],elseBody:__node("MacroAccess",26488,30,822,{left:__wrap(left),op:":=",right:__wrap(right)},"expression",false,false,false)}},"expression",false,false,false);}else{return __node("MacroAccess",26527,17,824,{macroName:"if",macroData:{test:__node("MacroAccess",26530,3,824,{op:"not",node:__node("MacroAccess",26534,20,824,{op:"?",node:__wrap(setLeft)},"statement",false,false,false)},"statement",false,false,false),body:__node("MacroAccess",26546,30,825,{left:__wrap(left),op:":=",right:__wrap(right)},"statement",false,false,false),elseIfs:[],elseBody:__wrap(leftValue)}},"statement",false,false,false);}});});};}.call(this));',
           operators: "?=",
           id: 91
         },
@@ -60373,7 +59587,7 @@
           id: 95
         },
         {
-          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isType(left,"number")){if(op==="*="){return __node("MacroAccess",891,11,46,891,{left:__wrap(left),op:"~*=",right:__node("MacroAccess",891,21,60,891,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="/="){return __node("MacroAccess",893,11,46,893,{left:__wrap(left),op:"~/=",right:__node("MacroAccess",893,21,60,893,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="%="){return __node("MacroAccess",895,11,46,895,{left:__wrap(left),op:"~%=",right:__node("MacroAccess",895,21,60,895,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="+="){return __node("MacroAccess",897,11,52,897,{left:__wrap(left),op:"~+=",right:__node("MacroAccess",897,21,60,897,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="-="){return __node("MacroAccess",899,11,53,899,{left:__wrap(left),op:"~-=",right:__node("MacroAccess",899,21,60,899,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitlshift="){return __node("MacroAccess",901,11,55,901,{left:__wrap(left),op:"~bitlshift=",right:__node("MacroAccess",901,29,60,901,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitrshift="){return __node("MacroAccess",903,11,55,903,{left:__wrap(left),op:"~bitrshift=",right:__node("MacroAccess",903,29,60,903,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="biturshift="){return __node("MacroAccess",905,11,55,905,{left:__wrap(left),op:"~biturshift=",right:__node("MacroAccess",905,30,60,905,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitand="){return __node("MacroAccess",907,11,95,907,{left:__wrap(left),op:"~bitand=",right:__node("MacroAccess",907,26,60,907,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitor="){return __node("MacroAccess",909,11,95,909,{left:__wrap(left),op:"~bitor=",right:__node("MacroAccess",909,25,60,909,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitxor="){return __node("MacroAccess",911,11,95,911,{left:__wrap(left),op:"~bitxor=",right:__node("MacroAccess",911,26,60,911,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return this.error("Unknown operator "+op);}}else{return this.maybeCacheAccess(left,function(setLeft,left){var action;if(op==="*="){action=__node("MacroAccess",917,13,64,917,{left:__wrap(left),inverted:false,op:"*",right:__wrap(right)},"expression",false,false,false);}else if(op==="/="){action=__node("MacroAccess",919,13,64,919,{left:__wrap(left),inverted:false,op:"/",right:__wrap(right)},"expression",false,false,false);}else if(op==="%="){action=__node("MacroAccess",921,13,64,921,{left:__wrap(left),inverted:false,op:"%",right:__wrap(right)},"expression",false,false,false);}else if(op==="+="){action=__node("MacroAccess",923,13,66,923,{left:__wrap(left),inverted:false,op:"+",right:__wrap(right)},"expression",false,false,false);}else if(op==="-="){action=__node("MacroAccess",925,13,66,925,{left:__wrap(left),inverted:false,op:"-",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitlshift="){action=__node("MacroAccess",927,13,67,927,{left:__wrap(left),inverted:false,op:"bitlshift",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitrshift="){action=__node("MacroAccess",929,13,67,929,{left:__wrap(left),inverted:false,op:"bitrshift",right:__wrap(right)},"expression",false,false,false);}else if(op==="biturshift="){action=__node("MacroAccess",931,13,67,931,{left:__wrap(left),inverted:false,op:"biturshift",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitand="){action=__node("MacroAccess",933,13,96,933,{left:__wrap(left),inverted:false,op:"bitand",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitor="){action=__node("MacroAccess",935,13,97,935,{left:__wrap(left),inverted:false,op:"bitor",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitxor="){action=__node("MacroAccess",937,13,98,937,{left:__wrap(left),inverted:false,op:"bitxor",right:__wrap(right)},"expression",false,false,false);}else{action=_this.error("Unknown operator "+op);}return __node("MacroAccess",940,11,30,940,{left:__wrap(setLeft),op:":=",right:__wrap(action)},"expression",false,false,false);});}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroData,__wrap,__node,__const){var _this,left,op,right;_this=this;left=macroData.left;op=macroData.op;right=macroData.right;if(this.isType(left,"number")){if(op==="*="){return __node("MacroAccess",28527,46,891,{left:__wrap(left),op:"~*=",right:__node("MacroAccess",28537,60,891,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="/="){return __node("MacroAccess",28579,46,893,{left:__wrap(left),op:"~/=",right:__node("MacroAccess",28589,60,893,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="%="){return __node("MacroAccess",28631,46,895,{left:__wrap(left),op:"~%=",right:__node("MacroAccess",28641,60,895,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="+="){return __node("MacroAccess",28683,52,897,{left:__wrap(left),op:"~+=",right:__node("MacroAccess",28693,60,897,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="-="){return __node("MacroAccess",28735,53,899,{left:__wrap(left),op:"~-=",right:__node("MacroAccess",28745,60,899,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitlshift="){return __node("MacroAccess",28795,55,901,{left:__wrap(left),op:"~bitlshift=",right:__node("MacroAccess",28813,60,901,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitrshift="){return __node("MacroAccess",28863,55,903,{left:__wrap(left),op:"~bitrshift=",right:__node("MacroAccess",28881,60,903,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="biturshift="){return __node("MacroAccess",28932,55,905,{left:__wrap(left),op:"~biturshift=",right:__node("MacroAccess",28951,60,905,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitand="){return __node("MacroAccess",28998,95,907,{left:__wrap(left),op:"~bitand=",right:__node("MacroAccess",29013,60,907,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitor="){return __node("MacroAccess",29059,95,909,{left:__wrap(left),op:"~bitor=",right:__node("MacroAccess",29073,60,909,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else if(op==="bitxor="){return __node("MacroAccess",29120,95,911,{left:__wrap(left),op:"~bitxor=",right:__node("MacroAccess",29135,60,911,{op:"+",node:__wrap(right)},"expression",false,false,false)},"expression",false,false,false);}else{return this.error("Unknown operator "+op);}}else{return this.maybeCacheAccess(left,function(setLeft,left){var action;if(op==="*="){action=__node("MacroAccess",29293,64,917,{left:__wrap(left),inverted:false,op:"*",right:__wrap(right)},"expression",false,false,false);}else if(op==="/="){action=__node("MacroAccess",29346,64,919,{left:__wrap(left),inverted:false,op:"/",right:__wrap(right)},"expression",false,false,false);}else if(op==="%="){action=__node("MacroAccess",29399,64,921,{left:__wrap(left),inverted:false,op:"%",right:__wrap(right)},"expression",false,false,false);}else if(op==="+="){action=__node("MacroAccess",29452,66,923,{left:__wrap(left),inverted:false,op:"+",right:__wrap(right)},"expression",false,false,false);}else if(op==="-="){action=__node("MacroAccess",29505,66,925,{left:__wrap(left),inverted:false,op:"-",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitlshift="){action=__node("MacroAccess",29566,67,927,{left:__wrap(left),inverted:false,op:"bitlshift",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitrshift="){action=__node("MacroAccess",29635,67,929,{left:__wrap(left),inverted:false,op:"bitrshift",right:__wrap(right)},"expression",false,false,false);}else if(op==="biturshift="){action=__node("MacroAccess",29705,67,931,{left:__wrap(left),inverted:false,op:"biturshift",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitand="){action=__node("MacroAccess",29772,96,933,{left:__wrap(left),inverted:false,op:"bitand",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitor="){action=__node("MacroAccess",29834,97,935,{left:__wrap(left),inverted:false,op:"bitor",right:__wrap(right)},"expression",false,false,false);}else if(op==="bitxor="){action=__node("MacroAccess",29896,98,937,{left:__wrap(left),inverted:false,op:"bitxor",right:__wrap(right)},"expression",false,false,false);}else{action=_this.error("Unknown operator "+op);}return __node("MacroAccess",29979,30,940,{left:__wrap(setLeft),op:":=",right:__wrap(action)},"expression",false,false,false);});}};}.call(this));',
           operators: [
             "*=",
             "/=",
@@ -60500,53 +59714,53 @@
       ],
       call: [
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var head,macroData,macroName,tail,tmp;macroName=macroFullData.macroName;macroData=macroFullData.macroData;head=macroData[0];tail=arguments[0].macroData.slice(1);if(tail.length===0){return __wrap(head);}else if(this.position==="statement"){tmp=this.tmp("ref");return __node("Block",506,1,[__node("MacroAccess",506,1,38,506,{macroName:"let",macroData:{declarable:__node("MacroAccess",506,10,37,506,__node("MacroAccess",506,10,31,506,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(head)}},"statement",false,false,false),__wrap(tail),__wrap(tmp)],null);}else{return __node("Call",510,8,__node("Ident",510,8,"__first"),[__wrap(head),__wrap(tail)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var head,macroData,macroName,tail,tmp;macroName=macroFullData.macroName;macroData=macroFullData.macroData;head=macroData[0];tail=arguments[0].macroData.slice(1);if(tail.length===0){return __wrap(head);}else if(this.position==="statement"){tmp=this.tmp("ref");return __node("Block",16857,[__node("MacroAccess",16857,38,506,{macroName:"let",macroData:{declarable:__node("MacroAccess",16866,37,506,__node("MacroAccess",16866,31,506,{ident:__wrap(tmp)},"statement",false,false,false),"statement",false,false,false),value:__wrap(head)}},"statement",false,false,false),__wrap(tail),__wrap(tmp)],null);}else{return __node("Call",16917,__node("Ident",16917,"__first"),[__wrap(head),__wrap(tail)],false,false);}};}.call(this));',
           names: "first!",
           id: 58
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,finish,macroData,macroName,start;macroName=macroFullData.macroName;macroData=macroFullData.macroData;start=arguments[0].macroData.slice(0,-1);finish=(_ref=arguments[0].macroData)[_ref.length-1];if(start.length===0){return __wrap(finish);}else{return __node("Block",520,1,[__wrap(start),__wrap(finish)],null);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var _ref,finish,macroData,macroName,start;macroName=macroFullData.macroName;macroData=macroFullData.macroData;start=arguments[0].macroData.slice(0,-1);finish=(_ref=arguments[0].macroData)[_ref.length-1];if(start.length===0){return __wrap(finish);}else{return __node("Block",17171,[__wrap(start),__wrap(finish)],null);}};}.call(this));',
           names: "last!",
           id: 59
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,func,macroData,macroName,ran,silentFail;macroName=macroFullData.macroName;macroData=macroFullData.macroData;func=macroData[0];silentFail=macroData[1];if(this.isFunc(func)){body=this.funcBody(func);ran=this.tmp("once",true,"boolean");func=this.rewrap(this.func(this.funcParams(func),__node("Block",2379,1,[__node("MacroAccess",2379,1,17,2379,{macroName:"if",macroData:{test:__wrap(ran),body:__node("MacroAccess",2380,1,17,2380,{macroName:"if",macroData:{test:__wrap(silentFail),body:__node("MacroAccess",2381,1,39,2381,{macroName:"return",macroData:{}},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",2383,1,11,2383,{op:"throw",node:__node("Call",2383,18,__node("Ident",2383,18,"Error"),[__node("Const",2383,25,"Attempted to call function more than once")],false,false)},"statement",false,false,false)}},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",2385,1,30,2385,{left:__wrap(ran),op:":=",right:__const("true")},"statement",false,false,false)}},"statement",false,false,false),__wrap(body)],null),this.funcIsAutoReturn(func),this.funcIsBound(func),this.funcIsCurried(func),this.funcAsType(func),this.funcIsGenerator(func),this.funcGeneric(func)));return __node("Block",2394,1,[__node("MacroAccess",2394,1,38,2394,{macroName:"let",macroData:{declarable:__node("MacroAccess",2394,10,37,2394,__node("MacroAccess",2394,10,31,2394,{isMutable:"mutable",ident:__wrap(ran)},"statement",false,false,false),"statement",false,false,false),value:__const("false")}},"statement",false,false,false),__wrap(func)],null);}else if(this.isConst(silentFail)&&!this.value(silentFail)){return __node("Call",2398,11,__node("Ident",2398,11,"__once"),[__wrap(func)],false,false);}else{return __node("Call",2400,11,__node("Ident",2400,11,"__once"),[__wrap(func),__wrap(silentFail)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var body,func,macroData,macroName,ran,silentFail;macroName=macroFullData.macroName;macroData=macroFullData.macroData;func=macroData[0];silentFail=macroData[1];if(this.isFunc(func)){body=this.funcBody(func);ran=this.tmp("once",true,"boolean");func=this.rewrap(this.func(this.funcParams(func),__node("Block",79506,[__node("MacroAccess",79506,17,2379,{macroName:"if",macroData:{test:__wrap(ran),body:__node("MacroAccess",79522,17,2380,{macroName:"if",macroData:{test:__wrap(silentFail),body:__node("MacroAccess",79548,39,2381,{macroName:"return",macroData:{}},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",79582,11,2383,{op:"throw",node:__node("Call",79599,__node("Ident",79599,"Error"),[__node("Const",79606,"Attempted to call function more than once")],false,false)},"statement",false,false,false)}},"statement",false,false,false),elseIfs:[],elseBody:__node("MacroAccess",79663,30,2385,{left:__wrap(ran),op:":=",right:__const("true")},"statement",false,false,false)}},"statement",false,false,false),__wrap(body)],null),this.funcIsAutoReturn(func),this.funcIsBound(func),this.funcIsCurried(func),this.funcAsType(func),this.funcIsGenerator(func),this.funcGeneric(func)));return __node("Block",79876,[__node("MacroAccess",79876,38,2394,{macroName:"let",macroData:{declarable:__node("MacroAccess",79885,37,2394,__node("MacroAccess",79885,31,2394,{isMutable:"mutable",ident:__wrap(ran)},"statement",false,false,false),"statement",false,false,false),value:__const("false")}},"statement",false,false,false),__wrap(func)],null);}else if(this.isConst(silentFail)&&!this.value(silentFail)){return __node("Call",79994,__node("Ident",79994,"__once"),[__wrap(func)],false,false);}else{return __node("Call",80027,__node("Ident",80027,"__once"),[__wrap(func),__wrap(silentFail)],false,false);}};}.call(this));',
           names: "once!",
           id: 126
         },
         {
-          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("fulfilled! only expects one argument");}return this.mutateLast(node||this.noop(),function(n){return __node("Call",3642,47,__node("Access",3642,47,__node("Ident",3642,47,"__defer"),__node("Const",3642,56,"fulfilled")),[__wrap(n)],false,false);},true);};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("fulfilled! only expects one argument");}return this.mutateLast(node||this.noop(),function(n){return __node("Call",118776,__node("Access",118776,__node("Ident",118776,"__defer"),__node("Const",118785,"fulfilled")),[__wrap(n)],false,false);},true);};}.call(this));',
           names: "fulfilled!",
           id: 156
         },
         {
-          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("rejected! only expects one argument");}return this.mutateLast(node||this.noop(),function(n){return __node("Call",3647,47,__node("Access",3647,47,__node("Ident",3647,47,"__defer"),__node("Const",3647,56,"rejected")),[__wrap(n)],false,false);},true);};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _this,macroData,macroName,node;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("rejected! only expects one argument");}return this.mutateLast(node||this.noop(),function(n){return __node("Call",118951,__node("Access",118951,__node("Ident",118951,"__defer"),__node("Const",118960,"rejected")),[__wrap(n)],false,false);},true);};}.call(this));',
           names: "rejected!",
           id: 157
         },
         {
-          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("from-promise! only expects one argument");}return __node("Call",3657,7,__node("Ident",3657,7,"__fromPromise"),[__wrap(node)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("from-promise! only expects one argument");}return __node("Call",119287,__node("Ident",119287,"__fromPromise"),[__wrap(node)],false,false);};}.call(this));',
           names: "fromPromise!",
           id: 158
         },
         {
-          code: 'return (function(){"use strict";var __num,__slice,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _this,args,func,head,macroData,macroName,node,tail;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("to-promise! only expects one argument");}if(!this.isCall(node)){this.error("to-promise! call expression must be a call",node);}func=this.callFunc(node);args=this.callArgs(node);if(this.callIsNew(node)){args=this.array(args);return __node("Call",3678,9,__node("Ident",3678,9,"__toPromise"),[__node("Ident",3678,23,"__new"),__wrap(func),__wrap(args)],false,false);}else if(this.callIsApply(node)){if(args.length===0||!this.isSpread(args[0])){head=args[0];tail=this.array(__slice.call(args,1));return __node("Call",3683,11,__node("Ident",3683,11,"__toPromise"),[__wrap(func),__wrap(head),__wrap(tail)],false,false);}else{return this.maybeCache(this.array(args),function(setArgs,args){return __node("Call",3686,13,__node("Ident",3686,13,"__toPromise"),[__wrap(func),__node("Access",3686,33,__wrap(setArgs),__node("Const",3686,44,0)),__node("Call",3686,47,__node("Access",3686,47,__wrap(args),__node("Const",3686,54,"slice")),[__node("Const",3686,60,1)],false,false)],false,false);});}}else{args=this.array(args);if(this.isAccess(func)){return this.maybeCache(this.parent(func),function(setParent,parent){var child;child=_this.child(func);return __node("Call",3692,13,__node("Ident",3692,13,"__toPromise"),[__node("Access",3692,27,__wrap(setParent),__wrap(child)),__wrap(parent),__wrap(args)],false,false);});}else{return __node("Call",3694,11,__node("Ident",3694,11,"__toPromise"),[__wrap(func),__const("void"),__wrap(args)],false,false);}}};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__slice,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__slice=Array.prototype.slice;__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var _this,args,func,head,macroData,macroName,node,tail;_this=this;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("to-promise! only expects one argument");}if(!this.isCall(node)){this.error("to-promise! call expression must be a call",node);}func=this.callFunc(node);args=this.callArgs(node);if(this.callIsNew(node)){args=this.array(args);return __node("Call",119839,__node("Ident",119839,"__toPromise"),[__node("Ident",119853,"__new"),__wrap(func),__wrap(args)],false,false);}else if(this.callIsApply(node)){if(args.length===0||!this.isSpread(args[0])){head=args[0];tail=this.array(__slice.call(args,1));return __node("Call",120028,__node("Ident",120028,"__toPromise"),[__wrap(func),__wrap(head),__wrap(tail)],false,false);}else{return this.maybeCache(this.array(args),function(setArgs,args){return __node("Call",120134,__node("Ident",120134,"__toPromise"),[__wrap(func),__node("Access",120154,__wrap(setArgs),__node("Const",120165,0)),__node("Call",120168,__node("Access",120168,__wrap(args),__node("Const",120175,"slice")),[__node("Const",120181,1)],false,false)],false,false);});}}else{args=this.array(args);if(this.isAccess(func)){return this.maybeCache(this.parent(func),function(setParent,parent){var child;child=_this.child(func);return __node("Call",120340,__node("Ident",120340,"__toPromise"),[__node("Access",120354,__wrap(setParent),__wrap(child)),__wrap(parent),__wrap(args)],false,false);});}else{return __node("Call",120409,__node("Ident",120409,"__toPromise"),[__wrap(func),__const("void"),__wrap(args)],false,false);}}};}.call(this));',
           options: {type: "promise"},
           names: "toPromise!",
           id: 159
         },
         {
-          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("some-promise! only expects one argument");}if(!this.hasType(node,"array")){this.error("some-promise! should be used on an Array",node);}return __node("Call",3729,7,__node("Ident",3729,7,"__somePromise"),[__wrap(node)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("some-promise! only expects one argument");}if(!this.hasType(node,"array")){this.error("some-promise! should be used on an Array",node);}return __node("Call",121231,__node("Ident",121231,"__somePromise"),[__wrap(node)],false,false);};}.call(this));',
           names: "somePromise!",
           id: 160
         },
         {
-          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("some-promise! only expects one argument");}if(!this.hasType(node,"array")&&!this.hasType(node,"object")){this.error("every-promise! should be used on an Array or Object",node);}return __node("Call",3760,7,__node("Ident",3760,7,"__everyPromise"),[__wrap(node)],false,false);};}.call(this));',
+          code: 'return (function(){"use strict";var __num,__typeof;__num=function(num){if(typeof num!=="number"){throw TypeError("Expected a number, got "+__typeof(num));}else{return num;}};__typeof=(function(){var _toString;_toString=Object.prototype.toString;return function(o){if(o===void 0){return "Undefined";}else if(o===null){return "Null";}else{return o.constructor&&o.constructor.name||_toString.call(o).slice(8,-1);}};}());return function(macroFullData,__wrap,__node,__const){var macroData,macroName,node;macroName=macroFullData.macroName;macroData=macroFullData.macroData;node=macroData[0];if(__num(macroData.length)>1){this.error("some-promise! only expects one argument");}if(!this.hasType(node,"array")&&!this.hasType(node,"object")){this.error("every-promise! should be used on an Array or Object",node);}return __node("Call",122069,__node("Ident",122069,"__everyPromise"),[__wrap(node)],false,false);};}.call(this));',
           names: "everyPromise!",
           id: 161
         },
         {
-          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var macroData,macroName,milliseconds,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;milliseconds=macroData[0];value=macroData[1];if(!this.hasType(milliseconds,"number")){this.error("delay! should take a number in milliseconds");}if(this.isConst(value)&&this.value(value)===void 0){return __node("Call",3775,9,__node("Ident",3775,9,"__delay"),[__wrap(milliseconds)],false,false);}else{return __node("Call",3777,9,__node("Ident",3777,9,"__delay"),[__wrap(milliseconds),__wrap(value)],false,false);}};}.call(this));',
+          code: 'return (function(){"use strict";return function(macroFullData,__wrap,__node,__const){var macroData,macroName,milliseconds,value;macroName=macroFullData.macroName;macroData=macroFullData.macroData;milliseconds=macroData[0];value=macroData[1];if(!this.hasType(milliseconds,"number")){this.error("delay! should take a number in milliseconds");}if(this.isConst(value)&&this.value(value)===void 0){return __node("Call",122504,__node("Ident",122504,"__delay"),[__wrap(milliseconds)],false,false);}else{return __node("Call",122542,__node("Ident",122542,"__delay"),[__wrap(milliseconds),__wrap(value)],false,false);}};}.call(this));',
           names: "delay!",
           id: 162
         }

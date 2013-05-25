@@ -2979,7 +2979,7 @@ let validate-spread-parameters(params, parser)
     if param instanceof ParamNode and param.spread
       spread-count += 1
       if spread-count > 1
-        throw ParserError "Cannot have more than one spread parameter", parser, parser.index-from-position(param.line, param.column)
+        throw ParserError "Cannot have more than one spread parameter", parser, param.index
   params
 
 let remove-trailing-nothings(array as [])
@@ -3082,7 +3082,7 @@ let ParameterSequence = sequential(
       else
         throw Error "Unknown param ident type: $(typeof! param)"
       if name in names
-        throw ParserError "Duplicate parameter name: $(quote name)", parser, parser.index-from-position(ident.line, ident.column)
+        throw ParserError "Duplicate parameter name: $(quote name)", parser, ident.index
       else
         names.push name
     else if param instanceof ArrayNode
@@ -3628,8 +3628,7 @@ let AstStatement = sequential(
         rule parser, index])
 
 define Ast = one-of(AstExpression, AstStatement) |> mutate #(node, parser, index)
-  let position = parser.get-position(index)
-  MacroContext.constify-object node, position.line, position.column, parser.scope.peek()
+  MacroContext.constify-object node, index, parser.scope.peek()
 
 define PrimaryExpression = one-of<Node>(
   UnclosedObjectLiteral
@@ -4795,33 +4794,13 @@ class Parser
     let index = if is-number! node
       node
     else
-      @index-from-position(node.line, node.column)
+      node.index
     MacroError message, this, index
   
   def make-tmp(index, name as String, type as Type = Type.any)
     @Tmp index, (@current-tmp-id += 1), name, type
-  
-  def calculate-line-info()!
-    let newline-regex = r"(?:\r\n?|[\n\u2028\u2029])"g
-    let source = @source
-    let line-info = @line-info := []
-    let mutable index = 0
-    line-info.push 0
-    while true
-      let match = newline-regex.exec(source)
-      if not match
-        break
-      index := match.index + match[0].length
-      line-info.push index
-  
-  def index-from-position(line as Number, column as Number)
-    let line-info = @line-info[line - 1]
-    if line-info?
-      line-info + column - 1
-    else
-      0
-  def get-position(index as Number)
-    let line-info = @line-info
+
+  let make-get-position(line-info) -> #(index as Number)
     let mutable left = 0
     let mutable right as Number = line-info.length
     while left != right
@@ -4837,9 +4816,36 @@ class Parser
         left := i
         break
     { line: left + 1, column: index - line-info[left] + 1 }
+  def calculate-line-info()!
+    let newline-regex = r"(?:\r\n?|[\n\u2028\u2029])"g
+    let source = @source
+    let line-info = @line-info := []
+    let mutable index = 0
+    line-info.push 0
+    while true
+      let match = newline-regex.exec(source)
+      if not match
+        break
+      index := match.index + match[0].length
+      line-info.push index
+    @get-position := make-get-position line-info
+  
+  def index-from-position(line as Number, column as Number)
+    let line-info = @line-info[line - 1]
+    if line-info?
+      line-info + column - 1
+    else
+      0
+    
+  def get-position(index as Number)
+    // this method is overridden during calculate-line-info
+    throw Error "line-info not initialized"
 
   def get-line(index as Number = @index)
     @get-position(index).line
+
+  def get-column(index as Number = @index)
+    @get-position(index).column
     
   def fail(message as String, index as Number)!
     if index > @failure-index
@@ -4908,7 +4914,7 @@ class Parser
     require! translator: './jstranslator'
     let node = @macro-expand-all(value).reduce(this)
     let type = node.type(this)
-    let {helper, dependencies} = translator.define-helper(@macros, name, node, type)
+    let {helper, dependencies} = translator.define-helper(@macros, @get-position, name, node, type)
     if @options.serialize-macros
       @macros.add-serialized-helper(name.name, helper, type, dependencies)
   
@@ -4992,15 +4998,15 @@ class Parser
   let deserialize-param-type = do
     let deserialize-param-type-by-type =
       ident: #(scope, name)
-        IdentNode 0, 0, scope, name
+        IdentNode 0, scope, name
       sequence: #(scope, ...items)
-        SyntaxSequenceNode 0, 0, scope, deserialize-params(items, scope)
+        SyntaxSequenceNode 0, scope, deserialize-params(items, scope)
       choice: #(scope, ...choices)
-        SyntaxChoiceNode 0, 0, scope, for choice in choices; deserialize-param-type(choice, scope)
+        SyntaxChoiceNode 0, scope, for choice in choices; deserialize-param-type(choice, scope)
       const: #(scope, value)
-        ConstNode 0, 0, scope, value
+        ConstNode 0, scope, value
       many: #(scope, multiplier, ...inner)
-        SyntaxManyNode 0, 0, scope, deserialize-param-type(inner, scope), multiplier
+        SyntaxManyNode 0, scope, deserialize-param-type(inner, scope), multiplier
     #(as-type as [] = [], scope)
       if as-type.length == 0
         return void
@@ -5013,16 +5019,16 @@ class Parser
   let deserialize-params = do
     let deserialize-param-by-type =
       const: #(scope, value)
-        ConstNode 0, 0, scope, value
+        ConstNode 0, scope, value
       ident: #(scope, name, ...as-type)
-        SyntaxParamNode 0, 0,
+        SyntaxParamNode 0,
           scope
-          IdentNode 0, 0, scope, name
+          IdentNode 0, scope, name
           deserialize-param-type(as-type, scope)
       this: #(scope, ...as-type)
-        SyntaxParamNode 0, 0,
+        SyntaxParamNode 0,
           scope
-          ThisNode 0, 0, scope
+          ThisNode 0, scope
           deserialize-param-type(as-type, scope)
     #(params, scope as Scope)
       return for param in fix-array(params)
@@ -5079,7 +5085,7 @@ class Parser
           \this
         else
           throw Error "Don't know how to handle ident type: $(typeof! ident)"
-        let type = param.as-type ? IdentNode 0, 0, param.scope, \Expression
+        let type = param.as-type ? IdentNode 0, param.scope, \Expression
         sequence.push [key, calc-param@ this, type]
       else
         @error "Unexpected parameter type: $(typeof! param)"
@@ -5126,7 +5132,7 @@ class Parser
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let handler = Function(compilation)()
@@ -5163,7 +5169,7 @@ class Parser
             body
           ]
           let raw-func = make-macro-root@ this, index, func-param, body
-          let translated = translator(@macro-expand-all(raw-func).reduce(state), @macros, return: true)
+          let translated = translator(@macro-expand-all(raw-func).reduce(state), @macros, @get-position, return: true)
           let compilation = translated.node.to-string(get-compilation-options state-options)
           if state-options.serialize-macros
             serialization := compilation
@@ -5206,7 +5212,7 @@ class Parser
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -5241,7 +5247,7 @@ class Parser
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -5253,7 +5259,7 @@ class Parser
           #(args, ...rest)
             let result = inner@ this, reduce-object(state, args), ...rest
             if args.inverted
-              UnaryNode(result.line, result.column, result.scope, "!", result).reduce(state)
+              UnaryNode(result.index, result.scope, "!", result).reduce(state)
             else
               result.reduce(state)
       else
@@ -5284,7 +5290,7 @@ class Parser
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -5318,7 +5324,7 @@ class Parser
         body
       ]
       let raw-func = make-macro-root@ this, index, func-param, body
-      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, return: true)
+      let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
       let serialization = if state-options.serialize-macros then compilation
       let mutable handler = Function(compilation)()
@@ -5399,7 +5405,7 @@ class Parser
           #(args, ...rest)
             let result = inner@ this, reduce-object(state, args), ...rest
             if args.inverted
-              UnaryNode(result.line, result.column, result.scope, "!", result).reduce(state)
+              UnaryNode(result.index, result.scope, "!", result).reduce(state)
             else
               result.reduce(state)
       else
@@ -5619,7 +5625,7 @@ class Parser
         let mutable result = void
         try
           // TODO: change start-index
-          result := @macros.get-by-id(node.id)(node.data, this, @index-from-position(node.line, node.column))
+          result := @macros.get-by-id(node.id)(node.data, this, node.index)
         catch e
           if e instanceof MacroError
             // TODO: add column as well
@@ -5698,8 +5704,7 @@ class Parser
   
   @add-node-factory := #(name, type)!
     Parser::[name] := #(index, ...args)
-      let pos = @get-position(index)
-      type(pos.line, pos.column, @scope.peek(), ...args)
+      type(index, @scope.peek(), ...args)
 
 let parse = promise! #(source as String, macros as MacroHolder|null, options as {} = {})*
   let parser = Parser source, macros?.clone(), options
@@ -5735,6 +5740,7 @@ let parse = promise! #(source as String, macros as MacroHolder|null, options as 
   return {
     result: reduced
     parser.macros
+    parser.get-position
     parse-time: end-parse-time - start-time
     macro-expand-time: end-expand-time - end-parse-time
     reduce-time: end-reduce-time - end-expand-time
@@ -5751,7 +5757,7 @@ module.exports := parse <<< {
     let parser = Parser()
     parser.macros.deserialize(parsed, parser, {})
     {
-      result: NothingNode 0, 0, parser.scope.peek()
+      result: NothingNode 0, parser.scope.peek()
       parser.macros
     }
   get-reserved-words: #(macros, options = {})

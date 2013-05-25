@@ -89,7 +89,7 @@ let add-param-to-scope(scope, param, force-mutable)!
     else if param.ident instanceof Node.Access
       if param.ident.child not instanceof Node.Const or not is-string! param.ident.child.value
         throw Error "Expected constant access: $(typeof! param.ident.child)"
-      scope.add Node.Ident(param.line, param.column, param.scope, param.ident.child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
+      scope.add Node.Ident(param.index, param.scope, param.ident.child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else
       throw Error "Unknown param ident: $(typeof! param.ident)"
   else if param instanceof Node.Array

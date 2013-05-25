@@ -593,8 +593,8 @@ let make-pos(line as Number, column as Number, file as String|void)
     pos.file := file
   pos
 
-let get-pos(node as ParserNode)
-  make-pos(node.line, node.column, node.file)
+let mutable get-pos = #(node as ParserNode)
+  throw Error "get-pos must be overridden"
 
 let do-nothing() ->
 let generator-translate = do
@@ -2019,9 +2019,13 @@ let translate-root(mutable roots as Object, mutable scope as Scope)
       []
       []
 
-module.exports := #(node, macros as MacroHolder, options = {})
+let make-get-pos(get-position as ->) #(node as ParserNode)
+  let pos = get-position(node.index)
+  make-pos(pos.line, pos.column, node.file)
+module.exports := #(node, macros as MacroHolder, get-position as ->, options = {})
   let mutable result = void
   let start-time = new Date().get-time()
+  get-pos := make-get-pos get-position
   try
     let scope = Scope(options, macros, false)
     result := translate-root(node, scope)
@@ -2033,13 +2037,15 @@ module.exports := #(node, macros as MacroHolder, options = {})
       throw e
   let end-time = new Date().get-time()
   options.progress?(\translate, end-time - start-time)
+  get-pos := null
   return {
     node: result
     time: end-time - start-time
   }
 
-module.exports.define-helper := #(macros as MacroHolder, name, value, type as Type, mutable dependencies)
+module.exports.define-helper := #(macros as MacroHolder, get-position as ->, name, value, type as Type, mutable dependencies)
   let scope = Scope({}, macros, false)
+  get-pos := make-get-pos get-position
   let ident = if is-string! name
     ast.Ident(make-pos(0, 0), name)
   else if name instanceof ParserNode.Ident
@@ -2056,6 +2062,7 @@ module.exports.define-helper := #(macros as MacroHolder, name, value, type as Ty
     throw TypeError "Expected value to be a parser or ast Node, got $(typeof! value)"
   dependencies ?= scope.get-helpers()
   macros.add-helper ident.name, helper, type, dependencies
+  get-pos := null
   {
     helper
     dependencies
