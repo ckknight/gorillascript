@@ -29869,8 +29869,23 @@
             throw Error("Unreachable state");
           },
           Call: function (node, scope, state, assignTo) {
-            var args, gArgs, gFunc, gStart, isApply, isNew;
-            gFunc = generatorTranslateExpression(node.func, scope, state, true);
+            var args, gArgs, gChild, gFunc, gParent, gStart, isApply, isNew;
+            if (node.func instanceof ParserNode.Access) {
+              gParent = generatorTranslateExpression(node.func.parent, scope, state, true);
+              gChild = generatorTranslateExpression(node.func.child, scope, gParent.state, true);
+              gFunc = {
+                tNode: function () {
+                  return ast.Access(getPos(node), gParent.tNode(), gChild.tNode());
+                },
+                cleanup: function () {
+                  gParent.cleanup();
+                  return gChild.cleanup();
+                },
+                state: gChild.state
+              };
+            } else {
+              gFunc = generatorTranslateExpression(node.func, scope, state, true);
+            }
             isApply = node.isApply;
             isNew = node.isNew;
             args = node.args;
@@ -30103,7 +30118,7 @@
           Yield: function (node, scope, state, assignTo) {
             var gNode;
             gNode = generatorTranslateExpression(node.node, scope, state, false);
-            state = state["yield"](getPos(node), gNode.tNode);
+            state = gNode.state["yield"](getPos(node), gNode.tNode);
             return handleAssign(
               assignTo,
               scope,
@@ -30559,7 +30574,7 @@
           Yield: function (node, scope, state, _p, _p2, autoReturn) {
             var gNode, newState;
             gNode = generatorTranslateExpression(node.node, scope, state, false);
-            newState = state["yield"](getPos(node), function () {
+            newState = gNode.state["yield"](getPos(node), function () {
               var _ref;
               _ref = gNode.tNode();
               gNode.cleanup();
@@ -32554,7 +32569,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.15";
+      exports.version = "0.7.17";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -33001,8 +33016,8 @@
         return joinedParsed;
       }
       exports.ast = __promise(function (source, options) {
-        var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, _tmp, _tmp2,
-            array, item, parsed, startTime, sync, translated, translator;
+        var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, _tmp, array,
+            item, parsed, startTime, sync, translated, translator;
         _state = 0;
         function _close() {
           _state = 15;
@@ -33037,7 +33052,6 @@
               if (__isArray(options.filenames)) {
                 options.filename = options.filenames[i];
               }
-              _tmp2 = array.push;
               _arr2 = [];
               _state = sync ? 4 : 5;
               break;
@@ -33056,7 +33070,7 @@
               ++_state;
             case 7:
               _arr2.push(_tmp);
-              _tmp2.apply(void 0, _arr2);
+              array.push.apply(array, _arr2);
               ++_state;
             case 8:
               ++_i;

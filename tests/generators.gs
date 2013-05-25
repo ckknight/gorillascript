@@ -517,13 +517,27 @@ describe "yield in binary or", #
 
 describe "yield in call expression with spread", #
   it "yields expected items", #
-    let obj = {}
     let get-args(...args)
       args
     let arr-1 = [\alpha, \bravo]
     let arr-2 = [\charlie, \delta]
     let fun()*
       let value = get-args(\echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
+      yield value
+
+    expect(to-array fun(), [\india, [\juliet, \kilo]]).to.eql [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]]
+
+describe "yield in method call expression with spread", #
+  it "yields expected items", #
+    let obj = {
+      get-args(...args)
+        expect(this).to.equal obj
+        args
+    }
+    let arr-1 = [\alpha, \bravo]
+    let arr-2 = [\charlie, \delta]
+    let fun()*
+      let value = obj.get-args(\echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
       yield value
 
     expect(to-array fun(), [\india, [\juliet, \kilo]]).to.eql [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]]
@@ -552,6 +566,22 @@ describe "yield in apply call expression", #
     let arr-2 = [\charlie, \delta]
     let fun()*
       let value = get-args@(obj, \echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
+      yield value
+  
+    expect(to-array fun(), [\india, [\juliet, \kilo]]).to.eql [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]]
+
+describe "yield in apply method call expression", #
+  it "yields expected items", #
+    let obj = {}
+    let other = {
+      get-args(...args)
+        expect(this).to.equal obj
+        args
+    }
+    let arr-1 = [\alpha, \bravo]
+    let arr-2 = [\charlie, \delta]
+    let fun()*
+      let value = other.get-args@(obj, \echo, yield \foxtrot, ...arr-1, ...(yield \golf), ...arr-2, \hotel)
       yield value
   
     expect(to-array fun(), [\india, [\juliet, \kilo]]).to.eql [\foxtrot, \golf, [\echo, \india, \alpha, \bravo, \juliet, \kilo, \charlie, \delta, \hotel]]
@@ -589,6 +619,22 @@ describe "yield in regexp interpolation", #
   it "yields expected items", #
     let arr = to-array fun(), [\charlie, \delta]
     expect(arr).to.eql [\alpha, \bravo, r"charlie delta"g]
+
+describe "yield yield", #
+  let fun()*
+    let value = yield yield \alpha
+    yield value
+  
+  it "yields expected items", #
+    expect(to-array fun(), [\bravo, \charlie]).to.eql [\alpha, \bravo, \charlie]
+
+describe "yielding a call which has a yield", #
+  let fun(func)!*
+    yield func(yield \alpha, yield \bravo)
+  
+  it "yields expected items", #
+    let func = stub().with-args(\charlie, \delta).returns \echo
+    expect(to-array fun(func), [\charlie, \delta]).to.eql [\alpha, \bravo, \echo]
 
 describe "return in generator", #
   let fun(return-early)*

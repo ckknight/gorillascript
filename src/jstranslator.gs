@@ -803,7 +803,18 @@ let generator-translate = do
       throw Error "Unreachable state"
     
     Call: #(node, scope, mutable state, assign-to)
-      let g-func = generator-translate-expression node.func, scope, state, true
+      let g-func = if node.func instanceof ParserNode.Access
+        let g-parent = generator-translate-expression node.func.parent, scope, state, true
+        let g-child = generator-translate-expression node.func.child, scope, g-parent.state, true
+        {
+          t-node: #-> ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
+          cleanup: #
+            g-parent.cleanup()
+            g-child.cleanup()
+          g-child.state
+        }
+      else
+        generator-translate-expression node.func, scope, state, true
       let {is-apply, is-new, args} = node
       
       if is-apply and (args.length == 0 or args[0] not instanceof ParserNode.Spread)
@@ -961,7 +972,7 @@ let generator-translate = do
     
     Yield: #(node, scope, mutable state, assign-to)
       let g-node = generator-translate-expression node.node, scope, state, false
-      state := state.yield get-pos(node), g-node.t-node
+      state := g-node.state.yield get-pos(node), g-node.t-node
       handle-assign assign-to, scope, state, #-> state.builder.received-ident, g-node.cleanup
   
   let generator-translate-expression(node as ParserNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->)
@@ -1168,7 +1179,7 @@ let generator-translate = do
     Yield: #(node, scope, mutable state, , , auto-return)
       // TODO: auto-return
       let g-node = generator-translate-expression node.node, scope, state, false
-      let new-state = state.yield get-pos(node), #-> first!(
+      let new-state = g-node.state.yield get-pos(node), #-> first!(
         g-node.t-node()
         g-node.cleanup())
       if auto-return
