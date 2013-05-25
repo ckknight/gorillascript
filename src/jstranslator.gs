@@ -544,10 +544,18 @@ class GeneratorBuilder
       ast.Return @pos, ast.Call @pos, step, [@received-ident]
       err
       ast.Call @pos, throw-ident, [err]
-    body.push ast.Func @pos, send, [@received-ident], [], if catches.length
-      ast.While @pos, true, send-try-catch
-    else
+    let send-try-finally = if @finallies.length == 0
       send-try-catch
+    else
+      ast.TryFinally @pos,
+        send-try-catch
+        ast.If @pos,
+          ast.Binary @pos, state-ident, "===", @stop.case-id()
+          ast.Call @pos, close, []
+    body.push ast.Func @pos, send, [@received-ident], [], if catches.length
+      ast.While @pos, true, send-try-finally
+    else
+      send-try-finally
     body.push ast.Return @pos, ast.Obj @pos,
       * ast.Obj.Pair @pos, \close, close
       * ast.Obj.Pair @pos, \iterator, ast.Func @pos, null, [], [], ast.Return(@pos, ast.This(@pos))

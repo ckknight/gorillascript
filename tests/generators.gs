@@ -271,6 +271,33 @@ describe "yield with try-finally", #
       expect(g.next()).to.eql { +done, value: void }
     expect(cleanup).to.be.called-once
 
+describe "yield with return in try-finally", #
+  let obj = Error()
+  let fun-this = {}
+  let fun(cleanup)*
+    expect(this).to.equal(fun-this)
+    yield "alpha"
+    try
+      expect(this).to.equal(fun-this)
+      yield "bravo"
+      return "charlie"
+    finally
+      expect(this).to.equal(fun-this)
+      cleanup()
+    yield "echo"
+    
+  it "yields expected items and calls cleanup at expected time", #
+    let cleanup = stub()
+    let g = fun@(fun-this, cleanup)
+    expect(g.next()).to.eql { -done, value: "alpha" }
+    expect(g.next()).to.eql { -done, value: "bravo" }
+    expect(cleanup).to.not.be.called
+    expect(g.next()).to.eql { +done, value: "charlie" }
+    expect(cleanup).to.be.called-once
+    for i in 0 til 10
+      expect(g.next()).to.eql { +done, value: void }
+    expect(cleanup).to.be.called-once
+
 describe "yield with switch", #
   let fun(get-value)*
     switch get-value()
@@ -680,15 +707,15 @@ describe "auto-return", #
     expect(to-array iter).to.eql { arr: [\alpha, \bravo], value: \charlie }
     for i in 0 til 10
       expect(iter.next()).to.eql { +done, value: void }
-    //expect(done).to.be.called-once
+    expect(done).to.be.called-once
     
     let obj = {}
     iter := fun(obj)
     expect(iter.next()).to.eql { -done, value: \alpha }
     expect(iter.next()).to.eql { -done, value: \bravo }
-    //expect(done).to.be.called-once
+    expect(done).to.be.called-once
     expect(#-> iter.next()).to.throw obj
-    //expect(done).to.be.called-twice
+    expect(done).to.be.called-twice
     for i in 0 til 10
       expect(iter.next()).to.eql { +done, value: void }
   

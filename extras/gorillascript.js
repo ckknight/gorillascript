@@ -30052,7 +30052,7 @@
         }
         _GeneratorBuilder_prototype.create = function () {
           var _this, body, catches, close, err, f, innerScope, send, sendTryCatch,
-              stateIdent, step, throwIdent;
+              sendTryFinally, stateIdent, step, throwIdent;
           _this = this;
           if (this.currentCatch.length) {
             throw Error("Cannot create a generator if there are stray catches");
@@ -30223,12 +30223,21 @@
             err,
             ast.Call(this.pos, throwIdent, [err])
           );
+          if (this.finallies.length === 0) {
+            sendTryFinally = sendTryCatch;
+          } else {
+            sendTryFinally = ast.TryFinally(this.pos, sendTryCatch, ast.If(
+              this.pos,
+              ast.Binary(this.pos, stateIdent, "===", this.stop.caseId()),
+              ast.Call(this.pos, close, [])
+            ));
+          }
           body.push(ast.Func(
             this.pos,
             send,
             [this.receivedIdent],
             [],
-            catches.length ? ast.While(this.pos, true, sendTryCatch) : sendTryCatch
+            catches.length ? ast.While(this.pos, true, sendTryFinally) : sendTryFinally
           ));
           body.push(ast.Return(this.pos, ast.Obj(this.pos, [
             ast.Obj.Pair(this.pos, "close", close),
@@ -33331,7 +33340,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.12";
+      exports.version = "0.7.13";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
