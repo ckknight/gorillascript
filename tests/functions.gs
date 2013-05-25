@@ -8,6 +8,11 @@ describe "functions", #
     let fun = #-> "bravo"
     expect(fun).to.be.a \function
     expect(fun()).to.equal "bravo"
+  
+  it "doesn't require a function glyph", #
+    let fun = # "bravo"
+    expect(fun).to.be.a \function
+    expect(fun()).to.equal "bravo"
 
   it "function replacement", #
     let mutable fun = #-> "alpha"

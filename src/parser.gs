@@ -2769,7 +2769,8 @@ let _FunctionBody = one-of<Node>(
   sequential(
     FunctionGlyph
     [\this, one-of Statement, Nothing])
-  Body)
+  Body
+  Statement)
 
 let FunctionBody = make-alter-stack<Boolean>(\in-generator, false)(_FunctionBody)
 let GeneratorFunctionBody = make-alter-stack<Boolean>(\in-generator, true)(_FunctionBody)
@@ -3098,7 +3099,9 @@ let ParameterSequence = sequential(
       check-param(param, parser, names)
     params
 
-let FunctionDeclaration = do
+let require-parameter-sequence = make-alter-stack<Boolean> \require-parameter-sequence, true
+let dont-require-parameter-sequence = make-alter-stack<Boolean> \require-parameter-sequence, false
+let _FunctionDeclaration = do
   let FunctionFlag = one-of(
     ExclamationPointChar
     AtSignChar
@@ -3132,7 +3135,7 @@ let FunctionDeclaration = do
     [\this, separated-list Identifier, Comma]
     GreaterThan), #-> []
   
-  let params-rule = maybe ParameterSequence, #-> []
+  let maybe-params-rule = maybe ParameterSequence, #-> []
   let as-type-rule = in-function-type-params MaybeAsType
   let get-body-rule = #(generator)
     if generator
@@ -3142,7 +3145,14 @@ let FunctionDeclaration = do
   allow-space-before-access #(parser, index)
     let generic = GenericDefinitionPart parser, index
     let scope = parser.push-scope(true)
+    let params-rule = if parser.require-parameter-sequence.peek()
+      ParameterSequence
+    else
+      maybe-params-rule
     let params = params-rule parser, generic.index
+    if not params
+      parser.pop-scope()
+      return
     for param in params.value by -1
       add-param-to-scope scope, param
     let flags = FunctionFlags parser, params.index
@@ -3164,11 +3174,12 @@ let FunctionDeclaration = do
     let result = mutate-function func, parser, index
     parser.pop-scope()
     Box body.index, result
+let FunctionDeclaration = require-parameter-sequence _FunctionDeclaration
 
 define FunctionLiteral = sequential(
   Space
   HashSignChar
-  [\this, FunctionDeclaration])
+  [\this, dont-require-parameter-sequence _FunctionDeclaration])
 
 let prevent-unclosed-object-literal = make-alter-stack<Boolean> \prevent-unclosed-object-literal, true
 define ArrayLiteral = prevent-unclosed-object-literal sequential(
@@ -4774,6 +4785,7 @@ class Parser
     @asterix-as-array-length := Stack<Boolean>(false)
     @disallow-space-before-access := Stack<Boolean>(false)
     @in-cascade := Stack<Boolean>(false)
+    @require-parameter-sequence := Stack<Boolean>(false)
     @scope := Stack<Scope>(Scope(null, true))
     @failure-messages := []
     @failure-index := -1
