@@ -81,3 +81,34 @@ exports.get-package-version := #(filename)
     version
   else
     ""
+
+exports.is-primordial := do
+  let PRIMORDIAL_GLOBALS = {
+    +Object
+    +String
+    +Number
+    +Boolean
+    +Function
+    +Array
+    +Math
+    +JSON
+    +Date
+    +RegExp
+    +Error
+    +RangeError
+    +ReferenceError
+    +SyntaxError
+    +TypeError
+    +URIError
+    +escape
+    +unescape
+    +parseInt
+    +parseFloat
+    +isNaN
+    +isFinite
+    +decodeURI
+    +decodeURIComponent
+    +encodeURI
+    +encodeURIComponent
+  }
+  #(name as String) -> PRIMORDIAL_GLOBALS ownskey name

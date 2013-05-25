@@ -2,7 +2,7 @@ require! ast: './jsast'
 let AstNode = ast.Node
 require! Type: './types'
 let {Node: ParserNode, MacroHolder} = require('./parser')
-let {Cache} = require('./utils')
+let {Cache, is-primordial} = require('./utils')
 
 let needs-caching(item)
   return item not instanceofsome [ast.Ident, ast.Const, ast.This, ast.Arguments]
@@ -1550,41 +1550,12 @@ let translators =
         throw Error "Expected node to already be curried"
       auto-return wrap ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
 
-  Ident: do
-    let PRIMORDIAL_GLOBALS = {
-      +Object
-      +String
-      +Number
-      +Boolean
-      +Function
-      +Array
-      +Math
-      +JSON
-      +Date
-      +RegExp
-      +Error
-      +RangeError
-      +ReferenceError
-      +SyntaxError
-      +TypeError
-      +URIError
-      +escape
-      +unescape
-      +parseInt
-      +parseFloat
-      +isNaN
-      +isFinite
-      +decodeURI
-      +decodeURIComponent
-      +encodeURI
-      +encodeURIComponent
-    }
-    #(node, scope, location, auto-return)
+  Ident: #(node, scope, location, auto-return)
       let name = node.name
       scope.add-helper name
       #
         let ident = ast.Ident get-pos(node), name
-        if not scope.options.embedded or PRIMORDIAL_GLOBALS ownskey name or location != \expression or scope.has-variable(ident) or scope.macros.has-helper(name)
+        if not scope.options.embedded or is-primordial(name) or location != \expression or scope.has-variable(ident) or scope.macros.has-helper(name)
           auto-return ident
         else
           ast.Access get-pos(node),
