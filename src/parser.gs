@@ -3127,8 +3127,6 @@ let _FunctionDeclaration = do
           flags.curry := true
         default
           throw Error "Unknown function flag: $(quote from-char-code c)"
-    if not flags.auto-return and flags.generator
-      throw ParserError "A function cannot be both non-returning (!) and a generator (*)", parser, index
     flags
   let GenericDefinitionPart = maybe sequential(
     LessThanChar

@@ -13082,9 +13082,6 @@
               }
             }
           }
-          if (!flags.autoReturn && flags.generator) {
-            throw ParserError("A function cannot be both non-returning (!) and a generator (*)", parser, index);
-          }
           return flags;
         })(_ref);
         GenericDefinitionPart = maybe(
@@ -29738,11 +29735,25 @@
               false
             ));
             this.add(function () {
-              return ast.Return(pos, ast.Obj(pos, [
-                ast.Obj.Pair(pos, "done", ast.Const(pos, true)),
-                ast.Obj.Pair(pos, "value", tNode())
-              ]));
+              var node;
+              node = tNode();
+              if (!(node instanceof ast.Statement)) {
+                return ast.Return(pos, ast.Obj(pos, [
+                  ast.Obj.Pair(pos, "done", ast.Const(pos, true)),
+                  ast.Obj.Pair(pos, "value", tNode())
+                ]));
+              } else {
+                return node;
+              }
             });
+          }
+        };
+        _GeneratorState_prototype.returnOrAdd = function (isReturn, pos, tNode) {
+          if (isReturn) {
+            this["return"](pos, tNode);
+            return this;
+          } else {
+            return this.add(tNode);
           }
         };
         _GeneratorState_prototype.getRedirect = function () {
@@ -30932,20 +30943,21 @@
           }
         }
         statements = {
-          Block: function (node, scope, state, breakState, continueState) {
-            var _arr, _i, _len, acc, subnode;
+          Block: function (node, scope, state, breakState, continueState, autoReturn) {
+            var _arr, acc, i, len, subnode;
             if (node.label != null) {
               throw Error("Not implemented: block with label in generator");
             }
             acc = state;
-            for (_arr = __toArray(node.nodes), _i = 0, _len = _arr.length; _i < _len; ++_i) {
-              subnode = _arr[_i];
+            for (_arr = __toArray(node.nodes), i = 0, len = _arr.length; i < len; ++i) {
+              subnode = _arr[i];
               acc = generatorTranslate(
                 subnode,
                 scope,
                 acc,
                 breakState,
-                continueState
+                continueState,
+                autoReturn && i === len - 1
               );
             }
             return acc;
@@ -31097,7 +31109,7 @@
             postBranch = stepBranch.branch();
             return postBranch;
           },
-          If: function (node, scope, state, breakState, continueState) {
+          If: function (node, scope, state, breakState, continueState, autoReturn) {
             var postBranch, test, tWhenFalse, tWhenTrue, whenFalseBranch,
                 whenTrueBranch;
             test = generatorTranslateExpression(node.test, scope, state, state.hasGeneratorNode(node.test));
@@ -31127,7 +31139,8 @@
                   scope,
                   whenTrueBranch,
                   breakState,
-                  continueState
+                  continueState,
+                  autoReturn
                 ).goto(getPos(node.whenTrue), function () {
                   return postBranch;
                 });
@@ -31141,7 +31154,8 @@
                   scope,
                   whenFalseBranch,
                   breakState,
-                  continueState
+                  continueState,
+                  autoReturn
                 ).goto(getPos(node.whenFalse), function () {
                   return postBranch;
                 });
@@ -31151,7 +31165,7 @@
             } else {
               tWhenTrue = translate(node.whenTrue, scope, "statement");
               tWhenFalse = translate(node.whenFalse, scope, "statement");
-              return state.add(function () {
+              return state.returnOrAdd(autoReturn, getPos(node), function () {
                 return ast.If(
                   getPos(node),
                   test.tNode(),
@@ -31179,7 +31193,7 @@
               return state;
             }
           },
-          Switch: function (node, scope, state, _p, continueState) {
+          Switch: function (node, scope, state, _p, continueState, autoReturn) {
             var _arr, _f, _len, bodyStates, defaultBranch, defaultCase,
                 gDefaultBody, gNode, i, postBranch, resultCases;
             if (node.label != null) {
@@ -31221,7 +31235,8 @@
                 function () {
                   return postBranch;
                 },
-                continueState
+                continueState,
+                autoReturn && !case_.fallthrough
               );
               gCaseBody.goto(getPos(case_.node), case_.fallthrough
                 ? function () {
@@ -31248,7 +31263,8 @@
                 function () {
                   return postBranch;
                 },
-                continueState
+                continueState,
+                autoReturn
               );
               gDefaultBody.goto(getPos(node.defaultCase), function () {
                 return postBranch;
@@ -31271,14 +31287,15 @@
               return ast.Throw(getPos(node), __first(gNode.tNode(), gNode.cleanup()));
             });
           },
-          TmpWrapper: function (node, scope, state, breakState, continueState) {
+          TmpWrapper: function (node, scope, state, breakState, continueState, autoReturn) {
             var _arr, _i, result, tmp;
             result = generatorTranslate(
               node.node,
               scope,
               state,
               breakState,
-              continueState
+              continueState,
+              autoReturn
             );
             for (_arr = __toArray(node.tmps), _i = _arr.length; _i--; ) {
               tmp = _arr[_i];
@@ -31286,7 +31303,7 @@
             }
             return result;
           },
-          TryCatch: function (node, scope, state, breakState, continueState) {
+          TryCatch: function (node, scope, state, breakState, continueState, autoReturn) {
             var postBranch;
             if (node.label != null) {
               throw Error("Not implemented: try-catch with label in generator");
@@ -31297,7 +31314,8 @@
               scope,
               state,
               breakState,
-              continueState
+              continueState,
+              autoReturn
             );
             state = state.exitTryCatch(
               getPos(node.tryBody),
@@ -31311,7 +31329,8 @@
               scope,
               state,
               breakState,
-              continueState
+              continueState,
+              autoReturn
             );
             state.goto(getPos(node), function () {
               return postBranch;
@@ -31319,7 +31338,7 @@
             postBranch = state.branch();
             return postBranch;
           },
-          TryFinally: function (node, scope, state, breakState, continueState) {
+          TryFinally: function (node, scope, state, breakState, continueState, autoReturn) {
             if (node.label != null) {
               throw Error("Not implemented: try-finally with label in generator");
             }
@@ -31332,22 +31351,29 @@
               scope,
               state,
               breakState,
-              continueState
+              continueState,
+              autoReturn
             );
             return state.runPendingFinally(getPos(node));
           },
-          Yield: function (node, scope, state) {
-            var gNode;
+          Yield: function (node, scope, state, _p, _p2, autoReturn) {
+            var gNode, newState;
             gNode = generatorTranslateExpression(node.node, scope, state, false);
-            return state["yield"](getPos(node), function () {
+            newState = state["yield"](getPos(node), function () {
               var _ref;
               _ref = gNode.tNode();
               gNode.cleanup();
               return _ref;
             });
+            if (autoReturn) {
+              newState["return"](getPos(node), function () {
+                return state.builder.receivedIdent;
+              });
+            }
+            return newState;
           }
         };
-        return function (node, scope, state, breakState, continueState) {
+        return function (node, scope, state, breakState, continueState, autoReturn) {
           var key, ret;
           if (!(node instanceof ParserNode)) {
             throw TypeError("Expected node to be a " + __name(ParserNode) + ", got " + __typeof(node));
@@ -31366,7 +31392,9 @@
                 scope,
                 state,
                 breakState,
-                continueState
+                continueState,
+                autoReturn,
+                autoReturn
               );
               if (!(ret instanceof GeneratorState)) {
                 throw Error("Translated non-GeneratorState from " + __typeof(node) + ": " + __typeof(ret));
@@ -31374,7 +31402,7 @@
               return ret;
             } else {
               ret = generatorTranslateExpression(node, scope, state);
-              return ret.state.add(function () {
+              return ret.state.returnOrAdd(autoReturn, getPos(node), function () {
                 var _ref;
                 _ref = ret.tNode();
                 ret.cleanup();
@@ -31382,7 +31410,7 @@
               });
             }
           } else {
-            return state.add(translate(node, scope, "statement", false));
+            return state.returnOrAdd(autoReturn, getPos(node), translate(node, scope, "statement", false));
           }
         };
       }());
@@ -32632,7 +32660,14 @@
           isSimpleGenerator = !hasGeneratorNode(body, true);
           if (!isSimpleGenerator) {
             builder = GeneratorBuilder(pos, scope, hasGeneratorNode);
-            generatorTranslate(body, scope, builder.start).goto(pos, function () {
+            generatorTranslate(
+              body,
+              scope,
+              builder.start,
+              null,
+              null,
+              autoReturn
+            ).goto(pos, function () {
               return builder.stop;
             });
             translatedBody = builder.create();
@@ -32653,7 +32688,7 @@
           body,
           scope,
           "topStatement",
-          !isSimpleGenerator && autoReturn,
+          autoReturn,
           unassigned
         )();
         if (pos.file) {
@@ -33296,7 +33331,7 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      exports.version = "0.7.11";
+      exports.version = "0.7.12";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -34161,12 +34196,17 @@
               compiled = _received;
               ++_state;
             case 10:
-              mainModule._compile(compiled.code, mainModule.filename);
               _state = 12;
-              break;
+              return {
+                done: true,
+                value: mainModule._compile(compiled.code, mainModule.filename)
+              };
             case 11:
-              mainModule._compile(source, mainModule.filename);
               ++_state;
+              return {
+                done: true,
+                value: mainModule._compile(source, mainModule.filename)
+              };
             case 12:
               return { done: true, value: void 0 };
             default: throw Error("Unknown state: " + _state);
@@ -34210,7 +34250,7 @@
         var _e, _send, _state, _step, _throw;
         _state = 0;
         function _close() {
-          _state = 3;
+          _state = 4;
         }
         function _step(_received) {
           while (true) {
@@ -34222,13 +34262,18 @@
               _state = options.sync ? 1 : 2;
               break;
             case 1:
-              fetchAndParsePrelude(options.lang || "js", true);
-              _state = 3;
-              break;
+              _state = 4;
+              return {
+                done: true,
+                value: fetchAndParsePrelude(options.lang || "js", true)
+              };
             case 2:
               ++_state;
               return { done: false, value: fetchAndParsePrelude(options.lang || "js") };
             case 3:
+              ++_state;
+              return { done: true, value: _received };
+            case 4:
               return { done: true, value: void 0 };
             default: throw Error("Unknown state: " + _state);
             }

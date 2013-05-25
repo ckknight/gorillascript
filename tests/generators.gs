@@ -590,6 +590,118 @@ describe "return with value in generator", #
     for i in 0 til 10
       expect(iter.next()).to.eql { +done, value: void }
 
+describe "auto-return", #
+  it "works with if statement", #
+    let fun(check)*
+      yield \alpha
+      if check
+        \bravo
+      else
+        \charlie
+    
+    let mutable iter = fun(true)
+    expect(to-array iter).to.eql { arr: [\alpha], value: \bravo }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    iter := fun(false)
+    expect(to-array iter).to.eql { arr: [\alpha], value: \charlie }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+  
+  it "works with switch statement", #
+    let fun(check)*
+      yield \alpha
+      switch check
+      case 0
+        yield \bravo
+        \charlie
+      case 1
+        yield \delta
+        fallthrough
+      case 2
+        yield \echo
+        \foxtrot
+      default
+        \golf
+    
+    let mutable iter = fun(0)
+    expect(to-array iter).to.eql { arr: [\alpha, \bravo], value: \charlie }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    
+    iter := fun(1)
+    expect(to-array iter).to.eql { arr: [\alpha, \delta, \echo], value: \foxtrot }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    
+    iter := fun(2)
+    expect(to-array iter).to.eql { arr: [\alpha, \echo], value: \foxtrot }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    
+    iter := fun(3)
+    expect(to-array iter).to.eql { arr: [\alpha], value: \golf }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+  
+  it "works with try-catch statement", #
+    let fun(err)*
+      yield \alpha
+      try
+        yield \bravo
+        throw? err
+        \charlie
+      catch
+        yield \delta
+        \echo
+    
+    let mutable iter = fun()
+    expect(to-array iter).to.eql { arr: [\alpha, \bravo], value: \charlie }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    
+    iter := fun({})
+    expect(to-array iter).to.eql { arr: [\alpha, \bravo, \delta], value: \echo }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+  
+  it "works with try-finally statement", #
+    let done = stub()
+    let fun(err)*
+      yield \alpha
+      try
+        yield \bravo
+        throw? err
+        \charlie
+      finally
+        done()
+    
+    let mutable iter = fun()
+    expect(to-array iter).to.eql { arr: [\alpha, \bravo], value: \charlie }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    //expect(done).to.be.called-once
+    
+    let obj = {}
+    iter := fun(obj)
+    expect(iter.next()).to.eql { -done, value: \alpha }
+    expect(iter.next()).to.eql { -done, value: \bravo }
+    //expect(done).to.be.called-once
+    expect(#-> iter.next()).to.throw obj
+    //expect(done).to.be.called-twice
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+  
+  it "auto-returning a yield", #
+    let fun()*
+      yield \alpha
+      yield \bravo
+    
+    let mutable iter = fun()
+    expect(iter.send void).to.eql { -done, value: \alpha }
+    expect(iter.send void).to.eql { -done, value: \bravo }
+    expect(iter.send \charlie).to.eql { +done, value: \charlie }
+
 describe "yield with an uncaught error returns that it's done after error", #
   let fun(obj)*
     yield \alpha
@@ -635,6 +747,30 @@ describe "a generator without yield statements", #
     
     let iter = fun()
     expect(iter.next()).to.eql { +done, value: "hello" }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    expect(ran).to.be.called-once
+  
+  it "has a result if value is auto-returned", #
+    let ran = stub()
+    let fun()*
+      ran()
+      "hello"
+    
+    let iter = fun()
+    expect(iter.next()).to.eql { +done, value: "hello" }
+    for i in 0 til 10
+      expect(iter.next()).to.eql { +done, value: void }
+    expect(ran).to.be.called-once
+  
+  it "has no result if function does not auto-return", #
+    let ran = stub()
+    let fun()!*
+      ran()
+      "hello"
+    
+    let iter = fun()
+    expect(iter.next()).to.eql { +done, value: void }
     for i in 0 til 10
       expect(iter.next()).to.eql { +done, value: void }
     expect(ran).to.be.called-once

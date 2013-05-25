@@ -292,10 +292,22 @@ class GeneratorState
       @goto pos, #@-> @builder.stop
     else
       @add @make-goto pos, #@-> @builder.stop, false
-      @add #-> ast.Return pos, ast.Obj pos, [
-        ast.Obj.Pair pos, \done, ast.Const pos, true
-        ast.Obj.Pair pos, \value, t-node()
-      ]
+      @add #
+        let node = t-node()
+        if node not instanceof ast.Statement
+          ast.Return pos, ast.Obj pos, [
+            ast.Obj.Pair pos, \done, ast.Const pos, true
+            ast.Obj.Pair pos, \value, t-node()
+          ]
+        else
+          node
+  
+  def return-or-add(is-return, pos, t-node)
+    if is-return
+      @return pos, t-node
+      this
+    else
+      @add t-node
   
   def get-redirect() as GeneratorState
     @builder.get-redirect(this)
@@ -955,11 +967,11 @@ let generator-translate = do
       handle-assign assign-to, scope, state, translate node, scope, \expression
   
   let statements =
-    Block: #(node, scope, state, break-state, continue-state)
+    Block: #(node, scope, state, break-state, continue-state, auto-return)
       if node.label?
         throw Error "Not implemented: block with label in generator"
-      for reduce subnode in node.nodes, acc = state
-        generator-translate subnode, scope, acc, break-state, continue-state
+      for reduce subnode, i, len in node.nodes, acc = state
+        generator-translate subnode, scope, acc, break-state, continue-state, auto-return and i == len - 1
 
     Break: #(node, scope, state, break-state)
       if node.label?
@@ -1040,7 +1052,7 @@ let generator-translate = do
       let post-branch = step-branch.branch()
       post-branch
     
-    If: #(node, scope, mutable state, break-state, continue-state)
+    If: #(node, scope, mutable state, break-state, continue-state, auto-return)
       let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
       state := test.state
       
@@ -1048,16 +1060,16 @@ let generator-translate = do
         state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch or post-branch, #-> when-false-branch or post-branch
         let when-true-branch = if node.when-true and node.when-true not instanceof ParserNode.Nothing then state.branch()
         if when-true-branch
-          generator-translate(node.when-true, scope, when-true-branch, break-state, continue-state).goto get-pos(node.when-true), #-> post-branch
+          generator-translate(node.when-true, scope, when-true-branch, break-state, continue-state, auto-return).goto get-pos(node.when-true), #-> post-branch
         let when-false-branch = if node.when-false and node.when-false not instanceof ParserNode.Nothing then state.branch()
         if when-false-branch
-          generator-translate(node.when-false, scope, when-false-branch, break-state, continue-state).goto get-pos(node.when-false), #-> post-branch
+          generator-translate(node.when-false, scope, when-false-branch, break-state, continue-state, auto-return).goto get-pos(node.when-false), #-> post-branch
         let post-branch = state.branch()
         post-branch
       else
         let t-when-true = translate node.when-true, scope, \statement
         let t-when-false = translate node.when-false, scope, \statement
-        state.add #-> ast.If get-pos(node),
+        state.return-or-add auto-return, get-pos(node), #-> ast.If get-pos(node),
           test.t-node()
           last!(test.cleanup(), t-when-true())
           t-when-false()
@@ -1075,7 +1087,7 @@ let generator-translate = do
           g-node.cleanup())
         state
       
-    Switch: #(node, scope, state, , continue-state)
+    Switch: #(node, scope, state, , continue-state, auto-return)
       if node.label?
         throw Error "Not implemented: switch with label in generator"
       let g-node = generator-translate-expression node.node, scope, state, false // TODO: should this be true?
@@ -1092,7 +1104,7 @@ let generator-translate = do
         let t-case-node = translate case_.node, scope, \expression
         let case-branch = g-node.state.branch()
         body-states[i] := case-branch
-        let g-case-body = generator-translate case_.body, scope, case-branch, #-> post-branch, continue-state
+        let g-case-body = generator-translate case_.body, scope, case-branch, #-> post-branch, continue-state, auto-return and not case_.fallthrough
         g-case-body.goto get-pos(case_.node), if case_.fallthrough
           #-> body-states[i + 1] or post-branch
         else
@@ -1104,7 +1116,7 @@ let generator-translate = do
         ]
       let default-case = if node.default-case?
         let default-branch = g-node.state.branch()
-        let g-default-body = generator-translate node.default-case, scope, default-branch, #-> post-branch, continue-state
+        let g-default-body = generator-translate node.default-case, scope, default-branch, #-> post-branch, continue-state, auto-return
         g-default-body.goto get-pos(node.default-case), #-> post-branch
         default-branch.make-goto get-pos(node.default-case), #-> default-branch
       else
@@ -1116,25 +1128,25 @@ let generator-translate = do
       let g-node = generator-translate-expression node.node, scope, state, false
       g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
     
-    TmpWrapper: #(node, scope, state, break-state, continue-state)
-      let result = generator-translate node.node, scope, state, break-state, continue-state
+    TmpWrapper: #(node, scope, state, break-state, continue-state, auto-return)
+      let result = generator-translate node.node, scope, state, break-state, continue-state, auto-return
       for tmp in node.tmps by -1
         scope.release-tmp tmp
       result
     
-    TryCatch: #(node, scope, mutable state, break-state, continue-state)
+    TryCatch: #(node, scope, mutable state, break-state, continue-state, auto-return)
       if node.label?
         throw Error "Not implemented: try-catch with label in generator"
       
       state := state.enter-try-catch get-pos(node)
-      state := generator-translate node.try-body, scope, state, break-state, continue-state
+      state := generator-translate node.try-body, scope, state, break-state, continue-state, auto-return
       state := state.exit-try-catch get-pos(node.try-body), (translate node.catch-ident, scope, \left-expression, false), #-> post-branch
-      state := generator-translate node.catch-body, scope, state, break-state, continue-state
+      state := generator-translate node.catch-body, scope, state, break-state, continue-state, auto-return
       state.goto get-pos(node), #-> post-branch
       let post-branch = state.branch()
       post-branch
     
-    TryFinally: #(node, scope, mutable state, break-state, continue-state)
+    TryFinally: #(node, scope, mutable state, break-state, continue-state, auto-return)
       if node.label?
         throw Error "Not implemented: try-finally with label in generator"
       
@@ -1142,30 +1154,34 @@ let generator-translate = do
         throw Error "Cannot use yield in a finally"
       
       state := state.pending-finally get-pos(node), translate node.finally-body, scope, \statement
-      state := generator-translate node.try-body, scope, state, break-state, continue-state
+      state := generator-translate node.try-body, scope, state, break-state, continue-state, auto-return
       state.run-pending-finally get-pos(node)
     
-    Yield: #(node, scope, mutable state)
+    Yield: #(node, scope, mutable state, , , auto-return)
+      // TODO: auto-return
       let g-node = generator-translate-expression node.node, scope, state, false
-      state.yield get-pos(node), #-> first!(
+      let new-state = state.yield get-pos(node), #-> first!(
         g-node.t-node()
         g-node.cleanup())
+      if auto-return
+        new-state.return get-pos(node), #-> state.builder.received-ident
+      new-state
     
-  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state)
+  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, auto-return)
     if state.has-generator-node node
       let key = node.constructor.capped-name
       if statements ownskey key
-        let ret = statements[key](node, scope, state, break-state, continue-state)
+        let ret = statements[key](node, scope, state, break-state, continue-state, auto-return, auto-return)
         if ret not instanceof GeneratorState
           throw Error "Translated non-GeneratorState from $(typeof! node): $(typeof! ret)"
         ret
       else
         let ret = generator-translate-expression node, scope, state
-        ret.state.add #-> first!(
+        ret.state.return-or-add auto-return, get-pos(node), #-> first!(
           ret.t-node()
           ret.cleanup())
     else
-      state.add translate node, scope, \statement, false
+      state.return-or-add auto-return, get-pos(node), translate node, scope, \statement, false
 
 let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-like, unassigned)
   let translated-items = []
@@ -1806,7 +1822,7 @@ let translate-function-body(pos, is-generator, auto-return, scope, body, unassig
     is-simple-generator := not has-generator-node(body, true)
     if not is-simple-generator
       let builder = GeneratorBuilder pos, scope, has-generator-node
-      generator-translate(body, scope, builder.start).goto(pos, #-> builder.stop)
+      generator-translate(body, scope, builder.start, null, null, auto-return).goto(pos, #-> builder.stop)
       let translated-body = builder.create()
       if pos.file
         translated-body.pos.file or= pos.file
@@ -1815,7 +1831,7 @@ let translate-function-body(pos, is-generator, auto-return, scope, body, unassig
         body: translated-body
       }
   
-  let translated-body = translate(body, scope, \top-statement, not is-simple-generator and auto-return, unassigned)()
+  let translated-body = translate(body, scope, \top-statement, auto-return, unassigned)()
   if pos.file
     translated-body.pos.file or= pos.file
   {
