@@ -238,6 +238,7 @@ macro let
               else
                 handle inc(i), block
             else
+              block.push value
               @block block
           handle 0, [set-value]
     else if declarable.type == \object
@@ -258,6 +259,7 @@ macro let
             if i ~< declarable.pairs.length
               handle-pair i, @macro-expand-1(declarable.pairs[i]), block
             else
+              block.push value
               @block block
           handle 0, [set-value]
     else
