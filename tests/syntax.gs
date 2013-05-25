@@ -23,3 +23,20 @@ describe "last!", #
       value
     expect(last!(order(1), order(2), order(3))).to.equal 3
     expect(order-list).to.eql [1, 2, 3]
+
+describe "let", #
+  describe "as a function", #
+    it "does not allow primordials to be declared", #
+      for prim in ["Object", "Math", "Function"]
+        expect(#-> gorilla.compile-sync """
+        let x = 0
+        let $prim() ->
+        """).throws gorilla.MacroError, r"^Cannot declare primordial '$prim'.*2:\d+\$"
+  
+  describe "as an assignment", #
+    it "does not allow primordials to be declared", #
+      for prim in ["Object", "Math", "Function"]
+        expect(#-> gorilla.compile-sync """
+        let x = 0
+        let $prim = 0
+        """).throws gorilla.MacroError//, r"^Cannot declare primordial '$prim'.*2:\d+$"

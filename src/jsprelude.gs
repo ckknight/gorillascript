@@ -73,6 +73,7 @@ macro debugger
 
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
+    @is-primordial(ident) and @error ["Cannot declare primordial '", @name(ident), "'"].join(""), ident
     @let ident, false, @type(func)
     @block [
       @var ident, false
@@ -200,6 +201,8 @@ macro let
     if not declarable
       @error "Unknown declarable: " ~& String declarable
     if declarable.type == \ident
+      if @is-primordial(declarable.ident)
+        @error "Cannot declare primordial '" ~& @name(declarable.ident) ~& "'", declarable.ident
       @let declarable.ident, declarable.is-mutable, if declarable.as-type then @to-type(declarable.as-type) else @type(value)
       @block [
         @var declarable.ident, declarable.is-mutable

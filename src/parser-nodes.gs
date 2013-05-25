@@ -1,6 +1,6 @@
 require! Type: './types'
 let {node-to-type, map, map-async} = require './parser-utils'
-let {quote} = require './utils'
+let {quote, is-primordial} = require './utils'
 let inspect = require('util')?.inspect
 
 const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length // TODO: get the value from parser.gs or something
@@ -1067,6 +1067,7 @@ node-class IdentNode(name as String)
     else
       Type.any
   def _is-noop(o) -> true
+  def is-primordial() -> is-primordial(@name)
 node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, 0, scope), label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
   def with-label(label as IdentNode|TmpNode|null)

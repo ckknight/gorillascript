@@ -231,6 +231,9 @@ class MacroContext
   
   def is-node(node) -> node instanceof Node
   def is-ident(node) -> @real(node) instanceof IdentNode
+  def is-primordial(mutable node)
+    node := @real node
+    node instanceof IdentNode and node.is-primordial()
   def is-tmp(node) -> @real(node) instanceof TmpNode
   def is-ident-or-tmp(node) -> @real(node) instanceofsome [IdentNode, TmpNode]
   def name(mutable node)
