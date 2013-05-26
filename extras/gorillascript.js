@@ -33056,7 +33056,7 @@
       _ref = require("./utils");
       writeFileWithMkdirp = _ref.writeFileWithMkdirp;
       writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-      exports.version = "0.7.21";
+      exports.version = "0.7.22";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -33901,7 +33901,7 @@
               code = compiled.code;
               if (sourceMapFile) {
                 linefeed = options.linefeed || "\n";
-                footer = __strnum(linefeed) + "/*" + __strnum(linefeed) + "//@ sourceMappingURL=" + __strnum(sourceMapFile) + __strnum(linefeed) + "*/" + __strnum(linefeed);
+                footer = __strnum(linefeed) + "/*" + __strnum(linefeed) + "//@ sourceMappingURL=" + __strnum(path.relative(path.dirname(options.output), sourceMapFile)) + __strnum(linefeed) + "*/" + __strnum(linefeed);
                 code = __strnum(code) + footer;
               }
               _state = sync ? 14 : 15;

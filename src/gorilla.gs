@@ -251,7 +251,7 @@ exports.compile-file := promise! #(mutable options = {})!*
   let mutable code = compiled.code
   if source-map-file
     let linefeed = options.linefeed or "\n"
-    let footer = "$(linefeed)/*$(linefeed)//@ sourceMappingURL=$(source-map-file)$(linefeed)*/$(linefeed)"
+    let footer = "$(linefeed)/*$(linefeed)//@ sourceMappingURL=$(path.relative path.dirname(options.output), source-map-file)$(linefeed)*/$(linefeed)"
     code &= footer
   if sync
     write-file-with-mkdirp-sync options.output, code
