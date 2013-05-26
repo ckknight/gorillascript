@@ -151,7 +151,7 @@ exports.Arguments := class Arguments extends Expression
   def constructor(@pos as {}) ->
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb "arguments"
   def compile-as-block(options, level, line-start, sb)! -> Noop(@pos).compile-as-block(options, level, line-start, sb)
   def walk() -> this
@@ -243,15 +243,15 @@ exports.Arr := class Arr extends Expression
           sb " "
       item.compile options, Level.sequence, false, sb
   def compile(options, level, line-start, sb)!
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file(@pos.file)
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file(@pos.file)
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "["
     let f = if not options.minify and @should-compile-large() then compile-large else compile-small
     f(@elements, options, level, line-start, sb)
     sb "]"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   def compile-as-block(options, level, line-start, sb)
     BlockExpression(@pos, @elements).compile-as-block(options, level, line-start, sb)
   def compile-as-statement(options, line-start, sb)!
@@ -391,13 +391,13 @@ exports.Binary := class Binary extends Expression
       sb ")"
   
   def compile(options, level, line-start, sb)!
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file(@pos.file)
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file(@pos.file)
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let f = if @op == "." then compile-access else compile-other
     f(@op, @left, @right, options, level, line-start, sb)
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def compile-as-block(options, level, line-start, sb)!
     if ASSIGNMENT_OPS ownskey @op or @op in [".", "&&", "||"]
@@ -542,9 +542,9 @@ exports.BlockStatement := class BlockStatement extends Statement
       if not node.is-noop()
         node
     
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let child-options = if @label? then inc-indent(options) else options
     
     let minify = options.minify
@@ -574,8 +574,8 @@ exports.BlockStatement := class BlockStatement extends Statement
         sb options.linefeed or "\n"
         sb.indent options.indent
       sb "}"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let body = walk-array(@body, walker)
@@ -634,9 +634,9 @@ exports.BlockExpression := class BlockExpression extends Expression
         if not node.is-noop() or i == len - 1
           node
       
-      if options.sourcemap? and @pos.file
-        options.sourcemap.push-file @pos.file
-      options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+      if options.source-map? and @pos.file
+        options.source-map.push-file @pos.file
+      options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
       let wrap = level > Level.inside-parentheses and nodes.length > 1
       if wrap
         sb "("
@@ -648,8 +648,8 @@ exports.BlockExpression := class BlockExpression extends Expression
         item.compile options, if wrap then Level.sequence else level, false, sb
       if wrap
         sb ")"
-      if options.sourcemap? and @pos.file
-        options.sourcemap.pop-file()
+      if options.source-map? and @pos.file
+        options.source-map.pop-file()
   
   def compile-as-block(options, level, line-start, sb)!
     if level == Level.block
@@ -659,9 +659,9 @@ exports.BlockExpression := class BlockExpression extends Expression
         if not node.is-noop()
           node
       
-      if options.sourcemap? and @pos.file
-        options.sourcemap.push-file @pos.file
-      options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+      if options.source-map? and @pos.file
+        options.source-map.push-file @pos.file
+      options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
       let wrap = level > Level.inside-parentheses and nodes.length > 1
       if wrap
         sb "("
@@ -671,8 +671,8 @@ exports.BlockExpression := class BlockExpression extends Expression
         item.compile-as-block options, if wrap then Level.sequence else level, false, sb
       if wrap
         sb ")"
-      if options.sourcemap? and @pos.file
-        options.sourcemap.pop-file()
+      if options.source-map? and @pos.file
+        options.source-map.pop-file()
   
   def is-large()
     @_is-large ?= @body.length > 4 or for some part in @body by -1; part.is-large()
@@ -703,16 +703,16 @@ exports.Break := class Break extends Statement
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "break"
     if @label?
       sb " "
       @label.compile options, Level.inside-parentheses, false, sb
     sb ";"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file @pos.file
+    if options.source-map? and @pos.file
+      options.source-map.pop-file @pos.file
   
   def walk() -> this
   
@@ -757,9 +757,9 @@ exports.Call := class Call extends Expression
       arg.compile options, Level.sequence, false, sb
     sb ")"
   def compile(options, level, line-start, sb)!
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let wrap = level > Level.call-or-access or (not @is-new and (@func instanceof Func or (@func instanceof Binary and @func.op == "." and @func.left instanceof Func)))
     if wrap
       sb "("
@@ -770,8 +770,8 @@ exports.Call := class Call extends Expression
     f(@args, options, level, line-start, sb)
     if wrap
       sb ")"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def should-compile-large()
     if @args.length > 4
@@ -840,9 +840,9 @@ exports.Const := class Const extends Expression
   def constructor(@pos as {}, @value as void|null|Boolean|Number|String) ->
   
   def compile(options, level, line-start, sb)!
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let value = @value
     if is-void! value and options.undefined-name?
       sb options.undefined-name
@@ -853,8 +853,8 @@ exports.Const := class Const extends Expression
       sb to-JS-source(value)
       if wrap
         sb ")"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   def compile-as-block(options, level, line-start, sb)!
     Noop(@pos).compile-as-block(options, level, line-start, sb)
   
@@ -900,16 +900,16 @@ exports.Continue := class Continue extends Statement
   def compile(options, level, line-start, sb)
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "continue"
     if @label?
       sb " "
       @label.compile options, Level.inside-parentheses, false, sb
     sb ";"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk() -> this
   
@@ -935,7 +935,7 @@ exports.Debugger := class Debugger extends Statement
   def compile(options, level, line-start, sb)
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb "debugger;"
   
   def walk() -> this
@@ -956,9 +956,9 @@ exports.DoWhile := class DoWhile extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
@@ -991,8 +991,8 @@ exports.DoWhile := class DoWhile extends Statement
     sb "("
     @test.compile options, Level.inside-parentheses, false, sb
     sb ");"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let body = walker(@body) ? @body.walk(walker)
@@ -1015,17 +1015,17 @@ exports.Eval := class Eval extends Expression
     @code := code
   
   def compile(options, level, line-start, sb)!  
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     if @code instanceof Const
       sb String(@code.value)
     else
       sb "eval("
       @code.compile options, Level.sequence, false, sb
       sb ")"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let code = walker(@code) ? @code.walk(walker)
@@ -1057,9 +1057,9 @@ exports.For := class For extends Statement
     else
       @test
     
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
@@ -1105,8 +1105,8 @@ exports.For := class For extends Statement
         sb options.linefeed or "\n"
         sb.indent options.indent
       sb "}"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let init = walker(@init) ? @init.walk(walker)
@@ -1136,9 +1136,9 @@ exports.ForIn := class ForIn extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
@@ -1168,8 +1168,8 @@ exports.ForIn := class ForIn extends Statement
         sb options.linefeed or "\n"
         sb.indent options.indent
       sb "}"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let key = walker(@key) ? @key.walk(walker)
@@ -1286,17 +1286,17 @@ exports.Func := class Func extends Expression
     validate-func-params-and-variables params, variables
   
   def compile(options, level, line-start, sb)!
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let wrap = line-start and not @name
     if wrap
       sb "("
     compile-func options, sb, @name, @params, @declarations, @variables, @body
     if wrap
       sb ")"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def compile-as-statement(options, line-start, sb)!
     @compile options, Level.block, line-start, sb
@@ -1333,7 +1333,7 @@ exports.Ident := class Ident extends Expression
   
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb to-JS-ident @name
   
   def compile-as-block(options, level, line-start, sb)!
@@ -1385,9 +1385,9 @@ exports.IfStatement := class IfStatement extends Statement
       else
         IfStatement(@pos, Unary(@test.pos, "!", @test), @when-false, @when-true, @label).compile(options, level, line-start, sb)
     else
-      if options.sourcemap? and @pos.file
-        options.sourcemap.push-file @pos.file
-      options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+      if options.source-map? and @pos.file
+        options.source-map.push-file @pos.file
+      options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
       let minify = options.minify
       if @label?
         @label.compile options, level, line-start, sb
@@ -1432,8 +1432,8 @@ exports.IfStatement := class IfStatement extends Statement
             sb options.linefeed or "\n"
             sb.indent options.indent
           sb "}"
-      if options.sourcemap? and @pos.file
-        options.sourcemap.pop-file()
+      if options.source-map? and @pos.file
+        options.source-map.pop-file()
         
   def walk(walker)
     let test = walker(@test) ? @test.walk walker
@@ -1536,9 +1536,9 @@ exports.IfExpression := class IfExpression extends Expression
     if level == Level.block
       @to-statement().compile(options, level, line-start, sb)
     else
-      if options.sourcemap? and @pos.file
-        options.sourcemap.push-file @pos.file
-      options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+      if options.source-map? and @pos.file
+        options.source-map.push-file @pos.file
+      options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
       let wrap = level > Level.inline-condition
       if wrap
         sb "("
@@ -1546,8 +1546,8 @@ exports.IfExpression := class IfExpression extends Expression
       f @test, @when-true, @when-false, options, not wrap and line-start, sb
       if wrap
         sb ")"
-      if options.sourcemap? and @pos.file
-        options.sourcemap.pop-file()
+      if options.source-map? and @pos.file
+        options.source-map.pop-file()
   def compile-as-block(options, level, line-start, sb)!
     if @when-true.is-noop()
       if @when-false.is-noop()
@@ -1662,9 +1662,9 @@ exports.Obj := class Obj extends Expression
         sb " "
   
   def compile(options, level, line-start, sb)!
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let wrap = line-start // TODO: this might be wrong if immediately following a semicolon but not at the start of a line (as in minify)
     if wrap
       sb "("
@@ -1674,8 +1674,8 @@ exports.Obj := class Obj extends Expression
     sb "}"
     if wrap
       sb ")"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def compile-as-block(options, level, line-start, sb)!
     BlockExpression(@pos, for element in @elements; element.value).compile-as-block(options, level, line-start, sb)
@@ -1749,7 +1749,7 @@ exports.Regex := class Regex extends Expression
   def constructor(@pos as {}, @source as String, @flags as String = "") ->
 
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb "/"
     sb @source.replace(r"(\\\\)*\\?/"g, "\$1\\/") or "(?:)"
     sb "/"
@@ -1772,16 +1772,16 @@ exports.Return := class Return extends Statement
       return node.to-statement().mutate-last (#(n) -> Return pos, n), { +noop }
   
   def compile(options, level, line-start, sb)!
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "return"
     unless @node.is-const() and is-void! @node.const-value()
       sb " "
       @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
@@ -1825,12 +1825,12 @@ exports.Root := class Root
     let writer = if not options.uglify and is-function! options.writer then options.writer
     let sb = if writer then StringWriter(writer) else StringBuilder()
     let start-time = new Date().get-time()
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     compile-func-body(options, sb, @declarations, @variables, @body, true)
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
     let end-compile-time = new Date().get-time()
     options.progress?(\compile, end-compile-time - start-time)
     let mutable end-uglify-time = 0
@@ -1839,16 +1839,16 @@ exports.Root := class Root
       if options.uglify
         let mutable tmp-map = void
         let fs = require("fs")
-        if options.sourcemap?
+        if options.source-map?
           let path = require("path")
           let os = require("os")
           tmp-map := path.join(os.tmp-dir(), "gs-$(Math.random() * 2^32).map")
-          fs.write-file-sync(tmp-map, options.sourcemap.to-string(), "utf8")
+          fs.write-file-sync(tmp-map, options.source-map.to-string(), "utf8")
         let UglifyJS = require("uglify-js")
         let old-warn_function = UglifyJS.AST_Node?.warn_function
         if is-function! old-warn_function
           UglifyJS.AST_Node.warn_function := #->
-        let minified = UglifyJS.minify(code, from-string: true, in-source-map: tmp-map, out-source-map: options.sourcemap?.generated-file)
+        let minified = UglifyJS.minify(code, from-string: true, in-source-map: tmp-map, out-source-map: options.source-map?.generated-file)
         if old-warn_function?
           UglifyJS.AST_Node.warn_function := old-warn_function
         if tmp-map?
@@ -1856,8 +1856,8 @@ exports.Root := class Root
         code := minified.code
         end-uglify-time := new Date().get-time()
         options.progress?(\uglify, end-uglify-time - end-compile-time)
-        if options.sourcemap?
-          options.sourcemap := minified.map
+        if options.source-map?
+          options.source-map := minified.map
       if is-function! options.writer
         options.writer(code)
         code := ""
@@ -1901,7 +1901,7 @@ exports.This := class This extends Expression
   def constructor(@pos as {}) ->
   
   def compile(options, level, line-start, sb)!
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column, @pos.file)
     sb "this"
   def compile-as-block(options, level, line-start, sb)!
     Noop(@pos).compile-as-block(options, level, line-start, sb)
@@ -1920,14 +1920,14 @@ exports.Throw := class Throw extends Statement
       return node.to-statement().mutate-last (#(n)@ -> Throw @pos, n), { +noop }
   
   def compile(options, level, line-start, sb)
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     sb "throw "
     @node.compile options, Level.inside-parentheses, false, sb
     sb ";"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
@@ -1961,9 +1961,9 @@ exports.Switch := class Switch extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
@@ -2015,8 +2015,8 @@ exports.Switch := class Switch extends Statement
       sb options.linefeed or "\n"
       sb.indent options.indent
     sb "}"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let node = walker(@node) ? @node.walk(walker)
@@ -2089,9 +2089,9 @@ exports.TryCatch := class TryCatch extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
@@ -2122,8 +2122,8 @@ exports.TryCatch := class TryCatch extends Statement
         sb options.linefeed or "\n"
         sb.indent options.indent
     sb "}"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let try-body = walker(@try-body) ? @try-body.walk(walker)
@@ -2158,9 +2158,9 @@ exports.TryFinally := class TryFinally extends Statement
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
     
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     let minify = options.minify
     if @label?
       @label.compile options, level, line-start, sb
@@ -2208,8 +2208,8 @@ exports.TryFinally := class TryFinally extends Statement
       sb options.linefeed or "\n"
       sb.indent options.indent
     sb "}"
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def walk(walker)
     let try-body = walker(@try-body) ? @try-body.walk(walker)
@@ -2244,9 +2244,9 @@ exports.Unary := class Unary extends Expression
   
   def compile(options, level, line-start, sb)!
     let op = @op
-    if options.sourcemap? and @pos.file
-      options.sourcemap.push-file @pos.file
-    options.sourcemap?.add(sb.line, sb.column, @pos.line, @pos.column)
+    if options.source-map? and @pos.file
+      options.source-map.push-file @pos.file
+    options.source-map?.add(sb.line, sb.column, @pos.line, @pos.column)
     if op in ["++post", "--post"]
       @node.compile options, Level.unary, false, sb
       sb op.substring(0, 2)
@@ -2255,8 +2255,8 @@ exports.Unary := class Unary extends Expression
       if op in ["typeof", "void", "delete"] or (op in ["+", "-", "++", "--"] and ((@node instanceof Unary and op in ["+", "-", "++", "--"]) or (@node instanceof Const and is-number! @node.value and is-negative(@node.value))))
         sb " "
       @node.compile options, Level.unary, false, sb
-    if options.sourcemap? and @pos.file
-      options.sourcemap.pop-file()
+    if options.source-map? and @pos.file
+      options.source-map.pop-file()
   
   def compile-as-block(options, level, line-start, sb)!
     let op = @op

@@ -2,7 +2,7 @@ require! './parser'
 require! os
 require! fs
 require! path
-require! SourceMap: './sourcemap'
+require! SourceMap: './source-map'
 let {write-file-with-mkdirp, write-file-with-mkdirp-sync} = require('./utils')
 
 const DEFAULT_TRANSLATOR = './jstranslator'
@@ -209,19 +209,19 @@ exports.compile-file := promise! #(mutable options = {})!*
   let output = options.output
   if not is-string! output
     throw Error "Expected options.output to be a string"
-  let mutable sourcemap-file = void
-  if not options.sourcemap
-    options.sourcemap := null // in case it was set to a falsy value
-  else if is-string! options.sourcemap
-    sourcemap-file := options.sourcemap
-    options.sourcemap := SourceMap(options.output, "")
+  let mutable source-map-file = void
+  if not options.source-map
+    options.source-map := null // in case it was set to a falsy value
+  else if is-string! options.source-map
+    source-map-file := options.source-map
+    options.source-map := SourceMap(options.output, "")
   else
-    if not is-string! options.sourcemap.file
-      throw Error "Expected options.sourcemap.file to be a string"
-    if not is-string! options.sourcemap.source-root
-      throw Error "Expected options.sourcemap.sourceRoot to be a string"
-    sourcemap-file := options.sourcemap.file
-    options.sourcemap := SourceMap(options.output, options.sourcemap.source-root)
+    if not is-string! options.source-map.file
+      throw Error "Expected options.sourceMap.file to be a string"
+    if not is-string! options.source-map.source-root
+      throw Error "Expected options.sourceMap.sourceRoot to be a string"
+    source-map-file := options.source-map.file
+    options.source-map := SourceMap(options.output, options.source-map.source-root)
   let mutable sources = []
   if sync
     for input in inputs
@@ -249,19 +249,19 @@ exports.compile-file := promise! #(mutable options = {})!*
   unless sync
     yield delay! 0
   let mutable code = compiled.code
-  if options.sourcemap
+  if source-map-file
     let linefeed = options.linefeed or "\n"
-    let footer = "$(linefeed)/*$(linefeed)//@ sourceMappingURL=$(sourcemap-file)$(linefeed)*/$(linefeed)"
+    let footer = "$(linefeed)/*$(linefeed)//@ sourceMappingURL=$(source-map-file)$(linefeed)*/$(linefeed)"
     code &= footer
   if sync
     write-file-with-mkdirp-sync options.output, code
   else
     yield write-file-with-mkdirp options.output, code
-  if sourcemap-file
+  if source-map-file
     if sync
-      write-file-with-mkdirp-sync sourcemap-file, options.sourcemap.to-string(), true
+      write-file-with-mkdirp-sync source-map-file, options.source-map.to-string(), true
     else
-      yield write-file-with-mkdirp sourcemap-file, options.sourcemap.to-string()
+      yield write-file-with-mkdirp source-map-file, options.source-map.to-string()
 exports.compile-file-sync := #(options = {})
   options.sync := true
   exports.compile-file.sync options

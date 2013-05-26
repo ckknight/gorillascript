@@ -3508,7 +3508,7 @@
         }
         _Arguments_prototype.compile = function (options, level, lineStart, sb) {
           var _ref;
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(
               sb.line,
               sb.column,
@@ -3707,10 +3707,10 @@
         }
         _Arr_prototype.compile = function (options, level, lineStart, sb) {
           var _ref, f;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           sb("[");
@@ -3727,8 +3727,8 @@
             sb
           );
           sb("]");
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Arr_prototype.compileAsBlock = function (options, level, lineStart, sb) {
@@ -3991,10 +3991,10 @@
         }
         _Binary_prototype.compile = function (options, level, lineStart, sb) {
           var _ref, f;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           if (this.op === ".") {
@@ -4011,8 +4011,8 @@
             lineStart,
             sb
           );
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Binary_prototype.compileAsBlock = function (options, level, lineStart, sb) {
@@ -4268,10 +4268,10 @@
             }
           }
           nodes = _arr;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           if (this.label != null) {
@@ -4311,8 +4311,8 @@
             }
             sb("}");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _BlockStatement_prototype.walk = function (walker) {
@@ -4458,10 +4458,10 @@
               }
             }
             nodes = _arr;
-            if (options.sourcemap != null && this.pos.file) {
-              options.sourcemap.pushFile(this.pos.file);
+            if (options.sourceMap != null && this.pos.file) {
+              options.sourceMap.pushFile(this.pos.file);
             }
-            if ((_ref = options.sourcemap) != null) {
+            if ((_ref = options.sourceMap) != null) {
               _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
             }
             wrap = __num(level) > 2 && nodes.length > 1;
@@ -4486,8 +4486,8 @@
             if (wrap) {
               sb(")");
             }
-            if (options.sourcemap != null && this.pos.file) {
-              options.sourcemap.popFile();
+            if (options.sourceMap != null && this.pos.file) {
+              options.sourceMap.popFile();
             }
           }
         };
@@ -4503,10 +4503,10 @@
               }
             }
             nodes = _arr;
-            if (options.sourcemap != null && this.pos.file) {
-              options.sourcemap.pushFile(this.pos.file);
+            if (options.sourceMap != null && this.pos.file) {
+              options.sourceMap.pushFile(this.pos.file);
             }
-            if ((_ref = options.sourcemap) != null) {
+            if ((_ref = options.sourceMap) != null) {
               _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
             }
             wrap = __num(level) > 2 && nodes.length > 1;
@@ -4528,8 +4528,8 @@
             if (wrap) {
               sb(")");
             }
-            if (options.sourcemap != null && this.pos.file) {
-              options.sourcemap.popFile();
+            if (options.sourceMap != null && this.pos.file) {
+              options.sourceMap.popFile();
             }
           }
         };
@@ -4659,10 +4659,10 @@
           if (level !== 1) {
             throw Error("Cannot compile a statement except on the Block level");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           sb("break");
@@ -4671,8 +4671,8 @@
             this.label.compile(options, 2, false, sb);
           }
           sb(";");
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile(this.pos.file);
           }
         };
         _Break_prototype.walk = function () {
@@ -4795,10 +4795,10 @@
         }
         _Call_prototype.compile = function (options, level, lineStart, sb) {
           var _ref, f, wrap;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           wrap = __num(level) > 18 || !this.isNew && (this.func instanceof Func || this.func instanceof Binary && this.func.op === "." && this.func.left instanceof Func);
@@ -4829,8 +4829,8 @@
           if (wrap) {
             sb(")");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Call_prototype.shouldCompileLarge = function () {
@@ -5022,10 +5022,10 @@
         }
         _Const_prototype.compile = function (options, level, lineStart, sb) {
           var _ref, value, wrap;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           value = this.value;
@@ -5041,8 +5041,8 @@
               sb(")");
             }
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Const_prototype.compileAsBlock = function (options, level, lineStart, sb) {
@@ -5112,10 +5112,10 @@
           if (level !== 1) {
             throw Error("Cannot compile a statement except on the Block level");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           sb("continue");
@@ -5124,8 +5124,8 @@
             this.label.compile(options, 2, false, sb);
           }
           sb(";");
-          if (options.sourcemap != null && this.pos.file) {
-            return options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            return options.sourceMap.popFile();
           }
         };
         _Continue_prototype.walk = function () {
@@ -5195,7 +5195,7 @@
           if (level !== 1) {
             throw Error("Cannot compile a statement except on the Block level");
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(
               sb.line,
               sb.column,
@@ -5264,10 +5264,10 @@
           if (level !== 1) {
             throw Error("Cannot compile a statement except on the Block level");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           minify = options.minify;
@@ -5310,8 +5310,8 @@
           sb("(");
           this.test.compile(options, 2, false, sb);
           sb(");");
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _DoWhile_prototype.walk = function (walker) {
@@ -5395,10 +5395,10 @@
         }
         _Eval_prototype.compile = function (options, level, lineStart, sb) {
           var _ref;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           if (this.code instanceof Const) {
@@ -5408,8 +5408,8 @@
             this.code.compile(options, 3, false, sb);
             sb(")");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Eval_prototype.walk = function (walker) {
@@ -5499,10 +5499,10 @@
           } else {
             test = this.test;
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           minify = options.minify;
@@ -5563,8 +5563,8 @@
             }
             sb("}");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _For_prototype.walk = function (walker) {
@@ -5695,10 +5695,10 @@
           if (level !== 1) {
             throw Error("Cannot compile a statement except on the Block level");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           minify = options.minify;
@@ -5736,8 +5736,8 @@
             }
             sb("}");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _ForIn_prototype.walk = function (walker) {
@@ -6012,10 +6012,10 @@
         }
         _Func_prototype.compile = function (options, level, lineStart, sb) {
           var _ref, wrap;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           wrap = lineStart && !this.name;
@@ -6034,8 +6034,8 @@
           if (wrap) {
             sb(")");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Func_prototype.compileAsStatement = function (options, lineStart, sb) {
@@ -6149,7 +6149,7 @@
         }
         _Ident_prototype.compile = function (options, level, lineStart, sb) {
           var _ref;
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(
               sb.line,
               sb.column,
@@ -6275,10 +6275,10 @@
               ).compile(options, level, lineStart, sb);
             }
           } else {
-            if (options.sourcemap != null && this.pos.file) {
-              options.sourcemap.pushFile(this.pos.file);
+            if (options.sourceMap != null && this.pos.file) {
+              options.sourceMap.pushFile(this.pos.file);
             }
-            if ((_ref = options.sourcemap) != null) {
+            if ((_ref = options.sourceMap) != null) {
               _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
             }
             minify = options.minify;
@@ -6337,8 +6337,8 @@
                 sb("}");
               }
             }
-            if (options.sourcemap != null && this.pos.file) {
-              options.sourcemap.popFile();
+            if (options.sourceMap != null && this.pos.file) {
+              options.sourceMap.popFile();
             }
           }
         };
@@ -6576,10 +6576,10 @@
           if (level === 1) {
             this.toStatement().compile(options, level, lineStart, sb);
           } else {
-            if (options.sourcemap != null && this.pos.file) {
-              options.sourcemap.pushFile(this.pos.file);
+            if (options.sourceMap != null && this.pos.file) {
+              options.sourceMap.pushFile(this.pos.file);
             }
-            if ((_ref = options.sourcemap) != null) {
+            if ((_ref = options.sourceMap) != null) {
               _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
             }
             wrap = __num(level) > 5;
@@ -6602,8 +6602,8 @@
             if (wrap) {
               sb(")");
             }
-            if (options.sourcemap != null && this.pos.file) {
-              options.sourcemap.popFile();
+            if (options.sourceMap != null && this.pos.file) {
+              options.sourceMap.popFile();
             }
           }
         };
@@ -6842,10 +6842,10 @@
         }
         _Obj_prototype.compile = function (options, level, lineStart, sb) {
           var _ref, f, wrap;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           wrap = lineStart;
@@ -6863,8 +6863,8 @@
           if (wrap) {
             sb(")");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Obj_prototype.compileAsBlock = function (options, level, lineStart, sb) {
@@ -7079,7 +7079,7 @@
         }
         _Regex_prototype.compile = function (options, level, lineStart, sb) {
           var _ref;
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(
               sb.line,
               sb.column,
@@ -7157,10 +7157,10 @@
         }
         _Return_prototype.compile = function (options, level, lineStart, sb) {
           var _ref;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           sb("return");
@@ -7169,8 +7169,8 @@
             this.node.compile(options, 2, false, sb);
           }
           sb(";");
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Return_prototype.walk = function (walker) {
@@ -7290,10 +7290,10 @@
             sb = StringBuilder();
           }
           startTime = new Date().getTime();
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           compileFuncBody(
@@ -7304,8 +7304,8 @@
             this.body,
             true
           );
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
           endCompileTime = new Date().getTime();
           if (typeof options.progress === "function") {
@@ -7316,11 +7316,11 @@
             code = sb.toString();
             if (options.uglify) {
               fs = require("fs");
-              if (options.sourcemap != null) {
+              if (options.sourceMap != null) {
                 path = require("path");
                 os = require("os");
                 tmpMap = path.join(os.tmpDir(), "gs-" + Math.random() * 4294967296 + ".map");
-                fs.writeFileSync(tmpMap, options.sourcemap.toString(), "utf8");
+                fs.writeFileSync(tmpMap, options.sourceMap.toString(), "utf8");
               }
               UglifyJS = require("uglify-js");
               if ((_ref = UglifyJS.AST_Node) != null) {
@@ -7332,7 +7332,7 @@
               minified = UglifyJS.minify(code, {
                 fromString: true,
                 inSourceMap: tmpMap,
-                outSourceMap: (_ref = options.sourcemap) != null ? _ref.generatedFile : void 0
+                outSourceMap: (_ref = options.sourceMap) != null ? _ref.generatedFile : void 0
               });
               if (oldWarn_function != null) {
                 UglifyJS.AST_Node.warn_function = oldWarn_function;
@@ -7345,8 +7345,8 @@
               if (typeof options.progress === "function") {
                 options.progress("uglify", endUglifyTime - __num(endCompileTime));
               }
-              if (options.sourcemap != null) {
-                options.sourcemap = minified.map;
+              if (options.sourceMap != null) {
+                options.sourceMap = minified.map;
               }
             }
             if (typeof options.writer === "function") {
@@ -7447,7 +7447,7 @@
         }
         _This_prototype.compile = function (options, level, lineStart, sb) {
           var _ref;
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(
               sb.line,
               sb.column,
@@ -7509,17 +7509,17 @@
         }
         _Throw_prototype.compile = function (options, level, lineStart, sb) {
           var _ref;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           sb("throw ");
           this.node.compile(options, 2, false, sb);
           sb(";");
-          if (options.sourcemap != null && this.pos.file) {
-            return options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            return options.sourceMap.popFile();
           }
         };
         _Throw_prototype.walk = function (walker) {
@@ -7618,10 +7618,10 @@
           if (level !== 1) {
             throw Error("Cannot compile a statement except on the Block level");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           minify = options.minify;
@@ -7692,8 +7692,8 @@
             sb.indent(options.indent);
           }
           sb("}");
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Switch_prototype.walk = function (walker) {
@@ -7908,10 +7908,10 @@
           if (level !== 1) {
             throw Error("Cannot compile a statement except on the Block level");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           minify = options.minify;
@@ -7952,8 +7952,8 @@
             }
           }
           sb("}");
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _TryCatch_prototype.walk = function (walker) {
@@ -8078,10 +8078,10 @@
           if (level !== 1) {
             throw Error("Cannot compile a statement except on the Block level");
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           minify = options.minify;
@@ -8144,8 +8144,8 @@
             sb.indent(options.indent);
           }
           sb("}");
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _TryFinally_prototype.walk = function (walker) {
@@ -8247,10 +8247,10 @@
         _Unary_prototype.compile = function (options, level, lineStart, sb) {
           var _ref, op;
           op = this.op;
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.pushFile(this.pos.file);
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.pushFile(this.pos.file);
           }
-          if ((_ref = options.sourcemap) != null) {
+          if ((_ref = options.sourceMap) != null) {
             _ref.add(sb.line, sb.column, this.pos.line, this.pos.column);
           }
           if (op === "++post" || op === "--post") {
@@ -8263,8 +8263,8 @@
             }
             this.node.compile(options, 16, false, sb);
           }
-          if (options.sourcemap != null && this.pos.file) {
-            options.sourcemap.popFile();
+          if (options.sourceMap != null && this.pos.file) {
+            options.sourceMap.popFile();
           }
         };
         _Unary_prototype.compileAsBlock = function (options, level, lineStart, sb) {
@@ -33079,11 +33079,11 @@
       os = require("os");
       fs = require("fs");
       path = require("path");
-      SourceMap = require("./sourcemap");
+      SourceMap = require("./source-map");
       _ref = require("./utils");
       writeFileWithMkdirp = _ref.writeFileWithMkdirp;
       writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-      exports.version = "0.7.19";
+      exports.version = "0.7.20";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -33751,7 +33751,7 @@
       exports.compileFile = __promise(function (options) {
         var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, code, compiled,
             footer, i, input, inputs, linefeed, output, parsed, source,
-            sourcemapFile, sources, sync, translated, translator;
+            sourceMapFile, sources, sync, translated, translator;
         _state = 0;
         function _close() {
           _state = 20;
@@ -33777,21 +33777,21 @@
               if (typeof output !== "string") {
                 throw Error("Expected options.output to be a string");
               }
-              sourcemapFile = void 0;
-              if (!options.sourcemap) {
-                options.sourcemap = null;
-              } else if (typeof options.sourcemap === "string") {
-                sourcemapFile = options.sourcemap;
-                options.sourcemap = SourceMap(options.output, "");
+              sourceMapFile = void 0;
+              if (!options.sourceMap) {
+                options.sourceMap = null;
+              } else if (typeof options.sourceMap === "string") {
+                sourceMapFile = options.sourceMap;
+                options.sourceMap = SourceMap(options.output, "");
               } else {
-                if (typeof options.sourcemap.file !== "string") {
-                  throw Error("Expected options.sourcemap.file to be a string");
+                if (typeof options.sourceMap.file !== "string") {
+                  throw Error("Expected options.sourceMap.file to be a string");
                 }
-                if (typeof options.sourcemap.sourceRoot !== "string") {
-                  throw Error("Expected options.sourcemap.sourceRoot to be a string");
+                if (typeof options.sourceMap.sourceRoot !== "string") {
+                  throw Error("Expected options.sourceMap.sourceRoot to be a string");
                 }
-                sourcemapFile = options.sourcemap.file;
-                options.sourcemap = SourceMap(options.output, options.sourcemap.sourceRoot);
+                sourceMapFile = options.sourceMap.file;
+                options.sourceMap = SourceMap(options.output, options.sourceMap.sourceRoot);
               }
               sources = [];
               _state = sync ? 1 : 2;
@@ -33926,9 +33926,9 @@
               return { done: false, value: __defer.fulfilled() };
             case 13:
               code = compiled.code;
-              if (options.sourcemap) {
+              if (sourceMapFile) {
                 linefeed = options.linefeed || "\n";
-                footer = __strnum(linefeed) + "/*" + __strnum(linefeed) + "//@ sourceMappingURL=" + __strnum(sourcemapFile) + __strnum(linefeed) + "*/" + __strnum(linefeed);
+                footer = __strnum(linefeed) + "/*" + __strnum(linefeed) + "//@ sourceMappingURL=" + __strnum(sourceMapFile) + __strnum(linefeed) + "*/" + __strnum(linefeed);
                 code = __strnum(code) + footer;
               }
               _state = sync ? 14 : 15;
@@ -33944,20 +33944,20 @@
                 value: writeFileWithMkdirp(options.output, code)
               };
             case 16:
-              _state = sourcemapFile ? 17 : 20;
+              _state = sourceMapFile ? 17 : 20;
               break;
             case 17:
               _state = sync ? 18 : 19;
               break;
             case 18:
-              writeFileWithMkdirpSync(sourcemapFile, options.sourcemap.toString(), true);
+              writeFileWithMkdirpSync(sourceMapFile, options.sourceMap.toString(), true);
               _state = 20;
               break;
             case 19:
               ++_state;
               return {
                 done: false,
-                value: writeFileWithMkdirp(sourcemapFile, options.sourcemap.toString())
+                value: writeFileWithMkdirp(sourceMapFile, options.sourceMap.toString())
               };
             case 20:
               return { done: true, value: void 0 };

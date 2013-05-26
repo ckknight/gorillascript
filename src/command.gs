@@ -23,7 +23,8 @@ let optimist = require 'optimist'
     e: { alias: "eval", +string, desc: "Compile and a string from command line" }
     u: { alias: "uglify", +boolean, desc: "Uglify compiled code with UglifyJS2" }
     minify: { +boolean, desc: "Minimize the use of unnecessary whitespace" }
-    m: { alias: "sourcemap", +string, desc: "Build a SourceMap" }
+    m: { alias: "map", +string, desc: "Build a SourceMap" }
+    "source-root": { +string, desc: "Specify a sourceRoot in a SourceMap, defaults to ''"}
     j: { alias: "join", +boolean, desc: "Join all the generated JavaScript into a single file" }
     "no-prelude": { +boolean, desc: "Do not include the standard prelude" }
     w: { alias: "watch", +boolean, desc: "Watch for changes and compile as-needed" }
@@ -56,7 +57,8 @@ optimist.check #(argv)
           throw "Must specify --$opt if specifying --$main-opt"
   exclusive \ast, \compile, \nodes, \stdout
   depend \output, \compile
-  depend \sourcemap, \output
+  depend \map, \output
+  depend "source-root", \map
   depend \compile, \_
   exclusive \interactive, \_, \stdin, \eval
   depend \watch, \compile
@@ -66,12 +68,12 @@ optimist.check #(argv)
   if argv.watch
     if argv.join
       throw "TODO: --watch with --join"
-    if argv.sourcemap
-      throw "TODO: --watch with --sourcemap"
-  if argv._.length > 1 and argv.sourcemap and not argv.join
-    throw "Cannot specify --sourcemap with multiple files unless using --join"
-  if argv.sourcemap and not is-string! argv.sourcemap
-    throw "Must specify a filename with --sourcemap"
+    if argv.map
+      throw "TODO: --watch with --map"
+  if argv._.length > 1 and argv.map and not argv.join
+    throw "Cannot specify --map with multiple files unless using --join"
+  if argv.map and not is-string! argv.map
+    throw "Must specify a filename with --map"
   if argv.options
     try
       if not is-object! JSON.parse(argv.options)
@@ -193,7 +195,11 @@ let main = promise!
     
     return yield handle-code String input
   
-  options.sourcemap := argv.sourcemap
+  if argv.map
+    options.source-map := {
+      file: argv.map
+      source-root: argv["source-root"] or ""
+    }
 
   let get-js-output-path(filename)
     if argv.output and filenames.length == 1
