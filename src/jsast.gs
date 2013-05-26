@@ -228,12 +228,12 @@ exports.Arr := class Arr extends Expression
   let compile-large(elements, options, level, line-start, sb)!
     let child-options = inc-indent options
     for item, i, len in elements
-      sb "\n"
+      sb options.linefeed or "\n"
       sb.indent child-options.indent
       item.compile child-options, Level.sequence, false, sb
       if i < len - 1
         sb ","
-    sb "\n"
+    sb options.linefeed or "\n"
     sb.indent options.indent
   let compile-small(elements, options, level, line-start, sb)!
     for item, i in elements
@@ -557,13 +557,13 @@ exports.BlockStatement := class BlockStatement extends Statement
         sb " "
       sb "{"
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent child-options.indent
         line-start := true
     
     for item, i in nodes
       if i > 0 and not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent child-options.indent
         line-start := true
       item.compile-as-statement child-options, line-start, sb
@@ -571,7 +571,7 @@ exports.BlockStatement := class BlockStatement extends Statement
     
     if @label?
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
       sb "}"
     if options.sourcemap? and @pos.file
@@ -739,12 +739,12 @@ exports.Call := class Call extends Expression
     sb "("
     let child-options = inc-indent options
     for item, i, len in args
-      sb "\n"
+      sb options.linefeed or "\n"
       sb.indent child-options.indent
       item.compile child-options, Level.sequence, false, sb
       if i < len - 1
         sb ","
-    sb "\n"
+    sb options.linefeed or "\n"
     sb.indent options.indent
     sb ")"
   let compile-small(args, options, level, line-start, sb)!
@@ -820,7 +820,7 @@ exports.Comment := class Comment extends Statement
     let lines = @text.split("\n")
     for line, i in lines
       if i > 0
-        sb "\n"
+        sb options.linefeed or "\n"
         if not options.minify
           sb.indent options.indent
       sb line
@@ -974,13 +974,13 @@ exports.DoWhile := class DoWhile extends Statement
         sb " "
       sb "{"
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent + 1
         line-start := true
       @body.compile-as-statement inc-indent(options), line-start, sb
       line-start := false
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
       sb "}"
     if not minify
@@ -1098,11 +1098,11 @@ exports.For := class For extends Statement
         sb " "
       sb "{"
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent + 1
       @body.compile-as-statement inc-indent(options), not minify, sb
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
       sb "}"
     if options.sourcemap? and @pos.file
@@ -1161,11 +1161,11 @@ exports.ForIn := class ForIn extends Statement
         sb " "
       sb "{"
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent + 1
       @body.compile-as-statement inc-indent(options), not minify, sb
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
       sb "}"
     if options.sourcemap? and @pos.file
@@ -1216,7 +1216,7 @@ let compile-func-body(options, sb, declarations, variables, body, mutable line-s
     sb ";"
     line-start := false
     if not minify
-      sb "\n"
+      sb options.linefeed or "\n"
       line-start := true
   
   if variables.length > 0
@@ -1235,7 +1235,8 @@ let compile-func-body(options, sb, declarations, variables, body, mutable line-s
             sb ", "
             column += 2
           else
-            sb ",\n"
+            sb ","
+            sb options.linefeed or "\n"
             sb.indent options.indent
             sb "    "
             column := 4 + INDENT.length * options.indent
@@ -1244,7 +1245,7 @@ let compile-func-body(options, sb, declarations, variables, body, mutable line-s
     sb ";"
     line-start := false
     if not minify
-      sb "\n"
+      sb options.linefeed or "\n"
       line-start := true
   
   if not body.is-noop()
@@ -1252,7 +1253,7 @@ let compile-func-body(options, sb, declarations, variables, body, mutable line-s
       sb.indent options.indent
     body.compile-as-statement options, line-start, sb
     if not minify
-      sb "\n"
+      sb options.linefeed or "\n"
 
 let compile-func(options, sb, name, params, declarations, variables, body)
   sb "function"
@@ -1274,7 +1275,7 @@ let compile-func(options, sb, name, params, declarations, variables, body)
   sb "{"
   if variables.length or declarations.length or not body.is-noop()
     if not minify
-      sb "\n"
+      sb options.linefeed or "\n"
     compile-func-body inc-indent(options), sb, declarations, variables, body, not minify
     if not minify
       sb.indent options.indent
@@ -1404,11 +1405,11 @@ exports.IfStatement := class IfStatement extends Statement
       sb "{"
       let child-options = inc-indent options
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent child-options.indent
       @when-true.compile-as-statement child-options, not minify, sb
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
       sb "}"
       let when-false = @when-false
@@ -1424,11 +1425,11 @@ exports.IfStatement := class IfStatement extends Statement
             sb " "
           sb "{"
           if not minify
-            sb "\n"
+            sb options.linefeed or "\n"
             sb.indent child-options.indent
           when-false.compile-as-statement child-options, not minify, sb
           if not minify
-            sb "\n"
+            sb options.linefeed or "\n"
             sb.indent options.indent
           sb "}"
       if options.sourcemap? and @pos.file
@@ -1513,7 +1514,7 @@ exports.IfExpression := class IfExpression extends Expression
       sb ")"
     let large-when-true = when-true.is-large()
     if large-when-true
-      sb "\n"
+      sb options.linefeed or "\n"
       sb.indent child-options.indent
       sb "? "
     else
@@ -1524,7 +1525,7 @@ exports.IfExpression := class IfExpression extends Expression
     when-true.compile child-options, if wrap-when-true then Level.inside-parentheses else Level.inline-condition, false, sb
     if wrap-when-true
       sb ")"
-    sb "\n"
+    sb options.linefeed or "\n"
     sb.indent child-options.indent
     sb ": "
     if when-false instanceof IfExpression
@@ -1630,7 +1631,7 @@ exports.Obj := class Obj extends Expression
   let compile-large(elements, options, sb)!
     let child-options = inc-indent options
     for element, i, len in elements
-      sb "\n"
+      sb options.linefeed or "\n"
       sb.indent child-options.indent
       let {key} = element
       sb to-safe-key key
@@ -1638,7 +1639,7 @@ exports.Obj := class Obj extends Expression
       element.value.compile child-options, Level.sequence, false, sb
       if i < len - 1
         sb ","
-    sb "\n"
+    sb options.linefeed or "\n"
     sb.indent options.indent
   
   let compile-small(elements, options, sb)!
@@ -1981,7 +1982,7 @@ exports.Switch := class Switch extends Statement
     let child-options = inc-indent options
     for case_ in @cases
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
       sb "case "
       case_.node.compile options, Level.inside-parentheses, false, sb
@@ -1993,12 +1994,12 @@ exports.Switch := class Switch extends Statement
           case_.body.compile-as-statement options, true, sb
         else
           if not minify
-            sb "\n"
+            sb options.linefeed or "\n"
             sb.indent child-options.indent
           case_.body.compile-as-statement child-options, true, sb
     if not @default-case.is-noop()
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
       sb "default:"
       if @default-case.is-small()
@@ -2007,11 +2008,11 @@ exports.Switch := class Switch extends Statement
         @default-case.compile-as-statement options, true, sb
       else
         if not minify
-          sb "\n"
+          sb options.linefeed or "\n"
           sb.indent child-options.indent
         @default-case.compile-as-statement child-options, true, sb
     if not minify
-      sb "\n"
+      sb options.linefeed or "\n"
       sb.indent options.indent
     sb "}"
     if options.sourcemap? and @pos.file
@@ -2097,24 +2098,28 @@ exports.TryCatch := class TryCatch extends Statement
       sb ":"
       if not minify
         sb " "
-    sb (if minify then "try{" else "try {\n")
+    if minify
+      sb "try{"
+    else
+      sb "try {"
+      sb options.linefeed or "\n"
     let child-options = inc-indent options
     if not minify
       sb.indent child-options.indent
     @try-body.compile-as-statement child-options, true, sb
     if not minify
-      sb "\n"
+      sb options.linefeed or "\n"
       sb.indent options.indent
     sb (if minify then "}catch(" else "} catch (")
     @catch-ident.compile options, Level.inside-parentheses, false, sb
     sb (if minify then "){" else ") {")
     if not @catch-body.is-noop()
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent child-options.indent
       @catch-body.compile-as-statement child-options, true, sb
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
     sb "}"
     if options.sourcemap? and @pos.file
@@ -2162,37 +2167,45 @@ exports.TryFinally := class TryFinally extends Statement
       sb ":"
       if not minify
         sb " "
-    sb (if minify then "try{" else "try {\n")
+    if minify
+      sb "try{"
+    else
+      sb "try {"
+      sb options.linefeed or "\n"
     let child-options = inc-indent(options)
     if not minify
       sb.indent child-options.indent
     if @try-body instanceof TryCatch and not @try-body.label?
       @try-body.try-body.compile-as-statement child-options, true, sb
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
       sb (if minify then "}catch(" else "} catch (")
       @try-body.catch-ident.compile options, Level.inside-parentheses, false, sb
       sb (if minify then "){" else ") {")
       if not @try-body.catch-body.is-noop()
         if not minify
-          sb "\n"
+          sb options.linefeed or "\n"
           sb.indent child-options.indent
         @try-body.catch-body.compile-as-statement child-options, true, sb
         if not minify
-          sb "\n"
+          sb options.linefeed or "\n"
           sb.indent options.indent
     else
       @try-body.compile-as-statement child-options, true, sb
       if not minify
-        sb "\n"
+        sb options.linefeed or "\n"
         sb.indent options.indent
-    sb (if minify then "}finally{" else "} finally {\n")
+    if minify
+      sb "}finally{"
+    else
+      sb "} finally {"
+      sb options.linefeed or "\n"
     if not minify
       sb.indent child-options.indent
     @finally-body.compile-as-statement child-options, true, sb
     if not minify
-      sb "\n"
+      sb options.linefeed or "\n"
       sb.indent options.indent
     sb "}"
     if options.sourcemap? and @pos.file

@@ -18,15 +18,190 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __create, __genericFunc, __getInstanceof, __in, __isArray, __isObject,
-          __name, __num, __owns, __slice, __strnum, __toArray, __typeof, _ref,
-          Cache, fs, inspect, path, WeakMap;
+      var __create, __defer, __generator, __generatorToPromise, __genericFunc,
+          __getInstanceof, __in, __isArray, __isObject, __name, __num, __owns,
+          __promise, __slice, __strnum, __toArray, __toPromise, __typeof, _ref,
+          Cache, fs, inspect, isPrimordial, mkdirp, mkdirpSync, path, setImmediate,
+          WeakMap, writeFileWithMkdirp;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
           F.prototype = x;
           return new F();
         };
+      __defer = (function () {
+        function __defer() {
+          var deferred, isError, value;
+          isError = false;
+          value = null;
+          deferred = [];
+          function complete(newIsError, newValue) {
+            var funcs;
+            if (deferred) {
+              funcs = deferred;
+              deferred = null;
+              isError = newIsError;
+              value = newValue;
+              if (funcs.length) {
+                setImmediate(function () {
+                  var _end, i;
+                  for (i = 0, _end = funcs.length; i < _end; ++i) {
+                    funcs[i]();
+                  }
+                });
+              }
+            }
+          }
+          return {
+            promise: {
+              then: function (onFulfilled, onRejected, allowSync) {
+                var _ref, fulfill, promise, reject;
+                if (allowSync !== true) {
+                  allowSync = void 0;
+                }
+                _ref = __defer();
+                promise = _ref.promise;
+                fulfill = _ref.fulfill;
+                reject = _ref.reject;
+                function step() {
+                  var f, result;
+                  try {
+                    if (isError) {
+                      f = onRejected;
+                    } else {
+                      f = onFulfilled;
+                    }
+                    if (typeof f === "function") {
+                      result = f(value);
+                      if (result && typeof result.then === "function") {
+                        result.then(fulfill, reject, allowSync);
+                      } else {
+                        fulfill(result);
+                      }
+                    } else {
+                      (isError ? reject : fulfill)(value);
+                    }
+                  } catch (e) {
+                    reject(e);
+                  }
+                }
+                if (deferred) {
+                  deferred.push(step);
+                } else if (allowSync) {
+                  step();
+                } else {
+                  setImmediate(step);
+                }
+                return promise;
+              },
+              sync: function () {
+                var result, state;
+                state = 0;
+                result = 0;
+                this.then(
+                  function (ret) {
+                    state = 1;
+                    return result = ret;
+                  },
+                  function (err) {
+                    state = 2;
+                    return result = err;
+                  },
+                  true
+                );
+                switch (state) {
+                case 0: throw Error("Promise did not execute synchronously");
+                case 1: return result;
+                case 2: throw result;
+                default: throw Error("Unknown state");
+                }
+              }
+            },
+            fulfill: function (value) {
+              complete(false, value);
+            },
+            reject: function (reason) {
+              complete(true, reason);
+            }
+          };
+        }
+        __defer.fulfilled = function (value) {
+          var d;
+          d = __defer();
+          d.fulfill(value);
+          return d.promise;
+        };
+        __defer.rejected = function (reason) {
+          var d;
+          d = __defer();
+          d.reject(reason);
+          return d.promise;
+        };
+        return __defer;
+      }());
+      __generator = function (func) {
+        return function () {
+          var _this, data;
+          _this = this;
+          data = [this, __slice.call(arguments)];
+          return {
+            iterator: function () {
+              return this;
+            },
+            send: function () {
+              var tmp;
+              return {
+                done: true,
+                value: data ? (tmp = data, data = null, func.apply(tmp[0], tmp[1])) : void 0
+              };
+            },
+            next: function () {
+              return this.send();
+            },
+            "throw": function (err) {
+              data = null;
+              throw err;
+            }
+          };
+        };
+      };
+      __generatorToPromise = function (generator, allowSync) {
+        if (typeof generator !== "object" || generator === null) {
+          throw TypeError("Expected generator to be an Object, got " + __typeof(generator));
+        } else {
+          if (typeof generator.send !== "function") {
+            throw TypeError("Expected generator.send to be a Function, got " + __typeof(generator.send));
+          }
+          if (typeof generator["throw"] !== "function") {
+            throw TypeError("Expected generator.throw to be a Function, got " + __typeof(generator["throw"]));
+          }
+        }
+        if (allowSync == null) {
+          allowSync = false;
+        } else if (typeof allowSync !== "boolean") {
+          throw TypeError("Expected allowSync to be a Boolean, got " + __typeof(allowSync));
+        }
+        function continuer(verb, arg) {
+          var item;
+          try {
+            item = generator[verb](arg);
+          } catch (e) {
+            return __defer.rejected(e);
+          }
+          if (item.done) {
+            return __defer.fulfilled(item.value);
+          } else {
+            return item.value.then(callback, errback, allowSync);
+          }
+        }
+        function callback(value) {
+          return continuer("send", value);
+        }
+        function errback(value) {
+          return continuer("throw", value);
+        }
+        return callback(void 0);
+      };
       __genericFunc = function (numArgs, make) {
         var any, cache, result;
         cache = WeakMap();
@@ -136,6 +311,28 @@
         }
       };
       __owns = Object.prototype.hasOwnProperty;
+      __promise = function (value, allowSync) {
+        var factory;
+        if (allowSync == null) {
+          allowSync = false;
+        } else if (typeof allowSync !== "boolean") {
+          throw TypeError("Expected allowSync to be a Boolean, got " + __typeof(allowSync));
+        }
+        if (typeof value === "function") {
+          factory = function () {
+            return __generatorToPromise(value.apply(this, arguments));
+          };
+          factory.sync = function () {
+            return __generatorToPromise(
+              value.apply(this, arguments),
+              true
+            ).sync();
+          };
+          return factory;
+        } else {
+          return __generatorToPromise(value, allowSync);
+        }
+      };
       __slice = Array.prototype.slice;
       __strnum = function (strnum) {
         var type;
@@ -159,6 +356,23 @@
           return __slice.call(x);
         }
       };
+      __toPromise = function (func, context, args) {
+        var d;
+        if (typeof func !== "function") {
+          throw TypeError("Expected func to be a Function, got " + __typeof(func));
+        }
+        d = __defer();
+        func.apply(context, __toArray(args).concat([
+          function (err, value) {
+            if (err != null) {
+              d.reject(err);
+            } else {
+              d.fulfill(value);
+            }
+          }
+        ]));
+        return d.promise;
+      };
       __typeof = (function () {
         var _toString;
         _toString = Object.prototype.toString;
@@ -172,6 +386,43 @@
           }
         };
       }());
+      setImmediate = typeof GLOBAL.setImmediate === "function" ? GLOBAL.setImmediate
+        : typeof process !== "undefined" && typeof process.nextTick === "function"
+        ? (function () {
+          var nextTick;
+          nextTick = process.nextTick;
+          return function (func) {
+            var args;
+            if (typeof func !== "function") {
+              throw TypeError("Expected func to be a Function, got " + __typeof(func));
+            }
+            args = __slice.call(arguments, 1);
+            if (args.length) {
+              return nextTick(function () {
+                func.apply(void 0, __toArray(args));
+              });
+            } else {
+              return nextTick(func);
+            }
+          };
+        }())
+        : function (func) {
+          var args;
+          if (typeof func !== "function") {
+            throw TypeError("Expected func to be a Function, got " + __typeof(func));
+          }
+          args = __slice.call(arguments, 1);
+          if (args.length) {
+            return setTimeout(
+              function () {
+                func.apply(void 0, __toArray(args));
+              },
+              0
+            );
+          } else {
+            return setTimeout(func, 0);
+          }
+        };
       WeakMap = typeof GLOBAL.WeakMap === "function" ? GLOBAL.WeakMap
         : (WeakMap = (function () {
           var _WeakMap_prototype, defProp, isExtensible;
@@ -297,14 +548,13 @@
           return stringRepeat(__strnum(text) + __strnum(text), __num(count) / 2);
         }
       }
-      exports.stringRepeat = stringRepeat;
-      exports.padLeft = function (text, len, padding) {
+      function padLeft(text, len, padding) {
         return __strnum(stringRepeat(padding, __num(len) - __num(text.length))) + __strnum(text);
-      };
-      exports.padRight = function (text, len, padding) {
+      }
+      function padRight(text, len, padding) {
         return __strnum(text) + __strnum(stringRepeat(padding, __num(len) - __num(text.length)));
-      };
-      exports.Cache = Cache = __genericFunc(2, function (TKey, TValue) {
+      }
+      Cache = __genericFunc(2, function (TKey, TValue) {
         var _instanceof_TKey, _instanceof_TValue;
         _instanceof_TKey = __getInstanceof(TKey);
         _instanceof_TValue = __getInstanceof(TValue);
@@ -346,7 +596,7 @@
           return Cache;
         }());
       });
-      exports.quote = function (value) {
+      function quote(value) {
         if (typeof value !== "string") {
           throw TypeError("Expected value to be a String, got " + __typeof(value));
         }
@@ -357,8 +607,8 @@
         } else {
           return JSON.stringify(value);
         }
-      };
-      exports.unique = function (items) {
+      }
+      function unique(items) {
         var _arr, _i, _len, item, result;
         result = [];
         for (_arr = __toArray(items), _i = 0, _len = _arr.length; _i < _len; ++_i) {
@@ -368,7 +618,7 @@
           }
         }
         return result;
-      };
+      }
       function findPackageJson(dir) {
         var filepath, parent;
         filepath = path.join(dir, "package.json");
@@ -381,7 +631,7 @@
           }
         }
       }
-      exports.getPackageVersion = function (filename) {
+      function getPackageVersion(filename) {
         var packageJsonFilename, version;
         if (typeof filename !== "string" || !fs || !path) {
           return "";
@@ -400,8 +650,8 @@
         } else {
           return "";
         }
-      };
-      exports.isPrimordial = (function () {
+      }
+      isPrimordial = (function () {
         var PRIMORDIAL_GLOBALS;
         PRIMORDIAL_GLOBALS = {
           Object: true,
@@ -438,6 +688,190 @@
           return __owns.call(PRIMORDIAL_GLOBALS, name);
         };
       }());
+      function fsExistsPromise(path) {
+        var defer;
+        defer = __defer();
+        fs.exists(path, defer.fulfill);
+        return defer.promise;
+      }
+      mkdirp = __promise(function (dirpath, mode, sync) {
+        var _arr, _e, _i, _len, _send, _state, _step, _throw, acc, current, e,
+            exists, part;
+        _state = 0;
+        function _close() {
+          _state = 14;
+        }
+        function _step(_received) {
+          while (true) {
+            switch (_state) {
+            case 0:
+              if (mode == null) {
+                mode = 511 & ~__num(process.umask());
+              }
+              acc = "";
+              _arr = __toArray(dirpath.split(/[\/\\]/g));
+              _i = 0;
+              _len = _arr.length;
+              ++_state;
+            case 1:
+              _state = _i < _len ? 2 : 13;
+              break;
+            case 2:
+              part = _arr[_i];
+              current = path.resolve(path.join(acc, part));
+              _state = sync ? 3 : 4;
+              break;
+            case 3:
+              exists = fs.existsSync(current);
+              _state = 6;
+              break;
+            case 4:
+              ++_state;
+              return { done: false, value: fsExistsPromise(current) };
+            case 5:
+              exists = _received;
+              ++_state;
+            case 6:
+              _state = !exists ? 7 : 11;
+              break;
+            case 7:
+              _state = sync ? 8 : 9;
+              break;
+            case 8:
+              fs.mkdirSync(current, mode);
+              _state = 11;
+              break;
+            case 9:
+              _state = 11;
+              return {
+                done: false,
+                value: __toPromise(fs.mkdir, fs, [current, mode])
+              };
+            case 10: throw Error("Unable to create directory '" + __strnum(current) + "' (Error code: " + __strnum(e.code) + ")");
+            case 11:
+              acc = current;
+              ++_state;
+            case 12:
+              ++_i;
+              _state = 1;
+              break;
+            case 13:
+              ++_state;
+            case 14:
+              return { done: true, value: void 0 };
+            default: throw Error("Unknown state: " + _state);
+            }
+          }
+        }
+        function _throw(_e) {
+          if (_state >= 7 && _state <= 9) {
+            e = _e;
+            _state = 10;
+          } else {
+            _close();
+            throw _e;
+          }
+        }
+        function _send(_received) {
+          while (true) {
+            try {
+              return _step(_received);
+            } catch (_e) {
+              _throw(_e);
+            }
+          }
+        }
+        return {
+          close: _close,
+          iterator: function () {
+            return this;
+          },
+          next: function () {
+            return _send(void 0);
+          },
+          send: _send,
+          "throw": function (_e) {
+            _throw(_e);
+            return _send(void 0);
+          }
+        };
+      });
+      mkdirpSync = __generator(function (dirpath, mode) {
+        return mkdirp.sync(dirpath, mode, true);
+      });
+      writeFileWithMkdirp = __promise(function (filepath, text, sync) {
+        var _e, _send, _state, _step, _throw;
+        _state = 0;
+        function _close() {
+          _state = 4;
+        }
+        function _step(_received) {
+          while (true) {
+            switch (_state) {
+            case 0:
+              _state = sync ? 1 : 2;
+              break;
+            case 1:
+              mkdirpSync(path.dirname(filepath));
+              fs.writeFileSync(filepath, text, "utf8");
+              _state = 4;
+              break;
+            case 2:
+              ++_state;
+              return { done: false, value: mkdirp(path.dirname(filepath)) };
+            case 3:
+              ++_state;
+              return {
+                done: false,
+                value: __toPromise(fs.writeFile, fs, [filepath, text, "utf8"])
+              };
+            case 4:
+              return { done: true, value: void 0 };
+            default: throw Error("Unknown state: " + _state);
+            }
+          }
+        }
+        function _throw(_e) {
+          _close();
+          throw _e;
+        }
+        function _send(_received) {
+          try {
+            return _step(_received);
+          } catch (_e) {
+            _throw(_e);
+          }
+        }
+        return {
+          close: _close,
+          iterator: function () {
+            return this;
+          },
+          next: function () {
+            return _send(void 0);
+          },
+          send: _send,
+          "throw": function (_e) {
+            _throw(_e);
+            return _send(void 0);
+          }
+        };
+      });
+      function writeFileWithMkdirpSync(filepath, text) {
+        return writeFile.sync(filepath, text, true);
+      }
+      exports.stringRepeat = stringRepeat;
+      exports.padLeft = padLeft;
+      exports.padRight = padRight;
+      exports.Cache = Cache;
+      exports.quote = quote;
+      exports.unique = unique;
+      exports.getPackageVersion = getPackageVersion;
+      exports.isPrimordial = isPrimordial;
+      exports.mkdirp = mkdirp;
+      exports.mkdirpSync = mkdirpSync;
+      exports.writeFileWithMkdirp = writeFileWithMkdirp;
+      exports.writeFileWithMkdirpSync = writeFileWithMkdirpSync;
     }.call(this, typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : this));
     
     return module.exports;
@@ -3248,14 +3682,14 @@
           childOptions = incIndent(options);
           for (_arr = __toArray(elements), i = 0, len = _arr.length; i < len; ++i) {
             item = _arr[i];
-            sb("\n");
+            sb(options.linefeed || "\n");
             sb.indent(childOptions.indent);
             item.compile(childOptions, 3, false, sb);
             if (i < len - 1) {
               sb(",");
             }
           }
-          sb("\n");
+          sb(options.linefeed || "\n");
           sb.indent(options.indent);
         }
         function compileSmall(elements, options, level, lineStart, sb) {
@@ -3855,7 +4289,7 @@
             }
             sb("{");
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(childOptions.indent);
               lineStart = true;
             }
@@ -3863,7 +4297,7 @@
           for (i = 0, _len = nodes.length; i < _len; ++i) {
             item = nodes[i];
             if (i > 0 && !minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(childOptions.indent);
               lineStart = true;
             }
@@ -3872,7 +4306,7 @@
           }
           if (this.label != null) {
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
             sb("}");
@@ -4333,14 +4767,14 @@
           childOptions = incIndent(options);
           for (_arr = __toArray(args), i = 0, len = _arr.length; i < len; ++i) {
             item = _arr[i];
-            sb("\n");
+            sb(options.linefeed || "\n");
             sb.indent(childOptions.indent);
             item.compile(childOptions, 3, false, sb);
             if (i < len - 1) {
               sb(",");
             }
           }
-          sb("\n");
+          sb(options.linefeed || "\n");
           sb.indent(options.indent);
           sb(")");
         }
@@ -4530,7 +4964,7 @@
           for (_arr = __toArray(lines), i = 0, _len = _arr.length; i < _len; ++i) {
             line = _arr[i];
             if (i > 0) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               if (!options.minify) {
                 sb.indent(options.indent);
               }
@@ -4854,14 +5288,14 @@
             }
             sb("{");
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(__num(options.indent) + 1);
               lineStart = true;
             }
             this.body.compileAsStatement(incIndent(options), lineStart, sb);
             lineStart = false;
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
             sb("}");
@@ -5119,12 +5553,12 @@
             }
             sb("{");
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(__num(options.indent) + 1);
             }
             this.body.compileAsStatement(incIndent(options), !minify, sb);
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
             sb("}");
@@ -5292,12 +5726,12 @@
             }
             sb("{");
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(__num(options.indent) + 1);
             }
             this.body.compileAsStatement(incIndent(options), !minify, sb);
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
             sb("}");
@@ -5415,7 +5849,7 @@
           sb(";");
           lineStart = false;
           if (!minify) {
-            sb("\n");
+            sb(options.linefeed || "\n");
             lineStart = true;
           }
         }
@@ -5438,7 +5872,8 @@
                 sb(", ");
                 column += 2;
               } else {
-                sb(",\n");
+                sb(",");
+                sb(options.linefeed || "\n");
                 sb.indent(options.indent);
                 sb("    ");
                 column = 4 + 2 * __num(options.indent);
@@ -5450,7 +5885,7 @@
           sb(";");
           lineStart = false;
           if (!minify) {
-            sb("\n");
+            sb(options.linefeed || "\n");
             lineStart = true;
           }
         }
@@ -5460,7 +5895,7 @@
           }
           body.compileAsStatement(options, lineStart, sb);
           if (!minify) {
-            sb("\n");
+            sb(options.linefeed || "\n");
           }
         }
       }
@@ -5492,7 +5927,7 @@
         sb("{");
         if (variables.length || declarations.length || !body.isNoop()) {
           if (!minify) {
-            sb("\n");
+            sb(options.linefeed || "\n");
           }
           compileFuncBody(
             incIndent(options),
@@ -5867,12 +6302,12 @@
             sb("{");
             childOptions = incIndent(options);
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(childOptions.indent);
             }
             this.whenTrue.compileAsStatement(childOptions, !minify, sb);
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
             sb("}");
@@ -5891,12 +6326,12 @@
                 }
                 sb("{");
                 if (!minify) {
-                  sb("\n");
+                  sb(options.linefeed || "\n");
                   sb.indent(childOptions.indent);
                 }
                 whenFalse.compileAsStatement(childOptions, !minify, sb);
                 if (!minify) {
-                  sb("\n");
+                  sb(options.linefeed || "\n");
                   sb.indent(options.indent);
                 }
                 sb("}");
@@ -6101,7 +6536,7 @@
           }
           largeWhenTrue = whenTrue.isLarge();
           if (largeWhenTrue) {
-            sb("\n");
+            sb(options.linefeed || "\n");
             sb.indent(childOptions.indent);
             sb("? ");
           } else {
@@ -6120,7 +6555,7 @@
           if (wrapWhenTrue) {
             sb(")");
           }
-          sb("\n");
+          sb(options.linefeed || "\n");
           sb.indent(childOptions.indent);
           sb(": ");
           if (whenFalse instanceof IfExpression) {
@@ -6364,7 +6799,7 @@
           childOptions = incIndent(options);
           for (_arr = __toArray(elements), i = 0, len = _arr.length; i < len; ++i) {
             element = _arr[i];
-            sb("\n");
+            sb(options.linefeed || "\n");
             sb.indent(childOptions.indent);
             key = element.key;
             sb(toSafeKey(key));
@@ -6374,7 +6809,7 @@
               sb(",");
             }
           }
-          sb("\n");
+          sb(options.linefeed || "\n");
           sb.indent(options.indent);
         }
         function compileSmall(elements, options, sb) {
@@ -7212,7 +7647,7 @@
           for (_arr = __toArray(this.cases), _i = 0, _len = _arr.length; _i < _len; ++_i) {
             case_ = _arr[_i];
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
             sb("case ");
@@ -7226,7 +7661,7 @@
                 case_.body.compileAsStatement(options, true, sb);
               } else {
                 if (!minify) {
-                  sb("\n");
+                  sb(options.linefeed || "\n");
                   sb.indent(childOptions.indent);
                 }
                 case_.body.compileAsStatement(childOptions, true, sb);
@@ -7235,7 +7670,7 @@
           }
           if (!this.defaultCase.isNoop()) {
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
             sb("default:");
@@ -7246,14 +7681,14 @@
               this.defaultCase.compileAsStatement(options, true, sb);
             } else {
               if (!minify) {
-                sb("\n");
+                sb(options.linefeed || "\n");
                 sb.indent(childOptions.indent);
               }
               this.defaultCase.compileAsStatement(childOptions, true, sb);
             }
           }
           if (!minify) {
-            sb("\n");
+            sb(options.linefeed || "\n");
             sb.indent(options.indent);
           }
           sb("}");
@@ -7487,14 +7922,19 @@
               sb(" ");
             }
           }
-          sb(minify ? "try{" : "try {\n");
+          if (minify) {
+            sb("try{");
+          } else {
+            sb("try {");
+            sb(options.linefeed || "\n");
+          }
           childOptions = incIndent(options);
           if (!minify) {
             sb.indent(childOptions.indent);
           }
           this.tryBody.compileAsStatement(childOptions, true, sb);
           if (!minify) {
-            sb("\n");
+            sb(options.linefeed || "\n");
             sb.indent(options.indent);
           }
           sb(minify ? "}catch(" : "} catch (");
@@ -7502,12 +7942,12 @@
           sb(minify ? "){" : ") {");
           if (!this.catchBody.isNoop()) {
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(childOptions.indent);
             }
             this.catchBody.compileAsStatement(childOptions, true, sb);
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
           }
@@ -7652,7 +8092,12 @@
               sb(" ");
             }
           }
-          sb(minify ? "try{" : "try {\n");
+          if (minify) {
+            sb("try{");
+          } else {
+            sb("try {");
+            sb(options.linefeed || "\n");
+          }
           childOptions = incIndent(options);
           if (!minify) {
             sb.indent(childOptions.indent);
@@ -7660,7 +8105,7 @@
           if (this.tryBody instanceof TryCatch && this.tryBody.label == null) {
             this.tryBody.tryBody.compileAsStatement(childOptions, true, sb);
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
             sb(minify ? "}catch(" : "} catch (");
@@ -7668,29 +8113,34 @@
             sb(minify ? "){" : ") {");
             if (!this.tryBody.catchBody.isNoop()) {
               if (!minify) {
-                sb("\n");
+                sb(options.linefeed || "\n");
                 sb.indent(childOptions.indent);
               }
               this.tryBody.catchBody.compileAsStatement(childOptions, true, sb);
               if (!minify) {
-                sb("\n");
+                sb(options.linefeed || "\n");
                 sb.indent(options.indent);
               }
             }
           } else {
             this.tryBody.compileAsStatement(childOptions, true, sb);
             if (!minify) {
-              sb("\n");
+              sb(options.linefeed || "\n");
               sb.indent(options.indent);
             }
           }
-          sb(minify ? "}finally{" : "} finally {\n");
+          if (minify) {
+            sb("}finally{");
+          } else {
+            sb("} finally {");
+            sb(options.linefeed || "\n");
+          }
           if (!minify) {
             sb.indent(childOptions.indent);
           }
           this.finallyBody.compileAsStatement(childOptions, true, sb);
           if (!minify) {
-            sb("\n");
+            sb(options.linefeed || "\n");
             sb.indent(options.indent);
           }
           sb("}");
@@ -32283,8 +32733,8 @@
       "use strict";
       var __defer, __generatorToPromise, __import, __isArray, __lte, __num, __owns,
           __promise, __promiseLoop, __slice, __strnum, __toArray, __toPromise,
-          __typeof, fetchAndParsePrelude, fs, init, os, parser, path, setImmediate,
-          SourceMap;
+          __typeof, _ref, fetchAndParsePrelude, fs, init, os, parser, path,
+          setImmediate, SourceMap, writeFileWithMkdirp, writeFileWithMkdirpSync;
       __defer = (function () {
         function __defer() {
           var deferred, isError, value;
@@ -32630,7 +33080,10 @@
       fs = require("fs");
       path = require("path");
       SourceMap = require("./sourcemap");
-      exports.version = "0.7.18";
+      _ref = require("./utils");
+      writeFileWithMkdirp = _ref.writeFileWithMkdirp;
+      writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
+      exports.version = "0.7.19";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -32730,7 +33183,7 @@
                 _state = sync ? 12 : 13;
                 break;
               case 12:
-                cachePrelude = fs.readFileSync(preludeCachePath("utf8"));
+                cachePrelude = fs.readFileSync(preludeCachePath, "utf8");
                 _state = 15;
                 break;
               case 13:
@@ -33296,9 +33749,9 @@
         return exports.compile.sync(source, options);
       };
       exports.compileFile = __promise(function (options) {
-        var _arr, _arr2, _arr3, _e, _len, _send, _state, _step, _throw, code,
-            compiled, i, inputs, output, parsed, source, sourcemapFile, sources,
-            sync, translated, translator;
+        var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, code, compiled,
+            footer, i, input, inputs, linefeed, output, parsed, source,
+            sourcemapFile, sources, sync, translated, translator;
         _state = 0;
         function _close() {
           _state = 20;
@@ -33340,16 +33793,14 @@
                 sourcemapFile = options.sourcemap.file;
                 options.sourcemap = SourceMap(options.output, options.sourcemap.sourceRoot);
               }
+              sources = [];
               _state = sync ? 1 : 2;
               break;
             case 1:
-              sources = (function () {
-                var _arr, _i, _len, input;
-                for (_arr = __toArray(inputs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
-                  input = _arr[_i];
-                  fs.readFileSync(input, "utf8");
-                }
-              }());
+              for (_arr = __toArray(inputs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                input = _arr[_i];
+                sources.push(fs.readFileSync(input, "utf8"));
+              }
               _state = 4;
               break;
             case 2:
@@ -33413,15 +33864,14 @@
               ++_state;
             case 4:
               _arr = [];
-              _arr2 = __toArray(sources);
               i = 0;
-              _len = _arr2.length;
+              _len = sources.length;
               ++_state;
             case 5:
               _state = i < _len ? 6 : 11;
               break;
             case 6:
-              source = _arr2[i];
+              source = sources[i];
               options.filename = inputs[i];
               _state = sync ? 7 : 8;
               break;
@@ -33430,15 +33880,15 @@
               _state = 10;
               break;
             case 8:
-              _arr3 = [];
+              _arr2 = [];
               ++_state;
               return {
                 done: false,
                 value: exports.parse(source, options)
               };
             case 9:
-              _arr3.push(_received);
-              _arr.push.apply(_arr, _arr3);
+              _arr2.push(_received);
+              _arr.push.apply(_arr, _arr2);
               ++_state;
             case 10:
               ++i;
@@ -33477,19 +33927,21 @@
             case 13:
               code = compiled.code;
               if (options.sourcemap) {
-                code = __strnum(code) + ("\n\n/*\n//@ sourceMappingURL=" + __strnum(sourcemapFile) + "\n*/");
+                linefeed = options.linefeed || "\n";
+                footer = __strnum(linefeed) + "/*" + __strnum(linefeed) + "//@ sourceMappingURL=" + __strnum(sourcemapFile) + __strnum(linefeed) + "*/" + __strnum(linefeed);
+                code = __strnum(code) + footer;
               }
               _state = sync ? 14 : 15;
               break;
             case 14:
-              fs.writeFileSync(options.output, code, "utf8");
+              writeFileWithMkdirpSync(options.output, code);
               _state = 16;
               break;
             case 15:
               ++_state;
               return {
                 done: false,
-                value: __toPromise(fs.writeFile, fs, [options.output, code, "utf8"])
+                value: writeFileWithMkdirp(options.output, code)
               };
             case 16:
               _state = sourcemapFile ? 17 : 20;
@@ -33498,14 +33950,14 @@
               _state = sync ? 18 : 19;
               break;
             case 18:
-              fs.writeFileSync(sourcemapFile, options.sourcemap.toString(), "utf8");
+              writeFileWithMkdirpSync(sourcemapFile, options.sourcemap.toString(), true);
               _state = 20;
               break;
             case 19:
               ++_state;
               return {
                 done: false,
-                value: __toPromise(fs.writeFile, fs, [sourcemapFile, options.sourcemap.toString(), "utf8"])
+                value: writeFileWithMkdirp(sourcemapFile, options.sourcemap.toString())
               };
             case 20:
               return { done: true, value: void 0 };
@@ -33539,12 +33991,12 @@
           }
         };
       });
-      exports.compileFileSync = function (source, options) {
+      exports.compileFileSync = function (options) {
         if (options == null) {
           options = {};
         }
         options.sync = true;
-        return exports.compileFile.sync(source, options);
+        return exports.compileFile.sync(options);
       };
       function evaluate(code, options) {
         var _arr, _i, _module, _obj, _ref, _require, fun, k, Module, r, sandbox,
