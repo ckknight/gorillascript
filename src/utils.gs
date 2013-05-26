@@ -138,13 +138,13 @@ let mkdirp = promise! #(dirpath, mutable mode, sync)!*
 let mkdirp-sync(dirpath, mutable mode)
   mkdirp.sync dirpath, mode, true
 
-let write-file-with-mkdirp = promise! #(filepath, text, sync)!*
+let write-file-with-mkdirp = promise! #(filepath, text, encoding, sync)!*
   if sync
     mkdirp-sync path.dirname(filepath)
-    fs.write-file-sync filepath, text, "utf8"
+    fs.write-file-sync filepath, text, encoding
   else
     yield mkdirp path.dirname(filepath)
-    yield to-promise! fs.write-file filepath, text, "utf8"
+    yield to-promise! fs.write-file filepath, text, encoding
 let write-file-with-mkdirp-sync(filepath, text)
   write-file-with-mkdirp.sync filepath, text, true
 

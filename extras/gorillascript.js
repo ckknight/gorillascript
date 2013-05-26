@@ -772,7 +772,7 @@
       function mkdirpSync(dirpath, mode) {
         return mkdirp.sync(dirpath, mode, true);
       }
-      writeFileWithMkdirp = __promise(function (filepath, text, sync) {
+      writeFileWithMkdirp = __promise(function (filepath, text, encoding, sync) {
         var _e, _send, _state, _step, _throw;
         _state = 0;
         function _close() {
@@ -786,7 +786,7 @@
               break;
             case 1:
               mkdirpSync(path.dirname(filepath));
-              fs.writeFileSync(filepath, text, "utf8");
+              fs.writeFileSync(filepath, text, encoding);
               _state = 4;
               break;
             case 2:
@@ -796,7 +796,7 @@
               ++_state;
               return {
                 done: false,
-                value: __toPromise(fs.writeFile, fs, [filepath, text, "utf8"])
+                value: __toPromise(fs.writeFile, fs, [filepath, text, encoding])
               };
             case 4:
               return { done: true, value: void 0 };
@@ -33056,7 +33056,7 @@
       _ref = require("./utils");
       writeFileWithMkdirp = _ref.writeFileWithMkdirp;
       writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-      exports.version = "0.7.22";
+      exports.version = "0.7.23";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -33907,14 +33907,14 @@
               _state = sync ? 14 : 15;
               break;
             case 14:
-              writeFileWithMkdirpSync(options.output, code);
+              writeFileWithMkdirpSync(options.output, code, options.encoding || "utf8");
               _state = 16;
               break;
             case 15:
               ++_state;
               return {
                 done: false,
-                value: writeFileWithMkdirp(options.output, code)
+                value: writeFileWithMkdirp(options.output, code, options.encoding || "utf8")
               };
             case 16:
               _state = sourceMapFile ? 17 : 20;
@@ -33923,14 +33923,14 @@
               _state = sync ? 18 : 19;
               break;
             case 18:
-              writeFileWithMkdirpSync(sourceMapFile, options.sourceMap.toString(), true);
+              writeFileWithMkdirpSync(sourceMapFile, options.sourceMap.toString(), "utf8");
               _state = 20;
               break;
             case 19:
               ++_state;
               return {
                 done: false,
-                value: writeFileWithMkdirp(sourceMapFile, options.sourceMap.toString())
+                value: writeFileWithMkdirp(sourceMapFile, options.sourceMap.toString(), "utf8")
               };
             case 20:
               return { done: true, value: void 0 };

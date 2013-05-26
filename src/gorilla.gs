@@ -254,14 +254,15 @@ exports.compile-file := promise! #(mutable options = {})!*
     let footer = "$(linefeed)/*$(linefeed)//@ sourceMappingURL=$(path.relative path.dirname(options.output), source-map-file)$(linefeed)*/$(linefeed)"
     code &= footer
   if sync
-    write-file-with-mkdirp-sync options.output, code
+    write-file-with-mkdirp-sync options.output, code, options.encoding or "utf8"
   else
-    yield write-file-with-mkdirp options.output, code
+    yield write-file-with-mkdirp options.output, code, options.encoding or "utf8"
   if source-map-file
+    // don't use options.encoding for source-maps, as in the spec, it's always utf8
     if sync
-      write-file-with-mkdirp-sync source-map-file, options.source-map.to-string(), true
+      write-file-with-mkdirp-sync source-map-file, options.source-map.to-string(), "utf8"
     else
-      yield write-file-with-mkdirp source-map-file, options.source-map.to-string()
+      yield write-file-with-mkdirp source-map-file, options.source-map.to-string(), "utf8"
 exports.compile-file-sync := #(options = {})
   options.sync := true
   exports.compile-file.sync options
