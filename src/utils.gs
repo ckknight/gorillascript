@@ -11,14 +11,13 @@ let string-repeat(text, count)
     text & string-repeat text, count - 1
   else
     string-repeat text & text, count / 2
-exports.string-repeat := string-repeat
 
-exports.pad-left := #(text, len, padding)
+let pad-left(text, len, padding)
   string-repeat(padding, len - text.length) & text
-exports.pad-right := #(text, len, padding)
+let pad-right(text, len, padding)
   text & string-repeat(padding, len - text.length)
 
-exports.Cache := class Cache<TKey, TValue>
+class Cache<TKey, TValue>
   def constructor()
     @weakmap := WeakMap()
   
@@ -34,7 +33,7 @@ exports.Cache := class Cache<TKey, TValue>
       weakmap.set(key, value)
     value
 
-exports.quote := #(value as String)
+let quote(value as String)
   if inspect
     inspect value
   else if value.index-of("'") == -1
@@ -42,7 +41,7 @@ exports.quote := #(value as String)
   else
     JSON.stringify value
 
-exports.unique := #(items)
+let unique(items)
   let result = []
   for item in items
     if item not in result
@@ -58,7 +57,7 @@ let find-package-json(dir)
     if parent != dir
       find-package-json parent
 
-exports.get-package-version := #(filename)
+let get-package-version(filename)
   if not is-string! filename or not fs or not path
     return ""
   
@@ -82,7 +81,7 @@ exports.get-package-version := #(filename)
   else
     ""
 
-exports.is-primordial := do
+let is-primordial = do
   let PRIMORDIAL_GLOBALS = {
     +Object
     +String
@@ -112,3 +111,54 @@ exports.is-primordial := do
     +encodeURIComponent
   }
   #(name as String) -> PRIMORDIAL_GLOBALS ownskey name
+
+let fs-exists-promise(path)
+  let defer = __defer()
+  fs.exists path, defer.fulfill
+  defer.promise
+
+let mkdirp = promise! #(dirpath, mutable mode, sync)!*
+  if not mode?
+    mode := 0o777 bitand (bitnot process.umask())
+  for reduce part in dirpath.split(r"[/\\]"g), acc = ""
+    let current = path.resolve path.join acc, part
+    let exists = if sync
+      fs.exists-sync current
+    else
+      yield fs-exists-promise current
+    if not exists
+      try
+        if sync
+          fs.mkdir-sync current, mode
+        else
+          yield to-promise! fs.mkdir current, mode
+      catch e
+        throw Error "Unable to create directory '$current' (Error code: $(e.code))"
+    current
+let mkdirp-sync(dirpath, mutable mode)*
+  mkdirp.sync dirpath, mode, true
+
+let write-file-with-mkdirp = promise! #(filepath, text, sync)!*
+  if sync
+    mkdirp-sync path.dirname(filepath)
+    fs.write-file-sync filepath, text, "utf8"
+  else
+    yield mkdirp path.dirname(filepath)
+    yield to-promise! fs.write-file filepath, text, "utf8"
+let write-file-with-mkdirp-sync(filepath, text)
+  write-file.sync filepath, text, true
+
+exports <<< {
+  string-repeat
+  pad-left
+  pad-right
+  Cache
+  quote
+  unique
+  get-package-version
+  is-primordial
+  mkdirp
+  mkdirp-sync
+  write-file-with-mkdirp
+  write-file-with-mkdirp-sync
+}

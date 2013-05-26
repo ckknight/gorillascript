@@ -3,6 +3,7 @@ require! os
 require! fs
 require! path
 require! SourceMap: './sourcemap'
+let {write-file-with-mkdirp, write-file-with-mkdirp-sync} = require('./utils')
 
 const DEFAULT_TRANSLATOR = './jstranslator'
 
@@ -44,7 +45,7 @@ let fetch-and-parse-prelude = do
     let mutable parsed-prelude = void
     if prelude-cache-stat and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time()
       let cache-prelude = if sync
-        fs.read-file-sync prelude-cache-path "utf8"
+        fs.read-file-sync prelude-cache-path, "utf8"
       else
         yield to-promise! fs.read-file prelude-cache-path, "utf8"
       let mutable errored = false
@@ -221,11 +222,12 @@ exports.compile-file := promise! #(mutable options = {})!*
       throw Error "Expected options.sourcemap.sourceRoot to be a string"
     sourcemap-file := options.sourcemap.file
     options.sourcemap := SourceMap(options.output, options.sourcemap.source-root)
-  let sources = if sync
+  let mutable sources = []
+  if sync
     for input in inputs
-      fs.read-file-sync input, "utf8"
+      sources.push fs.read-file-sync input, "utf8"
   else
-    yield promisefor(5) input in inputs
+    sources := yield promisefor(5) input in inputs
       yield to-promise! fs.read-file input, "utf8"
   let parsed = for source, i in sources
     options.filename := inputs[i]
@@ -248,19 +250,19 @@ exports.compile-file := promise! #(mutable options = {})!*
     yield delay! 0
   let mutable code = compiled.code
   if options.sourcemap
-    code &= "\n\n/*\n//@ sourceMappingURL=$sourcemap-file\n*/"
+    code &= "\n/*\n//@ sourceMappingURL=$sourcemap-file\n*/\n"
   if sync
-    fs.write-file-sync options.output, code, "utf8"
+    write-file-with-mkdirp-sync options.output, code
   else
-    yield to-promise! fs.write-file options.output, code, "utf8"
+    yield write-file-with-mkdirp options.output, code
   if sourcemap-file
     if sync
-      fs.write-file-sync sourcemap-file, options.sourcemap.to-string(), "utf8"
+      write-file-with-mkdirp-sync sourcemap-file, options.sourcemap.to-string(), true
     else
-      yield to-promise! fs.write-file sourcemap-file, options.sourcemap.to-string(), "utf8"
-exports.compile-file-sync := #(source, options = {})
+      yield write-file-with-mkdirp sourcemap-file, options.sourcemap.to-string()
+exports.compile-file-sync := #(options = {})
   options.sync := true
-  exports.compile-file.sync source, options
+  exports.compile-file.sync options
 
 let evaluate(code, options)
   let Script = require?('vm')?.Script
