@@ -18,11 +18,10 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __create, __defer, __generator, __generatorToPromise, __genericFunc,
-          __getInstanceof, __in, __isArray, __isObject, __name, __num, __owns,
-          __promise, __slice, __strnum, __toArray, __toPromise, __typeof, _ref,
-          Cache, fs, inspect, isPrimordial, mkdirp, mkdirpSync, path, setImmediate,
-          WeakMap, writeFileWithMkdirp;
+      var __create, __defer, __generatorToPromise, __genericFunc, __getInstanceof,
+          __in, __isArray, __isObject, __name, __num, __owns, __promise, __slice,
+          __strnum, __toArray, __toPromise, __typeof, _ref, Cache, fs, inspect,
+          isPrimordial, mkdirp, path, setImmediate, WeakMap, writeFileWithMkdirp;
       __create = typeof Object.create === "function" ? Object.create
         : function (x) {
           function F() {}
@@ -139,32 +138,6 @@
         };
         return __defer;
       }());
-      __generator = function (func) {
-        return function () {
-          var _this, data;
-          _this = this;
-          data = [this, __slice.call(arguments)];
-          return {
-            iterator: function () {
-              return this;
-            },
-            send: function () {
-              var tmp;
-              return {
-                done: true,
-                value: data ? (tmp = data, data = null, func.apply(tmp[0], tmp[1])) : void 0
-              };
-            },
-            next: function () {
-              return this.send();
-            },
-            "throw": function (err) {
-              data = null;
-              throw err;
-            }
-          };
-        };
-      };
       __generatorToPromise = function (generator, allowSync) {
         if (typeof generator !== "object" || generator === null) {
           throw TypeError("Expected generator to be an Object, got " + __typeof(generator));
@@ -796,9 +769,9 @@
           }
         };
       });
-      mkdirpSync = __generator(function (dirpath, mode) {
+      function mkdirpSync(dirpath, mode) {
         return mkdirp.sync(dirpath, mode, true);
-      });
+      }
       writeFileWithMkdirp = __promise(function (filepath, text, sync) {
         var _e, _send, _state, _step, _throw;
         _state = 0;
@@ -858,7 +831,7 @@
         };
       });
       function writeFileWithMkdirpSync(filepath, text) {
-        return writeFile.sync(filepath, text, true);
+        return writeFileWithMkdirp.sync(filepath, text, true);
       }
       exports.stringRepeat = stringRepeat;
       exports.padLeft = padLeft;
@@ -33083,7 +33056,7 @@
       _ref = require("./utils");
       writeFileWithMkdirp = _ref.writeFileWithMkdirp;
       writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-      exports.version = "0.7.20";
+      exports.version = "0.7.21";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -33775,7 +33748,7 @@
               }
               output = options.output;
               if (typeof output !== "string") {
-                throw Error("Expected options.output to be a string");
+                throw Error("Expected options.output to be a string, got " + __typeof(output));
               }
               sourceMapFile = void 0;
               if (!options.sourceMap) {
@@ -33785,10 +33758,10 @@
                 options.sourceMap = SourceMap(options.output, "");
               } else {
                 if (typeof options.sourceMap.file !== "string") {
-                  throw Error("Expected options.sourceMap.file to be a string");
+                  throw Error("Expected options.sourceMap.file to be a string, got " + __typeof(options.sourceMap.file));
                 }
                 if (typeof options.sourceMap.sourceRoot !== "string") {
-                  throw Error("Expected options.sourceMap.sourceRoot to be a string");
+                  throw Error("Expected options.sourceMap.sourceRoot to be a string, got " + __typeof(options.sourceMap.sourceRoot));
                 }
                 sourceMapFile = options.sourceMap.file;
                 options.sourceMap = SourceMap(options.output, options.sourceMap.sourceRoot);

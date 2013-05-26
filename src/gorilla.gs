@@ -208,7 +208,7 @@ exports.compile-file := promise! #(mutable options = {})!*
     throw Error "Expected options.input to not be empty"
   let output = options.output
   if not is-string! output
-    throw Error "Expected options.output to be a string"
+    throw Error "Expected options.output to be a string, got $(typeof! output)"
   let mutable source-map-file = void
   if not options.source-map
     options.source-map := null // in case it was set to a falsy value
@@ -217,9 +217,9 @@ exports.compile-file := promise! #(mutable options = {})!*
     options.source-map := SourceMap(options.output, "")
   else
     if not is-string! options.source-map.file
-      throw Error "Expected options.sourceMap.file to be a string"
+      throw Error "Expected options.sourceMap.file to be a string, got $(typeof! options.source-map.file)"
     if not is-string! options.source-map.source-root
-      throw Error "Expected options.sourceMap.sourceRoot to be a string"
+      throw Error "Expected options.sourceMap.sourceRoot to be a string, got $(typeof! options.source-map.source-root)"
     source-map-file := options.source-map.file
     options.source-map := SourceMap(options.output, options.source-map.source-root)
   let mutable sources = []

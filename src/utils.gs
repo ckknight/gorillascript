@@ -135,7 +135,7 @@ let mkdirp = promise! #(dirpath, mutable mode, sync)!*
       catch e
         throw Error "Unable to create directory '$current' (Error code: $(e.code))"
     current
-let mkdirp-sync(dirpath, mutable mode)*
+let mkdirp-sync(dirpath, mutable mode)
   mkdirp.sync dirpath, mode, true
 
 let write-file-with-mkdirp = promise! #(filepath, text, sync)!*
@@ -146,7 +146,7 @@ let write-file-with-mkdirp = promise! #(filepath, text, sync)!*
     yield mkdirp path.dirname(filepath)
     yield to-promise! fs.write-file filepath, text, "utf8"
 let write-file-with-mkdirp-sync(filepath, text)
-  write-file.sync filepath, text, true
+  write-file-with-mkdirp.sync filepath, text, true
 
 exports <<< {
   string-repeat
