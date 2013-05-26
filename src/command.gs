@@ -61,6 +61,8 @@ optimist.check #(argv)
   exclusive \interactive, \_, \stdin, \eval
   depend \watch, \compile
   depend \join, \output
+  if argv._.length > 2 and not argv.compile
+    throw "Can only specify more than one filename with --compile"
   if argv.watch
     if argv.join
       throw "TODO: --watch with --join"
@@ -68,6 +70,8 @@ optimist.check #(argv)
       throw "TODO: --watch with --sourcemap"
   if argv._.length > 1 and argv.sourcemap and not argv.join
     throw "Cannot specify --sourcemap with multiple files unless using --join"
+  if argv.sourcemap and not is-string! argv.sourcemap
+    throw "Must specify a filename with --sourcemap"
   if argv.options
     try
       if not is-object! JSON.parse(argv.options)
@@ -86,6 +90,14 @@ let read-stdin = #
     defer.fulfill buffer
   process.stdin.resume()
   defer.promise
+
+macro timer!
+  syntax body as Body
+    let time = @tmp \time
+    AST
+      let mutable $time = new Date().get-time()
+      $body
+      new Date().get-time() - $time
 
 let filenames = argv._
 let main = promise!
@@ -148,25 +160,15 @@ let main = promise!
       yield delay! 50_ms
       gjs.stdin.end()
       ""
-    else
+    else if argv.eval
       let evaled = yield gorilla.eval code, options
       util.inspect evaled, false, null
+    else
+      yield gorilla.run code, options
+      ""
     if result != ""
       process.stdout.write result
       process.stdout.write "\n"
-
-  if argv.eval?
-    return yield handle-code String(argv.eval)
-  
-  if argv.stdin
-    let code = yield read-stdin()
-    return yield handle-code String(code)
-  
-  if not filenames.length
-    throw Error "Trying to compile without filenames"
-  
-  let sourcemap = if argv.sourcemap then require("./sourcemap")(argv.output, ".")
-  options.sourcemap := sourcemap
 
   if argv["embedded-generator"]
     options.embedded-generator := true
@@ -176,38 +178,22 @@ let main = promise!
     options.embedded := true
     options.noindent := true
   
-  let input-p = {}
-  for filename in filenames
-    input-p[filename] := to-promise! fs.read-file filename, "utf8"
-
-  let input = yield every-promise! input-p
-
-  let compiled = {}
-  let handle-single = promise! #(filename, code)*
-    options.filename := filename
-    if argv.compile
-      process.stdout.write "Compiling $(path.basename filename) ... "
-      let start-time = Date.now()
-      let compilation = yield gorilla.compile code, options
-      let end-time = Date.now()
-      process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
-      compiled[filename] := compilation.code
-    else if argv.stdout or argv.gjs or argv.ast or argv.parse
-      yield handle-code code
-    else
-      yield gorilla.run code, options
-
-  if not argv.join
-    for filename in filenames
-      yield handle-single filename, input[filename]
-  else
-    options.filenames := filenames
-    process.stdout.write "Compiling $(filenames.join ", ") ... "
-    let start-time = Date.now()
-    let compilation = yield gorilla.compile (for filename in filenames; input[filename]), options
-    let end-time = Date.now()
-    process.stdout.write "$(((end-time - start-time) / 1000_ms).to-fixed(3)) seconds\n"
-    compiled["join"] := compilation.code
+  if argv.eval?
+    return yield handle-code String(argv.eval)
+  
+  if argv.stdin
+    let code = yield read-stdin()
+    return yield handle-code String(code)
+  
+  if not filenames.length
+    throw Error "Expected at least one filename by this point"
+  
+  if not argv.compile
+    let input = yield to-promise! fs.read-file filenames[0]
+    
+    return yield handle-code String input
+  
+  options.sourcemap := argv.sourcemap
 
   let get-js-output-path(filename)
     if argv.output and filenames.length == 1
@@ -220,35 +206,31 @@ let main = promise!
         base-dir
       path.join dir, path.basename(filename, path.extname(filename)) & ".js"
 
-  let write-single = promise! #(filename, js-code)*
-    let js-path = get-js-output-path filename
-    let js-dir = path.dirname(js-path)
-    let defer = __defer()
-    fs.exists js-dir, defer.fulfill
-    let exists = yield defer.promise
-    if not exists
-      yield to-promise! child_process.exec "mkdir -p $js-dir"
-    yield to-promise! fs.write-file js-path, js-code, "utf8"
-
-  if argv.compile
-    if not argv.join
-      for filename in filenames
-        yield write-single filename, compiled[filename]
-    else
-      yield write-single argv.output, compiled.join
-
-  if sourcemap?
-    yield to-promise! fs.write-file argv.sourcemap, options.sourcemap.to-string(), "utf8"
-    process.stdout.write "Saved $(argv.sourcemap)"
+  if filenames.length > 1 and argv.join
+    process.stdout.write "Compiling $(filenames.join ', ') ... "
+    let compile-time = timer!
+      yield gorilla.compile-file {} <<< options <<< {
+        input: filenames
+        output: argv.output
+      }
+    process.stdout.write "$((compile-time / 1000_ms).to-fixed(3)) seconds\n"
+  else
+    for filename in filenames
+      process.stdout.write "Compiling $(path.basename filename) ... "
+      let compile-time = timer!
+        yield gorilla.compile-file {} <<< options <<< {
+          input: filename
+          output: get-js-output-path filename
+        }
+      process.stdout.write "$((compile-time / 1000_ms).to-fixed(3)) seconds\n"
   
   if argv.watch
-    let watch-queue = {}
+    let watch-queue = { extends null }
     let handle-queue = do
       let mutable in-handle = false
       #
         if in-handle
           return
-        in-handle := true
         let mutable lowest-time = new Date().get-time() - 1000_ms
         let mutable best-name = void
         for name, time of watch-queue
@@ -257,24 +239,34 @@ let main = promise!
             best-name := name
         if best-name?
           delete watch-queue[best-name]
+          in-handle := true
           promise!
             try
-              yield handle-single best-name, input[best-name]
-              yield write-single best-name
+              process.stdout.write "Compiling $(path.basename best-name) ... "
+              let compile-time = timer!
+                yield gorilla.compile-file {} <<< options <<< {
+                  input: best-name
+                  output: get-js-output-path best-name
+                }
+              process.stdout.write "$((compile-time / 1000_ms).to-fixed(3)) seconds\n"
             catch e
               console.error e?.stack or e
             in-handle := false
             handle-queue()
-        else
-          in-handle := false
+    // we have to keep rewatching because some editors mv a tmp file on top of the saved file,
+    // meaning a different file pointer, which isn't watched.
+    let watch-file(filename)!
+      let watcher = fs.watch filename, #(event, name = filename)!
+        watch-queue[name] := new Date().get-time()
+        watcher.close()
+        set-timeout #-> watch-file(filename), 50_ms
+      watcher.on 'error', #(e)
+        console.error e?.stack or e
     for filename in filenames
-      fs.watch filename, #(event, name = filename)!
-        async err, code <- fs.read-file name
-        input[name] := code.to-string()
-        if watch-queue not ownskey name
-          watch-queue[name] := new Date().get-time()
+      watch-file filename
     set-interval handle-queue, 17
     console.log "Watching $(filenames.join ', ')..."
+
 main.then null, #(e)
   console.error e?.stack or e
   process.exit(1)

@@ -2,6 +2,7 @@ require! './parser'
 require! os
 require! fs
 require! path
+require! SourceMap: './sourcemap'
 
 const DEFAULT_TRANSLATOR = './jstranslator'
 
@@ -193,6 +194,73 @@ exports.compile := promise! #(source, options = {})*
 exports.compile-sync := #(source, options = {})
   options.sync := true
   exports.compile.sync source, options
+
+exports.compile-file := promise! #(mutable options = {})!*
+  options := {} <<< options
+  let sync = options.sync
+  let mutable inputs = options.input
+  if is-string! inputs
+    inputs := [inputs]
+  else if not is-array! inputs
+    throw Error "Expected options.input to be a string or array of strings"
+  else if inputs.length == 0
+    throw Error "Expected options.input to not be empty"
+  let output = options.output
+  if not is-string! output
+    throw Error "Expected options.output to be a string"
+  let mutable sourcemap-file = void
+  if not options.sourcemap
+    options.sourcemap := null // in case it was set to a falsy value
+  else if is-string! options.sourcemap
+    sourcemap-file := options.sourcemap
+    options.sourcemap := SourceMap(options.output, "")
+  else
+    if not is-string! options.sourcemap.file
+      throw Error "Expected options.sourcemap.file to be a string"
+    if not is-string! options.sourcemap.source-root
+      throw Error "Expected options.sourcemap.sourceRoot to be a string"
+    sourcemap-file := options.sourcemap.file
+    options.sourcemap := SourceMap(options.output, options.sourcemap.source-root)
+  let sources = if sync
+    for input in inputs
+      fs.read-file-sync input, "utf8"
+  else
+    yield promisefor(5) input in inputs
+      yield to-promise! fs.read-file input, "utf8"
+  let parsed = for source, i in sources
+    options.filename := inputs[i]
+    if sync
+      exports.parse-sync source, options
+    else
+      yield exports.parse source, options
+  // FIXME: only using macros from the first parsed source, which is most likely wrong.
+  // Only the helpers need to be exposed to the translator, as it no longer cares for the rest of the
+  // macro system.
+  options.filenames := inputs
+  let translator = require('./jstranslator')
+  let translated = translator(
+    (for x in parsed; x.result)
+    parsed[0].macros
+    (for x in parsed; x.get-position)
+    options)
+  let compiled = translated.node.compile options
+  unless sync
+    yield delay! 0
+  let mutable code = compiled.code
+  if options.sourcemap
+    code &= "\n\n/*\n//@ sourceMappingURL=$sourcemap-file\n*/"
+  if sync
+    fs.write-file-sync options.output, code, "utf8"
+  else
+    yield to-promise! fs.write-file options.output, code, "utf8"
+  if sourcemap-file
+    if sync
+      fs.write-file-sync sourcemap-file, options.sourcemap.to-string(), "utf8"
+    else
+      yield to-promise! fs.write-file sourcemap-file, options.sourcemap.to-string(), "utf8"
+exports.compile-file-sync := #(source, options = {})
+  options.sync := true
+  exports.compile-file.sync source, options
 
 let evaluate(code, options)
   let Script = require?('vm')?.Script

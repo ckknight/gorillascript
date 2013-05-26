@@ -3771,10 +3771,17 @@ macro delay!(milliseconds, value)
   if not @has-type(milliseconds, \number)
     @error "delay! should take a number in milliseconds"
   
-  if @is-const(value) and @value(value) == void
-    ASTE __delay $milliseconds
+  let has-value = not @is-const(value) or @value(value) != void
+  if @is-const(milliseconds) and is-number! @value(milliseconds) and @value(milliseconds) <= 0
+    if has-value
+      ASTE __defer.fulfilled $value
+    else
+      ASTE __defer.fulfilled()
   else
-    ASTE __delay $milliseconds, $value
+    if has-value
+      ASTE __delay $milliseconds, $value
+    else
+      ASTE __delay $milliseconds
 
 define helper __promise-loop = #(mutable limit as Number, length as Number, body as ->)
   if limit ~< 1 or limit != limit

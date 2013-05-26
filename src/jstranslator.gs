@@ -1865,9 +1865,14 @@ let translate-function-body(pos, is-generator, auto-return, scope, body, unassig
     body: translated-body
   }
 
-let translate-root(mutable roots as Object, mutable scope as Scope)
+let make-get-pos(get-position as ->) #(node as ParserNode)
+  let pos = get-position(node.index)
+  make-pos(pos.line, pos.column, node.file)
+let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-position)
   if not is-array! roots
     roots := [roots]
+  if not is-array! get-position
+    get-position := [get-position]
   if roots.length == 0
     roots.push { type: "Root", line: 0, column: 0, body: { type: "Nothing", line: 0, column: 0 } }
 
@@ -1893,6 +1898,7 @@ let translate-root(mutable roots as Object, mutable scope as Scope)
       scope.mark-as-param ident
   
   let {wrap, mutable body} = if roots.length == 1
+    get-pos := make-get-pos get-position[0]
     if roots[0] not instanceof ParserNode.Root
       throw Error "Cannot translate non-Root object"
     
@@ -1901,17 +1907,20 @@ let translate-root(mutable roots as Object, mutable scope as Scope)
     let root-pos = get-pos(roots[0])
     let ret = translate-function-body(root-pos, roots[0].is-generator, scope.options.return or scope.options.eval, scope, roots[0].body)
     ret.body.pos.file or= root-pos.file
+    get-pos := null
     ret
   else
     {
       wrap: #(x) -> x
       body: ast.Block no-pos,
         for root in roots
+          get-pos := make-get-pos get-position[0]
           if root not instanceof ParserNode.Root
             throw Error "Cannot translate non-Root object"
           let inner-scope = scope.clone(true)
           let {comments, body: root-body} = split-comments translate(root.body, inner-scope, \top-statement, scope.options.return or scope.options.eval, [])()
           let root-pos = get-pos(root)
+          get-pos := null
           ast.Block root-pos, [
             ...comments
             ast.Call root-pos,
@@ -2030,16 +2039,12 @@ let translate-root(mutable roots as Object, mutable scope as Scope)
       []
       []
 
-let make-get-pos(get-position as ->) #(node as ParserNode)
-  let pos = get-position(node.index)
-  make-pos(pos.line, pos.column, node.file)
-module.exports := #(node, macros as MacroHolder, get-position as ->, options = {})
+module.exports := #(node, macros as MacroHolder, get-position as ->|[], options = {})
   let mutable result = void
   let start-time = new Date().get-time()
-  get-pos := make-get-pos get-position
   try
     let scope = Scope(options, macros, false)
-    result := translate-root(node, scope)
+    result := translate-root(node, scope, get-position)
     scope.release-tmps()
   catch e
     if callback?
@@ -2048,7 +2053,6 @@ module.exports := #(node, macros as MacroHolder, get-position as ->, options = {
       throw e
   let end-time = new Date().get-time()
   options.progress?(\translate, end-time - start-time)
-  get-pos := null
   return {
     node: result
     time: end-time - start-time
