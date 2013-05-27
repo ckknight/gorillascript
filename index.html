@@ -66,7 +66,7 @@
       <li><a href="#curry">Curried functions</a>
       <li><a href="#generic">Generics</a>
       <li><a href="#gnome">GNOME bindings</a>
-      <li><a href="#gork">Gork and Gorkfiles</a>
+      <li><a href="#build">Build support</a>
       <li><a href="#browser">Browser support</a>
       <li><a href="#ide">Code Editor/IDE support</a>
       <li><a href="#irc">Chat with others (IRC)</a>
@@ -402,8 +402,8 @@ else
       <li><code class="language-gorillascript">x instanceofsome y</code> - Iterate over array and check with <code class="language-gorillascript">instanceof</code>. Highly efficient if <code class="language-gorillascript">y</code> is a literal array.</li>
       <li><code class="language-gorillascript">x is y</code> - Works like the ECMAScript6 Object.is, which is like GorillaScript&#8217;s <code class="language-gorillascript">==</code>, but differentiating between <code class="language-gorillascript">0</code> and <code class="language-gorillascript">-0</code> and properly comparing <code class="language-gorillascript">NaN is NaN</code>. Not recommended to use unless you know you&#8217;re working with numbers.</li>
       <li><code class="language-gorillascript">x isnt y</code> - Same as <code class="language-gorillascript">not (x is y)</code></li>
-      <li><code class="language-gorillascript">x &lt;&lt; y</code> - Compose <code class="language-gorillascript">x</code> and <code class="language-gorillascript">y</code>, like <code class="language-gorillascript">#(...args) -&gt; x(y(...args))</code></li>
-      <li><code class="language-gorillascript">x &gt;&gt; y</code> - Compose <code class="language-gorillascript">y</code> and <code class="language-gorillascript">x</code>, like <code class="language-gorillascript">#(...args) -&gt; y(x(...args))</code></li>
+      <li><code class="language-gorillascript">x &lt;&lt; y</code> - Compose <code class="language-gorillascript">x</code> and <code class="language-gorillascript">y</code>, like <code class="language-gorillascript">#(...args) x(y(...args))</code></li>
+      <li><code class="language-gorillascript">x &gt;&gt; y</code> - Compose <code class="language-gorillascript">y</code> and <code class="language-gorillascript">x</code>, like <code class="language-gorillascript">#(...args) y(x(...args))</code></li>
       <li><code class="language-gorillascript">x |&gt; f</code> - Pipe <code class="language-gorillascript">x</code> into <code class="language-gorillascript">f</code>, like <code class="language-gorillascript">f(x)</code></li>
       <li><code class="language-gorillascript">f &lt;| x</code> - Pipe <code class="language-gorillascript">x</code> into <code class="language-gorillascript">f</code>, like <code class="language-gorillascript">f(x)</code></li>
       <li><code class="language-gorillascript">x &lt;&lt;&lt; y</code> - Import all properties from <code class="language-gorillascript">y</code> into <code class="language-gorillascript">x</code>, like <code class="language-gorillascript">for k, v of y; x[k] := v</code></li>
@@ -426,8 +426,8 @@ assert 3 == increment 2
 let run(callback)
   callback()
 
-assert run(#-&gt; "hello") == "hello"
-assert (run #-&gt; "there") == "there"
+assert run(# "hello") == "hello"
+assert (run # "there") == "there"
 assert run(#
   "you") == "you"
 assert run(#
@@ -435,7 +435,7 @@ assert run(#
   "good " &amp; x) == "good guys"
 
 // this syntax also works
-let f() -&gt; Math.random()
+let f() Math.random()
 console.log f()
 </code></pre>
 
@@ -502,7 +502,7 @@ hello("World", "Universe") == "Hello, World, Universe"
 
     <p>And so that callers don&#8217;t feel bad about themselves, you can call with spread as well.</p>
 
-    <pre class="gs-code"><code class="language-gorillascript">let f(a, b, c) -&gt; [a, b, c]
+    <pre class="gs-code"><code class="language-gorillascript">let f(a, b, c) [a, b, c]
 
 let items = [1, 2]
 
@@ -598,7 +598,8 @@ let items =
 let obj = {
   list // same as list: list
   sum: 6
-  f() -> "result" // same as f: #() -> "result"
+  f()
+    "result" // same as f: # "result"
 }
 
 let great-apes =
@@ -815,7 +816,7 @@ let sum = for reduce value in [0, 1, 2, 3, 4], current = 0
 
     <pre class="gs-code"><code class="language-gorillascript">let funcs = []
 for i in 0 til 10
-  funcs.push #-&gt; i
+  funcs.push # i
 
 funcs[0]() == 0
 funcs[5]() == 5
@@ -986,7 +987,7 @@ assert parent!.key
 
     <p>In JavaScript, if you wish to specify the <code class="language-gorillascript">this</code> argument passed to a function, one must use either <code class="language-gorillascript">.call</code> or <code class="language-gorillascript">.apply</code>. GorillaScript provides the <code class="language-gorillascript">@</code> syntax:</p>
 
-    <pre class="gs-code"><code class="language-gorillascript">let f() -&gt; this
+    <pre class="gs-code"><code class="language-gorillascript">let f() this
 
 let obj = {}
 assert obj == f@ obj
@@ -1004,7 +1005,7 @@ Array.prototype.slice@ arguments, 1
     <p>ECMAScript 5 supplies <code class="language-gorillascript">Function.prototype.bind</code> as a way to bind functions to a specific this (and specify arguments). To do a similar binding in GorillaScript, one need only use the familiar <code class="language-gorillascript">@</code> syntax with access.</p>
 
     <pre class="gs-code"><code class="language-gorillascript">let obj = {
-  f: # -&gt; this
+  f: # this
 }
 
 let bound = obj@.f
@@ -1022,21 +1023,21 @@ assert unbound() == window
     <pre class="gs-code"><code class="language-gorillascript">class Animal
   def constructor(@name) -&gt;
 
-  def eat() -&gt; "$(@name) eats"
+  def eat() "$(@name) eats"
 
 class GreatApe extends Animal
   // no constructor, Animal's is automatically called
-  def eat(food="fruit") -&gt; super.eat() &amp; " a " &amp; food
+  def eat(food="fruit") super.eat() &amp; " a " &amp; food
 
 class Gorilla extends GreatApe
   def constructor(@name, @favorite-food)
     // important to call the super constructor.
     super(@name)
 
-  def eat() -&gt; super.eat(@favorite-food)
+  def eat() super.eat(@favorite-food)
 
 class Chimp extends GreatApe
-  def eat() -&gt; super.eat("banana")
+  def eat() super.eat("banana")
 
 let bobo = Chimp("Bobo") // new is not required on GorillaScript-made classes
 assert bobo.eat() == "Bobo eats a banana"
@@ -1045,7 +1046,7 @@ let toko = Gorilla("Toko", "cherry")
 assert toko.eat() == "Toko eats a cherry"
 
 // set a method on the Gorilla constructor
-Gorilla::barrel := # -&gt; @name &amp; " throws a barrel!"
+Gorilla::barrel := # @name &amp; " throws a barrel!"
 
 assert toko.barrel() == "Toko throws a barrel!"
 </code></pre>
@@ -1148,7 +1149,7 @@ let regex = r"""
 
     <pre class="gs-code"><code class="language-gorillascript">class SafeHTML
   def constructor(@text as String) -&gt;
-  def to-string() -&gt; @text
+  def to-string() @text
 let to-HTML = do
   let escapes = {
     "&amp;": "&amp;amp;"
@@ -1157,9 +1158,9 @@ let to-HTML = do
     '"': "&amp;quot;"
     "'": "&amp;#39;"
   }
-  let replacer(x) -&gt; escapes[x]
+  let replacer(x) escapes[x]
   let regex = r"[&amp;&lt;&gt;""']"g
-  let escape(text) -&gt; text.replace(regex, replacer)
+  let escape(text) text.replace(regex, replacer)
   #(arr)
     (for x, i in arr
       if i %% 2 or x instanceof SafeHTML
@@ -1225,7 +1226,7 @@ finally
   let mutable b = 1
   let mutable _state = 0
   {
-    iterator: #-&gt; this
+    iterator: # this
     next: #
       while true
         switch _state
@@ -1528,12 +1529,12 @@ else
 
     <p>Some examples:</p>
 
-    <pre class="gs-code"><code class="language-gorillascript">let increment(x as Number) -&gt; x + 1
-let greet(x as String|Number) -&gt; "Hello, $x"
-let run(x as -&gt; Number) -&gt; x()
+    <pre class="gs-code"><code class="language-gorillascript">let increment(x as Number) x + 1
+let greet(x as String|Number) "Hello, $x"
+let run(x as -&gt; Number) x()
 let get-number() as Number -&gt; num
-let join(x as [String]) -&gt; x.join ", "
-let use-object(o as {x: Number, y: Number}) -&gt; o.x + o.y
+let join(x as [String]) x.join ", "
+let use-object(o as {x: Number, y: Number}) o.x + o.y
 </code></pre>
 
     <p>Types can also be placed on let statements, to help with the type inference engine.</p>
@@ -1546,16 +1547,16 @@ let use-object(o as {x: Number, y: Number}) -&gt; o.x + o.y
 
     <p>In functional programming, it is often handy to use one of the built-in operators as a function, and GorillaScript provides this capability.</p>
 
-    <pre class="gs-code"><code class="language-gorillascript">let add = (+) // same as #(x, y) -&gt; x + y
+    <pre class="gs-code"><code class="language-gorillascript">let add = (+) // same as #(x, y) x + y
 assert add(5, 6) == 11
 
-let square = (^ 2) // same as #(x) -&gt; x ^ 2
+let square = (^ 2) // same as #(x) x ^ 2
 assert square(10) == 100
 
-let double = (2 *) // same as #(x) -&gt; 2 * x
+let double = (2 *) // same as #(x) 2 * x
 assert double(5) == 10
 
-let invert = (not) // same as #(x) -&gt; not x
+let invert = (not) // same as #(x) not x
 assert invert(true) == false
 assert invert(false) == true
 
@@ -1566,10 +1567,10 @@ assert 10 == [1, 2, 3, 4].reduce (+)
 
     <p>One can also use the same syntax for accesses and method calls</p>
 
-    <pre class="gs-code"><code class="language-gorillascript">let get-length = (.length) // same as #(x) -&gt; x.length
+    <pre class="gs-code"><code class="language-gorillascript">let get-length = (.length) // same as #(x) x.length
 assert get-length("hello") == 5
 
-let to-hex = (.to-string(16)) // same as #(x) -&gt; x.to-string(16)
+let to-hex = (.to-string(16)) // same as #(x) x.to-string(16)
 assert to-hex(255) == "ff"
 </code></pre>
   </section>
@@ -1583,13 +1584,13 @@ assert to-hex(255) == "ff"
 
     <pre class="gs-code"><code class="language-gorillascript">let obj =
   _x: 0
-  get x: # -&gt; @_x
-  set x: #(value)! -&gt; @_x := value
+  get x: # @_x
+  set x: #(value)! @_x := value
 
   _y: 0
   property y:
-    get: #-&gt; @_y
-    set: #(value)! -&gt; @_y := value
+    get: # @_y
+    set: #(value)! @_y := value
     configurable: true
     enumerable: true
 </code></pre>
@@ -1650,7 +1651,7 @@ assert add-one-and-two(3) == 6
     <p>Simply by putting the caret (<code class="language-gorillascript">^</code>) after the function parameters, functions are automatically curried. Curried functions work extremely well in functional-style programming and are extremely handy when coupled with the compose operators (<code class="language-gorillascript">&lt;&lt;</code> and <code class="language-gorillascript">&gt;&gt;</code>)</p>
     
     <pre class="gs-code"><code class="language-gorillascript">let sort-by(key, array)^
-  array.sort #(a, b) -&gt; a[key] &lt;=&gt; b[key]
+  array.sort #(a, b) a[key] &lt;=&gt; b[key]
 
 let sort-by-id = sort-by \id
 let sort-by-name = sort-by \name
@@ -1687,7 +1688,7 @@ func.generic(String)("hello")
     <p>How the function handles the <code class="language-gorillascript">.generic</code> call can vary, but GorillaScript's classes handle it elegantly:</p>
     
     <pre class="gs-code"><code class="language-gorillascript">class MyClass&lt;T&gt;
-  def constructor(@value as T) ->
+  def constructor(@value as T) -&gt;
   
   def get-value() as T
     @value
@@ -1705,7 +1706,7 @@ let wrapped-any = MyClass({})
     
     <p>Here is an example of a simple function (rather than a class) with generic arguments:</p>
     
-    <pre class="gs-code"><code class="language-gorillascript">let func&lt;T&gt;(value as T) -> value
+    <pre class="gs-code"><code class="language-gorillascript">let func&lt;T&gt;(value as T) value
 
 assert func&lt;String&gt;("hello") == "hello"
 assert func&lt;Number&gt;(1234) == 1234
@@ -1744,7 +1745,7 @@ let label = new Gtk.Label label: "Hello World"
 
 // Set the window title
 mwindow.title := "Hello World!"
-mwindow.connect "destroy", #-> Gtk.main_quit()
+mwindow.connect "destroy", # Gtk.main_quit()
 
 // Add the label
 mwindow.add label
@@ -1758,33 +1759,46 @@ Gtk.main()
 
   </section>
   
-  <section id="gork">
-    <h2>Gork and Gorkfiles</h2>
+  <section id="build">
+    <h2>Build support</h2>
     
-    <p>GorillaScript includes a simple build system called gork similar to <a href="http://www.gnu.org/software/make/">Make</a>. Commands and options are defined in GorillaScript syntax and are invoked through <tt>gork [--option] [command]</tt>. To receive a list of all commands, simply run <tt>gork</tt>.</p>
+    <p>The recommended way to automatically build GorillaScript files is through <a href="http://gruntjs.com">Grunt</a>. It is easy to add GorillaScript support with the <a href="http://github.com/ckknight/grunt-gorilla">grunt-gorilla</a> plugin.</p>
     
-    <pre class="gs-code no-convert"><code class="language-gorillascript">require! fs
-
-option "file", "f", "Build a specific file", "file"
-command "build", "Rebuild file", #(options, cb)
-  if not options.file
-    return cb Error "A file is required"
-  async! cb, filename-path &lt;- fs.realpath options.file
-  require! './builder'
-  async! cb, result &lt;- builder.build(filename-path)
-  output = options.output or "lib"
-  fs.write-file "$output/$(options.file.replace r'\.gs$', '.js')", result, cb
-
-command "compress", "Compress file", #(options, cb) ->
-  // this space intentionally left blank
-
-command "build:full", "Rebuild all files", #(options, cb)
-  async! cb &lt;- invoke "build"
-  async! cb &lt;- invoke "compress"
-  cb()
+    <p>Here is a very simple example of how to compile three <tt>.gs</tt> files into a single <tt>.js</tt> file:</p>
+    
+    <pre class="gs-code no-convert"><code class="language-javascript">grunt.initConfig({
+  gorilla: {
+    dist: {
+      options: {
+        sourceMap: true
+      }
+      files: {
+        "lib/code.js": ["src/one.gs", "src/two.gs", "src/three.gs"]
+      }
+    }
+  }
+});
 </code></pre>
-
-    <p>As you can see, asynchrony is assumed. This is a powerful way to define simple command-line commands to run.</p>
+    
+    <p>And to compile all your files in <tt>src/</tt> to <tt>lib/</tt>:</p>
+    
+    <pre class="gs-code no-convert"><code class="language-javascript">grunt.initConfig({
+  gorilla: {
+    dist: {
+      options: {
+        sourceMap: true
+      },
+      files: [{
+        expand: true,
+        cwd: 'src/',
+        src: ['**/*.gs'],
+        dest: 'lib/',
+        ext: '.js'
+      }]
+    }
+  }
+});
+</code></pre>
   </section>
   
   <section id="browser">
