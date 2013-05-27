@@ -243,6 +243,8 @@ footer p { margin: auto; }
 .gs-code, .js-code {
   margin: 0 1.6em 1.6em;
   padding: 1em;
+	font-family: Consolas, Monaco, 'Andale Mono', monospace;
+	white-space: pre;
 }
 .tabs {
 	padding: 0;
