@@ -565,7 +565,22 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "&": right-const-nan
       "|": right-const-nan
       "^": right-const-nan
+    let remove-unary-plus(x, y)
+      let new-x = if x instanceof UnaryNode and x.op == "+" then x.node else x
+      let new-y = if y instanceof UnaryNode and y.op == "+" then y.node else y
+      if x != new-x or y != new-y
+        BinaryNode @index, @scope, new-x, @op, new-y
     let non-const-ops =
+      "*": remove-unary-plus
+      "/": remove-unary-plus
+      "%": remove-unary-plus
+      "-": remove-unary-plus
+      "<<": remove-unary-plus
+      ">>": remove-unary-plus
+      ">>>": remove-unary-plus
+      "&": remove-unary-plus
+      "^": remove-unary-plus
+      "|": remove-unary-plus
       "&&": #(x, y, o)
         let x-type = x.type(o)
         if x-type.is-subset-of(Type.always-truthy)

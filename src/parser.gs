@@ -7,7 +7,9 @@ let {string-repeat} = require('./utils')
 let {add-param-to-scope} = require('./parser-utils')
 let {quote, unique, get-package-version} = require './utils'
 
-const DEBUG = true
+const DEBUG = false
+
+const DISABLE_TYPE_CHECKING = not DEBUG
 
 const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 const EMBED_OPEN_DEFAULT = "<%"

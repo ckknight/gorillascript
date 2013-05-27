@@ -598,14 +598,18 @@ class MacroContext
     else
       Node[type](index, @scope(), ...args).reduce(@parser)
   
-  def get-const-value(name as String, allow-undefined = false)
+  def get-const-value(name as String, default-value)
     let c = @parser.get-const(name)
-    if not c and not allow-undefined
-      throw Error "Unknown const '$name'"
-    c?.value
+    if not c
+      if arguments.length < 2
+        throw Error "Unknown const '$name'"
+      else
+        default-value
+    else
+      c.value
   
-  def get-const(name as String, allow-undefined = false)
-    ConstNode 0, @scope(), @get-const-value(name, allow-undefined)
+  def get-const(name as String)
+    ConstNode 0, @scope(), @get-const-value(name)
   
   def macro(index, id, call-line, data, position, in-generator, in-evil-ast)
     Node.MacroAccess(index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)

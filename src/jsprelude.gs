@@ -372,7 +372,7 @@ define operator binary ~+, ~- with precedence: 10, type: \number
 
 define operator binary ~^ with precedence: 12, right-to-left: true, type: \number
   if @is-const(right)
-    let value = @value(right)
+    let value = Number(@value(right))
     if value == 0
       return AST
         $left
@@ -547,17 +547,24 @@ define operator unary + with type: \number
   @mutate-last node or @noop(), (#(n)@
     if @is-type n, \number
       n
+    else if @get-const-value("DISABLE_TYPE_CHECKING", false)
+      ASTE ~+($n)
     else
       ASTE __num($n)), true
 
 define operator unary - with type: \number
   if @is-const(node) and is-number! @value(node)
     @const(~-@value(node))
+  else if @get-const-value("DISABLE_TYPE_CHECKING", false)
+    ASTE ~-($node)
   else
     ASTE ~-(+$node)
 
 define operator binary ^ with precedence: 12, right-to-left: true, type: \number
-  ASTE +$left ~^ +$right
+  if @get-const-value("DISABLE_TYPE_CHECKING", false)
+    ASTE $left ~^ $right
+  else
+    ASTE +$left ~^ +$right
 
 define operator assign ^= with type: \number
   @maybe-cache-access left, #(set-left, left)@
@@ -595,20 +602,23 @@ define operator assign \= with type: \number
     ASTE $set-left := $left \ $right
 
 define operator binary & with precedence: 7, type: \string, label: \string-concat
-  if not @is-type left, \string-or-number
-    left := if not @has-type left, \number
-      ASTE __str $left
-    else
-      ASTE __strnum $left
-  if not @is-type right, \string-or-number
-    right := if not @has-type right, \number
-      ASTE __str $right
-    else
-      ASTE __strnum $right
+  if not @get-const-value("DISABLE_TYPE_CHECKING", false)
+    if not @is-type left, \string-or-number
+      left := if not @has-type left, \number
+        ASTE __str $left
+      else
+        ASTE __strnum $left
+    if not @is-type right, \string-or-number
+      right := if not @has-type right, \number
+        ASTE __str $right
+      else
+        ASTE __strnum $right
   ASTE $left ~& $right
 
 define operator assign &= with type: \string
-  if @is-type left, \string
+  if @get-const-value("DISABLE_TYPE_CHECKING", false)
+    ASTE $left ~&= $right
+  else if @is-type left, \string
     ASTE $left ~&= "" & $right
   else
     @maybe-cache-access left, #(set-left, left)@
@@ -717,7 +727,12 @@ define helper __lte = #(x, y) as Boolean
     x ~<= y
 
 define operator binary <, <= with precedence: 2, maximum: 1, type: \boolean
-  if @is-type left, \number
+  if @get-const-value("DISABLE_TYPE_CHECKING", false)
+    if op == "<"
+      ASTE $left ~< $right
+    else
+      ASTE $left ~<= $right
+  else if @is-type left, \number
     if @is-type right, \number
       if op == "<"
         ASTE $left ~< $right
@@ -886,7 +901,7 @@ define operator unary throw? with type: \undefined
     ASTE if $set-node? then throw $node
 
 define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, bitand=, bitor=, bitxor= with type: \number
-  if @is-type left, \number
+  if @get-const-value("DISABLE_TYPE_CHECKING", false) or @is-type left, \number
     if op == "*="
       ASTE $left ~*= +$right
     else if op == "/="
@@ -1655,6 +1670,7 @@ define helper __generic-func = #(num-args as Number, make as ->)
   result
 
 define operator unary mutate-function! with type: \node, label: \mutate-function
+  let disable-type-checking = @get-const-value("DISABLE_TYPE_CHECKING", false)
   let article(text)
     if r"^[aeiou]"i.test(text)
       "an"
@@ -1681,7 +1697,9 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         ASTE $basetype.generic(...$type-arguments)
   let translate-type-check(value, value-name, type, has-default-value)@
     if @is-ident(type)
-      let result = if PRIMORDIAL_TYPES ownskey @name(type)
+      let result = if disable-type-checking
+        @noop()
+      else if PRIMORDIAL_TYPES ownskey @name(type)
         AST
           if $value not instanceof $type
             throw TypeError "Expected $($value-name) to be $($(with-article @name(type))), got $(typeof! $value)"
@@ -1697,9 +1715,12 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
       else
         result
     else if @is-access(type)
-      AST
-        if $value not instanceof $type
-          throw TypeError "Expected $($value-name) to be $($(with-article @value(@child(type)))), got $(typeof! $value)"
+      if disable-type-checking
+        @noop()
+      else
+        AST
+          if $value not instanceof $type
+            throw TypeError "Expected $($value-name) to be $($(with-article @value(@child(type)))), got $(typeof! $value)"
     else if @is-type-union(type)
       let mutable check = void
       let mutable has-boolean = false
@@ -1734,8 +1755,11 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         ASTE true
       let type-names = for reduce name in names[1 til Infinity], current = names[0]
         ASTE "$($current) or $($name)"
-      let mutable result = AST if $test
-        throw TypeError "Expected $($value-name) to be one of $($type-names), got $(typeof! $value)"
+      let mutable result = if disable-type-checking
+        @noop()
+      else
+        AST if $test
+          throw TypeError "Expected $($value-name) to be one of $($type-names), got $(typeof! $value)"
 
       if not has-default-value
         if has-null or has-void
@@ -1754,7 +1778,9 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
             $result
       result
     else if @is-type-generic(type)
-      if @name(@basetype(type)) == \Array
+      if disable-type-checking
+        @noop()
+      else if @name(@basetype(type)) == \Array
         let index = @tmp \i, false, \number
         let sub-check = translate-type-check (ASTE $value[$index]), (ASTE $value-name & "[" & $index & "]"), @type-arguments(type)[0], false
         AST if not is-array! $value
@@ -1770,12 +1796,15 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
           if $value not instanceof $generic-type
             throw TypeError "Expected $($value-name) to be a $(__name $generic-type), got $(typeof! $value)"
     else if @is-type-object(type)
-      let checks = for {key, value: pair-value} in @pairs(type)
-        translate-type-check (ASTE $value[$key]), (ASTE $value-name & "." & $key), pair-value, false
-      AST if not is-object! $value
-        throw TypeError "Expected $($value-name) to be an Object, got $(typeof! $value)"
+      if disable-type-checking
+        @noop()
       else
-        $checks
+        let checks = for {key, value: pair-value} in @pairs(type)
+          translate-type-check (ASTE $value[$key]), (ASTE $value-name & "." & $key), pair-value, false
+        AST if not is-object! $value
+          throw TypeError "Expected $($value-name) to be an Object, got $(typeof! $value)"
+        else
+          $checks
     else
       @error "Unknown type to translate: $(typeof! type)", type
   let init = []
