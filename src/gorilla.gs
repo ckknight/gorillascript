@@ -108,13 +108,21 @@ exports.parse := promise! #(source, options = {})*
   else
     (yield fetch-and-parse-prelude(options.lang or "js")).macros
   
-  return if sync
-    parser.sync(source, macros, options)
+  let parse-options = {
+    options.filename
+    noindent: not not options.noindent
+    embedded: not not options.embedded
+    embedded-unpretty: not not options.embedded-unpretty
+    embedded-generator: not not options.embedded-generator
+    sync: not not options.sync
+    options.progress
+  }
+  if sync
+    parser.sync(source, macros, parse-options)
   else
-    yield parser(source, macros, options)
+    yield parser(source, macros, parse-options)
 exports.parse-sync := #(source, options = {})
-  options.sync := true
-  exports.parse.sync source, options
+  exports.parse.sync source, {} <<< options <<< {+sync}
 
 exports.get-reserved-words := #(options = {})
   if options.no-prelude
@@ -147,6 +155,11 @@ exports.ast := promise! #(source, options = {})*
   
   let parsed = if is-array! source
     let array = []
+    let original-progress = options.progress
+    let progress-counts = {parse: 0, macro-expand: 0, reduce: 0}
+    if is-function! original-progress
+      options.progress := #(name, time)
+        progress-counts[name] += time
     for item in source
       if is-array! options.filenames
         options.filename := options.filenames[i]
@@ -154,6 +167,10 @@ exports.ast := promise! #(source, options = {})*
         exports.parse-sync item, options
       else
         yield exports.parse item, options
+    options.progress := original-progress
+    if is-function! original-progress
+      for name in [\parse, \macro-expand, \reduce]
+        options.progress name, progress-counts[name]
     join-parsed-results array
   else
     if sync
@@ -171,8 +188,7 @@ exports.ast := promise! #(source, options = {})*
     time: new Date().get-time() - start-time
   }
 exports.ast-sync := #(source, options = {})
-  options.sync := true
-  exports.ast.sync source, options
+  exports.ast.sync source, {} <<< options <<< {+sync}
 
 exports.compile := promise! #(source, options = {})*
   let sync = options.sync
@@ -193,8 +209,7 @@ exports.compile := promise! #(source, options = {})*
     compiled.code
   }
 exports.compile-sync := #(source, options = {})
-  options.sync := true
-  exports.compile.sync source, options
+  exports.compile.sync source, {} <<< options <<< {+sync}
 
 exports.compile-file := promise! #(mutable options = {})!*
   options := {} <<< options
@@ -229,12 +244,22 @@ exports.compile-file := promise! #(mutable options = {})!*
   else
     sources := yield promisefor(5) input in inputs
       yield to-promise! fs.read-file input, "utf8"
+  let original-progress = sources.length > 0 and options.progress
+  let progress-counts = {parse: 0, macro-expand: 0, reduce: 0}
+  if is-function! original-progress
+    options.progress := #(name, time)
+      progress-counts[name] += time
   let parsed = for source, i in sources
+    let start-parse-time = Date.now()
     options.filename := inputs[i]
     if sync
       exports.parse-sync source, options
     else
       yield exports.parse source, options
+  if is-function! original-progress
+    options.progress := original-progress
+    for name in [\parse, \macro-expand, \reduce]
+      options.progress name, progress-counts[name]
   // FIXME: only using macros from the first parsed source, which is most likely wrong.
   // Only the helpers need to be exposed to the translator, as it no longer cares for the rest of the
   // macro system.
@@ -264,8 +289,7 @@ exports.compile-file := promise! #(mutable options = {})!*
     else
       yield write-file-with-mkdirp source-map-file, options.source-map.to-string(), "utf8"
 exports.compile-file-sync := #(options = {})
-  options.sync := true
-  exports.compile-file.sync options
+  exports.compile-file.sync {} <<< options <<< {+sync}
 
 let evaluate(code, options)
   let Script = require?('vm')?.Script
@@ -317,8 +341,7 @@ exports.eval := promise! #(source, options = {})*
   return result
 
 exports.eval-sync := #(source, options = {})
-  options.sync := true
-  exports.eval.sync source, options
+  exports.eval.sync source, {} <<< options <<< {+sync}
 
 exports.run := promise! #(source, options = {})*
   let sync = options.sync
@@ -345,8 +368,7 @@ exports.run := promise! #(source, options = {})*
   else
     main-module._compile source, main-module.filename
 exports.run-sync := #(source, options = {})
-  options.sync := true
-  exports.run.sync source, options
+  exports.run.sync source, {} <<< options <<< {+sync}
 
 let init = exports.init := promise! #(options = {})*
   if options.sync
@@ -354,5 +376,4 @@ let init = exports.init := promise! #(options = {})*
   else
     yield fetch-and-parse-prelude(options.lang or "js")
 exports.init-sync := #(options = {})!
-  options.sync := true
-  init.sync options
+  init.sync {} <<< options <<< {+sync}

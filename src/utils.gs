@@ -145,8 +145,8 @@ let write-file-with-mkdirp = promise! #(filepath, text, encoding, sync)!*
   else
     yield mkdirp path.dirname(filepath)
     yield to-promise! fs.write-file filepath, text, encoding
-let write-file-with-mkdirp-sync(filepath, text)
-  write-file-with-mkdirp.sync filepath, text, true
+let write-file-with-mkdirp-sync(filepath, text, encoding)
+  write-file-with-mkdirp.sync filepath, text, encoding, true
 
 exports <<< {
   string-repeat
