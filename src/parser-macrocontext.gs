@@ -598,11 +598,14 @@ class MacroContext
     else
       Node[type](index, @scope(), ...args).reduce(@parser)
   
-  def get-const(name as String)
+  def get-const-value(name as String, allow-undefined = false)
     let c = @parser.get-const(name)
-    if not c
+    if not c and not allow-undefined
       throw Error "Unknown const '$name'"
-    ConstNode 0, @scope(), c.value
+    c?.value
+  
+  def get-const(name as String, allow-undefined = false)
+    ConstNode 0, @scope(), @get-const-value(name, allow-undefined)
   
   def macro(index, id, call-line, data, position, in-generator, in-evil-ast)
     Node.MacroAccess(index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
