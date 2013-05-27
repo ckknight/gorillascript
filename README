@@ -1,16 +1,16 @@
 GorillaScript is a compile-to-JavaScript language designed to empower the user while attempting to prevent some common errors.
 
-To run as a command-line app, first install Node.js, then
-sudo bin/gork install
+To install:
+  sudo npm install -g gorillascript
 
 Run a script:
-gorilla /path/to/script.gs
+  gorilla /path/to/script.gs
 
 Compile a script:
-gorilla -c /path/to/script.gs
+  gorilla -c /path/to/script.gs
 
 More options:
-gorilla --help
+  gorilla --help
 
 For documentation, see http://ckknight.github.io/gorillascript/
 
