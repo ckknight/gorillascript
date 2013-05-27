@@ -18,9 +18,9 @@ if require.extensions
 else if require.register-extension
   require.register-extension ".gs", #(content) -> exports.compile-sync content, { filename }
 
+let real-__filename = if __filename? then fs.realpath-sync(__filename)
 let fetch-and-parse-prelude = do
   let parsed-prelude-by-lang = {}
-  let real-__filename = if __filename? then fs.realpath-sync(__filename)
   let get-prelude-src-path = if real-__filename? then #(lang) -> path.join(path.dirname(real-__filename), "../src/$(lang)prelude.gs")
   let get-prelude-cache-path = if os? then #(lang) -> path.join(os.tmp-dir(), "gs-$(lang)prelude-$(exports.version).cache")
   let prelude-promises-by-lang = {}
@@ -70,7 +70,7 @@ let fetch-and-parse-prelude = do
         parser.sync prelude, null, { +serialize-macros, +sync }
       else
         yield parser prelude, null, { +serialize-macros }
-      fs.write-file prelude-cache-path, parsed-prelude.macros.serialize(), "utf8", #->
+      write-file-with-mkdirp prelude-cache-path, parsed-prelude.macros.serialize(), "utf8"
     delete prelude-promises-by-lang[lang]
     return parsed-prelude
   let f(lang as String, sync as Boolean)
@@ -111,12 +111,21 @@ exports.parse := promise! #(source, options = {})*
   let parse-options = {
     options.filename
     noindent: not not options.noindent
-    embedded: not not options.embedded
-    embedded-unpretty: not not options.embedded-unpretty
-    embedded-generator: not not options.embedded-generator
     sync: not not options.sync
     options.progress
   }
+  if options.embedded
+    parse-options <<< {
+      embedded: not not options.embedded
+      embedded-unpretty: not not options.embedded-unpretty
+      embedded-generator: not not options.embedded-generator
+      options.embedded-open
+      options.embedded-close
+      options.embedded-open-write
+      options.embedded-close-write
+      options.embedded-open-comment
+      options.embedded-close-comment
+    }
   if sync
     parser.sync(source, macros, parse-options)
   else
@@ -377,3 +386,23 @@ let init = exports.init := promise! #(options = {})*
     yield fetch-and-parse-prelude(options.lang or "js")
 exports.init-sync := #(options = {})!
   init.sync {} <<< options <<< {+sync}
+
+exports.get-mtime := promise! #(source)*
+  let files = []
+  files.push path.join(path.dirname(real-__filename), "../src/jsprelude.gs")
+  let lib-dir = path.join(path.dirname(real-__filename), "../lib")
+  let lib-files = yield to-promise! fs.readdir lib-dir
+  for lib-file in lib-files
+    if path.extname(lib-file) == ".js"
+      files.push path.join lib-dir, lib-file
+  let file-stats-p = every-promise! for file in files
+    to-promise! fs.stat file
+  
+  let file-stats = try
+    yield file-stats-p
+  catch
+    return new Date()
+  
+  let time = for reduce stat in file-stats, acc = -(2 ^ 52)
+    acc max stat.mtime.get-time()
+  return new Date(time)

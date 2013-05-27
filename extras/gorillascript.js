@@ -830,8 +830,8 @@
           }
         };
       });
-      function writeFileWithMkdirpSync(filepath, text) {
-        return writeFileWithMkdirp.sync(filepath, text, true);
+      function writeFileWithMkdirpSync(filepath, text, encoding) {
+        return writeFileWithMkdirp.sync(filepath, text, encoding, true);
       }
       exports.stringRepeat = stringRepeat;
       exports.padLeft = padLeft;
@@ -28062,16 +28062,30 @@
             return Node[type].apply(Node, [index, this.scope()].concat(__toArray(args))).reduce(this.parser);
           }
         };
-        _MacroContext_prototype.getConst = function (name) {
+        _MacroContext_prototype.getConstValue = function (name, allowUndefined) {
           var c;
           if (typeof name !== "string") {
             throw TypeError("Expected name to be a String, got " + __typeof(name));
           }
+          if (allowUndefined == null) {
+            allowUndefined = false;
+          }
           c = this.parser.getConst(name);
-          if (!c) {
+          if (!c && !allowUndefined) {
             throw Error("Unknown const '" + name + "'");
           }
-          return ConstNode(0, this.scope(), c.value);
+          if (c != null) {
+            return c.value;
+          }
+        };
+        _MacroContext_prototype.getConst = function (name, allowUndefined) {
+          if (typeof name !== "string") {
+            throw TypeError("Expected name to be a String, got " + __typeof(name));
+          }
+          if (allowUndefined == null) {
+            allowUndefined = false;
+          }
+          return ConstNode(0, this.scope(), this.getConstValue(name, allowUndefined));
         };
         _MacroContext_prototype.macro = function (index, id, callLine, data, position, inGenerator, inEvilAst) {
           return Node.MacroAccess(
@@ -32704,10 +32718,11 @@
     var exports = this;
     (function (GLOBAL) {
       "use strict";
-      var __defer, __generatorToPromise, __import, __isArray, __lte, __num, __owns,
-          __promise, __promiseLoop, __slice, __strnum, __toArray, __toPromise,
-          __typeof, _ref, fetchAndParsePrelude, fs, init, os, parser, path,
-          setImmediate, SourceMap, writeFileWithMkdirp, writeFileWithMkdirpSync;
+      var __defer, __everyPromise, __generatorToPromise, __import, __isArray, __lte,
+          __num, __owns, __promise, __promiseLoop, __slice, __strnum, __toArray,
+          __toPromise, __typeof, _ref, fetchAndParsePrelude, fs, init, os, parser,
+          path, real__filename, setImmediate, SourceMap, writeFileWithMkdirp,
+          writeFileWithMkdirpSync;
       __defer = (function () {
         function __defer() {
           var deferred, isError, value;
@@ -32818,6 +32833,47 @@
         };
         return __defer;
       }());
+      __everyPromise = function (promises) {
+        var defer, i, isArray, k, remaining, result, v;
+        if (typeof promises !== "object" || promises === null) {
+          throw TypeError("Expected promises to be an Object, got " + __typeof(promises));
+        }
+        isArray = __isArray(promises);
+        defer = __defer();
+        if (isArray) {
+          result = [];
+        } else {
+          result = {};
+        }
+        remaining = 0;
+        function handle(key, promise) {
+          return promise.then(
+            function (value) {
+              result[key] = value;
+              if (--remaining === 0) {
+                defer.fulfill(result);
+              }
+            },
+            defer.reject
+          );
+        }
+        if (isArray) {
+          i = promises.length;
+          remaining = i;
+          while (i--) {
+            handle(i, promises[i]);
+          }
+        } else {
+          for (k in promises) {
+            if (__owns.call(promises, k)) {
+              v = promises[k];
+              ++remaining;
+              handle(k, v);
+            }
+          }
+        }
+        return defer.promise;
+      };
       __generatorToPromise = function (generator, allowSync) {
         if (typeof generator !== "object" || generator === null) {
           throw TypeError("Expected generator to be an Object, got " + __typeof(generator));
@@ -33056,7 +33112,7 @@
       _ref = require("./utils");
       writeFileWithMkdirp = _ref.writeFileWithMkdirp;
       writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-      exports.version = "0.7.23";
+      exports.version = "0.7.24";
       exports.ParserError = parser.ParserError;
       exports.MacroError = parser.MacroError;
       if (require.extensions) {
@@ -33073,13 +33129,13 @@
           return exports.compileSync(content, { filename: filename });
         });
       }
+      if (typeof __filename !== "undefined" && __filename !== null) {
+        real__filename = fs.realpathSync(__filename);
+      }
       fetchAndParsePrelude = (function () {
         var getPreludeCachePath, getPreludeSrcPath, parsedPreludeByLang,
-            preludePromisesByLang, real__filename, work;
+            preludePromisesByLang, work;
         parsedPreludeByLang = {};
-        if (typeof __filename !== "undefined" && __filename !== null) {
-          real__filename = fs.realpathSync(__filename);
-        }
         if (real__filename != null) {
           getPreludeSrcPath = function (lang) {
             return path.join(path.dirname(real__filename), "../src/" + __strnum(lang) + "prelude.gs");
@@ -33232,7 +33288,7 @@
                 parsedPrelude = parsedPreludeByLang[lang];
                 ++_state;
               case 28:
-                fs.writeFile(preludeCachePath, parsedPrelude.macros.serialize(), "utf8", function () {});
+                writeFileWithMkdirp(preludeCachePath, parsedPrelude.macros.serialize(), "utf8");
                 ++_state;
               case 29:
                 delete preludePromisesByLang[lang];
@@ -33374,7 +33430,7 @@
       }());
       exports.getSerializedPrelude = fetchAndParsePrelude.serialized;
       exports.parse = __promise(function (source, options) {
-        var _e, _send, _state, _step, _throw, _tmp, macros, sync;
+        var _e, _send, _state, _step, _throw, _tmp, macros, parseOptions, sync;
         _state = 0;
         function _close() {
           _state = 12;
@@ -33415,19 +33471,31 @@
               macros = _tmp.macros;
               ++_state;
             case 8:
+              parseOptions = { filename: options.filename, noindent: !!options.noindent, sync: !!options.sync, progress: options.progress };
+              if (options.embedded) {
+                parseOptions.embedded = !!options.embedded;
+                parseOptions.embeddedUnpretty = !!options.embeddedUnpretty;
+                parseOptions.embeddedGenerator = !!options.embeddedGenerator;
+                parseOptions.embeddedOpen = options.embeddedOpen;
+                parseOptions.embeddedClose = options.embeddedClose;
+                parseOptions.embeddedOpenWrite = options.embeddedOpenWrite;
+                parseOptions.embeddedCloseWrite = options.embeddedCloseWrite;
+                parseOptions.embeddedOpenComment = options.embeddedOpenComment;
+                parseOptions.embeddedCloseComment = options.embeddedCloseComment;
+              }
               _state = sync ? 9 : 10;
               break;
             case 9:
               _state = 12;
               return {
                 done: true,
-                value: parser.sync(source, macros, options)
+                value: parser.sync(source, macros, parseOptions)
               };
             case 10:
               ++_state;
               return {
                 done: false,
-                value: parser(source, macros, options)
+                value: parser(source, macros, parseOptions)
               };
             case 11:
               ++_state;
@@ -33465,11 +33533,11 @@
         };
       });
       exports.parseSync = function (source, options) {
+        var _ref;
         if (options == null) {
           options = {};
         }
-        options.sync = true;
-        return exports.parse.sync(source, options);
+        return exports.parse.sync(source, ((_ref = __import({}, options)).sync = true, _ref));
       };
       exports.getReservedWords = function (options) {
         if (options == null) {
@@ -33504,7 +33572,8 @@
       }
       exports.ast = __promise(function (source, options) {
         var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, _tmp, array,
-            item, parsed, startTime, sync, translated, translator;
+            item, name, originalProgress, parsed, progressCounts, startTime, sync,
+            translated, translator;
         _state = 0;
         function _close() {
           _state = 15;
@@ -33527,6 +33596,13 @@
               break;
             case 1:
               array = [];
+              originalProgress = options.progress;
+              progressCounts = { parse: 0, macroExpand: 0, reduce: 0 };
+              if (typeof originalProgress === "function") {
+                options.progress = function (name, time) {
+                  return progressCounts[name] = __num(progressCounts[name]) + __num(time);
+                };
+              }
               _arr = __toArray(source);
               _i = 0;
               _len = _arr.length;
@@ -33564,6 +33640,13 @@
               _state = 2;
               break;
             case 9:
+              options.progress = originalProgress;
+              if (typeof originalProgress === "function") {
+                for (_arr = ["parse", "macroExpand", "reduce"], _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                  name = _arr[_i];
+                  options.progress(name, progressCounts[name]);
+                }
+              }
               parsed = joinParsedResults(array);
               _state = 14;
               break;
@@ -33630,11 +33713,11 @@
         };
       });
       exports.astSync = function (source, options) {
+        var _ref;
         if (options == null) {
           options = {};
         }
-        options.sync = true;
-        return exports.ast.sync(source, options);
+        return exports.ast.sync(source, ((_ref = __import({}, options)).sync = true, _ref));
       };
       exports.compile = __promise(function (source, options) {
         var _e, _send, _state, _step, _throw, compiled, startTime, sync, translated;
@@ -33715,16 +33798,17 @@
         };
       });
       exports.compileSync = function (source, options) {
+        var _ref;
         if (options == null) {
           options = {};
         }
-        options.sync = true;
-        return exports.compile.sync(source, options);
+        return exports.compile.sync(source, ((_ref = __import({}, options)).sync = true, _ref));
       };
       exports.compileFile = __promise(function (options) {
         var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, code, compiled,
-            footer, i, input, inputs, linefeed, output, parsed, source,
-            sourceMapFile, sources, sync, translated, translator;
+            footer, i, input, inputs, linefeed, name, originalProgress, output,
+            parsed, progressCounts, source, sourceMapFile, sources, startParseTime,
+            sync, translated, translator;
         _state = 0;
         function _close() {
           _state = 20;
@@ -33836,6 +33920,13 @@
               sources = _received;
               ++_state;
             case 4:
+              originalProgress = sources.length > 0 && options.progress;
+              progressCounts = { parse: 0, macroExpand: 0, reduce: 0 };
+              if (typeof originalProgress === "function") {
+                options.progress = function (name, time) {
+                  return progressCounts[name] = __num(progressCounts[name]) + __num(time);
+                };
+              }
               _arr = [];
               i = 0;
               _len = sources.length;
@@ -33845,6 +33936,7 @@
               break;
             case 6:
               source = sources[i];
+              startParseTime = Date.now();
               options.filename = inputs[i];
               _state = sync ? 7 : 8;
               break;
@@ -33869,6 +33961,13 @@
               break;
             case 11:
               parsed = _arr;
+              if (typeof originalProgress === "function") {
+                options.progress = originalProgress;
+                for (_arr = ["parse", "macroExpand", "reduce"], _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                  name = _arr[_i];
+                  options.progress(name, progressCounts[name]);
+                }
+              }
               options.filenames = inputs;
               translator = require("./jstranslator");
               translated = translator(
@@ -33965,11 +34064,11 @@
         };
       });
       exports.compileFileSync = function (options) {
+        var _ref;
         if (options == null) {
           options = {};
         }
-        options.sync = true;
-        return exports.compileFile.sync(options);
+        return exports.compileFile.sync(((_ref = __import({}, options)).sync = true, _ref));
       };
       function evaluate(code, options) {
         var _arr, _i, _module, _obj, _ref, _require, fun, k, Module, r, sandbox,
@@ -34101,11 +34200,11 @@
         };
       });
       exports.evalSync = function (source, options) {
+        var _ref;
         if (options == null) {
           options = {};
         }
-        options.sync = true;
-        return exports["eval"].sync(source, options);
+        return exports["eval"].sync(source, ((_ref = __import({}, options)).sync = true, _ref));
       };
       exports.run = __promise(function (source, options) {
         var _e, _send, _state, _step, _throw, compiled, mainModule, Module, sync;
@@ -34214,11 +34313,11 @@
         };
       });
       exports.runSync = function (source, options) {
+        var _ref;
         if (options == null) {
           options = {};
         }
-        options.sync = true;
-        return exports.run.sync(source, options);
+        return exports.run.sync(source, ((_ref = __import({}, options)).sync = true, _ref));
       };
       init = exports.init = __promise(function (options) {
         var _e, _send, _state, _step, _throw;
@@ -34280,12 +34379,110 @@
         };
       });
       exports.initSync = function (options) {
+        var _ref;
         if (options == null) {
           options = {};
         }
-        options.sync = true;
-        init.sync(options);
+        init.sync(((_ref = __import({}, options)).sync = true, _ref));
       };
+      exports.getMtime = __promise(function (source) {
+        var _arr, _e, _err, _i, _len, _ref, _send, _state, _step, _throw, acc,
+            files, fileStats, fileStatsP, libDir, libFile, libFiles, stat, time;
+        _state = 0;
+        function _close() {
+          _state = 6;
+        }
+        function _step(_received) {
+          while (true) {
+            switch (_state) {
+            case 0:
+              files = [];
+              files.push(path.join(path.dirname(real__filename), "../src/jsprelude.gs"));
+              libDir = path.join(path.dirname(real__filename), "../lib");
+              ++_state;
+              return {
+                done: false,
+                value: __toPromise(fs.readdir, fs, [libDir])
+              };
+            case 1:
+              libFiles = _received;
+              for (_arr = __toArray(libFiles), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                libFile = _arr[_i];
+                if (path.extname(libFile) === ".js") {
+                  files.push(path.join(libDir, libFile));
+                }
+              }
+              fileStatsP = __everyPromise((function () {
+                var _arr, _i, _len, file;
+                for (_arr = [], _i = 0, _len = files.length; _i < _len; ++_i) {
+                  file = files[_i];
+                  _arr.push(__toPromise(fs.stat, fs, [file]));
+                }
+                return _arr;
+              }()));
+              ++_state;
+            case 2:
+              ++_state;
+              return { done: false, value: fileStatsP };
+            case 3:
+              fileStats = _received;
+              _state = 5;
+              break;
+            case 4:
+              _state = 6;
+              return { done: true, value: new Date() };
+            case 5:
+              acc = -4503599627370496;
+              for (_arr = __toArray(fileStats), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                stat = _arr[_i];
+                if (acc > __num(_ref = stat.mtime.getTime())) {
+                  acc = acc;
+                } else {
+                  acc = _ref;
+                }
+              }
+              time = acc;
+              ++_state;
+              return { done: true, value: new Date(time) };
+            case 6:
+              return { done: true, value: void 0 };
+            default: throw Error("Unknown state: " + _state);
+            }
+          }
+        }
+        function _throw(_e) {
+          if (_state === 2 || _state === 3) {
+            _err = _e;
+            _state = 4;
+          } else {
+            _close();
+            throw _e;
+          }
+        }
+        function _send(_received) {
+          while (true) {
+            try {
+              return _step(_received);
+            } catch (_e) {
+              _throw(_e);
+            }
+          }
+        }
+        return {
+          close: _close,
+          iterator: function () {
+            return this;
+          },
+          next: function () {
+            return _send(void 0);
+          },
+          send: _send,
+          "throw": function (_e) {
+            _throw(_e);
+            return _send(void 0);
+          }
+        };
+      });
     }.call(this, typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : this));
     
     return module.exports;
