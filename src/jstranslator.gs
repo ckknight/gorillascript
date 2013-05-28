@@ -716,7 +716,7 @@ let generator-translate = do
         cleanup: make-cleanup(assign-to, scope, t-tmp)
       }
   let expressions =
-    Access: #(node, scope, state, assign-to)
+    [ParserNodeType.Access]: #(node, scope, state, assign-to)
       let g-parent = generator-translate-expression node.parent, scope, state, true
       let g-child = generator-translate-expression node.child, scope, g-parent.state, false
       handle-assign assign-to, scope, g-child.state, #-> first!(
@@ -724,10 +724,10 @@ let generator-translate = do
         g-parent.cleanup()
         g-child.cleanup())
     
-    Array: #(node, scope, state, assign-to)
+    [ParserNodeType.Array]: #(node, scope, state, assign-to)
       generator-array-translate get-pos(node), node.elements, scope, state, assign-to
     
-    Assign: #(node, scope, state, assign-to)
+    [ParserNodeType.Assign]: #(node, scope, state, assign-to)
       let left = node.left
       let g-left = if left instanceof ParserNode.Access
         let g-parent = generator-translate-expression left.parent, scope, state, true
@@ -751,7 +751,7 @@ let generator-translate = do
         g-left.cleanup()
         g-right.cleanup()
     
-    Binary: do
+    [ParserNodeType.Binary]: do
       let lazy-ops = {
         "&&": #(node, scope, state, assign-to)
           let g-left = generator-translate-expression node.left, scope, state, assign-to or true
@@ -796,7 +796,7 @@ let generator-translate = do
               last!(g-left.cleanup(), node.op)
               first!(g-right.t-node(), g-right.cleanup()))
     
-    Block: #(node, scope, mutable state, assign-to)
+    [ParserNodeType.Block]: #(node, scope, mutable state, assign-to)
       for subnode, i, len in node.nodes
         let result = generator-translate-expression subnode, scope, state, i == len - 1 and assign-to
         state := result.state
@@ -804,7 +804,7 @@ let generator-translate = do
           return result
       throw Error "Unreachable state"
     
-    Call: #(node, scope, mutable state, assign-to)
+    [ParserNodeType.Call]: #(node, scope, mutable state, assign-to)
       let g-func = if node.func instanceof ParserNode.Access
         let g-parent = generator-translate-expression node.func.parent, scope, state, true
         let g-child = generator-translate-expression node.func.child, scope, g-parent.state, true
@@ -896,7 +896,7 @@ let generator-translate = do
                 args
               ]
     
-    EmbedWrite: #(node, scope, mutable state, assign-to)
+    [ParserNodeType.EmbedWrite]: #(node, scope, mutable state, assign-to)
       let g-text = generator-translate-expression node.text, scope, state, false
       handle-assign assign-to, scope, g-text.state, (#-> ast.Call get-pos(node),
         ast.Ident get-pos(node), \write
@@ -908,11 +908,11 @@ let generator-translate = do
             []
         ]), g-text.cleanup
     
-    Eval: #(node, scope, mutable state, assign-to)
+    [ParserNodeType.Eval]: #(node, scope, mutable state, assign-to)
       let g-code = generator-translate-expression node.code, scope, state, false
       handle-assign assign-to, scope, g-code.state, #-> ast.Eval get-pos(node), g-code.t-node(), g-code.cleanup
     
-    If: #(node, scope, mutable state, assign-to)
+    [ParserNodeType.If]: #(node, scope, mutable state, assign-to)
       let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
       state := test.state
       
@@ -944,7 +944,7 @@ let generator-translate = do
           last!(test.cleanup(), t-when-true())
           t-when-false()
     
-    Regexp: #(node, scope, mutable state, assign-to)
+    [ParserNodeType.Regexp]: #(node, scope, mutable state, assign-to)
       let g-source = generator-translate-expression node.source, scope, state, false
       handle-assign assign-to, scope, state, (#
         let source = g-source.t-node()
@@ -958,27 +958,27 @@ let generator-translate = do
               ast.Const get-pos(node), flags
             ]), g-source.cleanup
     
-    TmpWrapper: #(node, scope, state, assign-to)
+    [ParserNodeType.TmpWrapper]: #(node, scope, state, assign-to)
       let g-node = generator-translate-expression node.node, scope, state, false
       handle-assign assign-to, scope, g-node.state, g-node.t-node, #
         g-node.cleanup()
         for tmp in node.tmps by -1
           scope.release-tmp tmp
     
-    Unary: #(node, scope, state, assign-to)
+    [ParserNodeType.Unary]: #(node, scope, state, assign-to)
       let g-node = generator-translate-expression node.node, scope, state, false
       handle-assign assign-to, scope, g-node.state, #-> first!(
         ast.Unary get-pos(node),
           node.op
           first!(g-node.t-node(), g-node.cleanup()))
     
-    Yield: #(node, scope, mutable state, assign-to)
+    [ParserNodeType.Yield]: #(node, scope, mutable state, assign-to)
       let g-node = generator-translate-expression node.node, scope, state, false
       state := g-node.state.yield get-pos(node), g-node.t-node
       handle-assign assign-to, scope, state, #-> state.builder.received-ident, g-node.cleanup
   
   let generator-translate-expression(node as ParserNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->)
-    let key = node.constructor.capped-name
+    let key = node.type-id
     if state.has-generator-node node
       if expressions ownskey key
         expressions[key](node, scope, state, assign-to)
@@ -988,13 +988,13 @@ let generator-translate = do
       handle-assign assign-to, scope, state, translate node, scope, \expression
   
   let statements =
-    Block: #(node, scope, state, break-state, continue-state, auto-return)
+    [ParserNodeType.Block]: #(node, scope, state, break-state, continue-state, auto-return)
       if node.label?
         throw Error "Not implemented: block with label in generator"
       for reduce subnode, i, len in node.nodes, acc = state
         generator-translate subnode, scope, acc, break-state, continue-state, auto-return and i == len - 1
 
-    Break: #(node, scope, state, break-state)
+    [ParserNodeType.Break]: #(node, scope, state, break-state)
       if node.label?
         throw Error "Not implemented: break with label in a generator"
       if not break-state?
@@ -1003,7 +1003,7 @@ let generator-translate = do
       state.goto get-pos(node), break-state
       state
     
-    Continue: #(node, scope, state, break-state, continue-state)
+    [ParserNodeType.Continue]: #(node, scope, state, break-state, continue-state)
       if node.label?
         throw Error "Not implemented: break with label in a generator"
       if not continue-state?
@@ -1012,7 +1012,7 @@ let generator-translate = do
       state.goto get-pos(node), continue-state
       state
     
-    For: #(node, scope, mutable state)
+    [ParserNodeType.For]: #(node, scope, mutable state)
       if node.label?
         throw Error "Not implemented: for with label in generator"
       if node.init? and node.init not instanceof ParserNode.Nothing
@@ -1034,7 +1034,7 @@ let generator-translate = do
       let post-branch = state.branch()
       post-branch
     
-    ForIn: #(node, scope, mutable state)
+    [ParserNodeType.ForIn]: #(node, scope, mutable state)
       if node.label?
         throw Error "Not implemented: for-in with label in generator"
       let t-key = translate node.key, scope, \left-expression
@@ -1073,7 +1073,7 @@ let generator-translate = do
       let post-branch = step-branch.branch()
       post-branch
     
-    If: #(node, scope, mutable state, break-state, continue-state, auto-return)
+    [ParserNodeType.If]: #(node, scope, mutable state, break-state, continue-state, auto-return)
       let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
       state := test.state
       
@@ -1095,7 +1095,7 @@ let generator-translate = do
           last!(test.cleanup(), t-when-true())
           t-when-false()
     
-    Return: #(node, scope, mutable state)
+    [ParserNodeType.Return]: #(node, scope, mutable state)
       let pos = get-pos(node)
       if node.node.is-const() and node.node.const-value() == void
         state.return get-pos(node)
@@ -1108,7 +1108,7 @@ let generator-translate = do
           g-node.cleanup())
         state
       
-    Switch: #(node, scope, state, , continue-state, auto-return)
+    [ParserNodeType.Switch]: #(node, scope, state, , continue-state, auto-return)
       if node.label?
         throw Error "Not implemented: switch with label in generator"
       let g-node = generator-translate-expression node.node, scope, state, false // TODO: should this be true?
@@ -1145,17 +1145,17 @@ let generator-translate = do
       let post-branch = state.branch()
       post-branch
     
-    Throw: #(node, scope, state, break-state, continue-state)
+    [ParserNodeType.Throw]: #(node, scope, state, break-state, continue-state)
       let g-node = generator-translate-expression node.node, scope, state, false
       g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
     
-    TmpWrapper: #(node, scope, state, break-state, continue-state, auto-return)
+    [ParserNodeType.TmpWrapper]: #(node, scope, state, break-state, continue-state, auto-return)
       let result = generator-translate node.node, scope, state, break-state, continue-state, auto-return
       for tmp in node.tmps by -1
         scope.release-tmp tmp
       result
     
-    TryCatch: #(node, scope, mutable state, break-state, continue-state, auto-return)
+    [ParserNodeType.TryCatch]: #(node, scope, mutable state, break-state, continue-state, auto-return)
       if node.label?
         throw Error "Not implemented: try-catch with label in generator"
       
@@ -1167,7 +1167,7 @@ let generator-translate = do
       let post-branch = state.branch()
       post-branch
     
-    TryFinally: #(node, scope, mutable state, break-state, continue-state, auto-return)
+    [ParserNodeType.TryFinally]: #(node, scope, mutable state, break-state, continue-state, auto-return)
       if node.label?
         throw Error "Not implemented: try-finally with label in generator"
       
@@ -1178,7 +1178,7 @@ let generator-translate = do
       state := generator-translate node.try-body, scope, state, break-state, continue-state, auto-return
       state.run-pending-finally get-pos(node)
     
-    Yield: #(node, scope, mutable state, , , auto-return)
+    [ParserNodeType.Yield]: #(node, scope, mutable state, , , auto-return)
       // TODO: auto-return
       let g-node = generator-translate-expression node.node, scope, state, false
       let new-state = g-node.state.yield get-pos(node), #-> first!(
@@ -1190,7 +1190,7 @@ let generator-translate = do
     
   #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, auto-return)
     if state.has-generator-node node
-      let key = node.constructor.capped-name
+      let key = node.type-id
       if statements ownskey key
         let ret = statements[key](node, scope, state, break-state, continue-state, auto-return, auto-return)
         if ret not instanceof GeneratorState
@@ -1261,19 +1261,19 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
           rest
 
 let translators =
-  Access: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Access]: #(node, scope, location, auto-return, unassigned)
     let t-parent = translate node.parent, scope, \expression, null, unassigned
     let t-child = translate node.child, scope, \expression, null, unassigned
     #-> auto-return ast.Access(get-pos(node), t-parent(), t-child())
 
-  Args: #(node, scope, location, auto-return)
+  [ParserNodeType.Args]: #(node, scope, location, auto-return)
     #-> auto-return ast.Arguments(get-pos(node))
 
-  Array: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Array]: #(node, scope, location, auto-return, unassigned)
     let t-arr = array-translate get-pos(node), node.elements, scope, true, false, unassigned
     #-> auto-return t-arr()
 
-  Assign: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Assign]: #(node, scope, location, auto-return, unassigned)
     let op = node.op
     let t-left = translate node.left, scope, \left-expression
     let t-right = translate node.right, scope, \expression, null, unassigned
@@ -1297,21 +1297,21 @@ let translators =
       else
         auto-return ast.Binary(get-pos(node), left, op, right)
 
-  Binary: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Binary]: #(node, scope, location, auto-return, unassigned)
     let t-left = translate node.left, scope, \expression, null, unassigned
     let t-right = translate node.right, scope, \expression, null, unassigned
     #-> auto-return ast.Binary(get-pos(node), t-left(), node.op, t-right())
 
-  Block: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Block]: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-nodes = translate-array node.nodes, scope, location, auto-return, unassigned
     # -> ast.Block get-pos(node), (for t-node in t-nodes; t-node()), t-label?()
 
-  Break: #(node, scope)
+  [ParserNodeType.Break]: #(node, scope)
     let t-label = node.label and translate node.label, scope, \label
     #-> ast.Break(get-pos(node), t-label?())
   
-  Call: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Call]: #(node, scope, location, auto-return, unassigned)
     let t-func = translate node.func, scope, \expression, null, unassigned
     let is-apply = node.is-apply
     let is-new = node.is-new
@@ -1371,21 +1371,21 @@ let translators =
             ast.Access get-pos(node), func, \apply
             [ast.Const(get-pos(node), void), arg-array]
   
-  Comment: #(node, scope, location, auto-return) -> #-> ast.Comment(get-pos(node), node.text)
+  [ParserNodeType.Comment]: #(node, scope, location, auto-return) -> #-> ast.Comment(get-pos(node), node.text)
   
-  Const: #(node, scope, location, auto-return) -> #-> auto-return ast.Const(get-pos(node), node.value)
+  [ParserNodeType.Const]: #(node, scope, location, auto-return) -> #-> auto-return ast.Const(get-pos(node), node.value)
   
-  Continue: #(node, scope)
+  [ParserNodeType.Continue]: #(node, scope)
     let t-label = node.label and translate node.label, scope, \label
     #-> ast.Continue(get-pos(node), t-label?())
 
-  Debugger: #(node) -> #-> ast.Debugger(get-pos(node))
+  [ParserNodeType.Debugger]: #(node) -> #-> ast.Debugger(get-pos(node))
 
-  Def: #(node, scope, location, auto-return)
+  [ParserNodeType.Def]: #(node, scope, location, auto-return)
     // TODO: line numbers
     throw Error "Cannot have a stray def"
   
-  EmbedWrite: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.EmbedWrite]: #(node, scope, location, auto-return, unassigned)
     let t-text = translate node.text, scope, \expression, null, unassigned
     #
       ast.Call get-pos(node),
@@ -1398,11 +1398,11 @@ let translators =
             []
         ]
   
-  Eval: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Eval]: #(node, scope, location, auto-return, unassigned)
     let t-code = translate node.code, scope, \expression, null, unassigned
     #-> auto-return ast.Eval get-pos(node), t-code()
 
-  For: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.For]: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-init = if node.init? then translate node.init, scope, \expression, null, unassigned
     // don't send along the normal unassigned array, since the loop could be repeated thus requiring reset to void.
@@ -1416,7 +1416,7 @@ let translators =
       t-body()
       t-label?()
 
-  ForIn: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.ForIn]: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-key = translate node.key, scope, \left-expression
     let t-object = translate node.object, scope, \expression, null, unassigned
@@ -1428,7 +1428,7 @@ let translators =
       scope.add-variable key, Type.string
       ast.ForIn(get-pos(node), key, t-object(), t-body(), t-label?())
 
-  Function: do
+  [ParserNodeType.Function]: do
     let primitive-types = {
       Boolean: \boolean
       String: \string
@@ -1436,14 +1436,14 @@ let translators =
       Function: \function
     }
     let translate-type-checks =
-      Ident: #(node)
+      [ParserNodeType.Ident]: #(node)
         if primitive-types ownskey node.name
           Type[primitive-types[node.name]]
         else
           Type.any // FIXME
-      Access: #(node)
+      [ParserNodeType.Access]: #(node)
         Type.any // FIXME
-      TypeUnion: #(node)
+      [ParserNodeType.TypeUnion]: #(node)
         let mutable result = Type.none
         for type in node.types
           if type instanceof ParserNode.Const
@@ -1461,16 +1461,16 @@ let translators =
           else
             throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
         result
-      TypeFunction: #(node)
+      [ParserNodeType.TypeFunction]: #(node)
         Type.function
-      TypeGeneric: #(node)
+      [ParserNodeType.TypeGeneric]: #(node)
         if node.basetype.name == \Array
           translate-type-check(node.args[0]).array()
         else if node.basetype.name == \Function
           Type.function
         else
           Type.any
-      TypeObject: #(node)
+      [ParserNodeType.TypeObject]: #(node)
         let type-data = {}
         
         for {key, value} in node.pairs
@@ -1479,12 +1479,12 @@ let translators =
         
         Type.make-object type-data
     let translate-type-check(node)
-      unless translate-type-checks ownskey node.constructor.capped-name
-        throw Error "Unknown type: $(String node.constructor.capped-name)"
+      unless translate-type-checks ownskey node.type-id
+        throw Error "Unknown type: $(String typeof! node)"
 
-      translate-type-checks[node.constructor.capped-name] node
+      translate-type-checks[node.type-id] node
     let translate-param-types = {
-      Param: #(param, scope, inner)
+      [ParserNodeType.Param]: #(param, scope, inner)
         let mutable ident = translate(param.ident, scope, \param)()
 
         let later-init = []
@@ -1509,43 +1509,41 @@ let translators =
     }
 
     let translate-param(param, scope, inner)
-      let type = param.constructor.capped-name
+      let type = param.type-id
       unless translate-param-types ownskey type
-        throw Error "Unknown parameter type: $(type)"
+        throw Error "Unknown parameter type: $(typeof! param)"
       translate-param-types[type](param, scope, inner)
 
     let translate-type = do
-      let translate-types = {
-        Ident: do
-          let primordial-types = {
+      let translate-types =
+        [ParserNodeType.Ident]: do
+          let primordial-types =
             String: Type.string
             Number: Type.number
             Boolean: Type.boolean
             Function: Type.function
             Array: Type.array
-          }
           #(node, scope)
             unless primordial-types ownskey node.name
               throw Error "Not implemented: custom type $(node.name)"
             primordial-types[node.name]
-        Const: #(node, scope)
+        [ParserNodeType.Const]: #(node, scope)
           switch node.value
           case null; Type.null
           case void; Type.undefined
           default
             throw Error "Unexpected const type: $(String node.value)"
-        TypeGeneric: #(node, scope)
+        [ParserNodeType.TypeGeneric]: #(node, scope)
           let base = translate-type(node.basetype, scope)
           let args = for arg in node.args; translate-type(arg, scope)
           Type.generic(base, ...args)
-        TypeUnion: #(node, scope)
+        [ParserNodeType.TypeUnion]: #(node, scope)
           for reduce type in node.types, current = Type.none
             current.union(translate-type(type))
-      }
       #(node, scope)
-        unless translate-types ownskey node.constructor.capped-name
-          throw Error "Unknown type to translate: $(String node.constructor.capped-name)"
-        translate-types[node.constructor.capped-name](node, scope)
+        unless translate-types ownskey node.type-id
+          throw Error "Unknown type to translate: $(typeof! node)"
+        translate-types[node.type-id](node, scope)
     
     #(node, scope, location, auto-return) -> #
       let mutable inner-scope = scope.clone(not not node.bound)
@@ -1587,7 +1585,7 @@ let translators =
         throw Error "Expected node to already be curried"
       auto-return wrap ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
 
-  Ident: #(node, scope, location, auto-return)
+  [ParserNodeType.Ident]: #(node, scope, location, auto-return)
       let name = node.name
       scope.add-helper name
       #
@@ -1599,7 +1597,7 @@ let translators =
             ast.Ident get-pos(node), \context
             ast.Const get-pos(node), name
 
-  If: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.If]: #(node, scope, location, auto-return, unassigned)
     let inner-location = if location in [\statement, \top-statement]
       \statement
     else
@@ -1610,9 +1608,9 @@ let translators =
     let t-when-false = if node.when-false? then translate node.when-false, scope, inner-location, auto-return, unassigned
     #-> ast.If get-pos(node), t-test(), t-when-true(), t-when-false?(), t-label?()
   
-  Nothing: #(node) -> #-> ast.Noop(get-pos(node))
+  [ParserNodeType.Nothing]: #(node) -> #-> ast.Noop(get-pos(node))
 
-  Object: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Object]: #(node, scope, location, auto-return, unassigned)
     let t-keys = []
     let t-values = []
     let properties = []
@@ -1708,7 +1706,7 @@ let translators =
         scope.release-ident ident
         auto-return result
   
-  Regexp: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Regexp]: #(node, scope, location, auto-return, unassigned)
     let t-source = translate(node.source, scope, \expression, null, unassigned)
     #
       let source = t-source()
@@ -1723,13 +1721,13 @@ let translators =
             ast.Const get-pos(node), flags
           ]
   
-  Return: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Return]: #(node, scope, location, auto-return, unassigned)
     if location not in [\statement, \top-statement]
       throw Error "Expected Return in statement position"
     let t-value = translate node.node, scope, \expression, null, unassigned
     #-> ast.Return get-pos(node), t-value()
   
-  Switch: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Switch]: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-node = translate node.node, scope, \expression, null, unassigned
     let t-cases = for case_ in node.cases
@@ -1757,22 +1755,22 @@ let translators =
           ast.Noop(get-pos(node))
         t-label?()
 
-  Super: #(node, scope, location, auto-return)
+  [ParserNodeType.Super]: #(node, scope, location, auto-return)
     // TODO: line numbers
     throw Error "Cannot have a stray super call"
 
-  Tmp: #(node, scope, location, auto-return)
+  [ParserNodeType.Tmp]: #(node, scope, location, auto-return)
     let ident = scope.get-tmp(get-pos(node), node.id, node.name, node.type())
     # -> auto-return ident
 
-  TmpWrapper: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.TmpWrapper]: #(node, scope, location, auto-return, unassigned)
     let t-result = translate node.node, scope, location, auto-return, unassigned
     for tmp in node.tmps by -1
       scope.release-tmp tmp
 
     t-result
 
-  This: #(node, scope, location, auto-return)
+  [ParserNodeType.This]: #(node, scope, location, auto-return)
     #
       scope.used-this := true
       auto-return if scope.bound
@@ -1780,11 +1778,11 @@ let translators =
       else
         ast.This get-pos(node)
 
-  Throw: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Throw]: #(node, scope, location, auto-return, unassigned)
     let t-node = translate node.node, scope, \expression, null, unassigned
     #-> ast.Throw get-pos(node), t-node()
 
-  TryCatch: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.TryCatch]: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-try-body = translate node.try-body, scope, \statement, auto-return, unassigned
     let inner-scope = scope.clone(false)
@@ -1799,19 +1797,19 @@ let translators =
       scope.variables <<< inner-scope.variables
       result
 
-  TryFinally: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.TryFinally]: #(node, scope, location, auto-return, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-try-body = translate node.try-body, scope, \statement, auto-return, unassigned
     let t-finally-body = translate node.finally-body, scope, \statement, null, unassigned
     #-> ast.TryFinally get-pos(node), t-try-body(), t-finally-body(), t-label?()
 
-  Unary: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Unary]: #(node, scope, location, auto-return, unassigned)
     if unassigned and node.op in ["++", "--", "++post", "--post"] and node.node instanceof ParserNode.Ident
       unassigned[node.node.name] := false
     let t-subnode = translate node.node, scope, \expression, null, unassigned
     #-> auto-return ast.Unary get-pos(node), node.op, t-subnode()
   
-  Var: #(node, scope, location, auto-return, unassigned)
+  [ParserNodeType.Var]: #(node, scope, location, auto-return, unassigned)
     if unassigned and node.ident instanceof ParserNode.Ident and unassigned not ownskey node.ident.name
       unassigned[node.ident.name] := true
     let t-ident = translate node.ident, scope, \left-expression, auto-return
@@ -1824,10 +1822,10 @@ let translate(node as Object, scope as Scope, location as String, mutable auto-r
   unless is-function! auto-return
     auto-return := make-auto-return auto-return
 
-  unless translators ownskey node.constructor.capped-name
-    throw Error "Unable to translate unknown node type: $(String node.constructor.capped-name)"
+  unless translators ownskey node.type-id
+    throw Error "Unable to translate unknown node type: $(typeof! node)"
 
-  let ret = translators[node.constructor.capped-name](node, scope, location, auto-return, unassigned)
+  let ret = translators[node.type-id](node, scope, location, auto-return, unassigned)
   unless is-function! ret
     throw Error "Translated non-function: $(typeof! ret)"
   ret

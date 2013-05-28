@@ -74,6 +74,8 @@ class Node
       result
     else
       this
+  
+  @by-type-id := []
 
 let inspect-helper(depth, name, index, ...args)
   let d = if depth? then depth - 1 else null
@@ -230,9 +232,9 @@ macro node-class
     
     let func = @func params, AST $ctor-body, false, true
     arg-names := @array arg-names
-    AST Node[$capped-name] := class $type extends Node
+    AST Node[$capped-name] := Node.by-type-id[ParserNodeType[$capped-name]] := class $type extends Node
       def constructor = mutate-function! $func
-      @capped-name := $capped-name
+      def type-id = ParserNodeType[$capped-name]
       @arg-names := $arg-names
       $body
       $add-methods

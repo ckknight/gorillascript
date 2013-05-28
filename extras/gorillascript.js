@@ -2835,13 +2835,13 @@
     (function () {
       "use strict";
       var __cmp, __create, __import, __in, __isArray, __name, __owns, __slice,
-          __toArray, __typeof, _ref, Arguments, Arr, Binary, Block, BlockExpression,
-          BlockStatement, Break, Call, Comment, Const, Continue, Debugger, DoWhile,
-          Eval, Expression, For, ForIn, fromJSON, Func, getIndent, Ident, If,
-          IfExpression, IfStatement, inspect, isAcceptableIdent, Node,
-          NodeTypeToClass, Noop, Obj, padLeft, Regex, Return, Root, Statement,
-          Switch, This, Throw, toJSIdent, toJSSource, TryCatch, TryFinally, Unary,
-          util, While;
+          __toArray, __typeof, _ref, Arguments, Arr, AstTypeToClass, Binary, Block,
+          BlockExpression, BlockStatement, Break, Call, Comment, Const, Continue,
+          Debugger, DoWhile, Eval, Expression, For, ForIn, fromJSON, Func,
+          getIndent, Ident, If, IfExpression, IfStatement, inspect,
+          isAcceptableIdent, Node, Noop, Obj, padLeft, Regex, Return, Root,
+          Statement, Switch, This, Throw, toJSIdent, toJSSource, TryCatch,
+          TryFinally, Unary, util, While;
       __cmp = function (left, right) {
         var type;
         if (left === right) {
@@ -6207,6 +6207,7 @@
         _Noop_prototype.inspect = function (depth) {
           return inspectHelper(depth, "Noop", this.pos);
         };
+        _Noop_prototype.typeId = 20;
         Noop.fromJSON = function (line, column, file) {
           return Noop(makePos(line, column, file));
         };
@@ -6432,7 +6433,7 @@
           }
           return result;
         };
-        _Obj_prototype.typeId = 20;
+        _Obj_prototype.typeId = 21;
         Obj.fromJSON = function (line, column, file) {
           var _end, elementData, i, key, pColumn, pFile, pLine, resultPairs, value;
           elementData = __slice.call(arguments, 3);
@@ -6564,7 +6565,7 @@
         _Regex_prototype._toJSON = function () {
           return [this.source, this.flags];
         };
-        _Regex_prototype.typeId = 21;
+        _Regex_prototype.typeId = 22;
         Regex.fromJSON = function (line, column, file, source, flags) {
           return Regex(
             makePos(line, column, file),
@@ -6664,7 +6665,7 @@
             return [];
           }
         };
-        _Return_prototype.typeId = 22;
+        _Return_prototype.typeId = 23;
         Return.fromJSON = function (line, column, file) {
           var node;
           node = __slice.call(arguments, 3);
@@ -6841,7 +6842,7 @@
           }
           return result;
         };
-        _Root_prototype.typeId = 23;
+        _Root_prototype.typeId = 24;
         Root.fromJSON = function (line, column, file, variables, declarations) {
           var body;
           body = __slice.call(arguments, 5);
@@ -6894,7 +6895,7 @@
         _This_prototype.inspect = function (depth) {
           return inspectHelper(depth, "This", this.pos);
         };
-        _This_prototype.typeId = 24;
+        _This_prototype.typeId = 25;
         This.fromJSON = function (line, column, file) {
           return This(makePos(line, column, file));
         };
@@ -6974,7 +6975,7 @@
             return [];
           }
         };
-        _Throw_prototype.typeId = 25;
+        _Throw_prototype.typeId = 26;
         Throw.fromJSON = function (line, column, file) {
           var node;
           node = __slice.call(arguments, 3);
@@ -7168,7 +7169,7 @@
           }
           return result;
         };
-        _Switch_prototype.typeId = 26;
+        _Switch_prototype.typeId = 27;
         Switch.fromJSON = function (line, column, file, label, node) {
           var caseData, cBody, cColumn, cFile, cLine, cNode, defaultCase, i, len,
               resultCases;
@@ -7407,7 +7408,7 @@
           }
           return result;
         };
-        _TryCatch_prototype.typeId = 27;
+        _TryCatch_prototype.typeId = 28;
         TryCatch.fromJSON = function (line, column, file, label, tryBody, catchIdent) {
           var catchBody;
           catchBody = __slice.call(arguments, 6);
@@ -7578,7 +7579,7 @@
           }
           return result;
         };
-        _TryFinally_prototype.typeId = 28;
+        _TryFinally_prototype.typeId = 29;
         TryFinally.fromJSON = function (line, column, file, label, tryBody) {
           var finallyBody;
           finallyBody = __slice.call(arguments, 5);
@@ -7726,7 +7727,7 @@
           }
           return result;
         };
-        _Unary_prototype.typeId = 29;
+        _Unary_prototype.typeId = 30;
         Unary.fromJSON = function (line, column, file, op) {
           var node;
           node = __slice.call(arguments, 4);
@@ -7748,7 +7749,7 @@
           label
         );
       };
-      NodeTypeToClass = {
+      AstTypeToClass = {
         1: Arguments,
         2: Arr,
         3: Binary,
@@ -7768,16 +7769,16 @@
         17: Ident,
         18: IfStatement,
         19: IfExpression,
-        20: Obj,
-        21: Regex,
-        22: Return,
-        23: Root,
-        24: This,
-        25: Throw,
-        26: Switch,
-        27: TryCatch,
-        28: TryFinally,
-        29: Unary
+        21: Obj,
+        22: Regex,
+        23: Return,
+        24: Root,
+        25: This,
+        26: Throw,
+        27: Switch,
+        28: TryCatch,
+        29: TryFinally,
+        30: Unary
       };
       fromJSON = exports.fromJSON = function (obj) {
         var _ref, type;
@@ -7792,10 +7793,10 @@
           if (obj.length < 1 || typeof type !== "number") {
             throw Error("Expected an array with a number as its first item, got " + __typeof(type));
           }
-          if (!__owns.call(NodeTypeToClass, type)) {
+          if (!__owns.call(AstTypeToClass, type)) {
             throw Error("Unknown node type: " + type);
           }
-          return (_ref = NodeTypeToClass[type]).fromJSON.apply(_ref, __toArray(__slice.call(obj, 1)));
+          return (_ref = AstTypeToClass[type]).fromJSON.apply(_ref, __toArray(__slice.call(obj, 1)));
         } else {
           throw TypeError("Must provide an object or array to deserialize");
         }
@@ -17678,6 +17679,7 @@
             return this;
           }
         };
+        Node.byTypeId = [];
         return Node;
       }());
       function inspectHelper(depth, name, index) {
@@ -17722,7 +17724,7 @@
           return name + "(" + parts.join(", ") + ")";
         }
       }
-      Node.Access = AccessNode = (function (Node) {
+      Node.Access = Node.byTypeId[1] = AccessNode = (function (Node) {
         var _AccessNode_prototype, _Node_prototype;
         function AccessNode(index, scope, parent, child) {
           var _this;
@@ -17743,7 +17745,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(AccessNode);
         }
-        AccessNode.cappedName = "Access";
+        _AccessNode_prototype.typeId = 1;
         AccessNode.argNames = ["parent", "child"];
         _AccessNode_prototype.type = function (o) {
           var _ref, _this;
@@ -17988,7 +17990,7 @@
         };
         return AccessNode;
       }(Node));
-      Node.AccessMulti = AccessMultiNode = (function (Node) {
+      Node.AccessMulti = Node.byTypeId[2] = AccessMultiNode = (function (Node) {
         var _AccessMultiNode_prototype, _Node_prototype;
         function AccessMultiNode(index, scope, parent, elements) {
           var _this;
@@ -18009,7 +18011,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(AccessMultiNode);
         }
-        AccessMultiNode.cappedName = "AccessMulti";
+        _AccessMultiNode_prototype.typeId = 2;
         AccessMultiNode.argNames = ["parent", "elements"];
         _AccessMultiNode_prototype.type = function () {
           return Type.array;
@@ -18099,7 +18101,7 @@
         };
         return AccessMultiNode;
       }(Node));
-      Node.Args = ArgsNode = (function (Node) {
+      Node.Args = Node.byTypeId[3] = ArgsNode = (function (Node) {
         var _ArgsNode_prototype, _Node_prototype;
         function ArgsNode(index, scope) {
           var _this;
@@ -18118,7 +18120,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ArgsNode);
         }
-        ArgsNode.cappedName = "Args";
+        _ArgsNode_prototype.typeId = 3;
         ArgsNode.argNames = [];
         _ArgsNode_prototype.type = function () {
           return Type.args;
@@ -18132,7 +18134,7 @@
         };
         return ArgsNode;
       }(Node));
-      Node.Array = ArrayNode = (function (Node) {
+      Node.Array = Node.byTypeId[4] = ArrayNode = (function (Node) {
         var _ArrayNode_prototype, _Node_prototype;
         function ArrayNode(index, scope, elements) {
           var _this;
@@ -18152,7 +18154,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ArrayNode);
         }
-        ArrayNode.cappedName = "Array";
+        _ArrayNode_prototype.typeId = 4;
         ArrayNode.argNames = ["elements"];
         _ArrayNode_prototype.type = function () {
           return Type.array;
@@ -18237,7 +18239,7 @@
         };
         return ArrayNode;
       }(Node));
-      Node.Assign = AssignNode = (function (Node) {
+      Node.Assign = Node.byTypeId[5] = AssignNode = (function (Node) {
         var _AssignNode_prototype, _Node_prototype;
         function AssignNode(index, scope, left, op, right) {
           var _this;
@@ -18259,7 +18261,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(AssignNode);
         }
-        AssignNode.cappedName = "Assign";
+        _AssignNode_prototype.typeId = 5;
         AssignNode.argNames = ["left", "op", "right"];
         _AssignNode_prototype.type = (function () {
           var ops;
@@ -18383,7 +18385,7 @@
         };
         return AssignNode;
       }(Node));
-      Node.Binary = BinaryNode = (function (Node) {
+      Node.Binary = Node.byTypeId[6] = BinaryNode = (function (Node) {
         var _BinaryNode_prototype, _Node_prototype;
         function BinaryNode(index, scope, left, op, right) {
           var _this;
@@ -18405,7 +18407,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(BinaryNode);
         }
-        BinaryNode.cappedName = "Binary";
+        _BinaryNode_prototype.typeId = 6;
         BinaryNode.argNames = ["left", "op", "right"];
         _BinaryNode_prototype.type = (function () {
           var ops;
@@ -18912,7 +18914,7 @@
         };
         return BinaryNode;
       }(Node));
-      Node.Block = BlockNode = (function (Node) {
+      Node.Block = Node.byTypeId[7] = BlockNode = (function (Node) {
         var _BlockNode_prototype, _Node_prototype;
         function BlockNode(index, scope, nodes, label) {
           var _this;
@@ -18936,7 +18938,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(BlockNode);
         }
-        BlockNode.cappedName = "Block";
+        _BlockNode_prototype.typeId = 7;
         BlockNode.argNames = ["nodes", "label"];
         _BlockNode_prototype.type = function (o) {
           var nodes;
@@ -19100,7 +19102,7 @@
         };
         return BlockNode;
       }(Node));
-      Node.Break = BreakNode = (function (Node) {
+      Node.Break = Node.byTypeId[8] = BreakNode = (function (Node) {
         var _BreakNode_prototype, _Node_prototype;
         function BreakNode(index, scope, label) {
           var _this;
@@ -19123,7 +19125,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(BreakNode);
         }
-        BreakNode.cappedName = "Break";
+        _BreakNode_prototype.typeId = 8;
         BreakNode.argNames = ["label"];
         _BreakNode_prototype.type = function () {
           return Type["undefined"];
@@ -19179,7 +19181,7 @@
         };
         return BreakNode;
       }(Node));
-      Node.Call = CallNode = (function (Node) {
+      Node.Call = Node.byTypeId[9] = CallNode = (function (Node) {
         var _CallNode_prototype, _Node_prototype;
         function CallNode(index, scope, func, args, isNew, isApply) {
           var _this;
@@ -19208,7 +19210,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(CallNode);
         }
-        CallNode.cappedName = "Call";
+        _CallNode_prototype.typeId = 9;
         CallNode.argNames = ["func", "args", "isNew", "isApply"];
         _CallNode_prototype.type = (function () {
           var PRIMORDIAL_FUNCTIONS, PRIMORDIAL_METHODS, PRIMORDIAL_SUBFUNCTIONS;
@@ -19576,7 +19578,7 @@
         };
         return CallNode;
       }(Node));
-      Node.Cascade = CascadeNode = (function (Node) {
+      Node.Cascade = Node.byTypeId[10] = CascadeNode = (function (Node) {
         var _CascadeNode_prototype, _Node_prototype;
         function CascadeNode(index, scope, node, cascades) {
           var _this;
@@ -19597,7 +19599,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(CascadeNode);
         }
-        CascadeNode.cappedName = "Cascade";
+        _CascadeNode_prototype.typeId = 10;
         CascadeNode.argNames = ["node", "cascades"];
         _CascadeNode_prototype.inspect = function (depth) {
           return inspectHelper(
@@ -19634,7 +19636,7 @@
         };
         return CascadeNode;
       }(Node));
-      Node.Comment = CommentNode = (function (Node) {
+      Node.Comment = Node.byTypeId[11] = CommentNode = (function (Node) {
         var _CommentNode_prototype, _Node_prototype;
         function CommentNode(index, scope, text) {
           var _this;
@@ -19654,7 +19656,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(CommentNode);
         }
-        CommentNode.cappedName = "Comment";
+        _CommentNode_prototype.typeId = 11;
         CommentNode.argNames = ["text"];
         _CommentNode_prototype.type = function () {
           return Type["undefined"];
@@ -19680,7 +19682,7 @@
         };
         return CommentNode;
       }(Node));
-      Node.Const = ConstNode = (function (Node) {
+      Node.Const = Node.byTypeId[12] = ConstNode = (function (Node) {
         var _ConstNode_prototype, _Node_prototype;
         function ConstNode(index, scope, value) {
           var _this;
@@ -19700,7 +19702,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ConstNode);
         }
-        ConstNode.cappedName = "Const";
+        _ConstNode_prototype.typeId = 12;
         ConstNode.argNames = ["value"];
         _ConstNode_prototype.type = function () {
           var value;
@@ -19744,7 +19746,7 @@
         };
         return ConstNode;
       }(Node));
-      Node.Continue = ContinueNode = (function (Node) {
+      Node.Continue = Node.byTypeId[13] = ContinueNode = (function (Node) {
         var _ContinueNode_prototype, _Node_prototype;
         function ContinueNode(index, scope, label) {
           var _this;
@@ -19767,7 +19769,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ContinueNode);
         }
-        ContinueNode.cappedName = "Continue";
+        _ContinueNode_prototype.typeId = 13;
         ContinueNode.argNames = ["label"];
         _ContinueNode_prototype.type = function () {
           return Type["undefined"];
@@ -19823,7 +19825,7 @@
         };
         return ContinueNode;
       }(Node));
-      Node.Debugger = DebuggerNode = (function (Node) {
+      Node.Debugger = Node.byTypeId[14] = DebuggerNode = (function (Node) {
         var _DebuggerNode_prototype, _Node_prototype;
         function DebuggerNode(index, scope) {
           var _this;
@@ -19842,7 +19844,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(DebuggerNode);
         }
-        DebuggerNode.cappedName = "Debugger";
+        _DebuggerNode_prototype.typeId = 14;
         DebuggerNode.argNames = [];
         _DebuggerNode_prototype.type = function () {
           return Type["undefined"];
@@ -19855,7 +19857,7 @@
         };
         return DebuggerNode;
       }(Node));
-      Node.Def = DefNode = (function (Node) {
+      Node.Def = Node.byTypeId[15] = DefNode = (function (Node) {
         var _DefNode_prototype, _Node_prototype;
         function DefNode(index, scope, left, right) {
           var _this;
@@ -19879,7 +19881,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(DefNode);
         }
-        DefNode.cappedName = "Def";
+        _DefNode_prototype.typeId = 15;
         DefNode.argNames = ["left", "right"];
         _DefNode_prototype.type = function (o) {
           if (this.right != null) {
@@ -19947,7 +19949,7 @@
         };
         return DefNode;
       }(Node));
-      Node.EmbedWrite = EmbedWriteNode = (function (Node) {
+      Node.EmbedWrite = Node.byTypeId[16] = EmbedWriteNode = (function (Node) {
         var _EmbedWriteNode_prototype, _Node_prototype;
         function EmbedWriteNode(index, scope, text, escape) {
           var _this;
@@ -19971,7 +19973,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(EmbedWriteNode);
         }
-        EmbedWriteNode.cappedName = "EmbedWrite";
+        _EmbedWriteNode_prototype.typeId = 16;
         EmbedWriteNode.argNames = ["text", "escape"];
         _EmbedWriteNode_prototype.inspect = function (depth) {
           return inspectHelper(
@@ -20008,7 +20010,7 @@
         };
         return EmbedWriteNode;
       }(Node));
-      Node.Eval = EvalNode = (function (Node) {
+      Node.Eval = Node.byTypeId[17] = EvalNode = (function (Node) {
         var _EvalNode_prototype, _Node_prototype, simplifiers;
         function EvalNode(index, scope, code) {
           var _this;
@@ -20028,7 +20030,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(EvalNode);
         }
-        EvalNode.cappedName = "Eval";
+        _EvalNode_prototype.typeId = 17;
         EvalNode.argNames = ["code"];
         simplifiers = {
           "true": function () {
@@ -20090,7 +20092,7 @@
         };
         return EvalNode;
       }(Node));
-      Node.For = ForNode = (function (Node) {
+      Node.For = Node.byTypeId[18] = ForNode = (function (Node) {
         var _ForNode_prototype, _Node_prototype;
         function ForNode(index, scope, init, test, step, body, label) {
           var _this;
@@ -20126,7 +20128,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ForNode);
         }
-        ForNode.cappedName = "For";
+        _ForNode_prototype.typeId = 18;
         ForNode.argNames = [
           "init",
           "test",
@@ -20270,7 +20272,7 @@
         };
         return ForNode;
       }(Node));
-      Node.ForIn = ForInNode = (function (Node) {
+      Node.ForIn = Node.byTypeId[19] = ForInNode = (function (Node) {
         var _ForInNode_prototype, _Node_prototype;
         function ForInNode(index, scope, key, object, body, label) {
           var _this;
@@ -20296,7 +20298,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ForInNode);
         }
-        ForInNode.cappedName = "ForIn";
+        _ForInNode_prototype.typeId = 19;
         ForInNode.argNames = ["key", "object", "body", "label"];
         _ForInNode_prototype.type = function () {
           return Type["undefined"];
@@ -20418,7 +20420,7 @@
         };
         return ForInNode;
       }(Node));
-      Node.Function = FunctionNode = (function (Node) {
+      Node.Function = Node.byTypeId[20] = FunctionNode = (function (Node) {
         var _FunctionNode_prototype, _Node_prototype;
         function FunctionNode(index, scope, params, body, autoReturn, bound, curry, asType, generator, generic) {
           var _this;
@@ -20463,7 +20465,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(FunctionNode);
         }
-        FunctionNode.cappedName = "Function";
+        _FunctionNode_prototype.typeId = 20;
         FunctionNode.argNames = [
           "params",
           "body",
@@ -20640,7 +20642,7 @@
         };
         return FunctionNode;
       }(Node));
-      Node.Ident = IdentNode = (function (Node) {
+      Node.Ident = Node.byTypeId[21] = IdentNode = (function (Node) {
         var _IdentNode_prototype, _Node_prototype;
         function IdentNode(index, scope, name) {
           var _this;
@@ -20660,7 +20662,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(IdentNode);
         }
-        IdentNode.cappedName = "Ident";
+        _IdentNode_prototype.typeId = 21;
         IdentNode.argNames = ["name"];
         _IdentNode_prototype.cacheable = false;
         _IdentNode_prototype.type = function (o) {
@@ -20689,7 +20691,7 @@
         };
         return IdentNode;
       }(Node));
-      Node.If = IfNode = (function (Node) {
+      Node.If = Node.byTypeId[22] = IfNode = (function (Node) {
         var _IfNode_prototype, _Node_prototype;
         function IfNode(index, scope, test, whenTrue, whenFalse, label) {
           var _this;
@@ -20718,7 +20720,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(IfNode);
         }
-        IfNode.cappedName = "If";
+        _IfNode_prototype.typeId = 22;
         IfNode.argNames = ["test", "whenTrue", "whenFalse", "label"];
         _IfNode_prototype.type = function (o) {
           var _ref;
@@ -20922,7 +20924,7 @@
         };
         return IfNode;
       }(Node));
-      Node.MacroAccess = MacroAccessNode = (function (Node) {
+      Node.MacroAccess = Node.byTypeId[23] = MacroAccessNode = (function (Node) {
         var _MacroAccessNode_prototype, _Node_prototype;
         function MacroAccessNode(index, scope, id, callLine, data, position, inGenerator, inEvilAst, doWrapped) {
           var _this;
@@ -20957,7 +20959,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(MacroAccessNode);
         }
-        MacroAccessNode.cappedName = "MacroAccess";
+        _MacroAccessNode_prototype.typeId = 23;
         MacroAccessNode.argNames = [
           "id",
           "callLine",
@@ -21164,7 +21166,7 @@
         };
         return MacroAccessNode;
       }(Node));
-      Node.MacroConst = MacroConstNode = (function (Node) {
+      Node.MacroConst = Node.byTypeId[24] = MacroConstNode = (function (Node) {
         var _MacroConstNode_prototype, _Node_prototype;
         function MacroConstNode(index, scope, name) {
           var _this;
@@ -21184,7 +21186,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(MacroConstNode);
         }
-        MacroConstNode.cappedName = "MacroConst";
+        _MacroConstNode_prototype.typeId = 24;
         MacroConstNode.argNames = ["name"];
         _MacroConstNode_prototype.type = function (o) {
           var _ref, c, value;
@@ -21228,7 +21230,7 @@
         };
         return MacroConstNode;
       }(Node));
-      Node.Nothing = NothingNode = (function (Node) {
+      Node.Nothing = Node.byTypeId[25] = NothingNode = (function (Node) {
         var _Node_prototype, _NothingNode_prototype;
         function NothingNode(index, scope) {
           var _this;
@@ -21247,7 +21249,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(NothingNode);
         }
-        NothingNode.cappedName = "Nothing";
+        _NothingNode_prototype.typeId = 25;
         NothingNode.argNames = [];
         _NothingNode_prototype.type = function () {
           return Type["undefined"];
@@ -21273,7 +21275,7 @@
         };
         return NothingNode;
       }(Node));
-      Node.Object = ObjectNode = (function (Node) {
+      Node.Object = Node.byTypeId[26] = ObjectNode = (function (Node) {
         var _Node_prototype, _ObjectNode_prototype;
         function ObjectNode(index, scope, pairs, prototype) {
           var _this;
@@ -21297,7 +21299,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ObjectNode);
         }
-        ObjectNode.cappedName = "Object";
+        _ObjectNode_prototype.typeId = 26;
         ObjectNode.argNames = ["pairs", "prototype"];
         _ObjectNode_prototype.type = function (o) {
           var _arr, _i, _len, _ref, _ref2, data, key, value;
@@ -21525,7 +21527,7 @@
         return this.Object(index, pairs, prototype);
       };
       Node.objectParam = Node.object;
-      Node.Param = ParamNode = (function (Node) {
+      Node.Param = Node.byTypeId[27] = ParamNode = (function (Node) {
         var _Node_prototype, _ParamNode_prototype;
         function ParamNode(index, scope, ident, defaultValue, spread, isMutable, asType) {
           var _this;
@@ -21561,7 +21563,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ParamNode);
         }
-        ParamNode.cappedName = "Param";
+        _ParamNode_prototype.typeId = 27;
         ParamNode.argNames = [
           "ident",
           "defaultValue",
@@ -21673,7 +21675,7 @@
         };
         return ParamNode;
       }(Node));
-      Node.Regexp = RegexpNode = (function (Node) {
+      Node.Regexp = Node.byTypeId[28] = RegexpNode = (function (Node) {
         var _Node_prototype, _RegexpNode_prototype;
         function RegexpNode(index, scope, source, flags) {
           var _this;
@@ -21694,7 +21696,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(RegexpNode);
         }
-        RegexpNode.cappedName = "Regexp";
+        _RegexpNode_prototype.typeId = 28;
         RegexpNode.argNames = ["source", "flags"];
         _RegexpNode_prototype.type = function () {
           return Type.regexp;
@@ -21756,7 +21758,7 @@
         };
         return RegexpNode;
       }(Node));
-      Node.Return = ReturnNode = (function (Node) {
+      Node.Return = Node.byTypeId[29] = ReturnNode = (function (Node) {
         var _Node_prototype, _ReturnNode_prototype;
         function ReturnNode(index, scope, node) {
           var _this;
@@ -21779,7 +21781,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ReturnNode);
         }
-        ReturnNode.cappedName = "Return";
+        _ReturnNode_prototype.typeId = 29;
         ReturnNode.argNames = ["node"];
         _ReturnNode_prototype.type = function (o) {
           return this.node.type(o);
@@ -21825,7 +21827,7 @@
         };
         return ReturnNode;
       }(Node));
-      Node.Root = RootNode = (function (Node) {
+      Node.Root = Node.byTypeId[30] = RootNode = (function (Node) {
         var _Node_prototype, _RootNode_prototype;
         function RootNode(index, scope, file, body, isEmbedded, isGenerator) {
           var _this;
@@ -21857,7 +21859,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(RootNode);
         }
-        RootNode.cappedName = "Root";
+        _RootNode_prototype.typeId = 30;
         RootNode.argNames = ["file", "body", "isEmbedded", "isGenerator"];
         _RootNode_prototype.isStatement = function () {
           return true;
@@ -21915,7 +21917,7 @@
         };
         return RootNode;
       }(Node));
-      Node.Spread = SpreadNode = (function (Node) {
+      Node.Spread = Node.byTypeId[31] = SpreadNode = (function (Node) {
         var _Node_prototype, _SpreadNode_prototype;
         function SpreadNode(index, scope, node) {
           var _this;
@@ -21935,7 +21937,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(SpreadNode);
         }
-        SpreadNode.cappedName = "Spread";
+        _SpreadNode_prototype.typeId = 31;
         SpreadNode.argNames = ["node"];
         _SpreadNode_prototype._reduce = function (o) {
           var node;
@@ -22006,7 +22008,7 @@
           return current;
         }
       };
-      Node.Super = SuperNode = (function (Node) {
+      Node.Super = Node.byTypeId[32] = SuperNode = (function (Node) {
         var _Node_prototype, _SuperNode_prototype;
         function SuperNode(index, scope, child, args) {
           var _this;
@@ -22030,7 +22032,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(SuperNode);
         }
-        SuperNode.cappedName = "Super";
+        _SuperNode_prototype.typeId = 32;
         SuperNode.argNames = ["child", "args"];
         _SuperNode_prototype._reduce = function (o) {
           var args, child;
@@ -22112,7 +22114,7 @@
         };
         return SuperNode;
       }(Node));
-      Node.Switch = SwitchNode = (function (Node) {
+      Node.Switch = Node.byTypeId[33] = SwitchNode = (function (Node) {
         var _Node_prototype, _SwitchNode_prototype;
         function SwitchNode(index, scope, node, cases, defaultCase, label) {
           var _this;
@@ -22141,7 +22143,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(SwitchNode);
         }
-        SwitchNode.cappedName = "Switch";
+        _SwitchNode_prototype.typeId = 33;
         SwitchNode.argNames = ["node", "cases", "defaultCase", "label"];
         _SwitchNode_prototype.type = function (o) {
           var _arr, _i, _len, _ref, case_, type;
@@ -22330,7 +22332,7 @@
         };
         return SwitchNode;
       }(Node));
-      Node.SyntaxChoice = SyntaxChoiceNode = (function (Node) {
+      Node.SyntaxChoice = Node.byTypeId[34] = SyntaxChoiceNode = (function (Node) {
         var _Node_prototype, _SyntaxChoiceNode_prototype;
         function SyntaxChoiceNode(index, scope, choices) {
           var _this;
@@ -22350,7 +22352,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(SyntaxChoiceNode);
         }
-        SyntaxChoiceNode.cappedName = "SyntaxChoice";
+        _SyntaxChoiceNode_prototype.typeId = 34;
         SyntaxChoiceNode.argNames = ["choices"];
         _SyntaxChoiceNode_prototype.inspect = function (depth) {
           return inspectHelper(depth, "SyntaxChoiceNode", this.index, this.choices);
@@ -22381,7 +22383,7 @@
         };
         return SyntaxChoiceNode;
       }(Node));
-      Node.SyntaxMany = SyntaxManyNode = (function (Node) {
+      Node.SyntaxMany = Node.byTypeId[35] = SyntaxManyNode = (function (Node) {
         var _Node_prototype, _SyntaxManyNode_prototype;
         function SyntaxManyNode(index, scope, inner, multiplier) {
           var _this;
@@ -22402,7 +22404,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(SyntaxManyNode);
         }
-        SyntaxManyNode.cappedName = "SyntaxMany";
+        _SyntaxManyNode_prototype.typeId = 35;
         SyntaxManyNode.argNames = ["inner", "multiplier"];
         _SyntaxManyNode_prototype.inspect = function (depth) {
           return inspectHelper(
@@ -22439,7 +22441,7 @@
         };
         return SyntaxManyNode;
       }(Node));
-      Node.SyntaxParam = SyntaxParamNode = (function (Node) {
+      Node.SyntaxParam = Node.byTypeId[36] = SyntaxParamNode = (function (Node) {
         var _Node_prototype, _SyntaxParamNode_prototype;
         function SyntaxParamNode(index, scope, ident, asType) {
           var _this;
@@ -22463,7 +22465,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(SyntaxParamNode);
         }
-        SyntaxParamNode.cappedName = "SyntaxParam";
+        _SyntaxParamNode_prototype.typeId = 36;
         SyntaxParamNode.argNames = ["ident", "asType"];
         _SyntaxParamNode_prototype.inspect = function (depth) {
           return inspectHelper(
@@ -22524,7 +22526,7 @@
         };
         return SyntaxParamNode;
       }(Node));
-      Node.SyntaxSequence = SyntaxSequenceNode = (function (Node) {
+      Node.SyntaxSequence = Node.byTypeId[37] = SyntaxSequenceNode = (function (Node) {
         var _Node_prototype, _SyntaxSequenceNode_prototype;
         function SyntaxSequenceNode(index, scope, params) {
           var _this;
@@ -22544,7 +22546,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(SyntaxSequenceNode);
         }
-        SyntaxSequenceNode.cappedName = "SyntaxSequence";
+        _SyntaxSequenceNode_prototype.typeId = 37;
         SyntaxSequenceNode.argNames = ["params"];
         _SyntaxSequenceNode_prototype.inspect = function (depth) {
           return inspectHelper(depth, "SyntaxSequenceNode", this.index, this.params);
@@ -22575,7 +22577,7 @@
         };
         return SyntaxSequenceNode;
       }(Node));
-      Node.This = ThisNode = (function (Node) {
+      Node.This = Node.byTypeId[38] = ThisNode = (function (Node) {
         var _Node_prototype, _ThisNode_prototype;
         function ThisNode(index, scope) {
           var _this;
@@ -22594,7 +22596,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ThisNode);
         }
-        ThisNode.cappedName = "This";
+        _ThisNode_prototype.typeId = 38;
         ThisNode.argNames = [];
         _ThisNode_prototype.cacheable = false;
         _ThisNode_prototype._isNoop = function () {
@@ -22605,7 +22607,7 @@
         };
         return ThisNode;
       }(Node));
-      Node.Throw = ThrowNode = (function (Node) {
+      Node.Throw = Node.byTypeId[39] = ThrowNode = (function (Node) {
         var _Node_prototype, _ThrowNode_prototype;
         function ThrowNode(index, scope, node) {
           var _this;
@@ -22625,7 +22627,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(ThrowNode);
         }
-        ThrowNode.cappedName = "Throw";
+        _ThrowNode_prototype.typeId = 39;
         ThrowNode.argNames = ["node"];
         _ThrowNode_prototype.type = function () {
           return Type.none;
@@ -22679,7 +22681,7 @@
         };
         return ThrowNode;
       }(Node));
-      Node.Tmp = TmpNode = (function (Node) {
+      Node.Tmp = Node.byTypeId[40] = TmpNode = (function (Node) {
         var _Node_prototype, _TmpNode_prototype;
         function TmpNode(index, scope, id, name, _type) {
           var _this;
@@ -22704,7 +22706,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(TmpNode);
         }
-        TmpNode.cappedName = "Tmp";
+        _TmpNode_prototype.typeId = 40;
         TmpNode.argNames = ["id", "name", "_type"];
         _TmpNode_prototype.cacheable = false;
         _TmpNode_prototype.type = function () {
@@ -22731,7 +22733,7 @@
         };
         return TmpNode;
       }(Node));
-      Node.TmpWrapper = TmpWrapperNode = (function (Node) {
+      Node.TmpWrapper = Node.byTypeId[41] = TmpWrapperNode = (function (Node) {
         var _Node_prototype, _TmpWrapperNode_prototype;
         function TmpWrapperNode(index, scope, node, tmps) {
           var _this;
@@ -22752,7 +22754,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(TmpWrapperNode);
         }
-        TmpWrapperNode.cappedName = "TmpWrapper";
+        _TmpWrapperNode_prototype.typeId = 41;
         TmpWrapperNode.argNames = ["node", "tmps"];
         _TmpWrapperNode_prototype.type = function (o) {
           return this.node.type(o);
@@ -22829,7 +22831,7 @@
         };
         return TmpWrapperNode;
       }(Node));
-      Node.TryCatch = TryCatchNode = (function (Node) {
+      Node.TryCatch = Node.byTypeId[42] = TryCatchNode = (function (Node) {
         var _Node_prototype, _TryCatchNode_prototype;
         function TryCatchNode(index, scope, tryBody, catchIdent, catchBody, label) {
           var _this;
@@ -22855,7 +22857,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(TryCatchNode);
         }
-        TryCatchNode.cappedName = "TryCatch";
+        _TryCatchNode_prototype.typeId = 42;
         TryCatchNode.argNames = ["tryBody", "catchIdent", "catchBody", "label"];
         _TryCatchNode_prototype.type = function (o) {
           var _ref;
@@ -22985,7 +22987,7 @@
         };
         return TryCatchNode;
       }(Node));
-      Node.TryFinally = TryFinallyNode = (function (Node) {
+      Node.TryFinally = Node.byTypeId[43] = TryFinallyNode = (function (Node) {
         var _Node_prototype, _TryFinallyNode_prototype;
         function TryFinallyNode(index, scope, tryBody, finallyBody, label) {
           var _this;
@@ -23010,7 +23012,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(TryFinallyNode);
         }
-        TryFinallyNode.cappedName = "TryFinally";
+        _TryFinallyNode_prototype.typeId = 43;
         TryFinallyNode.argNames = ["tryBody", "finallyBody", "label"];
         _TryFinallyNode_prototype.type = function (o) {
           return this.tryBody.type(o);
@@ -23149,7 +23151,7 @@
         };
         return TryFinallyNode;
       }(Node));
-      Node.TypeFunction = TypeFunctionNode = (function (Node) {
+      Node.TypeFunction = Node.byTypeId[44] = TypeFunctionNode = (function (Node) {
         var _Node_prototype, _TypeFunctionNode_prototype;
         function TypeFunctionNode(index, scope, returnType) {
           var _this;
@@ -23169,7 +23171,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(TypeFunctionNode);
         }
-        TypeFunctionNode.cappedName = "TypeFunction";
+        _TypeFunctionNode_prototype.typeId = 44;
         TypeFunctionNode.argNames = ["returnType"];
         _TypeFunctionNode_prototype.inspect = function (depth) {
           return inspectHelper(depth, "TypeFunctionNode", this.index, this.returnType);
@@ -23200,7 +23202,7 @@
         };
         return TypeFunctionNode;
       }(Node));
-      Node.TypeGeneric = TypeGenericNode = (function (Node) {
+      Node.TypeGeneric = Node.byTypeId[45] = TypeGenericNode = (function (Node) {
         var _Node_prototype, _TypeGenericNode_prototype;
         function TypeGenericNode(index, scope, basetype, args) {
           var _this;
@@ -23221,7 +23223,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(TypeGenericNode);
         }
-        TypeGenericNode.cappedName = "TypeGeneric";
+        _TypeGenericNode_prototype.typeId = 45;
         TypeGenericNode.argNames = ["basetype", "args"];
         _TypeGenericNode_prototype.inspect = function (depth) {
           return inspectHelper(
@@ -23270,7 +23272,7 @@
         };
         return TypeGenericNode;
       }(Node));
-      Node.TypeObject = TypeObjectNode = (function (Node) {
+      Node.TypeObject = Node.byTypeId[46] = TypeObjectNode = (function (Node) {
         var _Node_prototype, _TypeObjectNode_prototype;
         function TypeObjectNode(index, scope, pairs) {
           var _this;
@@ -23290,7 +23292,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(TypeObjectNode);
         }
-        TypeObjectNode.cappedName = "TypeObject";
+        _TypeObjectNode_prototype.typeId = 46;
         TypeObjectNode.argNames = ["pairs"];
         function reducePair(pair, o) {
           var key, value;
@@ -23322,7 +23324,7 @@
         };
         return TypeObjectNode;
       }(Node));
-      Node.TypeUnion = TypeUnionNode = (function (Node) {
+      Node.TypeUnion = Node.byTypeId[47] = TypeUnionNode = (function (Node) {
         var _Node_prototype, _TypeUnionNode_prototype;
         function TypeUnionNode(index, scope, types) {
           var _this;
@@ -23342,7 +23344,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(TypeUnionNode);
         }
-        TypeUnionNode.cappedName = "TypeUnion";
+        _TypeUnionNode_prototype.typeId = 47;
         TypeUnionNode.argNames = ["types"];
         _TypeUnionNode_prototype.inspect = function (depth) {
           return inspectHelper(depth, "TypeUnionNode", this.index, this.types);
@@ -23373,7 +23375,7 @@
         };
         return TypeUnionNode;
       }(Node));
-      Node.Unary = UnaryNode = (function (Node) {
+      Node.Unary = Node.byTypeId[48] = UnaryNode = (function (Node) {
         var _Node_prototype, _UnaryNode_prototype;
         function UnaryNode(index, scope, op, node) {
           var _this;
@@ -23394,7 +23396,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(UnaryNode);
         }
-        UnaryNode.cappedName = "Unary";
+        _UnaryNode_prototype.typeId = 48;
         UnaryNode.argNames = ["op", "node"];
         _UnaryNode_prototype.type = (function () {
           var ops;
@@ -23610,7 +23612,7 @@
         };
         return UnaryNode;
       }(Node));
-      Node.Var = VarNode = (function (Node) {
+      Node.Var = Node.byTypeId[49] = VarNode = (function (Node) {
         var _Node_prototype, _VarNode_prototype;
         function VarNode(index, scope, ident, isMutable) {
           var _this;
@@ -23634,7 +23636,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(VarNode);
         }
-        VarNode.cappedName = "Var";
+        _VarNode_prototype.typeId = 49;
         VarNode.argNames = ["ident", "isMutable"];
         _VarNode_prototype.type = function () {
           return Type["undefined"];
@@ -23683,7 +23685,7 @@
         };
         return VarNode;
       }(Node));
-      Node.Yield = YieldNode = (function (Node) {
+      Node.Yield = Node.byTypeId[50] = YieldNode = (function (Node) {
         var _Node_prototype, _YieldNode_prototype;
         function YieldNode(index, scope, node) {
           var _this;
@@ -23703,7 +23705,7 @@
         if (typeof Node.extended === "function") {
           Node.extended(YieldNode);
         }
-        YieldNode.cappedName = "Yield";
+        _YieldNode_prototype.typeId = 50;
         YieldNode.argNames = ["node"];
         _YieldNode_prototype.type = function () {
           return Type.any;
@@ -25427,7 +25429,7 @@
               scope,
               IdentNode(obj.index, scope, "__node"),
               [
-                ConstNode(obj.index, scope, obj.constructor.cappedName),
+                ConstNode(obj.index, scope, obj.typeId),
                 ConstNode(obj.index, scope, obj.index)
               ].concat((function () {
                 var _arr, _arr2, _i, _len, k;
@@ -25485,13 +25487,13 @@
             return value;
           }
         };
-        _MacroContext_prototype.node = function (type, index) {
-          var args;
+        _MacroContext_prototype.node = function (typeId, index) {
+          var _ref, args;
           args = __slice.call(arguments, 2);
-          if (type === "MacroAccess") {
+          if (typeId === 23) {
             return this.macro.apply(this, [index].concat(__toArray(args)));
           } else {
-            return Node[type].apply(Node, [index, this.scope()].concat(__toArray(args))).reduce(this.parser);
+            return (_ref = Node.byTypeId)[typeId].apply(_ref, [index, this.scope()].concat(__toArray(args))).reduce(this.parser);
           }
         };
         _MacroContext_prototype.getConstValue = function (name, defaultValue) {
@@ -25578,7 +25580,7 @@
           return node.type(this.parser).overlaps(type);
         };
         mutators = {
-          Block: function (x, func) {
+          7: function (x, func) {
             var lastNode, len, nodes;
             nodes = x.nodes;
             len = nodes.length;
@@ -25595,7 +25597,7 @@
             }
             return x;
           },
-          If: function (x, func) {
+          22: function (x, func) {
             var whenFalse, whenTrue;
             whenTrue = this.mutateLast(x.whenTrue, func);
             whenFalse = this.mutateLast(x.whenFalse, func);
@@ -25612,7 +25614,7 @@
               return x;
             }
           },
-          Switch: function (x, func) {
+          33: function (x, func) {
             var _this, cases, defaultCase;
             _this = this;
             cases = map(x.cases, function (case_) {
@@ -25642,7 +25644,7 @@
               return x;
             }
           },
-          TmpWrapper: function (x, func) {
+          41: function (x, func) {
             var node;
             node = this.mutateLast(x.node, func);
             if (node !== x.node) {
@@ -25651,10 +25653,10 @@
               return x;
             }
           },
-          MacroAccess: function (x, func) {
+          23: function (x, func) {
             return this.mutateLast(this.macroExpand1(x), func);
           },
-          TryCatch: function (x, func) {
+          42: function (x, func) {
             var catchBody, tryBody;
             tryBody = this.mutateLast(x.tryBody, func);
             catchBody = this.mutateLast(x.catchBody, func);
@@ -25671,12 +25673,12 @@
               return x;
             }
           },
-          Break: identity,
-          Continue: identity,
-          Nothing: identity,
-          Return: identity,
-          Debugger: identity,
-          Throw: identity
+          8: identity,
+          13: identity,
+          25: identity,
+          29: identity,
+          14: identity,
+          39: identity
         };
         _MacroContext_prototype.mutateLast = function (node, func, includeNoop) {
           var _ref;
@@ -25686,18 +25688,18 @@
           if (!(node instanceof Node)) {
             throw Error("Unexpected type to mutate-last through: " + __typeof(node));
           }
-          if (!__owns.call(mutators, node.constructor.cappedName) || includeNoop && node instanceof NothingNode) {
+          if (!__owns.call(mutators, node.typeId) || includeNoop && node instanceof NothingNode) {
             if ((_ref = func.call(this, node)) != null) {
               return _ref;
             } else {
               return node;
             }
           } else {
-            return mutators[node.constructor.cappedName].call(this, node, func);
+            return mutators[node.typeId].call(this, node, func);
           }
         };
         _MacroContext_prototype.canMutateLast = function (node) {
-          return node instanceof Node && __owns.call(mutators, node.constructor.cappedName);
+          return node instanceof Node && __owns.call(mutators, node.typeId);
         };
         return MacroContext;
       }());
@@ -27351,7 +27353,7 @@
           }
         }
         expressions = {
-          Access: function (node, scope, state, assignTo) {
+          1: function (node, scope, state, assignTo) {
             var gChild, gParent;
             gParent = generatorTranslateExpression(node.parent, scope, state, true);
             gChild = generatorTranslateExpression(node.child, scope, gParent.state, false);
@@ -27363,7 +27365,7 @@
               return _ref;
             });
           },
-          Array: function (node, scope, state, assignTo) {
+          4: function (node, scope, state, assignTo) {
             return generatorArrayTranslate(
               getPos(node),
               node.elements,
@@ -27372,7 +27374,7 @@
               assignTo
             );
           },
-          Assign: function (node, scope, state, assignTo) {
+          5: function (node, scope, state, assignTo) {
             var gChild, gLeft, gParent, gRight, left;
             left = node.left;
             if (left instanceof ParserNode.Access) {
@@ -27407,7 +27409,7 @@
               }
             );
           },
-          Binary: (function () {
+          6: (function () {
             var lazyOps;
             lazyOps = {
               "&&": function (node, scope, state, assignTo) {
@@ -27487,7 +27489,7 @@
               }
             };
           }()),
-          Block: function (node, scope, state, assignTo) {
+          7: function (node, scope, state, assignTo) {
             var _arr, i, len, result, subnode;
             for (_arr = __toArray(node.nodes), i = 0, len = _arr.length; i < len; ++i) {
               subnode = _arr[i];
@@ -27499,7 +27501,7 @@
             }
             throw Error("Unreachable state");
           },
-          Call: function (node, scope, state, assignTo) {
+          9: function (node, scope, state, assignTo) {
             var args, gArgs, gChild, gFunc, gParent, gStart, isApply, isNew;
             if (node.func instanceof ParserNode.Access) {
               gParent = generatorTranslateExpression(node.func.parent, scope, state, true);
@@ -27613,7 +27615,7 @@
               });
             }
           },
-          EmbedWrite: function (node, scope, state, assignTo) {
+          16: function (node, scope, state, assignTo) {
             var gText;
             gText = generatorTranslateExpression(node.text, scope, state, false);
             return handleAssign(
@@ -27632,14 +27634,14 @@
               gText.cleanup
             );
           },
-          Eval: function (node, scope, state, assignTo) {
+          17: function (node, scope, state, assignTo) {
             var gCode;
             gCode = generatorTranslateExpression(node.code, scope, state, false);
             return handleAssign(assignTo, scope, gCode.state, function () {
               return ast.Eval(getPos(node), gCode.tNode(), gCode.cleanup);
             });
           },
-          If: function (node, scope, state, assignTo) {
+          22: function (node, scope, state, assignTo) {
             var cleanup, gWhenFalse, gWhenTrue, postBranch, test, tTmp, tWhenFalse,
                 tWhenTrue, whenFalseBranch, whenTrueBranch;
             test = generatorTranslateExpression(node.test, scope, state, state.hasGeneratorNode(node.test));
@@ -27695,7 +27697,7 @@
               });
             }
           },
-          Regexp: function (node, scope, state, assignTo) {
+          28: function (node, scope, state, assignTo) {
             var gSource;
             gSource = generatorTranslateExpression(node.source, scope, state, false);
             return handleAssign(
@@ -27721,7 +27723,7 @@
               gSource.cleanup
             );
           },
-          TmpWrapper: function (node, scope, state, assignTo) {
+          41: function (node, scope, state, assignTo) {
             var gNode;
             gNode = generatorTranslateExpression(node.node, scope, state, false);
             return handleAssign(
@@ -27739,14 +27741,14 @@
               }
             );
           },
-          Unary: function (node, scope, state, assignTo) {
+          48: function (node, scope, state, assignTo) {
             var gNode;
             gNode = generatorTranslateExpression(node.node, scope, state, false);
             return handleAssign(assignTo, scope, gNode.state, function () {
               return ast.Unary(getPos(node), node.op, __first(gNode.tNode(), gNode.cleanup()));
             });
           },
-          Yield: function (node, scope, state, assignTo) {
+          50: function (node, scope, state, assignTo) {
             var gNode;
             gNode = generatorTranslateExpression(node.node, scope, state, false);
             state = gNode.state["yield"](getPos(node), gNode.tNode);
@@ -27766,7 +27768,7 @@
           if (assignTo == null) {
             assignTo = false;
           }
-          key = node.constructor.cappedName;
+          key = node.typeId;
           if (state.hasGeneratorNode(node)) {
             if (__owns.call(expressions, key)) {
               return expressions[key](node, scope, state, assignTo);
@@ -27778,7 +27780,7 @@
           }
         }
         statements = {
-          Block: function (node, scope, state, breakState, continueState, autoReturn) {
+          7: function (node, scope, state, breakState, continueState, autoReturn) {
             var _arr, acc, i, len, subnode;
             if (node.label != null) {
               throw Error("Not implemented: block with label in generator");
@@ -27797,7 +27799,7 @@
             }
             return acc;
           },
-          Break: function (node, scope, state, breakState) {
+          8: function (node, scope, state, breakState) {
             if (node.label != null) {
               throw Error("Not implemented: break with label in a generator");
             }
@@ -27807,7 +27809,7 @@
             state.goto(getPos(node), breakState);
             return state;
           },
-          Continue: function (node, scope, state, breakState, continueState) {
+          13: function (node, scope, state, breakState, continueState) {
             if (node.label != null) {
               throw Error("Not implemented: break with label in a generator");
             }
@@ -27817,7 +27819,7 @@
             state.goto(getPos(node), continueState);
             return state;
           },
-          For: function (node, scope, state) {
+          18: function (node, scope, state) {
             var bodyBranch, gTest, postBranch, stepBranch, testBranch;
             if (node.label != null) {
               throw Error("Not implemented: for with label in generator");
@@ -27869,7 +27871,7 @@
             postBranch = state.branch();
             return postBranch;
           },
-          ForIn: function (node, scope, state) {
+          19: function (node, scope, state) {
             var bodyBranch, getKey, gObject, index, keys, length, postBranch,
                 stepBranch, testBranch, tKey;
             if (node.label != null) {
@@ -27944,7 +27946,7 @@
             postBranch = stepBranch.branch();
             return postBranch;
           },
-          If: function (node, scope, state, breakState, continueState, autoReturn) {
+          22: function (node, scope, state, breakState, continueState, autoReturn) {
             var postBranch, test, tWhenFalse, tWhenTrue, whenFalseBranch,
                 whenTrueBranch;
             test = generatorTranslateExpression(node.test, scope, state, state.hasGeneratorNode(node.test));
@@ -28010,7 +28012,7 @@
               });
             }
           },
-          Return: function (node, scope, state) {
+          29: function (node, scope, state) {
             var gNode, pos;
             pos = getPos(node);
             if (node.node.isConst() && node.node.constValue() === void 0) {
@@ -28028,7 +28030,7 @@
               return state;
             }
           },
-          Switch: function (node, scope, state, _p, continueState, autoReturn) {
+          33: function (node, scope, state, _p, continueState, autoReturn) {
             var _arr, _f, _len, bodyStates, defaultBranch, defaultCase,
                 gDefaultBody, gNode, i, postBranch, resultCases;
             if (node.label != null) {
@@ -28115,14 +28117,14 @@
             postBranch = state.branch();
             return postBranch;
           },
-          Throw: function (node, scope, state, breakState, continueState) {
+          39: function (node, scope, state, breakState, continueState) {
             var gNode;
             gNode = generatorTranslateExpression(node.node, scope, state, false);
             return gNode.state.add(function () {
               return ast.Throw(getPos(node), __first(gNode.tNode(), gNode.cleanup()));
             });
           },
-          TmpWrapper: function (node, scope, state, breakState, continueState, autoReturn) {
+          41: function (node, scope, state, breakState, continueState, autoReturn) {
             var _arr, _i, result, tmp;
             result = generatorTranslate(
               node.node,
@@ -28138,7 +28140,7 @@
             }
             return result;
           },
-          TryCatch: function (node, scope, state, breakState, continueState, autoReturn) {
+          42: function (node, scope, state, breakState, continueState, autoReturn) {
             var postBranch;
             if (node.label != null) {
               throw Error("Not implemented: try-catch with label in generator");
@@ -28173,7 +28175,7 @@
             postBranch = state.branch();
             return postBranch;
           },
-          TryFinally: function (node, scope, state, breakState, continueState, autoReturn) {
+          43: function (node, scope, state, breakState, continueState, autoReturn) {
             if (node.label != null) {
               throw Error("Not implemented: try-finally with label in generator");
             }
@@ -28191,7 +28193,7 @@
             );
             return state.runPendingFinally(getPos(node));
           },
-          Yield: function (node, scope, state, _p, _p2, autoReturn) {
+          50: function (node, scope, state, _p, _p2, autoReturn) {
             var gNode, newState;
             gNode = generatorTranslateExpression(node.node, scope, state, false);
             newState = gNode.state["yield"](getPos(node), function () {
@@ -28211,7 +28213,7 @@
         return function (node, scope, state, breakState, continueState, autoReturn) {
           var key, ret;
           if (state.hasGeneratorNode(node)) {
-            key = node.constructor.cappedName;
+            key = node.typeId;
             if (__owns.call(statements, key)) {
               ret = statements[key](
                 node,
@@ -28355,7 +28357,7 @@
         }
       }
       translators = {
-        Access: function (node, scope, location, autoReturn, unassigned) {
+        1: function (node, scope, location, autoReturn, unassigned) {
           var tChild, tParent;
           tParent = translate(
             node.parent,
@@ -28375,12 +28377,12 @@
             return autoReturn(ast.Access(getPos(node), tParent(), tChild()));
           };
         },
-        Args: function (node, scope, location, autoReturn) {
+        3: function (node, scope, location, autoReturn) {
           return function () {
             return autoReturn(ast.Arguments(getPos(node)));
           };
         },
-        Array: function (node, scope, location, autoReturn, unassigned) {
+        4: function (node, scope, location, autoReturn, unassigned) {
           var tArr;
           tArr = arrayTranslate(
             getPos(node),
@@ -28394,7 +28396,7 @@
             return autoReturn(tArr());
           };
         },
-        Assign: function (node, scope, location, autoReturn, unassigned) {
+        5: function (node, scope, location, autoReturn, unassigned) {
           var op, tLeft, tRight;
           op = node.op;
           tLeft = translate(node.left, scope, "leftExpression");
@@ -28437,7 +28439,7 @@
             }
           };
         },
-        Binary: function (node, scope, location, autoReturn, unassigned) {
+        6: function (node, scope, location, autoReturn, unassigned) {
           var tLeft, tRight;
           tLeft = translate(
             node.left,
@@ -28457,7 +28459,7 @@
             return autoReturn(ast.Binary(getPos(node), tLeft(), node.op, tRight()));
           };
         },
-        Block: function (node, scope, location, autoReturn, unassigned) {
+        7: function (node, scope, location, autoReturn, unassigned) {
           var tLabel, tNodes;
           tLabel = node.label && translate(node.label, scope, "label");
           tNodes = translateArray(
@@ -28482,14 +28484,14 @@
             );
           };
         },
-        Break: function (node, scope) {
+        8: function (node, scope) {
           var tLabel;
           tLabel = node.label && translate(node.label, scope, "label");
           return function () {
             return ast.Break(getPos(node), typeof tLabel === "function" ? tLabel() : void 0);
           };
         },
-        Call: function (node, scope, location, autoReturn, unassigned) {
+        9: function (node, scope, location, autoReturn, unassigned) {
           var args, isApply, isNew, tArgArray, tFunc, tStart;
           tFunc = translate(
             node.func,
@@ -28622,32 +28624,32 @@
             };
           }
         },
-        Comment: function (node, scope, location, autoReturn) {
+        11: function (node, scope, location, autoReturn) {
           return function () {
             return ast.Comment(getPos(node), node.text);
           };
         },
-        Const: function (node, scope, location, autoReturn) {
+        12: function (node, scope, location, autoReturn) {
           return function () {
             return autoReturn(ast.Const(getPos(node), node.value));
           };
         },
-        Continue: function (node, scope) {
+        13: function (node, scope) {
           var tLabel;
           tLabel = node.label && translate(node.label, scope, "label");
           return function () {
             return ast.Continue(getPos(node), typeof tLabel === "function" ? tLabel() : void 0);
           };
         },
-        Debugger: function (node) {
+        14: function (node) {
           return function () {
             return ast.Debugger(getPos(node));
           };
         },
-        Def: function (node, scope, location, autoReturn) {
+        15: function (node, scope, location, autoReturn) {
           throw Error("Cannot have a stray def");
         },
-        EmbedWrite: function (node, scope, location, autoReturn, unassigned) {
+        16: function (node, scope, location, autoReturn, unassigned) {
           var tText;
           tText = translate(
             node.text,
@@ -28666,7 +28668,7 @@
             );
           };
         },
-        Eval: function (node, scope, location, autoReturn, unassigned) {
+        17: function (node, scope, location, autoReturn, unassigned) {
           var tCode;
           tCode = translate(
             node.code,
@@ -28679,7 +28681,7 @@
             return autoReturn(ast.Eval(getPos(node), tCode()));
           };
         },
-        For: function (node, scope, location, autoReturn, unassigned) {
+        18: function (node, scope, location, autoReturn, unassigned) {
           var tBody, tInit, tLabel, tStep, tTest;
           tLabel = node.label && translate(node.label, scope, "label");
           if (node.init != null) {
@@ -28709,7 +28711,7 @@
             );
           };
         },
-        ForIn: function (node, scope, location, autoReturn, unassigned) {
+        19: function (node, scope, location, autoReturn, unassigned) {
           var tBody, tKey, tLabel, tObject;
           tLabel = node.label && translate(node.label, scope, "label");
           tKey = translate(node.key, scope, "leftExpression");
@@ -28737,22 +28739,22 @@
             );
           };
         },
-        Function: (function () {
+        20: (function () {
           var primitiveTypes, translateParamTypes, translateType,
               translateTypeChecks;
           primitiveTypes = { Boolean: "boolean", String: "string", Number: "number", Function: "function" };
           translateTypeChecks = {
-            Ident: function (node) {
+            21: function (node) {
               if (__owns.call(primitiveTypes, node.name)) {
                 return Type[primitiveTypes[node.name]];
               } else {
                 return Type.any;
               }
             },
-            Access: function (node) {
+            1: function (node) {
               return Type.any;
             },
-            TypeUnion: function (node) {
+            47: function (node) {
               var _arr, _i, _len, result, type;
               result = Type.none;
               for (_arr = __toArray(node.types), _i = 0, _len = _arr.length; _i < _len; ++_i) {
@@ -28773,10 +28775,10 @@
               }
               return result;
             },
-            TypeFunction: function (node) {
+            44: function (node) {
               return Type["function"];
             },
-            TypeGeneric: function (node) {
+            45: function (node) {
               if (node.basetype.name === "Array") {
                 return translateTypeCheck(node.args[0]).array();
               } else if (node.basetype.name === "Function") {
@@ -28785,7 +28787,7 @@
                 return Type.any;
               }
             },
-            TypeObject: function (node) {
+            46: function (node) {
               var _arr, _i, _len, _ref, key, typeData, value;
               typeData = {};
               for (_arr = __toArray(node.pairs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
@@ -28800,13 +28802,13 @@
             }
           };
           function translateTypeCheck(node) {
-            if (!__owns.call(translateTypeChecks, node.constructor.cappedName)) {
-              throw Error("Unknown type: " + String(node.constructor.cappedName));
+            if (!__owns.call(translateTypeChecks, node.typeId)) {
+              throw Error("Unknown type: " + String(__typeof(node)));
             }
-            return translateTypeChecks[node.constructor.cappedName](node);
+            return translateTypeChecks[node.typeId](node);
           }
           translateParamTypes = {
-            Param: function (param, scope, inner) {
+            27: function (param, scope, inner) {
               var ident, laterInit, tmp, type;
               ident = translate(param.ident, scope, "param")();
               laterInit = [];
@@ -28828,16 +28830,16 @@
           };
           function translateParam(param, scope, inner) {
             var type;
-            type = param.constructor.cappedName;
+            type = param.typeId;
             if (!__owns.call(translateParamTypes, type)) {
-              throw Error("Unknown parameter type: " + type);
+              throw Error("Unknown parameter type: " + __typeof(param));
             }
             return translateParamTypes[type](param, scope, inner);
           }
           translateType = (function () {
             var translateTypes;
             translateTypes = {
-              Ident: (function () {
+              21: (function () {
                 var primordialTypes;
                 primordialTypes = {
                   String: Type.string,
@@ -28853,14 +28855,14 @@
                   return primordialTypes[node.name];
                 };
               }()),
-              Const: function (node, scope) {
+              12: function (node, scope) {
                 switch (node.value) {
                 case null: return Type["null"];
                 case void 0: return Type["undefined"];
                 default: throw Error("Unexpected const type: " + String(node.value));
                 }
               },
-              TypeGeneric: function (node, scope) {
+              45: function (node, scope) {
                 var _arr, _arr2, _i, _len, arg, args, base;
                 base = translateType(node.basetype, scope);
                 for (_arr = [], _arr2 = __toArray(node.args), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
@@ -28870,7 +28872,7 @@
                 args = _arr;
                 return Type.generic.apply(Type, [base].concat(__toArray(args)));
               },
-              TypeUnion: function (node, scope) {
+              47: function (node, scope) {
                 var _arr, _i, _len, current, type;
                 current = Type.none;
                 for (_arr = __toArray(node.types), _i = 0, _len = _arr.length; _i < _len; ++_i) {
@@ -28881,10 +28883,10 @@
               }
             };
             return function (node, scope) {
-              if (!__owns.call(translateTypes, node.constructor.cappedName)) {
-                throw Error("Unknown type to translate: " + String(node.constructor.cappedName));
+              if (!__owns.call(translateTypes, node.typeId)) {
+                throw Error("Unknown type to translate: " + __typeof(node));
               }
-              return translateTypes[node.constructor.cappedName](node, scope);
+              return translateTypes[node.typeId](node, scope);
             };
           }());
           return function (node, scope, location, autoReturn) {
@@ -28963,7 +28965,7 @@
             };
           };
         }()),
-        Ident: function (node, scope, location, autoReturn) {
+        21: function (node, scope, location, autoReturn) {
           var name;
           name = node.name;
           scope.addHelper(name);
@@ -28981,7 +28983,7 @@
             }
           };
         },
-        If: function (node, scope, location, autoReturn, unassigned) {
+        22: function (node, scope, location, autoReturn, unassigned) {
           var innerLocation, tLabel, tTest, tWhenFalse, tWhenTrue;
           if (location === "statement" || location === "topStatement") {
             innerLocation = "statement";
@@ -29022,12 +29024,12 @@
             );
           };
         },
-        Nothing: function (node) {
+        25: function (node) {
           return function () {
             return ast.Noop(getPos(node));
           };
         },
-        Object: function (node, scope, location, autoReturn, unassigned) {
+        26: function (node, scope, location, autoReturn, unassigned) {
           var _arr, _i, _len, pair, properties, tKeys, tPrototype, tValues;
           tKeys = [];
           tValues = [];
@@ -29182,7 +29184,7 @@
             }
           };
         },
-        Regexp: function (node, scope, location, autoReturn, unassigned) {
+        28: function (node, scope, location, autoReturn, unassigned) {
           var tSource;
           tSource = translate(
             node.source,
@@ -29209,7 +29211,7 @@
             }
           };
         },
-        Return: function (node, scope, location, autoReturn, unassigned) {
+        29: function (node, scope, location, autoReturn, unassigned) {
           var tValue;
           if (location !== "statement" && location !== "topStatement") {
             throw Error("Expected Return in statement position");
@@ -29225,7 +29227,7 @@
             return ast.Return(getPos(node), tValue());
           };
         },
-        Switch: function (node, scope, location, autoReturn, unassigned) {
+        33: function (node, scope, location, autoReturn, unassigned) {
           var _arr, _arr2, _i, _len, case_, tCases, tDefaultCase, tLabel, tNode;
           tLabel = node.label && translate(node.label, scope, "label");
           tNode = translate(
@@ -29288,17 +29290,17 @@
             );
           };
         },
-        Super: function (node, scope, location, autoReturn) {
+        32: function (node, scope, location, autoReturn) {
           throw Error("Cannot have a stray super call");
         },
-        Tmp: function (node, scope, location, autoReturn) {
+        40: function (node, scope, location, autoReturn) {
           var ident;
           ident = scope.getTmp(getPos(node), node.id, node.name, node.type());
           return function () {
             return autoReturn(ident);
           };
         },
-        TmpWrapper: function (node, scope, location, autoReturn, unassigned) {
+        41: function (node, scope, location, autoReturn, unassigned) {
           var _arr, _i, tmp, tResult;
           tResult = translate(
             node.node,
@@ -29313,13 +29315,13 @@
           }
           return tResult;
         },
-        This: function (node, scope, location, autoReturn) {
+        38: function (node, scope, location, autoReturn) {
           return function () {
             scope.usedThis = true;
             return autoReturn(scope.bound ? ast.Ident(getPos(node), "_this") : ast.This(getPos(node)));
           };
         },
-        Throw: function (node, scope, location, autoReturn, unassigned) {
+        39: function (node, scope, location, autoReturn, unassigned) {
           var tNode;
           tNode = translate(
             node.node,
@@ -29332,7 +29334,7 @@
             return ast.Throw(getPos(node), tNode());
           };
         },
-        TryCatch: function (node, scope, location, autoReturn, unassigned) {
+        42: function (node, scope, location, autoReturn, unassigned) {
           var innerScope, tCatchBody, tCatchIdent, tLabel, tTryBody;
           tLabel = node.label && translate(node.label, scope, "label");
           tTryBody = translate(
@@ -29369,7 +29371,7 @@
             return result;
           };
         },
-        TryFinally: function (node, scope, location, autoReturn, unassigned) {
+        43: function (node, scope, location, autoReturn, unassigned) {
           var tFinallyBody, tLabel, tTryBody;
           tLabel = node.label && translate(node.label, scope, "label");
           tTryBody = translate(
@@ -29390,7 +29392,7 @@
             return ast.TryFinally(getPos(node), tTryBody(), tFinallyBody(), typeof tLabel === "function" ? tLabel() : void 0);
           };
         },
-        Unary: function (node, scope, location, autoReturn, unassigned) {
+        48: function (node, scope, location, autoReturn, unassigned) {
           var _ref, tSubnode;
           if (unassigned && ((_ref = node.op) === "++" || _ref === "--" || _ref === "++post" || _ref === "--post") && node.node instanceof ParserNode.Ident) {
             unassigned[node.node.name] = false;
@@ -29406,7 +29408,7 @@
             return autoReturn(ast.Unary(getPos(node), node.op, tSubnode()));
           };
         },
-        Var: function (node, scope, location, autoReturn, unassigned) {
+        49: function (node, scope, location, autoReturn, unassigned) {
           var tIdent;
           if (unassigned && node.ident instanceof ParserNode.Ident && !__owns.call(unassigned, node.ident.name)) {
             unassigned[node.ident.name] = true;
@@ -29425,10 +29427,10 @@
         if (typeof autoReturn !== "function") {
           autoReturn = makeAutoReturn(autoReturn);
         }
-        if (!__owns.call(translators, node.constructor.cappedName)) {
-          throw Error("Unable to translate unknown node type: " + String(node.constructor.cappedName));
+        if (!__owns.call(translators, node.typeId)) {
+          throw Error("Unable to translate unknown node type: " + __typeof(node));
         }
-        ret = translators[node.constructor.cappedName](
+        ret = translators[node.typeId](
           node,
           scope,
           location,
@@ -31894,7 +31896,7 @@
       },
       syntax: [
         {
-          code: 'return(function(){"use strict";return function(t,a,n){var r,c,o;return o=t.macroName,c=t.macroData,r=c.body,n("Call",200,n("Function",203,[],a(r),!0,!0,!1,void 0,!1,[]),[],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(r,t,a){var c,n,o;return o=r.macroName,n=r.macroData,c=n.body,a(9,200,a(20,203,[],t(c),!0,!0,!1,void 0,!1,[]),[],!1,!1)}}).call(this);',
           params: [[
             "ident",
             "body",
@@ -31910,7 +31912,7 @@
           id: 0
         },
         {
-          code: 'return(function(){"use strict";return function(t){var r,a;return a=t.macroName,r=t.macroData,this["debugger"]()}}).call(this);',
+          code: 'return(function(){"use strict";return function(r){var t,a;return a=r.macroName,t=r.macroData,this["debugger"]()}}).call(this);',
           params: [["const", ""]],
           names: "debugger",
           id: 14
@@ -31925,7 +31927,7 @@
           id: 15
         },
         {
-          code: 'return(function(){"use strict";return function(t,r,n){function i(t){return t-1}function e(t,r){return t>=0&&e(i(t),a["if"](c[t].test,c[t].body,r))||r}var a,s,o,c,u,l,h;return a=this,l=t.macroName,u=t.macroData,h=u.test,s=u.body,c=u.elseIfs,o=u.elseBody,this["if"]("unless"===l&&n("MacroAccess",2855,3,90,{op:"not",node:r(h)},"expression",!1,!1,!1)||h,s,e(i(c.length),o))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,r,n){function i(t){return t-1}function e(t,r){return t>=0&&e(i(t),a["if"](c[t].test,c[t].body,r))||r}var a,s,o,c,u,l,h;return a=this,l=t.macroName,u=t.macroData,h=u.test,s=u.body,c=u.elseIfs,o=u.elseBody,this["if"]("unless"===l&&n(23,2855,3,90,{op:"not",node:r(h)},"expression",!1,!1,!1)||h,s,e(i(c.length),o))}}).call(this);',
           params: [
             ["ident", "test", "ident", "Logic"],
             ["const", "then"],
@@ -31956,7 +31958,7 @@
           id: 16
         },
         {
-          code: 'return(function(){"use strict";return function(t,n,r){function e(t){return t-1}function s(t,o){return t>=0?s(e(t),i["if"](a[t].type==="unless"?r("MacroAccess",3327,3,95,{op:"not",node:n(a[t].test)},"expression",!1,!1,!1):a[t].test,a[t].body,o)):o}var i,o,c,a,u,l,f;return i=this,l=t.macroName,u=t.macroData,f=u.test,o=u.body,a=u.elseIfs,c=u.elseBody,this["if"]("unless"===l?r("MacroAccess",3460,3,96,{op:"not",node:n(f)},"expression",!1,!1,!1):f,o,s(e(a.length),c))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,n,r){function e(t){return t-1}function s(t,o){return t>=0?s(e(t),i["if"](u[t].type==="unless"?r(23,3327,3,95,{op:"not",node:n(u[t].test)},"expression",!1,!1,!1):u[t].test,u[t].body,o)):o}var i,o,a,u,c,l,f;return i=this,l=t.macroName,c=t.macroData,f=c.test,o=c.body,u=c.elseIfs,a=c.elseBody,this["if"]("unless"===l?r(23,3460,3,96,{op:"not",node:n(f)},"expression",!1,!1,!1):f,o,s(e(u.length),a))}}).call(this);',
           params: [
             ["ident", "test", "ident", "Logic"],
             [
@@ -32047,7 +32049,7 @@
           id: 19
         },
         {
-          code: 'return(function(){"use strict";return function(t,e,n){function r(t){return t+1}var a,s,c,i,o,u,l,m,h;return s=this,l=t.macroName,u=t.macroData,c=u.declarable,h=u.value,c=this.macroExpand1(c),c||this.error("Unknown declarable: "+String(c)),c.type==="ident"?(this.isPrimordial(c.ident)&&this.error("Cannot declare primordial \'"+this.name(c.ident)+"\'",c.ident),this.let(c.ident,c.isMutable,c.asType?this.toType(c.asType):this.type(h)),this.block([this["var"](c.ident,c.isMutable),this.mutateLast(h||this.noop(),function(t){return s.assign(c.ident,"=",t)},!0)])):c.type==="array"?(m=function(t,e){return t<c.elements.length?m(r(t),c.elements[t]?r(e):e):e},m(0,0)<=1?(o=function(t,r){return s.macroExpand1(n("MacroAccess",8064,38,219,{macroName:"let",macroData:{declarable:n("MacroAccess",8068,37,219,n("MacroAccess",8068,31,219,{ident:e(t)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n("Access",8079,e(h),e(r))}},"statement",!1,!1,!1))},i=function(t){return t<c.elements.length?c.elements[t]?o(c.elements[t],s["const"](t)):i(r(t)):h},i(0)):this.maybeCache(h,function(t,a){function i(t,c,i,u){return u.push(s.macroExpand1(n("MacroAccess",8512,38,232,{macroName:"let",macroData:{declarable:n("MacroAccess",8516,37,232,n("MacroAccess",8516,31,232,{ident:e(c)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n("Access",8527,e(a),e(i))}},"statement",!1,!1,!1))),o(r(t),u)}function o(t,e){return t<c.elements.length?c.elements[t]?i(t,c.elements[t],s["const"](t),e):o(r(t),e):(e.push(a),s.block(e))}return o(0,[t])})):c.type==="object"?c.pairs.length===1?(o=function(t,r){return s.macroExpand1(n("MacroAccess",9072,38,247,{macroName:"let",macroData:{declarable:n("MacroAccess",9076,37,247,n("MacroAccess",9076,31,247,{ident:e(t)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n("Access",9084,e(h),e(r))}},"statement",!1,!1,!1))},i=function(t){return o(t.value,t.key)},i(this.macroExpand1(c.pairs[0]))):this.maybeCache(h,function(t,a){function i(t,c,i,o){return o.push(s.macroExpand1(n("MacroAccess",9371,38,254,{macroName:"let",macroData:{declarable:n("MacroAccess",9375,37,254,n("MacroAccess",9375,31,254,{ident:e(c)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n("Access",9383,e(a),e(i))}},"statement",!1,!1,!1))),u(r(t),o)}function o(t,e,n){return i(t,e.value,e.key,n)}function u(t,e){return t<c.pairs.length?o(t,s.macroExpand1(c.pairs[t]),e):(e.push(a),s.block(e))}return u(0,[t])}):this.error("Unknown declarable: "+String(c+" "+String(null!=c&&(a=c.constructor)!=null?a.name:void 0)))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,n){function r(t){return t+1}var a,i,s,o,c,u,l,m,h;return i=this,l=t.macroName,u=t.macroData,s=u.declarable,h=u.value,s=this.macroExpand1(s),s||this.error("Unknown declarable: "+String(s)),s.type==="ident"?(this.isPrimordial(s.ident)&&this.error("Cannot declare primordial \'"+this.name(s.ident)+"\'",s.ident),this.let(s.ident,s.isMutable,s.asType?this.toType(s.asType):this.type(h)),this.block([this["var"](s.ident,s.isMutable),this.mutateLast(h||this.noop(),function(t){return i.assign(s.ident,"=",t)},!0)])):s.type==="array"?(m=function(t,e){return t<s.elements.length?m(r(t),s.elements[t]?r(e):e):e},m(0,0)<=1?(c=function(t,r){return i.macroExpand1(n(23,8064,38,219,{macroName:"let",macroData:{declarable:n(23,8068,37,219,n(23,8068,31,219,{ident:e(t)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(1,8079,e(h),e(r))}},"statement",!1,!1,!1))},o=function(t){return t<s.elements.length?s.elements[t]?c(s.elements[t],i["const"](t)):o(r(t)):h},o(0)):this.maybeCache(h,function(t,a){function o(t,s,o,u){return u.push(i.macroExpand1(n(23,8512,38,232,{macroName:"let",macroData:{declarable:n(23,8516,37,232,n(23,8516,31,232,{ident:e(s)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(1,8527,e(a),e(o))}},"statement",!1,!1,!1))),c(r(t),u)}function c(t,e){return t<s.elements.length?s.elements[t]?o(t,s.elements[t],i["const"](t),e):c(r(t),e):(e.push(a),i.block(e))}return c(0,[t])})):s.type==="object"?s.pairs.length===1?(c=function(t,r){return i.macroExpand1(n(23,9072,38,247,{macroName:"let",macroData:{declarable:n(23,9076,37,247,n(23,9076,31,247,{ident:e(t)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(1,9084,e(h),e(r))}},"statement",!1,!1,!1))},o=function(t){return c(t.value,t.key)},o(this.macroExpand1(s.pairs[0]))):this.maybeCache(h,function(t,a){function o(t,s,o,c){return c.push(i.macroExpand1(n(23,9371,38,254,{macroName:"let",macroData:{declarable:n(23,9375,37,254,n(23,9375,31,254,{ident:e(s)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(1,9383,e(a),e(o))}},"statement",!1,!1,!1))),u(r(t),c)}function c(t,e,n){return o(t,e.value,e.key,n)}function u(t,e){return t<s.pairs.length?c(t,i.macroExpand1(s.pairs[t]),e):(e.push(a),i.block(e))}return u(0,[t])}):this.error("Unknown declarable: "+String(s+" "+String(null!=s&&(a=s.constructor)!=null?a.name:void 0)))}}).call(this);',
           params: [
             ["ident", "declarable", "ident", "Declarable"],
             ["const", "="],
@@ -32063,25 +32065,25 @@
           id: 39
         },
         {
-          code: 'return(function(){"use strict";return function(t,e,n){var r,a,s,c;return r=this,s=t.macroName,a=t.macroData,c=a.node,this.mutateLast(c||this.noop(),function(t){return r.maybeCache(t,function(t,r){return n("MacroAccess",10173,17,280,{macroName:"if",macroData:{test:n("MacroAccess",10185,20,280,{op:"?",node:e(t)},"statement",!1,!1,!1),body:n("MacroAccess",10194,39,281,{macroName:"return",macroData:{node:e(r)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)})},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,n){var r,a,i,s;return r=this,i=t.macroName,a=t.macroData,s=a.node,this.mutateLast(s||this.noop(),function(t){return r.maybeCache(t,function(t,r){return n(23,10173,17,280,{macroName:"if",macroData:{test:n(23,10185,20,280,{op:"?",node:e(t)},"statement",!1,!1,!1),body:n(23,10194,39,281,{macroName:"return",macroData:{node:e(r)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)})},!0)}}).call(this);',
           params: [["ident", "node", "ident", "Expression"]],
           names: "return?",
           id: 40
         },
         {
-          code: 'return(function(){"use strict";return function(t,e,n,a){var r,s,c,o;return r=this,c=t.macroName,s=t.macroData,o=s.node,this.mutateLast(o||this.noop(),function(t){return r.isType(t,"boolean")?n("MacroAccess",10350,17,288,{macroName:"if",macroData:{test:e(t),body:n("MacroAccess",10366,39,289,{macroName:"return",macroData:{node:a("true")}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1):r.maybeCache(t,function(t,a){return n("MacroAccess",10452,17,293,{macroName:"if",macroData:{test:e(t),body:n("MacroAccess",10474,39,294,{macroName:"return",macroData:{node:e(a)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)})},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,n,a){var r,s,o,i;return r=this,o=t.macroName,s=t.macroData,i=s.node,this.mutateLast(i||this.noop(),function(t){return r.isType(t,"boolean")?n(23,10350,17,288,{macroName:"if",macroData:{test:e(t),body:n(23,10366,39,289,{macroName:"return",macroData:{node:a("true")}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1):r.maybeCache(t,function(t,a){return n(23,10452,17,293,{macroName:"if",macroData:{test:e(t),body:n(23,10474,39,294,{macroName:"return",macroData:{node:e(a)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)})},!0)}}).call(this);',
           params: [["ident", "node", "ident", "Expression"]],
           names: "returnif",
           id: 41
         },
         {
-          code: 'return(function(){"use strict";return function(t,e,a,n){var r,s,c,o;return r=this,c=t.macroName,s=t.macroData,o=s.node,this.mutateLast(o||this.noop(),function(t){return r.isType(t,"boolean")?a("MacroAccess",10636,17,301,{macroName:"unless",macroData:{test:e(t),body:a("MacroAccess",10656,39,302,{macroName:"return",macroData:{node:n("false")}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1):r.maybeCache(t,function(t,n){return a("MacroAccess",10743,17,306,{macroName:"unless",macroData:{test:e(t),body:a("MacroAccess",10769,39,307,{macroName:"return",macroData:{node:e(n)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)})},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,n,a){var r,s,o,i;return r=this,o=t.macroName,s=t.macroData,i=s.node,this.mutateLast(i||this.noop(),function(t){return r.isType(t,"boolean")?n(23,10636,17,301,{macroName:"unless",macroData:{test:e(t),body:n(23,10656,39,302,{macroName:"return",macroData:{node:a("false")}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1):r.maybeCache(t,function(t,a){return n(23,10743,17,306,{macroName:"unless",macroData:{test:e(t),body:n(23,10769,39,307,{macroName:"return",macroData:{node:e(a)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)})},!0)}}).call(this);',
           params: [["ident", "node", "ident", "Expression"]],
           names: "returnunless",
           id: 42
         },
         {
-          code: 'return(function(){"use strict";var t,e,n;return t=function(t,e){var n;if(n=typeof t,"number"!==n&&"string"!==n)throw TypeError("Cannot compare a non-number/string: "+n);if(n!==typeof e)throw TypeError("Cannot compare elements of different types: "+n+" vs "+typeof e);return e>t},e=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+n(t));return t},n=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(n){var r,a,s,c,o,i,u,m;return r=this,i=n.macroName,o=n.macroData,c=o.locals,a=o.body,u=[],m=[],c&&(c.ident&&(u.push(this.param(c.ident)),m.push(c.value)),s=function(n){return t(n,c.rest.length)?(c.rest[n].ident&&(u.push(r.param(c.rest[n].ident)),m.push(c.rest[n].value)),s(e(n)+1)):void 0},s(0)),this.call(this.func(u,a,!0,!0),m)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,n;return t=function(t,e){var n;if(n=typeof t,"number"!==n&&"string"!==n)throw TypeError("Cannot compare a non-number/string: "+n);if(n!==typeof e)throw TypeError("Cannot compare elements of different types: "+n+" vs "+typeof e);return e>t},e=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+n(t));return t},n=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(n){var r,a,o,s,i,c,u,m;return r=this,c=n.macroName,i=n.macroData,s=i.locals,a=i.body,u=[],m=[],s&&(s.ident&&(u.push(this.param(s.ident)),m.push(s.value)),o=function(n){return t(n,s.rest.length)?(s.rest[n].ident&&(u.push(r.param(s.rest[n].ident)),m.push(s.rest[n].value)),o(e(n)+1)):void 0},o(0)),this.call(this.func(u,a,!0,!0),m)}}).call(this);',
           params: [
             [
               "ident",
@@ -32120,7 +32122,7 @@
           id: 104
         },
         {
-          code: 'return(function(){"use strict";return function(t,e,n){var r,a,s,c,o;return c=t.macroName,s=t.macroData,o=s.node,r=s.body,a=n("Function",31278,[],e(r),!0,!1,!1,void 0,!1,[]),n("Call",31295,e(a),[e(o)],!1,!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,n){var r,a,o,s,i;return s=t.macroName,o=t.macroData,i=o.node,r=o.body,a=n(20,31278,[],e(r),!0,!1,!1,void 0,!1,[]),n(9,31295,e(a),[e(i)],!1,!0)}}).call(this);',
           params: [
             ["ident", "node", "ident", "Expression"],
             [
@@ -32139,7 +32141,7 @@
           id: 105
         },
         {
-          code: 'return(function(){"use strict";var t,e;return t=function(t){var r;if(r=typeof t,"string"===r)return t;if("number"===r)return String(t);throw TypeError("Expected a string or number, got "+e(t))},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,r,a,n){var s,o,c,i,u,m,l,h,f,p,d,b,y,A;return h=e.macroName,l=e.macroData,f=l.reducer,u=l.init,A=l.test,y=l.step,o=l.body,c=l.elseBody,null==u&&(u=this.noop()),null==A&&(A=n("true")),null==y&&(y=this.noop()),f?"first"===f?(o=this.mutateLast(o||this.noop(),function(t){return a("MacroAccess",32849,39,1032,{macroName:"return",macroData:{node:r(t)}},"statement",!1,!1,!1)}),m=this["for"](u,A,y,o),a("MacroAccess",32924,0,1034,{macroName:"do",macroData:{body:a("Block",32928,[r(m),r(c)],null)}},"expression",!1,!1,!1)):(c&&this.error("Cannot use a for loop with an else with "+t(f),c),"some"===f?(b=this.tmp("some",!1,"boolean"),p=[],p.push(a("MacroAccess",33206,38,1043,{macroName:"let",macroData:{declarable:a("MacroAccess",33210,37,1043,a("MacroAccess",33210,31,1043,{ident:r(b)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n("false")}},"statement",!1,!1,!1)),p.push(this["for"](u,A,y,this.mutateLast(o||this.noop(),function(t){return a("MacroAccess",33315,17,1045,{macroName:"if",macroData:{test:r(t),body:a("Block",33336,[a("MacroAccess",33336,30,1046,{left:r(b),op:":=",right:n("true")},"statement",!1,!1,!1),a("MacroAccess",33364,19,1047,{macroName:"break",macroData:{}},"statement",!1,!1,!1)],null),elseIfs:[]}},"statement",!1,!1,!1)}))),p.push(b),this.position==="expression"?r(p):r(p)):"every"===f?(i=this.tmp("every",!1,"boolean"),p=[],p.push(a("MacroAccess",33649,38,1056,{macroName:"let",macroData:{declarable:a("MacroAccess",33653,37,1056,a("MacroAccess",33653,31,1056,{ident:r(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n("true")}},"statement",!1,!1,!1)),p.push(this["for"](u,A,y,this.mutateLast(o||this.noop(),function(t){return a("MacroAccess",33758,17,1058,{macroName:"if",macroData:{test:a("MacroAccess",33772,3,1058,{op:"not",node:r(t)},"statement",!1,!1,!1),body:a("Block",33783,[a("MacroAccess",33783,30,1059,{left:r(i),op:":=",right:n("false")},"statement",!1,!1,!1),a("MacroAccess",33813,19,1060,{macroName:"break",macroData:{}},"statement",!1,!1,!1)],null),elseIfs:[]}},"statement",!1,!1,!1)}))),p.push(i),this.position==="expression"?r(p):r(p)):this.error("Unknown reducer: "+t(f))):c?(this.position==="expression"&&this.error("Cannot use a for loop with an else with as an expression",c),d=this.tmp("else",!1,"boolean"),o=a("Block",34229,[a("MacroAccess",34229,30,1073,{left:r(d),op:":=",right:n("false")},"statement",!1,!1,!1),r(o)],null),u=a("Block",34288,[a("MacroAccess",34288,30,1076,{left:r(d),op:":=",right:n("true")},"statement",!1,!1,!1),r(u)],null),m=this["for"](u,A,y,o),a("Block",34384,[r(m),a("MacroAccess",34398,17,1081,{macroName:"if",macroData:{test:r(d),body:r(c),elseIfs:[]}},"statement",!1,!1,!1)],null)):this.position==="expression"?(s=this.tmp("arr",!1,this.type(o).array()),o=this.mutateLast(o||this.noop(),function(t){return a("Call",34591,a("Access",34591,r(s),a("Const",34597,"push")),[r(t)],!1,!1)}),u=a("Block",34627,[a("MacroAccess",34627,30,1087,{left:r(s),op:":=",right:a("Array",34642,[])},"statement",!1,!1,!1),r(u)],null),m=this["for"](u,A,y,o),a("Block",34716,[r(m),r(s)],null)):this["for"](u,A,y,o)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){var n;if(n=typeof t,"string"===n)return t;if("number"===n)return String(t);throw TypeError("Expected a string or number, got "+e(t))},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,n,r,a){var o,s,i,u,c,m,l,h,f,p,d,b,y,v;return h=e.macroName,l=e.macroData,f=l.reducer,c=l.init,v=l.test,y=l.step,s=l.body,i=l.elseBody,null==c&&(c=this.noop()),null==v&&(v=a("true")),null==y&&(y=this.noop()),f?"first"===f?(s=this.mutateLast(s||this.noop(),function(t){return r(23,32849,39,1032,{macroName:"return",macroData:{node:n(t)}},"statement",!1,!1,!1)}),m=this["for"](c,v,y,s),r(23,32924,0,1034,{macroName:"do",macroData:{body:r(7,32928,[n(m),n(i)],null)}},"expression",!1,!1,!1)):(i&&this.error("Cannot use a for loop with an else with "+t(f),i),"some"===f?(b=this.tmp("some",!1,"boolean"),p=[],p.push(r(23,33206,38,1043,{macroName:"let",macroData:{declarable:r(23,33210,37,1043,r(23,33210,31,1043,{ident:n(b)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("false")}},"statement",!1,!1,!1)),p.push(this["for"](c,v,y,this.mutateLast(s||this.noop(),function(t){return r(23,33315,17,1045,{macroName:"if",macroData:{test:n(t),body:r(7,33336,[r(23,33336,30,1046,{left:n(b),op:":=",right:a("true")},"statement",!1,!1,!1),r(23,33364,19,1047,{macroName:"break",macroData:{}},"statement",!1,!1,!1)],null),elseIfs:[]}},"statement",!1,!1,!1)}))),p.push(b),this.position==="expression"?n(p):n(p)):"every"===f?(u=this.tmp("every",!1,"boolean"),p=[],p.push(r(23,33649,38,1056,{macroName:"let",macroData:{declarable:r(23,33653,37,1056,r(23,33653,31,1056,{ident:n(u)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("true")}},"statement",!1,!1,!1)),p.push(this["for"](c,v,y,this.mutateLast(s||this.noop(),function(t){return r(23,33758,17,1058,{macroName:"if",macroData:{test:r(23,33772,3,1058,{op:"not",node:n(t)},"statement",!1,!1,!1),body:r(7,33783,[r(23,33783,30,1059,{left:n(u),op:":=",right:a("false")},"statement",!1,!1,!1),r(23,33813,19,1060,{macroName:"break",macroData:{}},"statement",!1,!1,!1)],null),elseIfs:[]}},"statement",!1,!1,!1)}))),p.push(u),this.position==="expression"?n(p):n(p)):this.error("Unknown reducer: "+t(f))):i?(this.position==="expression"&&this.error("Cannot use a for loop with an else with as an expression",i),d=this.tmp("else",!1,"boolean"),s=r(7,34229,[r(23,34229,30,1073,{left:n(d),op:":=",right:a("false")},"statement",!1,!1,!1),n(s)],null),c=r(7,34288,[r(23,34288,30,1076,{left:n(d),op:":=",right:a("true")},"statement",!1,!1,!1),n(c)],null),m=this["for"](c,v,y,s),r(7,34384,[n(m),r(23,34398,17,1081,{macroName:"if",macroData:{test:n(d),body:n(i),elseIfs:[]}},"statement",!1,!1,!1)],null)):this.position==="expression"?(o=this.tmp("arr",!1,this.type(s).array()),s=this.mutateLast(s||this.noop(),function(t){return r(9,34591,r(1,34591,n(o),r(12,34597,"push")),[n(t)],!1,!1)}),c=r(7,34627,[r(23,34627,30,1087,{left:n(o),op:":=",right:r(4,34642,[])},"statement",!1,!1,!1),n(c)],null),m=this["for"](c,v,y,s),r(7,34716,[n(m),n(o)],null)):this["for"](c,v,y,s)}}).call(this);',
           params: [
             [
               "ident",
@@ -32210,7 +32212,7 @@
           id: 106
         },
         {
-          code: 'return(function(){"use strict";return function(t,e,r,a){var n,s,o,c,i,u,m,l;return u=t.macroName,i=t.macroData,c=i.init,l=i.test,m=i.step,s=i.current,o=i.currentStart,n=i.body,null==c&&(c=this.noop()),null==l&&(l=a("true")),null==m&&(m=this.noop()),n=this.mutateLast(n||this.noop(),function(t){return r("MacroAccess",35103,30,1101,{left:e(s),op:":=",right:e(t)},"expression",!1,!1,!1)}),r("Block",35131,[r("MacroAccess",35131,38,1103,{macroName:"let",macroData:{declarable:r("MacroAccess",35140,37,1103,r("MacroAccess",35140,31,1103,{isMutable:"mutable",ident:e(s)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:e(o)}},"statement",!1,!1,!1),r("MacroAccess",35175,106,1104,{macroName:"for",macroData:{init:e(c),test:e(l),step:e(m),body:e(n)}},"statement",!1,!1,!1),e(s)],null)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,n,r){var a,o,s,i,u,c,m,l;return c=t.macroName,u=t.macroData,i=u.init,l=u.test,m=u.step,o=u.current,s=u.currentStart,a=u.body,null==i&&(i=this.noop()),null==l&&(l=r("true")),null==m&&(m=this.noop()),a=this.mutateLast(a||this.noop(),function(t){return n(23,35103,30,1101,{left:e(o),op:":=",right:e(t)},"expression",!1,!1,!1)}),n(7,35131,[n(23,35131,38,1103,{macroName:"let",macroData:{declarable:n(23,35140,37,1103,n(23,35140,31,1103,{isMutable:"mutable",ident:e(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:e(s)}},"statement",!1,!1,!1),n(23,35175,106,1104,{macroName:"for",macroData:{init:e(i),test:e(l),step:e(m),body:e(a)}},"statement",!1,!1,!1),e(o)],null)}}).call(this);',
           params: [
             ["const", "reduce"],
             [
@@ -32256,7 +32258,7 @@
           id: 107
         },
         {
-          code: 'return(function(){"use strict";return function(t,e,r){var a,s,n,o,c,i,u;return o=t.macroName,n=t.macroData,c=n.reducer,u=n.test,i=n.step,a=n.body,s=n.elseBody,"until"===o&&(u=r("MacroAccess",35543,3,1111,{op:"not",node:e(u)},"expression",!1,!1,!1)),"every"===c?r("MacroAccess",35594,106,1114,{macroName:"for",macroData:{reducer:"every",test:e(u),step:e(i),body:e(a),elseBody:e(s)}},"expression",!1,!1,!1):"some"===c?r("MacroAccess",35703,106,1119,{macroName:"for",macroData:{reducer:"some",test:e(u),step:e(i),body:e(a),elseBody:e(s)}},"expression",!1,!1,!1):"first"===c?r("MacroAccess",35812,106,1124,{macroName:"for",macroData:{reducer:"first",test:e(u),step:e(i),body:e(a),elseBody:e(s)}},"expression",!1,!1,!1):this.position==="expression"?r("MacroAccess",35929,106,1129,{macroName:"for",macroData:{test:e(u),step:e(i),body:e(a),elseBody:e(s)}},"expression",!1,!1,!1):r("MacroAccess",36012,106,1135,{macroName:"for",macroData:{test:e(u),step:e(i),body:e(a),elseBody:e(s)}},"statement",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,o,s,i,u,c;return s=t.macroName,o=t.macroData,i=o.reducer,c=o.test,u=o.step,n=o.body,a=o.elseBody,"until"===s&&(c=r(23,35543,3,1111,{op:"not",node:e(c)},"expression",!1,!1,!1)),"every"===i?r(23,35594,106,1114,{macroName:"for",macroData:{reducer:"every",test:e(c),step:e(u),body:e(n),elseBody:e(a)}},"expression",!1,!1,!1):"some"===i?r(23,35703,106,1119,{macroName:"for",macroData:{reducer:"some",test:e(c),step:e(u),body:e(n),elseBody:e(a)}},"expression",!1,!1,!1):"first"===i?r(23,35812,106,1124,{macroName:"for",macroData:{reducer:"first",test:e(c),step:e(u),body:e(n),elseBody:e(a)}},"expression",!1,!1,!1):this.position==="expression"?r(23,35929,106,1129,{macroName:"for",macroData:{test:e(c),step:e(u),body:e(n),elseBody:e(a)}},"expression",!1,!1,!1):r(23,36012,106,1135,{macroName:"for",macroData:{test:e(c),step:e(u),body:e(n),elseBody:e(a)}},"statement",!1,!1,!1)}}).call(this);',
           params: [
             [
               "ident",
@@ -32314,7 +32316,7 @@
           id: 108
         },
         {
-          code: 'return(function(){"use strict";return function(t,e,r){var a,s,n,o,c,i,u;return c=t.macroName,o=t.macroData,u=o.test,i=o.step,s=o.current,n=o.currentStart,a=o.body,"until"===c&&(u=r("MacroAccess",36310,3,1142,{op:"not",node:e(u)},"expression",!1,!1,!1)),r("MacroAccess",36334,107,1145,{macroName:"for",macroData:{test:e(u),step:e(i),current:e(s),currentStart:e(n),body:e(a)}},"statement",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,o,s,i,u,c;return i=t.macroName,s=t.macroData,c=s.test,u=s.step,a=s.current,o=s.currentStart,n=s.body,"until"===i&&(c=r(23,36310,3,1142,{op:"not",node:e(c)},"expression",!1,!1,!1)),r(23,36334,107,1145,{macroName:"for",macroData:{test:e(c),step:e(u),current:e(a),currentStart:e(o),body:e(n)}},"statement",!1,!1,!1)}}).call(this);',
           params: [
             ["const", "reduce"],
             ["ident", "test", "ident", "Logic"],
@@ -32347,7 +32349,7 @@
           id: 109
         },
         {
-          code: 'return(function(){"use strict";var e,t,s;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+s(e));return e},t=function(e){var t;if(t=typeof e,"string"===t)return e;if("number"===t)return String(e);throw TypeError("Expected a string or number, got "+s(e))},s=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(a,c,r,o){var n,i,l,m,u,p,h,d,A,f,M,b,v,y,x,g,N,D,C,I,B,E,_,k,T,S,F,w,L;return B=a.macroName,I=a.macroData,E=I.reducer,F=I.value,v=I.index,m=I.array,u=I.body,p=I.elseBody,F=this.macroExpand1(F),g=null,v&&(g=v.length,v=v.value),this.isCall(m)&&this.isIdent(this.callFunc(m))&&this.name(this.callFunc(m))==="__toArray"&&!this.callIsApply(m)&&(m=this.callArgs(m)[0]),this.isCall(m)&&this.isIdent(this.callFunc(m))&&this.name(this.callFunc(m))==="__range"&&!this.callIsApply(m)?((this.isArray(F)||this.isObject(F))&&this.error("Cannot assign a number to a complex declarable",F),F=F.ident,n=this.callArgs(m),_=n[0],h=n[1],k=n[2],M=n[3],y=[],this.isConst(_)?typeof this.value(_)!="number"&&this.error("Cannot start with a non-number: "+t(this.value(_)),_):_=r("MacroAccess",38837,60,1204,{op:"+",node:c(_)},"expression",!1,!1,!1),y.push(this.macroExpandAll(r("MacroAccess",38883,38,1205,{macroName:"let",macroData:{declarable:r("MacroAccess",38887,37,1205,r("MacroAccess",38887,31,1205,{isMutable:"mutable",ident:c(F)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c(_)}},"statement",!1,!1,!1))),this.isConst(h)?typeof this.value(h)!="number"&&this.error("Cannot end with a non-number: "+t(this.value(h)),h):this.isComplex(h)?h=this.cache(r("MacroAccess",39101,60,1211,{op:"+",node:c(h)},"expression",!1,!1,!1),y,"end",!1):y.push(r("MacroAccess",39161,60,1213,{op:"+",node:c(h)},"expression",!1,!1,!1)),this.isConst(k)?typeof this.value(k)!="number"&&this.error("Cannot step with a non-number: "+t(this.value(k)),k):this.isComplex(k)?k=this.cache(r("MacroAccess",39364,60,1219,{op:"+",node:c(k)},"expression",!1,!1,!1),y,"step",!1):y.push(r("MacroAccess",39426,60,1221,{op:"+",node:c(k)},"expression",!1,!1,!1)),this.isComplex(M)&&(M=this.cache(c(M),y,"incl",!1)),T=this.isConst(k)?e(this.value(k))>0?this.isConst(h)&&this.value(h)===1/0?o("true"):r("MacroAccess",39715,16,1231,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",39734,9,1231,{left:c(F),inverted:!1,op:"~<=",right:c(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",39755,9,1231,{left:c(F),inverted:!1,op:"~<",right:c(h)},"expression",!1,!1,!1)}},"expression",!1,!1,!1):this.isConst(h)&&this.value(h)===-1/0?o("true"):r("MacroAccess",39894,16,1236,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",39913,10,1236,{left:c(F),inverted:!1,op:"~>=",right:c(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",39934,10,1236,{left:c(F),inverted:!1,op:"~>",right:c(h)},"expression",!1,!1,!1)}},"expression",!1,!1,!1):r("MacroAccess",39973,17,1238,{macroName:"if",macroData:{test:r("MacroAccess",39976,10,1238,{left:c(k),inverted:!1,op:"~>",right:r("Const",39986,0)},"expression",!1,!1,!1),body:r("MacroAccess",39988,16,1239,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",40016,9,1239,{left:c(F),inverted:!1,op:"~<=",right:c(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",40037,9,1239,{left:c(F),inverted:!1,op:"~<",right:c(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",40066,16,1241,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",40094,10,1241,{left:c(F),inverted:!1,op:"~>=",right:c(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",40115,10,1241,{left:c(F),inverted:!1,op:"~>",right:c(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)}},"expression",!1,!1,!1),b=r("MacroAccess",40170,52,1243,{left:c(F),op:"~+=",right:c(k)},"expression",!1,!1,!1),g&&y.push(this.macroExpandAll(r("MacroAccess",40248,38,1246,{macroName:"let",macroData:{declarable:r("MacroAccess",40252,37,1246,r("MacroAccess",40252,31,1246,{ident:c(g)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",40262,17,1246,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",40277,45,1247,{left:r("MacroAccess",40288,49,1247,{left:r("MacroAccess",40288,49,1247,{left:c(h),inverted:!1,op:"~-",right:c(_)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:c(k)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:c(k)},"statement",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",40335,45,1249,{left:r("MacroAccess",40346,49,1249,{left:c(h),inverted:!1,op:"~-",right:c(_)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:c(k)},"statement",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1))),v?(y.push(this.macroExpandAll(r("MacroAccess",40430,38,1252,{macroName:"let",macroData:{declarable:r("MacroAccess",40434,37,1252,r("MacroAccess",40434,31,1252,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Const",40452,0)}},"statement",!1,!1,!1))),b=r("Block",40479,[c(b),r("MacroAccess",40500,103,1255,{left:c(v),op:"+=",right:r("Const",40520,1)},"statement",!1,!1,!1)],null),this.hasFunc(u)&&(d=this.tmp("f",!1,"function"),y.push(r("MacroAccess",40620,38,1258,{macroName:"let",macroData:{declarable:r("MacroAccess",40624,37,1258,r("MacroAccess",40624,31,1258,{ident:c(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Function",40634,[r("Param",40635,c(F),void 0,!1,!1,void 0),r("Param",40642,c(v),void 0,!1,!1,void 0)],c(u),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),u=r("Call",40684,c(d),[r("This",40692),c(F),c(v)],!1,!0))):this.hasFunc(u)&&(d=this.tmp("f",!1,"function"),y.push(r("MacroAccess",40812,38,1262,{macroName:"let",macroData:{declarable:r("MacroAccess",40816,37,1262,r("MacroAccess",40816,31,1262,{ident:c(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Function",40826,[r("Param",40827,c(F),void 0,!1,!1,void 0)],c(u),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),u=r("Call",40866,c(d),[r("This",40874),c(F)],!1,!0)),"every"===E?r("MacroAccess",40933,106,1266,{macroName:"for",macroData:{reducer:"every",init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1):"some"===E?r("MacroAccess",41062,106,1271,{macroName:"for",macroData:{reducer:"some",init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1):"first"===E?r("MacroAccess",41191,106,1276,{macroName:"for",macroData:{reducer:"first",init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1):"filter"===E?(u=this.mutateLast(u,function(e){return r("MacroAccess",41366,17,1282,{macroName:"if",macroData:{test:c(e),body:c(F),elseIfs:[]}},"statement",!1,!1,!1)}),r("MacroAccess",41407,106,1284,{macroName:"for",macroData:{init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1)):this.position==="expression"?r("MacroAccess",41539,106,1289,{macroName:"for",macroData:{init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1):r("MacroAccess",41642,106,1295,{macroName:"for",macroData:{init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"statement",!1,!1,!1)):(y=[],x=this.isType(m,"string"),A=null!=v,null==v&&(v=this.tmp("i",!1,"number")),f=null!=g,null==g&&(g=this.tmp("len",!1,"number")),this.macroExpandAll(r("MacroAccess",41996,38,1308,{macroName:"let",macroData:{declarable:r("MacroAccess",42e3,37,1308,r("MacroAccess",42e3,31,1308,{ident:c(g)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Const",42011,0)}},"statement",!1,!1,!1)),m=this.macroExpandAll(m),k=r("Const",42097,1),_=r("Const",42130,0),h=o("Infinity"),M=o("false"),this.isCall(m)&&this.isIdent(this.callFunc(m))&&(this.name(this.callFunc(m))!=="__step"||this.callIsApply(m)?this.name(this.callFunc(m))==="__slice"&&this.callIsApply(m)?(l=this.callArgs(m),m=l[0],_=l[1],h=l[2],this.isConst(h)&&this.value(h)===void 0&&(h=o("Infinity"))):this.name(this.callFunc(m))!=="__sliceStep"||this.callIsApply(m)||(l=this.callArgs(m),m=l[0],_=l[1],h=l[2],k=l[3],M=l[4]):(l=this.callArgs(m),m=l[0],k=l[1],this.isConst(k)?e(this.value(k))>=0?(_=r("Const",42528,0),h=o("Infinity")):(_=o("Infinity"),h=r("Const",42645,0)):(_=void 0,h=void 0),M=o("true"))),this.isConst(k)&&(typeof this.value(k)!="number"?this.error("Expected step to be a number, got "+s(this.value(k)),k):e(this.value(k))%1!==0?this.error("Expected step to be an integer, got "+t(this.value(k)),k):this.value(k)===0&&this.error("Expected step to non-zero",k)),_&&this.isConst(_)&&this.value(_)!==1/0&&(typeof this.value(_)!="number"||e(this.value(_))%1!==0)&&this.error("Expected start to be an integer, got "+s(this.value(_))+" ("+String(this.value(_))+")",_),h&&this.isConst(h)&&this.value(h)!==1/0&&(typeof this.value(h)!="number"||e(this.value(h))%1!==0)&&this.error("Expected end to be an integer, got "+s(this.value(h))+" ("+String(this.value(h))+")",h),x||this.isType(m,"arrayLike")||(m=r("Call",44183,r("Ident",44183,"__toArray"),[c(m)],!1,!1)),m=this.cache(m,y,x?"str":"arr",!1),w=r("MacroAccess",44311,16,1362,{macroName:"if",macroData:{test:c(x),body:r("Call",44330,r("Access",44330,c(m),r("Const",44338,"charAt")),[c(v)],!1,!1),elseIfs:[],elseBody:r("Access",44358,c(m),c(v))}},"expression",!1,!1,!1),N=this.macroExpandAll(r("MacroAccess",44417,38,1363,{macroName:"let",macroData:{declarable:r("MacroAccess",44421,37,1363,r("MacroAccess",44421,31,1363,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Const",44439,0)}},"statement",!1,!1,!1)),L=F&&F.type==="ident"&&!F.isMutable?F.ident:this.tmp("v",!1),C=this.macroExpandAll(r("MacroAccess",44604,38,1365,{macroName:"let",macroData:{declarable:r("MacroAccess",44608,37,1365,r("MacroAccess",44608,31,1365,{ident:c(F)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c(w)}},"statement",!1,!1,!1)),D=this.macroExpandAll(r("MacroAccess",44674,38,1366,{macroName:"let",macroData:{declarable:r("MacroAccess",44678,37,1366,r("MacroAccess",44678,31,1366,{ident:c(g)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",44688,60,1366,{op:"+",node:r("Access",44690,c(m),r("Const",44697,"length"))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),n=this.isConst(k)?e(this.value(k))>0?(this.isConst(_)?e(this.value(_))>=0?(y.push(r("MacroAccess",44879,38,1372,{macroName:"let",macroData:{declarable:r("MacroAccess",44883,37,1372,r("MacroAccess",44883,31,1372,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c(_)}},"statement",!1,!1,!1)),y.push(D)):(y.push(D),y.push(r("MacroAccess",45022,38,1376,{macroName:"let",macroData:{declarable:r("MacroAccess",45026,37,1376,r("MacroAccess",45026,31,1376,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",45043,66,1376,{left:c(g),inverted:!1,op:"+",right:c(_)},"expression",!1,!1,!1)}},"statement",!1,!1,!1))):(y.push(D),y.push(this.getConstValue("DISABLE_TYPE_CHECKING",!1)?r("MacroAccess",45200,38,1380,{macroName:"let",macroData:{declarable:r("MacroAccess",45204,37,1380,r("MacroAccess",45204,31,1380,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",45221,60,1380,{op:"+",node:c(_)},"expression",!1,!1,!1)}},"statement",!1,!1,!1):r("MacroAccess",45264,38,1382,{macroName:"let",macroData:{declarable:r("MacroAccess",45268,37,1382,r("MacroAccess",45268,31,1382,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",45285,r("Ident",45285,"__int"),[c(_)],!1,!1)}},"statement",!1,!1,!1)),y.push(r("MacroAccess",45326,16,1383,{macroName:"if",macroData:{test:r("MacroAccess",45329,9,1383,{left:c(v),inverted:!1,op:"~<",right:r("Const",45340,0)},"expression",!1,!1,!1),body:r("MacroAccess",45348,103,1383,{left:c(v),op:"+=",right:c(g)},"expression",!1,!1,!1),elseIfs:[]}},"expression",!1,!1,!1))),this.isConst(h)&&(this.value(h)===1/0||this.isConst(M)&&this.value(M)&&this.value(h)===-1)?[r("MacroAccess",45512,9,1385,{left:c(v),inverted:!1,op:"~<",right:c(g)},"expression",!1,!1,!1),r("MacroAccess",45538,52,1385,{left:c(v),op:"~+=",right:c(k)},"expression",!1,!1,!1)]:(S=this.tmp("end",!1,"number"),y.push(r("MacroAccess",45645,38,1388,{macroName:"let",macroData:{declarable:r("MacroAccess",45649,37,1388,r("MacroAccess",45649,31,1388,{isMutable:"mutable",ident:c(S)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",45664,60,1388,{op:"+",node:c(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),this.isConst(h)?e(this.value(h))<0?y.push(r("MacroAccess",45835,52,1392,{left:c(S),op:"~+=",right:c(g)},"expression",!1,!1,!1)):void 0:y.push(r("MacroAccess",45733,16,1390,{macroName:"if",macroData:{test:r("MacroAccess",45736,9,1390,{left:c(S),inverted:!1,op:"~<",right:r("Const",45745,0)},"expression",!1,!1,!1),body:r("MacroAccess",45753,52,1390,{left:c(S),op:"~+=",right:c(g)},"expression",!1,!1,!1),elseIfs:[]}},"expression",!1,!1,!1)),y.push(r("MacroAccess",45879,16,1393,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",45900,30,1393,{left:c(S),op:":=",right:r("MacroAccess",45907,2,1393,{left:r("MacroAccess",45907,66,1393,{left:c(S),inverted:!1,op:"+",right:r("Const",45915,1)},"expression",!1,!1,!1),inverted:!1,op:"or",right:o("Infinity")},"expression",!1,!1,!1)},"expression",!1,!1,!1),elseIfs:[]}},"expression",!1,!1,!1)),y.push(r("MacroAccess",45956,86,1394,{left:c(S),op:"~min=",right:c(g)},"expression",!1,!1,!1)),[r("MacroAccess",45993,9,1395,{left:c(v),inverted:!1,op:"~<",right:c(S)},"expression",!1,!1,!1),r("MacroAccess",46014,52,1395,{left:c(v),op:"~+=",right:c(k)},"expression",!1,!1,!1)])):this.value(k)===-1&&(!_||this.isConst(_)&&((i=this.value(_))===-1||i===1/0)&&this.isConst(h)&&this.value(h)===0&&this.isConst(M)&&this.value(M))?(f?(y.push(D),y.push(r("MacroAccess",46311,38,1399,{macroName:"let",macroData:{declarable:r("MacroAccess",46315,37,1399,r("MacroAccess",46315,31,1399,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c(g)}},"statement",!1,!1,!1))):y.push(r("MacroAccess",46381,38,1401,{macroName:"let",macroData:{declarable:r("MacroAccess",46385,37,1401,r("MacroAccess",46385,31,1401,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",46402,60,1401,{op:"+",node:r("Access",46404,c(m),r("Const",46411,"length"))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),[r("MacroAccess",46433,13,1402,{op:"postDec!",node:c(v)},"expression",!1,!1,!1),this.noop()]):(!this.isConst(h)||e(this.value(h))<0?f=!0:void 0,this.isConst(_)?(i=this.value(_))===-1||i===1/0?f?(y.push(D),y.push(r("MacroAccess",46727,38,1410,{macroName:"let",macroData:{declarable:r("MacroAccess",46731,37,1410,r("MacroAccess",46731,31,1410,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",46748,49,1410,{left:c(g),inverted:!1,op:"~-",right:r("Const",46760,1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1))):y.push(r("MacroAccess",46810,38,1412,{macroName:"let",macroData:{declarable:r("MacroAccess",46814,37,1412,r("MacroAccess",46814,31,1412,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",46831,49,1412,{left:r("MacroAccess",46831,60,1412,{op:"+",node:r("Access",46833,c(m),r("Const",46840,"length"))},"expression",!1,!1,!1),inverted:!1,op:"~-",right:r("Const",46850,1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):(y.push(D),e(this.value(_))>=0?y.push(r("MacroAccess",46969,38,1416,{macroName:"let",macroData:{declarable:r("MacroAccess",46973,37,1416,r("MacroAccess",46973,31,1416,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",46990,16,1416,{macroName:"if",macroData:{test:r("MacroAccess",46993,9,1416,{left:c(_),inverted:!1,op:"~<",right:c(g)},"expression",!1,!1,!1),body:c(_),elseIfs:[],elseBody:r("MacroAccess",47028,49,1416,{left:c(g),inverted:!1,op:"~-",right:r("Const",47040,1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):y.push(r("MacroAccess",47090,38,1418,{macroName:"let",macroData:{declarable:r("MacroAccess",47094,37,1418,r("MacroAccess",47094,31,1418,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",47111,49,1418,{left:c(g),inverted:!1,op:"~+",right:r("MacroAccess",47122,60,1418,{op:"+",node:c(_)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1))):(y.push(D),y.push(r("MacroAccess",47204,38,1421,{macroName:"let",macroData:{declarable:r("MacroAccess",47208,37,1421,r("MacroAccess",47208,31,1421,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",47225,60,1421,{op:"+",node:c(_)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),y.push(r("MacroAccess",47259,16,1422,{macroName:"if",macroData:{test:r("MacroAccess",47262,9,1422,{left:c(v),inverted:!1,op:"~<",right:r("Const",47273,0)},"statement",!1,!1,!1),body:r("MacroAccess",47281,52,1422,{left:c(v),op:"~+=",right:c(g)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",47307,86,1422,{left:c(v),op:"~min=",right:c(g)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),y.push(r("MacroAccess",47354,53,1423,{left:c(v),op:"~-=",right:r("Const",47366,1)},"statement",!1,!1,!1))),this.isConst(h)?e(this.value(h))>=0?[r("MacroAccess",47447,16,1426,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",47466,10,1426,{left:c(v),inverted:!1,op:"~>=",right:c(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",47487,10,1426,{left:c(v),inverted:!1,op:"~>",right:c(h)},"expression",!1,!1,!1)}},"expression",!1,!1,!1),r("MacroAccess",47508,52,1426,{left:c(v),op:"~+=",right:c(k)},"expression",!1,!1,!1)]:[r("MacroAccess",47563,16,1428,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",47582,10,1428,{left:c(v),inverted:!1,op:"~>=",right:r("MacroAccess",47593,66,1428,{left:c(h),inverted:!1,op:"+",right:c(g)},"expression",!1,!1,!1)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",47613,10,1428,{left:c(v),inverted:!1,op:"~>",right:r("MacroAccess",47623,66,1428,{left:c(h),inverted:!1,op:"+",right:c(g)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1),r("MacroAccess",47644,52,1428,{left:c(v),op:"~+=",right:c(k)},"expression",!1,!1,!1)]:(S=this.tmp("end",!1,"number"),y.push(r("MacroAccess",47751,38,1431,{macroName:"let",macroData:{declarable:r("MacroAccess",47755,37,1431,r("MacroAccess",47755,31,1431,{isMutable:"mutable",ident:c(S)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",47770,60,1431,{op:"+",node:c(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),y.push(r("MacroAccess",47802,16,1432,{macroName:"if",macroData:{test:r("MacroAccess",47805,9,1432,{left:c(S),inverted:!1,op:"~<",right:r("Const",47814,0)},"statement",!1,!1,!1),body:r("MacroAccess",47822,52,1432,{left:c(S),op:"~+=",right:c(g)},"expression",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)),[r("MacroAccess",47857,16,1433,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",47876,10,1433,{left:c(v),inverted:!1,op:"~>=",right:c(S)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",47897,10,1433,{left:c(v),inverted:!1,op:"~>",right:c(S)},"expression",!1,!1,!1)}},"expression",!1,!1,!1),r("MacroAccess",47918,52,1433,{left:c(v),op:"~+=",right:c(k)},"expression",!1,!1,!1)])):(this.isComplex(k)?k=this.getConstValue("DISABLE_TYPE_CHECKING",!1)?this.cache(r("MacroAccess",48071,60,1437,{op:"+",node:c(k)},"expression",!1,!1,!1),y,"step",!1):this.cache(r("Call",48147,r("Ident",48147,"__int"),[r("Call",48154,r("Ident",48154,"__nonzero"),[c(k)],!1,!1)],!1,!1),y,"step",!1):this.getConstValue("DISABLE_TYPE_CHECKING",!1)?void 0:y.unshift(r("Call",48301,r("Ident",48301,"__int"),[r("Call",48308,r("Ident",48308,"__nonzero"),[c(k)],!1,!1)],!1,!1)),y.push(D),_?(this.isConst(_)?this.value(_)===1/0?y.push(r("MacroAccess",48701,38,1453,{macroName:"let",macroData:{declarable:r("MacroAccess",48705,37,1453,r("MacroAccess",48705,31,1453,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",48722,49,1453,{left:c(g),inverted:!1,op:"~-",right:r("Const",48734,1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):y.push(r("MacroAccess",48780,38,1455,{macroName:"let",macroData:{declarable:r("MacroAccess",48784,37,1455,r("MacroAccess",48784,31,1455,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",48801,16,1455,{macroName:"if",macroData:{test:r("MacroAccess",48804,10,1455,{left:c(_),inverted:!1,op:"~>=",right:r("Const",48816,0)},"expression",!1,!1,!1),body:c(_),elseIfs:[],elseBody:r("MacroAccess",48834,66,1455,{left:c(_),inverted:!1,op:"+",right:c(g)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):(y.push(r("MacroAccess",48892,38,1457,{macroName:"let",macroData:{declarable:r("MacroAccess",48896,37,1457,r("MacroAccess",48896,31,1457,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c(_)}},"statement",!1,!1,!1)),y.push(r("MacroAccess",48946,16,1458,{macroName:"if",macroData:{test:r("MacroAccess",48949,9,1458,{left:c(v),inverted:!1,op:"~<",right:r("Const",48960,0)},"statement",!1,!1,!1),body:r("MacroAccess",48968,103,1458,{left:c(v),op:"+=",right:c(g)},"expression",!1,!1,!1),elseIfs:[{test:r("MacroAccess",48994,9,1458,{left:c(k),inverted:!1,op:"~<",right:r("Const",49004,0)},"statement",!1,!1,!1),body:r("MacroAccess",49012,86,1458,{left:c(v),op:"~min=",right:c(g)},"expression",!1,!1,!1)}]}},"statement",!1,!1,!1))),S=this.tmp("end",!1,"number"),this.isConst(h)?y.push(r("MacroAccess",49133,38,1461,{macroName:"let",macroData:{declarable:r("MacroAccess",49137,37,1461,r("MacroAccess",49137,31,1461,{isMutable:"mutable",ident:c(S)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",49152,16,1461,{macroName:"if",macroData:{test:r("MacroAccess",49155,9,1461,{left:c(h),inverted:!1,op:"~<",right:r("Const",49164,0)},"expression",!1,!1,!1),body:r("MacroAccess",49170,49,1461,{left:c(h),inverted:!1,op:"~+",right:c(g)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",49191,83,1461,{left:c(h),inverted:!1,op:"max",right:r("MacroAccess",49202,16,1461,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",49220,49,1461,{left:c(g),inverted:!1,op:"~-",right:r("Const",49232,1)},"expression",!1,!1,!1),elseIfs:[],elseBody:c(g)}},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):(y.push(r("MacroAccess",49288,38,1463,{macroName:"let",macroData:{declarable:r("MacroAccess",49292,37,1463,r("MacroAccess",49292,31,1463,{isMutable:"mutable",ident:c(S)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",49307,60,1463,{op:"+",node:c(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),y.push(r("MacroAccess",49339,16,1464,{macroName:"if",macroData:{test:r("MacroAccess",49342,9,1464,{left:c(S),inverted:!1,op:"~<",right:r("Const",49351,0)},"statement",!1,!1,!1),body:r("MacroAccess",49359,103,1464,{left:c(S),op:"+=",right:c(g)},"expression",!1,!1,!1),elseIfs:[{test:r("MacroAccess",49383,10,1464,{left:c(k),inverted:!1,op:"~>",right:r("Const",49393,0)},"statement",!1,!1,!1),body:r("MacroAccess",49401,86,1464,{left:c(S),op:"~min=",right:r("MacroAccess",49411,16,1464,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",49430,49,1464,{left:c(g),inverted:!1,op:"~-",right:r("Const",49442,1)},"expression",!1,!1,!1),elseIfs:[],elseBody:c(g)}},"expression",!1,!1,!1)},"expression",!1,!1,!1)}],elseBody:r("MacroAccess",49464,87,1464,{left:c(S),op:"~max=",right:r("MacroAccess",49476,16,1464,{macroName:"if",macroData:{test:c(M),body:r("Const",49495,0),elseIfs:[],elseBody:r("MacroAccess",49501,61,1464,{op:"-",node:r("Const",49503,1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1))),h=S,[r("MacroAccess",49556,17,1467,{macroName:"if",macroData:{test:r("MacroAccess",49559,10,1467,{left:c(k),inverted:!1,op:"~>",right:r("Const",49569,0)},"expression",!1,!1,!1),body:r("MacroAccess",49571,16,1468,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",49603,9,1468,{left:c(v),inverted:!1,op:"~<=",right:c(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",49624,9,1468,{left:c(v),inverted:!1,op:"~<",right:c(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",49657,16,1470,{macroName:"if",macroData:{test:c(M),body:r("MacroAccess",49689,10,1470,{left:c(v),inverted:!1,op:"~>=",right:c(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",49710,9,1470,{left:c(v),inverted:!1,op:"~<",right:c(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)}},"expression",!1,!1,!1),r("MacroAccess",49742,52,1471,{left:c(v),op:"~+=",right:c(k)},"expression",!1,!1,!1)]):(y.push(r("MacroAccess",48399,38,1445,{macroName:"let",macroData:{declarable:r("MacroAccess",48403,37,1445,r("MacroAccess",48403,31,1445,{isMutable:"mutable",ident:c(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",48420,16,1445,{macroName:"if",macroData:{test:r("MacroAccess",48423,10,1445,{left:c(k),inverted:!1,op:"~>",right:r("Const",48433,0)},"expression",!1,!1,!1),body:r("Const",48440,0),elseIfs:[],elseBody:r("MacroAccess",48446,49,1445,{left:c(g),inverted:!1,op:"~-",right:r("Const",48458,1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),[r("MacroAccess",48488,16,1447,{macroName:"if",macroData:{test:r("MacroAccess",48491,10,1447,{left:c(k),inverted:!1,op:"~>",right:r("Const",48501,0)},"expression",!1,!1,!1),body:r("MacroAccess",48507,9,1447,{left:c(v),inverted:!1,op:"~<",right:c(g)},"expression",!1,!1,!1),elseIfs:[],elseBody:r("MacroAccess",48530,10,1447,{left:c(v),inverted:!1,op:"~>=",right:r("Const",48542,0)},"expression",!1,!1,!1)}},"expression",!1,!1,!1),r("MacroAccess",48560,52,1448,{left:c(v),op:"~+=",right:c(k)},"expression",!1,!1,!1)])),T=n[0],b=n[1],this.hasFunc(u)?(d=this.tmp("f",!1,"function"),F&&L!==F.ident&&(u=r("Block",49917,[r("MacroAccess",49917,38,1478,{macroName:"let",macroData:{declarable:r("MacroAccess",49932,37,1478,r("MacroAccess",49932,31,1478,{ident:c(F)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c(L)}},"statement",!1,!1,!1),c(u)],null)),A?(y.push(r("MacroAccess",50017,38,1481,{macroName:"let",macroData:{declarable:r("MacroAccess",50021,37,1481,r("MacroAccess",50021,31,1481,{ident:c(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Function",50031,[r("Param",50032,c(L),void 0,!1,!1,void 0),r("Param",50045,c(v),void 0,!1,!1,void 0)],c(u),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),u=r("Call",50085,c(d),[r("This",50093),c(w),c(v)],!1,!0)):(y.push(r("MacroAccess",50156,38,1484,{macroName:"let",macroData:{declarable:r("MacroAccess",50160,37,1484,r("MacroAccess",50160,31,1484,{ident:c(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Function",50170,[r("Param",50171,c(L),void 0,!1,!1,void 0)],c(u),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),u=r("Call",50216,c(d),[r("This",50224),c(w)],!1,!0))):u=L===F.ident||"filter"!==E?r("Block",50326,[r("MacroAccess",50326,38,1488,{macroName:"let",macroData:{declarable:r("MacroAccess",50339,37,1488,r("MacroAccess",50339,31,1488,{ident:c(F)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c(w)}},"statement",!1,!1,!1),c(u)],null):r("Block",50408,[r("MacroAccess",50408,38,1492,{macroName:"let",macroData:{declarable:r("MacroAccess",50421,37,1492,r("MacroAccess",50421,31,1492,{ident:c(L)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c(w)}},"statement",!1,!1,!1),r("MacroAccess",50449,38,1493,{macroName:"let",macroData:{declarable:r("MacroAccess",50462,37,1493,r("MacroAccess",50462,31,1493,{ident:c(F)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c(L)}},"statement",!1,!1,!1),c(u)],null),"every"===E?r("MacroAccess",50543,106,1497,{macroName:"for",macroData:{reducer:"every",init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1):"some"===E?r("MacroAccess",50672,106,1502,{macroName:"for",macroData:{reducer:"some",init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1):"first"===E?r("MacroAccess",50801,106,1507,{macroName:"for",macroData:{reducer:"first",init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1):"filter"===E?(u=this.mutateLast(u,function(e){return r("MacroAccess",50976,17,1513,{macroName:"if",macroData:{test:c(e),body:c(L),elseIfs:[]}},"statement",!1,!1,!1)}),r("MacroAccess",51023,106,1515,{macroName:"for",macroData:{init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1)):this.position==="expression"?r("MacroAccess",51154,106,1520,{macroName:"for",macroData:{init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"expression",!1,!1,!1):r("MacroAccess",51257,106,1526,{macroName:"for",macroData:{init:c(y),test:c(T),step:c(b),body:c(u),elseBody:c(p)}},"statement",!1,!1,!1))}}).call(this);',
+          code: 'return(function(){"use strict";var e,t,a;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+a(e));return e},t=function(e){var t;if(t=typeof e,"string"===t)return e;if("number"===t)return String(e);throw TypeError("Expected a string or number, got "+a(e))},a=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(s,r,n,o){var i,l,m,c,u,p,h,d,f,b,v,y,x,g,N,D,I,C,B,E,_,M,A,S,w,L,T,k,F;return _=s.macroName,E=s.macroData,M=E.reducer,T=E.value,x=E.index,c=E.array,u=E.body,p=E.elseBody,T=this.macroExpand1(T),D=null,x&&(D=x.length,x=x.value),this.isCall(c)&&this.isIdent(this.callFunc(c))&&this.name(this.callFunc(c))==="__toArray"&&!this.callIsApply(c)&&(c=this.callArgs(c)[0]),this.isCall(c)&&this.isIdent(this.callFunc(c))&&this.name(this.callFunc(c))==="__range"&&!this.callIsApply(c)?((this.isArray(T)||this.isObject(T))&&this.error("Cannot assign a number to a complex declarable",T),T=T.ident,i=this.callArgs(c),A=i[0],h=i[1],S=i[2],v=i[3],g=[],this.isConst(A)?typeof this.value(A)!="number"&&this.error("Cannot start with a non-number: "+t(this.value(A)),A):A=n(23,38837,60,1204,{op:"+",node:r(A)},"expression",!1,!1,!1),g.push(this.macroExpandAll(n(23,38883,38,1205,{macroName:"let",macroData:{declarable:n(23,38887,37,1205,n(23,38887,31,1205,{isMutable:"mutable",ident:r(T)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(A)}},"statement",!1,!1,!1))),this.isConst(h)?typeof this.value(h)!="number"&&this.error("Cannot end with a non-number: "+t(this.value(h)),h):this.isComplex(h)?h=this.cache(n(23,39101,60,1211,{op:"+",node:r(h)},"expression",!1,!1,!1),g,"end",!1):g.push(n(23,39161,60,1213,{op:"+",node:r(h)},"expression",!1,!1,!1)),this.isConst(S)?typeof this.value(S)!="number"&&this.error("Cannot step with a non-number: "+t(this.value(S)),S):this.isComplex(S)?S=this.cache(n(23,39364,60,1219,{op:"+",node:r(S)},"expression",!1,!1,!1),g,"step",!1):g.push(n(23,39426,60,1221,{op:"+",node:r(S)},"expression",!1,!1,!1)),this.isComplex(v)&&(v=this.cache(r(v),g,"incl",!1)),w=this.isConst(S)?e(this.value(S))>0?this.isConst(h)&&this.value(h)===1/0?o("true"):n(23,39715,16,1231,{macroName:"if",macroData:{test:r(v),body:n(23,39734,9,1231,{left:r(T),inverted:!1,op:"~<=",right:r(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,39755,9,1231,{left:r(T),inverted:!1,op:"~<",right:r(h)},"expression",!1,!1,!1)}},"expression",!1,!1,!1):this.isConst(h)&&this.value(h)===-1/0?o("true"):n(23,39894,16,1236,{macroName:"if",macroData:{test:r(v),body:n(23,39913,10,1236,{left:r(T),inverted:!1,op:"~>=",right:r(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,39934,10,1236,{left:r(T),inverted:!1,op:"~>",right:r(h)},"expression",!1,!1,!1)}},"expression",!1,!1,!1):n(23,39973,17,1238,{macroName:"if",macroData:{test:n(23,39976,10,1238,{left:r(S),inverted:!1,op:"~>",right:n(12,39986,0)},"expression",!1,!1,!1),body:n(23,39988,16,1239,{macroName:"if",macroData:{test:r(v),body:n(23,40016,9,1239,{left:r(T),inverted:!1,op:"~<=",right:r(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,40037,9,1239,{left:r(T),inverted:!1,op:"~<",right:r(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),elseIfs:[],elseBody:n(23,40066,16,1241,{macroName:"if",macroData:{test:r(v),body:n(23,40094,10,1241,{left:r(T),inverted:!1,op:"~>=",right:r(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,40115,10,1241,{left:r(T),inverted:!1,op:"~>",right:r(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)}},"expression",!1,!1,!1),y=n(23,40170,52,1243,{left:r(T),op:"~+=",right:r(S)},"expression",!1,!1,!1),D&&g.push(this.macroExpandAll(n(23,40248,38,1246,{macroName:"let",macroData:{declarable:n(23,40252,37,1246,n(23,40252,31,1246,{ident:r(D)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,40262,17,1246,{macroName:"if",macroData:{test:r(v),body:n(23,40277,45,1247,{left:n(23,40288,49,1247,{left:n(23,40288,49,1247,{left:r(h),inverted:!1,op:"~-",right:r(A)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:r(S)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:r(S)},"statement",!1,!1,!1),elseIfs:[],elseBody:n(23,40335,45,1249,{left:n(23,40346,49,1249,{left:r(h),inverted:!1,op:"~-",right:r(A)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:r(S)},"statement",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1))),x?(g.push(this.macroExpandAll(n(23,40430,38,1252,{macroName:"let",macroData:{declarable:n(23,40434,37,1252,n(23,40434,31,1252,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(12,40452,0)}},"statement",!1,!1,!1))),y=n(7,40479,[r(y),n(23,40500,103,1255,{left:r(x),op:"+=",right:n(12,40520,1)},"statement",!1,!1,!1)],null),this.hasFunc(u)&&(d=this.tmp("f",!1,"function"),g.push(n(23,40620,38,1258,{macroName:"let",macroData:{declarable:n(23,40624,37,1258,n(23,40624,31,1258,{ident:r(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(20,40634,[n(27,40635,r(T),void 0,!1,!1,void 0),n(27,40642,r(x),void 0,!1,!1,void 0)],r(u),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),u=n(9,40684,r(d),[n(38,40692),r(T),r(x)],!1,!0))):this.hasFunc(u)&&(d=this.tmp("f",!1,"function"),g.push(n(23,40812,38,1262,{macroName:"let",macroData:{declarable:n(23,40816,37,1262,n(23,40816,31,1262,{ident:r(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(20,40826,[n(27,40827,r(T),void 0,!1,!1,void 0)],r(u),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),u=n(9,40866,r(d),[n(38,40874),r(T)],!1,!0)),"every"===M?n(23,40933,106,1266,{macroName:"for",macroData:{reducer:"every",init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1):"some"===M?n(23,41062,106,1271,{macroName:"for",macroData:{reducer:"some",init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1):"first"===M?n(23,41191,106,1276,{macroName:"for",macroData:{reducer:"first",init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1):"filter"===M?(u=this.mutateLast(u,function(e){return n(23,41366,17,1282,{macroName:"if",macroData:{test:r(e),body:r(T),elseIfs:[]}},"statement",!1,!1,!1)}),n(23,41407,106,1284,{macroName:"for",macroData:{init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1)):this.position==="expression"?n(23,41539,106,1289,{macroName:"for",macroData:{init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1):n(23,41642,106,1295,{macroName:"for",macroData:{init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"statement",!1,!1,!1)):(g=[],N=this.isType(c,"string"),f=null!=x,null==x&&(x=this.tmp("i",!1,"number")),b=null!=D,null==D&&(D=this.tmp("len",!1,"number")),this.macroExpandAll(n(23,41996,38,1308,{macroName:"let",macroData:{declarable:n(23,42e3,37,1308,n(23,42e3,31,1308,{ident:r(D)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(12,42011,0)}},"statement",!1,!1,!1)),c=this.macroExpandAll(c),S=n(12,42097,1),A=n(12,42130,0),h=o("Infinity"),v=o("false"),this.isCall(c)&&this.isIdent(this.callFunc(c))&&(this.name(this.callFunc(c))!=="__step"||this.callIsApply(c)?this.name(this.callFunc(c))==="__slice"&&this.callIsApply(c)?(m=this.callArgs(c),c=m[0],A=m[1],h=m[2],this.isConst(h)&&this.value(h)===void 0&&(h=o("Infinity"))):this.name(this.callFunc(c))!=="__sliceStep"||this.callIsApply(c)||(m=this.callArgs(c),c=m[0],A=m[1],h=m[2],S=m[3],v=m[4]):(m=this.callArgs(c),c=m[0],S=m[1],this.isConst(S)?e(this.value(S))>=0?(A=n(12,42528,0),h=o("Infinity")):(A=o("Infinity"),h=n(12,42645,0)):(A=void 0,h=void 0),v=o("true"))),this.isConst(S)&&(typeof this.value(S)!="number"?this.error("Expected step to be a number, got "+a(this.value(S)),S):e(this.value(S))%1!==0?this.error("Expected step to be an integer, got "+t(this.value(S)),S):this.value(S)===0&&this.error("Expected step to non-zero",S)),A&&this.isConst(A)&&this.value(A)!==1/0&&(typeof this.value(A)!="number"||e(this.value(A))%1!==0)&&this.error("Expected start to be an integer, got "+a(this.value(A))+" ("+String(this.value(A))+")",A),h&&this.isConst(h)&&this.value(h)!==1/0&&(typeof this.value(h)!="number"||e(this.value(h))%1!==0)&&this.error("Expected end to be an integer, got "+a(this.value(h))+" ("+String(this.value(h))+")",h),N||this.isType(c,"arrayLike")||(c=n(9,44183,n(21,44183,"__toArray"),[r(c)],!1,!1)),c=this.cache(c,g,N?"str":"arr",!1),k=n(23,44311,16,1362,{macroName:"if",macroData:{test:r(N),body:n(9,44330,n(1,44330,r(c),n(12,44338,"charAt")),[r(x)],!1,!1),elseIfs:[],elseBody:n(1,44358,r(c),r(x))}},"expression",!1,!1,!1),I=this.macroExpandAll(n(23,44417,38,1363,{macroName:"let",macroData:{declarable:n(23,44421,37,1363,n(23,44421,31,1363,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(12,44439,0)}},"statement",!1,!1,!1)),F=T&&T.type==="ident"&&!T.isMutable?T.ident:this.tmp("v",!1),B=this.macroExpandAll(n(23,44604,38,1365,{macroName:"let",macroData:{declarable:n(23,44608,37,1365,n(23,44608,31,1365,{ident:r(T)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(k)}},"statement",!1,!1,!1)),C=this.macroExpandAll(n(23,44674,38,1366,{macroName:"let",macroData:{declarable:n(23,44678,37,1366,n(23,44678,31,1366,{ident:r(D)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,44688,60,1366,{op:"+",node:n(1,44690,r(c),n(12,44697,"length"))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),i=this.isConst(S)?e(this.value(S))>0?(this.isConst(A)?e(this.value(A))>=0?(g.push(n(23,44879,38,1372,{macroName:"let",macroData:{declarable:n(23,44883,37,1372,n(23,44883,31,1372,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(A)}},"statement",!1,!1,!1)),g.push(C)):(g.push(C),g.push(n(23,45022,38,1376,{macroName:"let",macroData:{declarable:n(23,45026,37,1376,n(23,45026,31,1376,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,45043,66,1376,{left:r(D),inverted:!1,op:"+",right:r(A)},"expression",!1,!1,!1)}},"statement",!1,!1,!1))):(g.push(C),g.push(this.getConstValue("DISABLE_TYPE_CHECKING",!1)?n(23,45200,38,1380,{macroName:"let",macroData:{declarable:n(23,45204,37,1380,n(23,45204,31,1380,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,45221,60,1380,{op:"+",node:r(A)},"expression",!1,!1,!1)}},"statement",!1,!1,!1):n(23,45264,38,1382,{macroName:"let",macroData:{declarable:n(23,45268,37,1382,n(23,45268,31,1382,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,45285,n(21,45285,"__int"),[r(A)],!1,!1)}},"statement",!1,!1,!1)),g.push(n(23,45326,16,1383,{macroName:"if",macroData:{test:n(23,45329,9,1383,{left:r(x),inverted:!1,op:"~<",right:n(12,45340,0)},"expression",!1,!1,!1),body:n(23,45348,103,1383,{left:r(x),op:"+=",right:r(D)},"expression",!1,!1,!1),elseIfs:[]}},"expression",!1,!1,!1))),this.isConst(h)&&(this.value(h)===1/0||this.isConst(v)&&this.value(v)&&this.value(h)===-1)?[n(23,45512,9,1385,{left:r(x),inverted:!1,op:"~<",right:r(D)},"expression",!1,!1,!1),n(23,45538,52,1385,{left:r(x),op:"~+=",right:r(S)},"expression",!1,!1,!1)]:(L=this.tmp("end",!1,"number"),g.push(n(23,45645,38,1388,{macroName:"let",macroData:{declarable:n(23,45649,37,1388,n(23,45649,31,1388,{isMutable:"mutable",ident:r(L)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,45664,60,1388,{op:"+",node:r(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),this.isConst(h)?e(this.value(h))<0?g.push(n(23,45835,52,1392,{left:r(L),op:"~+=",right:r(D)},"expression",!1,!1,!1)):void 0:g.push(n(23,45733,16,1390,{macroName:"if",macroData:{test:n(23,45736,9,1390,{left:r(L),inverted:!1,op:"~<",right:n(12,45745,0)},"expression",!1,!1,!1),body:n(23,45753,52,1390,{left:r(L),op:"~+=",right:r(D)},"expression",!1,!1,!1),elseIfs:[]}},"expression",!1,!1,!1)),g.push(n(23,45879,16,1393,{macroName:"if",macroData:{test:r(v),body:n(23,45900,30,1393,{left:r(L),op:":=",right:n(23,45907,2,1393,{left:n(23,45907,66,1393,{left:r(L),inverted:!1,op:"+",right:n(12,45915,1)},"expression",!1,!1,!1),inverted:!1,op:"or",right:o("Infinity")},"expression",!1,!1,!1)},"expression",!1,!1,!1),elseIfs:[]}},"expression",!1,!1,!1)),g.push(n(23,45956,86,1394,{left:r(L),op:"~min=",right:r(D)},"expression",!1,!1,!1)),[n(23,45993,9,1395,{left:r(x),inverted:!1,op:"~<",right:r(L)},"expression",!1,!1,!1),n(23,46014,52,1395,{left:r(x),op:"~+=",right:r(S)},"expression",!1,!1,!1)])):this.value(S)===-1&&(!A||this.isConst(A)&&((l=this.value(A))===-1||l===1/0)&&this.isConst(h)&&this.value(h)===0&&this.isConst(v)&&this.value(v))?(b?(g.push(C),g.push(n(23,46311,38,1399,{macroName:"let",macroData:{declarable:n(23,46315,37,1399,n(23,46315,31,1399,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(D)}},"statement",!1,!1,!1))):g.push(n(23,46381,38,1401,{macroName:"let",macroData:{declarable:n(23,46385,37,1401,n(23,46385,31,1401,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,46402,60,1401,{op:"+",node:n(1,46404,r(c),n(12,46411,"length"))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),[n(23,46433,13,1402,{op:"postDec!",node:r(x)},"expression",!1,!1,!1),this.noop()]):(!this.isConst(h)||e(this.value(h))<0?b=!0:void 0,this.isConst(A)?(l=this.value(A))===-1||l===1/0?b?(g.push(C),g.push(n(23,46727,38,1410,{macroName:"let",macroData:{declarable:n(23,46731,37,1410,n(23,46731,31,1410,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,46748,49,1410,{left:r(D),inverted:!1,op:"~-",right:n(12,46760,1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1))):g.push(n(23,46810,38,1412,{macroName:"let",macroData:{declarable:n(23,46814,37,1412,n(23,46814,31,1412,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,46831,49,1412,{left:n(23,46831,60,1412,{op:"+",node:n(1,46833,r(c),n(12,46840,"length"))},"expression",!1,!1,!1),inverted:!1,op:"~-",right:n(12,46850,1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):(g.push(C),e(this.value(A))>=0?g.push(n(23,46969,38,1416,{macroName:"let",macroData:{declarable:n(23,46973,37,1416,n(23,46973,31,1416,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,46990,16,1416,{macroName:"if",macroData:{test:n(23,46993,9,1416,{left:r(A),inverted:!1,op:"~<",right:r(D)},"expression",!1,!1,!1),body:r(A),elseIfs:[],elseBody:n(23,47028,49,1416,{left:r(D),inverted:!1,op:"~-",right:n(12,47040,1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):g.push(n(23,47090,38,1418,{macroName:"let",macroData:{declarable:n(23,47094,37,1418,n(23,47094,31,1418,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,47111,49,1418,{left:r(D),inverted:!1,op:"~+",right:n(23,47122,60,1418,{op:"+",node:r(A)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1))):(g.push(C),g.push(n(23,47204,38,1421,{macroName:"let",macroData:{declarable:n(23,47208,37,1421,n(23,47208,31,1421,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,47225,60,1421,{op:"+",node:r(A)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),g.push(n(23,47259,16,1422,{macroName:"if",macroData:{test:n(23,47262,9,1422,{left:r(x),inverted:!1,op:"~<",right:n(12,47273,0)},"statement",!1,!1,!1),body:n(23,47281,52,1422,{left:r(x),op:"~+=",right:r(D)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,47307,86,1422,{left:r(x),op:"~min=",right:r(D)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),g.push(n(23,47354,53,1423,{left:r(x),op:"~-=",right:n(12,47366,1)},"statement",!1,!1,!1))),this.isConst(h)?e(this.value(h))>=0?[n(23,47447,16,1426,{macroName:"if",macroData:{test:r(v),body:n(23,47466,10,1426,{left:r(x),inverted:!1,op:"~>=",right:r(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,47487,10,1426,{left:r(x),inverted:!1,op:"~>",right:r(h)},"expression",!1,!1,!1)}},"expression",!1,!1,!1),n(23,47508,52,1426,{left:r(x),op:"~+=",right:r(S)},"expression",!1,!1,!1)]:[n(23,47563,16,1428,{macroName:"if",macroData:{test:r(v),body:n(23,47582,10,1428,{left:r(x),inverted:!1,op:"~>=",right:n(23,47593,66,1428,{left:r(h),inverted:!1,op:"+",right:r(D)},"expression",!1,!1,!1)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,47613,10,1428,{left:r(x),inverted:!1,op:"~>",right:n(23,47623,66,1428,{left:r(h),inverted:!1,op:"+",right:r(D)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1),n(23,47644,52,1428,{left:r(x),op:"~+=",right:r(S)},"expression",!1,!1,!1)]:(L=this.tmp("end",!1,"number"),g.push(n(23,47751,38,1431,{macroName:"let",macroData:{declarable:n(23,47755,37,1431,n(23,47755,31,1431,{isMutable:"mutable",ident:r(L)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,47770,60,1431,{op:"+",node:r(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),g.push(n(23,47802,16,1432,{macroName:"if",macroData:{test:n(23,47805,9,1432,{left:r(L),inverted:!1,op:"~<",right:n(12,47814,0)},"statement",!1,!1,!1),body:n(23,47822,52,1432,{left:r(L),op:"~+=",right:r(D)},"expression",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)),[n(23,47857,16,1433,{macroName:"if",macroData:{test:r(v),body:n(23,47876,10,1433,{left:r(x),inverted:!1,op:"~>=",right:r(L)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,47897,10,1433,{left:r(x),inverted:!1,op:"~>",right:r(L)},"expression",!1,!1,!1)}},"expression",!1,!1,!1),n(23,47918,52,1433,{left:r(x),op:"~+=",right:r(S)},"expression",!1,!1,!1)])):(this.isComplex(S)?S=this.getConstValue("DISABLE_TYPE_CHECKING",!1)?this.cache(n(23,48071,60,1437,{op:"+",node:r(S)},"expression",!1,!1,!1),g,"step",!1):this.cache(n(9,48147,n(21,48147,"__int"),[n(9,48154,n(21,48154,"__nonzero"),[r(S)],!1,!1)],!1,!1),g,"step",!1):this.getConstValue("DISABLE_TYPE_CHECKING",!1)?void 0:g.unshift(n(9,48301,n(21,48301,"__int"),[n(9,48308,n(21,48308,"__nonzero"),[r(S)],!1,!1)],!1,!1)),g.push(C),A?(this.isConst(A)?this.value(A)===1/0?g.push(n(23,48701,38,1453,{macroName:"let",macroData:{declarable:n(23,48705,37,1453,n(23,48705,31,1453,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,48722,49,1453,{left:r(D),inverted:!1,op:"~-",right:n(12,48734,1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):g.push(n(23,48780,38,1455,{macroName:"let",macroData:{declarable:n(23,48784,37,1455,n(23,48784,31,1455,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,48801,16,1455,{macroName:"if",macroData:{test:n(23,48804,10,1455,{left:r(A),inverted:!1,op:"~>=",right:n(12,48816,0)},"expression",!1,!1,!1),body:r(A),elseIfs:[],elseBody:n(23,48834,66,1455,{left:r(A),inverted:!1,op:"+",right:r(D)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):(g.push(n(23,48892,38,1457,{macroName:"let",macroData:{declarable:n(23,48896,37,1457,n(23,48896,31,1457,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(A)}},"statement",!1,!1,!1)),g.push(n(23,48946,16,1458,{macroName:"if",macroData:{test:n(23,48949,9,1458,{left:r(x),inverted:!1,op:"~<",right:n(12,48960,0)},"statement",!1,!1,!1),body:n(23,48968,103,1458,{left:r(x),op:"+=",right:r(D)},"expression",!1,!1,!1),elseIfs:[{test:n(23,48994,9,1458,{left:r(S),inverted:!1,op:"~<",right:n(12,49004,0)},"statement",!1,!1,!1),body:n(23,49012,86,1458,{left:r(x),op:"~min=",right:r(D)},"expression",!1,!1,!1)}]}},"statement",!1,!1,!1))),L=this.tmp("end",!1,"number"),this.isConst(h)?g.push(n(23,49133,38,1461,{macroName:"let",macroData:{declarable:n(23,49137,37,1461,n(23,49137,31,1461,{isMutable:"mutable",ident:r(L)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,49152,16,1461,{macroName:"if",macroData:{test:n(23,49155,9,1461,{left:r(h),inverted:!1,op:"~<",right:n(12,49164,0)},"expression",!1,!1,!1),body:n(23,49170,49,1461,{left:r(h),inverted:!1,op:"~+",right:r(D)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,49191,83,1461,{left:r(h),inverted:!1,op:"max",right:n(23,49202,16,1461,{macroName:"if",macroData:{test:r(v),body:n(23,49220,49,1461,{left:r(D),inverted:!1,op:"~-",right:n(12,49232,1)},"expression",!1,!1,!1),elseIfs:[],elseBody:r(D)}},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):(g.push(n(23,49288,38,1463,{macroName:"let",macroData:{declarable:n(23,49292,37,1463,n(23,49292,31,1463,{isMutable:"mutable",ident:r(L)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,49307,60,1463,{op:"+",node:r(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),g.push(n(23,49339,16,1464,{macroName:"if",macroData:{test:n(23,49342,9,1464,{left:r(L),inverted:!1,op:"~<",right:n(12,49351,0)},"statement",!1,!1,!1),body:n(23,49359,103,1464,{left:r(L),op:"+=",right:r(D)},"expression",!1,!1,!1),elseIfs:[{test:n(23,49383,10,1464,{left:r(S),inverted:!1,op:"~>",right:n(12,49393,0)},"statement",!1,!1,!1),body:n(23,49401,86,1464,{left:r(L),op:"~min=",right:n(23,49411,16,1464,{macroName:"if",macroData:{test:r(v),body:n(23,49430,49,1464,{left:r(D),inverted:!1,op:"~-",right:n(12,49442,1)},"expression",!1,!1,!1),elseIfs:[],elseBody:r(D)}},"expression",!1,!1,!1)},"expression",!1,!1,!1)}],elseBody:n(23,49464,87,1464,{left:r(L),op:"~max=",right:n(23,49476,16,1464,{macroName:"if",macroData:{test:r(v),body:n(12,49495,0),elseIfs:[],elseBody:n(23,49501,61,1464,{op:"-",node:n(12,49503,1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1))),h=L,[n(23,49556,17,1467,{macroName:"if",macroData:{test:n(23,49559,10,1467,{left:r(S),inverted:!1,op:"~>",right:n(12,49569,0)},"expression",!1,!1,!1),body:n(23,49571,16,1468,{macroName:"if",macroData:{test:r(v),body:n(23,49603,9,1468,{left:r(x),inverted:!1,op:"~<=",right:r(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,49624,9,1468,{left:r(x),inverted:!1,op:"~<",right:r(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),elseIfs:[],elseBody:n(23,49657,16,1470,{macroName:"if",macroData:{test:r(v),body:n(23,49689,10,1470,{left:r(x),inverted:!1,op:"~>=",right:r(h)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,49710,9,1470,{left:r(x),inverted:!1,op:"~<",right:r(h)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)}},"expression",!1,!1,!1),n(23,49742,52,1471,{left:r(x),op:"~+=",right:r(S)},"expression",!1,!1,!1)]):(g.push(n(23,48399,38,1445,{macroName:"let",macroData:{declarable:n(23,48403,37,1445,n(23,48403,31,1445,{isMutable:"mutable",ident:r(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,48420,16,1445,{macroName:"if",macroData:{test:n(23,48423,10,1445,{left:r(S),inverted:!1,op:"~>",right:n(12,48433,0)},"expression",!1,!1,!1),body:n(12,48440,0),elseIfs:[],elseBody:n(23,48446,49,1445,{left:r(D),inverted:!1,op:"~-",right:n(12,48458,1)},"expression",!1,!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),[n(23,48488,16,1447,{macroName:"if",macroData:{test:n(23,48491,10,1447,{left:r(S),inverted:!1,op:"~>",right:n(12,48501,0)},"expression",!1,!1,!1),body:n(23,48507,9,1447,{left:r(x),inverted:!1,op:"~<",right:r(D)},"expression",!1,!1,!1),elseIfs:[],elseBody:n(23,48530,10,1447,{left:r(x),inverted:!1,op:"~>=",right:n(12,48542,0)},"expression",!1,!1,!1)}},"expression",!1,!1,!1),n(23,48560,52,1448,{left:r(x),op:"~+=",right:r(S)},"expression",!1,!1,!1)])),w=i[0],y=i[1],this.hasFunc(u)?(d=this.tmp("f",!1,"function"),T&&F!==T.ident&&(u=n(7,49917,[n(23,49917,38,1478,{macroName:"let",macroData:{declarable:n(23,49932,37,1478,n(23,49932,31,1478,{ident:r(T)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(F)}},"statement",!1,!1,!1),r(u)],null)),f?(g.push(n(23,50017,38,1481,{macroName:"let",macroData:{declarable:n(23,50021,37,1481,n(23,50021,31,1481,{ident:r(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(20,50031,[n(27,50032,r(F),void 0,!1,!1,void 0),n(27,50045,r(x),void 0,!1,!1,void 0)],r(u),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),u=n(9,50085,r(d),[n(38,50093),r(k),r(x)],!1,!0)):(g.push(n(23,50156,38,1484,{macroName:"let",macroData:{declarable:n(23,50160,37,1484,n(23,50160,31,1484,{ident:r(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(20,50170,[n(27,50171,r(F),void 0,!1,!1,void 0)],r(u),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),u=n(9,50216,r(d),[n(38,50224),r(k)],!1,!0))):u=F===T.ident||"filter"!==M?n(7,50326,[n(23,50326,38,1488,{macroName:"let",macroData:{declarable:n(23,50339,37,1488,n(23,50339,31,1488,{ident:r(T)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(k)}},"statement",!1,!1,!1),r(u)],null):n(7,50408,[n(23,50408,38,1492,{macroName:"let",macroData:{declarable:n(23,50421,37,1492,n(23,50421,31,1492,{ident:r(F)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(k)}},"statement",!1,!1,!1),n(23,50449,38,1493,{macroName:"let",macroData:{declarable:n(23,50462,37,1493,n(23,50462,31,1493,{ident:r(T)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(F)}},"statement",!1,!1,!1),r(u)],null),"every"===M?n(23,50543,106,1497,{macroName:"for",macroData:{reducer:"every",init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1):"some"===M?n(23,50672,106,1502,{macroName:"for",macroData:{reducer:"some",init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1):"first"===M?n(23,50801,106,1507,{macroName:"for",macroData:{reducer:"first",init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1):"filter"===M?(u=this.mutateLast(u,function(e){return n(23,50976,17,1513,{macroName:"if",macroData:{test:r(e),body:r(F),elseIfs:[]}},"statement",!1,!1,!1)}),n(23,51023,106,1515,{macroName:"for",macroData:{init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1)):this.position==="expression"?n(23,51154,106,1520,{macroName:"for",macroData:{init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"expression",!1,!1,!1):n(23,51257,106,1526,{macroName:"for",macroData:{init:r(g),test:r(w),step:r(y),body:r(u),elseBody:r(p)}},"statement",!1,!1,!1))}}).call(this);',
           params: [
             [
               "ident",
@@ -32417,7 +32419,7 @@
           id: 113
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i,l,m,u;return m=e.macroName,l=e.macroData,u=l.value,n=l.index,a=l.array,r=l.current,o=l.currentStart,c=l.body,u=this.macroExpand1(u),c=this.mutateLast(c||this.noop(),function(e){return s("MacroAccess",51675,30,1533,{left:t(r),op:":=",right:t(e)},"expression",!1,!1,!1)}),null!=n&&(i=n.length),null!=n&&(n=n.value),s("Block",51760,[s("MacroAccess",51760,38,1537,{macroName:"let",macroData:{declarable:s("MacroAccess",51769,37,1537,s("MacroAccess",51769,31,1537,{isMutable:"mutable",ident:t(r)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(o)}},"statement",!1,!1,!1),s("MacroAccess",51804,113,1538,{macroName:"for",macroData:{value:s("MacroAccess",51813,37,1538,s("MacroAccess",51813,31,1538,{ident:t(u)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:{value:t(n),length:t(i)},array:t(a),body:t(c)}},"statement",!1,!1,!1),t(r)],null)}}).call(this);',
+          code: 'return(function(){"use strict";return function(e,t,a){var s,r,n,o,i,l,m,c,u;return c=e.macroName,m=e.macroData,u=m.value,i=m.index,s=m.array,n=m.current,o=m.currentStart,r=m.body,u=this.macroExpand1(u),r=this.mutateLast(r||this.noop(),function(e){return a(23,51675,30,1533,{left:t(n),op:":=",right:t(e)},"expression",!1,!1,!1)}),null!=i&&(l=i.length),null!=i&&(i=i.value),a(7,51760,[a(23,51760,38,1537,{macroName:"let",macroData:{declarable:a(23,51769,37,1537,a(23,51769,31,1537,{isMutable:"mutable",ident:t(n)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(o)}},"statement",!1,!1,!1),a(23,51804,113,1538,{macroName:"for",macroData:{value:a(23,51813,37,1538,a(23,51813,31,1538,{ident:t(u)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:{value:t(i),length:t(l)},array:t(s),body:t(r)}},"statement",!1,!1,!1),t(n)],null)}}).call(this);',
           params: [
             ["const", "reduce"],
             ["ident", "value", "ident", "Declarable"],
@@ -32461,7 +32463,7 @@
           id: 114
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){var s;if(s=typeof e,"string"===s)return e;if("number"===s)return String(e);throw TypeError("Expected a string or number, got "+t(e))},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,a,c){var r,o,n,i,l,m,u,p,h,d,A,f,M,v,b,y,x,N,g,D;return f=t.macroName,A=t.macroData,y=A.reducer,u=A.key,g=A.value,N=A.type,M=A.object,o=A.body,n=A.elseBody,l=null,g&&(l=g.index,g=this.macroExpand1(g.value)),v="of"===N,m=[],(v||g)&&(M=this.cache(M,m,"obj",!1)),this.let(u,!1,this.type("string")),h=g&&this.macroExpandAll(a("MacroAccess",52517,38,1554,{macroName:"let",macroData:{declarable:a("MacroAccess",52521,37,1554,a("MacroAccess",52521,31,1554,{ident:s(g)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("Access",52530,s(M),s(u))}},"statement",!1,!1,!1)),p=l&&this.macroExpandAll(a("MacroAccess",52596,38,1555,{macroName:"let",macroData:{declarable:a("MacroAccess",52600,37,1555,a("MacroAccess",52600,31,1555,{isMutable:"mutable",ident:s(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("MacroAccess",52617,61,1555,{op:"-",node:a("Const",52619,1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),this.hasFunc(o)?(i=this.tmp("f",!1,"function"),g&&(D=g.type==="ident"?g.ident:this.tmp("v",!1)),g&&D!==g.ident&&(o=a("Block",52854,[a("MacroAccess",52854,38,1561,{macroName:"let",macroData:{declarable:a("MacroAccess",52867,37,1561,a("MacroAccess",52867,31,1561,{ident:s(g)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(D)}},"statement",!1,!1,!1),s(o)],null)),l?(m.push(a("MacroAccess",52943,38,1564,{macroName:"let",macroData:{declarable:a("MacroAccess",52947,37,1564,a("MacroAccess",52947,31,1564,{ident:s(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("Function",52957,[a("Param",52958,s(u),void 0,!1,!1,void 0),a("Param",52963,s(D),void 0,!1,!1,void 0),a("Param",52977,s(l),void 0,!1,!1,void 0)],s(o),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),o=a("Call",53017,s(i),[a("This",53025),s(u),a("Access",53036,s(M),s(u)),s(l)],!1,!0)):g?(m.push(a("MacroAccess",53103,38,1567,{macroName:"let",macroData:{declarable:a("MacroAccess",53107,37,1567,a("MacroAccess",53107,31,1567,{ident:s(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("Function",53117,[a("Param",53118,s(u),void 0,!1,!1,void 0),a("Param",53123,s(D),void 0,!1,!1,void 0)],s(o),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),o=a("Call",53169,s(i),[a("This",53177),s(u),a("Access",53188,s(M),s(u))],!1,!0)):(m.push(a("MacroAccess",53238,38,1570,{macroName:"let",macroData:{declarable:a("MacroAccess",53242,37,1570,a("MacroAccess",53242,31,1570,{ident:s(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("Function",53252,[a("Param",53253,s(u),void 0,!1,!1,void 0)],s(o),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),o=a("Call",53290,s(i),[a("This",53298),s(u)],!1,!0))):g&&(o=a("Block",53347,[s(h),s(o)],null)),b=[],n&&(x=this.tmp("else",!1,"boolean"),m.push(a("MacroAccess",53485,38,1580,{macroName:"let",macroData:{declarable:a("MacroAccess",53489,37,1580,a("MacroAccess",53489,31,1580,{ident:s(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c("true")}},"statement",!1,!1,!1)),o=a("Block",53526,[a("MacroAccess",53526,30,1582,{left:s(x),op:":=",right:c("false")},"statement",!1,!1,!1),s(o)],null),b.push(a("MacroAccess",53587,17,1585,{macroName:"if",macroData:{test:s(x),body:s(n),elseIfs:[]}},"statement",!1,!1,!1))),l&&(m.push(p),o=a("Block",53689,[a("MacroAccess",53689,52,1591,{left:s(l),op:"~+=",right:a("Const",53708,1)},"statement",!1,!1,!1),s(o)],null)),v&&(o=a("MacroAccess",53756,17,1596,{macroName:"if",macroData:{test:a("MacroAccess",53766,73,1596,{left:s(M),inverted:!1,op:"ownskey",right:s(u)},"statement",!1,!1,!1),body:s(o),elseIfs:[]}},"statement",!1,!1,!1)),y?"first"===y?(o=this.mutateLast(o||this.noop(),function(e){return a("MacroAccess",53910,39,1601,{macroName:"return",macroData:{node:s(e)}},"statement",!1,!1,!1)}),d=this.forIn(u,M,o),a("MacroAccess",53982,0,1603,{macroName:"do",macroData:{body:a("Block",53986,[s(m),s(d),s(n)],null)}},"statement",!1,!1,!1)):(n&&this.error("Cannot use a for loop with an else with "+e(y),n),"some"===y?(o=this.mutateLast(o||this.noop(),function(e){return a("MacroAccess",54243,17,1612,{macroName:"if",macroData:{test:s(e),body:a("MacroAccess",54264,39,1613,{macroName:"return",macroData:{node:c("true")}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)}),d=this.forIn(u,M,o),a("MacroAccess",54351,0,1615,{macroName:"do",macroData:{body:a("Block",54355,[s(m),s(d),c("false")],null)}},"statement",!1,!1,!1)):"every"===y?(o=this.mutateLast(o||this.noop(),function(e){return a("MacroAccess",54506,17,1621,{macroName:"if",macroData:{test:a("MacroAccess",54520,3,1621,{op:"not",node:s(e)},"statement",!1,!1,!1),body:a("MacroAccess",54531,39,1622,{macroName:"return",macroData:{node:c("false")}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)}),d=this.forIn(u,M,o),a("MacroAccess",54619,0,1624,{macroName:"do",macroData:{body:a("Block",54623,[s(m),s(d),c("true")],null)}},"statement",!1,!1,!1)):this.error("Unknown reducer: "+e(y))):this.position==="expression"?(n&&this.error("Cannot use a for loop with an else as an expression",n),r=this.tmp("arr",!1,this.type(o).array()),o=this.mutateLast(o||this.noop(),function(e){return a("Call",54984,a("Access",54984,s(r),a("Const",54990,"push")),[s(e)],!1,!1)}),m.unshift(a("MacroAccess",55024,38,1635,{macroName:"let",macroData:{declarable:a("MacroAccess",55028,37,1635,a("MacroAccess",55028,31,1635,{ident:s(r)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("Array",55035,[])}},"statement",!1,!1,!1)),d=this.forIn(u,M,o),a("Block",55093,[s(m),s(d),s(r)],null)):(d=this.forIn(u,M,o),a("Block",55197,[s(m),s(d),s(b)],null))}}).call(this);',
+          code: 'return(function(){"use strict";var e,t;return e=function(e){var a;if(a=typeof e,"string"===a)return e;if("number"===a)return String(e);throw TypeError("Expected a string or number, got "+t(e))},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,a,s,r){var n,o,i,m,l,c,u,p,h,d,f,v,b,y,x,N,g,D,I,C;return v=t.macroName,f=t.macroData,N=f.reducer,u=f.key,I=f.value,D=f.type,b=f.object,o=f.body,i=f.elseBody,l=null,I&&(l=I.index,I=this.macroExpand1(I.value)),y="of"===D,c=[],(y||I)&&(b=this.cache(b,c,"obj",!1)),this.let(u,!1,this.type("string")),h=I&&this.macroExpandAll(s(23,52517,38,1554,{macroName:"let",macroData:{declarable:s(23,52521,37,1554,s(23,52521,31,1554,{ident:a(I)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(1,52530,a(b),a(u))}},"statement",!1,!1,!1)),p=l&&this.macroExpandAll(s(23,52596,38,1555,{macroName:"let",macroData:{declarable:s(23,52600,37,1555,s(23,52600,31,1555,{isMutable:"mutable",ident:a(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(23,52617,61,1555,{op:"-",node:s(12,52619,1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),this.hasFunc(o)?(m=this.tmp("f",!1,"function"),I&&(C=I.type==="ident"?I.ident:this.tmp("v",!1)),I&&C!==I.ident&&(o=s(7,52854,[s(23,52854,38,1561,{macroName:"let",macroData:{declarable:s(23,52867,37,1561,s(23,52867,31,1561,{ident:a(I)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(C)}},"statement",!1,!1,!1),a(o)],null)),l?(c.push(s(23,52943,38,1564,{macroName:"let",macroData:{declarable:s(23,52947,37,1564,s(23,52947,31,1564,{ident:a(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(20,52957,[s(27,52958,a(u),void 0,!1,!1,void 0),s(27,52963,a(C),void 0,!1,!1,void 0),s(27,52977,a(l),void 0,!1,!1,void 0)],a(o),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),o=s(9,53017,a(m),[s(38,53025),a(u),s(1,53036,a(b),a(u)),a(l)],!1,!0)):I?(c.push(s(23,53103,38,1567,{macroName:"let",macroData:{declarable:s(23,53107,37,1567,s(23,53107,31,1567,{ident:a(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(20,53117,[s(27,53118,a(u),void 0,!1,!1,void 0),s(27,53123,a(C),void 0,!1,!1,void 0)],a(o),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),o=s(9,53169,a(m),[s(38,53177),a(u),s(1,53188,a(b),a(u))],!1,!0)):(c.push(s(23,53238,38,1570,{macroName:"let",macroData:{declarable:s(23,53242,37,1570,s(23,53242,31,1570,{ident:a(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(20,53252,[s(27,53253,a(u),void 0,!1,!1,void 0)],a(o),!0,!1,!1,void 0,!1,[])}},"statement",!1,!1,!1)),o=s(9,53290,a(m),[s(38,53298),a(u)],!1,!0))):I&&(o=s(7,53347,[a(h),a(o)],null)),x=[],i&&(g=this.tmp("else",!1,"boolean"),c.push(s(23,53485,38,1580,{macroName:"let",macroData:{declarable:s(23,53489,37,1580,s(23,53489,31,1580,{ident:a(g)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("true")}},"statement",!1,!1,!1)),o=s(7,53526,[s(23,53526,30,1582,{left:a(g),op:":=",right:r("false")},"statement",!1,!1,!1),a(o)],null),x.push(s(23,53587,17,1585,{macroName:"if",macroData:{test:a(g),body:a(i),elseIfs:[]}},"statement",!1,!1,!1))),l&&(c.push(p),o=s(7,53689,[s(23,53689,52,1591,{left:a(l),op:"~+=",right:s(12,53708,1)},"statement",!1,!1,!1),a(o)],null)),y&&(o=s(23,53756,17,1596,{macroName:"if",macroData:{test:s(23,53766,73,1596,{left:a(b),inverted:!1,op:"ownskey",right:a(u)},"statement",!1,!1,!1),body:a(o),elseIfs:[]}},"statement",!1,!1,!1)),N?"first"===N?(o=this.mutateLast(o||this.noop(),function(e){return s(23,53910,39,1601,{macroName:"return",macroData:{node:a(e)}},"statement",!1,!1,!1)}),d=this.forIn(u,b,o),s(23,53982,0,1603,{macroName:"do",macroData:{body:s(7,53986,[a(c),a(d),a(i)],null)}},"statement",!1,!1,!1)):(i&&this.error("Cannot use a for loop with an else with "+e(N),i),"some"===N?(o=this.mutateLast(o||this.noop(),function(e){return s(23,54243,17,1612,{macroName:"if",macroData:{test:a(e),body:s(23,54264,39,1613,{macroName:"return",macroData:{node:r("true")}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)}),d=this.forIn(u,b,o),s(23,54351,0,1615,{macroName:"do",macroData:{body:s(7,54355,[a(c),a(d),r("false")],null)}},"statement",!1,!1,!1)):"every"===N?(o=this.mutateLast(o||this.noop(),function(e){return s(23,54506,17,1621,{macroName:"if",macroData:{test:s(23,54520,3,1621,{op:"not",node:a(e)},"statement",!1,!1,!1),body:s(23,54531,39,1622,{macroName:"return",macroData:{node:r("false")}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)}),d=this.forIn(u,b,o),s(23,54619,0,1624,{macroName:"do",macroData:{body:s(7,54623,[a(c),a(d),r("true")],null)}},"statement",!1,!1,!1)):this.error("Unknown reducer: "+e(N))):this.position==="expression"?(i&&this.error("Cannot use a for loop with an else as an expression",i),n=this.tmp("arr",!1,this.type(o).array()),o=this.mutateLast(o||this.noop(),function(e){return s(9,54984,s(1,54984,a(n),s(12,54990,"push")),[a(e)],!1,!1)}),c.unshift(s(23,55024,38,1635,{macroName:"let",macroData:{declarable:s(23,55028,37,1635,s(23,55028,31,1635,{ident:a(n)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(4,55035,[])}},"statement",!1,!1,!1)),d=this.forIn(u,b,o),s(7,55093,[a(c),a(d),a(n)],null)):(d=this.forIn(u,b,o),s(7,55197,[a(c),a(d),a(x)],null))}}).call(this);',
           params: [
             [
               "ident",
@@ -32536,7 +32538,7 @@
           id: 115
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i,l,m,u,p,h;return m=e.macroName,l=e.macroData,n=l.key,h=l.value,p=l.type,u=l.object,c=l.current,r=l.currentStart,a=l.body,a=this.mutateLast(a||this.noop(),function(e){return s("MacroAccess",55546,30,1649,{left:t(c),op:":=",right:t(e)},"expression",!1,!1,!1)}),null!=h&&(o=h.index),null!=h&&(h=h.value),i="of"===p?s("MacroAccess",55661,115,1653,{macroName:"for",macroData:{key:t(n),value:{value:s("MacroAccess",55671,37,1653,s("MacroAccess",55671,31,1653,{ident:t(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:t(o)},type:"of",object:t(u),body:t(a)}},"statement",!1,!1,!1):s("MacroAccess",55730,115,1656,{macroName:"for",macroData:{key:t(n),value:{value:s("MacroAccess",55740,37,1656,s("MacroAccess",55740,31,1656,{ident:t(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:t(o)},type:"ofall",object:t(u),body:t(a)}},"statement",!1,!1,!1),s("Block",55792,[s("MacroAccess",55792,38,1659,{macroName:"let",macroData:{declarable:s("MacroAccess",55801,37,1659,s("MacroAccess",55801,31,1659,{isMutable:"mutable",ident:t(c)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(r)}},"statement",!1,!1,!1),t(i),t(c)],null)}}).call(this);',
+          code: 'return(function(){"use strict";return function(e,t,a){var s,r,n,o,i,m,l,c,u,p,h;return c=e.macroName,l=e.macroData,i=l.key,h=l.value,p=l.type,u=l.object,r=l.current,n=l.currentStart,s=l.body,s=this.mutateLast(s||this.noop(),function(e){return a(23,55546,30,1649,{left:t(r),op:":=",right:t(e)},"expression",!1,!1,!1)}),null!=h&&(o=h.index),null!=h&&(h=h.value),m="of"===p?a(23,55661,115,1653,{macroName:"for",macroData:{key:t(i),value:{value:a(23,55671,37,1653,a(23,55671,31,1653,{ident:t(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:t(o)},type:"of",object:t(u),body:t(s)}},"statement",!1,!1,!1):a(23,55730,115,1656,{macroName:"for",macroData:{key:t(i),value:{value:a(23,55740,37,1656,a(23,55740,31,1656,{ident:t(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:t(o)},type:"ofall",object:t(u),body:t(s)}},"statement",!1,!1,!1),a(7,55792,[a(23,55792,38,1659,{macroName:"let",macroData:{declarable:a(23,55801,37,1659,a(23,55801,31,1659,{isMutable:"mutable",ident:t(r)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(n)}},"statement",!1,!1,!1),t(m),t(r)],null)}}).call(this);',
           params: [
             ["const", "reduce"],
             ["ident", "key", "ident", "Identifier"],
@@ -32586,7 +32588,7 @@
           id: 116
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,a;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=Array.prototype.slice,s=function(s){if(null==s)throw TypeError("Expected an object, got "+a(s));if(e(s))return s;if("string"==typeof s)return s.split("");if(typeof s.length=="number")return t.call(s);throw TypeError("Expected an object with a length property, got "+a(s))},a=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,t,a,c){var r,o,n,i,l,m,u,p,h,d,f,A,M,b,v,y;if(M=e.macroName,A=e.macroData,v=A.tryBody,y=A.typedCatches,m=A.catchPart,p=A.elseBody,h=A.finallyBody,d=!!p,y.length!==0||m||d||h||this.error("Must provide at least a catch, else, or finally to a try block"),null!=m&&(l=m.ident),null!=m&&(i=m.body),y.length!==0){for(l||(l=y[0].ident),u=i||a("MacroAccess",70995,11,2081,{op:"throw",node:t(l)},"statement",!1,!1,!1),r=s(y),n=r.length,o=function(e){var c,r,o,n,i;return c=this,o=e.ident,r=this.name(o)!==this.name(l)?a("MacroAccess",71135,38,2084,{macroName:"let",macroData:{declarable:a("MacroAccess",71139,37,2084,a("MacroAccess",71139,31,2084,{ident:t(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(l)}},"statement",!1,!1,!1):this.noop(),e.check.type==="as"?(n=this.array(function(){var t,a,r,o,n;for(t=[],a=s(c.isTypeUnion(e.check.value)?c.types(e.check.value):[e.check.value]),r=0,o=a.length;o>r;++r)n=a[r],c.isTypeArray(n)?c.error("Expected a normal type, cannot use an array type",n):c.isTypeGeneric(n)?c.error("Expected a normal type, cannot use a generic type",n):c.isTypeFunction(n)?c.error("Expected a normal type, cannot use a function type",n):c.isTypeObject(n)&&c.error("Expected a normal type, cannot use an object type",n),t.push(n);return t}()),u=a("MacroAccess",71902,17,2099,{macroName:"if",macroData:{test:a("MacroAccess",71916,118,2099,{left:t(l),inverted:!1,op:"instanceofsome",right:t(n)},"statement",!1,!1,!1),body:a("Block",71952,[t(r),t(e.body)],null),elseIfs:[],elseBody:t(u)}},"statement",!1,!1,!1)):(i=e.check.value,u=a("MacroAccess",72120,17,2107,{macroName:"if",macroData:{test:a("MacroAccess",72134,5,2107,{left:t(l),inverted:!1,op:"==",right:t(i)},"statement",!1,!1,!1),body:a("Block",72158,[t(r),t(e.body)],null),elseIfs:[],elseBody:t(u)}},"statement",!1,!1,!1))};n--;)o.call(this,r[n]);i=u}return f=[],d&&(b=this.tmp("else",!1,"boolean"),f.push(a("MacroAccess",72385,38,2116,{macroName:"let",macroData:{declarable:a("MacroAccess",72389,37,2116,a("MacroAccess",72389,31,2116,{ident:t(b)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:c("true")}},"statement",!1,!1,!1)),i?i=a("Block",72453,[a("MacroAccess",72453,30,2119,{left:t(b),op:":=",right:c("false")},"statement",!1,!1,!1),t(i)],null):(l=this.tmp("err"),i=a("Block",72574,[a("MacroAccess",72574,30,2124,{left:t(b),op:":=",right:c("false")},"statement",!1,!1,!1),a("MacroAccess",72603,11,2125,{op:"throw",node:t(l)},"statement",!1,!1,!1)],null))),u=v,i&&(u=this.tryCatch(u,l||this.tmp("err"),i)),d&&(u=this.tryFinally(u,a("MacroAccess",72821,17,2132,{macroName:"if",macroData:{test:t(b),body:t(p),elseIfs:[]}},"statement",!1,!1,!1))),h&&(u=this.tryFinally(u,h)),a("Block",72945,[t(f),t(u)],null)}}).call(this);',
+          code: 'return(function(){"use strict";var e,t,a,s;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=Array.prototype.slice,a=function(a){if(null==a)throw TypeError("Expected an object, got "+s(a));if(e(a))return a;if("string"==typeof a)return a.split("");if(typeof a.length=="number")return t.call(a);throw TypeError("Expected an object with a length property, got "+s(a))},s=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,t,s,r){var n,o,i,l,m,c,u,p,h,d,f,b,v,y,x,g;if(v=e.macroName,b=e.macroData,x=b.tryBody,g=b.typedCatches,c=b.catchPart,p=b.elseBody,h=b.finallyBody,d=!!p,g.length!==0||c||d||h||this.error("Must provide at least a catch, else, or finally to a try block"),null!=c&&(m=c.ident),null!=c&&(l=c.body),g.length!==0){for(m||(m=g[0].ident),u=l||s(23,70995,11,2081,{op:"throw",node:t(m)},"statement",!1,!1,!1),n=a(g),i=n.length,o=function(e){var r,n,o,i,l;return r=this,o=e.ident,n=this.name(o)!==this.name(m)?s(23,71135,38,2084,{macroName:"let",macroData:{declarable:s(23,71139,37,2084,s(23,71139,31,2084,{ident:t(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(m)}},"statement",!1,!1,!1):this.noop(),e.check.type==="as"?(i=this.array(function(){var t,s,n,o,i;for(t=[],s=a(r.isTypeUnion(e.check.value)?r.types(e.check.value):[e.check.value]),n=0,o=s.length;o>n;++n)i=s[n],r.isTypeArray(i)?r.error("Expected a normal type, cannot use an array type",i):r.isTypeGeneric(i)?r.error("Expected a normal type, cannot use a generic type",i):r.isTypeFunction(i)?r.error("Expected a normal type, cannot use a function type",i):r.isTypeObject(i)&&r.error("Expected a normal type, cannot use an object type",i),t.push(i);return t}()),u=s(23,71902,17,2099,{macroName:"if",macroData:{test:s(23,71916,118,2099,{left:t(m),inverted:!1,op:"instanceofsome",right:t(i)},"statement",!1,!1,!1),body:s(7,71952,[t(n),t(e.body)],null),elseIfs:[],elseBody:t(u)}},"statement",!1,!1,!1)):(l=e.check.value,u=s(23,72120,17,2107,{macroName:"if",macroData:{test:s(23,72134,5,2107,{left:t(m),inverted:!1,op:"==",right:t(l)},"statement",!1,!1,!1),body:s(7,72158,[t(n),t(e.body)],null),elseIfs:[],elseBody:t(u)}},"statement",!1,!1,!1))};i--;)o.call(this,n[i]);l=u}return f=[],d&&(y=this.tmp("else",!1,"boolean"),f.push(s(23,72385,38,2116,{macroName:"let",macroData:{declarable:s(23,72389,37,2116,s(23,72389,31,2116,{ident:t(y)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("true")}},"statement",!1,!1,!1)),l?l=s(7,72453,[s(23,72453,30,2119,{left:t(y),op:":=",right:r("false")},"statement",!1,!1,!1),t(l)],null):(m=this.tmp("err"),l=s(7,72574,[s(23,72574,30,2124,{left:t(y),op:":=",right:r("false")},"statement",!1,!1,!1),s(23,72603,11,2125,{op:"throw",node:t(m)},"statement",!1,!1,!1)],null))),u=x,l&&(u=this.tryCatch(u,m||this.tmp("err"),l)),d&&(u=this.tryFinally(u,s(23,72821,17,2132,{macroName:"if",macroData:{test:t(y),body:t(p),elseIfs:[]}},"statement",!1,!1,!1))),h&&(u=this.tryFinally(u,h)),s(7,72945,[t(f),t(u)],null)}}).call(this);',
           params: [
             [
               "ident",
@@ -32700,7 +32702,7 @@
           id: 119
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,a){var c,r,o,n,i,l,m,u,p,d,h,A,f,M,y,b,v,x;return A=e.macroName,h=e.macroData,y=h.reducer,x=h.value,l=h.index,p=h.iterable,c=h.body,o=h.elseBody,m=[],d=this.cache(s("Call",74122,s("Ident",74122,"__iter"),[t(p)],!1,!1),m,"iter",!1),u=this.tmp("item",!1),n=this.tmp("e",!0),v=[],l&&(m.push(s("MacroAccess",74277,38,2180,{macroName:"let",macroData:{declarable:s("MacroAccess",74281,37,2180,s("MacroAccess",74281,31,2180,{isMutable:"mutable",ident:t(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("Const",74299,0)}},"statement",!1,!1,!1)),v.push(s("MacroAccess",74321,52,2181,{left:t(l),op:"~+=",right:s("Const",74333,1)},"expression",!1,!1,!1))),r=s("Block",74366,[s("MacroAccess",74366,38,2184,{macroName:"let",macroData:{declarable:s("MacroAccess",74375,37,2184,s("MacroAccess",74375,31,2184,{ident:t(u)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("Call",74383,s("Access",74383,t(d),s("Const",74394,"next")),[],!1,!1)}},"statement",!1,!1,!1),s("MacroAccess",74401,17,2185,{macroName:"if",macroData:{test:s("Access",74409,t(u),s("Const",74416,"done")),body:s("MacroAccess",74421,19,2186,{macroName:"break",macroData:{}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),s("MacroAccess",74435,38,2187,{macroName:"let",macroData:{declarable:s("MacroAccess",74444,37,2187,s("MacroAccess",74444,31,2187,{ident:t(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("Access",74453,t(u),s("Const",74460,"value"))}},"statement",!1,!1,!1)],null),M=[],o&&!y&&this.position!=="expression"&&(b=this.tmp("else",!1,"boolean"),m.push(s("MacroAccess",74618,38,2192,{macroName:"let",macroData:{declarable:s("MacroAccess",74622,37,2192,s("MacroAccess",74622,31,2192,{ident:t(b)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("true")}},"statement",!1,!1,!1)),c=s("Block",74659,[s("MacroAccess",74659,30,2194,{left:t(b),op:":=",right:a("false")},"statement",!1,!1,!1),t(c)],null),M.push(s("MacroAccess",74720,17,2197,{macroName:"if",macroData:{test:t(b),body:t(o),elseIfs:[]}},"statement",!1,!1,!1))),this.hasFunc(c)?(i=this.tmp("f",!1,"function"),l?(m.push(s("MacroAccess",75009,38,2208,{macroName:"let",macroData:{declarable:s("MacroAccess",75013,37,2208,s("MacroAccess",75013,31,2208,{ident:t(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("MacroAccess",75023,117,2208,{op:"",node:s("Function",75023,[s("Param",75024,t(x),void 0,!1,!1,void 0),s("Param",75031,t(l),void 0,!1,!1,void 0)],t(c),!0,!1,!1,void 0,!1,[])},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),c=s("Block",75069,[t(r),s("Call",75094,t(i),[s("This",75111),t(x),t(l)],!1,!0)],null)):(m.push(s("MacroAccess",74869,38,2203,{macroName:"let",macroData:{declarable:s("MacroAccess",74873,37,2203,s("MacroAccess",74873,31,2203,{ident:t(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("MacroAccess",74883,117,2203,{op:"",node:s("Function",74883,[s("Param",74884,t(x),void 0,!1,!1,void 0)],t(c),!0,!1,!1,void 0,!1,[])},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),c=s("Block",74921,[t(r),s("Call",74946,t(i),[s("This",74963),t(x)],!1,!0)],null))):c=s("Block",75160,[t(r),t(c)],null),"every"===y?f=s("MacroAccess",75244,106,2218,{macroName:"for",macroData:{reducer:"every",init:t(m),test:a("true"),step:t(v),body:t(c),elseBody:t(o)}},"expression",!1,!1,!1):"some"===y?f=s("MacroAccess",75357,106,2223,{macroName:"for",macroData:{reducer:"some",init:t(m),test:a("true"),step:t(v),body:t(c),elseBody:t(o)}},"expression",!1,!1,!1):"first"===y?f=s("MacroAccess",75470,106,2228,{macroName:"for",macroData:{reducer:"first",init:t(m),test:a("true"),step:t(v),body:t(c),elseBody:t(o)}},"expression",!1,!1,!1):"filter"===y?(c=this.mutateLast(c,function(e){return s("MacroAccess",75627,17,2234,{macroName:"if",macroData:{test:t(e),body:t(x),elseIfs:[]}},"statement",!1,!1,!1)}),f=s("MacroAccess",75664,106,2236,{macroName:"for",macroData:{init:t(m),test:a("true"),step:t(v),body:t(c),elseBody:t(o)}},"expression",!1,!1,!1)):f=this.position==="expression"?s("MacroAccess",75779,106,2241,{macroName:"for",macroData:{init:t(m),test:a("true"),step:t(v),body:t(c),elseBody:t(o)}},"expression",!1,!1,!1):s("Block",75866,[s("MacroAccess",75866,106,2247,{macroName:"for",macroData:{init:t(m),test:a("true"),step:t(v),body:t(c)}},"statement",!1,!1,!1),t(M)],null),s("MacroAccess",75939,119,2251,{macroName:"try",macroData:{tryBody:t(f),typedCatches:[],finallyBody:s("MacroAccess",75968,119,2254,{macroName:"try",macroData:{tryBody:s("Call",75978,s("Access",75978,t(d),s("Const",75996,"close")),[],!1,!1),typedCatches:[],catchPart:{ident:t(n),body:a("void")}}},"statement",!1,!1,!1)}},"statement",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(e,t,a,s){var r,n,o,i,m,l,c,u,p,d,h,f,y,b,v,x,N,D;return f=e.macroName,h=e.macroData,v=h.reducer,D=h.value,l=h.index,p=h.iterable,r=h.body,o=h.elseBody,c=[],d=this.cache(a(9,74122,a(21,74122,"__iter"),[t(p)],!1,!1),c,"iter",!1),u=this.tmp("item",!1),i=this.tmp("e",!0),N=[],l&&(c.push(a(23,74277,38,2180,{macroName:"let",macroData:{declarable:a(23,74281,37,2180,a(23,74281,31,2180,{isMutable:"mutable",ident:t(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(12,74299,0)}},"statement",!1,!1,!1)),N.push(a(23,74321,52,2181,{left:t(l),op:"~+=",right:a(12,74333,1)},"expression",!1,!1,!1))),n=a(7,74366,[a(23,74366,38,2184,{macroName:"let",macroData:{declarable:a(23,74375,37,2184,a(23,74375,31,2184,{ident:t(u)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(9,74383,a(1,74383,t(d),a(12,74394,"next")),[],!1,!1)}},"statement",!1,!1,!1),a(23,74401,17,2185,{macroName:"if",macroData:{test:a(1,74409,t(u),a(12,74416,"done")),body:a(23,74421,19,2186,{macroName:"break",macroData:{}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),a(23,74435,38,2187,{macroName:"let",macroData:{declarable:a(23,74444,37,2187,a(23,74444,31,2187,{ident:t(D)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(1,74453,t(u),a(12,74460,"value"))}},"statement",!1,!1,!1)],null),b=[],o&&!v&&this.position!=="expression"&&(x=this.tmp("else",!1,"boolean"),c.push(a(23,74618,38,2192,{macroName:"let",macroData:{declarable:a(23,74622,37,2192,a(23,74622,31,2192,{ident:t(x)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("true")}},"statement",!1,!1,!1)),r=a(7,74659,[a(23,74659,30,2194,{left:t(x),op:":=",right:s("false")},"statement",!1,!1,!1),t(r)],null),b.push(a(23,74720,17,2197,{macroName:"if",macroData:{test:t(x),body:t(o),elseIfs:[]}},"statement",!1,!1,!1))),this.hasFunc(r)?(m=this.tmp("f",!1,"function"),l?(c.push(a(23,75009,38,2208,{macroName:"let",macroData:{declarable:a(23,75013,37,2208,a(23,75013,31,2208,{ident:t(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(23,75023,117,2208,{op:"",node:a(20,75023,[a(27,75024,t(D),void 0,!1,!1,void 0),a(27,75031,t(l),void 0,!1,!1,void 0)],t(r),!0,!1,!1,void 0,!1,[])},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),r=a(7,75069,[t(n),a(9,75094,t(m),[a(38,75111),t(D),t(l)],!1,!0)],null)):(c.push(a(23,74869,38,2203,{macroName:"let",macroData:{declarable:a(23,74873,37,2203,a(23,74873,31,2203,{ident:t(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(23,74883,117,2203,{op:"",node:a(20,74883,[a(27,74884,t(D),void 0,!1,!1,void 0)],t(r),!0,!1,!1,void 0,!1,[])},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),r=a(7,74921,[t(n),a(9,74946,t(m),[a(38,74963),t(D)],!1,!0)],null))):r=a(7,75160,[t(n),t(r)],null),"every"===v?y=a(23,75244,106,2218,{macroName:"for",macroData:{reducer:"every",init:t(c),test:s("true"),step:t(N),body:t(r),elseBody:t(o)}},"expression",!1,!1,!1):"some"===v?y=a(23,75357,106,2223,{macroName:"for",macroData:{reducer:"some",init:t(c),test:s("true"),step:t(N),body:t(r),elseBody:t(o)}},"expression",!1,!1,!1):"first"===v?y=a(23,75470,106,2228,{macroName:"for",macroData:{reducer:"first",init:t(c),test:s("true"),step:t(N),body:t(r),elseBody:t(o)}},"expression",!1,!1,!1):"filter"===v?(r=this.mutateLast(r,function(e){return a(23,75627,17,2234,{macroName:"if",macroData:{test:t(e),body:t(D),elseIfs:[]}},"statement",!1,!1,!1)}),y=a(23,75664,106,2236,{macroName:"for",macroData:{init:t(c),test:s("true"),step:t(N),body:t(r),elseBody:t(o)}},"expression",!1,!1,!1)):y=this.position==="expression"?a(23,75779,106,2241,{macroName:"for",macroData:{init:t(c),test:s("true"),step:t(N),body:t(r),elseBody:t(o)}},"expression",!1,!1,!1):a(7,75866,[a(23,75866,106,2247,{macroName:"for",macroData:{init:t(c),test:s("true"),step:t(N),body:t(r)}},"statement",!1,!1,!1),t(b)],null),a(23,75939,119,2251,{macroName:"try",macroData:{tryBody:t(y),typedCatches:[],finallyBody:a(23,75968,119,2254,{macroName:"try",macroData:{tryBody:a(9,75978,a(1,75978,t(d),a(12,75996,"close")),[],!1,!1),typedCatches:[],catchPart:{ident:t(i),body:s("void")}}},"statement",!1,!1,!1)}},"statement",!1,!1,!1)}}).call(this);',
           params: [
             [
               "ident",
@@ -32761,7 +32763,7 @@
           id: 120
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i,l,m;return l=e.macroName,i=e.macroData,m=i.value,o=i.index,n=i.iterator,c=i.current,r=i.currentStart,a=i.body,a=this.mutateLast(a||this.noop(),function(e){return s("MacroAccess",76287,30,2260,{left:t(c),op:":=",right:t(e)},"expression",!1,!1,!1)}),s("Block",76315,[s("MacroAccess",76315,38,2262,{macroName:"let",macroData:{declarable:s("MacroAccess",76324,37,2262,s("MacroAccess",76324,31,2262,{isMutable:"mutable",ident:t(c)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(r)}},"statement",!1,!1,!1),s("MacroAccess",76359,120,2263,{macroName:"for",macroData:{value:t(m),index:t(o),iterable:t(n),body:t(a)}},"statement",!1,!1,!1),t(c)],null)}}).call(this);',
+          code: 'return(function(){"use strict";return function(e,t,a){var s,r,n,o,i,m,l,c;return l=e.macroName,m=e.macroData,c=m.value,o=m.index,i=m.iterator,r=m.current,n=m.currentStart,s=m.body,s=this.mutateLast(s||this.noop(),function(e){return a(23,76287,30,2260,{left:t(r),op:":=",right:t(e)},"expression",!1,!1,!1)}),a(7,76315,[a(23,76315,38,2262,{macroName:"let",macroData:{declarable:a(23,76324,37,2262,a(23,76324,31,2262,{isMutable:"mutable",ident:t(r)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(n)}},"statement",!1,!1,!1),a(23,76359,120,2263,{macroName:"for",macroData:{value:t(c),index:t(o),iterable:t(i),body:t(s)}},"statement",!1,!1,!1),t(r)],null)}}).call(this);',
           params: [
             ["const", "reduce"],
             ["ident", "value", "ident", "Identifier"],
@@ -32796,7 +32798,7 @@
           id: 121
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,a,c;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+c(e));return e},s=Array.prototype.slice,a=function(t){if(null==t)throw TypeError("Expected an object, got "+c(t));if(e(t))return t;if("string"==typeof t)return t.split("");if(typeof t.length=="number")return s.call(t);throw TypeError("Expected an object with a length property, got "+c(t))},c=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,s,c){var r,o,n,i,l,m,u,p,d,h,f,A,M,y,b,v,x,N,g;for(v=e.macroName,b=e.macroData,x=b.node,f=b.cases,A=b.defaultCase,g=[],r=a(f),n=0,l=r.length;l>n;++n){for(p=r[n],h=[p.nodeHead].concat(p.nodeTail),u=p.body,M=!1,this.isBlock(u)?(N=this.nodes(u),y=N[t(N.length)-1],this.isIdent(y)&&this.name(y)==="fallthrough"&&(u=this.block(N.slice(0,-1)),M=!0)):this.isIdent(u)&&this.name(u)==="fallthrough"&&(u=this.noop(),M=!0),o=a(h.slice(0,-1)),i=0,m=o.length;m>i;++i)d=o[i],g.push({node:d,body:this.noop(),fallthrough:!0});g.push({node:h[t(h.length)-1],body:u,fallthrough:M})}return this["switch"](x,g,A||c("MacroAccess",77552,11,2293,{op:"throw",node:c("Call",77558,c("Ident",77558,"Error"),[c("Const",77565,"Unhandled value in switch")],!1,!1)},"statement",!1,!1,!1))}}).call(this);',
+          code: 'return(function(){"use strict";var e,t,a,r,s;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+s(e));return e},a=Array.prototype.slice,r=function(t){if(null==t)throw TypeError("Expected an object, got "+s(t));if(e(t))return t;if("string"==typeof t)return t.split("");if(typeof t.length=="number")return a.call(t);throw TypeError("Expected an object with a length property, got "+s(t))},s=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,a,s){var n,o,i,l,m,c,u,p,d,h,f,y,b,v,x,N,g,D,I;for(N=e.macroName,x=e.macroData,g=x.node,f=x.cases,y=x.defaultCase,I=[],n=r(f),i=0,m=n.length;m>i;++i){for(p=n[i],h=[p.nodeHead].concat(p.nodeTail),u=p.body,b=!1,this.isBlock(u)?(D=this.nodes(u),v=D[t(D.length)-1],this.isIdent(v)&&this.name(v)==="fallthrough"&&(u=this.block(D.slice(0,-1)),b=!0)):this.isIdent(u)&&this.name(u)==="fallthrough"&&(u=this.noop(),b=!0),o=r(h.slice(0,-1)),l=0,c=o.length;c>l;++l)d=o[l],I.push({node:d,body:this.noop(),fallthrough:!0});I.push({node:h[t(h.length)-1],body:u,fallthrough:b})}return this["switch"](g,I,y||s(23,77552,11,2293,{op:"throw",node:s(9,77558,s(21,77558,"Error"),[s(12,77565,"Unhandled value in switch")],!1,!1)},"statement",!1,!1,!1))}}).call(this);',
           params: [
             ["ident", "node", "ident", "Logic"],
             [
@@ -32858,7 +32860,7 @@
           id: 122
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,a,c;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+c(e));return e},s=Array.prototype.slice,a=function(t){if(null==t)throw TypeError("Expected an object, got "+c(t));if(e(t))return t;if("string"==typeof t)return t.split("");if(typeof t.length=="number")return s.call(t);throw TypeError("Expected an object with a length property, got "+c(t))},c=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,s,c,r){var o,n,i,l,m,u,p,h,d,f,A,M,y,b,v;for(M=e.macroName,A=e.macroData,m=A.cases,p=A.defaultCase,u=p||c("MacroAccess",77852,11,2296,{op:"throw",node:c("Call",77858,c("Ident",77858,"Error"),[c("Const",77865,"Unhandled value in switch")],!1,!1)},"statement",!1,!1,!1),o=a(m),n=o.length;n--;)l=o[n],v=l.test,i=l.body,d=!1,b=void 0,this.isBlock(i)?(y=this.nodes(i),f=y[t(y.length)-1],this.isIdent(f)&&this.name(f)==="fallthrough"&&(i=this.block(y.slice(0,-1)),this.isIf(u)?(h=this.tmp("fall",!1,"boolean"),b=c("Block",78345,[c("MacroAccess",78345,38,2309,{macroName:"let",macroData:{declarable:c("MacroAccess",78362,37,2309,c("MacroAccess",78362,31,2309,{isMutable:"mutable",ident:s(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("false")}},"statement",!1,!1,!1),c("MacroAccess",78385,17,2310,{macroName:"if",macroData:{test:s(v),body:c("Block",78408,[c("MacroAccess",78408,30,2311,{left:s(h),op:":=",right:r("true")},"statement",!1,!1,!1),s(i)],null),elseIfs:[]}},"statement",!1,!1,!1),c("MacroAccess",78460,17,2313,{macroName:"if",macroData:{test:c("MacroAccess",78476,2,2313,{left:s(h),inverted:!1,op:"or",right:s(this.test(u))},"statement",!1,!1,!1),body:s(this.whenTrue(u)),elseIfs:[],elseBody:s(this.whenFalse(u))}},"statement",!1,!1,!1)],null)):b=c("Block",78633,[c("MacroAccess",78633,17,2319,{macroName:"if",macroData:{test:s(v),body:s(i),elseIfs:[]}},"statement",!1,!1,!1),s(u)],null))):this.isIdent(i)&&this.name(i)==="fallthrough"&&(b=this.isIf(u)?c("MacroAccess",78813,17,2324,{macroName:"if",macroData:{test:c("MacroAccess",78816,2,2324,{left:s(v),inverted:!1,op:"or",right:s(this.test(u))},"statement",!1,!1,!1),body:s(this.whenTrue(u)),elseIfs:[],elseBody:s(this.whenFalse(u))}},"statement",!1,!1,!1):c("Block",78967,[s(v),s(u)],null)),u=b||c("MacroAccess",79038,17,2333,{macroName:"if",macroData:{test:s(l.test),body:s(i),elseIfs:[],elseBody:s(u)}},"statement",!1,!1,!1);return u}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,a,r,s;return t=typeof Array.isArray=="function"?Array.isArray:function(){var t;return t=Object.prototype.toString,function(e){return t.call(e)==="[object Array]"}}(),e=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+s(t));return t},a=Array.prototype.slice,r=function(e){if(null==e)throw TypeError("Expected an object, got "+s(e));if(t(e))return e;if("string"==typeof e)return e.split("");if(typeof e.length=="number")return a.call(e);throw TypeError("Expected an object with a length property, got "+s(e))},s=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(t,a,s,n){var o,i,l,m,c,u,p,h,d,f,y,b,v,x,g;for(b=t.macroName,y=t.macroData,c=y.cases,p=y.defaultCase,u=p||s(23,77852,11,2296,{op:"throw",node:s(9,77858,s(21,77858,"Error"),[s(12,77865,"Unhandled value in switch")],!1,!1)},"statement",!1,!1,!1),o=r(c),i=o.length;i--;)m=o[i],g=m.test,l=m.body,d=!1,x=void 0,this.isBlock(l)?(v=this.nodes(l),f=v[e(v.length)-1],this.isIdent(f)&&this.name(f)==="fallthrough"&&(l=this.block(v.slice(0,-1)),this.isIf(u)?(h=this.tmp("fall",!1,"boolean"),x=s(7,78345,[s(23,78345,38,2309,{macroName:"let",macroData:{declarable:s(23,78362,37,2309,s(23,78362,31,2309,{isMutable:"mutable",ident:a(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n("false")}},"statement",!1,!1,!1),s(23,78385,17,2310,{macroName:"if",macroData:{test:a(g),body:s(7,78408,[s(23,78408,30,2311,{left:a(h),op:":=",right:n("true")},"statement",!1,!1,!1),a(l)],null),elseIfs:[]}},"statement",!1,!1,!1),s(23,78460,17,2313,{macroName:"if",macroData:{test:s(23,78476,2,2313,{left:a(h),inverted:!1,op:"or",right:a(this.test(u))},"statement",!1,!1,!1),body:a(this.whenTrue(u)),elseIfs:[],elseBody:a(this.whenFalse(u))}},"statement",!1,!1,!1)],null)):x=s(7,78633,[s(23,78633,17,2319,{macroName:"if",macroData:{test:a(g),body:a(l),elseIfs:[]}},"statement",!1,!1,!1),a(u)],null))):this.isIdent(l)&&this.name(l)==="fallthrough"&&(x=this.isIf(u)?s(23,78813,17,2324,{macroName:"if",macroData:{test:s(23,78816,2,2324,{left:a(g),inverted:!1,op:"or",right:a(this.test(u))},"statement",!1,!1,!1),body:a(this.whenTrue(u)),elseIfs:[],elseBody:a(this.whenFalse(u))}},"statement",!1,!1,!1):s(7,78967,[a(g),a(u)],null)),u=x||s(23,79038,17,2333,{macroName:"if",macroData:{test:a(m.test),body:a(l),elseIfs:[],elseBody:a(u)}},"statement",!1,!1,!1);return u}}).call(this);',
           params: [
             [
               "ident",
@@ -32910,7 +32912,7 @@
           id: 123
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i;return n=e.macroName,o=e.macroData,i=o.params,c=o.call,a=o.body,this.isCall(c)||this.error("async call expression must be a call",c),null==a&&(a=this.noop()),i=i?[i.head].concat(i.tail):[],r=this.func(i,a,!0,!0),this.call(this.callFunc(c),this.callArgs(c).concat([s("MacroAccess",82103,126,2449,{macroName:"once!",macroData:[s("MacroAccess",82111,117,2449,{op:"mutateFunction!",node:t(r)},"expression",!1,!1,!1)]},"expression",!1,!1,!1)]),this.callIsNew(c),this.callIsApply(c))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,s,n,o,i,l;return i=t.macroName,o=t.macroData,l=o.params,s=o.call,r=o.body,this.isCall(s)||this.error("async call expression must be a call",s),null==r&&(r=this.noop()),l=l?[l.head].concat(l.tail):[],n=this.func(l,r,!0,!0),this.call(this.callFunc(s),this.callArgs(s).concat([a(23,82103,126,2449,{macroName:"once!",macroData:[a(23,82111,117,2449,{op:"mutateFunction!",node:e(n)},"expression",!1,!1,!1)]},"expression",!1,!1,!1)]),this.callIsNew(s),this.callIsApply(s))}}).call(this);',
           params: [
             [
               "ident",
@@ -32937,7 +32939,7 @@
           id: 127
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i,l,m;return l=e.macroName,i=e.macroData,r=i.callback,m=i.params,c=i.call,a=i.body,this.isCall(c)||this.error("async! call expression must be a call",c),null==a&&(a=this.noop()),o=this.tmp("e",!1),m=[this.param(o)].concat(m),n=this.func(m,"throw"===r?s("Block",82583,[s("MacroAccess",82583,102,2463,{op:"throw?",node:t(o)},"statement",!1,!1,!1),t(a)],null):s("Block",82646,[s("MacroAccess",82646,17,2467,{macroName:"if",macroData:{test:s("MacroAccess",82658,20,2467,{op:"?",node:t(o)},"statement",!1,!1,!1),body:s("MacroAccess",82667,39,2468,{macroName:"return",macroData:{node:s("Call",82685,t(r),[t(o)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),t(a)],null),!0,!0),this.call(this.callFunc(c),this.callArgs(c).concat([s("MacroAccess",82798,126,2472,{macroName:"once!",macroData:[s("MacroAccess",82806,117,2472,{op:"mutateFunction!",node:t(n)},"expression",!1,!1,!1)]},"expression",!1,!1,!1)]),this.callIsNew(c),this.callIsApply(c))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,s,n,o,i,l,m,c;return m=t.macroName,l=t.macroData,n=l.callback,c=l.params,s=l.call,r=l.body,this.isCall(s)||this.error("async! call expression must be a call",s),null==r&&(r=this.noop()),o=this.tmp("e",!1),c=[this.param(o)].concat(c),i=this.func(c,"throw"===n?a(7,82583,[a(23,82583,102,2463,{op:"throw?",node:e(o)},"statement",!1,!1,!1),e(r)],null):a(7,82646,[a(23,82646,17,2467,{macroName:"if",macroData:{test:a(23,82658,20,2467,{op:"?",node:e(o)},"statement",!1,!1,!1),body:a(23,82667,39,2468,{macroName:"return",macroData:{node:a(9,82685,e(n),[e(o)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),e(r)],null),!0,!0),this.call(this.callFunc(s),this.callArgs(s).concat([a(23,82798,126,2472,{macroName:"once!",macroData:[a(23,82806,117,2472,{op:"mutateFunction!",node:e(i)},"expression",!1,!1,!1)]},"expression",!1,!1,!1)]),this.callIsNew(s),this.callIsApply(s))}}).call(this);',
           params: [
             [
               "ident",
@@ -32963,13 +32965,13 @@
           id: 128
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,a,c;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+c(e));return e},s=Array.prototype.slice,a=function(t){if(null==t)throw TypeError("Expected an object, got "+c(t));if(e(t))return t;if("string"==typeof t)return t.split("");if(typeof t.length=="number")return s.call(t);throw TypeError("Expected an object with a length property, got "+c(t))},c=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,s,r){var o,n,i,l,m,u,p,h,d,f,A,M,y;if(h=e.macroName,p=e.macroData,d=p.name,this.isConst(d)&&typeof this.value(d)!="string"&&this.error("Expected a constant string, got "+c(this.value(d)),d),this.isConst(d))return m=this.value(d),m.indexOf("/")!==-1&&(m=m.substring(t(m.lastIndexOf("/"))+1)),l=this.ident(m),r("MacroAccess",83289,38,2485,{macroName:"let",macroData:{declarable:r("MacroAccess",83293,37,2485,r("MacroAccess",83293,31,2485,{ident:s(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",83302,r("Ident",83302,"require"),[s(d)],!1,!1)}},"statement",!1,!1,!1);if(this.isIdent(d))return A=this.name(d),r("MacroAccess",83381,38,2488,{macroName:"let",macroData:{declarable:r("MacroAccess",83385,37,2488,r("MacroAccess",83385,31,2488,{ident:s(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",83393,r("Ident",83393,"require"),[s(A)],!1,!1)}},"statement",!1,!1,!1);if(this.isObject(d)){for(M=[],o=a(this.pairs(d)),n=0,i=o.length;i>n;++n)f=o[n],u=f.key,y=f.value,this.isConst(u)||this.error("If providing an object to require!, all keys must be constant strings",u),m=this.value(u),m.indexOf("/")!==-1&&(m=m.substring(t(m.lastIndexOf("/"))+1)),l=this.ident(m),this.isConst(y)?M.push(r("MacroAccess",83902,38,2500,{macroName:"let",macroData:{declarable:r("MacroAccess",83906,37,2500,r("MacroAccess",83906,31,2500,{ident:s(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",83915,r("Ident",83915,"require"),[s(y)],!1,!1)}},"statement",!1,!1,!1)):this.isIdent(y)?(A=this.name(y),M.push(r("MacroAccess",84023,38,2503,{macroName:"let",macroData:{declarable:r("MacroAccess",84027,37,2503,r("MacroAccess",84027,31,2503,{ident:s(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",84036,r("Ident",84036,"require"),[s(A)],!1,!1)}},"statement",!1,!1,!1))):this.error("If providing an object to require!, all values must be constant strings or idents",y);return this.block(M)}return this.error("Expected either a constant string or ident or object",d)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,a,r,s;return t=typeof Array.isArray=="function"?Array.isArray:function(){var t;return t=Object.prototype.toString,function(e){return t.call(e)==="[object Array]"}}(),e=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+s(t));return t},a=Array.prototype.slice,r=function(e){if(null==e)throw TypeError("Expected an object, got "+s(e));if(t(e))return e;if("string"==typeof e)return e.split("");if(typeof e.length=="number")return a.call(e);throw TypeError("Expected an object with a length property, got "+s(e))},s=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(t,a,n){var o,i,l,m,c,u,p,h,d,f,y,b,v;if(h=t.macroName,p=t.macroData,d=p.name,this.isConst(d)&&typeof this.value(d)!="string"&&this.error("Expected a constant string, got "+s(this.value(d)),d),this.isConst(d))return c=this.value(d),c.indexOf("/")!==-1&&(c=c.substring(e(c.lastIndexOf("/"))+1)),m=this.ident(c),n(23,83289,38,2485,{macroName:"let",macroData:{declarable:n(23,83293,37,2485,n(23,83293,31,2485,{ident:a(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,83302,n(21,83302,"require"),[a(d)],!1,!1)}},"statement",!1,!1,!1);if(this.isIdent(d))return y=this.name(d),n(23,83381,38,2488,{macroName:"let",macroData:{declarable:n(23,83385,37,2488,n(23,83385,31,2488,{ident:a(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,83393,n(21,83393,"require"),[a(y)],!1,!1)}},"statement",!1,!1,!1);if(this.isObject(d)){for(b=[],o=r(this.pairs(d)),i=0,l=o.length;l>i;++i)f=o[i],u=f.key,v=f.value,this.isConst(u)||this.error("If providing an object to require!, all keys must be constant strings",u),c=this.value(u),c.indexOf("/")!==-1&&(c=c.substring(e(c.lastIndexOf("/"))+1)),m=this.ident(c),this.isConst(v)?b.push(n(23,83902,38,2500,{macroName:"let",macroData:{declarable:n(23,83906,37,2500,n(23,83906,31,2500,{ident:a(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,83915,n(21,83915,"require"),[a(v)],!1,!1)}},"statement",!1,!1,!1)):this.isIdent(v)?(y=this.name(v),b.push(n(23,84023,38,2503,{macroName:"let",macroData:{declarable:n(23,84027,37,2503,n(23,84027,31,2503,{ident:a(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,84036,n(21,84036,"require"),[a(y)],!1,!1)}},"statement",!1,!1,!1))):this.error("If providing an object to require!, all values must be constant strings or idents",v);return this.block(b)}return this.error("Expected either a constant string or ident or object",d)}}).call(this);',
           params: [["ident", "name", "ident", "Expression"]],
           names: "require!",
           id: 129
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,a){var c,r,o,n,i,l,m,u,d,p,h,f,A,M,y,b;return d=e.macroName,u=e.macroData,A=u.results,p=u.next,m=u.init,y=u.test,M=u.step,o=u.body,h=u.rest,c=null!=A?A:{},i=c.err,f=c.result,null==i&&(i=this.tmp("err",!0)),null==m&&(m=this.noop()),null==y&&(y=a("true")),null==M&&(M=this.noop()),null==h&&(h=this.noop()),n=this.tmp("done",!0,"function"),f?(l=this.tmp("first",!0,"boolean"),b=this.tmp("value",!0),r=this.tmp("arr",!0),s("Block",88079,[t(m),s("MacroAccess",88093,38,2647,{macroName:"let",macroData:{declarable:s("MacroAccess",88104,37,2647,s("MacroAccess",88104,31,2647,{ident:t(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("true")}},"statement",!1,!1,!1),s("MacroAccess",88119,38,2648,{macroName:"let",macroData:{declarable:s("MacroAccess",88130,37,2648,s("MacroAccess",88130,31,2648,{ident:t(r)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("Array",88137,[])}},"statement",!1,!1,!1),s("MacroAccess",88141,15,2649,{macroName:"let",macroData:{ident:t(p),func:s("MacroAccess",88158,117,2649,{op:"",node:s("Function",88158,[s("Param",88159,t(i),void 0,!1,!1,void 0),s("Param",88164,t(b),void 0,!1,!1,void 0)],s("Block",88174,[s("MacroAccess",88174,17,2650,{macroName:"if",macroData:{test:s("MacroAccess",88186,20,2650,{op:"?",node:t(i)},"statement",!1,!1,!1),body:s("MacroAccess",88193,39,2651,{macroName:"return",macroData:{node:s("Call",88211,t(n),[t(i)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),s("MacroAccess",88224,17,2652,{macroName:"if",macroData:{test:t(l),body:s("MacroAccess",88244,30,2653,{left:t(l),op:":=",right:a("false")},"statement",!1,!1,!1),elseIfs:[],elseBody:s("Block",88287,[t(M),s("MacroAccess",88305,17,2656,{macroName:"if",macroData:{test:s("MacroAccess",88319,10,2656,{left:s("Access",88319,s("Args",88319),s("Const",88330,"length")),inverted:!1,op:"~>",right:s("Const",88340,1)},"statement",!1,!1,!1),body:s("Call",88342,s("Access",88342,t(r),s("Const",88361,"push")),[t(b)],!1,!1),elseIfs:[]}},"statement",!1,!1,!1)],null)}},"statement",!1,!1,!1),s("MacroAccess",88373,17,2658,{macroName:"unless",macroData:{test:t(y),body:s("MacroAccess",88396,39,2659,{macroName:"return",macroData:{node:s("Call",88414,t(n),[a("null"),t(r)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),t(o)],null),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),s("MacroAccess",88449,15,2661,{macroName:"let",macroData:{ident:t(n),func:s("MacroAccess",88466,117,2661,{op:"",node:s("Function",88466,[s("Param",88467,t(i),void 0,!1,!1,void 0),s("Param",88472,t(f),void 0,!1,!1,void 0)],t(h),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),s("Call",88499,t(p),[],!1,!1)],null)):M?(l=this.tmp("first",!0,"boolean"),s("Block",87593,[t(m),s("MacroAccess",87609,38,2627,{macroName:"let",macroData:{declarable:s("MacroAccess",87622,37,2627,s("MacroAccess",87622,31,2627,{ident:t(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("true")}},"statement",!1,!1,!1),s("MacroAccess",87637,15,2628,{macroName:"let",macroData:{ident:t(p),func:s("MacroAccess",87656,117,2628,{op:"",node:s("Function",87656,[s("Param",87657,t(i),void 0,!1,!1,void 0)],s("Block",87664,[s("MacroAccess",87664,17,2629,{macroName:"if",macroData:{test:s("MacroAccess",87678,20,2629,{op:"?",node:t(i)},"statement",!1,!1,!1),body:s("MacroAccess",87685,39,2630,{macroName:"return",macroData:{node:s("Call",87705,t(n),[t(i)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),s("MacroAccess",87718,17,2631,{macroName:"if",macroData:{test:t(l),body:s("MacroAccess",87740,30,2632,{left:t(l),op:":=",right:a("false")},"statement",!1,!1,!1),elseIfs:[],elseBody:t(M)}},"statement",!1,!1,!1),s("MacroAccess",87807,17,2635,{macroName:"unless",macroData:{test:t(y),body:s("MacroAccess",87832,39,2636,{macroName:"return",macroData:{node:s("Call",87852,t(n),[a("null")],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),t(o)],null),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),s("MacroAccess",87883,15,2638,{macroName:"let",macroData:{ident:t(n),func:s("MacroAccess",87902,117,2638,{op:"",node:s("Function",87902,[s("Param",87903,t(i),void 0,!1,!1,void 0)],t(h),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),s("Call",87928,t(p),[],!1,!1)],null)):s("Block",87286,[t(m),s("MacroAccess",87302,15,2614,{macroName:"let",macroData:{ident:t(p),func:s("MacroAccess",87321,117,2614,{op:"",node:s("Function",87321,[s("Param",87322,t(i),void 0,!1,!1,void 0)],s("Block",87329,[s("MacroAccess",87329,17,2615,{macroName:"if",macroData:{test:s("MacroAccess",87343,20,2615,{op:"?",node:t(i)},"statement",!1,!1,!1),body:s("MacroAccess",87350,39,2616,{macroName:"return",macroData:{node:s("Call",87370,t(n),[t(i)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),s("MacroAccess",87383,17,2617,{macroName:"unless",macroData:{test:t(y),body:s("MacroAccess",87408,39,2618,{macroName:"return",macroData:{node:s("Call",87428,t(n),[a("null")],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),t(o)],null),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),s("MacroAccess",87459,15,2620,{macroName:"let",macroData:{ident:t(n),func:s("MacroAccess",87478,117,2620,{op:"",node:s("Function",87478,[s("Param",87479,t(i),void 0,!1,!1,void 0)],t(h),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),s("Call",87504,t(p),[],!1,!1)],null)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a,r){var s,n,o,i,l,m,c,u,p,d,h,f,y,b,v,N;return p=t.macroName,u=t.macroData,y=u.results,d=u.next,c=u.init,v=u.test,b=u.step,o=u.body,h=u.rest,s=null!=y?y:{},l=s.err,f=s.result,null==l&&(l=this.tmp("err",!0)),null==c&&(c=this.noop()),null==v&&(v=r("true")),null==b&&(b=this.noop()),null==h&&(h=this.noop()),i=this.tmp("done",!0,"function"),f?(m=this.tmp("first",!0,"boolean"),N=this.tmp("value",!0),n=this.tmp("arr",!0),a(7,88079,[e(c),a(23,88093,38,2647,{macroName:"let",macroData:{declarable:a(23,88104,37,2647,a(23,88104,31,2647,{ident:e(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("true")}},"statement",!1,!1,!1),a(23,88119,38,2648,{macroName:"let",macroData:{declarable:a(23,88130,37,2648,a(23,88130,31,2648,{ident:e(n)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(4,88137,[])}},"statement",!1,!1,!1),a(23,88141,15,2649,{macroName:"let",macroData:{ident:e(d),func:a(23,88158,117,2649,{op:"",node:a(20,88158,[a(27,88159,e(l),void 0,!1,!1,void 0),a(27,88164,e(N),void 0,!1,!1,void 0)],a(7,88174,[a(23,88174,17,2650,{macroName:"if",macroData:{test:a(23,88186,20,2650,{op:"?",node:e(l)},"statement",!1,!1,!1),body:a(23,88193,39,2651,{macroName:"return",macroData:{node:a(9,88211,e(i),[e(l)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),a(23,88224,17,2652,{macroName:"if",macroData:{test:e(m),body:a(23,88244,30,2653,{left:e(m),op:":=",right:r("false")},"statement",!1,!1,!1),elseIfs:[],elseBody:a(7,88287,[e(b),a(23,88305,17,2656,{macroName:"if",macroData:{test:a(23,88319,10,2656,{left:a(1,88319,a(3,88319),a(12,88330,"length")),inverted:!1,op:"~>",right:a(12,88340,1)},"statement",!1,!1,!1),body:a(9,88342,a(1,88342,e(n),a(12,88361,"push")),[e(N)],!1,!1),elseIfs:[]}},"statement",!1,!1,!1)],null)}},"statement",!1,!1,!1),a(23,88373,17,2658,{macroName:"unless",macroData:{test:e(v),body:a(23,88396,39,2659,{macroName:"return",macroData:{node:a(9,88414,e(i),[r("null"),e(n)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),e(o)],null),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),a(23,88449,15,2661,{macroName:"let",macroData:{ident:e(i),func:a(23,88466,117,2661,{op:"",node:a(20,88466,[a(27,88467,e(l),void 0,!1,!1,void 0),a(27,88472,e(f),void 0,!1,!1,void 0)],e(h),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),a(9,88499,e(d),[],!1,!1)],null)):b?(m=this.tmp("first",!0,"boolean"),a(7,87593,[e(c),a(23,87609,38,2627,{macroName:"let",macroData:{declarable:a(23,87622,37,2627,a(23,87622,31,2627,{ident:e(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("true")}},"statement",!1,!1,!1),a(23,87637,15,2628,{macroName:"let",macroData:{ident:e(d),func:a(23,87656,117,2628,{op:"",node:a(20,87656,[a(27,87657,e(l),void 0,!1,!1,void 0)],a(7,87664,[a(23,87664,17,2629,{macroName:"if",macroData:{test:a(23,87678,20,2629,{op:"?",node:e(l)},"statement",!1,!1,!1),body:a(23,87685,39,2630,{macroName:"return",macroData:{node:a(9,87705,e(i),[e(l)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),a(23,87718,17,2631,{macroName:"if",macroData:{test:e(m),body:a(23,87740,30,2632,{left:e(m),op:":=",right:r("false")},"statement",!1,!1,!1),elseIfs:[],elseBody:e(b)}},"statement",!1,!1,!1),a(23,87807,17,2635,{macroName:"unless",macroData:{test:e(v),body:a(23,87832,39,2636,{macroName:"return",macroData:{node:a(9,87852,e(i),[r("null")],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),e(o)],null),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),a(23,87883,15,2638,{macroName:"let",macroData:{ident:e(i),func:a(23,87902,117,2638,{op:"",node:a(20,87902,[a(27,87903,e(l),void 0,!1,!1,void 0)],e(h),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),a(9,87928,e(d),[],!1,!1)],null)):a(7,87286,[e(c),a(23,87302,15,2614,{macroName:"let",macroData:{ident:e(d),func:a(23,87321,117,2614,{op:"",node:a(20,87321,[a(27,87322,e(l),void 0,!1,!1,void 0)],a(7,87329,[a(23,87329,17,2615,{macroName:"if",macroData:{test:a(23,87343,20,2615,{op:"?",node:e(l)},"statement",!1,!1,!1),body:a(23,87350,39,2616,{macroName:"return",macroData:{node:a(9,87370,e(i),[e(l)],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),a(23,87383,17,2617,{macroName:"unless",macroData:{test:e(v),body:a(23,87408,39,2618,{macroName:"return",macroData:{node:a(9,87428,e(i),[r("null")],!1,!1)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),e(o)],null),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),a(23,87459,15,2620,{macroName:"let",macroData:{ident:e(i),func:a(23,87478,117,2620,{op:"",node:a(20,87478,[a(27,87479,e(l),void 0,!1,!1,void 0)],e(h),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1),a(9,87504,e(d),[],!1,!1)],null)}}).call(this);',
           params: [
             [
               "ident",
@@ -33032,7 +33034,7 @@
           id: 130
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){var s;if(s=typeof e,"string"===s)return e;if("number"===s)return String(e);throw TypeError("Expected a string or number, got "+t(e))},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,a){var c,r,o,n,i,l,m,u,d,p,h,f,A,M,y,v,b,x,g,N,D;return A=t.macroName,f=t.macroData,y=f.parallelism,x=f.results,M=f.next,D=f.value,u=f.index,r=f.array,o=f.body,v=f.rest,c=null!=x?x:{},i=c.err,b=c.result,l=!!b,null==i&&(i=this.tmp("err",!0)),d=[],null==v&&(v=this.noop()),D=this.macroExpand1(D),p=null,u&&(p=u.length,u=u.value),null==y&&(y=a("Const",89183,1)),null==u&&(u=this.tmp("i",!0,"number")),this.isCall(r)&&this.isIdent(this.callFunc(r))&&this.name(this.callFunc(r))==="__range"&&!this.callIsApply(r)?((this.isArray(D)||this.isObject(D))&&this.error("Cannot assign a number to a complex declarable",D),D=D.ident,c=this.callArgs(r),g=c[0],n=c[1],N=c[2],m=c[3],this.isConst(g)?typeof this.value(g)!="number"&&this.error("Cannot start with a non-number: "+e(this.value(g)),g):g=a("MacroAccess",89769,60,2692,{op:"+",node:s(g)},"expression",!1,!1,!1),this.isConst(n)?typeof this.value(n)!="number"&&this.error("Cannot end with a non-number: "+e(this.value(n)),n):this.isComplex(n)?n=this.cache(a("MacroAccess",89967,60,2698,{op:"+",node:s(n)},"expression",!1,!1,!1),d,"end",!1):d.push(a("MacroAccess",90027,60,2700,{op:"+",node:s(n)},"expression",!1,!1,!1)),this.isConst(N)?typeof this.value(N)!="number"&&this.error("Cannot step with a non-number: "+e(this.value(N)),N):this.isComplex(N)?N=this.cache(a("MacroAccess",90230,60,2706,{op:"+",node:s(N)},"expression",!1,!1,!1),d,"step",!1):d.push(a("MacroAccess",90292,60,2708,{op:"+",node:s(N)},"expression",!1,!1,!1)),o=a("Block",90325,[a("MacroAccess",90325,38,2711,{macroName:"let",macroData:{declarable:a("MacroAccess",90336,37,2711,a("MacroAccess",90336,31,2711,{ident:s(D)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("MacroAccess",90345,49,2711,{left:a("MacroAccess",90345,45,2711,{left:s(u),inverted:!1,op:"~*",right:s(N)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:s(g)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),s(o)],null),h=a("MacroAccess",90415,17,2714,{macroName:"if",macroData:{test:s(m),body:a("MacroAccess",90430,45,2715,{left:a("MacroAccess",90439,49,2715,{left:a("MacroAccess",90439,49,2715,{left:s(n),inverted:!1,op:"~-",right:s(g)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:s(N)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:s(N)},"statement",!1,!1,!1),elseIfs:[],elseBody:a("MacroAccess",90484,45,2717,{left:a("MacroAccess",90493,49,2717,{left:s(n),inverted:!1,op:"~-",right:s(g)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:s(N)},"statement",!1,!1,!1)}},"expression",!1,!1,!1),p?d.push(a("MacroAccess",90600,38,2721,{macroName:"let",macroData:{declarable:a("MacroAccess",90604,37,2721,a("MacroAccess",90604,31,2721,{ident:s(p)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(h)}},"statement",!1,!1,!1)):p=h):(r=this.cache(r,d,"arr",!0),o=a("Block",90702,[a("MacroAccess",90702,38,2726,{macroName:"let",macroData:{declarable:a("MacroAccess",90713,37,2726,a("MacroAccess",90713,31,2726,{ident:s(D)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("Access",90722,s(r),s(u))}},"statement",!1,!1,!1),s(o)],null),p?d.push(a("MacroAccess",90849,38,2732,{macroName:"let",macroData:{declarable:a("MacroAccess",90853,37,2732,a("MacroAccess",90853,31,2732,{ident:s(p)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("MacroAccess",90863,60,2732,{op:"+",node:a("Access",90865,s(r),a("Const",90872,"length"))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):p=a("MacroAccess",90801,60,2730,{op:"+",node:a("Access",90803,s(r),a("Const",90810,"length"))},"expression",!1,!1,!1)),a("Block",90892,[s(d),a("Call",90904,a("Ident",90904,"__async"),[a("MacroAccess",90918,60,2736,{op:"+",node:s(y)},"expression",!1,!1,!1),s(p),s(l),a("MacroAccess",90964,117,2737,{op:"",node:a("Function",90964,[a("Param",90965,s(u),void 0,!1,!1,void 0),a("Param",90972,s(M),void 0,!1,!1,void 0)],s(o),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1),a("MacroAccess",90998,17,2738,{macroName:"if",macroData:{test:s(l),body:a("MacroAccess",91024,117,2739,{op:"",node:a("Function",91024,[a("Param",91025,s(i),void 0,!1,!1,void 0),a("Param",91030,s(b),void 0,!1,!1,void 0)],s(v),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1),elseIfs:[],elseBody:a("MacroAccess",91075,117,2741,{op:"",node:a("Function",91075,[a("Param",91076,s(i),void 0,!1,!1,void 0)],s(v),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"expression",!1,!1,!1)],!1,!1)],null)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){var a;if(a=typeof t,"string"===a)return t;if("number"===a)return String(t);throw TypeError("Expected a string or number, got "+e(t))},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,a,r){var s,n,o,i,l,m,c,u,p,d,h,f,y,v,b,x,g,N,D,I,E;return y=e.macroName,f=e.macroData,b=f.parallelism,N=f.results,v=f.next,E=f.value,u=f.index,n=f.array,o=f.body,x=f.rest,s=null!=N?N:{},l=s.err,g=s.result,m=!!g,null==l&&(l=this.tmp("err",!0)),p=[],null==x&&(x=this.noop()),E=this.macroExpand1(E),d=null,u&&(d=u.length,u=u.value),null==b&&(b=r(12,89183,1)),null==u&&(u=this.tmp("i",!0,"number")),this.isCall(n)&&this.isIdent(this.callFunc(n))&&this.name(this.callFunc(n))==="__range"&&!this.callIsApply(n)?((this.isArray(E)||this.isObject(E))&&this.error("Cannot assign a number to a complex declarable",E),E=E.ident,s=this.callArgs(n),D=s[0],i=s[1],I=s[2],c=s[3],this.isConst(D)?typeof this.value(D)!="number"&&this.error("Cannot start with a non-number: "+t(this.value(D)),D):D=r(23,89769,60,2692,{op:"+",node:a(D)},"expression",!1,!1,!1),this.isConst(i)?typeof this.value(i)!="number"&&this.error("Cannot end with a non-number: "+t(this.value(i)),i):this.isComplex(i)?i=this.cache(r(23,89967,60,2698,{op:"+",node:a(i)},"expression",!1,!1,!1),p,"end",!1):p.push(r(23,90027,60,2700,{op:"+",node:a(i)},"expression",!1,!1,!1)),this.isConst(I)?typeof this.value(I)!="number"&&this.error("Cannot step with a non-number: "+t(this.value(I)),I):this.isComplex(I)?I=this.cache(r(23,90230,60,2706,{op:"+",node:a(I)},"expression",!1,!1,!1),p,"step",!1):p.push(r(23,90292,60,2708,{op:"+",node:a(I)},"expression",!1,!1,!1)),o=r(7,90325,[r(23,90325,38,2711,{macroName:"let",macroData:{declarable:r(23,90336,37,2711,r(23,90336,31,2711,{ident:a(E)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(23,90345,49,2711,{left:r(23,90345,45,2711,{left:a(u),inverted:!1,op:"~*",right:a(I)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:a(D)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),a(o)],null),h=r(23,90415,17,2714,{macroName:"if",macroData:{test:a(c),body:r(23,90430,45,2715,{left:r(23,90439,49,2715,{left:r(23,90439,49,2715,{left:a(i),inverted:!1,op:"~-",right:a(D)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:a(I)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:a(I)},"statement",!1,!1,!1),elseIfs:[],elseBody:r(23,90484,45,2717,{left:r(23,90493,49,2717,{left:a(i),inverted:!1,op:"~-",right:a(D)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:a(I)},"statement",!1,!1,!1)}},"expression",!1,!1,!1),d?p.push(r(23,90600,38,2721,{macroName:"let",macroData:{declarable:r(23,90604,37,2721,r(23,90604,31,2721,{ident:a(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(h)}},"statement",!1,!1,!1)):d=h):(n=this.cache(n,p,"arr",!0),o=r(7,90702,[r(23,90702,38,2726,{macroName:"let",macroData:{declarable:r(23,90713,37,2726,r(23,90713,31,2726,{ident:a(E)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(1,90722,a(n),a(u))}},"statement",!1,!1,!1),a(o)],null),d?p.push(r(23,90849,38,2732,{macroName:"let",macroData:{declarable:r(23,90853,37,2732,r(23,90853,31,2732,{ident:a(d)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(23,90863,60,2732,{op:"+",node:r(1,90865,a(n),r(12,90872,"length"))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):d=r(23,90801,60,2730,{op:"+",node:r(1,90803,a(n),r(12,90810,"length"))},"expression",!1,!1,!1)),r(7,90892,[a(p),r(9,90904,r(21,90904,"__async"),[r(23,90918,60,2736,{op:"+",node:a(b)},"expression",!1,!1,!1),a(d),a(m),r(23,90964,117,2737,{op:"",node:r(20,90964,[r(27,90965,a(u),void 0,!1,!1,void 0),r(27,90972,a(v),void 0,!1,!1,void 0)],a(o),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1),r(23,90998,17,2738,{macroName:"if",macroData:{test:a(m),body:r(23,91024,117,2739,{op:"",node:r(20,91024,[r(27,91025,a(l),void 0,!1,!1,void 0),r(27,91030,a(g),void 0,!1,!1,void 0)],a(x),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1),elseIfs:[],elseBody:r(23,91075,117,2741,{op:"",node:r(20,91075,[r(27,91076,a(l),void 0,!1,!1,void 0)],a(x),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"expression",!1,!1,!1)],!1,!1)],null)}}).call(this);',
           params: [
             [
               "ident",
@@ -33103,7 +33105,7 @@
           id: 131
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i,l,m,u,d,p,h,f,A,M,y,v,b;return u=e.macroName,m=e.macroData,f=m.parallelism,y=m.results,d=m.next,i=m.key,b=m.value,v=m.type,p=m.object,c=m.body,A=m.rest,a=null!=y?y:{},r=a.err,M=a.result,h="of"===v,n=[],p=this.cache(p,n,"obj",!0),null==A&&(A=this.noop()),o=null,b&&(o=b.index,b=this.macroExpand1(b.value)),b&&(c=s("Block",91760,[s("MacroAccess",91760,38,2757,{macroName:"let",macroData:{declarable:s("MacroAccess",91771,37,2757,s("MacroAccess",91771,31,2757,{ident:t(b)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("Access",91780,t(p),t(i))}},"statement",!1,!1,!1),t(c)],null)),l=this.tmp("keys",!0,"stringArray"),s("Block",91869,[t(n),s("MacroAccess",91881,38,2763,{macroName:"let",macroData:{declarable:s("MacroAccess",91890,37,2763,s("MacroAccess",91890,31,2763,{ident:t(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("MacroAccess",91898,17,2763,{macroName:"if",macroData:{test:t(h),body:s("Call",91907,s("Ident",91907,"__keys"),[t(p)],!1,!1),elseIfs:[],elseBody:s("Call",91941,s("Ident",91941,"__allkeys"),[t(p)],!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),s("MacroAccess",91967,131,2767,{macroName:"asyncfor",macroData:{parallelism:t(f),results:{err:t(r),result:t(M)},next:t(d),value:s("MacroAccess",92019,37,2767,s("MacroAccess",92019,31,2767,{ident:t(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:{value:t(o)},array:t(l),body:t(c),rest:t(A)}},"statement",!1,!1,!1)],null)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,s,n,o,i,l,m,c,u,d,p,h,f,y,v,b,x,N;return u=t.macroName,c=t.macroData,f=c.parallelism,b=c.results,d=c.next,l=c.key,N=c.value,x=c.type,p=c.object,s=c.body,y=c.rest,r=null!=b?b:{},n=r.err,v=r.result,h="of"===x,i=[],p=this.cache(p,i,"obj",!0),null==y&&(y=this.noop()),o=null,N&&(o=N.index,N=this.macroExpand1(N.value)),N&&(s=a(7,91760,[a(23,91760,38,2757,{macroName:"let",macroData:{declarable:a(23,91771,37,2757,a(23,91771,31,2757,{ident:e(N)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(1,91780,e(p),e(l))}},"statement",!1,!1,!1),e(s)],null)),m=this.tmp("keys",!0,"stringArray"),a(7,91869,[e(i),a(23,91881,38,2763,{macroName:"let",macroData:{declarable:a(23,91890,37,2763,a(23,91890,31,2763,{ident:e(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(23,91898,17,2763,{macroName:"if",macroData:{test:e(h),body:a(9,91907,a(21,91907,"__keys"),[e(p)],!1,!1),elseIfs:[],elseBody:a(9,91941,a(21,91941,"__allkeys"),[e(p)],!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),a(23,91967,131,2767,{macroName:"asyncfor",macroData:{parallelism:e(f),results:{err:e(n),result:e(v)},next:e(d),value:a(23,92019,37,2767,a(23,92019,31,2767,{ident:e(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:{value:e(o)},array:e(m),body:e(s),rest:e(y)}},"statement",!1,!1,!1)],null)}}).call(this);',
           params: [
             [
               "ident",
@@ -33180,7 +33182,7 @@
           id: 132
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i,l,m,u,d,p,h,A,f;return m=e.macroName,l=e.macroData,d=l.parallelism,A=l.results,u=l.next,f=l.value,n=l.index,i=l.iterator,c=l.body,p=l.rest,a=null!=A?A:{},r=a.err,h=a.result,o=!!h,null==p&&(p=this.noop()),null==n&&(n=this.tmp("i",!0)),null==r&&(r=this.tmp("err",!0)),null==d&&(d=s("Const",92571,1)),s("Call",92586,s("Ident",92586,"__asyncIter"),[s("MacroAccess",92600,60,2781,{op:"+",node:t(d)},"expression",!1,!1,!1),s("Call",92614,s("Ident",92614,"__iter"),[t(i)],!1,!1),t(o),s("MacroAccess",92654,117,2782,{op:"",node:s("Function",92654,[s("Param",92655,t(f),void 0,!1,!1,void 0),s("Param",92662,t(n),void 0,!1,!1,void 0),s("Param",92670,t(u),void 0,!1,!1,void 0)],t(c),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1),s("MacroAccess",92694,17,2783,{macroName:"if",macroData:{test:t(o),body:s("MacroAccess",92718,117,2784,{op:"",node:s("Function",92718,[s("Param",92719,t(r),void 0,!1,!1,void 0),s("Param",92724,t(h),void 0,!1,!1,void 0)],t(p),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1),elseIfs:[],elseBody:s("MacroAccess",92764,117,2786,{op:"",node:s("Function",92764,[s("Param",92765,t(r),void 0,!1,!1,void 0)],t(p),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"expression",!1,!1,!1)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,s,n,o,i,l,m,c,u,d,p,h,f,v;return c=t.macroName,m=t.macroData,d=m.parallelism,f=m.results,u=m.next,v=m.value,i=m.index,l=m.iterator,s=m.body,p=m.rest,r=null!=f?f:{},n=r.err,h=r.result,o=!!h,null==p&&(p=this.noop()),null==i&&(i=this.tmp("i",!0)),null==n&&(n=this.tmp("err",!0)),null==d&&(d=a(12,92571,1)),a(9,92586,a(21,92586,"__asyncIter"),[a(23,92600,60,2781,{op:"+",node:e(d)},"expression",!1,!1,!1),a(9,92614,a(21,92614,"__iter"),[e(l)],!1,!1),e(o),a(23,92654,117,2782,{op:"",node:a(20,92654,[a(27,92655,e(v),void 0,!1,!1,void 0),a(27,92662,e(i),void 0,!1,!1,void 0),a(27,92670,e(u),void 0,!1,!1,void 0)],e(s),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1),a(23,92694,17,2783,{macroName:"if",macroData:{test:e(o),body:a(23,92718,117,2784,{op:"",node:a(20,92718,[a(27,92719,e(n),void 0,!1,!1,void 0),a(27,92724,e(h),void 0,!1,!1,void 0)],e(p),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1),elseIfs:[],elseBody:a(23,92764,117,2786,{op:"",node:a(20,92764,[a(27,92765,e(n),void 0,!1,!1,void 0)],e(p),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"expression",!1,!1,!1)],!1,!1)}}).call(this);',
           params: [
             [
               "ident",
@@ -33242,7 +33244,7 @@
           id: 133
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i,l,m,u,d,p;return n=e.macroName,o=e.macroData,u=o.results,i=o.next,p=o.test,d=o.step,c=o.body,l=o.rest,"asyncuntil"===n&&(p=s("MacroAccess",93099,3,2791,{op:"not",node:t(p)},"expression",!1,!1,!1)),null==l&&(l=this.noop()),a=null!=u?u:{},r=a.err,m=a.result,s("MacroAccess",93185,130,2797,{macroName:"asyncfor",macroData:{results:{err:t(r),result:t(m)},next:t(i),test:t(p),step:t(d),body:t(c),rest:t(l)}},"statement",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,s,n,o,i,l,m,c,u,d,p;return i=t.macroName,o=t.macroData,u=o.results,l=o.next,p=o.test,d=o.step,s=o.body,m=o.rest,"asyncuntil"===i&&(p=a(23,93099,3,2791,{op:"not",node:e(p)},"expression",!1,!1,!1)),null==m&&(m=this.noop()),r=null!=u?u:{},n=r.err,c=r.result,a(23,93185,130,2797,{macroName:"asyncfor",macroData:{results:{err:e(n),result:e(c)},next:e(l),test:e(p),step:e(d),body:e(s),rest:e(m)}},"statement",!1,!1,!1)}}).call(this);',
           params: [
             [
               "ident",
@@ -33292,7 +33294,7 @@
           id: 134
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+t(e));return e},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,a){var c,r,o,n,i,l,m,u,d,p,h,f,A,M,v,y;for(f=t.macroName,h=t.macroData,v=h.results,n=h.done,y=h.test,r=h.body,m=h.elseIfs,i=h.elseBody,A=h.rest,"asyncunless"===f&&(y=a("MacroAccess",93744,3,2804,{op:"not",node:s(y)},"expression",!1,!1,!1)),c=null!=v?v:{},u=c.err,M=c.result,null==A&&(A=this.noop()),o=i?a("MacroAccess",93881,117,2810,{op:"",node:a("Function",93881,[a("Param",93882,s(n),void 0,!1,!1,void 0)],s(i),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1):a("MacroAccess",93925,117,2812,{op:"",node:a("Function",93925,[a("Param",93926,s(n),void 0,!1,!1,void 0)],a("Call",93936,s(n),[],!1,!1),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1),d=e(m.length)-1;d>=0;--d)l=m[d],p=l.test,l.type==="unless"&&(p=a("MacroAccess",94151,3,2819,{op:"not",node:s(p)},"expression",!1,!1,!1)),o=a("MacroAccess",94188,17,2820,{macroName:"if",macroData:{test:s(p),body:a("MacroAccess",94213,117,2821,{op:"",node:a("Function",94213,[a("Param",94214,s(n),void 0,!1,!1,void 0)],s(l.body),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1),elseIfs:[],elseBody:s(o)}},"statement",!1,!1,!1);return o=a("MacroAccess",94292,17,2825,{macroName:"if",macroData:{test:s(y),body:a("MacroAccess",94309,117,2826,{op:"",node:a("Function",94309,[a("Param",94310,s(n),void 0,!1,!1,void 0)],s(r),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1),elseIfs:[],elseBody:s(o)}},"statement",!1,!1,!1),u||M?M?(null==u&&(u=this.tmp("err",!0)),a("Call",94542,s(o),[a("MacroAccess",94560,117,2839,{op:"",node:a("Function",94560,[a("Param",94561,s(u),void 0,!1,!1,void 0),a("Param",94566,s(M),void 0,!1,!1,void 0)],s(A),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1)],!1,!1)):a("Call",94458,s(o),[a("MacroAccess",94476,117,2835,{op:"",node:a("Function",94476,[a("Param",94477,s(u),void 0,!1,!1,void 0)],s(A),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1)],!1,!1):a("Call",94396,s(o),[a("MacroAccess",94414,117,2832,{op:"",node:a("Function",94414,[],s(A),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+e(t));return t},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,a,r){var s,n,o,i,l,m,c,u,d,p,h,f,v,y,b,x;for(f=e.macroName,h=e.macroData,b=h.results,i=h.done,x=h.test,n=h.body,c=h.elseIfs,l=h.elseBody,v=h.rest,"asyncunless"===f&&(x=r(23,93744,3,2804,{op:"not",node:a(x)},"expression",!1,!1,!1)),s=null!=b?b:{},u=s.err,y=s.result,null==v&&(v=this.noop()),o=l?r(23,93881,117,2810,{op:"",node:r(20,93881,[r(27,93882,a(i),void 0,!1,!1,void 0)],a(l),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1):r(23,93925,117,2812,{op:"",node:r(20,93925,[r(27,93926,a(i),void 0,!1,!1,void 0)],r(9,93936,a(i),[],!1,!1),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1),d=t(c.length)-1;d>=0;--d)m=c[d],p=m.test,m.type==="unless"&&(p=r(23,94151,3,2819,{op:"not",node:a(p)},"expression",!1,!1,!1)),o=r(23,94188,17,2820,{macroName:"if",macroData:{test:a(p),body:r(23,94213,117,2821,{op:"",node:r(20,94213,[r(27,94214,a(i),void 0,!1,!1,void 0)],a(m.body),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1),elseIfs:[],elseBody:a(o)}},"statement",!1,!1,!1);return o=r(23,94292,17,2825,{macroName:"if",macroData:{test:a(x),body:r(23,94309,117,2826,{op:"",node:r(20,94309,[r(27,94310,a(i),void 0,!1,!1,void 0)],a(n),!0,!0,!1,void 0,!1,[])},"statement",!1,!1,!1),elseIfs:[],elseBody:a(o)}},"statement",!1,!1,!1),u||y?y?(null==u&&(u=this.tmp("err",!0)),r(9,94542,a(o),[r(23,94560,117,2839,{op:"",node:r(20,94560,[r(27,94561,a(u),void 0,!1,!1,void 0),r(27,94566,a(y),void 0,!1,!1,void 0)],a(v),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1)],!1,!1)):r(9,94458,a(o),[r(23,94476,117,2835,{op:"",node:r(20,94476,[r(27,94477,a(u),void 0,!1,!1,void 0)],a(v),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1)],!1,!1):r(9,94396,a(o),[r(23,94414,117,2832,{op:"",node:r(20,94414,[],a(v),!0,!0,!1,void 0,!1,[])},"expression",!1,!1,!1)],!1,!1)}}).call(this);',
           params: [
             [
               "ident",
@@ -33380,7 +33382,7 @@
           id: 135
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a,c;return c=e.macroName,a=e.macroData,s=a.key,t=a.func,this.def(s,t)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r,s;return s=t.macroName,r=t.macroData,a=r.key,e=r.func,this.def(a,e)}}).call(this);',
           params: [
             ["ident", "key", "ident", "ObjectKey"],
             ["ident", "func", "ident", "FunctionDeclaration"]
@@ -33389,7 +33391,7 @@
           id: 136
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a,c;return a=e.macroName,s=e.macroData,t=s.key,c=s.value,this.def(t,c)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r,s;return r=t.macroName,a=t.macroData,e=a.key,s=a.value,this.def(e,s)}}).call(this);',
           params: [
             ["ident", "key", "ident", "ObjectKey"],
             ["const", "="],
@@ -33399,13 +33401,13 @@
           id: 137
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return a=e.macroName,s=e.macroData,t=s.key,this.def(t,void 0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return r=t.macroName,a=t.macroData,e=a.key,this.def(e,void 0)}}).call(this);',
           params: [["ident", "key", "ident", "ObjectKey"]],
           names: "def",
           id: 138
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,a,c,r;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=Object.prototype.hasOwnProperty,s=Array.prototype.slice,a=function(e){var t;if(t=typeof e,"string"===t)return e;if("number"===t)return String(e);throw TypeError("Expected a string or number, got "+r(e))},c=function(t){if(null==t)throw TypeError("Expected an object, got "+r(t));if(e(t))return t;if("string"==typeof t)return t.split("");if(typeof t.length=="number")return s.call(t);throw TypeError("Expected an object with a length property, got "+r(t))},r=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,s,r,o){function n(e){return p.walk(e,function(e){var t,a,o,i,l,m,u;if(p.isSuper(e)){for(m=p.superChild(e),null!=m&&(m=n(m)),t=[],a=c(p.superArgs(e)),o=0,i=a.length;i>o;++o)u=a[o],t.push(n(u));return l=t,p.call(null!=m?r("Access",97249,s(K),s(m)):z?s(H):r("Ident",97319,"Object"),[r("This",97379)].concat(l),!1,!0)}})}function i(e){return p.walk(e,function(e){var t,a,c;return p.isDef(e)?(a=p.left(e),c=(t=p.right(e))!=null?t:r("MacroAccess",101268,117,3017,{op:"",node:r("Function",101268,[],r("MacroAccess",101270,11,3017,{op:"throw",node:r("Call",101276,r("Ident",101276,"Error"),[r("MacroAccess",101283,69,3017,{left:r("MacroAccess",101283,69,3017,{left:r("MacroAccess",101283,69,3017,{left:r("MacroAccess",101283,69,3017,{left:r("Const",101283,"Not implemented: "),op:"",right:r("Call",101303,r("Ident",101303,"__name"),[r("Access",101310,r("This",101310),r("Const",101311,"constructor"))],!1,!1)},"expression",!1,!1,!1),op:"",right:r("Const",101283,".")},"expression",!1,!1,!1),op:"",right:s(a)},"expression",!1,!1,!1),op:"",right:r("Const",101283,"()")},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),!0,!1,!1,void 0,!1,[])},"expression",!1,!1,!1),i(r("MacroAccess",101359,30,3018,{left:r("Access",101359,s(q),s(a)),op:":=",right:s(c)},"expression",!1,!1,!1))):void 0})}var l,m,u,d,p,h,f,A,M,v,y,b,g,x,N,D,C,I,B,k,E,w,F,j,_,T,P,S,O,L,U,q,G,V,H,z,K;if(p=this,T=e.macroName,_=e.macroData,O=_.name,b=_.generic,z=_.superclass,f=_.body,x=null!=b?[b.head].concat(c(b.tail)):[],this.isIdent(O)?v=O:this.isAccess(O)?(h=O,O=this.isConst(this.child(O))&&typeof this.value(this.child(O))=="string"?(d=this.ident(this.value(this.child(O))))!=null?d:this.tmp("class",!1,"function"):this.tmp("class",!1,"function")):O=this.tmp("class",!1,"function"),this.isIdent(z)&&this.name(z)==="Object"&&(z=null),C=!!z,H=z&&(this.isIdent(z)?z:this.tmp("super",!1,"function")),k=[],K=z?this.tmp(this.isIdent(H)?a(this.name(H))+"_prototype":"super_prototype",!1,"object"):r("Access",95805,r("Ident",95805,"Object"),r("Const",95813,"prototype")),q=this.tmp(this.isIdent(O)?a(this.name(O))+"_prototype":"prototype",!1,"object"),z?(k.push(r("MacroAccess",96077,38,2879,{macroName:"let",macroData:{declarable:r("MacroAccess",96081,37,2879,r("MacroAccess",96081,31,2879,{ident:s(K)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Access",96095,s(H),r("Const",96101,"prototype"))}},"statement",!1,!1,!1)),k.push(r("MacroAccess",96130,38,2880,{macroName:"let",macroData:{declarable:r("MacroAccess",96134,37,2880,r("MacroAccess",96134,31,2880,{ident:s(q)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",96147,30,2880,{left:r("Access",96147,s(O),r("Const",96154,"prototype")),op:":=",right:r("Object",96166,[],s(K))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),k.push(r("MacroAccess",96211,30,2881,{left:r("Access",96211,s(q),r("Const",96223,"constructor")),op:":=",right:s(O)},"expression",!1,!1,!1))):k.push(r("MacroAccess",96272,38,2883,{macroName:"let",macroData:{declarable:r("MacroAccess",96276,37,2883,r("MacroAccess",96276,31,2883,{ident:s(q)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Access",96289,s(O),r("Const",96296,"prototype"))}},"statement",!1,!1,!1)),this.isIdent(O)&&(y=this["const"](this.name(O))),null!=y){if(x.length>0&&!this.getConstValue("DISABLE_GENERICS",!1)){for(U=[y,this["const"]("<")],B=0,u=x.length;u>B;++B)g=x[B],B>0&&U.push(this["const"](", ")),U.push(r("MacroAccess",96663,16,2892,{macroName:"if",macroData:{test:r("MacroAccess",96666,8,2892,{left:s(g),inverted:!1,op:"!~=",right:o("null")},"expression",!1,!1,!1),body:r("Call",96693,r("Ident",96693,"__name"),[s(g)],!1,!1),elseIfs:[],elseBody:r("Const",96719,"")}},"expression",!1,!1,!1));U.push(this["const"](">")),y=this.binaryChain("+",U)}k.push(r("MacroAccess",96822,30,2895,{left:r("Access",96822,s(O),r("Const",96829,"displayName")),op:":=",right:s(y)},"expression",!1,!1,!1))}if(z&&k.push(r("If",96901,r("Binary",96901,r("Unary",96901,"typeof",r("Access",96901,s(H),r("Const",96907,"extended"))),"===",r("Const",96901,"function")),r("Call",96901,r("Access",96901,s(H),r("Const",96907,"extended")),[s(O)],!1,!1),r("Nothing",0),null)),f=n(this.macroExpandAll(f)),A=0,this.walk(f,function(e){var t;p.isDef(e)&&(t=p.left(e),p.isConst(t)&&p.value(t)==="constructor"&&++A)}),I=!1,1===A&&this.walk(f,function(e){var t;return p.isDef(e)?(t=p.left(e),p.isConst(t)&&p.value(t)==="constructor"&&p.isFunc(p.right(e))&&!p.funcIsCurried(p.right(e))&&(I=!0),e):e}),V=this.tmp("this"),I?f=this.walk(f,function(e){var t,a,c;return p.isDef(e)?(a=p.left(e),p.isConst(a)&&p.value(a)==="constructor"?(c=p.right(e),t=p.rewrap(p.func(p.funcParams(c),p.funcBody(c),!1,r("MacroAccess",98626,16,2952,{macroName:"if",macroData:{test:r("MacroAccess",98629,74,2952,{left:r("Eval",98629,r("Const",98635,"this")),inverted:!1,op:"instanceof",right:s(O)},"statement",!1,!1,!1),body:r("Eval",98664,r("Const",98670,"this")),elseIfs:[],elseBody:r("Object",98682,[],s(q))}},"statement",!1,!1,!1)),c),k.unshift(r("MacroAccess",98743,38,2953,{macroName:"let",macroData:{declarable:r("MacroAccess",98747,37,2953,r("MacroAccess",98747,31,2953,{ident:s(O)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(t)}},"statement",!1,!1,!1)),p.noop()):void 0):e}):0!==A?(M=this.tmp("ctor",!1,"function"),G=this.tmp("ref"),k.push(r("Block",98947,[r("MacroAccess",98947,38,2961,{macroName:"let",macroData:{declarable:r("MacroAccess",98958,37,2961,r("MacroAccess",98958,31,2961,{isMutable:"mutable",ident:s(M)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:o("void")}},"statement",!1,!1,!1),r("MacroAccess",98980,15,2962,{macroName:"let",macroData:{ident:s(O),func:r("MacroAccess",98997,117,2962,{op:"",node:r("Function",98997,[],r("Block",99e3,[r("MacroAccess",99e3,38,2963,{macroName:"let",macroData:{declarable:r("MacroAccess",99013,37,2963,r("MacroAccess",99013,31,2963,{ident:s(V)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",99021,16,2963,{macroName:"if",macroData:{test:r("MacroAccess",99024,74,2963,{left:r("This",99024),inverted:!1,op:"instanceof",right:s(O)},"expression",!1,!1,!1),body:r("This",99051),elseIfs:[],elseBody:r("Object",99061,[],s(q))}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),r("MacroAccess",99096,17,2965,{macroName:"if",macroData:{test:r("MacroAccess",99108,26,2965,{op:"isFunction!",node:s(M)},"statement",!1,!1,!1),body:r("Block",99128,[r("MacroAccess",99128,38,2966,{macroName:"let",macroData:{declarable:r("MacroAccess",99143,37,2966,r("MacroAccess",99143,31,2966,{ident:s(G)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",99153,s(M),[s(V),r("Spread",99167,r("Args",99171))],!1,!0)}},"statement",!1,!1,!1),r("MacroAccess",99181,17,2967,{macroName:"if",macroData:{test:r("MacroAccess",99195,5,2967,{left:r("Call",99195,r("Ident",99195,"Object"),[s(G)],!1,!1),inverted:!1,op:"==",right:s(G)},"statement",!1,!1,!1),body:r("MacroAccess",99223,39,2968,{macroName:"return",macroData:{node:s(G)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)],null),elseIfs:[{type:"if",test:s(C),body:r("Block",99286,[r("MacroAccess",99286,38,2970,{macroName:"let",macroData:{declarable:r("MacroAccess",99301,37,2970,r("MacroAccess",99301,31,2970,{ident:s(G)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",99311,s(H),[s(V),r("Spread",99324,r("Args",99328))],!1,!0)}},"statement",!1,!1,!1),r("MacroAccess",99338,17,2971,{macroName:"if",macroData:{test:r("MacroAccess",99352,5,2971,{left:r("Call",99352,r("Ident",99352,"Object"),[s(G)],!1,!1),inverted:!1,op:"==",right:s(G)},"statement",!1,!1,!1),body:r("MacroAccess",99380,39,2972,{macroName:"return",macroData:{node:s(G)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)],null)}]}},"statement",!1,!1,!1),s(V)],null),!0,!1,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1)],null)),f=this.walk(f,function(e){var t,a,c,o;return p.isDef(e)&&(c=p.left(e),p.isConst(c)&&p.value(c)==="constructor")?(o=p.right(e),p.isCall(o)&&p.isIdent(p.callFunc(o))&&p.name(p.callFunc(o))==="__curry"&&p.callArgs(o).length===2&&p.isFunc(p.callArgs(o)[1])?(a=p.callArgs(o)[0],t=p.callArgs(o)[1],t=p.rewrap(p.func(p.funcParams(t),p.funcBody(t),!1,r("MacroAccess",100065,16,2986,{macroName:"if",macroData:{test:r("MacroAccess",100068,74,2986,{left:r("Eval",100068,r("Const",100074,"this")),inverted:!1,op:"instanceof",right:s(O)},"statement",!1,!1,!1),body:r("Eval",100103,r("Const",100109,"this")),elseIfs:[],elseBody:r("Object",100121,[],s(q))}},"statement",!1,!1,!1),!1),o),r("MacroAccess",100194,30,2988,{left:s(M),op:":=",right:r("Call",100203,r("Ident",100203,"__curry"),[s(a),s(t)],!1,!1)},"expression",!1,!1,!1)):p.isFunc(o)?(t=p.rewrap(p.func(p.funcParams(o),p.funcBody(o),!1,r("MacroAccess",100428,16,2994,{macroName:"if",macroData:{test:r("MacroAccess",100431,74,2994,{left:r("Eval",100431,r("Const",100437,"this")),inverted:!1,op:"instanceof",right:s(O)},"statement",!1,!1,!1),body:r("Eval",100466,r("Const",100472,"this")),elseIfs:[],elseBody:r("Object",100484,[],s(q))}},"statement",!1,!1,!1),p.funcIsCurried(o)),o),r("MacroAccess",100574,30,2996,{left:s(M),op:":=",right:s(t)},"expression",!1,!1,!1)):r("MacroAccess",100632,30,2998,{left:s(M),op:":=",right:s(o)},"expression",!1,!1,!1)):void 0})):z?(G=this.tmp("ref"),k.push(r("MacroAccess",100856,15,3006,{macroName:"let",macroData:{ident:s(O),func:r("MacroAccess",100875,117,3006,{op:"",node:r("Function",100875,[],r("Block",100878,[r("MacroAccess",100878,38,3007,{macroName:"let",macroData:{declarable:r("MacroAccess",100893,37,3007,r("MacroAccess",100893,31,3007,{ident:s(V)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("MacroAccess",100901,16,3007,{macroName:"if",macroData:{test:r("MacroAccess",100904,74,3007,{left:r("This",100904),inverted:!1,op:"instanceof",right:s(O)},"expression",!1,!1,!1),body:r("This",100931),elseIfs:[],elseBody:r("Object",100941,[],s(q))}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),r("MacroAccess",100965,38,3008,{macroName:"let",macroData:{declarable:r("MacroAccess",100980,37,3008,r("MacroAccess",100980,31,3008,{ident:s(G)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",100990,s(H),[s(V),r("Spread",101003,r("Args",101007))],!1,!0)}},"statement",!1,!1,!1),r("MacroAccess",101017,17,3009,{macroName:"if",macroData:{test:r("MacroAccess",101031,5,3009,{left:r("Call",101031,r("Ident",101031,"Object"),[s(G)],!1,!1),inverted:!1,op:"==",right:s(G)},"statement",!1,!1,!1),body:s(G),elseIfs:[],elseBody:s(V)}},"statement",!1,!1,!1)],null),!0,!1,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1))):k.push(r("MacroAccess",100704,15,3002,{macroName:"let",macroData:{ident:s(O),func:r("MacroAccess",100723,117,3002,{op:"",node:r("Function",100723,[],r("MacroAccess",100728,16,3002,{macroName:"if",macroData:{test:r("MacroAccess",100731,74,3002,{left:r("This",100731),inverted:!1,op:"instanceof",right:s(O)},"statement",!1,!1,!1),body:r("This",100758),elseIfs:[],elseBody:r("Object",100768,[],s(q))}},"statement",!1,!1,!1),!0,!1,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1)),f=i(f),f=this.walk(f,function(e){if(p.isFunc(e)){if(!p.funcIsBound(e))return e}else if(p.isThis(e))return O}),G=r("MacroAccess",101604,104,3028,{macroName:"do",macroData:{locals:{ident:s(H),value:s(z),rest:[]},body:r("Block",101627,[s(k),s(f),r("MacroAccess",101651,39,3031,{macroName:"return",macroData:{node:s(O)}},"statement",!1,!1,!1)],null)}},"statement",!1,!1,!1),x.length>0)if(this.getConstValue("DISABLE_GENERICS",!1)){for(L={},m=0,u=x.length;u>m;++m)g=x[m],O=this.name(g),L[O]=!0;G=this.walk(this.macroExpandAll(G),function(e){var s,a;return p.isBinary(e)&&p.op(e)==="instanceof"&&(a=p.right(e),p.isIdent(a)&&(s=p.name(a),t.call(L,s)))?o("true"):void 0})}else{for(N=this.tmp("cache",!1,"object"),l=[],m=0,u=x.length;u>m;++m)g=x[m],l.push(this.param(g));for(D=l,S=this.tmp("make",!1,"function"),w={},m=0,u=x.length;u>m;++m)g=x[m],O=this.name(g),j=this.tmp("instanceof_"+a(O),!1,"function"),w[O]={key:j,let:r("MacroAccess",102638,38,3056,{macroName:"let",macroData:{declarable:r("MacroAccess",102642,37,3056,r("MacroAccess",102642,31,3056,{ident:s(j)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",102649,r("Ident",102649,"__getInstanceof"),[s(g)],!1,!1)}},"statement",!1,!1,!1),used:!1};G=this.walk(this.macroExpandAll(G),function(e){var a,c,o,n;return p.isBinary(e)&&p.op(e)==="instanceof"&&(n=p.right(e),p.isIdent(n)&&(o=p.name(n),t.call(w,o)))?(a=w[o].key,w[o].used=!0,c=p.left(e),r("Call",103147,s(a),[s(c)],!1,!1)):void 0}),l=[];for(O in w)t.call(w,O)&&(F=w[O],F.used&&l.push(F.let));E=l,E.length&&(G=r("Block",103323,[s(E),s(G)],null)),P=this.func(D,G,!0,!1),G=r("Call",103466,r("Ident",103466,"__genericFunc"),[s(x.length),s(P)],!1,!1)}return null!=v?r("MacroAccess",103557,38,3080,{macroName:"let",macroData:{declarable:r("MacroAccess",103561,37,3080,r("MacroAccess",103561,31,3080,{ident:s(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(G)}},"statement",!1,!1,!1):null!=h?r("MacroAccess",103619,30,3082,{left:s(h),op:":=",right:s(G)},"expression",!1,!1,!1):G}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,a,r,s,n;return t=typeof Array.isArray=="function"?Array.isArray:function(){var t;return t=Object.prototype.toString,function(e){return t.call(e)==="[object Array]"}}(),e=Object.prototype.hasOwnProperty,a=Array.prototype.slice,r=function(t){var e;if(e=typeof t,"string"===e)return t;if("number"===e)return String(t);throw TypeError("Expected a string or number, got "+n(t))},s=function(e){if(null==e)throw TypeError("Expected an object, got "+n(e));if(t(e))return e;if("string"==typeof e)return e.split("");if(typeof e.length=="number")return a.call(e);throw TypeError("Expected an object with a length property, got "+n(e))},n=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(t,a,n,o){function i(t){return p.walk(t,function(t){var e,r,o,l,m,c,u;if(p.isSuper(t)){for(c=p.superChild(t),null!=c&&(c=i(c)),e=[],r=s(p.superArgs(t)),o=0,l=r.length;l>o;++o)u=r[o],e.push(i(u));return m=e,p.call(null!=c?n(1,97249,a(K),a(c)):z?a(H):n(21,97319,"Object"),[n(38,97379)].concat(m),!1,!0)}})}function l(t){return p.walk(t,function(t){var e,r,s;return p.isDef(t)?(r=p.left(t),s=(e=p.right(t))!=null?e:n(23,101268,117,3017,{op:"",node:n(20,101268,[],n(23,101270,11,3017,{op:"throw",node:n(9,101276,n(21,101276,"Error"),[n(23,101283,69,3017,{left:n(23,101283,69,3017,{left:n(23,101283,69,3017,{left:n(23,101283,69,3017,{left:n(12,101283,"Not implemented: "),op:"",right:n(9,101303,n(21,101303,"__name"),[n(1,101310,n(38,101310),n(12,101311,"constructor"))],!1,!1)},"expression",!1,!1,!1),op:"",right:n(12,101283,".")},"expression",!1,!1,!1),op:"",right:a(r)},"expression",!1,!1,!1),op:"",right:n(12,101283,"()")},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),!0,!1,!1,void 0,!1,[])},"expression",!1,!1,!1),l(n(23,101359,30,3018,{left:n(1,101359,a(q),a(r)),op:":=",right:a(s)},"expression",!1,!1,!1))):void 0})}var m,c,u,d,p,h,f,v,y,b,g,x,N,D,I,E,C,B,A,w,_,j,k,T,S,M,F,O,L,U,P,q,G,V,H,z,K;if(p=this,M=t.macroName,S=t.macroData,L=S.name,x=S.generic,z=S.superclass,f=S.body,D=null!=x?[x.head].concat(s(x.tail)):[],this.isIdent(L)?b=L:this.isAccess(L)?(h=L,L=this.isConst(this.child(L))&&typeof this.value(this.child(L))=="string"?(d=this.ident(this.value(this.child(L))))!=null?d:this.tmp("class",!1,"function"):this.tmp("class",!1,"function")):L=this.tmp("class",!1,"function"),this.isIdent(z)&&this.name(z)==="Object"&&(z=null),C=!!z,H=z&&(this.isIdent(z)?z:this.tmp("super",!1,"function")),w=[],K=z?this.tmp(this.isIdent(H)?r(this.name(H))+"_prototype":"super_prototype",!1,"object"):n(1,95805,n(21,95805,"Object"),n(12,95813,"prototype")),q=this.tmp(this.isIdent(L)?r(this.name(L))+"_prototype":"prototype",!1,"object"),z?(w.push(n(23,96077,38,2879,{macroName:"let",macroData:{declarable:n(23,96081,37,2879,n(23,96081,31,2879,{ident:a(K)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(1,96095,a(H),n(12,96101,"prototype"))}},"statement",!1,!1,!1)),w.push(n(23,96130,38,2880,{macroName:"let",macroData:{declarable:n(23,96134,37,2880,n(23,96134,31,2880,{ident:a(q)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,96147,30,2880,{left:n(1,96147,a(L),n(12,96154,"prototype")),op:":=",right:n(26,96166,[],a(K))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)),w.push(n(23,96211,30,2881,{left:n(1,96211,a(q),n(12,96223,"constructor")),op:":=",right:a(L)},"expression",!1,!1,!1))):w.push(n(23,96272,38,2883,{macroName:"let",macroData:{declarable:n(23,96276,37,2883,n(23,96276,31,2883,{ident:a(q)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(1,96289,a(L),n(12,96296,"prototype"))}},"statement",!1,!1,!1)),this.isIdent(L)&&(g=this["const"](this.name(L))),null!=g){if(D.length>0&&!this.getConstValue("DISABLE_GENERICS",!1)){for(P=[g,this["const"]("<")],A=0,u=D.length;u>A;++A)N=D[A],A>0&&P.push(this["const"](", ")),P.push(n(23,96663,16,2892,{macroName:"if",macroData:{test:n(23,96666,8,2892,{left:a(N),inverted:!1,op:"!~=",right:o("null")},"expression",!1,!1,!1),body:n(9,96693,n(21,96693,"__name"),[a(N)],!1,!1),elseIfs:[],elseBody:n(12,96719,"")}},"expression",!1,!1,!1));P.push(this["const"](">")),g=this.binaryChain("+",P)}w.push(n(23,96822,30,2895,{left:n(1,96822,a(L),n(12,96829,"displayName")),op:":=",right:a(g)},"expression",!1,!1,!1))}if(z&&w.push(n(22,96901,n(6,96901,n(48,96901,"typeof",n(1,96901,a(H),n(12,96907,"extended"))),"===",n(12,96901,"function")),n(9,96901,n(1,96901,a(H),n(12,96907,"extended")),[a(L)],!1,!1),n(25,0),null)),f=i(this.macroExpandAll(f)),v=0,this.walk(f,function(t){var e;p.isDef(t)&&(e=p.left(t),p.isConst(e)&&p.value(e)==="constructor"&&++v)}),B=!1,1===v&&this.walk(f,function(t){var e;return p.isDef(t)?(e=p.left(t),p.isConst(e)&&p.value(e)==="constructor"&&p.isFunc(p.right(t))&&!p.funcIsCurried(p.right(t))&&(B=!0),t):t}),V=this.tmp("this"),B?f=this.walk(f,function(t){var e,r,s;return p.isDef(t)?(r=p.left(t),p.isConst(r)&&p.value(r)==="constructor"?(s=p.right(t),e=p.rewrap(p.func(p.funcParams(s),p.funcBody(s),!1,n(23,98626,16,2952,{macroName:"if",macroData:{test:n(23,98629,74,2952,{left:n(17,98629,n(12,98635,"this")),inverted:!1,op:"instanceof",right:a(L)},"statement",!1,!1,!1),body:n(17,98664,n(12,98670,"this")),elseIfs:[],elseBody:n(26,98682,[],a(q))}},"statement",!1,!1,!1)),s),w.unshift(n(23,98743,38,2953,{macroName:"let",macroData:{declarable:n(23,98747,37,2953,n(23,98747,31,2953,{ident:a(L)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(e)}},"statement",!1,!1,!1)),p.noop()):void 0):t}):0!==v?(y=this.tmp("ctor",!1,"function"),G=this.tmp("ref"),w.push(n(7,98947,[n(23,98947,38,2961,{macroName:"let",macroData:{declarable:n(23,98958,37,2961,n(23,98958,31,2961,{isMutable:"mutable",ident:a(y)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:o("void")}},"statement",!1,!1,!1),n(23,98980,15,2962,{macroName:"let",macroData:{ident:a(L),func:n(23,98997,117,2962,{op:"",node:n(20,98997,[],n(7,99e3,[n(23,99e3,38,2963,{macroName:"let",macroData:{declarable:n(23,99013,37,2963,n(23,99013,31,2963,{ident:a(V)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,99021,16,2963,{macroName:"if",macroData:{test:n(23,99024,74,2963,{left:n(38,99024),inverted:!1,op:"instanceof",right:a(L)},"expression",!1,!1,!1),body:n(38,99051),elseIfs:[],elseBody:n(26,99061,[],a(q))}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),n(23,99096,17,2965,{macroName:"if",macroData:{test:n(23,99108,26,2965,{op:"isFunction!",node:a(y)},"statement",!1,!1,!1),body:n(7,99128,[n(23,99128,38,2966,{macroName:"let",macroData:{declarable:n(23,99143,37,2966,n(23,99143,31,2966,{ident:a(G)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,99153,a(y),[a(V),n(31,99167,n(3,99171))],!1,!0)}},"statement",!1,!1,!1),n(23,99181,17,2967,{macroName:"if",macroData:{test:n(23,99195,5,2967,{left:n(9,99195,n(21,99195,"Object"),[a(G)],!1,!1),inverted:!1,op:"==",right:a(G)},"statement",!1,!1,!1),body:n(23,99223,39,2968,{macroName:"return",macroData:{node:a(G)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)],null),elseIfs:[{type:"if",test:a(C),body:n(7,99286,[n(23,99286,38,2970,{macroName:"let",macroData:{declarable:n(23,99301,37,2970,n(23,99301,31,2970,{ident:a(G)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,99311,a(H),[a(V),n(31,99324,n(3,99328))],!1,!0)}},"statement",!1,!1,!1),n(23,99338,17,2971,{macroName:"if",macroData:{test:n(23,99352,5,2971,{left:n(9,99352,n(21,99352,"Object"),[a(G)],!1,!1),inverted:!1,op:"==",right:a(G)},"statement",!1,!1,!1),body:n(23,99380,39,2972,{macroName:"return",macroData:{node:a(G)}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1)],null)}]}},"statement",!1,!1,!1),a(V)],null),!0,!1,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1)],null)),f=this.walk(f,function(t){var e,r,s,o;return p.isDef(t)&&(s=p.left(t),p.isConst(s)&&p.value(s)==="constructor")?(o=p.right(t),p.isCall(o)&&p.isIdent(p.callFunc(o))&&p.name(p.callFunc(o))==="__curry"&&p.callArgs(o).length===2&&p.isFunc(p.callArgs(o)[1])?(r=p.callArgs(o)[0],e=p.callArgs(o)[1],e=p.rewrap(p.func(p.funcParams(e),p.funcBody(e),!1,n(23,100065,16,2986,{macroName:"if",macroData:{test:n(23,100068,74,2986,{left:n(17,100068,n(12,100074,"this")),inverted:!1,op:"instanceof",right:a(L)},"statement",!1,!1,!1),body:n(17,100103,n(12,100109,"this")),elseIfs:[],elseBody:n(26,100121,[],a(q))}},"statement",!1,!1,!1),!1),o),n(23,100194,30,2988,{left:a(y),op:":=",right:n(9,100203,n(21,100203,"__curry"),[a(r),a(e)],!1,!1)},"expression",!1,!1,!1)):p.isFunc(o)?(e=p.rewrap(p.func(p.funcParams(o),p.funcBody(o),!1,n(23,100428,16,2994,{macroName:"if",macroData:{test:n(23,100431,74,2994,{left:n(17,100431,n(12,100437,"this")),inverted:!1,op:"instanceof",right:a(L)},"statement",!1,!1,!1),body:n(17,100466,n(12,100472,"this")),elseIfs:[],elseBody:n(26,100484,[],a(q))}},"statement",!1,!1,!1),p.funcIsCurried(o)),o),n(23,100574,30,2996,{left:a(y),op:":=",right:a(e)},"expression",!1,!1,!1)):n(23,100632,30,2998,{left:a(y),op:":=",right:a(o)},"expression",!1,!1,!1)):void 0})):z?(G=this.tmp("ref"),w.push(n(23,100856,15,3006,{macroName:"let",macroData:{ident:a(L),func:n(23,100875,117,3006,{op:"",node:n(20,100875,[],n(7,100878,[n(23,100878,38,3007,{macroName:"let",macroData:{declarable:n(23,100893,37,3007,n(23,100893,31,3007,{ident:a(V)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(23,100901,16,3007,{macroName:"if",macroData:{test:n(23,100904,74,3007,{left:n(38,100904),inverted:!1,op:"instanceof",right:a(L)},"expression",!1,!1,!1),body:n(38,100931),elseIfs:[],elseBody:n(26,100941,[],a(q))}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),n(23,100965,38,3008,{macroName:"let",macroData:{declarable:n(23,100980,37,3008,n(23,100980,31,3008,{ident:a(G)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,100990,a(H),[a(V),n(31,101003,n(3,101007))],!1,!0)}},"statement",!1,!1,!1),n(23,101017,17,3009,{macroName:"if",macroData:{test:n(23,101031,5,3009,{left:n(9,101031,n(21,101031,"Object"),[a(G)],!1,!1),inverted:!1,op:"==",right:a(G)},"statement",!1,!1,!1),body:a(G),elseIfs:[],elseBody:a(V)}},"statement",!1,!1,!1)],null),!0,!1,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1))):w.push(n(23,100704,15,3002,{macroName:"let",macroData:{ident:a(L),func:n(23,100723,117,3002,{op:"",node:n(20,100723,[],n(23,100728,16,3002,{macroName:"if",macroData:{test:n(23,100731,74,3002,{left:n(38,100731),inverted:!1,op:"instanceof",right:a(L)},"statement",!1,!1,!1),body:n(38,100758),elseIfs:[],elseBody:n(26,100768,[],a(q))}},"statement",!1,!1,!1),!0,!1,!1,void 0,!1,[])},"statement",!1,!1,!1)}},"statement",!1,!1,!1)),f=l(f),f=this.walk(f,function(t){if(p.isFunc(t)){if(!p.funcIsBound(t))return t}else if(p.isThis(t))return L}),G=n(23,101604,104,3028,{macroName:"do",macroData:{locals:{ident:a(H),value:a(z),rest:[]},body:n(7,101627,[a(w),a(f),n(23,101651,39,3031,{macroName:"return",macroData:{node:a(L)}},"statement",!1,!1,!1)],null)}},"statement",!1,!1,!1),D.length>0)if(this.getConstValue("DISABLE_GENERICS",!1)){for(U={},c=0,u=D.length;u>c;++c)N=D[c],L=this.name(N),U[L]=!0;G=this.walk(this.macroExpandAll(G),function(t){var a,r;return p.isBinary(t)&&p.op(t)==="instanceof"&&(r=p.right(t),p.isIdent(r)&&(a=p.name(r),e.call(U,a)))?o("true"):void 0})}else{for(I=this.tmp("cache",!1,"object"),m=[],c=0,u=D.length;u>c;++c)N=D[c],m.push(this.param(N));for(E=m,O=this.tmp("make",!1,"function"),j={},c=0,u=D.length;u>c;++c)N=D[c],L=this.name(N),T=this.tmp("instanceof_"+r(L),!1,"function"),j[L]={key:T,let:n(23,102638,38,3056,{macroName:"let",macroData:{declarable:n(23,102642,37,3056,n(23,102642,31,3056,{ident:a(T)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,102649,n(21,102649,"__getInstanceof"),[a(N)],!1,!1)}},"statement",!1,!1,!1),used:!1};G=this.walk(this.macroExpandAll(G),function(t){var r,s,o,i;return p.isBinary(t)&&p.op(t)==="instanceof"&&(i=p.right(t),p.isIdent(i)&&(o=p.name(i),e.call(j,o)))?(r=j[o].key,j[o].used=!0,s=p.left(t),n(9,103147,a(r),[a(s)],!1,!1)):void 0}),m=[];for(L in j)e.call(j,L)&&(k=j[L],k.used&&m.push(k.let));_=m,_.length&&(G=n(7,103323,[a(_),a(G)],null)),F=this.func(E,G,!0,!1),G=n(9,103466,n(21,103466,"__genericFunc"),[a(D.length),a(F)],!1,!1)}return null!=b?n(23,103557,38,3080,{macroName:"let",macroData:{declarable:n(23,103561,37,3080,n(23,103561,31,3080,{ident:a(b)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(G)}},"statement",!1,!1,!1):null!=h?n(23,103619,30,3082,{left:a(h),op:":=",right:a(G)},"expression",!1,!1,!1):G}}).call(this);',
           params: [
             ["ident", "name", "many", "?", "ident", "SimpleAssignable"],
             [
@@ -33442,19 +33444,19 @@
           id: 139
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a,c;return t=this,a=e.macroName,s=e.macroData,c=s.node,this.inGenerator||this.error("Can only use yield in a generator function"),this.mutateLast(c||this.noop(),function(e){return t.yield(e)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r,s;return e=this,r=t.macroName,a=t.macroData,s=a.node,this.inGenerator||this.error("Can only use yield in a generator function"),this.mutateLast(s||this.noop(),function(t){return e.yield(t)},!0)}}).call(this);',
           params: [["ident", "node", "many", "?", "ident", "Expression"]],
           names: "yield",
           id: 140
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,a){var c,r,o,n,i,l,m,u,d,p,h;return u=e.macroName,m=e.macroData,d=m.node,this.inGenerator||this.error("Can only use yield* in a generator function"),o=[],this.isType(d,"arrayLike")?(r=this.tmp("i",!1,"number"),o.push(s("MacroAccess",104089,38,3099,{macroName:"let",macroData:{declarable:s("MacroAccess",104093,37,3099,s("MacroAccess",104093,31,3099,{ident:t(r)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("Const",104103,0)}},"statement",!1,!1,!1)),l=this.tmp("len",!1,"number"),d=this.cache(d,o,"arr",!1),o.push(s("MacroAccess",104214,38,3102,{macroName:"let",macroData:{declarable:s("MacroAccess",104218,37,3102,s("MacroAccess",104218,31,3102,{ident:t(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("Access",104228,t(d),s("Const",104235,"length"))}},"statement",!1,!1,!1)),s("Block",104252,[s("MacroAccess",104252,106,3104,{macroName:"for",macroData:{init:t(o),test:s("MacroAccess",104270,9,3104,{left:t(r),inverted:!1,op:"~<",right:t(l)},"statement",!1,!1,!1),step:s("MacroAccess",104289,103,3104,{left:t(r),op:"+=",right:s("Const",104300,1)},"expression",!1,!1,!1),body:s("MacroAccess",104302,140,3105,{macroName:"yield",macroData:{node:s("Access",104317,t(d),t(r))}},"statement",!1,!1,!1)}},"statement",!1,!1,!1),a("void")],null)):(i=this.cache(s("Call",104386,s("Ident",104386,"__iter"),[t(d)],!1,!1),o,"iter",!1),c=this.tmp("e",!0),h=this.tmp("send"),n=this.tmp("item"),p=this.tmp("tmp"),s("Block",104548,[t(o),s("MacroAccess",104562,38,3115,{macroName:"let",macroData:{declarable:s("MacroAccess",104573,37,3115,s("MacroAccess",104573,31,3115,{isMutable:"mutable",ident:t(p)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("void")}},"statement",!1,!1,!1),s("MacroAccess",104599,38,3116,{macroName:"let",macroData:{declarable:s("MacroAccess",104610,37,3116,s("MacroAccess",104610,31,3116,{isMutable:"mutable",ident:t(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("true")}},"statement",!1,!1,!1),s("MacroAccess",104641,108,3118,{macroName:"while",macroData:{test:a("true"),body:s("Block",104660,[s("MacroAccess",104660,38,3119,{macroName:"let",macroData:{declarable:s("MacroAccess",104673,37,3119,s("MacroAccess",104673,31,3119,{ident:t(n)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("MacroAccess",104681,16,3119,{macroName:"if",macroData:{test:t(h),body:s("Call",104695,s("Access",104695,t(i),s("Const",104706,"send")),[t(p)],!1,!1),elseIfs:[],elseBody:s("Call",104726,s("Access",104726,t(i),s("Const",104737,"throw")),[t(p)],!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),s("MacroAccess",104754,17,3120,{macroName:"if",macroData:{test:s("Access",104766,t(n),s("Const",104773,"done")),body:s("MacroAccess",104778,19,3121,{macroName:"break",macroData:{}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),s("MacroAccess",104796,119,3122,{macroName:"try",macroData:{tryBody:s("Block",104810,[s("MacroAccess",104810,30,3123,{left:t(p),op:":=",right:s("MacroAccess",104834,140,3123,{macroName:"yield",macroData:{node:s("Access",104840,t(n),s("Const",104847,"value"))}},"expression",!1,!1,!1)},"statement",!1,!1,!1),s("MacroAccess",104853,30,3124,{left:t(h),op:":=",right:a("true")},"statement",!1,!1,!1)],null),typedCatches:[],catchPart:{ident:t(c),body:s("Block",104900,[s("MacroAccess",104900,30,3126,{left:t(p),op:":=",right:t(c)},"statement",!1,!1,!1),s("MacroAccess",104930,30,3127,{left:t(h),op:":=",right:a("false")},"statement",!1,!1,!1)],null)}}},"statement",!1,!1,!1)],null)}},"statement",!1,!1,!1),s("MacroAccess",104957,119,3128,{macroName:"try",macroData:{tryBody:s("Call",104969,s("Access",104969,t(i),s("Const",104989,"close")),[],!1,!1),typedCatches:[],catchPart:{ident:t(c),body:a("void")}}},"statement",!1,!1,!1),s("Access",105031,t(n),s("Const",105045,"value"))],null))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a,r){var s,n,o,i,l,m,c,u,d,p,h;return u=t.macroName,c=t.macroData,d=c.node,this.inGenerator||this.error("Can only use yield* in a generator function"),o=[],this.isType(d,"arrayLike")?(n=this.tmp("i",!1,"number"),o.push(a(23,104089,38,3099,{macroName:"let",macroData:{declarable:a(23,104093,37,3099,a(23,104093,31,3099,{ident:e(n)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(12,104103,0)}},"statement",!1,!1,!1)),m=this.tmp("len",!1,"number"),d=this.cache(d,o,"arr",!1),o.push(a(23,104214,38,3102,{macroName:"let",macroData:{declarable:a(23,104218,37,3102,a(23,104218,31,3102,{ident:e(m)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(1,104228,e(d),a(12,104235,"length"))}},"statement",!1,!1,!1)),a(7,104252,[a(23,104252,106,3104,{macroName:"for",macroData:{init:e(o),test:a(23,104270,9,3104,{left:e(n),inverted:!1,op:"~<",right:e(m)},"statement",!1,!1,!1),step:a(23,104289,103,3104,{left:e(n),op:"+=",right:a(12,104300,1)},"expression",!1,!1,!1),body:a(23,104302,140,3105,{macroName:"yield",macroData:{node:a(1,104317,e(d),e(n))}},"statement",!1,!1,!1)}},"statement",!1,!1,!1),r("void")],null)):(l=this.cache(a(9,104386,a(21,104386,"__iter"),[e(d)],!1,!1),o,"iter",!1),s=this.tmp("e",!0),h=this.tmp("send"),i=this.tmp("item"),p=this.tmp("tmp"),a(7,104548,[e(o),a(23,104562,38,3115,{macroName:"let",macroData:{declarable:a(23,104573,37,3115,a(23,104573,31,3115,{isMutable:"mutable",ident:e(p)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("void")}},"statement",!1,!1,!1),a(23,104599,38,3116,{macroName:"let",macroData:{declarable:a(23,104610,37,3116,a(23,104610,31,3116,{isMutable:"mutable",ident:e(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("true")}},"statement",!1,!1,!1),a(23,104641,108,3118,{macroName:"while",macroData:{test:r("true"),body:a(7,104660,[a(23,104660,38,3119,{macroName:"let",macroData:{declarable:a(23,104673,37,3119,a(23,104673,31,3119,{ident:e(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(23,104681,16,3119,{macroName:"if",macroData:{test:e(h),body:a(9,104695,a(1,104695,e(l),a(12,104706,"send")),[e(p)],!1,!1),elseIfs:[],elseBody:a(9,104726,a(1,104726,e(l),a(12,104737,"throw")),[e(p)],!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),a(23,104754,17,3120,{macroName:"if",macroData:{test:a(1,104766,e(i),a(12,104773,"done")),body:a(23,104778,19,3121,{macroName:"break",macroData:{}},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),a(23,104796,119,3122,{macroName:"try",macroData:{tryBody:a(7,104810,[a(23,104810,30,3123,{left:e(p),op:":=",right:a(23,104834,140,3123,{macroName:"yield",macroData:{node:a(1,104840,e(i),a(12,104847,"value"))}},"expression",!1,!1,!1)},"statement",!1,!1,!1),a(23,104853,30,3124,{left:e(h),op:":=",right:r("true")},"statement",!1,!1,!1)],null),typedCatches:[],catchPart:{ident:e(s),body:a(7,104900,[a(23,104900,30,3126,{left:e(p),op:":=",right:e(s)},"statement",!1,!1,!1),a(23,104930,30,3127,{left:e(h),op:":=",right:r("false")},"statement",!1,!1,!1)],null)}}},"statement",!1,!1,!1)],null)}},"statement",!1,!1,!1),a(23,104957,119,3128,{macroName:"try",macroData:{tryBody:a(9,104969,a(1,104969,e(l),a(12,104989,"close")),[],!1,!1),typedCatches:[],catchPart:{ident:e(s),body:r("void")}}},"statement",!1,!1,!1),a(1,105031,e(i),a(12,105045,"value"))],null))}}).call(this);',
           params: [["ident", "node", "ident", "Expression"]],
           names: "yield*",
           id: 141
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o;return c=e.macroName,a=e.macroData,r=a.node,o=a.rest,null==o&&(o=this.noop()),s("Block",105146,[t(o),s("MacroAccess",105158,39,3139,{macroName:"return",macroData:{node:t(r)}},"statement",!1,!1,!1)],null)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,s,n,o;return s=t.macroName,r=t.macroData,n=r.node,o=r.rest,null==o&&(o=this.noop()),a(7,105146,[e(o),a(23,105158,39,3139,{macroName:"return",macroData:{node:e(n)}},"statement",!1,!1,!1)],null)}}).call(this);',
           params: [
             ["ident", "node", "ident", "Expression"],
             ["ident", "rest", "ident", "DedentedBody"]
@@ -33463,7 +33465,7 @@
           id: 142
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a,c;return a=e.macroName,s=e.macroData,t=s.label,c=s.node,this.withLabel(c,t)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r,n;return r=t.macroName,a=t.macroData,e=a.label,n=a.node,this.withLabel(n,e)}}).call(this);',
           params: [
             ["ident", "label", "ident", "Identifier"],
             [
@@ -33478,7 +33480,7 @@
           id: 145
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o;return c=e.macroName,a=e.macroData,o=a.sync,r=a.node,this.isFunc(r)&&!this.funcIsGenerator(r)&&this.error("promise! must be used with a generator function",r),o&&this.isFunc(r)&&this.error("Use .sync() to retrieve asynchronously",o),!o||this.isConst(o)&&!this.value(o)?s("Call",120450,s("Ident",120450,"__promise"),[t(r)],!1,!1):s("Call",120487,s("Ident",120487,"__promise"),[t(r),t(o)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,s,n,o;return s=t.macroName,r=t.macroData,o=r.sync,n=r.node,this.isFunc(n)&&!this.funcIsGenerator(n)&&this.error("promise! must be used with a generator function",n),o&&this.isFunc(n)&&this.error("Use .sync() to retrieve asynchronously",o),!o||this.isConst(o)&&!this.value(o)?a(9,120450,a(21,120450,"__promise"),[e(n)],!1,!1):a(9,120487,a(21,120487,"__promise"),[e(n),e(o)],!1,!1)}}).call(this);',
           params: [
             [
               "ident",
@@ -33496,7 +33498,7 @@
           id: 154
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n;return o=e.macroName,r=e.macroData,n=r.sync,a=r.body,c=this.rewrap(this.func([],a,!0,!0,!1,null,!0),a),!n||this.isConst(n)&&!this.value(n)?s("Call",120767,s("Ident",120767,"__generatorToPromise"),[s("Call",120791,t(c),[],!1,!1)],!1,!1):s("Call",120819,s("Ident",120819,"__generatorToPromise"),[s("Call",120843,t(c),[],!1,!1),t(n)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,s,n,o,i;return o=t.macroName,n=t.macroData,i=n.sync,r=n.body,s=this.rewrap(this.func([],r,!0,!0,!1,null,!0),r),!i||this.isConst(i)&&!this.value(i)?a(9,120767,a(21,120767,"__generatorToPromise"),[a(9,120791,e(s),[],!1,!1)],!1,!1):a(9,120819,a(21,120819,"__generatorToPromise"),[a(9,120843,e(s),[],!1,!1),e(i)],!1,!1)}}).call(this);',
           params: [
             [
               "ident",
@@ -33514,7 +33516,7 @@
           id: 155
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){var s;if(s=typeof e,"string"===s)return e;if("number"===s)return String(e);throw TypeError("Expected a string or number, got "+t(e))},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,a){var c,r,o,n,i,l,m,u,d,p,h,f,A,M,v;return h=t.macroName,p=t.macroData,f=p.parallelism,v=p.value,l=p.index,r=p.array,o=p.body,m=[],v=this.macroExpand1(v),u=null,l&&(u=l.length,l=l.value),null==f&&(f=a("Const",127176,1)),null==l&&(l=this.tmp("i",!0,"number")),this.isCall(r)&&this.isIdent(this.callFunc(r))&&this.name(this.callFunc(r))==="__range"&&!this.callIsApply(r)?((this.isArray(v)||this.isObject(v))&&this.error("Cannot assign a number to a complex declarable",v),v=v.ident,c=this.callArgs(r),A=c[0],n=c[1],M=c[2],i=c[3],this.isConst(A)?typeof this.value(A)!="number"&&this.error("Cannot start with a non-number: "+e(this.value(A)),A):A=a("MacroAccess",127762,60,3930,{op:"+",node:s(A)},"expression",!1,!1,!1),this.isConst(n)?typeof this.value(n)!="number"&&this.error("Cannot end with a non-number: "+e(this.value(n)),n):this.isComplex(n)?n=this.cache(a("MacroAccess",127960,60,3936,{op:"+",node:s(n)},"expression",!1,!1,!1),m,"end",!1):m.push(a("MacroAccess",128020,60,3938,{op:"+",node:s(n)},"expression",!1,!1,!1)),this.isConst(M)?typeof this.value(M)!="number"&&this.error("Cannot step with a non-number: "+e(this.value(M)),M):this.isComplex(M)?M=this.cache(a("MacroAccess",128223,60,3944,{op:"+",node:s(M)},"expression",!1,!1,!1),m,"step",!1):m.push(a("MacroAccess",128285,60,3946,{op:"+",node:s(M)},"expression",!1,!1,!1)),o=a("Block",128318,[a("MacroAccess",128318,38,3949,{macroName:"let",macroData:{declarable:a("MacroAccess",128329,37,3949,a("MacroAccess",128329,31,3949,{ident:s(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("MacroAccess",128338,49,3949,{left:a("MacroAccess",128338,45,3949,{left:s(l),inverted:!1,op:"~*",right:s(M)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:s(A)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),s(o)],null),d=a("MacroAccess",128408,17,3952,{macroName:"if",macroData:{test:s(i),body:a("MacroAccess",128423,45,3953,{left:a("MacroAccess",128432,49,3953,{left:a("MacroAccess",128432,49,3953,{left:s(n),inverted:!1,op:"~-",right:s(A)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:s(M)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:s(M)},"statement",!1,!1,!1),elseIfs:[],elseBody:a("MacroAccess",128477,45,3955,{left:a("MacroAccess",128486,49,3955,{left:s(n),inverted:!1,op:"~-",right:s(A)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:s(M)},"statement",!1,!1,!1)}},"expression",!1,!1,!1),u?m.push(a("MacroAccess",128593,38,3959,{macroName:"let",macroData:{declarable:a("MacroAccess",128597,37,3959,a("MacroAccess",128597,31,3959,{ident:s(u)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s(d)}},"statement",!1,!1,!1)):u=d):(r=this.cache(r,m,"arr",!0),o=a("Block",128695,[a("MacroAccess",128695,38,3964,{macroName:"let",macroData:{declarable:a("MacroAccess",128706,37,3964,a("MacroAccess",128706,31,3964,{ident:s(v)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("Access",128715,s(r),s(l))}},"statement",!1,!1,!1),s(o)],null),u?m.push(a("MacroAccess",128842,38,3970,{macroName:"let",macroData:{declarable:a("MacroAccess",128846,37,3970,a("MacroAccess",128846,31,3970,{ident:s(u)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a("MacroAccess",128856,60,3970,{op:"+",node:a("Access",128858,s(r),a("Const",128865,"length"))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):u=a("MacroAccess",128794,60,3968,{op:"+",node:a("Access",128796,s(r),a("Const",128803,"length"))},"expression",!1,!1,!1)),a("Block",128885,[s(m),a("Call",128897,a("Ident",128897,"__promiseLoop"),[a("MacroAccess",128918,60,3974,{op:"+",node:s(f)},"expression",!1,!1,!1),s(u),a("Call",128941,a("Ident",128941,"__promise"),[a("MacroAccess",128953,117,3974,{op:"",node:a("Function",128953,[a("Param",128954,s(l),void 0,!1,!1,void 0)],s(o),!0,!1,!1,void 0,!0,[])},"expression",!1,!1,!1)],!1,!1)],!1,!1)],null)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){var a;if(a=typeof t,"string"===a)return t;if("number"===a)return String(t);throw TypeError("Expected a string or number, got "+e(t))},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,a,r){var n,s,o,i,l,m,c,u,d,p,h,f,v,y,b;return h=e.macroName,p=e.macroData,f=p.parallelism,b=p.value,m=p.index,s=p.array,o=p.body,c=[],b=this.macroExpand1(b),u=null,m&&(u=m.length,m=m.value),null==f&&(f=r(12,127176,1)),null==m&&(m=this.tmp("i",!0,"number")),this.isCall(s)&&this.isIdent(this.callFunc(s))&&this.name(this.callFunc(s))==="__range"&&!this.callIsApply(s)?((this.isArray(b)||this.isObject(b))&&this.error("Cannot assign a number to a complex declarable",b),b=b.ident,n=this.callArgs(s),v=n[0],i=n[1],y=n[2],l=n[3],this.isConst(v)?typeof this.value(v)!="number"&&this.error("Cannot start with a non-number: "+t(this.value(v)),v):v=r(23,127762,60,3930,{op:"+",node:a(v)},"expression",!1,!1,!1),this.isConst(i)?typeof this.value(i)!="number"&&this.error("Cannot end with a non-number: "+t(this.value(i)),i):this.isComplex(i)?i=this.cache(r(23,127960,60,3936,{op:"+",node:a(i)},"expression",!1,!1,!1),c,"end",!1):c.push(r(23,128020,60,3938,{op:"+",node:a(i)},"expression",!1,!1,!1)),this.isConst(y)?typeof this.value(y)!="number"&&this.error("Cannot step with a non-number: "+t(this.value(y)),y):this.isComplex(y)?y=this.cache(r(23,128223,60,3944,{op:"+",node:a(y)},"expression",!1,!1,!1),c,"step",!1):c.push(r(23,128285,60,3946,{op:"+",node:a(y)},"expression",!1,!1,!1)),o=r(7,128318,[r(23,128318,38,3949,{macroName:"let",macroData:{declarable:r(23,128329,37,3949,r(23,128329,31,3949,{ident:a(b)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(23,128338,49,3949,{left:r(23,128338,45,3949,{left:a(m),inverted:!1,op:"~*",right:a(y)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:a(v)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),a(o)],null),d=r(23,128408,17,3952,{macroName:"if",macroData:{test:a(l),body:r(23,128423,45,3953,{left:r(23,128432,49,3953,{left:r(23,128432,49,3953,{left:a(i),inverted:!1,op:"~-",right:a(v)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:a(y)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:a(y)},"statement",!1,!1,!1),elseIfs:[],elseBody:r(23,128477,45,3955,{left:r(23,128486,49,3955,{left:a(i),inverted:!1,op:"~-",right:a(v)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:a(y)},"statement",!1,!1,!1)}},"expression",!1,!1,!1),u?c.push(r(23,128593,38,3959,{macroName:"let",macroData:{declarable:r(23,128597,37,3959,r(23,128597,31,3959,{ident:a(u)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(d)}},"statement",!1,!1,!1)):u=d):(s=this.cache(s,c,"arr",!0),o=r(7,128695,[r(23,128695,38,3964,{macroName:"let",macroData:{declarable:r(23,128706,37,3964,r(23,128706,31,3964,{ident:a(b)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(1,128715,a(s),a(m))}},"statement",!1,!1,!1),a(o)],null),u?c.push(r(23,128842,38,3970,{macroName:"let",macroData:{declarable:r(23,128846,37,3970,r(23,128846,31,3970,{ident:a(u)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r(23,128856,60,3970,{op:"+",node:r(1,128858,a(s),r(12,128865,"length"))},"expression",!1,!1,!1)}},"statement",!1,!1,!1)):u=r(23,128794,60,3968,{op:"+",node:r(1,128796,a(s),r(12,128803,"length"))},"expression",!1,!1,!1)),r(7,128885,[a(c),r(9,128897,r(21,128897,"__promiseLoop"),[r(23,128918,60,3974,{op:"+",node:a(f)},"expression",!1,!1,!1),a(u),r(9,128941,r(21,128941,"__promise"),[r(23,128953,117,3974,{op:"",node:r(20,128953,[r(27,128954,a(m),void 0,!1,!1,void 0)],a(o),!0,!1,!1,void 0,!0,[])},"expression",!1,!1,!1)],!1,!1)],!1,!1)],null)}}).call(this);',
           params: [
             ["const", "("],
             ["ident", "parallelism", "ident", "Expression"],
@@ -33546,7 +33548,7 @@
           id: 163
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i,l,m,u,d,p,h;return l=e.macroName,i=e.macroData,d=i.parallelism,o=i.key,h=i.value,p=i.type,m=i.object,a=i.body,u="of"===p,r=[],m=this.cache(m,r,"obj",!0),c=null,h&&(c=h.index,h=this.macroExpand1(h.value)),h&&(a=s("Block",129432,[s("MacroAccess",129432,38,3987,{macroName:"let",macroData:{declarable:s("MacroAccess",129445,37,3987,s("MacroAccess",129445,31,3987,{ident:t(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("Access",129454,t(m),t(o))}},"statement",!1,!1,!1),t(a)],null)),n=this.tmp("keys",!0,"stringArray"),s("Block",129549,[t(r),s("MacroAccess",129563,38,3993,{macroName:"let",macroData:{declarable:s("MacroAccess",129574,37,3993,s("MacroAccess",129574,31,3993,{ident:t(n)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:s("MacroAccess",129582,17,3993,{macroName:"if",macroData:{test:t(u),body:s("Call",129591,s("Ident",129591,"__keys"),[t(m)],!1,!1),elseIfs:[],elseBody:s("Call",129629,s("Ident",129629,"__allkeys"),[t(m)],!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),s("MacroAccess",129657,163,3997,{macroName:"promisefor",macroData:{parallelism:t(d),value:s("MacroAccess",129689,37,3997,s("MacroAccess",129689,31,3997,{ident:t(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:{value:t(c)},array:t(n),body:t(a)}},"statement",!1,!1,!1)],null)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s,o,i,l,m,c,u,d,p,h;return m=t.macroName,l=t.macroData,d=l.parallelism,o=l.key,h=l.value,p=l.type,c=l.object,r=l.body,u="of"===p,s=[],c=this.cache(c,s,"obj",!0),n=null,h&&(n=h.index,h=this.macroExpand1(h.value)),h&&(r=a(7,129432,[a(23,129432,38,3987,{macroName:"let",macroData:{declarable:a(23,129445,37,3987,a(23,129445,31,3987,{ident:e(h)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(1,129454,e(c),e(o))}},"statement",!1,!1,!1),e(r)],null)),i=this.tmp("keys",!0,"stringArray"),a(7,129549,[e(s),a(23,129563,38,3993,{macroName:"let",macroData:{declarable:a(23,129574,37,3993,a(23,129574,31,3993,{ident:e(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:a(23,129582,17,3993,{macroName:"if",macroData:{test:e(u),body:a(9,129591,a(21,129591,"__keys"),[e(c)],!1,!1),elseIfs:[],elseBody:a(9,129629,a(21,129629,"__allkeys"),[e(c)],!1,!1)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1),a(23,129657,163,3997,{macroName:"promisefor",macroData:{parallelism:e(d),value:a(23,129689,37,3997,a(23,129689,31,3997,{ident:e(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),index:{value:e(n)},array:e(i),body:e(r)}},"statement",!1,!1,!1)],null)}}).call(this);',
           params: [
             ["const", "("],
             ["ident", "parallelism", "ident", "Expression"],
@@ -33584,7 +33586,7 @@
           id: 164
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o,n,i,l;return n=e.macroName,o=e.macroData,i=o.parallelism,l=o.value,c=o.index,r=o.iterator,a=o.body,null==c&&(c=this.tmp("i",!0)),s("Call",129915,s("Ident",129915,"__promiseIter"),[s("MacroAccess",129936,60,4004,{op:"+",node:t(i)},"expression",!1,!1,!1),s("Call",129950,s("Ident",129950,"__iter"),[t(r)],!1,!1),s("Call",129969,s("Ident",129969,"__promise"),[s("MacroAccess",129981,117,4004,{op:"",node:s("Function",129981,[s("Param",129982,t(l),void 0,!1,!1,void 0),s("Param",129989,t(c),void 0,!1,!1,void 0)],t(a),!0,!1,!1,void 0,!0,[])},"expression",!1,!1,!1)],!1,!1)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s,o,i,l,m;return i=t.macroName,o=t.macroData,l=o.parallelism,m=o.value,n=o.index,s=o.iterator,r=o.body,null==n&&(n=this.tmp("i",!0)),a(9,129915,a(21,129915,"__promiseIter"),[a(23,129936,60,4004,{op:"+",node:e(l)},"expression",!1,!1,!1),a(9,129950,a(21,129950,"__iter"),[e(s)],!1,!1),a(9,129969,a(21,129969,"__promise"),[a(23,129981,117,4004,{op:"",node:a(20,129981,[a(27,129982,e(m),void 0,!1,!1,void 0),a(27,129989,e(n),void 0,!1,!1,void 0)],e(r),!0,!1,!1,void 0,!0,[])},"expression",!1,!1,!1)],!1,!1)],!1,!1)}}).call(this);',
           params: [
             ["const", "("],
             ["ident", "parallelism", "ident", "Expression"],
@@ -33607,35 +33609,35 @@
           id: 165
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s;return s=e.macroName,t=e.macroData,this["const"](this.line())}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a;return a=t.macroName,e=t.macroData,this["const"](this.line())}}).call(this);',
           options: {type: "number"},
           params: [["const", ""]],
           names: "__LINE__",
           id: 166
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s;return s=e.macroName,t=e.macroData,this["const"](this.column())}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a;return a=t.macroName,e=t.macroData,this["const"](this.column())}}).call(this);',
           options: {type: "number"},
           params: [["const", ""]],
           names: "__COLUMN__",
           id: 167
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s;return s=e.macroName,t=e.macroData,this["const"](this.file())}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a;return a=t.macroName,e=t.macroData,this["const"](this.file())}}).call(this);',
           options: {type: "string"},
           params: [["const", ""]],
           names: "__FILE__",
           id: 168
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s;return s=e.macroName,t=e.macroData,this["const"]((new Date).getTime())}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a;return a=t.macroName,e=t.macroData,this["const"]((new Date).getTime())}}).call(this);',
           options: {type: "number"},
           params: [["const", ""]],
           names: "__DATEMSEC__",
           id: 169
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s;return s=e.macroName,t=e.macroData,this["const"](this.version())}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a;return a=t.macroName,e=t.macroData,this["const"](this.version())}}).call(this);',
           options: {type: "string"},
           params: [["const", ""]],
           names: "__VERSION__",
@@ -33644,307 +33646,307 @@
       ],
       binaryOperator: [
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.binary(t,"&&",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.binary(e,"&&",r)}}).call(this);',
           operators: "and",
           options: {precedence: 1},
           id: 1
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.binary(t,"||",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.binary(e,"||",r)}}).call(this);',
           operators: "or",
           options: {precedence: 1},
           id: 2
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.binary(t,"===",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.binary(e,"===",r)}}).call(this);',
           operators: "==",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 5
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("MacroAccess",1163,3,43,{op:"not",node:s("MacroAccess",1169,5,43,{left:t(a),inverted:!1,op:"==",right:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,a(23,1163,3,43,{op:"not",node:a(23,1169,5,43,{left:e(r),inverted:!1,op:"==",right:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: "!=",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 6
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.binary(t,"==",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.binary(e,"==",r)}}).call(this);',
           operators: "~=",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 7
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("MacroAccess",1369,3,49,{op:"not",node:s("MacroAccess",1375,7,49,{left:t(a),inverted:!1,op:"~=",right:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,a(23,1369,3,49,{op:"not",node:a(23,1375,7,49,{left:e(r),inverted:!1,op:"~=",right:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: "!~=",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 8
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.binary(t,"~<"===s&&"<"||"<=",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.binary(e,"~<"===a&&"<"||"<=",r)}}).call(this);',
           operators: ["~<", "~<="],
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 9
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,"~>"===c&&s("MacroAccess",1694,3,57,{op:"not",node:s("MacroAccess",1700,9,57,{left:t(a),inverted:!1,op:"~<=",right:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)||s("MacroAccess",1726,3,57,{op:"not",node:s("MacroAccess",1732,9,57,{left:t(a),inverted:!1,op:"~<",right:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,"~>"===n&&a(23,1694,3,57,{op:"not",node:a(23,1700,9,57,{left:e(r),inverted:!1,op:"~<=",right:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)||a(23,1726,3,57,{op:"not",node:a(23,1732,9,57,{left:e(r),inverted:!1,op:"~<",right:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: ["~>", "~>="],
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 10
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.hasType(t,"numeric")&&this.hasType(a,"numeric")?this.binary(this.binary(this["const"](""),"+",t),"+",a):this.isConst(t)&&this.value(t)===""&&this.isType(a,"string")?a:this.isConst(a)&&this.value(a)===""&&this.isType(t,"string")?t:this.binary(t,"+",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.hasType(e,"numeric")&&this.hasType(r,"numeric")?this.binary(this.binary(this["const"](""),"+",e),"+",r):this.isConst(e)&&this.value(e)===""&&this.isType(r,"string")?r:this.isConst(r)&&this.value(r)===""&&this.isType(e,"string")?e:this.binary(e,"+",r)}}).call(this);',
           operators: "~&",
           options: {precedence: 7, type: "string"},
           id: 29
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,"~\\\\"===c?s("Call",11176,s("Access",11176,s("Ident",11176,"Math"),s("Const",11182,"floor")),[t(this.binary(a,"/",r))],!1,!1):"~*"===c?this.binary(a,"*",r):"~/"===c?this.binary(a,"/",r):this.binary(a,"%",r)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,"~\\\\"===n?a(9,11176,a(1,11176,a(21,11176,"Math"),a(12,11182,"floor")),[e(this.binary(r,"/",s))],!1,!1):"~*"===n?this.binary(r,"*",s):"~/"===n?this.binary(r,"/",s):this.binary(r,"%",s)}}).call(this);',
           operators: ["~*", "~/", "~%", "~\\"],
           options: {precedence: 11, type: "number"},
           id: 45
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,"~+"===c?this.isType(r,"numeric")?(this.isType(a,"numeric")||(a=s("MacroAccess",12529,48,368,{op:"~+",node:t(a)},"expression",!1,!1,!1)),this.binary(a,"+",r)):this.binary(a,"-",s("MacroAccess",12451,48,365,{op:"~-",node:t(r)},"expression",!1,!1,!1)):this.binary(a,"-",r)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,"~+"===n?this.isType(s,"numeric")?(this.isType(r,"numeric")||(r=a(23,12529,48,368,{op:"~+",node:e(r)},"expression",!1,!1,!1)),this.binary(r,"+",s)):this.binary(r,"-",a(23,12451,48,365,{op:"~-",node:e(s)},"expression",!1,!1,!1)):this.binary(r,"-",s)}}).call(this);',
           operators: ["~+", "~-"],
           options: {precedence: 10, type: "number"},
           id: 49
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o;if(a=e.left,c=e.op,r=e.right,this.isConst(r)){if(o=Number(this.value(r)),0===o)return s("Block",12785,[t(a),s("Const",12807,1)],null);if(.5===o)return s("Call",12851,s("Access",12851,s("Ident",12851,"Math"),s("Const",12857,"sqrt")),[t(a)],!1,!1);if(1===o)return s("MacroAccess",12908,48,383,{op:"~+",node:t(a)},"expression",!1,!1,!1);if(2===o)return this.maybeCache(a,function(e,a){return s("MacroAccess",13002,45,386,{left:t(e),inverted:!1,op:"~*",right:t(a)},"expression",!1,!1,!1)});if(3===o)return this.maybeCache(a,function(e,a){return s("MacroAccess",13107,45,389,{left:s("MacroAccess",13107,45,389,{left:t(e),inverted:!1,op:"~*",right:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~*",right:t(a)},"expression",!1,!1,!1)});if(o===-.5)return s("MacroAccess",13180,45,391,{left:s("Const",13181,1),inverted:!1,op:"~/",right:s("Call",13185,s("Access",13185,s("Ident",13185,"Math"),s("Const",13191,"sqrt")),[t(a)],!1,!1)},"expression",!1,!1,!1);if(-1===o)return s("MacroAccess",13245,45,393,{left:s("Const",13246,1),inverted:!1,op:"~/",right:t(a)},"expression",!1,!1,!1);if(-2===o)return this.maybeCache(a,function(e,a){return s("MacroAccess",13344,45,396,{left:s("Const",13345,1),inverted:!1,op:"~/",right:s("MacroAccess",13351,45,396,{left:t(e),inverted:!1,op:"~*",right:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1)});if(-3===o)return this.maybeCache(a,function(e,a){return s("MacroAccess",13458,45,399,{left:s("Const",13459,1),inverted:!1,op:"~/",right:s("MacroAccess",13465,45,399,{left:s("MacroAccess",13465,45,399,{left:t(e),inverted:!1,op:"~*",right:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~*",right:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}return s("Call",13500,s("Access",13500,s("Ident",13500,"Math"),s("Const",13506,"pow")),[t(a),t(r)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s,o;if(r=t.left,n=t.op,s=t.right,this.isConst(s)){if(o=Number(this.value(s)),0===o)return a(7,12785,[e(r),a(12,12807,1)],null);if(.5===o)return a(9,12851,a(1,12851,a(21,12851,"Math"),a(12,12857,"sqrt")),[e(r)],!1,!1);if(1===o)return a(23,12908,48,383,{op:"~+",node:e(r)},"expression",!1,!1,!1);if(2===o)return this.maybeCache(r,function(t,r){return a(23,13002,45,386,{left:e(t),inverted:!1,op:"~*",right:e(r)},"expression",!1,!1,!1)});if(3===o)return this.maybeCache(r,function(t,r){return a(23,13107,45,389,{left:a(23,13107,45,389,{left:e(t),inverted:!1,op:"~*",right:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~*",right:e(r)},"expression",!1,!1,!1)});if(o===-.5)return a(23,13180,45,391,{left:a(12,13181,1),inverted:!1,op:"~/",right:a(9,13185,a(1,13185,a(21,13185,"Math"),a(12,13191,"sqrt")),[e(r)],!1,!1)},"expression",!1,!1,!1);if(-1===o)return a(23,13245,45,393,{left:a(12,13246,1),inverted:!1,op:"~/",right:e(r)},"expression",!1,!1,!1);if(-2===o)return this.maybeCache(r,function(t,r){return a(23,13344,45,396,{left:a(12,13345,1),inverted:!1,op:"~/",right:a(23,13351,45,396,{left:e(t),inverted:!1,op:"~*",right:e(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)});if(-3===o)return this.maybeCache(r,function(t,r){return a(23,13458,45,399,{left:a(12,13459,1),inverted:!1,op:"~/",right:a(23,13465,45,399,{left:a(23,13465,45,399,{left:e(t),inverted:!1,op:"~*",right:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~*",right:e(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}return a(9,13500,a(1,13500,a(21,13500,"Math"),a(12,13506,"pow")),[e(r),e(s)],!1,!1)}}).call(this);',
           operators: "~^",
           options: {precedence: 12, rightToLeft: true, type: "number"},
           id: 50
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,"~bitlshift"===s?this.binary(t,"<<",a):"~bitrshift"===s?this.binary(t,">>",a):this.binary(t,">>>",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,"~bitlshift"===a?this.binary(e,"<<",r):"~bitrshift"===a?this.binary(e,">>",r):this.binary(e,">>>",r)}}).call(this);',
           operators: ["~bitlshift", "~bitrshift", "~biturshift"],
           options: {precedence: 9, maximum: 1, type: "number"},
           id: 54
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)?s("MacroAccess",18411,50,565,{left:t(a),inverted:!1,op:"~^",right:t(r)},"expression",!1,!1,!1):s("MacroAccess",18443,50,567,{left:s("MacroAccess",18443,60,567,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~^",right:s("MacroAccess",18453,60,567,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)?a(23,18411,50,565,{left:e(r),inverted:!1,op:"~^",right:e(s)},"expression",!1,!1,!1):a(23,18443,50,567,{left:a(23,18443,60,567,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~^",right:a(23,18453,60,567,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: "^",
           options: {precedence: 12, rightToLeft: true, type: "number"},
           id: 62
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,"*"===c?s("MacroAccess",18685,45,575,{left:s("MacroAccess",18685,60,575,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~*",right:s("MacroAccess",18695,60,575,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"/"===c?s("MacroAccess",18732,45,577,{left:s("MacroAccess",18732,60,577,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~/",right:s("MacroAccess",18742,60,577,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"%"===c?s("MacroAccess",18779,45,579,{left:s("MacroAccess",18779,60,579,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~%",right:s("MacroAccess",18789,60,579,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1):s("MacroAccess",18813,45,581,{left:s("MacroAccess",18813,60,581,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:s("MacroAccess",18823,60,581,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,"*"===n?a(23,18685,45,575,{left:a(23,18685,60,575,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~*",right:a(23,18695,60,575,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"/"===n?a(23,18732,45,577,{left:a(23,18732,60,577,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~/",right:a(23,18742,60,577,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"%"===n?a(23,18779,45,579,{left:a(23,18779,60,579,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~%",right:a(23,18789,60,579,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1):a(23,18813,45,581,{left:a(23,18813,60,581,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~\\\\",right:a(23,18823,60,581,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: ["*", "/", "%", "\\"],
           options: {precedence: 11, type: "number"},
           id: 64
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,"+"===c?s("MacroAccess",18997,49,588,{left:s("MacroAccess",18997,60,588,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:s("MacroAccess",19007,60,588,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1):s("MacroAccess",19031,49,590,{left:s("MacroAccess",19031,60,590,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~-",right:s("MacroAccess",19041,60,590,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,"+"===n?a(23,18997,49,588,{left:a(23,18997,60,588,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~+",right:a(23,19007,60,588,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1):a(23,19031,49,590,{left:a(23,19031,60,590,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~-",right:a(23,19041,60,590,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: ["+", "-"],
           options: {precedence: 10, type: "number"},
           id: 66
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,"bitlshift"===c?s("MacroAccess",19184,54,594,{left:s("MacroAccess",19184,60,594,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~bitlshift",right:s("MacroAccess",19202,60,594,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitrshift"===c?s("MacroAccess",19247,54,596,{left:s("MacroAccess",19247,60,596,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~bitrshift",right:s("MacroAccess",19265,60,596,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1):s("MacroAccess",19289,54,598,{left:s("MacroAccess",19289,60,598,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~biturshift",right:s("MacroAccess",19308,60,598,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,"bitlshift"===n?a(23,19184,54,594,{left:a(23,19184,60,594,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~bitlshift",right:a(23,19202,60,594,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitrshift"===n?a(23,19247,54,596,{left:a(23,19247,60,596,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~bitrshift",right:a(23,19265,60,596,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1):a(23,19289,54,598,{left:a(23,19289,60,598,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~biturshift",right:a(23,19308,60,598,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: ["bitlshift", "bitrshift", "biturshift"],
           options: {precedence: 9, maximum: 1, type: "number"},
           id: 67
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)||(this.isType(a,"stringOrNumber")||(a=this.hasType(a,"number")?s("Call",19725,s("Ident",19725,"__strnum"),[t(a)],!1,!1):s("Call",19689,s("Ident",19689,"__str"),[t(a)],!1,!1)),this.isType(r,"stringOrNumber")||(r=this.hasType(r,"number")?s("Call",19882,s("Ident",19882,"__strnum"),[t(r)],!1,!1):s("Call",19845,s("Ident",19845,"__str"),[t(r)],!1,!1))),s("MacroAccess",19905,29,616,{left:t(a),inverted:!1,op:"~&",right:t(r)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)||(this.isType(r,"stringOrNumber")||(r=this.hasType(r,"number")?a(9,19725,a(21,19725,"__strnum"),[e(r)],!1,!1):a(9,19689,a(21,19689,"__str"),[e(r)],!1,!1)),this.isType(s,"stringOrNumber")||(s=this.hasType(s,"number")?a(9,19882,a(21,19882,"__strnum"),[e(s)],!1,!1):a(9,19845,a(21,19845,"__str"),[e(s)],!1,!1))),a(23,19905,29,616,{left:e(r),inverted:!1,op:"~&",right:e(s)},"expression",!1,!1,!1)}}).call(this);',
           operators: "&",
           options: {precedence: 7, type: "string", label: "stringConcat"},
           id: 69
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,a){var c,r,o,n,i;return o=e.left,n=e.op,i=e.right,this.isArray(i)?(c=this.elements(i),c.length===0?this.isComplex(o)?s("Block",20424,[t(o),a("false")],null):a("false"):c.length===1?s("MacroAccess",20529,5,638,{left:t(o),inverted:!1,op:"==",right:t(c[0])},"expression",!1,!1,!1):(r=function(e,a,o){return e<c.length?r(+e+1,s("MacroAccess",20649,2,642,{left:t(a),inverted:!1,op:"or",right:s("MacroAccess",20661,5,642,{left:t(o),inverted:!1,op:"==",right:t(c[e])},"expression",!1,!1,!1)},"expression",!1,!1,!1),o):a},this.maybeCache(o,function(e,a){return r(1,s("MacroAccess",20784,5,646,{left:t(e),inverted:!1,op:"==",right:t(c[0])},"expression",!1,!1,!1),a)}))):s("Call",20835,s("Ident",20835,"__in"),[t(o),t(i)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a,r){var n,s,o,i,l;return o=t.left,i=t.op,l=t.right,this.isArray(l)?(n=this.elements(l),n.length===0?this.isComplex(o)?a(7,20424,[e(o),r("false")],null):r("false"):n.length===1?a(23,20529,5,638,{left:e(o),inverted:!1,op:"==",right:e(n[0])},"expression",!1,!1,!1):(s=function(t,r,o){return t<n.length?s(+t+1,a(23,20649,2,642,{left:e(r),inverted:!1,op:"or",right:a(23,20661,5,642,{left:e(o),inverted:!1,op:"==",right:e(n[t])},"expression",!1,!1,!1)},"expression",!1,!1,!1),o):r},this.maybeCache(o,function(t,r){return s(1,a(23,20784,5,646,{left:e(t),inverted:!1,op:"==",right:e(n[0])},"expression",!1,!1,!1),r)}))):a(9,20835,a(21,20835,"__in"),[e(o),e(l)],!1,!1)}}).call(this);',
           operators: "in",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 71
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.binary(a,"in",t)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.binary(r,"in",e)}}).call(this);',
           operators: "haskey",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 72
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("Call",21159,s("Ident",21159,"__owns"),[t(a),t(r)],!1,!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,a(9,21159,a(21,21159,"__owns"),[e(r),e(s)],!1,!0)}}).call(this);',
           operators: "ownskey",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean", label: "ownership"},
           id: 73
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;if(a=e.left,c=e.op,r=e.right,this.isIdent(r)){if(this.name(r)==="String")return s("MacroAccess",21353,23,661,{op:"isString!",node:t(a)},"expression",!1,!1,!1);if(this.name(r)==="Number")return s("MacroAccess",21424,24,663,{op:"isNumber!",node:t(a)},"expression",!1,!1,!1);if(this.name(r)==="Boolean")return s("MacroAccess",21496,25,665,{op:"isBoolean!",node:t(a)},"expression",!1,!1,!1);if(this.name(r)==="Function")return s("MacroAccess",21570,26,667,{op:"isFunction!",node:t(a)},"expression",!1,!1,!1);if(this.name(r)==="Array")return s("MacroAccess",21642,27,669,{op:"isArray!",node:t(a)},"expression",!1,!1,!1);if(this.name(r)==="Object")return s("MacroAccess",21712,28,671,{op:"isObject!",node:t(a)},"expression",!1,!1,!1)}return this.binary(a,"instanceof",r)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;if(r=t.left,n=t.op,s=t.right,this.isIdent(s)){if(this.name(s)==="String")return a(23,21353,23,661,{op:"isString!",node:e(r)},"expression",!1,!1,!1);if(this.name(s)==="Number")return a(23,21424,24,663,{op:"isNumber!",node:e(r)},"expression",!1,!1,!1);if(this.name(s)==="Boolean")return a(23,21496,25,665,{op:"isBoolean!",node:e(r)},"expression",!1,!1,!1);if(this.name(s)==="Function")return a(23,21570,26,667,{op:"isFunction!",node:e(r)},"expression",!1,!1,!1);if(this.name(s)==="Array")return a(23,21642,27,669,{op:"isArray!",node:e(r)},"expression",!1,!1,!1);if(this.name(s)==="Object")return a(23,21712,28,671,{op:"isObject!",node:e(r)},"expression",!1,!1,!1)}return this.binary(r,"instanceof",s)}}).call(this);',
           operators: "instanceof",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 74
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("Call",22252,s("Ident",22252,"__cmp"),[t(a),t(r)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,a(9,22252,a(21,22252,"__cmp"),[e(r),e(s)],!1,!1)}}).call(this);',
           operators: "<=>",
           options: {precedence: 5, maximum: 1, type: "number"},
           id: 75
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("MacroAccess",22372,5,692,{left:s("MacroAccess",22372,64,692,{left:t(a),inverted:!1,op:"%",right:t(r)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",22391,0)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,a(23,22372,5,692,{left:a(23,22372,64,692,{left:e(r),inverted:!1,op:"%",right:e(s)},"expression",!1,!1,!1),inverted:!1,op:"==",right:a(12,22391,0)},"expression",!1,!1,!1)}}).call(this);',
           operators: "%%",
           options: {precedence: 2, maximum: 1, invertible: true, type: "boolean"},
           id: 76
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("MacroAccess",22492,5,695,{left:s("MacroAccess",22492,45,695,{left:t(a),inverted:!1,op:"~%",right:t(r)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",22512,0)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,a(23,22492,5,695,{left:a(23,22492,45,695,{left:e(r),inverted:!1,op:"~%",right:e(s)},"expression",!1,!1,!1),inverted:!1,op:"==",right:a(12,22512,0)},"expression",!1,!1,!1)}}).call(this);',
           operators: "~%%",
           options: {precedence: 2, maximum: 1, invertible: true, type: "boolean"},
           id: 77
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)?"<"===c?s("MacroAccess",23633,9,732,{left:t(a),inverted:!1,op:"~<",right:t(r)},"expression",!1,!1,!1):s("MacroAccess",23669,9,734,{left:t(a),inverted:!1,op:"~<=",right:t(r)},"expression",!1,!1,!1):this.isType(a,"number")?this.isType(r,"number")?"<"===c?s("MacroAccess",23782,9,738,{left:t(a),inverted:!1,op:"~<",right:t(r)},"expression",!1,!1,!1):s("MacroAccess",23822,9,740,{left:t(a),inverted:!1,op:"~<=",right:t(r)},"expression",!1,!1,!1):"<"===c?s("MacroAccess",23880,9,743,{left:t(a),inverted:!1,op:"~<",right:s("Call",23889,s("Ident",23889,"__num"),[t(r)],!1,!1)},"expression",!1,!1,!1):s("MacroAccess",23927,9,745,{left:t(a),inverted:!1,op:"~<=",right:s("Call",23937,s("Ident",23937,"__num"),[t(r)],!1,!1)},"expression",!1,!1,!1):this.isType(a,"string")?this.isType(r,"string")?"<"===c?s("MacroAccess",24047,9,749,{left:t(a),inverted:!1,op:"~<",right:t(r)},"expression",!1,!1,!1):s("MacroAccess",24087,9,751,{left:t(a),inverted:!1,op:"~<=",right:t(r)},"expression",!1,!1,!1):"<"===c?s("MacroAccess",24145,9,754,{left:t(a),inverted:!1,op:"~<",right:s("Call",24154,s("Ident",24154,"__str"),[t(r)],!1,!1)},"expression",!1,!1,!1):s("MacroAccess",24192,9,756,{left:t(a),inverted:!1,op:"~<=",right:s("Call",24202,s("Ident",24202,"__str"),[t(r)],!1,!1)},"expression",!1,!1,!1):this.isType(r,"number")?"<"===c?s("MacroAccess",24278,9,759,{left:s("Call",24278,s("Ident",24278,"__num"),[t(a)],!1,!1),inverted:!1,op:"~<",right:t(r)},"expression",!1,!1,!1):s("MacroAccess",24321,9,761,{left:s("Call",24321,s("Ident",24321,"__num"),[t(a)],!1,!1),inverted:!1,op:"~<=",right:t(r)},"expression",!1,!1,!1):this.isType(r,"string")?"<"===c?s("MacroAccess",24407,9,764,{left:s("Call",24407,s("Ident",24407,"__str"),[t(a)],!1,!1),inverted:!1,op:"~<",right:t(r)},"expression",!1,!1,!1):s("MacroAccess",24450,9,766,{left:s("Call",24450,s("Ident",24450,"__str"),[t(a)],!1,!1),inverted:!1,op:"~<=",right:t(r)},"expression",!1,!1,!1):"<"===c?s("Call",24503,s("Ident",24503,"__lt"),[t(a),t(r)],!1,!1):s("Call",24539,s("Ident",24539,"__lte"),[t(a),t(r)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)?"<"===n?a(23,23633,9,732,{left:e(r),inverted:!1,op:"~<",right:e(s)},"expression",!1,!1,!1):a(23,23669,9,734,{left:e(r),inverted:!1,op:"~<=",right:e(s)},"expression",!1,!1,!1):this.isType(r,"number")?this.isType(s,"number")?"<"===n?a(23,23782,9,738,{left:e(r),inverted:!1,op:"~<",right:e(s)},"expression",!1,!1,!1):a(23,23822,9,740,{left:e(r),inverted:!1,op:"~<=",right:e(s)},"expression",!1,!1,!1):"<"===n?a(23,23880,9,743,{left:e(r),inverted:!1,op:"~<",right:a(9,23889,a(21,23889,"__num"),[e(s)],!1,!1)},"expression",!1,!1,!1):a(23,23927,9,745,{left:e(r),inverted:!1,op:"~<=",right:a(9,23937,a(21,23937,"__num"),[e(s)],!1,!1)},"expression",!1,!1,!1):this.isType(r,"string")?this.isType(s,"string")?"<"===n?a(23,24047,9,749,{left:e(r),inverted:!1,op:"~<",right:e(s)},"expression",!1,!1,!1):a(23,24087,9,751,{left:e(r),inverted:!1,op:"~<=",right:e(s)},"expression",!1,!1,!1):"<"===n?a(23,24145,9,754,{left:e(r),inverted:!1,op:"~<",right:a(9,24154,a(21,24154,"__str"),[e(s)],!1,!1)},"expression",!1,!1,!1):a(23,24192,9,756,{left:e(r),inverted:!1,op:"~<=",right:a(9,24202,a(21,24202,"__str"),[e(s)],!1,!1)},"expression",!1,!1,!1):this.isType(s,"number")?"<"===n?a(23,24278,9,759,{left:a(9,24278,a(21,24278,"__num"),[e(r)],!1,!1),inverted:!1,op:"~<",right:e(s)},"expression",!1,!1,!1):a(23,24321,9,761,{left:a(9,24321,a(21,24321,"__num"),[e(r)],!1,!1),inverted:!1,op:"~<=",right:e(s)},"expression",!1,!1,!1):this.isType(s,"string")?"<"===n?a(23,24407,9,764,{left:a(9,24407,a(21,24407,"__str"),[e(r)],!1,!1),inverted:!1,op:"~<",right:e(s)},"expression",!1,!1,!1):a(23,24450,9,766,{left:a(9,24450,a(21,24450,"__str"),[e(r)],!1,!1),inverted:!1,op:"~<=",right:e(s)},"expression",!1,!1,!1):"<"===n?a(9,24503,a(21,24503,"__lt"),[e(r),e(s)],!1,!1):a(9,24539,a(21,24539,"__lte"),[e(r),e(s)],!1,!1)}}).call(this);',
           operators: ["<", "<="],
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 78
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,">"===c?s("MacroAccess",24661,3,774,{op:"not",node:s("MacroAccess",24667,78,774,{left:t(a),inverted:!1,op:"<=",right:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1):s("MacroAccess",24699,3,776,{op:"not",node:s("MacroAccess",24705,78,776,{left:t(a),inverted:!1,op:"<",right:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,">"===n?a(23,24661,3,774,{op:"not",node:a(23,24667,78,774,{left:e(r),inverted:!1,op:"<=",right:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1):a(23,24699,3,776,{op:"not",node:a(23,24705,78,776,{left:e(r),inverted:!1,op:"<",right:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: [">", ">="],
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 79
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o;return a=this,c=e.left,r=e.op,o=e.right,this.maybeCache(c,function(e,c){return a.maybeCache(o,function(a,r){return s("MacroAccess",24864,16,781,{macroName:"if",macroData:{test:s("MacroAccess",24867,9,781,{left:t(e),inverted:!1,op:"~<",right:t(a)},"expression",!1,!1,!1),body:t(c),elseIfs:[],elseBody:t(r)}},"expression",!1,!1,!1)})})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s,o;return r=this,n=t.left,s=t.op,o=t.right,this.maybeCache(n,function(t,n){return r.maybeCache(o,function(r,s){return a(23,24864,16,781,{macroName:"if",macroData:{test:a(23,24867,9,781,{left:e(t),inverted:!1,op:"~<",right:e(r)},"expression",!1,!1,!1),body:e(n),elseIfs:[],elseBody:e(s)}},"expression",!1,!1,!1)})})}}).call(this);',
           operators: "~min",
           options: {precedence: 8},
           id: 80
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o;return a=this,c=e.left,r=e.op,o=e.right,this.maybeCache(c,function(e,c){return a.maybeCache(o,function(a,r){return s("MacroAccess",25058,16,786,{macroName:"if",macroData:{test:s("MacroAccess",25061,10,786,{left:t(e),inverted:!1,op:"~>",right:t(a)},"expression",!1,!1,!1),body:t(c),elseIfs:[],elseBody:t(r)}},"expression",!1,!1,!1)})})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s,o;return r=this,n=t.left,s=t.op,o=t.right,this.maybeCache(n,function(t,n){return r.maybeCache(o,function(r,s){return a(23,25058,16,786,{macroName:"if",macroData:{test:a(23,25061,10,786,{left:e(t),inverted:!1,op:"~>",right:e(r)},"expression",!1,!1,!1),body:e(n),elseIfs:[],elseBody:e(s)}},"expression",!1,!1,!1)})})}}).call(this);',
           operators: "~max",
           options: {precedence: 8},
           id: 81
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o;return a=this,c=e.left,r=e.op,o=e.right,this.maybeCache(c,function(e,c){return a.maybeCache(o,function(a,r){return s("MacroAccess",25251,16,791,{macroName:"if",macroData:{test:s("MacroAccess",25254,78,791,{left:t(e),inverted:!1,op:"<",right:t(a)},"expression",!1,!1,!1),body:t(c),elseIfs:[],elseBody:t(r)}},"expression",!1,!1,!1)})})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s,o;return r=this,n=t.left,s=t.op,o=t.right,this.maybeCache(n,function(t,n){return r.maybeCache(o,function(r,s){return a(23,25251,16,791,{macroName:"if",macroData:{test:a(23,25254,78,791,{left:e(t),inverted:!1,op:"<",right:e(r)},"expression",!1,!1,!1),body:e(n),elseIfs:[],elseBody:e(s)}},"expression",!1,!1,!1)})})}}).call(this);',
           operators: "min",
           options: {precedence: 8},
           id: 82
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o;return a=this,c=e.left,r=e.op,o=e.right,this.maybeCache(c,function(e,c){return a.maybeCache(o,function(a,r){return s("MacroAccess",25443,16,796,{macroName:"if",macroData:{test:s("MacroAccess",25446,79,796,{left:t(e),inverted:!1,op:">",right:t(a)},"expression",!1,!1,!1),body:t(c),elseIfs:[],elseBody:t(r)}},"expression",!1,!1,!1)})})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s,o;return r=this,n=t.left,s=t.op,o=t.right,this.maybeCache(n,function(t,n){return r.maybeCache(o,function(r,s){return a(23,25443,16,796,{macroName:"if",macroData:{test:a(23,25446,79,796,{left:e(t),inverted:!1,op:">",right:e(r)},"expression",!1,!1,!1),body:e(n),elseIfs:[],elseBody:e(s)}},"expression",!1,!1,!1)})})}}).call(this);',
           operators: "max",
           options: {precedence: 8},
           id: 83
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("Call",25546,s("Ident",25546,"__xor"),[t(a),t(r)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,a(9,25546,a(21,25546,"__xor"),[e(r),e(s)],!1,!1)}}).call(this);',
           operators: "xor",
           options: {precedence: 1},
           id: 84
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r,o;return a=this,c=e.left,r=e.op,o=e.right,this.maybeCache(c,function(e,a){return s("MacroAccess",25661,16,803,{macroName:"if",macroData:{test:s("MacroAccess",25664,20,803,{op:"?",node:t(e)},"expression",!1,!1,!1),body:t(a),elseIfs:[],elseBody:t(o)}},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s,o;return r=this,n=t.left,s=t.op,o=t.right,this.maybeCache(n,function(t,r){return a(23,25661,16,803,{macroName:"if",macroData:{test:a(23,25664,20,803,{op:"?",node:e(t)},"expression",!1,!1,!1),body:e(r),elseIfs:[],elseBody:e(o)}},"expression",!1,!1,!1)})}}).call(this);',
           operators: "?",
           options: {precedence: 1},
           id: 85
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.binary(t,"&",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.binary(e,"&",r)}}).call(this);',
           operators: "~bitand",
           options: {precedence: 1, type: "number"},
           id: 92
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.binary(t,"|",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.binary(e,"|",r)}}).call(this);',
           operators: "~bitor",
           options: {precedence: 1, type: "number"},
           id: 93
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,a;return t=e.left,s=e.op,a=e.right,this.binary(t,"^",a)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,a,r;return e=t.left,a=t.op,r=t.right,this.binary(e,"^",r)}}).call(this);',
           operators: "~bitxor",
           options: {precedence: 1, type: "number"},
           id: 94
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("MacroAccess",28009,92,871,{left:s("MacroAccess",28009,60,871,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~bitand",right:s("MacroAccess",28024,60,871,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,a(23,28009,92,871,{left:a(23,28009,60,871,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~bitand",right:a(23,28024,60,871,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: "bitand",
           options: {precedence: 1, type: "number"},
           id: 96
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("MacroAccess",28103,93,874,{left:s("MacroAccess",28103,60,874,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~bitor",right:s("MacroAccess",28117,60,874,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,a){var r,n,s;return r=t.left,n=t.op,s=t.right,a(23,28103,93,874,{left:a(23,28103,60,874,{op:"+",node:e(r)},"expression",!1,!1,!1),inverted:!1,op:"~bitor",right:a(23,28117,60,874,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: "bitor",
           options: {precedence: 1, type: "number"},
           id: 97
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var a,c,r;return a=e.left,c=e.op,r=e.right,s("MacroAccess",28197,94,877,{left:s("MacroAccess",28197,60,877,{op:"+",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"~bitxor",right:s("MacroAccess",28212,60,877,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var a,n,s;return a=t.left,n=t.op,s=t.right,r(23,28197,94,877,{left:r(23,28197,60,877,{op:"+",node:e(a)},"expression",!1,!1,!1),inverted:!1,op:"~bitxor",right:r(23,28212,60,877,{op:"+",node:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: "bitxor",
           options: {precedence: 1, type: "number"},
           id: 98
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,a){var c,r,o;return c=e.left,r=e.op,o=e.right,s("Call",36485,s("Ident",36485,"__range"),[t(c),t(o),s("Const",36509,1),a("true")],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r,a){var n,s,o;return n=t.left,s=t.op,o=t.right,r(9,36485,r(21,36485,"__range"),[e(n),e(o),r(12,36509,1),a("true")],!1,!1)}}).call(this);',
           operators: "to",
           options: {maximum: 1, precedence: 4, type: "array"},
           id: 110
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,a){var c,r,o;return c=e.left,r=e.op,o=e.right,s("Call",36597,s("Ident",36597,"__range"),[t(c),t(o),s("Const",36621,1),a("false")],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r,a){var n,s,o;return n=t.left,s=t.op,o=t.right,r(9,36597,r(21,36597,"__range"),[e(n),e(o),r(12,36621,1),a("false")],!1,!1)}}).call(this);',
           operators: "til",
           options: {maximum: 1, precedence: 4, type: "array"},
           id: 111
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+t(e));return e},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,a){var r,c,o,n;return c=t.left,o=t.op,n=t.right,this.hasType(n,"number")||this.error("Must provide a number to the \'by\' operator",n),this.isConst(n)&&this.value(n)===0&&this.error("\'by\' step must be non-zero",n),this.isCall(c)&&this.isIdent(this.callFunc(c))&&this.name(this.callFunc(c))==="__range"&&!this.callIsApply(c)?(r=this.callArgs(c),a("Call",37059,a("Ident",37059,"__range"),[s(r[0]),s(r[1]),s(n),s(r[3])],!1,!1)):(this.isConst(n)&&e(this.value(n))%1!==0&&this.error("\'by\' step must be an integer",n),a("Call",37244,a("Ident",37244,"__step"),[s(c),s(n)],!1,!1))}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+e(t));return t},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,r,a){var n,s,o,i;return s=e.left,o=e.op,i=e.right,this.hasType(i,"number")||this.error("Must provide a number to the \'by\' operator",i),this.isConst(i)&&this.value(i)===0&&this.error("\'by\' step must be non-zero",i),this.isCall(s)&&this.isIdent(this.callFunc(s))&&this.name(this.callFunc(s))==="__range"&&!this.callIsApply(s)?(n=this.callArgs(s),a(9,37059,a(21,37059,"__range"),[r(n[0]),r(n[1]),r(i),r(n[3])],!1,!1)):(this.isConst(i)&&t(this.value(i))%1!==0&&this.error("\'by\' step must be an integer",i),a(9,37244,a(21,37244,"__step"),[r(s),r(i)],!1,!1))}}).call(this);',
           operators: "by",
           options: {maximum: 1, precedence: 3, type: "array"},
           id: 112
         },
         {
-          code: 'return(function(){"use strict";var e,t,s;return e=function(e,t){var s;if(s=typeof e,"number"!==s&&"string"!==s)throw TypeError("Cannot compare a non-number/string: "+s);if(s!==typeof t)throw TypeError("Cannot compare elements of different types: "+s+" vs "+typeof t);return t>e},t=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+s(e));return e},s=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(s,a,r,c){var o,n,i,l,m,u;return l=s.left,m=s.op,u=s.right,this.isArray(u)?(n=this.elements(u),n.length===0?this.isComplex(l)?r("Block",69424,[a(l),c("false")],null):c("false"):n.length===1?(o=n[0],r("MacroAccess",69561,74,2056,{left:a(l),inverted:!1,op:"instanceof",right:a(o)},"expression",!1,!1,!1)):(i=function(s,c,o){var l;return e(s,n.length)?(l=n[s],i(t(s)+1,r("MacroAccess",69717,2,2061,{left:a(c),inverted:!1,op:"or",right:r("MacroAccess",69729,74,2061,{left:a(o),inverted:!1,op:"instanceof",right:a(l)},"expression",!1,!1,!1)},"expression",!1,!1,!1),o)):c},this.maybeCache(l,function(e,t){var s;return s=n[0],i(1,r("MacroAccess",69888,74,2066,{left:a(e),inverted:!1,op:"instanceof",right:a(s)},"expression",!1,!1,!1),t)}))):r("Call",69941,r("Ident",69941,"__instanceofsome"),[a(l),a(u)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,r;return t=function(t,e){var r;if(r=typeof t,"number"!==r&&"string"!==r)throw TypeError("Cannot compare a non-number/string: "+r);if(r!==typeof e)throw TypeError("Cannot compare elements of different types: "+r+" vs "+typeof e);return e>t},e=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+r(t));return t},r=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(r,a,n,s){var o,i,l,c,m,u;return c=r.left,m=r.op,u=r.right,this.isArray(u)?(i=this.elements(u),i.length===0?this.isComplex(c)?n(7,69424,[a(c),s("false")],null):s("false"):i.length===1?(o=i[0],n(23,69561,74,2056,{left:a(c),inverted:!1,op:"instanceof",right:a(o)},"expression",!1,!1,!1)):(l=function(r,s,o){var c;return t(r,i.length)?(c=i[r],l(e(r)+1,n(23,69717,2,2061,{left:a(s),inverted:!1,op:"or",right:n(23,69729,74,2061,{left:a(o),inverted:!1,op:"instanceof",right:a(c)},"expression",!1,!1,!1)},"expression",!1,!1,!1),o)):s},this.maybeCache(c,function(t,e){var r;return r=i[0],l(1,n(23,69888,74,2066,{left:a(t),inverted:!1,op:"instanceof",right:a(r)},"expression",!1,!1,!1),e)}))):n(9,69941,n(21,69941,"__instanceofsome"),[a(c),a(u)],!1,!1)}}).call(this);',
           operators: "instanceofsome",
           options: {precedence: 6, maximum: 1, invertible: true, type: "boolean"},
           id: 118
         },
         {
-          code: 'return(function(){"use strict";var e,t,s;return e=typeof Object.is=="function"?Object.is:function(e,t){return e===t?0!==e||1/e===1/t:e!==e&&t!==t},t=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+s(e));return e},s=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(s,r,a){var c,o,n,i,l;return c=this,o=s.left,n=s.op,l=s.right,this.hasType(o,"number")&&this.hasType(l,"number")?this.isConst(o)?this.isConst(l)?(i=e(this.value(o),this.value(l)),r(i)):typeof this.value(o)=="number"&&isNaN(this.value(o))?this.maybeCache(l,function(e,t){return a("MacroAccess",105740,6,3159,{left:r(e),inverted:!1,op:"!=",right:r(t)},"expression",!1,!1,!1)}):this.value(o)===0?this.maybeCache(l,function(e,s){return 1/t(c.value(o))<0?a("MacroAccess",105901,1,3163,{left:a("MacroAccess",105901,5,3163,{left:r(e),inverted:!1,op:"==",right:a("Const",105916,0)},"expression",!1,!1,!1),inverted:!1,op:"and",right:a("MacroAccess",105921,78,3163,{left:a("MacroAccess",105921,45,3163,{left:a("Const",105922,1),inverted:!1,op:"~/",right:r(s)},"expression",!1,!1,!1),inverted:!1,op:"<",right:a("Const",105936,0)},"expression",!1,!1,!1)},"expression",!1,!1,!1):a("MacroAccess",105973,1,3165,{left:a("MacroAccess",105973,5,3165,{left:r(e),inverted:!1,op:"==",right:a("Const",105988,0)},"expression",!1,!1,!1),inverted:!1,op:"and",right:a("MacroAccess",105993,79,3165,{left:a("MacroAccess",105993,45,3165,{left:a("Const",105994,1),inverted:!1,op:"~/",right:r(s)},"expression",!1,!1,!1),inverted:!1,op:">",right:a("Const",106008,0)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}):a("MacroAccess",106037,5,3167,{left:r(o),inverted:!1,op:"==",right:r(l)},"expression",!1,!1,!1):this.isConst(l)?typeof this.value(l)=="number"&&isNaN(this.value(l))?this.maybeCache(o,function(e,t){return a("MacroAccess",106201,6,3171,{left:r(e),inverted:!1,op:"!=",right:r(t)},"expression",!1,!1,!1)}):this.value(l)===0?this.maybeCache(o,function(e,s){return 1/t(c.value(l))<0?a("MacroAccess",106351,1,3175,{left:a("MacroAccess",106351,5,3175,{left:r(e),inverted:!1,op:"==",right:a("Const",106365,0)},"expression",!1,!1,!1),inverted:!1,op:"and",right:a("MacroAccess",106370,78,3175,{left:a("MacroAccess",106370,45,3175,{left:a("Const",106371,1),inverted:!1,op:"~/",right:r(s)},"expression",!1,!1,!1),inverted:!1,op:"<",right:a("Const",106384,0)},"expression",!1,!1,!1)},"expression",!1,!1,!1):a("MacroAccess",106417,1,3177,{left:a("MacroAccess",106417,5,3177,{left:r(e),inverted:!1,op:"==",right:a("Const",106431,0)},"expression",!1,!1,!1),inverted:!1,op:"and",right:a("MacroAccess",106436,79,3177,{left:a("MacroAccess",106436,45,3177,{left:a("Const",106437,1),inverted:!1,op:"~/",right:r(s)},"expression",!1,!1,!1),inverted:!1,op:">",right:a("Const",106450,0)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}):a("MacroAccess",106475,5,3179,{left:r(o),inverted:!1,op:"==",right:r(l)},"expression",!1,!1,!1):a("Call",106511,a("Ident",106511,"__is"),[r(o),r(l)],!1,!1):a("MacroAccess",106546,5,3183,{left:r(o),inverted:!1,op:"==",right:r(l)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,r;return t=typeof Object.is=="function"?Object.is:function(t,e){return t===e?0!==t||1/t===1/e:t!==t&&e!==e},e=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+r(t));return t},r=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(r,a,n){var s,o,i,l,c;return s=this,o=r.left,i=r.op,c=r.right,this.hasType(o,"number")&&this.hasType(c,"number")?this.isConst(o)?this.isConst(c)?(l=t(this.value(o),this.value(c)),a(l)):typeof this.value(o)=="number"&&isNaN(this.value(o))?this.maybeCache(c,function(t,e){return n(23,105740,6,3159,{left:a(t),inverted:!1,op:"!=",right:a(e)},"expression",!1,!1,!1)}):this.value(o)===0?this.maybeCache(c,function(t,r){return 1/e(s.value(o))<0?n(23,105901,1,3163,{left:n(23,105901,5,3163,{left:a(t),inverted:!1,op:"==",right:n(12,105916,0)},"expression",!1,!1,!1),inverted:!1,op:"and",right:n(23,105921,78,3163,{left:n(23,105921,45,3163,{left:n(12,105922,1),inverted:!1,op:"~/",right:a(r)},"expression",!1,!1,!1),inverted:!1,op:"<",right:n(12,105936,0)},"expression",!1,!1,!1)},"expression",!1,!1,!1):n(23,105973,1,3165,{left:n(23,105973,5,3165,{left:a(t),inverted:!1,op:"==",right:n(12,105988,0)},"expression",!1,!1,!1),inverted:!1,op:"and",right:n(23,105993,79,3165,{left:n(23,105993,45,3165,{left:n(12,105994,1),inverted:!1,op:"~/",right:a(r)},"expression",!1,!1,!1),inverted:!1,op:">",right:n(12,106008,0)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}):n(23,106037,5,3167,{left:a(o),inverted:!1,op:"==",right:a(c)},"expression",!1,!1,!1):this.isConst(c)?typeof this.value(c)=="number"&&isNaN(this.value(c))?this.maybeCache(o,function(t,e){return n(23,106201,6,3171,{left:a(t),inverted:!1,op:"!=",right:a(e)},"expression",!1,!1,!1)}):this.value(c)===0?this.maybeCache(o,function(t,r){return 1/e(s.value(c))<0?n(23,106351,1,3175,{left:n(23,106351,5,3175,{left:a(t),inverted:!1,op:"==",right:n(12,106365,0)},"expression",!1,!1,!1),inverted:!1,op:"and",right:n(23,106370,78,3175,{left:n(23,106370,45,3175,{left:n(12,106371,1),inverted:!1,op:"~/",right:a(r)},"expression",!1,!1,!1),inverted:!1,op:"<",right:n(12,106384,0)},"expression",!1,!1,!1)},"expression",!1,!1,!1):n(23,106417,1,3177,{left:n(23,106417,5,3177,{left:a(t),inverted:!1,op:"==",right:n(12,106431,0)},"expression",!1,!1,!1),inverted:!1,op:"and",right:n(23,106436,79,3177,{left:n(23,106436,45,3177,{left:n(12,106437,1),inverted:!1,op:"~/",right:a(r)},"expression",!1,!1,!1),inverted:!1,op:">",right:n(12,106450,0)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}):n(23,106475,5,3179,{left:a(o),inverted:!1,op:"==",right:a(c)},"expression",!1,!1,!1):n(9,106511,n(21,106511,"__is"),[a(o),a(c)],!1,!1):n(23,106546,5,3183,{left:a(o),inverted:!1,op:"==",right:a(c)},"expression",!1,!1,!1)}}).call(this);',
           operators: "is",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 143
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a,c;return r=e.left,a=e.op,c=e.right,s("MacroAccess",106645,3,3186,{op:"not",node:s("MacroAccess",106651,143,3186,{left:t(r),inverted:!1,op:"is",right:t(c)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s;return n=t.left,a=t.op,s=t.right,r(23,106645,3,3186,{op:"not",node:r(23,106651,143,3186,{left:e(n),inverted:!1,op:"is",right:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: "isnt",
           options: {precedence: 2, maximum: 1, type: "boolean"},
           id: 144
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a,c;return r=e.left,a=e.op,c=e.right,s("Call",108800,s("Ident",108800,"__compose"),[t(r),t(c)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s;return n=t.left,a=t.op,s=t.right,r(9,108800,r(21,108800,"__compose"),[e(n),e(s)],!1,!1)}}).call(this);',
           operators: "<<",
           options: {precedence: 13, type: "function"},
           id: 146
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a,c,o;return r=e.left,a=e.op,c=e.right,this.isNoop(r)||this.isNoop(c)?s("Call",109057,s("Ident",109057,"__compose"),[t(c),t(r)],!1,!1):(o=this.tmp("ref"),s("Block",108990,[s("MacroAccess",108990,38,3251,{macroName:"let",macroData:{declarable:s("MacroAccess",108999,37,3251,s("MacroAccess",108999,31,3251,{ident:t(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(r)}},"statement",!1,!1,!1),s("Call",109013,s("Ident",109013,"__compose"),[t(c),t(o)],!1,!1)],null))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s,o;return n=t.left,a=t.op,s=t.right,this.isNoop(n)||this.isNoop(s)?r(9,109057,r(21,109057,"__compose"),[e(s),e(n)],!1,!1):(o=this.tmp("ref"),r(7,108990,[r(23,108990,38,3251,{macroName:"let",macroData:{declarable:r(23,108999,37,3251,r(23,108999,31,3251,{ident:e(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:e(n)}},"statement",!1,!1,!1),r(9,109013,r(21,109013,"__compose"),[e(s),e(o)],!1,!1)],null))}}).call(this);',
           operators: ">>",
           options: {precedence: 13, type: "function", rightToLeft: true},
           id: 147
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a,c;return r=e.left,a=e.op,c=e.right,s("Call",109515,t(r),[t(c)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s;return n=t.left,a=t.op,s=t.right,r(9,109515,e(n),[e(s)],!1,!1)}}).call(this);',
           operators: "<|",
           options: {precedence: 0, rightToLeft: true},
           id: 148
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a,c,o;return r=e.left,a=e.op,c=e.right,this.isNoop(r)||this.isNoop(c)?s("Call",109713,t(c),[t(r)],!1,!1):(o=this.tmp("ref"),s("Block",109656,[s("MacroAccess",109656,38,3279,{macroName:"let",macroData:{declarable:s("MacroAccess",109665,37,3279,s("MacroAccess",109665,31,3279,{ident:t(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(r)}},"statement",!1,!1,!1),s("Call",109679,t(c),[t(o)],!1,!1)],null))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s,o;return n=t.left,a=t.op,s=t.right,this.isNoop(n)||this.isNoop(s)?r(9,109713,e(s),[e(n)],!1,!1):(o=this.tmp("ref"),r(7,109656,[r(23,109656,38,3279,{macroName:"let",macroData:{declarable:r(23,109665,37,3279,r(23,109665,31,3279,{ident:e(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:e(n)}},"statement",!1,!1,!1),r(9,109679,e(s),[e(o)],!1,!1)],null))}}).call(this);',
           operators: "|>",
           options: {precedence: 0},
           id: 149
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,r,a;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=Array.prototype.slice,s=function(e){var t;if(t=typeof e,"string"===t)return e;if("number"===t)return String(e);throw TypeError("Expected a string or number, got "+a(e))},r=function(s){if(null==s)throw TypeError("Expected an object, got "+a(s));if(e(s))return s;if("string"==typeof s)return s.split("");if(typeof s.length=="number")return t.call(s);throw TypeError("Expected an object with a length property, got "+a(s))},a=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,t,a,c){var o,n,i,l;return o=this,n=e.left,i=e.op,l=e.right,this.isObject(l)?this.maybeCache(n,function(e,n){var i,m,u,p,h,d,f,A,M,v,y;for(p=e,u=[],M=o.pairs(l),i=r(M),d=0,A=i.length;A>d;++d){if(m=i[d],f=m.key,y=m.value,v=m.property,null!=v){if(("get"===v||"set"===v)&&A-1>d&&M[d+1].property!=null&&o.eq(f,M[d+1].key)&&M[d+1].property!==v&&((m=M[d+1].property)==="get"||"set"===m))continue;"property"===v?u.push(a("Call",110394,a("Ident",110394,"__defProp"),[t(p),t(f),t(y)],!1,!1)):"get"===v||"set"===v?(h=d>0&&M[d-1].property!=null&&o.eq(f,M[d-1].key)&&M[d-1].property!==v&&((m=M[d-1].property)==="get"||"set"===m)?a("Object",110671,[{key:t(M[d-1].property),value:t(M[d-1].value)},{key:t(v),value:t(y)},{key:a("Const",110792,"enumerable"),value:c("true")},{key:a("Const",110825,"configurable"),value:c("true")}],void 0):a("Object",110895,[{key:t(v),value:t(y)},{key:a("Const",110950,"enumerable"),value:c("true")},{key:a("Const",110983,"configurable"),value:c("true")}],void 0),u.push(a("Call",111044,a("Ident",111044,"__defProp"),[t(p),t(f),t(h)],!1,!1))):o.error("Unknown property: "+s(v),f)}else u.push(a("MacroAccess",111195,30,3320,{left:a("Access",111195,t(p),t(f)),op:":=",right:t(y)},"statement",!1,!1,!1));p=n}return u.push(t(p)),t(u)}):a("Call",111328,a("Ident",111328,"__import"),[t(n),t(l)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,r,n,a;return t=typeof Array.isArray=="function"?Array.isArray:function(){var t;return t=Object.prototype.toString,function(e){return t.call(e)==="[object Array]"}}(),e=Array.prototype.slice,r=function(t){var e;if(e=typeof t,"string"===e)return t;if("number"===e)return String(t);throw TypeError("Expected a string or number, got "+a(t))},n=function(r){if(null==r)throw TypeError("Expected an object, got "+a(r));if(t(r))return r;if("string"==typeof r)return r.split("");if(typeof r.length=="number")return e.call(r);throw TypeError("Expected an object with a length property, got "+a(r))},a=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(t,e,a,s){var o,i,l,c;return o=this,i=t.left,l=t.op,c=t.right,this.isObject(c)?this.maybeCache(i,function(t,i){var l,u,m,p,h,d,f,v,y,b,g;for(p=t,m=[],y=o.pairs(c),l=n(y),d=0,v=l.length;v>d;++d){if(u=l[d],f=u.key,g=u.value,b=u.property,null!=b){if(("get"===b||"set"===b)&&v-1>d&&y[d+1].property!=null&&o.eq(f,y[d+1].key)&&y[d+1].property!==b&&((u=y[d+1].property)==="get"||"set"===u))continue;"property"===b?m.push(a(9,110394,a(21,110394,"__defProp"),[e(p),e(f),e(g)],!1,!1)):"get"===b||"set"===b?(h=d>0&&y[d-1].property!=null&&o.eq(f,y[d-1].key)&&y[d-1].property!==b&&((u=y[d-1].property)==="get"||"set"===u)?a(26,110671,[{key:e(y[d-1].property),value:e(y[d-1].value)},{key:e(b),value:e(g)},{key:a(12,110792,"enumerable"),value:s("true")},{key:a(12,110825,"configurable"),value:s("true")}],void 0):a(26,110895,[{key:e(b),value:e(g)},{key:a(12,110950,"enumerable"),value:s("true")},{key:a(12,110983,"configurable"),value:s("true")}],void 0),m.push(a(9,111044,a(21,111044,"__defProp"),[e(p),e(f),e(h)],!1,!1))):o.error("Unknown property: "+r(b),f)}else m.push(a(23,111195,30,3320,{left:a(1,111195,e(p),e(f)),op:":=",right:e(g)},"statement",!1,!1,!1));p=i}return m.push(e(p)),e(m)}):a(9,111328,a(21,111328,"__import"),[e(i),e(c)],!1,!1)}}).call(this);',
           operators: "<<<",
           options: {precedence: 6},
           id: 150
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a,c,o;return r=e.left,a=e.op,c=e.right,this.isNoop(r)||this.isNoop(c)?s("MacroAccess",111560,150,3334,{left:t(c),inverted:!1,op:"<<<",right:t(r)},"expression",!1,!1,!1):(o=this.tmp("ref"),s("Block",111500,[s("MacroAccess",111500,38,3331,{macroName:"let",macroData:{declarable:s("MacroAccess",111509,37,3331,s("MacroAccess",111509,31,3331,{ident:t(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(r)}},"statement",!1,!1,!1),s("MacroAccess",111523,150,3332,{left:t(c),inverted:!1,op:"<<<",right:t(o)},"statement",!1,!1,!1)],null))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s,o;return n=t.left,a=t.op,s=t.right,this.isNoop(n)||this.isNoop(s)?r(23,111560,150,3334,{left:e(s),inverted:!1,op:"<<<",right:e(n)},"expression",!1,!1,!1):(o=this.tmp("ref"),r(7,111500,[r(23,111500,38,3331,{macroName:"let",macroData:{declarable:r(23,111509,37,3331,r(23,111509,31,3331,{ident:e(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:e(n)}},"statement",!1,!1,!1),r(23,111523,150,3332,{left:e(s),inverted:!1,op:"<<<",right:e(o)},"statement",!1,!1,!1)],null))}}).call(this);',
           operators: ">>>",
           options: {precedence: 6, rightToLeft: true},
           id: 151
@@ -33952,173 +33954,173 @@
       ],
       unaryOperator: [
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r;return t=this,r=e.op,s=e.node,this.mutateLast(s||this.noop(),function(e){return t.unary("!",e)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n;return e=this,n=t.op,r=t.node,this.mutateLast(r||this.noop(),function(t){return e.unary("!",t)},!0)}}).call(this);',
           operators: "not",
           options: {type: "boolean"},
           id: 3
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r;return t=this,r=e.op,s=e.node,this.mutateLast(s||this.noop(),function(e){return t.unary("typeof",e)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n;return e=this,n=t.op,r=t.node,this.mutateLast(r||this.noop(),function(t){return e.unary("typeof",t)},!0)}}).call(this);',
           operators: "typeof",
           options: {type: "string"},
           id: 4
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r;return t=this,r=e.op,s=e.node,this.mutateLast(s||this.noop(),function(e){return t["throw"](e)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n;return e=this,n=t.op,r=t.node,this.mutateLast(r||this.noop(),function(t){return e["throw"](t)},!0)}}).call(this);',
           operators: "throw",
           options: {type: "none"},
           id: 11
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s;return s=e.op,t=e.node,this.unary("++post",t)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r;return r=t.op,e=t.node,this.unary("++post",e)}}).call(this);',
           operators: "postInc!",
           options: {type: "number"},
           id: 12
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s;return s=e.op,t=e.node,this.unary("--post",t)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r;return r=t.op,e=t.node,this.unary("--post",e)}}).call(this);',
           operators: "postDec!",
           options: {type: "number"},
           id: 13
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,r){var a,c;return c=e.op,a=e.node,this.isIdentOrTmp(a)&&!this.hasVariable(a)?s("MacroAccess",3994,1,112,{left:s("MacroAccess",3994,6,112,{left:s("MacroAccess",3994,4,112,{op:"typeof",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"!=",right:s("Const",4012,"undefined")},"expression",!1,!1,!1),inverted:!1,op:"and",right:s("MacroAccess",4025,6,112,{left:t(a),inverted:!1,op:"!=",right:r("null")},"expression",!1,!1,!1)},"expression",!1,!1,!1):s("MacroAccess",4055,8,114,{left:t(a),inverted:!1,op:"!~=",right:r("null")},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r,n){var a,s;return s=t.op,a=t.node,this.isIdentOrTmp(a)&&!this.hasVariable(a)?r(23,3994,1,112,{left:r(23,3994,6,112,{left:r(23,3994,4,112,{op:"typeof",node:e(a)},"expression",!1,!1,!1),inverted:!1,op:"!=",right:r(12,4012,"undefined")},"expression",!1,!1,!1),inverted:!1,op:"and",right:r(23,4025,6,112,{left:e(a),inverted:!1,op:"!=",right:n("null")},"expression",!1,!1,!1)},"expression",!1,!1,!1):r(23,4055,8,114,{left:e(a),inverted:!1,op:"!~=",right:n("null")},"expression",!1,!1,!1)}}).call(this);',
           operators: "?",
           options: {postfix: true, type: "boolean", label: "existential"},
           id: 20
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,r){var a,c;return c=e.op,a=e.node,this.isIdentOrTmp(a)&&!this.hasVariable(a)?s("MacroAccess",4202,5,118,{left:s("MacroAccess",4202,4,118,{op:"typeof",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",4220,"undefined")},"expression",!1,!1,!1):s("MacroAccess",4245,5,120,{left:t(a),inverted:!1,op:"==",right:r("void")},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r,n){var a,s;return s=t.op,a=t.node,this.isIdentOrTmp(a)&&!this.hasVariable(a)?r(23,4202,5,118,{left:r(23,4202,4,118,{op:"typeof",node:e(a)},"expression",!1,!1,!1),inverted:!1,op:"==",right:r(12,4220,"undefined")},"expression",!1,!1,!1):r(23,4245,5,120,{left:e(a),inverted:!1,op:"==",right:n("void")},"expression",!1,!1,!1)}}).call(this);',
           operators: ["isVoid!", "isUndefined!"],
           options: {type: "boolean"},
           id: 21
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,r){var a,c;return c=e.op,a=e.node,this.isIdentOrTmp(a)&&!this.hasVariable(a)?s("MacroAccess",4376,1,124,{left:s("MacroAccess",4376,6,124,{left:s("MacroAccess",4376,4,124,{op:"typeof",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"!=",right:s("Const",4394,"undefined")},"expression",!1,!1,!1),inverted:!1,op:"and",right:s("MacroAccess",4407,5,124,{left:t(a),inverted:!1,op:"==",right:r("null")},"expression",!1,!1,!1)},"expression",!1,!1,!1):s("MacroAccess",4437,5,126,{left:t(a),inverted:!1,op:"==",right:r("null")},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r,n){var a,s;return s=t.op,a=t.node,this.isIdentOrTmp(a)&&!this.hasVariable(a)?r(23,4376,1,124,{left:r(23,4376,6,124,{left:r(23,4376,4,124,{op:"typeof",node:e(a)},"expression",!1,!1,!1),inverted:!1,op:"!=",right:r(12,4394,"undefined")},"expression",!1,!1,!1),inverted:!1,op:"and",right:r(23,4407,5,124,{left:e(a),inverted:!1,op:"==",right:n("null")},"expression",!1,!1,!1)},"expression",!1,!1,!1):r(23,4437,5,126,{left:e(a),inverted:!1,op:"==",right:n("null")},"expression",!1,!1,!1)}}).call(this);',
           operators: "isNull!",
           options: {type: "boolean"},
           id: 22
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a;return a=e.op,r=e.node,s("MacroAccess",4512,5,129,{left:s("MacroAccess",4512,4,129,{op:"typeof",node:t(r)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",4530,"string")},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,r(23,4512,5,129,{left:r(23,4512,4,129,{op:"typeof",node:e(n)},"expression",!1,!1,!1),inverted:!1,op:"==",right:r(12,4530,"string")},"expression",!1,!1,!1)}}).call(this);',
           operators: "isString!",
           options: {type: "boolean"},
           id: 23
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a;return a=e.op,r=e.node,s("MacroAccess",4597,5,132,{left:s("MacroAccess",4597,4,132,{op:"typeof",node:t(r)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",4615,"number")},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,r(23,4597,5,132,{left:r(23,4597,4,132,{op:"typeof",node:e(n)},"expression",!1,!1,!1),inverted:!1,op:"==",right:r(12,4615,"number")},"expression",!1,!1,!1)}}).call(this);',
           operators: "isNumber!",
           options: {type: "boolean"},
           id: 24
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a;return a=e.op,r=e.node,s("MacroAccess",4683,5,135,{left:s("MacroAccess",4683,4,135,{op:"typeof",node:t(r)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",4701,"boolean")},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,r(23,4683,5,135,{left:r(23,4683,4,135,{op:"typeof",node:e(n)},"expression",!1,!1,!1),inverted:!1,op:"==",right:r(12,4701,"boolean")},"expression",!1,!1,!1)}}).call(this);',
           operators: "isBoolean!",
           options: {type: "boolean"},
           id: 25
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a;return a=e.op,r=e.node,s("MacroAccess",4771,5,138,{left:s("MacroAccess",4771,4,138,{op:"typeof",node:t(r)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",4789,"function")},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,r(23,4771,5,138,{left:r(23,4771,4,138,{op:"typeof",node:e(n)},"expression",!1,!1,!1),inverted:!1,op:"==",right:r(12,4789,"function")},"expression",!1,!1,!1)}}).call(this);',
           operators: "isFunction!",
           options: {type: "boolean"},
           id: 26
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a,c;return r=this,c=e.op,a=e.node,this.mutateLast(a||this.noop(),function(e){return r.isIdentOrTmp(e)&&!r.hasVariable(e)&&s("MacroAccess",4947,1,141,{left:s("MacroAccess",4947,5,141,{left:s("MacroAccess",4947,4,141,{op:"typeof",node:t(e)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",4962,"object")},"expression",!1,!1,!1),inverted:!1,op:"and",right:s("Call",4972,s("Ident",4972,"__isArray"),[t(e)],!1,!1)},"expression",!1,!1,!1)||s("Call",4996,s("Ident",4996,"__isArray"),[t(e)],!1,!1)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s;return n=this,s=t.op,a=t.node,this.mutateLast(a||this.noop(),function(t){return n.isIdentOrTmp(t)&&!n.hasVariable(t)&&r(23,4947,1,141,{left:r(23,4947,5,141,{left:r(23,4947,4,141,{op:"typeof",node:e(t)},"expression",!1,!1,!1),inverted:!1,op:"==",right:r(12,4962,"object")},"expression",!1,!1,!1),inverted:!1,op:"and",right:r(9,4972,r(21,4972,"__isArray"),[e(t)],!1,!1)},"expression",!1,!1,!1)||r(9,4996,r(21,4996,"__isArray"),[e(t)],!1,!1)},!0)}}).call(this);',
           operators: "isArray!",
           options: {type: "boolean"},
           id: 27
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,r){var a,c,o;return a=this,o=e.op,c=e.node,this.mutateLast(c||this.noop(),function(e){return s("MacroAccess",5119,1,144,{left:s("MacroAccess",5119,5,144,{left:s("MacroAccess",5119,4,144,{op:"typeof",node:t(e)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",5134,"object")},"expression",!1,!1,!1),inverted:!1,op:"and",right:s("MacroAccess",5144,6,144,{left:t(e),inverted:!1,op:"!=",right:r("null")},"expression",!1,!1,!1)},"expression",!1,!1,!1)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r,n){var a,s,o;return a=this,o=t.op,s=t.node,this.mutateLast(s||this.noop(),function(t){return r(23,5119,1,144,{left:r(23,5119,5,144,{left:r(23,5119,4,144,{op:"typeof",node:e(t)},"expression",!1,!1,!1),inverted:!1,op:"==",right:r(12,5134,"object")},"expression",!1,!1,!1),inverted:!1,op:"and",right:r(23,5144,6,144,{left:e(t),inverted:!1,op:"!=",right:n("null")},"expression",!1,!1,!1)},"expression",!1,!1,!1)},!0)}}).call(this);',
           operators: "isObject!",
           options: {type: "boolean"},
           id: 28
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r,a,c;return t=this,a=e.op,r=e.node,this.isConst(r)?(c=Number(this.value(r)),"~-"===a&&(s=function(e){return-e},c=s(c)),this["const"](c)):this.mutateLast(r||this.noop(),function(e){return t.unary("~+"===a?"+":"-",e)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n,a,s;return e=this,a=t.op,n=t.node,this.isConst(n)?(s=Number(this.value(n)),"~-"===a&&(r=function(t){return-t},s=r(s)),this["const"](s)):this.mutateLast(n||this.noop(),function(t){return e.unary("~+"===a?"+":"-",t)},!0)}}).call(this);',
           operators: ["~+", "~-"],
           options: {type: "number"},
           id: 48
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a,c;return r=this,c=e.op,a=e.node,this.isIdentOrTmp(a)&&!this.hasVariable(a)?s("MacroAccess",16448,16,492,{macroName:"if",macroData:{test:s("MacroAccess",16451,5,492,{left:s("MacroAccess",16451,4,492,{op:"typeof",node:t(a)},"expression",!1,!1,!1),inverted:!1,op:"==",right:s("Const",16469,"undefined")},"expression",!1,!1,!1),body:s("Const",16484,"Undefined"),elseIfs:[],elseBody:s("Call",16500,s("Ident",16500,"__typeof"),[t(a)],!1,!1)}},"expression",!1,!1,!1):this.mutateLast(a||this.noop(),function(e){return s("Call",16572,s("Ident",16572,"__typeof"),[t(e)],!1,!1)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s;return n=this,s=t.op,a=t.node,this.isIdentOrTmp(a)&&!this.hasVariable(a)?r(23,16448,16,492,{macroName:"if",macroData:{test:r(23,16451,5,492,{left:r(23,16451,4,492,{op:"typeof",node:e(a)},"expression",!1,!1,!1),inverted:!1,op:"==",right:r(12,16469,"undefined")},"expression",!1,!1,!1),body:r(12,16484,"Undefined"),elseIfs:[],elseBody:r(9,16500,r(21,16500,"__typeof"),[e(a)],!1,!1)}},"expression",!1,!1,!1):this.mutateLast(a||this.noop(),function(t){return r(9,16572,r(21,16572,"__typeof"),[e(t)],!1,!1)},!0)}}).call(this);',
           operators: "typeof!",
           options: {type: "string"},
           id: 57
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,a,c;return r=this,c=e.op,a=e.node,this.mutateLast(a||this.noop(),function(e){return r.isType(e,"number")?e:r.getConstValue("DISABLE_TYPE_CHECKING",!1)?s("MacroAccess",17997,48,551,{op:"~+",node:t(e)},"expression",!1,!1,!1):s("Call",18024,s("Ident",18024,"__num"),[t(e)],!1,!1)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s;return n=this,s=t.op,a=t.node,this.mutateLast(a||this.noop(),function(t){return n.isType(t,"number")?t:n.getConstValue("DISABLE_TYPE_CHECKING",!1)?r(23,17997,48,551,{op:"~+",node:e(t)},"expression",!1,!1,!1):r(9,18024,r(21,18024,"__num"),[e(t)],!1,!1)},!0)}}).call(this);',
           operators: "+",
           options: {type: "number"},
           id: 60
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c;return c=e.op,r=e.node,this.isConst(r)&&typeof this.value(r)=="number"?this["const"](-this.value(r)):this.getConstValue("DISABLE_TYPE_CHECKING",!1)?s("MacroAccess",18229,48,559,{op:"~-",node:t(r)},"expression",!1,!1,!1):s("MacroAccess",18255,48,561,{op:"~-",node:s("MacroAccess",18259,60,561,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,this.isConst(n)&&typeof this.value(n)=="number"?this["const"](-this.value(n)):this.getConstValue("DISABLE_TYPE_CHECKING",!1)?r(23,18229,48,559,{op:"~-",node:e(n)},"expression",!1,!1,!1):r(23,18255,48,561,{op:"~-",node:r(23,18259,60,561,{op:"+",node:e(n)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: "-",
           options: {type: "number"},
           id: 61
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c;return c=e.op,r=e.node,s("MacroAccess",18897,64,584,{left:t(r),inverted:!1,op:"/",right:s("Const",18906,100)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,r(23,18897,64,584,{left:e(n),inverted:!1,op:"/",right:r(12,18906,100)},"expression",!1,!1,!1)}}).call(this);',
           operators: "%",
           options: {postfix: true, type: "number"},
           id: 65
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r;return t=this,r=e.op,s=e.node,this.mutateLast(s||this.noop(),function(e){return t.unary("~",e)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n;return e=this,n=t.op,r=t.node,this.mutateLast(r||this.noop(),function(t){return e.unary("~",t)},!0)}}).call(this);',
           operators: "~bitnot",
           options: {type: "number"},
           id: 99
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c;return c=e.op,r=e.node,s("MacroAccess",28389,99,883,{op:"~bitnot",node:s("MacroAccess",28397,60,883,{op:"+",node:t(r)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,r(23,28389,99,883,{op:"~bitnot",node:r(23,28397,60,883,{op:"+",node:e(n)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}}).call(this);',
           operators: "bitnot",
           options: {type: "number"},
           id: 100
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a;return r=this,a=e.op,c=e.node,this.isAccess(c)||this.error("Can only use delete on an access"),this.position==="expression"?this.maybeCacheAccess(c,function(e,c){var a,o;return o=r.tmp("ref"),a=r.unary("delete",c),s("Block",28683,[s("MacroAccess",28683,38,893,{macroName:"let",macroData:{declarable:s("MacroAccess",28694,37,893,s("MacroAccess",28694,31,893,{ident:t(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(e)}},"statement",!1,!1,!1),t(a),t(o)],null)}):this.unary("delete",c)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s;return n=this,s=t.op,a=t.node,this.isAccess(a)||this.error("Can only use delete on an access"),this.position==="expression"?this.maybeCacheAccess(a,function(t,a){var s,o;return o=n.tmp("ref"),s=n.unary("delete",a),r(7,28683,[r(23,28683,38,893,{macroName:"let",macroData:{declarable:r(23,28694,37,893,r(23,28694,31,893,{ident:e(o)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:e(t)}},"statement",!1,!1,!1),e(s),e(o)],null)}):this.unary("delete",a)}}).call(this);',
           operators: "delete",
           options: {standalone: false},
           id: 101
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c;return c=e.op,r=e.node,this.maybeCache(r,function(e,r){return s("MacroAccess",28870,16,901,{macroName:"if",macroData:{test:s("MacroAccess",28873,20,901,{op:"?",node:t(e)},"expression",!1,!1,!1),body:s("MacroAccess",28889,11,901,{op:"throw",node:t(r)},"expression",!1,!1,!1),elseIfs:[]}},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,this.maybeCache(n,function(t,n){return r(23,28870,16,901,{macroName:"if",macroData:{test:r(23,28873,20,901,{op:"?",node:e(t)},"expression",!1,!1,!1),body:r(23,28889,11,901,{op:"throw",node:e(n)},"expression",!1,!1,!1),elseIfs:[]}},"expression",!1,!1,!1)})}}).call(this);',
           operators: "throw?",
           options: {type: "undefined"},
           id: 102
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,r,c,a,o,n;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+o(e));return e},s=Object.prototype.hasOwnProperty,r=Array.prototype.slice,c=function(e){var t;if(t=typeof e,"string"===t)return e;if("number"===t)return String(e);throw TypeError("Expected a string or number, got "+o(e))},a=function(t){if(null==t)throw TypeError("Expected an object, got "+o(t));if(e(t))return t;if("string"==typeof t)return t.split("");if(typeof t.length=="number")return r.call(t);throw TypeError("Expected an object with a length property, got "+o(t))},o=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),n=function(e,t){return e?!t&&e:t||e},function(e,r,i,l){function u(e){return/^[aeiou]/i.test(e)?"an":"a"}function m(e){return u(e)+" "+c(e)}function p(e){var t,s,c;return y.isTypeGeneric(e)?(s=y.basetype(e),(t=y.name(s))==="Array"||"Function"===t||y.getConstValue("DISABLE_GENERICS",!1)?s:(c=y.array(function(){var t,s,r,c,o;for(t=[],s=a(y.typeArguments(e)),r=0,c=s.length;c>r;++r)o=s[r],t.push(p(o));return t}()),i("Call",57111,i("Access",57111,r(s),i("Const",57122,"generic")),[i("Spread",57130,r(c))],!1,!1))):e}function h(e,t,c,u){var d,f,A,M,v,b,g,C,N,D,I,B,_,E,k,w,T,j,F,S,O,P;if(y.isIdent(c))return T=x?y.noop():s.call(Y,y.name(c))?i("MacroAccess",57368,17,1713,{macroName:"if",macroData:{test:i("MacroAccess",57380,74,1713,{left:r(e),inverted:!0,op:"instanceof",right:r(c)},"statement",!1,!1,!1),body:i("MacroAccess",57409,11,1714,{op:"throw",node:i("Call",57426,i("Ident",57426,"TypeError"),[i("MacroAccess",57437,69,1714,{left:i("MacroAccess",57437,69,1714,{left:i("MacroAccess",57437,69,1714,{left:i("MacroAccess",57437,69,1714,{left:i("MacroAccess",57437,69,1714,{left:i("Const",57437,"Expected "),op:"",right:r(t)},"expression",!1,!1,!1),op:"",right:i("Const",57437," to be ")},"expression",!1,!1,!1),op:"",right:r(m(y.name(c)))},"expression",!1,!1,!1),op:"",right:i("Const",57437,", got ")},"expression",!1,!1,!1),op:"",right:i("MacroAccess",57506,57,1714,{op:"typeof!",node:r(e)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1):i("MacroAccess",57546,17,1717,{macroName:"if",macroData:{test:i("MacroAccess",57558,74,1717,{left:r(e),inverted:!0,op:"instanceof",right:r(c)},"statement",!1,!1,!1),body:i("MacroAccess",57587,11,1718,{op:"throw",node:i("Call",57604,i("Ident",57604,"TypeError"),[i("MacroAccess",57615,69,1718,{left:i("MacroAccess",57615,69,1718,{left:i("MacroAccess",57615,69,1718,{left:i("MacroAccess",57615,69,1718,{left:i("MacroAccess",57615,69,1718,{left:i("Const",57615,"Expected "),op:"",right:r(t)},"expression",!1,!1,!1),op:"",right:i("Const",57615," to be a ")},"expression",!1,!1,!1),op:"",right:i("Call",57650,i("Ident",57650,"__name"),[r(c)],!1,!1)},"expression",!1,!1,!1),op:"",right:i("Const",57615,", got ")},"expression",!1,!1,!1),op:"",right:i("MacroAccess",57671,57,1718,{op:"typeof!",node:r(e)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),u||y.name(c)!=="Boolean"?T:i("MacroAccess",57759,17,1720,{macroName:"if",macroData:{test:i("MacroAccess",57762,3,1720,{op:"not",node:i("MacroAccess",57766,20,1720,{op:"?",node:r(e)},"statement",!1,!0,!1)},"statement",!1,!0,!1),body:i("MacroAccess",57775,30,1721,{left:r(e),op:":=",right:l("false")},"statement",!1,!0,!1),elseIfs:[],elseBody:r(T)}},"statement",!1,!0,!1);if(y.isAccess(c))return x?y.noop():i("MacroAccess",57957,17,1731,{macroName:"if",macroData:{test:i("MacroAccess",57969,74,1731,{left:r(e),inverted:!0,op:"instanceof",right:r(c)},"statement",!1,!1,!1),body:i("MacroAccess",57998,11,1732,{op:"throw",node:i("Call",58015,i("Ident",58015,"TypeError"),[i("MacroAccess",58026,69,1732,{left:i("MacroAccess",58026,69,1732,{left:i("MacroAccess",58026,69,1732,{left:i("MacroAccess",58026,69,1732,{left:i("MacroAccess",58026,69,1732,{left:i("Const",58026,"Expected "),op:"",right:r(t)},"expression",!1,!1,!1),op:"",right:i("Const",58026," to be ")},"expression",!1,!1,!1),op:"",right:r(m(y.value(y.child(c))))},"expression",!1,!1,!1),op:"",right:i("Const",58026,", got ")},"expression",!1,!1,!1),op:"",right:i("MacroAccess",58104,57,1732,{op:"typeof!",node:r(e)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1);if(y.isTypeUnion(c)){for(N=!1,I=!1,D=!1,k=[],O=[],d=a(y.types(c)),A=0,M=d.length;M>A;++A)F=d[A],y.isConst(F)?y.value(F)===null?(D=!0,k.push(y["const"]("null"))):y.value(F)===void 0?(I=!0,k.push(y["const"]("undefined"))):y.error("Unknown const for type-checking: "+String(y.value(F)),F):y.isIdent(F)?(y.name(F)==="Boolean"&&(N=!0),s.call(Y,y.name(F))?k.push(y["const"](y.name(F))):k.push(i("Call",58907,i("Ident",58907,"__name"),[r(F)],!1,!1)),O.push(i("MacroAccess",58943,74,1757,{left:r(e),inverted:!0,op:"instanceof",right:r(F)},"expression",!1,!1,!1))):y.error("Not implemented: typechecking for non-idents/consts within a type-union",F);for(S=O.length?y.binaryChain("&&",O):l("true"),g=k[0],A=1,M=k.length;M>A;++A)E=k[A],g=i("MacroAccess",59270,69,1766,{left:i("MacroAccess",59270,69,1766,{left:r(g),op:"",right:i("Const",59270," or ")},"expression",!1,!1,!1),op:"",right:r(E)},"expression",!1,!1,!1);return P=g,T=x?y.noop():i("MacroAccess",59386,17,1770,{macroName:"if",macroData:{test:r(S),body:i("MacroAccess",59396,11,1771,{op:"throw",node:i("Call",59411,i("Ident",59411,"TypeError"),[i("MacroAccess",59422,69,1771,{left:i("MacroAccess",59422,69,1771,{left:i("MacroAccess",59422,69,1771,{left:i("MacroAccess",59422,69,1771,{left:i("MacroAccess",59422,69,1771,{left:i("Const",59422,"Expected "),op:"",right:r(t)},"expression",!1,!1,!1),op:"",right:i("Const",59422," to be one of ")},"expression",!1,!1,!1),op:"",right:r(P)},"expression",!1,!1,!1),op:"",right:i("Const",59422,", got ")},"expression",!1,!1,!1),op:"",right:i("MacroAccess",59482,57,1771,{op:"typeof!",node:r(e)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),u||(D||I?T=n(D,I)?i("MacroAccess",59624,17,1776,{macroName:"if",macroData:{test:i("MacroAccess",59627,3,1776,{op:"not",node:i("MacroAccess",59631,20,1776,{op:"?",node:r(e)},"statement",!1,!0,!1)},"statement",!1,!0,!1),body:i("MacroAccess",59640,30,1777,{left:r(e),op:":=",right:i("MacroAccess",59663,16,1777,{macroName:"if",macroData:{test:r(D),body:l("null"),elseIfs:[],elseBody:l("void")}},"expression",!1,!0,!1)},"statement",!1,!0,!1),elseIfs:[],elseBody:r(T)}},"statement",!1,!0,!1):i("MacroAccess",59776,17,1781,{macroName:"if",macroData:{test:i("MacroAccess",59779,20,1781,{op:"?",node:r(e)},"statement",!1,!1,!1),body:r(T),elseIfs:[]}},"statement",!1,!1,!1):N&&(T=i("MacroAccess",59862,17,1784,{macroName:"if",macroData:{test:i("MacroAccess",59865,3,1784,{op:"not",node:i("MacroAccess",59869,20,1784,{op:"?",node:r(e)},"statement",!1,!0,!1)},"statement",!1,!0,!1),body:i("MacroAccess",59878,30,1785,{left:r(e),op:":=",right:l("false")},"statement",!1,!0,!1),elseIfs:[],elseBody:r(T)}},"statement",!1,!0,!1))),T}if(y.isTypeGeneric(c))return x?y.noop():y.name(y.basetype(c))==="Array"?(B=y.tmp("i",!1,"number"),j=h(i("Access",60177,r(e),r(B)),i("MacroAccess",60200,69,1794,{left:i("MacroAccess",60200,69,1794,{left:i("MacroAccess",60200,69,1794,{left:r(t),inverted:!1,op:"&",right:i("Const",60215,"[")},"expression",!1,!1,!1),inverted:!1,op:"&",right:r(B)},"expression",!1,!1,!1),inverted:!1,op:"&",right:i("Const",60230,"]")},"expression",!1,!1,!1),y.typeArguments(c)[0],!1),i("MacroAccess",60279,17,1795,{macroName:"if",macroData:{test:i("MacroAccess",60282,3,1795,{op:"not",node:i("MacroAccess",60286,27,1795,{op:"isArray!",node:r(e)},"statement",!1,!1,!1)},"statement",!1,!1,!1),body:i("MacroAccess",60304,11,1796,{op:"throw",node:i("Call",60319,i("Ident",60319,"TypeError"),[i("MacroAccess",60330,69,1796,{left:i("MacroAccess",60330,69,1796,{left:i("MacroAccess",60330,69,1796,{left:i("Const",60330,"Expected "),op:"",right:r(t)},"expression",!1,!1,!1),op:"",right:i("Const",60330," to be an Array, got ")},"expression",!1,!1,!1),op:"",right:i("MacroAccess",60377,57,1796,{op:"typeof!",node:r(e)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[],elseBody:i("MacroAccess",60407,106,1798,{macroName:"for",macroData:{init:i("MacroAccess",60422,38,1798,{macroName:"let",macroData:{declarable:i("MacroAccess",60425,37,1798,i("MacroAccess",60425,31,1798,{isMutable:"mutable",ident:r(B)},"expression",!1,!1,!1),"expression",!1,!1,!1),value:i("Access",60442,r(e),i("Const",60450,"length"))}},"expression",!1,!1,!1),test:i("MacroAccess",60458,13,1798,{op:"postDec!",node:r(B)},"statement",!1,!1,!1),body:r(j)}},"statement",!1,!1,!1)}},"statement",!1,!1,!1)):y.name(y.basetype(c))==="Function"?h(e,t,y.basetype(c),u):(C=p(c),i("MacroAccess",60713,17,1805,{macroName:"if",macroData:{test:i("MacroAccess",60725,74,1805,{left:r(e),inverted:!0,op:"instanceof",right:r(C)},"statement",!1,!1,!1),body:i("MacroAccess",60762,11,1806,{op:"throw",node:i("Call",60779,i("Ident",60779,"TypeError"),[i("MacroAccess",60790,69,1806,{left:i("MacroAccess",60790,69,1806,{left:i("MacroAccess",60790,69,1806,{left:i("MacroAccess",60790,69,1806,{left:i("MacroAccess",60790,69,1806,{left:i("Const",60790,"Expected "),op:"",right:r(t)},"expression",!1,!1,!1),op:"",right:i("Const",60790," to be a ")},"expression",!1,!1,!1),op:"",right:i("Call",60825,i("Ident",60825,"__name"),[r(C)],!1,!1)},"expression",!1,!1,!1),op:"",right:i("Const",60790,", got ")},"expression",!1,!1,!1),op:"",right:i("MacroAccess",60854,57,1806,{op:"typeof!",node:r(e)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1));if(y.isTypeObject(c)){if(x)return y.noop();for(d=[],f=a(y.pairs(c)),A=0,M=f.length;M>A;++A)v=f[A],_=v.key,w=v.value,d.push(h(i("Access",61065,r(e),r(_)),i("MacroAccess",61086,69,1812,{left:i("MacroAccess",61086,69,1812,{left:r(t),inverted:!1,op:"&",right:i("Const",61101,".")},"expression",!1,!1,!1),inverted:!1,op:"&",right:r(_)},"expression",!1,!1,!1),w,!1));return b=d,i("MacroAccess",61143,17,1813,{macroName:"if",macroData:{test:i("MacroAccess",61146,3,1813,{op:"not",node:i("MacroAccess",61150,28,1813,{op:"isObject!",node:r(e)},"statement",!1,!1,!1)},"statement",!1,!1,!1),body:i("MacroAccess",61169,11,1814,{op:"throw",node:i("Call",61184,i("Ident",61184,"TypeError"),[i("MacroAccess",61195,69,1814,{left:i("MacroAccess",61195,69,1814,{left:i("MacroAccess",61195,69,1814,{left:i("Const",61195,"Expected "),op:"",right:r(t)},"expression",!1,!1,!1),op:"",right:i("Const",61195," to be an Object, got ")},"expression",!1,!1,!1),op:"",right:i("MacroAccess",61243,57,1814,{op:"typeof!",node:r(e)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[],elseBody:r(b)}},"statement",!1,!1,!1)}return y.error("Unknown type to translate: "+o(c),c)}function d(e,t){var s,n,l,u,m,p,f,A,M,v,b,x,C,N,D,I,B,_,E,w,T,j,F;if(y.isArray(e)){for(g=!0,u=y.tmp("p",!1,"array"),b=-1,s=a(y.elements(e)),x=0,I=s.length;I>x;++x)A=s[x],N=k.length,v=d(A,!0),null!=v&&(M=y.paramIdent(v),y.paramIsSpread(v)?(-1!==b&&y.error("Cannot have multiple spread parameters in an array destructure",A),b=x,x===I-1?k.splice(N,0,i("MacroAccess",62402,38,1842,{macroName:"let",macroData:{declarable:i("MacroAccess",62406,37,1842,i("MacroAccess",62406,31,1842,{ident:r(M)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("Call",62423,i("Ident",62423,"__slice"),[r(u),i("Spread",62446,i("MacroAccess",62451,16,1842,{macroName:"if",macroData:{test:i("MacroAccess",62453,5,1842,{left:r(x),inverted:!1,op:"==",right:i("Const",62460,0)},"expression",!1,!1,!1),body:i("Array",62466,[]),elseIfs:[],elseBody:i("Array",62474,[r(x)])}},"expression",!1,!1,!1))],!1,!0)}},"statement",!1,!1,!1)):(w=y.tmp("i",!1,"number"),k.splice(N,0,i("Block",62599,[i("MacroAccess",62599,38,1846,{macroName:"let",macroData:{declarable:i("MacroAccess",62618,37,1846,i("MacroAccess",62618,31,1846,{isMutable:"mutable",ident:r(w)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("MacroAccess",62644,66,1846,{left:i("Access",62644,r(u),i("Const",62658,"length")),inverted:!1,op:"-",right:i("MacroAccess",62668,66,1846,{left:i("MacroAccess",62668,66,1846,{left:r(I),inverted:!1,op:"-",right:r(x)},"expression",!1,!1,!1),inverted:!1,op:"-",right:i("Const",62680,1)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),i("MacroAccess",62683,38,1847,{macroName:"let",macroData:{declarable:i("MacroAccess",62702,37,1847,i("MacroAccess",62702,31,1847,{ident:r(M)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("MacroAccess",62719,17,1847,{macroName:"if",macroData:{test:i("MacroAccess",62722,79,1847,{left:r(w),inverted:!1,op:">",right:r(x)},"expression",!1,!1,!1),body:i("Call",62744,i("Ident",62744,"__slice"),[r(u),r(x),r(w)],!1,!0),elseIfs:[],elseBody:i("Block",62826,[i("MacroAccess",62826,30,1850,{left:r(w),op:":=",right:r(x)},"statement",!1,!1,!1),i("Array",62866,[])],null)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)],null)))):-1===b?k.splice(N,0,i("MacroAccess",61977,38,1834,{macroName:"let",macroData:{declarable:i("MacroAccess",61981,37,1834,i("MacroAccess",61981,31,1834,{ident:r(M)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("Access",61998,r(u),r(x))}},"statement",!1,!1,!1)):k.splice(N,0,i("MacroAccess",62077,38,1836,{macroName:"let",macroData:{declarable:i("MacroAccess",62081,37,1836,i("MacroAccess",62081,31,1836,{ident:r(M)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("Access",62098,r(u),i("MacroAccess",62112,66,1836,{left:r(w),inverted:!1,op:"+",right:i("MacroAccess",62131,66,1836,{left:i("MacroAccess",62131,66,1836,{left:r(x),inverted:!1,op:"-",right:r(b)},"expression",!1,!1,!1),inverted:!1,op:"-",right:i("Const",62152,1)},"expression",!1,!1,!1)},"expression",!1,!1,!1))}},"statement",!1,!1,!1)));return y.rewrap(y.param(u,null,!1,!1,null),e)}if(y.isObject(e)){for(g=!0,B=y.tmp("p",!1,"object"),s=a(y.pairs(e)),n=0,l=s.length;l>n;++n)_=s[n],N=k.length,j=d(_.value,!0),null!=j&&(F=y.paramIdent(j),D=_.key,k.splice(N,0,i("MacroAccess",63320,38,1863,{macroName:"let",macroData:{declarable:i("MacroAccess",63324,37,1863,i("MacroAccess",63324,31,1863,{ident:r(F)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("Access",63339,r(B),r(D))}},"statement",!1,!1,!1)));return y.rewrap(y.param(B,null,!1,!1,null),e)}return y.isParam(e)?(f=y.paramDefaultValue(e),m=y.paramType(e),E=y.paramIdent(e),null==f&&null==m&&y.isIdentOrTmp(E)?e:(g=!0,C=y.isIdentOrTmp(E)?E:y.isAccess(E)?y.ident(y.value(y.child(E))):y.error("Not an ident or this-access: "+o(E)+" "+c(E.inspect()),E),T=null!=m?h(C,y.name(C),m,null!=f):y.noop(),k.push(null!=f?i("MacroAccess",64177,17,1884,{macroName:"if",macroData:{test:i("MacroAccess",64191,3,1884,{op:"not",node:i("MacroAccess",64195,20,1884,{op:"?",node:r(C)},"statement",!1,!0,!1)},"statement",!1,!0,!1),body:i("MacroAccess",64204,30,1885,{left:r(C),op:":=",right:r(f)},"statement",!1,!0,!1),elseIfs:[],elseBody:r(T)}},"statement",!1,!0,!1):T),E!==C&&k.push(i("MacroAccess",64375,30,1891,{left:r(E),op:":=",right:r(C)},"statement",!1,!1,!1)),y.rewrap(y.param(C,null,y.paramIsSpread(e),y.paramIsMutable(e),null),e))):y.isNothing(e)?(g=!0,t?null:(p=y.tmp("p",!1,"object"),y.rewrap(y.param(p,null,!1,!1,null),e))):y.error("Unknown param type: "+o(e),e)}var f,A,M,v,y,b,g,x,C,N,D,I,B,_,E,k,w,T,j,F,S,O,P,L,U,G,V,q,H,K,Y,R,z;for(y=this,V=e.op,G=e.node,x=this.getConstValue("DISABLE_TYPE_CHECKING",!1),Y={Number:!0,String:!0,Boolean:!0,Function:!0,Array:!0,Object:!0},k=[],g=!1,C=-1,K=[],f=a(this.funcParams(G)),_=0,O=f.length;O>_;++_)H=f[_],w=k.length,q=d(H,!1),E=this.paramIdent(q),this.paramIsSpread(q)?(-1!==C&&this.error("Cannot have two spread parameters",q),g=!0,C=_,_===O-1?k.splice(w,0,i("MacroAccess",65266,38,1919,{macroName:"let",macroData:{declarable:i("MacroAccess",65279,37,1919,i("MacroAccess",65279,31,1919,{ident:r(E)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("Call",65288,i("Ident",65288,"__slice"),[i("Args",65298),i("Spread",65308,i("MacroAccess",65313,16,1919,{macroName:"if",macroData:{test:i("MacroAccess",65315,5,1919,{left:r(_),inverted:!1,op:"==",right:i("Const",65322,0)},"expression",!1,!1,!1),body:i("Array",65328,[]),elseIfs:[],elseBody:i("Array",65336,[r(_)])}},"expression",!1,!1,!1))],!1,!0)}},"statement",!1,!1,!1)):(z=this.tmp("i",!1,"number"),k.splice(w,0,i("Block",65443,[i("MacroAccess",65443,38,1923,{macroName:"let",macroData:{declarable:i("MacroAccess",65456,37,1923,i("MacroAccess",65456,31,1923,{isMutable:"mutable",ident:r(z)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("MacroAccess",65482,66,1923,{left:i("Access",65482,i("Args",65482),i("Const",65493,"length")),inverted:!1,op:"-",right:i("MacroAccess",65503,66,1923,{left:i("MacroAccess",65503,66,1923,{left:r(O),inverted:!1,op:"-",right:r(_)},"expression",!1,!1,!1),inverted:!1,op:"-",right:i("Const",65515,1)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),i("MacroAccess",65518,38,1924,{macroName:"let",macroData:{declarable:i("MacroAccess",65531,37,1924,i("MacroAccess",65531,31,1924,{ident:r(E)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("MacroAccess",65540,17,1924,{macroName:"if",macroData:{test:i("MacroAccess",65543,79,1924,{left:r(z),inverted:!1,op:">",right:r(_)},"expression",!1,!1,!1),body:i("Call",65565,i("Ident",65565,"__slice"),[i("Args",65586),r(_),r(z)],!1,!0),elseIfs:[],elseBody:i("Block",65632,[i("MacroAccess",65632,30,1927,{left:r(z),op:":=",right:r(_)},"statement",!1,!1,!1),i("Array",65666,[])],null)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)],null)))):-1===C?K.push(q):k.splice(w,0,i("MacroAccess",65790,38,1934,{macroName:"let",macroData:{declarable:i("MacroAccess",65803,37,1934,i("MacroAccess",65803,31,1934,{ident:r(E)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("Access",65812,i("Args",65812),i("MacroAccess",65823,66,1934,{left:r(z),inverted:!1,op:"+",right:i("MacroAccess",65842,66,1934,{left:i("MacroAccess",65842,66,1934,{left:r(_),inverted:!1,op:"-",right:r(C)},"expression",!1,!1,!1),inverted:!1,op:"-",right:i("Const",65863,1)},"expression",!1,!1,!1)},"expression",!1,!1,!1))}},"statement",!1,!1,!1));if(k.length||g||this.funcIsCurried(G)?(b=this.funcBody(G),R=this.rewrap(this.func(K,i("Block",66012,[r(k),r(b)],null),this.funcIsAutoReturn(G)&&!this.isNothing(b),this.funcIsBound(G),!1,this.funcAsType(G),this.funcIsGenerator(G),this.funcGeneric(G)),G)):R=G,this.funcIsCurried(G)&&(R=i("Call",66294,i("Ident",66294,"__curry"),[r(K.length),r(R)],!1,!1)),D=this.funcGeneric(G),t(D.length)>0&&!this.getConstValue("DISABLE_GENERICS",!1)){for(I=this.tmp("cache",!1,"object"),f=[],A=a(D),M=0,v=A.length;v>M;++M)N=A[M],f.push(this.param(N));for(B=f,L=this.tmp("make",!1,"function"),j={},f=a(D),M=0,v=f.length;v>M;++M)N=f[M],U=this.name(N),S=this.tmp("instanceof_"+c(U),!1,"function"),j[U]={key:S,let:i("MacroAccess",66857,38,1965,{macroName:"let",macroData:{declarable:i("MacroAccess",66861,37,1965,i("MacroAccess",66861,31,1965,{ident:r(S)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:i("Call",66868,i("Ident",66868,"__getInstanceof"),[r(N)],!1,!1)}},"statement",!1,!1,!1),used:!1};R=this.walk(this.macroExpandAll(R),function(e){var t,c,a,o;return y.isBinary(e)&&y.op(e)==="instanceof"&&(o=y.right(e),y.isIdent(o)&&(a=y.name(o),s.call(j,a)))?(t=j[a].key,j[a].used=!0,c=y.left(e),i("Call",67318,r(t),[r(c)],!1,!1)):void 0}),f=[];for(U in j)s.call(j,U)&&(F=j[U],F.used&&f.push(F.let));T=f,T.length&&(R=i("Block",67474,[r(T),r(R)],null)),P=this.func(B,R,!0,!1),R=i("Call",67604,i("Ident",67604,"__genericFunc"),[r(D.length),r(P)],!1,!1)}return R}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,r,n,a,s,o,i;return t=typeof Array.isArray=="function"?Array.isArray:function(){var t;return t=Object.prototype.toString,function(e){return t.call(e)==="[object Array]"}}(),e=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+o(t));return t},r=Object.prototype.hasOwnProperty,n=Array.prototype.slice,a=function(t){var e;if(e=typeof t,"string"===e)return t;if("number"===e)return String(t);throw TypeError("Expected a string or number, got "+o(t))},s=function(e){if(null==e)throw TypeError("Expected an object, got "+o(e));if(t(e))return e;if("string"==typeof e)return e.split("");if(typeof e.length=="number")return n.call(e);throw TypeError("Expected an object with a length property, got "+o(e))},o=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),i=function(t,e){return t?!e&&t:e||t},function(t,n,l,c){function u(t){return/^[aeiou]/i.test(t)?"an":"a"}function m(t){return u(t)+" "+a(t)}function p(t){var e,r,a;return g.isTypeGeneric(t)?(r=g.basetype(t),(e=g.name(r))==="Array"||"Function"===e||g.getConstValue("DISABLE_GENERICS",!1)?r:(a=g.array(function(){var e,r,n,a,o;for(e=[],r=s(g.typeArguments(t)),n=0,a=r.length;a>n;++n)o=r[n],e.push(p(o));return e}()),l(9,57111,l(1,57111,n(r),l(12,57122,"generic")),[l(31,57130,n(a))],!1,!1))):t}function h(t,e,a,u){var f,d,v,y,b,x,N,I,_,C,E,B,A,w,T,j,k,S,O,L,M,F;if(g.isIdent(a))return k=D?g.noop():r.call(Y,g.name(a))?l(23,57368,17,1713,{macroName:"if",macroData:{test:l(23,57380,74,1713,{left:n(t),inverted:!0,op:"instanceof",right:n(a)},"statement",!1,!1,!1),body:l(23,57409,11,1714,{op:"throw",node:l(9,57426,l(21,57426,"TypeError"),[l(23,57437,69,1714,{left:l(23,57437,69,1714,{left:l(23,57437,69,1714,{left:l(23,57437,69,1714,{left:l(23,57437,69,1714,{left:l(12,57437,"Expected "),op:"",right:n(e)},"expression",!1,!1,!1),op:"",right:l(12,57437," to be ")},"expression",!1,!1,!1),op:"",right:n(m(g.name(a)))},"expression",!1,!1,!1),op:"",right:l(12,57437,", got ")},"expression",!1,!1,!1),op:"",right:l(23,57506,57,1714,{op:"typeof!",node:n(t)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1):l(23,57546,17,1717,{macroName:"if",macroData:{test:l(23,57558,74,1717,{left:n(t),inverted:!0,op:"instanceof",right:n(a)},"statement",!1,!1,!1),body:l(23,57587,11,1718,{op:"throw",node:l(9,57604,l(21,57604,"TypeError"),[l(23,57615,69,1718,{left:l(23,57615,69,1718,{left:l(23,57615,69,1718,{left:l(23,57615,69,1718,{left:l(23,57615,69,1718,{left:l(12,57615,"Expected "),op:"",right:n(e)},"expression",!1,!1,!1),op:"",right:l(12,57615," to be a ")},"expression",!1,!1,!1),op:"",right:l(9,57650,l(21,57650,"__name"),[n(a)],!1,!1)},"expression",!1,!1,!1),op:"",right:l(12,57615,", got ")},"expression",!1,!1,!1),op:"",right:l(23,57671,57,1718,{op:"typeof!",node:n(t)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),u||g.name(a)!=="Boolean"?k:l(23,57759,17,1720,{macroName:"if",macroData:{test:l(23,57762,3,1720,{op:"not",node:l(23,57766,20,1720,{op:"?",node:n(t)},"statement",!1,!0,!1)},"statement",!1,!0,!1),body:l(23,57775,30,1721,{left:n(t),op:":=",right:c("false")},"statement",!1,!0,!1),elseIfs:[],elseBody:n(k)}},"statement",!1,!0,!1);if(g.isAccess(a))return D?g.noop():l(23,57957,17,1731,{macroName:"if",macroData:{test:l(23,57969,74,1731,{left:n(t),inverted:!0,op:"instanceof",right:n(a)},"statement",!1,!1,!1),body:l(23,57998,11,1732,{op:"throw",node:l(9,58015,l(21,58015,"TypeError"),[l(23,58026,69,1732,{left:l(23,58026,69,1732,{left:l(23,58026,69,1732,{left:l(23,58026,69,1732,{left:l(23,58026,69,1732,{left:l(12,58026,"Expected "),op:"",right:n(e)},"expression",!1,!1,!1),op:"",right:l(12,58026," to be ")},"expression",!1,!1,!1),op:"",right:n(m(g.value(g.child(a))))},"expression",!1,!1,!1),op:"",right:l(12,58026,", got ")},"expression",!1,!1,!1),op:"",right:l(23,58104,57,1732,{op:"typeof!",node:n(t)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1);if(g.isTypeUnion(a)){for(_=!1,E=!1,C=!1,T=[],M=[],f=s(g.types(a)),v=0,y=f.length;y>v;++v)O=f[v],g.isConst(O)?g.value(O)===null?(C=!0,T.push(g["const"]("null"))):g.value(O)===void 0?(E=!0,T.push(g["const"]("undefined"))):g.error("Unknown const for type-checking: "+String(g.value(O)),O):g.isIdent(O)?(g.name(O)==="Boolean"&&(_=!0),r.call(Y,g.name(O))?T.push(g["const"](g.name(O))):T.push(l(9,58907,l(21,58907,"__name"),[n(O)],!1,!1)),M.push(l(23,58943,74,1757,{left:n(t),inverted:!0,op:"instanceof",right:n(O)},"expression",!1,!1,!1))):g.error("Not implemented: typechecking for non-idents/consts within a type-union",O);for(L=M.length?g.binaryChain("&&",M):c("true"),N=T[0],v=1,y=T.length;y>v;++v)w=T[v],N=l(23,59270,69,1766,{left:l(23,59270,69,1766,{left:n(N),op:"",right:l(12,59270," or ")},"expression",!1,!1,!1),op:"",right:n(w)},"expression",!1,!1,!1);return F=N,k=D?g.noop():l(23,59386,17,1770,{macroName:"if",macroData:{test:n(L),body:l(23,59396,11,1771,{op:"throw",node:l(9,59411,l(21,59411,"TypeError"),[l(23,59422,69,1771,{left:l(23,59422,69,1771,{left:l(23,59422,69,1771,{left:l(23,59422,69,1771,{left:l(23,59422,69,1771,{left:l(12,59422,"Expected "),op:"",right:n(e)},"expression",!1,!1,!1),op:"",right:l(12,59422," to be one of ")},"expression",!1,!1,!1),op:"",right:n(F)},"expression",!1,!1,!1),op:"",right:l(12,59422,", got ")},"expression",!1,!1,!1),op:"",right:l(23,59482,57,1771,{op:"typeof!",node:n(t)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1),u||(C||E?k=i(C,E)?l(23,59624,17,1776,{macroName:"if",macroData:{test:l(23,59627,3,1776,{op:"not",node:l(23,59631,20,1776,{op:"?",node:n(t)},"statement",!1,!0,!1)},"statement",!1,!0,!1),body:l(23,59640,30,1777,{left:n(t),op:":=",right:l(23,59663,16,1777,{macroName:"if",macroData:{test:n(C),body:c("null"),elseIfs:[],elseBody:c("void")}},"expression",!1,!0,!1)},"statement",!1,!0,!1),elseIfs:[],elseBody:n(k)}},"statement",!1,!0,!1):l(23,59776,17,1781,{macroName:"if",macroData:{test:l(23,59779,20,1781,{op:"?",node:n(t)},"statement",!1,!1,!1),body:n(k),elseIfs:[]}},"statement",!1,!1,!1):_&&(k=l(23,59862,17,1784,{macroName:"if",macroData:{test:l(23,59865,3,1784,{op:"not",node:l(23,59869,20,1784,{op:"?",node:n(t)},"statement",!1,!0,!1)},"statement",!1,!0,!1),body:l(23,59878,30,1785,{left:n(t),op:":=",right:c("false")},"statement",!1,!0,!1),elseIfs:[],elseBody:n(k)}},"statement",!1,!0,!1))),k}if(g.isTypeGeneric(a))return D?g.noop():g.name(g.basetype(a))==="Array"?(B=g.tmp("i",!1,"number"),S=h(l(1,60177,n(t),n(B)),l(23,60200,69,1794,{left:l(23,60200,69,1794,{left:l(23,60200,69,1794,{left:n(e),inverted:!1,op:"&",right:l(12,60215,"[")},"expression",!1,!1,!1),inverted:!1,op:"&",right:n(B)},"expression",!1,!1,!1),inverted:!1,op:"&",right:l(12,60230,"]")},"expression",!1,!1,!1),g.typeArguments(a)[0],!1),l(23,60279,17,1795,{macroName:"if",macroData:{test:l(23,60282,3,1795,{op:"not",node:l(23,60286,27,1795,{op:"isArray!",node:n(t)},"statement",!1,!1,!1)},"statement",!1,!1,!1),body:l(23,60304,11,1796,{op:"throw",node:l(9,60319,l(21,60319,"TypeError"),[l(23,60330,69,1796,{left:l(23,60330,69,1796,{left:l(23,60330,69,1796,{left:l(12,60330,"Expected "),op:"",right:n(e)},"expression",!1,!1,!1),op:"",right:l(12,60330," to be an Array, got ")},"expression",!1,!1,!1),op:"",right:l(23,60377,57,1796,{op:"typeof!",node:n(t)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[],elseBody:l(23,60407,106,1798,{macroName:"for",macroData:{init:l(23,60422,38,1798,{macroName:"let",macroData:{declarable:l(23,60425,37,1798,l(23,60425,31,1798,{isMutable:"mutable",ident:n(B)},"expression",!1,!1,!1),"expression",!1,!1,!1),value:l(1,60442,n(t),l(12,60450,"length"))}},"expression",!1,!1,!1),test:l(23,60458,13,1798,{op:"postDec!",node:n(B)},"statement",!1,!1,!1),body:n(S)}},"statement",!1,!1,!1)}},"statement",!1,!1,!1)):g.name(g.basetype(a))==="Function"?h(t,e,g.basetype(a),u):(I=p(a),l(23,60713,17,1805,{macroName:"if",macroData:{test:l(23,60725,74,1805,{left:n(t),inverted:!0,op:"instanceof",right:n(I)},"statement",!1,!1,!1),body:l(23,60762,11,1806,{op:"throw",node:l(9,60779,l(21,60779,"TypeError"),[l(23,60790,69,1806,{left:l(23,60790,69,1806,{left:l(23,60790,69,1806,{left:l(23,60790,69,1806,{left:l(23,60790,69,1806,{left:l(12,60790,"Expected "),op:"",right:n(e)},"expression",!1,!1,!1),op:"",right:l(12,60790," to be a ")},"expression",!1,!1,!1),op:"",right:l(9,60825,l(21,60825,"__name"),[n(I)],!1,!1)},"expression",!1,!1,!1),op:"",right:l(12,60790,", got ")},"expression",!1,!1,!1),op:"",right:l(23,60854,57,1806,{op:"typeof!",node:n(t)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[]}},"statement",!1,!1,!1));if(g.isTypeObject(a)){if(D)return g.noop();for(f=[],d=s(g.pairs(a)),v=0,y=d.length;y>v;++v)b=d[v],A=b.key,j=b.value,f.push(h(l(1,61065,n(t),n(A)),l(23,61086,69,1812,{left:l(23,61086,69,1812,{left:n(e),inverted:!1,op:"&",right:l(12,61101,".")},"expression",!1,!1,!1),inverted:!1,op:"&",right:n(A)},"expression",!1,!1,!1),j,!1));return x=f,l(23,61143,17,1813,{macroName:"if",macroData:{test:l(23,61146,3,1813,{op:"not",node:l(23,61150,28,1813,{op:"isObject!",node:n(t)},"statement",!1,!1,!1)},"statement",!1,!1,!1),body:l(23,61169,11,1814,{op:"throw",node:l(9,61184,l(21,61184,"TypeError"),[l(23,61195,69,1814,{left:l(23,61195,69,1814,{left:l(23,61195,69,1814,{left:l(12,61195,"Expected "),op:"",right:n(e)},"expression",!1,!1,!1),op:"",right:l(12,61195," to be an Object, got ")},"expression",!1,!1,!1),op:"",right:l(23,61243,57,1814,{op:"typeof!",node:n(t)},"expression",!1,!1,!1)},"expression",!1,!1,!1)],!1,!1)},"statement",!1,!1,!1),elseIfs:[],elseBody:n(x)}},"statement",!1,!1,!1)}return g.error("Unknown type to translate: "+o(a),a)}function f(t,e){var r,i,c,u,m,p,d,v,y,b,x,D,I,_,C,E,B,A,w,j,k,S,O;if(g.isArray(t)){for(N=!0,u=g.tmp("p",!1,"array"),x=-1,r=s(g.elements(t)),D=0,E=r.length;E>D;++D)v=r[D],_=T.length,b=f(v,!0),null!=b&&(y=g.paramIdent(b),g.paramIsSpread(b)?(-1!==x&&g.error("Cannot have multiple spread parameters in an array destructure",v),x=D,D===E-1?T.splice(_,0,l(23,62402,38,1842,{macroName:"let",macroData:{declarable:l(23,62406,37,1842,l(23,62406,31,1842,{ident:n(y)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(9,62423,l(21,62423,"__slice"),[n(u),l(31,62446,l(23,62451,16,1842,{macroName:"if",macroData:{test:l(23,62453,5,1842,{left:n(D),inverted:!1,op:"==",right:l(12,62460,0)},"expression",!1,!1,!1),body:l(4,62466,[]),elseIfs:[],elseBody:l(4,62474,[n(D)])}},"expression",!1,!1,!1))],!1,!0)}},"statement",!1,!1,!1)):(j=g.tmp("i",!1,"number"),T.splice(_,0,l(7,62599,[l(23,62599,38,1846,{macroName:"let",macroData:{declarable:l(23,62618,37,1846,l(23,62618,31,1846,{isMutable:"mutable",ident:n(j)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(23,62644,66,1846,{left:l(1,62644,n(u),l(12,62658,"length")),inverted:!1,op:"-",right:l(23,62668,66,1846,{left:l(23,62668,66,1846,{left:n(E),inverted:!1,op:"-",right:n(D)},"expression",!1,!1,!1),inverted:!1,op:"-",right:l(12,62680,1)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),l(23,62683,38,1847,{macroName:"let",macroData:{declarable:l(23,62702,37,1847,l(23,62702,31,1847,{ident:n(y)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(23,62719,17,1847,{macroName:"if",macroData:{test:l(23,62722,79,1847,{left:n(j),inverted:!1,op:">",right:n(D)},"expression",!1,!1,!1),body:l(9,62744,l(21,62744,"__slice"),[n(u),n(D),n(j)],!1,!0),elseIfs:[],elseBody:l(7,62826,[l(23,62826,30,1850,{left:n(j),op:":=",right:n(D)},"statement",!1,!1,!1),l(4,62866,[])],null)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)],null)))):-1===x?T.splice(_,0,l(23,61977,38,1834,{macroName:"let",macroData:{declarable:l(23,61981,37,1834,l(23,61981,31,1834,{ident:n(y)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(1,61998,n(u),n(D))}},"statement",!1,!1,!1)):T.splice(_,0,l(23,62077,38,1836,{macroName:"let",macroData:{declarable:l(23,62081,37,1836,l(23,62081,31,1836,{ident:n(y)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(1,62098,n(u),l(23,62112,66,1836,{left:n(j),inverted:!1,op:"+",right:l(23,62131,66,1836,{left:l(23,62131,66,1836,{left:n(D),inverted:!1,op:"-",right:n(x)},"expression",!1,!1,!1),inverted:!1,op:"-",right:l(12,62152,1)},"expression",!1,!1,!1)},"expression",!1,!1,!1))}},"statement",!1,!1,!1)));return g.rewrap(g.param(u,null,!1,!1,null),t)}if(g.isObject(t)){for(N=!0,B=g.tmp("p",!1,"object"),r=s(g.pairs(t)),i=0,c=r.length;c>i;++i)A=r[i],_=T.length,S=f(A.value,!0),null!=S&&(O=g.paramIdent(S),C=A.key,T.splice(_,0,l(23,63320,38,1863,{macroName:"let",macroData:{declarable:l(23,63324,37,1863,l(23,63324,31,1863,{ident:n(O)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(1,63339,n(B),n(C))}},"statement",!1,!1,!1)));return g.rewrap(g.param(B,null,!1,!1,null),t)}return g.isParam(t)?(d=g.paramDefaultValue(t),m=g.paramType(t),w=g.paramIdent(t),null==d&&null==m&&g.isIdentOrTmp(w)?t:(N=!0,I=g.isIdentOrTmp(w)?w:g.isAccess(w)?g.ident(g.value(g.child(w))):g.error("Not an ident or this-access: "+o(w)+" "+a(w.inspect()),w),k=null!=m?h(I,g.name(I),m,null!=d):g.noop(),T.push(null!=d?l(23,64177,17,1884,{macroName:"if",macroData:{test:l(23,64191,3,1884,{op:"not",node:l(23,64195,20,1884,{op:"?",node:n(I)},"statement",!1,!0,!1)},"statement",!1,!0,!1),body:l(23,64204,30,1885,{left:n(I),op:":=",right:n(d)},"statement",!1,!0,!1),elseIfs:[],elseBody:n(k)}},"statement",!1,!0,!1):k),w!==I&&T.push(l(23,64375,30,1891,{left:n(w),op:":=",right:n(I)},"statement",!1,!1,!1)),g.rewrap(g.param(I,null,g.paramIsSpread(t),g.paramIsMutable(t),null),t))):g.isNothing(t)?(N=!0,e?null:(p=g.tmp("p",!1,"object"),g.rewrap(g.param(p,null,!1,!1,null),t))):g.error("Unknown param type: "+o(t),t)}var d,v,y,b,g,x,N,D,I,_,C,E,B,A,w,T,j,k,S,O,L,M,F,U,P,G,V,q,H,K,Y,R,z;for(g=this,V=t.op,G=t.node,D=this.getConstValue("DISABLE_TYPE_CHECKING",!1),Y={Number:!0,String:!0,Boolean:!0,Function:!0,Array:!0,Object:!0},T=[],N=!1,I=-1,K=[],d=s(this.funcParams(G)),A=0,M=d.length;M>A;++A)H=d[A],j=T.length,q=f(H,!1),w=this.paramIdent(q),this.paramIsSpread(q)?(-1!==I&&this.error("Cannot have two spread parameters",q),N=!0,I=A,A===M-1?T.splice(j,0,l(23,65266,38,1919,{macroName:"let",macroData:{declarable:l(23,65279,37,1919,l(23,65279,31,1919,{ident:n(w)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(9,65288,l(21,65288,"__slice"),[l(3,65298),l(31,65308,l(23,65313,16,1919,{macroName:"if",macroData:{test:l(23,65315,5,1919,{left:n(A),inverted:!1,op:"==",right:l(12,65322,0)},"expression",!1,!1,!1),body:l(4,65328,[]),elseIfs:[],elseBody:l(4,65336,[n(A)])}},"expression",!1,!1,!1))],!1,!0)}},"statement",!1,!1,!1)):(z=this.tmp("i",!1,"number"),T.splice(j,0,l(7,65443,[l(23,65443,38,1923,{macroName:"let",macroData:{declarable:l(23,65456,37,1923,l(23,65456,31,1923,{isMutable:"mutable",ident:n(z)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(23,65482,66,1923,{left:l(1,65482,l(3,65482),l(12,65493,"length")),inverted:!1,op:"-",right:l(23,65503,66,1923,{left:l(23,65503,66,1923,{left:n(M),inverted:!1,op:"-",right:n(A)},"expression",!1,!1,!1),inverted:!1,op:"-",right:l(12,65515,1)},"expression",!1,!1,!1)},"expression",!1,!1,!1)}},"statement",!1,!1,!1),l(23,65518,38,1924,{macroName:"let",macroData:{declarable:l(23,65531,37,1924,l(23,65531,31,1924,{ident:n(w)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(23,65540,17,1924,{macroName:"if",macroData:{test:l(23,65543,79,1924,{left:n(z),inverted:!1,op:">",right:n(A)},"expression",!1,!1,!1),body:l(9,65565,l(21,65565,"__slice"),[l(3,65586),n(A),n(z)],!1,!0),elseIfs:[],elseBody:l(7,65632,[l(23,65632,30,1927,{left:n(z),op:":=",right:n(A)},"statement",!1,!1,!1),l(4,65666,[])],null)}},"expression",!1,!1,!1)}},"statement",!1,!1,!1)],null)))):-1===I?K.push(q):T.splice(j,0,l(23,65790,38,1934,{macroName:"let",macroData:{declarable:l(23,65803,37,1934,l(23,65803,31,1934,{ident:n(w)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(1,65812,l(3,65812),l(23,65823,66,1934,{left:n(z),inverted:!1,op:"+",right:l(23,65842,66,1934,{left:l(23,65842,66,1934,{left:n(A),inverted:!1,op:"-",right:n(I)},"expression",!1,!1,!1),inverted:!1,op:"-",right:l(12,65863,1)},"expression",!1,!1,!1)},"expression",!1,!1,!1))}},"statement",!1,!1,!1));if(T.length||N||this.funcIsCurried(G)?(x=this.funcBody(G),R=this.rewrap(this.func(K,l(7,66012,[n(T),n(x)],null),this.funcIsAutoReturn(G)&&!this.isNothing(x),this.funcIsBound(G),!1,this.funcAsType(G),this.funcIsGenerator(G),this.funcGeneric(G)),G)):R=G,this.funcIsCurried(G)&&(R=l(9,66294,l(21,66294,"__curry"),[n(K.length),n(R)],!1,!1)),C=this.funcGeneric(G),e(C.length)>0&&!this.getConstValue("DISABLE_GENERICS",!1)){for(E=this.tmp("cache",!1,"object"),d=[],v=s(C),y=0,b=v.length;b>y;++y)_=v[y],d.push(this.param(_));for(B=d,U=this.tmp("make",!1,"function"),S={},d=s(C),y=0,b=d.length;b>y;++y)_=d[y],P=this.name(_),L=this.tmp("instanceof_"+a(P),!1,"function"),S[P]={key:L,let:l(23,66857,38,1965,{macroName:"let",macroData:{declarable:l(23,66861,37,1965,l(23,66861,31,1965,{ident:n(L)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:l(9,66868,l(21,66868,"__getInstanceof"),[n(_)],!1,!1)}},"statement",!1,!1,!1),used:!1};R=this.walk(this.macroExpandAll(R),function(t){var e,a,s,o;return g.isBinary(t)&&g.op(t)==="instanceof"&&(o=g.right(t),g.isIdent(o)&&(s=g.name(o),r.call(S,s)))?(e=S[s].key,S[s].used=!0,a=g.left(t),l(9,67318,n(e),[n(a)],!1,!1)):void 0}),d=[];for(P in S)r.call(S,P)&&(O=S[P],O.used&&d.push(O.let));k=d,k.length&&(R=l(7,67474,[n(k),n(R)],null)),F=this.func(B,R,!0,!1),R=l(9,67604,l(21,67604,"__genericFunc"),[n(C.length),n(F)],!1,!1)}return R}}).call(this);',
           operators: "mutateFunction!",
           options: {type: "node", label: "mutateFunction"},
           id: 117
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c;return c=e.op,r=e.node,s("Call",79287,s("Ident",79287,"__keys"),[t(r)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,r(9,79287,r(21,79287,"__keys"),[e(n)],!1,!1)}}).call(this);',
           operators: "keys!",
           id: 124
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c;return c=e.op,r=e.node,s("Call",79443,s("Ident",79443,"__allkeys"),[t(r)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a;return a=t.op,n=t.node,r(9,79443,r(21,79443,"__allkeys"),[e(n)],!1,!1)}}).call(this);',
           operators: "allkeys!",
           id: 125
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,r;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=Array.prototype.slice,s=function(s){if(null==s)throw TypeError("Expected an object, got "+r(s));if(e(s))return s;if("string"==typeof s)return s.split("");if(typeof s.length=="number")return t.call(s);throw TypeError("Expected an object with a length property, got "+r(s))},r=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,t,r){var c,a,o,n,i,l,u,m,p;if(u=e.op,l=e.node,p=this.tmp("s",!1,"object"),this.isArray(l)&&!this.arrayHasSpread(l)){if(this.elements(l).length===0)return r("Call",115952,r("Ident",115952,"Set"),[],!1,!1);for(m=[],c=s(this.elements(l)),a=0,o=c.length;o>a;++a)n=c[a],m.push(r("Call",116048,r("Access",116048,t(p),r("Const",116054,"add")),[t(n)],!1,!1));return r("Block",116077,[r("MacroAccess",116077,38,3518,{macroName:"let",macroData:{declarable:r("MacroAccess",116088,37,3518,r("MacroAccess",116088,31,3518,{ident:t(p)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",116095,r("Ident",116095,"Set"),[],!1,!1)}},"statement",!1,!1,!1),t(m),t(p)],null)}return i=this.tmp("x",!1,"any"),r("Block",116181,[r("MacroAccess",116181,38,3524,{macroName:"let",macroData:{declarable:r("MacroAccess",116190,37,3524,r("MacroAccess",116190,31,3524,{ident:t(p)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",116197,r("Ident",116197,"Set"),[],!1,!1)}},"statement",!1,!1,!1),r("MacroAccess",116204,113,3525,{macroName:"for",macroData:{value:r("MacroAccess",116213,37,3525,r("MacroAccess",116213,31,3525,{ident:t(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),array:t(l),body:r("Call",116229,r("Access",116229,t(p),r("Const",116242,"add")),[t(i)],!1,!1)}},"statement",!1,!1,!1),t(p)],null)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,r,n;return t=typeof Array.isArray=="function"?Array.isArray:function(){var t;return t=Object.prototype.toString,function(e){return t.call(e)==="[object Array]"}}(),e=Array.prototype.slice,r=function(r){if(null==r)throw TypeError("Expected an object, got "+n(r));if(t(r))return r;if("string"==typeof r)return r.split("");if(typeof r.length=="number")return e.call(r);throw TypeError("Expected an object with a length property, got "+n(r))},n=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(t,e,n){var a,s,o,i,l,c,u,m,p;if(u=t.op,c=t.node,p=this.tmp("s",!1,"object"),this.isArray(c)&&!this.arrayHasSpread(c)){if(this.elements(c).length===0)return n(9,115952,n(21,115952,"Set"),[],!1,!1);for(m=[],a=r(this.elements(c)),s=0,o=a.length;o>s;++s)i=a[s],m.push(n(9,116048,n(1,116048,e(p),n(12,116054,"add")),[e(i)],!1,!1));return n(7,116077,[n(23,116077,38,3518,{macroName:"let",macroData:{declarable:n(23,116088,37,3518,n(23,116088,31,3518,{ident:e(p)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,116095,n(21,116095,"Set"),[],!1,!1)}},"statement",!1,!1,!1),e(m),e(p)],null)}return l=this.tmp("x",!1,"any"),n(7,116181,[n(23,116181,38,3524,{macroName:"let",macroData:{declarable:n(23,116190,37,3524,n(23,116190,31,3524,{ident:e(p)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,116197,n(21,116197,"Set"),[],!1,!1)}},"statement",!1,!1,!1),n(23,116204,113,3525,{macroName:"for",macroData:{value:n(23,116213,37,3525,n(23,116213,31,3525,{ident:e(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),array:e(c),body:n(9,116229,n(1,116229,e(p),n(12,116242,"add")),[e(l)],!1,!1)}},"statement",!1,!1,!1),e(p)],null)}}).call(this);',
           operators: "set!",
           options: {type: "object", label: "constructSet"},
           id: 152
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,r;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=Array.prototype.slice,s=function(s){if(null==s)throw TypeError("Expected an object, got "+r(s));if(e(s))return s;if("string"==typeof s)return s.split("");if(typeof s.length=="number")return t.call(s);throw TypeError("Expected an object with a length property, got "+r(s))},r=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,t,r){var c,a,o,n,i,l,u,m,p,h,d,f;if(m=e.op,u=e.node,this.isObject(u)||this.error("map! can only be used on literal objects",u),p=this.pairs(u),p.length===0)return r("Call",116480,r("Ident",116480,"Map"),[],!1,!1);for(l=this.tmp("m",!1,"object"),h=[],c=s(p),a=0,o=c.length;o>a;++a)n=c[a],i=n.key,f=n.value,d=n.property,null!=d&&this.error("Cannot use map! on an object with custom properties",i),h.push(r("Call",116704,r("Access",116704,t(l),r("Const",116710,"set")),[t(i),t(f)],!1,!1));return r("Block",116735,[r("MacroAccess",116735,38,3544,{macroName:"let",macroData:{declarable:r("MacroAccess",116744,37,3544,r("MacroAccess",116744,31,3544,{ident:t(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("Call",116751,r("Ident",116751,"Map"),[],!1,!1)}},"statement",!1,!1,!1),t(h),t(l)],null)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,r,n;return t=typeof Array.isArray=="function"?Array.isArray:function(){var t;return t=Object.prototype.toString,function(e){return t.call(e)==="[object Array]"}}(),e=Array.prototype.slice,r=function(r){if(null==r)throw TypeError("Expected an object, got "+n(r));if(t(r))return r;if("string"==typeof r)return r.split("");if(typeof r.length=="number")return e.call(r);throw TypeError("Expected an object with a length property, got "+n(r))},n=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(t,e,n){var a,s,o,i,l,c,u,m,p,h,f,d;if(m=t.op,u=t.node,this.isObject(u)||this.error("map! can only be used on literal objects",u),p=this.pairs(u),p.length===0)return n(9,116480,n(21,116480,"Map"),[],!1,!1);for(c=this.tmp("m",!1,"object"),h=[],a=r(p),s=0,o=a.length;o>s;++s)i=a[s],l=i.key,d=i.value,f=i.property,null!=f&&this.error("Cannot use map! on an object with custom properties",l),h.push(n(9,116704,n(1,116704,e(c),n(12,116710,"set")),[e(l),e(d)],!1,!1));return n(7,116735,[n(23,116735,38,3544,{macroName:"let",macroData:{declarable:n(23,116744,37,3544,n(23,116744,31,3544,{ident:e(c)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n(9,116751,n(21,116751,"Map"),[],!1,!1)}},"statement",!1,!1,!1),e(h),e(c)],null)}}).call(this);',
           operators: "map!",
           options: {type: "object", label: "constructMap"},
           id: 153
         },
         {
-          code: 'return(function(){"use strict";var e,t,s,r;return e=typeof Array.isArray=="function"?Array.isArray:function(){var e;return e=Object.prototype.toString,function(t){return e.call(t)==="[object Array]"}}(),t=Array.prototype.slice,s=function(s){if(null==s)throw TypeError("Expected an object, got "+r(s));if(e(s))return s;if("string"==typeof s)return s.split("");if(typeof s.length=="number")return t.call(s);throw TypeError("Expected an object with a length property, got "+r(s))},r=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(e,t,c){var a,o,n;return o=e.op,a=e.node,a.cascades&&a.cascades.length||this.error("cascade! can only be used on a CascadeNode, got "+r(a),a),n=a.node,this.maybeCache(n,function(e,r){var o,n,i,l,u,m;for(o=[],n=s(a.cascades),u=0,i=n.length;i>u;++u)l=n[u],o.push(l(r));return m=o,c("Block",130687,[t(e),t(m),t(r)],null)})}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,r,n;return t=typeof Array.isArray=="function"?Array.isArray:function(){var t;return t=Object.prototype.toString,function(e){return t.call(e)==="[object Array]"}}(),e=Array.prototype.slice,r=function(r){if(null==r)throw TypeError("Expected an object, got "+n(r));if(t(r))return r;if("string"==typeof r)return r.split("");if(typeof r.length=="number")return e.call(r);throw TypeError("Expected an object with a length property, got "+n(r))},n=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(t,e,a){var s,o,i;return o=t.op,s=t.node,s.cascades&&s.cascades.length||this.error("cascade! can only be used on a CascadeNode, got "+n(s),s),i=s.node,this.maybeCache(i,function(t,n){var o,i,l,c,u,m;for(o=[],i=r(s.cascades),u=0,l=i.length;l>u;++u)c=i[u],o.push(c(n));return m=o,a(7,130687,[e(t),e(m),e(n)],null)})}}).call(this);',
           operators: "cascade!",
           options: {label: "cascade"},
           id: 171
@@ -34135,7 +34137,7 @@
             [[17, 62, 27, 0, "err"]],
             [],
             [],
-            25,
+            26,
             62,
             34,
             0,
@@ -34160,7 +34162,7 @@
               26,
               0,
               [
-                29,
+                30,
                 118,
                 9,
                 0,
@@ -34189,7 +34191,7 @@
               66,
               0,
               [
-                29,
+                30,
                 118,
                 9,
                 0,
@@ -34208,7 +34210,7 @@
               "undefined"
             ],
             [17, 146, 91, 0, "global"],
-            24,
+            25,
             146,
             103,
             0
@@ -34236,7 +34238,7 @@
             0,
             [17, 149, 5, 0, "x"],
             [
-              22,
+              23,
               150,
               1,
               0,
@@ -34245,7 +34247,7 @@
               1,
               0,
               [
-                29,
+                30,
                 150,
                 1,
                 0,
@@ -34263,7 +34265,7 @@
               0,
               "x"
             ],
-            22,
+            23,
             152,
             1,
             0,
@@ -34334,7 +34336,7 @@
                 "toString"
               ],
               [
-                22,
+                23,
                 482,
                 4,
                 0,
@@ -34364,7 +34366,7 @@
                   0
                 ],
                 [
-                  22,
+                  23,
                   484,
                   7,
                   0,
@@ -34393,7 +34395,7 @@
                   null
                 ],
                 [
-                  22,
+                  23,
                   486,
                   7,
                   0,
@@ -34403,7 +34405,7 @@
                   0,
                   "Null"
                 ],
-                22,
+                23,
                 488,
                 1,
                 0,
@@ -34512,7 +34514,7 @@
             [[17, 496, 27, 0, "x"]],
             [],
             [],
-            22,
+            23,
             496,
             32,
             0,
@@ -34546,7 +34548,7 @@
               5,
               0,
               [
-                29,
+                30,
                 132,
                 7,
                 0,
@@ -34565,7 +34567,7 @@
               "number"
             ],
             [
-              25,
+              26,
               525,
               1,
               0,
@@ -34591,7 +34593,7 @@
                 [17, 525, 57, 0, "num"]
               ]
             ],
-            22,
+            23,
             527,
             1,
             0,
@@ -34625,7 +34627,7 @@
               5,
               0,
               [
-                29,
+                30,
                 129,
                 7,
                 0,
@@ -34644,7 +34646,7 @@
               "string"
             ],
             [
-              25,
+              26,
               531,
               1,
               0,
@@ -34670,7 +34672,7 @@
                 [17, 531, 57, 0, "str"]
               ]
             ],
-            22,
+            23,
             533,
             1,
             0,
@@ -34705,7 +34707,7 @@
               0,
               [17, 536, 6, 0, "type"],
               "=",
-              29,
+              30,
               536,
               13,
               0,
@@ -34736,7 +34738,7 @@
                 "string"
               ],
               [
-                22,
+                23,
                 538,
                 1,
                 0,
@@ -34765,7 +34767,7 @@
                 "number"
               ],
               [
-                22,
+                23,
                 540,
                 1,
                 0,
@@ -34777,7 +34779,7 @@
                 0,
                 [17, 540, 12, 0, "strnum"]
               ],
-              25,
+              26,
               542,
               1,
               0,
@@ -34868,7 +34870,7 @@
               "right"
             ],
             [
-              22,
+              23,
               676,
               5,
               0,
@@ -34890,7 +34892,7 @@
               0,
               [17, 678, 8, 0, "type"],
               "=",
-              29,
+              30,
               678,
               15,
               0,
@@ -34939,7 +34941,7 @@
                 "string"
               ],
               [
-                25,
+                26,
                 680,
                 1,
                 0,
@@ -34975,7 +34977,7 @@
                 0,
                 [17, 681, 12, 0, "type"],
                 "!==",
-                29,
+                30,
                 681,
                 20,
                 0,
@@ -34987,7 +34989,7 @@
                 "right"
               ],
               [
-                25,
+                26,
                 682,
                 1,
                 0,
@@ -35028,7 +35030,7 @@
                     " vs "
                   ],
                   "+",
-                  29,
+                  30,
                   682,
                   90,
                   0,
@@ -35059,7 +35061,7 @@
                 "right"
               ],
               [
-                22,
+                23,
                 684,
                 1,
                 0,
@@ -35069,7 +35071,7 @@
                 0,
                 -1
               ],
-              22,
+              23,
               686,
               7,
               0,
@@ -35104,7 +35106,7 @@
               5,
               0,
               [
-                29,
+                30,
                 132,
                 7,
                 0,
@@ -35123,7 +35125,7 @@
               "number"
             ],
             [
-              25,
+              26,
               699,
               1,
               0,
@@ -35180,7 +35182,7 @@
               0
             ],
             [
-              25,
+              26,
               701,
               1,
               0,
@@ -35204,7 +35206,7 @@
                 "num"
               ]
             ],
-            22,
+            23,
             703,
             1,
             0,
@@ -35246,7 +35248,7 @@
               0
             ],
             [
-              25,
+              26,
               707,
               1,
               0,
@@ -35270,7 +35272,7 @@
                 "num"
               ]
             ],
-            22,
+            23,
             709,
             1,
             0,
@@ -35308,7 +35310,7 @@
               0,
               [17, 712, 6, 0, "type"],
               "=",
-              29,
+              30,
               712,
               13,
               0,
@@ -35357,7 +35359,7 @@
                 "string"
               ],
               [
-                25,
+                26,
                 714,
                 1,
                 0,
@@ -35393,7 +35395,7 @@
                 0,
                 [17, 715, 10, 0, "type"],
                 "!==",
-                29,
+                30,
                 715,
                 18,
                 0,
@@ -35405,7 +35407,7 @@
                 "y"
               ],
               [
-                25,
+                26,
                 716,
                 1,
                 0,
@@ -35446,7 +35448,7 @@
                     " vs "
                   ],
                   "+",
-                  29,
+                  30,
                   716,
                   88,
                   0,
@@ -35458,7 +35460,7 @@
                   "y"
                 ]
               ],
-              22,
+              23,
               718,
               1,
               0,
@@ -35503,7 +35505,7 @@
               0,
               [17, 721, 6, 0, "type"],
               "=",
-              29,
+              30,
               721,
               13,
               0,
@@ -35552,7 +35554,7 @@
                 "string"
               ],
               [
-                25,
+                26,
                 723,
                 1,
                 0,
@@ -35588,7 +35590,7 @@
                 0,
                 [17, 724, 10, 0, "type"],
                 "!==",
-                29,
+                30,
                 724,
                 18,
                 0,
@@ -35600,7 +35602,7 @@
                 "y"
               ],
               [
-                25,
+                26,
                 725,
                 1,
                 0,
@@ -35641,7 +35643,7 @@
                     " vs "
                   ],
                   "+",
-                  29,
+                  30,
                   725,
                   88,
                   0,
@@ -35653,7 +35655,7 @@
                   "y"
                 ]
               ],
-              22,
+              23,
               727,
               1,
               0,
@@ -35714,7 +35716,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -35759,7 +35761,7 @@
             [[17, 984, 5, 0, "x"]],
             [],
             [],
-            22,
+            23,
             984,
             10,
             0,
@@ -35841,7 +35843,7 @@
               ]
             ],
             [
-              22,
+              23,
               989,
               1,
               0,
@@ -35869,7 +35871,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -35956,7 +35958,7 @@
                 "toString"
               ],
               [
-                22,
+                23,
                 996,
                 6,
                 0,
@@ -35968,7 +35970,7 @@
                 [[17, 996, 7, 0, "x"]],
                 [],
                 [],
-                22,
+                23,
                 996,
                 23,
                 0,
@@ -36020,7 +36022,7 @@
             [[17, 998, 31, 0, "x"]],
             [],
             [],
-            22,
+            23,
             998,
             47,
             0,
@@ -36034,7 +36036,7 @@
               47,
               0,
               [
-                29,
+                30,
                 998,
                 47,
                 0,
@@ -36097,7 +36099,7 @@
               null
             ],
             [
-              25,
+              26,
               1002,
               1,
               0,
@@ -36138,7 +36140,7 @@
               [17, 1003, 20, 0, "x"]
             ],
             [
-              22,
+              23,
               1004,
               1,
               0,
@@ -36159,7 +36161,7 @@
               7,
               0,
               [
-                29,
+                30,
                 129,
                 7,
                 0,
@@ -36178,7 +36180,7 @@
               "string"
             ],
             [
-              22,
+              23,
               1006,
               1,
               0,
@@ -36213,7 +36215,7 @@
               7,
               0,
               [
-                29,
+                30,
                 132,
                 7,
                 0,
@@ -36238,7 +36240,7 @@
               "number"
             ],
             [
-              22,
+              23,
               1008,
               1,
               0,
@@ -36262,7 +36264,7 @@
               0,
               [17, 1008, 14, 0, "x"]
             ],
-            25,
+            26,
             1010,
             1,
             0,
@@ -36303,7 +36305,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -36389,7 +36391,7 @@
               "x"
             ],
             [
-              22,
+              23,
               1018,
               1,
               0,
@@ -36484,7 +36486,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -36571,7 +36573,7 @@
                   "indexOf"
                 ],
                 [
-                  22,
+                  23,
                   1170,
                   6,
                   0,
@@ -36586,7 +36588,7 @@
                   ],
                   [],
                   [],
-                  22,
+                  23,
                   43,
                   7,
                   0,
@@ -36649,7 +36651,7 @@
               0,
               [17, 1173, 8, 0, "len"],
               "=",
-              29,
+              30,
               1173,
               14,
               0,
@@ -36692,7 +36694,7 @@
                 13,
                 0,
                 [
-                  29,
+                  30,
                   1175,
                   12,
                   0,
@@ -36754,7 +36756,7 @@
                 "parent"
               ],
               [
-                22,
+                23,
                 1177,
                 1,
                 0,
@@ -36766,7 +36768,7 @@
               ]
             ],
             [
-              22,
+              23,
               1178,
               1,
               0,
@@ -36819,7 +36821,7 @@
               0,
               [17, 1665, 6, 0, "any"],
               "=",
-              20,
+              21,
               1665,
               12,
               0
@@ -36890,7 +36892,7 @@
                   0
                 ],
                 [
-                  29,
+                  30,
                   1243,
                   35,
                   0,
@@ -37064,7 +37066,7 @@
                           "apply"
                         ],
                         0,
-                        [24, 1672, 17, 0],
+                        [25, 1672, 17, 0],
                         [1, 1672, 26, 0]
                       ],
                       3,
@@ -37119,7 +37121,7 @@
                 ]
               ],
               [
-                22,
+                23,
                 1667,
                 45,
                 0,
@@ -37170,7 +37172,7 @@
               "generic"
             ],
             [
-              22,
+              23,
               1679,
               1,
               0,
@@ -37216,7 +37218,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -37235,7 +37237,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -37274,7 +37276,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -37293,7 +37295,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -37332,7 +37334,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -37351,7 +37353,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -37421,7 +37423,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   135,
                   7,
                   0,
@@ -37440,7 +37442,7 @@
                 "boolean"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -37487,7 +37489,7 @@
                 0
               ],
               [
-                25,
+                26,
                 1991,
                 1,
                 0,
@@ -37505,7 +37507,7 @@
               0,
               0,
               [
-                29,
+                30,
                 1992,
                 10,
                 0,
@@ -37519,7 +37521,7 @@
                 [17, 1992, 25, 0, "start"]
               ],
               [
-                25,
+                26,
                 1993,
                 1,
                 0,
@@ -37537,7 +37539,7 @@
               0,
               0,
               [
-                29,
+                30,
                 1994,
                 10,
                 0,
@@ -37551,7 +37553,7 @@
                 [17, 1994, 25, 0, "end"]
               ],
               [
-                25,
+                26,
                 1995,
                 1,
                 0,
@@ -37822,7 +37824,7 @@
               ]
             ],
             [
-              22,
+              23,
               2008,
               1,
               0,
@@ -37866,7 +37868,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -37885,7 +37887,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -37932,7 +37934,7 @@
                 0
               ],
               [
-                25,
+                26,
                 2012,
                 1,
                 0,
@@ -37963,7 +37965,7 @@
                 1
               ],
               [
-                22,
+                23,
                 2014,
                 1,
                 0,
@@ -37994,7 +37996,7 @@
                 -1
               ],
               [
-                22,
+                23,
                 2016,
                 1,
                 0,
@@ -38068,7 +38070,7 @@
                 0
               ],
               [
-                25,
+                26,
                 2018,
                 1,
                 0,
@@ -38353,7 +38355,7 @@
                 ]
               ],
               [
-                22,
+                23,
                 2030,
                 1,
                 0,
@@ -38446,7 +38448,7 @@
                   47,
                   0,
                   [
-                    29,
+                    30,
                     368,
                     21,
                     0,
@@ -38475,7 +38477,7 @@
                     57,
                     0,
                     [
-                      29,
+                      30,
                       368,
                       21,
                       0,
@@ -38545,7 +38547,7 @@
                     45,
                     0,
                     [
-                      29,
+                      30,
                       368,
                       21,
                       0,
@@ -38598,7 +38600,7 @@
                 1
               ],
               [
-                22,
+                23,
                 2038,
                 1,
                 0,
@@ -38627,7 +38629,7 @@
                 -1
               ],
               [
-                22,
+                23,
                 2040,
                 1,
                 0,
@@ -38650,7 +38652,7 @@
                 ],
                 0
               ],
-              22,
+              23,
               2042,
               1,
               0,
@@ -38694,7 +38696,7 @@
                 0,
                 [17, 2142, 6, 0, "proto"],
                 "=",
-                20,
+                21,
                 2142,
                 14,
                 0,
@@ -38711,11 +38713,11 @@
                   [],
                   [],
                   [],
-                  22,
+                  23,
                   2143,
                   18,
                   0,
-                  24,
+                  25,
                   2143,
                   18,
                   0
@@ -38761,7 +38763,7 @@
                         2145,
                         14,
                         0,
-                        [24, 2145, 14, 0],
+                        [25, 2145, 14, 0],
                         ".",
                         9,
                         2145,
@@ -38788,7 +38790,7 @@
                     2146,
                     18,
                     0,
-                    [24, 2146, 18, 0],
+                    [25, 2146, 18, 0],
                     ".",
                     9,
                     2146,
@@ -38830,11 +38832,11 @@
                       ]
                     ],
                     [
-                      22,
+                      23,
                       2148,
                       1,
                       0,
-                      20,
+                      21,
                       2148,
                       1,
                       0,
@@ -38864,7 +38866,7 @@
                         2150,
                         1,
                         0,
-                        [24, 2150, 1, 0],
+                        [25, 2150, 1, 0],
                         ".",
                         9,
                         2150,
@@ -38880,11 +38882,11 @@
                       "i"
                     ],
                     [
-                      22,
+                      23,
                       2151,
                       1,
                       0,
-                      20,
+                      21,
                       2151,
                       1,
                       0,
@@ -38915,7 +38917,7 @@
                 ]
               ],
               [
-                22,
+                23,
                 1940,
                 1,
                 0,
@@ -38939,7 +38941,7 @@
                   0,
                   0,
                   [
-                    29,
+                    30,
                     669,
                     18,
                     0,
@@ -38953,7 +38955,7 @@
                     [17, 2153, 5, 0, "array"]
                   ],
                   [
-                    25,
+                    26,
                     1714,
                     1,
                     0,
@@ -39046,7 +39048,7 @@
                   -1
                 ],
                 [
-                  22,
+                  23,
                   2154,
                   1,
                   0,
@@ -39099,7 +39101,7 @@
               null
             ],
             [
-              25,
+              26,
               2161,
               1,
               0,
@@ -39140,7 +39142,7 @@
               [17, 2162, 20, 0, "iterable"]
             ],
             [
-              22,
+              23,
               2163,
               1,
               0,
@@ -39163,7 +39165,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -39188,7 +39190,7 @@
               "function"
             ],
             [
-              22,
+              23,
               2165,
               1,
               0,
@@ -39222,7 +39224,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -39247,7 +39249,7 @@
               "function"
             ],
             [
-              22,
+              23,
               2167,
               1,
               0,
@@ -39257,7 +39259,7 @@
               0,
               "iterable"
             ],
-            25,
+            26,
             2169,
             1,
             0,
@@ -39304,7 +39306,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -39424,7 +39426,7 @@
               ]
             ],
             [
-              22,
+              23,
               2345,
               1,
               0,
@@ -39494,7 +39496,7 @@
               [17, 2353, 15, 0, "key"]
             ],
             [
-              22,
+              23,
               2354,
               1,
               0,
@@ -39541,7 +39543,7 @@
                 0
               ],
               [
-                22,
+                23,
                 2361,
                 4,
                 0,
@@ -39570,12 +39572,12 @@
                     7,
                     0,
                     [
-                      29,
+                      30,
                       138,
                       7,
                       0,
                       "typeof",
-                      24,
+                      25,
                       2362,
                       24,
                       0
@@ -39588,7 +39590,7 @@
                     "function"
                   ],
                   [
-                    25,
+                    26,
                     2363,
                     1,
                     0,
@@ -39611,7 +39613,7 @@
                       0,
                       [17, 494, 49, 0, "__typeof"],
                       0,
-                      [24, 2363, 65, 0]
+                      [25, 2363, 65, 0]
                     ]
                   ]
                 ],
@@ -39660,7 +39662,7 @@
                   0,
                   0,
                   [
-                    29,
+                    30,
                     2366,
                     7,
                     0,
@@ -39730,7 +39732,7 @@
                         "length"
                       ],
                       [
-                        29,
+                        30,
                         1243,
                         35,
                         0,
@@ -39897,7 +39899,7 @@
                   ]
                 ],
                 [
-                  22,
+                  23,
                   2375,
                   1,
                   0,
@@ -39907,7 +39909,7 @@
                   0,
                   [17, 2375, 1, 0, "creator"],
                   0,
-                  [24, 2375, 13, 0],
+                  [25, 2375, 13, 0],
                   [1, 2375, 18, 0]
                 ]
               ]
@@ -39995,7 +39997,7 @@
                 ]
               ],
               [
-                29,
+                30,
                 1402,
                 16,
                 0,
@@ -40074,7 +40076,7 @@
               ]
             ],
             [
-              22,
+              23,
               1502,
               13,
               0,
@@ -40117,7 +40119,7 @@
                 [],
                 [],
                 [],
-                22,
+                23,
                 2382,
                 19,
                 0,
@@ -40136,7 +40138,7 @@
                 [[17, 2383, 17, 0, "x"]],
                 [],
                 [],
-                22,
+                23,
                 129,
                 7,
                 0,
@@ -40145,7 +40147,7 @@
                 7,
                 0,
                 [
-                  29,
+                  30,
                   129,
                   7,
                   0,
@@ -40172,7 +40174,7 @@
                 [[17, 2384, 17, 0, "x"]],
                 [],
                 [],
-                22,
+                23,
                 132,
                 7,
                 0,
@@ -40181,7 +40183,7 @@
                 7,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -40208,7 +40210,7 @@
                 [[17, 2385, 18, 0, "x"]],
                 [],
                 [],
-                22,
+                23,
                 138,
                 7,
                 0,
@@ -40217,7 +40219,7 @@
                 7,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -40244,7 +40246,7 @@
                 [[17, 2386, 18, 0, "x"]],
                 [],
                 [],
-                22,
+                23,
                 135,
                 7,
                 0,
@@ -40253,7 +40255,7 @@
                 7,
                 0,
                 [
-                  29,
+                  30,
                   135,
                   7,
                   0,
@@ -40272,7 +40274,7 @@
                 "boolean"
               ],
               [
-                22,
+                23,
                 2387,
                 4,
                 0,
@@ -40303,7 +40305,7 @@
                   null
                 ],
                 [
-                  22,
+                  23,
                   2389,
                   1,
                   0,
@@ -40313,7 +40315,7 @@
                   0,
                   "isAny"
                 ],
-                26,
+                27,
                 2391,
                 1,
                 0,
@@ -40324,7 +40326,7 @@
                 null,
                 [17, 2392, 11, 0, "String"],
                 [
-                  22,
+                  23,
                   2392,
                   19,
                   0,
@@ -40339,7 +40341,7 @@
                 null,
                 [17, 2393, 11, 0, "Number"],
                 [
-                  22,
+                  23,
                   2393,
                   19,
                   0,
@@ -40354,7 +40356,7 @@
                 null,
                 [17, 2394, 11, 0, "Function"],
                 [
-                  22,
+                  23,
                   2394,
                   21,
                   0,
@@ -40369,7 +40371,7 @@
                 null,
                 [17, 2395, 11, 0, "Boolean"],
                 [
-                  22,
+                  23,
                   2395,
                   20,
                   0,
@@ -40384,7 +40386,7 @@
                 null,
                 [17, 2396, 11, 0, "Array"],
                 [
-                  22,
+                  23,
                   2396,
                   18,
                   0,
@@ -40399,7 +40401,7 @@
                 null,
                 [17, 2397, 11, 0, "Object"],
                 [
-                  22,
+                  23,
                   2397,
                   19,
                   0,
@@ -40410,7 +40412,7 @@
                   "__isObject"
                 ],
                 [
-                  22,
+                  23,
                   2398,
                   17,
                   0,
@@ -40422,7 +40424,7 @@
                   [[17, 2398, 17, 0, "_x"]],
                   [],
                   [],
-                  22,
+                  23,
                   2398,
                   17,
                   0,
@@ -40476,7 +40478,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -40495,7 +40497,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -40523,7 +40525,7 @@
               ]
             ],
             [
-              22,
+              23,
               2400,
               50,
               0,
@@ -40602,7 +40604,7 @@
                 [],
                 [],
                 [],
-                25,
+                26,
                 2403,
                 23,
                 0,
@@ -40625,7 +40627,7 @@
                 []
               ],
               [
-                22,
+                23,
                 1940,
                 1,
                 0,
@@ -40657,7 +40659,7 @@
                     18,
                     0,
                     [
-                      29,
+                      30,
                       138,
                       7,
                       0,
@@ -40676,7 +40678,7 @@
                     "function"
                   ],
                   [
-                    25,
+                    26,
                     1714,
                     1,
                     0,
@@ -40746,7 +40748,7 @@
                     18,
                     0,
                     [
-                      29,
+                      30,
                       135,
                       7,
                       0,
@@ -40765,7 +40767,7 @@
                     "boolean"
                   ],
                   [
-                    25,
+                    26,
                     1714,
                     1,
                     0,
@@ -40793,7 +40795,7 @@
                   ]
                 ],
                 [
-                  22,
+                  23,
                   2405,
                   53,
                   0,
@@ -40856,7 +40858,7 @@
                     "replacement"
                   ],
                   [
-                    22,
+                    23,
                     2408,
                     1,
                     0,
@@ -40878,7 +40880,7 @@
                       "apply"
                     ],
                     0,
-                    [24, 2408, 8, 0],
+                    [25, 2408, 8, 0],
                     [1, 2408, 17, 0]
                   ]
                 ]
@@ -40922,7 +40924,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -40941,7 +40943,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -40980,7 +40982,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -40999,7 +41001,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -41069,7 +41071,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   135,
                   7,
                   0,
@@ -41088,7 +41090,7 @@
                 "boolean"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -41127,7 +41129,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -41146,7 +41148,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -41185,7 +41187,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -41204,7 +41206,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -41282,7 +41284,7 @@
                 0
               ],
               [
-                22,
+                23,
                 2513,
                 1,
                 0,
@@ -41425,7 +41427,7 @@
                 0,
                 [17, 2522, 7, 0, "completed"],
                 [
-                  22,
+                  23,
                   2523,
                   1,
                   0,
@@ -41436,7 +41438,7 @@
                 ]
               ],
               [
-                29,
+                30,
                 2524,
                 1,
                 0,
@@ -41582,7 +41584,7 @@
                 0,
                 0,
                 [
-                  29,
+                  30,
                   2529,
                   7,
                   0,
@@ -41653,7 +41655,7 @@
                       10,
                       0,
                       [
-                        29,
+                        30,
                         2533,
                         10,
                         0,
@@ -41696,7 +41698,7 @@
                   68,
                   0,
                   [
-                    29,
+                    30,
                     912,
                     11,
                     0,
@@ -41721,7 +41723,7 @@
                 0,
                 0,
                 [
-                  29,
+                  30,
                   2534,
                   1,
                   0,
@@ -41789,7 +41791,7 @@
                   7,
                   0,
                   [
-                    29,
+                    30,
                     2538,
                     7,
                     0,
@@ -41944,7 +41946,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -41963,7 +41965,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -42007,7 +42009,7 @@
                   47,
                   0,
                   [
-                    29,
+                    30,
                     144,
                     47,
                     0,
@@ -42039,7 +42041,7 @@
                 null
               ],
               [
-                25,
+                26,
                 1814,
                 1,
                 0,
@@ -42076,7 +42078,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -42101,7 +42103,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -42183,7 +42185,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   135,
                   7,
                   0,
@@ -42202,7 +42204,7 @@
                 "boolean"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -42241,7 +42243,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -42260,7 +42262,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -42299,7 +42301,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -42318,7 +42320,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -42505,7 +42507,7 @@
                 0,
                 [17, 2555, 7, 0, "completed"],
                 [
-                  22,
+                  23,
                   2556,
                   1,
                   0,
@@ -42516,7 +42518,7 @@
                 ]
               ],
               [
-                29,
+                30,
                 2557,
                 1,
                 0,
@@ -42662,7 +42664,7 @@
                 0,
                 0,
                 [
-                  29,
+                  30,
                   2562,
                   7,
                   0,
@@ -42746,13 +42748,13 @@
                 []
               ],
               [
-                27,
+                28,
                 2568,
                 1,
                 0,
                 0,
                 [
-                  22,
+                  23,
                   2569,
                   1,
                   0,
@@ -42776,7 +42778,7 @@
                   0
                 ],
                 [17, 2570, 10, 0, "e"],
-                22,
+                23,
                 2571,
                 1,
                 0,
@@ -42823,7 +42825,7 @@
                       10,
                       0,
                       [
-                        29,
+                        30,
                         2573,
                         10,
                         0,
@@ -42861,7 +42863,7 @@
                     "limit"
                   ],
                   "&&",
-                  29,
+                  30,
                   2573,
                   68,
                   0,
@@ -42879,7 +42881,7 @@
                 0,
                 0,
                 [
-                  27,
+                  28,
                   2574,
                   1,
                   0,
@@ -42973,7 +42975,7 @@
                   ]
                 ],
                 [
-                  29,
+                  30,
                   2584,
                   1,
                   0,
@@ -42998,7 +43000,7 @@
                   true
                 ],
                 [
-                  27,
+                  28,
                   2586,
                   1,
                   0,
@@ -43024,7 +43026,7 @@
                       "value"
                     ],
                     [
-                      29,
+                      30,
                       912,
                       11,
                       0,
@@ -43060,7 +43062,7 @@
                     0
                   ],
                   [
-                    25,
+                    26,
                     2590,
                     1,
                     0,
@@ -43097,7 +43099,7 @@
                   7,
                   0,
                   [
-                    29,
+                    30,
                     2592,
                     7,
                     0,
@@ -43230,7 +43232,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -43297,7 +43299,7 @@
               "y"
             ],
             [
-              22,
+              23,
               3146,
               1,
               0,
@@ -43349,7 +43351,7 @@
               0,
               "y"
             ],
-            22,
+            23,
             3148,
             1,
             0,
@@ -43424,7 +43426,7 @@
                 null
               ],
               [
-                25,
+                26,
                 3190,
                 1,
                 0,
@@ -43482,7 +43484,7 @@
                 5,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -43501,7 +43503,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 3193,
                 1,
                 0,
@@ -43541,7 +43543,7 @@
               ]
             ],
             [
-              22,
+              23,
               3194,
               4,
               0,
@@ -43553,7 +43555,7 @@
               [],
               [],
               [],
-              22,
+              23,
               3194,
               7,
               0,
@@ -43638,7 +43640,7 @@
                     7,
                     0,
                     [
-                      29,
+                      30,
                       138,
                       7,
                       0,
@@ -43670,7 +43672,7 @@
                     [],
                     ["o"],
                     [],
-                    27,
+                    28,
                     3199,
                     1,
                     0,
@@ -43688,7 +43690,7 @@
                         0,
                         [17, 3200, 12, 0, "o"],
                         "=",
-                        20,
+                        21,
                         3200,
                         16,
                         0
@@ -43702,10 +43704,10 @@
                         0,
                         [17, 3201, 18, 0, "o"],
                         [9, 3201, 22, 0, "sentinel"],
-                        [20, 3201, 31, 0]
+                        [21, 3201, 31, 0]
                       ],
                       [
-                        22,
+                        23,
                         3202,
                         1,
                         0,
@@ -43723,7 +43725,7 @@
                       ]
                     ],
                     [17, 3203, 12, 0, "e"],
-                    22,
+                    23,
                     3204,
                     1,
                     0,
@@ -43736,7 +43738,7 @@
                   0
                 ],
                 [
-                  22,
+                  23,
                   3205,
                   1,
                   0,
@@ -43940,7 +43942,7 @@
                   "__defineSetter__"
                 ],
                 [
-                  22,
+                  23,
                   1940,
                   1,
                   0,
@@ -43983,7 +43985,7 @@
                           47,
                           0,
                           [
-                            29,
+                            30,
                             144,
                             47,
                             0,
@@ -44020,7 +44022,7 @@
                       18,
                       0,
                       [
-                        29,
+                        30,
                         138,
                         7,
                         0,
@@ -44039,7 +44041,7 @@
                       "function"
                     ],
                     [
-                      25,
+                      26,
                       1771,
                       1,
                       0,
@@ -44084,7 +44086,7 @@
                       18,
                       0,
                       [
-                        29,
+                        30,
                         129,
                         7,
                         0,
@@ -44103,7 +44105,7 @@
                       "string"
                     ],
                     [
-                      25,
+                      26,
                       1714,
                       1,
                       0,
@@ -44147,7 +44149,7 @@
                         47,
                         0,
                         [
-                          29,
+                          30,
                           144,
                           47,
                           0,
@@ -44179,7 +44181,7 @@
                       null
                     ],
                     [
-                      25,
+                      26,
                       1714,
                       1,
                       0,
@@ -44218,7 +44220,7 @@
                       7,
                       0,
                       [
-                        29,
+                        30,
                         138,
                         7,
                         0,
@@ -44237,13 +44239,13 @@
                       "function"
                     ],
                     [
-                      27,
+                      28,
                       3214,
                       1,
                       0,
                       0,
                       [
-                        22,
+                        23,
                         3215,
                         1,
                         0,
@@ -44410,7 +44412,7 @@
                           "prototype"
                         ],
                         [
-                          29,
+                          30,
                           3223,
                           1,
                           0,
@@ -44526,7 +44528,7 @@
                       0,
                       0,
                       [
-                        29,
+                        30,
                         3229,
                         11,
                         0,
@@ -44538,7 +44540,7 @@
                         "supportsAccessors"
                       ],
                       [
-                        25,
+                        26,
                         3230,
                         1,
                         0,
@@ -44687,7 +44689,7 @@
                     ]
                   ],
                   [
-                    22,
+                    23,
                     3235,
                     1,
                     0,
@@ -44735,7 +44737,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -44754,7 +44756,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -44793,7 +44795,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -44812,7 +44814,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -44840,7 +44842,7 @@
               ]
             ],
             [
-              22,
+              23,
               3242,
               4,
               0,
@@ -44852,7 +44854,7 @@
               [],
               [],
               [],
-              22,
+              23,
               3242,
               6,
               0,
@@ -44874,7 +44876,7 @@
                 "call"
               ],
               0,
-              [24, 3242, 13, 0],
+              [25, 3242, 13, 0],
               [
                 7,
                 3242,
@@ -44894,7 +44896,7 @@
                   "apply"
                 ],
                 0,
-                [24, 3242, 26, 0],
+                [25, 3242, 26, 0],
                 [1, 3242, 35, 0]
               ]
             ]
@@ -44932,7 +44934,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -44951,7 +44953,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -44990,7 +44992,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -45009,7 +45011,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -45107,7 +45109,7 @@
                     "numArgs"
                   ],
                   [
-                    22,
+                    23,
                     3260,
                     1,
                     0,
@@ -45129,7 +45131,7 @@
                       "apply"
                     ],
                     0,
-                    [24, 3260, 17, 0],
+                    [25, 3260, 17, 0],
                     [17, 3260, 22, 0, "args"]
                   ],
                   4,
@@ -45183,7 +45185,7 @@
                       0
                     ],
                     [
-                      22,
+                      23,
                       3264,
                       1,
                       0,
@@ -45193,7 +45195,7 @@
                       0,
                       "ret"
                     ],
-                    22,
+                    23,
                     3266,
                     1,
                     0,
@@ -45215,7 +45217,7 @@
                       "call"
                     ],
                     0,
-                    [24, 3266, 22, 0],
+                    [25, 3266, 22, 0],
                     [
                       7,
                       3266,
@@ -45259,7 +45261,7 @@
                     ]
                   ],
                   [
-                    22,
+                    23,
                     3267,
                     1,
                     0,
@@ -45271,7 +45273,7 @@
                   ]
                 ],
                 [
-                  22,
+                  23,
                   3268,
                   1,
                   0,
@@ -45284,7 +45286,7 @@
                   [2, 3268, 13, 0]
                 ]
               ],
-              22,
+              23,
               3270,
               1,
               0,
@@ -45384,7 +45386,7 @@
               ]
             ],
             [
-              22,
+              23,
               3287,
               1,
               0,
@@ -45410,7 +45412,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -45629,7 +45631,7 @@
                   0
                 ],
                 [
-                  22,
+                  23,
                   3344,
                   1,
                   0,
@@ -45693,7 +45695,7 @@
                 [],
                 [],
                 [],
-                22,
+                23,
                 3338,
                 1,
                 0,
@@ -45765,7 +45767,7 @@
                 [],
                 [],
                 [],
-                22,
+                23,
                 616,
                 7,
                 0,
@@ -45935,7 +45937,7 @@
                 [],
                 [],
                 [],
-                22,
+                23,
                 3341,
                 50,
                 0,
@@ -45969,7 +45971,7 @@
                   3351,
                   14,
                   0,
-                  [24, 3351, 14, 0],
+                  [25, 3351, 14, 0],
                   ".",
                   9,
                   3351,
@@ -46020,7 +46022,7 @@
                       3353,
                       19,
                       0,
-                      [24, 3353, 19, 0],
+                      [25, 3353, 19, 0],
                       ".",
                       9,
                       3353,
@@ -46107,7 +46109,7 @@
                               3356,
                               1,
                               0,
-                              [24, 3356, 1, 0],
+                              [25, 3356, 1, 0],
                               ".",
                               9,
                               3356,
@@ -46140,7 +46142,7 @@
                               3357,
                               1,
                               0,
-                              [24, 3357, 1, 0],
+                              [25, 3357, 1, 0],
                               ".",
                               9,
                               3357,
@@ -46235,7 +46237,7 @@
                     "key"
                   ],
                   [
-                    25,
+                    26,
                     3361,
                     1,
                     0,
@@ -46300,7 +46302,7 @@
                         3364,
                         12,
                         0,
-                        [24, 3364, 12, 0],
+                        [25, 3364, 12, 0],
                         ".",
                         9,
                         3364,
@@ -46310,7 +46312,7 @@
                       ]
                     ],
                     [
-                      22,
+                      23,
                       3364,
                       1,
                       0,
@@ -46351,7 +46353,7 @@
                       "call"
                     ],
                     0,
-                    [24, 3366, 14, 0],
+                    [25, 3366, 14, 0],
                     [17, 3366, 19, 0, "key"]
                   ],
                   [
@@ -46375,7 +46377,7 @@
                         3367,
                         18,
                         0,
-                        [24, 3367, 18, 0],
+                        [25, 3367, 18, 0],
                         ".",
                         9,
                         3367,
@@ -46413,7 +46415,7 @@
                       -1
                     ],
                     [
-                      22,
+                      23,
                       3369,
                       1,
                       0,
@@ -46422,7 +46424,7 @@
                       1,
                       0
                     ],
-                    22,
+                    23,
                     3371,
                     1,
                     0,
@@ -46435,7 +46437,7 @@
                       3371,
                       1,
                       0,
-                      [24, 3371, 1, 0],
+                      [25, 3371, 1, 0],
                       ".",
                       9,
                       3371,
@@ -46512,7 +46514,7 @@
                     "key"
                   ],
                   [
-                    25,
+                    26,
                     3375,
                     1,
                     0,
@@ -46541,7 +46543,7 @@
                     [17, 3377, 22, 0, "key"]
                   ],
                   [
-                    22,
+                    23,
                     656,
                     7,
                     0,
@@ -46569,7 +46571,7 @@
                       3378,
                       18,
                       0,
-                      [24, 3378, 18, 0],
+                      [25, 3378, 18, 0],
                       ".",
                       9,
                       3378,
@@ -46602,11 +46604,11 @@
                       "call"
                     ],
                     0,
-                    [24, 3380, 14, 0],
+                    [25, 3380, 14, 0],
                     [17, 3380, 19, 0, "key"]
                   ],
                   [
-                    22,
+                    23,
                     43,
                     7,
                     0,
@@ -46629,7 +46631,7 @@
                           3381,
                           1,
                           0,
-                          [24, 3381, 1, 0],
+                          [25, 3381, 1, 0],
                           ".",
                           9,
                           3381,
@@ -46668,7 +46670,7 @@
                   7,
                   0,
                   [
-                    29,
+                    30,
                     138,
                     7,
                     0,
@@ -46822,7 +46824,7 @@
                     "key"
                   ],
                   [
-                    25,
+                    26,
                     3386,
                     1,
                     0,
@@ -46863,7 +46865,7 @@
                       3389,
                       20,
                       0,
-                      [24, 3389, 20, 0],
+                      [25, 3389, 20, 0],
                       ".",
                       9,
                       3389,
@@ -46872,7 +46874,7 @@
                       "_uid"
                     ],
                     [
-                      20,
+                      21,
                       3389,
                       27,
                       0,
@@ -46922,7 +46924,7 @@
                       "call"
                     ],
                     0,
-                    [24, 3396, 14, 0],
+                    [25, 3396, 14, 0],
                     [17, 3396, 19, 0, "key"]
                   ],
                   [
@@ -46936,7 +46938,7 @@
                     3397,
                     17,
                     0,
-                    [24, 3397, 17, 0],
+                    [25, 3397, 17, 0],
                     ".",
                     9,
                     3397,
@@ -47057,7 +47059,7 @@
                         3402,
                         1,
                         0,
-                        [24, 3402, 1, 0],
+                        [25, 3402, 1, 0],
                         ".",
                         9,
                         3402,
@@ -47141,7 +47143,7 @@
                     "key"
                   ],
                   [
-                    25,
+                    26,
                     3406,
                     1,
                     0,
@@ -47170,7 +47172,7 @@
                     [17, 3408, 22, 0, "key"]
                   ],
                   [
-                    29,
+                    30,
                     3409,
                     1,
                     0,
@@ -47185,7 +47187,7 @@
                     3409,
                     18,
                     0,
-                    [24, 3409, 18, 0],
+                    [25, 3409, 18, 0],
                     ".",
                     9,
                     3409,
@@ -47217,7 +47219,7 @@
                       "call"
                     ],
                     0,
-                    [24, 3411, 14, 0],
+                    [25, 3411, 14, 0],
                     [17, 3411, 19, 0, "key"]
                   ],
                   [
@@ -47231,7 +47233,7 @@
                     3412,
                     17,
                     0,
-                    [24, 3412, 17, 0],
+                    [25, 3412, 17, 0],
                     ".",
                     9,
                     3412,
@@ -47328,7 +47330,7 @@
                             3416,
                             1,
                             0,
-                            [24, 3416, 1, 0],
+                            [25, 3416, 1, 0],
                             ".",
                             9,
                             3416,
@@ -47352,7 +47354,7 @@
                 ]
               ],
               [
-                22,
+                23,
                 3031,
                 1,
                 0,
@@ -47398,7 +47400,7 @@
                 5,
                 0,
                 [
-                  29,
+                  30,
                   3419,
                   5,
                   0,
@@ -47488,7 +47490,7 @@
                       ]
                     ],
                     [
-                      29,
+                      30,
                       1402,
                       16,
                       0,
@@ -47544,7 +47546,7 @@
                         "check"
                       ],
                       [
-                        22,
+                        23,
                         3423,
                         1,
                         0,
@@ -47557,7 +47559,7 @@
                     ]
                   ],
                   [
-                    22,
+                    23,
                     3424,
                     1,
                     0,
@@ -47658,7 +47660,7 @@
                       ]
                     ],
                     [
-                      29,
+                      30,
                       1402,
                       16,
                       0,
@@ -47744,7 +47746,7 @@
                         "inf"
                       ],
                       [
-                        22,
+                        23,
                         3429,
                         1,
                         0,
@@ -47757,7 +47759,7 @@
                     ]
                   ],
                   [
-                    22,
+                    23,
                     3430,
                     1,
                     0,
@@ -47771,7 +47773,7 @@
               ]
             ],
             [
-              22,
+              23,
               3431,
               1,
               0,
@@ -47811,7 +47813,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -47999,7 +48001,7 @@
                     null
                   ],
                   [
-                    28,
+                    29,
                     2251,
                     8,
                     0,
@@ -48145,7 +48147,7 @@
                         ]
                       ]
                     ],
-                    27,
+                    28,
                     2254,
                     1,
                     0,
@@ -48178,7 +48180,7 @@
                   ]
                 ],
                 [
-                  22,
+                  23,
                   3435,
                   1,
                   0,
@@ -48283,7 +48285,7 @@
                     3442,
                     38,
                     0,
-                    [24, 3442, 38, 0],
+                    [25, 3442, 38, 0],
                     ".",
                     9,
                     3442,
@@ -48313,7 +48315,7 @@
                     -1
                   ],
                   [
-                    22,
+                    23,
                     3444,
                     1,
                     0,
@@ -48322,7 +48324,7 @@
                     1,
                     0
                   ],
-                  22,
+                  23,
                   3446,
                   1,
                   0,
@@ -48335,7 +48337,7 @@
                     3446,
                     1,
                     0,
-                    [24, 3446, 1, 0],
+                    [25, 3446, 1, 0],
                     ".",
                     9,
                     3446,
@@ -48378,7 +48380,7 @@
                 [[17, 3448, 11, 0, "key"]],
                 [],
                 [],
-                22,
+                23,
                 43,
                 7,
                 0,
@@ -48398,7 +48400,7 @@
                     3449,
                     26,
                     0,
-                    [24, 3449, 26, 0],
+                    [25, 3449, 26, 0],
                     ".",
                     9,
                     3449,
@@ -48460,7 +48462,7 @@
                   3452,
                   15,
                   0,
-                  [24, 3452, 15, 0],
+                  [25, 3452, 15, 0],
                   ".",
                   9,
                   3452,
@@ -48568,7 +48570,7 @@
                       3457,
                       1,
                       0,
-                      [24, 3457, 1, 0],
+                      [25, 3457, 1, 0],
                       ".",
                       9,
                       3457,
@@ -48634,7 +48636,7 @@
                   3460,
                   15,
                   0,
-                  [24, 3460, 15, 0],
+                  [25, 3460, 15, 0],
                   ".",
                   9,
                   3460,
@@ -48678,7 +48680,7 @@
                     -1
                   ],
                   [
-                    22,
+                    23,
                     3463,
                     1,
                     0,
@@ -48716,7 +48718,7 @@
                     [9, 3465, 26, 0, 1]
                   ],
                   [
-                    22,
+                    23,
                     3466,
                     1,
                     0,
@@ -48734,7 +48736,7 @@
                         3466,
                         1,
                         0,
-                        [24, 3466, 1, 0],
+                        [25, 3466, 1, 0],
                         ".",
                         9,
                         3466,
@@ -48804,7 +48806,7 @@
                   0,
                   [17, 3469, 1, 0, "_this"],
                   "=",
-                  24,
+                  25,
                   3469,
                   1,
                   0
@@ -48860,7 +48862,7 @@
                   0,
                   [9, 3468, 11, 0, true],
                   0,
-                  26,
+                  27,
                   3468,
                   11,
                   0,
@@ -48923,7 +48925,7 @@
                       "length"
                     ],
                     [
-                      29,
+                      30,
                       1526,
                       1,
                       0,
@@ -48957,7 +48959,7 @@
                       16,
                       0,
                       [
-                        29,
+                        30,
                         1402,
                         16,
                         0,
@@ -49020,11 +49022,11 @@
                       1
                     ],
                     [
-                      22,
+                      23,
                       3470,
                       1,
                       0,
-                      20,
+                      21,
                       3470,
                       1,
                       0,
@@ -49045,11 +49047,11 @@
                   null,
                   [9, 3468, 11, 0, 3],
                   [
-                    22,
+                    23,
                     3468,
                     11,
                     0,
-                    20,
+                    21,
                     3468,
                     11,
                     0,
@@ -49065,7 +49067,7 @@
                     [9, 3468, 11, 0]
                   ],
                   [
-                    25,
+                    26,
                     3468,
                     11,
                     0,
@@ -49113,7 +49115,7 @@
                     0
                   ],
                   [
-                    25,
+                    26,
                     3468,
                     11,
                     0,
@@ -49133,13 +49135,13 @@
                   [[17, 3468, 11, 0, "_received"]],
                   [],
                   [],
-                  27,
+                  28,
                   3468,
                   11,
                   0,
                   0,
                   [
-                    22,
+                    23,
                     3468,
                     11,
                     0,
@@ -49161,11 +49163,11 @@
                   [17, 3468, 11, 0, "_e"]
                 ],
                 [
-                  22,
+                  23,
                   3468,
                   11,
                   0,
-                  20,
+                  21,
                   3468,
                   11,
                   0,
@@ -49187,11 +49189,11 @@
                     [],
                     [],
                     [],
-                    22,
+                    23,
                     3468,
                     11,
                     0,
-                    24,
+                    25,
                     3468,
                     11,
                     0
@@ -49209,7 +49211,7 @@
                     [],
                     [],
                     [],
-                    22,
+                    23,
                     3468,
                     11,
                     0,
@@ -49254,7 +49256,7 @@
                       [17, 3468, 11, 0, "_e"]
                     ],
                     [
-                      22,
+                      23,
                       3468,
                       11,
                       0,
@@ -49318,7 +49320,7 @@
                   0,
                   [17, 3473, 1, 0, "_this"],
                   "=",
-                  24,
+                  25,
                   3473,
                   1,
                   0
@@ -49374,7 +49376,7 @@
                   0,
                   [9, 3472, 13, 0, true],
                   0,
-                  26,
+                  27,
                   3472,
                   13,
                   0,
@@ -49437,7 +49439,7 @@
                       "length"
                     ],
                     [
-                      29,
+                      30,
                       1526,
                       1,
                       0,
@@ -49471,7 +49473,7 @@
                       16,
                       0,
                       [
-                        29,
+                        30,
                         1402,
                         16,
                         0,
@@ -49534,11 +49536,11 @@
                       1
                     ],
                     [
-                      22,
+                      23,
                       3474,
                       1,
                       0,
-                      20,
+                      21,
                       3474,
                       1,
                       0,
@@ -49559,11 +49561,11 @@
                   null,
                   [9, 3472, 13, 0, 3],
                   [
-                    22,
+                    23,
                     3472,
                     13,
                     0,
-                    20,
+                    21,
                     3472,
                     13,
                     0,
@@ -49579,7 +49581,7 @@
                     [9, 3472, 13, 0]
                   ],
                   [
-                    25,
+                    26,
                     3472,
                     13,
                     0,
@@ -49627,7 +49629,7 @@
                     0
                   ],
                   [
-                    25,
+                    26,
                     3472,
                     13,
                     0,
@@ -49647,13 +49649,13 @@
                   [[17, 3472, 13, 0, "_received"]],
                   [],
                   [],
-                  27,
+                  28,
                   3472,
                   13,
                   0,
                   0,
                   [
-                    22,
+                    23,
                     3472,
                     13,
                     0,
@@ -49675,11 +49677,11 @@
                   [17, 3472, 13, 0, "_e"]
                 ],
                 [
-                  22,
+                  23,
                   3472,
                   13,
                   0,
-                  20,
+                  21,
                   3472,
                   13,
                   0,
@@ -49701,11 +49703,11 @@
                     [],
                     [],
                     [],
-                    22,
+                    23,
                     3472,
                     13,
                     0,
-                    24,
+                    25,
                     3472,
                     13,
                     0
@@ -49723,7 +49725,7 @@
                     [],
                     [],
                     [],
-                    22,
+                    23,
                     3472,
                     13,
                     0,
@@ -49768,7 +49770,7 @@
                       [17, 3472, 13, 0, "_e"]
                     ],
                     [
-                      22,
+                      23,
                       3472,
                       13,
                       0,
@@ -49833,7 +49835,7 @@
                   0,
                   [17, 3477, 1, 0, "_this"],
                   "=",
-                  24,
+                  25,
                   3477,
                   1,
                   0
@@ -49889,7 +49891,7 @@
                   0,
                   [9, 3476, 12, 0, true],
                   0,
-                  26,
+                  27,
                   3476,
                   12,
                   0,
@@ -49971,7 +49973,7 @@
                       "length"
                     ],
                     [
-                      29,
+                      30,
                       1526,
                       1,
                       0,
@@ -50005,7 +50007,7 @@
                       16,
                       0,
                       [
-                        29,
+                        30,
                         1402,
                         16,
                         0,
@@ -50068,11 +50070,11 @@
                       1
                     ],
                     [
-                      22,
+                      23,
                       3479,
                       1,
                       0,
-                      20,
+                      21,
                       3479,
                       1,
                       0,
@@ -50112,11 +50114,11 @@
                   null,
                   [9, 3476, 12, 0, 3],
                   [
-                    22,
+                    23,
                     3476,
                     12,
                     0,
-                    20,
+                    21,
                     3476,
                     12,
                     0,
@@ -50132,7 +50134,7 @@
                     [9, 3476, 12, 0]
                   ],
                   [
-                    25,
+                    26,
                     3476,
                     12,
                     0,
@@ -50180,7 +50182,7 @@
                     0
                   ],
                   [
-                    25,
+                    26,
                     3476,
                     12,
                     0,
@@ -50200,13 +50202,13 @@
                   [[17, 3476, 12, 0, "_received"]],
                   [],
                   [],
-                  27,
+                  28,
                   3476,
                   12,
                   0,
                   0,
                   [
-                    22,
+                    23,
                     3476,
                     12,
                     0,
@@ -50228,11 +50230,11 @@
                   [17, 3476, 12, 0, "_e"]
                 ],
                 [
-                  22,
+                  23,
                   3476,
                   12,
                   0,
-                  20,
+                  21,
                   3476,
                   12,
                   0,
@@ -50254,11 +50256,11 @@
                     [],
                     [],
                     [],
-                    22,
+                    23,
                     3476,
                     12,
                     0,
-                    24,
+                    25,
                     3476,
                     12,
                     0
@@ -50276,7 +50278,7 @@
                     [],
                     [],
                     [],
-                    22,
+                    23,
                     3476,
                     12,
                     0,
@@ -50321,7 +50323,7 @@
                       [17, 3476, 12, 0, "_e"]
                     ],
                     [
-                      22,
+                      23,
                       3476,
                       12,
                       0,
@@ -50380,7 +50382,7 @@
                 "items"
               ],
               [
-                22,
+                23,
                 3031,
                 1,
                 0,
@@ -50408,7 +50410,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -50572,7 +50574,7 @@
                     null
                   ],
                   [
-                    28,
+                    29,
                     2251,
                     8,
                     0,
@@ -50693,7 +50695,7 @@
                         [17, 3487, 14, 0, "item"]
                       ]
                     ],
-                    27,
+                    28,
                     2254,
                     1,
                     0,
@@ -50726,7 +50728,7 @@
                   ]
                 ],
                 [
-                  22,
+                  23,
                   3484,
                   1,
                   0,
@@ -50808,7 +50810,7 @@
                 [[17, 3489, 11, 0, "item"]],
                 [],
                 [],
-                22,
+                23,
                 43,
                 7,
                 0,
@@ -50828,7 +50830,7 @@
                     3490,
                     26,
                     0,
-                    [24, 3490, 26, 0],
+                    [25, 3490, 26, 0],
                     ".",
                     9,
                     3490,
@@ -50887,7 +50889,7 @@
                   3492,
                   16,
                   0,
-                  [24, 3492, 16, 0],
+                  [25, 3492, 16, 0],
                   ".",
                   9,
                   3492,
@@ -50987,7 +50989,7 @@
                   3496,
                   16,
                   0,
-                  [24, 3496, 16, 0],
+                  [25, 3496, 16, 0],
                   ".",
                   9,
                   3496,
@@ -51114,7 +51116,7 @@
                   0,
                   [17, 3504, 1, 0, "_this"],
                   "=",
-                  24,
+                  25,
                   3504,
                   1,
                   0
@@ -51170,7 +51172,7 @@
                   0,
                   [9, 3503, 13, 0, true],
                   0,
-                  26,
+                  27,
                   3503,
                   13,
                   0,
@@ -51233,7 +51235,7 @@
                       "length"
                     ],
                     [
-                      29,
+                      30,
                       1526,
                       1,
                       0,
@@ -51267,7 +51269,7 @@
                       16,
                       0,
                       [
-                        29,
+                        30,
                         1402,
                         16,
                         0,
@@ -51330,11 +51332,11 @@
                       1
                     ],
                     [
-                      22,
+                      23,
                       3505,
                       1,
                       0,
-                      20,
+                      21,
                       3505,
                       1,
                       0,
@@ -51355,11 +51357,11 @@
                   null,
                   [9, 3503, 13, 0, 3],
                   [
-                    22,
+                    23,
                     3503,
                     13,
                     0,
-                    20,
+                    21,
                     3503,
                     13,
                     0,
@@ -51375,7 +51377,7 @@
                     [9, 3503, 13, 0]
                   ],
                   [
-                    25,
+                    26,
                     3503,
                     13,
                     0,
@@ -51423,7 +51425,7 @@
                     0
                   ],
                   [
-                    25,
+                    26,
                     3503,
                     13,
                     0,
@@ -51443,13 +51445,13 @@
                   [[17, 3503, 13, 0, "_received"]],
                   [],
                   [],
-                  27,
+                  28,
                   3503,
                   13,
                   0,
                   0,
                   [
-                    22,
+                    23,
                     3503,
                     13,
                     0,
@@ -51471,11 +51473,11 @@
                   [17, 3503, 13, 0, "_e"]
                 ],
                 [
-                  22,
+                  23,
                   3503,
                   13,
                   0,
-                  20,
+                  21,
                   3503,
                   13,
                   0,
@@ -51497,11 +51499,11 @@
                     [],
                     [],
                     [],
-                    22,
+                    23,
                     3503,
                     13,
                     0,
-                    24,
+                    25,
                     3503,
                     13,
                     0
@@ -51519,7 +51521,7 @@
                     [],
                     [],
                     [],
-                    22,
+                    23,
                     3503,
                     13,
                     0,
@@ -51564,7 +51566,7 @@
                       [17, 3503, 13, 0, "_e"]
                     ],
                     [
-                      22,
+                      23,
                       3503,
                       13,
                       0,
@@ -51623,7 +51625,7 @@
                 "values"
               ],
               [
-                22,
+                23,
                 3031,
                 1,
                 0,
@@ -51651,7 +51653,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -51703,7 +51705,7 @@
                 8,
                 0,
                 [
-                  29,
+                  30,
                   118,
                   9,
                   0,
@@ -51727,7 +51729,7 @@
               7,
               0,
               [
-                29,
+                30,
                 138,
                 7,
                 0,
@@ -51790,7 +51792,7 @@
                   "nextTick"
                 ],
                 [
-                  22,
+                  23,
                   1940,
                   1,
                   0,
@@ -51819,7 +51821,7 @@
                       18,
                       0,
                       [
-                        29,
+                        30,
                         138,
                         7,
                         0,
@@ -51838,7 +51840,7 @@
                       "function"
                     ],
                     [
-                      25,
+                      26,
                       1714,
                       1,
                       0,
@@ -51913,7 +51915,7 @@
                       "length"
                     ],
                     [
-                      22,
+                      23,
                       3555,
                       1,
                       0,
@@ -51962,7 +51964,7 @@
                         ]
                       ]
                     ],
-                    22,
+                    23,
                     3557,
                     1,
                     0,
@@ -52003,7 +52005,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -52022,7 +52024,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -52097,7 +52099,7 @@
                 "length"
               ],
               [
-                22,
+                23,
                 3561,
                 1,
                 0,
@@ -52147,7 +52149,7 @@
                 ],
                 [9, 3561, 39, 0, 0]
               ],
-              22,
+              23,
               3563,
               1,
               0,
@@ -52401,7 +52403,7 @@
                             "_end"
                           ],
                           [
-                            29,
+                            30,
                             1243,
                             35,
                             0,
@@ -52436,11 +52438,11 @@
                   ]
                 ],
                 [
-                  22,
+                  23,
                   3582,
                   1,
                   0,
-                  20,
+                  21,
                   3582,
                   1,
                   0,
@@ -52449,7 +52451,7 @@
                   null,
                   "promise",
                   [
-                    20,
+                    21,
                     3583,
                     15,
                     0,
@@ -52588,7 +52590,7 @@
                         [],
                         ["f", "result"],
                         [],
-                        27,
+                        28,
                         3588,
                         27,
                         0,
@@ -52643,7 +52645,7 @@
                               7,
                               0,
                               [
-                                29,
+                                30,
                                 138,
                                 7,
                                 0,
@@ -52700,7 +52702,7 @@
                                   7,
                                   0,
                                   [
-                                    29,
+                                    30,
                                     138,
                                     7,
                                     0,
@@ -52837,7 +52839,7 @@
                         [17, 3606, 27, 0, "step"]
                       ],
                       [
-                        22,
+                        23,
                         3607,
                         1,
                         0,
@@ -52902,7 +52904,7 @@
                           3611,
                           1,
                           0,
-                          [24, 3611, 1, 0],
+                          [25, 3611, 1, 0],
                           ".",
                           9,
                           3611,
@@ -52939,7 +52941,7 @@
                             1
                           ],
                           [
-                            22,
+                            23,
                             3614,
                             1,
                             0,
@@ -52984,7 +52986,7 @@
                             2
                           ],
                           [
-                            22,
+                            23,
                             3617,
                             1,
                             0,
@@ -53004,7 +53006,7 @@
                         [9, 3618, 13, 0, true]
                       ],
                       [
-                        26,
+                        27,
                         3619,
                         1,
                         0,
@@ -53015,7 +53017,7 @@
                         null,
                         [9, 3620, 16, 0, 0],
                         [
-                          25,
+                          26,
                           3621,
                           1,
                           0,
@@ -53032,7 +53034,7 @@
                         null,
                         [9, 3622, 16, 0, 1],
                         [
-                          22,
+                          23,
                           3623,
                           1,
                           0,
@@ -53047,7 +53049,7 @@
                         null,
                         [9, 3624, 16, 0, 2],
                         [
-                          25,
+                          26,
                           3625,
                           1,
                           0,
@@ -53058,7 +53060,7 @@
                           "result"
                         ],
                         [
-                          25,
+                          26,
                           3627,
                           1,
                           0,
@@ -53187,7 +53189,7 @@
                   [17, 3634, 15, 0, "value"]
                 ],
                 [
-                  22,
+                  23,
                   3635,
                   1,
                   0,
@@ -53272,7 +53274,7 @@
                   [17, 3638, 14, 0, "reason"]
                 ],
                 [
-                  22,
+                  23,
                   3639,
                   1,
                   0,
@@ -53290,7 +53292,7 @@
                 ]
               ],
               [
-                22,
+                23,
                 3640,
                 1,
                 0,
@@ -53355,7 +53357,7 @@
                   47,
                   0,
                   [
-                    29,
+                    30,
                     144,
                     47,
                     0,
@@ -53387,7 +53389,7 @@
                 null
               ],
               [
-                25,
+                26,
                 1814,
                 1,
                 0,
@@ -53430,7 +53432,7 @@
                   18,
                   0,
                   [
-                    29,
+                    30,
                     138,
                     7,
                     0,
@@ -53455,7 +53457,7 @@
                   "function"
                 ],
                 [
-                  25,
+                  26,
                   1714,
                   1,
                   0,
@@ -53506,7 +53508,7 @@
                   18,
                   0,
                   [
-                    29,
+                    30,
                     138,
                     7,
                     0,
@@ -53531,7 +53533,7 @@
                   "function"
                 ],
                 [
-                  25,
+                  26,
                   1714,
                   1,
                   0,
@@ -53614,7 +53616,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   135,
                   7,
                   0,
@@ -53633,7 +53635,7 @@
                 "boolean"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -53678,7 +53680,7 @@
               0,
               0,
               [
-                27,
+                28,
                 3645,
                 1,
                 0,
@@ -53711,7 +53713,7 @@
                   [17, 3646, 31, 0, "arg"]
                 ],
                 [17, 3647, 10, 0, "e"],
-                22,
+                23,
                 3648,
                 1,
                 0,
@@ -53755,7 +53757,7 @@
                   "done"
                 ],
                 [
-                  22,
+                  23,
                   3650,
                   1,
                   0,
@@ -53791,7 +53793,7 @@
                     "value"
                   ]
                 ],
-                22,
+                23,
                 3652,
                 1,
                 0,
@@ -53839,7 +53841,7 @@
               [[17, 3653, 16, 0, "value"]],
               [],
               [],
-              22,
+              23,
               3653,
               25,
               0,
@@ -53861,7 +53863,7 @@
               [[17, 3654, 15, 0, "value"]],
               [],
               [],
-              22,
+              23,
               3654,
               24,
               0,
@@ -53875,7 +53877,7 @@
               [17, 3654, 42, 0, "value"]
             ],
             [
-              22,
+              23,
               3655,
               1,
               0,
@@ -53952,7 +53954,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   135,
                   7,
                   0,
@@ -53971,7 +53973,7 @@
                 "boolean"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -54010,7 +54012,7 @@
                 7,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -54049,7 +54051,7 @@
                   [],
                   [],
                   [],
-                  22,
+                  23,
                   3658,
                   21,
                   0,
@@ -54078,7 +54080,7 @@
                       "apply"
                     ],
                     0,
-                    [24, 3658, 52, 0],
+                    [25, 3658, 52, 0],
                     [1, 3658, 61, 0]
                   ]
                 ],
@@ -54109,7 +54111,7 @@
                   [],
                   [],
                   [],
-                  22,
+                  23,
                   3659,
                   24,
                   0,
@@ -54148,7 +54150,7 @@
                           "apply"
                         ],
                         0,
-                        [24, 3659, 55, 0],
+                        [25, 3659, 55, 0],
                         [1, 3659, 64, 0]
                       ],
                       [9, 3659, 75, 0, true]
@@ -54163,7 +54165,7 @@
                   0
                 ],
                 [
-                  22,
+                  23,
                   3660,
                   1,
                   0,
@@ -54174,7 +54176,7 @@
                   "factory"
                 ]
               ],
-              22,
+              23,
               3662,
               1,
               0,
@@ -54223,7 +54225,7 @@
                   47,
                   0,
                   [
-                    29,
+                    30,
                     144,
                     47,
                     0,
@@ -54255,7 +54257,7 @@
                 null
               ],
               [
-                25,
+                26,
                 1814,
                 1,
                 0,
@@ -54292,7 +54294,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -54317,7 +54319,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -54357,7 +54359,7 @@
               ]
             ],
             [
-              22,
+              23,
               3700,
               65,
               0,
@@ -54396,7 +54398,7 @@
                 [[17, 3702, 7, 0, "value"]],
                 [],
                 [],
-                22,
+                23,
                 3702,
                 16,
                 0,
@@ -54419,7 +54421,7 @@
                 [[17, 3703, 7, 0, "reason"]],
                 [],
                 [],
-                22,
+                23,
                 3703,
                 17,
                 0,
@@ -54472,7 +54474,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -54491,7 +54493,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -54658,7 +54660,7 @@
               ]
             ],
             [
-              22,
+              23,
               3717,
               1,
               0,
@@ -54695,7 +54697,7 @@
             [[17, 3747, 31, 0, "func"]],
             [],
             [],
-            22,
+            23,
             3747,
             41,
             0,
@@ -54719,7 +54721,7 @@
               0,
               [17, 3748, 1, 0, "_this"],
               "=",
-              24,
+              25,
               3748,
               1,
               0
@@ -54735,7 +54737,7 @@
               3748,
               32,
               0,
-              [24, 3748, 34, 0],
+              [25, 3748, 34, 0],
               [
                 7,
                 3748,
@@ -54759,11 +54761,11 @@
               ]
             ],
             [
-              22,
+              23,
               3749,
               1,
               0,
-              20,
+              21,
               3749,
               1,
               0,
@@ -54780,11 +54782,11 @@
                 [],
                 [],
                 [],
-                22,
+                23,
                 3750,
                 18,
                 0,
-                24,
+                25,
                 3750,
                 18,
                 0
@@ -54802,11 +54804,11 @@
                 [],
                 ["tmp"],
                 [],
-                22,
+                23,
                 3752,
                 1,
                 0,
-                20,
+                21,
                 3752,
                 1,
                 0,
@@ -54922,7 +54924,7 @@
                 [],
                 [],
                 [],
-                22,
+                23,
                 3761,
                 14,
                 0,
@@ -54935,7 +54937,7 @@
                   3761,
                   14,
                   0,
-                  [24, 3761, 14, 0],
+                  [25, 3761, 14, 0],
                   ".",
                   9,
                   3761,
@@ -54977,7 +54979,7 @@
                   null
                 ],
                 [
-                  25,
+                  26,
                   3764,
                   1,
                   0,
@@ -55035,7 +55037,7 @@
               0,
               0,
               [
-                29,
+                30,
                 669,
                 18,
                 0,
@@ -55049,7 +55051,7 @@
                 [17, 3767, 34, 0, "promises"]
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -55117,7 +55119,7 @@
               0,
               0,
               [
-                29,
+                30,
                 3770,
                 8,
                 0,
@@ -55187,7 +55189,7 @@
               ]
             ],
             [
-              22,
+              23,
               3772,
               1,
               0,
@@ -55254,7 +55256,7 @@
                   47,
                   0,
                   [
-                    29,
+                    30,
                     144,
                     47,
                     0,
@@ -55286,7 +55288,7 @@
                 null
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -55367,7 +55369,7 @@
               0,
               [17, 3785, 6, 0, "result"],
               "=",
-              20,
+              21,
               3785,
               40,
               0
@@ -55397,7 +55399,7 @@
               ],
               [],
               [],
-              22,
+              23,
               3788,
               1,
               0,
@@ -55468,7 +55470,7 @@
                     11,
                     0,
                     [
-                      29,
+                      30,
                       914,
                       11,
                       0,
@@ -55576,7 +55578,7 @@
                   0,
                   0,
                   [
-                    29,
+                    30,
                     3797,
                     10,
                     0,
@@ -55670,7 +55672,7 @@
                   "k"
                 ],
                 [
-                  29,
+                  30,
                   912,
                   11,
                   0,
@@ -55694,7 +55696,7 @@
               ]
             ],
             [
-              22,
+              23,
               3803,
               1,
               0,
@@ -55751,7 +55753,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -55770,7 +55772,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -55817,7 +55819,7 @@
                 0
               ],
               [
-                22,
+                23,
                 3815,
                 1,
                 0,
@@ -55899,7 +55901,7 @@
                 [17, 3818, 45, 0, "milliseconds"]
               ],
               [
-                22,
+                23,
                 3819,
                 1,
                 0,
@@ -55951,7 +55953,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -55970,7 +55972,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -56009,7 +56011,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -56028,7 +56030,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -56067,7 +56069,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -56086,7 +56088,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -56245,7 +56247,7 @@
               0,
               0,
               [
-                29,
+                30,
                 912,
                 11,
                 0,
@@ -56257,7 +56259,7 @@
                 "slotsUsed"
               ],
               [
-                22,
+                23,
                 3848,
                 1,
                 0,
@@ -56327,7 +56329,7 @@
                     "value"
                   ],
                   [
-                    29,
+                    30,
                     914,
                     11,
                     0,
@@ -56339,7 +56341,7 @@
                     "slotsUsed"
                   ],
                   [
-                    22,
+                    23,
                     3852,
                     1,
                     0,
@@ -56379,7 +56381,7 @@
                     true
                   ],
                   [
-                    22,
+                    23,
                     3855,
                     1,
                     0,
@@ -56438,7 +56440,7 @@
                     10,
                     0,
                     [
-                      29,
+                      30,
                       3857,
                       10,
                       0,
@@ -56476,7 +56478,7 @@
                   "length"
                 ],
                 [
-                  29,
+                  30,
                   912,
                   11,
                   0,
@@ -56512,7 +56514,7 @@
                     7,
                     0,
                     [
-                      29,
+                      30,
                       3859,
                       7,
                       0,
@@ -56569,7 +56571,7 @@
                     true
                   ],
                   [
-                    22,
+                    23,
                     3861,
                     1,
                     0,
@@ -56606,7 +56608,7 @@
               [17, 3862, 17, 0, "flush"]
             ],
             [
-              22,
+              23,
               3863,
               1,
               0,
@@ -56664,7 +56666,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   132,
                   7,
                   0,
@@ -56683,7 +56685,7 @@
                 "number"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -56727,7 +56729,7 @@
                   47,
                   0,
                   [
-                    29,
+                    30,
                     144,
                     47,
                     0,
@@ -56759,7 +56761,7 @@
                 null
               ],
               [
-                25,
+                26,
                 1814,
                 1,
                 0,
@@ -56796,7 +56798,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -56821,7 +56823,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -56872,7 +56874,7 @@
                 18,
                 0,
                 [
-                  29,
+                  30,
                   138,
                   7,
                   0,
@@ -56891,7 +56893,7 @@
                 "function"
               ],
               [
-                25,
+                26,
                 1714,
                 1,
                 0,
@@ -57066,7 +57068,7 @@
               0,
               0,
               [
-                29,
+                30,
                 912,
                 11,
                 0,
@@ -57078,7 +57080,7 @@
                 "slotsUsed"
               ],
               [
-                22,
+                23,
                 3877,
                 1,
                 0,
@@ -57149,7 +57151,7 @@
                     "value"
                   ],
                   [
-                    29,
+                    30,
                     914,
                     11,
                     0,
@@ -57161,7 +57163,7 @@
                     "slotsUsed"
                   ],
                   [
-                    22,
+                    23,
                     3881,
                     1,
                     0,
@@ -57201,7 +57203,7 @@
                     true
                   ],
                   [
-                    22,
+                    23,
                     3884,
                     1,
                     0,
@@ -57260,7 +57262,7 @@
                     10,
                     0,
                     [
-                      29,
+                      30,
                       3886,
                       10,
                       0,
@@ -57272,7 +57274,7 @@
                       "done"
                     ],
                     "&&",
-                    29,
+                    30,
                     3886,
                     23,
                     0,
@@ -57315,7 +57317,7 @@
                   0
                 ],
                 [
-                  27,
+                  28,
                   3888,
                   1,
                   0,
@@ -57387,7 +57389,7 @@
                     [17, 3892, 22, 0, "e"]
                   ],
                   [
-                    22,
+                    23,
                     3893,
                     1,
                     0,
@@ -57459,7 +57461,7 @@
                     "value"
                   ],
                   [
-                    29,
+                    30,
                     3899,
                     25,
                     0,
@@ -57489,7 +57491,7 @@
                     7,
                     0,
                     [
-                      29,
+                      30,
                       3901,
                       7,
                       0,
@@ -57540,7 +57542,7 @@
                     true
                   ],
                   [
-                    22,
+                    23,
                     3903,
                     1,
                     0,
@@ -57577,7 +57579,7 @@
               [17, 3904, 17, 0, "flush"]
             ],
             [
-              22,
+              23,
               3905,
               1,
               0,
@@ -57607,119 +57609,119 @@
       },
       assignOperator: [
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r,c;return t=this,s=e.left,r=e.op,c=e.right,!this.isComplex(s)||this.isAccess(s)&&!this.isComplex(this.parent(s))&&!this.isComplex(this.child(s))?this.mutateLast(c||this.noop(),function(e){return t.assign(s,"=",e)},!0):this.assign(s,"=",c)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n,a;return e=this,r=t.left,n=t.op,a=t.right,!this.isComplex(r)||this.isAccess(r)&&!this.isComplex(this.parent(r))&&!this.isComplex(this.child(r))?this.mutateLast(a||this.noop(),function(t){return e.assign(r,"=",t)},!0):this.assign(r,"=",a)}}).call(this);',
           operators: ":=",
           options: {type: "right"},
           id: 30
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,r){return s("MacroAccess",10884,1,311,{left:t(e),inverted:!1,op:"and",right:s("MacroAccess",10900,30,311,{left:t(r),op:":=",right:t(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s,o;return n=this,a=t.left,s=t.op,o=t.right,this.maybeCacheAccess(a,function(t,n){return r(23,10884,1,311,{left:e(t),inverted:!1,op:"and",right:r(23,10900,30,311,{left:e(n),op:":=",right:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
           operators: "and=",
           id: 43
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,r){return s("MacroAccess",11e3,2,315,{left:t(e),inverted:!1,op:"or",right:s("MacroAccess",11015,30,315,{left:t(r),op:":=",right:t(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s,o;return n=this,a=t.left,s=t.op,o=t.right,this.maybeCacheAccess(a,function(t,n){return r(23,11e3,2,315,{left:e(t),inverted:!1,op:"or",right:r(23,11015,30,315,{left:e(n),op:":=",right:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
           operators: "or=",
           id: 44
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r,c;return t=this,s=e.left,r=e.op,c=e.right,this.canMutateLast(c)&&this.isIdentOrTmp(s)?this.mutateLast(c||this.noop(),function(e){return"~*="===r?t.assign(s,"*=",e):"~/="===r?t.assign(s,"/=",e):t.assign(s,"%=",e)},!0):"~*="===r?this.assign(s,"*=",c):"~/="===r?this.assign(s,"/=",c):this.assign(s,"%=",c)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n,a;return e=this,r=t.left,n=t.op,a=t.right,this.canMutateLast(a)&&this.isIdentOrTmp(r)?this.mutateLast(a||this.noop(),function(t){return"~*="===n?e.assign(r,"*=",t):"~/="===n?e.assign(r,"/=",t):e.assign(r,"%=",t)},!0):"~*="===n?this.assign(r,"*=",a):"~/="===n?this.assign(r,"/=",a):this.assign(r,"%=",a)}}).call(this);',
           operators: ["~*=", "~/=", "~%="],
           options: {type: "number"},
           id: 46
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a;return r=e.left,c=e.op,a=e.right,this.maybeCacheAccess(r,function(e,r){return s("MacroAccess",11962,30,350,{left:t(e),op:":=",right:s("MacroAccess",11975,45,350,{left:t(r),inverted:!1,op:"~\\\\",right:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s;return n=t.left,a=t.op,s=t.right,this.maybeCacheAccess(n,function(t,n){return r(23,11962,30,350,{left:e(t),op:":=",right:r(23,11975,45,350,{left:e(n),inverted:!1,op:"~\\\\",right:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
           operators: "~\\=",
           options: {type: "number"},
           id: 47
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a;return r=e.left,c=e.op,a=e.right,this.maybeCacheAccess(r,function(e,r){return s("MacroAccess",13625,30,404,{left:t(e),op:":=",right:s("MacroAccess",13638,50,404,{left:t(r),inverted:!1,op:"~^",right:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s;return n=t.left,a=t.op,s=t.right,this.maybeCacheAccess(n,function(t,n){return r(23,13625,30,404,{left:e(t),op:":=",right:r(23,13638,50,404,{left:e(n),inverted:!1,op:"~^",right:e(s)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
           operators: "~^=",
           options: {type: "number"},
           id: 51
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o,n;if(r=this,c=e.left,a=e.op,o=e.right,this.isConst(o)){if(n=this.value(o),1===n)return this.unary("++",c);if(-1===n)return this.unary("--",c);if("number"==typeof n&&!this.isType(c,"numeric"))return this.assign(c,"-=",this["const"](-n))}return this.isType(c,"numeric")?this.canMutateLast(o)&&this.isIdentOrTmp(c)?this.mutateLast(o||this.noop(),function(e){return r.isType(e,"numeric")||(e=s("MacroAccess",14166,48,420,{op:"~+",node:t(e)},"expression",!1,!1,!1)),r.assign(c,"+=",e)},!0):(this.isType(o,"numeric")||(o=s("MacroAccess",14277,48,424,{op:"~+",node:t(o)},"expression",!1,!1,!1)),this.assign(c,"+=",o)):this.canMutateLast(o)&&this.isIdentOrTmp(c)?this.mutateLast(o||this.noop(),function(e){return r.assign(c,"-=",s("MacroAccess",14455,48,428,{op:"~-",node:t(e)},"expression",!1,!1,!1))},!0):this.assign(c,"-=",s("MacroAccess",14507,48,430,{op:"~-",node:t(o)},"expression",!1,!1,!1))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,a,s,o,i;if(n=this,a=t.left,s=t.op,o=t.right,this.isConst(o)){if(i=this.value(o),1===i)return this.unary("++",a);if(-1===i)return this.unary("--",a);if("number"==typeof i&&!this.isType(a,"numeric"))return this.assign(a,"-=",this["const"](-i))}return this.isType(a,"numeric")?this.canMutateLast(o)&&this.isIdentOrTmp(a)?this.mutateLast(o||this.noop(),function(t){return n.isType(t,"numeric")||(t=r(23,14166,48,420,{op:"~+",node:e(t)},"expression",!1,!1,!1)),n.assign(a,"+=",t)},!0):(this.isType(o,"numeric")||(o=r(23,14277,48,424,{op:"~+",node:e(o)},"expression",!1,!1,!1)),this.assign(a,"+=",o)):this.canMutateLast(o)&&this.isIdentOrTmp(a)?this.mutateLast(o||this.noop(),function(t){return n.assign(a,"-=",r(23,14455,48,428,{op:"~-",node:e(t)},"expression",!1,!1,!1))},!0):this.assign(a,"-=",r(23,14507,48,430,{op:"~-",node:e(o)},"expression",!1,!1,!1))}}).call(this);',
           operators: "~+=",
           options: {type: "number"},
           id: 52
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r,c,a;if(t=this,s=e.left,r=e.op,c=e.right,this.isConst(c)){if(a=this.value(c),1===a)return this.unary("--",s);if(-1===a)return this.unary("++",s)}return this.canMutateLast(c)&&this.isIdentOrTmp(s)?this.mutateLast(c||this.noop(),function(e){return t.assign(s,"-=",e)},!0):this.assign(s,"-=",c)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n,s,a;if(e=this,r=t.left,n=t.op,s=t.right,this.isConst(s)){if(a=this.value(s),1===a)return this.unary("--",r);if(-1===a)return this.unary("++",r)}return this.canMutateLast(s)&&this.isIdentOrTmp(r)?this.mutateLast(s||this.noop(),function(t){return e.assign(r,"-=",t)},!0):this.assign(r,"-=",s)}}).call(this);',
           operators: "~-=",
           options: {type: "number"},
           id: 53
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r,c;return t=this,s=e.left,r=e.op,c=e.right,this.canMutateLast(c)&&this.isIdentOrTmp(s)?this.mutateLast(c||this.noop(),function(e){return"~bitlshift="===r?t.assign(s,"<<=",e):"~bitrshift="===r?t.assign(s,">>=",e):t.assign(s,">>>=",e)},!0):"~bitlshift="===r?this.assign(s,"<<=",c):"~bitrshift="===r?this.assign(s,">>=",c):this.assign(s,">>>=",c)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n,s;return e=this,r=t.left,n=t.op,s=t.right,this.canMutateLast(s)&&this.isIdentOrTmp(r)?this.mutateLast(s||this.noop(),function(t){return"~bitlshift="===n?e.assign(r,"<<=",t):"~bitrshift="===n?e.assign(r,">>=",t):e.assign(r,">>>=",t)},!0):"~bitlshift="===n?this.assign(r,"<<=",s):"~bitrshift="===n?this.assign(r,">>=",s):this.assign(r,">>>=",s)}}).call(this);',
           operators: ["~bitlshift=", "~bitrshift=", "~biturshift="],
           options: {type: "number"},
           id: 55
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.canMutateLast(o)&&this.isIdentOrTmp(c)?this.mutateLast(o||this.noop(),function(e){return r.hasType(c,"numeric")&&r.hasType(e,"numeric")&&(e=s("MacroAccess",15907,29,473,{left:s("Const",15908,""),inverted:!1,op:"~&",right:s("Ident",15913,"n")},"expression",!1,!1,!1)),r.assign(c,"+=",e)},!0):(this.hasType(c,"numeric")&&this.hasType(o,"numeric")&&(o=s("MacroAccess",16041,29,477,{left:s("Const",16042,""),inverted:!1,op:"~&",right:s("Ident",16047,"right")},"expression",!1,!1,!1)),this.assign(c,"+=",o))}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.canMutateLast(o)&&this.isIdentOrTmp(s)?this.mutateLast(o||this.noop(),function(t){return n.hasType(s,"numeric")&&n.hasType(t,"numeric")&&(t=r(23,15907,29,473,{left:r(12,15908,""),inverted:!1,op:"~&",right:r(21,15913,"n")},"expression",!1,!1,!1)),n.assign(s,"+=",t)},!0):(this.hasType(s,"numeric")&&this.hasType(o,"numeric")&&(o=r(23,16041,29,477,{left:r(12,16042,""),inverted:!1,op:"~&",right:r(21,16047,"right")},"expression",!1,!1,!1)),this.assign(s,"+=",o))}}).call(this);',
           operators: "~&=",
           options: {type: "string"},
           id: 56
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,r){return s("MacroAccess",18563,30,571,{left:t(e),op:":=",right:s("MacroAccess",18576,62,571,{left:t(r),inverted:!1,op:"^",right:t(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.maybeCacheAccess(s,function(t,n){return r(23,18563,30,571,{left:e(t),op:":=",right:r(23,18576,62,571,{left:e(n),inverted:!1,op:"^",right:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
           operators: "^=",
           options: {type: "number"},
           id: 63
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,r){return s("MacroAccess",19418,30,602,{left:t(e),op:":=",right:s("MacroAccess",19431,64,602,{left:t(r),inverted:!1,op:"\\\\",right:t(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.maybeCacheAccess(s,function(t,n){return r(23,19418,30,602,{left:e(t),op:":=",right:r(23,19431,64,602,{left:e(n),inverted:!1,op:"\\\\",right:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
           operators: "\\=",
           options: {type: "number"},
           id: 68
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)?s("MacroAccess",20030,56,620,{left:t(c),op:"~&=",right:t(o)},"expression",!1,!1,!1):this.isType(c,"string")?s("MacroAccess",20089,56,622,{left:t(c),op:"~&=",right:s("MacroAccess",20099,69,622,{left:s("Const",20100,""),inverted:!1,op:"&",right:t(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):this.maybeCacheAccess(c,function(e,r){return s("MacroAccess",20178,30,625,{left:t(e),op:":=",right:s("MacroAccess",20191,69,625,{left:t(r),inverted:!1,op:"&",right:t(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)?r(23,20030,56,620,{left:e(s),op:"~&=",right:e(o)},"expression",!1,!1,!1):this.isType(s,"string")?r(23,20089,56,622,{left:e(s),op:"~&=",right:r(23,20099,69,622,{left:r(12,20100,""),inverted:!1,op:"&",right:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):this.maybeCacheAccess(s,function(t,n){return r(23,20178,30,625,{left:e(t),op:":=",right:r(23,20191,69,625,{left:e(n),inverted:!1,op:"&",right:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
           operators: "&=",
           options: {type: "string"},
           id: 70
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,c){return r.maybeCache(e,function(e,a){return r.maybeCache(o,function(r,o){return s("MacroAccess",25887,16,809,{macroName:"if",macroData:{test:s("MacroAccess",25890,10,809,{left:t(e),inverted:!1,op:"~>",right:t(r)},"expression",!1,!1,!1),body:s("MacroAccess",25921,30,809,{left:t(c),op:":=",right:t(o)},"expression",!1,!1,!1),elseIfs:[],elseBody:t(a)}},"expression",!1,!1,!1)})})})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.maybeCacheAccess(s,function(t,s){return n.maybeCache(t,function(t,a){return n.maybeCache(o,function(n,o){return r(23,25887,16,809,{macroName:"if",macroData:{test:r(23,25890,10,809,{left:e(t),inverted:!1,op:"~>",right:e(n)},"expression",!1,!1,!1),body:r(23,25921,30,809,{left:e(s),op:":=",right:e(o)},"expression",!1,!1,!1),elseIfs:[],elseBody:e(a)}},"expression",!1,!1,!1)})})})}}).call(this);',
           operators: "~min=",
           id: 86
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,c){return r.maybeCache(e,function(e,a){return r.maybeCache(o,function(r,o){return s("MacroAccess",26143,16,815,{macroName:"if",macroData:{test:s("MacroAccess",26146,9,815,{left:t(e),inverted:!1,op:"~<",right:t(r)},"expression",!1,!1,!1),body:s("MacroAccess",26177,30,815,{left:t(c),op:":=",right:t(o)},"expression",!1,!1,!1),elseIfs:[],elseBody:t(a)}},"expression",!1,!1,!1)})})})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.maybeCacheAccess(s,function(t,s){return n.maybeCache(t,function(t,a){return n.maybeCache(o,function(n,o){return r(23,26143,16,815,{macroName:"if",macroData:{test:r(23,26146,9,815,{left:e(t),inverted:!1,op:"~<",right:e(n)},"expression",!1,!1,!1),body:r(23,26177,30,815,{left:e(s),op:":=",right:e(o)},"expression",!1,!1,!1),elseIfs:[],elseBody:e(a)}},"expression",!1,!1,!1)})})})}}).call(this);',
           operators: "~max=",
           id: 87
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,c){return r.maybeCache(e,function(e,a){return r.maybeCache(o,function(r,o){return s("MacroAccess",26398,16,821,{macroName:"if",macroData:{test:s("MacroAccess",26401,79,821,{left:t(e),inverted:!1,op:">",right:t(r)},"expression",!1,!1,!1),body:s("MacroAccess",26431,30,821,{left:t(c),op:":=",right:t(o)},"expression",!1,!1,!1),elseIfs:[],elseBody:t(a)}},"expression",!1,!1,!1)})})})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.maybeCacheAccess(s,function(t,s){return n.maybeCache(t,function(t,a){return n.maybeCache(o,function(n,o){return r(23,26398,16,821,{macroName:"if",macroData:{test:r(23,26401,79,821,{left:e(t),inverted:!1,op:">",right:e(n)},"expression",!1,!1,!1),body:r(23,26431,30,821,{left:e(s),op:":=",right:e(o)},"expression",!1,!1,!1),elseIfs:[],elseBody:e(a)}},"expression",!1,!1,!1)})})})}}).call(this);',
           operators: "min=",
           id: 88
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,c){return r.maybeCache(e,function(e,a){return r.maybeCache(o,function(r,o){return s("MacroAccess",26652,16,827,{macroName:"if",macroData:{test:s("MacroAccess",26655,78,827,{left:t(e),inverted:!1,op:"<",right:t(r)},"expression",!1,!1,!1),body:s("MacroAccess",26685,30,827,{left:t(c),op:":=",right:t(o)},"expression",!1,!1,!1),elseIfs:[],elseBody:t(a)}},"expression",!1,!1,!1)})})})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.maybeCacheAccess(s,function(t,s){return n.maybeCache(t,function(t,a){return n.maybeCache(o,function(n,o){return r(23,26652,16,827,{macroName:"if",macroData:{test:r(23,26655,78,827,{left:e(t),inverted:!1,op:"<",right:e(n)},"expression",!1,!1,!1),body:r(23,26685,30,827,{left:e(s),op:":=",right:e(o)},"expression",!1,!1,!1),elseIfs:[],elseBody:e(a)}},"expression",!1,!1,!1)})})})}}).call(this);',
           operators: "max=",
           id: 89
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,r){return s("MacroAccess",26803,30,831,{left:t(e),op:":=",right:s("MacroAccess",26816,84,831,{left:t(r),inverted:!1,op:"xor",right:t(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.maybeCacheAccess(s,function(t,n){return r(23,26803,30,831,{left:e(t),op:":=",right:r(23,26816,84,831,{left:e(n),inverted:!1,op:"xor",right:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1)})}}).call(this);',
           operators: "xor=",
           id: 90
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o;return r=this,c=e.left,a=e.op,o=e.right,this.maybeCacheAccess(c,function(e,c){return r.maybeCache(e,function(e,a){return r.position==="expression"?s("MacroAccess",27006,16,837,{macroName:"if",macroData:{test:s("MacroAccess",27009,20,837,{op:"?",node:t(e)},"expression",!1,!1,!1),body:t(a),elseIfs:[],elseBody:s("MacroAccess",27044,30,837,{left:t(c),op:":=",right:t(o)},"expression",!1,!1,!1)}},"expression",!1,!1,!1):s("MacroAccess",27083,17,839,{macroName:"if",macroData:{test:s("MacroAccess",27086,3,839,{op:"not",node:s("MacroAccess",27090,20,839,{op:"?",node:t(e)},"statement",!1,!1,!1)},"statement",!1,!1,!1),body:s("MacroAccess",27102,30,840,{left:t(c),op:":=",right:t(o)},"statement",!1,!1,!1),elseIfs:[],elseBody:t(a)}},"statement",!1,!1,!1)})})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.maybeCacheAccess(s,function(t,s){return n.maybeCache(t,function(t,a){return n.position==="expression"?r(23,27006,16,837,{macroName:"if",macroData:{test:r(23,27009,20,837,{op:"?",node:e(t)},"expression",!1,!1,!1),body:e(a),elseIfs:[],elseBody:r(23,27044,30,837,{left:e(s),op:":=",right:e(o)},"expression",!1,!1,!1)}},"expression",!1,!1,!1):r(23,27083,17,839,{macroName:"if",macroData:{test:r(23,27086,3,839,{op:"not",node:r(23,27090,20,839,{op:"?",node:e(t)},"statement",!1,!1,!1)},"statement",!1,!1,!1),body:r(23,27102,30,840,{left:e(s),op:":=",right:e(o)},"statement",!1,!1,!1),elseIfs:[],elseBody:e(a)}},"statement",!1,!1,!1)})})}}).call(this);',
           operators: "?=",
           id: 91
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r,c;return t=this,s=e.left,r=e.op,c=e.right,this.canMutateLast(c)&&this.isIdentOrTmp(s)?this.mutateLast(c||this.noop(),function(e){return"~bitand="===r?t.assign(s,"&=",e):"~bitor="===r?t.assign(s,"|=",e):t.assign(s,"^=",e)},!0):"~bitand="===r?this.assign(s,"&=",c):"~bitor="===r?this.assign(s,"|=",c):this.assign(s,"^=",c)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n,s;return e=this,r=t.left,n=t.op,s=t.right,this.canMutateLast(s)&&this.isIdentOrTmp(r)?this.mutateLast(s||this.noop(),function(t){return"~bitand="===n?e.assign(r,"&=",t):"~bitor="===n?e.assign(r,"|=",t):e.assign(r,"^=",t)},!0):"~bitand="===n?this.assign(r,"&=",s):"~bitor="===n?this.assign(r,"|=",s):this.assign(r,"^=",s)}}).call(this);',
           operators: ["~bitand=", "~bitor=", "~bitxor="],
           options: {type: "number"},
           id: 95
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,o,a;return r=this,c=e.left,o=e.op,a=e.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)||this.isType(c,"number")?"*="===o?s("MacroAccess",29135,46,906,{left:t(c),op:"~*=",right:s("MacroAccess",29145,60,906,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"/="===o?s("MacroAccess",29187,46,908,{left:t(c),op:"~/=",right:s("MacroAccess",29197,60,908,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"%="===o?s("MacroAccess",29239,46,910,{left:t(c),op:"~%=",right:s("MacroAccess",29249,60,910,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"+="===o?s("MacroAccess",29291,52,912,{left:t(c),op:"~+=",right:s("MacroAccess",29301,60,912,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"-="===o?s("MacroAccess",29343,53,914,{left:t(c),op:"~-=",right:s("MacroAccess",29353,60,914,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitlshift="===o?s("MacroAccess",29403,55,916,{left:t(c),op:"~bitlshift=",right:s("MacroAccess",29421,60,916,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitrshift="===o?s("MacroAccess",29471,55,918,{left:t(c),op:"~bitrshift=",right:s("MacroAccess",29489,60,918,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"biturshift="===o?s("MacroAccess",29540,55,920,{left:t(c),op:"~biturshift=",right:s("MacroAccess",29559,60,920,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitand="===o?s("MacroAccess",29606,95,922,{left:t(c),op:"~bitand=",right:s("MacroAccess",29621,60,922,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitor="===o?s("MacroAccess",29667,95,924,{left:t(c),op:"~bitor=",right:s("MacroAccess",29681,60,924,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitxor="===o?s("MacroAccess",29728,95,926,{left:t(c),op:"~bitxor=",right:s("MacroAccess",29743,60,926,{op:"+",node:t(a)},"expression",!1,!1,!1)},"expression",!1,!1,!1):this.error("Unknown operator "+o):this.maybeCacheAccess(c,function(e,c){var n;return n="*="===o?s("MacroAccess",29901,64,932,{left:t(c),inverted:!1,op:"*",right:t(a)},"expression",!1,!1,!1):"/="===o?s("MacroAccess",29954,64,934,{left:t(c),inverted:!1,op:"/",right:t(a)},"expression",!1,!1,!1):"%="===o?s("MacroAccess",30007,64,936,{left:t(c),inverted:!1,op:"%",right:t(a)},"expression",!1,!1,!1):"+="===o?s("MacroAccess",30060,66,938,{left:t(c),inverted:!1,op:"+",right:t(a)},"expression",!1,!1,!1):"-="===o?s("MacroAccess",30113,66,940,{left:t(c),inverted:!1,op:"-",right:t(a)},"expression",!1,!1,!1):"bitlshift="===o?s("MacroAccess",30174,67,942,{left:t(c),inverted:!1,op:"bitlshift",right:t(a)},"expression",!1,!1,!1):"bitrshift="===o?s("MacroAccess",30243,67,944,{left:t(c),inverted:!1,op:"bitrshift",right:t(a)},"expression",!1,!1,!1):"biturshift="===o?s("MacroAccess",30313,67,946,{left:t(c),inverted:!1,op:"biturshift",right:t(a)},"expression",!1,!1,!1):"bitand="===o?s("MacroAccess",30380,96,948,{left:t(c),inverted:!1,op:"bitand",right:t(a)},"expression",!1,!1,!1):"bitor="===o?s("MacroAccess",30442,97,950,{left:t(c),inverted:!1,op:"bitor",right:t(a)},"expression",!1,!1,!1):"bitxor="===o?s("MacroAccess",30504,98,952,{left:t(c),inverted:!1,op:"bitxor",right:t(a)},"expression",!1,!1,!1):r.error("Unknown operator "+o),s("MacroAccess",30587,30,955,{left:t(e),op:":=",right:t(n)},"expression",!1,!1,!1)})}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o;return n=this,s=t.left,a=t.op,o=t.right,this.getConstValue("DISABLE_TYPE_CHECKING",!1)||this.isType(s,"number")?"*="===a?r(23,29135,46,906,{left:e(s),op:"~*=",right:r(23,29145,60,906,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"/="===a?r(23,29187,46,908,{left:e(s),op:"~/=",right:r(23,29197,60,908,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"%="===a?r(23,29239,46,910,{left:e(s),op:"~%=",right:r(23,29249,60,910,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"+="===a?r(23,29291,52,912,{left:e(s),op:"~+=",right:r(23,29301,60,912,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"-="===a?r(23,29343,53,914,{left:e(s),op:"~-=",right:r(23,29353,60,914,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitlshift="===a?r(23,29403,55,916,{left:e(s),op:"~bitlshift=",right:r(23,29421,60,916,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitrshift="===a?r(23,29471,55,918,{left:e(s),op:"~bitrshift=",right:r(23,29489,60,918,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"biturshift="===a?r(23,29540,55,920,{left:e(s),op:"~biturshift=",right:r(23,29559,60,920,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitand="===a?r(23,29606,95,922,{left:e(s),op:"~bitand=",right:r(23,29621,60,922,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitor="===a?r(23,29667,95,924,{left:e(s),op:"~bitor=",right:r(23,29681,60,924,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):"bitxor="===a?r(23,29728,95,926,{left:e(s),op:"~bitxor=",right:r(23,29743,60,926,{op:"+",node:e(o)},"expression",!1,!1,!1)},"expression",!1,!1,!1):this.error("Unknown operator "+a):this.maybeCacheAccess(s,function(t,s){var i;return i="*="===a?r(23,29901,64,932,{left:e(s),inverted:!1,op:"*",right:e(o)},"expression",!1,!1,!1):"/="===a?r(23,29954,64,934,{left:e(s),inverted:!1,op:"/",right:e(o)},"expression",!1,!1,!1):"%="===a?r(23,30007,64,936,{left:e(s),inverted:!1,op:"%",right:e(o)},"expression",!1,!1,!1):"+="===a?r(23,30060,66,938,{left:e(s),inverted:!1,op:"+",right:e(o)},"expression",!1,!1,!1):"-="===a?r(23,30113,66,940,{left:e(s),inverted:!1,op:"-",right:e(o)},"expression",!1,!1,!1):"bitlshift="===a?r(23,30174,67,942,{left:e(s),inverted:!1,op:"bitlshift",right:e(o)},"expression",!1,!1,!1):"bitrshift="===a?r(23,30243,67,944,{left:e(s),inverted:!1,op:"bitrshift",right:e(o)},"expression",!1,!1,!1):"biturshift="===a?r(23,30313,67,946,{left:e(s),inverted:!1,op:"biturshift",right:e(o)},"expression",!1,!1,!1):"bitand="===a?r(23,30380,96,948,{left:e(s),inverted:!1,op:"bitand",right:e(o)},"expression",!1,!1,!1):"bitor="===a?r(23,30442,97,950,{left:e(s),inverted:!1,op:"bitor",right:e(o)},"expression",!1,!1,!1):"bitxor="===a?r(23,30504,98,952,{left:e(s),inverted:!1,op:"bitxor",right:e(o)},"expression",!1,!1,!1):n.error("Unknown operator "+a),r(23,30587,30,955,{left:e(t),op:":=",right:e(i)},"expression",!1,!1,!1)})}}).call(this);',
           operators: [
             "*=",
             "/=",
@@ -57739,7 +57741,7 @@
       ],
       defineSyntax: [
         {
-          code: 'return(function(){"use strict";return function(e){var t,s,r;return r=e.isMutable,s=e.ident,t=e.asType,this.isIdentOrTmp(s)?{type:"ident",isMutable:"mutable"===r,ident:s,asType:t}:s}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r,n;return n=t.isMutable,r=t.ident,e=t.asType,this.isIdentOrTmp(r)?{type:"ident",isMutable:"mutable"===n,ident:r,asType:e}:r}}).call(this);',
           options: {name: "DeclarableIdent"},
           params: [
             ["ident", "isMutable", "many", "?", "const", "mutable"],
@@ -57757,7 +57759,7 @@
           id: 31
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s;return t=e.head,s=e.tail,{type:"array",elements:[t].concat(s)}}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r;return e=t.head,r=t.tail,{type:"array",elements:[e].concat(r)}}}).call(this);',
           options: {name: "DeclarableArray"},
           params: [
             ["const", "["],
@@ -57787,7 +57789,7 @@
           id: 32
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t;return t=e.value,t=this.macroExpand1(t),{key:this.name(t.ident),value:t}}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e;return e=t.value,e=this.macroExpand1(e),{key:this.name(e.ident),value:e}}}).call(this);',
           options: {name: "DeclarableObjectSingularPair"},
           params: [["ident", "value", "ident", "DeclarableIdent"]],
           id: 33
@@ -57814,7 +57816,7 @@
           id: 35
         },
         {
-          code: 'return(function(){"use strict";return function(e){var t,s;return t=e.head,s=e.tail,{type:"object",pairs:[t].concat(s)}}}).call(this);',
+          code: 'return(function(){"use strict";return function(t){var e,r;return e=t.head,r=t.tail,{type:"object",pairs:[e].concat(r)}}}).call(this);',
           options: {name: "DeclarableObject"},
           params: [
             ["const", "{"],
@@ -57846,53 +57848,53 @@
       ],
       call: [
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o,n;return a=e.macroName,c=e.macroData,r=c[0],o=arguments[0].macroData.slice(1),o.length===0?t(r):this.position==="statement"?(n=this.tmp("ref"),s("Block",16865,[s("MacroAccess",16865,38,506,{macroName:"let",macroData:{declarable:s("MacroAccess",16874,37,506,s("MacroAccess",16874,31,506,{ident:t(n)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:t(r)}},"statement",!1,!1,!1),t(o),t(n)],null)):s("Call",16925,s("Ident",16925,"__first"),[t(r),t(o)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o,i;return a=t.macroName,s=t.macroData,n=s[0],o=arguments[0].macroData.slice(1),o.length===0?e(n):this.position==="statement"?(i=this.tmp("ref"),r(7,16865,[r(23,16865,38,506,{macroName:"let",macroData:{declarable:r(23,16874,37,506,r(23,16874,31,506,{ident:e(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:e(n)}},"statement",!1,!1,!1),e(o),e(i)],null)):r(9,16925,r(21,16925,"__first"),[e(n),e(o)],!1,!1)}}).call(this);',
           names: "first!",
           id: 58
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s){var r,c,a,o,n;return o=e.macroName,a=e.macroData,n=arguments[0].macroData.slice(0,-1),c=(r=arguments[0].macroData)[r.length-1],n.length===0?t(c):s("Block",17179,[t(n),t(c)],null)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r){var n,s,a,o,i;return o=t.macroName,a=t.macroData,i=arguments[0].macroData.slice(0,-1),s=(n=arguments[0].macroData)[n.length-1],i.length===0?e(s):r(7,17179,[e(i),e(s)],null)}}).call(this);',
           names: "last!",
           id: 59
         },
         {
-          code: 'return(function(){"use strict";return function(e,t,s,r){var c,a,o,n,i,l;return n=e.macroName,o=e.macroData,a=o[0],l=o[1],this.isFunc(a)?(c=this.funcBody(a),i=this.tmp("once",!0,"boolean"),a=this.rewrap(this.func(this.funcParams(a),s("Block",81129,[s("MacroAccess",81129,17,2417,{macroName:"if",macroData:{test:t(i),body:s("MacroAccess",81145,17,2418,{macroName:"if",macroData:{test:t(l),body:s("MacroAccess",81171,39,2419,{macroName:"return",macroData:{}},"statement",!1,!1,!1),elseIfs:[],elseBody:s("MacroAccess",81205,11,2421,{op:"throw",node:s("Call",81222,s("Ident",81222,"Error"),[s("Const",81229,"Attempted to call function more than once")],!1,!1)},"statement",!1,!1,!1)}},"statement",!1,!1,!1),elseIfs:[],elseBody:s("MacroAccess",81286,30,2423,{left:t(i),op:":=",right:r("true")},"statement",!1,!1,!1)}},"statement",!1,!1,!1),t(c)],null),this.funcIsAutoReturn(a),this.funcIsBound(a),this.funcIsCurried(a),this.funcAsType(a),this.funcIsGenerator(a),this.funcGeneric(a))),s("Block",81499,[s("MacroAccess",81499,38,2432,{macroName:"let",macroData:{declarable:s("MacroAccess",81508,37,2432,s("MacroAccess",81508,31,2432,{isMutable:"mutable",ident:t(i)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:r("false")}},"statement",!1,!1,!1),t(a)],null)):this.isConst(l)&&!this.value(l)?s("Call",81617,s("Ident",81617,"__once"),[t(a)],!1,!1):s("Call",81650,s("Ident",81650,"__once"),[t(a),t(l)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";return function(t,e,r,n){var s,a,o,i,l,c;return i=t.macroName,o=t.macroData,a=o[0],c=o[1],this.isFunc(a)?(s=this.funcBody(a),l=this.tmp("once",!0,"boolean"),a=this.rewrap(this.func(this.funcParams(a),r(7,81129,[r(23,81129,17,2417,{macroName:"if",macroData:{test:e(l),body:r(23,81145,17,2418,{macroName:"if",macroData:{test:e(c),body:r(23,81171,39,2419,{macroName:"return",macroData:{}},"statement",!1,!1,!1),elseIfs:[],elseBody:r(23,81205,11,2421,{op:"throw",node:r(9,81222,r(21,81222,"Error"),[r(12,81229,"Attempted to call function more than once")],!1,!1)},"statement",!1,!1,!1)}},"statement",!1,!1,!1),elseIfs:[],elseBody:r(23,81286,30,2423,{left:e(l),op:":=",right:n("true")},"statement",!1,!1,!1)}},"statement",!1,!1,!1),e(s)],null),this.funcIsAutoReturn(a),this.funcIsBound(a),this.funcIsCurried(a),this.funcAsType(a),this.funcIsGenerator(a),this.funcGeneric(a))),r(7,81499,[r(23,81499,38,2432,{macroName:"let",macroData:{declarable:r(23,81508,37,2432,r(23,81508,31,2432,{isMutable:"mutable",ident:e(l)},"statement",!1,!1,!1),"statement",!1,!1,!1),value:n("false")}},"statement",!1,!1,!1),e(a)],null)):this.isConst(c)&&!this.value(c)?r(9,81617,r(21,81617,"__once"),[e(a)],!1,!1):r(9,81650,r(21,81650,"__once"),[e(a),e(c)],!1,!1)}}).call(this);',
           names: "once!",
           id: 126
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+t(e));return e},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,r){var c,a,o,n;return c=this,o=t.macroName,a=t.macroData,n=a[0],e(a.length)>1&&this.error("fulfilled! only expects one argument"),this.mutateLast(n||this.noop(),function(e){return r("Call",121006,r("Access",121006,r("Ident",121006,"__defer"),r("Const",121015,"fulfilled")),[s(e)],!1,!1)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+e(t));return t},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,r,n){var s,a,o,i;return s=this,o=e.macroName,a=e.macroData,i=a[0],t(a.length)>1&&this.error("fulfilled! only expects one argument"),this.mutateLast(i||this.noop(),function(t){return n(9,121006,n(1,121006,n(21,121006,"__defer"),n(12,121015,"fulfilled")),[r(t)],!1,!1)},!0)}}).call(this);',
           names: "fulfilled!",
           id: 156
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+t(e));return e},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,r){var c,a,o,n;return c=this,o=t.macroName,a=t.macroData,n=a[0],e(a.length)>1&&this.error("rejected! only expects one argument"),this.mutateLast(n||this.noop(),function(e){return r("Call",121181,r("Access",121181,r("Ident",121181,"__defer"),r("Const",121190,"rejected")),[s(e)],!1,!1)},!0)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+e(t));return t},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,r,n){var s,a,o,i;return s=this,o=e.macroName,a=e.macroData,i=a[0],t(a.length)>1&&this.error("rejected! only expects one argument"),this.mutateLast(i||this.noop(),function(t){return n(9,121181,n(1,121181,n(21,121181,"__defer"),n(12,121190,"rejected")),[r(t)],!1,!1)},!0)}}).call(this);',
           names: "rejected!",
           id: 157
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+t(e));return e},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,r){var c,o,a;return o=t.macroName,c=t.macroData,a=c[0],e(c.length)>1&&this.error("from-promise! only expects one argument"),r("Call",121517,r("Ident",121517,"__fromPromise"),[s(a)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+e(t));return t},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,r,n){var s,a,o;return a=e.macroName,s=e.macroData,o=s[0],t(s.length)>1&&this.error("from-promise! only expects one argument"),n(9,121517,n(21,121517,"__fromPromise"),[r(o)],!1,!1)}}).call(this);',
           names: "fromPromise!",
           id: 158
         },
         {
-          code: 'return(function(){"use strict";var e,t,s;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+s(e));return e},t=Array.prototype.slice,s=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(s,r,c,o){var a,n,i,l,u,m,p,h;return a=this,m=s.macroName,u=s.macroData,p=u[0],e(u.length)>1&&this.error("to-promise! only expects one argument"),this.isCall(p)||this.error("to-promise! call expression must be a call",p),i=this.callFunc(p),n=this.callArgs(p),this.callIsNew(p)?(n=this.array(n),c("Call",122069,c("Ident",122069,"__toPromise"),[c("Ident",122083,"__new"),r(i),r(n)],!1,!1)):this.callIsApply(p)?n.length!==0&&this.isSpread(n[0])?this.maybeCache(this.array(n),function(e,t){return c("Call",122364,c("Ident",122364,"__toPromise"),[r(i),c("Access",122384,r(e),c("Const",122395,0)),c("Call",122398,c("Access",122398,r(t),c("Const",122405,"slice")),[c("Const",122411,1)],!1,!1)],!1,!1)}):(l=n[0],h=this.array(t.call(n,1)),c("Call",122258,c("Ident",122258,"__toPromise"),[r(i),r(l),r(h)],!1,!1)):(n=this.array(n),this.isAccess(i)?this.maybeCache(this.parent(i),function(e,t){var s;return s=a.child(i),c("Call",122570,c("Ident",122570,"__toPromise"),[c("Access",122584,r(e),r(s)),r(t),r(n)],!1,!1)}):c("Call",122639,c("Ident",122639,"__toPromise"),[r(i),o("void"),r(n)],!1,!1))}}).call(this);',
+          code: 'return(function(){"use strict";var t,e,r;return t=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+r(t));return t},e=Array.prototype.slice,r=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(r,n,s,a){var o,i,l,c,u,m,p,h;return o=this,m=r.macroName,u=r.macroData,p=u[0],t(u.length)>1&&this.error("to-promise! only expects one argument"),this.isCall(p)||this.error("to-promise! call expression must be a call",p),l=this.callFunc(p),i=this.callArgs(p),this.callIsNew(p)?(i=this.array(i),s(9,122069,s(21,122069,"__toPromise"),[s(21,122083,"__new"),n(l),n(i)],!1,!1)):this.callIsApply(p)?i.length!==0&&this.isSpread(i[0])?this.maybeCache(this.array(i),function(t,e){return s(9,122364,s(21,122364,"__toPromise"),[n(l),s(1,122384,n(t),s(12,122395,0)),s(9,122398,s(1,122398,n(e),s(12,122405,"slice")),[s(12,122411,1)],!1,!1)],!1,!1)}):(c=i[0],h=this.array(e.call(i,1)),s(9,122258,s(21,122258,"__toPromise"),[n(l),n(c),n(h)],!1,!1)):(i=this.array(i),this.isAccess(l)?this.maybeCache(this.parent(l),function(t,e){var r;return r=o.child(l),s(9,122570,s(21,122570,"__toPromise"),[s(1,122584,n(t),n(r)),n(e),n(i)],!1,!1)}):s(9,122639,s(21,122639,"__toPromise"),[n(l),a("void"),n(i)],!1,!1))}}).call(this);',
           options: {type: "promise"},
           names: "toPromise!",
           id: 159
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+t(e));return e},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,r){var c,o,a;return o=t.macroName,c=t.macroData,a=c[0],e(c.length)>1&&this.error("some-promise! only expects one argument"),this.hasType(a,"array")||this.error("some-promise! should be used on an Array",a),r("Call",123461,r("Ident",123461,"__somePromise"),[s(a)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+e(t));return t},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,r,n){var s,a,o;return a=e.macroName,s=e.macroData,o=s[0],t(s.length)>1&&this.error("some-promise! only expects one argument"),this.hasType(o,"array")||this.error("some-promise! should be used on an Array",o),n(9,123461,n(21,123461,"__somePromise"),[r(o)],!1,!1)}}).call(this);',
           names: "somePromise!",
           id: 160
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+t(e));return e},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,r){var c,o,a;return o=t.macroName,c=t.macroData,a=c[0],e(c.length)>1&&this.error("some-promise! only expects one argument"),this.hasType(a,"array")||this.hasType(a,"object")||this.error("every-promise! should be used on an Array or Object",a),r("Call",124299,r("Ident",124299,"__everyPromise"),[s(a)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+e(t));return t},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,r,n){var s,o,a;return o=e.macroName,s=e.macroData,a=s[0],t(s.length)>1&&this.error("some-promise! only expects one argument"),this.hasType(a,"array")||this.hasType(a,"object")||this.error("every-promise! should be used on an Array or Object",a),n(9,124299,n(21,124299,"__everyPromise"),[r(a)],!1,!1)}}).call(this);',
           names: "everyPromise!",
           id: 161
         },
         {
-          code: 'return(function(){"use strict";var e,t;return e=function(e){if("number"!=typeof e)throw TypeError("Expected a number, got "+t(e));return e},t=function(){var e;return e=Object.prototype.toString,function(t){return void 0===t?"Undefined":null===t?"Null":t.constructor&&t.constructor.name||e.call(t).slice(8,-1)}}(),function(t,s,r){var c,o,a,n,i;return a=t.macroName,o=t.macroData,n=o[0],i=o[1],this.hasType(n,"number")||this.error("delay! should take a number in milliseconds"),c=!this.isConst(i)||this.value(i)!==void 0,this.isConst(n)&&typeof this.value(n)=="number"&&e(this.value(n))<=0?c?r("Call",124864,r("Access",124864,r("Ident",124864,"__defer"),r("Const",124873,"fulfilled")),[s(i)],!1,!1):r("Call",124909,r("Access",124909,r("Ident",124909,"__defer"),r("Const",124918,"fulfilled")),[],!1,!1):c?r("Call",124964,r("Ident",124964,"__delay"),[s(n),s(i)],!1,!1):r("Call",125014,r("Ident",125014,"__delay"),[s(n)],!1,!1)}}).call(this);',
+          code: 'return(function(){"use strict";var t,e;return t=function(t){if("number"!=typeof t)throw TypeError("Expected a number, got "+e(t));return t},e=function(){var t;return t=Object.prototype.toString,function(e){return void 0===e?"Undefined":null===e?"Null":e.constructor&&e.constructor.name||t.call(e).slice(8,-1)}}(),function(e,r,n){var s,o,a,i,l;return a=e.macroName,o=e.macroData,i=o[0],l=o[1],this.hasType(i,"number")||this.error("delay! should take a number in milliseconds"),s=!this.isConst(l)||this.value(l)!==void 0,this.isConst(i)&&typeof this.value(i)=="number"&&t(this.value(i))<=0?s?n(9,124864,n(1,124864,n(21,124864,"__defer"),n(12,124873,"fulfilled")),[r(l)],!1,!1):n(9,124909,n(1,124909,n(21,124909,"__defer"),n(12,124918,"fulfilled")),[],!1,!1):s?n(9,124964,n(21,124964,"__delay"),[r(i),r(l)],!1,!1):n(9,125014,n(21,125014,"__delay"),[r(i)],!1,!1)}}).call(this);',
           names: "delay!",
           id: 162
         }
