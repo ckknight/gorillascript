@@ -32,6 +32,38 @@ const Level = {
   new-call:          19 // new `...`()
 }
 
+const NodeType = {
+  Arguments:       1
+  Arr:             2
+  Binary:          3
+  BlockStatement:  4
+  BlockExpression: 5
+  Break:           6
+  Call:            7
+  Comment:         8
+  Const:           9
+  Continue:       10
+  Debugger:       11
+  DoWhile:        12
+  Eval:           13
+  For:            14
+  ForIn:          15
+  Func:           16
+  Ident:          17
+  IfStatement:    18
+  IfExpression:   19
+  Obj:            20
+  Regex:          21
+  Return:         22
+  Root:           23
+  This:           24
+  Throw:          25
+  Switch:         26
+  TryCatch:       27
+  TryFinally:     28
+  Unary:          29
+}
+
 let inc-indent(options)
   let clone = { extends options }
   clone.indent += 1
@@ -110,7 +142,7 @@ exports.Node := class Node
   def exit-type() -> null
   def last() -> this
   
-  def to-JSON() -> [@constructor.name, @pos.line, @pos.column, @pos.file or 0, ...@_to-JSON()]
+  def to-JSON() -> [@type-id, @pos.line, @pos.column, @pos.file or 0, ...@_to-JSON()]
   def _to-JSON() -> []
 
 exports.Expression := class Expression extends Node
@@ -159,6 +191,7 @@ exports.Arguments := class Arguments extends Expression
   def walk() -> this
   def is-noop() -> true
   def inspect(depth) -> inspect-helper depth, "Arguments", @pos
+  def type-id = NodeType.Arguments
   @from-JSON := #(line, column, file) -> Arguments(make-pos(line, column, file))
 
 let walk-array(array as [], walker as ->)
@@ -286,6 +319,7 @@ exports.Arr := class Arr extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Arr", @pos, @elements
   
+  def type-id = NodeType.Arr
   def _to-JSON() -> simplify-array(@elements, 0)
   @from-JSON := #(line, column, file, ...elements) -> Arr make-pos(line, column, file), array-from-JSON(elements)
 
@@ -515,6 +549,7 @@ exports.Binary := class Binary extends Expression
     if simplify(@right)
       result.push ...@right.to-JSON()
     result
+  def type-id = NodeType.Binary
   @from-JSON := #(line, column, file, left, op, ...right) -> Binary make-pos(line, column, file), from-JSON(left), op, from-JSON(right)
 
 exports.BlockStatement := class BlockStatement extends Statement
@@ -606,6 +641,7 @@ exports.BlockStatement := class BlockStatement extends Statement
   def inspect(depth) -> inspect-helper depth, "BlockStatement", @pos, @body, @label
   
   def _to-JSON() -> [@label or 0, ...@body]
+  def type-id = NodeType.BlockStatement
   @from-JSON := #(line, column, file, label, ...body) -> BlockStatement make-pos(line, column, file), array-from-JSON(body), if label then from-JSON(label) else null
 
 exports.BlockExpression := class BlockExpression extends Expression
@@ -690,6 +726,7 @@ exports.BlockExpression := class BlockExpression extends Expression
   def inspect(depth) -> inspect-helper depth, "BlockExpression", @pos, @body
   
   def _to-JSON() -> @body
+  def type-id = NodeType.BlockExpression
   @from-JSON := #(line, column, file, ...body) -> BlockExpression make-pos(line, column, file), array-from-JSON(body)
 
 let Block = exports.Block := #(pos, body as [Node] = [], label as Ident|null)
@@ -734,6 +771,7 @@ exports.Break := class Break extends Statement
   def is-large() -> false
   
   def _to-JSON() -> if @label? then [@label] else []
+  def type-id = NodeType.Break
   @from-JSON := #(line, column, file, label) -> Break make-pos(line, column, file), if label then from-JSON(label) else null
 
 exports.Call := class Call extends Expression
@@ -811,6 +849,7 @@ exports.Call := class Call extends Expression
   def inspect(depth) -> inspect-helper depth, "Call", @pos, @func, @args, @is-new
   
   def _to-JSON() -> [simplify(@func, 0), if @is-new then 1 else 0, ...simplify-array(@args, 0)]
+  def type-id = NodeType.Call
   @from-JSON := #(line, column, file, func, is-new, ...args) -> Call make-pos(line, column, file), from-JSON(func), array-from-JSON(args), not not is-new
 
 exports.Comment := class Comment extends Statement
@@ -838,6 +877,7 @@ exports.Comment := class Comment extends Statement
   def inspect(depth) -> inspect-helper "Comment", @pos, @text
   
   def _to-JSON() -> [@text]
+  def type-id = NodeType.Comment
   @from-JSON := #(line, column, file, text) -> Comment(make-pos(line, column, file), text)
 
 exports.Const := class Const extends Expression
@@ -890,6 +930,7 @@ exports.Const := class Const extends Expression
       []
     else
       [@value]
+  def type-id = NodeType.Const
   @from-JSON := #(line, column, file, value, state)
     Const make-pos(line, column, file), if state == 1
       value / 0
@@ -931,6 +972,7 @@ exports.Continue := class Continue extends Statement
   def inspect(depth) -> inspect-helper depth, "Continue", @pos, @label
   
   def _to-JSON() -> if @label? then [@label] else []
+  def type-id = NodeType.Continue
   @from-JSON := #(line, column, file, label) -> Continue make-pos(line, column, file), if label then from-JSON(label) else null
 
 exports.Debugger := class Debugger extends Statement
@@ -948,6 +990,7 @@ exports.Debugger := class Debugger extends Statement
   
   def inspect(depth) -> inspect-helper depth, "Debugger", @pos
   
+  def type-id = NodeType.Debugger
   @from-JSON := #(line, column, file) -> Debugger(make-pos(line, column, file))
 
 exports.DoWhile := class DoWhile extends Statement
@@ -1010,6 +1053,7 @@ exports.DoWhile := class DoWhile extends Statement
   def inspect(depth) -> inspect-helper depth, "DoWhile", @pos, @body, @test, @label
   
   def _to-JSON() -> [@label or 0, simplify(@test, 0), simplify(@body, 0)]
+  def type-id = NodeType.DoWhile
   @from-JSON := #(line, column, file, label, test, body) -> DoWhile make-pos(line, column, file), from-JSON(body), from-JSON(test), if label then from-JSON(label) else null
 
 exports.Eval := class Eval extends Expression
@@ -1041,6 +1085,7 @@ exports.Eval := class Eval extends Expression
   def inspect(depth) -> inspect-helper depth, "Eval", @pos, @code
   
   def _to-JSON() -> [simplify(@code, 0)]
+  def type-id = NodeType.Eval
   @from-JSON := #(line, column, file, code) -> Eval make-pos(line, column, file), from-JSON(code)
 
 exports.For := class For extends Statement
@@ -1130,6 +1175,7 @@ exports.For := class For extends Statement
     if simplify(@body)
       result.push ...@body.to-JSON()
     result
+  def type-id = NodeType.For
   @from-JSON := #(line, column, file, label, init, test, step, ...body) -> For make-pos(line, column, file), from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body), if label then from-JSON(label) else null
 
 exports.ForIn := class ForIn extends Statement
@@ -1192,6 +1238,7 @@ exports.ForIn := class ForIn extends Statement
     if simplify(@body)
       result.push ...@body.to-JSON()
     result
+  def type-id = NodeType.ForIn
   @from-JSON := #(line, column, file, label, key, object, ...body) -> ForIn make-pos(line, column, file), from-JSON(key), from-JSON(object), from-JSON(body), if label then from-JSON(label) else null
 
 let validate-func-params-and-variables(params, variables)!
@@ -1327,6 +1374,7 @@ exports.Func := class Func extends Expression
     if simplify(@body)
       result.push ...@body.to-JSON()
     result
+  def type-id = NodeType.Func
   @from-JSON := #(line, column, file, name, params, variables, declarations, ...body)
     Func make-pos(line, column, file), (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations
 
@@ -1350,6 +1398,7 @@ exports.Ident := class Ident extends Expression
   def is-noop() -> true
   
   def _to-JSON() -> [@name]
+  def type-id = NodeType.Ident
   @from-JSON := #(line, column, file, name) -> Ident make-pos(line, column, file), name
 
 exports.IfStatement := class IfStatement extends Statement
@@ -1478,6 +1527,7 @@ exports.IfStatement := class IfStatement extends Statement
     if simplify(@when-false)
       result.push ...@when-false.to-JSON()
     result
+  def type-id = NodeType.IfStatement
   @from-JSON := #(line, column, file, label, test, when-true, ...when-false) -> IfStatement make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false), if label then from-JSON(label) else null
 
 exports.IfExpression := class IfExpression extends Expression
@@ -1578,6 +1628,7 @@ exports.IfExpression := class IfExpression extends Expression
     if simplify(@when-false)
       result.push ...@when-false.to-JSON()
     result
+  def type-id = NodeType.IfExpression
   @from-JSON := #(line, column, file, test, when-true, ...when-false) -> IfExpression make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false)
 
 let If = exports.If := #(pos as {}, test, when-true, when-false, label)
@@ -1720,6 +1771,7 @@ exports.Obj := class Obj extends Expression
       let pos = pair.pos
       result.push pos.line, pos.column, pos.file, pair.key, simplify(pair.value)
     result
+  def type-id = NodeType.Obj
   @from-JSON := #(line, column, file, ...element-data)
     let result-pairs = []
     for i in 0 til element-data.length by 5
@@ -1768,6 +1820,7 @@ exports.Regex := class Regex extends Expression
   def inspect(depth) -> inspect-helper depth, "Regex", @pos, @source, @flags
   
   def _to-JSON() -> [@source, @flags]
+  def type-id = NodeType.Regex
   @from-JSON := #(line, column, file, source, flags) -> Regex make-pos(line, column, file), source, flags
 
 exports.Return := class Return extends Statement
@@ -1816,6 +1869,7 @@ exports.Return := class Return extends Statement
       @node.to-JSON()
     else
       []
+  def type-id = NodeType.Return
   @from-JSON := #(line, column, file, ...node) -> Return make-pos(line, column, file), from-JSON(node)
 
 exports.Root := class Root
@@ -1899,6 +1953,7 @@ exports.Root := class Root
     if simplify(@body)
       result.push ...@body.to-JSON()
     result
+  def type-id = NodeType.Root
   @from-JSON := #(line, column, file, variables, declarations, ...body) -> Root make-pos(line, column, file), from-JSON(body), variables, declarations
 
 exports.This := class This extends Expression
@@ -1916,6 +1971,7 @@ exports.This := class This extends Expression
   
   def inspect(depth) -> inspect-helper depth, "This", @pos
   
+  def type-id = NodeType.This
   @from-JSON := #(line, column, file) -> This(make-pos(line, column, file))
 
 exports.Throw := class Throw extends Statement
@@ -1952,6 +2008,7 @@ exports.Throw := class Throw extends Statement
       @node.to-JSON()
     else
       []
+  def type-id = NodeType.Throw
   @from-JSON := #(line, column, file, ...node) -> Throw make-pos(line, column, file), from-JSON(node)
 
 exports.Switch := class Switch extends Statement
@@ -2041,6 +2098,7 @@ exports.Switch := class Switch extends Statement
     if @default-case not instanceof Noop
       result.push simplify(@default-case, 0)
     result
+  def type-id = NodeType.Switch
   @from-JSON := #(line, column, file, label, node, ...case-data)
     let mutable len = case-data.length
     let mutable default-case = void
@@ -2146,6 +2204,7 @@ exports.TryCatch := class TryCatch extends Statement
     if simplify(@catch-body)
       result.push ...@catch-body.to-JSON()
     result
+  def type-id = NodeType.TryCatch
   @from-JSON := #(line, column, file, label, try-body, catch-ident, ...catch-body) -> TryCatch make-pos(line, column, file), from-JSON(try-body), from-JSON(catch-ident), from-JSON(catch-body), if label then from-JSON(label) else null
 
 exports.TryFinally := class TryFinally extends Statement
@@ -2231,6 +2290,7 @@ exports.TryFinally := class TryFinally extends Statement
     if simplify(@finally-body)
       result.push ...@finally-body.to-JSON()
     result
+  def type-id = NodeType.TryFinally
   @from-JSON := #(line, column, file, label, try-body, ...finally-body) -> TryFinally make-pos(line, column, file), from-JSON(try-body), from-JSON(finally-body), if label then from-JSON(label) else null
 
 exports.Unary := class Unary extends Expression
@@ -2318,10 +2378,43 @@ exports.Unary := class Unary extends Expression
     if simplify(@node)
       result.push ...@node.to-JSON()
     result
+  def type-id = NodeType.Unary
   @from-JSON := #(line, column, file, op, ...node) -> Unary make-pos(line, column, file), op, from-JSON(node)
 
 let While = exports.While := #(pos, test, body, label)
   For(pos, null, test, null, body, label)
+
+let NodeType-to-class = {
+  [NodeType.Arguments]: Arguments
+  [NodeType.Arr]: Arr
+  [NodeType.Binary]: Binary
+  [NodeType.BlockStatement]: BlockStatement
+  [NodeType.BlockExpression]: BlockExpression
+  [NodeType.Break]: Break
+  [NodeType.Call]: Call
+  [NodeType.Comment]: Comment
+  [NodeType.Const]: Const
+  [NodeType.Continue]: Continue
+  [NodeType.Debugger]: Debugger
+  [NodeType.DoWhile]: DoWhile
+  [NodeType.Eval]: Eval
+  [NodeType.For]: For
+  [NodeType.ForIn]: ForIn
+  [NodeType.Func]: Func
+  [NodeType.Ident]: Ident
+  [NodeType.IfStatement]: IfStatement
+  [NodeType.IfExpression]: IfExpression
+  [NodeType.Obj]: Obj
+  [NodeType.Regex]: Regex
+  [NodeType.Return]: Return
+  [NodeType.Root]: Root
+  [NodeType.This]: This
+  [NodeType.Throw]: Throw
+  [NodeType.Switch]: Switch
+  [NodeType.TryCatch]: TryCatch
+  [NodeType.TryFinally]: TryFinally
+  [NodeType.Unary]: Unary
+}
 
 let from-JSON = exports.from-JSON := #(obj)
   if not obj
@@ -2331,20 +2424,12 @@ let from-JSON = exports.from-JSON := #(obj)
     if obj.length == 0
       return Noop(make-pos(0, 0))
     let type = obj[0]
-    if obj.length < 1 or not is-string! type
-      throw Error "Expected an array with a string as its first item"
-    if exports not ownskey type
-      throw Error "Unknown node type: $(obj.type)"
+    if obj.length < 1 or not is-number! type
+      throw Error "Expected an array with a number as its first item, got $(typeof! type)"
+    if NodeType-to-class not ownskey type
+      throw Error "Unknown node type: $(type)"
 
-    exports[type].from-JSON(...obj[1 til Infinity])
-  else if is-object! obj
-    if not is-string! obj.type
-      throw Error "Expected an object with a string 'type' key"
-  
-    if exports not ownskey obj.type
-      throw Error "Unknown node type: $(obj.type)"
-  
-    exports[obj.type].from-JSON(obj)
+    NodeType-to-class[type].from-JSON(...obj[1 til Infinity])
   else 
     throw TypeError "Must provide an object or array to deserialize"
 
