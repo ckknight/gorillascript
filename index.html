@@ -1105,6 +1105,16 @@ case is-bad()
 default
   "neutral"
 </code></pre>
+  
+    <p>Unlike JavaScript, GorillaScript requires a <code class="language-gorillascript">default</code> block as part of the <code class="language-gorillascript">switch</code>. If not specified, then it will cause an error if it is ever reached. Granted, if you cover all possible situations in your <code class="language-gorillascript">case</code>s, this is not a problem. Also, you can always just specify <code class="language-gorillascript">default; void</code> in order for nothing to occur.</p>
+    
+    <pre class="gs-code"><code class="language-gorillascript">switch value
+case 0, 1
+  "low"
+case 2, 3
+  "high"
+// no default
+</code></pre>
   </section>
 
   <section id="try-catch">
