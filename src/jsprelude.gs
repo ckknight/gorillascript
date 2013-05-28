@@ -1699,7 +1699,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
       type
     else
       let basetype = @basetype(type)
-      if @name(basetype) in [\Array, \Function]
+      if @name(basetype) in [\Array, \Function] or @get-const-value("DISABLE_GENERICS", false)
         basetype
       else
         let type-arguments = @array (for subtype in @type-arguments(type); translate-generic-type subtype)
@@ -1952,7 +1952,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
     result := ASTE __curry $(params.length), $result
   
   let generic-args = @func-generic(node)
-  if generic-args.length > 0
+  if generic-args.length > 0 and not @get-const-value("DISABLE_GENERICS", false)
     let generic-cache = @tmp \cache, false, \object
     let generic-params = for generic-arg in generic-args; @param(generic-arg)
     let make-function-ident = @tmp \make, false, \function
@@ -2884,7 +2884,7 @@ macro class
     
     let mutable display-name = if @is-ident(name) then @const(@name(name))
     if display-name?
-      if generic-args.length > 0
+      if generic-args.length > 0 and not @get-const-value("DISABLE_GENERICS", false)
         let parts = [display-name, @const("<")]
         for generic-arg, i in generic-args
           if i > 0
@@ -3031,37 +3031,50 @@ macro class
       return $name
     
     if generic-args.length > 0
-      let generic-cache = @tmp \cache, false, \object
-      let generic-params = for generic-arg in generic-args; @param(generic-arg)
-      let make-class-ident = @tmp \make, false, \function
-      let instanceofs = {}
-      for generic-arg in generic-args
-        let name = @name(generic-arg)
-        let key = @tmp "instanceof_$(name)", false, \function
-        instanceofs[name] := {
-          key
-          let: AST let $key = __get-instanceof($generic-arg)
-          used: false
-        }
-      result := @walk @macro-expand-all(result), #(node)@
-        if @is-binary(node) and @op(node) == \instanceof
-          let right = @right(node)
-          if @is-ident(right)
-            let name = @name(right)
-            if instanceofs ownskey name
-              let func = instanceofs[name].key
-              instanceofs[name].used := true
-              let left = @left(node)
-              return ASTE $func($left)
-      let instanceof-lets = for name, item of instanceofs
-        if item.used
-          item.let
-      if instanceof-lets.length
-        result := AST
-          $instanceof-lets
-          $result
-      let make-class-func = @func(generic-params, result, true, false)
-      result := AST __generic-func $(generic-args.length), $make-class-func
+      if @get-const-value("DISABLE_GENERICS", false)
+        let names = {}
+        for generic-arg in generic-args
+          let name = @name(generic-arg)
+          names[name] := true
+        result := @walk @macro-expand-all(result), #(node)@
+          if @is-binary(node) and @op(node) == \instanceof
+            let right = @right(node)
+            if @is-ident(right)
+              let name = @name(right)
+              if names ownskey name
+                return ASTE true
+      else
+        let generic-cache = @tmp \cache, false, \object
+        let generic-params = for generic-arg in generic-args; @param(generic-arg)
+        let make-class-ident = @tmp \make, false, \function
+        let instanceofs = {}
+        for generic-arg in generic-args
+          let name = @name(generic-arg)
+          let key = @tmp "instanceof_$(name)", false, \function
+          instanceofs[name] := {
+            key
+            let: AST let $key = __get-instanceof($generic-arg)
+            used: false
+          }
+        result := @walk @macro-expand-all(result), #(node)@
+          if @is-binary(node) and @op(node) == \instanceof
+            let right = @right(node)
+            if @is-ident(right)
+              let name = @name(right)
+              if instanceofs ownskey name
+                let func = instanceofs[name].key
+                instanceofs[name].used := true
+                let left = @left(node)
+                return ASTE $func($left)
+        let instanceof-lets = for name, item of instanceofs
+          if item.used
+            item.let
+        if instanceof-lets.length
+          result := AST
+            $instanceof-lets
+            $result
+        let make-class-func = @func(generic-params, result, true, false)
+        result := AST __generic-func $(generic-args.length), $make-class-func
     
     if declaration?
       AST let $declaration = $result

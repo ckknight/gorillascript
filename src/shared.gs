@@ -1,2 +1,3 @@
 const DEBUG = false
 const DISABLE_TYPE_CHECKING = not DEBUG
+const DISABLE_GENERICS = not DEBUG

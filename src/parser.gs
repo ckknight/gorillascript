@@ -767,14 +767,6 @@ let any-except(mutable rule as ->)
     if not rule parser, index
       AnyChar parser, index
 
-if not DEBUG
-  multiple.generic := #-> multiple
-  one-of.generic := #-> one-of
-  sequential.generic := #-> sequential
-  cons.generic := #-> cons
-  concat.generic := #-> concat
-  separated-list.generic := #-> separated-list
-
 macro character!(chars, name)
   if @is-const(chars)
     if not is-string! @value(chars)
@@ -3821,8 +3813,9 @@ let convert-invocation-or-access = do
         links.push {} <<< part <<< { is-new }
         is-new := false
       case \generic
-        links.push { type: \access, child: parser.Const(index, \generic), -existential }
-        links.push { type: \call, args: part.args, -existential }
+        if not parser.get-const-value("DISABLE_GENERICS", false)
+          links.push { type: \access, child: parser.Const(index, \generic), -existential }
+          links.push { type: \call, args: part.args, -existential }
       default
         throw Error "Unknown link type: $(part.type)"
   
@@ -5653,6 +5646,13 @@ class Parser
     let consts = @macros.consts
     if consts ownskey name
       { value: consts[name] }
+  
+  def get-const-value(name as String, default-value)
+    let c = @get-const(name)
+    if c
+      c.value
+    else
+      default-value
   
   def deserialize-macros(data)
     for type, deserializer of macro-deserializers
