@@ -20,6 +20,18 @@ let map(array, func, arg)
   else
     array
 
+let simplify-array(mutable array as [])
+  if array.length == 0
+    array
+  else
+    array := array.slice()
+    for item, i in array by -1
+      if not item or item instanceof NothingNode or item.length == 0
+        array.pop()
+      else
+        break
+    array
+
 class Node
   def constructor() -> throw Error "Node should not be instantiated directly"
   
@@ -76,6 +88,8 @@ class Node
       this
   
   @by-type-id := []
+  def _to-JSON()
+    return simplify-array(for arg-name in @constructor.arg-names; this[arg-name])
 
 let inspect-helper(depth, name, index, ...args)
   let d = if depth? then depth - 1 else null
@@ -352,7 +366,7 @@ node-class AccessNode(parent as Node, child as Node)
     else
       this
   def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
-node-class AccessMultiNode(parent as Node, elements as [Node])
+node-class AccessMultiNode(parent as Node, elements as [Node] = [])
   def type() -> Type.array
   def _reduce(o)
     let mutable parent = @parent.reduce(o)
@@ -374,7 +388,7 @@ node-class ArgsNode
   def type() -> Type.args
   def cacheable = false
   def _is-noop() -> true
-node-class ArrayNode(elements as [Node])
+node-class ArrayNode(elements as [Node] = [])
   def type() -> Type.array
   def _reduce(o)
     let elements = map @elements, #(x) -> x.reduce(o).do-wrap(o)
@@ -655,7 +669,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       else
         this
   def _is-noop(o) -> @__is-noop ?= @left.is-noop(o) and @right.is-noop(o)
-node-class BlockNode(nodes as [Node], label as IdentNode|TmpNode|null)
+node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
   def type(o)
     let nodes = @nodes
     if nodes.length == 0
@@ -706,7 +720,7 @@ node-class BreakNode(label as IdentNode|TmpNode|null)
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
     BreakNode @index, @scope, label
-node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as Boolean)
+node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-apply as Boolean)
   def type = do
     let PRIMORDIAL_FUNCTIONS =
       Object: Type.object
@@ -982,7 +996,7 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
       else
         this
 
-node-class CascadeNode(node as Node, cascades as [])
+node-class CascadeNode(node as Node, cascades as [] = [])
 
 node-class CommentNode(text as String)
   def type() -> Type.undefined
@@ -1010,6 +1024,7 @@ node-class ConstNode(value as Number|String|Boolean|void|null)
   def is-const-value(value) -> value == @value
   def _is-noop() -> true
   def inspect(depth) -> "ConstNode($(inspect @value, null, if depth? then depth - 1 else null))"
+  def _to-JSON() -> [@value]
 node-class ContinueNode(label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
@@ -1049,7 +1064,7 @@ node-class ForInNode(key as Node, object as Node, body as Node, label as IdentNo
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
     ForInNode @index, @scope, @key, @object, @body, label
-node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
+node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
   def type(o) -> @_type ?=
     // TODO: handle generator types
     if @as-type?
@@ -1077,6 +1092,7 @@ node-class FunctionNode(params as [Node], body as Node, auto-return as Boolean =
       walker @body
       return-type.function()
   def _is-noop(o) -> true
+  def _to-JSON() -> [@params, @body, @auto-return, ...simplify-array [@bound, @curry, @as-type, @generator, @generic]]
 node-class IdentNode(name as String)
   def cacheable = false
   def type(o)
@@ -1229,7 +1245,7 @@ node-class NothingNode
   def is-const-type(type) -> type == \undefined
   def is-const-value(value) -> value == void
   def _is-noop() -> true
-node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void }], prototype as Node|void)
+node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void }] = [], prototype as Node|void)
   def type(o) -> @_type ?=
     let data = {}
     for {key, value} in @pairs
@@ -1316,7 +1332,7 @@ Node.object := #(index, pairs, prototype)
   @Object index, pairs, prototype
 Node.object-param := Node.object
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
-node-class RegexpNode(source as Node, flags as String)
+node-class RegexpNode(source as Node, flags as String = "")
   def type() -> Type.regexp
   def _is-noop(o) -> @text.is-noop(o)
   def _reduce(o)
@@ -1368,7 +1384,7 @@ Node.string := #(index, mutable parts as [Node])
         right: part
       }, this, index
 
-node-class SuperNode(child as Node|void, args as [Node])
+node-class SuperNode(child as Node|void, args as [Node] = [])
   def _reduce(o)
     let child = if @child? then @child.reduce(o).do-wrap(o) else @child
     let args = map @args, #(node, o) -> node.reduce(o).do-wrap(o), o
@@ -1376,7 +1392,7 @@ node-class SuperNode(child as Node|void, args as [Node])
       SuperNode @index, @scope, child, args
     else
       this
-node-class SwitchNode(node as Node, cases as [], default-case as Node|void, label as IdentNode|TmpNode|null)
+node-class SwitchNode(node as Node, cases as [] = [], default-case as Node|void, label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?=
     for reduce case_ in @cases, type = if @default-case? then @default-case.type(o) else Type.undefined
       if case_.fallthrough
@@ -1424,10 +1440,10 @@ node-class SwitchNode(node as Node, cases as [], default-case as Node|void, labe
     else
       this
   def is-statement() -> true
-node-class SyntaxChoiceNode(choices as [Node])
+node-class SyntaxChoiceNode(choices as [Node] = [])
 node-class SyntaxManyNode(inner as Node, multiplier as String)
 node-class SyntaxParamNode(ident as Node, as-type as Node|void)
-node-class SyntaxSequenceNode(params as [Node])
+node-class SyntaxSequenceNode(params as [Node] = [])
 node-class ThisNode
   def cacheable = false
   def _is-noop() -> true
@@ -1448,7 +1464,12 @@ node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def cacheable = false
   def type() -> @_type
   def _is-noop() -> true
-node-class TmpWrapperNode(node as Node, tmps as [])
+  def _to-JSON()
+    if @_type == Type.any
+      [@id, @name]
+    else
+      [@id, @name, @_type]
+node-class TmpWrapperNode(node as Node, tmps as [] = [])
   def type(o) -> @node.type(o)
   def with-label(label as IdentNode|TmpNode|null, o)
     TmpWrapperNode @index, @scope, @node.with-label(label, o), @tmps
@@ -1493,7 +1514,7 @@ node-class TryFinallyNode(try-body as Node, finally-body as Node, label as Ident
   def with-label(label as IdentNode|TmpNode|null)
     TryFinallyNode @index, @scope, @try-body, @finally-body, label
 node-class TypeFunctionNode(return-type as Node)
-node-class TypeGenericNode(basetype as Node, args as [Node])
+node-class TypeGenericNode(basetype as Node, args as [Node] = [])
 node-class TypeObjectNode(pairs as [])
   let reduce-pair(pair, o)
     let key = pair.key.reduce(o)
@@ -1508,7 +1529,7 @@ node-class TypeObjectNode(pairs as [])
       TypeObjectNode @index, @scope, pairs
     else
       this
-node-class TypeUnionNode(types as [Node])
+node-class TypeUnionNode(types as [Node] = [])
 node-class UnaryNode(op as String, node as Node)
   def type = do
     let ops =

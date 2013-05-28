@@ -563,8 +563,8 @@ class MacroContext
         [
           ConstNode obj.index, scope, obj.type-id
           ConstNode obj.index, scope, obj.index
-          ...(for k in obj.constructor.arg-names
-            constify-object obj[k], obj.index, scope)
+          ...(for item in obj._to-JSON()
+            constify-object item, obj.index, scope)
         ]
     else
       ObjectNode index, scope, for k, v of obj
