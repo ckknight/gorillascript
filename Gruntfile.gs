@@ -35,12 +35,16 @@ module.exports := #(grunt)
           "extras/gorillascript.min.js": ["extras/gorillascript.js"]
         }
     
+    clean:
+      test: ["test-js"]
+    
     mochaTest:
       test:
         src: ["test-js/**/*.js"]
     
   
   grunt.load-npm-tasks "grunt-gorilla"
+  grunt.load-npm-tasks "grunt-contrib-clean"
   grunt.load-npm-tasks "grunt-contrib-uglify"
   grunt.load-npm-tasks "grunt-mocha-test"
   grunt.register-task "build", ["gorilla:build"]
@@ -107,6 +111,6 @@ module.exports := #(grunt)
     grunt.file.write "extras/gorillascript.js", code
     grunt.log.writeln 'File "extras/gorillascript.js" created.'
     done()
+  grunt.register-task "test", ["clean:test", "gorilla:test", "mochaTest:test"]
   grunt.register-task "default", ["build", "test", "browser"]
-  grunt.register-task "test", ["gorilla:test", "mochaTest:test"]
   grunt.register-task "full", ["default", "uglify"]

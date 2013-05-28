@@ -16,7 +16,7 @@ describe "switch", #
     expect(run 1).to.equal "one"
     expect(run 2).to.equal "two"
     expect(run "a").to.equal "eh"
-    expect(run "other").to.be.undefined
+    expect(#-> run "other").throws Error, r"Unhandled value in switch"
   
   it "fallsthrough to the next case if fallthrough is detected", #
     let run(num)
@@ -33,7 +33,7 @@ describe "switch", #
     expect(run 2).to.equal "two or three"
     expect(run 3).to.equal "two or three"
     expect(run "a").to.equal "eh"
-    expect(run "other").to.be.undefined
+    expect(#-> run "other").throws Error, r"Unhandled value in switch"
   
   it "will execute code before falling through", #
     let run(num)
@@ -55,7 +55,7 @@ describe "switch", #
     expect(run 2).to.equal "two"
     expect(run 3).to.equal "three"
     expect(run "a").to.equal "eh"
-    expect(run "other").to.be.undefined
+    expect(#-> run "other").throws Error, r"Unhandled value in switch"
   
   it "will execute the default block if no case reached", #
     let run(num)
@@ -101,7 +101,7 @@ describe "switch", #
 
     expect(run 1).to.equal "one"
     expect(run 2).to.equal "two"
-    expect(run 3).to.equal undefined
+    expect(#-> run 3).throws Error, r"Unhandled value in switch"
 
   it "allows non-const case nodes, stopping on the first equal value", #
     let f = stub().returns 1
@@ -144,6 +144,7 @@ describe "switch", #
     expect(fun.call(obj, "this")).to.equal obj
     //arrayEq ["arguments"], fun("arguments")[:]
     //arrayEq ["arguments", "alpha", "bravo", "charlie"], fun("arguments", "alpha", "bravo", "charlie")[:]
+    expect(#-> fun.call(obj, "other")).throws Error, r"Unhandled value in switch"
   
   it "should have this and arguments available in the case checks when an implicit closure is made", #
     let fun(value)
@@ -171,6 +172,7 @@ describe "switch", #
 
     expect(fun.call({ value: 1 })).to.equal "one"
     expect(fun.call({ value: 2 })).to.equal "two"
+    expect(#-> fun.call({ value: 3 })).throws Error, r"Unhandled value in switch"
 
   /*
   it "should have arguments available in the value check when an implicit closure is made", #
@@ -223,7 +225,7 @@ describe "topicless switch", #
     expect(run 1).to.equal "one"
     expect(run 2).to.equal "two"
     expect(run "a").to.equal "eh"
-    expect(run "other").to.be.undefined
+    expect(#-> run "other").throws Error, r"Unhandled value in switch"
 
   it "works with fallthrough", #
     let run(num)
@@ -240,7 +242,7 @@ describe "topicless switch", #
     expect(run 2).to.equal "two or three"
     expect(run 3).to.equal "two or three"
     expect(run "a").to.equal "eh"
-    expect(run "other").to.be.undefined
+    expect(#-> run "other").throws Error, r"Unhandled value in switch"
 
   it "works with fallthrough and body", #
     let run(num)
@@ -262,7 +264,7 @@ describe "topicless switch", #
     expect(run 2).to.equal "two"
     expect(run 3).to.equal "three"
     expect(run "a").to.equal "eh"
-    expect(run "other").to.be.undefined
+    expect(#-> run "other").throws Error, r"Unhandled value in switch"
 
   it "works with default case", #
     let run(num)

@@ -2290,10 +2290,10 @@ macro switch
         node: case-nodes[* - 1]
         body: body
         fallthrough: is-fallthrough
-    @switch(node, result-cases, default-case)
+    @switch node, result-cases, default-case or AST throw Error "Unhandled value in switch"
   
   syntax cases as ("\n", "case", test as Logic, body as (BodyNoEnd | (";", this as Statement))?)*, default-case as ("\n", "default", this as (BodyNoEnd | (";", this as Statement))?)?, "end"
-    for reduce case_ in cases by -1, current = default-case
+    for reduce case_ in cases by -1, current = default-case or AST throw Error "Unhandled value in switch"
       let test = case_.test
       let mutable body = case_.body
       let mutable is-fallthrough = false

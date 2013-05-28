@@ -534,7 +534,8 @@ exports.BlockStatement := class BlockStatement extends Statement
       if pos.file and not result[0].pos.file
         result[0].pos.file := pos.file
       return result[0]
-    @body := result
+    default
+      @body := result
   
   def compile(options, level, mutable line-start, sb)!
     if level != Level.block
@@ -624,7 +625,8 @@ exports.BlockExpression := class BlockExpression extends Expression
       if pos.file and not result[0].pos.file
         result[0].pos.file := pos.file
       return result[0]
-    @body := result
+    default
+      @body := result
   
   def to-statement() -> BlockStatement @pos, @body
   
