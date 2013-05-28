@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 require! ast: './jsast'
 let AstNode = ast.Node
 require! Type: './types'

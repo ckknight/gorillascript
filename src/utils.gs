@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 let inspect = require('util')?.inspect
 let path = require('path')
 let fs = require('fs')

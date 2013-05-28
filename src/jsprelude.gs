@@ -1002,10 +1002,12 @@ define helper __to-array = #(x) as []
     throw TypeError "Expected an object, got " ~& typeof! x
   else if is-array! x
     x
-  else if typeof x == \string
+  else if is-string! x
     x.split ""
-  else
+  else if is-number! x.length
     __slice@ x
+  else
+    throw TypeError "Expected an object with a length property, got " ~& typeof! x
 
 define helper __create = if is-function! Object.create
   Object.create
@@ -1374,7 +1376,10 @@ macro for
               init.push AST let mutable $index = $length + $start
           else
             init.push let-length
-            init.push AST let mutable $index = __int($start)
+            init.push if @get-const-value("DISABLE_TYPE_CHECKING", false)
+              AST let mutable $index = +$start
+            else
+              AST let mutable $index = __int($start)
             init.push ASTE if $index ~< 0 then ($index += $length)
           if @is-const(end) and (@value(end) == Infinity or (@is-const(inclusive) and @value(inclusive) and @value(end) == -1))
             [ASTE $index ~< $length, ASTE ($index ~+= $step)]
@@ -1428,9 +1433,13 @@ macro for
             [ASTE if $inclusive then $index ~>= $tmp else $index ~> $tmp, ASTE $index ~+= $step]
       else
         if @is-complex(step)
-          step := @cache (ASTE __int(__nonzero($step))), init, \step, false
+          if @get-const-value("DISABLE_TYPE_CHECKING", false)
+            step := @cache (ASTE +$step), init, \step, false
+          else
+            step := @cache (ASTE __int(__nonzero($step))), init, \step, false
         else
-          init.unshift ASTE __int(__nonzero($step))
+          if not @get-const-value("DISABLE_TYPE_CHECKING", false)
+            init.unshift ASTE __int(__nonzero($step))
         init.push let-length
         if not start
           init.push AST let mutable $index = if $step ~> 0 then 0 else $length ~- 1
@@ -3234,7 +3243,7 @@ define operator binary >> with precedence: 13, type: \function, right-to-left: t
 define helper __curry = #(num-args as Number, f as ->) as (->)
   if num-args > 1
     let currier(args)
-      if args.length >= num-args
+      if args.length ~>= num-args
         f.apply this, args
       else
         let ret()

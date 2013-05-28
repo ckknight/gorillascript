@@ -12,7 +12,7 @@ module.exports := #(grunt)
           expand: true
           cwd: "src/"
           src: for filter file in fs.readdir-sync('./src')
-            path.extname(file) == ".gs" and not file.match r"prelude\.gs\$"
+            path.extname(file) == ".gs" and not file.match(r"prelude\.gs\$") and file != "shared.gs"
           dest: "lib/"
           ext: ".js"
         }]

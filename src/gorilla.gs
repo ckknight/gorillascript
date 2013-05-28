@@ -1,3 +1,8 @@
+import 'shared.gs'
+
+// since this is the public API, we want to keep type-checking on here, at least
+const DISABLE_TYPE_CHECKING = false
+
 require! './parser'
 require! os
 require! fs

@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 require! util
 let inspect = util?.inspect
 let {pad-left} = require './utils'

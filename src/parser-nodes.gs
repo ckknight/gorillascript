@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 require! Type: './types'
 let {node-to-type, map, map-async} = require './parser-utils'
 let {quote, is-primordial} = require './utils'
@@ -946,7 +948,8 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
             if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name
               try
                 let value = GLOBAL[func.name]@ void, ...const-args
-                return ConstNode @index, @scope, value
+                if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+                  return ConstNode @index, @scope, value
               catch e
                 // TODO: do something here to alert the user
                 void
@@ -958,7 +961,8 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
               if is-function! p-value[c-value]
                 try
                   let value = p-value[c-value] ...const-args
-                  return ConstNode @index, @scope, value
+                  if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+                    return ConstNode @index, @scope, value
                 catch e
                   // TODO: do something here to alert the user
                   void
@@ -966,7 +970,8 @@ node-class CallNode(func as Node, args as [Node], is-new as Boolean, is-apply as
               if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
                 try
                   let value = GLOBAL[parent.name][c-value] ...const-args
-                  return ConstNode @index, @scope, value
+                  if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+                    return ConstNode @index, @scope, value
                 catch e
                   // TODO: do something here to alert the user
                   void

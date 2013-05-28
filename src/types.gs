@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 require! util
 let inspect = util?.inspect
 

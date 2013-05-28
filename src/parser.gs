@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 require! Node: './parser-nodes'
 require! Scope: './parser-scope'
 require! MacroContext: './parser-macrocontext'
@@ -6,10 +8,6 @@ require! Type: './types'
 let {string-repeat} = require('./utils')
 let {add-param-to-scope} = require('./parser-utils')
 let {quote, unique, get-package-version} = require './utils'
-
-const DEBUG = false
-
-const DISABLE_TYPE_CHECKING = not DEBUG
 
 const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 const EMBED_OPEN_DEFAULT = "<%"
@@ -4243,7 +4241,7 @@ let MacroSyntax = sequential(
       throw SHORT_CIRCUIT
     let options = MacroOptions parser, params.index
     parser.start-macro-syntax index, params.value, options.value
-    add-macro-syntax-parameters-to-scope params, scope
+    add-macro-syntax-parameters-to-scope params.value, scope
     scope.add parser.Ident(index, \macro-name), true, Type.string
     let body = FunctionBody parser, options.index
     if not body
@@ -4668,12 +4666,32 @@ let Shebang = maybe sequential(
   ExclamationPointChar
   zero-or-more any-except Newline)
 
+let Imports = maybe separated-list(
+  sequential(
+    word "import"
+    Space
+    [\this, SingleStringLiteral]) |> mutate #(x, parser, index)
+    if not x.is-const() or not is-string! x.const-value()
+      throw ParserError "Expected a string literal in import statement", parser, index
+    x.const-value()
+  SomeEmptyLines), # []
+
 let RootP = promise! #(parser as Parser)*
   let bom = BOM parser, 0
   let shebang = Shebang parser, bom.index
-  let empty = EmptyLines parser, shebang.index
+  let mutable empty = EmptyLines parser, shebang.index
+  let imports = Imports parser, empty.index
+  if imports.value.length and not parser.options.filename
+    throw ParserError "Cannot use the import statement if not compiling from a file", parser, empty.index
+  empty := EmptyLines parser, imports.index
   if Eof parser, empty.index
     return Box empty.index, parser.Root empty.index, parser.options.filename, parser.Nothing empty.index
+  for import-file in imports.value
+    parser.clear-cache()
+    if parser.options.sync
+      parser.import-sync import-file, imports.index
+    else
+      yield parser.import import-file, imports.index
   parser.clear-cache()
   let root = if parser.options.sync then RootInnerP.sync parser, empty.index else yield RootInnerP parser, empty.index
   parser.clear-cache()
@@ -4872,6 +4890,36 @@ class Parser
       "end-of-input"
     
     ParserError "Expected $(build-expected @failure-messages), but $last-token found", this, index
+  
+  def import = promise! #(filename as String, index as Number)!*
+    require! fs
+    require! path
+    if not is-string! @options.filename
+      throw ParserError "Cannot import if the filename option is not provided", this, index
+    
+    let full-filename = path.resolve path.dirname(@options.filename), filename
+    
+    let source = if @options.sync
+      fs.read-file-sync full-filename, "utf8"
+    else
+      yield to-promise! fs.read-file full-filename, "utf8"
+    
+    let parse-options = {
+      filename: full-filename
+      noindent: @options.noindent
+      sync: @options.sync
+    }
+    
+    let result = if @options.sync
+      parse.sync(source, @macros, parse-options)
+    else
+      yield parse(source, @macros, parse-options)
+    @macros := result.macros
+  
+  def import-sync(filename as String, index as Number)
+    if not @options.sync
+      throw Error "Expected options.sync to be true"
+    @import.sync@ this, filename, index
   
   def push-scope(is-top as Boolean, parent as Scope|null)
     let scope = (parent or @scope.peek()).clone(is-top)

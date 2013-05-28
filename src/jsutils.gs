@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 let {pad-left} = require './utils'
 
 let is-acceptable-ident = do

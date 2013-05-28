@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 require! Type: './types'
 
 let node-to-type = do

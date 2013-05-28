@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 require! Type: './types'
 require! Node: './parser-nodes'
 

@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 require! source-map: "source-map"
 
 module.exports := class SourceMap

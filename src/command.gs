@@ -1,3 +1,5 @@
+import 'shared.gs'
+
 require! './gorilla'
 require! util
 require! fs
