@@ -1139,7 +1139,7 @@ node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingN
     else
       this
   def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
-node-class MacroAccessNode(id as Number, call-line as Number, data as Object, position as String, in-generator as Boolean, in-evil-ast as Boolean, do-wrapped as Boolean)
+node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in-statement as Boolean, in-generator as Boolean, in-evil-ast as Boolean, do-wrapped as Boolean)
   def type(o) -> @_type ?=
     let type = o.macros.get-type-by-id(@id)
     if type?
@@ -1176,7 +1176,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
     #(func)
       let data = walk-item(@data, func)
       if data != @data
-        MacroAccessNode @index, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast, @do-wrapped
+        MacroAccessNode @index, @scope, @id, @call-line, data, @in-statement, @in-generator, @in-evil-ast, @do-wrapped
       else
         this
   def walk-async = do
@@ -1208,7 +1208,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
     #(func, callback)
       async! callback, data <- walk-item @data, func
       callback null, if data != @data
-        MacroAccessNode @index, @scope, @id, @call-line, data, @position, @in-generator, @in-evil-ast, @do-wrapped
+        MacroAccessNode @index, @scope, @id, @call-line, data, @in-statement, @in-generator, @in-evil-ast, @do-wrapped
       else
         this
   def _is-noop(o) -> o.macro-expand-1(this).is-noop(o)
@@ -1216,7 +1216,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, po
     if @do-wrapped
       this
     else
-      MacroAccessNode @index, @scope, @id, @call-line, @data, @position, @in-generator, @in-evil-ast, true
+      MacroAccessNode @index, @scope, @id, @call-line, @data, @in-statement, @in-generator, @in-evil-ast, true
 node-class MacroConstNode(name as String)
   def type(o) -> @_type ?=
     let c = o.get-const(@name)

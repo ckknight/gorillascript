@@ -5509,7 +5509,7 @@ class Parser
     let macros = @macros
     let mutator = #(data, parser, index)
       if parser.in-ast.peek() or not parser.expanding-macros
-        parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
+        parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek() == \statement, parser.in-generator.peek(), parser.in-evil-ast.peek()
       else
         throw Error "Cannot use macro until fully defined"
     for m in macros.get-or-add-by-names @current-macro
@@ -5525,7 +5525,7 @@ class Parser
     
     let mutator = #(data, parser, index)@
       if parser.in-ast.peek() or not parser.expanding-macros
-        parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
+        parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek() == \statement, parser.in-generator.peek(), parser.in-evil-ast.peek()
       else
         let scope = parser.push-scope(false)
         let macro-context = MacroContext parser, index, parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
@@ -5666,7 +5666,7 @@ class Parser
       let nodes = []
       while node instanceof MacroAccessNode
         nodes.push node
-        @position.push node.position
+        @position.push if node.in-statement then \statement else \expression
         @in-generator.push node.in-generator
         @in-evil-ast.push node.in-evil-ast
         @scope.push node.scope
