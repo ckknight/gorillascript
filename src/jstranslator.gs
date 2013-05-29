@@ -1248,6 +1248,8 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
           ast.Access pos, head, \concat
           rest
 
+const UNASSIGNED_TAINT_KEY = "\0"
+
 let translators =
   [ParserNodeType.Access]: #(node, scope, location, unassigned)
     let t-parent = translate node.parent, scope, \expression, unassigned
@@ -1389,9 +1391,12 @@ let translators =
     let t-label = node.label and translate node.label, scope, \label
     let t-init = if node.init? then translate node.init, scope, \expression, unassigned
     // don't send along the normal unassigned array, since the loop could be repeated thus requiring reset to void.
-    let t-test = if node.test? then translate node.test, scope, \expression
-    let t-step = if node.step? then translate node.step, scope, \expression
-    let t-body = translate node.body, scope, \statement
+    let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
+    let t-test = if node.test? then translate node.test, scope, \expression, body-unassigned
+    let t-body = translate node.body, scope, \statement, body-unassigned
+    let t-step = if node.step? then translate node.step, scope, \expression, body-unassigned
+    if unassigned
+      unassigned <<< body-unassigned
     # -> ast.For get-pos(node),
       t-init?()
       t-test?()
@@ -1403,7 +1408,10 @@ let translators =
     let t-label = node.label and translate node.label, scope, \label
     let t-key = translate node.key, scope, \left-expression
     let t-object = translate node.object, scope, \expression, unassigned
-    let t-body = translate node.body, scope, \statement
+    let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
+    let t-body = translate node.body, scope, \statement, body-unassigned
+    if unassigned
+      unassigned <<< body-unassigned
     #
       let key = t-key()
       if key not instanceof ast.Ident
@@ -1726,14 +1734,24 @@ let translators =
   [ParserNodeType.Switch]: #(node, scope, location, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-node = translate node.node, scope, \expression, unassigned
+    let mutable current-unassigned = unassigned and {} <<< unassigned
     let t-cases = for case_ in node.cases
-      {
+      let new-case = {
         pos: get-pos(case_.node)
-        t-node: translate case_.node, scope, \expression, unassigned
-        t-body: translate case_.body, scope, \statement, unassigned
+        t-node: translate case_.node, scope, \expression, current-unassigned
+        t-body: translate case_.body, scope, \statement, current-unassigned
         case_.fallthrough
       }
-    let t-default-case = if node.default-case? then translate node.default-case, scope, \statement, unassigned
+      if not case_.fallthrough and unassigned
+        for k, v of current-unassigned
+          if not v
+            unassigned[k] := false
+        current-unassigned := {} <<< unassigned
+      new-case
+    let t-default-case = if node.default-case? then translate node.default-case, scope, \statement, current-unassigned
+    for k, v of current-unassigned
+      if not v
+        unassigned[k] := false
     #
       ast.Switch get-pos(node),
         t-node()
@@ -1806,7 +1824,7 @@ let translators =
     #-> ast.Unary get-pos(node), node.op, t-subnode()
   
   [ParserNodeType.Var]: #(node, scope, location, unassigned)
-    if unassigned and node.ident instanceof ParserNode.Ident and unassigned not ownskey node.ident.name
+    if unassigned and not unassigned[UNASSIGNED_TAINT_KEY] and node.ident instanceof ParserNode.Ident and unassigned not ownskey node.ident.name
       unassigned[node.ident.name] := true
     let t-ident = translate node.ident, scope, \left-expression
     #

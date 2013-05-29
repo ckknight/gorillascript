@@ -1097,13 +1097,35 @@ describe "loops", #
     else
       throw Error()"""), (e) -> e.line == 4 or true
   */
-  it "Variable inside loop should be reset til undefined", #
+  it "Variable inside loop should be reset to undefined", #
     for i in 1 til 10
       let mutable value = undefined
       if i == 5
         value := "other"
       else
         expect(value).to.equal undefined
+  
+  it "Variable outside loop should be reset to undefined", #
+    let mutable value = undefined
+    for i in 1 til 10
+      value := undefined
+      if i == 5
+        value := "other"
+      else
+        expect(value).to.equal undefined
+    expect(value).to.equal undefined
+  
+  it "Variable outside loop should be expected value, even after setting to undefined", #
+    let mutable value = undefined
+    for i in 1 til 10
+      if i == 5
+        value := "other"
+        break
+      else
+        expect(value).to.equal undefined
+    expect(value).to.equal "other"
+    value := undefined
+    expect(value).to.equal undefined
 
   it "a simple for loop without a return does not return an array", #
     let fun()
