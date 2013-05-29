@@ -329,7 +329,7 @@ const Infinity = 1 ~/ 0
 const NaN = 0 ~/ 0
 
 define operator assign ~*=, ~/=, ~%= with type: \number
-  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+  if @is-ident-or-tmp(left)
     @mutate-last right or @noop(), (#(n)@
       if op == "~*="
         @assign left, "*=", n
@@ -414,7 +414,7 @@ define operator assign ~+= with type: \number
       return @assign left, "-=", @const(~-value)
   
   if @is-type left, \numeric
-    if @can-mutate-last(right) and @is-ident-or-tmp(left)
+    if @is-ident-or-tmp(left)
       @mutate-last right or @noop(), (#(mutable n)@
         if not @is-type n, \numeric
           n := ASTE ~+$n
@@ -424,7 +424,7 @@ define operator assign ~+= with type: \number
         right := ASTE ~+$right
       @assign left, "+=", right
   else
-    if @can-mutate-last(right) and @is-ident-or-tmp(left)
+    if @is-ident-or-tmp(left)
       @mutate-last right or @noop(), (#(n)@ -> @assign left, "-=", ASTE ~-$n), true
     else
       @assign left, "-=", ASTE ~-$right
@@ -436,7 +436,7 @@ define operator assign ~-= with type: \number
       return @unary "--", left
     else if value == ~-1
       return @unary "++", left
-  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+  if @is-ident-or-tmp(left)
     @mutate-last right or @noop(), (#(n)@ -> @assign left, "-=", n), true
   else
     @assign left, "-=", right
@@ -450,7 +450,7 @@ define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 9, m
     @binary left, ">>>", right
 
 define operator assign ~bitlshift=, ~bitrshift=, ~biturshift= with type: \number
-  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+  if @is-ident-or-tmp(left)
     @mutate-last right or @noop(), (#(n)@
       if op == "~bitlshift="
         @assign left, "<<=", n
@@ -467,7 +467,7 @@ define operator assign ~bitlshift=, ~bitrshift=, ~biturshift= with type: \number
       @assign left, ">>>=", right
 
 define operator assign ~&= with type: \string
-  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+  if @is-ident-or-tmp(left)
     @mutate-last right or @noop(), (#(mutable n)@
       if @has-type(left, \numeric) and @has-type(n, \numeric)
         n := ASTE "" ~& n
@@ -851,7 +851,7 @@ define operator binary ~bitxor with precedence: 1, type: \number
   @binary left, "^", right
 
 define operator assign ~bitand=, ~bitor=, ~bitxor= with type: \number
-  if @can-mutate-last(right) and @is-ident-or-tmp(left)
+  if @is-ident-or-tmp(left)
     @mutate-last right or @noop(), (#(n)@
       if op == "~bitand="
         @assign left, "&=", n

@@ -86,6 +86,8 @@ class Node
       result
     else
       this
+  def mutate-last(o, func, include-noop)
+    func(this) ? this
   
   @by-type-id := []
   def _to-JSON()
@@ -726,11 +728,23 @@ node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
         this
   def is-statement() -> for some node in @nodes by -1; node.is-statement()
   def _is-noop(o) -> @__is-noop ?= for every node in @nodes by -1; node.is-noop(o)
+  def mutate-last(o, func, include-noop)
+    let nodes = @nodes
+    let len = nodes.length
+    if len == 0
+      Noop(@index, @scope).mutate-last o, func, include-noop
+    else
+      let last-node = nodes[len - 1].mutate-last o, func, include-noop
+      if last-node != nodes[len - 1]
+        BlockNode @index, @scope, [...nodes[0 til -1], last-node]
+      else
+        this
 node-class BreakNode(label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
     BreakNode @index, @scope, label
+  def mutate-last() -> this
 node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-apply as Boolean)
   def type = do
     let PRIMORDIAL_FUNCTIONS =
@@ -1041,9 +1055,11 @@ node-class ContinueNode(label as IdentNode|TmpNode|null)
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
     ContinueNode @index, @scope, label
+  def mutate-last() -> this
 node-class DebuggerNode
   def type() -> Type.undefined
   def is-statement() -> true
+  def mutate-last() -> this
 node-class DefNode(left as Node, right as Node|void)
   def type(o) -> if @right? then @right.type(o) else Type.any
 node-class EmbedWriteNode(text as Node, escape as Boolean)
@@ -1150,6 +1166,13 @@ node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingN
     else
       this
   def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
+  def mutate-last(o, func, include-noop)
+    let when-true = @when-true.mutate-last o, func, include-noop
+    let when-false = @when-false.mutate-last o, func, include-noop
+    if when-true != @when-true or when-false != @when-false
+      IfNode @index, @scope, @test, when-true, when-false, @label
+    else
+      this
 node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in-statement as Boolean, in-generator as Boolean, in-evil-ast as Boolean, do-wrapped as Boolean)
   def type(o) -> @_type ?=
     let type = o.macros.get-type-by-id(@id)
@@ -1228,6 +1251,8 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in
       this
     else
       MacroAccessNode @index, @scope, @id, @call-line, @data, @in-statement, @in-generator, @in-evil-ast, true
+  def mutate-last(o, func, include-noop)
+    o.macro-expand-1(this).mutate-last(o, func, include-noop)
 node-class MacroConstNode(name as String)
   def type(o) -> @_type ?=
     let c = o.get-const(@name)
@@ -1256,6 +1281,11 @@ node-class NothingNode
   def is-const-type(type) -> type == \undefined
   def is-const-value(value) -> value == void
   def _is-noop() -> true
+  def mutate-last(o, func, include-noop)
+    if include-noop
+      func(this) ? this
+    else
+      this
 node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void }] = [], prototype as Node|void)
   def type(o) -> @_type ?=
     let data = {}
@@ -1361,11 +1391,12 @@ node-class ReturnNode(node as Node = ConstNode(index, scope, void))
   def type(o) -> @node.type(o)
   def is-statement() -> true
   def _reduce(o)
-    let node = @node.reduce(o).do-wrap(o)
+    let node = @node.reduce(o)
     if node != @node
       ReturnNode @index, @scope, node
     else
       this
+  def mutate-last() -> this
 node-class RootNode(file as String|void, body as Node, is-embedded as Boolean, is-generator as Boolean)
   def is-statement() -> true
 node-class SpreadNode(node as Node)
@@ -1403,7 +1434,7 @@ node-class SuperNode(child as Node|void, args as [Node] = [])
       SuperNode @index, @scope, child, args
     else
       this
-node-class SwitchNode(node as Node, cases as [] = [], default-case as Node|void, label as IdentNode|TmpNode|null)
+node-class SwitchNode(node as Node, cases as [] = [], default-case as Node = NoopNode(index, scope), label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?=
     for reduce case_ in @cases, type = if @default-case? then @default-case.type(o) else Type.undefined
       if case_.fallthrough
@@ -1451,6 +1482,23 @@ node-class SwitchNode(node as Node, cases as [] = [], default-case as Node|void,
     else
       this
   def is-statement() -> true
+  def mutate-last(o, func, include-noop)
+    let mutable cases-changed = false
+    let cases = for case_ in @cases
+      if case_.fallthrough
+        case_
+      else
+        let body = case_.body.mutate-last o, func, include-noop
+        if body != case_.body
+          cases-changed := true
+          { case_.node, body, case_.fallthrough }
+        else
+          case_
+    let default-case = @default-case.mutate-last o, func, include-noop
+    if cases-changed or default-case != @default-case
+      SwitchNode @index, @scope, @node, cases, default-case, @label
+    else
+      this
 node-class SyntaxChoiceNode(choices as [Node] = [])
 node-class SyntaxManyNode(inner as Node, multiplier as String)
 node-class SyntaxParamNode(ident as Node, as-type as Node|void)
@@ -1471,6 +1519,7 @@ node-class ThrowNode(node as Node)
     CallNode @index, @scope,
       IdentNode @index, @scope, \__throw
       [@node]
+  def mutate-last() -> this
 node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def cacheable = false
   def type() -> @_type
@@ -1500,12 +1549,25 @@ node-class TmpWrapperNode(node as Node, tmps as [] = [])
       TmpWrapperNode @index, @scope, node, @tmps
     else
       this
+  def mutate-last(o, func, include-noop)
+    let node = @node.mutate-last o, func, include-noop
+    if node != @node
+      TmpWrapperNode @index, @scope, node, @tmps
+    else
+      this
 node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Node, label as IdentNode|TmpNode|null)
   def type(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
   def is-statement() -> true
   def _is-noop(o) -> @try-body.is-noop(o)
   def with-label(label as IdentNode|TmpNode|null)
     TryCatchNode @index, @scope, @try-body, @catch-ident, @catch-body, label
+  def mutate-last(o, func, include-noop)
+    let try-body = @try-body.mutate-last o, func, include-noop
+    let catch-body = @catch-body.mutate-last o, func, include-noop
+    if try-body != @try-body or catch-body != @catch-body
+      TryCatchNode @index, @scope, try-body, @catch-ident, catch-body, @label
+    else
+      this
 node-class TryFinallyNode(try-body as Node, finally-body as Node, label as IdentNode|TmpNode|null)
   def type(o) -> @try-body.type(o)
   def _reduce(o)
@@ -1524,6 +1586,12 @@ node-class TryFinallyNode(try-body as Node, finally-body as Node, label as Ident
   def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
   def with-label(label as IdentNode|TmpNode|null)
     TryFinallyNode @index, @scope, @try-body, @finally-body, label
+  def mutate-last(o, func, include-noop)
+    let try-body = @try-body.mutate-last o, func, include-noop
+    if try-body != @try-body
+      TryFinallyNode @index, @scope, try-body, @finally-body, @label
+    else
+      this
 node-class TypeFunctionNode(return-type as Node)
 node-class TypeGenericNode(basetype as Node, args as [Node] = [])
 node-class TypeObjectNode(pairs as [])

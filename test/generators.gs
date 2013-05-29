@@ -246,6 +246,26 @@ describe "yield with try-catch", #
     expect(to-array fun(true)).to.eql ["alpha", "bravo", "delta", "echo"]
     expect(to-array fun(false)).to.eql ["alpha", "bravo", "charlie", "echo"]
 
+describe "yield with return in try-catch", #
+  let obj = {}
+  let fun(value)*
+    yield "alpha"
+    try
+      yield "bravo"
+      if value
+        throw obj
+      yield "charlie"
+    catch e
+      expect(e).to.equal obj
+      yield "delta"
+      return
+      yield "echo"
+    yield "foxtrot"
+    
+  it "yields expected items", #
+    expect(to-array fun(true)).to.eql ["alpha", "bravo", "delta"]
+    expect(to-array fun(false)).to.eql ["alpha", "bravo", "charlie", "foxtrot"]
+
 describe "yield with try-finally", #
   let obj = Error()
   let fun-this = {}

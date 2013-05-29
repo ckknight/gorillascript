@@ -670,58 +670,6 @@ class MacroContext
       throw Error "$name is not a known type name"
     node.type(@parser).overlaps(type) // TODO: should this be macro-expand-all?
   
-  let mutators =
-    [ParserNodeType.Block]: #(x, func)
-      let {nodes} = x
-      let len = nodes.length
-      if len != 0
-        let last-node = @mutate-last(nodes[len - 1], func)
-        if last-node != nodes[len - 1]
-          return BlockNode x.index, x.scope, [...nodes[0 til -1], last-node], x.label
-      x
-    [ParserNodeType.If]: #(x, func)
-      let when-true = @mutate-last x.when-true, func
-      let when-false = @mutate-last x.when-false, func
-      if when-true != x.when-true or when-false != x.when-false
-        IfNode x.index, x.scope, x.test, when-true, when-false, x.label
-      else
-        x
-    [ParserNodeType.Switch]: #(x, func)
-      let cases = map x.cases, #(case_)@
-        if case_.fallthrough
-          case_
-        else
-          let body = @mutate-last case_.body, func
-          if body != case_.body
-            { case_.node, body, case_.fallthrough }
-          else
-            case_
-      let default-case = @mutate-last (x.default-case or @noop()), func
-      if cases != x.cases or default-case != x.default-case
-        SwitchNode x.index, x.scope, x.node, cases, default-case, x.label
-      else
-        x
-    [ParserNodeType.TmpWrapper]: #(x, func)
-      let node = @mutate-last x.node, func
-      if node != x.node
-        TmpWrapperNode x.index, x.scope, node, x.tmps
-      else
-        x
-    [ParserNodeType.MacroAccess]: #(x, func)
-      @mutate-last @macro-expand-1(x), func
-    [ParserNodeType.TryCatch]: #(x, func)
-      let try-body = @mutate-last x.try-body, func
-      let catch-body = @mutate-last x.catch-body, func
-      if try-body != x.try-body or catch-body != x.catch-body
-        TryCatchNode x.index, x.scope, try-body, x.catch-ident, catch-body, x.label
-      else
-        x
-    [ParserNodeType.Break]: identity
-    [ParserNodeType.Continue]: identity
-    [ParserNodeType.Nothing]: identity
-    [ParserNodeType.Return]: identity
-    [ParserNodeType.Debugger]: identity
-    [ParserNodeType.Throw]: identity
   def mutate-last(mutable node, func as Node -> Node, include-noop)
     if not is-object! node or node instanceof RegExp
       return node
@@ -729,12 +677,6 @@ class MacroContext
     if node not instanceof Node
       throw Error "Unexpected type to mutate-last through: $(typeof! node)"
     
-    if mutators not ownskey node.type-id or (include-noop and node instanceof NothingNode)
-      func@(this, node) ? node
-    else
-      mutators[node.type-id]@(this, node, func)
-  
-  def can-mutate-last(node)
-    node instanceof Node and mutators ownskey node.type-id
+    node.mutate-last @parser, func, include-noop
 
 module.exports := MacroContext

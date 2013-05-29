@@ -18334,6 +18334,14 @@
               return this;
             }
           };
+          _Node_prototype.mutateLast = function (o, func, includeNoop) {
+            var _ref;
+            if ((_ref = func(this)) != null) {
+              return _ref;
+            } else {
+              return this;
+            }
+          };
           Node.byTypeId = [];
           _Node_prototype._toJSON = function () {
             var _this;
@@ -19503,7 +19511,7 @@
               }
             };
             return function (o) {
-              var _ref, left, op, right;
+              var _ref, _ref2, left, op, right;
               left = this.left.reduce(o).doWrap(o);
               right = this.right.reduce(o).doWrap(o);
               op = this.op;
@@ -19511,15 +19519,29 @@
                 if (right.isConst() && __owns.call(constOps, op)) {
                   return ConstNode(this.index, this.scope, constOps[op](left.constValue(), right.constValue()));
                 }
-                if (__owns.call(leftConstOps, op) && (_ref = leftConstOps[op].call(this, left, right, o)) != null) {
-                  return _ref;
+                if (__owns.call(leftConstOps, op)) {
+                  if ((_ref = leftConstOps[op].call(this, left, right, o)) != null) {
+                    return _ref;
+                  }
+                } else if ((_ref2 = void 0) != null) {
+                  return _ref2;
                 }
               }
-              if (right.isConst() && __owns.call(rightConstOps, op) && (_ref = rightConstOps[op].call(this, left, right, o)) != null) {
-                return _ref;
+              if (right.isConst()) {
+                if (__owns.call(rightConstOps, op)) {
+                  if ((_ref = rightConstOps[op].call(this, left, right, o)) != null) {
+                    return _ref;
+                  }
+                } else if ((_ref2 = void 0) != null) {
+                  return _ref2;
+                }
               }
-              if (__owns.call(nonConstOps, op) && (_ref = nonConstOps[op].call(this, left, right, o)) != null) {
-                return _ref;
+              if (__owns.call(nonConstOps, op)) {
+                if ((_ref = nonConstOps[op].call(this, left, right, o)) != null) {
+                  return _ref;
+                }
+              } else if ((_ref2 = void 0) != null) {
+                return _ref2;
               }
               if (left !== this.left || right !== this.right) {
                 return BinaryNode(
@@ -19736,6 +19758,21 @@
               return _ref;
             }
           };
+          _BlockNode_prototype.mutateLast = function (o, func, includeNoop) {
+            var lastNode, len, nodes;
+            nodes = this.nodes;
+            len = nodes.length;
+            if (len === 0) {
+              return Noop(this.index, this.scope).mutateLast(o, func, includeNoop);
+            } else {
+              lastNode = nodes[len - 1].mutateLast(o, func, includeNoop);
+              if (lastNode !== nodes[len - 1]) {
+                return BlockNode(this.index, this.scope, __toArray(__slice.call(nodes, 0, -1)).concat([lastNode]));
+              } else {
+                return this;
+              }
+            }
+          };
           _BlockNode_prototype.inspect = function (depth) {
             return inspectHelper(
               depth,
@@ -19831,6 +19868,9 @@
               label = null;
             }
             return BreakNode(this.index, this.scope, label);
+          };
+          _BreakNode_prototype.mutateLast = function () {
+            return this;
           };
           _BreakNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "BreakNode", this.index, this.label);
@@ -20062,8 +20102,8 @@
               _this = this;
               if ((_ref = this._type) == null) {
                 return this._type = (function () {
-                  var _ref, _ref2, _ref3, _ref4, child, func, funcType, name, parent,
-                      parentType;
+                  var _ref, _ref2, _ref3, _ref4, _ref5, child, func, funcType, name,
+                      parent, parentType;
                   func = _this.func;
                   funcType = func.type(o);
                   if (funcType.isSubsetOf(Type["function"])) {
@@ -20087,8 +20127,18 @@
                         if (parentType.isSubsetOf(Type["function"])) {
                           return parentType.args[0];
                         }
-                      } else if (parent instanceof IdentNode && __owns.call(PRIMORDIAL_SUBFUNCTIONS, _ref = parent.name) && __owns.call(_ref2 = PRIMORDIAL_SUBFUNCTIONS[_ref], _ref3 = child.value) && (_ref4 = _ref2[_ref3]) != null) {
-                        return _ref4;
+                      } else if (parent instanceof IdentNode) {
+                        if (__owns.call(PRIMORDIAL_SUBFUNCTIONS, _ref = parent.name)) {
+                          if (__owns.call(_ref2 = PRIMORDIAL_SUBFUNCTIONS[_ref], _ref3 = child.value)) {
+                            if ((_ref4 = _ref2[_ref3]) != null) {
+                              return _ref4;
+                            }
+                          } else if ((_ref5 = void 0) != null) {
+                            return _ref5;
+                          }
+                        } else if ((_ref2 = void 0) != null) {
+                          return _ref2;
+                        }
                       }
                     }
                   }
@@ -20485,6 +20535,9 @@
             }
             return ContinueNode(this.index, this.scope, label);
           };
+          _ContinueNode_prototype.mutateLast = function () {
+            return this;
+          };
           _ContinueNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "ContinueNode", this.index, this.label);
           };
@@ -20553,6 +20606,9 @@
           };
           _DebuggerNode_prototype.isStatement = function () {
             return true;
+          };
+          _DebuggerNode_prototype.mutateLast = function () {
+            return this;
           };
           _DebuggerNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "DebuggerNode", this.index);
@@ -21537,6 +21593,23 @@
               return _ref;
             }
           };
+          _IfNode_prototype.mutateLast = function (o, func, includeNoop) {
+            var whenFalse, whenTrue;
+            whenTrue = this.whenTrue.mutateLast(o, func, includeNoop);
+            whenFalse = this.whenFalse.mutateLast(o, func, includeNoop);
+            if (whenTrue !== this.whenTrue || whenFalse !== this.whenFalse) {
+              return IfNode(
+                this.index,
+                this.scope,
+                this.test,
+                whenTrue,
+                whenFalse,
+                this.label
+              );
+            } else {
+              return this;
+            }
+          };
           _IfNode_prototype.inspect = function (depth) {
             return inspectHelper(
               depth,
@@ -21867,6 +21940,9 @@
               );
             }
           };
+          _MacroAccessNode_prototype.mutateLast = function (o, func, includeNoop) {
+            return o.macroExpand1(this).mutateLast(o, func, includeNoop);
+          };
           _MacroAccessNode_prototype.inspect = function (depth) {
             return inspectHelper(
               depth,
@@ -21986,6 +22062,18 @@
           };
           _NothingNode_prototype._isNoop = function () {
             return true;
+          };
+          _NothingNode_prototype.mutateLast = function (o, func, includeNoop) {
+            var _ref;
+            if (includeNoop) {
+              if ((_ref = func(this)) != null) {
+                return _ref;
+              } else {
+                return this;
+              }
+            } else {
+              return this;
+            }
           };
           _NothingNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "NothingNode", this.index);
@@ -22515,12 +22603,15 @@
           };
           _ReturnNode_prototype._reduce = function (o) {
             var node;
-            node = this.node.reduce(o).doWrap(o);
+            node = this.node.reduce(o);
             if (node !== this.node) {
               return ReturnNode(this.index, this.scope, node);
             } else {
               return this;
             }
+          };
+          _ReturnNode_prototype.mutateLast = function () {
+            return this;
           };
           _ReturnNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "ReturnNode", this.index, this.node);
@@ -22850,7 +22941,7 @@
               cases = [];
             }
             if (defaultCase == null) {
-              defaultCase = void 0;
+              defaultCase = NoopNode(index, scope);
             }
             if (label == null) {
               label = null;
@@ -23048,6 +23139,38 @@
           };
           _SwitchNode_prototype.isStatement = function () {
             return true;
+          };
+          _SwitchNode_prototype.mutateLast = function (o, func, includeNoop) {
+            var _arr, _arr2, _i, _len, body, case_, cases, casesChanged, defaultCase;
+            casesChanged = false;
+            for (_arr = [], _arr2 = __toArray(this.cases), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+              case_ = _arr2[_i];
+              if (case_.fallthrough) {
+                _arr.push(case_);
+              } else {
+                body = case_.body.mutateLast(o, func, includeNoop);
+                if (body !== case_.body) {
+                  casesChanged = true;
+                  _arr.push({ node: case_.node, body: body, fallthrough: case_.fallthrough });
+                } else {
+                  _arr.push(case_);
+                }
+              }
+            }
+            cases = _arr;
+            defaultCase = this.defaultCase.mutateLast(o, func, includeNoop);
+            if (casesChanged || defaultCase !== this.defaultCase) {
+              return SwitchNode(
+                this.index,
+                this.scope,
+                this.node,
+                cases,
+                defaultCase,
+                this.label
+              );
+            } else {
+              return this;
+            }
           };
           _SwitchNode_prototype.inspect = function (depth) {
             return inspectHelper(
@@ -23388,6 +23511,9 @@
               [this.node]
             );
           };
+          _ThrowNode_prototype.mutateLast = function () {
+            return this;
+          };
           _ThrowNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "ThrowNode", this.index, this.node);
           };
@@ -23542,6 +23668,15 @@
               return this;
             }
           };
+          _TmpWrapperNode_prototype.mutateLast = function (o, func, includeNoop) {
+            var node;
+            node = this.node.mutateLast(o, func, includeNoop);
+            if (node !== this.node) {
+              return TmpWrapperNode(this.index, this.scope, node, this.tmps);
+            } else {
+              return this;
+            }
+          };
           _TmpWrapperNode_prototype.inspect = function (depth) {
             return inspectHelper(
               depth,
@@ -23631,6 +23766,23 @@
               this.catchBody,
               label
             );
+          };
+          _TryCatchNode_prototype.mutateLast = function (o, func, includeNoop) {
+            var catchBody, tryBody;
+            tryBody = this.tryBody.mutateLast(o, func, includeNoop);
+            catchBody = this.catchBody.mutateLast(o, func, includeNoop);
+            if (tryBody !== this.tryBody || catchBody !== this.catchBody) {
+              return TryCatchNode(
+                this.index,
+                this.scope,
+                tryBody,
+                this.catchIdent,
+                catchBody,
+                this.label
+              );
+            } else {
+              return this;
+            }
           };
           _TryCatchNode_prototype.inspect = function (depth) {
             return inspectHelper(
@@ -23810,6 +23962,21 @@
               this.finallyBody,
               label
             );
+          };
+          _TryFinallyNode_prototype.mutateLast = function (o, func, includeNoop) {
+            var tryBody;
+            tryBody = this.tryBody.mutateLast(o, func, includeNoop);
+            if (tryBody !== this.tryBody) {
+              return TryFinallyNode(
+                this.index,
+                this.scope,
+                tryBody,
+                this.finallyBody,
+                this.label
+              );
+            } else {
+              return this;
+            }
           };
           _TryFinallyNode_prototype.inspect = function (depth) {
             return inspectHelper(
@@ -25249,7 +25416,7 @@
           return this;
         }
         MacroContext = (function () {
-          var _MacroContext_prototype, mutators;
+          var _MacroContext_prototype;
           function MacroContext(parser, index, position, inGenerator, inEvilAst) {
             var _this;
             _this = this instanceof MacroContext ? this : __create(_MacroContext_prototype);
@@ -25644,6 +25811,8 @@
               }
               if (__owns.call(Type, type)) {
                 type = Type[type];
+              } else {
+                type = void 0;
               }
             } else if (!(type instanceof Type)) {
               throw Error("Must provide a Type or a string for type, got " + __typeof(type));
@@ -26471,127 +26640,14 @@
             }
             return node.type(this.parser).overlaps(type);
           };
-          mutators = {
-            7: function (x, func) {
-              var lastNode, len, nodes;
-              nodes = x.nodes;
-              len = nodes.length;
-              if (len !== 0) {
-                lastNode = this.mutateLast(nodes[len - 1], func);
-                if (lastNode !== nodes[len - 1]) {
-                  return BlockNode(
-                    x.index,
-                    x.scope,
-                    __toArray(__slice.call(nodes, 0, -1)).concat([lastNode]),
-                    x.label
-                  );
-                }
-              }
-              return x;
-            },
-            22: function (x, func) {
-              var whenFalse, whenTrue;
-              whenTrue = this.mutateLast(x.whenTrue, func);
-              whenFalse = this.mutateLast(x.whenFalse, func);
-              if (whenTrue !== x.whenTrue || whenFalse !== x.whenFalse) {
-                return IfNode(
-                  x.index,
-                  x.scope,
-                  x.test,
-                  whenTrue,
-                  whenFalse,
-                  x.label
-                );
-              } else {
-                return x;
-              }
-            },
-            33: function (x, func) {
-              var _this, cases, defaultCase;
-              _this = this;
-              cases = map(x.cases, function (case_) {
-                var body;
-                if (case_.fallthrough) {
-                  return case_;
-                } else {
-                  body = _this.mutateLast(case_.body, func);
-                  if (body !== case_.body) {
-                    return { node: case_.node, body: body, fallthrough: case_.fallthrough };
-                  } else {
-                    return case_;
-                  }
-                }
-              });
-              defaultCase = this.mutateLast(x.defaultCase || this.noop(), func);
-              if (cases !== x.cases || defaultCase !== x.defaultCase) {
-                return SwitchNode(
-                  x.index,
-                  x.scope,
-                  x.node,
-                  cases,
-                  defaultCase,
-                  x.label
-                );
-              } else {
-                return x;
-              }
-            },
-            41: function (x, func) {
-              var node;
-              node = this.mutateLast(x.node, func);
-              if (node !== x.node) {
-                return TmpWrapperNode(x.index, x.scope, node, x.tmps);
-              } else {
-                return x;
-              }
-            },
-            23: function (x, func) {
-              return this.mutateLast(this.macroExpand1(x), func);
-            },
-            42: function (x, func) {
-              var catchBody, tryBody;
-              tryBody = this.mutateLast(x.tryBody, func);
-              catchBody = this.mutateLast(x.catchBody, func);
-              if (tryBody !== x.tryBody || catchBody !== x.catchBody) {
-                return TryCatchNode(
-                  x.index,
-                  x.scope,
-                  tryBody,
-                  x.catchIdent,
-                  catchBody,
-                  x.label
-                );
-              } else {
-                return x;
-              }
-            },
-            8: identity,
-            13: identity,
-            25: identity,
-            29: identity,
-            14: identity,
-            39: identity
-          };
           _MacroContext_prototype.mutateLast = function (node, func, includeNoop) {
-            var _ref;
             if (typeof node !== "object" || node === null || node instanceof RegExp) {
               return node;
             }
             if (!(node instanceof Node)) {
               throw Error("Unexpected type to mutate-last through: " + __typeof(node));
             }
-            if (!__owns.call(mutators, node.typeId) || includeNoop && node instanceof NothingNode) {
-              if ((_ref = func.call(this, node)) != null) {
-                return _ref;
-              } else {
-                return node;
-              }
-            } else {
-              return mutators[node.typeId].call(this, node, func);
-            }
-          };
-          _MacroContext_prototype.canMutateLast = function (node) {
-            return node instanceof Node && __owns.call(mutators, node.typeId);
+            return node.mutateLast(this.parser, func, includeNoop);
           };
           return MacroContext;
         }());
@@ -27309,21 +27365,6 @@
           };
           return Scope;
         }());
-        function wrapReturn(x) {
-          return x.mutateLast(function (n) {
-            return ast.Return(n.pos, n);
-          });
-        }
-        function identity(x) {
-          return x;
-        }
-        function makeAutoReturn(x) {
-          if (x) {
-            return wrapReturn;
-          } else {
-            return identity;
-          }
-        }
         function makeHasGeneratorNode() {
           var inLoopCache, inSwitchCache, normalCache, returnFreeCache;
           inLoopCache = Cache();
@@ -27564,14 +27605,6 @@
                   return node;
                 }
               });
-            }
-          };
-          _GeneratorState_prototype.returnOrAdd = function (isReturn, pos, tNode) {
-            if (isReturn) {
-              this["return"](pos, tNode);
-              return this;
-            } else {
-              return this.add(tNode);
             }
           };
           _GeneratorState_prototype.getRedirect = function () {
@@ -28672,7 +28705,7 @@
             }
           }
           statements = {
-            7: function (node, scope, state, breakState, continueState, autoReturn) {
+            7: function (node, scope, state, breakState, continueState) {
               var _arr, acc, i, len, subnode;
               if (node.label != null) {
                 throw Error("Not implemented: block with label in generator");
@@ -28685,8 +28718,7 @@
                   scope,
                   acc,
                   breakState,
-                  continueState,
-                  autoReturn && i === len - 1
+                  continueState
                 );
               }
               return acc;
@@ -28838,7 +28870,7 @@
               postBranch = stepBranch.branch();
               return postBranch;
             },
-            22: function (node, scope, state, breakState, continueState, autoReturn) {
+            22: function (node, scope, state, breakState, continueState) {
               var postBranch, test, tWhenFalse, tWhenTrue, whenFalseBranch,
                   whenTrueBranch;
               test = generatorTranslateExpression(node.test, scope, state, state.hasGeneratorNode(node.test));
@@ -28868,8 +28900,7 @@
                     scope,
                     whenTrueBranch,
                     breakState,
-                    continueState,
-                    autoReturn
+                    continueState
                   ).goto(getPos(node.whenTrue), function () {
                     return postBranch;
                   });
@@ -28883,8 +28914,7 @@
                     scope,
                     whenFalseBranch,
                     breakState,
-                    continueState,
-                    autoReturn
+                    continueState
                   ).goto(getPos(node.whenFalse), function () {
                     return postBranch;
                   });
@@ -28894,7 +28924,7 @@
               } else {
                 tWhenTrue = translate(node.whenTrue, scope, "statement");
                 tWhenFalse = translate(node.whenFalse, scope, "statement");
-                return state.returnOrAdd(autoReturn, getPos(node), function () {
+                return state.add(function () {
                   return ast.If(
                     getPos(node),
                     test.tNode(),
@@ -28905,24 +28935,32 @@
               }
             },
             29: function (node, scope, state) {
-              var gNode, pos;
-              pos = getPos(node);
-              if (node.node.isConst() && node.node.constValue() === void 0) {
-                state["return"](getPos(node));
-                return state;
+              var gNode, mutatedNode;
+              mutatedNode = node.node.mutateLast(null, function (n) {
+                return ParserNode.Return(n.index, n.scope, n);
+              });
+              if (mutatedNode.node === node.node) {
+                if (node.node.isConst() && node.node.constValue() === void 0) {
+                  state["return"](getPos(node));
+                  return state;
+                } else if (!node.node.isStatement()) {
+                  gNode = generatorTranslateExpression(node.node, scope, state, false);
+                  state = gNode.state;
+                  state["return"](getPos(node), function () {
+                    var _ref;
+                    _ref = gNode.tNode();
+                    gNode.cleanup();
+                    return _ref;
+                  });
+                  return state;
+                } else {
+                  return generatorTranslate(mutatedNode.node, scope, state);
+                }
               } else {
-                gNode = generatorTranslateExpression(node.node, scope, state, false);
-                state = gNode.state;
-                state["return"](getPos(node), function () {
-                  var _ref;
-                  _ref = gNode.tNode();
-                  gNode.cleanup();
-                  return _ref;
-                });
-                return state;
+                return generatorTranslate(mutatedNode, scope, state);
               }
             },
-            33: function (node, scope, state, _p, continueState, autoReturn) {
+            33: function (node, scope, state, _p, continueState) {
               var _arr, _f, _len, bodyStates, defaultBranch, defaultCase,
                   gDefaultBody, gNode, i, postBranch, resultCases;
               if (node.label != null) {
@@ -28964,8 +29002,7 @@
                   function () {
                     return postBranch;
                   },
-                  continueState,
-                  autoReturn && !case_.fallthrough
+                  continueState
                 );
                 gCaseBody.goto(getPos(case_.node), case_.fallthrough
                   ? function () {
@@ -28992,8 +29029,7 @@
                   function () {
                     return postBranch;
                   },
-                  continueState,
-                  autoReturn
+                  continueState
                 );
                 gDefaultBody.goto(getPos(node.defaultCase), function () {
                   return postBranch;
@@ -29016,15 +29052,14 @@
                 return ast.Throw(getPos(node), __first(gNode.tNode(), gNode.cleanup()));
               });
             },
-            41: function (node, scope, state, breakState, continueState, autoReturn) {
+            41: function (node, scope, state, breakState, continueState) {
               var _arr, _i, result, tmp;
               result = generatorTranslate(
                 node.node,
                 scope,
                 state,
                 breakState,
-                continueState,
-                autoReturn
+                continueState
               );
               for (_arr = __toArray(node.tmps), _i = _arr.length; _i--; ) {
                 tmp = _arr[_i];
@@ -29032,7 +29067,7 @@
               }
               return result;
             },
-            42: function (node, scope, state, breakState, continueState, autoReturn) {
+            42: function (node, scope, state, breakState, continueState) {
               var postBranch;
               if (node.label != null) {
                 throw Error("Not implemented: try-catch with label in generator");
@@ -29043,8 +29078,7 @@
                 scope,
                 state,
                 breakState,
-                continueState,
-                autoReturn
+                continueState
               );
               state = state.exitTryCatch(
                 getPos(node.tryBody),
@@ -29058,8 +29092,7 @@
                 scope,
                 state,
                 breakState,
-                continueState,
-                autoReturn
+                continueState
               );
               state.goto(getPos(node), function () {
                 return postBranch;
@@ -29067,7 +29100,7 @@
               postBranch = state.branch();
               return postBranch;
             },
-            43: function (node, scope, state, breakState, continueState, autoReturn) {
+            43: function (node, scope, state, breakState, continueState) {
               if (node.label != null) {
                 throw Error("Not implemented: try-finally with label in generator");
               }
@@ -29080,12 +29113,11 @@
                 scope,
                 state,
                 breakState,
-                continueState,
-                autoReturn
+                continueState
               );
               return state.runPendingFinally(getPos(node));
             },
-            50: function (node, scope, state, _p, _p2, autoReturn) {
+            50: function (node, scope, state) {
               var gNode, newState;
               gNode = generatorTranslateExpression(node.node, scope, state, false);
               newState = gNode.state["yield"](getPos(node), function () {
@@ -29094,15 +29126,10 @@
                 gNode.cleanup();
                 return _ref;
               });
-              if (autoReturn) {
-                newState["return"](getPos(node), function () {
-                  return state.builder.receivedIdent;
-                });
-              }
               return newState;
             }
           };
-          return function (node, scope, state, breakState, continueState, autoReturn) {
+          return function (node, scope, state, breakState, continueState) {
             var key, ret;
             if (state.hasGeneratorNode(node)) {
               key = node.typeId;
@@ -29112,9 +29139,7 @@
                   scope,
                   state,
                   breakState,
-                  continueState,
-                  autoReturn,
-                  autoReturn
+                  continueState
                 );
                 if (!(ret instanceof GeneratorState)) {
                   throw Error("Translated non-GeneratorState from " + __typeof(node) + ": " + __typeof(ret));
@@ -29122,7 +29147,7 @@
                 return ret;
               } else {
                 ret = generatorTranslateExpression(node, scope, state);
-                return ret.state.returnOrAdd(autoReturn, getPos(node), function () {
+                return ret.state.add(function () {
                   var _ref;
                   _ref = ret.tNode();
                   ret.cleanup();
@@ -29130,7 +29155,7 @@
                 });
               }
             } else {
-              return state.returnOrAdd(autoReturn, getPos(node), translate(node, scope, "statement", false));
+              return state.add(translate(node, scope, "statement", false));
             }
           };
         }());
@@ -29249,56 +29274,37 @@
           }
         }
         translators = {
-          1: function (node, scope, location, autoReturn, unassigned) {
+          1: function (node, scope, location, unassigned) {
             var tChild, tParent;
-            tParent = translate(
-              node.parent,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
-            tChild = translate(
-              node.child,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tParent = translate(node.parent, scope, "expression", unassigned);
+            tChild = translate(node.child, scope, "expression", unassigned);
             return function () {
-              return autoReturn(ast.Access(getPos(node), tParent(), tChild()));
+              return ast.Access(getPos(node), tParent(), tChild());
             };
           },
-          3: function (node, scope, location, autoReturn) {
+          3: function (node, scope, location) {
             return function () {
-              return autoReturn(ast.Arguments(getPos(node)));
+              return ast.Arguments(getPos(node));
             };
           },
-          4: function (node, scope, location, autoReturn, unassigned) {
+          4: function (node, scope, location, unassigned) {
             var tArr;
             tArr = arrayTranslate(
               getPos(node),
               node.elements,
               scope,
               true,
-              false,
               unassigned
             );
             return function () {
-              return autoReturn(tArr());
+              return tArr();
             };
           },
-          5: function (node, scope, location, autoReturn, unassigned) {
+          5: function (node, scope, location, unassigned) {
             var op, tLeft, tRight;
             op = node.op;
             tLeft = translate(node.left, scope, "leftExpression");
-            tRight = translate(
-              node.right,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tRight = translate(node.right, scope, "expression", unassigned);
             if (unassigned && node.left instanceof ParserNode.Ident) {
               if (op === "=" && unassigned[node.left.name] && node.right.isConst() && node.right.constValue() === void 0) {
                 return function () {
@@ -29308,12 +29314,12 @@
               unassigned[node.left.name] = false;
             }
             return function () {
-              var func, left, right;
+              var left, right;
               left = tLeft();
               right = tRight();
               if (op === "=" && location === "topStatement" && left instanceof ast.Ident && right instanceof ast.Func && right.name == null && scope.hasOwnVariable(left) && !scope.isVariableMutable(left)) {
                 scope.markAsFunction(left);
-                func = ast.Func(
+                return ast.Func(
                   getPos(node),
                   left,
                   right.params,
@@ -29321,53 +29327,34 @@
                   right.body,
                   right.declarations
                 );
-                if (autoReturn !== identity) {
-                  return ast.Block(getPos(node), [func, autoReturn(left)]);
-                } else {
-                  return func;
-                }
               } else {
-                return autoReturn(ast.Binary(getPos(node), left, op, right));
+                return ast.Binary(getPos(node), left, op, right);
               }
             };
           },
-          6: function (node, scope, location, autoReturn, unassigned) {
+          6: function (node, scope, location, unassigned) {
             var tLeft, tRight;
-            tLeft = translate(
-              node.left,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
-            tRight = translate(
-              node.right,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tLeft = translate(node.left, scope, "expression", unassigned);
+            tRight = translate(node.right, scope, "expression", unassigned);
             return function () {
-              return autoReturn(ast.Binary(getPos(node), tLeft(), node.op, tRight()));
+              return ast.Binary(getPos(node), tLeft(), node.op, tRight());
             };
           },
-          7: function (node, scope, location, autoReturn, unassigned) {
-            var tLabel, tNodes;
+          7: function (node, scope, location, unassigned) {
+            var _arr, _arr2, i, len, subnode, tLabel, tNodes;
             tLabel = node.label && translate(node.label, scope, "label");
-            tNodes = translateArray(
-              node.nodes,
-              scope,
-              location,
-              autoReturn,
-              unassigned
-            );
+            for (_arr = [], _arr2 = __toArray(node.nodes), i = 0, len = _arr2.length; i < len; ++i) {
+              subnode = _arr2[i];
+              _arr.push(translate(subnode, scope, location, unassigned));
+            }
+            tNodes = _arr;
             return function () {
               return ast.Block(
                 getPos(node),
                 (function () {
-                  var _arr, _arr2, _i, _len, tNode;
-                  for (_arr = [], _arr2 = __toArray(tNodes), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
-                    tNode = _arr2[_i];
+                  var _arr, _i, _len, tNode;
+                  for (_arr = [], _i = 0, _len = tNodes.length; _i < _len; ++_i) {
+                    tNode = tNodes[_i];
                     _arr.push(tNode());
                   }
                   return _arr;
@@ -29383,15 +29370,9 @@
               return ast.Break(getPos(node), typeof tLabel === "function" ? tLabel() : void 0);
             };
           },
-          9: function (node, scope, location, autoReturn, unassigned) {
+          9: function (node, scope, location, unassigned) {
             var args, isApply, isNew, tArgArray, tFunc, tStart;
-            tFunc = translate(
-              node.func,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tFunc = translate(node.func, scope, "expression", unassigned);
             isApply = node.isApply;
             isNew = node.isNew;
             args = node.args;
@@ -29401,13 +29382,7 @@
                   return ast.Const(getPos(node), void 0);
                 };
               } else {
-                tStart = translate(
-                  args[0],
-                  scope,
-                  "expression",
-                  null,
-                  unassigned
-                );
+                tStart = translate(args[0], scope, "expression", unassigned);
               }
               tArgArray = arrayTranslate(
                 getPos(node),
@@ -29423,17 +29398,17 @@
                 start = tStart();
                 argArray = tArgArray();
                 if (argArray instanceof ast.Arr) {
-                  return autoReturn(ast.Call(
+                  return ast.Call(
                     getPos(node),
                     ast.Access(getPos(node), func, "call"),
                     [start].concat(__toArray(argArray.elements))
-                  ));
+                  );
                 } else {
-                  return autoReturn(ast.Call(
+                  return ast.Call(
                     getPos(node),
                     ast.Access(getPos(node), func, "apply"),
                     [start, argArray]
-                  ));
+                  );
                 }
               };
             } else {
@@ -29457,7 +29432,7 @@
                       _once = true;
                     }
                     scope.addHelper("__slice");
-                    return autoReturn(ast.Call(
+                    return ast.Call(
                       getPos(node),
                       ast.Access(getPos(node), func, "apply"),
                       [
@@ -29475,13 +29450,13 @@
                           ]
                         )
                       ]
-                    ));
+                    );
                   }));
                 } else if (argArray instanceof ast.Arr) {
-                  return autoReturn(ast.Call(getPos(node), func, argArray.elements, isNew));
+                  return ast.Call(getPos(node), func, argArray.elements, isNew);
                 } else if (isNew) {
                   scope.addHelper("__new");
-                  return autoReturn(ast.Call(
+                  return ast.Call(
                     getPos(node),
                     ast.Access(
                       getPos(node),
@@ -29489,7 +29464,7 @@
                       ast.Const(getPos(node), "apply")
                     ),
                     [func, argArray]
-                  ));
+                  );
                 } else if (func instanceof ast.Binary && func.op === ".") {
                   return scope.maybeCache(func.left, Type["function"], (_once2 = false, function (setParent, parent) {
                     if (_once2) {
@@ -29497,33 +29472,33 @@
                     } else {
                       _once2 = true;
                     }
-                    return autoReturn(ast.Call(
+                    return ast.Call(
                       getPos(node),
                       ast.Access(getPos(node), setParent, func.right, "apply"),
                       [parent, argArray]
-                    ));
+                    );
                   }));
                 } else {
-                  return autoReturn(ast.Call(
+                  return ast.Call(
                     getPos(node),
                     ast.Access(getPos(node), func, "apply"),
                     [
                       ast.Const(getPos(node), void 0),
                       argArray
                     ]
-                  ));
+                  );
                 }
               };
             }
           },
-          11: function (node, scope, location, autoReturn) {
+          11: function (node, scope, location) {
             return function () {
               return ast.Comment(getPos(node), node.text);
             };
           },
-          12: function (node, scope, location, autoReturn) {
+          12: function (node, scope, location) {
             return function () {
-              return autoReturn(ast.Const(getPos(node), node.value));
+              return ast.Const(getPos(node), node.value);
             };
           },
           13: function (node, scope) {
@@ -29538,18 +29513,12 @@
               return ast.Debugger(getPos(node));
             };
           },
-          15: function (node, scope, location, autoReturn) {
+          15: function (node, scope, location) {
             throw Error("Cannot have a stray def");
           },
-          16: function (node, scope, location, autoReturn, unassigned) {
+          16: function (node, scope, location, unassigned) {
             var tText;
-            tText = translate(
-              node.text,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tText = translate(node.text, scope, "expression", unassigned);
             return function () {
               return ast.Call(
                 getPos(node),
@@ -29560,30 +29529,18 @@
               );
             };
           },
-          17: function (node, scope, location, autoReturn, unassigned) {
+          17: function (node, scope, location, unassigned) {
             var tCode;
-            tCode = translate(
-              node.code,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tCode = translate(node.code, scope, "expression", unassigned);
             return function () {
-              return autoReturn(ast.Eval(getPos(node), tCode()));
+              return ast.Eval(getPos(node), tCode());
             };
           },
-          18: function (node, scope, location, autoReturn, unassigned) {
+          18: function (node, scope, location, unassigned) {
             var tBody, tInit, tLabel, tStep, tTest;
             tLabel = node.label && translate(node.label, scope, "label");
             if (node.init != null) {
-              tInit = translate(
-                node.init,
-                scope,
-                "expression",
-                null,
-                unassigned
-              );
+              tInit = translate(node.init, scope, "expression", unassigned);
             }
             if (node.test != null) {
               tTest = translate(node.test, scope, "expression");
@@ -29603,17 +29560,11 @@
               );
             };
           },
-          19: function (node, scope, location, autoReturn, unassigned) {
+          19: function (node, scope, location, unassigned) {
             var tBody, tKey, tLabel, tObject;
             tLabel = node.label && translate(node.label, scope, "label");
             tKey = translate(node.key, scope, "leftExpression");
-            tObject = translate(
-              node.object,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tObject = translate(node.object, scope, "expression", unassigned);
             tBody = translate(node.body, scope, "statement");
             return function () {
               var key;
@@ -29781,7 +29732,7 @@
                 return translateTypes[node.typeId](node, scope);
               };
             }());
-            return function (node, scope, location, autoReturn) {
+            return function (node, scope, location) {
               return function () {
                 var _arr, _ref, body, fakeThis, i, initializers, innerScope, len, p,
                     param, paramIdents, realInnerScope, unassigned, wrap;
@@ -29805,9 +29756,8 @@
                 _ref = translateFunctionBody(
                   getPos(node),
                   node.generator,
-                  node.autoReturn,
                   innerScope,
-                  node.body,
+                  node.autoReturn ? ParserNode.Return(node.body.index, node.body.scope, node.body) : node.body,
                   unassigned
                 );
                 body = _ref.body;
@@ -29819,13 +29769,7 @@
                     fakeThis = ast.Ident(getPos(node.body), "_this");
                     innerScope.addVariable(fakeThis);
                     body = ast.Block(getPos(node.body), [
-                      ast.Assign(getPos(node.body), fakeThis, translate(
-                        node.bound,
-                        scope,
-                        "expression",
-                        null,
-                        unassigned
-                      )()),
+                      ast.Assign(getPos(node.body), fakeThis, translate(node.bound, scope, "expression", unassigned)()),
                       body,
                       ast.Return(getPos(node.body), fakeThis)
                     ]);
@@ -29846,18 +29790,18 @@
                 if (node.curry) {
                   throw Error("Expected node to already be curried");
                 }
-                return autoReturn(wrap(ast.Func(
+                return wrap(ast.Func(
                   getPos(node),
                   null,
                   paramIdents,
                   innerScope.getVariables(),
                   body,
                   []
-                )));
+                ));
               };
             };
           }()),
-          21: function (node, scope, location, autoReturn) {
+          21: function (node, scope, location) {
             var name;
             name = node.name;
             scope.addHelper(name);
@@ -29865,7 +29809,7 @@
               var ident;
               ident = ast.Ident(getPos(node), name);
               if (!scope.options.embedded || isPrimordial(name) || location !== "expression" || scope.hasVariable(ident) || scope.macros.hasHelper(name)) {
-                return autoReturn(ident);
+                return ident;
               } else {
                 return ast.Access(
                   getPos(node),
@@ -29875,36 +29819,30 @@
               }
             };
           },
-          22: function (node, scope, location, autoReturn, unassigned) {
-            var innerLocation, tLabel, tTest, tWhenFalse, tWhenTrue;
+          22: function (node, scope, location, unassigned) {
+            var innerLocation, k, tLabel, tTest, tWhenFalse, tWhenTrue, v,
+                whenFalseUnassigned;
             if (location === "statement" || location === "topStatement") {
               innerLocation = "statement";
             } else {
               innerLocation = location;
             }
             tLabel = node.label && translate(node.label, scope, "label");
-            tTest = translate(
-              node.test,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
-            tWhenTrue = translate(
-              node.whenTrue,
-              scope,
-              innerLocation,
-              autoReturn,
-              unassigned
-            );
+            tTest = translate(node.test, scope, "expression", unassigned);
+            whenFalseUnassigned = unassigned && __import({}, unassigned);
+            tWhenTrue = translate(node.whenTrue, scope, innerLocation, unassigned);
             if (node.whenFalse != null) {
-              tWhenFalse = translate(
-                node.whenFalse,
-                scope,
-                innerLocation,
-                autoReturn,
-                unassigned
-              );
+              tWhenFalse = translate(node.whenFalse, scope, innerLocation, whenFalseUnassigned);
+            }
+            if (unassigned) {
+              for (k in whenFalseUnassigned) {
+                if (__owns.call(whenFalseUnassigned, k)) {
+                  v = whenFalseUnassigned[k];
+                  if (!v) {
+                    unassigned[k] = false;
+                  }
+                }
+              }
             }
             return function () {
               return ast.If(
@@ -29921,37 +29859,19 @@
               return ast.Noop(getPos(node));
             };
           },
-          26: function (node, scope, location, autoReturn, unassigned) {
+          26: function (node, scope, location, unassigned) {
             var _arr, _i, _len, pair, properties, tKeys, tPrototype, tValues;
             tKeys = [];
             tValues = [];
             properties = [];
             for (_arr = __toArray(node.pairs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
               pair = _arr[_i];
-              tKeys.push(translate(
-                pair.key,
-                scope,
-                "expression",
-                null,
-                unassigned
-              ));
-              tValues.push(translate(
-                pair.value,
-                scope,
-                "expression",
-                null,
-                unassigned
-              ));
+              tKeys.push(translate(pair.key, scope, "expression", unassigned));
+              tValues.push(translate(pair.value, scope, "expression", unassigned));
               properties.push(pair.property);
             }
             if (node.prototype != null) {
-              tPrototype = translate(
-                node.prototype,
-                scope,
-                "expression",
-                null,
-                unassigned
-              );
+              tPrototype = translate(node.prototype, scope, "expression", unassigned);
             }
             return function () {
               var _len, constPairs, currentPair, currentPairs, i, ident, key,
@@ -30011,7 +29931,7 @@
                 }()));
               }
               if (postConstPairs.length === 0) {
-                return autoReturn(obj);
+                return obj;
               } else {
                 ident = scope.reserveIdent(getPos(node), "o", Type.object);
                 result = ast.BlockExpression(getPos(node), [ast.Assign(getPos(node), ident, obj)].concat(
@@ -30072,93 +29992,68 @@
                   [ident]
                 ));
                 scope.releaseIdent(ident);
-                return autoReturn(result);
+                return result;
               }
             };
           },
-          28: function (node, scope, location, autoReturn, unassigned) {
+          28: function (node, scope, location, unassigned) {
             var tSource;
-            tSource = translate(
-              node.source,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tSource = translate(node.source, scope, "expression", unassigned);
             return function () {
               var flags, source;
               source = tSource();
               flags = node.flags;
               if (source.isConst()) {
-                return autoReturn(ast.Regex(getPos(node), String(source.constValue()), flags));
+                return ast.Regex(getPos(node), String(source.constValue()), flags);
               } else {
-                return autoReturn(ast.Call(
+                return ast.Call(
                   getPos(node),
                   ast.Ident(getPos(node), "RegExp"),
                   [
                     source,
                     ast.Const(getPos(node), flags)
                   ]
-                ));
+                );
               }
             };
           },
-          29: function (node, scope, location, autoReturn, unassigned) {
-            var tValue;
+          29: function (node, scope, location, unassigned) {
+            var mutatedNode, tValue;
             if (location !== "statement" && location !== "topStatement") {
               throw Error("Expected Return in statement position");
             }
-            tValue = translate(
-              node.node,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
-            return function () {
-              return ast.Return(getPos(node), tValue());
-            };
+            mutatedNode = node.node.mutateLast(null, function (n) {
+              return ParserNode.Return(n.index, n.scope, n);
+            });
+            if (mutatedNode.node === node.node) {
+              tValue = translate(node.node, scope, "expression", unassigned);
+              if (node.node.isStatement()) {
+                return tValue;
+              } else {
+                return function () {
+                  return ast.Return(getPos(node), tValue());
+                };
+              }
+            } else {
+              return translate(mutatedNode, scope, location, unassigned);
+            }
           },
-          33: function (node, scope, location, autoReturn, unassigned) {
+          33: function (node, scope, location, unassigned) {
             var _arr, _arr2, _i, _len, case_, tCases, tDefaultCase, tLabel, tNode;
             tLabel = node.label && translate(node.label, scope, "label");
-            tNode = translate(
-              node.node,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tNode = translate(node.node, scope, "expression", unassigned);
             for (_arr = [], _arr2 = __toArray(node.cases), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
               case_ = _arr2[_i];
               _arr.push({
                 pos: getPos(case_.node),
-                tNode: translate(
-                  case_.node,
-                  scope,
-                  "expression",
-                  null,
-                  unassigned
-                ),
-                tBody: translate(
-                  case_.body,
-                  scope,
-                  "statement",
-                  null,
-                  unassigned
-                ),
+                tNode: translate(case_.node, scope, "expression", unassigned),
+                tBody: translate(case_.body, scope, "statement", unassigned),
                 fallthrough: case_.fallthrough
               });
             }
             tCases = _arr;
             if (node.defaultCase != null) {
-              tDefaultCase = translate(
-                node.defaultCase,
-                scope,
-                "statement",
-                null,
-                unassigned
-              );
+              tDefaultCase = translate(node.defaultCase, scope, "statement", unassigned);
             }
             return function () {
               return ast.Switch(
@@ -30171,80 +30066,60 @@
                     caseNode = case_.tNode();
                     caseBody = case_.tBody();
                     if (!case_.fallthrough || i === len - 1 && defaultCase.isNoop()) {
-                      caseBody = ast.Block(case_.pos, [autoReturn(caseBody), ast.Break(caseBody.pos)]);
+                      caseBody = ast.Block(case_.pos, [caseBody, ast.Break(caseBody.pos)]);
                     }
                     _arr.push(ast.Switch.Case(case_.pos, caseNode, caseBody));
                   }
                   return _arr;
                 }()),
-                tDefaultCase != null ? autoReturn(tDefaultCase()) : ast.Noop(getPos(node)),
+                tDefaultCase != null ? tDefaultCase() : ast.Noop(getPos(node)),
                 typeof tLabel === "function" ? tLabel() : void 0
               );
             };
           },
-          32: function (node, scope, location, autoReturn) {
+          32: function (node, scope, location) {
             throw Error("Cannot have a stray super call");
           },
-          40: function (node, scope, location, autoReturn) {
+          40: function (node, scope, location) {
             var ident;
             ident = scope.getTmp(getPos(node), node.id, node.name, node.type());
             return function () {
-              return autoReturn(ident);
+              return ident;
             };
           },
-          41: function (node, scope, location, autoReturn, unassigned) {
+          41: function (node, scope, location, unassigned) {
             var _arr, _i, tmp, tResult;
-            tResult = translate(
-              node.node,
-              scope,
-              location,
-              autoReturn,
-              unassigned
-            );
+            tResult = translate(node.node, scope, location, unassigned);
             for (_arr = __toArray(node.tmps), _i = _arr.length; _i--; ) {
               tmp = _arr[_i];
               scope.releaseTmp(tmp);
             }
             return tResult;
           },
-          38: function (node, scope, location, autoReturn) {
+          38: function (node, scope, location) {
             return function () {
               scope.usedThis = true;
-              return autoReturn(scope.bound ? ast.Ident(getPos(node), "_this") : ast.This(getPos(node)));
+              if (scope.bound) {
+                return ast.Ident(getPos(node), "_this");
+              } else {
+                return ast.This(getPos(node));
+              }
             };
           },
-          39: function (node, scope, location, autoReturn, unassigned) {
+          39: function (node, scope, location, unassigned) {
             var tNode;
-            tNode = translate(
-              node.node,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tNode = translate(node.node, scope, "expression", unassigned);
             return function () {
               return ast.Throw(getPos(node), tNode());
             };
           },
-          42: function (node, scope, location, autoReturn, unassigned) {
+          42: function (node, scope, location, unassigned) {
             var innerScope, tCatchBody, tCatchIdent, tLabel, tTryBody;
             tLabel = node.label && translate(node.label, scope, "label");
-            tTryBody = translate(
-              node.tryBody,
-              scope,
-              "statement",
-              autoReturn,
-              unassigned
-            );
+            tTryBody = translate(node.tryBody, scope, "statement", unassigned);
             innerScope = scope.clone(false);
             tCatchIdent = translate(node.catchIdent, innerScope, "leftExpression");
-            tCatchBody = translate(
-              node.catchBody,
-              innerScope,
-              "statement",
-              autoReturn,
-              unassigned
-            );
+            tCatchBody = translate(node.catchBody, innerScope, "statement", unassigned);
             return function () {
               var catchIdent, result;
               catchIdent = tCatchIdent();
@@ -30263,49 +30138,31 @@
               return result;
             };
           },
-          43: function (node, scope, location, autoReturn, unassigned) {
+          43: function (node, scope, location, unassigned) {
             var tFinallyBody, tLabel, tTryBody;
             tLabel = node.label && translate(node.label, scope, "label");
-            tTryBody = translate(
-              node.tryBody,
-              scope,
-              "statement",
-              autoReturn,
-              unassigned
-            );
-            tFinallyBody = translate(
-              node.finallyBody,
-              scope,
-              "statement",
-              null,
-              unassigned
-            );
+            tTryBody = translate(node.tryBody, scope, "statement", unassigned);
+            tFinallyBody = translate(node.finallyBody, scope, "statement", unassigned);
             return function () {
               return ast.TryFinally(getPos(node), tTryBody(), tFinallyBody(), typeof tLabel === "function" ? tLabel() : void 0);
             };
           },
-          48: function (node, scope, location, autoReturn, unassigned) {
+          48: function (node, scope, location, unassigned) {
             var _ref, tSubnode;
             if (unassigned && ((_ref = node.op) === "++" || _ref === "--" || _ref === "++post" || _ref === "--post") && node.node instanceof ParserNode.Ident) {
               unassigned[node.node.name] = false;
             }
-            tSubnode = translate(
-              node.node,
-              scope,
-              "expression",
-              null,
-              unassigned
-            );
+            tSubnode = translate(node.node, scope, "expression", unassigned);
             return function () {
-              return autoReturn(ast.Unary(getPos(node), node.op, tSubnode()));
+              return ast.Unary(getPos(node), node.op, tSubnode());
             };
           },
-          49: function (node, scope, location, autoReturn, unassigned) {
+          49: function (node, scope, location, unassigned) {
             var tIdent;
             if (unassigned && node.ident instanceof ParserNode.Ident && !__owns.call(unassigned, node.ident.name)) {
               unassigned[node.ident.name] = true;
             }
-            tIdent = translate(node.ident, scope, "leftExpression", autoReturn);
+            tIdent = translate(node.ident, scope, "leftExpression");
             return function () {
               var ident;
               ident = tIdent();
@@ -30314,41 +30171,18 @@
             };
           }
         };
-        function translate(node, scope, location, autoReturn, unassigned) {
+        function translate(node, scope, location, unassigned) {
           var ret;
-          if (typeof autoReturn !== "function") {
-            autoReturn = makeAutoReturn(autoReturn);
-          }
           if (!__owns.call(translators, node.typeId)) {
             throw Error("Unable to translate unknown node type: " + __typeof(node));
           }
-          ret = translators[node.typeId](
-            node,
-            scope,
-            location,
-            autoReturn,
-            unassigned
-          );
+          ret = translators[node.typeId](node, scope, location, unassigned);
           if (typeof ret !== "function") {
             throw Error("Translated non-function: " + __typeof(ret));
           }
           return ret;
         }
-        function translateArray(nodes, scope, location, autoReturn, unassigned) {
-          var _arr, i, len, node;
-          for (_arr = [], i = 0, len = nodes.length; i < len; ++i) {
-            node = nodes[i];
-            _arr.push(translate(
-              nodes[i],
-              scope,
-              location,
-              i === len - 1 && autoReturn,
-              unassigned
-            ));
-          }
-          return _arr;
-        }
-        function translateFunctionBody(pos, isGenerator, autoReturn, scope, body, unassigned) {
+        function translateFunctionBody(pos, isGenerator, scope, body, unassigned) {
           var _ref, builder, hasGeneratorNode, isSimpleGenerator, translatedBody;
           if (unassigned == null) {
             unassigned = {};
@@ -30359,14 +30193,7 @@
             isSimpleGenerator = !hasGeneratorNode(body, true);
             if (!isSimpleGenerator) {
               builder = GeneratorBuilder(pos, scope, hasGeneratorNode);
-              generatorTranslate(
-                body,
-                scope,
-                builder.start,
-                null,
-                null,
-                autoReturn
-              ).goto(pos, function () {
+              generatorTranslate(body, scope, builder.start).goto(pos, function () {
                 return builder.stop;
               });
               translatedBody = builder.create();
@@ -30383,13 +30210,7 @@
               };
             }
           }
-          translatedBody = translate(
-            body,
-            scope,
-            "topStatement",
-            autoReturn,
-            unassigned
-          )();
+          translatedBody = translate(body, scope, "topStatement", unassigned)();
           if (pos.file) {
             if (!(_ref = translatedBody.pos).file) {
               _ref.file = pos.file;
@@ -30473,13 +30294,7 @@
                 scope = scope.clone(true);
               }
               rootPos = getPos(roots[0]);
-              ret = translateFunctionBody(
-                rootPos,
-                roots[0].isGenerator,
-                scope.options["return"] || scope.options["eval"],
-                scope,
-                roots[0].body
-              );
+              ret = translateFunctionBody(rootPos, roots[0].isGenerator, scope, scope.options["return"] || scope.options["eval"] ? ParserNode.Return(roots[0].body.index, roots[0].body.scope, roots[0].body) : roots[0].body);
               if (!(_ref = ret.body.pos).file) {
                 _ref.file = rootPos.file;
               }
@@ -31134,7 +30949,7 @@
         _ref = require("./utils");
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-        exports.version = "0.8.4";
+        exports.version = "0.8.5";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -69429,7 +69244,7 @@
                 if (!this.isType(right, "numeric")) {
                   return this.binary(left, "-", __node(
                     23,
-                    12451,
+                    12423,
                     48,
                     365,
                     { op: "~-", node: __wrap(right) }
@@ -69438,7 +69253,7 @@
                   if (!this.isType(left, "numeric")) {
                     left = __node(
                       23,
-                      12529,
+                      12501,
                       48,
                       368,
                       { op: "~+", node: __wrap(left) }
@@ -69463,26 +69278,26 @@
               if (this.isConst(right)) {
                 value = Number(this.value(right));
                 if (value === 0) {
-                  return __node(7, 12785, [
+                  return __node(7, 12757, [
                     __wrap(left),
-                    __node(12, 12807, 1)
+                    __node(12, 12779, 1)
                   ]);
                 } else if (value === 0.5) {
                   return __node(
                     9,
-                    12851,
+                    12823,
                     __node(
                       1,
-                      12851,
-                      __node(21, 12851, "Math"),
-                      __node(12, 12857, "sqrt")
+                      12823,
+                      __node(21, 12823, "Math"),
+                      __node(12, 12829, "sqrt")
                     ),
                     [__wrap(left)]
                   );
                 } else if (value === 1) {
                   return __node(
                     23,
-                    12908,
+                    12880,
                     48,
                     383,
                     { op: "~+", node: __wrap(left) }
@@ -69491,7 +69306,7 @@
                   return this.maybeCache(left, function (setLeft, left) {
                     return __node(
                       23,
-                      13002,
+                      12974,
                       45,
                       386,
                       { left: __wrap(setLeft), inverted: false, op: "~*", right: __wrap(left) }
@@ -69501,13 +69316,13 @@
                   return this.maybeCache(left, function (setLeft, left) {
                     return __node(
                       23,
-                      13107,
+                      13079,
                       45,
                       389,
                       {
                         left: __node(
                           23,
-                          13107,
+                          13079,
                           45,
                           389,
                           { left: __wrap(setLeft), inverted: false, op: "~*", right: __wrap(left) }
@@ -69521,21 +69336,21 @@
                 } else if (value === -0.5) {
                   return __node(
                     23,
-                    13180,
+                    13152,
                     45,
                     391,
                     {
-                      left: __node(12, 13181, 1),
+                      left: __node(12, 13153, 1),
                       inverted: false,
                       op: "~/",
                       right: __node(
                         9,
-                        13185,
+                        13157,
                         __node(
                           1,
-                          13185,
-                          __node(21, 13185, "Math"),
-                          __node(12, 13191, "sqrt")
+                          13157,
+                          __node(21, 13157, "Math"),
+                          __node(12, 13163, "sqrt")
                         ),
                         [__wrap(left)]
                       )
@@ -69544,11 +69359,11 @@
                 } else if (value === -1) {
                   return __node(
                     23,
-                    13245,
+                    13217,
                     45,
                     393,
                     {
-                      left: __node(12, 13246, 1),
+                      left: __node(12, 13218, 1),
                       inverted: false,
                       op: "~/",
                       right: __wrap(left)
@@ -69558,16 +69373,16 @@
                   return this.maybeCache(left, function (setLeft, left) {
                     return __node(
                       23,
-                      13344,
+                      13316,
                       45,
                       396,
                       {
-                        left: __node(12, 13345, 1),
+                        left: __node(12, 13317, 1),
                         inverted: false,
                         op: "~/",
                         right: __node(
                           23,
-                          13351,
+                          13323,
                           45,
                           396,
                           { left: __wrap(setLeft), inverted: false, op: "~*", right: __wrap(left) }
@@ -69579,22 +69394,22 @@
                   return this.maybeCache(left, function (setLeft, left) {
                     return __node(
                       23,
-                      13458,
+                      13430,
                       45,
                       399,
                       {
-                        left: __node(12, 13459, 1),
+                        left: __node(12, 13431, 1),
                         inverted: false,
                         op: "~/",
                         right: __node(
                           23,
-                          13465,
+                          13437,
                           45,
                           399,
                           {
                             left: __node(
                               23,
-                              13465,
+                              13437,
                               45,
                               399,
                               { left: __wrap(setLeft), inverted: false, op: "~*", right: __wrap(left) }
@@ -69611,12 +69426,12 @@
               }
               return __node(
                 9,
-                13500,
+                13472,
                 __node(
                   1,
-                  13500,
-                  __node(21, 13500, "Math"),
-                  __node(12, 13506, "pow")
+                  13472,
+                  __node(21, 13472, "Math"),
+                  __node(12, 13478, "pow")
                 ),
                 [__wrap(left), __wrap(right)]
               );
@@ -69652,7 +69467,7 @@
               if (this.getConstValue("DISABLE_TYPE_CHECKING", false)) {
                 return __node(
                   23,
-                  18411,
+                  18243,
                   50,
                   565,
                   { left: __wrap(left), inverted: false, op: "~^", right: __wrap(right) }
@@ -69660,13 +69475,13 @@
               } else {
                 return __node(
                   23,
-                  18443,
+                  18275,
                   50,
                   567,
                   {
                     left: __node(
                       23,
-                      18443,
+                      18275,
                       60,
                       567,
                       { op: "+", node: __wrap(left) }
@@ -69675,7 +69490,7 @@
                     op: "~^",
                     right: __node(
                       23,
-                      18453,
+                      18285,
                       60,
                       567,
                       { op: "+", node: __wrap(right) }
@@ -69697,13 +69512,13 @@
               if (op === "*") {
                 return __node(
                   23,
-                  18685,
+                  18517,
                   45,
                   575,
                   {
                     left: __node(
                       23,
-                      18685,
+                      18517,
                       60,
                       575,
                       { op: "+", node: __wrap(left) }
@@ -69712,7 +69527,7 @@
                     op: "~*",
                     right: __node(
                       23,
-                      18695,
+                      18527,
                       60,
                       575,
                       { op: "+", node: __wrap(right) }
@@ -69722,13 +69537,13 @@
               } else if (op === "/") {
                 return __node(
                   23,
-                  18732,
+                  18564,
                   45,
                   577,
                   {
                     left: __node(
                       23,
-                      18732,
+                      18564,
                       60,
                       577,
                       { op: "+", node: __wrap(left) }
@@ -69737,7 +69552,7 @@
                     op: "~/",
                     right: __node(
                       23,
-                      18742,
+                      18574,
                       60,
                       577,
                       { op: "+", node: __wrap(right) }
@@ -69747,13 +69562,13 @@
               } else if (op === "%") {
                 return __node(
                   23,
-                  18779,
+                  18611,
                   45,
                   579,
                   {
                     left: __node(
                       23,
-                      18779,
+                      18611,
                       60,
                       579,
                       { op: "+", node: __wrap(left) }
@@ -69762,7 +69577,7 @@
                     op: "~%",
                     right: __node(
                       23,
-                      18789,
+                      18621,
                       60,
                       579,
                       { op: "+", node: __wrap(right) }
@@ -69772,13 +69587,13 @@
               } else {
                 return __node(
                   23,
-                  18813,
+                  18645,
                   45,
                   581,
                   {
                     left: __node(
                       23,
-                      18813,
+                      18645,
                       60,
                       581,
                       { op: "+", node: __wrap(left) }
@@ -69787,7 +69602,7 @@
                     op: "~\\",
                     right: __node(
                       23,
-                      18823,
+                      18655,
                       60,
                       581,
                       { op: "+", node: __wrap(right) }
@@ -69809,13 +69624,13 @@
               if (op === "+") {
                 return __node(
                   23,
-                  18997,
+                  18829,
                   49,
                   588,
                   {
                     left: __node(
                       23,
-                      18997,
+                      18829,
                       60,
                       588,
                       { op: "+", node: __wrap(left) }
@@ -69824,7 +69639,7 @@
                     op: "~+",
                     right: __node(
                       23,
-                      19007,
+                      18839,
                       60,
                       588,
                       { op: "+", node: __wrap(right) }
@@ -69834,13 +69649,13 @@
               } else {
                 return __node(
                   23,
-                  19031,
+                  18863,
                   49,
                   590,
                   {
                     left: __node(
                       23,
-                      19031,
+                      18863,
                       60,
                       590,
                       { op: "+", node: __wrap(left) }
@@ -69849,7 +69664,7 @@
                     op: "~-",
                     right: __node(
                       23,
-                      19041,
+                      18873,
                       60,
                       590,
                       { op: "+", node: __wrap(right) }
@@ -69871,13 +69686,13 @@
               if (op === "bitlshift") {
                 return __node(
                   23,
-                  19184,
+                  19016,
                   54,
                   594,
                   {
                     left: __node(
                       23,
-                      19184,
+                      19016,
                       60,
                       594,
                       { op: "+", node: __wrap(left) }
@@ -69886,7 +69701,7 @@
                     op: "~bitlshift",
                     right: __node(
                       23,
-                      19202,
+                      19034,
                       60,
                       594,
                       { op: "+", node: __wrap(right) }
@@ -69896,13 +69711,13 @@
               } else if (op === "bitrshift") {
                 return __node(
                   23,
-                  19247,
+                  19079,
                   54,
                   596,
                   {
                     left: __node(
                       23,
-                      19247,
+                      19079,
                       60,
                       596,
                       { op: "+", node: __wrap(left) }
@@ -69911,7 +69726,7 @@
                     op: "~bitrshift",
                     right: __node(
                       23,
-                      19265,
+                      19097,
                       60,
                       596,
                       { op: "+", node: __wrap(right) }
@@ -69921,13 +69736,13 @@
               } else {
                 return __node(
                   23,
-                  19289,
+                  19121,
                   54,
                   598,
                   {
                     left: __node(
                       23,
-                      19289,
+                      19121,
                       60,
                       598,
                       { op: "+", node: __wrap(left) }
@@ -69936,7 +69751,7 @@
                     op: "~biturshift",
                     right: __node(
                       23,
-                      19308,
+                      19140,
                       60,
                       598,
                       { op: "+", node: __wrap(right) }
@@ -69960,15 +69775,15 @@
                   if (!this.hasType(left, "number")) {
                     left = __node(
                       9,
-                      19689,
-                      __node(21, 19689, "__str"),
+                      19521,
+                      __node(21, 19521, "__str"),
                       [__wrap(left)]
                     );
                   } else {
                     left = __node(
                       9,
-                      19725,
-                      __node(21, 19725, "__strnum"),
+                      19557,
+                      __node(21, 19557, "__strnum"),
                       [__wrap(left)]
                     );
                   }
@@ -69977,15 +69792,15 @@
                   if (!this.hasType(right, "number")) {
                     right = __node(
                       9,
-                      19845,
-                      __node(21, 19845, "__str"),
+                      19677,
+                      __node(21, 19677, "__str"),
                       [__wrap(right)]
                     );
                   } else {
                     right = __node(
                       9,
-                      19882,
-                      __node(21, 19882, "__strnum"),
+                      19714,
+                      __node(21, 19714, "__strnum"),
                       [__wrap(right)]
                     );
                   }
@@ -69993,7 +69808,7 @@
               }
               return __node(
                 23,
-                19905,
+                19737,
                 29,
                 616,
                 { left: __wrap(left), inverted: false, op: "~&", right: __wrap(right) }
@@ -70013,14 +69828,14 @@
                 elements = this.elements(right);
                 if (elements.length === 0) {
                   if (this.isComplex(left)) {
-                    return __node(7, 20424, [__wrap(left), __const("false")]);
+                    return __node(7, 20256, [__wrap(left), __const("false")]);
                   } else {
                     return __const("false");
                   }
                 } else if (elements.length === 1) {
                   return __node(
                     23,
-                    20529,
+                    20361,
                     5,
                     638,
                     { left: __wrap(left), inverted: false, op: "==", right: __wrap(elements[0]) }
@@ -70032,7 +69847,7 @@
                         +i + 1,
                         __node(
                           23,
-                          20649,
+                          20481,
                           2,
                           642,
                           {
@@ -70041,7 +69856,7 @@
                             op: "or",
                             right: __node(
                               23,
-                              20661,
+                              20493,
                               5,
                               642,
                               { left: __wrap(left), inverted: false, op: "==", right: __wrap(elements[i]) }
@@ -70059,7 +69874,7 @@
                       1,
                       __node(
                         23,
-                        20784,
+                        20616,
                         5,
                         646,
                         { left: __wrap(setLeft), inverted: false, op: "==", right: __wrap(elements[0]) }
@@ -70071,8 +69886,8 @@
               } else {
                 return __node(
                   9,
-                  20835,
-                  __node(21, 20835, "__in"),
+                  20667,
+                  __node(21, 20667, "__in"),
                   [__wrap(left), __wrap(right)]
                 );
               }
@@ -70101,8 +69916,8 @@
               right = macroData.right;
               return __node(
                 9,
-                21159,
-                __node(21, 21159, "__owns"),
+                20991,
+                __node(21, 20991, "__owns"),
                 [__wrap(left), __wrap(right)],
                 false,
                 true
@@ -70128,7 +69943,7 @@
                 if (this.name(right) === "String") {
                   return __node(
                     23,
-                    21353,
+                    21185,
                     23,
                     661,
                     { op: "isString!", node: __wrap(left) }
@@ -70136,7 +69951,7 @@
                 } else if (this.name(right) === "Number") {
                   return __node(
                     23,
-                    21424,
+                    21256,
                     24,
                     663,
                     { op: "isNumber!", node: __wrap(left) }
@@ -70144,7 +69959,7 @@
                 } else if (this.name(right) === "Boolean") {
                   return __node(
                     23,
-                    21496,
+                    21328,
                     25,
                     665,
                     { op: "isBoolean!", node: __wrap(left) }
@@ -70152,7 +69967,7 @@
                 } else if (this.name(right) === "Function") {
                   return __node(
                     23,
-                    21570,
+                    21402,
                     26,
                     667,
                     { op: "isFunction!", node: __wrap(left) }
@@ -70160,7 +69975,7 @@
                 } else if (this.name(right) === "Array") {
                   return __node(
                     23,
-                    21642,
+                    21474,
                     27,
                     669,
                     { op: "isArray!", node: __wrap(left) }
@@ -70168,7 +69983,7 @@
                 } else if (this.name(right) === "Object") {
                   return __node(
                     23,
-                    21712,
+                    21544,
                     28,
                     671,
                     { op: "isObject!", node: __wrap(left) }
@@ -70189,8 +70004,8 @@
               right = macroData.right;
               return __node(
                 9,
-                22252,
-                __node(21, 22252, "__cmp"),
+                22084,
+                __node(21, 22084, "__cmp"),
                 [__wrap(left), __wrap(right)]
               );
             },
@@ -70206,20 +70021,20 @@
               right = macroData.right;
               return __node(
                 23,
-                22372,
+                22204,
                 5,
                 692,
                 {
                   left: __node(
                     23,
-                    22372,
+                    22204,
                     64,
                     692,
                     { left: __wrap(left), inverted: false, op: "%", right: __wrap(right) }
                   ),
                   inverted: false,
                   op: "==",
-                  right: __node(12, 22391, 0)
+                  right: __node(12, 22223, 0)
                 }
               );
             },
@@ -70235,20 +70050,20 @@
               right = macroData.right;
               return __node(
                 23,
-                22492,
+                22324,
                 5,
                 695,
                 {
                   left: __node(
                     23,
-                    22492,
+                    22324,
                     45,
                     695,
                     { left: __wrap(left), inverted: false, op: "~%", right: __wrap(right) }
                   ),
                   inverted: false,
                   op: "==",
-                  right: __node(12, 22512, 0)
+                  right: __node(12, 22344, 0)
                 }
               );
             },
@@ -70266,7 +70081,7 @@
                 if (op === "<") {
                   return __node(
                     23,
-                    23633,
+                    23465,
                     9,
                     732,
                     { left: __wrap(left), inverted: false, op: "~<", right: __wrap(right) }
@@ -70274,7 +70089,7 @@
                 } else {
                   return __node(
                     23,
-                    23669,
+                    23501,
                     9,
                     734,
                     { left: __wrap(left), inverted: false, op: "~<=", right: __wrap(right) }
@@ -70285,7 +70100,7 @@
                   if (op === "<") {
                     return __node(
                       23,
-                      23782,
+                      23614,
                       9,
                       738,
                       { left: __wrap(left), inverted: false, op: "~<", right: __wrap(right) }
@@ -70293,7 +70108,7 @@
                   } else {
                     return __node(
                       23,
-                      23822,
+                      23654,
                       9,
                       740,
                       { left: __wrap(left), inverted: false, op: "~<=", right: __wrap(right) }
@@ -70302,7 +70117,7 @@
                 } else if (op === "<") {
                   return __node(
                     23,
-                    23880,
+                    23712,
                     9,
                     743,
                     {
@@ -70311,8 +70126,8 @@
                       op: "~<",
                       right: __node(
                         9,
-                        23889,
-                        __node(21, 23889, "__num"),
+                        23721,
+                        __node(21, 23721, "__num"),
                         [__wrap(right)]
                       )
                     }
@@ -70320,7 +70135,7 @@
                 } else {
                   return __node(
                     23,
-                    23927,
+                    23759,
                     9,
                     745,
                     {
@@ -70329,8 +70144,8 @@
                       op: "~<=",
                       right: __node(
                         9,
-                        23937,
-                        __node(21, 23937, "__num"),
+                        23769,
+                        __node(21, 23769, "__num"),
                         [__wrap(right)]
                       )
                     }
@@ -70341,7 +70156,7 @@
                   if (op === "<") {
                     return __node(
                       23,
-                      24047,
+                      23879,
                       9,
                       749,
                       { left: __wrap(left), inverted: false, op: "~<", right: __wrap(right) }
@@ -70349,7 +70164,7 @@
                   } else {
                     return __node(
                       23,
-                      24087,
+                      23919,
                       9,
                       751,
                       { left: __wrap(left), inverted: false, op: "~<=", right: __wrap(right) }
@@ -70358,7 +70173,7 @@
                 } else if (op === "<") {
                   return __node(
                     23,
-                    24145,
+                    23977,
                     9,
                     754,
                     {
@@ -70367,8 +70182,8 @@
                       op: "~<",
                       right: __node(
                         9,
-                        24154,
-                        __node(21, 24154, "__str"),
+                        23986,
+                        __node(21, 23986, "__str"),
                         [__wrap(right)]
                       )
                     }
@@ -70376,7 +70191,7 @@
                 } else {
                   return __node(
                     23,
-                    24192,
+                    24024,
                     9,
                     756,
                     {
@@ -70385,8 +70200,8 @@
                       op: "~<=",
                       right: __node(
                         9,
-                        24202,
-                        __node(21, 24202, "__str"),
+                        24034,
+                        __node(21, 24034, "__str"),
                         [__wrap(right)]
                       )
                     }
@@ -70396,14 +70211,14 @@
                 if (op === "<") {
                   return __node(
                     23,
-                    24278,
+                    24110,
                     9,
                     759,
                     {
                       left: __node(
                         9,
-                        24278,
-                        __node(21, 24278, "__num"),
+                        24110,
+                        __node(21, 24110, "__num"),
                         [__wrap(left)]
                       ),
                       inverted: false,
@@ -70414,14 +70229,14 @@
                 } else {
                   return __node(
                     23,
-                    24321,
+                    24153,
                     9,
                     761,
                     {
                       left: __node(
                         9,
-                        24321,
-                        __node(21, 24321, "__num"),
+                        24153,
+                        __node(21, 24153, "__num"),
                         [__wrap(left)]
                       ),
                       inverted: false,
@@ -70434,14 +70249,14 @@
                 if (op === "<") {
                   return __node(
                     23,
-                    24407,
+                    24239,
                     9,
                     764,
                     {
                       left: __node(
                         9,
-                        24407,
-                        __node(21, 24407, "__str"),
+                        24239,
+                        __node(21, 24239, "__str"),
                         [__wrap(left)]
                       ),
                       inverted: false,
@@ -70452,14 +70267,14 @@
                 } else {
                   return __node(
                     23,
-                    24450,
+                    24282,
                     9,
                     766,
                     {
                       left: __node(
                         9,
-                        24450,
-                        __node(21, 24450, "__str"),
+                        24282,
+                        __node(21, 24282, "__str"),
                         [__wrap(left)]
                       ),
                       inverted: false,
@@ -70471,15 +70286,15 @@
               } else if (op === "<") {
                 return __node(
                   9,
-                  24503,
-                  __node(21, 24503, "__lt"),
+                  24335,
+                  __node(21, 24335, "__lt"),
                   [__wrap(left), __wrap(right)]
                 );
               } else {
                 return __node(
                   9,
-                  24539,
-                  __node(21, 24539, "__lte"),
+                  24371,
+                  __node(21, 24371, "__lte"),
                   [__wrap(left), __wrap(right)]
                 );
               }
@@ -70497,14 +70312,14 @@
               if (op === ">") {
                 return __node(
                   23,
-                  24661,
+                  24493,
                   3,
                   774,
                   {
                     op: "not",
                     node: __node(
                       23,
-                      24667,
+                      24499,
                       78,
                       774,
                       { left: __wrap(left), inverted: false, op: "<=", right: __wrap(right) }
@@ -70514,14 +70329,14 @@
               } else {
                 return __node(
                   23,
-                  24699,
+                  24531,
                   3,
                   776,
                   {
                     op: "not",
                     node: __node(
                       23,
-                      24705,
+                      24537,
                       78,
                       776,
                       { left: __wrap(left), inverted: false, op: "<", right: __wrap(right) }
@@ -70545,7 +70360,7 @@
                 return _this.maybeCache(right, function (setRight, right) {
                   return __node(
                     23,
-                    24864,
+                    24696,
                     16,
                     781,
                     {
@@ -70553,7 +70368,7 @@
                       macroData: {
                         test: __node(
                           23,
-                          24867,
+                          24699,
                           9,
                           781,
                           { left: __wrap(setLeft), inverted: false, op: "~<", right: __wrap(setRight) }
@@ -70582,7 +70397,7 @@
                 return _this.maybeCache(right, function (setRight, right) {
                   return __node(
                     23,
-                    25058,
+                    24890,
                     16,
                     786,
                     {
@@ -70590,7 +70405,7 @@
                       macroData: {
                         test: __node(
                           23,
-                          25061,
+                          24893,
                           10,
                           786,
                           { left: __wrap(setLeft), inverted: false, op: "~>", right: __wrap(setRight) }
@@ -70619,7 +70434,7 @@
                 return _this.maybeCache(right, function (setRight, right) {
                   return __node(
                     23,
-                    25251,
+                    25083,
                     16,
                     791,
                     {
@@ -70627,7 +70442,7 @@
                       macroData: {
                         test: __node(
                           23,
-                          25254,
+                          25086,
                           78,
                           791,
                           { left: __wrap(setLeft), inverted: false, op: "<", right: __wrap(setRight) }
@@ -70656,7 +70471,7 @@
                 return _this.maybeCache(right, function (setRight, right) {
                   return __node(
                     23,
-                    25443,
+                    25275,
                     16,
                     796,
                     {
@@ -70664,7 +70479,7 @@
                       macroData: {
                         test: __node(
                           23,
-                          25446,
+                          25278,
                           79,
                           796,
                           { left: __wrap(setLeft), inverted: false, op: ">", right: __wrap(setRight) }
@@ -70690,8 +70505,8 @@
               right = macroData.right;
               return __node(
                 9,
-                25546,
-                __node(21, 25546, "__xor"),
+                25378,
+                __node(21, 25378, "__xor"),
                 [__wrap(left), __wrap(right)]
               );
             },
@@ -70709,7 +70524,7 @@
               return this.maybeCache(left, function (setLeft, left) {
                 return __node(
                   23,
-                  25661,
+                  25493,
                   16,
                   803,
                   {
@@ -70717,7 +70532,7 @@
                     macroData: {
                       test: __node(
                         23,
-                        25664,
+                        25496,
                         20,
                         803,
                         { op: "?", node: __wrap(setLeft) }
@@ -70778,13 +70593,13 @@
               right = macroData.right;
               return __node(
                 23,
-                28009,
+                27813,
                 92,
                 871,
                 {
                   left: __node(
                     23,
-                    28009,
+                    27813,
                     60,
                     871,
                     { op: "+", node: __wrap(left) }
@@ -70793,7 +70608,7 @@
                   op: "~bitand",
                   right: __node(
                     23,
-                    28024,
+                    27828,
                     60,
                     871,
                     { op: "+", node: __wrap(right) }
@@ -70813,13 +70628,13 @@
               right = macroData.right;
               return __node(
                 23,
-                28103,
+                27907,
                 93,
                 874,
                 {
                   left: __node(
                     23,
-                    28103,
+                    27907,
                     60,
                     874,
                     { op: "+", node: __wrap(left) }
@@ -70828,7 +70643,7 @@
                   op: "~bitor",
                   right: __node(
                     23,
-                    28117,
+                    27921,
                     60,
                     874,
                     { op: "+", node: __wrap(right) }
@@ -70848,13 +70663,13 @@
               right = macroData.right;
               return __node(
                 23,
-                28197,
+                28001,
                 94,
                 877,
                 {
                   left: __node(
                     23,
-                    28197,
+                    28001,
                     60,
                     877,
                     { op: "+", node: __wrap(left) }
@@ -70863,7 +70678,7 @@
                   op: "~bitxor",
                   right: __node(
                     23,
-                    28212,
+                    28016,
                     60,
                     877,
                     { op: "+", node: __wrap(right) }
@@ -70883,12 +70698,12 @@
               right = macroData.right;
               return __node(
                 9,
-                36485,
-                __node(21, 36485, "__range"),
+                36289,
+                __node(21, 36289, "__range"),
                 [
                   __wrap(left),
                   __wrap(right),
-                  __node(12, 36509, 1),
+                  __node(12, 36313, 1),
                   __const("true")
                 ]
               );
@@ -70905,12 +70720,12 @@
               right = macroData.right;
               return __node(
                 9,
-                36597,
-                __node(21, 36597, "__range"),
+                36401,
+                __node(21, 36401, "__range"),
                 [
                   __wrap(left),
                   __wrap(right),
-                  __node(12, 36621, 1),
+                  __node(12, 36425, 1),
                   __const("false")
                 ]
               );
@@ -70957,8 +70772,8 @@
                 callArgs = this.callArgs(left);
                 return __node(
                   9,
-                  37059,
-                  __node(21, 37059, "__range"),
+                  36863,
+                  __node(21, 36863, "__range"),
                   [__wrap(callArgs[0]), __wrap(callArgs[1]), __wrap(right), __wrap(callArgs[3])]
                 );
               } else {
@@ -70967,8 +70782,8 @@
                 }
                 return __node(
                   9,
-                  37244,
-                  __node(21, 37244, "__step"),
+                  37048,
+                  __node(21, 37048, "__step"),
                   [__wrap(left), __wrap(right)]
                 );
               }
@@ -71022,7 +70837,7 @@
                 elements = this.elements(right);
                 if (elements.length === 0) {
                   if (this.isComplex(left)) {
-                    return __node(7, 69424, [__wrap(left), __const("false")]);
+                    return __node(7, 69228, [__wrap(left), __const("false")]);
                   } else {
                     return __const("false");
                   }
@@ -71030,7 +70845,7 @@
                   element = elements[0];
                   return __node(
                     23,
-                    69561,
+                    69365,
                     74,
                     2056,
                     { left: __wrap(left), inverted: false, op: "instanceof", right: __wrap(element) }
@@ -71044,7 +70859,7 @@
                         __num(i) + 1,
                         __node(
                           23,
-                          69717,
+                          69521,
                           2,
                           2061,
                           {
@@ -71053,7 +70868,7 @@
                             op: "or",
                             right: __node(
                               23,
-                              69729,
+                              69533,
                               74,
                               2061,
                               { left: __wrap(left), inverted: false, op: "instanceof", right: __wrap(element) }
@@ -71073,7 +70888,7 @@
                       1,
                       __node(
                         23,
-                        69888,
+                        69692,
                         74,
                         2066,
                         { left: __wrap(setLeft), inverted: false, op: "instanceof", right: __wrap(element) }
@@ -71085,8 +70900,8 @@
               } else {
                 return __node(
                   9,
-                  69941,
-                  __node(21, 69941, "__instanceofsome"),
+                  69745,
+                  __node(21, 69745, "__instanceofsome"),
                   [__wrap(left), __wrap(right)]
                 );
               }
@@ -71143,7 +70958,7 @@
                     return this.maybeCache(right, function (setRight, right) {
                       return __node(
                         23,
-                        105740,
+                        105544,
                         6,
                         3159,
                         { left: __wrap(setRight), inverted: false, op: "!=", right: __wrap(right) }
@@ -71154,37 +70969,37 @@
                       if (1 / __num(_this.value(left)) < 0) {
                         return __node(
                           23,
-                          105901,
+                          105705,
                           1,
                           3163,
                           {
                             left: __node(
                               23,
-                              105901,
+                              105705,
                               5,
                               3163,
                               {
                                 left: __wrap(setRight),
                                 inverted: false,
                                 op: "==",
-                                right: __node(12, 105916, 0)
+                                right: __node(12, 105720, 0)
                               }
                             ),
                             inverted: false,
                             op: "and",
                             right: __node(
                               23,
-                              105921,
+                              105725,
                               78,
                               3163,
                               {
                                 left: __node(
                                   23,
-                                  105921,
+                                  105725,
                                   45,
                                   3163,
                                   {
-                                    left: __node(12, 105922, 1),
+                                    left: __node(12, 105726, 1),
                                     inverted: false,
                                     op: "~/",
                                     right: __wrap(right)
@@ -71192,7 +71007,7 @@
                                 ),
                                 inverted: false,
                                 op: "<",
-                                right: __node(12, 105936, 0)
+                                right: __node(12, 105740, 0)
                               }
                             )
                           }
@@ -71200,37 +71015,37 @@
                       } else {
                         return __node(
                           23,
-                          105973,
+                          105777,
                           1,
                           3165,
                           {
                             left: __node(
                               23,
-                              105973,
+                              105777,
                               5,
                               3165,
                               {
                                 left: __wrap(setRight),
                                 inverted: false,
                                 op: "==",
-                                right: __node(12, 105988, 0)
+                                right: __node(12, 105792, 0)
                               }
                             ),
                             inverted: false,
                             op: "and",
                             right: __node(
                               23,
-                              105993,
+                              105797,
                               79,
                               3165,
                               {
                                 left: __node(
                                   23,
-                                  105993,
+                                  105797,
                                   45,
                                   3165,
                                   {
-                                    left: __node(12, 105994, 1),
+                                    left: __node(12, 105798, 1),
                                     inverted: false,
                                     op: "~/",
                                     right: __wrap(right)
@@ -71238,7 +71053,7 @@
                                 ),
                                 inverted: false,
                                 op: ">",
-                                right: __node(12, 106008, 0)
+                                right: __node(12, 105812, 0)
                               }
                             )
                           }
@@ -71248,7 +71063,7 @@
                   } else {
                     return __node(
                       23,
-                      106037,
+                      105841,
                       5,
                       3167,
                       { left: __wrap(left), inverted: false, op: "==", right: __wrap(right) }
@@ -71259,7 +71074,7 @@
                     return this.maybeCache(left, function (setLeft, left) {
                       return __node(
                         23,
-                        106201,
+                        106005,
                         6,
                         3171,
                         { left: __wrap(setLeft), inverted: false, op: "!=", right: __wrap(left) }
@@ -71270,37 +71085,37 @@
                       if (1 / __num(_this.value(right)) < 0) {
                         return __node(
                           23,
-                          106351,
+                          106155,
                           1,
                           3175,
                           {
                             left: __node(
                               23,
-                              106351,
+                              106155,
                               5,
                               3175,
                               {
                                 left: __wrap(setLeft),
                                 inverted: false,
                                 op: "==",
-                                right: __node(12, 106365, 0)
+                                right: __node(12, 106169, 0)
                               }
                             ),
                             inverted: false,
                             op: "and",
                             right: __node(
                               23,
-                              106370,
+                              106174,
                               78,
                               3175,
                               {
                                 left: __node(
                                   23,
-                                  106370,
+                                  106174,
                                   45,
                                   3175,
                                   {
-                                    left: __node(12, 106371, 1),
+                                    left: __node(12, 106175, 1),
                                     inverted: false,
                                     op: "~/",
                                     right: __wrap(left)
@@ -71308,7 +71123,7 @@
                                 ),
                                 inverted: false,
                                 op: "<",
-                                right: __node(12, 106384, 0)
+                                right: __node(12, 106188, 0)
                               }
                             )
                           }
@@ -71316,37 +71131,37 @@
                       } else {
                         return __node(
                           23,
-                          106417,
+                          106221,
                           1,
                           3177,
                           {
                             left: __node(
                               23,
-                              106417,
+                              106221,
                               5,
                               3177,
                               {
                                 left: __wrap(setLeft),
                                 inverted: false,
                                 op: "==",
-                                right: __node(12, 106431, 0)
+                                right: __node(12, 106235, 0)
                               }
                             ),
                             inverted: false,
                             op: "and",
                             right: __node(
                               23,
-                              106436,
+                              106240,
                               79,
                               3177,
                               {
                                 left: __node(
                                   23,
-                                  106436,
+                                  106240,
                                   45,
                                   3177,
                                   {
-                                    left: __node(12, 106437, 1),
+                                    left: __node(12, 106241, 1),
                                     inverted: false,
                                     op: "~/",
                                     right: __wrap(left)
@@ -71354,7 +71169,7 @@
                                 ),
                                 inverted: false,
                                 op: ">",
-                                right: __node(12, 106450, 0)
+                                right: __node(12, 106254, 0)
                               }
                             )
                           }
@@ -71364,7 +71179,7 @@
                   } else {
                     return __node(
                       23,
-                      106475,
+                      106279,
                       5,
                       3179,
                       { left: __wrap(left), inverted: false, op: "==", right: __wrap(right) }
@@ -71373,15 +71188,15 @@
                 } else {
                   return __node(
                     9,
-                    106511,
-                    __node(21, 106511, "__is"),
+                    106315,
+                    __node(21, 106315, "__is"),
                     [__wrap(left), __wrap(right)]
                   );
                 }
               } else {
                 return __node(
                   23,
-                  106546,
+                  106350,
                   5,
                   3183,
                   { left: __wrap(left), inverted: false, op: "==", right: __wrap(right) }
@@ -71402,14 +71217,14 @@
               right = macroData.right;
               return __node(
                 23,
-                106645,
+                106449,
                 3,
                 3186,
                 {
                   op: "not",
                   node: __node(
                     23,
-                    106651,
+                    106455,
                     143,
                     3186,
                     { left: __wrap(left), inverted: false, op: "is", right: __wrap(right) }
@@ -71429,8 +71244,8 @@
               right = macroData.right;
               return __node(
                 9,
-                108800,
-                __node(21, 108800, "__compose"),
+                108604,
+                __node(21, 108604, "__compose"),
                 [__wrap(left), __wrap(right)]
               );
             },
@@ -71446,10 +71261,10 @@
               right = macroData.right;
               if (!this.isNoop(left) && !this.isNoop(right)) {
                 tmp = this.tmp("ref");
-                return __node(7, 108990, [
+                return __node(7, 108794, [
                   __node(
                     23,
-                    108990,
+                    108794,
                     38,
                     3251,
                     {
@@ -71457,12 +71272,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          108999,
+                          108803,
                           37,
                           3251,
                           __node(
                             23,
-                            108999,
+                            108803,
                             31,
                             3251,
                             { ident: __wrap(tmp) },
@@ -71477,16 +71292,16 @@
                   ),
                   __node(
                     9,
-                    109013,
-                    __node(21, 109013, "__compose"),
+                    108817,
+                    __node(21, 108817, "__compose"),
                     [__wrap(right), __wrap(tmp)]
                   )
                 ]);
               } else {
                 return __node(
                   9,
-                  109057,
-                  __node(21, 109057, "__compose"),
+                  108861,
+                  __node(21, 108861, "__compose"),
                   [__wrap(right), __wrap(left)]
                 );
               }
@@ -71501,7 +71316,7 @@
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
-              return __node(9, 109515, __wrap(left), [__wrap(right)]);
+              return __node(9, 109319, __wrap(left), [__wrap(right)]);
             },
             operators: "<|",
             options: { precedence: 0, rightToLeft: true },
@@ -71515,10 +71330,10 @@
               right = macroData.right;
               if (!this.isNoop(left) && !this.isNoop(right)) {
                 tmp = this.tmp("ref");
-                return __node(7, 109656, [
+                return __node(7, 109460, [
                   __node(
                     23,
-                    109656,
+                    109460,
                     38,
                     3279,
                     {
@@ -71526,12 +71341,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          109665,
+                          109469,
                           37,
                           3279,
                           __node(
                             23,
-                            109665,
+                            109469,
                             31,
                             3279,
                             { ident: __wrap(tmp) },
@@ -71544,10 +71359,10 @@
                     },
                     true
                   ),
-                  __node(9, 109679, __wrap(right), [__wrap(tmp)])
+                  __node(9, 109483, __wrap(right), [__wrap(tmp)])
                 ]);
               } else {
-                return __node(9, 109713, __wrap(right), [__wrap(left)]);
+                return __node(9, 109517, __wrap(right), [__wrap(left)]);
               }
             },
             operators: "|>",
@@ -71628,41 +71443,41 @@
                       if (property === "property") {
                         block.push(__node(
                           9,
-                          110394,
-                          __node(21, 110394, "__defProp"),
+                          110198,
+                          __node(21, 110198, "__defProp"),
                           [__wrap(currentLeft), __wrap(key), __wrap(value)]
                         ));
                       } else if (property === "get" || property === "set") {
                         if (i > 0 && pairs[i - 1].property != null && _this.eq(key, pairs[i - 1].key) && pairs[i - 1].property !== property && ((_ref = pairs[i - 1].property) === "get" || _ref === "set")) {
-                          descriptor = __node(26, 110671, [
+                          descriptor = __node(26, 110475, [
                             { key: __wrap(pairs[i - 1].property), value: __wrap(pairs[i - 1].value) },
                             { key: __wrap(property), value: __wrap(value) },
                             {
-                              key: __node(12, 110792, "enumerable"),
+                              key: __node(12, 110596, "enumerable"),
                               value: __const("true")
                             },
                             {
-                              key: __node(12, 110825, "configurable"),
+                              key: __node(12, 110629, "configurable"),
                               value: __const("true")
                             }
                           ]);
                         } else {
-                          descriptor = __node(26, 110895, [
+                          descriptor = __node(26, 110699, [
                             { key: __wrap(property), value: __wrap(value) },
                             {
-                              key: __node(12, 110950, "enumerable"),
+                              key: __node(12, 110754, "enumerable"),
                               value: __const("true")
                             },
                             {
-                              key: __node(12, 110983, "configurable"),
+                              key: __node(12, 110787, "configurable"),
                               value: __const("true")
                             }
                           ]);
                         }
                         block.push(__node(
                           9,
-                          111044,
-                          __node(21, 111044, "__defProp"),
+                          110848,
+                          __node(21, 110848, "__defProp"),
                           [__wrap(currentLeft), __wrap(key), __wrap(descriptor)]
                         ));
                       } else {
@@ -71671,11 +71486,11 @@
                     } else {
                       block.push(__node(
                         23,
-                        111195,
+                        110999,
                         30,
                         3320,
                         {
-                          left: __node(1, 111195, __wrap(currentLeft), __wrap(key)),
+                          left: __node(1, 110999, __wrap(currentLeft), __wrap(key)),
                           op: ":=",
                           right: __wrap(value)
                         },
@@ -71690,8 +71505,8 @@
               } else {
                 return __node(
                   9,
-                  111328,
-                  __node(21, 111328, "__import"),
+                  111132,
+                  __node(21, 111132, "__import"),
                   [__wrap(left), __wrap(right)]
                 );
               }
@@ -71710,10 +71525,10 @@
               right = macroData.right;
               if (!this.isNoop(left) && !this.isNoop(right)) {
                 tmp = this.tmp("ref");
-                return __node(7, 111500, [
+                return __node(7, 111304, [
                   __node(
                     23,
-                    111500,
+                    111304,
                     38,
                     3331,
                     {
@@ -71721,12 +71536,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          111509,
+                          111313,
                           37,
                           3331,
                           __node(
                             23,
-                            111509,
+                            111313,
                             31,
                             3331,
                             { ident: __wrap(tmp) },
@@ -71741,7 +71556,7 @@
                   ),
                   __node(
                     23,
-                    111523,
+                    111327,
                     150,
                     3332,
                     { left: __wrap(right), inverted: false, op: "<<<", right: __wrap(tmp) },
@@ -71751,7 +71566,7 @@
               } else {
                 return __node(
                   23,
-                  111560,
+                  111364,
                   150,
                   3334,
                   { left: __wrap(right), inverted: false, op: "<<<", right: __wrap(left) }
@@ -71858,7 +71673,7 @@
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
-              if (this.canMutateLast(right) && this.isIdentOrTmp(left)) {
+              if (this.isIdentOrTmp(left)) {
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
@@ -71893,7 +71708,7 @@
               return this.maybeCacheAccess(left, function (setLeft, left) {
                 return __node(
                   23,
-                  11962,
+                  11934,
                   30,
                   350,
                   {
@@ -71901,7 +71716,7 @@
                     op: ":=",
                     right: __node(
                       23,
-                      11975,
+                      11947,
                       45,
                       350,
                       { left: __wrap(left), inverted: false, op: "~\\", right: __wrap(right) }
@@ -71923,7 +71738,7 @@
               return this.maybeCacheAccess(left, function (setLeft, left) {
                 return __node(
                   23,
-                  13625,
+                  13597,
                   30,
                   404,
                   {
@@ -71931,7 +71746,7 @@
                     op: ":=",
                     right: __node(
                       23,
-                      13638,
+                      13610,
                       50,
                       404,
                       { left: __wrap(left), inverted: false, op: "~^", right: __wrap(right) }
@@ -71962,14 +71777,14 @@
                 }
               }
               if (this.isType(left, "numeric")) {
-                if (this.canMutateLast(right) && this.isIdentOrTmp(left)) {
+                if (this.isIdentOrTmp(left)) {
                   return this.mutateLast(
                     right || this.noop(),
                     function (n) {
                       if (!_this.isType(n, "numeric")) {
                         n = __node(
                           23,
-                          14166,
+                          14110,
                           48,
                           420,
                           { op: "~+", node: __wrap(n) }
@@ -71983,7 +71798,7 @@
                   if (!this.isType(right, "numeric")) {
                     right = __node(
                       23,
-                      14277,
+                      14221,
                       48,
                       424,
                       { op: "~+", node: __wrap(right) }
@@ -71991,13 +71806,13 @@
                   }
                   return this.assign(left, "+=", right);
                 }
-              } else if (this.canMutateLast(right) && this.isIdentOrTmp(left)) {
+              } else if (this.isIdentOrTmp(left)) {
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
                     return _this.assign(left, "-=", __node(
                       23,
-                      14455,
+                      14371,
                       48,
                       428,
                       { op: "~-", node: __wrap(n) }
@@ -72008,7 +71823,7 @@
               } else {
                 return this.assign(left, "-=", __node(
                   23,
-                  14507,
+                  14423,
                   48,
                   430,
                   { op: "~-", node: __wrap(right) }
@@ -72034,7 +71849,7 @@
                   return this.unary("++", left);
                 }
               }
-              if (this.canMutateLast(right) && this.isIdentOrTmp(left)) {
+              if (this.isIdentOrTmp(left)) {
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
@@ -72057,7 +71872,7 @@
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
-              if (this.canMutateLast(right) && this.isIdentOrTmp(left)) {
+              if (this.isIdentOrTmp(left)) {
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
@@ -72090,21 +71905,21 @@
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
-              if (this.canMutateLast(right) && this.isIdentOrTmp(left)) {
+              if (this.isIdentOrTmp(left)) {
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
                     if (_this.hasType(left, "numeric") && _this.hasType(n, "numeric")) {
                       n = __node(
                         23,
-                        15907,
+                        15739,
                         29,
                         473,
                         {
-                          left: __node(12, 15908, ""),
+                          left: __node(12, 15740, ""),
                           inverted: false,
                           op: "~&",
-                          right: __node(21, 15913, "n")
+                          right: __node(21, 15745, "n")
                         }
                       );
                     }
@@ -72116,14 +71931,14 @@
                 if (this.hasType(left, "numeric") && this.hasType(right, "numeric")) {
                   right = __node(
                     23,
-                    16041,
+                    15873,
                     29,
                     477,
                     {
-                      left: __node(12, 16042, ""),
+                      left: __node(12, 15874, ""),
                       inverted: false,
                       op: "~&",
-                      right: __node(21, 16047, "right")
+                      right: __node(21, 15879, "right")
                     }
                   );
                 }
@@ -72144,7 +71959,7 @@
               return this.maybeCacheAccess(left, function (setLeft, left) {
                 return __node(
                   23,
-                  18563,
+                  18395,
                   30,
                   571,
                   {
@@ -72152,7 +71967,7 @@
                     op: ":=",
                     right: __node(
                       23,
-                      18576,
+                      18408,
                       62,
                       571,
                       { left: __wrap(left), inverted: false, op: "^", right: __wrap(right) }
@@ -72175,7 +71990,7 @@
               return this.maybeCacheAccess(left, function (setLeft, left) {
                 return __node(
                   23,
-                  19418,
+                  19250,
                   30,
                   602,
                   {
@@ -72183,7 +71998,7 @@
                     op: ":=",
                     right: __node(
                       23,
-                      19431,
+                      19263,
                       64,
                       602,
                       { left: __wrap(left), inverted: false, op: "\\", right: __wrap(right) }
@@ -72206,7 +72021,7 @@
               if (this.getConstValue("DISABLE_TYPE_CHECKING", false)) {
                 return __node(
                   23,
-                  20030,
+                  19862,
                   56,
                   620,
                   { left: __wrap(left), op: "~&=", right: __wrap(right) }
@@ -72214,7 +72029,7 @@
               } else if (this.isType(left, "string")) {
                 return __node(
                   23,
-                  20089,
+                  19921,
                   56,
                   622,
                   {
@@ -72222,11 +72037,11 @@
                     op: "~&=",
                     right: __node(
                       23,
-                      20099,
+                      19931,
                       69,
                       622,
                       {
-                        left: __node(12, 20100, ""),
+                        left: __node(12, 19932, ""),
                         inverted: false,
                         op: "&",
                         right: __wrap(right)
@@ -72238,7 +72053,7 @@
                 return this.maybeCacheAccess(left, function (setLeft, left) {
                   return __node(
                     23,
-                    20178,
+                    20010,
                     30,
                     625,
                     {
@@ -72246,7 +72061,7 @@
                       op: ":=",
                       right: __node(
                         23,
-                        20191,
+                        20023,
                         69,
                         625,
                         { left: __wrap(left), inverted: false, op: "&", right: __wrap(right) }
@@ -72272,7 +72087,7 @@
                   return _this.maybeCache(right, function (setRight, right) {
                     return __node(
                       23,
-                      25887,
+                      25719,
                       16,
                       809,
                       {
@@ -72280,14 +72095,14 @@
                         macroData: {
                           test: __node(
                             23,
-                            25890,
+                            25722,
                             10,
                             809,
                             { left: __wrap(setLeft), inverted: false, op: "~>", right: __wrap(setRight) }
                           ),
                           body: __node(
                             23,
-                            25921,
+                            25753,
                             30,
                             809,
                             { left: __wrap(left), op: ":=", right: __wrap(right) }
@@ -72317,7 +72132,7 @@
                   return _this.maybeCache(right, function (setRight, right) {
                     return __node(
                       23,
-                      26143,
+                      25975,
                       16,
                       815,
                       {
@@ -72325,14 +72140,14 @@
                         macroData: {
                           test: __node(
                             23,
-                            26146,
+                            25978,
                             9,
                             815,
                             { left: __wrap(setLeft), inverted: false, op: "~<", right: __wrap(setRight) }
                           ),
                           body: __node(
                             23,
-                            26177,
+                            26009,
                             30,
                             815,
                             { left: __wrap(left), op: ":=", right: __wrap(right) }
@@ -72362,7 +72177,7 @@
                   return _this.maybeCache(right, function (setRight, right) {
                     return __node(
                       23,
-                      26398,
+                      26230,
                       16,
                       821,
                       {
@@ -72370,14 +72185,14 @@
                         macroData: {
                           test: __node(
                             23,
-                            26401,
+                            26233,
                             79,
                             821,
                             { left: __wrap(setLeft), inverted: false, op: ">", right: __wrap(setRight) }
                           ),
                           body: __node(
                             23,
-                            26431,
+                            26263,
                             30,
                             821,
                             { left: __wrap(left), op: ":=", right: __wrap(right) }
@@ -72407,7 +72222,7 @@
                   return _this.maybeCache(right, function (setRight, right) {
                     return __node(
                       23,
-                      26652,
+                      26484,
                       16,
                       827,
                       {
@@ -72415,14 +72230,14 @@
                         macroData: {
                           test: __node(
                             23,
-                            26655,
+                            26487,
                             78,
                             827,
                             { left: __wrap(setLeft), inverted: false, op: "<", right: __wrap(setRight) }
                           ),
                           body: __node(
                             23,
-                            26685,
+                            26517,
                             30,
                             827,
                             { left: __wrap(left), op: ":=", right: __wrap(right) }
@@ -72450,7 +72265,7 @@
               return this.maybeCacheAccess(left, function (setLeft, left) {
                 return __node(
                   23,
-                  26803,
+                  26635,
                   30,
                   831,
                   {
@@ -72458,7 +72273,7 @@
                     op: ":=",
                     right: __node(
                       23,
-                      26816,
+                      26648,
                       84,
                       831,
                       { left: __wrap(left), inverted: false, op: "xor", right: __wrap(right) }
@@ -72483,7 +72298,7 @@
                   if (_this.position === "expression") {
                     return __node(
                       23,
-                      27006,
+                      26838,
                       16,
                       837,
                       {
@@ -72491,7 +72306,7 @@
                         macroData: {
                           test: __node(
                             23,
-                            27009,
+                            26841,
                             20,
                             837,
                             { op: "?", node: __wrap(setLeft) }
@@ -72500,7 +72315,7 @@
                           elseIfs: [],
                           elseBody: __node(
                             23,
-                            27044,
+                            26876,
                             30,
                             837,
                             { left: __wrap(left), op: ":=", right: __wrap(right) }
@@ -72511,7 +72326,7 @@
                   } else {
                     return __node(
                       23,
-                      27083,
+                      26915,
                       17,
                       839,
                       {
@@ -72519,14 +72334,14 @@
                         macroData: {
                           test: __node(
                             23,
-                            27086,
+                            26918,
                             3,
                             839,
                             {
                               op: "not",
                               node: __node(
                                 23,
-                                27090,
+                                26922,
                                 20,
                                 839,
                                 { op: "?", node: __wrap(setLeft) },
@@ -72537,7 +72352,7 @@
                           ),
                           body: __node(
                             23,
-                            27102,
+                            26934,
                             30,
                             840,
                             { left: __wrap(left), op: ":=", right: __wrap(right) },
@@ -72564,7 +72379,7 @@
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
-              if (this.canMutateLast(right) && this.isIdentOrTmp(left)) {
+              if (this.isIdentOrTmp(left)) {
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
@@ -72601,7 +72416,7 @@
                 if (op === "*=") {
                   return __node(
                     23,
-                    29135,
+                    28939,
                     46,
                     906,
                     {
@@ -72609,7 +72424,7 @@
                       op: "~*=",
                       right: __node(
                         23,
-                        29145,
+                        28949,
                         60,
                         906,
                         { op: "+", node: __wrap(right) }
@@ -72619,7 +72434,7 @@
                 } else if (op === "/=") {
                   return __node(
                     23,
-                    29187,
+                    28991,
                     46,
                     908,
                     {
@@ -72627,7 +72442,7 @@
                       op: "~/=",
                       right: __node(
                         23,
-                        29197,
+                        29001,
                         60,
                         908,
                         { op: "+", node: __wrap(right) }
@@ -72637,7 +72452,7 @@
                 } else if (op === "%=") {
                   return __node(
                     23,
-                    29239,
+                    29043,
                     46,
                     910,
                     {
@@ -72645,7 +72460,7 @@
                       op: "~%=",
                       right: __node(
                         23,
-                        29249,
+                        29053,
                         60,
                         910,
                         { op: "+", node: __wrap(right) }
@@ -72655,7 +72470,7 @@
                 } else if (op === "+=") {
                   return __node(
                     23,
-                    29291,
+                    29095,
                     52,
                     912,
                     {
@@ -72663,7 +72478,7 @@
                       op: "~+=",
                       right: __node(
                         23,
-                        29301,
+                        29105,
                         60,
                         912,
                         { op: "+", node: __wrap(right) }
@@ -72673,7 +72488,7 @@
                 } else if (op === "-=") {
                   return __node(
                     23,
-                    29343,
+                    29147,
                     53,
                     914,
                     {
@@ -72681,7 +72496,7 @@
                       op: "~-=",
                       right: __node(
                         23,
-                        29353,
+                        29157,
                         60,
                         914,
                         { op: "+", node: __wrap(right) }
@@ -72691,7 +72506,7 @@
                 } else if (op === "bitlshift=") {
                   return __node(
                     23,
-                    29403,
+                    29207,
                     55,
                     916,
                     {
@@ -72699,7 +72514,7 @@
                       op: "~bitlshift=",
                       right: __node(
                         23,
-                        29421,
+                        29225,
                         60,
                         916,
                         { op: "+", node: __wrap(right) }
@@ -72709,7 +72524,7 @@
                 } else if (op === "bitrshift=") {
                   return __node(
                     23,
-                    29471,
+                    29275,
                     55,
                     918,
                     {
@@ -72717,7 +72532,7 @@
                       op: "~bitrshift=",
                       right: __node(
                         23,
-                        29489,
+                        29293,
                         60,
                         918,
                         { op: "+", node: __wrap(right) }
@@ -72727,7 +72542,7 @@
                 } else if (op === "biturshift=") {
                   return __node(
                     23,
-                    29540,
+                    29344,
                     55,
                     920,
                     {
@@ -72735,7 +72550,7 @@
                       op: "~biturshift=",
                       right: __node(
                         23,
-                        29559,
+                        29363,
                         60,
                         920,
                         { op: "+", node: __wrap(right) }
@@ -72745,7 +72560,7 @@
                 } else if (op === "bitand=") {
                   return __node(
                     23,
-                    29606,
+                    29410,
                     95,
                     922,
                     {
@@ -72753,7 +72568,7 @@
                       op: "~bitand=",
                       right: __node(
                         23,
-                        29621,
+                        29425,
                         60,
                         922,
                         { op: "+", node: __wrap(right) }
@@ -72763,7 +72578,7 @@
                 } else if (op === "bitor=") {
                   return __node(
                     23,
-                    29667,
+                    29471,
                     95,
                     924,
                     {
@@ -72771,7 +72586,7 @@
                       op: "~bitor=",
                       right: __node(
                         23,
-                        29681,
+                        29485,
                         60,
                         924,
                         { op: "+", node: __wrap(right) }
@@ -72781,7 +72596,7 @@
                 } else if (op === "bitxor=") {
                   return __node(
                     23,
-                    29728,
+                    29532,
                     95,
                     926,
                     {
@@ -72789,7 +72604,7 @@
                       op: "~bitxor=",
                       right: __node(
                         23,
-                        29743,
+                        29547,
                         60,
                         926,
                         { op: "+", node: __wrap(right) }
@@ -72805,7 +72620,7 @@
                   if (op === "*=") {
                     action = __node(
                       23,
-                      29901,
+                      29705,
                       64,
                       932,
                       { left: __wrap(left), inverted: false, op: "*", right: __wrap(right) }
@@ -72813,7 +72628,7 @@
                   } else if (op === "/=") {
                     action = __node(
                       23,
-                      29954,
+                      29758,
                       64,
                       934,
                       { left: __wrap(left), inverted: false, op: "/", right: __wrap(right) }
@@ -72821,7 +72636,7 @@
                   } else if (op === "%=") {
                     action = __node(
                       23,
-                      30007,
+                      29811,
                       64,
                       936,
                       { left: __wrap(left), inverted: false, op: "%", right: __wrap(right) }
@@ -72829,7 +72644,7 @@
                   } else if (op === "+=") {
                     action = __node(
                       23,
-                      30060,
+                      29864,
                       66,
                       938,
                       { left: __wrap(left), inverted: false, op: "+", right: __wrap(right) }
@@ -72837,7 +72652,7 @@
                   } else if (op === "-=") {
                     action = __node(
                       23,
-                      30113,
+                      29917,
                       66,
                       940,
                       { left: __wrap(left), inverted: false, op: "-", right: __wrap(right) }
@@ -72845,7 +72660,7 @@
                   } else if (op === "bitlshift=") {
                     action = __node(
                       23,
-                      30174,
+                      29978,
                       67,
                       942,
                       { left: __wrap(left), inverted: false, op: "bitlshift", right: __wrap(right) }
@@ -72853,7 +72668,7 @@
                   } else if (op === "bitrshift=") {
                     action = __node(
                       23,
-                      30243,
+                      30047,
                       67,
                       944,
                       { left: __wrap(left), inverted: false, op: "bitrshift", right: __wrap(right) }
@@ -72861,7 +72676,7 @@
                   } else if (op === "biturshift=") {
                     action = __node(
                       23,
-                      30313,
+                      30117,
                       67,
                       946,
                       { left: __wrap(left), inverted: false, op: "biturshift", right: __wrap(right) }
@@ -72869,7 +72684,7 @@
                   } else if (op === "bitand=") {
                     action = __node(
                       23,
-                      30380,
+                      30184,
                       96,
                       948,
                       { left: __wrap(left), inverted: false, op: "bitand", right: __wrap(right) }
@@ -72877,7 +72692,7 @@
                   } else if (op === "bitor=") {
                     action = __node(
                       23,
-                      30442,
+                      30246,
                       97,
                       950,
                       { left: __wrap(left), inverted: false, op: "bitor", right: __wrap(right) }
@@ -72885,7 +72700,7 @@
                   } else if (op === "bitxor=") {
                     action = __node(
                       23,
-                      30504,
+                      30308,
                       98,
                       952,
                       { left: __wrap(left), inverted: false, op: "bitxor", right: __wrap(right) }
@@ -72895,7 +72710,7 @@
                   }
                   return __node(
                     23,
-                    30587,
+                    30391,
                     30,
                     955,
                     { left: __wrap(setLeft), op: ":=", right: __wrap(action) }
@@ -73406,7 +73221,7 @@
               if (this.isIdentOrTmp(node) && !this.hasVariable(node)) {
                 return __node(
                   23,
-                  16448,
+                  16280,
                   16,
                   492,
                   {
@@ -73414,28 +73229,28 @@
                     macroData: {
                       test: __node(
                         23,
-                        16451,
+                        16283,
                         5,
                         492,
                         {
                           left: __node(
                             23,
-                            16451,
+                            16283,
                             4,
                             492,
                             { op: "typeof", node: __wrap(node) }
                           ),
                           inverted: false,
                           op: "==",
-                          right: __node(12, 16469, "undefined")
+                          right: __node(12, 16301, "undefined")
                         }
                       ),
-                      body: __node(12, 16484, "Undefined"),
+                      body: __node(12, 16316, "Undefined"),
                       elseIfs: [],
                       elseBody: __node(
                         9,
-                        16500,
-                        __node(21, 16500, "__typeof"),
+                        16332,
+                        __node(21, 16332, "__typeof"),
                         [__wrap(node)]
                       )
                     }
@@ -73447,8 +73262,8 @@
                   function (n) {
                     return __node(
                       9,
-                      16572,
-                      __node(21, 16572, "__typeof"),
+                      16404,
+                      __node(21, 16404, "__typeof"),
                       [__wrap(n)]
                     );
                   },
@@ -73474,7 +73289,7 @@
                   } else if (_this.getConstValue("DISABLE_TYPE_CHECKING", false)) {
                     return __node(
                       23,
-                      17997,
+                      17829,
                       48,
                       551,
                       { op: "~+", node: __wrap(n) }
@@ -73482,8 +73297,8 @@
                   } else {
                     return __node(
                       9,
-                      18024,
-                      __node(21, 18024, "__num"),
+                      17856,
+                      __node(21, 17856, "__num"),
                       [__wrap(n)]
                     );
                   }
@@ -73505,7 +73320,7 @@
               } else if (this.getConstValue("DISABLE_TYPE_CHECKING", false)) {
                 return __node(
                   23,
-                  18229,
+                  18061,
                   48,
                   559,
                   { op: "~-", node: __wrap(node) }
@@ -73513,14 +73328,14 @@
               } else {
                 return __node(
                   23,
-                  18255,
+                  18087,
                   48,
                   561,
                   {
                     op: "~-",
                     node: __node(
                       23,
-                      18259,
+                      18091,
                       60,
                       561,
                       { op: "+", node: __wrap(node) }
@@ -73540,14 +73355,14 @@
               node = macroData.node;
               return __node(
                 23,
-                18897,
+                18729,
                 64,
                 584,
                 {
                   left: __wrap(node),
                   inverted: false,
                   op: "/",
-                  right: __node(12, 18906, 100)
+                  right: __node(12, 18738, 100)
                 }
               );
             },
@@ -73580,14 +73395,14 @@
               node = macroData.node;
               return __node(
                 23,
-                28389,
+                28193,
                 99,
                 883,
                 {
                   op: "~bitnot",
                   node: __node(
                     23,
-                    28397,
+                    28201,
                     60,
                     883,
                     { op: "+", node: __wrap(node) }
@@ -73613,10 +73428,10 @@
                   var del, tmp;
                   tmp = _this.tmp("ref");
                   del = _this.unary("delete", node);
-                  return __node(7, 28683, [
+                  return __node(7, 28487, [
                     __node(
                       23,
-                      28683,
+                      28487,
                       38,
                       893,
                       {
@@ -73624,12 +73439,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            28694,
+                            28498,
                             37,
                             893,
                             __node(
                               23,
-                              28694,
+                              28498,
                               31,
                               893,
                               { ident: __wrap(tmp) },
@@ -73662,7 +73477,7 @@
               return this.maybeCache(node, function (setNode, node) {
                 return __node(
                   23,
-                  28870,
+                  28674,
                   16,
                   901,
                   {
@@ -73670,14 +73485,14 @@
                     macroData: {
                       test: __node(
                         23,
-                        28873,
+                        28677,
                         20,
                         901,
                         { op: "?", node: __wrap(setNode) }
                       ),
                       body: __node(
                         23,
-                        28889,
+                        28693,
                         11,
                         901,
                         { op: "throw", node: __wrap(node) }
@@ -73803,9 +73618,9 @@
                     }()));
                     return __node(
                       9,
-                      57111,
-                      __node(1, 57111, __wrap(basetype), __node(12, 57122, "generic")),
-                      [__node(31, 57130, __wrap(typeArguments))]
+                      56915,
+                      __node(1, 56915, __wrap(basetype), __node(12, 56926, "generic")),
+                      [__node(31, 56934, __wrap(typeArguments))]
                     );
                   }
                 }
@@ -73820,7 +73635,7 @@
                   } else if (__owns.call(PRIMORDIAL_TYPES, _this.name(type))) {
                     result = __node(
                       23,
-                      57368,
+                      57172,
                       17,
                       1713,
                       {
@@ -73828,7 +73643,7 @@
                         macroData: {
                           test: __node(
                             23,
-                            57380,
+                            57184,
                             74,
                             1713,
                             { left: __wrap(value), inverted: true, op: "instanceof", right: __wrap(type) },
@@ -73836,53 +73651,53 @@
                           ),
                           body: __node(
                             23,
-                            57409,
+                            57213,
                             11,
                             1714,
                             {
                               op: "throw",
                               node: __node(
                                 9,
-                                57426,
-                                __node(21, 57426, "TypeError"),
+                                57230,
+                                __node(21, 57230, "TypeError"),
                                 [
                                   __node(
                                     23,
-                                    57437,
+                                    57241,
                                     69,
                                     1714,
                                     {
                                       left: __node(
                                         23,
-                                        57437,
+                                        57241,
                                         69,
                                         1714,
                                         {
                                           left: __node(
                                             23,
-                                            57437,
+                                            57241,
                                             69,
                                             1714,
                                             {
                                               left: __node(
                                                 23,
-                                                57437,
+                                                57241,
                                                 69,
                                                 1714,
                                                 {
                                                   left: __node(
                                                     23,
-                                                    57437,
+                                                    57241,
                                                     69,
                                                     1714,
                                                     {
-                                                      left: __node(12, 57437, "Expected "),
+                                                      left: __node(12, 57241, "Expected "),
                                                       op: "",
                                                       right: __wrap(valueName)
                                                     }
                                                   ),
                                                   op: "",
-                                                  right: __node(12, 57437, " to be ")
+                                                  right: __node(12, 57241, " to be ")
                                                 }
                                               ),
                                               op: "",
@@ -73890,13 +73705,13 @@
                                             }
                                           ),
                                           op: "",
-                                          right: __node(12, 57437, ", got ")
+                                          right: __node(12, 57241, ", got ")
                                         }
                                       ),
                                       op: "",
                                       right: __node(
                                         23,
-                                        57506,
+                                        57310,
                                         57,
                                         1714,
                                         { op: "typeof!", node: __wrap(value) }
@@ -73916,7 +73731,7 @@
                   } else {
                     result = __node(
                       23,
-                      57546,
+                      57350,
                       17,
                       1717,
                       {
@@ -73924,7 +73739,7 @@
                         macroData: {
                           test: __node(
                             23,
-                            57558,
+                            57362,
                             74,
                             1717,
                             { left: __wrap(value), inverted: true, op: "instanceof", right: __wrap(type) },
@@ -73932,72 +73747,72 @@
                           ),
                           body: __node(
                             23,
-                            57587,
+                            57391,
                             11,
                             1718,
                             {
                               op: "throw",
                               node: __node(
                                 9,
-                                57604,
-                                __node(21, 57604, "TypeError"),
+                                57408,
+                                __node(21, 57408, "TypeError"),
                                 [
                                   __node(
                                     23,
-                                    57615,
+                                    57419,
                                     69,
                                     1718,
                                     {
                                       left: __node(
                                         23,
-                                        57615,
+                                        57419,
                                         69,
                                         1718,
                                         {
                                           left: __node(
                                             23,
-                                            57615,
+                                            57419,
                                             69,
                                             1718,
                                             {
                                               left: __node(
                                                 23,
-                                                57615,
+                                                57419,
                                                 69,
                                                 1718,
                                                 {
                                                   left: __node(
                                                     23,
-                                                    57615,
+                                                    57419,
                                                     69,
                                                     1718,
                                                     {
-                                                      left: __node(12, 57615, "Expected "),
+                                                      left: __node(12, 57419, "Expected "),
                                                       op: "",
                                                       right: __wrap(valueName)
                                                     }
                                                   ),
                                                   op: "",
-                                                  right: __node(12, 57615, " to be a ")
+                                                  right: __node(12, 57419, " to be a ")
                                                 }
                                               ),
                                               op: "",
                                               right: __node(
                                                 9,
-                                                57650,
-                                                __node(21, 57650, "__name"),
+                                                57454,
+                                                __node(21, 57454, "__name"),
                                                 [__wrap(type)]
                                               )
                                             }
                                           ),
                                           op: "",
-                                          right: __node(12, 57615, ", got ")
+                                          right: __node(12, 57419, ", got ")
                                         }
                                       ),
                                       op: "",
                                       right: __node(
                                         23,
-                                        57671,
+                                        57475,
                                         57,
                                         1718,
                                         { op: "typeof!", node: __wrap(value) }
@@ -74018,7 +73833,7 @@
                   if (!hasDefaultValue && _this.name(type) === "Boolean") {
                     return __node(
                       23,
-                      57759,
+                      57563,
                       17,
                       1720,
                       {
@@ -74026,14 +73841,14 @@
                         macroData: {
                           test: __node(
                             23,
-                            57762,
+                            57566,
                             3,
                             1720,
                             {
                               op: "not",
                               node: __node(
                                 23,
-                                57766,
+                                57570,
                                 20,
                                 1720,
                                 { op: "?", node: __wrap(value) },
@@ -74048,7 +73863,7 @@
                           ),
                           body: __node(
                             23,
-                            57775,
+                            57579,
                             30,
                             1721,
                             { left: __wrap(value), op: ":=", right: __const("false") },
@@ -74073,7 +73888,7 @@
                   } else {
                     return __node(
                       23,
-                      57957,
+                      57761,
                       17,
                       1731,
                       {
@@ -74081,7 +73896,7 @@
                         macroData: {
                           test: __node(
                             23,
-                            57969,
+                            57773,
                             74,
                             1731,
                             { left: __wrap(value), inverted: true, op: "instanceof", right: __wrap(type) },
@@ -74089,53 +73904,53 @@
                           ),
                           body: __node(
                             23,
-                            57998,
+                            57802,
                             11,
                             1732,
                             {
                               op: "throw",
                               node: __node(
                                 9,
-                                58015,
-                                __node(21, 58015, "TypeError"),
+                                57819,
+                                __node(21, 57819, "TypeError"),
                                 [
                                   __node(
                                     23,
-                                    58026,
+                                    57830,
                                     69,
                                     1732,
                                     {
                                       left: __node(
                                         23,
-                                        58026,
+                                        57830,
                                         69,
                                         1732,
                                         {
                                           left: __node(
                                             23,
-                                            58026,
+                                            57830,
                                             69,
                                             1732,
                                             {
                                               left: __node(
                                                 23,
-                                                58026,
+                                                57830,
                                                 69,
                                                 1732,
                                                 {
                                                   left: __node(
                                                     23,
-                                                    58026,
+                                                    57830,
                                                     69,
                                                     1732,
                                                     {
-                                                      left: __node(12, 58026, "Expected "),
+                                                      left: __node(12, 57830, "Expected "),
                                                       op: "",
                                                       right: __wrap(valueName)
                                                     }
                                                   ),
                                                   op: "",
-                                                  right: __node(12, 58026, " to be ")
+                                                  right: __node(12, 57830, " to be ")
                                                 }
                                               ),
                                               op: "",
@@ -74143,13 +73958,13 @@
                                             }
                                           ),
                                           op: "",
-                                          right: __node(12, 58026, ", got ")
+                                          right: __node(12, 57830, ", got ")
                                         }
                                       ),
                                       op: "",
                                       right: __node(
                                         23,
-                                        58104,
+                                        57908,
                                         57,
                                         1732,
                                         { op: "typeof!", node: __wrap(value) }
@@ -74194,14 +74009,14 @@
                       } else {
                         names.push(__node(
                           9,
-                          58907,
-                          __node(21, 58907, "__name"),
+                          58711,
+                          __node(21, 58711, "__name"),
                           [__wrap(t)]
                         ));
                       }
                       tests.push(__node(
                         23,
-                        58943,
+                        58747,
                         74,
                         1757,
                         { left: __wrap(value), inverted: true, op: "instanceof", right: __wrap(t) }
@@ -74223,19 +74038,19 @@
                     name = names[_i];
                     current = __node(
                       23,
-                      59270,
+                      59074,
                       69,
                       1766,
                       {
                         left: __node(
                           23,
-                          59270,
+                          59074,
                           69,
                           1766,
                           {
                             left: __wrap(current),
                             op: "",
-                            right: __node(12, 59270, " or ")
+                            right: __node(12, 59074, " or ")
                           }
                         ),
                         op: "",
@@ -74249,7 +74064,7 @@
                   } else {
                     result = __node(
                       23,
-                      59386,
+                      59190,
                       17,
                       1770,
                       {
@@ -74258,53 +74073,53 @@
                           test: __wrap(test),
                           body: __node(
                             23,
-                            59396,
+                            59200,
                             11,
                             1771,
                             {
                               op: "throw",
                               node: __node(
                                 9,
-                                59411,
-                                __node(21, 59411, "TypeError"),
+                                59215,
+                                __node(21, 59215, "TypeError"),
                                 [
                                   __node(
                                     23,
-                                    59422,
+                                    59226,
                                     69,
                                     1771,
                                     {
                                       left: __node(
                                         23,
-                                        59422,
+                                        59226,
                                         69,
                                         1771,
                                         {
                                           left: __node(
                                             23,
-                                            59422,
+                                            59226,
                                             69,
                                             1771,
                                             {
                                               left: __node(
                                                 23,
-                                                59422,
+                                                59226,
                                                 69,
                                                 1771,
                                                 {
                                                   left: __node(
                                                     23,
-                                                    59422,
+                                                    59226,
                                                     69,
                                                     1771,
                                                     {
-                                                      left: __node(12, 59422, "Expected "),
+                                                      left: __node(12, 59226, "Expected "),
                                                       op: "",
                                                       right: __wrap(valueName)
                                                     }
                                                   ),
                                                   op: "",
-                                                  right: __node(12, 59422, " to be one of ")
+                                                  right: __node(12, 59226, " to be one of ")
                                                 }
                                               ),
                                               op: "",
@@ -74312,13 +74127,13 @@
                                             }
                                           ),
                                           op: "",
-                                          right: __node(12, 59422, ", got ")
+                                          right: __node(12, 59226, ", got ")
                                         }
                                       ),
                                       op: "",
                                       right: __node(
                                         23,
-                                        59482,
+                                        59286,
                                         57,
                                         1771,
                                         { op: "typeof!", node: __wrap(value) }
@@ -74341,7 +74156,7 @@
                       if (__xor(hasNull, hasVoid)) {
                         result = __node(
                           23,
-                          59624,
+                          59428,
                           17,
                           1776,
                           {
@@ -74349,14 +74164,14 @@
                             macroData: {
                               test: __node(
                                 23,
-                                59627,
+                                59431,
                                 3,
                                 1776,
                                 {
                                   op: "not",
                                   node: __node(
                                     23,
-                                    59631,
+                                    59435,
                                     20,
                                     1776,
                                     { op: "?", node: __wrap(value) },
@@ -74371,7 +74186,7 @@
                               ),
                               body: __node(
                                 23,
-                                59640,
+                                59444,
                                 30,
                                 1777,
                                 {
@@ -74379,7 +74194,7 @@
                                   op: ":=",
                                   right: __node(
                                     23,
-                                    59663,
+                                    59467,
                                     16,
                                     1777,
                                     {
@@ -74406,7 +74221,7 @@
                       } else {
                         result = __node(
                           23,
-                          59776,
+                          59580,
                           17,
                           1781,
                           {
@@ -74414,7 +74229,7 @@
                             macroData: {
                               test: __node(
                                 23,
-                                59779,
+                                59583,
                                 20,
                                 1781,
                                 { op: "?", node: __wrap(value) },
@@ -74430,7 +74245,7 @@
                     } else if (hasBoolean) {
                       result = __node(
                         23,
-                        59862,
+                        59666,
                         17,
                         1784,
                         {
@@ -74438,14 +74253,14 @@
                           macroData: {
                             test: __node(
                               23,
-                              59865,
+                              59669,
                               3,
                               1784,
                               {
                                 op: "not",
                                 node: __node(
                                   23,
-                                  59869,
+                                  59673,
                                   20,
                                   1784,
                                   { op: "?", node: __wrap(value) },
@@ -74460,7 +74275,7 @@
                             ),
                             body: __node(
                               23,
-                              59878,
+                              59682,
                               30,
                               1785,
                               { left: __wrap(value), op: ":=", right: __const("false") },
@@ -74485,29 +74300,29 @@
                   } else if (_this.name(_this.basetype(type)) === "Array") {
                     index = _this.tmp("i", false, "number");
                     subCheck = translateTypeCheck(
-                      __node(1, 60177, __wrap(value), __wrap(index)),
+                      __node(1, 59981, __wrap(value), __wrap(index)),
                       __node(
                         23,
-                        60200,
+                        60004,
                         69,
                         1794,
                         {
                           left: __node(
                             23,
-                            60200,
+                            60004,
                             69,
                             1794,
                             {
                               left: __node(
                                 23,
-                                60200,
+                                60004,
                                 69,
                                 1794,
                                 {
                                   left: __wrap(valueName),
                                   inverted: false,
                                   op: "&",
-                                  right: __node(12, 60215, "[")
+                                  right: __node(12, 60019, "[")
                                 }
                               ),
                               inverted: false,
@@ -74517,7 +74332,7 @@
                           ),
                           inverted: false,
                           op: "&",
-                          right: __node(12, 60230, "]")
+                          right: __node(12, 60034, "]")
                         }
                       ),
                       _this.typeArguments(type)[0],
@@ -74525,7 +74340,7 @@
                     );
                     return __node(
                       23,
-                      60279,
+                      60083,
                       17,
                       1795,
                       {
@@ -74533,14 +74348,14 @@
                         macroData: {
                           test: __node(
                             23,
-                            60282,
+                            60086,
                             3,
                             1795,
                             {
                               op: "not",
                               node: __node(
                                 23,
-                                60286,
+                                60090,
                                 27,
                                 1795,
                                 { op: "isArray!", node: __wrap(value) },
@@ -74551,47 +74366,47 @@
                           ),
                           body: __node(
                             23,
-                            60304,
+                            60108,
                             11,
                             1796,
                             {
                               op: "throw",
                               node: __node(
                                 9,
-                                60319,
-                                __node(21, 60319, "TypeError"),
+                                60123,
+                                __node(21, 60123, "TypeError"),
                                 [
                                   __node(
                                     23,
-                                    60330,
+                                    60134,
                                     69,
                                     1796,
                                     {
                                       left: __node(
                                         23,
-                                        60330,
+                                        60134,
                                         69,
                                         1796,
                                         {
                                           left: __node(
                                             23,
-                                            60330,
+                                            60134,
                                             69,
                                             1796,
                                             {
-                                              left: __node(12, 60330, "Expected "),
+                                              left: __node(12, 60134, "Expected "),
                                               op: "",
                                               right: __wrap(valueName)
                                             }
                                           ),
                                           op: "",
-                                          right: __node(12, 60330, " to be an Array, got ")
+                                          right: __node(12, 60134, " to be an Array, got ")
                                         }
                                       ),
                                       op: "",
                                       right: __node(
                                         23,
-                                        60377,
+                                        60181,
                                         57,
                                         1796,
                                         { op: "typeof!", node: __wrap(value) }
@@ -74606,7 +74421,7 @@
                           elseIfs: [],
                           elseBody: __node(
                             23,
-                            60407,
+                            60211,
                             106,
                             1798,
                             {
@@ -74614,7 +74429,7 @@
                               macroData: {
                                 init: __node(
                                   23,
-                                  60422,
+                                  60226,
                                   38,
                                   1798,
                                   {
@@ -74622,24 +74437,24 @@
                                     macroData: {
                                       declarable: __node(
                                         23,
-                                        60425,
+                                        60229,
                                         37,
                                         1798,
                                         __node(
                                           23,
-                                          60425,
+                                          60229,
                                           31,
                                           1798,
                                           { isMutable: "mutable", ident: __wrap(index) }
                                         )
                                       ),
-                                      value: __node(1, 60442, __wrap(value), __node(12, 60450, "length"))
+                                      value: __node(1, 60246, __wrap(value), __node(12, 60254, "length"))
                                     }
                                   }
                                 ),
                                 test: __node(
                                   23,
-                                  60458,
+                                  60262,
                                   13,
                                   1798,
                                   { op: "postDec!", node: __wrap(index) },
@@ -74660,7 +74475,7 @@
                     genericType = translateGenericType(type);
                     return __node(
                       23,
-                      60713,
+                      60517,
                       17,
                       1805,
                       {
@@ -74668,7 +74483,7 @@
                         macroData: {
                           test: __node(
                             23,
-                            60725,
+                            60529,
                             74,
                             1805,
                             { left: __wrap(value), inverted: true, op: "instanceof", right: __wrap(genericType) },
@@ -74676,72 +74491,72 @@
                           ),
                           body: __node(
                             23,
-                            60762,
+                            60566,
                             11,
                             1806,
                             {
                               op: "throw",
                               node: __node(
                                 9,
-                                60779,
-                                __node(21, 60779, "TypeError"),
+                                60583,
+                                __node(21, 60583, "TypeError"),
                                 [
                                   __node(
                                     23,
-                                    60790,
+                                    60594,
                                     69,
                                     1806,
                                     {
                                       left: __node(
                                         23,
-                                        60790,
+                                        60594,
                                         69,
                                         1806,
                                         {
                                           left: __node(
                                             23,
-                                            60790,
+                                            60594,
                                             69,
                                             1806,
                                             {
                                               left: __node(
                                                 23,
-                                                60790,
+                                                60594,
                                                 69,
                                                 1806,
                                                 {
                                                   left: __node(
                                                     23,
-                                                    60790,
+                                                    60594,
                                                     69,
                                                     1806,
                                                     {
-                                                      left: __node(12, 60790, "Expected "),
+                                                      left: __node(12, 60594, "Expected "),
                                                       op: "",
                                                       right: __wrap(valueName)
                                                     }
                                                   ),
                                                   op: "",
-                                                  right: __node(12, 60790, " to be a ")
+                                                  right: __node(12, 60594, " to be a ")
                                                 }
                                               ),
                                               op: "",
                                               right: __node(
                                                 9,
-                                                60825,
-                                                __node(21, 60825, "__name"),
+                                                60629,
+                                                __node(21, 60629, "__name"),
                                                 [__wrap(genericType)]
                                               )
                                             }
                                           ),
                                           op: "",
-                                          right: __node(12, 60790, ", got ")
+                                          right: __node(12, 60594, ", got ")
                                         }
                                       ),
                                       op: "",
                                       right: __node(
                                         23,
-                                        60854,
+                                        60658,
                                         57,
                                         1806,
                                         { op: "typeof!", node: __wrap(value) }
@@ -74768,23 +74583,23 @@
                       key = _ref.key;
                       pairValue = _ref.value;
                       _arr.push(translateTypeCheck(
-                        __node(1, 61065, __wrap(value), __wrap(key)),
+                        __node(1, 60869, __wrap(value), __wrap(key)),
                         __node(
                           23,
-                          61086,
+                          60890,
                           69,
                           1812,
                           {
                             left: __node(
                               23,
-                              61086,
+                              60890,
                               69,
                               1812,
                               {
                                 left: __wrap(valueName),
                                 inverted: false,
                                 op: "&",
-                                right: __node(12, 61101, ".")
+                                right: __node(12, 60905, ".")
                               }
                             ),
                             inverted: false,
@@ -74799,7 +74614,7 @@
                     checks = _arr;
                     return __node(
                       23,
-                      61143,
+                      60947,
                       17,
                       1813,
                       {
@@ -74807,14 +74622,14 @@
                         macroData: {
                           test: __node(
                             23,
-                            61146,
+                            60950,
                             3,
                             1813,
                             {
                               op: "not",
                               node: __node(
                                 23,
-                                61150,
+                                60954,
                                 28,
                                 1813,
                                 { op: "isObject!", node: __wrap(value) },
@@ -74825,47 +74640,47 @@
                           ),
                           body: __node(
                             23,
-                            61169,
+                            60973,
                             11,
                             1814,
                             {
                               op: "throw",
                               node: __node(
                                 9,
-                                61184,
-                                __node(21, 61184, "TypeError"),
+                                60988,
+                                __node(21, 60988, "TypeError"),
                                 [
                                   __node(
                                     23,
-                                    61195,
+                                    60999,
                                     69,
                                     1814,
                                     {
                                       left: __node(
                                         23,
-                                        61195,
+                                        60999,
                                         69,
                                         1814,
                                         {
                                           left: __node(
                                             23,
-                                            61195,
+                                            60999,
                                             69,
                                             1814,
                                             {
-                                              left: __node(12, 61195, "Expected "),
+                                              left: __node(12, 60999, "Expected "),
                                               op: "",
                                               right: __wrap(valueName)
                                             }
                                           ),
                                           op: "",
-                                          right: __node(12, 61195, " to be an Object, got ")
+                                          right: __node(12, 60999, " to be an Object, got ")
                                         }
                                       ),
                                       op: "",
                                       right: __node(
                                         23,
-                                        61243,
+                                        61047,
                                         57,
                                         1814,
                                         { op: "typeof!", node: __wrap(value) }
@@ -74909,7 +74724,7 @@
                         if (foundSpread === -1) {
                           init.splice(initIndex, 0, __node(
                             23,
-                            61977,
+                            61781,
                             38,
                             1834,
                             {
@@ -74917,12 +74732,12 @@
                               macroData: {
                                 declarable: __node(
                                   23,
-                                  61981,
+                                  61785,
                                   37,
                                   1834,
                                   __node(
                                     23,
-                                    61981,
+                                    61785,
                                     31,
                                     1834,
                                     { ident: __wrap(elementIdent) },
@@ -74930,7 +74745,7 @@
                                   ),
                                   true
                                 ),
-                                value: __node(1, 61998, __wrap(arrayIdent), __wrap(i))
+                                value: __node(1, 61802, __wrap(arrayIdent), __wrap(i))
                               }
                             },
                             true
@@ -74938,7 +74753,7 @@
                         } else {
                           init.splice(initIndex, 0, __node(
                             23,
-                            62077,
+                            61881,
                             38,
                             1836,
                             {
@@ -74946,12 +74761,12 @@
                               macroData: {
                                 declarable: __node(
                                   23,
-                                  62081,
+                                  61885,
                                   37,
                                   1836,
                                   __node(
                                     23,
-                                    62081,
+                                    61885,
                                     31,
                                     1836,
                                     { ident: __wrap(elementIdent) },
@@ -74959,9 +74774,9 @@
                                   ),
                                   true
                                 ),
-                                value: __node(1, 62098, __wrap(arrayIdent), __node(
+                                value: __node(1, 61902, __wrap(arrayIdent), __node(
                                   23,
-                                  62112,
+                                  61916,
                                   66,
                                   1836,
                                   {
@@ -74970,20 +74785,20 @@
                                     op: "+",
                                     right: __node(
                                       23,
-                                      62131,
+                                      61935,
                                       66,
                                       1836,
                                       {
                                         left: __node(
                                           23,
-                                          62131,
+                                          61935,
                                           66,
                                           1836,
                                           { left: __wrap(i), inverted: false, op: "-", right: __wrap(foundSpread) }
                                         ),
                                         inverted: false,
                                         op: "-",
-                                        right: __node(12, 62152, 1)
+                                        right: __node(12, 61956, 1)
                                       }
                                     )
                                   }
@@ -75004,7 +74819,7 @@
                         if (i === len - 1) {
                           init.splice(initIndex, 0, __node(
                             23,
-                            62402,
+                            62206,
                             38,
                             1842,
                             {
@@ -75012,12 +74827,12 @@
                               macroData: {
                                 declarable: __node(
                                   23,
-                                  62406,
+                                  62210,
                                   37,
                                   1842,
                                   __node(
                                     23,
-                                    62406,
+                                    62210,
                                     31,
                                     1842,
                                     { ident: __wrap(elementIdent) },
@@ -75027,13 +74842,13 @@
                                 ),
                                 value: __node(
                                   9,
-                                  62423,
-                                  __node(21, 62423, "__slice"),
+                                  62227,
+                                  __node(21, 62227, "__slice"),
                                   [
                                     __wrap(arrayIdent),
-                                    __node(31, 62446, __node(
+                                    __node(31, 62250, __node(
                                       23,
-                                      62451,
+                                      62255,
                                       16,
                                       1842,
                                       {
@@ -75041,19 +74856,19 @@
                                         macroData: {
                                           test: __node(
                                             23,
-                                            62453,
+                                            62257,
                                             5,
                                             1842,
                                             {
                                               left: __wrap(i),
                                               inverted: false,
                                               op: "==",
-                                              right: __node(12, 62460, 0)
+                                              right: __node(12, 62264, 0)
                                             }
                                           ),
-                                          body: __node(4, 62466),
+                                          body: __node(4, 62270),
                                           elseIfs: [],
-                                          elseBody: __node(4, 62474, [__wrap(i)])
+                                          elseBody: __node(4, 62278, [__wrap(i)])
                                         }
                                       }
                                     ))
@@ -75067,10 +74882,10 @@
                           ));
                         } else {
                           spreadCounter = _this.tmp("i", false, "number");
-                          init.splice(initIndex, 0, __node(7, 62599, [
+                          init.splice(initIndex, 0, __node(7, 62403, [
                             __node(
                               23,
-                              62599,
+                              62403,
                               38,
                               1846,
                               {
@@ -75078,12 +74893,12 @@
                                 macroData: {
                                   declarable: __node(
                                     23,
-                                    62618,
+                                    62422,
                                     37,
                                     1846,
                                     __node(
                                       23,
-                                      62618,
+                                      62422,
                                       31,
                                       1846,
                                       { isMutable: "mutable", ident: __wrap(spreadCounter) },
@@ -75093,29 +74908,29 @@
                                   ),
                                   value: __node(
                                     23,
-                                    62644,
+                                    62448,
                                     66,
                                     1846,
                                     {
-                                      left: __node(1, 62644, __wrap(arrayIdent), __node(12, 62658, "length")),
+                                      left: __node(1, 62448, __wrap(arrayIdent), __node(12, 62462, "length")),
                                       inverted: false,
                                       op: "-",
                                       right: __node(
                                         23,
-                                        62668,
+                                        62472,
                                         66,
                                         1846,
                                         {
                                           left: __node(
                                             23,
-                                            62668,
+                                            62472,
                                             66,
                                             1846,
                                             { left: __wrap(len), inverted: false, op: "-", right: __wrap(i) }
                                           ),
                                           inverted: false,
                                           op: "-",
-                                          right: __node(12, 62680, 1)
+                                          right: __node(12, 62484, 1)
                                         }
                                       )
                                     }
@@ -75126,7 +74941,7 @@
                             ),
                             __node(
                               23,
-                              62683,
+                              62487,
                               38,
                               1847,
                               {
@@ -75134,12 +74949,12 @@
                                 macroData: {
                                   declarable: __node(
                                     23,
-                                    62702,
+                                    62506,
                                     37,
                                     1847,
                                     __node(
                                       23,
-                                      62702,
+                                      62506,
                                       31,
                                       1847,
                                       { ident: __wrap(elementIdent) },
@@ -75149,7 +74964,7 @@
                                   ),
                                   value: __node(
                                     23,
-                                    62719,
+                                    62523,
                                     17,
                                     1847,
                                     {
@@ -75157,30 +74972,30 @@
                                       macroData: {
                                         test: __node(
                                           23,
-                                          62722,
+                                          62526,
                                           79,
                                           1847,
                                           { left: __wrap(spreadCounter), inverted: false, op: ">", right: __wrap(i) }
                                         ),
                                         body: __node(
                                           9,
-                                          62744,
-                                          __node(21, 62744, "__slice"),
+                                          62548,
+                                          __node(21, 62548, "__slice"),
                                           [__wrap(arrayIdent), __wrap(i), __wrap(spreadCounter)],
                                           false,
                                           true
                                         ),
                                         elseIfs: [],
-                                        elseBody: __node(7, 62826, [
+                                        elseBody: __node(7, 62630, [
                                           __node(
                                             23,
-                                            62826,
+                                            62630,
                                             30,
                                             1850,
                                             { left: __wrap(spreadCounter), op: ":=", right: __wrap(i) },
                                             true
                                           ),
-                                          __node(4, 62866)
+                                          __node(4, 62670)
                                         ])
                                       }
                                     }
@@ -75216,7 +75031,7 @@
                       key = pair.key;
                       init.splice(initIndex, 0, __node(
                         23,
-                        63320,
+                        63124,
                         38,
                         1863,
                         {
@@ -75224,12 +75039,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              63324,
+                              63128,
                               37,
                               1863,
                               __node(
                                 23,
-                                63324,
+                                63128,
                                 31,
                                 1863,
                                 { ident: __wrap(valueIdent) },
@@ -75237,7 +75052,7 @@
                               ),
                               true
                             ),
-                            value: __node(1, 63339, __wrap(objectIdent), __wrap(key))
+                            value: __node(1, 63143, __wrap(objectIdent), __wrap(key))
                           }
                         },
                         true
@@ -75275,7 +75090,7 @@
                     init.push(defaultValue != null
                       ? __node(
                         23,
-                        64177,
+                        63981,
                         17,
                         1884,
                         {
@@ -75283,14 +75098,14 @@
                           macroData: {
                             test: __node(
                               23,
-                              64191,
+                              63995,
                               3,
                               1884,
                               {
                                 op: "not",
                                 node: __node(
                                   23,
-                                  64195,
+                                  63999,
                                   20,
                                   1884,
                                   { op: "?", node: __wrap(ident) },
@@ -75305,7 +75120,7 @@
                             ),
                             body: __node(
                               23,
-                              64204,
+                              64008,
                               30,
                               1885,
                               { left: __wrap(ident), op: ":=", right: __wrap(defaultValue) },
@@ -75325,7 +75140,7 @@
                     if (paramIdent !== ident) {
                       init.push(__node(
                         23,
-                        64375,
+                        64179,
                         30,
                         1891,
                         { left: __wrap(paramIdent), op: ":=", right: __wrap(ident) },
@@ -75382,7 +75197,7 @@
                   if (i === len - 1) {
                     init.splice(initIndex, 0, __node(
                       23,
-                      65266,
+                      65070,
                       38,
                       1919,
                       {
@@ -75390,12 +75205,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            65279,
+                            65083,
                             37,
                             1919,
                             __node(
                               23,
-                              65279,
+                              65083,
                               31,
                               1919,
                               { ident: __wrap(ident) },
@@ -75405,13 +75220,13 @@
                           ),
                           value: __node(
                             9,
-                            65288,
-                            __node(21, 65288, "__slice"),
+                            65092,
+                            __node(21, 65092, "__slice"),
                             [
-                              __node(3, 65298),
-                              __node(31, 65308, __node(
+                              __node(3, 65102),
+                              __node(31, 65112, __node(
                                 23,
-                                65313,
+                                65117,
                                 16,
                                 1919,
                                 {
@@ -75419,19 +75234,19 @@
                                   macroData: {
                                     test: __node(
                                       23,
-                                      65315,
+                                      65119,
                                       5,
                                       1919,
                                       {
                                         left: __wrap(i),
                                         inverted: false,
                                         op: "==",
-                                        right: __node(12, 65322, 0)
+                                        right: __node(12, 65126, 0)
                                       }
                                     ),
-                                    body: __node(4, 65328),
+                                    body: __node(4, 65132),
                                     elseIfs: [],
-                                    elseBody: __node(4, 65336, [__wrap(i)])
+                                    elseBody: __node(4, 65140, [__wrap(i)])
                                   }
                                 }
                               ))
@@ -75445,10 +75260,10 @@
                     ));
                   } else {
                     spreadCounter = this.tmp("i", false, "number");
-                    init.splice(initIndex, 0, __node(7, 65443, [
+                    init.splice(initIndex, 0, __node(7, 65247, [
                       __node(
                         23,
-                        65443,
+                        65247,
                         38,
                         1923,
                         {
@@ -75456,12 +75271,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              65456,
+                              65260,
                               37,
                               1923,
                               __node(
                                 23,
-                                65456,
+                                65260,
                                 31,
                                 1923,
                                 { isMutable: "mutable", ident: __wrap(spreadCounter) },
@@ -75471,34 +75286,34 @@
                             ),
                             value: __node(
                               23,
-                              65482,
+                              65286,
                               66,
                               1923,
                               {
                                 left: __node(
                                   1,
-                                  65482,
-                                  __node(3, 65482),
-                                  __node(12, 65493, "length")
+                                  65286,
+                                  __node(3, 65286),
+                                  __node(12, 65297, "length")
                                 ),
                                 inverted: false,
                                 op: "-",
                                 right: __node(
                                   23,
-                                  65503,
+                                  65307,
                                   66,
                                   1923,
                                   {
                                     left: __node(
                                       23,
-                                      65503,
+                                      65307,
                                       66,
                                       1923,
                                       { left: __wrap(len), inverted: false, op: "-", right: __wrap(i) }
                                     ),
                                     inverted: false,
                                     op: "-",
-                                    right: __node(12, 65515, 1)
+                                    right: __node(12, 65319, 1)
                                   }
                                 )
                               }
@@ -75509,7 +75324,7 @@
                       ),
                       __node(
                         23,
-                        65518,
+                        65322,
                         38,
                         1924,
                         {
@@ -75517,12 +75332,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              65531,
+                              65335,
                               37,
                               1924,
                               __node(
                                 23,
-                                65531,
+                                65335,
                                 31,
                                 1924,
                                 { ident: __wrap(ident) },
@@ -75532,7 +75347,7 @@
                             ),
                             value: __node(
                               23,
-                              65540,
+                              65344,
                               17,
                               1924,
                               {
@@ -75540,17 +75355,17 @@
                                 macroData: {
                                   test: __node(
                                     23,
-                                    65543,
+                                    65347,
                                     79,
                                     1924,
                                     { left: __wrap(spreadCounter), inverted: false, op: ">", right: __wrap(i) }
                                   ),
                                   body: __node(
                                     9,
-                                    65565,
-                                    __node(21, 65565, "__slice"),
+                                    65369,
+                                    __node(21, 65369, "__slice"),
                                     [
-                                      __node(3, 65586),
+                                      __node(3, 65390),
                                       __wrap(i),
                                       __wrap(spreadCounter)
                                     ],
@@ -75558,16 +75373,16 @@
                                     true
                                   ),
                                   elseIfs: [],
-                                  elseBody: __node(7, 65632, [
+                                  elseBody: __node(7, 65436, [
                                     __node(
                                       23,
-                                      65632,
+                                      65436,
                                       30,
                                       1927,
                                       { left: __wrap(spreadCounter), op: ":=", right: __wrap(i) },
                                       true
                                     ),
-                                    __node(4, 65666)
+                                    __node(4, 65470)
                                   ])
                                 }
                               }
@@ -75583,7 +75398,7 @@
                 } else {
                   init.splice(initIndex, 0, __node(
                     23,
-                    65790,
+                    65594,
                     38,
                     1934,
                     {
@@ -75591,12 +75406,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          65803,
+                          65607,
                           37,
                           1934,
                           __node(
                             23,
-                            65803,
+                            65607,
                             31,
                             1934,
                             { ident: __wrap(ident) },
@@ -75606,11 +75421,11 @@
                         ),
                         value: __node(
                           1,
-                          65812,
-                          __node(3, 65812),
+                          65616,
+                          __node(3, 65616),
                           __node(
                             23,
-                            65823,
+                            65627,
                             66,
                             1934,
                             {
@@ -75619,20 +75434,20 @@
                               op: "+",
                               right: __node(
                                 23,
-                                65842,
+                                65646,
                                 66,
                                 1934,
                                 {
                                   left: __node(
                                     23,
-                                    65842,
+                                    65646,
                                     66,
                                     1934,
                                     { left: __wrap(i), inverted: false, op: "-", right: __wrap(foundSpread) }
                                   ),
                                   inverted: false,
                                   op: "-",
-                                  right: __node(12, 65863, 1)
+                                  right: __node(12, 65667, 1)
                                 }
                               )
                             }
@@ -75649,7 +75464,7 @@
                 result = this.rewrap(
                   this.func(
                     params,
-                    __node(7, 66012, [__wrap(init), __wrap(body)]),
+                    __node(7, 65816, [__wrap(init), __wrap(body)]),
                     this.funcIsAutoReturn(node) && !this.isNothing(body),
                     this.funcIsBound(node),
                     false,
@@ -75665,8 +75480,8 @@
               if (this.funcIsCurried(node)) {
                 result = __node(
                   9,
-                  66294,
-                  __node(21, 66294, "__curry"),
+                  66098,
+                  __node(21, 66098, "__curry"),
                   [__wrap(params.length), __wrap(result)]
                 );
               }
@@ -75688,7 +75503,7 @@
                     key: key,
                     "let": __node(
                       23,
-                      66857,
+                      66661,
                       38,
                       1965,
                       {
@@ -75696,12 +75511,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            66861,
+                            66665,
                             37,
                             1965,
                             __node(
                               23,
-                              66861,
+                              66665,
                               31,
                               1965,
                               { ident: __wrap(key) },
@@ -75711,8 +75526,8 @@
                           ),
                           value: __node(
                             9,
-                            66868,
-                            __node(21, 66868, "__getInstanceof"),
+                            66672,
+                            __node(21, 66672, "__getInstanceof"),
                             [__wrap(genericArg)]
                           )
                         }
@@ -75732,7 +75547,7 @@
                         func = instanceofs[name].key;
                         instanceofs[name].used = true;
                         left = _this.left(node);
-                        return __node(9, 67318, __wrap(func), [__wrap(left)]);
+                        return __node(9, 67122, __wrap(func), [__wrap(left)]);
                       }
                     }
                   }
@@ -75748,13 +75563,13 @@
                 }
                 instanceofLets = _arr;
                 if (instanceofLets.length) {
-                  result = __node(7, 67474, [__wrap(instanceofLets), __wrap(result)]);
+                  result = __node(7, 67278, [__wrap(instanceofLets), __wrap(result)]);
                 }
                 makeFunctionFunc = this.func(genericParams, result, true, false);
                 result = __node(
                   9,
-                  67604,
-                  __node(21, 67604, "__genericFunc"),
+                  67408,
+                  __node(21, 67408, "__genericFunc"),
                   [__wrap(genericArgs.length), __wrap(makeFunctionFunc)]
                 );
               }
@@ -75773,8 +75588,8 @@
               node = macroData.node;
               return __node(
                 9,
-                79287,
-                __node(21, 79287, "__keys"),
+                79091,
+                __node(21, 79091, "__keys"),
                 [__wrap(node)]
               );
             },
@@ -75789,8 +75604,8 @@
               node = macroData.node;
               return __node(
                 9,
-                79443,
-                __node(21, 79443, "__allkeys"),
+                79247,
+                __node(21, 79247, "__allkeys"),
                 [__wrap(node)]
               );
             },
@@ -75843,22 +75658,22 @@
               set = this.tmp("s", false, "object");
               if (this.isArray(node) && !this.arrayHasSpread(node)) {
                 if (this.elements(node).length === 0) {
-                  return __node(9, 115952, __node(21, 115952, "Set"));
+                  return __node(9, 115756, __node(21, 115756, "Set"));
                 } else {
                   parts = [];
                   for (_arr = __toArray(this.elements(node)), _i = 0, _len = _arr.length; _i < _len; ++_i) {
                     element = _arr[_i];
                     parts.push(__node(
                       9,
-                      116048,
-                      __node(1, 116048, __wrap(set), __node(12, 116054, "add")),
+                      115852,
+                      __node(1, 115852, __wrap(set), __node(12, 115858, "add")),
                       [__wrap(element)]
                     ));
                   }
-                  return __node(7, 116077, [
+                  return __node(7, 115881, [
                     __node(
                       23,
-                      116077,
+                      115881,
                       38,
                       3518,
                       {
@@ -75866,12 +75681,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            116088,
+                            115892,
                             37,
                             3518,
                             __node(
                               23,
-                              116088,
+                              115892,
                               31,
                               3518,
                               { ident: __wrap(set) },
@@ -75879,7 +75694,7 @@
                             ),
                             true
                           ),
-                          value: __node(9, 116095, __node(21, 116095, "Set"))
+                          value: __node(9, 115899, __node(21, 115899, "Set"))
                         }
                       },
                       true
@@ -75890,10 +75705,10 @@
                 }
               } else {
                 item = this.tmp("x", false, "any");
-                return __node(7, 116181, [
+                return __node(7, 115985, [
                   __node(
                     23,
-                    116181,
+                    115985,
                     38,
                     3524,
                     {
@@ -75901,12 +75716,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          116190,
+                          115994,
                           37,
                           3524,
                           __node(
                             23,
-                            116190,
+                            115994,
                             31,
                             3524,
                             { ident: __wrap(set) },
@@ -75914,14 +75729,14 @@
                           ),
                           true
                         ),
-                        value: __node(9, 116197, __node(21, 116197, "Set"))
+                        value: __node(9, 116001, __node(21, 116001, "Set"))
                       }
                     },
                     true
                   ),
                   __node(
                     23,
-                    116204,
+                    116008,
                     113,
                     3525,
                     {
@@ -75929,12 +75744,12 @@
                       macroData: {
                         value: __node(
                           23,
-                          116213,
+                          116017,
                           37,
                           3525,
                           __node(
                             23,
-                            116213,
+                            116017,
                             31,
                             3525,
                             { ident: __wrap(item) },
@@ -75945,8 +75760,8 @@
                         array: __wrap(node),
                         body: __node(
                           9,
-                          116229,
-                          __node(1, 116229, __wrap(set), __node(12, 116242, "add")),
+                          116033,
+                          __node(1, 116033, __wrap(set), __node(12, 116046, "add")),
                           [__wrap(item)]
                         )
                       }
@@ -76010,7 +75825,7 @@
               }
               pairs = this.pairs(node);
               if (pairs.length === 0) {
-                return __node(9, 116480, __node(21, 116480, "Map"));
+                return __node(9, 116284, __node(21, 116284, "Map"));
               } else {
                 map = this.tmp("m", false, "object");
                 parts = [];
@@ -76027,15 +75842,15 @@
                   }
                   parts.push(__node(
                     9,
-                    116704,
-                    __node(1, 116704, __wrap(map), __node(12, 116710, "set")),
+                    116508,
+                    __node(1, 116508, __wrap(map), __node(12, 116514, "set")),
                     [__wrap(key), __wrap(value)]
                   ));
                 }
-                return __node(7, 116735, [
+                return __node(7, 116539, [
                   __node(
                     23,
-                    116735,
+                    116539,
                     38,
                     3544,
                     {
@@ -76043,12 +75858,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          116744,
+                          116548,
                           37,
                           3544,
                           __node(
                             23,
-                            116744,
+                            116548,
                             31,
                             3544,
                             { ident: __wrap(map) },
@@ -76056,7 +75871,7 @@
                           ),
                           true
                         ),
-                        value: __node(9, 116751, __node(21, 116751, "Map"))
+                        value: __node(9, 116555, __node(21, 116555, "Map"))
                       }
                     },
                     true
@@ -76125,7 +75940,7 @@
                   _arr.push(cascade(top));
                 }
                 parts = _arr;
-                return __node(7, 130687, [__wrap(setTop), __wrap(parts), __wrap(top)]);
+                return __node(7, 130491, [__wrap(setTop), __wrap(parts), __wrap(top)]);
               });
             
             }
@@ -77137,14 +76952,14 @@
               body = macroData.body;
               func = __node(
                 20,
-                31278,
+                31082,
                 [],
                 __wrap(body),
                 true
               );
               return __node(
                 9,
-                31295,
+                31099,
                 __wrap(func),
                 [__wrap(node)],
                 false,
@@ -77221,7 +77036,7 @@
                   body = this.mutateLast(body || this.noop(), function (node) {
                     return __node(
                       23,
-                      32849,
+                      32653,
                       39,
                       1032,
                       { macroName: "return", macroData: { node: __wrap(node) } },
@@ -77231,13 +77046,13 @@
                   loop = this["for"](init, test, step, body);
                   return __node(
                     23,
-                    32924,
+                    32728,
                     0,
                     1034,
                     {
                       macroName: "do",
                       macroData: {
-                        body: __node(7, 32928, [__wrap(loop), __wrap(elseBody)])
+                        body: __node(7, 32732, [__wrap(loop), __wrap(elseBody)])
                       }
                     }
                   );
@@ -77250,7 +77065,7 @@
                     result = [];
                     result.push(__node(
                       23,
-                      33206,
+                      33010,
                       38,
                       1043,
                       {
@@ -77258,12 +77073,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            33210,
+                            33014,
                             37,
                             1043,
                             __node(
                               23,
-                              33210,
+                              33014,
                               31,
                               1043,
                               { ident: __wrap(some) },
@@ -77279,17 +77094,17 @@
                     result.push(this["for"](init, test, step, this.mutateLast(body || this.noop(), function (node) {
                       return __node(
                         23,
-                        33315,
+                        33119,
                         17,
                         1045,
                         {
                           macroName: "if",
                           macroData: {
                             test: __wrap(node),
-                            body: __node(7, 33336, [
+                            body: __node(7, 33140, [
                               __node(
                                 23,
-                                33336,
+                                33140,
                                 30,
                                 1046,
                                 { left: __wrap(some), op: ":=", right: __const("true") },
@@ -77297,7 +77112,7 @@
                               ),
                               __node(
                                 23,
-                                33364,
+                                33168,
                                 19,
                                 1047,
                                 { macroName: "break", macroData: {} },
@@ -77321,7 +77136,7 @@
                     result = [];
                     result.push(__node(
                       23,
-                      33649,
+                      33453,
                       38,
                       1056,
                       {
@@ -77329,12 +77144,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            33653,
+                            33457,
                             37,
                             1056,
                             __node(
                               23,
-                              33653,
+                              33457,
                               31,
                               1056,
                               { ident: __wrap(every) },
@@ -77350,7 +77165,7 @@
                     result.push(this["for"](init, test, step, this.mutateLast(body || this.noop(), function (node) {
                       return __node(
                         23,
-                        33758,
+                        33562,
                         17,
                         1058,
                         {
@@ -77358,16 +77173,16 @@
                           macroData: {
                             test: __node(
                               23,
-                              33772,
+                              33576,
                               3,
                               1058,
                               { op: "not", node: __wrap(node) },
                               true
                             ),
-                            body: __node(7, 33783, [
+                            body: __node(7, 33587, [
                               __node(
                                 23,
-                                33783,
+                                33587,
                                 30,
                                 1059,
                                 { left: __wrap(every), op: ":=", right: __const("false") },
@@ -77375,7 +77190,7 @@
                               ),
                               __node(
                                 23,
-                                33813,
+                                33617,
                                 19,
                                 1060,
                                 { macroName: "break", macroData: {} },
@@ -77406,10 +77221,10 @@
                   );
                 }
                 runElse = this.tmp("else", false, "boolean");
-                body = __node(7, 34229, [
+                body = __node(7, 34033, [
                   __node(
                     23,
-                    34229,
+                    34033,
                     30,
                     1073,
                     { left: __wrap(runElse), op: ":=", right: __const("false") },
@@ -77417,10 +77232,10 @@
                   ),
                   __wrap(body)
                 ]);
-                init = __node(7, 34288, [
+                init = __node(7, 34092, [
                   __node(
                     23,
-                    34288,
+                    34092,
                     30,
                     1076,
                     { left: __wrap(runElse), op: ":=", right: __const("true") },
@@ -77429,11 +77244,11 @@
                   __wrap(init)
                 ]);
                 loop = this["for"](init, test, step, body);
-                return __node(7, 34384, [
+                return __node(7, 34188, [
                   __wrap(loop),
                   __node(
                     23,
-                    34398,
+                    34202,
                     17,
                     1081,
                     {
@@ -77448,28 +77263,28 @@
                 body = this.mutateLast(body || this.noop(), function (node) {
                   return __node(
                     9,
-                    34591,
-                    __node(1, 34591, __wrap(arr), __node(12, 34597, "push")),
+                    34395,
+                    __node(1, 34395, __wrap(arr), __node(12, 34401, "push")),
                     [__wrap(node)]
                   );
                 });
-                init = __node(7, 34627, [
+                init = __node(7, 34431, [
                   __node(
                     23,
-                    34627,
+                    34431,
                     30,
                     1087,
                     {
                       left: __wrap(arr),
                       op: ":=",
-                      right: __node(4, 34642)
+                      right: __node(4, 34446)
                     },
                     true
                   ),
                   __wrap(init)
                 ]);
                 loop = this["for"](init, test, step, body);
-                return __node(7, 34716, [__wrap(loop), __wrap(arr)]);
+                return __node(7, 34520, [__wrap(loop), __wrap(arr)]);
               } else {
                 return this["for"](init, test, step, body);
               }
@@ -77572,16 +77387,16 @@
               body = this.mutateLast(body || this.noop(), function (node) {
                 return __node(
                   23,
-                  35103,
+                  34907,
                   30,
                   1101,
                   { left: __wrap(current), op: ":=", right: __wrap(node) }
                 );
               });
-              return __node(7, 35131, [
+              return __node(7, 34935, [
                 __node(
                   23,
-                  35131,
+                  34935,
                   38,
                   1103,
                   {
@@ -77589,12 +77404,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        35140,
+                        34944,
                         37,
                         1103,
                         __node(
                           23,
-                          35140,
+                          34944,
                           31,
                           1103,
                           { isMutable: "mutable", ident: __wrap(current) },
@@ -77609,7 +77424,7 @@
                 ),
                 __node(
                   23,
-                  35175,
+                  34979,
                   106,
                   1104,
                   {
@@ -77679,7 +77494,7 @@
               if (macroName === "until") {
                 test = __node(
                   23,
-                  35543,
+                  35347,
                   3,
                   1111,
                   { op: "not", node: __wrap(test) }
@@ -77688,7 +77503,7 @@
               if (reducer === "every") {
                 return __node(
                   23,
-                  35594,
+                  35398,
                   106,
                   1114,
                   {
@@ -77705,7 +77520,7 @@
               } else if (reducer === "some") {
                 return __node(
                   23,
-                  35703,
+                  35507,
                   106,
                   1119,
                   {
@@ -77722,7 +77537,7 @@
               } else if (reducer === "first") {
                 return __node(
                   23,
-                  35812,
+                  35616,
                   106,
                   1124,
                   {
@@ -77739,7 +77554,7 @@
               } else if (this.position === "expression") {
                 return __node(
                   23,
-                  35929,
+                  35733,
                   106,
                   1129,
                   {
@@ -77750,7 +77565,7 @@
               } else {
                 return __node(
                   23,
-                  36012,
+                  35816,
                   106,
                   1135,
                   {
@@ -77834,7 +77649,7 @@
               if (macroName === "until") {
                 test = __node(
                   23,
-                  36310,
+                  36114,
                   3,
                   1142,
                   { op: "not", node: __wrap(test) }
@@ -77842,7 +77657,7 @@
               }
               return __node(
                 23,
-                36334,
+                36138,
                 107,
                 1145,
                 {
@@ -77964,7 +77779,7 @@
                 } else {
                   start = __node(
                     23,
-                    38837,
+                    38641,
                     60,
                     1204,
                     { op: "+", node: __wrap(start) }
@@ -77972,7 +77787,7 @@
                 }
                 init.push(this.macroExpandAll(__node(
                   23,
-                  38883,
+                  38687,
                   38,
                   1205,
                   {
@@ -77980,12 +77795,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        38887,
+                        38691,
                         37,
                         1205,
                         __node(
                           23,
-                          38887,
+                          38691,
                           31,
                           1205,
                           { isMutable: "mutable", ident: __wrap(value) },
@@ -78006,7 +77821,7 @@
                   end = this.cache(
                     __node(
                       23,
-                      39101,
+                      38905,
                       60,
                       1211,
                       { op: "+", node: __wrap(end) }
@@ -78018,7 +77833,7 @@
                 } else {
                   init.push(__node(
                     23,
-                    39161,
+                    38965,
                     60,
                     1213,
                     { op: "+", node: __wrap(end) }
@@ -78032,7 +77847,7 @@
                   step = this.cache(
                     __node(
                       23,
-                      39364,
+                      39168,
                       60,
                       1219,
                       { op: "+", node: __wrap(step) }
@@ -78044,7 +77859,7 @@
                 } else {
                   init.push(__node(
                     23,
-                    39426,
+                    39230,
                     60,
                     1221,
                     { op: "+", node: __wrap(step) }
@@ -78060,7 +77875,7 @@
                     } else {
                       test = __node(
                         23,
-                        39715,
+                        39519,
                         16,
                         1231,
                         {
@@ -78069,7 +77884,7 @@
                             test: __wrap(inclusive),
                             body: __node(
                               23,
-                              39734,
+                              39538,
                               9,
                               1231,
                               { left: __wrap(value), inverted: false, op: "~<=", right: __wrap(end) }
@@ -78077,7 +77892,7 @@
                             elseIfs: [],
                             elseBody: __node(
                               23,
-                              39755,
+                              39559,
                               9,
                               1231,
                               { left: __wrap(value), inverted: false, op: "~<", right: __wrap(end) }
@@ -78091,7 +77906,7 @@
                   } else {
                     test = __node(
                       23,
-                      39894,
+                      39698,
                       16,
                       1236,
                       {
@@ -78100,7 +77915,7 @@
                           test: __wrap(inclusive),
                           body: __node(
                             23,
-                            39913,
+                            39717,
                             10,
                             1236,
                             { left: __wrap(value), inverted: false, op: "~>=", right: __wrap(end) }
@@ -78108,7 +77923,7 @@
                           elseIfs: [],
                           elseBody: __node(
                             23,
-                            39934,
+                            39738,
                             10,
                             1236,
                             { left: __wrap(value), inverted: false, op: "~>", right: __wrap(end) }
@@ -78120,7 +77935,7 @@
                 } else {
                   test = __node(
                     23,
-                    39973,
+                    39777,
                     17,
                     1238,
                     {
@@ -78128,19 +77943,19 @@
                       macroData: {
                         test: __node(
                           23,
-                          39976,
+                          39780,
                           10,
                           1238,
                           {
                             left: __wrap(step),
                             inverted: false,
                             op: "~>",
-                            right: __node(12, 39986, 0)
+                            right: __node(12, 39790, 0)
                           }
                         ),
                         body: __node(
                           23,
-                          39988,
+                          39792,
                           16,
                           1239,
                           {
@@ -78149,7 +77964,7 @@
                               test: __wrap(inclusive),
                               body: __node(
                                 23,
-                                40016,
+                                39820,
                                 9,
                                 1239,
                                 { left: __wrap(value), inverted: false, op: "~<=", right: __wrap(end) }
@@ -78157,7 +77972,7 @@
                               elseIfs: [],
                               elseBody: __node(
                                 23,
-                                40037,
+                                39841,
                                 9,
                                 1239,
                                 { left: __wrap(value), inverted: false, op: "~<", right: __wrap(end) }
@@ -78169,7 +77984,7 @@
                         elseIfs: [],
                         elseBody: __node(
                           23,
-                          40066,
+                          39870,
                           16,
                           1241,
                           {
@@ -78178,7 +77993,7 @@
                               test: __wrap(inclusive),
                               body: __node(
                                 23,
-                                40094,
+                                39898,
                                 10,
                                 1241,
                                 { left: __wrap(value), inverted: false, op: "~>=", right: __wrap(end) }
@@ -78186,7 +78001,7 @@
                               elseIfs: [],
                               elseBody: __node(
                                 23,
-                                40115,
+                                39919,
                                 10,
                                 1241,
                                 { left: __wrap(value), inverted: false, op: "~>", right: __wrap(end) }
@@ -78201,7 +78016,7 @@
                 }
                 increment = __node(
                   23,
-                  40170,
+                  39974,
                   52,
                   1243,
                   { left: __wrap(value), op: "~+=", right: __wrap(step) }
@@ -78209,7 +78024,7 @@
                 if (length) {
                   init.push(this.macroExpandAll(__node(
                     23,
-                    40248,
+                    40052,
                     38,
                     1246,
                     {
@@ -78217,12 +78032,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          40252,
+                          40056,
                           37,
                           1246,
                           __node(
                             23,
-                            40252,
+                            40056,
                             31,
                             1246,
                             { ident: __wrap(length) },
@@ -78232,7 +78047,7 @@
                         ),
                         value: __node(
                           23,
-                          40262,
+                          40066,
                           17,
                           1246,
                           {
@@ -78241,19 +78056,19 @@
                               test: __wrap(inclusive),
                               body: __node(
                                 23,
-                                40277,
+                                40081,
                                 45,
                                 1247,
                                 {
                                   left: __node(
                                     23,
-                                    40288,
+                                    40092,
                                     49,
                                     1247,
                                     {
                                       left: __node(
                                         23,
-                                        40288,
+                                        40092,
                                         49,
                                         1247,
                                         { left: __wrap(end), inverted: false, op: "~-", right: __wrap(start) }
@@ -78272,13 +78087,13 @@
                               elseIfs: [],
                               elseBody: __node(
                                 23,
-                                40335,
+                                40139,
                                 45,
                                 1249,
                                 {
                                   left: __node(
                                     23,
-                                    40346,
+                                    40150,
                                     49,
                                     1249,
                                     { left: __wrap(end), inverted: false, op: "~-", right: __wrap(start) }
@@ -78300,7 +78115,7 @@
                 if (index) {
                   init.push(this.macroExpandAll(__node(
                     23,
-                    40430,
+                    40234,
                     38,
                     1252,
                     {
@@ -78308,12 +78123,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          40434,
+                          40238,
                           37,
                           1252,
                           __node(
                             23,
-                            40434,
+                            40238,
                             31,
                             1252,
                             { isMutable: "mutable", ident: __wrap(index) },
@@ -78321,22 +78136,22 @@
                           ),
                           true
                         ),
-                        value: __node(12, 40452, 0)
+                        value: __node(12, 40256, 0)
                       }
                     },
                     true
                   )));
-                  increment = __node(7, 40479, [
+                  increment = __node(7, 40283, [
                     __wrap(increment),
                     __node(
                       23,
-                      40500,
+                      40304,
                       103,
                       1255,
                       {
                         left: __wrap(index),
                         op: "+=",
-                        right: __node(12, 40520, 1)
+                        right: __node(12, 40324, 1)
                       },
                       true
                     )
@@ -78345,7 +78160,7 @@
                     func = this.tmp("f", false, "function");
                     init.push(__node(
                       23,
-                      40620,
+                      40424,
                       38,
                       1258,
                       {
@@ -78353,12 +78168,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            40624,
+                            40428,
                             37,
                             1258,
                             __node(
                               23,
-                              40624,
+                              40428,
                               31,
                               1258,
                               { ident: __wrap(func) },
@@ -78368,10 +78183,10 @@
                           ),
                           value: __node(
                             20,
-                            40634,
+                            40438,
                             [
-                              __node(27, 40635, __wrap(value)),
-                              __node(27, 40642, __wrap(index))
+                              __node(27, 40439, __wrap(value)),
+                              __node(27, 40446, __wrap(index))
                             ],
                             __wrap(body),
                             true
@@ -78382,10 +78197,10 @@
                     ));
                     body = __node(
                       9,
-                      40684,
+                      40488,
                       __wrap(func),
                       [
-                        __node(38, 40692),
+                        __node(38, 40496),
                         __wrap(value),
                         __wrap(index)
                       ],
@@ -78397,7 +78212,7 @@
                   func = this.tmp("f", false, "function");
                   init.push(__node(
                     23,
-                    40812,
+                    40616,
                     38,
                     1262,
                     {
@@ -78405,12 +78220,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          40816,
+                          40620,
                           37,
                           1262,
                           __node(
                             23,
-                            40816,
+                            40620,
                             31,
                             1262,
                             { ident: __wrap(func) },
@@ -78420,8 +78235,8 @@
                         ),
                         value: __node(
                           20,
-                          40826,
-                          [__node(27, 40827, __wrap(value))],
+                          40630,
+                          [__node(27, 40631, __wrap(value))],
                           __wrap(body),
                           true
                         )
@@ -78431,10 +78246,10 @@
                   ));
                   body = __node(
                     9,
-                    40866,
+                    40670,
                     __wrap(func),
                     [
-                      __node(38, 40874),
+                      __node(38, 40678),
                       __wrap(value)
                     ],
                     false,
@@ -78444,7 +78259,7 @@
                 if (reducer === "every") {
                   return __node(
                     23,
-                    40933,
+                    40737,
                     106,
                     1266,
                     {
@@ -78462,7 +78277,7 @@
                 } else if (reducer === "some") {
                   return __node(
                     23,
-                    41062,
+                    40866,
                     106,
                     1271,
                     {
@@ -78480,7 +78295,7 @@
                 } else if (reducer === "first") {
                   return __node(
                     23,
-                    41191,
+                    40995,
                     106,
                     1276,
                     {
@@ -78499,7 +78314,7 @@
                   body = this.mutateLast(body, function (node) {
                     return __node(
                       23,
-                      41366,
+                      41170,
                       17,
                       1282,
                       {
@@ -78511,7 +78326,7 @@
                   });
                   return __node(
                     23,
-                    41407,
+                    41211,
                     106,
                     1284,
                     {
@@ -78528,7 +78343,7 @@
                 } else if (this.position === "expression") {
                   return __node(
                     23,
-                    41539,
+                    41343,
                     106,
                     1289,
                     {
@@ -78545,7 +78360,7 @@
                 } else {
                   return __node(
                     23,
-                    41642,
+                    41446,
                     106,
                     1295,
                     {
@@ -78574,7 +78389,7 @@
                 }
                 this.macroExpandAll(__node(
                   23,
-                  41996,
+                  41800,
                   38,
                   1308,
                   {
@@ -78582,12 +78397,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        42000,
+                        41804,
                         37,
                         1308,
                         __node(
                           23,
-                          42000,
+                          41804,
                           31,
                           1308,
                           { ident: __wrap(length) },
@@ -78595,14 +78410,14 @@
                         ),
                         true
                       ),
-                      value: __node(12, 42011, 0)
+                      value: __node(12, 41815, 0)
                     }
                   },
                   true
                 ));
                 array = this.macroExpandAll(array);
-                step = __node(12, 42097, 1);
-                start = __node(12, 42130, 0);
+                step = __node(12, 41901, 1);
+                start = __node(12, 41934, 0);
                 end = __const("Infinity");
                 inclusive = __const("false");
                 if (this.isCall(array) && this.isIdent(this.callFunc(array))) {
@@ -78612,11 +78427,11 @@
                     step = args[1];
                     if (this.isConst(step)) {
                       if (__num(this.value(step)) >= 0) {
-                        start = __node(12, 42528, 0);
+                        start = __node(12, 42332, 0);
                         end = __const("Infinity");
                       } else {
                         start = __const("Infinity");
-                        end = __node(12, 42645, 0);
+                        end = __node(12, 42449, 0);
                       }
                     } else {
                       start = void 0;
@@ -78658,8 +78473,8 @@
                 if (!isString && !this.isType(array, "arrayLike")) {
                   array = __node(
                     9,
-                    44183,
-                    __node(21, 44183, "__toArray"),
+                    43987,
+                    __node(21, 43987, "__toArray"),
                     [__wrap(array)]
                   );
                 }
@@ -78671,7 +78486,7 @@
                 );
                 valueExpr = __node(
                   23,
-                  44311,
+                  44115,
                   16,
                   1362,
                   {
@@ -78680,18 +78495,18 @@
                       test: __wrap(isString),
                       body: __node(
                         9,
-                        44330,
-                        __node(1, 44330, __wrap(array), __node(12, 44338, "charAt")),
+                        44134,
+                        __node(1, 44134, __wrap(array), __node(12, 44142, "charAt")),
                         [__wrap(index)]
                       ),
                       elseIfs: [],
-                      elseBody: __node(1, 44358, __wrap(array), __wrap(index))
+                      elseBody: __node(1, 44162, __wrap(array), __wrap(index))
                     }
                   }
                 );
                 letIndex = this.macroExpandAll(__node(
                   23,
-                  44417,
+                  44221,
                   38,
                   1363,
                   {
@@ -78699,12 +78514,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        44421,
+                        44225,
                         37,
                         1363,
                         __node(
                           23,
-                          44421,
+                          44225,
                           31,
                           1363,
                           { isMutable: "mutable", ident: __wrap(index) },
@@ -78712,7 +78527,7 @@
                         ),
                         true
                       ),
-                      value: __node(12, 44439, 0)
+                      value: __node(12, 44243, 0)
                     }
                   },
                   true
@@ -78724,7 +78539,7 @@
                 }
                 letValue = this.macroExpandAll(__node(
                   23,
-                  44604,
+                  44408,
                   38,
                   1365,
                   {
@@ -78732,12 +78547,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        44608,
+                        44412,
                         37,
                         1365,
                         __node(
                           23,
-                          44608,
+                          44412,
                           31,
                           1365,
                           { ident: __wrap(value) },
@@ -78752,7 +78567,7 @@
                 ));
                 letLength = this.macroExpandAll(__node(
                   23,
-                  44674,
+                  44478,
                   38,
                   1366,
                   {
@@ -78760,12 +78575,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        44678,
+                        44482,
                         37,
                         1366,
                         __node(
                           23,
-                          44678,
+                          44482,
                           31,
                           1366,
                           { ident: __wrap(length) },
@@ -78775,12 +78590,12 @@
                       ),
                       value: __node(
                         23,
-                        44688,
+                        44492,
                         60,
                         1366,
                         {
                           op: "+",
-                          node: __node(1, 44690, __wrap(array), __node(12, 44697, "length"))
+                          node: __node(1, 44494, __wrap(array), __node(12, 44501, "length"))
                         }
                       )
                     }
@@ -78793,7 +78608,7 @@
                       ? (__num(this.value(start)) >= 0
                         ? (init.push(__node(
                           23,
-                          44879,
+                          44683,
                           38,
                           1372,
                           {
@@ -78801,12 +78616,12 @@
                             macroData: {
                               declarable: __node(
                                 23,
-                                44883,
+                                44687,
                                 37,
                                 1372,
                                 __node(
                                   23,
-                                  44883,
+                                  44687,
                                   31,
                                   1372,
                                   { isMutable: "mutable", ident: __wrap(index) },
@@ -78821,7 +78636,7 @@
                         )), init.push(letLength))
                         : (init.push(letLength), init.push(__node(
                           23,
-                          45022,
+                          44826,
                           38,
                           1376,
                           {
@@ -78829,12 +78644,12 @@
                             macroData: {
                               declarable: __node(
                                 23,
-                                45026,
+                                44830,
                                 37,
                                 1376,
                                 __node(
                                   23,
-                                  45026,
+                                  44830,
                                   31,
                                   1376,
                                   { isMutable: "mutable", ident: __wrap(index) },
@@ -78844,7 +78659,7 @@
                               ),
                               value: __node(
                                 23,
-                                45043,
+                                44847,
                                 66,
                                 1376,
                                 { left: __wrap(length), inverted: false, op: "+", right: __wrap(start) }
@@ -78856,7 +78671,7 @@
                       : (init.push(letLength), init.push(this.getConstValue("DISABLE_TYPE_CHECKING", false)
                         ? __node(
                           23,
-                          45200,
+                          45004,
                           38,
                           1380,
                           {
@@ -78864,12 +78679,12 @@
                             macroData: {
                               declarable: __node(
                                 23,
-                                45204,
+                                45008,
                                 37,
                                 1380,
                                 __node(
                                   23,
-                                  45204,
+                                  45008,
                                   31,
                                   1380,
                                   { isMutable: "mutable", ident: __wrap(index) },
@@ -78879,7 +78694,7 @@
                               ),
                               value: __node(
                                 23,
-                                45221,
+                                45025,
                                 60,
                                 1380,
                                 { op: "+", node: __wrap(start) }
@@ -78890,7 +78705,7 @@
                         )
                         : __node(
                           23,
-                          45264,
+                          45068,
                           38,
                           1382,
                           {
@@ -78898,12 +78713,12 @@
                             macroData: {
                               declarable: __node(
                                 23,
-                                45268,
+                                45072,
                                 37,
                                 1382,
                                 __node(
                                   23,
-                                  45268,
+                                  45072,
                                   31,
                                   1382,
                                   { isMutable: "mutable", ident: __wrap(index) },
@@ -78913,8 +78728,8 @@
                               ),
                               value: __node(
                                 9,
-                                45285,
-                                __node(21, 45285, "__int"),
+                                45089,
+                                __node(21, 45089, "__int"),
                                 [__wrap(start)]
                               )
                             }
@@ -78922,7 +78737,7 @@
                           true
                         )), init.push(__node(
                         23,
-                        45326,
+                        45130,
                         16,
                         1383,
                         {
@@ -78930,19 +78745,19 @@
                           macroData: {
                             test: __node(
                               23,
-                              45329,
+                              45133,
                               9,
                               1383,
                               {
                                 left: __wrap(index),
                                 inverted: false,
                                 op: "~<",
-                                right: __node(12, 45340, 0)
+                                right: __node(12, 45144, 0)
                               }
                             ),
                             body: __node(
                               23,
-                              45348,
+                              45152,
                               103,
                               1383,
                               { left: __wrap(index), op: "+=", right: __wrap(length) }
@@ -78954,14 +78769,14 @@
                       ? [
                         __node(
                           23,
-                          45512,
+                          45316,
                           9,
                           1385,
                           { left: __wrap(index), inverted: false, op: "~<", right: __wrap(length) }
                         ),
                         __node(
                           23,
-                          45538,
+                          45342,
                           52,
                           1385,
                           { left: __wrap(index), op: "~+=", right: __wrap(step) }
@@ -78969,7 +78784,7 @@
                       ]
                       : (tmp = this.tmp("end", false, "number"), init.push(__node(
                         23,
-                        45645,
+                        45449,
                         38,
                         1388,
                         {
@@ -78977,12 +78792,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              45649,
+                              45453,
                               37,
                               1388,
                               __node(
                                 23,
-                                45649,
+                                45453,
                                 31,
                                 1388,
                                 { isMutable: "mutable", ident: __wrap(tmp) },
@@ -78992,7 +78807,7 @@
                             ),
                             value: __node(
                               23,
-                              45664,
+                              45468,
                               60,
                               1388,
                               { op: "+", node: __wrap(end) }
@@ -79003,7 +78818,7 @@
                       )), !this.isConst(end)
                         ? init.push(__node(
                           23,
-                          45733,
+                          45537,
                           16,
                           1390,
                           {
@@ -79011,19 +78826,19 @@
                             macroData: {
                               test: __node(
                                 23,
-                                45736,
+                                45540,
                                 9,
                                 1390,
                                 {
                                   left: __wrap(tmp),
                                   inverted: false,
                                   op: "~<",
-                                  right: __node(12, 45745, 0)
+                                  right: __node(12, 45549, 0)
                                 }
                               ),
                               body: __node(
                                 23,
-                                45753,
+                                45557,
                                 52,
                                 1390,
                                 { left: __wrap(tmp), op: "~+=", right: __wrap(length) }
@@ -79035,14 +78850,14 @@
                         : __num(this.value(end)) < 0
                         ? init.push(__node(
                           23,
-                          45835,
+                          45639,
                           52,
                           1392,
                           { left: __wrap(tmp), op: "~+=", right: __wrap(length) }
                         ))
                         : void 0, init.push(__node(
                         23,
-                        45879,
+                        45683,
                         16,
                         1393,
                         {
@@ -79051,7 +78866,7 @@
                             test: __wrap(inclusive),
                             body: __node(
                               23,
-                              45900,
+                              45704,
                               30,
                               1393,
                               {
@@ -79059,20 +78874,20 @@
                                 op: ":=",
                                 right: __node(
                                   23,
-                                  45907,
+                                  45711,
                                   2,
                                   1393,
                                   {
                                     left: __node(
                                       23,
-                                      45907,
+                                      45711,
                                       66,
                                       1393,
                                       {
                                         left: __wrap(tmp),
                                         inverted: false,
                                         op: "+",
-                                        right: __node(12, 45915, 1)
+                                        right: __node(12, 45719, 1)
                                       }
                                     ),
                                     inverted: false,
@@ -79087,21 +78902,21 @@
                         }
                       )), init.push(__node(
                         23,
-                        45956,
+                        45760,
                         86,
                         1394,
                         { left: __wrap(tmp), op: "~min=", right: __wrap(length) }
                       )), [
                         __node(
                           23,
-                          45993,
+                          45797,
                           9,
                           1395,
                           { left: __wrap(index), inverted: false, op: "~<", right: __wrap(tmp) }
                         ),
                         __node(
                           23,
-                          46014,
+                          45818,
                           52,
                           1395,
                           { left: __wrap(index), op: "~+=", right: __wrap(step) }
@@ -79111,7 +78926,7 @@
                     ? (hasLength
                       ? (init.push(letLength), init.push(__node(
                         23,
-                        46311,
+                        46115,
                         38,
                         1399,
                         {
@@ -79119,12 +78934,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              46315,
+                              46119,
                               37,
                               1399,
                               __node(
                                 23,
-                                46315,
+                                46119,
                                 31,
                                 1399,
                                 { isMutable: "mutable", ident: __wrap(index) },
@@ -79139,7 +78954,7 @@
                       )))
                       : init.push(__node(
                         23,
-                        46381,
+                        46185,
                         38,
                         1401,
                         {
@@ -79147,12 +78962,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              46385,
+                              46189,
                               37,
                               1401,
                               __node(
                                 23,
-                                46385,
+                                46189,
                                 31,
                                 1401,
                                 { isMutable: "mutable", ident: __wrap(index) },
@@ -79162,12 +78977,12 @@
                             ),
                             value: __node(
                               23,
-                              46402,
+                              46206,
                               60,
                               1401,
                               {
                                 op: "+",
-                                node: __node(1, 46404, __wrap(array), __node(12, 46411, "length"))
+                                node: __node(1, 46208, __wrap(array), __node(12, 46215, "length"))
                               }
                             )
                           }
@@ -79176,7 +78991,7 @@
                       )), [
                       __node(
                         23,
-                        46433,
+                        46237,
                         13,
                         1402,
                         { op: "postDec!", node: __wrap(index) }
@@ -79188,7 +79003,7 @@
                         ? (hasLength
                           ? (init.push(letLength), init.push(__node(
                             23,
-                            46727,
+                            46531,
                             38,
                             1410,
                             {
@@ -79196,12 +79011,12 @@
                               macroData: {
                                 declarable: __node(
                                   23,
-                                  46731,
+                                  46535,
                                   37,
                                   1410,
                                   __node(
                                     23,
-                                    46731,
+                                    46535,
                                     31,
                                     1410,
                                     { isMutable: "mutable", ident: __wrap(index) },
@@ -79211,14 +79026,14 @@
                                 ),
                                 value: __node(
                                   23,
-                                  46748,
+                                  46552,
                                   49,
                                   1410,
                                   {
                                     left: __wrap(length),
                                     inverted: false,
                                     op: "~-",
-                                    right: __node(12, 46760, 1)
+                                    right: __node(12, 46564, 1)
                                   }
                                 )
                               }
@@ -79227,7 +79042,7 @@
                           )))
                           : init.push(__node(
                             23,
-                            46810,
+                            46614,
                             38,
                             1412,
                             {
@@ -79235,12 +79050,12 @@
                               macroData: {
                                 declarable: __node(
                                   23,
-                                  46814,
+                                  46618,
                                   37,
                                   1412,
                                   __node(
                                     23,
-                                    46814,
+                                    46618,
                                     31,
                                     1412,
                                     { isMutable: "mutable", ident: __wrap(index) },
@@ -79250,23 +79065,23 @@
                                 ),
                                 value: __node(
                                   23,
-                                  46831,
+                                  46635,
                                   49,
                                   1412,
                                   {
                                     left: __node(
                                       23,
-                                      46831,
+                                      46635,
                                       60,
                                       1412,
                                       {
                                         op: "+",
-                                        node: __node(1, 46833, __wrap(array), __node(12, 46840, "length"))
+                                        node: __node(1, 46637, __wrap(array), __node(12, 46644, "length"))
                                       }
                                     ),
                                     inverted: false,
                                     op: "~-",
-                                    right: __node(12, 46850, 1)
+                                    right: __node(12, 46654, 1)
                                   }
                                 )
                               }
@@ -79276,7 +79091,7 @@
                         : (init.push(letLength), __num(this.value(start)) >= 0
                           ? init.push(__node(
                             23,
-                            46969,
+                            46773,
                             38,
                             1416,
                             {
@@ -79284,12 +79099,12 @@
                               macroData: {
                                 declarable: __node(
                                   23,
-                                  46973,
+                                  46777,
                                   37,
                                   1416,
                                   __node(
                                     23,
-                                    46973,
+                                    46777,
                                     31,
                                     1416,
                                     { isMutable: "mutable", ident: __wrap(index) },
@@ -79299,7 +79114,7 @@
                                 ),
                                 value: __node(
                                   23,
-                                  46990,
+                                  46794,
                                   16,
                                   1416,
                                   {
@@ -79307,7 +79122,7 @@
                                     macroData: {
                                       test: __node(
                                         23,
-                                        46993,
+                                        46797,
                                         9,
                                         1416,
                                         { left: __wrap(start), inverted: false, op: "~<", right: __wrap(length) }
@@ -79316,14 +79131,14 @@
                                       elseIfs: [],
                                       elseBody: __node(
                                         23,
-                                        47028,
+                                        46832,
                                         49,
                                         1416,
                                         {
                                           left: __wrap(length),
                                           inverted: false,
                                           op: "~-",
-                                          right: __node(12, 47040, 1)
+                                          right: __node(12, 46844, 1)
                                         }
                                       )
                                     }
@@ -79335,7 +79150,7 @@
                           ))
                           : init.push(__node(
                             23,
-                            47090,
+                            46894,
                             38,
                             1418,
                             {
@@ -79343,12 +79158,12 @@
                               macroData: {
                                 declarable: __node(
                                   23,
-                                  47094,
+                                  46898,
                                   37,
                                   1418,
                                   __node(
                                     23,
-                                    47094,
+                                    46898,
                                     31,
                                     1418,
                                     { isMutable: "mutable", ident: __wrap(index) },
@@ -79358,7 +79173,7 @@
                                 ),
                                 value: __node(
                                   23,
-                                  47111,
+                                  46915,
                                   49,
                                   1418,
                                   {
@@ -79367,7 +79182,7 @@
                                     op: "~+",
                                     right: __node(
                                       23,
-                                      47122,
+                                      46926,
                                       60,
                                       1418,
                                       { op: "+", node: __wrap(start) }
@@ -79380,7 +79195,7 @@
                           ))))
                       : (init.push(letLength), init.push(__node(
                         23,
-                        47204,
+                        47008,
                         38,
                         1421,
                         {
@@ -79388,12 +79203,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              47208,
+                              47012,
                               37,
                               1421,
                               __node(
                                 23,
-                                47208,
+                                47012,
                                 31,
                                 1421,
                                 { isMutable: "mutable", ident: __wrap(index) },
@@ -79403,7 +79218,7 @@
                             ),
                             value: __node(
                               23,
-                              47225,
+                              47029,
                               60,
                               1421,
                               { op: "+", node: __wrap(start) }
@@ -79413,7 +79228,7 @@
                         true
                       )), init.push(__node(
                         23,
-                        47259,
+                        47063,
                         16,
                         1422,
                         {
@@ -79421,20 +79236,20 @@
                           macroData: {
                             test: __node(
                               23,
-                              47262,
+                              47066,
                               9,
                               1422,
                               {
                                 left: __wrap(index),
                                 inverted: false,
                                 op: "~<",
-                                right: __node(12, 47273, 0)
+                                right: __node(12, 47077, 0)
                               },
                               true
                             ),
                             body: __node(
                               23,
-                              47281,
+                              47085,
                               52,
                               1422,
                               { left: __wrap(index), op: "~+=", right: __wrap(length) }
@@ -79442,7 +79257,7 @@
                             elseIfs: [],
                             elseBody: __node(
                               23,
-                              47307,
+                              47111,
                               86,
                               1422,
                               { left: __wrap(index), op: "~min=", right: __wrap(length) }
@@ -79452,13 +79267,13 @@
                         true
                       )), init.push(__node(
                         23,
-                        47354,
+                        47158,
                         53,
                         1423,
                         {
                           left: __wrap(index),
                           op: "~-=",
-                          right: __node(12, 47366, 1)
+                          right: __node(12, 47170, 1)
                         },
                         true
                       ))), this.isConst(end)
@@ -79466,7 +79281,7 @@
                         ? [
                           __node(
                             23,
-                            47447,
+                            47251,
                             16,
                             1426,
                             {
@@ -79475,7 +79290,7 @@
                                 test: __wrap(inclusive),
                                 body: __node(
                                   23,
-                                  47466,
+                                  47270,
                                   10,
                                   1426,
                                   { left: __wrap(index), inverted: false, op: "~>=", right: __wrap(end) }
@@ -79483,7 +79298,7 @@
                                 elseIfs: [],
                                 elseBody: __node(
                                   23,
-                                  47487,
+                                  47291,
                                   10,
                                   1426,
                                   { left: __wrap(index), inverted: false, op: "~>", right: __wrap(end) }
@@ -79493,7 +79308,7 @@
                           ),
                           __node(
                             23,
-                            47508,
+                            47312,
                             52,
                             1426,
                             { left: __wrap(index), op: "~+=", right: __wrap(step) }
@@ -79502,7 +79317,7 @@
                         : [
                           __node(
                             23,
-                            47563,
+                            47367,
                             16,
                             1428,
                             {
@@ -79511,7 +79326,7 @@
                                 test: __wrap(inclusive),
                                 body: __node(
                                   23,
-                                  47582,
+                                  47386,
                                   10,
                                   1428,
                                   {
@@ -79520,7 +79335,7 @@
                                     op: "~>=",
                                     right: __node(
                                       23,
-                                      47593,
+                                      47397,
                                       66,
                                       1428,
                                       { left: __wrap(end), inverted: false, op: "+", right: __wrap(length) }
@@ -79530,7 +79345,7 @@
                                 elseIfs: [],
                                 elseBody: __node(
                                   23,
-                                  47613,
+                                  47417,
                                   10,
                                   1428,
                                   {
@@ -79539,7 +79354,7 @@
                                     op: "~>",
                                     right: __node(
                                       23,
-                                      47623,
+                                      47427,
                                       66,
                                       1428,
                                       { left: __wrap(end), inverted: false, op: "+", right: __wrap(length) }
@@ -79551,7 +79366,7 @@
                           ),
                           __node(
                             23,
-                            47644,
+                            47448,
                             52,
                             1428,
                             { left: __wrap(index), op: "~+=", right: __wrap(step) }
@@ -79559,7 +79374,7 @@
                         ])
                       : (tmp = this.tmp("end", false, "number"), init.push(__node(
                         23,
-                        47751,
+                        47555,
                         38,
                         1431,
                         {
@@ -79567,12 +79382,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              47755,
+                              47559,
                               37,
                               1431,
                               __node(
                                 23,
-                                47755,
+                                47559,
                                 31,
                                 1431,
                                 { isMutable: "mutable", ident: __wrap(tmp) },
@@ -79582,7 +79397,7 @@
                             ),
                             value: __node(
                               23,
-                              47770,
+                              47574,
                               60,
                               1431,
                               { op: "+", node: __wrap(end) }
@@ -79592,7 +79407,7 @@
                         true
                       )), init.push(__node(
                         23,
-                        47802,
+                        47606,
                         16,
                         1432,
                         {
@@ -79600,20 +79415,20 @@
                           macroData: {
                             test: __node(
                               23,
-                              47805,
+                              47609,
                               9,
                               1432,
                               {
                                 left: __wrap(tmp),
                                 inverted: false,
                                 op: "~<",
-                                right: __node(12, 47814, 0)
+                                right: __node(12, 47618, 0)
                               },
                               true
                             ),
                             body: __node(
                               23,
-                              47822,
+                              47626,
                               52,
                               1432,
                               { left: __wrap(tmp), op: "~+=", right: __wrap(length) }
@@ -79625,7 +79440,7 @@
                       )), [
                         __node(
                           23,
-                          47857,
+                          47661,
                           16,
                           1433,
                           {
@@ -79634,7 +79449,7 @@
                               test: __wrap(inclusive),
                               body: __node(
                                 23,
-                                47876,
+                                47680,
                                 10,
                                 1433,
                                 { left: __wrap(index), inverted: false, op: "~>=", right: __wrap(tmp) }
@@ -79642,7 +79457,7 @@
                               elseIfs: [],
                               elseBody: __node(
                                 23,
-                                47897,
+                                47701,
                                 10,
                                 1433,
                                 { left: __wrap(index), inverted: false, op: "~>", right: __wrap(tmp) }
@@ -79652,7 +79467,7 @@
                         ),
                         __node(
                           23,
-                          47918,
+                          47722,
                           52,
                           1433,
                           { left: __wrap(index), op: "~+=", right: __wrap(step) }
@@ -79663,7 +79478,7 @@
                       ? (step = this.cache(
                         __node(
                           23,
-                          48071,
+                          47875,
                           60,
                           1437,
                           { op: "+", node: __wrap(step) }
@@ -79675,13 +79490,13 @@
                       : (step = this.cache(
                         __node(
                           9,
-                          48147,
-                          __node(21, 48147, "__int"),
+                          47951,
+                          __node(21, 47951, "__int"),
                           [
                             __node(
                               9,
-                              48154,
-                              __node(21, 48154, "__nonzero"),
+                              47958,
+                              __node(21, 47958, "__nonzero"),
                               [__wrap(step)]
                             )
                           ]
@@ -79693,13 +79508,13 @@
                     : !this.getConstValue("DISABLE_TYPE_CHECKING", false)
                     ? init.unshift(__node(
                       9,
-                      48301,
-                      __node(21, 48301, "__int"),
+                      48105,
+                      __node(21, 48105, "__int"),
                       [
                         __node(
                           9,
-                          48308,
-                          __node(21, 48308, "__nonzero"),
+                          48112,
+                          __node(21, 48112, "__nonzero"),
                           [__wrap(step)]
                         )
                       ]
@@ -79707,7 +79522,7 @@
                     : void 0, init.push(letLength), !start
                     ? (init.push(__node(
                       23,
-                      48399,
+                      48203,
                       38,
                       1445,
                       {
@@ -79715,12 +79530,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            48403,
+                            48207,
                             37,
                             1445,
                             __node(
                               23,
-                              48403,
+                              48207,
                               31,
                               1445,
                               { isMutable: "mutable", ident: __wrap(index) },
@@ -79730,7 +79545,7 @@
                           ),
                           value: __node(
                             23,
-                            48420,
+                            48224,
                             16,
                             1445,
                             {
@@ -79738,28 +79553,28 @@
                               macroData: {
                                 test: __node(
                                   23,
-                                  48423,
+                                  48227,
                                   10,
                                   1445,
                                   {
                                     left: __wrap(step),
                                     inverted: false,
                                     op: "~>",
-                                    right: __node(12, 48433, 0)
+                                    right: __node(12, 48237, 0)
                                   }
                                 ),
-                                body: __node(12, 48440, 0),
+                                body: __node(12, 48244, 0),
                                 elseIfs: [],
                                 elseBody: __node(
                                   23,
-                                  48446,
+                                  48250,
                                   49,
                                   1445,
                                   {
                                     left: __wrap(length),
                                     inverted: false,
                                     op: "~-",
-                                    right: __node(12, 48458, 1)
+                                    right: __node(12, 48262, 1)
                                   }
                                 )
                               }
@@ -79771,7 +79586,7 @@
                     )), [
                       __node(
                         23,
-                        48488,
+                        48292,
                         16,
                         1447,
                         {
@@ -79779,19 +79594,19 @@
                           macroData: {
                             test: __node(
                               23,
-                              48491,
+                              48295,
                               10,
                               1447,
                               {
                                 left: __wrap(step),
                                 inverted: false,
                                 op: "~>",
-                                right: __node(12, 48501, 0)
+                                right: __node(12, 48305, 0)
                               }
                             ),
                             body: __node(
                               23,
-                              48507,
+                              48311,
                               9,
                               1447,
                               { left: __wrap(index), inverted: false, op: "~<", right: __wrap(length) }
@@ -79799,14 +79614,14 @@
                             elseIfs: [],
                             elseBody: __node(
                               23,
-                              48530,
+                              48334,
                               10,
                               1447,
                               {
                                 left: __wrap(index),
                                 inverted: false,
                                 op: "~>=",
-                                right: __node(12, 48542, 0)
+                                right: __node(12, 48346, 0)
                               }
                             )
                           }
@@ -79814,7 +79629,7 @@
                       ),
                       __node(
                         23,
-                        48560,
+                        48364,
                         52,
                         1448,
                         { left: __wrap(index), op: "~+=", right: __wrap(step) }
@@ -79824,7 +79639,7 @@
                       ? (this.value(start) === 1/0
                         ? init.push(__node(
                           23,
-                          48701,
+                          48505,
                           38,
                           1453,
                           {
@@ -79832,12 +79647,12 @@
                             macroData: {
                               declarable: __node(
                                 23,
-                                48705,
+                                48509,
                                 37,
                                 1453,
                                 __node(
                                   23,
-                                  48705,
+                                  48509,
                                   31,
                                   1453,
                                   { isMutable: "mutable", ident: __wrap(index) },
@@ -79847,14 +79662,14 @@
                               ),
                               value: __node(
                                 23,
-                                48722,
+                                48526,
                                 49,
                                 1453,
                                 {
                                   left: __wrap(length),
                                   inverted: false,
                                   op: "~-",
-                                  right: __node(12, 48734, 1)
+                                  right: __node(12, 48538, 1)
                                 }
                               )
                             }
@@ -79863,7 +79678,7 @@
                         ))
                         : init.push(__node(
                           23,
-                          48780,
+                          48584,
                           38,
                           1455,
                           {
@@ -79871,12 +79686,12 @@
                             macroData: {
                               declarable: __node(
                                 23,
-                                48784,
+                                48588,
                                 37,
                                 1455,
                                 __node(
                                   23,
-                                  48784,
+                                  48588,
                                   31,
                                   1455,
                                   { isMutable: "mutable", ident: __wrap(index) },
@@ -79886,7 +79701,7 @@
                               ),
                               value: __node(
                                 23,
-                                48801,
+                                48605,
                                 16,
                                 1455,
                                 {
@@ -79894,21 +79709,21 @@
                                   macroData: {
                                     test: __node(
                                       23,
-                                      48804,
+                                      48608,
                                       10,
                                       1455,
                                       {
                                         left: __wrap(start),
                                         inverted: false,
                                         op: "~>=",
-                                        right: __node(12, 48816, 0)
+                                        right: __node(12, 48620, 0)
                                       }
                                     ),
                                     body: __wrap(start),
                                     elseIfs: [],
                                     elseBody: __node(
                                       23,
-                                      48834,
+                                      48638,
                                       66,
                                       1455,
                                       { left: __wrap(start), inverted: false, op: "+", right: __wrap(length) }
@@ -79922,7 +79737,7 @@
                         )))
                       : (init.push(__node(
                         23,
-                        48892,
+                        48696,
                         38,
                         1457,
                         {
@@ -79930,12 +79745,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              48896,
+                              48700,
                               37,
                               1457,
                               __node(
                                 23,
-                                48896,
+                                48700,
                                 31,
                                 1457,
                                 { isMutable: "mutable", ident: __wrap(index) },
@@ -79949,7 +79764,7 @@
                         true
                       )), init.push(__node(
                         23,
-                        48946,
+                        48750,
                         16,
                         1458,
                         {
@@ -79957,20 +79772,20 @@
                           macroData: {
                             test: __node(
                               23,
-                              48949,
+                              48753,
                               9,
                               1458,
                               {
                                 left: __wrap(index),
                                 inverted: false,
                                 op: "~<",
-                                right: __node(12, 48960, 0)
+                                right: __node(12, 48764, 0)
                               },
                               true
                             ),
                             body: __node(
                               23,
-                              48968,
+                              48772,
                               103,
                               1458,
                               { left: __wrap(index), op: "+=", right: __wrap(length) }
@@ -79979,20 +79794,20 @@
                               {
                                 test: __node(
                                   23,
-                                  48994,
+                                  48798,
                                   9,
                                   1458,
                                   {
                                     left: __wrap(step),
                                     inverted: false,
                                     op: "~<",
-                                    right: __node(12, 49004, 0)
+                                    right: __node(12, 48808, 0)
                                   },
                                   true
                                 ),
                                 body: __node(
                                   23,
-                                  49012,
+                                  48816,
                                   86,
                                   1458,
                                   { left: __wrap(index), op: "~min=", right: __wrap(length) }
@@ -80005,7 +79820,7 @@
                       ))), tmp = this.tmp("end", false, "number"), this.isConst(end)
                       ? init.push(__node(
                         23,
-                        49133,
+                        48937,
                         38,
                         1461,
                         {
@@ -80013,12 +79828,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              49137,
+                              48941,
                               37,
                               1461,
                               __node(
                                 23,
-                                49137,
+                                48941,
                                 31,
                                 1461,
                                 { isMutable: "mutable", ident: __wrap(tmp) },
@@ -80028,7 +79843,7 @@
                             ),
                             value: __node(
                               23,
-                              49152,
+                              48956,
                               16,
                               1461,
                               {
@@ -80036,19 +79851,19 @@
                                 macroData: {
                                   test: __node(
                                     23,
-                                    49155,
+                                    48959,
                                     9,
                                     1461,
                                     {
                                       left: __wrap(end),
                                       inverted: false,
                                       op: "~<",
-                                      right: __node(12, 49164, 0)
+                                      right: __node(12, 48968, 0)
                                     }
                                   ),
                                   body: __node(
                                     23,
-                                    49170,
+                                    48974,
                                     49,
                                     1461,
                                     { left: __wrap(end), inverted: false, op: "~+", right: __wrap(length) }
@@ -80056,7 +79871,7 @@
                                   elseIfs: [],
                                   elseBody: __node(
                                     23,
-                                    49191,
+                                    48995,
                                     83,
                                     1461,
                                     {
@@ -80065,7 +79880,7 @@
                                       op: "max",
                                       right: __node(
                                         23,
-                                        49202,
+                                        49006,
                                         16,
                                         1461,
                                         {
@@ -80074,14 +79889,14 @@
                                             test: __wrap(inclusive),
                                             body: __node(
                                               23,
-                                              49220,
+                                              49024,
                                               49,
                                               1461,
                                               {
                                                 left: __wrap(length),
                                                 inverted: false,
                                                 op: "~-",
-                                                right: __node(12, 49232, 1)
+                                                right: __node(12, 49036, 1)
                                               }
                                             ),
                                             elseIfs: [],
@@ -80100,7 +79915,7 @@
                       ))
                       : (init.push(__node(
                         23,
-                        49288,
+                        49092,
                         38,
                         1463,
                         {
@@ -80108,12 +79923,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              49292,
+                              49096,
                               37,
                               1463,
                               __node(
                                 23,
-                                49292,
+                                49096,
                                 31,
                                 1463,
                                 { isMutable: "mutable", ident: __wrap(tmp) },
@@ -80123,7 +79938,7 @@
                             ),
                             value: __node(
                               23,
-                              49307,
+                              49111,
                               60,
                               1463,
                               { op: "+", node: __wrap(end) }
@@ -80133,7 +79948,7 @@
                         true
                       )), init.push(__node(
                         23,
-                        49339,
+                        49143,
                         16,
                         1464,
                         {
@@ -80141,20 +79956,20 @@
                           macroData: {
                             test: __node(
                               23,
-                              49342,
+                              49146,
                               9,
                               1464,
                               {
                                 left: __wrap(tmp),
                                 inverted: false,
                                 op: "~<",
-                                right: __node(12, 49351, 0)
+                                right: __node(12, 49155, 0)
                               },
                               true
                             ),
                             body: __node(
                               23,
-                              49359,
+                              49163,
                               103,
                               1464,
                               { left: __wrap(tmp), op: "+=", right: __wrap(length) }
@@ -80163,20 +79978,20 @@
                               {
                                 test: __node(
                                   23,
-                                  49383,
+                                  49187,
                                   10,
                                   1464,
                                   {
                                     left: __wrap(step),
                                     inverted: false,
                                     op: "~>",
-                                    right: __node(12, 49393, 0)
+                                    right: __node(12, 49197, 0)
                                   },
                                   true
                                 ),
                                 body: __node(
                                   23,
-                                  49401,
+                                  49205,
                                   86,
                                   1464,
                                   {
@@ -80184,7 +79999,7 @@
                                     op: "~min=",
                                     right: __node(
                                       23,
-                                      49411,
+                                      49215,
                                       16,
                                       1464,
                                       {
@@ -80193,14 +80008,14 @@
                                           test: __wrap(inclusive),
                                           body: __node(
                                             23,
-                                            49430,
+                                            49234,
                                             49,
                                             1464,
                                             {
                                               left: __wrap(length),
                                               inverted: false,
                                               op: "~-",
-                                              right: __node(12, 49442, 1)
+                                              right: __node(12, 49246, 1)
                                             }
                                           ),
                                           elseIfs: [],
@@ -80214,7 +80029,7 @@
                             ],
                             elseBody: __node(
                               23,
-                              49464,
+                              49268,
                               87,
                               1464,
                               {
@@ -80222,23 +80037,23 @@
                                 op: "~max=",
                                 right: __node(
                                   23,
-                                  49476,
+                                  49280,
                                   16,
                                   1464,
                                   {
                                     macroName: "if",
                                     macroData: {
                                       test: __wrap(inclusive),
-                                      body: __node(12, 49495, 0),
+                                      body: __node(12, 49299, 0),
                                       elseIfs: [],
                                       elseBody: __node(
                                         23,
-                                        49501,
+                                        49305,
                                         61,
                                         1464,
                                         {
                                           op: "-",
-                                          node: __node(12, 49503, 1)
+                                          node: __node(12, 49307, 1)
                                         }
                                       )
                                     }
@@ -80252,7 +80067,7 @@
                       ))), end = tmp, [
                       __node(
                         23,
-                        49556,
+                        49360,
                         17,
                         1467,
                         {
@@ -80260,19 +80075,19 @@
                           macroData: {
                             test: __node(
                               23,
-                              49559,
+                              49363,
                               10,
                               1467,
                               {
                                 left: __wrap(step),
                                 inverted: false,
                                 op: "~>",
-                                right: __node(12, 49569, 0)
+                                right: __node(12, 49373, 0)
                               }
                             ),
                             body: __node(
                               23,
-                              49571,
+                              49375,
                               16,
                               1468,
                               {
@@ -80281,7 +80096,7 @@
                                   test: __wrap(inclusive),
                                   body: __node(
                                     23,
-                                    49603,
+                                    49407,
                                     9,
                                     1468,
                                     { left: __wrap(index), inverted: false, op: "~<=", right: __wrap(end) }
@@ -80289,7 +80104,7 @@
                                   elseIfs: [],
                                   elseBody: __node(
                                     23,
-                                    49624,
+                                    49428,
                                     9,
                                     1468,
                                     { left: __wrap(index), inverted: false, op: "~<", right: __wrap(end) }
@@ -80301,7 +80116,7 @@
                             elseIfs: [],
                             elseBody: __node(
                               23,
-                              49657,
+                              49461,
                               16,
                               1470,
                               {
@@ -80310,7 +80125,7 @@
                                   test: __wrap(inclusive),
                                   body: __node(
                                     23,
-                                    49689,
+                                    49493,
                                     10,
                                     1470,
                                     { left: __wrap(index), inverted: false, op: "~>=", right: __wrap(end) }
@@ -80318,7 +80133,7 @@
                                   elseIfs: [],
                                   elseBody: __node(
                                     23,
-                                    49710,
+                                    49514,
                                     9,
                                     1470,
                                     { left: __wrap(index), inverted: false, op: "~<", right: __wrap(end) }
@@ -80332,7 +80147,7 @@
                       ),
                       __node(
                         23,
-                        49742,
+                        49546,
                         52,
                         1471,
                         { left: __wrap(index), op: "~+=", right: __wrap(step) }
@@ -80343,10 +80158,10 @@
                 if (this.hasFunc(body)) {
                   func = this.tmp("f", false, "function");
                   if (value && valueIdent !== value.ident) {
-                    body = __node(7, 49917, [
+                    body = __node(7, 49721, [
                       __node(
                         23,
-                        49917,
+                        49721,
                         38,
                         1478,
                         {
@@ -80354,12 +80169,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              49932,
+                              49736,
                               37,
                               1478,
                               __node(
                                 23,
-                                49932,
+                                49736,
                                 31,
                                 1478,
                                 { ident: __wrap(value) },
@@ -80378,7 +80193,7 @@
                   if (hasIndex) {
                     init.push(__node(
                       23,
-                      50017,
+                      49821,
                       38,
                       1481,
                       {
@@ -80386,12 +80201,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            50021,
+                            49825,
                             37,
                             1481,
                             __node(
                               23,
-                              50021,
+                              49825,
                               31,
                               1481,
                               { ident: __wrap(func) },
@@ -80401,10 +80216,10 @@
                           ),
                           value: __node(
                             20,
-                            50031,
+                            49835,
                             [
-                              __node(27, 50032, __wrap(valueIdent)),
-                              __node(27, 50045, __wrap(index))
+                              __node(27, 49836, __wrap(valueIdent)),
+                              __node(27, 49849, __wrap(index))
                             ],
                             __wrap(body),
                             true
@@ -80415,10 +80230,10 @@
                     ));
                     body = __node(
                       9,
-                      50085,
+                      49889,
                       __wrap(func),
                       [
-                        __node(38, 50093),
+                        __node(38, 49897),
                         __wrap(valueExpr),
                         __wrap(index)
                       ],
@@ -80428,7 +80243,7 @@
                   } else {
                     init.push(__node(
                       23,
-                      50156,
+                      49960,
                       38,
                       1484,
                       {
@@ -80436,12 +80251,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            50160,
+                            49964,
                             37,
                             1484,
                             __node(
                               23,
-                              50160,
+                              49964,
                               31,
                               1484,
                               { ident: __wrap(func) },
@@ -80451,8 +80266,8 @@
                           ),
                           value: __node(
                             20,
-                            50170,
-                            [__node(27, 50171, __wrap(valueIdent))],
+                            49974,
+                            [__node(27, 49975, __wrap(valueIdent))],
                             __wrap(body),
                             true
                           )
@@ -80462,10 +80277,10 @@
                     ));
                     body = __node(
                       9,
-                      50216,
+                      50020,
                       __wrap(func),
                       [
-                        __node(38, 50224),
+                        __node(38, 50028),
                         __wrap(valueExpr)
                       ],
                       false,
@@ -80473,10 +80288,10 @@
                     );
                   }
                 } else if (valueIdent === value.ident || reducer !== "filter") {
-                  body = __node(7, 50326, [
+                  body = __node(7, 50130, [
                     __node(
                       23,
-                      50326,
+                      50130,
                       38,
                       1488,
                       {
@@ -80484,12 +80299,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            50339,
+                            50143,
                             37,
                             1488,
                             __node(
                               23,
-                              50339,
+                              50143,
                               31,
                               1488,
                               { ident: __wrap(value) },
@@ -80505,10 +80320,10 @@
                     __wrap(body)
                   ]);
                 } else {
-                  body = __node(7, 50408, [
+                  body = __node(7, 50212, [
                     __node(
                       23,
-                      50408,
+                      50212,
                       38,
                       1492,
                       {
@@ -80516,12 +80331,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            50421,
+                            50225,
                             37,
                             1492,
                             __node(
                               23,
-                              50421,
+                              50225,
                               31,
                               1492,
                               { ident: __wrap(valueIdent) },
@@ -80536,7 +80351,7 @@
                     ),
                     __node(
                       23,
-                      50449,
+                      50253,
                       38,
                       1493,
                       {
@@ -80544,12 +80359,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            50462,
+                            50266,
                             37,
                             1493,
                             __node(
                               23,
-                              50462,
+                              50266,
                               31,
                               1493,
                               { ident: __wrap(value) },
@@ -80568,7 +80383,7 @@
                 if (reducer === "every") {
                   return __node(
                     23,
-                    50543,
+                    50347,
                     106,
                     1497,
                     {
@@ -80586,7 +80401,7 @@
                 } else if (reducer === "some") {
                   return __node(
                     23,
-                    50672,
+                    50476,
                     106,
                     1502,
                     {
@@ -80604,7 +80419,7 @@
                 } else if (reducer === "first") {
                   return __node(
                     23,
-                    50801,
+                    50605,
                     106,
                     1507,
                     {
@@ -80623,7 +80438,7 @@
                   body = this.mutateLast(body, function (node) {
                     return __node(
                       23,
-                      50976,
+                      50780,
                       17,
                       1513,
                       {
@@ -80635,7 +80450,7 @@
                   });
                   return __node(
                     23,
-                    51023,
+                    50827,
                     106,
                     1515,
                     {
@@ -80652,7 +80467,7 @@
                 } else if (this.position === "expression") {
                   return __node(
                     23,
-                    51154,
+                    50958,
                     106,
                     1520,
                     {
@@ -80669,7 +80484,7 @@
                 } else {
                   return __node(
                     23,
-                    51257,
+                    51061,
                     106,
                     1526,
                     {
@@ -80777,7 +80592,7 @@
               body = this.mutateLast(body || this.noop(), function (node) {
                 return __node(
                   23,
-                  51675,
+                  51479,
                   30,
                   1533,
                   { left: __wrap(current), op: ":=", right: __wrap(node) }
@@ -80788,11 +80603,13 @@
               }
               if (index != null) {
                 index = index.value;
+              } else {
+                index = void 0;
               }
-              return __node(7, 51760, [
+              return __node(7, 51564, [
                 __node(
                   23,
-                  51760,
+                  51564,
                   38,
                   1537,
                   {
@@ -80800,12 +80617,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        51769,
+                        51573,
                         37,
                         1537,
                         __node(
                           23,
-                          51769,
+                          51573,
                           31,
                           1537,
                           { isMutable: "mutable", ident: __wrap(current) },
@@ -80820,7 +80637,7 @@
                 ),
                 __node(
                   23,
-                  51804,
+                  51608,
                   113,
                   1538,
                   {
@@ -80828,12 +80645,12 @@
                     macroData: {
                       value: __node(
                         23,
-                        51813,
+                        51617,
                         37,
                         1538,
                         __node(
                           23,
-                          51813,
+                          51617,
                           31,
                           1538,
                           { ident: __wrap(value) },
@@ -80947,7 +80764,7 @@
               this["let"](key, false, this.type("string"));
               letValue = value && this.macroExpandAll(__node(
                 23,
-                52517,
+                52321,
                 38,
                 1554,
                 {
@@ -80955,12 +80772,12 @@
                   macroData: {
                     declarable: __node(
                       23,
-                      52521,
+                      52325,
                       37,
                       1554,
                       __node(
                         23,
-                        52521,
+                        52325,
                         31,
                         1554,
                         { ident: __wrap(value) },
@@ -80968,14 +80785,14 @@
                       ),
                       true
                     ),
-                    value: __node(1, 52530, __wrap(object), __wrap(key))
+                    value: __node(1, 52334, __wrap(object), __wrap(key))
                   }
                 },
                 true
               ));
               letIndex = index && this.macroExpandAll(__node(
                 23,
-                52596,
+                52400,
                 38,
                 1555,
                 {
@@ -80983,12 +80800,12 @@
                   macroData: {
                     declarable: __node(
                       23,
-                      52600,
+                      52404,
                       37,
                       1555,
                       __node(
                         23,
-                        52600,
+                        52404,
                         31,
                         1555,
                         { isMutable: "mutable", ident: __wrap(index) },
@@ -80998,12 +80815,12 @@
                     ),
                     value: __node(
                       23,
-                      52617,
+                      52421,
                       61,
                       1555,
                       {
                         op: "-",
-                        node: __node(12, 52619, 1)
+                        node: __node(12, 52423, 1)
                       }
                     )
                   }
@@ -81020,10 +80837,10 @@
                   }
                 }
                 if (value && valueIdent !== value.ident) {
-                  body = __node(7, 52854, [
+                  body = __node(7, 52658, [
                     __node(
                       23,
-                      52854,
+                      52658,
                       38,
                       1561,
                       {
@@ -81031,12 +80848,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            52867,
+                            52671,
                             37,
                             1561,
                             __node(
                               23,
-                              52867,
+                              52671,
                               31,
                               1561,
                               { ident: __wrap(value) },
@@ -81055,7 +80872,7 @@
                 if (index) {
                   init.push(__node(
                     23,
-                    52943,
+                    52747,
                     38,
                     1564,
                     {
@@ -81063,12 +80880,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          52947,
+                          52751,
                           37,
                           1564,
                           __node(
                             23,
-                            52947,
+                            52751,
                             31,
                             1564,
                             { ident: __wrap(func) },
@@ -81078,11 +80895,11 @@
                         ),
                         value: __node(
                           20,
-                          52957,
+                          52761,
                           [
-                            __node(27, 52958, __wrap(key)),
-                            __node(27, 52963, __wrap(valueIdent)),
-                            __node(27, 52977, __wrap(index))
+                            __node(27, 52762, __wrap(key)),
+                            __node(27, 52767, __wrap(valueIdent)),
+                            __node(27, 52781, __wrap(index))
                           ],
                           __wrap(body),
                           true
@@ -81093,12 +80910,12 @@
                   ));
                   body = __node(
                     9,
-                    53017,
+                    52821,
                     __wrap(func),
                     [
-                      __node(38, 53025),
+                      __node(38, 52829),
                       __wrap(key),
-                      __node(1, 53036, __wrap(object), __wrap(key)),
+                      __node(1, 52840, __wrap(object), __wrap(key)),
                       __wrap(index)
                     ],
                     false,
@@ -81107,7 +80924,7 @@
                 } else if (value) {
                   init.push(__node(
                     23,
-                    53103,
+                    52907,
                     38,
                     1567,
                     {
@@ -81115,12 +80932,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          53107,
+                          52911,
                           37,
                           1567,
                           __node(
                             23,
-                            53107,
+                            52911,
                             31,
                             1567,
                             { ident: __wrap(func) },
@@ -81130,10 +80947,10 @@
                         ),
                         value: __node(
                           20,
-                          53117,
+                          52921,
                           [
-                            __node(27, 53118, __wrap(key)),
-                            __node(27, 53123, __wrap(valueIdent))
+                            __node(27, 52922, __wrap(key)),
+                            __node(27, 52927, __wrap(valueIdent))
                           ],
                           __wrap(body),
                           true
@@ -81144,12 +80961,12 @@
                   ));
                   body = __node(
                     9,
-                    53169,
+                    52973,
                     __wrap(func),
                     [
-                      __node(38, 53177),
+                      __node(38, 52981),
                       __wrap(key),
-                      __node(1, 53188, __wrap(object), __wrap(key))
+                      __node(1, 52992, __wrap(object), __wrap(key))
                     ],
                     false,
                     true
@@ -81157,7 +80974,7 @@
                 } else {
                   init.push(__node(
                     23,
-                    53238,
+                    53042,
                     38,
                     1570,
                     {
@@ -81165,12 +80982,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          53242,
+                          53046,
                           37,
                           1570,
                           __node(
                             23,
-                            53242,
+                            53046,
                             31,
                             1570,
                             { ident: __wrap(func) },
@@ -81180,8 +80997,8 @@
                         ),
                         value: __node(
                           20,
-                          53252,
-                          [__node(27, 53253, __wrap(key))],
+                          53056,
+                          [__node(27, 53057, __wrap(key))],
                           __wrap(body),
                           true
                         )
@@ -81191,10 +81008,10 @@
                   ));
                   body = __node(
                     9,
-                    53290,
+                    53094,
                     __wrap(func),
                     [
-                      __node(38, 53298),
+                      __node(38, 53102),
                       __wrap(key)
                     ],
                     false,
@@ -81202,14 +81019,14 @@
                   );
                 }
               } else if (value) {
-                body = __node(7, 53347, [__wrap(letValue), __wrap(body)]);
+                body = __node(7, 53151, [__wrap(letValue), __wrap(body)]);
               }
               post = [];
               if (elseBody) {
                 runElse = this.tmp("else", false, "boolean");
                 init.push(__node(
                   23,
-                  53485,
+                  53289,
                   38,
                   1580,
                   {
@@ -81217,12 +81034,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        53489,
+                        53293,
                         37,
                         1580,
                         __node(
                           23,
-                          53489,
+                          53293,
                           31,
                           1580,
                           { ident: __wrap(runElse) },
@@ -81235,10 +81052,10 @@
                   },
                   true
                 ));
-                body = __node(7, 53526, [
+                body = __node(7, 53330, [
                   __node(
                     23,
-                    53526,
+                    53330,
                     30,
                     1582,
                     { left: __wrap(runElse), op: ":=", right: __const("false") },
@@ -81248,7 +81065,7 @@
                 ]);
                 post.push(__node(
                   23,
-                  53587,
+                  53391,
                   17,
                   1585,
                   {
@@ -81260,16 +81077,16 @@
               }
               if (index) {
                 init.push(letIndex);
-                body = __node(7, 53689, [
+                body = __node(7, 53493, [
                   __node(
                     23,
-                    53689,
+                    53493,
                     52,
                     1591,
                     {
                       left: __wrap(index),
                       op: "~+=",
-                      right: __node(12, 53708, 1)
+                      right: __node(12, 53512, 1)
                     },
                     true
                   ),
@@ -81279,7 +81096,7 @@
               if (own) {
                 body = __node(
                   23,
-                  53756,
+                  53560,
                   17,
                   1596,
                   {
@@ -81287,7 +81104,7 @@
                     macroData: {
                       test: __node(
                         23,
-                        53766,
+                        53570,
                         73,
                         1596,
                         { left: __wrap(object), inverted: false, op: "ownskey", right: __wrap(key) },
@@ -81305,7 +81122,7 @@
                   body = this.mutateLast(body || this.noop(), function (node) {
                     return __node(
                       23,
-                      53910,
+                      53714,
                       39,
                       1601,
                       { macroName: "return", macroData: { node: __wrap(node) } },
@@ -81315,13 +81132,13 @@
                   loop = this.forIn(key, object, body);
                   return __node(
                     23,
-                    53982,
+                    53786,
                     0,
                     1603,
                     {
                       macroName: "do",
                       macroData: {
-                        body: __node(7, 53986, [__wrap(init), __wrap(loop), __wrap(elseBody)])
+                        body: __node(7, 53790, [__wrap(init), __wrap(loop), __wrap(elseBody)])
                       }
                     },
                     true
@@ -81334,7 +81151,7 @@
                     body = this.mutateLast(body || this.noop(), function (node) {
                       return __node(
                         23,
-                        54243,
+                        54047,
                         17,
                         1612,
                         {
@@ -81343,7 +81160,7 @@
                             test: __wrap(node),
                             body: __node(
                               23,
-                              54264,
+                              54068,
                               39,
                               1613,
                               { macroName: "return", macroData: { node: __const("true") } },
@@ -81358,13 +81175,13 @@
                     loop = this.forIn(key, object, body);
                     return __node(
                       23,
-                      54351,
+                      54155,
                       0,
                       1615,
                       {
                         macroName: "do",
                         macroData: {
-                          body: __node(7, 54355, [__wrap(init), __wrap(loop), __const("false")])
+                          body: __node(7, 54159, [__wrap(init), __wrap(loop), __const("false")])
                         }
                       },
                       true
@@ -81373,7 +81190,7 @@
                     body = this.mutateLast(body || this.noop(), function (node) {
                       return __node(
                         23,
-                        54506,
+                        54310,
                         17,
                         1621,
                         {
@@ -81381,7 +81198,7 @@
                           macroData: {
                             test: __node(
                               23,
-                              54520,
+                              54324,
                               3,
                               1621,
                               { op: "not", node: __wrap(node) },
@@ -81389,7 +81206,7 @@
                             ),
                             body: __node(
                               23,
-                              54531,
+                              54335,
                               39,
                               1622,
                               { macroName: "return", macroData: { node: __const("false") } },
@@ -81404,13 +81221,13 @@
                     loop = this.forIn(key, object, body);
                     return __node(
                       23,
-                      54619,
+                      54423,
                       0,
                       1624,
                       {
                         macroName: "do",
                         macroData: {
-                          body: __node(7, 54623, [__wrap(init), __wrap(loop), __const("true")])
+                          body: __node(7, 54427, [__wrap(init), __wrap(loop), __const("true")])
                         }
                       },
                       true
@@ -81430,14 +81247,14 @@
                 body = this.mutateLast(body || this.noop(), function (node) {
                   return __node(
                     9,
-                    54984,
-                    __node(1, 54984, __wrap(arr), __node(12, 54990, "push")),
+                    54788,
+                    __node(1, 54788, __wrap(arr), __node(12, 54794, "push")),
                     [__wrap(node)]
                   );
                 });
                 init.unshift(__node(
                   23,
-                  55024,
+                  54828,
                   38,
                   1635,
                   {
@@ -81445,12 +81262,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        55028,
+                        54832,
                         37,
                         1635,
                         __node(
                           23,
-                          55028,
+                          54832,
                           31,
                           1635,
                           { ident: __wrap(arr) },
@@ -81458,16 +81275,16 @@
                         ),
                         true
                       ),
-                      value: __node(4, 55035)
+                      value: __node(4, 54839)
                     }
                   },
                   true
                 ));
                 loop = this.forIn(key, object, body);
-                return __node(7, 55093, [__wrap(init), __wrap(loop), __wrap(arr)]);
+                return __node(7, 54897, [__wrap(init), __wrap(loop), __wrap(arr)]);
               } else {
                 loop = this.forIn(key, object, body);
-                return __node(7, 55197, [__wrap(init), __wrap(loop), __wrap(post)]);
+                return __node(7, 55001, [__wrap(init), __wrap(loop), __wrap(post)]);
               }
             
             }
@@ -81565,7 +81382,7 @@
               body = this.mutateLast(body || this.noop(), function (node) {
                 return __node(
                   23,
-                  55546,
+                  55350,
                   30,
                   1649,
                   { left: __wrap(current), op: ":=", right: __wrap(node) }
@@ -81576,11 +81393,13 @@
               }
               if (value != null) {
                 value = value.value;
+              } else {
+                value = void 0;
               }
               if (type === "of") {
                 loop = __node(
                   23,
-                  55661,
+                  55465,
                   115,
                   1653,
                   {
@@ -81590,12 +81409,12 @@
                       value: {
                         value: __node(
                           23,
-                          55671,
+                          55475,
                           37,
                           1653,
                           __node(
                             23,
-                            55671,
+                            55475,
                             31,
                             1653,
                             { ident: __wrap(value) },
@@ -81615,7 +81434,7 @@
               } else {
                 loop = __node(
                   23,
-                  55730,
+                  55534,
                   115,
                   1656,
                   {
@@ -81625,12 +81444,12 @@
                       value: {
                         value: __node(
                           23,
-                          55740,
+                          55544,
                           37,
                           1656,
                           __node(
                             23,
-                            55740,
+                            55544,
                             31,
                             1656,
                             { ident: __wrap(value) },
@@ -81648,10 +81467,10 @@
                   true
                 );
               }
-              return __node(7, 55792, [
+              return __node(7, 55596, [
                 __node(
                   23,
-                  55792,
+                  55596,
                   38,
                   1659,
                   {
@@ -81659,12 +81478,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        55801,
+                        55605,
                         37,
                         1659,
                         __node(
                           23,
-                          55801,
+                          55605,
                           31,
                           1659,
                           { isMutable: "mutable", ident: __wrap(current) },
@@ -81795,7 +81614,7 @@
                 }
                 current = catchBody || __node(
                   23,
-                  70995,
+                  70799,
                   11,
                   2081,
                   { op: "throw", node: __wrap(catchIdent) },
@@ -81808,7 +81627,7 @@
                   if (this.name(typeIdent) !== this.name(catchIdent)) {
                     letErr = __node(
                       23,
-                      71135,
+                      70939,
                       38,
                       2084,
                       {
@@ -81816,12 +81635,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            71139,
+                            70943,
                             37,
                             2084,
                             __node(
                               23,
-                              71139,
+                              70943,
                               31,
                               2084,
                               { ident: __wrap(typeIdent) },
@@ -81857,7 +81676,7 @@
                     }()));
                     return current = __node(
                       23,
-                      71902,
+                      71706,
                       17,
                       2099,
                       {
@@ -81865,13 +81684,13 @@
                         macroData: {
                           test: __node(
                             23,
-                            71916,
+                            71720,
                             118,
                             2099,
                             { left: __wrap(catchIdent), inverted: false, op: "instanceofsome", right: __wrap(types) },
                             true
                           ),
-                          body: __node(7, 71952, [__wrap(letErr), __wrap(typeCatch.body)]),
+                          body: __node(7, 71756, [__wrap(letErr), __wrap(typeCatch.body)]),
                           elseIfs: [],
                           elseBody: __wrap(current)
                         }
@@ -81882,7 +81701,7 @@
                     value = typeCatch.check.value;
                     return current = __node(
                       23,
-                      72120,
+                      71924,
                       17,
                       2107,
                       {
@@ -81890,13 +81709,13 @@
                         macroData: {
                           test: __node(
                             23,
-                            72134,
+                            71938,
                             5,
                             2107,
                             { left: __wrap(catchIdent), inverted: false, op: "==", right: __wrap(value) },
                             true
                           ),
-                          body: __node(7, 72158, [__wrap(letErr), __wrap(typeCatch.body)]),
+                          body: __node(7, 71962, [__wrap(letErr), __wrap(typeCatch.body)]),
                           elseIfs: [],
                           elseBody: __wrap(current)
                         }
@@ -81914,7 +81733,7 @@
                 runElse = this.tmp("else", false, "boolean");
                 init.push(__node(
                   23,
-                  72385,
+                  72189,
                   38,
                   2116,
                   {
@@ -81922,12 +81741,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        72389,
+                        72193,
                         37,
                         2116,
                         __node(
                           23,
-                          72389,
+                          72193,
                           31,
                           2116,
                           { ident: __wrap(runElse) },
@@ -81941,10 +81760,10 @@
                   true
                 ));
                 if (catchBody) {
-                  catchBody = __node(7, 72453, [
+                  catchBody = __node(7, 72257, [
                     __node(
                       23,
-                      72453,
+                      72257,
                       30,
                       2119,
                       { left: __wrap(runElse), op: ":=", right: __const("false") },
@@ -81954,10 +81773,10 @@
                   ]);
                 } else {
                   catchIdent = this.tmp("err");
-                  catchBody = __node(7, 72574, [
+                  catchBody = __node(7, 72378, [
                     __node(
                       23,
-                      72574,
+                      72378,
                       30,
                       2124,
                       { left: __wrap(runElse), op: ":=", right: __const("false") },
@@ -81965,7 +81784,7 @@
                     ),
                     __node(
                       23,
-                      72603,
+                      72407,
                       11,
                       2125,
                       { op: "throw", node: __wrap(catchIdent) },
@@ -81981,7 +81800,7 @@
               if (hasElse) {
                 current = this.tryFinally(current, __node(
                   23,
-                  72821,
+                  72625,
                   17,
                   2132,
                   {
@@ -81994,7 +81813,7 @@
               if (finallyBody) {
                 current = this.tryFinally(current, finallyBody);
               }
-              return __node(7, 72945, [__wrap(init), __wrap(current)]);
+              return __node(7, 72749, [__wrap(init), __wrap(current)]);
             
             }
           }.call(this),
@@ -82147,8 +81966,8 @@
               iterator = this.cache(
                 __node(
                   9,
-                  74122,
-                  __node(21, 74122, "__iter"),
+                  73926,
+                  __node(21, 73926, "__iter"),
                   [__wrap(iterable)]
                 ),
                 init,
@@ -82161,7 +81980,7 @@
               if (index) {
                 init.push(__node(
                   23,
-                  74277,
+                  74081,
                   38,
                   2180,
                   {
@@ -82169,12 +81988,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        74281,
+                        74085,
                         37,
                         2180,
                         __node(
                           23,
-                          74281,
+                          74085,
                           31,
                           2180,
                           { isMutable: "mutable", ident: __wrap(index) },
@@ -82182,27 +82001,27 @@
                         ),
                         true
                       ),
-                      value: __node(12, 74299, 0)
+                      value: __node(12, 74103, 0)
                     }
                   },
                   true
                 ));
                 step.push(__node(
                   23,
-                  74321,
+                  74125,
                   52,
                   2181,
                   {
                     left: __wrap(index),
                     op: "~+=",
-                    right: __node(12, 74333, 1)
+                    right: __node(12, 74137, 1)
                   }
                 ));
               }
-              captureValue = __node(7, 74366, [
+              captureValue = __node(7, 74170, [
                 __node(
                   23,
-                  74366,
+                  74170,
                   38,
                   2184,
                   {
@@ -82210,12 +82029,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        74375,
+                        74179,
                         37,
                         2184,
                         __node(
                           23,
-                          74375,
+                          74179,
                           31,
                           2184,
                           { ident: __wrap(item) },
@@ -82223,23 +82042,23 @@
                         ),
                         true
                       ),
-                      value: __node(9, 74383, __node(1, 74383, __wrap(iterator), __node(12, 74394, "next")))
+                      value: __node(9, 74187, __node(1, 74187, __wrap(iterator), __node(12, 74198, "next")))
                     }
                   },
                   true
                 ),
                 __node(
                   23,
-                  74401,
+                  74205,
                   17,
                   2185,
                   {
                     macroName: "if",
                     macroData: {
-                      test: __node(1, 74409, __wrap(item), __node(12, 74416, "done")),
+                      test: __node(1, 74213, __wrap(item), __node(12, 74220, "done")),
                       body: __node(
                         23,
-                        74421,
+                        74225,
                         19,
                         2186,
                         { macroName: "break", macroData: {} },
@@ -82252,7 +82071,7 @@
                 ),
                 __node(
                   23,
-                  74435,
+                  74239,
                   38,
                   2187,
                   {
@@ -82260,12 +82079,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        74444,
+                        74248,
                         37,
                         2187,
                         __node(
                           23,
-                          74444,
+                          74248,
                           31,
                           2187,
                           { ident: __wrap(value) },
@@ -82273,7 +82092,7 @@
                         ),
                         true
                       ),
-                      value: __node(1, 74453, __wrap(item), __node(12, 74460, "value"))
+                      value: __node(1, 74257, __wrap(item), __node(12, 74264, "value"))
                     }
                   },
                   true
@@ -82284,7 +82103,7 @@
                 runElse = this.tmp("else", false, "boolean");
                 init.push(__node(
                   23,
-                  74618,
+                  74422,
                   38,
                   2192,
                   {
@@ -82292,12 +82111,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        74622,
+                        74426,
                         37,
                         2192,
                         __node(
                           23,
-                          74622,
+                          74426,
                           31,
                           2192,
                           { ident: __wrap(runElse) },
@@ -82310,10 +82129,10 @@
                   },
                   true
                 ));
-                body = __node(7, 74659, [
+                body = __node(7, 74463, [
                   __node(
                     23,
-                    74659,
+                    74463,
                     30,
                     2194,
                     { left: __wrap(runElse), op: ":=", right: __const("false") },
@@ -82323,7 +82142,7 @@
                 ]);
                 post.push(__node(
                   23,
-                  74720,
+                  74524,
                   17,
                   2197,
                   {
@@ -82338,7 +82157,7 @@
                 if (!index) {
                   init.push(__node(
                     23,
-                    74869,
+                    74673,
                     38,
                     2203,
                     {
@@ -82346,12 +82165,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          74873,
+                          74677,
                           37,
                           2203,
                           __node(
                             23,
-                            74873,
+                            74677,
                             31,
                             2203,
                             { ident: __wrap(func) },
@@ -82361,15 +82180,15 @@
                         ),
                         value: __node(
                           23,
-                          74883,
+                          74687,
                           117,
                           2203,
                           {
                             op: "",
                             node: __node(
                               20,
-                              74883,
-                              [__node(27, 74884, __wrap(value))],
+                              74687,
+                              [__node(27, 74688, __wrap(value))],
                               __wrap(body),
                               true
                             )
@@ -82379,14 +82198,14 @@
                     },
                     true
                   ));
-                  body = __node(7, 74921, [
+                  body = __node(7, 74725, [
                     __wrap(captureValue),
                     __node(
                       9,
-                      74946,
+                      74750,
                       __wrap(func),
                       [
-                        __node(38, 74963),
+                        __node(38, 74767),
                         __wrap(value)
                       ],
                       false,
@@ -82396,7 +82215,7 @@
                 } else {
                   init.push(__node(
                     23,
-                    75009,
+                    74813,
                     38,
                     2208,
                     {
@@ -82404,12 +82223,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          75013,
+                          74817,
                           37,
                           2208,
                           __node(
                             23,
-                            75013,
+                            74817,
                             31,
                             2208,
                             { ident: __wrap(func) },
@@ -82419,17 +82238,17 @@
                         ),
                         value: __node(
                           23,
-                          75023,
+                          74827,
                           117,
                           2208,
                           {
                             op: "",
                             node: __node(
                               20,
-                              75023,
+                              74827,
                               [
-                                __node(27, 75024, __wrap(value)),
-                                __node(27, 75031, __wrap(index))
+                                __node(27, 74828, __wrap(value)),
+                                __node(27, 74835, __wrap(index))
                               ],
                               __wrap(body),
                               true
@@ -82440,14 +82259,14 @@
                     },
                     true
                   ));
-                  body = __node(7, 75069, [
+                  body = __node(7, 74873, [
                     __wrap(captureValue),
                     __node(
                       9,
-                      75094,
+                      74898,
                       __wrap(func),
                       [
-                        __node(38, 75111),
+                        __node(38, 74915),
                         __wrap(value),
                         __wrap(index)
                       ],
@@ -82457,12 +82276,12 @@
                   ]);
                 }
               } else {
-                body = __node(7, 75160, [__wrap(captureValue), __wrap(body)]);
+                body = __node(7, 74964, [__wrap(captureValue), __wrap(body)]);
               }
               if (reducer === "every") {
                 main = __node(
                   23,
-                  75244,
+                  75048,
                   106,
                   2218,
                   {
@@ -82480,7 +82299,7 @@
               } else if (reducer === "some") {
                 main = __node(
                   23,
-                  75357,
+                  75161,
                   106,
                   2223,
                   {
@@ -82498,7 +82317,7 @@
               } else if (reducer === "first") {
                 main = __node(
                   23,
-                  75470,
+                  75274,
                   106,
                   2228,
                   {
@@ -82517,7 +82336,7 @@
                 body = this.mutateLast(body, function (node) {
                   return __node(
                     23,
-                    75627,
+                    75431,
                     17,
                     2234,
                     {
@@ -82529,7 +82348,7 @@
                 });
                 main = __node(
                   23,
-                  75664,
+                  75468,
                   106,
                   2236,
                   {
@@ -82546,7 +82365,7 @@
               } else if (this.position === "expression") {
                 main = __node(
                   23,
-                  75779,
+                  75583,
                   106,
                   2241,
                   {
@@ -82561,10 +82380,10 @@
                   }
                 );
               } else {
-                main = __node(7, 75866, [
+                main = __node(7, 75670, [
                   __node(
                     23,
-                    75866,
+                    75670,
                     106,
                     2247,
                     {
@@ -82578,7 +82397,7 @@
               }
               return __node(
                 23,
-                75939,
+                75743,
                 119,
                 2251,
                 {
@@ -82588,13 +82407,13 @@
                     typedCatches: [],
                     finallyBody: __node(
                       23,
-                      75968,
+                      75772,
                       119,
                       2254,
                       {
                         macroName: "try",
                         macroData: {
-                          tryBody: __node(9, 75978, __node(1, 75978, __wrap(iterator), __node(12, 75996, "close"))),
+                          tryBody: __node(9, 75782, __node(1, 75782, __wrap(iterator), __node(12, 75800, "close"))),
                           typedCatches: [],
                           catchPart: { ident: __wrap(err), body: __const("void") }
                         }
@@ -82684,16 +82503,16 @@
               body = this.mutateLast(body || this.noop(), function (node) {
                 return __node(
                   23,
-                  76287,
+                  76091,
                   30,
                   2260,
                   { left: __wrap(current), op: ":=", right: __wrap(node) }
                 );
               });
-              return __node(7, 76315, [
+              return __node(7, 76119, [
                 __node(
                   23,
-                  76315,
+                  76119,
                   38,
                   2262,
                   {
@@ -82701,12 +82520,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        76324,
+                        76128,
                         37,
                         2262,
                         __node(
                           23,
-                          76324,
+                          76128,
                           31,
                           2262,
                           { isMutable: "mutable", ident: __wrap(current) },
@@ -82721,7 +82540,7 @@
                 ),
                 __node(
                   23,
-                  76359,
+                  76163,
                   120,
                   2263,
                   {
@@ -82846,16 +82665,16 @@
               }
               return this["switch"](node, resultCases, defaultCase || __node(
                 23,
-                77552,
+                77356,
                 11,
                 2293,
                 {
                   op: "throw",
                   node: __node(
                     9,
-                    77558,
-                    __node(21, 77558, "Error"),
-                    [__node(12, 77565, "Unhandled value in switch")]
+                    77362,
+                    __node(21, 77362, "Error"),
+                    [__node(12, 77369, "Unhandled value in switch")]
                   )
                 },
                 true
@@ -82984,16 +82803,16 @@
               defaultCase = macroData.defaultCase;
               current = defaultCase || __node(
                 23,
-                77852,
+                77656,
                 11,
                 2296,
                 {
                   op: "throw",
                   node: __node(
                     9,
-                    77858,
-                    __node(21, 77858, "Error"),
-                    [__node(12, 77865, "Unhandled value in switch")]
+                    77662,
+                    __node(21, 77662, "Error"),
+                    [__node(12, 77669, "Unhandled value in switch")]
                   )
                 },
                 true
@@ -83011,10 +82830,10 @@
                     body = this.block(nodes.slice(0, -1));
                     if (this.isIf(current)) {
                       fall = this.tmp("fall", false, "boolean");
-                      result = __node(7, 78345, [
+                      result = __node(7, 78149, [
                         __node(
                           23,
-                          78345,
+                          78149,
                           38,
                           2309,
                           {
@@ -83022,12 +82841,12 @@
                             macroData: {
                               declarable: __node(
                                 23,
-                                78362,
+                                78166,
                                 37,
                                 2309,
                                 __node(
                                   23,
-                                  78362,
+                                  78166,
                                   31,
                                   2309,
                                   { isMutable: "mutable", ident: __wrap(fall) },
@@ -83042,17 +82861,17 @@
                         ),
                         __node(
                           23,
-                          78385,
+                          78189,
                           17,
                           2310,
                           {
                             macroName: "if",
                             macroData: {
                               test: __wrap(test),
-                              body: __node(7, 78408, [
+                              body: __node(7, 78212, [
                                 __node(
                                   23,
-                                  78408,
+                                  78212,
                                   30,
                                   2311,
                                   { left: __wrap(fall), op: ":=", right: __const("true") },
@@ -83067,7 +82886,7 @@
                         ),
                         __node(
                           23,
-                          78460,
+                          78264,
                           17,
                           2313,
                           {
@@ -83075,7 +82894,7 @@
                             macroData: {
                               test: __node(
                                 23,
-                                78476,
+                                78280,
                                 2,
                                 2313,
                                 { left: __wrap(fall), inverted: false, op: "or", right: __wrap(this.test(current)) },
@@ -83090,10 +82909,10 @@
                         )
                       ]);
                     } else {
-                      result = __node(7, 78633, [
+                      result = __node(7, 78437, [
                         __node(
                           23,
-                          78633,
+                          78437,
                           17,
                           2319,
                           {
@@ -83110,7 +82929,7 @@
                   if (this.isIf(current)) {
                     result = __node(
                       23,
-                      78813,
+                      78617,
                       17,
                       2324,
                       {
@@ -83118,7 +82937,7 @@
                         macroData: {
                           test: __node(
                             23,
-                            78816,
+                            78620,
                             2,
                             2324,
                             { left: __wrap(test), inverted: false, op: "or", right: __wrap(this.test(current)) },
@@ -83132,12 +82951,12 @@
                       true
                     );
                   } else {
-                    result = __node(7, 78967, [__wrap(test), __wrap(current)]);
+                    result = __node(7, 78771, [__wrap(test), __wrap(current)]);
                   }
                 }
                 current = result || __node(
                   23,
-                  79038,
+                  78842,
                   17,
                   2333,
                   {
@@ -83233,7 +83052,7 @@
                 this.callArgs(call).concat([
                   __node(
                     23,
-                    82103,
+                    81907,
                     126,
                     2449,
                     {
@@ -83241,7 +83060,7 @@
                       macroData: [
                         __node(
                           23,
-                          82111,
+                          81915,
                           117,
                           2449,
                           { op: "mutateFunction!", node: __wrap(func) }
@@ -83300,10 +83119,10 @@
               func = this.func(
                 params,
                 callback === "throw"
-                  ? __node(7, 82583, [
+                  ? __node(7, 82387, [
                     __node(
                       23,
-                      82583,
+                      82387,
                       102,
                       2463,
                       { op: "throw?", node: __wrap(error) },
@@ -83311,10 +83130,10 @@
                     ),
                     __wrap(body)
                   ])
-                  : __node(7, 82646, [
+                  : __node(7, 82450, [
                     __node(
                       23,
-                      82646,
+                      82450,
                       17,
                       2467,
                       {
@@ -83322,7 +83141,7 @@
                         macroData: {
                           test: __node(
                             23,
-                            82658,
+                            82462,
                             20,
                             2467,
                             { op: "?", node: __wrap(error) },
@@ -83330,12 +83149,12 @@
                           ),
                           body: __node(
                             23,
-                            82667,
+                            82471,
                             39,
                             2468,
                             {
                               macroName: "return",
-                              macroData: { node: __node(9, 82685, __wrap(callback), [__wrap(error)]) }
+                              macroData: { node: __node(9, 82489, __wrap(callback), [__wrap(error)]) }
                             },
                             true
                           ),
@@ -83354,7 +83173,7 @@
                 this.callArgs(call).concat([
                   __node(
                     23,
-                    82798,
+                    82602,
                     126,
                     2472,
                     {
@@ -83362,7 +83181,7 @@
                       macroData: [
                         __node(
                           23,
-                          82806,
+                          82610,
                           117,
                           2472,
                           { op: "mutateFunction!", node: __wrap(func) }
@@ -83462,7 +83281,7 @@
                 ident = this.ident(identName);
                 return __node(
                   23,
-                  83289,
+                  83093,
                   38,
                   2485,
                   {
@@ -83470,12 +83289,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        83293,
+                        83097,
                         37,
                         2485,
                         __node(
                           23,
-                          83293,
+                          83097,
                           31,
                           2485,
                           { ident: __wrap(ident) },
@@ -83485,8 +83304,8 @@
                       ),
                       value: __node(
                         9,
-                        83302,
-                        __node(21, 83302, "require"),
+                        83106,
+                        __node(21, 83106, "require"),
                         [__wrap(name)]
                       )
                     }
@@ -83497,7 +83316,7 @@
                 path = this.name(name);
                 return __node(
                   23,
-                  83381,
+                  83185,
                   38,
                   2488,
                   {
@@ -83505,12 +83324,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        83385,
+                        83189,
                         37,
                         2488,
                         __node(
                           23,
-                          83385,
+                          83189,
                           31,
                           2488,
                           { ident: __wrap(name) },
@@ -83520,8 +83339,8 @@
                       ),
                       value: __node(
                         9,
-                        83393,
-                        __node(21, 83393, "require"),
+                        83197,
+                        __node(21, 83197, "require"),
                         [__wrap(path)]
                       )
                     }
@@ -83548,7 +83367,7 @@
                   if (this.isConst(value)) {
                     requires.push(__node(
                       23,
-                      83902,
+                      83706,
                       38,
                       2500,
                       {
@@ -83556,12 +83375,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            83906,
+                            83710,
                             37,
                             2500,
                             __node(
                               23,
-                              83906,
+                              83710,
                               31,
                               2500,
                               { ident: __wrap(ident) },
@@ -83571,8 +83390,8 @@
                           ),
                           value: __node(
                             9,
-                            83915,
-                            __node(21, 83915, "require"),
+                            83719,
+                            __node(21, 83719, "require"),
                             [__wrap(value)]
                           )
                         }
@@ -83583,7 +83402,7 @@
                     path = this.name(value);
                     requires.push(__node(
                       23,
-                      84023,
+                      83827,
                       38,
                       2503,
                       {
@@ -83591,12 +83410,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            84027,
+                            83831,
                             37,
                             2503,
                             __node(
                               23,
-                              84027,
+                              83831,
                               31,
                               2503,
                               { ident: __wrap(ident) },
@@ -83606,8 +83425,8 @@
                           ),
                           value: __node(
                             9,
-                            84036,
-                            __node(21, 84036, "require"),
+                            83840,
+                            __node(21, 83840, "require"),
                             [__wrap(path)]
                           )
                         }
@@ -83670,11 +83489,11 @@
               done = this.tmp("done", true, "function");
               if (!result) {
                 if (!step) {
-                  return __node(7, 87286, [
+                  return __node(7, 87090, [
                     __wrap(init),
                     __node(
                       23,
-                      87302,
+                      87106,
                       15,
                       2614,
                       {
@@ -83683,19 +83502,19 @@
                           ident: __wrap(next),
                           func: __node(
                             23,
-                            87321,
+                            87125,
                             117,
                             2614,
                             {
                               op: "",
                               node: __node(
                                 20,
-                                87321,
-                                [__node(27, 87322, __wrap(err))],
-                                __node(7, 87329, [
+                                87125,
+                                [__node(27, 87126, __wrap(err))],
+                                __node(7, 87133, [
                                   __node(
                                     23,
-                                    87329,
+                                    87133,
                                     17,
                                     2615,
                                     {
@@ -83703,7 +83522,7 @@
                                       macroData: {
                                         test: __node(
                                           23,
-                                          87343,
+                                          87147,
                                           20,
                                           2615,
                                           { op: "?", node: __wrap(err) },
@@ -83711,12 +83530,12 @@
                                         ),
                                         body: __node(
                                           23,
-                                          87350,
+                                          87154,
                                           39,
                                           2616,
                                           {
                                             macroName: "return",
-                                            macroData: { node: __node(9, 87370, __wrap(done), [__wrap(err)]) }
+                                            macroData: { node: __node(9, 87174, __wrap(done), [__wrap(err)]) }
                                           },
                                           true
                                         ),
@@ -83727,7 +83546,7 @@
                                   ),
                                   __node(
                                     23,
-                                    87383,
+                                    87187,
                                     17,
                                     2617,
                                     {
@@ -83736,12 +83555,12 @@
                                         test: __wrap(test),
                                         body: __node(
                                           23,
-                                          87408,
+                                          87212,
                                           39,
                                           2618,
                                           {
                                             macroName: "return",
-                                            macroData: { node: __node(9, 87428, __wrap(done), [__const("null")]) }
+                                            macroData: { node: __node(9, 87232, __wrap(done), [__const("null")]) }
                                           },
                                           true
                                         ),
@@ -83764,7 +83583,7 @@
                     ),
                     __node(
                       23,
-                      87459,
+                      87263,
                       15,
                       2620,
                       {
@@ -83773,15 +83592,15 @@
                           ident: __wrap(done),
                           func: __node(
                             23,
-                            87478,
+                            87282,
                             117,
                             2620,
                             {
                               op: "",
                               node: __node(
                                 20,
-                                87478,
-                                [__node(27, 87479, __wrap(err))],
+                                87282,
+                                [__node(27, 87283, __wrap(err))],
                                 __wrap(rest),
                                 true,
                                 true
@@ -83793,15 +83612,15 @@
                       },
                       true
                     ),
-                    __node(9, 87504, __wrap(next))
+                    __node(9, 87308, __wrap(next))
                   ]);
                 } else {
                   first = this.tmp("first", true, "boolean");
-                  return __node(7, 87593, [
+                  return __node(7, 87397, [
                     __wrap(init),
                     __node(
                       23,
-                      87609,
+                      87413,
                       38,
                       2627,
                       {
@@ -83809,12 +83628,12 @@
                         macroData: {
                           declarable: __node(
                             23,
-                            87622,
+                            87426,
                             37,
                             2627,
                             __node(
                               23,
-                              87622,
+                              87426,
                               31,
                               2627,
                               { ident: __wrap(first) },
@@ -83829,7 +83648,7 @@
                     ),
                     __node(
                       23,
-                      87637,
+                      87441,
                       15,
                       2628,
                       {
@@ -83838,19 +83657,19 @@
                           ident: __wrap(next),
                           func: __node(
                             23,
-                            87656,
+                            87460,
                             117,
                             2628,
                             {
                               op: "",
                               node: __node(
                                 20,
-                                87656,
-                                [__node(27, 87657, __wrap(err))],
-                                __node(7, 87664, [
+                                87460,
+                                [__node(27, 87461, __wrap(err))],
+                                __node(7, 87468, [
                                   __node(
                                     23,
-                                    87664,
+                                    87468,
                                     17,
                                     2629,
                                     {
@@ -83858,7 +83677,7 @@
                                       macroData: {
                                         test: __node(
                                           23,
-                                          87678,
+                                          87482,
                                           20,
                                           2629,
                                           { op: "?", node: __wrap(err) },
@@ -83866,12 +83685,12 @@
                                         ),
                                         body: __node(
                                           23,
-                                          87685,
+                                          87489,
                                           39,
                                           2630,
                                           {
                                             macroName: "return",
-                                            macroData: { node: __node(9, 87705, __wrap(done), [__wrap(err)]) }
+                                            macroData: { node: __node(9, 87509, __wrap(done), [__wrap(err)]) }
                                           },
                                           true
                                         ),
@@ -83882,7 +83701,7 @@
                                   ),
                                   __node(
                                     23,
-                                    87718,
+                                    87522,
                                     17,
                                     2631,
                                     {
@@ -83891,7 +83710,7 @@
                                         test: __wrap(first),
                                         body: __node(
                                           23,
-                                          87740,
+                                          87544,
                                           30,
                                           2632,
                                           { left: __wrap(first), op: ":=", right: __const("false") },
@@ -83905,7 +83724,7 @@
                                   ),
                                   __node(
                                     23,
-                                    87807,
+                                    87611,
                                     17,
                                     2635,
                                     {
@@ -83914,12 +83733,12 @@
                                         test: __wrap(test),
                                         body: __node(
                                           23,
-                                          87832,
+                                          87636,
                                           39,
                                           2636,
                                           {
                                             macroName: "return",
-                                            macroData: { node: __node(9, 87852, __wrap(done), [__const("null")]) }
+                                            macroData: { node: __node(9, 87656, __wrap(done), [__const("null")]) }
                                           },
                                           true
                                         ),
@@ -83942,7 +83761,7 @@
                     ),
                     __node(
                       23,
-                      87883,
+                      87687,
                       15,
                       2638,
                       {
@@ -83951,15 +83770,15 @@
                           ident: __wrap(done),
                           func: __node(
                             23,
-                            87902,
+                            87706,
                             117,
                             2638,
                             {
                               op: "",
                               node: __node(
                                 20,
-                                87902,
-                                [__node(27, 87903, __wrap(err))],
+                                87706,
+                                [__node(27, 87707, __wrap(err))],
                                 __wrap(rest),
                                 true,
                                 true
@@ -83971,18 +83790,18 @@
                       },
                       true
                     ),
-                    __node(9, 87928, __wrap(next))
+                    __node(9, 87732, __wrap(next))
                   ]);
                 }
               } else {
                 first = this.tmp("first", true, "boolean");
                 value = this.tmp("value", true);
                 arr = this.tmp("arr", true);
-                return __node(7, 88079, [
+                return __node(7, 87883, [
                   __wrap(init),
                   __node(
                     23,
-                    88093,
+                    87897,
                     38,
                     2647,
                     {
@@ -83990,12 +83809,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          88104,
+                          87908,
                           37,
                           2647,
                           __node(
                             23,
-                            88104,
+                            87908,
                             31,
                             2647,
                             { ident: __wrap(first) },
@@ -84010,7 +83829,7 @@
                   ),
                   __node(
                     23,
-                    88119,
+                    87923,
                     38,
                     2648,
                     {
@@ -84018,12 +83837,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          88130,
+                          87934,
                           37,
                           2648,
                           __node(
                             23,
-                            88130,
+                            87934,
                             31,
                             2648,
                             { ident: __wrap(arr) },
@@ -84031,14 +83850,14 @@
                           ),
                           true
                         ),
-                        value: __node(4, 88137)
+                        value: __node(4, 87941)
                       }
                     },
                     true
                   ),
                   __node(
                     23,
-                    88141,
+                    87945,
                     15,
                     2649,
                     {
@@ -84047,22 +83866,22 @@
                         ident: __wrap(next),
                         func: __node(
                           23,
-                          88158,
+                          87962,
                           117,
                           2649,
                           {
                             op: "",
                             node: __node(
                               20,
-                              88158,
+                              87962,
                               [
-                                __node(27, 88159, __wrap(err)),
-                                __node(27, 88164, __wrap(value))
+                                __node(27, 87963, __wrap(err)),
+                                __node(27, 87968, __wrap(value))
                               ],
-                              __node(7, 88174, [
+                              __node(7, 87978, [
                                 __node(
                                   23,
-                                  88174,
+                                  87978,
                                   17,
                                   2650,
                                   {
@@ -84070,7 +83889,7 @@
                                     macroData: {
                                       test: __node(
                                         23,
-                                        88186,
+                                        87990,
                                         20,
                                         2650,
                                         { op: "?", node: __wrap(err) },
@@ -84078,12 +83897,12 @@
                                       ),
                                       body: __node(
                                         23,
-                                        88193,
+                                        87997,
                                         39,
                                         2651,
                                         {
                                           macroName: "return",
-                                          macroData: { node: __node(9, 88211, __wrap(done), [__wrap(err)]) }
+                                          macroData: { node: __node(9, 88015, __wrap(done), [__wrap(err)]) }
                                         },
                                         true
                                       ),
@@ -84094,7 +83913,7 @@
                                 ),
                                 __node(
                                   23,
-                                  88224,
+                                  88028,
                                   17,
                                   2652,
                                   {
@@ -84103,18 +83922,18 @@
                                       test: __wrap(first),
                                       body: __node(
                                         23,
-                                        88244,
+                                        88048,
                                         30,
                                         2653,
                                         { left: __wrap(first), op: ":=", right: __const("false") },
                                         true
                                       ),
                                       elseIfs: [],
-                                      elseBody: __node(7, 88287, [
+                                      elseBody: __node(7, 88091, [
                                         __wrap(step),
                                         __node(
                                           23,
-                                          88305,
+                                          88109,
                                           17,
                                           2656,
                                           {
@@ -84122,26 +83941,26 @@
                                             macroData: {
                                               test: __node(
                                                 23,
-                                                88319,
+                                                88123,
                                                 10,
                                                 2656,
                                                 {
                                                   left: __node(
                                                     1,
-                                                    88319,
-                                                    __node(3, 88319),
-                                                    __node(12, 88330, "length")
+                                                    88123,
+                                                    __node(3, 88123),
+                                                    __node(12, 88134, "length")
                                                   ),
                                                   inverted: false,
                                                   op: "~>",
-                                                  right: __node(12, 88340, 1)
+                                                  right: __node(12, 88144, 1)
                                                 },
                                                 true
                                               ),
                                               body: __node(
                                                 9,
-                                                88342,
-                                                __node(1, 88342, __wrap(arr), __node(12, 88361, "push")),
+                                                88146,
+                                                __node(1, 88146, __wrap(arr), __node(12, 88165, "push")),
                                                 [__wrap(value)]
                                               ),
                                               elseIfs: []
@@ -84156,7 +83975,7 @@
                                 ),
                                 __node(
                                   23,
-                                  88373,
+                                  88177,
                                   17,
                                   2658,
                                   {
@@ -84165,13 +83984,13 @@
                                       test: __wrap(test),
                                       body: __node(
                                         23,
-                                        88396,
+                                        88200,
                                         39,
                                         2659,
                                         {
                                           macroName: "return",
                                           macroData: {
-                                            node: __node(9, 88414, __wrap(done), [__const("null"), __wrap(arr)])
+                                            node: __node(9, 88218, __wrap(done), [__const("null"), __wrap(arr)])
                                           }
                                         },
                                         true
@@ -84195,7 +84014,7 @@
                   ),
                   __node(
                     23,
-                    88449,
+                    88253,
                     15,
                     2661,
                     {
@@ -84204,17 +84023,17 @@
                         ident: __wrap(done),
                         func: __node(
                           23,
-                          88466,
+                          88270,
                           117,
                           2661,
                           {
                             op: "",
                             node: __node(
                               20,
-                              88466,
+                              88270,
                               [
-                                __node(27, 88467, __wrap(err)),
-                                __node(27, 88472, __wrap(result))
+                                __node(27, 88271, __wrap(err)),
+                                __node(27, 88276, __wrap(result))
                               ],
                               __wrap(rest),
                               true,
@@ -84227,7 +84046,7 @@
                     },
                     true
                   ),
-                  __node(9, 88499, __wrap(next))
+                  __node(9, 88303, __wrap(next))
                 ]);
               }
             },
@@ -84352,7 +84171,7 @@
                 index = index.value;
               }
               if (parallelism == null) {
-                parallelism = __node(12, 89183, 1);
+                parallelism = __node(12, 88987, 1);
               }
               if (index == null) {
                 index = this.tmp("i", true, "number");
@@ -84374,7 +84193,7 @@
                 } else {
                   start = __node(
                     23,
-                    89769,
+                    89573,
                     60,
                     2692,
                     { op: "+", node: __wrap(start) }
@@ -84388,7 +84207,7 @@
                   end = this.cache(
                     __node(
                       23,
-                      89967,
+                      89771,
                       60,
                       2698,
                       { op: "+", node: __wrap(end) }
@@ -84400,7 +84219,7 @@
                 } else {
                   init.push(__node(
                     23,
-                    90027,
+                    89831,
                     60,
                     2700,
                     { op: "+", node: __wrap(end) }
@@ -84414,7 +84233,7 @@
                   step = this.cache(
                     __node(
                       23,
-                      90230,
+                      90034,
                       60,
                       2706,
                       { op: "+", node: __wrap(step) }
@@ -84426,16 +84245,16 @@
                 } else {
                   init.push(__node(
                     23,
-                    90292,
+                    90096,
                     60,
                     2708,
                     { op: "+", node: __wrap(step) }
                   ));
                 }
-                body = __node(7, 90325, [
+                body = __node(7, 90129, [
                   __node(
                     23,
-                    90325,
+                    90129,
                     38,
                     2711,
                     {
@@ -84443,12 +84262,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          90336,
+                          90140,
                           37,
                           2711,
                           __node(
                             23,
-                            90336,
+                            90140,
                             31,
                             2711,
                             { ident: __wrap(value) },
@@ -84458,13 +84277,13 @@
                         ),
                         value: __node(
                           23,
-                          90345,
+                          90149,
                           49,
                           2711,
                           {
                             left: __node(
                               23,
-                              90345,
+                              90149,
                               45,
                               2711,
                               { left: __wrap(index), inverted: false, op: "~*", right: __wrap(step) }
@@ -84482,7 +84301,7 @@
                 ]);
                 lengthCalc = __node(
                   23,
-                  90415,
+                  90219,
                   17,
                   2714,
                   {
@@ -84491,19 +84310,19 @@
                       test: __wrap(inclusive),
                       body: __node(
                         23,
-                        90430,
+                        90234,
                         45,
                         2715,
                         {
                           left: __node(
                             23,
-                            90439,
+                            90243,
                             49,
                             2715,
                             {
                               left: __node(
                                 23,
-                                90439,
+                                90243,
                                 49,
                                 2715,
                                 { left: __wrap(end), inverted: false, op: "~-", right: __wrap(start) }
@@ -84522,13 +84341,13 @@
                       elseIfs: [],
                       elseBody: __node(
                         23,
-                        90484,
+                        90288,
                         45,
                         2717,
                         {
                           left: __node(
                             23,
-                            90493,
+                            90297,
                             49,
                             2717,
                             { left: __wrap(end), inverted: false, op: "~-", right: __wrap(start) }
@@ -84547,7 +84366,7 @@
                 } else {
                   init.push(__node(
                     23,
-                    90600,
+                    90404,
                     38,
                     2721,
                     {
@@ -84555,12 +84374,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          90604,
+                          90408,
                           37,
                           2721,
                           __node(
                             23,
-                            90604,
+                            90408,
                             31,
                             2721,
                             { ident: __wrap(length) },
@@ -84576,10 +84395,10 @@
                 }
               } else {
                 array = this.cache(array, init, "arr", true);
-                body = __node(7, 90702, [
+                body = __node(7, 90506, [
                   __node(
                     23,
-                    90702,
+                    90506,
                     38,
                     2726,
                     {
@@ -84587,12 +84406,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          90713,
+                          90517,
                           37,
                           2726,
                           __node(
                             23,
-                            90713,
+                            90517,
                             31,
                             2726,
                             { ident: __wrap(value) },
@@ -84600,7 +84419,7 @@
                           ),
                           true
                         ),
-                        value: __node(1, 90722, __wrap(array), __wrap(index))
+                        value: __node(1, 90526, __wrap(array), __wrap(index))
                       }
                     },
                     true
@@ -84610,18 +84429,18 @@
                 if (!length) {
                   length = __node(
                     23,
-                    90801,
+                    90605,
                     60,
                     2730,
                     {
                       op: "+",
-                      node: __node(1, 90803, __wrap(array), __node(12, 90810, "length"))
+                      node: __node(1, 90607, __wrap(array), __node(12, 90614, "length"))
                     }
                   );
                 } else {
                   init.push(__node(
                     23,
-                    90849,
+                    90653,
                     38,
                     2732,
                     {
@@ -84629,12 +84448,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          90853,
+                          90657,
                           37,
                           2732,
                           __node(
                             23,
-                            90853,
+                            90657,
                             31,
                             2732,
                             { ident: __wrap(length) },
@@ -84644,12 +84463,12 @@
                         ),
                         value: __node(
                           23,
-                          90863,
+                          90667,
                           60,
                           2732,
                           {
                             op: "+",
-                            node: __node(1, 90865, __wrap(array), __node(12, 90872, "length"))
+                            node: __node(1, 90669, __wrap(array), __node(12, 90676, "length"))
                           }
                         )
                       }
@@ -84658,16 +84477,16 @@
                   ));
                 }
               }
-              return __node(7, 90892, [
+              return __node(7, 90696, [
                 __wrap(init),
                 __node(
                   9,
-                  90904,
-                  __node(21, 90904, "__async"),
+                  90708,
+                  __node(21, 90708, "__async"),
                   [
                     __node(
                       23,
-                      90918,
+                      90722,
                       60,
                       2736,
                       { op: "+", node: __wrap(parallelism) }
@@ -84676,17 +84495,17 @@
                     __wrap(hasResult),
                     __node(
                       23,
-                      90964,
+                      90768,
                       117,
                       2737,
                       {
                         op: "",
                         node: __node(
                           20,
-                          90964,
+                          90768,
                           [
-                            __node(27, 90965, __wrap(index)),
-                            __node(27, 90972, __wrap(next))
+                            __node(27, 90769, __wrap(index)),
+                            __node(27, 90776, __wrap(next))
                           ],
                           __wrap(body),
                           true,
@@ -84696,7 +84515,7 @@
                     ),
                     __node(
                       23,
-                      90998,
+                      90802,
                       17,
                       2738,
                       {
@@ -84705,17 +84524,17 @@
                           test: __wrap(hasResult),
                           body: __node(
                             23,
-                            91024,
+                            90828,
                             117,
                             2739,
                             {
                               op: "",
                               node: __node(
                                 20,
-                                91024,
+                                90828,
                                 [
-                                  __node(27, 91025, __wrap(err)),
-                                  __node(27, 91030, __wrap(result))
+                                  __node(27, 90829, __wrap(err)),
+                                  __node(27, 90834, __wrap(result))
                                 ],
                                 __wrap(rest),
                                 true,
@@ -84727,15 +84546,15 @@
                           elseIfs: [],
                           elseBody: __node(
                             23,
-                            91075,
+                            90879,
                             117,
                             2741,
                             {
                               op: "",
                               node: __node(
                                 20,
-                                91075,
-                                [__node(27, 91076, __wrap(err))],
+                                90879,
+                                [__node(27, 90880, __wrap(err))],
                                 __wrap(rest),
                                 true,
                                 true
@@ -84852,10 +84671,10 @@
                 value = this.macroExpand1(value.value);
               }
               if (value) {
-                body = __node(7, 91760, [
+                body = __node(7, 91564, [
                   __node(
                     23,
-                    91760,
+                    91564,
                     38,
                     2757,
                     {
@@ -84863,12 +84682,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          91771,
+                          91575,
                           37,
                           2757,
                           __node(
                             23,
-                            91771,
+                            91575,
                             31,
                             2757,
                             { ident: __wrap(value) },
@@ -84876,7 +84695,7 @@
                           ),
                           true
                         ),
-                        value: __node(1, 91780, __wrap(object), __wrap(key))
+                        value: __node(1, 91584, __wrap(object), __wrap(key))
                       }
                     },
                     true
@@ -84885,11 +84704,11 @@
                 ]);
               }
               keys = this.tmp("keys", true, "stringArray");
-              return __node(7, 91869, [
+              return __node(7, 91673, [
                 __wrap(init),
                 __node(
                   23,
-                  91881,
+                  91685,
                   38,
                   2763,
                   {
@@ -84897,12 +84716,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        91890,
+                        91694,
                         37,
                         2763,
                         __node(
                           23,
-                          91890,
+                          91694,
                           31,
                           2763,
                           { ident: __wrap(keys) },
@@ -84912,7 +84731,7 @@
                       ),
                       value: __node(
                         23,
-                        91898,
+                        91702,
                         17,
                         2763,
                         {
@@ -84921,15 +84740,15 @@
                             test: __wrap(own),
                             body: __node(
                               9,
-                              91907,
-                              __node(21, 91907, "__keys"),
+                              91711,
+                              __node(21, 91711, "__keys"),
                               [__wrap(object)]
                             ),
                             elseIfs: [],
                             elseBody: __node(
                               9,
-                              91941,
-                              __node(21, 91941, "__allkeys"),
+                              91745,
+                              __node(21, 91745, "__allkeys"),
                               [__wrap(object)]
                             )
                           }
@@ -84941,7 +84760,7 @@
                 ),
                 __node(
                   23,
-                  91967,
+                  91771,
                   131,
                   2767,
                   {
@@ -84952,12 +84771,12 @@
                       next: __wrap(next),
                       value: __node(
                         23,
-                        92019,
+                        91823,
                         37,
                         2767,
                         __node(
                           23,
-                          92019,
+                          91823,
                           31,
                           2767,
                           { ident: __wrap(key) },
@@ -85079,41 +84898,41 @@
                 err = this.tmp("err", true);
               }
               if (parallelism == null) {
-                parallelism = __node(12, 92571, 1);
+                parallelism = __node(12, 92375, 1);
               }
               return __node(
                 9,
-                92586,
-                __node(21, 92586, "__asyncIter"),
+                92390,
+                __node(21, 92390, "__asyncIter"),
                 [
                   __node(
                     23,
-                    92600,
+                    92404,
                     60,
                     2781,
                     { op: "+", node: __wrap(parallelism) }
                   ),
                   __node(
                     9,
-                    92614,
-                    __node(21, 92614, "__iter"),
+                    92418,
+                    __node(21, 92418, "__iter"),
                     [__wrap(iterator)]
                   ),
                   __wrap(hasResult),
                   __node(
                     23,
-                    92654,
+                    92458,
                     117,
                     2782,
                     {
                       op: "",
                       node: __node(
                         20,
-                        92654,
+                        92458,
                         [
-                          __node(27, 92655, __wrap(value)),
-                          __node(27, 92662, __wrap(index)),
-                          __node(27, 92670, __wrap(next))
+                          __node(27, 92459, __wrap(value)),
+                          __node(27, 92466, __wrap(index)),
+                          __node(27, 92474, __wrap(next))
                         ],
                         __wrap(body),
                         true,
@@ -85123,7 +84942,7 @@
                   ),
                   __node(
                     23,
-                    92694,
+                    92498,
                     17,
                     2783,
                     {
@@ -85132,17 +84951,17 @@
                         test: __wrap(hasResult),
                         body: __node(
                           23,
-                          92718,
+                          92522,
                           117,
                           2784,
                           {
                             op: "",
                             node: __node(
                               20,
-                              92718,
+                              92522,
                               [
-                                __node(27, 92719, __wrap(err)),
-                                __node(27, 92724, __wrap(result))
+                                __node(27, 92523, __wrap(err)),
+                                __node(27, 92528, __wrap(result))
                               ],
                               __wrap(rest),
                               true,
@@ -85154,15 +84973,15 @@
                         elseIfs: [],
                         elseBody: __node(
                           23,
-                          92764,
+                          92568,
                           117,
                           2786,
                           {
                             op: "",
                             node: __node(
                               20,
-                              92764,
-                              [__node(27, 92765, __wrap(err))],
+                              92568,
+                              [__node(27, 92569, __wrap(err))],
                               __wrap(rest),
                               true,
                               true
@@ -85252,7 +85071,7 @@
               if (macroName === "asyncuntil") {
                 test = __node(
                   23,
-                  93099,
+                  92903,
                   3,
                   2791,
                   { op: "not", node: __wrap(test) }
@@ -85266,7 +85085,7 @@
               result = _ref.result;
               return __node(
                 23,
-                93185,
+                92989,
                 130,
                 2797,
                 {
@@ -85370,7 +85189,7 @@
               if (macroName === "asyncunless") {
                 test = __node(
                   23,
-                  93744,
+                  93548,
                   3,
                   2804,
                   { op: "not", node: __wrap(test) }
@@ -85385,15 +85204,15 @@
               if (elseBody) {
                 current = __node(
                   23,
-                  93881,
+                  93685,
                   117,
                   2810,
                   {
                     op: "",
                     node: __node(
                       20,
-                      93881,
-                      [__node(27, 93882, __wrap(done))],
+                      93685,
+                      [__node(27, 93686, __wrap(done))],
                       __wrap(elseBody),
                       true,
                       true
@@ -85403,16 +85222,16 @@
               } else {
                 current = __node(
                   23,
-                  93925,
+                  93729,
                   117,
                   2812,
                   {
                     op: "",
                     node: __node(
                       20,
-                      93925,
-                      [__node(27, 93926, __wrap(done))],
-                      __node(9, 93936, __wrap(done)),
+                      93729,
+                      [__node(27, 93730, __wrap(done))],
+                      __node(9, 93740, __wrap(done)),
                       true,
                       true
                     )
@@ -85426,7 +85245,7 @@
                 if (elseIf.type === "unless") {
                   innerTest = __node(
                     23,
-                    94151,
+                    93955,
                     3,
                     2819,
                     { op: "not", node: __wrap(innerTest) }
@@ -85434,7 +85253,7 @@
                 }
                 current = __node(
                   23,
-                  94188,
+                  93992,
                   17,
                   2820,
                   {
@@ -85443,15 +85262,15 @@
                       test: __wrap(innerTest),
                       body: __node(
                         23,
-                        94213,
+                        94017,
                         117,
                         2821,
                         {
                           op: "",
                           node: __node(
                             20,
-                            94213,
-                            [__node(27, 94214, __wrap(done))],
+                            94017,
+                            [__node(27, 94018, __wrap(done))],
                             __wrap(elseIf.body),
                             true,
                             true
@@ -85468,7 +85287,7 @@
               }
               current = __node(
                 23,
-                94292,
+                94096,
                 17,
                 2825,
                 {
@@ -85477,15 +85296,15 @@
                     test: __wrap(test),
                     body: __node(
                       23,
-                      94309,
+                      94113,
                       117,
                       2826,
                       {
                         op: "",
                         node: __node(
                           20,
-                          94309,
-                          [__node(27, 94310, __wrap(done))],
+                          94113,
+                          [__node(27, 94114, __wrap(done))],
                           __wrap(body),
                           true,
                           true
@@ -85500,17 +85319,17 @@
                 true
               );
               if (!err && !result) {
-                return __node(9, 94396, __wrap(current), [
+                return __node(9, 94200, __wrap(current), [
                   __node(
                     23,
-                    94414,
+                    94218,
                     117,
                     2832,
                     {
                       op: "",
                       node: __node(
                         20,
-                        94414,
+                        94218,
                         [],
                         __wrap(rest),
                         true,
@@ -85520,18 +85339,18 @@
                   )
                 ]);
               } else if (!result) {
-                return __node(9, 94458, __wrap(current), [
+                return __node(9, 94262, __wrap(current), [
                   __node(
                     23,
-                    94476,
+                    94280,
                     117,
                     2835,
                     {
                       op: "",
                       node: __node(
                         20,
-                        94476,
-                        [__node(27, 94477, __wrap(err))],
+                        94280,
+                        [__node(27, 94281, __wrap(err))],
                         __wrap(rest),
                         true,
                         true
@@ -85543,20 +85362,20 @@
                 if (err == null) {
                   err = this.tmp("err", true);
                 }
-                return __node(9, 94542, __wrap(current), [
+                return __node(9, 94346, __wrap(current), [
                   __node(
                     23,
-                    94560,
+                    94364,
                     117,
                     2839,
                     {
                       op: "",
                       node: __node(
                         20,
-                        94560,
+                        94364,
                         [
-                          __node(27, 94561, __wrap(err)),
-                          __node(27, 94566, __wrap(result))
+                          __node(27, 94365, __wrap(err)),
+                          __node(27, 94370, __wrap(result))
                         ],
                         __wrap(rest),
                         true,
@@ -85804,9 +85623,9 @@
               if (!superclass) {
                 superproto = __node(
                   1,
-                  95805,
-                  __node(21, 95805, "Object"),
-                  __node(12, 95813, "prototype")
+                  95609,
+                  __node(21, 95609, "Object"),
+                  __node(12, 95617, "prototype")
                 );
               } else {
                 superproto = this.tmp(
@@ -85823,7 +85642,7 @@
               if (superclass) {
                 init.push(__node(
                   23,
-                  96077,
+                  95881,
                   38,
                   2879,
                   {
@@ -85831,12 +85650,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        96081,
+                        95885,
                         37,
                         2879,
                         __node(
                           23,
-                          96081,
+                          95885,
                           31,
                           2879,
                           { ident: __wrap(superproto) },
@@ -85844,14 +85663,14 @@
                         ),
                         true
                       ),
-                      value: __node(1, 96095, __wrap(sup), __node(12, 96101, "prototype"))
+                      value: __node(1, 95899, __wrap(sup), __node(12, 95905, "prototype"))
                     }
                   },
                   true
                 ));
                 init.push(__node(
                   23,
-                  96130,
+                  95934,
                   38,
                   2880,
                   {
@@ -85859,12 +85678,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        96134,
+                        95938,
                         37,
                         2880,
                         __node(
                           23,
-                          96134,
+                          95938,
                           31,
                           2880,
                           { ident: __wrap(prototype) },
@@ -85874,13 +85693,13 @@
                       ),
                       value: __node(
                         23,
-                        96147,
+                        95951,
                         30,
                         2880,
                         {
-                          left: __node(1, 96147, __wrap(name), __node(12, 96154, "prototype")),
+                          left: __node(1, 95951, __wrap(name), __node(12, 95958, "prototype")),
                           op: ":=",
-                          right: __node(26, 96166, [], __wrap(superproto))
+                          right: __node(26, 95970, [], __wrap(superproto))
                         }
                       )
                     }
@@ -85889,11 +85708,11 @@
                 ));
                 init.push(__node(
                   23,
-                  96211,
+                  96015,
                   30,
                   2881,
                   {
-                    left: __node(1, 96211, __wrap(prototype), __node(12, 96223, "constructor")),
+                    left: __node(1, 96015, __wrap(prototype), __node(12, 96027, "constructor")),
                     op: ":=",
                     right: __wrap(name)
                   }
@@ -85901,7 +85720,7 @@
               } else {
                 init.push(__node(
                   23,
-                  96272,
+                  96076,
                   38,
                   2883,
                   {
@@ -85909,12 +85728,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        96276,
+                        96080,
                         37,
                         2883,
                         __node(
                           23,
-                          96276,
+                          96080,
                           31,
                           2883,
                           { ident: __wrap(prototype) },
@@ -85922,7 +85741,7 @@
                         ),
                         true
                       ),
-                      value: __node(1, 96289, __wrap(name), __node(12, 96296, "prototype"))
+                      value: __node(1, 96093, __wrap(name), __node(12, 96100, "prototype"))
                     }
                   },
                   true
@@ -85941,7 +85760,7 @@
                     }
                     parts.push(__node(
                       23,
-                      96663,
+                      96467,
                       16,
                       2892,
                       {
@@ -85949,19 +85768,19 @@
                         macroData: {
                           test: __node(
                             23,
-                            96666,
+                            96470,
                             8,
                             2892,
                             { left: __wrap(genericArg), inverted: false, op: "!~=", right: __const("null") }
                           ),
                           body: __node(
                             9,
-                            96693,
-                            __node(21, 96693, "__name"),
+                            96497,
+                            __node(21, 96497, "__name"),
                             [__wrap(genericArg)]
                           ),
                           elseIfs: [],
-                          elseBody: __node(12, 96719, "")
+                          elseBody: __node(12, 96523, "")
                         }
                       }
                     ));
@@ -85971,11 +85790,11 @@
                 }
                 init.push(__node(
                   23,
-                  96822,
+                  96626,
                   30,
                   2895,
                   {
-                    left: __node(1, 96822, __wrap(name), __node(12, 96829, "displayName")),
+                    left: __node(1, 96626, __wrap(name), __node(12, 96633, "displayName")),
                     op: ":=",
                     right: __wrap(displayName)
                   }
@@ -85984,18 +85803,18 @@
               if (superclass) {
                 init.push(__node(
                   22,
-                  96901,
+                  96705,
                   __node(
                     6,
-                    96901,
-                    __node(48, 96901, "typeof", __node(1, 96901, __wrap(sup), __node(12, 96907, "extended"))),
+                    96705,
+                    __node(48, 96705, "typeof", __node(1, 96705, __wrap(sup), __node(12, 96711, "extended"))),
                     "===",
-                    __node(12, 96901, "function")
+                    __node(12, 96705, "function")
                   ),
                   __node(
                     9,
-                    96901,
-                    __node(1, 96901, __wrap(sup), __node(12, 96907, "extended")),
+                    96705,
+                    __node(1, 96705, __wrap(sup), __node(12, 96711, "extended")),
                     [__wrap(name)]
                   )
                 ));
@@ -86014,10 +85833,10 @@
                     }
                     args = _arr;
                     return _this.call(
-                      child != null ? __node(1, 97249, __wrap(superproto), __wrap(child))
-                        : !superclass ? __node(21, 97319, "Object")
+                      child != null ? __node(1, 97053, __wrap(superproto), __wrap(child))
+                        : !superclass ? __node(21, 97123, "Object")
                         : __wrap(sup),
-                      [__node(38, 97379)].concat(args),
+                      [__node(38, 97183)].concat(args),
                       false,
                       true
                     );
@@ -86062,7 +85881,7 @@
                       constructor = _this.rewrap(
                         _this.func(_this.funcParams(value), _this.funcBody(value), false, __node(
                           23,
-                          98626,
+                          98430,
                           16,
                           2952,
                           {
@@ -86070,20 +85889,20 @@
                             macroData: {
                               test: __node(
                                 23,
-                                98629,
+                                98433,
                                 74,
                                 2952,
                                 {
-                                  left: __node(17, 98629, __node(12, 98635, "this")),
+                                  left: __node(17, 98433, __node(12, 98439, "this")),
                                   inverted: false,
                                   op: "instanceof",
                                   right: __wrap(name)
                                 },
                                 true
                               ),
-                              body: __node(17, 98664, __node(12, 98670, "this")),
+                              body: __node(17, 98468, __node(12, 98474, "this")),
                               elseIfs: [],
-                              elseBody: __node(26, 98682, [], __wrap(prototype))
+                              elseBody: __node(26, 98486, [], __wrap(prototype))
                             }
                           },
                           true
@@ -86092,7 +85911,7 @@
                       );
                       init.unshift(__node(
                         23,
-                        98743,
+                        98547,
                         38,
                         2953,
                         {
@@ -86100,12 +85919,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              98747,
+                              98551,
                               37,
                               2953,
                               __node(
                                 23,
-                                98747,
+                                98551,
                                 31,
                                 2953,
                                 { ident: __wrap(name) },
@@ -86127,10 +85946,10 @@
               } else if (constructorCount !== 0) {
                 ctor = this.tmp("ctor", false, "function");
                 result = this.tmp("ref");
-                init.push(__node(7, 98947, [
+                init.push(__node(7, 98751, [
                   __node(
                     23,
-                    98947,
+                    98751,
                     38,
                     2961,
                     {
@@ -86138,12 +85957,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          98958,
+                          98762,
                           37,
                           2961,
                           __node(
                             23,
-                            98958,
+                            98762,
                             31,
                             2961,
                             { isMutable: "mutable", ident: __wrap(ctor) },
@@ -86158,7 +85977,7 @@
                   ),
                   __node(
                     23,
-                    98980,
+                    98784,
                     15,
                     2962,
                     {
@@ -86167,19 +85986,19 @@
                         ident: __wrap(name),
                         func: __node(
                           23,
-                          98997,
+                          98801,
                           117,
                           2962,
                           {
                             op: "",
                             node: __node(
                               20,
-                              98997,
+                              98801,
                               [],
-                              __node(7, 99000, [
+                              __node(7, 98804, [
                                 __node(
                                   23,
-                                  99000,
+                                  98804,
                                   38,
                                   2963,
                                   {
@@ -86187,12 +86006,12 @@
                                     macroData: {
                                       declarable: __node(
                                         23,
-                                        99013,
+                                        98817,
                                         37,
                                         2963,
                                         __node(
                                           23,
-                                          99013,
+                                          98817,
                                           31,
                                           2963,
                                           { ident: __wrap(self) },
@@ -86202,7 +86021,7 @@
                                       ),
                                       value: __node(
                                         23,
-                                        99021,
+                                        98825,
                                         16,
                                         2963,
                                         {
@@ -86210,19 +86029,19 @@
                                           macroData: {
                                             test: __node(
                                               23,
-                                              99024,
+                                              98828,
                                               74,
                                               2963,
                                               {
-                                                left: __node(38, 99024),
+                                                left: __node(38, 98828),
                                                 inverted: false,
                                                 op: "instanceof",
                                                 right: __wrap(name)
                                               }
                                             ),
-                                            body: __node(38, 99051),
+                                            body: __node(38, 98855),
                                             elseIfs: [],
-                                            elseBody: __node(26, 99061, [], __wrap(prototype))
+                                            elseBody: __node(26, 98865, [], __wrap(prototype))
                                           }
                                         }
                                       )
@@ -86232,7 +86051,7 @@
                                 ),
                                 __node(
                                   23,
-                                  99096,
+                                  98900,
                                   17,
                                   2965,
                                   {
@@ -86240,16 +86059,16 @@
                                     macroData: {
                                       test: __node(
                                         23,
-                                        99108,
+                                        98912,
                                         26,
                                         2965,
                                         { op: "isFunction!", node: __wrap(ctor) },
                                         true
                                       ),
-                                      body: __node(7, 99128, [
+                                      body: __node(7, 98932, [
                                         __node(
                                           23,
-                                          99128,
+                                          98932,
                                           38,
                                           2966,
                                           {
@@ -86257,12 +86076,12 @@
                                             macroData: {
                                               declarable: __node(
                                                 23,
-                                                99143,
+                                                98947,
                                                 37,
                                                 2966,
                                                 __node(
                                                   23,
-                                                  99143,
+                                                  98947,
                                                   31,
                                                   2966,
                                                   { ident: __wrap(result) },
@@ -86272,11 +86091,11 @@
                                               ),
                                               value: __node(
                                                 9,
-                                                99153,
+                                                98957,
                                                 __wrap(ctor),
                                                 [
                                                   __wrap(self),
-                                                  __node(31, 99167, __node(3, 99171))
+                                                  __node(31, 98971, __node(3, 98975))
                                                 ],
                                                 false,
                                                 true
@@ -86287,7 +86106,7 @@
                                         ),
                                         __node(
                                           23,
-                                          99181,
+                                          98985,
                                           17,
                                           2967,
                                           {
@@ -86295,14 +86114,14 @@
                                             macroData: {
                                               test: __node(
                                                 23,
-                                                99195,
+                                                98999,
                                                 5,
                                                 2967,
                                                 {
                                                   left: __node(
                                                     9,
-                                                    99195,
-                                                    __node(21, 99195, "Object"),
+                                                    98999,
+                                                    __node(21, 98999, "Object"),
                                                     [__wrap(result)]
                                                   ),
                                                   inverted: false,
@@ -86313,7 +86132,7 @@
                                               ),
                                               body: __node(
                                                 23,
-                                                99223,
+                                                99027,
                                                 39,
                                                 2968,
                                                 { macroName: "return", macroData: { node: __wrap(result) } },
@@ -86329,10 +86148,10 @@
                                         {
                                           type: "if",
                                           test: __wrap(hasSuperclass),
-                                          body: __node(7, 99286, [
+                                          body: __node(7, 99090, [
                                             __node(
                                               23,
-                                              99286,
+                                              99090,
                                               38,
                                               2970,
                                               {
@@ -86340,12 +86159,12 @@
                                                 macroData: {
                                                   declarable: __node(
                                                     23,
-                                                    99301,
+                                                    99105,
                                                     37,
                                                     2970,
                                                     __node(
                                                       23,
-                                                      99301,
+                                                      99105,
                                                       31,
                                                       2970,
                                                       { ident: __wrap(result) },
@@ -86355,11 +86174,11 @@
                                                   ),
                                                   value: __node(
                                                     9,
-                                                    99311,
+                                                    99115,
                                                     __wrap(sup),
                                                     [
                                                       __wrap(self),
-                                                      __node(31, 99324, __node(3, 99328))
+                                                      __node(31, 99128, __node(3, 99132))
                                                     ],
                                                     false,
                                                     true
@@ -86370,7 +86189,7 @@
                                             ),
                                             __node(
                                               23,
-                                              99338,
+                                              99142,
                                               17,
                                               2971,
                                               {
@@ -86378,14 +86197,14 @@
                                                 macroData: {
                                                   test: __node(
                                                     23,
-                                                    99352,
+                                                    99156,
                                                     5,
                                                     2971,
                                                     {
                                                       left: __node(
                                                         9,
-                                                        99352,
-                                                        __node(21, 99352, "Object"),
+                                                        99156,
+                                                        __node(21, 99156, "Object"),
                                                         [__wrap(result)]
                                                       ),
                                                       inverted: false,
@@ -86396,7 +86215,7 @@
                                                   ),
                                                   body: __node(
                                                     23,
-                                                    99380,
+                                                    99184,
                                                     39,
                                                     2972,
                                                     { macroName: "return", macroData: { node: __wrap(result) } },
@@ -86442,7 +86261,7 @@
                             false,
                             __node(
                               23,
-                              100065,
+                              99869,
                               16,
                               2986,
                               {
@@ -86450,20 +86269,20 @@
                                 macroData: {
                                   test: __node(
                                     23,
-                                    100068,
+                                    99872,
                                     74,
                                     2986,
                                     {
-                                      left: __node(17, 100068, __node(12, 100074, "this")),
+                                      left: __node(17, 99872, __node(12, 99878, "this")),
                                       inverted: false,
                                       op: "instanceof",
                                       right: __wrap(name)
                                     },
                                     true
                                   ),
-                                  body: __node(17, 100103, __node(12, 100109, "this")),
+                                  body: __node(17, 99907, __node(12, 99913, "this")),
                                   elseIfs: [],
-                                  elseBody: __node(26, 100121, [], __wrap(prototype))
+                                  elseBody: __node(26, 99925, [], __wrap(prototype))
                                 }
                               },
                               true
@@ -86474,7 +86293,7 @@
                         );
                         return __node(
                           23,
-                          100194,
+                          99998,
                           30,
                           2988,
                           {
@@ -86482,8 +86301,8 @@
                             op: ":=",
                             right: __node(
                               9,
-                              100203,
-                              __node(21, 100203, "__curry"),
+                              100007,
+                              __node(21, 100007, "__curry"),
                               [__wrap(firstArg), __wrap(constructor)]
                             )
                           }
@@ -86496,7 +86315,7 @@
                             false,
                             __node(
                               23,
-                              100428,
+                              100232,
                               16,
                               2994,
                               {
@@ -86504,20 +86323,20 @@
                                 macroData: {
                                   test: __node(
                                     23,
-                                    100431,
+                                    100235,
                                     74,
                                     2994,
                                     {
-                                      left: __node(17, 100431, __node(12, 100437, "this")),
+                                      left: __node(17, 100235, __node(12, 100241, "this")),
                                       inverted: false,
                                       op: "instanceof",
                                       right: __wrap(name)
                                     },
                                     true
                                   ),
-                                  body: __node(17, 100466, __node(12, 100472, "this")),
+                                  body: __node(17, 100270, __node(12, 100276, "this")),
                                   elseIfs: [],
-                                  elseBody: __node(26, 100484, [], __wrap(prototype))
+                                  elseBody: __node(26, 100288, [], __wrap(prototype))
                                 }
                               },
                               true
@@ -86528,7 +86347,7 @@
                         );
                         return __node(
                           23,
-                          100574,
+                          100378,
                           30,
                           2996,
                           { left: __wrap(ctor), op: ":=", right: __wrap(constructor) }
@@ -86536,7 +86355,7 @@
                       } else {
                         return __node(
                           23,
-                          100632,
+                          100436,
                           30,
                           2998,
                           { left: __wrap(ctor), op: ":=", right: __wrap(value) }
@@ -86548,7 +86367,7 @@
               } else if (!superclass) {
                 init.push(__node(
                   23,
-                  100704,
+                  100508,
                   15,
                   3002,
                   {
@@ -86557,18 +86376,18 @@
                       ident: __wrap(name),
                       func: __node(
                         23,
-                        100723,
+                        100527,
                         117,
                         3002,
                         {
                           op: "",
                           node: __node(
                             20,
-                            100723,
+                            100527,
                             [],
                             __node(
                               23,
-                              100728,
+                              100532,
                               16,
                               3002,
                               {
@@ -86576,20 +86395,20 @@
                                 macroData: {
                                   test: __node(
                                     23,
-                                    100731,
+                                    100535,
                                     74,
                                     3002,
                                     {
-                                      left: __node(38, 100731),
+                                      left: __node(38, 100535),
                                       inverted: false,
                                       op: "instanceof",
                                       right: __wrap(name)
                                     },
                                     true
                                   ),
-                                  body: __node(38, 100758),
+                                  body: __node(38, 100562),
                                   elseIfs: [],
-                                  elseBody: __node(26, 100768, [], __wrap(prototype))
+                                  elseBody: __node(26, 100572, [], __wrap(prototype))
                                 }
                               },
                               true
@@ -86607,7 +86426,7 @@
                 result = this.tmp("ref");
                 init.push(__node(
                   23,
-                  100856,
+                  100660,
                   15,
                   3006,
                   {
@@ -86616,19 +86435,19 @@
                       ident: __wrap(name),
                       func: __node(
                         23,
-                        100875,
+                        100679,
                         117,
                         3006,
                         {
                           op: "",
                           node: __node(
                             20,
-                            100875,
+                            100679,
                             [],
-                            __node(7, 100878, [
+                            __node(7, 100682, [
                               __node(
                                 23,
-                                100878,
+                                100682,
                                 38,
                                 3007,
                                 {
@@ -86636,12 +86455,12 @@
                                   macroData: {
                                     declarable: __node(
                                       23,
-                                      100893,
+                                      100697,
                                       37,
                                       3007,
                                       __node(
                                         23,
-                                        100893,
+                                        100697,
                                         31,
                                         3007,
                                         { ident: __wrap(self) },
@@ -86651,7 +86470,7 @@
                                     ),
                                     value: __node(
                                       23,
-                                      100901,
+                                      100705,
                                       16,
                                       3007,
                                       {
@@ -86659,19 +86478,19 @@
                                         macroData: {
                                           test: __node(
                                             23,
-                                            100904,
+                                            100708,
                                             74,
                                             3007,
                                             {
-                                              left: __node(38, 100904),
+                                              left: __node(38, 100708),
                                               inverted: false,
                                               op: "instanceof",
                                               right: __wrap(name)
                                             }
                                           ),
-                                          body: __node(38, 100931),
+                                          body: __node(38, 100735),
                                           elseIfs: [],
-                                          elseBody: __node(26, 100941, [], __wrap(prototype))
+                                          elseBody: __node(26, 100745, [], __wrap(prototype))
                                         }
                                       }
                                     )
@@ -86681,7 +86500,7 @@
                               ),
                               __node(
                                 23,
-                                100965,
+                                100769,
                                 38,
                                 3008,
                                 {
@@ -86689,12 +86508,12 @@
                                   macroData: {
                                     declarable: __node(
                                       23,
-                                      100980,
+                                      100784,
                                       37,
                                       3008,
                                       __node(
                                         23,
-                                        100980,
+                                        100784,
                                         31,
                                         3008,
                                         { ident: __wrap(result) },
@@ -86704,11 +86523,11 @@
                                     ),
                                     value: __node(
                                       9,
-                                      100990,
+                                      100794,
                                       __wrap(sup),
                                       [
                                         __wrap(self),
-                                        __node(31, 101003, __node(3, 101007))
+                                        __node(31, 100807, __node(3, 100811))
                                       ],
                                       false,
                                       true
@@ -86719,7 +86538,7 @@
                               ),
                               __node(
                                 23,
-                                101017,
+                                100821,
                                 17,
                                 3009,
                                 {
@@ -86727,14 +86546,14 @@
                                   macroData: {
                                     test: __node(
                                       23,
-                                      101031,
+                                      100835,
                                       5,
                                       3009,
                                       {
                                         left: __node(
                                           9,
-                                          101031,
-                                          __node(21, 101031, "Object"),
+                                          100835,
+                                          __node(21, 100835, "Object"),
                                           [__wrap(result)]
                                         ),
                                         inverted: false,
@@ -86771,70 +86590,70 @@
                     } else {
                       value = __node(
                         23,
-                        101268,
+                        101072,
                         117,
                         3017,
                         {
                           op: "",
                           node: __node(
                             20,
-                            101268,
+                            101072,
                             [],
                             __node(
                               23,
-                              101270,
+                              101074,
                               11,
                               3017,
                               {
                                 op: "throw",
                                 node: __node(
                                   9,
-                                  101276,
-                                  __node(21, 101276, "Error"),
+                                  101080,
+                                  __node(21, 101080, "Error"),
                                   [
                                     __node(
                                       23,
-                                      101283,
+                                      101087,
                                       69,
                                       3017,
                                       {
                                         left: __node(
                                           23,
-                                          101283,
+                                          101087,
                                           69,
                                           3017,
                                           {
                                             left: __node(
                                               23,
-                                              101283,
+                                              101087,
                                               69,
                                               3017,
                                               {
                                                 left: __node(
                                                   23,
-                                                  101283,
+                                                  101087,
                                                   69,
                                                   3017,
                                                   {
-                                                    left: __node(12, 101283, "Not implemented: "),
+                                                    left: __node(12, 101087, "Not implemented: "),
                                                     op: "",
                                                     right: __node(
                                                       9,
-                                                      101303,
-                                                      __node(21, 101303, "__name"),
+                                                      101107,
+                                                      __node(21, 101107, "__name"),
                                                       [
                                                         __node(
                                                           1,
-                                                          101310,
-                                                          __node(38, 101310),
-                                                          __node(12, 101311, "constructor")
+                                                          101114,
+                                                          __node(38, 101114),
+                                                          __node(12, 101115, "constructor")
                                                         )
                                                       ]
                                                     )
                                                   }
                                                 ),
                                                 op: "",
-                                                right: __node(12, 101283, ".")
+                                                right: __node(12, 101087, ".")
                                               }
                                             ),
                                             op: "",
@@ -86842,7 +86661,7 @@
                                           }
                                         ),
                                         op: "",
-                                        right: __node(12, 101283, "()")
+                                        right: __node(12, 101087, "()")
                                       }
                                     )
                                   ]
@@ -86857,11 +86676,11 @@
                     }
                     return changeDefs(__node(
                       23,
-                      101359,
+                      101163,
                       30,
                       3018,
                       {
-                        left: __node(1, 101359, __wrap(prototype), __wrap(key)),
+                        left: __node(1, 101163, __wrap(prototype), __wrap(key)),
                         op: ":=",
                         right: __wrap(value)
                       }
@@ -86881,19 +86700,19 @@
               });
               result = __node(
                 23,
-                101604,
+                101408,
                 104,
                 3028,
                 {
                   macroName: "do",
                   macroData: {
                     locals: { ident: __wrap(sup), value: __wrap(superclass), rest: [] },
-                    body: __node(7, 101627, [
+                    body: __node(7, 101431, [
                       __wrap(init),
                       __wrap(body),
                       __node(
                         23,
-                        101651,
+                        101455,
                         39,
                         3031,
                         { macroName: "return", macroData: { node: __wrap(name) } },
@@ -86941,7 +86760,7 @@
                       key: key,
                       "let": __node(
                         23,
-                        102638,
+                        102442,
                         38,
                         3056,
                         {
@@ -86949,12 +86768,12 @@
                           macroData: {
                             declarable: __node(
                               23,
-                              102642,
+                              102446,
                               37,
                               3056,
                               __node(
                                 23,
-                                102642,
+                                102446,
                                 31,
                                 3056,
                                 { ident: __wrap(key) },
@@ -86964,8 +86783,8 @@
                             ),
                             value: __node(
                               9,
-                              102649,
-                              __node(21, 102649, "__getInstanceof"),
+                              102453,
+                              __node(21, 102453, "__getInstanceof"),
                               [__wrap(genericArg)]
                             )
                           }
@@ -86985,7 +86804,7 @@
                           func = instanceofs[name].key;
                           instanceofs[name].used = true;
                           left = _this.left(node);
-                          return __node(9, 103147, __wrap(func), [__wrap(left)]);
+                          return __node(9, 102951, __wrap(func), [__wrap(left)]);
                         }
                       }
                     }
@@ -87001,13 +86820,13 @@
                   }
                   instanceofLets = _arr;
                   if (instanceofLets.length) {
-                    result = __node(7, 103323, [__wrap(instanceofLets), __wrap(result)]);
+                    result = __node(7, 103127, [__wrap(instanceofLets), __wrap(result)]);
                   }
                   makeClassFunc = this.func(genericParams, result, true, false);
                   result = __node(
                     9,
-                    103466,
-                    __node(21, 103466, "__genericFunc"),
+                    103270,
+                    __node(21, 103270, "__genericFunc"),
                     [__wrap(genericArgs.length), __wrap(makeClassFunc)]
                   );
                 }
@@ -87015,7 +86834,7 @@
               if (declaration != null) {
                 return __node(
                   23,
-                  103557,
+                  103361,
                   38,
                   3080,
                   {
@@ -87023,12 +86842,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        103561,
+                        103365,
                         37,
                         3080,
                         __node(
                           23,
-                          103561,
+                          103365,
                           31,
                           3080,
                           { ident: __wrap(declaration) },
@@ -87044,7 +86863,7 @@
               } else if (assignment != null) {
                 return __node(
                   23,
-                  103619,
+                  103423,
                   30,
                   3082,
                   { left: __wrap(assignment), op: ":=", right: __wrap(result) }
@@ -87152,7 +86971,7 @@
                 index = this.tmp("i", false, "number");
                 init.push(__node(
                   23,
-                  104089,
+                  103893,
                   38,
                   3099,
                   {
@@ -87160,12 +86979,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        104093,
+                        103897,
                         37,
                         3099,
                         __node(
                           23,
-                          104093,
+                          103897,
                           31,
                           3099,
                           { ident: __wrap(index) },
@@ -87173,7 +86992,7 @@
                         ),
                         true
                       ),
-                      value: __node(12, 104103, 0)
+                      value: __node(12, 103907, 0)
                     }
                   },
                   true
@@ -87182,7 +87001,7 @@
                 node = this.cache(node, init, "arr", false);
                 init.push(__node(
                   23,
-                  104214,
+                  104018,
                   38,
                   3102,
                   {
@@ -87190,12 +87009,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        104218,
+                        104022,
                         37,
                         3102,
                         __node(
                           23,
-                          104218,
+                          104022,
                           31,
                           3102,
                           { ident: __wrap(length) },
@@ -87203,15 +87022,15 @@
                         ),
                         true
                       ),
-                      value: __node(1, 104228, __wrap(node), __node(12, 104235, "length"))
+                      value: __node(1, 104032, __wrap(node), __node(12, 104039, "length"))
                     }
                   },
                   true
                 ));
-                return __node(7, 104252, [
+                return __node(7, 104056, [
                   __node(
                     23,
-                    104252,
+                    104056,
                     106,
                     3104,
                     {
@@ -87220,7 +87039,7 @@
                         init: __wrap(init),
                         test: __node(
                           23,
-                          104270,
+                          104074,
                           9,
                           3104,
                           { left: __wrap(index), inverted: false, op: "~<", right: __wrap(length) },
@@ -87228,23 +87047,23 @@
                         ),
                         step: __node(
                           23,
-                          104289,
+                          104093,
                           103,
                           3104,
                           {
                             left: __wrap(index),
                             op: "+=",
-                            right: __node(12, 104300, 1)
+                            right: __node(12, 104104, 1)
                           }
                         ),
                         body: __node(
                           23,
-                          104302,
+                          104106,
                           140,
                           3105,
                           {
                             macroName: "yield",
-                            macroData: { node: __node(1, 104317, __wrap(node), __wrap(index)) }
+                            macroData: { node: __node(1, 104121, __wrap(node), __wrap(index)) }
                           },
                           true
                         )
@@ -87258,8 +87077,8 @@
                 iterator = this.cache(
                   __node(
                     9,
-                    104386,
-                    __node(21, 104386, "__iter"),
+                    104190,
+                    __node(21, 104190, "__iter"),
                     [__wrap(node)]
                   ),
                   init,
@@ -87270,11 +87089,11 @@
                 send = this.tmp("send");
                 item = this.tmp("item");
                 received = this.tmp("tmp");
-                return __node(7, 104548, [
+                return __node(7, 104352, [
                   __wrap(init),
                   __node(
                     23,
-                    104562,
+                    104366,
                     38,
                     3115,
                     {
@@ -87282,12 +87101,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          104573,
+                          104377,
                           37,
                           3115,
                           __node(
                             23,
-                            104573,
+                            104377,
                             31,
                             3115,
                             { isMutable: "mutable", ident: __wrap(received) },
@@ -87302,7 +87121,7 @@
                   ),
                   __node(
                     23,
-                    104599,
+                    104403,
                     38,
                     3116,
                     {
@@ -87310,12 +87129,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          104610,
+                          104414,
                           37,
                           3116,
                           __node(
                             23,
-                            104610,
+                            104414,
                             31,
                             3116,
                             { isMutable: "mutable", ident: __wrap(send) },
@@ -87330,17 +87149,17 @@
                   ),
                   __node(
                     23,
-                    104641,
+                    104445,
                     108,
                     3118,
                     {
                       macroName: "while",
                       macroData: {
                         test: __const("true"),
-                        body: __node(7, 104660, [
+                        body: __node(7, 104464, [
                           __node(
                             23,
-                            104660,
+                            104464,
                             38,
                             3119,
                             {
@@ -87348,12 +87167,12 @@
                               macroData: {
                                 declarable: __node(
                                   23,
-                                  104673,
+                                  104477,
                                   37,
                                   3119,
                                   __node(
                                     23,
-                                    104673,
+                                    104477,
                                     31,
                                     3119,
                                     { ident: __wrap(item) },
@@ -87363,7 +87182,7 @@
                                 ),
                                 value: __node(
                                   23,
-                                  104681,
+                                  104485,
                                   16,
                                   3119,
                                   {
@@ -87372,15 +87191,15 @@
                                       test: __wrap(send),
                                       body: __node(
                                         9,
-                                        104695,
-                                        __node(1, 104695, __wrap(iterator), __node(12, 104706, "send")),
+                                        104499,
+                                        __node(1, 104499, __wrap(iterator), __node(12, 104510, "send")),
                                         [__wrap(received)]
                                       ),
                                       elseIfs: [],
                                       elseBody: __node(
                                         9,
-                                        104726,
-                                        __node(1, 104726, __wrap(iterator), __node(12, 104737, "throw")),
+                                        104530,
+                                        __node(1, 104530, __wrap(iterator), __node(12, 104541, "throw")),
                                         [__wrap(received)]
                                       )
                                     }
@@ -87392,16 +87211,16 @@
                           ),
                           __node(
                             23,
-                            104754,
+                            104558,
                             17,
                             3120,
                             {
                               macroName: "if",
                               macroData: {
-                                test: __node(1, 104766, __wrap(item), __node(12, 104773, "done")),
+                                test: __node(1, 104570, __wrap(item), __node(12, 104577, "done")),
                                 body: __node(
                                   23,
-                                  104778,
+                                  104582,
                                   19,
                                   3121,
                                   { macroName: "break", macroData: {} },
@@ -87414,16 +87233,16 @@
                           ),
                           __node(
                             23,
-                            104796,
+                            104600,
                             119,
                             3122,
                             {
                               macroName: "try",
                               macroData: {
-                                tryBody: __node(7, 104810, [
+                                tryBody: __node(7, 104614, [
                                   __node(
                                     23,
-                                    104810,
+                                    104614,
                                     30,
                                     3123,
                                     {
@@ -87431,13 +87250,13 @@
                                       op: ":=",
                                       right: __node(
                                         23,
-                                        104834,
+                                        104638,
                                         140,
                                         3123,
                                         {
                                           macroName: "yield",
                                           macroData: {
-                                            node: __node(1, 104840, __wrap(item), __node(12, 104847, "value"))
+                                            node: __node(1, 104644, __wrap(item), __node(12, 104651, "value"))
                                           }
                                         }
                                       )
@@ -87446,7 +87265,7 @@
                                   ),
                                   __node(
                                     23,
-                                    104853,
+                                    104657,
                                     30,
                                     3124,
                                     { left: __wrap(send), op: ":=", right: __const("true") },
@@ -87456,10 +87275,10 @@
                                 typedCatches: [],
                                 catchPart: {
                                   ident: __wrap(err),
-                                  body: __node(7, 104900, [
+                                  body: __node(7, 104704, [
                                     __node(
                                       23,
-                                      104900,
+                                      104704,
                                       30,
                                       3126,
                                       { left: __wrap(received), op: ":=", right: __wrap(err) },
@@ -87467,7 +87286,7 @@
                                     ),
                                     __node(
                                       23,
-                                      104930,
+                                      104734,
                                       30,
                                       3127,
                                       { left: __wrap(send), op: ":=", right: __const("false") },
@@ -87486,20 +87305,20 @@
                   ),
                   __node(
                     23,
-                    104957,
+                    104761,
                     119,
                     3128,
                     {
                       macroName: "try",
                       macroData: {
-                        tryBody: __node(9, 104969, __node(1, 104969, __wrap(iterator), __node(12, 104989, "close"))),
+                        tryBody: __node(9, 104773, __node(1, 104773, __wrap(iterator), __node(12, 104793, "close"))),
                         typedCatches: [],
                         catchPart: { ident: __wrap(err), body: __const("void") }
                       }
                     },
                     true
                   ),
-                  __node(1, 105031, __wrap(item), __node(12, 105045, "value"))
+                  __node(1, 104835, __wrap(item), __node(12, 104849, "value"))
                 ]);
               }
             },
@@ -87518,11 +87337,11 @@
               if (rest == null) {
                 rest = this.noop();
               }
-              return __node(7, 105146, [
+              return __node(7, 104950, [
                 __wrap(rest),
                 __node(
                   23,
-                  105158,
+                  104962,
                   39,
                   3139,
                   { macroName: "return", macroData: { node: __wrap(node) } },
@@ -87577,15 +87396,15 @@
               if (!sync || this.isConst(sync) && !this.value(sync)) {
                 return __node(
                   9,
-                  120450,
-                  __node(21, 120450, "__promise"),
+                  120254,
+                  __node(21, 120254, "__promise"),
                   [__wrap(node)]
                 );
               } else {
                 return __node(
                   9,
-                  120487,
-                  __node(21, 120487, "__promise"),
+                  120291,
+                  __node(21, 120291, "__promise"),
                   [__wrap(node), __wrap(sync)]
                 );
               }
@@ -87629,17 +87448,17 @@
               if (!sync || this.isConst(sync) && !this.value(sync)) {
                 return __node(
                   9,
-                  120767,
-                  __node(21, 120767, "__generatorToPromise"),
-                  [__node(9, 120791, __wrap(func))]
+                  120571,
+                  __node(21, 120571, "__generatorToPromise"),
+                  [__node(9, 120595, __wrap(func))]
                 );
               } else {
                 return __node(
                   9,
-                  120819,
-                  __node(21, 120819, "__generatorToPromise"),
+                  120623,
+                  __node(21, 120623, "__generatorToPromise"),
                   [
-                    __node(9, 120843, __wrap(func)),
+                    __node(9, 120647, __wrap(func)),
                     __wrap(sync)
                   ]
                 );
@@ -87707,7 +87526,7 @@
                 index = index.value;
               }
               if (parallelism == null) {
-                parallelism = __node(12, 127176, 1);
+                parallelism = __node(12, 126980, 1);
               }
               if (index == null) {
                 index = this.tmp("i", true, "number");
@@ -87729,7 +87548,7 @@
                 } else {
                   start = __node(
                     23,
-                    127762,
+                    127566,
                     60,
                     3930,
                     { op: "+", node: __wrap(start) }
@@ -87743,7 +87562,7 @@
                   end = this.cache(
                     __node(
                       23,
-                      127960,
+                      127764,
                       60,
                       3936,
                       { op: "+", node: __wrap(end) }
@@ -87755,7 +87574,7 @@
                 } else {
                   init.push(__node(
                     23,
-                    128020,
+                    127824,
                     60,
                     3938,
                     { op: "+", node: __wrap(end) }
@@ -87769,7 +87588,7 @@
                   step = this.cache(
                     __node(
                       23,
-                      128223,
+                      128027,
                       60,
                       3944,
                       { op: "+", node: __wrap(step) }
@@ -87781,16 +87600,16 @@
                 } else {
                   init.push(__node(
                     23,
-                    128285,
+                    128089,
                     60,
                     3946,
                     { op: "+", node: __wrap(step) }
                   ));
                 }
-                body = __node(7, 128318, [
+                body = __node(7, 128122, [
                   __node(
                     23,
-                    128318,
+                    128122,
                     38,
                     3949,
                     {
@@ -87798,12 +87617,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          128329,
+                          128133,
                           37,
                           3949,
                           __node(
                             23,
-                            128329,
+                            128133,
                             31,
                             3949,
                             { ident: __wrap(value) },
@@ -87813,13 +87632,13 @@
                         ),
                         value: __node(
                           23,
-                          128338,
+                          128142,
                           49,
                           3949,
                           {
                             left: __node(
                               23,
-                              128338,
+                              128142,
                               45,
                               3949,
                               { left: __wrap(index), inverted: false, op: "~*", right: __wrap(step) }
@@ -87837,7 +87656,7 @@
                 ]);
                 lengthCalc = __node(
                   23,
-                  128408,
+                  128212,
                   17,
                   3952,
                   {
@@ -87846,19 +87665,19 @@
                       test: __wrap(inclusive),
                       body: __node(
                         23,
-                        128423,
+                        128227,
                         45,
                         3953,
                         {
                           left: __node(
                             23,
-                            128432,
+                            128236,
                             49,
                             3953,
                             {
                               left: __node(
                                 23,
-                                128432,
+                                128236,
                                 49,
                                 3953,
                                 { left: __wrap(end), inverted: false, op: "~-", right: __wrap(start) }
@@ -87877,13 +87696,13 @@
                       elseIfs: [],
                       elseBody: __node(
                         23,
-                        128477,
+                        128281,
                         45,
                         3955,
                         {
                           left: __node(
                             23,
-                            128486,
+                            128290,
                             49,
                             3955,
                             { left: __wrap(end), inverted: false, op: "~-", right: __wrap(start) }
@@ -87902,7 +87721,7 @@
                 } else {
                   init.push(__node(
                     23,
-                    128593,
+                    128397,
                     38,
                     3959,
                     {
@@ -87910,12 +87729,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          128597,
+                          128401,
                           37,
                           3959,
                           __node(
                             23,
-                            128597,
+                            128401,
                             31,
                             3959,
                             { ident: __wrap(length) },
@@ -87931,10 +87750,10 @@
                 }
               } else {
                 array = this.cache(array, init, "arr", true);
-                body = __node(7, 128695, [
+                body = __node(7, 128499, [
                   __node(
                     23,
-                    128695,
+                    128499,
                     38,
                     3964,
                     {
@@ -87942,12 +87761,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          128706,
+                          128510,
                           37,
                           3964,
                           __node(
                             23,
-                            128706,
+                            128510,
                             31,
                             3964,
                             { ident: __wrap(value) },
@@ -87955,7 +87774,7 @@
                           ),
                           true
                         ),
-                        value: __node(1, 128715, __wrap(array), __wrap(index))
+                        value: __node(1, 128519, __wrap(array), __wrap(index))
                       }
                     },
                     true
@@ -87965,18 +87784,18 @@
                 if (!length) {
                   length = __node(
                     23,
-                    128794,
+                    128598,
                     60,
                     3968,
                     {
                       op: "+",
-                      node: __node(1, 128796, __wrap(array), __node(12, 128803, "length"))
+                      node: __node(1, 128600, __wrap(array), __node(12, 128607, "length"))
                     }
                   );
                 } else {
                   init.push(__node(
                     23,
-                    128842,
+                    128646,
                     38,
                     3970,
                     {
@@ -87984,12 +87803,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          128846,
+                          128650,
                           37,
                           3970,
                           __node(
                             23,
-                            128846,
+                            128650,
                             31,
                             3970,
                             { ident: __wrap(length) },
@@ -87999,12 +87818,12 @@
                         ),
                         value: __node(
                           23,
-                          128856,
+                          128660,
                           60,
                           3970,
                           {
                             op: "+",
-                            node: __node(1, 128858, __wrap(array), __node(12, 128865, "length"))
+                            node: __node(1, 128662, __wrap(array), __node(12, 128669, "length"))
                           }
                         )
                       }
@@ -88013,16 +87832,16 @@
                   ));
                 }
               }
-              return __node(7, 128885, [
+              return __node(7, 128689, [
                 __wrap(init),
                 __node(
                   9,
-                  128897,
-                  __node(21, 128897, "__promiseLoop"),
+                  128701,
+                  __node(21, 128701, "__promiseLoop"),
                   [
                     __node(
                       23,
-                      128918,
+                      128722,
                       60,
                       3974,
                       { op: "+", node: __wrap(parallelism) }
@@ -88030,20 +87849,20 @@
                     __wrap(length),
                     __node(
                       9,
-                      128941,
-                      __node(21, 128941, "__promise"),
+                      128745,
+                      __node(21, 128745, "__promise"),
                       [
                         __node(
                           23,
-                          128953,
+                          128757,
                           117,
                           3974,
                           {
                             op: "",
                             node: __node(
                               20,
-                              128953,
-                              [__node(27, 128954, __wrap(index))],
+                              128757,
+                              [__node(27, 128758, __wrap(index))],
                               __wrap(body),
                               true,
                               false,
@@ -88113,10 +87932,10 @@
                 value = this.macroExpand1(value.value);
               }
               if (value) {
-                body = __node(7, 129432, [
+                body = __node(7, 129236, [
                   __node(
                     23,
-                    129432,
+                    129236,
                     38,
                     3987,
                     {
@@ -88124,12 +87943,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          129445,
+                          129249,
                           37,
                           3987,
                           __node(
                             23,
-                            129445,
+                            129249,
                             31,
                             3987,
                             { ident: __wrap(value) },
@@ -88137,7 +87956,7 @@
                           ),
                           true
                         ),
-                        value: __node(1, 129454, __wrap(object), __wrap(key))
+                        value: __node(1, 129258, __wrap(object), __wrap(key))
                       }
                     },
                     true
@@ -88146,11 +87965,11 @@
                 ]);
               }
               keys = this.tmp("keys", true, "stringArray");
-              return __node(7, 129549, [
+              return __node(7, 129353, [
                 __wrap(init),
                 __node(
                   23,
-                  129563,
+                  129367,
                   38,
                   3993,
                   {
@@ -88158,12 +87977,12 @@
                     macroData: {
                       declarable: __node(
                         23,
-                        129574,
+                        129378,
                         37,
                         3993,
                         __node(
                           23,
-                          129574,
+                          129378,
                           31,
                           3993,
                           { ident: __wrap(keys) },
@@ -88173,7 +87992,7 @@
                       ),
                       value: __node(
                         23,
-                        129582,
+                        129386,
                         17,
                         3993,
                         {
@@ -88182,15 +88001,15 @@
                             test: __wrap(own),
                             body: __node(
                               9,
-                              129591,
-                              __node(21, 129591, "__keys"),
+                              129395,
+                              __node(21, 129395, "__keys"),
                               [__wrap(object)]
                             ),
                             elseIfs: [],
                             elseBody: __node(
                               9,
-                              129629,
-                              __node(21, 129629, "__allkeys"),
+                              129433,
+                              __node(21, 129433, "__allkeys"),
                               [__wrap(object)]
                             )
                           }
@@ -88202,7 +88021,7 @@
                 ),
                 __node(
                   23,
-                  129657,
+                  129461,
                   163,
                   3997,
                   {
@@ -88211,12 +88030,12 @@
                       parallelism: __wrap(parallelism),
                       value: __node(
                         23,
-                        129689,
+                        129493,
                         37,
                         3997,
                         __node(
                           23,
-                          129689,
+                          129493,
                           31,
                           3997,
                           { ident: __wrap(key) },
@@ -88285,40 +88104,40 @@
               }
               return __node(
                 9,
-                129915,
-                __node(21, 129915, "__promiseIter"),
+                129719,
+                __node(21, 129719, "__promiseIter"),
                 [
                   __node(
                     23,
-                    129936,
+                    129740,
                     60,
                     4004,
                     { op: "+", node: __wrap(parallelism) }
                   ),
                   __node(
                     9,
-                    129950,
-                    __node(21, 129950, "__iter"),
+                    129754,
+                    __node(21, 129754, "__iter"),
                     [__wrap(iterator)]
                   ),
                   __node(
                     9,
-                    129969,
-                    __node(21, 129969, "__promise"),
+                    129773,
+                    __node(21, 129773, "__promise"),
                     [
                       __node(
                         23,
-                        129981,
+                        129785,
                         117,
                         4004,
                         {
                           op: "",
                           node: __node(
                             20,
-                            129981,
+                            129785,
                             [
-                              __node(27, 129982, __wrap(value)),
-                              __node(27, 129989, __wrap(index))
+                              __node(27, 129786, __wrap(value)),
+                              __node(27, 129793, __wrap(index))
                             ],
                             __wrap(body),
                             true,
@@ -88429,10 +88248,10 @@
                 return __wrap(head);
               } else if (this.position === "statement") {
                 tmp = this.tmp("ref");
-                return __node(7, 16865, [
+                return __node(7, 16697, [
                   __node(
                     23,
-                    16865,
+                    16697,
                     38,
                     506,
                     {
@@ -88440,12 +88259,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          16874,
+                          16706,
                           37,
                           506,
                           __node(
                             23,
-                            16874,
+                            16706,
                             31,
                             506,
                             { ident: __wrap(tmp) },
@@ -88464,8 +88283,8 @@
               } else {
                 return __node(
                   9,
-                  16925,
-                  __node(21, 16925, "__first"),
+                  16757,
+                  __node(21, 16757, "__first"),
                   [__wrap(head), __wrap(tail)]
                 );
               }
@@ -88484,7 +88303,7 @@
               if (start.length === 0) {
                 return __wrap(finish);
               } else {
-                return __node(7, 17179, [__wrap(start), __wrap(finish)]);
+                return __node(7, 17011, [__wrap(start), __wrap(finish)]);
               }
             },
             options: void 0,
@@ -88503,10 +88322,10 @@
                 ran = this.tmp("once", true, "boolean");
                 func = this.rewrap(this.func(
                   this.funcParams(func),
-                  __node(7, 81129, [
+                  __node(7, 80933, [
                     __node(
                       23,
-                      81129,
+                      80933,
                       17,
                       2417,
                       {
@@ -88515,7 +88334,7 @@
                           test: __wrap(ran),
                           body: __node(
                             23,
-                            81145,
+                            80949,
                             17,
                             2418,
                             {
@@ -88524,7 +88343,7 @@
                                 test: __wrap(silentFail),
                                 body: __node(
                                   23,
-                                  81171,
+                                  80975,
                                   39,
                                   2419,
                                   { macroName: "return", macroData: {} },
@@ -88533,16 +88352,16 @@
                                 elseIfs: [],
                                 elseBody: __node(
                                   23,
-                                  81205,
+                                  81009,
                                   11,
                                   2421,
                                   {
                                     op: "throw",
                                     node: __node(
                                       9,
-                                      81222,
-                                      __node(21, 81222, "Error"),
-                                      [__node(12, 81229, "Attempted to call function more than once")]
+                                      81026,
+                                      __node(21, 81026, "Error"),
+                                      [__node(12, 81033, "Attempted to call function more than once")]
                                     )
                                   },
                                   true
@@ -88554,7 +88373,7 @@
                           elseIfs: [],
                           elseBody: __node(
                             23,
-                            81286,
+                            81090,
                             30,
                             2423,
                             { left: __wrap(ran), op: ":=", right: __const("true") },
@@ -88573,10 +88392,10 @@
                   this.funcIsGenerator(func),
                   this.funcGeneric(func)
                 ));
-                return __node(7, 81499, [
+                return __node(7, 81303, [
                   __node(
                     23,
-                    81499,
+                    81303,
                     38,
                     2432,
                     {
@@ -88584,12 +88403,12 @@
                       macroData: {
                         declarable: __node(
                           23,
-                          81508,
+                          81312,
                           37,
                           2432,
                           __node(
                             23,
-                            81508,
+                            81312,
                             31,
                             2432,
                             { isMutable: "mutable", ident: __wrap(ran) },
@@ -88607,15 +88426,15 @@
               } else if (this.isConst(silentFail) && !this.value(silentFail)) {
                 return __node(
                   9,
-                  81617,
-                  __node(21, 81617, "__once"),
+                  81421,
+                  __node(21, 81421, "__once"),
                   [__wrap(func)]
                 );
               } else {
                 return __node(
                   9,
-                  81650,
-                  __node(21, 81650, "__once"),
+                  81454,
+                  __node(21, 81454, "__once"),
                   [__wrap(func), __wrap(silentFail)]
                 );
               }
@@ -88661,12 +88480,12 @@
                 function (n) {
                   return __node(
                     9,
-                    121006,
+                    120810,
                     __node(
                       1,
-                      121006,
-                      __node(21, 121006, "__defer"),
-                      __node(12, 121015, "fulfilled")
+                      120810,
+                      __node(21, 120810, "__defer"),
+                      __node(12, 120819, "fulfilled")
                     ),
                     [__wrap(n)]
                   );
@@ -88717,12 +88536,12 @@
                 function (n) {
                   return __node(
                     9,
-                    121181,
+                    120985,
                     __node(
                       1,
-                      121181,
-                      __node(21, 121181, "__defer"),
-                      __node(12, 121190, "rejected")
+                      120985,
+                      __node(21, 120985, "__defer"),
+                      __node(12, 120994, "rejected")
                     ),
                     [__wrap(n)]
                   );
@@ -88769,8 +88588,8 @@
               }
               return __node(
                 9,
-                121517,
-                __node(21, 121517, "__fromPromise"),
+                121321,
+                __node(21, 121321, "__fromPromise"),
                 [__wrap(node)]
               );
             
@@ -88822,10 +88641,10 @@
                 args = this.array(args);
                 return __node(
                   9,
-                  122069,
-                  __node(21, 122069, "__toPromise"),
+                  121873,
+                  __node(21, 121873, "__toPromise"),
                   [
-                    __node(21, 122083, "__new"),
+                    __node(21, 121887, "__new"),
                     __wrap(func),
                     __wrap(args)
                   ]
@@ -88836,24 +88655,24 @@
                   tail = this.array(__slice.call(args, 1));
                   return __node(
                     9,
-                    122258,
-                    __node(21, 122258, "__toPromise"),
+                    122062,
+                    __node(21, 122062, "__toPromise"),
                     [__wrap(func), __wrap(head), __wrap(tail)]
                   );
                 } else {
                   return this.maybeCache(this.array(args), function (setArgs, args) {
                     return __node(
                       9,
-                      122364,
-                      __node(21, 122364, "__toPromise"),
+                      122168,
+                      __node(21, 122168, "__toPromise"),
                       [
                         __wrap(func),
-                        __node(1, 122384, __wrap(setArgs), __node(12, 122395, 0)),
+                        __node(1, 122188, __wrap(setArgs), __node(12, 122199, 0)),
                         __node(
                           9,
-                          122398,
-                          __node(1, 122398, __wrap(args), __node(12, 122405, "slice")),
-                          [__node(12, 122411, 1)]
+                          122202,
+                          __node(1, 122202, __wrap(args), __node(12, 122209, "slice")),
+                          [__node(12, 122215, 1)]
                         )
                       ]
                     );
@@ -88867,10 +88686,10 @@
                     child = _this.child(func);
                     return __node(
                       9,
-                      122570,
-                      __node(21, 122570, "__toPromise"),
+                      122374,
+                      __node(21, 122374, "__toPromise"),
                       [
-                        __node(1, 122584, __wrap(setParent), __wrap(child)),
+                        __node(1, 122388, __wrap(setParent), __wrap(child)),
                         __wrap(parent),
                         __wrap(args)
                       ]
@@ -88879,8 +88698,8 @@
                 } else {
                   return __node(
                     9,
-                    122639,
-                    __node(21, 122639, "__toPromise"),
+                    122443,
+                    __node(21, 122443, "__toPromise"),
                     [__wrap(func), __const("void"), __wrap(args)]
                   );
                 }
@@ -88928,8 +88747,8 @@
               }
               return __node(
                 9,
-                123461,
-                __node(21, 123461, "__somePromise"),
+                123265,
+                __node(21, 123265, "__somePromise"),
                 [__wrap(node)]
               );
             
@@ -88978,8 +88797,8 @@
               }
               return __node(
                 9,
-                124299,
-                __node(21, 124299, "__everyPromise"),
+                124103,
+                __node(21, 124103, "__everyPromise"),
                 [__wrap(node)]
               );
             
@@ -89026,35 +88845,35 @@
                 if (hasValue) {
                   return __node(
                     9,
-                    124864,
+                    124668,
                     __node(
                       1,
-                      124864,
-                      __node(21, 124864, "__defer"),
-                      __node(12, 124873, "fulfilled")
+                      124668,
+                      __node(21, 124668, "__defer"),
+                      __node(12, 124677, "fulfilled")
                     ),
                     [__wrap(value)]
                   );
                 } else {
-                  return __node(9, 124909, __node(
+                  return __node(9, 124713, __node(
                     1,
-                    124909,
-                    __node(21, 124909, "__defer"),
-                    __node(12, 124918, "fulfilled")
+                    124713,
+                    __node(21, 124713, "__defer"),
+                    __node(12, 124722, "fulfilled")
                   ));
                 }
               } else if (hasValue) {
                 return __node(
                   9,
-                  124964,
-                  __node(21, 124964, "__delay"),
+                  124768,
+                  __node(21, 124768, "__delay"),
                   [__wrap(milliseconds), __wrap(value)]
                 );
               } else {
                 return __node(
                   9,
-                  125014,
-                  __node(21, 125014, "__delay"),
+                  124818,
+                  __node(21, 124818, "__delay"),
                   [__wrap(milliseconds)]
                 );
               }
