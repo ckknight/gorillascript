@@ -584,6 +584,8 @@ let make-pos(line as Number, column as Number, file as String|void)
 let mutable get-pos = #(node as ParserNode)
   throw Error "get-pos must be overridden"
 
+const UNASSIGNED_TAINT_KEY = "\0"
+
 let do-nothing() ->
 let generator-translate = do
   let memoize(mutable func)
@@ -702,22 +704,22 @@ let generator-translate = do
         cleanup: make-cleanup(assign-to, scope, t-tmp)
       }
   let expressions =
-    [ParserNodeType.Access]: #(node, scope, state, assign-to)
-      let g-parent = generator-translate-expression node.parent, scope, state, true
-      let g-child = generator-translate-expression node.child, scope, g-parent.state, false
+    [ParserNodeType.Access]: #(node, scope, state, assign-to, unassigned)
+      let g-parent = generator-translate-expression node.parent, scope, state, true, unassigned
+      let g-child = generator-translate-expression node.child, scope, g-parent.state, false, unassigned
       handle-assign assign-to, scope, g-child.state, #-> first!(
         ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
         g-parent.cleanup()
         g-child.cleanup())
     
-    [ParserNodeType.Array]: #(node, scope, state, assign-to)
-      generator-array-translate get-pos(node), node.elements, scope, state, assign-to
+    [ParserNodeType.Array]: #(node, scope, state, assign-to, unassigned)
+      generator-array-translate get-pos(node), node.elements, scope, state, assign-to, unassigned
     
-    [ParserNodeType.Assign]: #(node, scope, state, assign-to)
+    [ParserNodeType.Assign]: #(node, scope, state, assign-to, unassigned)
       let left = node.left
       let g-left = if left instanceof ParserNode.Access
-        let g-parent = generator-translate-expression left.parent, scope, state, true
-        let g-child = generator-translate-expression left.child, scope, g-parent.state, true
+        let g-parent = generator-translate-expression left.parent, scope, state, true, unassigned
+        let g-child = generator-translate-expression left.child, scope, g-parent.state, true, unassigned
         {
           g-child.state
           t-node: #-> ast.Access get-pos(left), g-parent.t-node(), g-child.t-node()
@@ -726,25 +728,27 @@ let generator-translate = do
             g-child.cleanup()
         }
       else
+        if unassigned and node.left instanceof ParserNode.Ident
+          unassigned[node.left.name] := false
         {
           state
           t-node: translate node.left, scope, \left-expression
           cleanup: do-nothing
         }
       
-      let g-right = generator-translate-expression node.right, scope, g-left.state, g-left.t-node
+      let g-right = generator-translate-expression node.right, scope, g-left.state, g-left.t-node, unassigned
       handle-assign assign-to, scope, g-right.state, g-right.t-node, #
         g-left.cleanup()
         g-right.cleanup()
     
     [ParserNodeType.Binary]: do
       let lazy-ops = {
-        "&&": #(node, scope, state, assign-to)
-          let g-left = generator-translate-expression node.left, scope, state, assign-to or true
+        "&&": #(node, scope, state, assign-to, unassigned)
+          let g-left = generator-translate-expression node.left, scope, state, assign-to or true, unassigned
           let t-node = memoize g-left.t-node
           g-left.state.goto-if get-pos(node), t-node, #-> when-true-branch, #-> post-branch
           let when-true-branch = g-left.state.branch()
-          let g-right = generator-translate-expression node.right, scope, when-true-branch, t-node
+          let g-right = generator-translate-expression node.right, scope, when-true-branch, t-node, unassigned
           g-right.state.goto get-pos(node), #-> post-branch
           let post-branch = g-left.state.branch()
           {
@@ -754,12 +758,12 @@ let generator-translate = do
               g-left.cleanup()
               g-right.cleanup()
           }
-        "||": #(node, scope, state, assign-to)
-          let g-left = generator-translate-expression node.left, scope, state, assign-to or true
+        "||": #(node, scope, state, assign-to, unassigned)
+          let g-left = generator-translate-expression node.left, scope, state, assign-to or true, unassigned
           let t-node = memoize g-left.t-node
           g-left.state.goto-if get-pos(node), t-node, #-> post-branch, #-> when-false-branch
           let when-false-branch = g-left.state.branch()
-          let g-right = generator-translate-expression node.right, scope, when-false-branch, t-node
+          let g-right = generator-translate-expression node.right, scope, when-false-branch, t-node, unassigned
           g-right.state.goto get-pos(node), #-> post-branch
           let post-branch = g-left.state.branch()
           {
@@ -770,30 +774,30 @@ let generator-translate = do
               g-right.cleanup()
           }
       }
-      #(node, scope, state, assign-to)
+      #(node, scope, state, assign-to, unassigned)
         if lazy-ops ownskey node.op
-          lazy-ops[node.op] node, scope, state, assign-to
+          lazy-ops[node.op] node, scope, state, assign-to, unassigned
         else
-          let g-left = generator-translate-expression node.left, scope, state, true
-          let g-right = generator-translate-expression node.right, scope, g-left.state, false
+          let g-left = generator-translate-expression node.left, scope, state, true, unassigned
+          let g-right = generator-translate-expression node.right, scope, g-left.state, false, unassigned
           handle-assign assign-to, scope, g-right.state, #-> first!(
             ast.Binary get-pos(node),
               g-left.t-node()
               last!(g-left.cleanup(), node.op)
               first!(g-right.t-node(), g-right.cleanup()))
     
-    [ParserNodeType.Block]: #(node, scope, mutable state, assign-to)
+    [ParserNodeType.Block]: #(node, scope, mutable state, assign-to, unassigned)
       for subnode, i, len in node.nodes
-        let result = generator-translate-expression subnode, scope, state, i == len - 1 and assign-to
+        let result = generator-translate-expression subnode, scope, state, i == len - 1 and assign-to, unassigned
         state := result.state
         if i == len - 1
           return result
       throw Error "Unreachable state"
     
-    [ParserNodeType.Call]: #(node, scope, mutable state, assign-to)
+    [ParserNodeType.Call]: #(node, scope, mutable state, assign-to, unassigned)
       let g-func = if node.func instanceof ParserNode.Access
-        let g-parent = generator-translate-expression node.func.parent, scope, state, true
-        let g-child = generator-translate-expression node.func.child, scope, g-parent.state, true
+        let g-parent = generator-translate-expression node.func.parent, scope, state, true, unassigned
+        let g-child = generator-translate-expression node.func.child, scope, g-parent.state, true, unassigned
         {
           t-node: #-> ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
           cleanup: #
@@ -802,7 +806,7 @@ let generator-translate = do
           g-child.state
         }
       else
-        generator-translate-expression node.func, scope, state, true
+        generator-translate-expression node.func, scope, state, true, unassigned
       let {is-apply, is-new, args} = node
       
       if is-apply and (args.length == 0 or args[0] not instanceof ParserNode.Spread)
@@ -813,8 +817,8 @@ let generator-translate = do
             cleanup: do-nothing
           }
         else
-          generator-translate-expression args[0], scope, g-func.state, true
-        let g-args = generator-array-translate get-pos(node), args[1 to -1], scope, g-start.state
+          generator-translate-expression args[0], scope, g-func.state, true, unassigned
+        let g-args = generator-array-translate get-pos(node), args[1 to -1], scope, g-start.state, unassigned
         handle-assign assign-to, scope, g-args.state, #
           let func = g-func.t-node()
           let start = g-start.t-node()
@@ -837,7 +841,7 @@ let generator-translate = do
                 args
               ]
       else
-        let g-args = generator-array-translate get-pos(node), args, scope, g-func.state
+        let g-args = generator-array-translate get-pos(node), args, scope, g-func.state, unassigned
         handle-assign assign-to, scope, g-args.state, #
           let func = g-func.t-node()
           let args = g-args.t-node()
@@ -882,8 +886,8 @@ let generator-translate = do
                 args
               ]
     
-    [ParserNodeType.EmbedWrite]: #(node, scope, mutable state, assign-to)
-      let g-text = generator-translate-expression node.text, scope, state, false
+    [ParserNodeType.EmbedWrite]: #(node, scope, mutable state, assign-to, unassigned)
+      let g-text = generator-translate-expression node.text, scope, state, false, unassigned
       handle-assign assign-to, scope, g-text.state, (#-> ast.Call get-pos(node),
         ast.Ident get-pos(node), \write
         [
@@ -894,23 +898,24 @@ let generator-translate = do
             []
         ]), g-text.cleanup
     
-    [ParserNodeType.Eval]: #(node, scope, mutable state, assign-to)
-      let g-code = generator-translate-expression node.code, scope, state, false
-      handle-assign assign-to, scope, g-code.state, #-> ast.Eval get-pos(node), g-code.t-node(), g-code.cleanup
+    [ParserNodeType.Eval]: #(node, scope, mutable state, assign-to, unassigned)
+      let g-code = generator-translate-expression node.code, scope, state, false, unassigned
+      handle-assign assign-to, scope, g-code.state, (#-> ast.Eval get-pos(node), g-code.t-node()), g-code.cleanup
     
-    [ParserNodeType.If]: #(node, scope, mutable state, assign-to)
-      let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
+    [ParserNodeType.If]: #(node, scope, mutable state, assign-to, unassigned)
+      let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test), unassigned
       state := test.state
       
-      if state.has-generator-node(node.when-true) or state.has-generator-node(node.when-false)
+      let when-false-unassigned = unassigned and {} <<< unassigned
+      let ret = if state.has-generator-node(node.when-true) or state.has-generator-node(node.when-false)
         // TODO: handle case when only one of when-true/when-false has generator nodes
         state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch, #-> when-false-branch
         let t-tmp = make-t-tmp(assign-to, scope, get-pos(node))
         let when-true-branch = state.branch()
-        let g-when-true = generator-translate-expression node.when-true, scope, when-true-branch, t-tmp
+        let g-when-true = generator-translate-expression node.when-true, scope, when-true-branch, t-tmp, unassigned
         g-when-true.state.goto get-pos(node.when-true), #-> post-branch
         let when-false-branch = state.branch()
-        let g-when-false = generator-translate-expression node.when-false, scope, when-false-branch, t-tmp
+        let g-when-false = generator-translate-expression node.when-false, scope, when-false-branch, t-tmp, when-false-unassigned
         g-when-false.state.goto get-pos(node.when-false), #-> post-branch
         let post-branch = state.branch()
         let cleanup = make-cleanup assign-to, scope, t-tmp
@@ -923,15 +928,20 @@ let generator-translate = do
             cleanup()
         }
       else
-        let t-when-true = translate node.when-true, scope, \expression
-        let t-when-false = translate node.when-false, scope, \expression
+        let t-when-true = translate node.when-true, scope, \expression, unassigned
+        let t-when-false = translate node.when-false, scope, \expression, when-false-unassigned
         handle-assign assign-to, scope, state, #-> ast.If get-pos(node),
           test.t-node()
           last!(test.cleanup(), t-when-true())
           t-when-false()
+      if unassigned
+        for k, v of when-false-unassigned
+          if not v
+            unassigned[k] := false
+      ret
     
-    [ParserNodeType.Regexp]: #(node, scope, mutable state, assign-to)
-      let g-source = generator-translate-expression node.source, scope, state, false
+    [ParserNodeType.Regexp]: #(node, scope, mutable state, assign-to, unassigned)
+      let g-source = generator-translate-expression node.source, scope, state, false, unassigned
       handle-assign assign-to, scope, state, (#
         let source = g-source.t-node()
         if source.is-const()
@@ -944,41 +954,41 @@ let generator-translate = do
               ast.Const get-pos(node), flags
             ]), g-source.cleanup
     
-    [ParserNodeType.TmpWrapper]: #(node, scope, state, assign-to)
-      let g-node = generator-translate-expression node.node, scope, state, false
+    [ParserNodeType.TmpWrapper]: #(node, scope, state, assign-to, unassigned)
+      let g-node = generator-translate-expression node.node, scope, state, false, unassigned
       handle-assign assign-to, scope, g-node.state, g-node.t-node, #
         g-node.cleanup()
         for tmp in node.tmps by -1
           scope.release-tmp tmp
     
-    [ParserNodeType.Unary]: #(node, scope, state, assign-to)
-      let g-node = generator-translate-expression node.node, scope, state, false
+    [ParserNodeType.Unary]: #(node, scope, state, assign-to, unassigned)
+      let g-node = generator-translate-expression node.node, scope, state, false, unassigned
       handle-assign assign-to, scope, g-node.state, #-> first!(
         ast.Unary get-pos(node),
           node.op
           first!(g-node.t-node(), g-node.cleanup()))
     
-    [ParserNodeType.Yield]: #(node, scope, mutable state, assign-to)
-      let g-node = generator-translate-expression node.node, scope, state, false
+    [ParserNodeType.Yield]: #(node, scope, mutable state, assign-to, unassigned)
+      let g-node = generator-translate-expression node.node, scope, state, false, unassigned
       state := g-node.state.yield get-pos(node), g-node.t-node
       handle-assign assign-to, scope, state, #-> state.builder.received-ident, g-node.cleanup
   
-  let generator-translate-expression(node as ParserNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->)
+  let generator-translate-expression(node as ParserNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     let key = node.type-id
     if state.has-generator-node node
       if expressions ownskey key
-        expressions[key](node, scope, state, assign-to)
+        expressions[key](node, scope, state, assign-to, unassigned)
       else
         throw Error "Unknown expression type: $(typeof! node)"
     else
-      handle-assign assign-to, scope, state, translate node, scope, \expression
+      handle-assign assign-to, scope, state, translate node, scope, \expression, unassigned
   
   let statements =
-    [ParserNodeType.Block]: #(node, scope, state, break-state, continue-state)
+    [ParserNodeType.Block]: #(node, scope, state, break-state, continue-state, unassigned)
       if node.label?
         throw Error "Not implemented: block with label in generator"
       for reduce subnode, i, len in node.nodes, acc = state
-        generator-translate subnode, scope, acc, break-state, continue-state
+        generator-translate subnode, scope, acc, break-state, continue-state, unassigned
 
     [ParserNodeType.Break]: #(node, scope, state, break-state)
       if node.label?
@@ -998,32 +1008,39 @@ let generator-translate = do
       state.goto get-pos(node), continue-state
       state
     
-    [ParserNodeType.For]: #(node, scope, mutable state)
+    [ParserNodeType.For]: #(node, scope, mutable state, , , unassigned)
       if node.label?
         throw Error "Not implemented: for with label in generator"
       if node.init? and node.init not instanceof ParserNode.Nothing
-        state := generator-translate node.init, scope, state
+        state := generator-translate node.init, scope, state, null, null, unassigned
       state.goto get-pos(node), #-> test-branch
       
+      let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true} <<< unassigned
       let test-branch = state.branch()
-      let g-test = generator-translate-expression node.test, scope, test-branch, state.has-generator-node(node.test)
+      let g-test = generator-translate-expression node.test, scope, test-branch, state.has-generator-node(node.test), body-unassigned
       test-branch.goto-if get-pos(node.test), #-> first!(g-test.t-node(), g-test.cleanup()), #-> body-branch, #-> post-branch
       
       let body-branch = state.branch()
-      generator-translate(node.body, scope, body-branch, #-> post-branch, #-> step-branch).goto get-pos(node.body), #-> step-branch or test-branch
+      generator-translate(node.body, scope, body-branch, #-> post-branch, #-> step-branch, body-unassigned).goto get-pos(node.body), #-> step-branch or test-branch
       
       let mutable step-branch = null
       if node.step? and node.step not instanceof ParserNode.Nothing
         step-branch := state.branch()
-        generator-translate(node.step, scope, step-branch).goto get-pos(node.step), #-> test-branch
+        generator-translate(node.step, scope, step-branch, null, null, body-unassigned).goto get-pos(node.step), #-> test-branch
+      if unassigned
+        for k, v of body-unassigned
+          if not v
+            unassigned[k] := false
       
       let post-branch = state.branch()
       post-branch
     
-    [ParserNodeType.ForIn]: #(node, scope, mutable state)
+    [ParserNodeType.ForIn]: #(node, scope, mutable state, , , unassigned)
       if node.label?
         throw Error "Not implemented: for-in with label in generator"
       let t-key = translate node.key, scope, \left-expression
+      if unassigned and node.key instanceof ParserNode.Ident
+        unassigned[node.key.name] := false
       let g-object = generator-translate-expression node.object, scope, state, false // TODO: check whether or not this should be cached
       state := g-object.state
       let keys = scope.reserve-ident get-pos(node), \keys, Type.string.array()
@@ -1051,37 +1068,49 @@ let generator-translate = do
       
       let body-branch = test-branch.branch()
       state := body-branch.add #-> ast.Assign get-pos(node), get-key(), ast.Access get-pos(node), keys, index
-      generator-translate(node.body, scope, state, #-> post-branch, #-> step-branch).goto get-pos(node.body), #-> step-branch
+      let body-unassigned = {[UNASSIGNED_TAINT_KEY]: true} <<< unassigned
+      generator-translate(node.body, scope, state, #-> post-branch, #-> step-branch, body-unassigned).goto get-pos(node.body), #-> step-branch
       
       let step-branch = body-branch.branch()
       step-branch.add(#-> ast.Unary get-pos(node), "++", index).goto get-pos(node), #-> test-branch
+
+      if unassigned
+        for k, v of body-unassigned
+          if not v
+            unassigned[k] := false
       
       let post-branch = step-branch.branch()
       post-branch
     
-    [ParserNodeType.If]: #(node, scope, mutable state, break-state, continue-state)
+    [ParserNodeType.If]: #(node, scope, mutable state, break-state, continue-state, unassigned)
       let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
       state := test.state
       
-      if state.has-generator-node(node.when-true) or state.has-generator-node(node.when-false)
+      let when-false-unassigned = unassigned and {} <<< unassigned
+      let ret = if state.has-generator-node(node.when-true) or state.has-generator-node(node.when-false)
         state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch or post-branch, #-> when-false-branch or post-branch
         let when-true-branch = if node.when-true and node.when-true not instanceof ParserNode.Nothing then state.branch()
         if when-true-branch
-          generator-translate(node.when-true, scope, when-true-branch, break-state, continue-state).goto get-pos(node.when-true), #-> post-branch
+          generator-translate(node.when-true, scope, when-true-branch, break-state, continue-state, unassigned).goto get-pos(node.when-true), #-> post-branch
         let when-false-branch = if node.when-false and node.when-false not instanceof ParserNode.Nothing then state.branch()
         if when-false-branch
-          generator-translate(node.when-false, scope, when-false-branch, break-state, continue-state).goto get-pos(node.when-false), #-> post-branch
+          generator-translate(node.when-false, scope, when-false-branch, break-state, continue-state, when-false-unassigned).goto get-pos(node.when-false), #-> post-branch
         let post-branch = state.branch()
         post-branch
       else
-        let t-when-true = translate node.when-true, scope, \statement
-        let t-when-false = translate node.when-false, scope, \statement
+        let t-when-true = translate node.when-true, scope, \statement, unassigned
+        let t-when-false = translate node.when-false, scope, \statement, when-false-unassigned
         state.add #-> ast.If get-pos(node),
           test.t-node()
           last!(test.cleanup(), t-when-true())
           t-when-false()
+      if unassigned
+        for k, v of when-false-unassigned
+          if not v
+            unassigned[k] := false
+      ret
     
-    [ParserNodeType.Return]: #(node, scope, mutable state)
+    [ParserNodeType.Return]: #(node, scope, mutable state, , , unassigned)
       let mutated-node = node.node.mutate-last null, #(n) -> ParserNode.Return n.index, n.scope, n
       if mutated-node.node == node.node
         if node.node.is-const() and node.node.const-value() == void
@@ -1095,11 +1124,11 @@ let generator-translate = do
             g-node.cleanup())
           state
         else
-          generator-translate mutated-node.node, scope, state
+          generator-translate mutated-node.node, scope, state, null, null, unassigned
       else
-        generator-translate mutated-node, scope, state
+        generator-translate mutated-node, scope, state, null, null, unassigned
       
-    [ParserNodeType.Switch]: #(node, scope, state, , continue-state)
+    [ParserNodeType.Switch]: #(node, scope, state, , continue-state, unassigned)
       if node.label?
         throw Error "Not implemented: switch with label in generator"
       let g-node = generator-translate-expression node.node, scope, state, false // TODO: should this be true?
@@ -1110,13 +1139,15 @@ let generator-translate = do
         for case_ in result-cases; case_()
         default-case()
       g-node.state.add #-> ast.Break get-pos(node)
+      let base-unassigned = unassigned and {} <<< unassigned
+      let mutable current-unassigned = unassigned and {} <<< unassigned
       for case_, i in node.cases
         if state.has-generator-node case_.node
           throw Error "Cannot use yield in the check of a switch's case"
-        let t-case-node = translate case_.node, scope, \expression
+        let t-case-node = translate case_.node, scope, \expression, current-unassigned
         let case-branch = g-node.state.branch()
         body-states[i] := case-branch
-        let g-case-body = generator-translate case_.body, scope, case-branch, #-> post-branch, continue-state
+        let g-case-body = generator-translate case_.body, scope, case-branch, #-> post-branch, continue-state, current-unassigned
         g-case-body.goto get-pos(case_.node), if case_.fallthrough
           #-> body-states[i + 1] or post-branch
         else
@@ -1126,13 +1157,21 @@ let generator-translate = do
           t-goto()
           ast.Break get-pos(case_.node)
         ]
+        if not case_.fallthrough and unassigned
+          for k, v of current-unassigned
+            if not v
+              unassigned[k] := false
+          current-unassigned := {} <<< base-unassigned
       let default-case = if node.default-case?
         let default-branch = g-node.state.branch()
-        let g-default-body = generator-translate node.default-case, scope, default-branch, #-> post-branch, continue-state
+        let g-default-body = generator-translate node.default-case, scope, default-branch, #-> post-branch, continue-state, current-unassigned
         g-default-body.goto get-pos(node.default-case), #-> post-branch
         default-branch.make-goto get-pos(node.default-case), #-> default-branch
       else
         g-node.state.make-goto get-pos(node), #-> post-branch
+      for k, v of current-unassigned
+        if not v
+          unassigned[k] := false
       let post-branch = state.branch()
       post-branch
     
@@ -1140,33 +1179,34 @@ let generator-translate = do
       let g-node = generator-translate-expression node.node, scope, state, false
       g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
     
-    [ParserNodeType.TmpWrapper]: #(node, scope, state, break-state, continue-state)
-      let result = generator-translate node.node, scope, state, break-state, continue-state
+    [ParserNodeType.TmpWrapper]: #(node, scope, state, break-state, continue-state, unassigned)
+      let result = generator-translate node.node, scope, state, break-state, continue-state, unassigned
       for tmp in node.tmps by -1
         scope.release-tmp tmp
       result
     
-    [ParserNodeType.TryCatch]: #(node, scope, mutable state, break-state, continue-state)
+    [ParserNodeType.TryCatch]: #(node, scope, mutable state, break-state, continue-state, unassigned)
       if node.label?
         throw Error "Not implemented: try-catch with label in generator"
       
       state := state.enter-try-catch get-pos(node)
-      state := generator-translate node.try-body, scope, state, break-state, continue-state
-      state := state.exit-try-catch get-pos(node.try-body), (translate node.catch-ident, scope, \left-expression, false), #-> post-branch
-      state := generator-translate node.catch-body, scope, state, break-state, continue-state
+      state := generator-translate node.try-body, scope, state, break-state, continue-state, unassigned
+      state := state.exit-try-catch get-pos(node.try-body), (translate node.catch-ident, scope, \left-expression), #-> post-branch
+      state := generator-translate node.catch-body, scope, state, break-state, continue-state, unassigned
       state.goto get-pos(node), #-> post-branch
       let post-branch = state.branch()
       post-branch
     
-    [ParserNodeType.TryFinally]: #(node, scope, mutable state, break-state, continue-state)
+    [ParserNodeType.TryFinally]: #(node, scope, mutable state, break-state, continue-state, unassigned)
       if node.label?
         throw Error "Not implemented: try-finally with label in generator"
       
       if state.has-generator-node node.finally-body
         throw Error "Cannot use yield in a finally"
       
-      state := state.pending-finally get-pos(node), translate node.finally-body, scope, \statement
-      state := generator-translate node.try-body, scope, state, break-state, continue-state
+      state := state.pending-finally get-pos(node), #-> t-finally()
+      state := generator-translate node.try-body, scope, state, break-state, continue-state, unassigned
+      let t-finally = translate node.finally-body, scope, \statement, unassigned
       state.run-pending-finally get-pos(node)
     
     [ParserNodeType.Yield]: #(node, scope, mutable state)
@@ -1176,11 +1216,11 @@ let generator-translate = do
         g-node.cleanup())
       new-state
     
-  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state)
+  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned)
     if state.has-generator-node node
       let key = node.type-id
       if statements ownskey key
-        let ret = statements[key](node, scope, state, break-state, continue-state)
+        let ret = statements[key](node, scope, state, break-state, continue-state, unassigned)
         if ret not instanceof GeneratorState
           throw Error "Translated non-GeneratorState from $(typeof! node): $(typeof! ret)"
         ret
@@ -1190,7 +1230,7 @@ let generator-translate = do
           ret.t-node()
           ret.cleanup())
     else
-      state.add translate node, scope, \statement, false
+      state.add translate node, scope, \statement, unassigned
 
 let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-like, unassigned)
   let translated-items = []
@@ -1199,12 +1239,12 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
   for element in flatten-spread-array elements
     if element instanceof ParserNode.Spread
       translated-items.push
-        t-node: translate element.node, scope, \expression, null, unassigned
+        t-node: translate element.node, scope, \expression, unassigned
         type: element.node.type()
       current := []
       translated-items.push current
     else
-      current.push translate element, scope, \expression, null, unassigned
+      current.push translate element, scope, \expression, unassigned
 
   if translated-items.length == 1
     #-> ast.Arr pos, for t-item in translated-items[0]; t-item()
@@ -1248,8 +1288,6 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
           ast.Access pos, head, \concat
           rest
 
-const UNASSIGNED_TAINT_KEY = "\0"
-
 let translators =
   [ParserNodeType.Access]: #(node, scope, location, unassigned)
     let t-parent = translate node.parent, scope, \expression, unassigned
@@ -1268,7 +1306,7 @@ let translators =
     let t-left = translate node.left, scope, \left-expression
     let t-right = translate node.right, scope, \expression, unassigned
     if unassigned and node.left instanceof ParserNode.Ident
-      if op == "=" and unassigned[node.left.name] and node.right.is-const() and is-void! node.right.const-value()
+      if op == "=" and unassigned[node.left.name] and not unassigned[UNASSIGNED_TAINT_KEY] and node.right.is-const() and is-void! node.right.const-value()
         return #-> ast.Noop(get-pos(node))
       unassigned[node.left.name] := false
     
@@ -1407,6 +1445,8 @@ let translators =
   [ParserNodeType.ForIn]: #(node, scope, location, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-key = translate node.key, scope, \left-expression
+    if unassigned and node.key instanceof ParserNode.Ident
+      unassigned[node.key.name] := false
     let t-object = translate node.object, scope, \expression, unassigned
     let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
     let t-body = translate node.body, scope, \statement, body-unassigned
@@ -1734,7 +1774,8 @@ let translators =
   [ParserNodeType.Switch]: #(node, scope, location, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-node = translate node.node, scope, \expression, unassigned
-    let mutable current-unassigned = unassigned and {} <<< unassigned
+    let base-unassigned = unassigned and {} <<< unassigned
+    let mutable current-unassigned = unassigned and {} <<< base-unassigned
     let t-cases = for case_ in node.cases
       let new-case = {
         pos: get-pos(case_.node)
@@ -1746,7 +1787,7 @@ let translators =
         for k, v of current-unassigned
           if not v
             unassigned[k] := false
-        current-unassigned := {} <<< unassigned
+        current-unassigned := {} <<< base-unassigned
       new-case
     let t-default-case = if node.default-case? then translate node.default-case, scope, \statement, current-unassigned
     for k, v of current-unassigned
@@ -1848,7 +1889,7 @@ let translate-function-body(pos, is-generator, scope, body, unassigned = {})
     is-simple-generator := not has-generator-node(body, true)
     if not is-simple-generator
       let builder = GeneratorBuilder pos, scope, has-generator-node
-      generator-translate(body, scope, builder.start).goto(pos, #-> builder.stop)
+      generator-translate(body, scope, builder.start, null, null, unassigned).goto(pos, #-> builder.stop)
       let translated-body = builder.create()
       if pos.file
         translated-body.pos.file or= pos.file

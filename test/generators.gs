@@ -934,3 +934,49 @@ describe "yield* returns the expected expression", #
     yield x
   
   expect(to-array fun()).to.eql [\echo, \alpha, \bravo, \charlie, \delta]
+
+describe "variables set to undefined", #
+  it "inside loop should be reset to undefined", #
+    let iter()!*
+      for i in 1 til 10
+        let mutable value = undefined
+        if i == 5
+          value := \other
+          yield value
+        else
+          expect(value).to.equal undefined
+      yield \done
+    
+    expect(to-array iter()).to.eql [\other, \done]
+  
+  it "outside loop should be reset to undefined", #
+    let iter()!*
+      let mutable value = undefined
+      for i in 1 til 10
+        value := undefined
+        if i == 5
+          value := "other"
+          yield value
+        else
+          expect(value).to.equal undefined
+      expect(value).to.equal undefined
+      yield \done
+    
+    expect(to-array iter()).to.eql [\other, \done]
+  
+  it "outside loop should be expected value, even after setting to undefined", #
+    let iter()!*
+      let mutable value = undefined
+      for i in 1 til 10
+        if i == 5
+          value := "other"
+          yield value
+          break
+        else
+          expect(value).to.equal undefined
+      expect(value).to.equal "other"
+      value := undefined
+      expect(value).to.equal undefined
+      yield \done
+
+    expect(to-array iter()).to.eql [\other, \done]

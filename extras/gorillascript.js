@@ -17086,7 +17086,6 @@
                   rootRule = RootP;
                 }
                 startTime = new Date().getTime();
-                result = void 0;
                 ++_state;
               case 1:
                 _state = options.sync ? 2 : 3;
@@ -28278,10 +28277,22 @@
             }
           }
           expressions = {
-            1: function (node, scope, state, assignTo) {
+            1: function (node, scope, state, assignTo, unassigned) {
               var gChild, gParent;
-              gParent = generatorTranslateExpression(node.parent, scope, state, true);
-              gChild = generatorTranslateExpression(node.child, scope, gParent.state, false);
+              gParent = generatorTranslateExpression(
+                node.parent,
+                scope,
+                state,
+                true,
+                unassigned
+              );
+              gChild = generatorTranslateExpression(
+                node.child,
+                scope,
+                gParent.state,
+                false,
+                unassigned
+              );
               return handleAssign(assignTo, scope, gChild.state, function () {
                 var _ref;
                 _ref = ast.Access(getPos(node), gParent.tNode(), gChild.tNode());
@@ -28290,21 +28301,34 @@
                 return _ref;
               });
             },
-            4: function (node, scope, state, assignTo) {
+            4: function (node, scope, state, assignTo, unassigned) {
               return generatorArrayTranslate(
                 getPos(node),
                 node.elements,
                 scope,
                 state,
-                assignTo
+                assignTo,
+                unassigned
               );
             },
-            5: function (node, scope, state, assignTo) {
+            5: function (node, scope, state, assignTo, unassigned) {
               var gChild, gLeft, gParent, gRight, left;
               left = node.left;
               if (left instanceof ParserNode.Access) {
-                gParent = generatorTranslateExpression(left.parent, scope, state, true);
-                gChild = generatorTranslateExpression(left.child, scope, gParent.state, true);
+                gParent = generatorTranslateExpression(
+                  left.parent,
+                  scope,
+                  state,
+                  true,
+                  unassigned
+                );
+                gChild = generatorTranslateExpression(
+                  left.child,
+                  scope,
+                  gParent.state,
+                  true,
+                  unassigned
+                );
                 gLeft = {
                   state: gChild.state,
                   tNode: function () {
@@ -28316,13 +28340,22 @@
                   }
                 };
               } else {
+                if (unassigned && node.left instanceof ParserNode.Ident) {
+                  unassigned[node.left.name] = false;
+                }
                 gLeft = {
                   state: state,
                   tNode: translate(node.left, scope, "leftExpression"),
                   cleanup: doNothing
                 };
               }
-              gRight = generatorTranslateExpression(node.right, scope, gLeft.state, gLeft.tNode);
+              gRight = generatorTranslateExpression(
+                node.right,
+                scope,
+                gLeft.state,
+                gLeft.tNode,
+                unassigned
+              );
               return handleAssign(
                 assignTo,
                 scope,
@@ -28337,9 +28370,15 @@
             6: (function () {
               var lazyOps;
               lazyOps = {
-                "&&": function (node, scope, state, assignTo) {
+                "&&": function (node, scope, state, assignTo, unassigned) {
                   var gLeft, gRight, postBranch, tNode, whenTrueBranch;
-                  gLeft = generatorTranslateExpression(node.left, scope, state, assignTo || true);
+                  gLeft = generatorTranslateExpression(
+                    node.left,
+                    scope,
+                    state,
+                    assignTo || true,
+                    unassigned
+                  );
                   tNode = memoize(gLeft.tNode);
                   gLeft.state.gotoIf(
                     getPos(node),
@@ -28352,7 +28391,13 @@
                     }
                   );
                   whenTrueBranch = gLeft.state.branch();
-                  gRight = generatorTranslateExpression(node.right, scope, whenTrueBranch, tNode);
+                  gRight = generatorTranslateExpression(
+                    node.right,
+                    scope,
+                    whenTrueBranch,
+                    tNode,
+                    unassigned
+                  );
                   gRight.state.goto(getPos(node), function () {
                     return postBranch;
                   });
@@ -28366,9 +28411,15 @@
                     }
                   };
                 },
-                "||": function (node, scope, state, assignTo) {
+                "||": function (node, scope, state, assignTo, unassigned) {
                   var gLeft, gRight, postBranch, tNode, whenFalseBranch;
-                  gLeft = generatorTranslateExpression(node.left, scope, state, assignTo || true);
+                  gLeft = generatorTranslateExpression(
+                    node.left,
+                    scope,
+                    state,
+                    assignTo || true,
+                    unassigned
+                  );
                   tNode = memoize(gLeft.tNode);
                   gLeft.state.gotoIf(
                     getPos(node),
@@ -28381,7 +28432,13 @@
                     }
                   );
                   whenFalseBranch = gLeft.state.branch();
-                  gRight = generatorTranslateExpression(node.right, scope, whenFalseBranch, tNode);
+                  gRight = generatorTranslateExpression(
+                    node.right,
+                    scope,
+                    whenFalseBranch,
+                    tNode,
+                    unassigned
+                  );
                   gRight.state.goto(getPos(node), function () {
                     return postBranch;
                   });
@@ -28396,13 +28453,31 @@
                   };
                 }
               };
-              return function (node, scope, state, assignTo) {
+              return function (node, scope, state, assignTo, unassigned) {
                 var gLeft, gRight;
                 if (__owns.call(lazyOps, node.op)) {
-                  return lazyOps[node.op](node, scope, state, assignTo);
+                  return lazyOps[node.op](
+                    node,
+                    scope,
+                    state,
+                    assignTo,
+                    unassigned
+                  );
                 } else {
-                  gLeft = generatorTranslateExpression(node.left, scope, state, true);
-                  gRight = generatorTranslateExpression(node.right, scope, gLeft.state, false);
+                  gLeft = generatorTranslateExpression(
+                    node.left,
+                    scope,
+                    state,
+                    true,
+                    unassigned
+                  );
+                  gRight = generatorTranslateExpression(
+                    node.right,
+                    scope,
+                    gLeft.state,
+                    false,
+                    unassigned
+                  );
                   return handleAssign(assignTo, scope, gRight.state, function () {
                     return ast.Binary(
                       getPos(node),
@@ -28414,11 +28489,17 @@
                 }
               };
             }()),
-            7: function (node, scope, state, assignTo) {
+            7: function (node, scope, state, assignTo, unassigned) {
               var _arr, i, len, result, subnode;
               for (_arr = __toArray(node.nodes), i = 0, len = _arr.length; i < len; ++i) {
                 subnode = _arr[i];
-                result = generatorTranslateExpression(subnode, scope, state, i === len - 1 && assignTo);
+                result = generatorTranslateExpression(
+                  subnode,
+                  scope,
+                  state,
+                  i === len - 1 && assignTo,
+                  unassigned
+                );
                 state = result.state;
                 if (i === len - 1) {
                   return result;
@@ -28426,11 +28507,23 @@
               }
               throw Error("Unreachable state");
             },
-            9: function (node, scope, state, assignTo) {
+            9: function (node, scope, state, assignTo, unassigned) {
               var args, gArgs, gChild, gFunc, gParent, gStart, isApply, isNew;
               if (node.func instanceof ParserNode.Access) {
-                gParent = generatorTranslateExpression(node.func.parent, scope, state, true);
-                gChild = generatorTranslateExpression(node.func.child, scope, gParent.state, true);
+                gParent = generatorTranslateExpression(
+                  node.func.parent,
+                  scope,
+                  state,
+                  true,
+                  unassigned
+                );
+                gChild = generatorTranslateExpression(
+                  node.func.child,
+                  scope,
+                  gParent.state,
+                  true,
+                  unassigned
+                );
                 gFunc = {
                   tNode: function () {
                     return ast.Access(getPos(node), gParent.tNode(), gChild.tNode());
@@ -28442,7 +28535,13 @@
                   state: gChild.state
                 };
               } else {
-                gFunc = generatorTranslateExpression(node.func, scope, state, true);
+                gFunc = generatorTranslateExpression(
+                  node.func,
+                  scope,
+                  state,
+                  true,
+                  unassigned
+                );
               }
               isApply = node.isApply;
               isNew = node.isNew;
@@ -28457,13 +28556,20 @@
                     cleanup: doNothing
                   };
                 } else {
-                  gStart = generatorTranslateExpression(args[0], scope, gFunc.state, true);
+                  gStart = generatorTranslateExpression(
+                    args[0],
+                    scope,
+                    gFunc.state,
+                    true,
+                    unassigned
+                  );
                 }
                 gArgs = generatorArrayTranslate(
                   getPos(node),
                   __slice.call(args, 1),
                   scope,
-                  gStart.state
+                  gStart.state,
+                  unassigned
                 );
                 return handleAssign(assignTo, scope, gArgs.state, function () {
                   var args, func, start;
@@ -28488,7 +28594,13 @@
                   }
                 });
               } else {
-                gArgs = generatorArrayTranslate(getPos(node), args, scope, gFunc.state);
+                gArgs = generatorArrayTranslate(
+                  getPos(node),
+                  args,
+                  scope,
+                  gFunc.state,
+                  unassigned
+                );
                 return handleAssign(assignTo, scope, gArgs.state, function () {
                   var args, func;
                   func = gFunc.tNode();
@@ -28540,9 +28652,15 @@
                 });
               }
             },
-            16: function (node, scope, state, assignTo) {
+            16: function (node, scope, state, assignTo, unassigned) {
               var gText;
-              gText = generatorTranslateExpression(node.text, scope, state, false);
+              gText = generatorTranslateExpression(
+                node.text,
+                scope,
+                state,
+                false,
+                unassigned
+              );
               return handleAssign(
                 assignTo,
                 scope,
@@ -28559,18 +28677,38 @@
                 gText.cleanup
               );
             },
-            17: function (node, scope, state, assignTo) {
+            17: function (node, scope, state, assignTo, unassigned) {
               var gCode;
-              gCode = generatorTranslateExpression(node.code, scope, state, false);
-              return handleAssign(assignTo, scope, gCode.state, function () {
-                return ast.Eval(getPos(node), gCode.tNode(), gCode.cleanup);
-              });
+              gCode = generatorTranslateExpression(
+                node.code,
+                scope,
+                state,
+                false,
+                unassigned
+              );
+              return handleAssign(
+                assignTo,
+                scope,
+                gCode.state,
+                function () {
+                  return ast.Eval(getPos(node), gCode.tNode());
+                },
+                gCode.cleanup
+              );
             },
-            22: function (node, scope, state, assignTo) {
-              var cleanup, gWhenFalse, gWhenTrue, postBranch, test, tTmp, tWhenFalse,
-                  tWhenTrue, whenFalseBranch, whenTrueBranch;
-              test = generatorTranslateExpression(node.test, scope, state, state.hasGeneratorNode(node.test));
+            22: function (node, scope, state, assignTo, unassigned) {
+              var cleanup, gWhenFalse, gWhenTrue, k, postBranch, ret, test, tTmp,
+                  tWhenFalse, tWhenTrue, v, whenFalseBranch, whenFalseUnassigned,
+                  whenTrueBranch;
+              test = generatorTranslateExpression(
+                node.test,
+                scope,
+                state,
+                state.hasGeneratorNode(node.test),
+                unassigned
+              );
               state = test.state;
+              whenFalseUnassigned = unassigned && __import({}, unassigned);
               if (state.hasGeneratorNode(node.whenTrue) || state.hasGeneratorNode(node.whenFalse)) {
                 state.gotoIf(
                   getPos(node),
@@ -28589,18 +28727,30 @@
                 );
                 tTmp = makeTTmp(assignTo, scope, getPos(node));
                 whenTrueBranch = state.branch();
-                gWhenTrue = generatorTranslateExpression(node.whenTrue, scope, whenTrueBranch, tTmp);
+                gWhenTrue = generatorTranslateExpression(
+                  node.whenTrue,
+                  scope,
+                  whenTrueBranch,
+                  tTmp,
+                  unassigned
+                );
                 gWhenTrue.state.goto(getPos(node.whenTrue), function () {
                   return postBranch;
                 });
                 whenFalseBranch = state.branch();
-                gWhenFalse = generatorTranslateExpression(node.whenFalse, scope, whenFalseBranch, tTmp);
+                gWhenFalse = generatorTranslateExpression(
+                  node.whenFalse,
+                  scope,
+                  whenFalseBranch,
+                  tTmp,
+                  whenFalseUnassigned
+                );
                 gWhenFalse.state.goto(getPos(node.whenFalse), function () {
                   return postBranch;
                 });
                 postBranch = state.branch();
                 cleanup = makeCleanup(assignTo, scope, tTmp);
-                return {
+                ret = {
                   state: postBranch,
                   tNode: tTmp,
                   cleanup: function () {
@@ -28610,9 +28760,9 @@
                   }
                 };
               } else {
-                tWhenTrue = translate(node.whenTrue, scope, "expression");
-                tWhenFalse = translate(node.whenFalse, scope, "expression");
-                return handleAssign(assignTo, scope, state, function () {
+                tWhenTrue = translate(node.whenTrue, scope, "expression", unassigned);
+                tWhenFalse = translate(node.whenFalse, scope, "expression", whenFalseUnassigned);
+                ret = handleAssign(assignTo, scope, state, function () {
                   return ast.If(
                     getPos(node),
                     test.tNode(),
@@ -28621,10 +28771,27 @@
                   );
                 });
               }
+              if (unassigned) {
+                for (k in whenFalseUnassigned) {
+                  if (__owns.call(whenFalseUnassigned, k)) {
+                    v = whenFalseUnassigned[k];
+                    if (!v) {
+                      unassigned[k] = false;
+                    }
+                  }
+                }
+              }
+              return ret;
             },
-            28: function (node, scope, state, assignTo) {
+            28: function (node, scope, state, assignTo, unassigned) {
               var gSource;
-              gSource = generatorTranslateExpression(node.source, scope, state, false);
+              gSource = generatorTranslateExpression(
+                node.source,
+                scope,
+                state,
+                false,
+                unassigned
+              );
               return handleAssign(
                 assignTo,
                 scope,
@@ -28648,9 +28815,15 @@
                 gSource.cleanup
               );
             },
-            41: function (node, scope, state, assignTo) {
+            41: function (node, scope, state, assignTo, unassigned) {
               var gNode;
-              gNode = generatorTranslateExpression(node.node, scope, state, false);
+              gNode = generatorTranslateExpression(
+                node.node,
+                scope,
+                state,
+                false,
+                unassigned
+              );
               return handleAssign(
                 assignTo,
                 scope,
@@ -28666,16 +28839,28 @@
                 }
               );
             },
-            48: function (node, scope, state, assignTo) {
+            48: function (node, scope, state, assignTo, unassigned) {
               var gNode;
-              gNode = generatorTranslateExpression(node.node, scope, state, false);
+              gNode = generatorTranslateExpression(
+                node.node,
+                scope,
+                state,
+                false,
+                unassigned
+              );
               return handleAssign(assignTo, scope, gNode.state, function () {
                 return ast.Unary(getPos(node), node.op, __first(gNode.tNode(), gNode.cleanup()));
               });
             },
-            50: function (node, scope, state, assignTo) {
+            50: function (node, scope, state, assignTo, unassigned) {
               var gNode;
-              gNode = generatorTranslateExpression(node.node, scope, state, false);
+              gNode = generatorTranslateExpression(
+                node.node,
+                scope,
+                state,
+                false,
+                unassigned
+              );
               state = gNode.state["yield"](getPos(node), gNode.tNode);
               return handleAssign(
                 assignTo,
@@ -28688,7 +28873,7 @@
               );
             }
           };
-          function generatorTranslateExpression(node, scope, state, assignTo) {
+          function generatorTranslateExpression(node, scope, state, assignTo, unassigned) {
             var key;
             if (assignTo == null) {
               assignTo = false;
@@ -28696,16 +28881,22 @@
             key = node.typeId;
             if (state.hasGeneratorNode(node)) {
               if (__owns.call(expressions, key)) {
-                return expressions[key](node, scope, state, assignTo);
+                return expressions[key](
+                  node,
+                  scope,
+                  state,
+                  assignTo,
+                  unassigned
+                );
               } else {
                 throw Error("Unknown expression type: " + __typeof(node));
               }
             } else {
-              return handleAssign(assignTo, scope, state, translate(node, scope, "expression"));
+              return handleAssign(assignTo, scope, state, translate(node, scope, "expression", unassigned));
             }
           }
           statements = {
-            7: function (node, scope, state, breakState, continueState) {
+            7: function (node, scope, state, breakState, continueState, unassigned) {
               var _arr, acc, i, len, subnode;
               if (node.label != null) {
                 throw Error("Not implemented: block with label in generator");
@@ -28718,7 +28909,8 @@
                   scope,
                   acc,
                   breakState,
-                  continueState
+                  continueState,
+                  unassigned
                 );
               }
               return acc;
@@ -28743,19 +28935,34 @@
               state.goto(getPos(node), continueState);
               return state;
             },
-            18: function (node, scope, state) {
-              var bodyBranch, gTest, postBranch, stepBranch, testBranch;
+            18: function (node, scope, state, _p, _p2, unassigned) {
+              var bodyBranch, bodyUnassigned, gTest, k, postBranch, stepBranch,
+                  testBranch, v;
               if (node.label != null) {
                 throw Error("Not implemented: for with label in generator");
               }
               if (node.init != null && !(node.init instanceof ParserNode.Nothing)) {
-                state = generatorTranslate(node.init, scope, state);
+                state = generatorTranslate(
+                  node.init,
+                  scope,
+                  state,
+                  null,
+                  null,
+                  unassigned
+                );
               }
               state.goto(getPos(node), function () {
                 return testBranch;
               });
+              bodyUnassigned = unassigned && __import({ "\u0000": true }, unassigned);
               testBranch = state.branch();
-              gTest = generatorTranslateExpression(node.test, scope, testBranch, state.hasGeneratorNode(node.test));
+              gTest = generatorTranslateExpression(
+                node.test,
+                scope,
+                testBranch,
+                state.hasGeneratorNode(node.test),
+                bodyUnassigned
+              );
               testBranch.gotoIf(
                 getPos(node.test),
                 function () {
@@ -28781,27 +28988,48 @@
                 },
                 function () {
                   return stepBranch;
-                }
+                },
+                bodyUnassigned
               ).goto(getPos(node.body), function () {
                 return stepBranch || testBranch;
               });
               stepBranch = null;
               if (node.step != null && !(node.step instanceof ParserNode.Nothing)) {
                 stepBranch = state.branch();
-                generatorTranslate(node.step, scope, stepBranch).goto(getPos(node.step), function () {
+                generatorTranslate(
+                  node.step,
+                  scope,
+                  stepBranch,
+                  null,
+                  null,
+                  bodyUnassigned
+                ).goto(getPos(node.step), function () {
                   return testBranch;
                 });
+              }
+              if (unassigned) {
+                for (k in bodyUnassigned) {
+                  if (__owns.call(bodyUnassigned, k)) {
+                    v = bodyUnassigned[k];
+                    if (!v) {
+                      unassigned[k] = false;
+                    }
+                  }
+                }
               }
               postBranch = state.branch();
               return postBranch;
             },
-            19: function (node, scope, state) {
-              var bodyBranch, getKey, gObject, index, keys, length, postBranch,
-                  stepBranch, testBranch, tKey;
+            19: function (node, scope, state, _p, _p2, unassigned) {
+              var bodyBranch, bodyUnassigned, getKey, gObject, index, k, keys, length,
+                  postBranch, stepBranch, testBranch, tKey, v;
               if (node.label != null) {
                 throw Error("Not implemented: for-in with label in generator");
               }
               tKey = translate(node.key, scope, "leftExpression");
+              if (unassigned && node.key instanceof ParserNode.Ident) {
+                unassigned[node.key.name] = false;
+              }
               gObject = generatorTranslateExpression(node.object, scope, state, false);
               state = gObject.state;
               keys = scope.reserveIdent(getPos(node), "keys", Type.string.array());
@@ -28848,6 +29076,7 @@
               state = bodyBranch.add(function () {
                 return ast.Assign(getPos(node), getKey(), ast.Access(getPos(node), keys, index));
               });
+              bodyUnassigned = __import({ "\u0000": true }, unassigned);
               generatorTranslate(
                 node.body,
                 scope,
@@ -28857,7 +29086,8 @@
                 },
                 function () {
                   return stepBranch;
-                }
+                },
+                bodyUnassigned
               ).goto(getPos(node.body), function () {
                 return stepBranch;
               });
@@ -28867,14 +29097,25 @@
               }).goto(getPos(node), function () {
                 return testBranch;
               });
+              if (unassigned) {
+                for (k in bodyUnassigned) {
+                  if (__owns.call(bodyUnassigned, k)) {
+                    v = bodyUnassigned[k];
+                    if (!v) {
+                      unassigned[k] = false;
+                    }
+                  }
+                }
+              }
               postBranch = stepBranch.branch();
               return postBranch;
             },
-            22: function (node, scope, state, breakState, continueState) {
-              var postBranch, test, tWhenFalse, tWhenTrue, whenFalseBranch,
-                  whenTrueBranch;
+            22: function (node, scope, state, breakState, continueState, unassigned) {
+              var k, postBranch, ret, test, tWhenFalse, tWhenTrue, v, whenFalseBranch,
+                  whenFalseUnassigned, whenTrueBranch;
               test = generatorTranslateExpression(node.test, scope, state, state.hasGeneratorNode(node.test));
               state = test.state;
+              whenFalseUnassigned = unassigned && __import({}, unassigned);
               if (state.hasGeneratorNode(node.whenTrue) || state.hasGeneratorNode(node.whenFalse)) {
                 state.gotoIf(
                   getPos(node),
@@ -28900,7 +29141,8 @@
                     scope,
                     whenTrueBranch,
                     breakState,
-                    continueState
+                    continueState,
+                    unassigned
                   ).goto(getPos(node.whenTrue), function () {
                     return postBranch;
                   });
@@ -28914,17 +29156,18 @@
                     scope,
                     whenFalseBranch,
                     breakState,
-                    continueState
+                    continueState,
+                    whenFalseUnassigned
                   ).goto(getPos(node.whenFalse), function () {
                     return postBranch;
                   });
                 }
                 postBranch = state.branch();
-                return postBranch;
+                ret = postBranch;
               } else {
-                tWhenTrue = translate(node.whenTrue, scope, "statement");
-                tWhenFalse = translate(node.whenFalse, scope, "statement");
-                return state.add(function () {
+                tWhenTrue = translate(node.whenTrue, scope, "statement", unassigned);
+                tWhenFalse = translate(node.whenFalse, scope, "statement", whenFalseUnassigned);
+                ret = state.add(function () {
                   return ast.If(
                     getPos(node),
                     test.tNode(),
@@ -28933,8 +29176,19 @@
                   );
                 });
               }
+              if (unassigned) {
+                for (k in whenFalseUnassigned) {
+                  if (__owns.call(whenFalseUnassigned, k)) {
+                    v = whenFalseUnassigned[k];
+                    if (!v) {
+                      unassigned[k] = false;
+                    }
+                  }
+                }
+              }
+              return ret;
             },
-            29: function (node, scope, state) {
+            29: function (node, scope, state, _p, _p2, unassigned) {
               var gNode, mutatedNode;
               mutatedNode = node.node.mutateLast(null, function (n) {
                 return ParserNode.Return(n.index, n.scope, n);
@@ -28954,15 +29208,30 @@
                   });
                   return state;
                 } else {
-                  return generatorTranslate(mutatedNode.node, scope, state);
+                  return generatorTranslate(
+                    mutatedNode.node,
+                    scope,
+                    state,
+                    null,
+                    null,
+                    unassigned
+                  );
                 }
               } else {
-                return generatorTranslate(mutatedNode, scope, state);
+                return generatorTranslate(
+                  mutatedNode,
+                  scope,
+                  state,
+                  null,
+                  null,
+                  unassigned
+                );
               }
             },
-            33: function (node, scope, state, _p, continueState) {
-              var _arr, _f, _len, bodyStates, defaultBranch, defaultCase,
-                  gDefaultBody, gNode, i, postBranch, resultCases;
+            33: function (node, scope, state, _p, continueState, unassigned) {
+              var _arr, _f, _len, baseUnassigned, bodyStates, currentUnassigned,
+                  defaultBranch, defaultCase, gDefaultBody, gNode, i, k, postBranch,
+                  resultCases, v;
               if (node.label != null) {
                 throw Error("Not implemented: switch with label in generator");
               }
@@ -28987,12 +29256,14 @@
               gNode.state.add(function () {
                 return ast.Break(getPos(node));
               });
+              baseUnassigned = unassigned && __import({}, unassigned);
+              currentUnassigned = unassigned && __import({}, unassigned);
               for (_arr = __toArray(node.cases), i = 0, _len = _arr.length, _f = function (case_, i) {
-                var caseBranch, gCaseBody, tCaseNode, tGoto;
+                var caseBranch, gCaseBody, k, tCaseNode, tGoto, v;
                 if (state.hasGeneratorNode(case_.node)) {
                   throw Error("Cannot use yield in the check of a switch's case");
                 }
-                tCaseNode = translate(case_.node, scope, "expression");
+                tCaseNode = translate(case_.node, scope, "expression", currentUnassigned);
                 caseBranch = gNode.state.branch();
                 bodyStates[i] = caseBranch;
                 gCaseBody = generatorTranslate(
@@ -29002,7 +29273,8 @@
                   function () {
                     return postBranch;
                   },
-                  continueState
+                  continueState,
+                  currentUnassigned
                 );
                 gCaseBody.goto(getPos(case_.node), case_.fallthrough
                   ? function () {
@@ -29014,9 +29286,20 @@
                 tGoto = caseBranch.makeGoto(getPos(case_.node), function () {
                   return caseBranch;
                 });
-                return resultCases.push(function () {
+                resultCases.push(function () {
                   return ast.Switch.Case(getPos(case_.node), tCaseNode(), ast.Block(getPos(case_.node), [tGoto(), ast.Break(getPos(case_.node))]));
                 });
+                if (!case_.fallthrough && unassigned) {
+                  for (k in currentUnassigned) {
+                    if (__owns.call(currentUnassigned, k)) {
+                      v = currentUnassigned[k];
+                      if (!v) {
+                        unassigned[k] = false;
+                      }
+                    }
+                  }
+                  return currentUnassigned = __import({}, baseUnassigned);
+                }
               }; i < _len; ++i) {
                 _f.call(this, _arr[i], i);
               }
@@ -29029,7 +29312,8 @@
                   function () {
                     return postBranch;
                   },
-                  continueState
+                  continueState,
+                  currentUnassigned
                 );
                 gDefaultBody.goto(getPos(node.defaultCase), function () {
                   return postBranch;
@@ -29042,6 +29326,14 @@
                   return postBranch;
                 });
               }
+              for (k in currentUnassigned) {
+                if (__owns.call(currentUnassigned, k)) {
+                  v = currentUnassigned[k];
+                  if (!v) {
+                    unassigned[k] = false;
+                  }
+                }
+              }
               postBranch = state.branch();
               return postBranch;
             },
@@ -29052,14 +29344,15 @@
                 return ast.Throw(getPos(node), __first(gNode.tNode(), gNode.cleanup()));
               });
             },
-            41: function (node, scope, state, breakState, continueState) {
+            41: function (node, scope, state, breakState, continueState, unassigned) {
               var _arr, _i, result, tmp;
               result = generatorTranslate(
                 node.node,
                 scope,
                 state,
                 breakState,
-                continueState
+                continueState,
+                unassigned
               );
               for (_arr = __toArray(node.tmps), _i = _arr.length; _i--; ) {
                 tmp = _arr[_i];
@@ -29067,7 +29360,7 @@
               }
               return result;
             },
-            42: function (node, scope, state, breakState, continueState) {
+            42: function (node, scope, state, breakState, continueState, unassigned) {
               var postBranch;
               if (node.label != null) {
                 throw Error("Not implemented: try-catch with label in generator");
@@ -29078,11 +29371,12 @@
                 scope,
                 state,
                 breakState,
-                continueState
+                continueState,
+                unassigned
               );
               state = state.exitTryCatch(
                 getPos(node.tryBody),
-                translate(node.catchIdent, scope, "leftExpression", false),
+                translate(node.catchIdent, scope, "leftExpression"),
                 function () {
                   return postBranch;
                 }
@@ -29092,7 +29386,8 @@
                 scope,
                 state,
                 breakState,
-                continueState
+                continueState,
+                unassigned
               );
               state.goto(getPos(node), function () {
                 return postBranch;
@@ -29100,21 +29395,26 @@
               postBranch = state.branch();
               return postBranch;
             },
-            43: function (node, scope, state, breakState, continueState) {
+            43: function (node, scope, state, breakState, continueState, unassigned) {
+              var tFinally;
               if (node.label != null) {
                 throw Error("Not implemented: try-finally with label in generator");
               }
               if (state.hasGeneratorNode(node.finallyBody)) {
                 throw Error("Cannot use yield in a finally");
               }
-              state = state.pendingFinally(getPos(node), translate(node.finallyBody, scope, "statement"));
+              state = state.pendingFinally(getPos(node), function () {
+                return tFinally();
+              });
               state = generatorTranslate(
                 node.tryBody,
                 scope,
                 state,
                 breakState,
-                continueState
+                continueState,
+                unassigned
               );
+              tFinally = translate(node.finallyBody, scope, "statement", unassigned);
               return state.runPendingFinally(getPos(node));
             },
             50: function (node, scope, state) {
@@ -29129,7 +29429,7 @@
               return newState;
             }
           };
-          return function (node, scope, state, breakState, continueState) {
+          return function (node, scope, state, breakState, continueState, unassigned) {
             var key, ret;
             if (state.hasGeneratorNode(node)) {
               key = node.typeId;
@@ -29139,7 +29439,8 @@
                   scope,
                   state,
                   breakState,
-                  continueState
+                  continueState,
+                  unassigned
                 );
                 if (!(ret instanceof GeneratorState)) {
                   throw Error("Translated non-GeneratorState from " + __typeof(node) + ": " + __typeof(ret));
@@ -29155,7 +29456,7 @@
                 });
               }
             } else {
-              return state.add(translate(node, scope, "statement", false));
+              return state.add(translate(node, scope, "statement", unassigned));
             }
           };
         }());
@@ -29168,25 +29469,13 @@
             element = _arr[_i];
             if (element instanceof ParserNode.Spread) {
               translatedItems.push({
-                tNode: translate(
-                  element.node,
-                  scope,
-                  "expression",
-                  null,
-                  unassigned
-                ),
+                tNode: translate(element.node, scope, "expression", unassigned),
                 type: element.node.type()
               });
               current = [];
               translatedItems.push(current);
             } else {
-              current.push(translate(
-                element,
-                scope,
-                "expression",
-                null,
-                unassigned
-              ));
+              current.push(translate(element, scope, "expression", unassigned));
             }
           }
           if (translatedItems.length === 1) {
@@ -29306,7 +29595,7 @@
             tLeft = translate(node.left, scope, "leftExpression");
             tRight = translate(node.right, scope, "expression", unassigned);
             if (unassigned && node.left instanceof ParserNode.Ident) {
-              if (op === "=" && unassigned[node.left.name] && node.right.isConst() && node.right.constValue() === void 0) {
+              if (op === "=" && unassigned[node.left.name] && !unassigned["\u0000"] && node.right.isConst() && node.right.constValue() === void 0) {
                 return function () {
                   return ast.Noop(getPos(node));
                 };
@@ -29537,18 +29826,22 @@
             };
           },
           18: function (node, scope, location, unassigned) {
-            var tBody, tInit, tLabel, tStep, tTest;
+            var bodyUnassigned, tBody, tInit, tLabel, tStep, tTest;
             tLabel = node.label && translate(node.label, scope, "label");
             if (node.init != null) {
               tInit = translate(node.init, scope, "expression", unassigned);
             }
+            bodyUnassigned = unassigned && { "\u0000": true };
             if (node.test != null) {
-              tTest = translate(node.test, scope, "expression");
+              tTest = translate(node.test, scope, "expression", bodyUnassigned);
             }
+            tBody = translate(node.body, scope, "statement", bodyUnassigned);
             if (node.step != null) {
-              tStep = translate(node.step, scope, "expression");
+              tStep = translate(node.step, scope, "expression", bodyUnassigned);
             }
-            tBody = translate(node.body, scope, "statement");
+            if (unassigned) {
+              __import(unassigned, bodyUnassigned);
+            }
             return function () {
               return ast.For(
                 getPos(node),
@@ -29561,11 +29854,18 @@
             };
           },
           19: function (node, scope, location, unassigned) {
-            var tBody, tKey, tLabel, tObject;
+            var bodyUnassigned, tBody, tKey, tLabel, tObject;
             tLabel = node.label && translate(node.label, scope, "label");
             tKey = translate(node.key, scope, "leftExpression");
+            if (unassigned && node.key instanceof ParserNode.Ident) {
+              unassigned[node.key.name] = false;
+            }
             tObject = translate(node.object, scope, "expression", unassigned);
-            tBody = translate(node.body, scope, "statement");
+            bodyUnassigned = unassigned && { "\u0000": true };
+            tBody = translate(node.body, scope, "statement", bodyUnassigned);
+            if (unassigned) {
+              __import(unassigned, bodyUnassigned);
+            }
             return function () {
               var key;
               key = tKey();
@@ -29872,6 +30172,8 @@
             }
             if (node.prototype != null) {
               tPrototype = translate(node.prototype, scope, "expression", unassigned);
+            } else {
+              tPrototype = void 0;
             }
             return function () {
               var _len, constPairs, currentPair, currentPairs, i, ident, key,
@@ -30039,21 +30341,46 @@
             }
           },
           33: function (node, scope, location, unassigned) {
-            var _arr, _arr2, _i, _len, case_, tCases, tDefaultCase, tLabel, tNode;
+            var _arr, _arr2, _i, _len, baseUnassigned, case_, currentUnassigned, k,
+                newCase, tCases, tDefaultCase, tLabel, tNode, v;
             tLabel = node.label && translate(node.label, scope, "label");
             tNode = translate(node.node, scope, "expression", unassigned);
+            baseUnassigned = unassigned && __import({}, unassigned);
+            currentUnassigned = unassigned && __import({}, baseUnassigned);
             for (_arr = [], _arr2 = __toArray(node.cases), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
               case_ = _arr2[_i];
-              _arr.push({
+              newCase = {
                 pos: getPos(case_.node),
-                tNode: translate(case_.node, scope, "expression", unassigned),
-                tBody: translate(case_.body, scope, "statement", unassigned),
+                tNode: translate(case_.node, scope, "expression", currentUnassigned),
+                tBody: translate(case_.body, scope, "statement", currentUnassigned),
                 fallthrough: case_.fallthrough
-              });
+              };
+              if (!case_.fallthrough && unassigned) {
+                for (k in currentUnassigned) {
+                  if (__owns.call(currentUnassigned, k)) {
+                    v = currentUnassigned[k];
+                    if (!v) {
+                      unassigned[k] = false;
+                    }
+                  }
+                }
+                currentUnassigned = __import({}, baseUnassigned);
+              }
+              _arr.push(newCase);
             }
             tCases = _arr;
             if (node.defaultCase != null) {
-              tDefaultCase = translate(node.defaultCase, scope, "statement", unassigned);
+              tDefaultCase = translate(node.defaultCase, scope, "statement", currentUnassigned);
+            } else {
+              tDefaultCase = void 0;
+            }
+            for (k in currentUnassigned) {
+              if (__owns.call(currentUnassigned, k)) {
+                v = currentUnassigned[k];
+                if (!v) {
+                  unassigned[k] = false;
+                }
+              }
             }
             return function () {
               return ast.Switch(
@@ -30159,7 +30486,7 @@
           },
           49: function (node, scope, location, unassigned) {
             var tIdent;
-            if (unassigned && node.ident instanceof ParserNode.Ident && !__owns.call(unassigned, node.ident.name)) {
+            if (unassigned && !unassigned["\u0000"] && node.ident instanceof ParserNode.Ident && !__owns.call(unassigned, node.ident.name)) {
               unassigned[node.ident.name] = true;
             }
             tIdent = translate(node.ident, scope, "leftExpression");
@@ -30193,7 +30520,14 @@
             isSimpleGenerator = !hasGeneratorNode(body, true);
             if (!isSimpleGenerator) {
               builder = GeneratorBuilder(pos, scope, hasGeneratorNode);
-              generatorTranslate(body, scope, builder.start).goto(pos, function () {
+              generatorTranslate(
+                body,
+                scope,
+                builder.start,
+                null,
+                null,
+                unassigned
+              ).goto(pos, function () {
                 return builder.stop;
               });
               translatedBody = builder.create();
@@ -30949,7 +31283,7 @@
         _ref = require("./utils");
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-        exports.version = "0.8.5";
+        exports.version = "0.8.6";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -31017,7 +31351,6 @@
                   ++_state;
                 case 4:
                   preludeCachePath = getPreludeCachePath(lang);
-                  preludeCacheStat = void 0;
                   ++_state;
                 case 5:
                   _state = sync ? 6 : 7;
@@ -31042,7 +31375,6 @@
                   }
                   ++_state;
                 case 10:
-                  parsedPrelude = void 0;
                   _state = preludeCacheStat && __lte(preludeSrcStat.mtime.getTime(), preludeCacheStat.mtime.getTime()) ? 11 : 19;
                   break;
                 case 11:
@@ -31671,7 +32003,6 @@
                 if (typeof output !== "string") {
                   throw Error("Expected options.output to be a string, got " + __typeof(output));
                 }
-                sourceMapFile = void 0;
                 if (!options.sourceMap) {
                   options.sourceMap = null;
                 } else if (typeof options.sourceMap === "string") {
@@ -81729,6 +82060,7 @@
                 catchBody = current;
               }
               init = [];
+              runElse = void 0;
               if (hasElse) {
                 runElse = this.tmp("else", false, "boolean");
                 init.push(__node(
