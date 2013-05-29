@@ -18,6 +18,14 @@ describe "loops", #
       expect(i).to.equal j
       j += 1
     expect(j).to.equal 10 // [0, 9], not [0, 10]
+  
+  it "loop from 0 through 9 can be at the end of a function with a variable mutation. #82", #
+    let f()
+      let mutable j = 0
+      for i in 0 til 10
+        expect(i).to.equal j
+        j += 1
+    f()
 
   it "simple loop from 0 through 10, inclusive", #
     let mutable j = 0

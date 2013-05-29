@@ -683,11 +683,13 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         this
   def _is-noop(o) -> @__is-noop ?= @left.is-noop(o) and @right.is-noop(o)
 node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
-  def type(o)
+  def type(o) @_type ?=
     let nodes = @nodes
     if nodes.length == 0
       Type.undefined
     else
+      for node in nodes[0 til -1]
+        node.type(o)
       nodes[* - 1].type(o)
   def with-label(label as IdentNode|TmpNode|null, o)
     if not @label?

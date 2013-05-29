@@ -1103,10 +1103,10 @@
                 if (pairs.length === 0) {
                   return sb("{}");
                 } else if (hasIndent && pairs.length > 1 && (pairs.length >= LARGE_CONTAINER_SIZE || (function () {
-                  var _arr, _i, _len, _ref, _some, key, value;
+                  var _i, _len, _ref, _some, key, value;
                   _some = false;
-                  for (_arr = __toArray(pairs), _i = 0, _len = _arr.length; _i < _len; ++_i) {
-                    _ref = _arr[_i];
+                  for (_i = 0, _len = pairs.length; _i < _len; ++_i) {
+                    _ref = pairs[_i];
                     key = _ref.key;
                     value = _ref.value;
                     if (isLarge(key) || isLarge(value)) {
@@ -11627,7 +11627,7 @@
           DoubleQuote
         ), mutate(function (parts, parser, index) {
           var _arr, _arr2, _i, _len, part, stringParts;
-          for (_arr = [], _arr2 = __toArray(doubleStringLiteralHandler(parts, parser, index)), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+          for (_arr = [], _arr2 = doubleStringLiteralHandler(parts, parser, index), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
             part = _arr2[_i];
             if (!part.isConstValue("")) {
               _arr.push(part);
@@ -11789,7 +11789,7 @@
           );
           return mutate(function (parts, parser, index) {
             var _arr, _arr2, _i, _len, part, stringParts;
-            for (_arr = [], _arr2 = __toArray(tripleStringHandler(parts, parser, index)), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+            for (_arr = [], _arr2 = tripleStringHandler(parts, parser, index), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
               part = _arr2[_i];
               if (!part.isConstValue("")) {
                 _arr.push(part);
@@ -18200,13 +18200,13 @@
           }
         }
         function simplifyArray(array) {
-          var _arr, i, item;
+          var i, item;
           if (array.length === 0) {
             return array;
           } else {
             array = array.slice();
-            for (_arr = __toArray(array), i = _arr.length; i--; ) {
-              item = _arr[i];
+            for (i = +array.length; i--; ) {
+              item = array[i];
               if (!item || item instanceof NothingNode || item.length === 0) {
                 array.pop();
               } else {
@@ -19655,12 +19655,20 @@
           _BlockNode_prototype.typeId = 7;
           BlockNode.argNames = ["nodes", "label"];
           _BlockNode_prototype.type = function (o) {
-            var nodes;
-            nodes = this.nodes;
-            if (nodes.length === 0) {
-              return Type["undefined"];
+            var _arr, _end, _i, _len, _ref, node, nodes;
+            if ((_ref = this._type) == null) {
+              nodes = this.nodes;
+              if (nodes.length === 0) {
+                return this._type = Type["undefined"];
+              } else {
+                for (_arr = __toArray(nodes), _i = 0, _len = _arr.length, _end = -1, _end += _len, _end > _len && (_end = _len); _i < _end; ++_i) {
+                  node = _arr[_i];
+                  node.type(o);
+                }
+                return this._type = nodes[nodes.length - 1].type(o);
+              }
             } else {
-              return nodes[nodes.length - 1].type(o);
+              return _ref;
             }
           };
           _BlockNode_prototype.withLabel = function (label, o) {
@@ -27949,9 +27957,9 @@
                   return current = ast.If(
                     this.pos,
                     ast.Or.apply(ast, [this.pos].concat((function () {
-                      var _arr, _arr2, _i, _len, _ref, finish, start;
-                      for (_arr = [], _arr2 = __toArray(tryStateRanges), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
-                        _ref = _arr2[_i];
+                      var _arr, _i, _len, _ref, finish, start;
+                      for (_arr = [], _i = 0, _len = tryStateRanges.length; _i < _len; ++_i) {
+                        _ref = tryStateRanges[_i];
                         start = _ref.start;
                         finish = _ref.finish;
                         if (start === -1/0) {
@@ -31283,7 +31291,7 @@
         _ref = require("./utils");
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-        exports.version = "0.8.6";
+        exports.version = "0.8.7";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
