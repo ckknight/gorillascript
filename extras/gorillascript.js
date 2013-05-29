@@ -31291,7 +31291,7 @@
         _ref = require("./utils");
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-        exports.version = "0.8.7";
+        exports.version = "0.8.8";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -62713,7 +62713,10 @@
             ),
             type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({
               fulfill: TYPE$.generic(TYPE$.functionBase, TYPE$["undefined"]),
-              promise: TYPE$.makeObject({ sync: TYPE$["function"], then: TYPE$["function"] }),
+              promise: TYPE$.makeObject({
+                sync: TYPE$.generic(TYPE$.functionBase, TYPE$.number),
+                then: TYPE$["function"]
+              }),
               reject: TYPE$.generic(TYPE$.functionBase, TYPE$["undefined"])
             })),
             dependencies: ["setImmediate"]
@@ -64931,7 +64934,10 @@
                 )
               )
             ),
-            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({ sync: TYPE$["function"], then: TYPE$["function"] })),
+            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({
+              sync: TYPE$.generic(TYPE$.functionBase, TYPE$.number),
+              then: TYPE$["function"]
+            })),
             dependencies: ["__defer", "__toArray", "__typeof"]
           },
           __generator: {
@@ -65664,7 +65670,10 @@
                 )
               )
             ),
-            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({ sync: TYPE$["function"], then: TYPE$["function"] })),
+            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({
+              sync: TYPE$.generic(TYPE$.functionBase, TYPE$.number),
+              then: TYPE$["function"]
+            })),
             dependencies: ["__defer", "__isArray", "__typeof"]
           },
           __everyPromise: {
@@ -66475,7 +66484,10 @@
                 )
               )
             ),
-            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({ sync: TYPE$["function"], then: TYPE$["function"] })),
+            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({
+              sync: TYPE$.generic(TYPE$.functionBase, TYPE$.number),
+              then: TYPE$["function"]
+            })),
             dependencies: ["__defer", "__isArray", "__owns", "__typeof"]
           },
           __delay: {
@@ -67889,7 +67901,10 @@
                 )
               )
             ),
-            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({ sync: TYPE$["function"], then: TYPE$["function"] })),
+            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({
+              sync: TYPE$.generic(TYPE$.functionBase, TYPE$.number),
+              then: TYPE$["function"]
+            })),
             dependencies: ["__defer", "__typeof", "setImmediate"]
           },
           __promiseIter: {
@@ -69356,7 +69371,10 @@
                 )
               )
             ),
-            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({ sync: TYPE$["function"], then: TYPE$["function"] })),
+            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({
+              sync: TYPE$.generic(TYPE$.functionBase, TYPE$.number),
+              then: TYPE$["function"]
+            })),
             dependencies: ["__defer", "__typeof", "setImmediate"]
           }
         },

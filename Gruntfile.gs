@@ -40,6 +40,8 @@ module.exports := #(grunt)
     
     mochaTest:
       test:
+        options:
+          timeout: 5000_ms
         src: ["test-js/**/*.js"]
     
   

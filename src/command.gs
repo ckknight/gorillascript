@@ -65,8 +65,6 @@ optimist.check #(argv)
   exclusive \interactive, \_, \stdin, \eval
   depend \watch, \compile
   depend \join, \output
-  if argv._.length > 2 and not argv.compile
-    throw "Can only specify more than one filename with --compile"
   if argv.watch
     if argv.join
       throw "TODO: --watch with --join"
@@ -194,7 +192,14 @@ let main = promise!
   
   if not argv.compile
     let input = yield to-promise! fs.read-file filenames[0]
-    
+
+    options.filename := filenames[0]
+    let new-argv = ["gorilla"]
+    for item, i in process.argv
+      if item == filenames[0]
+        new-argv.push ...process.argv[i to -1]
+        break
+    process.argv := new-argv
     return yield handle-code String input
   
   if argv.map
