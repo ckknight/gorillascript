@@ -211,7 +211,13 @@ exports.compile := promise! #(source, options = {})*
     exports.ast-sync source, options
   else
     yield exports.ast source, options
-  let compiled = translated.node.compile options
+  let mutable node = translated.node
+  if is-function! options.ast-pipe
+    require! ast: './jsast'
+    node := options.ast-pipe node
+    if node not instanceof ast.Root
+      throw Error "Expected astPipe to return a Root, got $(typeof! node)"
+  let compiled = node.compile options
   return {
     translated.parse-time
     translated.macro-expand-time
@@ -284,7 +290,13 @@ exports.compile-file := promise! #(mutable options = {})!*
     parsed[0].macros
     (for x in parsed; x.get-position)
     options)
-  let compiled = translated.node.compile options
+  let mutable node = translated.node
+  if is-function! options.ast-pipe
+    require! ast: './jsast'
+    node := options.ast-pipe node
+    if node not instanceof ast.Root
+      throw Error "Expected astPipe to return a Root, got $(typeof! node)"
+  let compiled = node.compile options
   unless sync
     yield delay! 0
   let mutable code = compiled.code

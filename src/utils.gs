@@ -122,7 +122,7 @@ let fs-exists-promise(path)
 let mkdirp = promise! #(dirpath, mutable mode, sync)!*
   if not mode?
     mode := 0o777 bitand (bitnot process.umask())
-  for reduce part in dirpath.split(r"[/\\]"g), acc = ""
+  for reduce part in dirpath.split(r"[/\\]"g), acc = if dirpath.char-at(0) == "/" then "/" else ""
     let current = path.resolve path.join acc, part
     let exists = if sync
       fs.exists-sync current

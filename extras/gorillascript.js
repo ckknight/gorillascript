@@ -580,7 +580,11 @@
                 if (mode == null) {
                   mode = 511 & ~+process.umask();
                 }
-                acc = "";
+                if (dirpath.charAt(0) === "/") {
+                  acc = "/";
+                } else {
+                  acc = "";
+                }
                 _arr = __toArray(dirpath.split(/[\/\\]/g));
                 _i = 0;
                 _len = _arr.length;
@@ -31291,7 +31295,7 @@
         _ref = require("./utils");
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-        exports.version = "0.8.8";
+        exports.version = "0.8.9";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -31897,7 +31901,8 @@
           return exports.ast.sync(source, ((_ref = __import({}, options)).sync = true, _ref));
         };
         exports.compile = __promise(function (source, options) {
-          var _e, _send, _state, _step, _throw, compiled, startTime, sync, translated;
+          var _e, _send, _state, _step, _throw, ast, compiled, node, startTime, sync,
+              translated;
           _state = 0;
           function _close() {
             _state = 5;
@@ -31927,7 +31932,15 @@
                 translated = _received;
                 ++_state;
               case 4:
-                compiled = translated.node.compile(options);
+                node = translated.node;
+                if (typeof options.astPipe === "function") {
+                  ast = require("./jsast");
+                  node = options.astPipe(node);
+                  if (!(node instanceof ast.Root)) {
+                    throw Error("Expected astPipe to return a Root, got " + __typeof(node));
+                  }
+                }
+                compiled = node.compile(options);
                 ++_state;
                 return {
                   done: true,
@@ -31982,10 +31995,10 @@
           return exports.compile.sync(source, ((_ref = __import({}, options)).sync = true, _ref));
         };
         exports.compileFile = __promise(function (options) {
-          var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, code, compiled,
-              footer, i, input, inputs, linefeed, name, originalProgress, output,
-              parsed, progressCounts, source, sourceMapFile, sources, startParseTime,
-              sync, translated, translator;
+          var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, ast, code,
+              compiled, footer, i, input, inputs, linefeed, name, node,
+              originalProgress, output, parsed, progressCounts, source, sourceMapFile,
+              sources, startParseTime, sync, translated, translator;
           _state = 0;
           function _close() {
             _state = 20;
@@ -32166,7 +32179,15 @@
                   }()),
                   options
                 );
-                compiled = translated.node.compile(options);
+                node = translated.node;
+                if (typeof options.astPipe === "function") {
+                  ast = require("./jsast");
+                  node = options.astPipe(node);
+                  if (!(node instanceof ast.Root)) {
+                    throw Error("Expected astPipe to return a Root, got " + __typeof(node));
+                  }
+                }
+                compiled = node.compile(options);
                 _state = !sync ? 12 : 13;
                 break;
               case 12:
