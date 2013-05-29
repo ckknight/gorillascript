@@ -175,41 +175,11 @@ class MacroHolder
   def add-const(name as String, value)!
     @consts[name] := value
   
-  let serialize-const-value(value)
-    switch value
-    case 0
-      { type: if value is 0 then "+0" else "-0" }
-    case Infinity
-      { type: "Infinity" }
-    case -Infinity
-      { type: "-Infinity" }
-    default
-      if value is NaN
-        { type: "NaN" }
-      else if value == void
-        { type: "void" }
-      else
-        value
-  
-  let deserialize-const-value(value)
-    if is-object! value and is-string! value.type
-      switch value.type
-      case "+0"; 0
-      case "-0"; -0
-      case "Infinity"; Infinity
-      case "-Infinity"; -Infinity
-      case "NaN"; NaN
-      case "void"; void
-      default
-        throw Error "Unknown value"
-    else
-      value
-  
   def add-serialized-const(name as String)!
     if @consts not ownskey name
       throw Error "Unknown const $name"
     let consts = (@serialization.consts ?= {})
-    consts[name] := serialize-const-value(@consts[name])
+    consts[name] := @consts[name]
   
   def add-macro-serialization(serialization as {type: String})!
     let obj = {} <<< serialization
@@ -231,27 +201,104 @@ class MacroHolder
     else
       throw Error "Unknown syntax: $(name)"
   
-  def serialize(allow-JS as Boolean)
+  def serialize()
     let serialization = {} <<< @serialization
-    let helpers = serialization!.helpers
-    if helpers
-      for name, helper of helpers
-        for dep, i in helper.dependencies by -1
-          if helpers not ownskey dep
-            helper.dependencies.splice i, 1
-    if allow-JS
-      require('./jsutils').to-JS-source(serialization)
-    else
-      JSON.stringify(serialization)
+    let helpers = serialization!.helpers or {}
+    for name, helper of helpers
+      for dep, i in helper.dependencies by -1
+        if helpers not ownskey dep or dep == name
+          helper.dependencies.splice i, 1
+    let as-json(x)
+      if is-void! x
+        x
+      else
+        JSON.parse JSON.stringify x
+    let to-JS(x) -> require('./jsutils').to-JS-source(x, null, {indent: 2})
+    let no-pos = { line: 0, column: 0}
+    let ast = require('./jsast')
+    let unwrap-func(mutable code)
+      code := code.replace r'^return\s*([\s\S]*);\s*$', '$1'
+      code := code.replace r'^\s*\(function\s*\(\s*\)\s*{\s*"use strict";\s*return\s*function([\s\S]*)\};\s*\}\.call\(this\)\)\s*$', 'function$1}'
+      code := code.replace r'^\s*\(function\s*\(\s*\)\s*{\s*"use strict";\s*([\s\S]*)\};\s*\}\.call\(this\)\)\s*$', 'function() {\n  $1\n  }\n}.call(this)'
+      code := code.split("\n").join("\n      ")
+      code
+    let serialized-helpers = (ast.Obj no-pos, for name, helper of helpers
+      ast.Obj.Pair no-pos, name, ast.Obj no-pos, [
+        ast.Obj.Pair no-pos, \helper, helper.helper.to-ast(no-pos, ast.Ident no-pos, 'AST$')
+        ast.Obj.Pair no-pos, \type, helper.type.to-ast(ast, no-pos, ast.Ident no-pos, 'TYPE$')
+        ast.Obj.Pair no-pos, \dependencies, ast.from-literal no-pos, as-json(helper.dependencies)
+      ]).to-string(indent: 2)
+    let serialized-binary-operators = (ast.Arr no-pos, for {code, operators, options, id} in serialization.binary-operator
+      ast.Obj no-pos, [
+        ast.Obj.Pair no-pos, \code, ast.Eval no-pos, unwrap-func code
+        ast.Obj.Pair no-pos, \operators, ast.from-literal no-pos, operators
+        ast.Obj.Pair no-pos, \options, ast.from-literal no-pos, options
+        ast.Obj.Pair no-pos, \id, ast.from-literal no-pos, id
+      ]).to-string(indent: 2)
+    let serialized-assign-operators = (ast.Arr no-pos, for {code, operators, options, id} in serialization.assign-operator
+      ast.Obj no-pos, [
+        ast.Obj.Pair no-pos, \code, ast.Eval no-pos, unwrap-func code
+        ast.Obj.Pair no-pos, \operators, ast.from-literal no-pos, operators
+        ast.Obj.Pair no-pos, \options, ast.from-literal no-pos, options
+        ast.Obj.Pair no-pos, \id, ast.from-literal no-pos, id
+      ]).to-string(indent: 2)
+    let serialized-unary-operators = (ast.Arr no-pos, for {code, operators, options, id} in serialization.unary-operator
+      ast.Obj no-pos, [
+        ast.Obj.Pair no-pos, \code, ast.Eval no-pos, unwrap-func code
+        ast.Obj.Pair no-pos, \operators, ast.from-literal no-pos, operators
+        ast.Obj.Pair no-pos, \options, ast.from-literal no-pos, options
+        ast.Obj.Pair no-pos, \id, ast.from-literal no-pos, id
+      ]).to-string(indent: 2)
+    let serialized-define-syntax = (ast.Arr no-pos, for {code, options, params, id} in serialization.define-syntax
+      ast.Obj no-pos, [
+        ast.Obj.Pair no-pos, \code, code and ast.Eval no-pos, unwrap-func code
+        ast.Obj.Pair no-pos, \options, ast.from-literal no-pos, options
+        ast.Obj.Pair no-pos, \params, ast.from-literal no-pos, as-json params
+        ast.Obj.Pair no-pos, \id, ast.from-literal no-pos, id
+      ]).to-string(indent: 2)
+    let serialized-syntax = (ast.Arr no-pos, for {code, options, params, names, id} in serialization.syntax
+      ast.Obj no-pos, [
+        ast.Obj.Pair no-pos, \code, code and ast.Eval no-pos, unwrap-func code
+        ast.Obj.Pair no-pos, \options, ast.from-literal no-pos, options
+        ast.Obj.Pair no-pos, \params, ast.from-literal no-pos, as-json params
+        ast.Obj.Pair no-pos, \names, ast.from-literal no-pos, names
+        ast.Obj.Pair no-pos, \id, ast.from-literal no-pos, id
+      ]).to-string(indent: 2)
+    let serialized-call = (ast.Arr no-pos, for {code, options, names, id} in serialization.call
+      ast.Obj no-pos, [
+        ast.Obj.Pair no-pos, \code, code and ast.Eval no-pos, unwrap-func code
+        ast.Obj.Pair no-pos, \options, ast.from-literal no-pos, options
+        ast.Obj.Pair no-pos, \names, ast.from-literal no-pos, names
+        ast.Obj.Pair no-pos, \id, ast.from-literal no-pos, id
+      ]).to-string(indent: 2)
+    """
+    function (TYPE\$, AST\$) {
+      return {
+        consts: $(to-JS serialization.consts),
+        helpers: $serialized-helpers,
+        binaryOperator: $serialized-binary-operators,
+        assignOperator: $serialized-assign-operators,
+        unaryOperator: $serialized-unary-operators,
+        defineSyntax: $serialized-define-syntax,
+        syntax: $serialized-syntax,
+        call: $serialized-call
+      };
+    }
+    """
   
-  def deserialize(data, state)!
-    // TODO: pass in the output language rather than assume JS
+  def deserialize(get-data as ->, state)!
     require! ast: './jsast'
+    let data = get-data(Type, ast.by-type-id)
+    // TODO: pass in the output language rather than assume JS
     for name, {helper, type, dependencies} of (data!.helpers ? {})
-      @add-helper name, ast.fromJSON(helper), Type.fromJSON(type), dependencies
+      if helper not instanceof ast.Node
+        throw Error "bad helper ast in helper $name"
+      if type not instanceof Type
+        throw Error "bad type in helper $name"
+      @add-helper name, helper, type, dependencies
     
     for name, value of (data!.consts ? {})
-      @add-const name, deserialize-const-value value
+      @add-const name, value
     
     state.deserialize-macros(data)
   

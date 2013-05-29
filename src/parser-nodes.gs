@@ -246,9 +246,10 @@ macro node-class
     
     let func = @func params, AST $ctor-body, false, true
     arg-names := @array arg-names
-    AST Node[$capped-name] := Node.by-type-id[ParserNodeType[$capped-name]] := class $type extends Node
+    let type-id = ASTE ParserNodeType[$capped-name]
+    AST Node[$capped-name] := Node.by-type-id[$type-id] := class $type extends Node
       def constructor = mutate-function! $func
-      def type-id = ParserNodeType[$capped-name]
+      def type-id = $type-id
       @arg-names := $arg-names
       $body
       $add-methods
@@ -312,13 +313,23 @@ node-class AccessNode(parent as Node, child as Node)
           child)
         [cached-parent.id])
     
-    if parent.is-const() and child.is-const()
-      let p-value = parent.const-value()
+    if parent.is-literal() and child.is-const()
       let c-value = child.const-value()
-      if Object(p-value) haskey c-value
-        let value = p-value[c-value]
-        if is-null! value or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
-          return ConstNode @index, @scope, value
+      if parent.is-const()
+        let p-value = parent.const-value()
+        if Object(p-value) haskey c-value
+          let value = p-value[c-value]
+          if is-null! value or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
+            return ConstNode @index, @scope, value
+      else if parent instanceof ArrayNode
+        if c-value == \length
+          return ConstNode @index, @scope, parent.elements.length
+        else if is-number! c-value
+          return parent.elements[c-value] or ConstNode @index, @scope, void
+      else if parent instanceof ObjectNode
+        for {key, value} in parent.pairs
+          if key.const-value() == c-value
+            return value
     if child instanceof CallNode and child.func instanceof IdentNode and child.func.name == \__range
       let [start, mutable end, step, inclusive] = child.args
       let has-step = not step.is-const() or step.const-value() != 1
@@ -1302,7 +1313,7 @@ node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void 
       else
         this
   def _is-noop(o) -> @__is-noop ?= for every {key, value} in @pairs; key.is-noop(o) and value.is-noop(o)
-  def is-literal() -> @_is-literal ?= not @prototype? and for every {key, value} in @pairs; key.is-literal() and value.is-literal()
+  def is-literal() -> @_is-literal ?= not @prototype? and for every {key, value, property} in @pairs; not property and key.is-literal() and value.is-literal()
   def literal-value()
     if @prototype?
       throw Error "Cannot convert object with prototype to a literal"

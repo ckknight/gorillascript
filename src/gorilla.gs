@@ -72,9 +72,9 @@ let fetch-and-parse-prelude = do
       else
         yield to-promise! fs.read-file prelude-src-path, "utf8"
       parsed-prelude := parsed-prelude-by-lang[lang] := if sync
-        parser.sync prelude, null, { +serialize-macros, +sync }
+        parser.sync prelude, null, { +serialize-macros, +sync, filename: prelude-src-path }
       else
-        yield parser prelude, null, { +serialize-macros }
+        yield parser prelude, null, { +serialize-macros, filename: prelude-src-path }
       write-file-with-mkdirp prelude-cache-path, parsed-prelude.macros.serialize(), "utf8"
     delete prelude-promises-by-lang[lang]
     return parsed-prelude

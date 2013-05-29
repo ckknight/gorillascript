@@ -5145,12 +5145,9 @@ class Parser
       return options
     return void  
   let get-compilation-options(state-options as {})
-    if state-options.serialize-macros
-      {
-        +minify
-      }
-    else
-      {}
+    {
+      +bare
+    }
   let macro-syntax-types =
     syntax: #(index, params, mutable body, options, state-options, translator)
       let macro-full-data-ident = @Ident index, \macro-full-data
@@ -5396,7 +5393,7 @@ class Parser
   let macro-deserializers =
     syntax: #({code, params, mutable names, options = {}, id})
       names := fix-array names
-      let mutable handler = Function(code)()
+      let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for macro $(name)"
       let state = this
@@ -5408,7 +5405,7 @@ class Parser
     
     call: #({code, mutable names, options = {}, id})
       names := fix-array names
-      let mutable handler = Function(code)()
+      let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for macro $(name)"
       let state = this
@@ -5425,7 +5422,7 @@ class Parser
       let mutable handler = void
       let state = this
       if code?
-        handler := Function(code)()
+        handler := code
         if not is-function! handler
           throw Error "Error deserializing function for macro syntax $(options.name)"
         handler := do inner = handler
@@ -5439,7 +5436,7 @@ class Parser
     
     binary-operator: #({code, mutable operators, options = {}, id})
       operators := fix-array operators
-      let mutable handler = Function(code)()
+      let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for binary operator $(operators.join ', ')"
       let state = this
@@ -5460,7 +5457,7 @@ class Parser
       
     assign-operator: #({code, mutable operators, options = {}, id})
       operators := fix-array operators
-      let mutable handler = Function(code)()
+      let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for assign operator $(operators.join ', ')"
       let state = this
@@ -5472,7 +5469,7 @@ class Parser
     
     unary-operator: #({code, mutable operators, options = {}, id})!
       operators := fix-array operators
-      let mutable handler = Function(code)()
+      let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for unary operator $(operators.join ', ')"
       let state = this
@@ -5803,7 +5800,10 @@ module.exports := parse <<< {
   MacroHolder
   unused-caches
   deserialize-prelude: #(data)
-    let parsed = if is-string! data then JSON.parse(data) else data
+    let parsed = if is-string! data
+      Function("'use strict'; return " & data)()
+    else
+      data
     let parser = Parser()
     parser.macros.deserialize(parsed, parser, {})
     {

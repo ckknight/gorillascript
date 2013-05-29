@@ -259,6 +259,13 @@ module.exports := class Type
       else
         "Type.make($(inspect @name))"
     
+    def to-ast(ast, pos, ident)
+      for first k, v of Type
+        if v == this
+          ast.Access pos, ident, ast.Const pos, k
+      else
+        throw Error "Cannot serialize custom type: $(String this)"
+    
     def to-JSON()
       for first k, v of Type
         if v == this
@@ -439,7 +446,20 @@ module.exports := class Type
         sb.push inspect arg, null, depth
       sb.push ")"
       sb.join ""
-
+    
+    def to-ast(ast, pos, ident)
+      for first k, v of Type
+        if v == this
+          ast.Access pos, ident, ast.Const pos, k
+      else
+        ast.Call pos,
+          ast.Access pos, ident, ast.Const pos, \generic
+          [
+            @base.to-ast ast, pos, ident
+            ...for arg in @args
+              arg.to-ast ast, pos, ident
+          ]
+    
     def to-JSON()
       for first k, v of Type
         if v == this
@@ -626,6 +646,15 @@ module.exports := class Type
         for [k, v] in @pairs
           obj[k] := v
         "Type.makeObject($(inspect obj, null, if depth? then depth - 1 else null))"
+    
+    def to-ast(ast, pos, ident)
+      if @pairs.length == 0
+        ast.Access pos, ident, ast.Const pos, \object
+      else
+        ast.Call pos,
+          ast.Access pos, ident, ast.Const pos, \make-object
+          [ast.Obj pos, for [k, v] in @pairs
+            ast.Obj.Pair pos, k, v.to-ast ast, pos, ident]
     def to-JSON()
       if @pairs.length == 0
         \object
@@ -761,6 +790,16 @@ module.exports := class Type
     def inspect(depth)
       "(" & (for type in @types; inspect type, null, if depth? then depth - 1 else null).join(").union(") & ")"
     
+    def to-ast(ast, pos, ident)
+      for first k, v of Type
+        if v == this
+          ast.Access pos, ident, ast.Const pos, k
+      else
+        ast.Call pos,
+          ast.Access pos, ident, ast.Const pos, \union
+          for type in types
+            type.to-ast ast, pos, ident
+    
     def to-JSON()
       for first k, v of Type
         if v == this
@@ -882,6 +921,15 @@ module.exports := class Type
     def inspect(depth)
       @untype.inspect(depth) & ".complement()"
     
+    def to-ast(ast, pos, ident)
+      for first k, v of Type
+        if v == this
+          ast.Access pos, ident, ast.Const pos, k
+      else
+        ast.Call pos,
+          ast.Access pos, ident, ast.Const pos, \complement
+          [@complement().to-ast ast, pos, ident]
+    
     def to-JSON()
       for first k, v of Type
         if v == this
@@ -912,6 +960,8 @@ module.exports := class Type
     def complement() -> none
     def inspect() -> "Type.any"
     
+    def to-ast(ast, pos, ident)
+      ast.Access pos, ident, ast.Const pos, \any
     def to-JSON() -> \any
     from-JSON-types.any := #-> any
   
@@ -937,6 +987,8 @@ module.exports := class Type
     def complement() -> any
     def inspect() -> "Type.none"
     
+    def to-ast(ast, pos, ident)
+      ast.Access pos, ident, ast.Const pos, \none
     def to-JSON() -> \none
     from-JSON-types.none := #-> none
   

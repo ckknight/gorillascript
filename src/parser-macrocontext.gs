@@ -610,8 +610,22 @@ class MacroContext
     else
       c.value
   
+  let to-literal-node(obj)
+    if is-null! obj or typeof obj in [\undefined, \boolean, \number, \string]
+      ConstNode 0, @scope(), obj
+    else if is-array! obj
+      ArrayNode 0, @scope(), for item in obj; to-literal-node@ this, item
+    else if obj.constructor == Object
+      ObjectNode 0, @scope(), for k, v of obj
+        {
+          key: to-literal-node@ this, k
+          value: to-literal-node@ this, v
+        }
+    else
+      throw Error "Cannot convert $(typeof! obj) to a literal node"
+  
   def get-const(name as String)
-    ConstNode 0, @scope(), @get-const-value(name)
+    to-literal-node@ this, @get-const-value(name)
   
   def macro(index, id, call-line, data, position, in-generator, in-evil-ast)
     Node.MacroAccess(index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)

@@ -120,7 +120,7 @@ exports.Node := class Node
   
   def to-string(options = {})
     let sb = StringBuilder()
-    @compile-as-statement { indent: 0, +bare } <<< options, true, sb
+    @compile { indent: 0, +bare } <<< options, Level.inside-parentheses, false, sb
     sb.to-string()
   
   def compile
@@ -143,6 +143,16 @@ exports.Node := class Node
   def exit-type() -> null
   def last() -> this
   
+  def to-ast(pos, ident)
+    Call pos, ident,
+      [
+        Const pos, @type-id
+        Const pos, @pos.line
+        Const pos, @pos.column
+        Const pos, @pos.file or 0
+        ...@_to-ast(pos, ident)
+      ]
+  def _to-ast() -> []
   def to-JSON() -> [@type-id, @pos.line, @pos.column, @pos.file or 0, ...@_to-JSON()]
   def _to-JSON() -> []
 
@@ -193,6 +203,7 @@ exports.Arguments := class Arguments extends Expression
   def is-noop() -> true
   def inspect(depth) -> inspect-helper depth, "Arguments", @pos
   def type-id = AstType.Arguments
+  @_from-ast := #(pos) -> Arguments pos
   @from-JSON := #(line, column, file) -> Arguments(make-pos(line, column, file))
 
 let walk-array(array as [], walker as ->)
@@ -321,6 +332,9 @@ exports.Arr := class Arr extends Expression
   def inspect(depth) -> inspect-helper depth, "Arr", @pos, @elements
   
   def type-id = AstType.Arr
+  def _to-ast(pos, ident) -> return for element in @elements
+    element.to-ast(pos, ident)
+  @_from-ast := #(pos, ...elements) -> Arr pos, elements
   def _to-JSON() -> simplify-array(@elements, 0)
   @from-JSON := #(line, column, file, ...elements) -> Arr make-pos(line, column, file), array-from-JSON(elements)
 
@@ -545,12 +559,14 @@ exports.Binary := class Binary extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Binary", @pos, @left, @op, @right
   
+  def type-id = AstType.Binary
+  def _to-ast(pos, ident) -> [@left.to-ast(pos, ident), Const(pos, @op), @right.to-ast(pos, ident)]
+  @_from-ast := #(pos, left, op, right) -> Binary pos, left, op, right
   def _to-JSON()
     let result = [simplify(@left, 0), @op]
     if simplify(@right)
       result.push ...@right.to-JSON()
     result
-  def type-id = AstType.Binary
   @from-JSON := #(line, column, file, left, op, ...right) -> Binary make-pos(line, column, file), from-JSON(left), op, from-JSON(right)
 
 exports.BlockStatement := class BlockStatement extends Statement
@@ -641,8 +657,17 @@ exports.BlockStatement := class BlockStatement extends Statement
   
   def inspect(depth) -> inspect-helper depth, "BlockStatement", @pos, @body, @label
   
-  def _to-JSON() -> [@label or 0, ...@body]
   def type-id = AstType.BlockStatement
+  def _to-ast(pos, ident) -> [
+    if @label?
+      @label.to-ast pos, ident
+    else
+      Const pos, 0
+    ...for node in @body
+      node.to-ast pos, ident
+  ]
+  @_from-ast := #(pos, label, ...nodes) -> BlockStatement pos, nodes, label or null
+  def _to-JSON() -> [@label or 0, ...@body]
   @from-JSON := #(line, column, file, label, ...body) -> BlockStatement make-pos(line, column, file), array-from-JSON(body), if label then from-JSON(label) else null
 
 exports.BlockExpression := class BlockExpression extends Expression
@@ -726,8 +751,11 @@ exports.BlockExpression := class BlockExpression extends Expression
   
   def inspect(depth) -> inspect-helper depth, "BlockExpression", @pos, @body
   
-  def _to-JSON() -> @body
   def type-id = AstType.BlockExpression
+  def _to-ast(pos, ident) -> return for node in @body
+    node.to-ast pos, ident
+  @_from-ast := #(pos, ...nodes) -> BlockExpression pos, nodes
+  def _to-JSON() -> @body
   @from-JSON := #(line, column, file, ...body) -> BlockExpression make-pos(line, column, file), array-from-JSON(body)
 
 let Block = exports.Block := #(pos, body as [Node] = [], label as Ident|null)
@@ -771,8 +799,10 @@ exports.Break := class Break extends Statement
   
   def is-large() -> false
   
-  def _to-JSON() -> if @label? then [@label] else []
   def type-id = AstType.Break
+  def _to-ast(pos, ident) -> if @label? then [@label.to-ast(pos, ident)] else []
+  @_from-ast := #(pos, label) -> Break pos, label
+  def _to-JSON() -> if @label? then [@label] else []
   @from-JSON := #(line, column, file, label) -> Break make-pos(line, column, file), if label then from-JSON(label) else null
 
 exports.Call := class Call extends Expression
@@ -849,8 +879,15 @@ exports.Call := class Call extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Call", @pos, @func, @args, @is-new
   
-  def _to-JSON() -> [simplify(@func, 0), if @is-new then 1 else 0, ...simplify-array(@args, 0)]
   def type-id = AstType.Call
+  def _to-ast(pos, ident) -> [
+    @func.to-ast(pos, ident)
+    Const pos, if @is-new then 1 else 0
+    ...for arg in @args
+      arg.to-ast(pos, ident)
+  ]
+  @_from-ast := #(pos, func, is-new, ...args) -> Call pos, func, args, not not is-new
+  def _to-JSON() -> [simplify(@func, 0), if @is-new then 1 else 0, ...simplify-array(@args, 0)]
   @from-JSON := #(line, column, file, func, is-new, ...args) -> Call make-pos(line, column, file), from-JSON(func), array-from-JSON(args), not not is-new
 
 exports.Comment := class Comment extends Statement
@@ -877,8 +914,10 @@ exports.Comment := class Comment extends Statement
   
   def inspect(depth) -> inspect-helper "Comment", @pos, @text
   
-  def _to-JSON() -> [@text]
   def type-id = AstType.Comment
+  def _to-ast(pos, ident) -> [Const pos, @text]
+  @_from-ast := #(pos, text) -> Comment pos, text
+  def _to-JSON() -> [@text]
   @from-JSON := #(line, column, file, text) -> Comment(make-pos(line, column, file), text)
 
 exports.Const := class Const extends Expression
@@ -906,11 +945,19 @@ exports.Const := class Const extends Expression
   def is-const() -> true
   def is-noop = @::is-const
   def const-value() -> @value
+  def is-large() -> is-string! @value and (@value.match(r"\n") or @value.length > 50)
   
   def walk() -> this
   
   def inspect(depth) -> "Const($(inspect @value, null, dec-depth depth))"
-  
+
+  def type-id = AstType.Const
+  def _to-ast(pos, ident)
+    if @value == void
+      []
+    else
+      [Const pos, @value]
+  @_from-ast := #(pos, value) -> Const pos, value
   def _to-JSON()
     if is-number! @value and not is-finite(@value)
       [
@@ -931,7 +978,6 @@ exports.Const := class Const extends Expression
       []
     else
       [@value]
-  def type-id = AstType.Const
   @from-JSON := #(line, column, file, value, state)
     Const make-pos(line, column, file), if state == 1
       value / 0
@@ -972,8 +1018,10 @@ exports.Continue := class Continue extends Statement
   
   def inspect(depth) -> inspect-helper depth, "Continue", @pos, @label
   
-  def _to-JSON() -> if @label? then [@label] else []
   def type-id = AstType.Continue
+  def _to-ast(pos, ident) -> if @label? then [@label.to-ast(pos, ident)] else []
+  @_from-ast := #(pos, label) -> Continue pos, label
+  def _to-JSON() -> if @label? then [@label] else []
   @from-JSON := #(line, column, file, label) -> Continue make-pos(line, column, file), if label then from-JSON(label) else null
 
 exports.Debugger := class Debugger extends Statement
@@ -992,6 +1040,7 @@ exports.Debugger := class Debugger extends Statement
   def inspect(depth) -> inspect-helper depth, "Debugger", @pos
   
   def type-id = AstType.Debugger
+  @_from-ast := #(pos) -> Debugger pos
   @from-JSON := #(line, column, file) -> Debugger(make-pos(line, column, file))
 
 exports.DoWhile := class DoWhile extends Statement
@@ -1053,8 +1102,17 @@ exports.DoWhile := class DoWhile extends Statement
 
   def inspect(depth) -> inspect-helper depth, "DoWhile", @pos, @body, @test, @label
   
-  def _to-JSON() -> [@label or 0, simplify(@test, 0), simplify(@body, 0)]
   def type-id = AstType.DoWhile
+  def _to-ast(pos, ident) -> [
+    @test.to-ast(pos, ident)
+    @body.to-ast(pos, ident)
+    ...if @label?
+      [@label.to-ast(pos, ident)]
+    else
+      []
+  ]
+  @_from-ast := #(pos, test, body, label) -> DoWhile pos, test, body, label
+  def _to-JSON() -> [@label or 0, simplify(@test, 0), simplify(@body, 0)]
   @from-JSON := #(line, column, file, label, test, body) -> DoWhile make-pos(line, column, file), from-JSON(body), from-JSON(test), if label then from-JSON(label) else null
 
 exports.Eval := class Eval extends Expression
@@ -1085,8 +1143,12 @@ exports.Eval := class Eval extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Eval", @pos, @code
   
-  def _to-JSON() -> [simplify(@code, 0)]
+  def is-large() -> @code.is-large()
+  
   def type-id = AstType.Eval
+  def _to-ast(pos, ident) -> [@code.to-ast(pos, ident)]
+  @_from-ast := #(pos, code) -> Eval pos, code
+  def _to-JSON() -> [simplify(@code, 0)]
   @from-JSON := #(line, column, file, code) -> Eval make-pos(line, column, file), from-JSON(code)
 
 exports.For := class For extends Statement
@@ -1171,16 +1233,27 @@ exports.For := class For extends Statement
   
   def inspect(depth) -> inspect-helper depth, "For", @pos, @init, @test, @step, @body, @label
   
+  def type-id = AstType.For
+  def _to-ast(pos, ident) -> [
+    @init.to-ast(pos, ident)
+    @test.to-ast(pos, ident)
+    @step.to-ast(pos, ident)
+    @body.to-ast(pos, ident)
+    ...if @label?
+      [@label.to-ast(pos, ident)]
+    else
+      []
+  ]
+  @_from-ast := #(pos, init, test, step, body, label) -> For pos, init, test, step, body, label or null
   def _to-JSON()
     let result = [@label or 0, simplify(@init, 0), simplify(@test, 0), simplify(@step, 0)]
     if simplify(@body)
       result.push ...@body.to-JSON()
     result
-  def type-id = AstType.For
   @from-JSON := #(line, column, file, label, init, test, step, ...body) -> For make-pos(line, column, file), from-JSON(init), from-JSON(test), from-JSON(step), from-JSON(body), if label then from-JSON(label) else null
 
 exports.ForIn := class ForIn extends Statement
-  def constructor(@pos as {}, @key as Ident, @object as Expression = Noop(line, column), body as Node = Noop(line, column), @label as Ident|null)
+  def constructor(@pos as {}, @key as Ident, @object as Expression = Noop(pos), body as Node = Noop(pos), @label as Ident|null)
     @body := body.maybe-to-statement()
   
   def compile(options, level, line-start, sb)!
@@ -1234,12 +1307,22 @@ exports.ForIn := class ForIn extends Statement
   
   def inspect(depth) -> inspect-helper depth, "ForIn", @pos, @key, @object, @body, @label
   
+  def type-id = AstType.ForIn
+  def _to-ast(pos, ident) -> [
+    @key.to-ast(pos, ident)
+    @object.to-ast(pos, ident)
+    @body.to-ast(pos, ident)
+    ...if @label?
+      [@label.to-ast(pos, ident)]
+    else
+      []
+  ]
+  @_from-ast := #(pos, key, object, body, label) -> ForIn pos, key, object, body, label or null
   def _to-JSON()
     let result = [@label or 0, @key, simplify(@object, 0)]
     if simplify(@body)
       result.push ...@body.to-JSON()
     result
-  def type-id = AstType.ForIn
   @from-JSON := #(line, column, file, label, key, object, ...body) -> ForIn make-pos(line, column, file), from-JSON(key), from-JSON(object), from-JSON(body), if label then from-JSON(label) else null
 
 let validate-func-params-and-variables(params, variables)!
@@ -1334,7 +1417,7 @@ let compile-func(options, sb, name, params, declarations, variables, body)
   sb "}"
 
 exports.Func := class Func extends Expression
-  def constructor(@pos as {}, @name as null|Ident, @params as [Ident] = [], @variables as [String] = [], @body as Node = Noop(line, column), @declarations as [String] = [])
+  def constructor(@pos as {}, @name as null|Ident, @params as [Ident] = [], @variables as [String] = [], @body as Node = Noop(pos), @declarations as [String] = [])
     validate-func-params-and-variables params, variables
   
   def compile(options, level, line-start, sb)!
@@ -1370,12 +1453,33 @@ exports.Func := class Func extends Expression
   
   def inspect(depth) -> inspect-helper depth, "Func", @pos, @name, @params, @variables, @body, @declarations, @meta
   
+  def type-id = AstType.Func
+  def _to-ast(pos, ident) -> [
+    if @name
+      @name.to-ast(pos, ident)
+    else
+      Const pos, 0
+    if @params.length
+      Arr pos, for param in @params
+        param.to-ast(pos, ident)
+    else
+      Const pos, 0
+    if @variables.length
+      Arr pos, for variable in @variables
+        Const pos, variable
+    else
+      Const pos, 0
+    @body.to-ast(pos, ident)
+    ...for declaration in @declarations
+      Const pos, declaration
+  ]
+  @_from-ast := #(pos, name, params, variables, body, ...declarations)
+    Func pos, name or null, params or [], variables or [], body, ...declarations
   def _to-JSON()
     let result = [@name or 0, simplify-array(@params, 0), simplify-array(@variables, 0), simplify-array(@declarations, 0)]
     if simplify(@body)
       result.push ...@body.to-JSON()
     result
-  def type-id = AstType.Func
   @from-JSON := #(line, column, file, name, params, variables, declarations, ...body)
     Func make-pos(line, column, file), (if name then from-JSON(name)), array-from-JSON(params), variables, from-JSON(body), declarations
 
@@ -1398,9 +1502,11 @@ exports.Ident := class Ident extends Expression
   
   def is-noop() -> true
   
-  def _to-JSON() -> [@name]
   def type-id = AstType.Ident
-  @from-JSON := #(line, column, file, name) -> Ident make-pos(line, column, file), name
+  def _to-ast(pos, ident) -> [Const pos, @name]
+  @_from-ast := #(pos, name) -> Ident pos, name, true
+  def _to-JSON() -> [@name]
+  @from-JSON := #(line, column, file, name) -> Ident make-pos(line, column, file), name, true
 
 exports.IfStatement := class IfStatement extends Statement
   def constructor(@pos as {}, mutable test as Expression = Noop(pos), mutable when-true as Node = Noop(pos), mutable when-false as Node = Noop(pos), @label as Ident|null)
@@ -1522,13 +1628,25 @@ exports.IfStatement := class IfStatement extends Statement
   def is-noop() -> @_is-noop ?= @test.is-noop() and @when-true.is-noop() and @when-false.is-noop()
   
   def inspect(depth) -> inspect-helper depth, "IfStatement", @pos, @test, @when-true, @when-false
-  
+
+  def type-id = AstType.IfStatement
+  def _to-ast(pos, ident)
+    let result = [
+      @test.to-ast(pos, ident)
+      @when-true.to-ast(pos, ident)
+    ]
+    if @when-false not instanceof Noop or @label
+      result.push @when-false.to-ast(pos, ident)
+    if @label
+      result.push @label.to-ast(pos, ident)
+    result
+  @_from-ast := #(pos, test, when-true, when-false, label)
+    IfStatement pos, test, when-true, when-false, label
   def _to-JSON()
     let result = [@label or 0, simplify(@test, 0), simplify(@when-true, 0)]
     if simplify(@when-false)
       result.push ...@when-false.to-JSON()
     result
-  def type-id = AstType.IfStatement
   @from-JSON := #(line, column, file, label, test, when-true, ...when-false) -> IfStatement make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false), if label then from-JSON(label) else null
 
 exports.IfExpression := class IfExpression extends Expression
@@ -1623,13 +1741,23 @@ exports.IfExpression := class IfExpression extends Expression
   def walk = IfStatement::walk
   
   def inspect(depth) -> inspect-helper depth, "IfExpression", @pos, @test, @when-true, @when-false
-  
+
+  def type-id = AstType.IfExpression
+  def _to-ast(pos, ident)
+    let result = [
+      @test.to-ast(pos, ident)
+      @when-true.to-ast(pos, ident)
+    ]
+    if @when-false not instanceof Noop
+      result.push @when-false.to-ast(pos, ident)
+    result
+  @_from-ast := #(pos, test, when-true, when-false)
+    IfExpression pos, test, when-true, when-false
   def _to-JSON()
     let result = [simplify(@test, 0), simplify(@when-true, 0)]
     if simplify(@when-false)
       result.push ...@when-false.to-JSON()
     result
-  def type-id = AstType.IfExpression
   @from-JSON := #(line, column, file, test, when-true, ...when-false) -> IfExpression make-pos(line, column, file), from-JSON(test), from-JSON(when-true), from-JSON(when-false)
 
 let If = exports.If := #(pos as {}, test, when-true, when-false, label)
@@ -1661,6 +1789,7 @@ exports.Noop := class Noop extends Expression
   def inspect(depth) -> inspect-helper depth, "Noop", @pos
   
   def type-id = AstType.Noop
+  @_from-ast := #(pos) -> Noop pos
   @from-JSON := #(line, column, file) -> Noop make-pos(line, column, file)
 
 exports.Obj := class Obj extends Expression
@@ -1676,14 +1805,10 @@ exports.Obj := class Obj extends Expression
     validate-unique-keys elements
   
   let to-safe-key(key)
-    if is-acceptable-ident(key)
+    if is-acceptable-ident(key) or String(Number(key)) == key
       key
     else
-      let num = Number(key)
-      if num isnt NaN and String(num) == key
-        key
-      else
-        to-JS-source key
+      to-JS-source key
   
   let compile-large(elements, options, sb)!
     let child-options = inc-indent options
@@ -1766,14 +1891,31 @@ exports.Obj := class Obj extends Expression
       this
   
   def inspect(depth) -> inspect-helper depth, "Obj", @pos, @elements
-  
+
+  def type-id = AstType.Obj
+  def _to-ast(pos, ident)
+    let result = []
+    for pair in @elements
+      let pair-pos = pair.pos
+      result.push Const pos, pair-pos.line
+      result.push Const pos, pair-pos.column
+      result.push Const pos, pair-pos.file
+      result.push Const pos, pair.key
+      result.push pair.value.to-ast(pos, ident)
+    result
+  @_from-ast := #(pos, ...element-data)
+    let result-pairs = []
+    for i in 0 til element-data.length by 5
+      result-pairs.push ObjPair make-pos(element-data[i], element-data[i + 1], element-data[i + 2]),
+        element-data[i + 3]
+        element-data[i + 4]
+    Obj pos, result-pairs
   def _to-JSON()
     let result = []
     for pair in @elements
       let pos = pair.pos
       result.push pos.line, pos.column, pos.file, pair.key, simplify(pair.value)
     result
-  def type-id = AstType.Obj
   @from-JSON := #(line, column, file, ...element-data)
     let result-pairs = []
     for i in 0 til element-data.length by 5
@@ -1786,7 +1928,7 @@ exports.Obj := class Obj extends Expression
     Obj make-pos(line, column, file), result-pairs
   
   Obj.Pair := class ObjPair
-    def constructor(@pos as {}, @key as String, mutable value = Noop(line, column))
+    def constructor(@pos as {}, @key as String, mutable value = Noop(pos))
       if value not instanceof Expression
         value := to-const pos, value
       @value := value
@@ -1820,9 +1962,17 @@ exports.Regex := class Regex extends Expression
   def walk() -> this
 
   def inspect(depth) -> inspect-helper depth, "Regex", @pos, @source, @flags
-  
-  def _to-JSON() -> [@source, @flags]
+
   def type-id = AstType.Regex
+  def _to-ast(pos, ident) -> [
+    Const pos, @source
+    ...if @flags != ""
+      [Const pos, @flags]
+    else
+      []
+  ]
+  @_from-ast := #(pos, source, flags) -> Regex pos, source, flags or ""
+  def _to-JSON() -> [@source, @flags]
   @from-JSON := #(line, column, file, source, flags) -> Regex make-pos(line, column, file), source, flags
 
 exports.Return := class Return extends Statement
@@ -1865,13 +2015,19 @@ exports.Return := class Return extends Statement
         this
     else
       this
-  
+
+  def type-id = AstType.Return
+  def _to-ast(pos, ident)
+    if @node.is-const() and @node.const-value() == void
+      []
+    else
+      [@node.to-ast(pos, ident)]
+  @_from-ast := #(pos, node) -> Return pos, node
   def _to-JSON()
     if simplify(@node)
       @node.to-JSON()
     else
       []
-  def type-id = AstType.Return
   @from-JSON := #(line, column, file, ...node) -> Return make-pos(line, column, file), from-JSON(node)
 
 exports.Root := class Root
@@ -1949,13 +2105,27 @@ exports.Root := class Root
   def last() -> @body[* - 1]
   
   def inspect(depth) -> inspect-helper depth, "Root", @pos, @body, @variables, @declarations
-  
+
+  def type-id = AstType.Root
+  def _to-ast(pos, ident) -> [
+    if @declarations.length
+      Arr pos, for declaration in @declarations
+        Const pos, declaration
+    else
+      Const pos, 0
+    if @variables.length
+      Arr pos, for variable in @variables
+        Const pos, variable
+    else
+      Const pos, 0
+    @body.to-ast(pos, ident)
+  ]
+  @_from-ast := #(pos, declarations, variables, body) -> Root pos, body, variables or [], declarations or []
   def _to-JSON()
     let result = [simplify-array(@variables, 0), simplify-array(@declarations, 0)]
     if simplify(@body)
       result.push ...@body.to-JSON()
     result
-  def type-id = AstType.Root
   @from-JSON := #(line, column, file, variables, declarations, ...body) -> Root make-pos(line, column, file), from-JSON(body), variables, declarations
 
 exports.This := class This extends Expression
@@ -1974,10 +2144,11 @@ exports.This := class This extends Expression
   def inspect(depth) -> inspect-helper depth, "This", @pos
   
   def type-id = AstType.This
+  @_from-ast := #(pos) -> This pos
   @from-JSON := #(line, column, file) -> This(make-pos(line, column, file))
 
 exports.Throw := class Throw extends Statement
-  def constructor(@pos as {}, @node as Expression = Noop(line, column))
+  def constructor(@pos as {}, @node as Expression = Noop(pos))
     if is-function! node.to-statement
       return node.to-statement().mutate-last (#(n)@ -> Throw @pos, n), { +noop }
   
@@ -2004,13 +2175,16 @@ exports.Throw := class Throw extends Statement
   def is-large() -> @node.is-large()
   
   def inspect(depth) -> inspect-helper depth, "Throw", @pos, @node
-  
+
+  def type-id = AstType.Throw
+  def _to-ast(pos, ident)
+    [@node.to-ast(pos, ident)]
+  @_from-ast := #(pos, node) -> Throw pos, node
   def _to-JSON()
     if simplify(@node)
       @node.to-JSON()
     else
       []
-  def type-id = AstType.Throw
   @from-JSON := #(line, column, file, ...node) -> Throw make-pos(line, column, file), from-JSON(node)
 
 exports.Switch := class Switch extends Statement
@@ -2092,6 +2266,42 @@ exports.Switch := class Switch extends Statement
       this
   
   def inspect(depth) -> @inspect-helper depth, "Switch", @pos, @node, @cases, @default-case, @label
+
+  def type-id = AstType.Switch
+  def _to-ast(pos, ident)
+    let result = [
+      if @label
+        @label.to-ast(pos, ident)
+      else
+        Const pos, 0
+      @node.to-ast(pos, ident)
+    ]
+    for case_ in @cases
+      result.push Const pos, case_.pos.line
+      result.push Const pos, case_.pos.column
+      result.push Const pos, case_.pos.file or 0
+      result.push case_.node.to-ast(pos, ident)
+      result.push case_.body.to-ast(pos, ident)
+    if @default-case not instanceof Noop
+      result.push @default-case.to-ast(pos, ident)
+    result
+  @_from-ast := #(pos, label, node, ...case-data)
+    let mutable len = case-data.length
+    let mutable default-case = void
+    switch len % 5
+    case 0
+      void
+    case 1
+      len -= 1
+      default-case := case-data[len]
+    default
+      throw Error "Unknown number of arguments passed to _fromAst"
+    let result-cases = []
+    for i in 0 til len by 5
+      result-cases.push SwitchCase make-pos(case-data[i], case-data[i + 1], case-data[i + 2]),
+        case-data[i + 3]
+        case-data[i + 4]
+    Switch pos, node, result-cases, default-case, label or null
   
   def _to-JSON()
     let result = [@label or 0, simplify(@node, 0)]
@@ -2100,7 +2310,6 @@ exports.Switch := class Switch extends Statement
     if @default-case not instanceof Noop
       result.push simplify(@default-case, 0)
     result
-  def type-id = AstType.Switch
   @from-JSON := #(line, column, file, label, node, ...case-data)
     let mutable len = case-data.length
     let mutable default-case = void
@@ -2200,13 +2409,24 @@ exports.TryCatch := class TryCatch extends Statement
       this
   
   def inspect(depth) -> inspect-helper depth, "TryCatch", @pos, @try-body, @catch-ident, @catch-body, @label
-  
+
+  def type-id = AstType.TryCatch
+  def _to-ast(pos, ident) -> [
+    @try-body.to-ast(pos, ident)
+    @catch-ident.to-ast(pos, ident)
+    @catch-body.to-ast(pos, ident)
+    ...if @label
+      [@label.to-ast(pos, ident)]
+    else
+      []
+  ]
+  @_from-ast := #(pos, try-body, catch-ident, catch-body, label)
+    TryCatch pos, try-body, catch-ident, catch-body, label
   def _to-JSON()
     let result = [@label or 0, simplify(@try-body, 0), @catch-ident]
     if simplify(@catch-body)
       result.push ...@catch-body.to-JSON()
     result
-  def type-id = AstType.TryCatch
   @from-JSON := #(line, column, file, label, try-body, catch-ident, ...catch-body) -> TryCatch make-pos(line, column, file), from-JSON(try-body), from-JSON(catch-ident), from-JSON(catch-body), if label then from-JSON(label) else null
 
 exports.TryFinally := class TryFinally extends Statement
@@ -2286,13 +2506,23 @@ exports.TryFinally := class TryFinally extends Statement
       this
   
   def inspect(depth) -> inspect-helper depth, "TryFinally", @pos, @try-body, @finally-body, @label
-  
+
+  def type-id = AstType.TryFinally
+  def _to-ast(pos, ident) -> [
+    @try-body.to-ast(pos, ident)
+    @finally-body.to-ast(pos, ident)
+    ...if @label
+      [@label.to-ast(pos, ident)]
+    else
+      []
+  ]
+  @_from-ast := #(pos, try-body, finally-body, label)
+    TryFinally pos, try-body, finally-body, label
   def _to-JSON()
     let result = [@label or 0, simplify(@try-body, 0)]
     if simplify(@finally-body)
       result.push ...@finally-body.to-JSON()
     result
-  def type-id = AstType.TryFinally
   @from-JSON := #(line, column, file, label, try-body, ...finally-body) -> TryFinally make-pos(line, column, file), from-JSON(try-body), from-JSON(finally-body), if label then from-JSON(label) else null
 
 exports.Unary := class Unary extends Expression
@@ -2374,13 +2604,19 @@ exports.Unary := class Unary extends Expression
       this
   
   def inspect(depth) -> inspect-helper depth, "Unary", @pos, @op, @node
-  
+
+  def type-id = AstType.Unary
+  def _to-ast(pos, ident) -> [
+    Const pos, @op
+    @node.to-ast(pos, ident)
+  ]
+  @_from-ast := #(pos, op, node)
+    Unary pos, op, node
   def _to-JSON()
     let result = [@op]
     if simplify(@node)
       result.push ...@node.to-JSON()
     result
-  def type-id = AstType.Unary
   @from-JSON := #(line, column, file, op, ...node) -> Unary make-pos(line, column, file), op, from-JSON(node)
 
 let While = exports.While := #(pos, test, body, label)
@@ -2406,6 +2642,7 @@ let AstType-to-class = {
   [AstType.Ident]: Ident
   [AstType.IfStatement]: IfStatement
   [AstType.IfExpression]: IfExpression
+  [AstType.Noop]: Noop
   [AstType.Obj]: Obj
   [AstType.Regex]: Regex
   [AstType.Return]: Return
@@ -2417,6 +2654,9 @@ let AstType-to-class = {
   [AstType.TryFinally]: TryFinally
   [AstType.Unary]: Unary
 }
+
+exports.by-type-id := #(type-id as Number, line as Number, column as Number, file, ...args)
+  AstType-to-class[type-id]._from-ast(make-pos(line, column, file), ...args)
 
 let from-JSON = exports.from-JSON := #(obj)
   if not obj
@@ -2442,3 +2682,14 @@ let array-from-JSON(array)
     return for item in array; from-JSON(item)
   else
     throw Error "Expected an array, got $(typeof! array)"
+
+let from-literal(pos as {}, value)
+  if is-null! value or typeof value in [\undefined, \boolean, \number, \string]
+    Const pos, value
+  else if is-array! value
+    Arr pos, for item in value; from-literal(pos, item)
+  else if value.constructor == Object
+    Obj pos, for k, v of value; Obj.Pair pos, k, from-literal(pos, v)
+  else
+    throw TypeError "Cannot convert $(typeof! value) to an ast literal"
+exports.from-literal := from-literal
