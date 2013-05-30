@@ -84,9 +84,11 @@ let wrap-string-handler(callback)
   let cb = #(item)!
     let s = String(item)
     let parts = s.split(r"(?:\r\n?|[\n\u2028\u2029])"g)
-    if parts.length == 1
+    switch parts.length
+    case 0; void
+    case 1
       cb.column += parts[0].length
-    else
+    default
       let len = parts.length
       cb.line += len - 1
       cb.column := parts[len - 1].length + 1
@@ -206,10 +208,10 @@ exports.Arguments := class Arguments extends Expression
   @_from-ast := #(pos) -> Arguments pos
   @from-JSON := #(line, column, file) -> Arguments(make-pos(line, column, file))
 
-let walk-array(array as [], walker as ->)
+let walk-array(array as [], parent as Node, message, walker as ->)
   let mutable changed = false
   let result = for item in array
-    let mutable new-item = walker item
+    let mutable new-item = walker item, parent, message
     unless new-item?
       new-item := item.walk walker
     if item != new-item
@@ -323,7 +325,7 @@ exports.Arr := class Arr extends Expression
   def is-noop() -> @_is-noop ?= for every element in @elements by -1; element.is-noop()
   
   def walk(walker)
-    let elements = walk-array @elements, walker
+    let elements = walk-array @elements, this, \element, walker
     if @elements != elements
       Arr @pos, elements
     else
@@ -338,8 +340,9 @@ exports.Arr := class Arr extends Expression
   def _to-JSON() -> simplify-array(@elements, 0)
   @from-JSON := #(line, column, file, ...elements) -> Arr make-pos(line, column, file), array-from-JSON(elements)
 
-exports.Assign := #(pos, left, right)
-  Binary pos, left, "=", right
+exports.Assign := #(pos, ...start, end)
+  for reduce left in start by -1, right = end
+    Binary pos, left, "=", right
 
 exports.BinaryChain := #(pos, op, ...args)
   if op == "+"
@@ -550,8 +553,8 @@ exports.Binary := class Binary extends Expression
   
   def walk(walker)
     let mutable changed = false
-    let left = walker(@left) ? @left.walk(walker)
-    let right = walker(@right) ? @right.walk(walker)
+    let left = walker(@left, this, \left) ? @left.walk(walker)
+    let right = walker(@right, this, \right) ? @right.walk(walker)
     if @left != left or @right != right
       Binary @pos, left, @op, right
     else
@@ -633,8 +636,8 @@ exports.BlockStatement := class BlockStatement extends Statement
       options.source-map.pop-file()
   
   def walk(walker)
-    let body = walk-array(@body, walker)
-    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    let body = walk-array(@body, this, \node, walker)
+    let label = if @label? then walker(@label, this, \label) ? @label.walk(walker, this) else @label
     if @body != body or @label != label
       Block @pos, body, label
     else
@@ -789,7 +792,7 @@ exports.Break := class Break extends Statement
   def exit-type() -> \break
   
   def walk(walker)
-    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    let label = if @label? then walker(@label, this, \label) ? @label.walk(walker) else @label
     if label != @label
       Break @pos, label
     else
@@ -870,8 +873,8 @@ exports.Call := class Call extends Expression
       default; false
   
   def walk(walker)
-    let func = walker(@func) ? @func.walk(walker)
-    let args = walk-array(@args, walker)
+    let func = walker(@func, this, \func) ? @func.walk(walker)
+    let args = walk-array(@args, this, \arg, walker)
     if @func != func or @args != args
       Call @pos, func, args, @is-new
     else
@@ -1010,7 +1013,7 @@ exports.Continue := class Continue extends Statement
   def is-large() -> false
   
   def walk(walker)
-    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    let label = if @label? then walker(@label, this, \label) ? @label.walk(walker) else @label
     if label != @label
       Continue @pop, label
     else
@@ -1092,9 +1095,9 @@ exports.DoWhile := class DoWhile extends Statement
       options.source-map.pop-file()
   
   def walk(walker)
-    let body = walker(@body) ? @body.walk(walker)
-    let test = walker(@test) ? @test.walk(walker)
-    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    let body = walker(@body, this, \body) ? @body.walk(walker)
+    let test = walker(@test, this, \test) ? @test.walk(walker)
+    let label = if @label? then walker(@label, this, \label) ? @label.walk(walker) else @label
     if body != @body or test != @test or label != @label
       DoWhile @pos, body, test, label
     else
@@ -1135,7 +1138,7 @@ exports.Eval := class Eval extends Expression
       options.source-map.pop-file()
   
   def walk(walker)
-    let code = walker(@code) ? @code.walk(walker)
+    let code = walker(@code, this, \code) ? @code.walk(walker)
     if code != @code
       Eval @pops, code
     else
@@ -1221,11 +1224,11 @@ exports.For := class For extends Statement
       options.source-map.pop-file()
   
   def walk(walker)
-    let init = walker(@init) ? @init.walk(walker)
-    let test = walker(@test) ? @test.walk(walker)
-    let step = walker(@step) ? @step.walk(walker)
-    let body = walker(@body) ? @body.walk(walker)
-    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    let init = walker(@init, this, \init) ? @init.walk(walker)
+    let test = walker(@test, this, \test) ? @test.walk(walker)
+    let step = walker(@step, this, \step) ? @step.walk(walker)
+    let body = walker(@body, this, \body) ? @body.walk(walker)
+    let label = if @label? then walker(@label, this, \label) ? @label.walk(walker) else @label
     if init != @init or test != @test or step != @step or body != @body or label != @label
       For @pos, init, test, step, body, label
     else
@@ -1296,10 +1299,10 @@ exports.ForIn := class ForIn extends Statement
       options.source-map.pop-file()
   
   def walk(walker)
-    let key = walker(@key) ? @key.walk(walker)
-    let object = walker(@object) ? @object.walk(walker)
-    let body = walker(@body) ? @body.walk(walker)
-    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    let key = walker(@key, this, \key) ? @key.walk(walker)
+    let object = walker(@object, this, \object) ? @object.walk(walker)
+    let body = walker(@body, this, \body) ? @body.walk(walker)
+    let label = if @label? then walker(@label, this, \label) ? @label.walk(walker) else @label
     if key != @key or object != @object or body != @body or label != @label
       ForIn @pos, key, object, body
     else
@@ -1443,8 +1446,8 @@ exports.Func := class Func extends Expression
   def is-noop() -> not @name?
   
   def walk(walker)
-    let name = if @name then walker(@name) ? @name.walk(walker) else @name
-    let params = walk-array(@params, walker)
+    let name = if @name then walker(@name, this, \name) ? @name.walk(walker) else @name
+    let params = walk-array(@params, this, \param, walker)
     let body = @body.walk(walker)
     if name != @name or params != @params or body != @body
       Func @pos, name, params, @variables, body, @declarations, @meta
@@ -1596,10 +1599,10 @@ exports.IfStatement := class IfStatement extends Statement
         options.source-map.pop-file()
         
   def walk(walker)
-    let test = walker(@test) ? @test.walk walker
-    let when-true = walker(@when-true) ? @when-true.walk walker
-    let when-false = walker(@when-false) ? @when-false.walk walker
-    let label = if @label? then walker(@label) ? @label.walk walker else @label
+    let test = walker(@test, this, \test) ? @test.walk walker
+    let when-true = walker(@when-true, this, \when-true) ? @when-true.walk walker
+    let when-false = walker(@when-false, this, \when-false) ? @when-false.walk walker
+    let label = if @label? then walker(@label, this, \label) ? @label.walk walker else @label
     
     if test != @test or when-true != @when-true or when-false != @when-false or label != @label
       If @pos, test, when-true, when-false, label
@@ -1884,9 +1887,17 @@ exports.Obj := class Obj extends Expression
     @_is-noop ?= for every element in @elements by -1; element.is-noop()
   
   def walk(walker)
-    let elements = walk-array(@elements, walker)
-    if elements != @elements
-      Obj @pos, elements
+    let mutable changed = false
+    let pairs = for pair in @elements
+      let value = walker(pair.value, this, \element) ? pair.value.walk walker
+      if value != pair.value
+        changed := true
+        ObjPair pair.pos, pair.key, value
+      else
+        pair
+    
+    if changed
+      Obj @pos, pairs
     else
       this
   
@@ -1937,7 +1948,7 @@ exports.Obj := class Obj extends Expression
     def is-large() -> @value.is-large()
     def is-noop() -> @value.is-noop()
     def walk(walker)
-      let value = walker(@value) ? @value.walk(walker)
+      let value = walker(@value, this, \value) ? @value.walk(walker)
       if value != @value
         ObjPair @pos, @key, value
       else
@@ -1993,7 +2004,7 @@ exports.Return := class Return extends Statement
       options.source-map.pop-file()
   
   def walk(walker)
-    let node = walker(@node) ? @node.walk(walker)
+    let node = walker(@node, this, \node) ? @node.walk(walker)
     if node != @node
       Return @pos, node
     else
@@ -2163,7 +2174,7 @@ exports.Throw := class Throw extends Statement
       options.source-map.pop-file()
   
   def walk(walker)
-    let node = walker(@node) ? @node.walk(walker)
+    let node = walker(@node, this, \node) ? @node.walk(walker)
     if node != @node
       Throw @pos, node
     else
@@ -2256,11 +2267,19 @@ exports.Switch := class Switch extends Statement
       options.source-map.pop-file()
   
   def walk(walker)
-    let node = walker(@node) ? @node.walk(walker)
-    let cases = walk-array(@cases, walker)
-    let default-case = walker(@default-case) ? @default-case.walk(walker)
-    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
-    if node != @node or cases != @cases or default-case != @default-case or label != @label
+    let node = walker(@node, this, \node) ? @node.walk(walker)
+    let mutable cases-changed = false
+    let cases = for case_ in @cases
+      let case-node = walker(case_.node, this, \case-node) ? case_.node.walk(walker)
+      let case-body = walker(case_.body, this, \case-body) ? case_.body.walk(walker)
+      if case-node != case_.node or case-body != case_.body
+        cases-changed := true
+        SwitchCase case_.pos, case-node, case-body
+      else
+        case_
+    let default-case = walker(@default-case, this, \default-case) ? @default-case.walk(walker)
+    let label = if @label? then walker(@label, this, \label) ? @label.walk(walker) else @label
+    if node != @node or cases-changed or default-case != @default-case or label != @label
       Switch @pos, node, cases, default-case, label
     else
       this
@@ -2342,8 +2361,8 @@ exports.Switch := class Switch extends Statement
     def is-small() -> false
     
     def walk(walker)
-      let node = walker(@node) ? @node.walk(walker)
-      let body = walker(@body) ? @body.walk(walker)
+      let node = walker(@node, this, \node) ? @node.walk(walker)
+      let body = walker(@body, this, \body) ? @body.walk(walker)
       if node != @node or body != @body
         SwitchCase @pos, node, body
       else
@@ -2399,10 +2418,10 @@ exports.TryCatch := class TryCatch extends Statement
       options.source-map.pop-file()
   
   def walk(walker)
-    let try-body = walker(@try-body) ? @try-body.walk(walker)
-    let catch-ident = walker(@catch-ident) ? @catch-ident.walk(walker)
-    let catch-body = walker(@catch-body) ? @catch-body.walk(walker)
-    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    let try-body = walker(@try-body, this, \try-body) ? @try-body.walk(walker)
+    let catch-ident = walker(@catch-ident, this, \catch-ident) ? @catch-ident.walk(walker)
+    let catch-body = walker(@catch-body, this, \catch-body) ? @catch-body.walk(walker)
+    let label = if @label? then walker(@label, this, \label) ? @label.walk(walker) else @label
     if try-body != @try-body or catch-ident != @catch-ident or catch-body != @catch-body or label != @label
       TryCatch @pos, try-body, catch-ident, catch-body, label
     else
@@ -2497,9 +2516,9 @@ exports.TryFinally := class TryFinally extends Statement
       options.source-map.pop-file()
   
   def walk(walker)
-    let try-body = walker(@try-body) ? @try-body.walk(walker)
-    let finally-body = walker(@finally-body) ? @finally-body.walk(walker)
-    let label = if @label? then walker(@label) ? @label.walk(walker) else @label
+    let try-body = walker(@try-body, this, \try-body) ? @try-body.walk(walker)
+    let finally-body = walker(@finally-body, this, \finally-body) ? @finally-body.walk(walker)
+    let label = if @label? then walker(@label, this, \label) ? @label.walk(walker) else @label
     if try-body != @try-body or finally-body != @finally-body or label != @label
       TryFinally @pos, try-body, finally-body, label
     else
@@ -2597,7 +2616,7 @@ exports.Unary := class Unary extends Expression
     @_is-noop ?= ASSIGNMENT_OPERATORS not ownskey @op and @node.is-noop()
   
   def walk(walker)
-    let node = walker(@node) ? @node.walk(walker)
+    let node = walker(@node, this, \node) ? @node.walk(walker)
     if node != @node
       Unary(@pos, @op, node)
     else

@@ -18,7 +18,7 @@ module.exports := class SourceMap
       @push-file source-file
       @add generated-line, generated-column, source-line, source-column
       @pop-file()
-    else if source-line != 0 and @source-files.length > 0
+    else if source-line > 0 and @source-files.length > 0
       @generator.add-mapping {
         generated: { line: generated-line, column: generated-column }
         original: { line: source-line, column: source-column }

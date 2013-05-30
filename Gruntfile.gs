@@ -17,6 +17,20 @@ module.exports := #(grunt)
           ext: ".js"
         }]
       
+      "build-cov":
+        options: {
+          +verbose
+          +coverage
+        }
+        files: [{
+          expand: true
+          cwd: "src/"
+          src: for filter file in fs.readdir-sync('./src')
+            path.extname(file) == ".gs" and not file.match(r"prelude\.gs\$") and file != "shared.gs"
+          dest: "lib-cov/"
+          ext: ".js"
+        }]
+      
       test:
         options: {
           +verbose

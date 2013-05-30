@@ -1916,6 +1916,16 @@ let translate-function-body(pos, is-generator, scope, body, unassigned = {})
 let make-get-pos(get-position as ->) #(node as ParserNode)
   let pos = get-position(node.index)
   make-pos(pos.line, pos.column, node.file)
+
+let propagate-filenames(node)
+  let file = node.pos.file
+  if file
+    node.walk #(subnode)
+      subnode.pos.file or= file
+      propagate-filenames(subnode)
+  else
+    node.walk propagate-filenames
+
 let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-position)
   if not is-array! roots
     roots := [roots]
@@ -2021,6 +2031,8 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
           ast.Const node.pos, \_
         node), { return: true }
   
+  body := propagate-filenames body
+  
   let {comments, body: mutable uncommented-body} = split-comments body
   if scope.options.embedded
     uncommented-body := ast.Block body.pos,
@@ -2050,7 +2062,7 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
     if scope.options.undefined-name?
       scope.add-variable scope.options.undefined-name
     
-    ast.Root body.pos,
+    propagate-filenames ast.Root body.pos,
       ast.Block body.pos, [...comments, ...bare-init, ...init, uncommented-body]
       scope.get-variables()
       ["use strict"]

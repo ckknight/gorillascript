@@ -204,6 +204,17 @@ exports.ast := promise! #(source, options = {})*
 exports.ast-sync := #(source, options = {})
   exports.ast.sync source, {} <<< options <<< {+sync}
 
+let handle-ast-pipe(mutable node, options, file-sources)
+  if is-function! options.ast-pipe
+    require! ast: './jsast'
+    node := options.ast-pipe node, file-sources
+    if node not instanceof ast.Root
+      throw Error "Expected astPipe to return a Root, got $(typeof! node)"
+  if options.coverage
+    require! './coverage'
+    node := coverage node, file-sources
+  node
+
 exports.compile := promise! #(source, options = {})*
   let sync = options.sync
   let start-time = new Date().get-time()
@@ -212,11 +223,10 @@ exports.compile := promise! #(source, options = {})*
   else
     yield exports.ast source, options
   let mutable node = translated.node
-  if is-function! options.ast-pipe
-    require! ast: './jsast'
-    node := options.ast-pipe node
-    if node not instanceof ast.Root
-      throw Error "Expected astPipe to return a Root, got $(typeof! node)"
+  let file-sources = {}
+  if options.filename
+    file-sources[options.filename] := source
+  node := handle-ast-pipe node, options, file-sources
   let compiled = node.compile options
   return {
     translated.parse-time
@@ -291,11 +301,10 @@ exports.compile-file := promise! #(mutable options = {})!*
     (for x in parsed; x.get-position)
     options)
   let mutable node = translated.node
-  if is-function! options.ast-pipe
-    require! ast: './jsast'
-    node := options.ast-pipe node
-    if node not instanceof ast.Root
-      throw Error "Expected astPipe to return a Root, got $(typeof! node)"
+  let file-sources = {}
+  for input, i in inputs
+    file-sources[input] := sources[i]
+  node := handle-ast-pipe node, options, file-sources
   let compiled = node.compile options
   unless sync
     yield delay! 0
