@@ -2597,6 +2597,8 @@ exports.Unary := class Unary extends Expression
   def is-large() -> @node.is-large()
   def is-small() -> @node.is-small()
   
+  def is-assign() -> ASSIGNMENT_OPERATORS ownskey @op
+  
   def is-noop()
     @_is-noop ?= ASSIGNMENT_OPERATORS not ownskey @op and @node.is-noop()
   

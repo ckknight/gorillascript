@@ -562,7 +562,6 @@ class MacroContext
         IdentNode obj.index, scope, \__node
         [
           ConstNode obj.index, scope, obj.type-id
-          ConstNode obj.index, scope, obj.index
           ...(for item in obj._to-JSON()
             constify-object item, obj.index, scope)
         ]
@@ -594,11 +593,11 @@ class MacroContext
     else
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
   
-  def node(type-id as Number, index, ...args)
+  def node(type-id as Number, ...args)
     if type-id == ParserNodeType.MacroAccess
-      @macro index, ...args
+      @macro ...args
     else
-      Node.by-type-id[type-id](index, @scope(), ...args).reduce(@parser)
+      Node.by-type-id[type-id](@index, @scope(), ...args).reduce(@parser)
   
   def get-const-value(name as String, default-value)
     let c = @parser.get-const(name)
@@ -627,8 +626,8 @@ class MacroContext
   def get-const(name as String)
     to-literal-node@ this, @get-const-value(name)
   
-  def macro(index, id, call-line, data, position, in-generator, in-evil-ast)
-    Node.MacroAccess(index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
+  def macro(id, call-line, data, position, in-generator, in-evil-ast)
+    Node.MacroAccess(@index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
   
   def walk(node as Node|void|null, func as Node -> Node)
     if node?
