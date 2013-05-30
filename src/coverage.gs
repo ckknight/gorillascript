@@ -5,7 +5,7 @@ module.exports := #(root, sources)
   let walker(node, parent, position)
     let pos = node.pos
     let {file, line} = pos
-    if file and sources[file] and line > 1
+    if file and sources[file] and line > 0
       let done-lines = done-lines-by-file[file] ?= []
       if not done-lines[line]
         unless (node instanceof ast.Binary and node.op == "." and parent instanceof ast.Call and parent.func == node) or (parent instanceof ast.Func and position == \param) or (parent instanceof ast.TryCatch and position == \catch-ident) or (parent instanceof ast.ForIn and position == \key)

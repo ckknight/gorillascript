@@ -3104,11 +3104,15 @@
             var len, parts, s;
             s = String(item);
             parts = s.split(/(?:\r\n?|[\n\u2028\u2029])/g);
-            if (parts.length === 1) {
+            switch (parts.length) {
+            case 0:
+              break;
+            case 1:
               cb.column -= -parts[0].length;
-            } else {
+              break;
+            default:
               len = parts.length;
-              cb.line -= +len + 1;
+              cb.line -= -len + 1;
               cb.column = +parts[len - 1].length + 1;
             }
             callback(s);
@@ -3348,12 +3352,12 @@
           };
           return Arguments;
         }(Expression));
-        function walkArray(array, walker) {
+        function walkArray(array, parent, message, walker) {
           var _arr, _i, _len, changed, item, newItem, result;
           changed = false;
           for (_arr = [], _i = 0, _len = array.length; _i < _len; ++_i) {
             item = array[_i];
-            newItem = walker(item);
+            newItem = walker(item, parent, message);
             if (newItem == null) {
               newItem = item.walk(walker);
             }
@@ -3579,7 +3583,7 @@
           };
           _Arr_prototype.walk = function (walker) {
             var elements;
-            elements = walkArray(this.elements, walker);
+            elements = walkArray(this.elements, this, "element", walker);
             if (this.elements !== elements) {
               return Arr(this.pos, elements);
             } else {
@@ -3616,8 +3620,22 @@
           };
           return Arr;
         }(Expression));
-        exports.Assign = function (pos, left, right) {
-          return Binary(pos, left, "=", right);
+        exports.Assign = function (pos) {
+          var _i, _i2, end, left, right, start;
+          _i = arguments.length - 1;
+          if (_i > 1) {
+            start = __slice.call(arguments, 1, _i);
+          } else {
+            _i = 1;
+            start = [];
+          }
+          end = arguments[_i];
+          right = end;
+          for (_i2 = start.length; _i2--; ) {
+            left = start[_i2];
+            right = Binary(pos, left, "=", right);
+          }
+          return right;
         };
         exports.BinaryChain = function (pos, op) {
           var _i, _len, arg, args, current, i, left, right;
@@ -3944,12 +3962,12 @@
           _Binary_prototype.walk = function (walker) {
             var _ref, changed, left, right;
             changed = false;
-            if ((_ref = walker(this.left)) != null) {
+            if ((_ref = walker(this.left, this, "left")) != null) {
               left = _ref;
             } else {
               left = this.left.walk(walker);
             }
-            if ((_ref = walker(this.right)) != null) {
+            if ((_ref = walker(this.right, this, "right")) != null) {
               right = _ref;
             } else {
               right = this.right.walk(walker);
@@ -4110,12 +4128,12 @@
           };
           _BlockStatement_prototype.walk = function (walker) {
             var _ref, body, label;
-            body = walkArray(this.body, walker);
+            body = walkArray(this.body, this, "node", walker);
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
-                label = this.label.walk(walker);
+                label = this.label.walk(walker, this);
               }
             } else {
               label = this.label;
@@ -4484,7 +4502,7 @@
           _Break_prototype.walk = function (walker) {
             var _ref, label;
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
                 label = this.label.walk(walker);
@@ -4686,12 +4704,12 @@
           };
           _Call_prototype.walk = function (walker) {
             var _ref, args, func;
-            if ((_ref = walker(this.func)) != null) {
+            if ((_ref = walker(this.func, this, "func")) != null) {
               func = _ref;
             } else {
               func = this.func.walk(walker);
             }
-            args = walkArray(this.args, walker);
+            args = walkArray(this.args, this, "arg", walker);
             if (this.func !== func || this.args !== args) {
               return Call(this.pos, func, args, this.isNew);
             } else {
@@ -4961,7 +4979,7 @@
           _Continue_prototype.walk = function (walker) {
             var _ref, label;
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
                 label = this.label.walk(walker);
@@ -5140,18 +5158,18 @@
           };
           _DoWhile_prototype.walk = function (walker) {
             var _ref, body, label, test;
-            if ((_ref = walker(this.body)) != null) {
+            if ((_ref = walker(this.body, this, "body")) != null) {
               body = _ref;
             } else {
               body = this.body.walk(walker);
             }
-            if ((_ref = walker(this.test)) != null) {
+            if ((_ref = walker(this.test, this, "test")) != null) {
               test = _ref;
             } else {
               test = this.test.walk(walker);
             }
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
                 label = this.label.walk(walker);
@@ -5247,7 +5265,7 @@
           };
           _Eval_prototype.walk = function (walker) {
             var _ref, code;
-            if ((_ref = walker(this.code)) != null) {
+            if ((_ref = walker(this.code, this, "code")) != null) {
               code = _ref;
             } else {
               code = this.code.walk(walker);
@@ -5400,28 +5418,28 @@
           };
           _For_prototype.walk = function (walker) {
             var _ref, body, init, label, step, test;
-            if ((_ref = walker(this.init)) != null) {
+            if ((_ref = walker(this.init, this, "init")) != null) {
               init = _ref;
             } else {
               init = this.init.walk(walker);
             }
-            if ((_ref = walker(this.test)) != null) {
+            if ((_ref = walker(this.test, this, "test")) != null) {
               test = _ref;
             } else {
               test = this.test.walk(walker);
             }
-            if ((_ref = walker(this.step)) != null) {
+            if ((_ref = walker(this.step, this, "step")) != null) {
               step = _ref;
             } else {
               step = this.step.walk(walker);
             }
-            if ((_ref = walker(this.body)) != null) {
+            if ((_ref = walker(this.body, this, "body")) != null) {
               body = _ref;
             } else {
               body = this.body.walk(walker);
             }
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
                 label = this.label.walk(walker);
@@ -5582,23 +5600,23 @@
           };
           _ForIn_prototype.walk = function (walker) {
             var _ref, body, key, label, object;
-            if ((_ref = walker(this.key)) != null) {
+            if ((_ref = walker(this.key, this, "key")) != null) {
               key = _ref;
             } else {
               key = this.key.walk(walker);
             }
-            if ((_ref = walker(this.object)) != null) {
+            if ((_ref = walker(this.object, this, "object")) != null) {
               object = _ref;
             } else {
               object = this.object.walk(walker);
             }
-            if ((_ref = walker(this.body)) != null) {
+            if ((_ref = walker(this.body, this, "body")) != null) {
               body = _ref;
             } else {
               body = this.body.walk(walker);
             }
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
                 label = this.label.walk(walker);
@@ -5878,7 +5896,7 @@
           _Func_prototype.walk = function (walker) {
             var _ref, body, name, params;
             if (this.name) {
-              if ((_ref = walker(this.name)) != null) {
+              if ((_ref = walker(this.name, this, "name")) != null) {
                 name = _ref;
               } else {
                 name = this.name.walk(walker);
@@ -5886,7 +5904,7 @@
             } else {
               name = this.name;
             }
-            params = walkArray(this.params, walker);
+            params = walkArray(this.params, this, "param", walker);
             body = this.body.walk(walker);
             if (name !== this.name || params !== this.params || body !== this.body) {
               return Func(
@@ -6205,23 +6223,23 @@
           };
           _IfStatement_prototype.walk = function (walker) {
             var _ref, label, test, whenFalse, whenTrue;
-            if ((_ref = walker(this.test)) != null) {
+            if ((_ref = walker(this.test, this, "test")) != null) {
               test = _ref;
             } else {
               test = this.test.walk(walker);
             }
-            if ((_ref = walker(this.whenTrue)) != null) {
+            if ((_ref = walker(this.whenTrue, this, "whenTrue")) != null) {
               whenTrue = _ref;
             } else {
               whenTrue = this.whenTrue.walk(walker);
             }
-            if ((_ref = walker(this.whenFalse)) != null) {
+            if ((_ref = walker(this.whenFalse, this, "whenFalse")) != null) {
               whenFalse = _ref;
             } else {
               whenFalse = this.whenFalse.walk(walker);
             }
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
                 label = this.label.walk(walker);
@@ -6818,10 +6836,25 @@
             }
           };
           _Obj_prototype.walk = function (walker) {
-            var elements;
-            elements = walkArray(this.elements, walker);
-            if (elements !== this.elements) {
-              return Obj(this.pos, elements);
+            var _arr, _arr2, _i, _len, _ref, changed, pair, pairs, value;
+            changed = false;
+            for (_arr = [], _arr2 = __toArray(this.elements), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+              pair = _arr2[_i];
+              if ((_ref = walker(pair.value, this, "element")) != null) {
+                value = _ref;
+              } else {
+                value = pair.value.walk(walker);
+              }
+              if (value !== pair.value) {
+                changed = true;
+                _arr.push(ObjPair(pair.pos, pair.key, value));
+              } else {
+                _arr.push(pair);
+              }
+            }
+            pairs = _arr;
+            if (changed) {
+              return Obj(this.pos, pairs);
             } else {
               return this;
             }
@@ -6923,7 +6956,7 @@
             };
             _ObjPair_prototype.walk = function (walker) {
               var _ref, value;
-              if ((_ref = walker(this.value)) != null) {
+              if ((_ref = walker(this.value, this, "value")) != null) {
                 value = _ref;
               } else {
                 value = this.value.walk(walker);
@@ -7069,7 +7102,7 @@
           };
           _Return_prototype.walk = function (walker) {
             var _ref, node;
-            if ((_ref = walker(this.node)) != null) {
+            if ((_ref = walker(this.node, this, "node")) != null) {
               node = _ref;
             } else {
               node = this.node.walk(walker);
@@ -7435,7 +7468,7 @@
           };
           _Throw_prototype.walk = function (walker) {
             var _ref, node;
-            if ((_ref = walker(this.node)) != null) {
+            if ((_ref = walker(this.node, this, "node")) != null) {
               node = _ref;
             } else {
               node = this.node.walk(walker);
@@ -7600,20 +7633,41 @@
             }
           };
           _Switch_prototype.walk = function (walker) {
-            var _ref, cases, defaultCase, label, node;
-            if ((_ref = walker(this.node)) != null) {
+            var _arr, _arr2, _i, _len, _ref, case_, caseBody, caseNode, cases,
+                casesChanged, defaultCase, label, node;
+            if ((_ref = walker(this.node, this, "node")) != null) {
               node = _ref;
             } else {
               node = this.node.walk(walker);
             }
-            cases = walkArray(this.cases, walker);
-            if ((_ref = walker(this.defaultCase)) != null) {
+            casesChanged = false;
+            for (_arr = [], _arr2 = __toArray(this.cases), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+              case_ = _arr2[_i];
+              if ((_ref = walker(case_.node, this, "caseNode")) != null) {
+                caseNode = _ref;
+              } else {
+                caseNode = case_.node.walk(walker);
+              }
+              if ((_ref = walker(case_.body, this, "caseBody")) != null) {
+                caseBody = _ref;
+              } else {
+                caseBody = case_.body.walk(walker);
+              }
+              if (caseNode !== case_.node || caseBody !== case_.body) {
+                casesChanged = true;
+                _arr.push(SwitchCase(case_.pos, caseNode, caseBody));
+              } else {
+                _arr.push(case_);
+              }
+            }
+            cases = _arr;
+            if ((_ref = walker(this.defaultCase, this, "defaultCase")) != null) {
               defaultCase = _ref;
             } else {
               defaultCase = this.defaultCase.walk(walker);
             }
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
                 label = this.label.walk(walker);
@@ -7621,7 +7675,7 @@
             } else {
               label = this.label;
             }
-            if (node !== this.node || cases !== this.cases || defaultCase !== this.defaultCase || label !== this.label) {
+            if (node !== this.node || casesChanged || defaultCase !== this.defaultCase || label !== this.label) {
               return Switch(
                 this.pos,
                 node,
@@ -7778,12 +7832,12 @@
             };
             _SwitchCase_prototype.walk = function (walker) {
               var _ref, body, node;
-              if ((_ref = walker(this.node)) != null) {
+              if ((_ref = walker(this.node, this, "node")) != null) {
                 node = _ref;
               } else {
                 node = this.node.walk(walker);
               }
-              if ((_ref = walker(this.body)) != null) {
+              if ((_ref = walker(this.body, this, "body")) != null) {
                 body = _ref;
               } else {
                 body = this.body.walk(walker);
@@ -7893,23 +7947,23 @@
           };
           _TryCatch_prototype.walk = function (walker) {
             var _ref, catchBody, catchIdent, label, tryBody;
-            if ((_ref = walker(this.tryBody)) != null) {
+            if ((_ref = walker(this.tryBody, this, "tryBody")) != null) {
               tryBody = _ref;
             } else {
               tryBody = this.tryBody.walk(walker);
             }
-            if ((_ref = walker(this.catchIdent)) != null) {
+            if ((_ref = walker(this.catchIdent, this, "catchIdent")) != null) {
               catchIdent = _ref;
             } else {
               catchIdent = this.catchIdent.walk(walker);
             }
-            if ((_ref = walker(this.catchBody)) != null) {
+            if ((_ref = walker(this.catchBody, this, "catchBody")) != null) {
               catchBody = _ref;
             } else {
               catchBody = this.catchBody.walk(walker);
             }
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
                 label = this.label.walk(walker);
@@ -8095,18 +8149,18 @@
           };
           _TryFinally_prototype.walk = function (walker) {
             var _ref, finallyBody, label, tryBody;
-            if ((_ref = walker(this.tryBody)) != null) {
+            if ((_ref = walker(this.tryBody, this, "tryBody")) != null) {
               tryBody = _ref;
             } else {
               tryBody = this.tryBody.walk(walker);
             }
-            if ((_ref = walker(this.finallyBody)) != null) {
+            if ((_ref = walker(this.finallyBody, this, "finallyBody")) != null) {
               finallyBody = _ref;
             } else {
               finallyBody = this.finallyBody.walk(walker);
             }
             if (this.label != null) {
-              if ((_ref = walker(this.label)) != null) {
+              if ((_ref = walker(this.label, this, "label")) != null) {
                 label = _ref;
               } else {
                 label = this.label.walk(walker);
@@ -8272,7 +8326,7 @@
           };
           _Unary_prototype.walk = function (walker) {
             var _ref, node;
-            if ((_ref = walker(this.node)) != null) {
+            if ((_ref = walker(this.node, this, "node")) != null) {
               node = _ref;
             } else {
               node = this.node.walk(walker);
@@ -24388,7 +24442,7 @@
                     return BinaryNode(
                       this.index,
                       this.scope,
-                      node.left,
+                      UnaryNode(node.left.index, node.left.scope, "-", node.left),
                       node.op === "-" ? "+" : "-",
                       node.right
                     );
@@ -30584,6 +30638,21 @@
             return makePos(pos.line, pos.column, node.file);
           };
         }
+        function propagateFilenames(node) {
+          var file;
+          file = node.pos.file;
+          if (file) {
+            return node.walk(function (subnode) {
+              var _ref;
+              if (!(_ref = subnode.pos).file) {
+                _ref.file = file;
+              }
+              return propagateFilenames(subnode);
+            });
+          } else {
+            return node.walk(propagateFilenames);
+          }
+        }
         function translateRoot(roots, scope, getPosition) {
           var _arr, _i, _len, _ref, bareInit, body, callFunc, comments, fakeThis,
               helper, ident, init, name, noPos, uncommentedBody, walker, wrap;
@@ -30753,6 +30822,7 @@
               { "return": true }
             );
           }
+          body = propagateFilenames(body);
           _ref = splitComments(body);
           comments = _ref.comments;
           uncommentedBody = _ref.body;
@@ -30798,12 +30868,12 @@
             if (scope.options.undefinedName != null) {
               scope.addVariable(scope.options.undefinedName);
             }
-            return ast.Root(
+            return propagateFilenames(ast.Root(
               body.pos,
               ast.Block(body.pos, __toArray(comments).concat(__toArray(bareInit), __toArray(init), [uncommentedBody])),
               scope.getVariables(),
               ["use strict"]
-            );
+            ));
           } else {
             callFunc = ast.Call(
               body.pos,
@@ -31295,7 +31365,7 @@
         _ref = require("./utils");
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-        exports.version = "0.8.9";
+        exports.version = "0.8.11";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -31900,9 +31970,24 @@
           }
           return exports.ast.sync(source, ((_ref = __import({}, options)).sync = true, _ref));
         };
+        function handleAstPipe(node, options, fileSources) {
+          var ast, coverage;
+          if (typeof options.astPipe === "function") {
+            ast = require("./jsast");
+            node = options.astPipe(node, fileSources);
+            if (!(node instanceof ast.Root)) {
+              throw Error("Expected astPipe to return a Root, got " + __typeof(node));
+            }
+          }
+          if (options.coverage) {
+            coverage = require("./coverage");
+            node = coverage(node, fileSources);
+          }
+          return node;
+        }
         exports.compile = __promise(function (source, options) {
-          var _e, _send, _state, _step, _throw, ast, compiled, node, startTime, sync,
-              translated;
+          var _e, _send, _state, _step, _throw, compiled, fileSources, node,
+              startTime, sync, translated;
           _state = 0;
           function _close() {
             _state = 5;
@@ -31933,13 +32018,11 @@
                 ++_state;
               case 4:
                 node = translated.node;
-                if (typeof options.astPipe === "function") {
-                  ast = require("./jsast");
-                  node = options.astPipe(node);
-                  if (!(node instanceof ast.Root)) {
-                    throw Error("Expected astPipe to return a Root, got " + __typeof(node));
-                  }
+                fileSources = {};
+                if (options.filename) {
+                  fileSources[options.filename] = source;
                 }
+                node = handleAstPipe(node, options, fileSources);
                 compiled = node.compile(options);
                 ++_state;
                 return {
@@ -31995,8 +32078,8 @@
           return exports.compile.sync(source, ((_ref = __import({}, options)).sync = true, _ref));
         };
         exports.compileFile = __promise(function (options) {
-          var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, ast, code,
-              compiled, footer, i, input, inputs, linefeed, name, node,
+          var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, code, compiled,
+              fileSources, footer, i, input, inputs, linefeed, name, node,
               originalProgress, output, parsed, progressCounts, source, sourceMapFile,
               sources, startParseTime, sync, translated, translator;
           _state = 0;
@@ -32028,7 +32111,7 @@
                   options.sourceMap = null;
                 } else if (typeof options.sourceMap === "string") {
                   sourceMapFile = options.sourceMap;
-                  options.sourceMap = SourceMap(options.output, "");
+                  options.sourceMap = SourceMap(sourceMapFile, options.output, "");
                 } else {
                   if (typeof options.sourceMap.file !== "string") {
                     throw Error("Expected options.sourceMap.file to be a string, got " + __typeof(options.sourceMap.file));
@@ -32037,7 +32120,7 @@
                     throw Error("Expected options.sourceMap.sourceRoot to be a string, got " + __typeof(options.sourceMap.sourceRoot));
                   }
                   sourceMapFile = options.sourceMap.file;
-                  options.sourceMap = SourceMap(options.output, options.sourceMap.sourceRoot);
+                  options.sourceMap = SourceMap(sourceMapFile, options.output, options.sourceMap.sourceRoot);
                 }
                 sources = [];
                 _state = sync ? 1 : 2;
@@ -32180,13 +32263,12 @@
                   options
                 );
                 node = translated.node;
-                if (typeof options.astPipe === "function") {
-                  ast = require("./jsast");
-                  node = options.astPipe(node);
-                  if (!(node instanceof ast.Root)) {
-                    throw Error("Expected astPipe to return a Root, got " + __typeof(node));
-                  }
+                fileSources = {};
+                for (_arr = __toArray(inputs), i = 0, _len = _arr.length; i < _len; ++i) {
+                  input = _arr[i];
+                  fileSources[input] = sources[i];
                 }
+                node = handleAstPipe(node, options, fileSources);
                 compiled = node.compile(options);
                 _state = !sync ? 12 : 13;
                 break;

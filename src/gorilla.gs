@@ -259,14 +259,14 @@ exports.compile-file := promise! #(mutable options = {})!*
     options.source-map := null // in case it was set to a falsy value
   else if is-string! options.source-map
     source-map-file := options.source-map
-    options.source-map := SourceMap(options.output, "")
+    options.source-map := SourceMap(source-map-file, options.output, "")
   else
     if not is-string! options.source-map.file
       throw Error "Expected options.sourceMap.file to be a string, got $(typeof! options.source-map.file)"
     if not is-string! options.source-map.source-root
       throw Error "Expected options.sourceMap.sourceRoot to be a string, got $(typeof! options.source-map.source-root)"
     source-map-file := options.source-map.file
-    options.source-map := SourceMap(options.output, options.source-map.source-root)
+    options.source-map := SourceMap(source-map-file, options.output, options.source-map.source-root)
   let mutable sources = []
   if sync
     for input in inputs
