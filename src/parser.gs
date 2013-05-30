@@ -4814,6 +4814,8 @@ class Parser
     @Tmp index, (@current-tmp-id += 1), name, type
 
   let make-get-position(line-info) -> #(index as Number)
+    if index == 0
+      return { line: 0, column: 0 }
     let mutable left = 0
     let mutable right as Number = line-info.length
     while left != right

@@ -583,13 +583,13 @@ class MacroContext
   
   def wrap(value)
     if is-array! value
-      BlockNode(0, @scope(), value).reduce(@parser)
+      BlockNode(@index, @scope(), value).reduce(@parser)
     else if value instanceof Node
       value
     else if not value?
-      NothingNode(0, @scope())
+      NothingNode(@index, @scope())
     else if value instanceof RegExp or typeof value in [\string, \boolean, \number]
-      ConstNode(0, @scope(), value)
+      ConstNode(@index, @scope(), value)
     else
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
   

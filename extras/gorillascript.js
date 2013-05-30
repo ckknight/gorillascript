@@ -15327,6 +15327,9 @@
           function makeGetPosition(lineInfo) {
             return function (index) {
               var current, i, left, right;
+              if (index === 0) {
+                return { line: 0, column: 0 };
+              }
               left = 0;
               right = lineInfo.length;
               while (left !== right) {
@@ -26438,13 +26441,13 @@
           _MacroContext_prototype.wrap = function (value) {
             var _ref;
             if (__isArray(value)) {
-              return BlockNode(0, this.scope(), value).reduce(this.parser);
+              return BlockNode(this.index, this.scope(), value).reduce(this.parser);
             } else if (value instanceof Node) {
               return value;
             } else if (value == null) {
-              return NothingNode(0, this.scope());
+              return NothingNode(this.index, this.scope());
             } else if (value instanceof RegExp || (_ref = typeof value) === "string" || _ref === "boolean" || _ref === "number") {
-              return ConstNode(0, this.scope(), value);
+              return ConstNode(this.index, this.scope(), value);
             } else {
               return value;
             }
@@ -30590,11 +30593,11 @@
                 return x;
               },
               body: ast.Block(noPos, (function () {
-                var _arr, _arr2, _i, _len, _ref, comments, innerScope, root, rootBody,
+                var _arr, _arr2, _len, _ref, comments, i, innerScope, root, rootBody,
                     rootPos;
-                for (_arr = [], _arr2 = __toArray(roots), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
-                  root = _arr2[_i];
-                  getPos = makeGetPos(getPosition[0]);
+                for (_arr = [], _arr2 = __toArray(roots), i = 0, _len = _arr2.length; i < _len; ++i) {
+                  root = _arr2[i];
+                  getPos = makeGetPos(getPosition[i]);
                   if (!(root instanceof ParserNode.Root)) {
                     throw Error("Cannot translate non-Root object");
                   }
