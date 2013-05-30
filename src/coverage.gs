@@ -8,7 +8,7 @@ module.exports := #(root, sources)
     if file and sources[file] and line > 0
       let done-lines = done-lines-by-file[file] ?= []
       if not done-lines[line]
-        unless (node instanceof ast.Binary and node.op == "." and parent instanceof ast.Call and parent.func == node) or (parent instanceof ast.Func and position == \param) or (parent instanceof ast.TryCatch and position == \catch-ident) or (parent instanceof ast.ForIn and position == \key)
+        unless (node instanceof ast.Binary and node.op == "." and parent instanceof ast.Call and position == \func) or (parent instanceof ast.Func and position == \param) or (parent instanceof ast.TryCatch and position == \catch-ident) or (parent instanceof ast.ForIn and position == \key) or (parent instanceof ast.Binary and parent.is-assign() and position == \left) or (parent instanceof ast.Switch and position == \case-node) or (parent instanceofsome [ast.IfStatement, ast.IfExpression] and position == \test and parent.test.pos.line == parent.when-true.pos.line) or node instanceof ast.Noop
           done-lines[line] := true
           ast.Block pos, [
             ast.Unary pos, "++", ast.Access pos,

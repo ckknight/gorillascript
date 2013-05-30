@@ -388,6 +388,27 @@ exports.Binary := class Binary extends Expression
     if right not instanceof Expression
       right := to-const pos, right
     
+    if ASSIGNMENT_OPS ownskey op
+      if left not instanceof Ident and not (left instanceof Binary and left.op == ".")
+        throw Error "Cannot assign with $op to non-Ident or Access: $(typeof! left)"
+      if left instanceof Binary
+        if left.left instanceof BlockExpression
+          return BlockExpression pos, [
+            ...left.left.body[0 til -1]
+            Binary@ this, pos, Binary(left.pos, left.left.body[* - 1], ".", left.right), op, right
+          ]
+      
+      if right instanceof BlockExpression and (left instanceof Ident or (left.left.is-noop() and left.right.is-noop()))
+        return BlockExpression pos, [
+          ...right.body[0 til -1]
+          Binary@ this, pos, left, op, right.body[* - 1]
+        ]
+    else if left instanceof BlockExpression and op != "."
+      return BlockExpression pos, [
+        ...left.body[0 til -1]
+        Binary@ this, pos, left.body[* - 1], op, right
+      ]
+    
     @left := left
     @right := right
   
@@ -492,6 +513,7 @@ exports.Binary := class Binary extends Expression
     +"^="
     +"|="
   }
+  def is-assign() -> ASSIGNMENT_OPS ownskey @op
   
   let OPERATOR_PRECEDENCE =
     ".": Level.call-or-access
@@ -1530,13 +1552,15 @@ exports.IfStatement := class IfStatement extends Statement
           // TODO: the test inversion doesn't change the inner operators, just wraps it all
           return IfStatement@ this, pos, Unary(test.pos, "!", test), when-false, when-true, label
       else if when-false instanceof Noop and when-true instanceof IfStatement and when-true.when-false instanceof Noop and not when-true.label?
-        @test := Binary pos, test, "&&", when-true.test
-        @when-true := when-true.when-true
-        @when-false := when-false
-      else
-        @test := test
-        @when-true := when-true
-        @when-false := when-false
+        return IfStatement@ this, pos, Binary(pos, test, "&&", when-true.test), when-true.when-true, when-false
+      else if test instanceof BlockExpression
+        return BlockStatement pos, [
+          ...test.body[0 til -1]
+          IfStatement@ this, pos, test.body[* - 1], when-true, when-false
+        ]
+    @test := test
+    @when-true := when-true
+    @when-false := when-false
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
@@ -2284,7 +2308,7 @@ exports.Switch := class Switch extends Statement
     else
       this
   
-  def inspect(depth) -> @inspect-helper depth, "Switch", @pos, @node, @cases, @default-case, @label
+  def inspect(depth) -> inspect-helper depth, "Switch", @pos, @node, @cases, @default-case, @label
 
   def type-id = AstType.Switch
   def _to-ast(pos, ident)
