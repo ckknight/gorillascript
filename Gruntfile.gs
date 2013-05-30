@@ -71,6 +71,7 @@ module.exports := #(grunt)
   grunt.load-npm-tasks "grunt-contrib-uglify"
   grunt.load-npm-tasks "grunt-mocha-test"
   grunt.register-task "build", ["gorilla:build"]
+  grunt.register-task "build-cov", ["gorilla:build-cov"]
   grunt.register-task "browser", "Build gorillascript.js for use in the browser", #
     let done = @async()
     let promise = promise!

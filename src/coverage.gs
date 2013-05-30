@@ -8,7 +8,29 @@ module.exports := #(root, sources, coverage-name = \_$jscoverage)
     if file and sources[file] and line > 0
       let done-lines = done-lines-by-file[file] ?= []
       if not done-lines[line]
-        unless (node instanceof ast.Binary and node.op == "." and parent instanceof ast.Call and position == \func) or (parent instanceof ast.Func and position == \param) or (parent instanceof ast.TryCatch and position == \catch-ident) or (parent instanceof ast.ForIn and position == \key) or (parent instanceof ast.Binary and parent.is-assign() and position == \left) or (parent instanceof ast.Switch and position == \case-node) or (parent instanceofsome [ast.IfStatement, ast.IfExpression] and position == \test and parent.test.pos.line == parent.when-true.pos.line) or node instanceof ast.Noop or (node instanceof ast.Func and node.body.pos.line == line) or (parent instanceof ast.Unary and parent.is-assign()) or (parent instanceof ast.Func and position == \name)
+        switch
+        // don't annotate lvalues
+        case parent instanceof ast.Func and position in [\param, \name]; void
+        case parent instanceof ast.TryCatch and position == \catch-ident; void
+        case parent instanceof ast.ForIn and position == \key; void
+        case parent instanceof ast.Binary and parent.is-assign() and position == \left; void
+        case parent instanceof ast.Unary and parent.is-assign(); void
+        // we care about the case bodies, not the case nodes
+        case parent instanceof ast.Switch and position == \case-node; void
+        // if a test shares the same line as its when-true, let the when-true take the line
+        case parent instanceofsome [ast.IfStatement, ast.IfExpression] and position == \test and parent.test.pos.line == parent.when-true.pos.line; void
+        // we don't want to turn a method call into an indirect function call
+        case node instanceof ast.Binary and node.op == "." and parent instanceof ast.Call and position == \func; void
+        case node instanceof ast.Noop; void
+        // if a function's body shares the same line, we care about the body, not the function declaration.
+        case node instanceof ast.Func and node.body.pos.line == line; void
+        // in the case of let x() y or def x() y, we care about the function, not the assignment
+        case node instanceof ast.Binary and node.is-assign() and node.right instanceof ast.Func and node.right.pos.line == line
+          ast.Binary pos,
+            node.left
+            node.op
+            walker(node.right, node, \right) ? node.right.walk walker
+        default
           done-lines[line] := true
           ast.Block pos, [
             ast.Unary pos, "++", ast.Access pos,
