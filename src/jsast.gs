@@ -249,9 +249,7 @@ exports.Arguments := class Arguments extends Expression
 let walk-array(array as [], parent as Node, message, walker as ->)
   let mutable changed = false
   let result = for item in array
-    let mutable new-item = walker item, parent, message
-    unless new-item?
-      new-item := item.walk walker
+    let new-item = walker(item, parent, message) ? item.walk walker
     if item != new-item
       changed := true
     new-item
@@ -1457,7 +1455,7 @@ exports.Func := class Func extends Expression
   def walk(walker)
     let name = if @name then walker(@name, this, \name) ? @name.walk(walker) else @name
     let params = walk-array(@params, this, \param, walker)
-    let body = @body.walk(walker)
+    let body = walker(@body, this, \body) ? @body.walk(walker)
     if name != @name or params != @params or body != @body
       Func @pos, name, params, @variables, body, @declarations, @meta
     else
@@ -2094,7 +2092,7 @@ exports.Root := class Root
   def is-large() -> true
   
   def walk(walker)
-    let body = @body.walk(walker)
+    let body = walker(@body, this, \body) ? @body.walk(walker)
     if body != @body
       Root @pos, body, @variables, @declarations
     else

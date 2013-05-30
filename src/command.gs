@@ -30,7 +30,8 @@ let optimist = require 'optimist'
     j: { alias: "join", +boolean, desc: "Join all the generated JavaScript into a single file" }
     "no-prelude": { +boolean, desc: "Do not include the standard prelude" }
     w: { alias: "watch", +boolean, desc: "Watch for changes and compile as-needed" }
-    options: { +string, desc: "a JSON object of options to pass into the compiler"}
+    options: { +string, desc: "a JSON object of options to pass into the compiler" }
+    coverage: { +boolean, desc: "Instrument with _\$jscoverage support" }
   }
 
 if has-gjs
@@ -58,6 +59,7 @@ optimist.check #(argv)
         if not argv[opt]
           throw "Must specify --$opt if specifying --$main-opt"
   exclusive \ast, \compile, \nodes, \stdout
+  exclusive \nodes, \cov
   depend \output, \compile
   depend \map, \output
   depend "source-root", \map
@@ -121,6 +123,8 @@ let main = promise!
     options.minify := true
   if argv.bare
     options.bare := true
+  if argv.coverage
+    options.coverage := true
 
   if argv["no-prelude"]
     options.no-prelude := true

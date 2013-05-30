@@ -1971,8 +1971,8 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
     {
       wrap: #(x) -> x
       body: ast.Block no-pos,
-        for root in roots
-          get-pos := make-get-pos get-position[0]
+        for root, i in roots
+          get-pos := make-get-pos get-position[i]
           if root not instanceof ParserNode.Root
             throw Error "Cannot translate non-Root object"
           let inner-scope = scope.clone(true)

@@ -3402,12 +3402,13 @@
           return Arguments;
         }(Expression));
         function walkArray(array, parent, message, walker) {
-          var _arr, _i, _len, changed, item, newItem, result;
+          var _arr, _i, _len, _ref, changed, item, newItem, result;
           changed = false;
           for (_arr = [], _i = 0, _len = array.length; _i < _len; ++_i) {
             item = array[_i];
-            newItem = walker(item, parent, message);
-            if (newItem == null) {
+            if ((_ref = walker(item, parent, message)) != null) {
+              newItem = _ref;
+            } else {
               newItem = item.walk(walker);
             }
             if (item !== newItem) {
@@ -5868,7 +5869,11 @@
               name = this.name;
             }
             params = walkArray(this.params, this, "param", walker);
-            body = this.body.walk(walker);
+            if ((_ref = walker(this.body, this, "body")) != null) {
+              body = _ref;
+            } else {
+              body = this.body.walk(walker);
+            }
             if (name !== this.name || params !== this.params || body !== this.body) {
               return Func(
                 this.pos,
@@ -7201,8 +7206,12 @@
             return true;
           };
           _Root_prototype.walk = function (walker) {
-            var body;
-            body = this.body.walk(walker);
+            var _ref, body;
+            if ((_ref = walker(this.body, this, "body")) != null) {
+              body = _ref;
+            } else {
+              body = this.body.walk(walker);
+            }
             if (body !== this.body) {
               return Root(this.pos, body, this.variables, this.declarations);
             } else {
@@ -31225,7 +31234,7 @@
         _ref = require("./utils");
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
-        exports.version = "0.8.12";
+        exports.version = "0.8.13";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
