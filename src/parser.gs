@@ -1738,6 +1738,7 @@ let CaretChar = character! "^"
 let OpenSquareBracketChar = character! "["
 let OpenCurlyBraceChar = character! "{"
 let CloseCurlyBraceChar = character! "}"
+let OpenParenthesisChar = character! "("
 let BackslashChar = character! "\\"
 let CommaChar = character! ","
 
@@ -2107,8 +2108,7 @@ define SpreadOrExpression = sequential(
 
 let allow-space-before-access = make-alter-stack<Boolean> \disallow-space-before-access, false
 define ClosedArguments = sequential(
-  NoSpace
-  OpenParenthesis
+  OpenParenthesisChar
   Space
   [\this, allow-space-before-access concat<Node>(
     maybe(sequential(
@@ -3579,6 +3579,11 @@ define IndentedUnclosedArrayLiteral = sequential(
 let in-ast = make-alter-stack<Boolean> \in-ast, true
 let in-evil-ast = make-alter-stack<Boolean> \in-evil-ast, true
 
+let AstPosition = maybe sequential(
+  OpenParenthesisChar
+  [\this, Expression]
+  CloseParenthesis)
+
 let AstExpression = sequential(
   word "ASTE"
   SHORT_CIRCUIT
@@ -3589,7 +3594,8 @@ let AstExpression = sequential(
       throw ParserError "Can only use ASTE inside of another AST", parser, index
     else
       Box index
-  [\this, do
+  [\position, AstPosition]
+  [\body, do
     let rule = in-ast ExpressionOrAssignment
     let evil-rule = in-evil-ast rule
     #(parser, index)
@@ -3609,7 +3615,8 @@ let AstStatement = sequential(
       throw ParserError "Can only use AST inside of another AST", parser, index
     else
       Box index
-  [\this, do
+  [\position, AstPosition]
+  [\body, do
     let rule = in-ast one-of(Body, Statement)
     let evil-rule = in-evil-ast rule
     #(parser, index)
@@ -3619,8 +3626,10 @@ let AstStatement = sequential(
       else
         rule parser, index])
 
-define Ast = one-of(AstExpression, AstStatement) |> mutate #(node, parser, index)
-  MacroContext.constify-object node, index, parser.scope.peek()
+define Ast = one-of(AstExpression, AstStatement) |> mutate #({position, body}, parser, mutable index)
+  if position and not is-number! position.index
+    throw ParserError "Unexpected position node in AST", parser, index
+  MacroContext.constify-object position, body, index, parser.scope.peek()
 
 define PrimaryExpression = one-of<Node>(
   UnclosedObjectLiteral

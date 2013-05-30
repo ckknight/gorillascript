@@ -18,7 +18,13 @@ module.exports := #(root, sources, coverage-name = \_$jscoverage)
         // we care about the case bodies, not the case nodes
         case parent instanceof ast.Switch and position == \case-node; void
         // if a test shares the same line as its when-true, let the when-true take the line
-        case parent instanceofsome [ast.IfStatement, ast.IfExpression] and position == \test and parent.test.pos.line == parent.when-true.pos.line; void
+        case parent instanceofsome [ast.IfStatement, ast.IfExpression] and position == \test and line == parent.when-true.pos.line; void
+        case node instanceofsome [ast.IfStatement, ast.IfExpression] and line == node.when-true.pos.line
+          ast.If pos,
+            node.test
+            walker(node.when-true, node, \when-false) ? node.when-false.walk walker
+            walker(node.when-false, node, \when-false) ? node.when-false.walk walker
+            node.label
         // we don't want to turn a method call into an indirect function call
         case node instanceof ast.Binary and node.op == "." and parent instanceof ast.Call and position == \func; void
         case node instanceof ast.Noop; void

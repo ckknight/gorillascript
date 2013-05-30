@@ -528,12 +528,12 @@ class MacroContext
     else
       node instanceof NothingNode
   
-  let constify-object(obj, index, scope as Scope)
+  let constify-object(position, obj, index, scope as Scope)
     if not is-object! obj or obj instanceof RegExp
       ConstNode index, scope, obj
     else if is-array! obj
       ArrayNode index, scope, for item in obj
-        constify-object item, index, scope
+        constify-object position, item, index, scope
     else if obj instanceof IdentNode and obj.name.length > 1 and obj.name.char-code-at(0) == '$'.char-code-at(0)
       CallNode obj.index, scope,
         IdentNode obj.index, scope, \__wrap
@@ -562,13 +562,14 @@ class MacroContext
         IdentNode obj.index, scope, \__node
         [
           ConstNode obj.index, scope, obj.type-id
+          position or ConstNode obj.index, scope, void
           ...(for item in obj._to-JSON()
-            constify-object item, obj.index, scope)
+            constify-object position, item, obj.index, scope)
         ]
     else
       ObjectNode index, scope, for k, v of obj
         key: ConstNode index, scope, k
-        value: constify-object v, index, scope
+        value: constify-object position, v, index, scope
   @constify-object := constify-object
   
   let walk(node, func)
@@ -593,11 +594,15 @@ class MacroContext
     else
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
   
-  def node(type-id as Number, ...args)
+  def node(type-id as Number, from-position, ...args)
     if type-id == ParserNodeType.MacroAccess
-      @macro ...args
+      @macro from-position, ...args
     else
-      Node.by-type-id[type-id](@index, @scope(), ...args).reduce(@parser)
+      let index = if from-position and is-number! from-position.index
+        from-position.index
+      else
+        @index
+      Node.by-type-id[type-id](index, @scope(), ...args).reduce(@parser)
   
   def get-const-value(name as String, default-value)
     let c = @parser.get-const(name)
@@ -626,8 +631,12 @@ class MacroContext
   def get-const(name as String)
     to-literal-node@ this, @get-const-value(name)
   
-  def macro(id, call-line, data, position, in-generator, in-evil-ast)
-    Node.MacroAccess(@index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
+  def macro(from-position, id, call-line, data, position, in-generator, in-evil-ast)
+    let index = if from-position and is-number! from-position.index
+      from-position.index
+    else
+      @index
+    Node.MacroAccess(index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
   
   def walk(node as Node|void|null, func as Node -> Node)
     if node?
