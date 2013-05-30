@@ -1642,7 +1642,7 @@ node-class UnaryNode(op as String, node as Node)
             UnaryNode @index, @scope, if node.op == "-" then "+" else "-", node.node
         else if node instanceof BinaryNode
           if node.op in ["-", "+"]
-            BinaryNode @index, @scope, node.left, if node.op == "-" then "+" else "-", node.right
+            BinaryNode @index, @scope, UnaryNode(node.left.index, node.left.scope, "-", node.left), if node.op == "-" then "+" else "-", node.right
           else if node.op in ["*", "/"]
             BinaryNode @index, @scope, UnaryNode(node.left.index, node.left.scope, "-", node.left), node.op, node.right
       "!": do
