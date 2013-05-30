@@ -57,7 +57,6 @@ module.exports := #(grunt)
         options:
           timeout: 10_000_ms
         src: ["test-js/**/*.js"]
-    
   
   grunt.load-npm-tasks "grunt-gorilla"
   grunt.load-npm-tasks "grunt-contrib-clean"

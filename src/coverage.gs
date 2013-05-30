@@ -1,6 +1,6 @@
 require! ast: './jsast'
 
-module.exports := #(root, sources)
+module.exports := #(root, sources, coverage-name = \_$jscoverage)
   let done-lines-by-file = { extends null }
   let walker(node, parent, position)
     let pos = node.pos
@@ -12,7 +12,7 @@ module.exports := #(root, sources)
           done-lines[line] := true
           ast.Block pos, [
             ast.Unary pos, "++", ast.Access pos,
-              ast.Ident pos, \_$jscoverage
+              ast.Ident pos, coverage-name
               ast.Const pos, file
               ast.Const pos, line
             node.walk walker
@@ -46,12 +46,12 @@ module.exports := #(root, sources)
           ast.Unary pos, "!", ast.Access pos,
             ast.Ident pos, \top
             ast.Const pos, \opener
-            ast.Const pos, \_$jscoverage
+            ast.Const pos, coverage-name
         ast.Assign pos,
           ast.Access pos,
             ast.Ident pos, \top
             ast.Const pos, \opener
-            ast.Const pos, \_$jscoverage
+            ast.Const pos, coverage-name
           ast.Obj pos
       ast.Ident pos, \e
       ast.Noop pos
@@ -86,25 +86,25 @@ module.exports := #(root, sources)
                 ast.Access pos,
                   ast.Ident pos, \top
                   ast.Const pos, \opener
-                  ast.Const pos, \_$jscoverage
+                  ast.Const pos, coverage-name
               ast.Assign pos,
                 ast.Access pos,
                   ast.Ident pos, \top
-                  ast.Const pos, \_$jscoverage
+                  ast.Const pos, coverage-name
                 ast.Access pos,
                   ast.Ident pos, \top
                   ast.Const pos, \opener
-                  ast.Const pos, \_$jscoverage
+                  ast.Const pos, coverage-name
             ast.Ident pos, \e
             ast.Noop pos
           ast.If pos,
             ast.Unary pos, "!", ast.Access pos,
               ast.Ident pos, \top
-              ast.Const pos, \_$jscoverage
+              ast.Const pos, coverage-name
             ast.Assign pos,
               ast.Access pos,
                 ast.Ident pos, \top
-                ast.Const pos, \_$jscoverage
+                ast.Const pos, coverage-name
               ast.Obj pos
         ]
       ast.Ident pos, \e
@@ -123,17 +123,17 @@ module.exports := #(root, sources)
             ast.Const pos, null
           ast.Access pos,
             ast.Ident pos, \top
-            ast.Const pos, \_$jscoverage
+            ast.Const pos, coverage-name
       ast.Ident pos, \e
       ast.Noop pos
     
     ast.If pos,
       ast.Binary pos,
-        ast.Unary pos, \typeof, ast.Ident pos, \_$jscoverage
+        ast.Unary pos, \typeof, ast.Ident pos, coverage-name
         "!=="
         ast.Const pos, \object
       ast.Assign pos,
-        ast.Ident pos, \_$jscoverage
+        ast.Ident pos, coverage-name
         ast.Obj pos
     
     ...(for file, lines of done-lines-by-file
@@ -143,7 +143,7 @@ module.exports := #(root, sources)
           line-numbers.push i
       ast.If pos,
         ast.Unary pos, "!", ast.Access pos,
-          ast.Ident pos, \_$jscoverage
+          ast.Ident pos, coverage-name
           ast.Const pos, file
         ast.Call pos, ast.Func pos,
           null
@@ -152,7 +152,7 @@ module.exports := #(root, sources)
           ast.Block pos, [
             ast.Assign pos,
               ast.Access pos,
-                ast.Ident pos, \_$jscoverage
+                ast.Ident pos, coverage-name
                 ast.Const pos, file
               ast.Ident pos, \cov
               ast.Arr pos, []

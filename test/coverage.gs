@@ -14,5 +14,20 @@ describe "coverage", #
       else
         "bad"
     f()
-    """, ast-pipe: coverage, filename: "blah.gs"
+    """, coverage: true, filename: "blah.gs"
     expect(x.code).to.match r'\+\+_\$jscoverage\["blah.gs"\]\[\d+\]'
+  
+  it "adds custom coverage transforms", #
+    let x = gorilla.compile-sync """
+    console.log "Hello, world!"
+    console.log "I hope you're well today."
+    let f()
+      let x = 0
+      if x
+        "good"
+      else
+        "bad"
+    f()
+    """, coverage: "myCoverage", filename: "blah.gs"
+    expect(x.code).to.match r'\+\+myCoverage\["blah.gs"\]\[\d+\]'
+  

@@ -9,6 +9,7 @@ require! fs
 require! path
 require! SourceMap: './source-map'
 let {write-file-with-mkdirp, write-file-with-mkdirp-sync} = require('./utils')
+let {is-acceptable-ident} = require './jsutils'
 
 const DEFAULT_TRANSLATOR = './jstranslator'
 
@@ -212,7 +213,13 @@ let handle-ast-pipe(mutable node, options, file-sources)
       throw Error "Expected astPipe to return a Root, got $(typeof! node)"
   if options.coverage
     require! './coverage'
-    node := coverage node, file-sources
+    let coverage-name = if is-string! options.coverage
+      if not is-acceptable-ident options.coverage
+        throw Error "coverage option must be an acceptable ident. '$(options.coverage)' is not."
+      options.coverage
+    else
+      null
+    node := coverage node, file-sources, coverage-name
   node
 
 exports.compile := promise! #(source, options = {})*
