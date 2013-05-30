@@ -104,16 +104,13 @@ let StringWriter(callback)
   let sb = wrap-string-handler callback
 
 let StringBuilder()
-  let data = []
+  let mutable data as String|Array = []
   let sb = wrap-string-handler #(item)! -> data.push item
   sb.to-string := #
-    switch data.length
-    case 0; ""
-    case 1; data[0]
-    default
-      let text = data.join ""
-      data.splice 0, data.length, text
-      text
+    if is-string! data
+      data
+    else
+      data := data.join ""
   sb
 
 exports.Node := class Node
@@ -2043,7 +2040,7 @@ exports.Root := class Root
       options.indent := 0
     
     let writer = if not options.uglify and is-function! options.writer then options.writer
-    let sb = if writer then StringWriter(writer) else StringBuilder()
+    let mutable sb = if writer then StringWriter(writer) else StringBuilder()
     let start-time = new Date().get-time()
     if options.source-map? and @pos.file
       options.source-map.push-file @pos.file
@@ -2081,6 +2078,7 @@ exports.Root := class Root
       if is-function! options.writer
         options.writer(code)
         code := ""
+    sb := null
     {
       compile-time: end-compile-time - start-time
       uglify-time: if options.uglify then end-uglify-time - end-compile-time

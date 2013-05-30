@@ -5707,7 +5707,7 @@ class Parser
   
   def macro-expand-all-async(node, callback)
     let mutable start-time = new Date().get-time()
-    let walker = #(node, callback)@
+    let mutable walker = #(node, callback)@
       if (new Date().get-time() - start-time) > 5_ms
         return set-immediate #
           start-time := new Date().get-time()
@@ -5728,7 +5728,9 @@ class Parser
         async! callback, walked <- walker expanded
         callback null, (expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked)
 
-    walker node, callback
+    walker node, #(err, result)
+      walker := null
+      callback err, result
   
   def macro-expand-all(node)
     let walker = #(node)@

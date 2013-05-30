@@ -96,7 +96,7 @@ let fetch-and-parse-prelude = do
     yield f(lang)
     return yield to-promise! fs.read-file get-prelude-cache-path(lang), "utf8"
   
-  exports.with-prelude := #(lang as String, serialized-prelude as {})
+  exports.with-prelude := #(lang as String, serialized-prelude as ->)
     parsed-prelude-by-lang[lang] := parser.deserialize-prelude(serialized-prelude)
     this
   f

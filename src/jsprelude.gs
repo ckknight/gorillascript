@@ -215,53 +215,53 @@ macro let
         else
           acc
       if num-real-elements(0, 0) ~<= 1
-        let handle-item(element, index)@
+        let handle-item(element, index)
           @macro-expand-1 AST let $element = $value[$index]
-        let handle(i)@
+        let handle(i)
           if i ~< declarable.elements.length
             if declarable.elements[i]
-              handle-item declarable.elements[i], @const i
+              handle-item@ this, declarable.elements[i], @const i
             else
-              handle(inc(i))
+              handle@ this, inc(i)
           else
             value
-        handle(0)
+        handle@ this, 0
       else
         @maybe-cache value, #(set-value, value)@
-          let handle-item(i, element, index, block)@
+          let handle-item(i, element, index, block)
             block.push @macro-expand-1 AST let $element = $value[$index]
-            handle inc(i), block
-          let handle(i, block)@
+            handle@ this, inc(i), block
+          let handle(i, block)
             if i ~< declarable.elements.length
               if declarable.elements[i]
-                handle-item i, declarable.elements[i], @const(i), block
+                handle-item@ this, i, declarable.elements[i], @const(i), block
               else
-                handle inc(i), block
+                handle@ this, inc(i), block
             else
               block.push value
               @block block
-          handle 0, [set-value]
+          handle@ this, 0, [set-value]
     else if declarable.type == \object
       if declarable.pairs.length == 1
-        let handle-item(left, key)@
+        let handle-item(left, key)
           @macro-expand-1 AST let $left = $value[$key]
-        let handle(pair)@
-          handle-item(pair.value, pair.key)
-        handle(@macro-expand-1(declarable.pairs[0]))
+        let handle(pair)
+          handle-item@ this, pair.value, pair.key
+        handle@ this, @macro-expand-1(declarable.pairs[0])
       else
         @maybe-cache value, #(set-value, value)@
-          let handle-item(i, left, key, block)@
+          let handle-item(i, left, key, block)
             block.push @macro-expand-1 AST let $left = $value[$key]
-            handle inc(i), block
-          let handle-pair(i, pair, block)@
-            handle-item i, pair.value, pair.key, block
-          let handle(i, block)@
+            handle@ this, inc(i), block
+          let handle-pair(i, pair, block)
+            handle-item@ this, i, pair.value, pair.key, block
+          let handle(i, block)
             if i ~< declarable.pairs.length
-              handle-pair i, @macro-expand-1(declarable.pairs[i]), block
+              handle-pair@ this, i, @macro-expand-1(declarable.pairs[i]), block
             else
               block.push value
               @block block
-          handle 0, [set-value]
+          handle@ this, 0, [set-value]
     else
       @error "Unknown declarable: " ~& String declarable ~& " " ~& (String declarable?.constructor?.name)
 

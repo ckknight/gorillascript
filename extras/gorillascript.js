@@ -3136,14 +3136,10 @@
             data.push(item);
           });
           sb.toString = function () {
-            var text;
-            switch (data.length) {
-            case 0: return "";
-            case 1: return data[0];
-            default:
-              text = data.join("");
-              data.splice(0, data.length, text);
-              return text;
+            if (typeof data === "string") {
+              return data;
+            } else {
+              return data = data.join("");
             }
           };
           return sb;
@@ -7190,6 +7186,7 @@
                 code = "";
               }
             }
+            sb = null;
             return {
               compileTime: endCompileTime - startTime,
               uglifyTime: options.uglify ? endUglifyTime - endCompileTime : void 0,
@@ -16904,10 +16901,10 @@
             }
           };
           _Parser_prototype.macroExpandAllAsync = function (node, callback) {
-            var _this, startTime;
+            var _this, startTime, walker;
             _this = this;
             startTime = new Date().getTime();
-            function walker(node, callback) {
+            walker = function (node, callback) {
               var _once, _once2, expanded;
               if (new Date().getTime() - startTime > 5) {
                 return setImmediate(function () {
@@ -16950,8 +16947,11 @@
                   return callback(null, expanded._macroExpandAlled = expanded._macroExpanded = walked._macroExpandAlled = walked._macroExpanded = node._macroExpandAlled = node._macroExpanded = walked);
                 }));
               }
-            }
-            return walker(node, callback);
+            };
+            return walker(node, function (err, result) {
+              walker = null;
+              return callback(err, result);
+            });
           };
           _Parser_prototype.macroExpandAll = function (node) {
             var _this;
@@ -31571,8 +31571,8 @@
             if (typeof lang !== "string") {
               throw TypeError("Expected lang to be a String, got " + __typeof(lang));
             }
-            if (typeof serializedPrelude !== "object" || serializedPrelude === null) {
-              throw TypeError("Expected serializedPrelude to be an Object, got " + __typeof(serializedPrelude));
+            if (typeof serializedPrelude !== "function") {
+              throw TypeError("Expected serializedPrelude to be a Function, got " + __typeof(serializedPrelude));
             }
             parsedPreludeByLang[lang] = parser.deserializePrelude(serializedPrelude);
             return this;
@@ -71818,31 +71818,27 @@
                       } else if (property === "get" || property === "set") {
                         if (i > 0 && pairs[i - 1].property != null && _this.eq(key, pairs[i - 1].key) && pairs[i - 1].property !== property && ((_ref = pairs[i - 1].property) === "get" || _ref === "set")) {
                           descriptor = __node(26, value, [
-                            { key: __wrap(pairs[i - 1].property), value: __wrap(pairs[i - 1].value), property: void 0 },
-                            { key: __wrap(property), value: __wrap(value), property: void 0 },
+                            { key: __wrap(pairs[i - 1].property), value: __wrap(pairs[i - 1].value) },
+                            { key: __wrap(property), value: __wrap(value) },
                             {
                               key: __node(12, value, "enumerable"),
-                              value: __const("true"),
-                              property: void 0
+                              value: __const("true")
                             },
                             {
                               key: __node(12, value, "configurable"),
-                              value: __const("true"),
-                              property: void 0
+                              value: __const("true")
                             }
                           ]);
                         } else {
                           descriptor = __node(26, value, [
-                            { key: __wrap(property), value: __wrap(value), property: void 0 },
+                            { key: __wrap(property), value: __wrap(value) },
                             {
                               key: __node(12, value, "enumerable"),
-                              value: __const("true"),
-                              property: void 0
+                              value: __const("true")
                             },
                             {
                               key: __node(12, value, "configurable"),
-                              value: __const("true"),
-                              property: void 0
+                              value: __const("true")
                             }
                           ]);
                         }
@@ -76807,7 +76803,7 @@
                 };
                 if (numRealElements(0, 0) <= 1) {
                   handleItem = function (element, index) {
-                    return _this.macroExpand1(__node(
+                    return this.macroExpand1(__node(
                       23,
                       void 0,
                       38,
@@ -76839,19 +76835,19 @@
                   handle = function (i) {
                     if (i < declarable.elements.length) {
                       if (declarable.elements[i]) {
-                        return handleItem(declarable.elements[i], _this["const"](i));
+                        return handleItem.call(this, declarable.elements[i], this["const"](i));
                       } else {
-                        return handle(inc(i));
+                        return handle.call(this, inc(i));
                       }
                     } else {
                       return value;
                     }
                   };
-                  return handle(0);
+                  return handle.call(this, 0);
                 } else {
                   return this.maybeCache(value, function (setValue, value) {
                     function handleItem(i, element, index, block) {
-                      block.push(_this.macroExpand1(__node(
+                      block.push(this.macroExpand1(__node(
                         23,
                         void 0,
                         38,
@@ -76879,27 +76875,33 @@
                         },
                         true
                       )));
-                      return handle(inc(i), block);
+                      return handle.call(this, inc(i), block);
                     }
                     function handle(i, block) {
                       if (i < declarable.elements.length) {
                         if (declarable.elements[i]) {
-                          return handleItem(i, declarable.elements[i], _this["const"](i), block);
+                          return handleItem.call(
+                            this,
+                            i,
+                            declarable.elements[i],
+                            this["const"](i),
+                            block
+                          );
                         } else {
-                          return handle(inc(i), block);
+                          return handle.call(this, inc(i), block);
                         }
                       } else {
                         block.push(value);
-                        return _this.block(block);
+                        return this.block(block);
                       }
                     }
-                    return handle(0, [setValue]);
+                    return handle.call(_this, 0, [setValue]);
                   });
                 }
               } else if (declarable.type === "object") {
                 if (declarable.pairs.length === 1) {
                   handleItem = function (left, key) {
-                    return _this.macroExpand1(__node(
+                    return this.macroExpand1(__node(
                       23,
                       void 0,
                       38,
@@ -76929,13 +76931,13 @@
                     ));
                   };
                   handle = function (pair) {
-                    return handleItem(pair.value, pair.key);
+                    return handleItem.call(this, pair.value, pair.key);
                   };
-                  return handle(this.macroExpand1(declarable.pairs[0]));
+                  return handle.call(this, this.macroExpand1(declarable.pairs[0]));
                 } else {
                   return this.maybeCache(value, function (setValue, value) {
                     function handleItem(i, left, key, block) {
-                      block.push(_this.macroExpand1(__node(
+                      block.push(this.macroExpand1(__node(
                         23,
                         void 0,
                         38,
@@ -76963,20 +76965,26 @@
                         },
                         true
                       )));
-                      return handle(inc(i), block);
+                      return handle.call(this, inc(i), block);
                     }
                     function handlePair(i, pair, block) {
-                      return handleItem(i, pair.value, pair.key, block);
+                      return handleItem.call(
+                        this,
+                        i,
+                        pair.value,
+                        pair.key,
+                        block
+                      );
                     }
                     function handle(i, block) {
                       if (i < declarable.pairs.length) {
-                        return handlePair(i, _this.macroExpand1(declarable.pairs[i]), block);
+                        return handlePair.call(this, i, this.macroExpand1(declarable.pairs[i]), block);
                       } else {
                         block.push(value);
-                        return _this.block(block);
+                        return this.block(block);
                       }
                     }
-                    return handle(0, [setValue]);
+                    return handle.call(_this, 0, [setValue]);
                   });
                 }
               } else {
