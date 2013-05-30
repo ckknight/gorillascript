@@ -1,6 +1,6 @@
 let {expect} = require 'chai'
 let gorilla = require '../index'
-require! ast: '../lib/jsast'
+let ast = require (if process.env.GORILLA_COV then '../lib-cov/jsast' else '../lib/jsast')
 
 describe "ast-pipe", #
   it "can alter the AST of the JavaScript", #

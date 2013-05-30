@@ -1,6 +1,6 @@
 let {expect} = require 'chai'
 let gorilla = require '../index'
-let coverage = require '../lib/coverage'
+let coverage = require (if process.env.GORILLA_COV then '../lib-cov/coverage' else '../lib/coverage')
 
 describe "coverage", #
   it "adds _\$jscoverage transforms", #

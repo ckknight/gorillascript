@@ -57,6 +57,14 @@ module.exports := #(grunt)
         options:
           timeout: 10_000_ms
         src: ["test-js/**/*.js"]
+      
+      "test-cov":
+        options:
+          reporter: "html-cov"
+          timeout: 10_000_ms
+          quiet: true
+        src: ["test-js/**/*.js"]
+        dest: "coverage.html"
   
   grunt.load-npm-tasks "grunt-gorilla"
   grunt.load-npm-tasks "grunt-contrib-clean"
@@ -120,5 +128,10 @@ module.exports := #(grunt)
         grunt.log.error e?.stack or e
         done(false))
   grunt.register-task "test", ["clean:test", "gorilla:test", "mochaTest:test"]
+  grunt.register-task "check-env-cov", "Verify that GORILLA_COV is set", #
+    unless process.env.GORILLASCRIPT_COV
+      grunt.log.error "You must set the GORILLASCRIPT_COV environment variable"
+      false
+  grunt.register-task "test-cov", ["check-env-cov", "clean:test", "gorilla:test", "mochaTest:test-cov"]
   grunt.register-task "default", ["build", "test", "browser"]
   grunt.register-task "full", ["default", "uglify"]

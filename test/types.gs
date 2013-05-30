@@ -1,5 +1,5 @@
 let {expect} = require 'chai'
-let T = require '../lib/types'
+let T = require (if process.env.GORILLA_COV then '../lib-cov/types' else '../lib/types')
 
 define operator binary subset with maximum: 1, invertible: true
   AST $left.is-subset-of $right
