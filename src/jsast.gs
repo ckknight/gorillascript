@@ -145,6 +145,39 @@ exports.Node := class Node
   def exit-type() -> null
   def last() -> this
   
+  let inspect-array(depth, array)
+    if array.length == 0
+      "[]"
+    else
+      let mutable sb = ""
+      sb &= "["
+      for item in array
+        sb &= "\n  "
+        sb &= inspect(item, null, dec-depth(depth)).split("\n").join("\n  ")
+      sb &= "\n]"
+      sb
+  
+  def inspect(depth, include-empty)
+    let mutable sb as String = @constructor.display-name
+    sb &= ' "'
+    if @pos.file
+      sb &= @pos.file
+      sb &= ":"
+    sb &= @pos.line
+    sb &= ":"
+    sb &= @pos.column
+    sb &= '"'
+    for k, v of this
+      if k != \pos and (include-empty or (v and not (is-array! v and v.length == 0) and v not instanceof Noop))
+        sb &= "\n  "
+        sb &= k
+        sb &= ": "
+        if is-array! v
+          sb &= inspect-array(depth, v).split("\n").join("\n  ")
+        else
+          sb &= inspect(v, null, dec-depth(depth)).split("\n").join("\n  ")
+    sb
+  
   def to-ast(pos, ident)
     Call pos, ident,
       [
@@ -194,6 +227,12 @@ let make-pos(line as Number, column as Number, file as String|Number|void)
     pos.file := file
   pos
 
+let dec-depth(depth)
+  if depth?
+    depth - 1
+  else
+    null
+
 exports.Arguments := class Arguments extends Expression
   def constructor(@pos as {}) ->
   
@@ -203,7 +242,6 @@ exports.Arguments := class Arguments extends Expression
   def compile-as-block(options, level, line-start, sb)! -> Noop(@pos).compile-as-block(options, level, line-start, sb)
   def walk() -> this
   def is-noop() -> true
-  def inspect(depth) -> inspect-helper depth, "Arguments", @pos
   def type-id = AstType.Arguments
   @_from-ast := #(pos) -> Arguments pos
   @from-JSON := #(line, column, file) -> Arguments(make-pos(line, column, file))
@@ -221,31 +259,6 @@ let walk-array(array as [], parent as Node, message, walker as ->)
     result
   else
     array
-
-let dec-depth(depth)
-  if depth?
-    depth - 1
-  else
-    null
-
-let inspect-helper(depth, name, pos, ...args)
-  let d = dec-depth depth
-  let mutable found = false
-  for arg in args by -1
-    if not arg or arg instanceof Noop or (is-array! arg and arg.length == 0)
-      args.pop()
-    else
-      break
-  
-  let mutable parts = for arg in args; inspect(arg, null, d)
-  let has-large = for some part in parts
-    parts.length > 50 or part.index-of("\n") != -1
-  if has-large
-    parts := for part in parts
-      "  " & part.split("\n").join("\n  ")
-    "$name(\n$(parts.join ',\n'))"
-  else
-    "$name($(parts.join ', '))"
 
 let simplify-array(array as [], child-default-value, keep-trailing as Boolean)
   if array.length == 0
@@ -331,8 +344,6 @@ exports.Arr := class Arr extends Expression
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Arr", @pos, @elements
-  
   def type-id = AstType.Arr
   def _to-ast(pos, ident) -> return for element in @elements
     element.to-ast(pos, ident)
@@ -379,7 +390,7 @@ let to-const(pos, value)
 let is-negative(value as Number) -> value < 0 or value is -0
 
 exports.Binary := class Binary extends Expression
-  def constructor(@pos as {}, mutable left = Noop(pos), @op as String, mutable right = Noop(pos))
+  def constructor(@pos as {}, mutable @left = Noop(pos), @op as String, mutable @right = Noop(pos))
     if OPERATOR_PRECEDENCE not ownskey op
       throw Error "Unknown binary operator: $(to-JS-source op)"
     
@@ -582,8 +593,6 @@ exports.Binary := class Binary extends Expression
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Binary", @pos, @left, @op, @right
-  
   def type-id = AstType.Binary
   def _to-ast(pos, ident) -> [@left.to-ast(pos, ident), Const(pos, @op), @right.to-ast(pos, ident)]
   @_from-ast := #(pos, left, op, right) -> Binary pos, left, op, right
@@ -680,8 +689,6 @@ exports.BlockStatement := class BlockStatement extends Statement
   
   def is-noop() -> @_is-noop ?= for every node in @body by -1; node.is-noop()
   
-  def inspect(depth) -> inspect-helper depth, "BlockStatement", @pos, @body, @label
-  
   def type-id = AstType.BlockStatement
   def _to-ast(pos, ident) -> [
     if @label?
@@ -774,8 +781,6 @@ exports.BlockExpression := class BlockExpression extends Expression
   def walk = BlockStatement::walk
   def last() -> @body[* - 1]
   
-  def inspect(depth) -> inspect-helper depth, "BlockExpression", @pos, @body
-  
   def type-id = AstType.BlockExpression
   def _to-ast(pos, ident) -> return for node in @body
     node.to-ast pos, ident
@@ -819,8 +824,6 @@ exports.Break := class Break extends Statement
       Break @pos, label
     else
       this
-  
-  def inspect(depth) -> inspect-helper depth, "Break", @pos, @label
   
   def is-large() -> false
   
@@ -902,8 +905,6 @@ exports.Call := class Call extends Expression
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Call", @pos, @func, @args, @is-new
-  
   def type-id = AstType.Call
   def _to-ast(pos, ident) -> [
     @func.to-ast(pos, ident)
@@ -936,8 +937,6 @@ exports.Comment := class Comment extends Statement
   def is-noop() -> false
   
   def walk() -> this
-  
-  def inspect(depth) -> inspect-helper "Comment", @pos, @text
   
   def type-id = AstType.Comment
   def _to-ast(pos, ident) -> [Const pos, @text]
@@ -972,10 +971,10 @@ exports.Const := class Const extends Expression
   def const-value() -> @value
   def is-large() -> is-string! @value and (@value.match(r"\n") or @value.length > 50)
   
+  def inspect(depth) -> super.inspect(depth, true)
+  
   def walk() -> this
   
-  def inspect(depth) -> "Const($(inspect @value, null, dec-depth depth))"
-
   def type-id = AstType.Const
   def _to-ast(pos, ident)
     if @value == void
@@ -1041,8 +1040,6 @@ exports.Continue := class Continue extends Statement
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Continue", @pos, @label
-  
   def type-id = AstType.Continue
   def _to-ast(pos, ident) -> if @label? then [@label.to-ast(pos, ident)] else []
   @_from-ast := #(pos, label) -> Continue pos, label
@@ -1061,8 +1058,6 @@ exports.Debugger := class Debugger extends Statement
   def walk() -> this
 
   def is-large() -> false
-  
-  def inspect(depth) -> inspect-helper depth, "Debugger", @pos
   
   def type-id = AstType.Debugger
   @_from-ast := #(pos) -> Debugger pos
@@ -1125,8 +1120,6 @@ exports.DoWhile := class DoWhile extends Statement
     else
       this
 
-  def inspect(depth) -> inspect-helper depth, "DoWhile", @pos, @body, @test, @label
-  
   def type-id = AstType.DoWhile
   def _to-ast(pos, ident) -> [
     @test.to-ast(pos, ident)
@@ -1165,8 +1158,6 @@ exports.Eval := class Eval extends Expression
       Eval @pops, code
     else
       this
-  
-  def inspect(depth) -> inspect-helper depth, "Eval", @pos, @code
   
   def is-large() -> @code.is-large()
   
@@ -1256,8 +1247,6 @@ exports.For := class For extends Statement
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "For", @pos, @init, @test, @step, @body, @label
-  
   def type-id = AstType.For
   def _to-ast(pos, ident) -> [
     @init.to-ast(pos, ident)
@@ -1329,8 +1318,6 @@ exports.ForIn := class ForIn extends Statement
       ForIn @pos, key, object, body
     else
       this
-  
-  def inspect(depth) -> inspect-helper depth, "ForIn", @pos, @key, @object, @body, @label
   
   def type-id = AstType.ForIn
   def _to-ast(pos, ident) -> [
@@ -1476,8 +1463,6 @@ exports.Func := class Func extends Expression
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Func", @pos, @name, @params, @variables, @body, @declarations, @meta
-  
   def type-id = AstType.Func
   def _to-ast(pos, ident) -> [
     if @name
@@ -1522,8 +1507,6 @@ exports.Ident := class Ident extends Expression
     Noop(@pos).compile-as-block(options, level, line-start, sb)
   
   def walk() -> this
-  
-  def inspect(depth) -> inspect-helper depth, "Ident", @pos, @name
   
   def is-noop() -> true
   
@@ -1654,8 +1637,6 @@ exports.IfStatement := class IfStatement extends Statement
   
   def is-noop() -> @_is-noop ?= @test.is-noop() and @when-true.is-noop() and @when-false.is-noop()
   
-  def inspect(depth) -> inspect-helper depth, "IfStatement", @pos, @test, @when-true, @when-false
-
   def type-id = AstType.IfStatement
   def _to-ast(pos, ident)
     let result = [
@@ -1767,8 +1748,6 @@ exports.IfExpression := class IfExpression extends Expression
   
   def walk = IfStatement::walk
   
-  def inspect(depth) -> inspect-helper depth, "IfExpression", @pos, @test, @when-true, @when-false
-
   def type-id = AstType.IfExpression
   def _to-ast(pos, ident)
     let result = [
@@ -1812,8 +1791,6 @@ exports.Noop := class Noop extends Expression
       func(this)
     else
       this
-  
-  def inspect(depth) -> inspect-helper depth, "Noop", @pos
   
   def type-id = AstType.Noop
   @_from-ast := #(pos) -> Noop pos
@@ -1925,8 +1902,6 @@ exports.Obj := class Obj extends Expression
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Obj", @pos, @elements
-
   def type-id = AstType.Obj
   def _to-ast(pos, ident)
     let result = []
@@ -1978,7 +1953,7 @@ exports.Obj := class Obj extends Expression
       else
         this
     
-    def inspect(depth) -> inspect-helper depth, "Pair", @pos, @key, @value
+    def inspect = Node::inspect
 
 exports.Regex := class Regex extends Expression
   def constructor(@pos as {}, @source as String, @flags as String = "") ->
@@ -1995,8 +1970,6 @@ exports.Regex := class Regex extends Expression
   def is-noop() -> true
   
   def walk() -> this
-
-  def inspect(depth) -> inspect-helper depth, "Regex", @pos, @source, @flags
 
   def type-id = AstType.Regex
   def _to-ast(pos, ident) -> [
@@ -2038,8 +2011,6 @@ exports.Return := class Return extends Statement
   
   def is-small() -> @node.is-small()
   def is-large() -> @node.is-large()
-  
-  def inspect(depth) -> inspect-helper depth, "Return", @pos, @node
   
   def mutate-last(func, options)
     if options?.return
@@ -2139,8 +2110,8 @@ exports.Root := class Root
   def exit-type() -> @last().exit-type()
   def last() -> @body[* - 1]
   
-  def inspect(depth) -> inspect-helper depth, "Root", @pos, @body, @variables, @declarations
-
+  def inspect = Node::inspect
+  
   def type-id = AstType.Root
   def _to-ast(pos, ident) -> [
     if @declarations.length
@@ -2176,8 +2147,6 @@ exports.This := class This extends Expression
   
   def walk() -> this
   
-  def inspect(depth) -> inspect-helper depth, "This", @pos
-  
   def type-id = AstType.This
   @_from-ast := #(pos) -> This pos
   @from-JSON := #(line, column, file) -> This(make-pos(line, column, file))
@@ -2209,8 +2178,6 @@ exports.Throw := class Throw extends Statement
   def is-small() -> @node.is-small()
   def is-large() -> @node.is-large()
   
-  def inspect(depth) -> inspect-helper depth, "Throw", @pos, @node
-
   def type-id = AstType.Throw
   def _to-ast(pos, ident)
     [@node.to-ast(pos, ident)]
@@ -2308,8 +2275,6 @@ exports.Switch := class Switch extends Statement
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Switch", @pos, @node, @cases, @default-case, @label
-
   def type-id = AstType.Switch
   def _to-ast(pos, ident)
     let result = [
@@ -2392,7 +2357,7 @@ exports.Switch := class Switch extends Statement
       else
         this
     
-    def inspect(depth) -> inspect-helper depth, "Case", @pos, @node, @body
+    def inspect = Node::inspect
 
 exports.TryCatch := class TryCatch extends Statement
   def constructor(@pos as {}, try-body as Node = Noop(pos), @catch-ident as Ident, catch-body as Node = Noop(pos), @label as Ident|null)
@@ -2451,8 +2416,6 @@ exports.TryCatch := class TryCatch extends Statement
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "TryCatch", @pos, @try-body, @catch-ident, @catch-body, @label
-
   def type-id = AstType.TryCatch
   def _to-ast(pos, ident) -> [
     @try-body.to-ast(pos, ident)
@@ -2548,8 +2511,6 @@ exports.TryFinally := class TryFinally extends Statement
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "TryFinally", @pos, @try-body, @finally-body, @label
-
   def type-id = AstType.TryFinally
   def _to-ast(pos, ident) -> [
     @try-body.to-ast(pos, ident)
@@ -2646,8 +2607,6 @@ exports.Unary := class Unary extends Expression
     else
       this
   
-  def inspect(depth) -> inspect-helper depth, "Unary", @pos, @op, @node
-
   def type-id = AstType.Unary
   def _to-ast(pos, ident) -> [
     Const pos, @op
