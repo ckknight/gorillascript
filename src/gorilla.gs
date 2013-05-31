@@ -25,12 +25,12 @@ else if require.register-extension
   require.register-extension ".gs", #(content) -> exports.compile-sync content, { filename }
 
 let real-__filename = if __filename? then fs.realpath-sync(__filename)
-let fetch-and-parse-prelude = do
-  let mutable parsed-prelude = void
+let fetch-and-parse-prelude-macros = do
+  let mutable parsed-prelude-macros = void
   let prelude-src-path = if real-__filename? then path.join(path.dirname(real-__filename), "../src/jsprelude.gs")
   let prelude-cache-path = if os? then path.join(os.tmp-dir(), "gs-jsprelude-$(exports.version).cache")
   let mutable prelude-promise = void
-  let work = promise! #(sync)*
+  let mutable work = promise! #(sync)*
     let prelude-src-stat = if sync
       fs.stat-sync prelude-src-path
     else
@@ -46,7 +46,6 @@ let fetch-and-parse-prelude = do
       if e.code != "ENOENT"
         throw e
     
-    let mutable parsed-prelude = void
     if prelude-cache-stat and prelude-src-stat.mtime.get-time() <= prelude-cache-stat.mtime.get-time()
       let cache-prelude = if sync
         fs.read-file-sync prelude-cache-path, "utf8"
@@ -54,7 +53,7 @@ let fetch-and-parse-prelude = do
         yield to-promise! fs.read-file prelude-cache-path, "utf8"
       let mutable errored = false
       try
-        parsed-prelude := parser.deserialize-prelude(cache-prelude)
+        parsed-prelude-macros := parser.deserialize-prelude(cache-prelude)
       catch e as ReferenceError
         throw e
       catch e
@@ -65,40 +64,42 @@ let fetch-and-parse-prelude = do
           fs.unlink-sync prelude-cache-path
         else
           yield to-promise! fs.unlink prelude-cache-path
-    if not parsed-prelude?
+    if not parsed-prelude-macros?
       let prelude = if sync
         fs.read-file-sync prelude-src-path, "utf8"
       else
         yield to-promise! fs.read-file prelude-src-path, "utf8"
-      parsed-prelude := if sync
+      let parsed-prelude = if sync
         parser.sync prelude, null, { +serialize-macros, +sync, filename: prelude-src-path }
       else
         yield parser prelude, null, { +serialize-macros, filename: prelude-src-path }
-      write-file-with-mkdirp prelude-cache-path, parsed-prelude.macros.serialize(), "utf8"
+      parsed-prelude-macros := parsed-prelude.macros
+      write-file-with-mkdirp prelude-cache-path, parsed-prelude-macros.serialize(), "utf8"
+    work := null
     prelude-promise := void
-    return parsed-prelude
+    parsed-prelude-macros
   let f(sync as Boolean)
-    if parsed-prelude?
+    if parsed-prelude-macros?
       if sync
-        parsed-prelude
+        parsed-prelude-macros
       else
-        fulfilled! parsed-prelude
+        fulfilled! parsed-prelude-macros
     else
       if sync
         work.sync true
       else
         prelude-promise ?= work()
-  
-  f.serialized := promise! #*
+
+  exports.get-serialized-prelude := promise! #*
     yield f()
     return yield to-promise! fs.read-file prelude-cache-path, "utf8"
   
   exports.with-prelude := #(serialized-prelude as ->)
-    parsed-prelude := parser.deserialize-prelude(serialized-prelude)
+    exports.with-prelude := #-> throw Error("Cannot provide a prelude more than once")
+    parsed-prelude-macros := parser.deserialize-prelude(serialized-prelude)
+    work := null
     this
   f
-
-exports.get-serialized-prelude := fetch-and-parse-prelude.serialized
 
 exports.parse := promise! #(source, options = {})*
   let sync = options.sync
@@ -107,9 +108,9 @@ exports.parse := promise! #(source, options = {})*
   else if options.no-prelude
     null
   else if sync
-    fetch-and-parse-prelude(true).macros
+    fetch-and-parse-prelude-macros(true)
   else
-    (yield fetch-and-parse-prelude()).macros
+    yield fetch-and-parse-prelude-macros()
   
   let parse-options = {
     options.filename
@@ -140,7 +141,7 @@ exports.get-reserved-words := #(options = {})
   if options.no-prelude
     parser.get-reserved-words(null, options)
   else
-    parser.get-reserved-words(fetch-and-parse-prelude(true).macros, options)
+    parser.get-reserved-words(fetch-and-parse-prelude-macros(true), options)
 
 let join-parsed-results(results)
   let joined-parsed = {
@@ -409,11 +410,11 @@ exports.run := promise! #(source, options = {})*
 exports.run-sync := #(source, options = {})
   exports.run.sync source, {} <<< options <<< {+sync}
 
-let init = exports.init := promise! #(options = {})*
+let init = exports.init := promise! #(options = {})!*
   if options.sync
-    fetch-and-parse-prelude(true)
+    fetch-and-parse-prelude-macros(true)
   else
-    yield fetch-and-parse-prelude()
+    yield fetch-and-parse-prelude-macros()
 exports.init-sync := #(options = {})!
   init.sync {} <<< options <<< {+sync}
 

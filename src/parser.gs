@@ -5810,10 +5810,7 @@ module.exports := parse <<< {
       data
     let parser = Parser()
     parser.macros.deserialize(parsed, parser, {})
-    {
-      result: NothingNode 0, parser.scope.peek()
-      parser.macros
-    }
+    parser.macros
   get-reserved-words: #(macros, options = {})
     unique [...get-reserved-idents(options), ...(macros?.get-macro-and-operator-names?() or [])]
 }

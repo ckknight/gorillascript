@@ -17137,10 +17137,7 @@
           }
           parser = Parser();
           parser.macros.deserialize(parsed, parser, {});
-          return {
-            result: NothingNode(0, parser.scope.peek()),
-            macros: parser.macros
-          };
+          return parser.macros;
         };
         parse.getReservedWords = function (macros, options) {
           if (options == null) {
@@ -30831,7 +30828,7 @@
         "use strict";
         var __defer, __everyPromise, __generatorToPromise, __import, __isArray, __lte,
             __num, __owns, __promise, __promiseLoop, __slice, __strnum, __toArray,
-            __toPromise, __typeof, _ref, fetchAndParsePrelude, fs, init,
+            __toPromise, __typeof, _ref, fetchAndParsePreludeMacros, fs, init,
             isAcceptableIdent, os, parser, path, real__filename, setImmediate,
             SourceMap, writeFileWithMkdirp, writeFileWithMkdirpSync;
         __defer = (function () {
@@ -31246,8 +31243,9 @@
         if (typeof __filename !== "undefined" && __filename !== null) {
           real__filename = fs.realpathSync(__filename);
         }
-        fetchAndParsePrelude = (function () {
-          var parsedPrelude, preludeCachePath, preludePromise, preludeSrcPath, work;
+        fetchAndParsePreludeMacros = (function () {
+          var parsedPreludeMacros, preludeCachePath, preludePromise, preludeSrcPath,
+              work;
           if (real__filename != null) {
             preludeSrcPath = path.join(path.dirname(real__filename), "../src/jsprelude.gs");
           }
@@ -31325,7 +31323,7 @@
                 case 15:
                   errored = false;
                   try {
-                    parsedPrelude = parser.deserializePrelude(cachePrelude);
+                    parsedPreludeMacros = parser.deserializePrelude(cachePrelude);
                   } catch (e) {
                     if (e instanceof ReferenceError) {
                       throw e;
@@ -31350,7 +31348,7 @@
                     value: __toPromise(fs.unlink, fs, [preludeCachePath])
                   };
                 case 19:
-                  _state = parsedPrelude == null ? 20 : 29;
+                  _state = parsedPreludeMacros == null ? 20 : 29;
                   break;
                 case 20:
                   _state = sync ? 21 : 22;
@@ -31385,12 +31383,14 @@
                   parsedPrelude = _received;
                   ++_state;
                 case 28:
-                  writeFileWithMkdirp(preludeCachePath, parsedPrelude.macros.serialize(), "utf8");
+                  parsedPreludeMacros = parsedPrelude.macros;
+                  writeFileWithMkdirp(preludeCachePath, parsedPreludeMacros.serialize(), "utf8");
                   ++_state;
                 case 29:
+                  work = null;
                   preludePromise = void 0;
                   ++_state;
-                  return { done: true, value: parsedPrelude };
+                  return { done: true, value: parsedPreludeMacros };
                 case 30:
                   return { done: true, value: void 0 };
                 default: throw Error("Unknown state: " + _state);
@@ -31436,11 +31436,11 @@
             } else if (typeof sync !== "boolean") {
               throw TypeError("Expected sync to be a Boolean, got " + __typeof(sync));
             }
-            if (parsedPrelude != null) {
+            if (parsedPreludeMacros != null) {
               if (sync) {
-                return parsedPrelude;
+                return parsedPreludeMacros;
               } else {
-                return __defer.fulfilled(parsedPrelude);
+                return __defer.fulfilled(parsedPreludeMacros);
               }
             } else if (sync) {
               return work.sync(true);
@@ -31450,7 +31450,7 @@
               return preludePromise;
             }
           }
-          f.serialized = __promise(function () {
+          exports.getSerializedPrelude = __promise(function () {
             var _e, _send, _state, _step, _throw;
             _state = 0;
             function _close() {
@@ -31507,14 +31507,17 @@
             if (typeof serializedPrelude !== "function") {
               throw TypeError("Expected serializedPrelude to be a Function, got " + __typeof(serializedPrelude));
             }
-            parsedPrelude = parser.deserializePrelude(serializedPrelude);
+            exports.withPrelude = function () {
+              throw Error("Cannot provide a prelude more than once");
+            };
+            parsedPreludeMacros = parser.deserializePrelude(serializedPrelude);
+            work = null;
             return this;
           };
           return f;
         }());
-        exports.getSerializedPrelude = fetchAndParsePrelude.serialized;
         exports.parse = __promise(function (source, options) {
-          var _e, _send, _state, _step, _throw, _tmp, macros, parseOptions, sync;
+          var _e, _send, _state, _step, _throw, macros, parseOptions, sync;
           _state = 0;
           function _close() {
             _state = 12;
@@ -31544,15 +31547,14 @@
                 _state = sync ? 5 : 6;
                 break;
               case 5:
-                macros = fetchAndParsePrelude(true).macros;
+                macros = fetchAndParsePreludeMacros(true);
                 _state = 8;
                 break;
               case 6:
                 ++_state;
-                return { done: false, value: fetchAndParsePrelude() };
+                return { done: false, value: fetchAndParsePreludeMacros() };
               case 7:
-                _tmp = _received;
-                macros = _tmp.macros;
+                macros = _received;
                 ++_state;
               case 8:
                 parseOptions = { filename: options.filename, noindent: !!options.noindent, sync: !!options.sync, progress: options.progress };
@@ -31630,7 +31632,7 @@
           if (options.noPrelude) {
             return parser.getReservedWords(null, options);
           } else {
-            return parser.getReservedWords(fetchAndParsePrelude(true).macros, options);
+            return parser.getReservedWords(fetchAndParsePreludeMacros(true), options);
           }
         };
         function joinParsedResults(results) {
@@ -32440,7 +32442,7 @@
           var _e, _send, _state, _step, _throw;
           _state = 0;
           function _close() {
-            _state = 4;
+            _state = 3;
           }
           function _step(_received) {
             while (true) {
@@ -32452,15 +32454,13 @@
                 _state = options.sync ? 1 : 2;
                 break;
               case 1:
-                _state = 4;
-                return { done: true, value: fetchAndParsePrelude(true) };
+                fetchAndParsePreludeMacros(true);
+                _state = 3;
+                break;
               case 2:
                 ++_state;
-                return { done: false, value: fetchAndParsePrelude() };
+                return { done: false, value: fetchAndParsePreludeMacros() };
               case 3:
-                ++_state;
-                return { done: true, value: _received };
-              case 4:
                 return { done: true, value: void 0 };
               default: throw Error("Unknown state: " + _state);
               }
