@@ -5557,11 +5557,7 @@ class Parser
         
         if result instanceof Node
           let line = parser.get-line(index)
-          let walker(node)
-            if node instanceof MacroAccessNode
-              node.call-line := line
-            node.walk walker
-          result := walker result.reduce(this)
+          result := result.reduce(this)
           let tmps = macro-context.get-tmps()
           if tmps.unsaved.length
             parser.TmpWrapper index, result, tmps.unsaved
@@ -5705,17 +5701,23 @@ class Parser
     else
       node._macro-expanded := node
   
-  def macro-expand-all-async(node, callback)
+  let with-delay(func as ->)
     let mutable start-time = new Date().get-time()
-    let mutable walker = #(node, callback)@
+    let wrapped()
       if (new Date().get-time() - start-time) > 5_ms
-        return set-immediate #
+        set-immediate (#(x, y)
           start-time := new Date().get-time()
-          walker node, callback
+          wrapped@ x, ...y), this, arguments
+      else
+        func@ this, ...arguments
+    wrapped
+  
+  let make-macro-expand-all-async-walker()
+    let walker = with-delay #(node, callback)
       if node._macro-expand-alled?
         callback null, node._macro-expand-alled
       else if node not instanceof MacroAccessNode
-        async! callback, walked <- node.walk-async walker
+        async! callback, walked <- node.walk-async walker, this
         callback null, (walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked)
       else
         let mutable expanded = void
@@ -5725,28 +5727,27 @@ class Parser
           return callback e
         if expanded not instanceof Node
           return callback null, (node._macro-expand-alled := node._macro-expanded := expanded)
-        async! callback, walked <- walker expanded
+        async! callback, walked <- walker@ this, expanded
         callback null, (expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked)
-
-    walker node, #(err, result)
-      walker := null
+    walker
+  def macro-expand-all-async(node, callback)
+    make-macro-expand-all-async-walker()@ this, node, #(err, result)
       callback err, result
   
+  let macro-expand-all-walker(node)
+    if node._macro-expand-alled?
+      node._macro-expand-alled
+    else if node not instanceof MacroAccessNode
+      let walked = node.walk macro-expand-all-walker, this
+      walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
+    else
+      let expanded = @macro-expand-1 node
+      if expanded not instanceof Node
+        return (node._macro-expand-alled := node._macro-expanded := expanded)
+      let walked = macro-expand-all-walker@ this, expanded
+      expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
   def macro-expand-all(node)
-    let walker = #(node)@
-      if node._macro-expand-alled?
-        node._macro-expand-alled
-      else if node not instanceof MacroAccessNode
-        let walked = node.walk walker
-        walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
-      else
-        let expanded = @macro-expand-1 node
-        if expanded not instanceof Node
-          return (node._macro-expand-alled := node._macro-expanded := expanded)
-        let walked = walker expanded
-        expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
-    
-    walker node
+    macro-expand-all-walker@ this, node
   
   def macro-expand-all-promise(node)
     if @options.sync

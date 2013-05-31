@@ -31,10 +31,10 @@ define operator binary or with precedence: 1
   @binary left, "||", right
 
 define operator unary not with type: \boolean
-  @mutate-last node or @noop(), (#(n)@ -> @unary "!", n), true
+  @mutate-last node or @noop(), (#(n) -> @unary "!", n), true
 
 define operator unary typeof with type: \string
-  @mutate-last node or @noop(), (#(n)@ -> @unary "typeof", n), true
+  @mutate-last node or @noop(), (#(n) -> @unary "typeof", n), true
 
 define operator binary == with precedence: 2, maximum: 1, type: \boolean
   @binary left, "===", right
@@ -57,7 +57,7 @@ define operator binary ~>, ~>= with precedence: 2, maximum: 1, type: \boolean
   (op == "~>" and ASTE not ($left ~<= $right)) or ASTE not ($left ~< $right)
 
 define operator unary throw with type: "none"
-  @mutate-last node or @noop(), (#(n)@ -> @throw n), true
+  @mutate-last node or @noop(), (#(n) -> @throw n), true
 
 define helper __throw = #(err) -> throw err
 
@@ -138,10 +138,10 @@ define operator unary is-function! with type: \boolean
   ASTE typeof $node == \function
 
 define operator unary is-array! with type: \boolean
-  @mutate-last node or @noop(), (#(n)@ -> (@is-ident-or-tmp(n) and not @has-variable(n) and ASTE typeof $n == \object and __is-array($n)) or ASTE __is-array($n)), true
+  @mutate-last node or @noop(), (#(n) -> (@is-ident-or-tmp(n) and not @has-variable(n) and ASTE typeof $n == \object and __is-array($n)) or ASTE __is-array($n)), true
 
 define operator unary is-object! with type: \boolean
-  @mutate-last node or @noop(), (#(n)@ -> ASTE typeof $n == \object and $n != null), true
+  @mutate-last node or @noop(), (#(n) -> ASTE typeof $n == \object and $n != null), true
 
 define helper GLOBAL = if not is-void! window then window else if not is-void! global then global else this
 
@@ -163,7 +163,7 @@ define operator binary ~& with precedence: 7, type: \string
 
 define operator assign := with type: \right
   if not @is-complex(left) or (@is-access(left) and not @is-complex(@parent(left)) and not @is-complex(@child(left)))
-    @mutate-last right or @noop(), (#(n)@ -> @assign left, "=", n), true
+    @mutate-last right or @noop(), (#(n) -> @assign left, "=", n), true
   else
     @assign left, "=", right
 
@@ -206,7 +206,7 @@ macro let
       @let declarable.ident, declarable.is-mutable, if declarable.as-type then @to-type(declarable.as-type) else @type(value)
       @block [
         @var declarable.ident, declarable.is-mutable
-        @mutate-last value or @noop(), (#(n)@ -> @assign declarable.ident, "=", n), true
+        @mutate-last value or @noop(), (#(n) -> @assign declarable.ident, "=", n), true
       ]
     else if declarable.type == \array
       let num-real-elements(i, acc)
@@ -227,7 +227,7 @@ macro let
             value
         handle@ this, 0
       else
-        @maybe-cache value, #(set-value, value)@
+        @maybe-cache value, #(set-value, value)
           let handle-item(i, element, index, block)
             block.push @macro-expand-1 AST let $element = $value[$index]
             handle@ this, inc(i), block
@@ -249,7 +249,7 @@ macro let
           handle-item@ this, pair.value, pair.key
         handle@ this, @macro-expand-1(declarable.pairs[0])
       else
-        @maybe-cache value, #(set-value, value)@
+        @maybe-cache value, #(set-value, value)
           let handle-item(i, left, key, block)
             block.push @macro-expand-1 AST let $left = $value[$key]
             handle@ this, inc(i), block
@@ -268,50 +268,50 @@ macro let
 macro return
   syntax node as Expression?
     if node
-      @mutate-last node or @noop(), (#(n)@ -> @return n), true
+      @mutate-last node or @noop(), (#(n) -> @return n), true
     else
       @return()
 
 macro return?
   syntax node as Expression
-    @mutate-last node or @noop(), (#(n)@
-      @maybe-cache n, #(set-n, n)@
+    @mutate-last node or @noop(), (#(n)
+      @maybe-cache n, #(set-n, n)
         AST
           if $set-n?
             return $n), true
 
 macro returnif
   syntax node as Expression
-    @mutate-last node or @noop(), (#(n)@
+    @mutate-last node or @noop(), (#(n)
       if @is-type n, \boolean
         AST
           if $n
             return true
       else
-        @maybe-cache n, #(set-n, n)@
+        @maybe-cache n, #(set-n, n)
           AST
             if $set-n
               return $n), true
 
 macro returnunless
   syntax node as Expression
-    @mutate-last node or @noop(), (#(n)@
+    @mutate-last node or @noop(), (#(n)
       if @is-type n, \boolean
         AST
           unless $n
             return false
       else
-        @maybe-cache n, #(set-n, n)@
+        @maybe-cache n, #(set-n, n)
           AST
             unless $set-n
               return $n), true
 
 define operator assign and=
-  @maybe-cache-access left, #(set-left, left)@
+  @maybe-cache-access left, #(set-left, left)
     ASTE $set-left and ($left := $right)
 
 define operator assign or=
-  @maybe-cache-access left, #(set-left, left)@
+  @maybe-cache-access left, #(set-left, left)
     ASTE $set-left or ($left := $right)
 
 // let's define the unstrict operators first
@@ -330,7 +330,7 @@ const NaN = 0 ~/ 0
 
 define operator assign ~*=, ~/=, ~%= with type: \number
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(n)@
+    @mutate-last right or @noop(), (#(n)
       if op == "~*="
         @assign left, "*=", n
       else if op == "~/="
@@ -357,7 +357,7 @@ define operator unary ~+, ~- with type: \number
       value := negate value
     @const value
   else
-    @mutate-last node or @noop(), (#(n)@ -> @unary if op == "~+" then "+" else "-", n), true
+    @mutate-last node or @noop(), (#(n) -> @unary if op == "~+" then "+" else "-", n), true
 
 define operator binary ~+, ~- with precedence: 10, type: \number
   if op == "~+"
@@ -415,7 +415,7 @@ define operator assign ~+= with type: \number
   
   if @is-type left, \numeric
     if @is-ident-or-tmp(left)
-      @mutate-last right or @noop(), (#(mutable n)@
+      @mutate-last right or @noop(), (#(mutable n)
         if not @is-type n, \numeric
           n := ASTE(n) ~+$n
         @assign left, "+=", n), true
@@ -425,7 +425,7 @@ define operator assign ~+= with type: \number
       @assign left, "+=", right
   else
     if @is-ident-or-tmp(left)
-      @mutate-last right or @noop(), (#(n)@ -> @assign left, "-=", ASTE(n) ~-$n), true
+      @mutate-last right or @noop(), (#(n) -> @assign left, "-=", ASTE(n) ~-$n), true
     else
       @assign left, "-=", ASTE(right) ~-$right
 
@@ -437,7 +437,7 @@ define operator assign ~-= with type: \number
     else if value == ~-1
       return @unary "++", left
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(n)@ -> @assign left, "-=", n), true
+    @mutate-last right or @noop(), (#(n) -> @assign left, "-=", n), true
   else
     @assign left, "-=", right
 
@@ -451,7 +451,7 @@ define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 9, m
 
 define operator assign ~bitlshift=, ~bitrshift=, ~biturshift= with type: \number
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(n)@
+    @mutate-last right or @noop(), (#(n)
       if op == "~bitlshift="
         @assign left, "<<=", n
       else if op == "~bitrshift="
@@ -468,7 +468,7 @@ define operator assign ~bitlshift=, ~bitrshift=, ~biturshift= with type: \number
 
 define operator assign ~&= with type: \string
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(mutable n)@
+    @mutate-last right or @noop(), (#(mutable n)
       if @has-type(left, \numeric) and @has-type(n, \numeric)
         n := ASTE(n) "" ~& n
       @assign left, "+=", n), true
@@ -491,7 +491,7 @@ define operator unary typeof! with type: \string
   if @is-ident-or-tmp(node) and not @has-variable(node)
     ASTE if typeof $node == \undefined then "Undefined" else __typeof($node)
   else
-    @mutate-last node or @noop(), (#(n)@ -> ASTE __typeof($n)), true
+    @mutate-last node or @noop(), (#(n) -> ASTE __typeof($n)), true
 
 define helper __first = #(x) -> x
 
@@ -544,7 +544,7 @@ define helper __strnum = #(strnum) as String
 // strict operators, should have same precedence as their respective unstrict versions
 
 define operator unary + with type: \number
-  @mutate-last node or @noop(), (#(n)@
+  @mutate-last node or @noop(), (#(n)
     if @is-type n, \number
       n
     else if @get-const-value("DISABLE_TYPE_CHECKING", false)
@@ -567,7 +567,7 @@ define operator binary ^ with precedence: 12, right-to-left: true, type: \number
     ASTE +$left ~^ +$right
 
 define operator assign ^= with type: \number
-  @maybe-cache-access left, #(set-left, left)@
+  @maybe-cache-access left, #(set-left, left)
     ASTE $set-left := $left ^ $right
 
 define operator binary *, /, %, \ with precedence: 11, type: \number
@@ -598,7 +598,7 @@ define operator binary bitlshift, bitrshift, biturshift with precedence: 9, maxi
     ASTE +$left ~biturshift +$right
 
 define operator assign \= with type: \number
-  @maybe-cache-access left, #(set-left, left)@
+  @maybe-cache-access left, #(set-left, left)
     ASTE $set-left := $left \ $right
 
 define operator binary & with precedence: 7, type: \string, label: \string-concat
@@ -621,7 +621,7 @@ define operator assign &= with type: \string
   else if @is-type left, \string
     ASTE $left ~&= "" & $right
   else
-    @maybe-cache-access left, #(set-left, left)@
+    @maybe-cache-access left, #(set-left, left)
       ASTE $set-left := $left & $right
 
 define operator binary in with precedence: 6, maximum: 1, invertible: true, type: \boolean
@@ -776,63 +776,63 @@ define operator binary >, >= with precedence: 2, maximum: 1, type: \boolean
     ASTE not ($left < $right)
 
 define operator binary ~min with precedence: 8
-  @maybe-cache left, #(set-left, left)@
-    @maybe-cache right, #(set-right, right)@
+  @maybe-cache left, #(set-left, left)
+    @maybe-cache right, #(set-right, right)
       ASTE if $set-left ~< $set-right then $left else $right
 
 define operator binary ~max with precedence: 8
-  @maybe-cache left, #(set-left, left)@
-    @maybe-cache right, #(set-right, right)@
+  @maybe-cache left, #(set-left, left)
+    @maybe-cache right, #(set-right, right)
       ASTE if $set-left ~> $set-right then $left else $right
 
 define operator binary min with precedence: 8
-  @maybe-cache left, #(set-left, left)@
-    @maybe-cache right, #(set-right, right)@
+  @maybe-cache left, #(set-left, left)
+    @maybe-cache right, #(set-right, right)
       ASTE if $set-left < $set-right then $left else $right
 
 define operator binary max with precedence: 8
-  @maybe-cache left, #(set-left, left)@
-    @maybe-cache right, #(set-right, right)@
+  @maybe-cache left, #(set-left, left)
+    @maybe-cache right, #(set-right, right)
       ASTE if $set-left > $set-right then $left else $right
 
 define operator binary xor with precedence: 1
   ASTE __xor($left, $right)
 
 define operator binary ? with precedence: 1
-  @maybe-cache left, #(set-left, left)@
+  @maybe-cache left, #(set-left, left)
     ASTE if $set-left? then $left else $right
 
 define operator assign ~min=
-  @maybe-cache-access left, #(set-left, left)@
-    @maybe-cache set-left, #(set-left, left-value)@
-      @maybe-cache right, #(set-right, right)@
+  @maybe-cache-access left, #(set-left, left)
+    @maybe-cache set-left, #(set-left, left-value)
+      @maybe-cache right, #(set-right, right)
         ASTE if $set-left ~> $set-right then ($left := $right) else $left-value
 
 define operator assign ~max=
-  @maybe-cache-access left, #(set-left, left)@
-    @maybe-cache set-left, #(set-left, left-value)@
-      @maybe-cache right, #(set-right, right)@
+  @maybe-cache-access left, #(set-left, left)
+    @maybe-cache set-left, #(set-left, left-value)
+      @maybe-cache right, #(set-right, right)
         ASTE if $set-left ~< $set-right then ($left := $right) else $left-value
 
 define operator assign min=
-  @maybe-cache-access left, #(set-left, left)@
-    @maybe-cache set-left, #(set-left, left-value)@
-      @maybe-cache right, #(set-right, right)@
+  @maybe-cache-access left, #(set-left, left)
+    @maybe-cache set-left, #(set-left, left-value)
+      @maybe-cache right, #(set-right, right)
         ASTE if $set-left > $set-right then ($left := $right) else $left-value
 
 define operator assign max=
-  @maybe-cache-access left, #(set-left, left)@
-    @maybe-cache set-left, #(set-left, left-value)@
-      @maybe-cache right, #(set-right, right)@
+  @maybe-cache-access left, #(set-left, left)
+    @maybe-cache set-left, #(set-left, left-value)
+      @maybe-cache right, #(set-right, right)
         ASTE if $set-left < $set-right then ($left := $right) else $left-value
 
 define operator assign xor=
-  @maybe-cache-access left, #(set-left, left)@
+  @maybe-cache-access left, #(set-left, left)
     ASTE $set-left := $left xor $right
 
 define operator assign ?=
-  @maybe-cache-access left, #(set-left, left)@
-    @maybe-cache set-left, #(set-left, left-value)@
+  @maybe-cache-access left, #(set-left, left)
+    @maybe-cache set-left, #(set-left, left-value)
       if @position == \expression
         ASTE if $set-left? then $left-value else ($left := $right)
       else
@@ -852,7 +852,7 @@ define operator binary ~bitxor with precedence: 1, type: \number
 
 define operator assign ~bitand=, ~bitor=, ~bitxor= with type: \number
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(n)@
+    @mutate-last right or @noop(), (#(n)
       if op == "~bitand="
         @assign left, "&=", n
       else if op == "~bitor="
@@ -877,7 +877,7 @@ define operator binary bitxor with precedence: 1, type: \number
   ASTE +$left ~bitxor +$right
 
 define operator unary ~bitnot with type: \number
-  @mutate-last node or @noop(), (#(n)@ -> @unary "~", n), true
+  @mutate-last node or @noop(), (#(n) -> @unary "~", n), true
 
 define operator unary bitnot with type: \number
   ASTE ~bitnot +$node
@@ -886,7 +886,7 @@ define operator unary delete with standalone: false
   if not @is-access(node)
     @error "Can only use delete on an access"
   if @position == \expression
-    @maybe-cache-access node, #(set-node, node)@
+    @maybe-cache-access node, #(set-node, node)
       let tmp = @tmp \ref
       let del = @unary "delete", node
       AST
@@ -927,7 +927,7 @@ define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, 
     else
       @error "Unknown operator " ~& op
   else
-    @maybe-cache-access left, #(set-left, left)@
+    @maybe-cache-access left, #(set-left, left)
       let action = if op == "*="
         ASTE $left * $right
       else if op == "/="
@@ -1965,7 +1965,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         let: AST(generic-arg) let $key = __get-instanceof($generic-arg)
         used: false
       }
-    result := @walk @macro-expand-all(result), #(node)@
+    result := @walk @macro-expand-all(result), #(node)
       if @is-binary(node) and @op(node) == \instanceof
         let right = @right(node)
         if @is-ident(right)
@@ -2897,7 +2897,7 @@ macro class
     if superclass
       init.push AST(superclass) $sup.extended?($name)
     
-    let fix-supers(node)@ -> @walk node, #(node)@
+    let fix-supers(node)@ -> @walk node, #(node)
       if @is-super(node)
         let mutable child = @super-child(node)
         if child?
@@ -2918,7 +2918,7 @@ macro class
     body := fix-supers @macro-expand-all(body)
     
     let mutable constructor-count = 0
-    @walk body, #(node)@
+    @walk body, #(node)
       if @is-def(node)
         let key = @left(node)
         if @is-const(key) and @value(key) == \constructor
@@ -2929,7 +2929,7 @@ macro class
     
     let mutable has-top-level-constructor = false
     if constructor-count == 1
-      @walk body, #(node)@
+      @walk body, #(node)
         if @is-def(node)
           let key = @left(node)
           if @is-const(key) and @value(key) == \constructor and @is-func(@right(node)) and not @func-is-curried(@right(node))
@@ -2940,7 +2940,7 @@ macro class
           
     let self = @tmp \this
     if has-top-level-constructor
-      body := @walk body, #(node)@
+      body := @walk body, #(node)
         if @is-def(node)
           let key = @left(node)
           if @is-const(key) and @value(key) == \constructor
@@ -2971,7 +2971,7 @@ macro class
             if Object($result) == $result
               return $result
           $self
-      body := @walk body, #(node)@
+      body := @walk body, #(node)
         if @is-def(node)
           let key = @left(node)
           if @is-const(key) and @value(key) == \constructor
@@ -3011,14 +3011,14 @@ macro class
             else
               $self
     
-    let change-defs(node)@ -> @walk node, #(node)@
+    let change-defs(node)@ -> @walk node, #(node)
       if @is-def(node)
         let key = @left(node)
         let value = @right(node) ? ASTE(node) #-> throw Error "Not implemented: $(__name @constructor).$($key)()"
         change-defs ASTE(node) $prototype[$key] := $value
     body := change-defs body
     
-    body := @walk body, #(node)@
+    body := @walk body, #(node)
       if @is-func(node)
         unless @func-is-bound(node)
           node
@@ -3036,7 +3036,7 @@ macro class
         for generic-arg in generic-args
           let name = @name(generic-arg)
           names[name] := true
-        result := @walk @macro-expand-all(result), #(node)@
+        result := @walk @macro-expand-all(result), #(node)
           if @is-binary(node) and @op(node) == \instanceof
             let right = @right(node)
             if @is-ident(right)
@@ -3056,7 +3056,7 @@ macro class
             let: AST(generic-arg) let $key = __get-instanceof($generic-arg)
             used: false
           }
-        result := @walk @macro-expand-all(result), #(node)@
+        result := @walk @macro-expand-all(result), #(node)
           if @is-binary(node) and @op(node) == \instanceof
             let right = @right(node)
             if @is-ident(right)
@@ -3087,7 +3087,7 @@ macro yield
   syntax node as Expression?
     if not @in-generator
       @error "Can only use yield in a generator function"
-    @mutate-last node or @noop(), (#(n)@ -> @yield n), true
+    @mutate-last node or @noop(), (#(n) -> @yield n), true
 
 macro yield*
   syntax node as Expression
@@ -3155,10 +3155,10 @@ define operator binary is with precedence: 2, maximum: 1, type: \boolean
         ASTE $result
       else
         if is-number! @value(left) and isNaN @value(left)
-          @maybe-cache right, #(set-right, right)@
+          @maybe-cache right, #(set-right, right)
             ASTE $set-right != $right
         else if @value(left) == 0
-          @maybe-cache right, #(set-right, right)@
+          @maybe-cache right, #(set-right, right)
             if 1 / @value(left) < 0
               ASTE $set-right == 0 and 1 ~/ $right < 0
             else
@@ -3167,10 +3167,10 @@ define operator binary is with precedence: 2, maximum: 1, type: \boolean
           ASTE $left == $right
     else if @is-const(right)
       if is-number! @value(right) and isNaN @value(right)
-        @maybe-cache left, #(set-left, left)@
+        @maybe-cache left, #(set-left, left)
           ASTE $set-left != $left
       else if @value(right) == 0
-        @maybe-cache left, #(set-left, left)@
+        @maybe-cache left, #(set-left, left)
           if 1 / @value(right) < 0
             ASTE $set-left == 0 and 1 ~/ $left < 0
           else
@@ -3288,7 +3288,7 @@ define helper __import = #(dest, source) as {}
 
 define operator binary <<< with precedence: 6
   if @is-object(right)
-    @maybe-cache left, #(set-left, next-left)@
+    @maybe-cache left, #(set-left, next-left)
       let mutable current-left = set-left
       let block = []
       let pairs = @pairs(right)
@@ -3690,12 +3690,12 @@ macro promise!
 macro fulfilled!(node)
   if macro-data.length > 1
     @error "fulfilled! only expects one argument"
-  @mutate-last node or @noop(), (#(n)@ -> ASTE __defer.fulfilled($n)), true
+  @mutate-last node or @noop(), (#(n) -> ASTE __defer.fulfilled($n)), true
 
 macro rejected!(node)
   if macro-data.length > 1
     @error "rejected! only expects one argument"
-  @mutate-last node or @noop(), (#(n)@ -> ASTE __defer.rejected($n)), true
+  @mutate-last node or @noop(), (#(n) -> ASTE __defer.rejected($n)), true
 
 define helper __from-promise = #(promise as { then: (->) }) -> #(callback)!
   promise.then(
@@ -3738,7 +3738,7 @@ macro to-promise!(node) with type: \promise
   else
     args := @array args
     if @is-access func
-      @maybe-cache @parent(func), #(set-parent, parent)@
+      @maybe-cache @parent(func), #(set-parent, parent)
         let child = @child(func)
         ASTE __to-promise $set-parent[$child], $parent, $args
     else

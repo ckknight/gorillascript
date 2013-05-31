@@ -3,7 +3,7 @@ import 'shared.gs'
 require! Node: './parser-nodes'
 require! Type: './types'
 require! Scope: './parser-scope'
-let {node-to-type, add-param-to-scope, map} = require './parser-utils'
+let {node-to-type, add-param-to-scope} = require './parser-utils'
 
 let AccessNode = Node.Access
 let AccessMultiNode = Node.AccessMulti
@@ -496,27 +496,27 @@ class MacroContext
       let type = node.type(@parser)
       let tmp = @tmp(name, save, type)
       @scope().add tmp, false, type
-      func @parser.Block(@index, [
+      func@ this, @parser.Block(@index, [
         @parser.Var @index, tmp, false
         @parser.Assign @index, tmp, "=", @do-wrap(node)
       ]), tmp, true
     else
-      func node, node, false
+      func@ this, node, node, false
   
   def maybe-cache-access(mutable node as Node, func, parent-name as String = \ref, child-name as String = \ref, save as Boolean)
     node := @macro-expand-1 node
     if @is-access(node)
-      @maybe-cache @parent(node), (#(set-parent, parent, parent-cached)@
-        @maybe-cache @child(node), (#(set-child, child, child-cached)@
+      @maybe-cache @parent(node), (#(set-parent, parent, parent-cached)
+        @maybe-cache @child(node), (#(set-child, child, child-cached)
           if parent-cached or child-cached
-            func(
+            func@ this,
               @parser.Access(@index, set-parent, set-child)
               @parser.Access(@index, parent, child)
-              true)
+              true
           else
-            func node, node, false), child-name, save), parent-name, save
+            func@ this, node, node, false), child-name, save), parent-name, save
     else
-      func node, node, false
+      func@ this, node, node, false
   
   def empty(node)
     if not node?
@@ -571,16 +571,6 @@ class MacroContext
         key: ConstNode index, scope, k
         value: constify-object position, v, index, scope
   @constify-object := constify-object
-  
-  let walk(node, func)
-    if not is-object! node or node instanceof RegExp
-      return node
-    
-    if node not instanceof Node
-      throw Error "Unexpected type to walk through: $(typeof! node)"
-    if node not instanceof BlockNode
-      return? func(node)
-    node.walk(#(x) -> walk x, func)
   
   def wrap(value)
     if is-array! value
@@ -638,9 +628,19 @@ class MacroContext
       @index
     Node.MacroAccess(index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
   
+  let walk(node, func)
+    if not is-object! node or node instanceof RegExp
+      return node
+    
+    if node not instanceof Node
+      throw Error "Unexpected type to walk through: $(typeof! node)"
+    if node not instanceof BlockNode
+      return? func@ this, node
+    node.walk (#(x) -> walk@ this, x, func), this
+  
   def walk(node as Node|void|null, func as Node -> Node)
     if node?
-      walk node, func
+      walk@ this, node, func
     else
       node
   
@@ -652,8 +652,6 @@ class MacroContext
       let walker(x)
         if x instanceof FunctionNode
           throw FOUND
-        else
-          x.walk(walker)
       try
         walk @macro-expand-all(node), walker
       catch e
@@ -685,6 +683,6 @@ class MacroContext
     if node not instanceof Node
       throw Error "Unexpected type to mutate-last through: $(typeof! node)"
     
-    node.mutate-last @parser, func, include-noop
+    node.mutate-last @parser, func, this, include-noop
 
 module.exports := MacroContext

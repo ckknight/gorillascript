@@ -55,11 +55,11 @@ let node-to-type = do
       // shouldn't really occur
       Type.any
 
-let map(array, func, arg)
+let map(array, func, context)
   let result = []
   let mutable changed = false
   for item in array
-    let new-item = func item, arg
+    let new-item = func@ context, item
     result.push new-item
     if item != new-item
       changed := true
@@ -68,10 +68,10 @@ let map(array, func, arg)
   else
     array
 
-let map-async(array, func, ...args, callback)
+let map-async(array, func, context, callback)
   let mutable changed = false
   asyncfor err, result <- next, item in array
-    async! next, new-item <- func item, ...args
+    async! next, new-item <- func@ context, item
     if item != new-item
       changed := true
     next null, new-item

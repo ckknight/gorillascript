@@ -16622,7 +16622,7 @@
             _this = this;
             macros = this.macros;
             function mutator(data, parser, index) {
-              var line, macroContext, pos, result, scope, tmps, walker;
+              var line, macroContext, pos, result, scope, tmps;
               if (parser.inAst.peek() || !parser.expandingMacros) {
                 return parser.MacroAccess(
                   index,
@@ -16671,13 +16671,7 @@
                 parser.popScope();
                 if (result instanceof Node) {
                   line = parser.getLine(index);
-                  walker = function (node) {
-                    if (node instanceof MacroAccessNode) {
-                      node.callLine = line;
-                    }
-                    return node.walk(walker);
-                  };
-                  result = walker(result.reduce(_this));
+                  result = result.reduce(_this);
                   tmps = macroContext.getTmps();
                   if (tmps.unsaved.length) {
                     return parser.TmpWrapper(index, result, tmps.unsaved);
@@ -16900,22 +16894,34 @@
               return node._macroExpanded = node;
             }
           };
-          _Parser_prototype.macroExpandAllAsync = function (node, callback) {
-            var _this, startTime, walker;
-            _this = this;
+          function withDelay(func) {
+            var startTime;
             startTime = new Date().getTime();
-            walker = function (node, callback) {
-              var _once, _once2, expanded;
+            function wrapped() {
               if (new Date().getTime() - startTime > 5) {
-                return setImmediate(function () {
-                  startTime = new Date().getTime();
-                  return walker(node, callback);
-                });
+                return setImmediate(
+                  function (x, y) {
+                    startTime = new Date().getTime();
+                    return wrapped.apply(x, __toArray(y));
+                  },
+                  this,
+                  arguments
+                );
+              } else {
+                return func.apply(this, arguments);
               }
+            }
+            return wrapped;
+          }
+          function makeMacroExpandAllAsyncWalker() {
+            var walker;
+            walker = withDelay(function (node, callback) {
+              var _once, _once2, _this, expanded;
+              _this = this;
               if (node._macroExpandAlled != null) {
                 return callback(null, node._macroExpandAlled);
               } else if (!(node instanceof MacroAccessNode)) {
-                return node.walkAsync(walker, (_once = false, function (_e, walked) {
+                return node.walkAsync(walker, this, (_once = false, function (_e, walked) {
                   if (_once) {
                     throw Error("Attempted to call function more than once");
                   } else {
@@ -16928,14 +16934,14 @@
                 }));
               } else {
                 try {
-                  expanded = _this.macroExpand1(node);
+                  expanded = this.macroExpand1(node);
                 } catch (e) {
                   return callback(e);
                 }
                 if (!(expanded instanceof Node)) {
                   return callback(null, node._macroExpandAlled = node._macroExpanded = expanded);
                 }
-                return walker(expanded, (_once2 = false, function (_e, walked) {
+                return walker.call(this, expanded, (_once2 = false, function (_e, walked) {
                   if (_once2) {
                     throw Error("Attempted to call function more than once");
                   } else {
@@ -16947,32 +16953,32 @@
                   return callback(null, expanded._macroExpandAlled = expanded._macroExpanded = walked._macroExpandAlled = walked._macroExpanded = node._macroExpandAlled = node._macroExpanded = walked);
                 }));
               }
-            };
-            return walker(node, function (err, result) {
-              walker = null;
+            });
+            return walker;
+          }
+          _Parser_prototype.macroExpandAllAsync = function (node, callback) {
+            return makeMacroExpandAllAsyncWalker().call(this, node, function (err, result) {
               return callback(err, result);
             });
           };
-          _Parser_prototype.macroExpandAll = function (node) {
-            var _this;
-            _this = this;
-            function walker(node) {
-              var expanded, walked;
-              if (node._macroExpandAlled != null) {
-                return node._macroExpandAlled;
-              } else if (!(node instanceof MacroAccessNode)) {
-                walked = node.walk(walker);
-                return walked._macroExpandAlled = walked._macroExpanded = node._macroExpandAlled = node._macroExpanded = walked;
-              } else {
-                expanded = _this.macroExpand1(node);
-                if (!(expanded instanceof Node)) {
-                  return node._macroExpandAlled = node._macroExpanded = expanded;
-                }
-                walked = walker(expanded);
-                return expanded._macroExpandAlled = expanded._macroExpanded = walked._macroExpandAlled = walked._macroExpanded = node._macroExpandAlled = node._macroExpanded = walked;
+          function macroExpandAllWalker(node) {
+            var expanded, walked;
+            if (node._macroExpandAlled != null) {
+              return node._macroExpandAlled;
+            } else if (!(node instanceof MacroAccessNode)) {
+              walked = node.walk(macroExpandAllWalker, this);
+              return walked._macroExpandAlled = walked._macroExpanded = node._macroExpandAlled = node._macroExpanded = walked;
+            } else {
+              expanded = this.macroExpand1(node);
+              if (!(expanded instanceof Node)) {
+                return node._macroExpandAlled = node._macroExpanded = expanded;
               }
+              walked = macroExpandAllWalker.call(this, expanded);
+              return expanded._macroExpandAlled = expanded._macroExpanded = walked._macroExpandAlled = walked._macroExpanded = node._macroExpandAlled = node._macroExpanded = walked;
             }
-            return walker(node);
+          }
+          _Parser_prototype.macroExpandAll = function (node) {
+            return macroExpandAllWalker.call(this, node);
           };
           _Parser_prototype.macroExpandAllPromise = function (node) {
             var defer;
@@ -17425,13 +17431,13 @@
             }
           };
         }());
-        function map(array, func, arg) {
+        function map(array, func, context) {
           var _arr, _i, _len, changed, item, newItem, result;
           result = [];
           changed = false;
           for (_arr = __toArray(array), _i = 0, _len = _arr.length; _i < _len; ++_i) {
             item = _arr[_i];
-            newItem = func(item, arg);
+            newItem = func.call(context, item);
             result.push(newItem);
             if (item !== newItem) {
               changed = true;
@@ -17443,40 +17449,30 @@
             return array;
           }
         }
-        function mapAsync(array, func) {
-          var _i, args, callback, changed;
-          _i = arguments.length - 1;
-          if (_i > 2) {
-            args = __slice.call(arguments, 2, _i);
-          } else {
-            _i = 2;
-            args = [];
-          }
-          callback = arguments[_i];
+        function mapAsync(array, func, context, callback) {
+          var changed;
           changed = false;
           return __async(
             1,
             +array.length,
             true,
-            function (_i2, next) {
+            function (_i, next) {
               var _once, item;
-              item = array[_i2];
-              return func.apply(void 0, [item].concat(__toArray(args), [
-                (_once = false, function (_e, newItem) {
-                  if (_once) {
-                    throw Error("Attempted to call function more than once");
-                  } else {
-                    _once = true;
-                  }
-                  if (_e != null) {
-                    return next(_e);
-                  }
-                  if (item !== newItem) {
-                    changed = true;
-                  }
-                  return next(null, newItem);
-                })
-              ]));
+              item = array[_i];
+              return func.call(context, item, (_once = false, function (_e, newItem) {
+                if (_once) {
+                  throw Error("Attempted to call function more than once");
+                } else {
+                  _once = true;
+                }
+                if (_e != null) {
+                  return next(_e);
+                }
+                if (item !== newItem) {
+                  changed = true;
+                }
+                return next(null, newItem);
+              }));
             },
             function (err, result) {
               if (typeof err !== "undefined" && err !== null) {
@@ -17914,13 +17910,13 @@
             ArrayNode, AssignNode, BinaryNode, BlockNode, BreakNode, CallNode,
             CascadeNode, CommentNode, ConstNode, ContinueNode, DebuggerNode, DefNode,
             EmbedWriteNode, EvalNode, ForInNode, ForNode, FunctionNode, IdentNode,
-            IfNode, inspect, isPrimordial, MacroAccessNode, MacroConstNode, mapAsync,
-            Node, nodeToType, NothingNode, ObjectNode, ParamNode, quote, RegexpNode,
-            ReturnNode, RootNode, SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode,
-            SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode,
-            TmpNode, TmpWrapperNode, TryCatchNode, TryFinallyNode, Type,
-            TypeFunctionNode, TypeGenericNode, TypeObjectNode, TypeUnionNode,
-            UnaryNode, VarNode, YieldNode;
+            IfNode, inspect, isPrimordial, MacroAccessNode, MacroConstNode, map,
+            mapAsync, Node, nodeToType, NothingNode, ObjectNode, ParamNode, quote,
+            RegexpNode, ReturnNode, RootNode, SpreadNode, SuperNode, SwitchNode,
+            SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode, SyntaxSequenceNode,
+            ThisNode, ThrowNode, TmpNode, TmpWrapperNode, TryCatchNode,
+            TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode, TypeObjectNode,
+            TypeUnionNode, UnaryNode, VarNode, YieldNode;
         __async = function (limit, length, hasResult, onValue, onComplete) {
           var broken, completed, index, result, slotsUsed, sync;
           if (typeof limit !== "number") {
@@ -18127,24 +18123,6 @@
         if ((_ref = require("util")) != null) {
           inspect = _ref.inspect;
         }
-        function map(array, func, arg) {
-          var _arr, _i, _len, changed, item, newItem, result;
-          result = [];
-          changed = false;
-          for (_arr = __toArray(array), _i = 0, _len = _arr.length; _i < _len; ++_i) {
-            item = _arr[_i];
-            newItem = func(item, arg);
-            result.push(newItem);
-            if (item !== newItem) {
-              changed = true;
-            }
-          }
-          if (changed) {
-            return result;
-          } else {
-            return array;
-          }
-        }
         function simplifyArray(array) {
           var i, item;
           if (array.length === 0) {
@@ -18174,10 +18152,10 @@
           _Node_prototype.type = function () {
             return Type.any;
           };
-          _Node_prototype.walk = function (f) {
+          _Node_prototype.walk = function (f, context) {
             return this;
           };
-          _Node_prototype.walkAsync = function (f, callback) {
+          _Node_prototype.walkAsync = function (f, context, callback) {
             return callback(null, this);
           };
           _Node_prototype.cacheable = true;
@@ -18279,9 +18257,9 @@
               return this;
             }
           };
-          _Node_prototype.mutateLast = function (o, func, includeNoop) {
+          _Node_prototype.mutateLast = function (o, func, context, includeNoop) {
             var _ref;
-            if ((_ref = func(this)) != null) {
+            if ((_ref = func.call(context, this)) != null) {
               return _ref;
             } else {
               return this;
@@ -18589,20 +18567,20 @@
               this.child
             );
           };
-          _AccessNode_prototype.walk = function (f) {
+          _AccessNode_prototype.walk = function (f, context) {
             var child, parent;
-            parent = f(this.parent);
-            child = f(this.child);
+            parent = f.call(context, this.parent);
+            child = f.call(context, this.child);
             if (parent !== this.parent || child !== this.child) {
               return AccessNode(this.index, this.scope, parent, child);
             } else {
               return this;
             }
           };
-          _AccessNode_prototype.walkAsync = function (f, callback) {
+          _AccessNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.parent, (_once = false, function (_e, parent) {
+            return f.call(context, this.parent, (_once = false, function (_e, parent) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -18612,7 +18590,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return f(_this.child, (_once2 = false, function (_e2, child) {
+              return f.call(context, _this.child, (_once2 = false, function (_e2, child) {
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -18703,20 +18681,20 @@
               this.elements
             );
           };
-          _AccessMultiNode_prototype.walk = function (f) {
+          _AccessMultiNode_prototype.walk = function (f, context) {
             var elements, parent;
-            parent = f(this.parent);
-            elements = map(this.elements, f);
+            parent = f.call(context, this.parent);
+            elements = map(this.elements, f, context);
             if (parent !== this.parent || elements !== this.elements) {
               return AccessMultiNode(this.index, this.scope, parent, elements);
             } else {
               return this;
             }
           };
-          _AccessMultiNode_prototype.walkAsync = function (f, callback) {
+          _AccessMultiNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.parent, (_once = false, function (_e, parent) {
+            return f.call(context, this.parent, (_once = false, function (_e, parent) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -18726,7 +18704,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return mapAsync(_this.elements, f, (_once2 = false, function (_e2, elements) {
+              return mapAsync(_this.elements, f, context, (_once2 = false, function (_e2, elements) {
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -18856,19 +18834,19 @@
           _ArrayNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "ArrayNode", this.index, this.elements);
           };
-          _ArrayNode_prototype.walk = function (f) {
+          _ArrayNode_prototype.walk = function (f, context) {
             var elements;
-            elements = map(this.elements, f);
+            elements = map(this.elements, f, context);
             if (elements !== this.elements) {
               return ArrayNode(this.index, this.scope, elements);
             } else {
               return this;
             }
           };
-          _ArrayNode_prototype.walkAsync = function (f, callback) {
+          _ArrayNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return mapAsync(this.elements, f, (_once = false, function (_e, elements) {
+            return mapAsync(this.elements, f, context, (_once = false, function (_e, elements) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -18976,10 +18954,10 @@
               this.right
             );
           };
-          _AssignNode_prototype.walk = function (f) {
+          _AssignNode_prototype.walk = function (f, context) {
             var left, right;
-            left = f(this.left);
-            right = f(this.right);
+            left = f.call(context, this.left);
+            right = f.call(context, this.right);
             if (left !== this.left || right !== this.right) {
               return AssignNode(
                 this.index,
@@ -18992,10 +18970,10 @@
               return this;
             }
           };
-          _AssignNode_prototype.walkAsync = function (f, callback) {
+          _AssignNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.left, (_once = false, function (_e, left) {
+            return f.call(context, this.left, (_once = false, function (_e, left) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -19005,7 +18983,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return f(_this.right, (_once2 = false, function (_e2, right) {
+              return f.call(context, _this.right, (_once2 = false, function (_e2, right) {
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -19519,10 +19497,10 @@
               this.right
             );
           };
-          _BinaryNode_prototype.walk = function (f) {
+          _BinaryNode_prototype.walk = function (f, context) {
             var left, right;
-            left = f(this.left);
-            right = f(this.right);
+            left = f.call(context, this.left);
+            right = f.call(context, this.right);
             if (left !== this.left || right !== this.right) {
               return BinaryNode(
                 this.index,
@@ -19535,10 +19513,10 @@
               return this;
             }
           };
-          _BinaryNode_prototype.walkAsync = function (f, callback) {
+          _BinaryNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.left, (_once = false, function (_e, left) {
+            return f.call(context, this.left, (_once = false, function (_e, left) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -19548,7 +19526,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return f(_this.right, (_once2 = false, function (_e2, right) {
+              return f.call(context, _this.right, (_once2 = false, function (_e2, right) {
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -19711,14 +19689,14 @@
               return _ref;
             }
           };
-          _BlockNode_prototype.mutateLast = function (o, func, includeNoop) {
+          _BlockNode_prototype.mutateLast = function (o, func, context, includeNoop) {
             var lastNode, len, nodes;
             nodes = this.nodes;
             len = nodes.length;
             if (len === 0) {
-              return Noop(this.index, this.scope).mutateLast(o, func, includeNoop);
+              return Noop(this.index, this.scope).mutateLast(o, func, context, includeNoop);
             } else {
-              lastNode = nodes[len - 1].mutateLast(o, func, includeNoop);
+              lastNode = nodes[len - 1].mutateLast(o, func, context, includeNoop);
               if (lastNode !== nodes[len - 1]) {
                 return BlockNode(this.index, this.scope, __toArray(__slice.call(nodes, 0, -1)).concat([lastNode]));
               } else {
@@ -19735,11 +19713,11 @@
               this.label
             );
           };
-          _BlockNode_prototype.walk = function (f) {
+          _BlockNode_prototype.walk = function (f, context) {
             var label, nodes;
-            nodes = map(this.nodes, f);
+            nodes = map(this.nodes, f, context);
             if (this.label instanceof Node) {
-              label = f(this.label);
+              label = f.call(context, this.label);
             } else {
               label = this.label;
             }
@@ -19749,10 +19727,10 @@
               return this;
             }
           };
-          _BlockNode_prototype.walkAsync = function (f, callback) {
+          _BlockNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return mapAsync(this.nodes, f, (_once = false, function (_e, nodes) {
+            return mapAsync(this.nodes, f, context, (_once = false, function (_e, nodes) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -19764,7 +19742,7 @@
               return (_this.label instanceof Node
                 ? function (next) {
                   var _once2;
-                  return f(_this.label, (_once2 = false, function (_e2, label) {
+                  return f.call(context, _this.label, (_once2 = false, function (_e2, label) {
                     if (_once2) {
                       throw Error("Attempted to call function more than once");
                     } else {
@@ -19828,10 +19806,10 @@
           _BreakNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "BreakNode", this.index, this.label);
           };
-          _BreakNode_prototype.walk = function (f) {
+          _BreakNode_prototype.walk = function (f, context) {
             var label;
             if (this.label instanceof Node) {
-              label = f(this.label);
+              label = f.call(context, this.label);
             } else {
               label = this.label;
             }
@@ -19841,13 +19819,13 @@
               return this;
             }
           };
-          _BreakNode_prototype.walkAsync = function (f, callback) {
+          _BreakNode_prototype.walkAsync = function (f, context, callback) {
             var _this;
             _this = this;
             return (this.label instanceof Node
               ? function (next) {
                 var _once;
-                return f(_this.label, (_once = false, function (_e, label) {
+                return f.call(context, _this.label, (_once = false, function (_e, label) {
                   if (_once) {
                     throw Error("Attempted to call function more than once");
                   } else {
@@ -20223,10 +20201,10 @@
               this.isApply
             );
           };
-          _CallNode_prototype.walk = function (f) {
+          _CallNode_prototype.walk = function (f, context) {
             var args, func;
-            func = f(this.func);
-            args = map(this.args, f);
+            func = f.call(context, this.func);
+            args = map(this.args, f, context);
             if (func !== this.func || args !== this.args) {
               return CallNode(
                 this.index,
@@ -20240,10 +20218,10 @@
               return this;
             }
           };
-          _CallNode_prototype.walkAsync = function (f, callback) {
+          _CallNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.func, (_once = false, function (_e, func) {
+            return f.call(context, this.func, (_once = false, function (_e, func) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -20253,7 +20231,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return mapAsync(_this.args, f, (_once2 = false, function (_e2, args) {
+              return mapAsync(_this.args, f, context, (_once2 = false, function (_e2, args) {
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -20312,19 +20290,19 @@
               this.cascades
             );
           };
-          _CascadeNode_prototype.walk = function (f) {
+          _CascadeNode_prototype.walk = function (f, context) {
             var node;
-            node = f(this.node);
+            node = f.call(context, this.node);
             if (node !== this.node) {
               return CascadeNode(this.index, this.scope, node, this.cascades);
             } else {
               return this;
             }
           };
-          _CascadeNode_prototype.walkAsync = function (f, callback) {
+          _CascadeNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.node, (_once = false, function (_e, node) {
+            return f.call(context, this.node, (_once = false, function (_e, node) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -20376,10 +20354,10 @@
           _CommentNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "CommentNode", this.index, this.text);
           };
-          _CommentNode_prototype.walk = function (f) {
+          _CommentNode_prototype.walk = function (f, context) {
             return this;
           };
-          _CommentNode_prototype.walkAsync = function (f, callback) {
+          _CommentNode_prototype.walkAsync = function (f, context, callback) {
             return callback(null, this);
           };
           return CommentNode;
@@ -20443,10 +20421,10 @@
           _ConstNode_prototype._toJSON = function () {
             return [this.value];
           };
-          _ConstNode_prototype.walk = function (f) {
+          _ConstNode_prototype.walk = function (f, context) {
             return this;
           };
-          _ConstNode_prototype.walkAsync = function (f, callback) {
+          _ConstNode_prototype.walkAsync = function (f, context, callback) {
             return callback(null, this);
           };
           return ConstNode;
@@ -20494,10 +20472,10 @@
           _ContinueNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "ContinueNode", this.index, this.label);
           };
-          _ContinueNode_prototype.walk = function (f) {
+          _ContinueNode_prototype.walk = function (f, context) {
             var label;
             if (this.label instanceof Node) {
-              label = f(this.label);
+              label = f.call(context, this.label);
             } else {
               label = this.label;
             }
@@ -20507,13 +20485,13 @@
               return this;
             }
           };
-          _ContinueNode_prototype.walkAsync = function (f, callback) {
+          _ContinueNode_prototype.walkAsync = function (f, context, callback) {
             var _this;
             _this = this;
             return (this.label instanceof Node
               ? function (next) {
                 var _once;
-                return f(_this.label, (_once = false, function (_e, label) {
+                return f.call(context, _this.label, (_once = false, function (_e, label) {
                   if (_once) {
                     throw Error("Attempted to call function more than once");
                   } else {
@@ -20610,11 +20588,11 @@
               this.right
             );
           };
-          _DefNode_prototype.walk = function (f) {
+          _DefNode_prototype.walk = function (f, context) {
             var left, right;
-            left = f(this.left);
+            left = f.call(context, this.left);
             if (this.right instanceof Node) {
-              right = f(this.right);
+              right = f.call(context, this.right);
             } else {
               right = this.right;
             }
@@ -20624,10 +20602,10 @@
               return this;
             }
           };
-          _DefNode_prototype.walkAsync = function (f, callback) {
+          _DefNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.left, (_once = false, function (_e, left) {
+            return f.call(context, this.left, (_once = false, function (_e, left) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -20639,7 +20617,7 @@
               return (_this.right instanceof Node
                 ? function (next) {
                   var _once2;
-                  return f(_this.right, (_once2 = false, function (_e2, right) {
+                  return f.call(context, _this.right, (_once2 = false, function (_e2, right) {
                     if (_once2) {
                       throw Error("Attempted to call function more than once");
                     } else {
@@ -20695,19 +20673,19 @@
               this.escape
             );
           };
-          _EmbedWriteNode_prototype.walk = function (f) {
+          _EmbedWriteNode_prototype.walk = function (f, context) {
             var text;
-            text = f(this.text);
+            text = f.call(context, this.text);
             if (text !== this.text) {
               return EmbedWriteNode(this.index, this.scope, text, this.escape);
             } else {
               return this;
             }
           };
-          _EmbedWriteNode_prototype.walkAsync = function (f, callback) {
+          _EmbedWriteNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.text, (_once = false, function (_e, text) {
+            return f.call(context, this.text, (_once = false, function (_e, text) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -20777,19 +20755,19 @@
           _EvalNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "EvalNode", this.index, this.code);
           };
-          _EvalNode_prototype.walk = function (f) {
+          _EvalNode_prototype.walk = function (f, context) {
             var code;
-            code = f(this.code);
+            code = f.call(context, this.code);
             if (code !== this.code) {
               return EvalNode(this.index, this.scope, code);
             } else {
               return this;
             }
           };
-          _EvalNode_prototype.walkAsync = function (f, callback) {
+          _EvalNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.code, (_once = false, function (_e, code) {
+            return f.call(context, this.code, (_once = false, function (_e, code) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -20879,14 +20857,14 @@
               this.label
             );
           };
-          _ForNode_prototype.walk = function (f) {
+          _ForNode_prototype.walk = function (f, context) {
             var body, init, label, step, test;
-            init = f(this.init);
-            test = f(this.test);
-            step = f(this.step);
-            body = f(this.body);
+            init = f.call(context, this.init);
+            test = f.call(context, this.test);
+            step = f.call(context, this.step);
+            body = f.call(context, this.body);
             if (this.label instanceof Node) {
-              label = f(this.label);
+              label = f.call(context, this.label);
             } else {
               label = this.label;
             }
@@ -20904,10 +20882,10 @@
               return this;
             }
           };
-          _ForNode_prototype.walkAsync = function (f, callback) {
+          _ForNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.init, (_once = false, function (_e, init) {
+            return f.call(context, this.init, (_once = false, function (_e, init) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -20917,7 +20895,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return f(_this.test, (_once2 = false, function (_e2, test) {
+              return f.call(context, _this.test, (_once2 = false, function (_e2, test) {
                 var _once3;
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
@@ -20927,7 +20905,7 @@
                 if (_e2 != null) {
                   return callback(_e2);
                 }
-                return f(_this.step, (_once3 = false, function (_e3, step) {
+                return f.call(context, _this.step, (_once3 = false, function (_e3, step) {
                   var _once4;
                   if (_once3) {
                     throw Error("Attempted to call function more than once");
@@ -20937,7 +20915,7 @@
                   if (_e3 != null) {
                     return callback(_e3);
                   }
-                  return f(_this.body, (_once4 = false, function (_e4, body) {
+                  return f.call(context, _this.body, (_once4 = false, function (_e4, body) {
                     if (_once4) {
                       throw Error("Attempted to call function more than once");
                     } else {
@@ -20949,7 +20927,7 @@
                     return (_this.label instanceof Node
                       ? function (next) {
                         var _once5;
-                        return f(_this.label, (_once5 = false, function (_e5, label) {
+                        return f.call(context, _this.label, (_once5 = false, function (_e5, label) {
                           if (_once5) {
                             throw Error("Attempted to call function more than once");
                           } else {
@@ -21041,13 +21019,13 @@
               this.label
             );
           };
-          _ForInNode_prototype.walk = function (f) {
+          _ForInNode_prototype.walk = function (f, context) {
             var body, key, label, object;
-            key = f(this.key);
-            object = f(this.object);
-            body = f(this.body);
+            key = f.call(context, this.key);
+            object = f.call(context, this.object);
+            body = f.call(context, this.body);
             if (this.label instanceof Node) {
-              label = f(this.label);
+              label = f.call(context, this.label);
             } else {
               label = this.label;
             }
@@ -21064,10 +21042,10 @@
               return this;
             }
           };
-          _ForInNode_prototype.walkAsync = function (f, callback) {
+          _ForInNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.key, (_once = false, function (_e, key) {
+            return f.call(context, this.key, (_once = false, function (_e, key) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -21077,7 +21055,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return f(_this.object, (_once2 = false, function (_e2, object) {
+              return f.call(context, _this.object, (_once2 = false, function (_e2, object) {
                 var _once3;
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
@@ -21087,7 +21065,7 @@
                 if (_e2 != null) {
                   return callback(_e2);
                 }
-                return f(_this.body, (_once3 = false, function (_e3, body) {
+                return f.call(context, _this.body, (_once3 = false, function (_e3, body) {
                   if (_once3) {
                     throw Error("Attempted to call function more than once");
                   } else {
@@ -21099,7 +21077,7 @@
                   return (_this.label instanceof Node
                     ? function (next) {
                       var _once4;
-                      return f(_this.label, (_once4 = false, function (_e4, label) {
+                      return f.call(context, _this.label, (_once4 = false, function (_e4, label) {
                         if (_once4) {
                           throw Error("Attempted to call function more than once");
                         } else {
@@ -21255,17 +21233,17 @@
               this.generic
             );
           };
-          _FunctionNode_prototype.walk = function (f) {
+          _FunctionNode_prototype.walk = function (f, context) {
             var asType, body, bound, params;
-            params = map(this.params, f);
-            body = f(this.body);
+            params = map(this.params, f, context);
+            body = f.call(context, this.body);
             if (this.bound instanceof Node) {
-              bound = f(this.bound);
+              bound = f.call(context, this.bound);
             } else {
               bound = this.bound;
             }
             if (this.asType instanceof Node) {
-              asType = f(this.asType);
+              asType = f.call(context, this.asType);
             } else {
               asType = this.asType;
             }
@@ -21286,10 +21264,10 @@
               return this;
             }
           };
-          _FunctionNode_prototype.walkAsync = function (f, callback) {
+          _FunctionNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return mapAsync(this.params, f, (_once = false, function (_e, params) {
+            return mapAsync(this.params, f, context, (_once = false, function (_e, params) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -21299,7 +21277,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return f(_this.body, (_once2 = false, function (_e2, body) {
+              return f.call(context, _this.body, (_once2 = false, function (_e2, body) {
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -21311,7 +21289,7 @@
                 return (_this.bound instanceof Node
                   ? function (next) {
                     var _once3;
-                    return f(_this.bound, (_once3 = false, function (_e3, bound) {
+                    return f.call(context, _this.bound, (_once3 = false, function (_e3, bound) {
                       if (_once3) {
                         throw Error("Attempted to call function more than once");
                       } else {
@@ -21329,7 +21307,7 @@
                   return (_this.asType instanceof Node
                     ? function (next) {
                       var _once3;
-                      return f(_this.asType, (_once3 = false, function (_e3, asType) {
+                      return f.call(context, _this.asType, (_once3 = false, function (_e3, asType) {
                         if (_once3) {
                           throw Error("Attempted to call function more than once");
                         } else {
@@ -21406,10 +21384,10 @@
           _IdentNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "IdentNode", this.index, this.name);
           };
-          _IdentNode_prototype.walk = function (f) {
+          _IdentNode_prototype.walk = function (f, context) {
             return this;
           };
-          _IdentNode_prototype.walkAsync = function (f, callback) {
+          _IdentNode_prototype.walkAsync = function (f, context, callback) {
             return callback(null, this);
           };
           return IdentNode;
@@ -21546,10 +21524,10 @@
               return _ref;
             }
           };
-          _IfNode_prototype.mutateLast = function (o, func, includeNoop) {
+          _IfNode_prototype.mutateLast = function (o, func, context, includeNoop) {
             var whenFalse, whenTrue;
-            whenTrue = this.whenTrue.mutateLast(o, func, includeNoop);
-            whenFalse = this.whenFalse.mutateLast(o, func, includeNoop);
+            whenTrue = this.whenTrue.mutateLast(o, func, context, includeNoop);
+            whenFalse = this.whenFalse.mutateLast(o, func, context, includeNoop);
             if (whenTrue !== this.whenTrue || whenFalse !== this.whenFalse) {
               return IfNode(
                 this.index,
@@ -21574,13 +21552,13 @@
               this.label
             );
           };
-          _IfNode_prototype.walk = function (f) {
+          _IfNode_prototype.walk = function (f, context) {
             var label, test, whenFalse, whenTrue;
-            test = f(this.test);
-            whenTrue = f(this.whenTrue);
-            whenFalse = f(this.whenFalse);
+            test = f.call(context, this.test);
+            whenTrue = f.call(context, this.whenTrue);
+            whenFalse = f.call(context, this.whenFalse);
             if (this.label instanceof Node) {
-              label = f(this.label);
+              label = f.call(context, this.label);
             } else {
               label = this.label;
             }
@@ -21597,10 +21575,10 @@
               return this;
             }
           };
-          _IfNode_prototype.walkAsync = function (f, callback) {
+          _IfNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.test, (_once = false, function (_e, test) {
+            return f.call(context, this.test, (_once = false, function (_e, test) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -21610,7 +21588,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return f(_this.whenTrue, (_once2 = false, function (_e2, whenTrue) {
+              return f.call(context, _this.whenTrue, (_once2 = false, function (_e2, whenTrue) {
                 var _once3;
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
@@ -21620,7 +21598,7 @@
                 if (_e2 != null) {
                   return callback(_e2);
                 }
-                return f(_this.whenFalse, (_once3 = false, function (_e3, whenFalse) {
+                return f.call(context, _this.whenFalse, (_once3 = false, function (_e3, whenFalse) {
                   if (_once3) {
                     throw Error("Attempted to call function more than once");
                   } else {
@@ -21632,7 +21610,7 @@
                   return (_this.label instanceof Node
                     ? function (next) {
                       var _once4;
-                      return f(_this.label, (_once4 = false, function (_e4, label) {
+                      return f.call(context, _this.label, (_once4 = false, function (_e4, label) {
                         if (_once4) {
                           throw Error("Attempted to call function more than once");
                         } else {
@@ -21736,14 +21714,14 @@
             return o.macroExpand1(this).withLabel(label, o);
           };
           _MacroAccessNode_prototype.walk = (function () {
-            function walkObject(obj, func) {
+            function walkObject(obj, func, context) {
               var changed, k, newV, result, v;
               result = {};
               changed = false;
               for (k in obj) {
                 if (__owns.call(obj, k)) {
                   v = obj[k];
-                  newV = walkItem(v, func);
+                  newV = walkItem(v, func, context);
                   if (newV !== v) {
                     changed = true;
                   }
@@ -21756,22 +21734,22 @@
                 return obj;
               }
             }
-            function walkItem(item, func) {
+            function walkItem(item, func, context) {
               if (item instanceof Node) {
-                return func(item);
+                return func.call(context, item);
               } else if (__isArray(item)) {
                 return map(item, function (x) {
-                  return walkItem(x, func);
+                  return walkItem(x, func, context);
                 });
               } else if (typeof item === "object" && item !== null) {
-                return walkObject(item, func);
+                return walkObject(item, func, context);
               } else {
                 return item;
               }
             }
-            return function (func) {
+            return function (func, context) {
               var data;
-              data = walkItem(this.data, func);
+              data = walkItem(this.data, func, context);
               if (data !== this.data) {
                 return MacroAccessNode(
                   this.index,
@@ -21790,7 +21768,7 @@
             };
           }());
           _MacroAccessNode_prototype.walkAsync = (function () {
-            function walkObject(obj, func, callback) {
+            function walkObject(obj, func, context, callback) {
               var _keys, changed, result;
               changed = false;
               result = {};
@@ -21803,7 +21781,7 @@
                   var _once, k, v;
                   k = _keys[_i];
                   v = obj[k];
-                  return walkItem(item, func, (_once = false, function (_e, newItem) {
+                  return walkItem(item, func, context, (_once = false, function (_e, newItem) {
                     if (_once) {
                       throw Error("Attempted to call function more than once");
                     } else {
@@ -21828,27 +21806,28 @@
                 }
               );
             }
-            function walkItem(item, func, callback) {
+            function walkItem(item, func, context, callback) {
               if (item instanceof Node) {
-                return func(item, callback);
+                return func(item, context, callback);
               } else if (__isArray(item)) {
                 return mapAsync(
                   item,
                   function (x, cb) {
-                    return walkItem(x, func, cb);
+                    return walkItem(x, func, context, cb);
                   },
+                  null,
                   callback
                 );
               } else if (typeof item === "object" && item !== null) {
-                return walkObject(item, func, callback);
+                return walkObject(item, func, context, callback);
               } else {
                 return callback(null, item);
               }
             }
-            return function (func, callback) {
+            return function (func, context, callback) {
               var _once, _this;
               _this = this;
-              return walkItem(this.data, func, (_once = false, function (_e, data) {
+              return walkItem(this.data, func, context, (_once = false, function (_e, data) {
                 if (_once) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -21893,8 +21872,8 @@
               );
             }
           };
-          _MacroAccessNode_prototype.mutateLast = function (o, func, includeNoop) {
-            return o.macroExpand1(this).mutateLast(o, func, includeNoop);
+          _MacroAccessNode_prototype.mutateLast = function (o, func, context, includeNoop) {
+            return o.macroExpand1(this).mutateLast(o, func, context, includeNoop);
           };
           _MacroAccessNode_prototype.inspect = function (depth) {
             return inspectHelper(
@@ -21968,10 +21947,10 @@
           _MacroConstNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "MacroConstNode", this.index, this.name);
           };
-          _MacroConstNode_prototype.walk = function (f) {
+          _MacroConstNode_prototype.walk = function (f, context) {
             return this;
           };
-          _MacroConstNode_prototype.walkAsync = function (f, callback) {
+          _MacroConstNode_prototype.walkAsync = function (f, context, callback) {
             return callback(null, this);
           };
           return MacroConstNode;
@@ -22016,10 +21995,10 @@
           _NothingNode_prototype._isNoop = function () {
             return true;
           };
-          _NothingNode_prototype.mutateLast = function (o, func, includeNoop) {
+          _NothingNode_prototype.mutateLast = function (o, func, context, includeNoop) {
             var _ref;
             if (includeNoop) {
-              if ((_ref = func(this)) != null) {
+              if ((_ref = func.call(context, this)) != null) {
                 return _ref;
               } else {
                 return this;
@@ -22079,62 +22058,61 @@
               return _ref;
             }
           };
-          _ObjectNode_prototype.walk = (function () {
-            function walkPair(pair, func) {
+          _ObjectNode_prototype.walk = function (func, context) {
+            var pairs, prototype;
+            pairs = map(this.pairs, function (pair) {
               var key, value;
-              key = func(pair.key);
-              value = func(pair.value);
+              key = func.call(context, pair.key);
+              value = func.call(context, pair.value);
               if (key !== pair.key || value !== pair.value) {
                 return { key: key, value: value, property: pair.property };
               } else {
                 return pair;
               }
+            });
+            if (this.prototype != null) {
+              prototype = func.call(context, this.prototype);
+            } else {
+              prototype = this.prototype;
             }
-            return function (func) {
-              var pairs, prototype;
-              pairs = map(this.pairs, walkPair, func);
-              if (this.prototype != null) {
-                prototype = func(this.prototype);
-              } else {
-                prototype = this.prototype;
-              }
-              if (pairs !== this.pairs || prototype !== this.prototype) {
-                return ObjectNode(this.index, this.scope, pairs, prototype);
-              } else {
-                return this;
-              }
-            };
-          }());
-          _ObjectNode_prototype.walkAsync = (function () {
-            function walkPair(pair, func, callback) {
-              var _once;
-              return func(pair.key, (_once = false, function (_e, key) {
+            if (pairs !== this.pairs || prototype !== this.prototype) {
+              return ObjectNode(this.index, this.scope, pairs, prototype);
+            } else {
+              return this;
+            }
+          };
+          _ObjectNode_prototype.walkAsync = function (func, context, callback) {
+            var _once, _this;
+            _this = this;
+            return mapAsync(
+              this.pairs,
+              function (pair, cb) {
                 var _once2;
-                if (_once) {
-                  throw Error("Attempted to call function more than once");
-                } else {
-                  _once = true;
-                }
-                if (_e != null) {
-                  return callback(_e);
-                }
-                return func(pair.value, (_once2 = false, function (_e2, value) {
+                return func.call(context, pair.key, (_once2 = false, function (_e, key) {
+                  var _once3;
                   if (_once2) {
                     throw Error("Attempted to call function more than once");
                   } else {
                     _once2 = true;
                   }
-                  if (_e2 != null) {
-                    return callback(_e2);
+                  if (_e != null) {
+                    return cb(_e);
                   }
-                  return callback(null, key !== pair.key || value !== pair.value ? { key: key, value: value, property: pair.property } : pair);
+                  return func.call(context, pair.value, (_once3 = false, function (_e2, value) {
+                    if (_once3) {
+                      throw Error("Attempted to call function more than once");
+                    } else {
+                      _once3 = true;
+                    }
+                    if (_e2 != null) {
+                      return cb(_e2);
+                    }
+                    return cb(null, key !== pair.key || value !== pair.value ? { key: key, value: value, property: pair.property } : pair);
+                  }));
                 }));
-              }));
-            }
-            return function (func, callback) {
-              var _once, _this;
-              _this = this;
-              return mapAsync(this.pairs, walkPair, func, (_once = false, function (_e, pairs) {
+              },
+              null,
+              (_once = false, function (_e, pairs) {
                 if (_once) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -22146,7 +22124,7 @@
                 return (_this.prototype != null
                   ? function (next) {
                     var _once2;
-                    return func(_this.prototype, (_once2 = false, function (_e2, p) {
+                    return func.call(context, _this.prototype, (_once2 = false, function (_e2, p) {
                       if (_once2) {
                         throw Error("Attempted to call function more than once");
                       } else {
@@ -22163,11 +22141,12 @@
                   })(function (prototype) {
                   return callback(null, pairs !== _this.pairs || prototype !== _this.prototype ? ObjectNode(_this.index, _this.scope, pairs, prototype) : _this);
                 });
-              }));
-            };
-          }());
-          _ObjectNode_prototype._reduce = (function () {
-            function reducePair(pair, o) {
+              })
+            );
+          };
+          _ObjectNode_prototype._reduce = function (o) {
+            var pairs, prototype;
+            pairs = map(this.pairs, function (pair) {
               var key, value;
               key = pair.key.reduce(o);
               value = pair.value.reduce(o).doWrap(o);
@@ -22176,22 +22155,18 @@
               } else {
                 return pair;
               }
+            });
+            if (this.prototype != null) {
+              prototype = this.prototype.reduce(o);
+            } else {
+              prototype = this.prototype;
             }
-            return function (o) {
-              var pairs, prototype;
-              pairs = map(this.pairs, reducePair, o);
-              if (this.prototype != null) {
-                prototype = this.prototype.reduce(o);
-              } else {
-                prototype = this.prototype;
-              }
-              if (pairs !== this.pairs || prototype !== this.prototype) {
-                return ObjectNode(this.index, this.scope, pairs, prototype);
-              } else {
-                return this;
-              }
-            };
-          }());
+            if (pairs !== this.pairs || prototype !== this.prototype) {
+              return ObjectNode(this.index, this.scope, pairs, prototype);
+            } else {
+              return this;
+            }
+          };
           _ObjectNode_prototype._isNoop = function (o) {
             var _arr, _every, _i, _len, _ref, _ref2, key, value;
             if ((_ref = this.__isNoop) == null) {
@@ -22345,16 +22320,16 @@
               this.asType
             );
           };
-          _ParamNode_prototype.walk = function (f) {
+          _ParamNode_prototype.walk = function (f, context) {
             var asType, defaultValue, ident;
-            ident = f(this.ident);
+            ident = f.call(context, this.ident);
             if (this.defaultValue instanceof Node) {
-              defaultValue = f(this.defaultValue);
+              defaultValue = f.call(context, this.defaultValue);
             } else {
               defaultValue = this.defaultValue;
             }
             if (this.asType instanceof Node) {
-              asType = f(this.asType);
+              asType = f.call(context, this.asType);
             } else {
               asType = this.asType;
             }
@@ -22372,10 +22347,10 @@
               return this;
             }
           };
-          _ParamNode_prototype.walkAsync = function (f, callback) {
+          _ParamNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.ident, (_once = false, function (_e, ident) {
+            return f.call(context, this.ident, (_once = false, function (_e, ident) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -22387,7 +22362,7 @@
               return (_this.defaultValue instanceof Node
                 ? function (next) {
                   var _once2;
-                  return f(_this.defaultValue, (_once2 = false, function (_e2, defaultValue) {
+                  return f.call(context, _this.defaultValue, (_once2 = false, function (_e2, defaultValue) {
                     if (_once2) {
                       throw Error("Attempted to call function more than once");
                     } else {
@@ -22405,7 +22380,7 @@
                 return (_this.asType instanceof Node
                   ? function (next) {
                     var _once2;
-                    return f(_this.asType, (_once2 = false, function (_e2, asType) {
+                    return f.call(context, _this.asType, (_once2 = false, function (_e2, asType) {
                       if (_once2) {
                         throw Error("Attempted to call function more than once");
                       } else {
@@ -22497,19 +22472,19 @@
               this.flags
             );
           };
-          _RegexpNode_prototype.walk = function (f) {
+          _RegexpNode_prototype.walk = function (f, context) {
             var source;
-            source = f(this.source);
+            source = f.call(context, this.source);
             if (source !== this.source) {
               return RegexpNode(this.index, this.scope, source, this.flags);
             } else {
               return this;
             }
           };
-          _RegexpNode_prototype.walkAsync = function (f, callback) {
+          _RegexpNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.source, (_once = false, function (_e, source) {
+            return f.call(context, this.source, (_once = false, function (_e, source) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -22569,19 +22544,19 @@
           _ReturnNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "ReturnNode", this.index, this.node);
           };
-          _ReturnNode_prototype.walk = function (f) {
+          _ReturnNode_prototype.walk = function (f, context) {
             var node;
-            node = f(this.node);
+            node = f.call(context, this.node);
             if (node !== this.node) {
               return ReturnNode(this.index, this.scope, node);
             } else {
               return this;
             }
           };
-          _ReturnNode_prototype.walkAsync = function (f, callback) {
+          _ReturnNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.node, (_once = false, function (_e, node) {
+            return f.call(context, this.node, (_once = false, function (_e, node) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -22643,9 +22618,9 @@
               this.isGenerator
             );
           };
-          _RootNode_prototype.walk = function (f) {
+          _RootNode_prototype.walk = function (f, context) {
             var body;
-            body = f(this.body);
+            body = f.call(context, this.body);
             if (body !== this.body) {
               return RootNode(
                 this.index,
@@ -22659,10 +22634,10 @@
               return this;
             }
           };
-          _RootNode_prototype.walkAsync = function (f, callback) {
+          _RootNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.body, (_once = false, function (_e, body) {
+            return f.call(context, this.body, (_once = false, function (_e, body) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -22719,19 +22694,19 @@
           _SpreadNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "SpreadNode", this.index, this.node);
           };
-          _SpreadNode_prototype.walk = function (f) {
+          _SpreadNode_prototype.walk = function (f, context) {
             var node;
-            node = f(this.node);
+            node = f.call(context, this.node);
             if (node !== this.node) {
               return SpreadNode(this.index, this.scope, node);
             } else {
               return this;
             }
           };
-          _SpreadNode_prototype.walkAsync = function (f, callback) {
+          _SpreadNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.node, (_once = false, function (_e, node) {
+            return f.call(context, this.node, (_once = false, function (_e, node) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -22812,13 +22787,9 @@
             } else {
               child = this.child;
             }
-            args = map(
-              this.args,
-              function (node, o) {
-                return node.reduce(o).doWrap(o);
-              },
-              o
-            );
+            args = map(this.args, function (node) {
+              return node.reduce(o).doWrap(o);
+            });
             if (child !== this.child || args !== this.args) {
               return SuperNode(this.index, this.scope, child, args);
             } else {
@@ -22834,27 +22805,27 @@
               this.args
             );
           };
-          _SuperNode_prototype.walk = function (f) {
+          _SuperNode_prototype.walk = function (f, context) {
             var args, child;
             if (this.child instanceof Node) {
-              child = f(this.child);
+              child = f.call(context, this.child);
             } else {
               child = this.child;
             }
-            args = map(this.args, f);
+            args = map(this.args, f, context);
             if (child !== this.child || args !== this.args) {
               return SuperNode(this.index, this.scope, child, args);
             } else {
               return this;
             }
           };
-          _SuperNode_prototype.walkAsync = function (f, callback) {
+          _SuperNode_prototype.walkAsync = function (f, context, callback) {
             var _this;
             _this = this;
             return (this.child instanceof Node
               ? function (next) {
                 var _once;
-                return f(_this.child, (_once = false, function (_e, child) {
+                return f.call(context, _this.child, (_once = false, function (_e, child) {
                   if (_once) {
                     throw Error("Attempted to call function more than once");
                   } else {
@@ -22870,7 +22841,7 @@
                 return next(_this.child);
               })(function (child) {
               var _once;
-              return mapAsync(_this.args, f, (_once = false, function (_e, args) {
+              return mapAsync(_this.args, f, context, (_once = false, function (_e, args) {
                 if (_once) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -22953,13 +22924,13 @@
               label
             );
           };
-          _SwitchNode_prototype.walk = function (f) {
+          _SwitchNode_prototype.walk = function (f, context) {
             var cases, defaultCase, label, node;
-            node = f(this.node);
+            node = f.call(context, this.node);
             cases = map(this.cases, function (case_) {
               var caseBody, caseNode;
-              caseNode = f(case_.node);
-              caseBody = f(case_.body);
+              caseNode = f.call(context, case_.node);
+              caseBody = f.call(context, case_.body);
               if (caseNode !== case_.node || caseBody !== case_.body) {
                 return { node: caseNode, body: caseBody, fallthrough: case_.fallthrough };
               } else {
@@ -22967,12 +22938,12 @@
               }
             });
             if (this.defaultCase) {
-              defaultCase = f(this.defaultCase);
+              defaultCase = f.call(context, this.defaultCase);
             } else {
               defaultCase = this.defaultCase;
             }
             if (this.label != null) {
-              label = f(this.label);
+              label = f.call(context, this.label);
             } else {
               label = this.label;
             }
@@ -22989,10 +22960,10 @@
               return this;
             }
           };
-          _SwitchNode_prototype.walkAsync = function (f, callback) {
+          _SwitchNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.node, (_once = false, function (_e, node) {
+            return f.call(context, this.node, (_once = false, function (_e, node) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -23006,7 +22977,7 @@
                 _this.cases,
                 function (case_, cb) {
                   var _once3;
-                  return f(case_.node, (_once3 = false, function (_e2, caseNode) {
+                  return f.call(context, case_.node, (_once3 = false, function (_e2, caseNode) {
                     var _once4;
                     if (_once3) {
                       throw Error("Attempted to call function more than once");
@@ -23016,7 +22987,7 @@
                     if (_e2 != null) {
                       return cb(_e2);
                     }
-                    return f(case_.body, (_once4 = false, function (_e3, caseBody) {
+                    return f.call(context, case_.body, (_once4 = false, function (_e3, caseBody) {
                       if (_once4) {
                         throw Error("Attempted to call function more than once");
                       } else {
@@ -23029,6 +23000,7 @@
                     }));
                   }));
                 },
+                null,
                 (_once2 = false, function (_e2, cases) {
                   if (_once2) {
                     throw Error("Attempted to call function more than once");
@@ -23041,7 +23013,7 @@
                   return (_this.defaultCase != null
                     ? function (next) {
                       var _once3;
-                      return f(_this.defaultCase, (_once3 = false, function (_e3, x) {
+                      return f.call(context, _this.defaultCase, (_once3 = false, function (_e3, x) {
                         if (_once3) {
                           throw Error("Attempted to call function more than once");
                         } else {
@@ -23059,7 +23031,7 @@
                     return (_this.label != null
                       ? function (next) {
                         var _once3;
-                        return f(_this.label, (_once3 = false, function (_e3, x) {
+                        return f.call(context, _this.label, (_once3 = false, function (_e3, x) {
                           if (_once3) {
                             throw Error("Attempted to call function more than once");
                           } else {
@@ -23093,7 +23065,7 @@
           _SwitchNode_prototype.isStatement = function () {
             return true;
           };
-          _SwitchNode_prototype.mutateLast = function (o, func, includeNoop) {
+          _SwitchNode_prototype.mutateLast = function (o, func, context, includeNoop) {
             var _arr, _arr2, _i, _len, body, case_, cases, casesChanged, defaultCase;
             casesChanged = false;
             for (_arr = [], _arr2 = __toArray(this.cases), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
@@ -23101,7 +23073,7 @@
               if (case_.fallthrough) {
                 _arr.push(case_);
               } else {
-                body = case_.body.mutateLast(o, func, includeNoop);
+                body = case_.body.mutateLast(o, func, context, includeNoop);
                 if (body !== case_.body) {
                   casesChanged = true;
                   _arr.push({ node: case_.node, body: body, fallthrough: case_.fallthrough });
@@ -23111,7 +23083,7 @@
               }
             }
             cases = _arr;
-            defaultCase = this.defaultCase.mutateLast(o, func, includeNoop);
+            defaultCase = this.defaultCase.mutateLast(o, func, context, includeNoop);
             if (casesChanged || defaultCase !== this.defaultCase) {
               return SwitchNode(
                 this.index,
@@ -23166,19 +23138,19 @@
           _SyntaxChoiceNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "SyntaxChoiceNode", this.index, this.choices);
           };
-          _SyntaxChoiceNode_prototype.walk = function (f) {
+          _SyntaxChoiceNode_prototype.walk = function (f, context) {
             var choices;
-            choices = map(this.choices, f);
+            choices = map(this.choices, f, context);
             if (choices !== this.choices) {
               return SyntaxChoiceNode(this.index, this.scope, choices);
             } else {
               return this;
             }
           };
-          _SyntaxChoiceNode_prototype.walkAsync = function (f, callback) {
+          _SyntaxChoiceNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return mapAsync(this.choices, f, (_once = false, function (_e, choices) {
+            return mapAsync(this.choices, f, context, (_once = false, function (_e, choices) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -23224,19 +23196,19 @@
               this.multiplier
             );
           };
-          _SyntaxManyNode_prototype.walk = function (f) {
+          _SyntaxManyNode_prototype.walk = function (f, context) {
             var inner;
-            inner = f(this.inner);
+            inner = f.call(context, this.inner);
             if (inner !== this.inner) {
               return SyntaxManyNode(this.index, this.scope, inner, this.multiplier);
             } else {
               return this;
             }
           };
-          _SyntaxManyNode_prototype.walkAsync = function (f, callback) {
+          _SyntaxManyNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.inner, (_once = false, function (_e, inner) {
+            return f.call(context, this.inner, (_once = false, function (_e, inner) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -23285,11 +23257,11 @@
               this.asType
             );
           };
-          _SyntaxParamNode_prototype.walk = function (f) {
+          _SyntaxParamNode_prototype.walk = function (f, context) {
             var asType, ident;
-            ident = f(this.ident);
+            ident = f.call(context, this.ident);
             if (this.asType instanceof Node) {
-              asType = f(this.asType);
+              asType = f.call(context, this.asType);
             } else {
               asType = this.asType;
             }
@@ -23299,10 +23271,10 @@
               return this;
             }
           };
-          _SyntaxParamNode_prototype.walkAsync = function (f, callback) {
+          _SyntaxParamNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.ident, (_once = false, function (_e, ident) {
+            return f.call(context, this.ident, (_once = false, function (_e, ident) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -23314,7 +23286,7 @@
               return (_this.asType instanceof Node
                 ? function (next) {
                   var _once2;
-                  return f(_this.asType, (_once2 = false, function (_e2, asType) {
+                  return f.call(context, _this.asType, (_once2 = false, function (_e2, asType) {
                     if (_once2) {
                       throw Error("Attempted to call function more than once");
                     } else {
@@ -23363,19 +23335,19 @@
           _SyntaxSequenceNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "SyntaxSequenceNode", this.index, this.params);
           };
-          _SyntaxSequenceNode_prototype.walk = function (f) {
+          _SyntaxSequenceNode_prototype.walk = function (f, context) {
             var params;
-            params = map(this.params, f);
+            params = map(this.params, f, context);
             if (params !== this.params) {
               return SyntaxSequenceNode(this.index, this.scope, params);
             } else {
               return this;
             }
           };
-          _SyntaxSequenceNode_prototype.walkAsync = function (f, callback) {
+          _SyntaxSequenceNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return mapAsync(this.params, f, (_once = false, function (_e, params) {
+            return mapAsync(this.params, f, context, (_once = false, function (_e, params) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -23470,19 +23442,19 @@
           _ThrowNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "ThrowNode", this.index, this.node);
           };
-          _ThrowNode_prototype.walk = function (f) {
+          _ThrowNode_prototype.walk = function (f, context) {
             var node;
-            node = f(this.node);
+            node = f.call(context, this.node);
             if (node !== this.node) {
               return ThrowNode(this.index, this.scope, node);
             } else {
               return this;
             }
           };
-          _ThrowNode_prototype.walkAsync = function (f, callback) {
+          _ThrowNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.node, (_once = false, function (_e, node) {
+            return f.call(context, this.node, (_once = false, function (_e, node) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -23547,10 +23519,10 @@
               this._type
             );
           };
-          _TmpNode_prototype.walk = function (f) {
+          _TmpNode_prototype.walk = function (f, context) {
             return this;
           };
-          _TmpNode_prototype.walkAsync = function (f, callback) {
+          _TmpNode_prototype.walkAsync = function (f, context, callback) {
             return callback(null, this);
           };
           return TmpNode;
@@ -23621,9 +23593,9 @@
               return this;
             }
           };
-          _TmpWrapperNode_prototype.mutateLast = function (o, func, includeNoop) {
+          _TmpWrapperNode_prototype.mutateLast = function (o, func, context, includeNoop) {
             var node;
-            node = this.node.mutateLast(o, func, includeNoop);
+            node = this.node.mutateLast(o, func, context, includeNoop);
             if (node !== this.node) {
               return TmpWrapperNode(this.index, this.scope, node, this.tmps);
             } else {
@@ -23639,19 +23611,19 @@
               this.tmps
             );
           };
-          _TmpWrapperNode_prototype.walk = function (f) {
+          _TmpWrapperNode_prototype.walk = function (f, context) {
             var node;
-            node = f(this.node);
+            node = f.call(context, this.node);
             if (node !== this.node) {
               return TmpWrapperNode(this.index, this.scope, node, this.tmps);
             } else {
               return this;
             }
           };
-          _TmpWrapperNode_prototype.walkAsync = function (f, callback) {
+          _TmpWrapperNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.node, (_once = false, function (_e, node) {
+            return f.call(context, this.node, (_once = false, function (_e, node) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -23720,10 +23692,10 @@
               label
             );
           };
-          _TryCatchNode_prototype.mutateLast = function (o, func, includeNoop) {
+          _TryCatchNode_prototype.mutateLast = function (o, func, context, includeNoop) {
             var catchBody, tryBody;
-            tryBody = this.tryBody.mutateLast(o, func, includeNoop);
-            catchBody = this.catchBody.mutateLast(o, func, includeNoop);
+            tryBody = this.tryBody.mutateLast(o, func, context, includeNoop);
+            catchBody = this.catchBody.mutateLast(o, func, context, includeNoop);
             if (tryBody !== this.tryBody || catchBody !== this.catchBody) {
               return TryCatchNode(
                 this.index,
@@ -23748,13 +23720,13 @@
               this.label
             );
           };
-          _TryCatchNode_prototype.walk = function (f) {
+          _TryCatchNode_prototype.walk = function (f, context) {
             var catchBody, catchIdent, label, tryBody;
-            tryBody = f(this.tryBody);
-            catchIdent = f(this.catchIdent);
-            catchBody = f(this.catchBody);
+            tryBody = f.call(context, this.tryBody);
+            catchIdent = f.call(context, this.catchIdent);
+            catchBody = f.call(context, this.catchBody);
             if (this.label instanceof Node) {
-              label = f(this.label);
+              label = f.call(context, this.label);
             } else {
               label = this.label;
             }
@@ -23771,10 +23743,10 @@
               return this;
             }
           };
-          _TryCatchNode_prototype.walkAsync = function (f, callback) {
+          _TryCatchNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.tryBody, (_once = false, function (_e, tryBody) {
+            return f.call(context, this.tryBody, (_once = false, function (_e, tryBody) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -23784,7 +23756,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return f(_this.catchIdent, (_once2 = false, function (_e2, catchIdent) {
+              return f.call(context, _this.catchIdent, (_once2 = false, function (_e2, catchIdent) {
                 var _once3;
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
@@ -23794,7 +23766,7 @@
                 if (_e2 != null) {
                   return callback(_e2);
                 }
-                return f(_this.catchBody, (_once3 = false, function (_e3, catchBody) {
+                return f.call(context, _this.catchBody, (_once3 = false, function (_e3, catchBody) {
                   if (_once3) {
                     throw Error("Attempted to call function more than once");
                   } else {
@@ -23806,7 +23778,7 @@
                   return (_this.label instanceof Node
                     ? function (next) {
                       var _once4;
-                      return f(_this.label, (_once4 = false, function (_e4, label) {
+                      return f.call(context, _this.label, (_once4 = false, function (_e4, label) {
                         if (_once4) {
                           throw Error("Attempted to call function more than once");
                         } else {
@@ -23916,9 +23888,9 @@
               label
             );
           };
-          _TryFinallyNode_prototype.mutateLast = function (o, func, includeNoop) {
+          _TryFinallyNode_prototype.mutateLast = function (o, func, context, includeNoop) {
             var tryBody;
-            tryBody = this.tryBody.mutateLast(o, func, includeNoop);
+            tryBody = this.tryBody.mutateLast(o, func, context, includeNoop);
             if (tryBody !== this.tryBody) {
               return TryFinallyNode(
                 this.index,
@@ -23941,12 +23913,12 @@
               this.label
             );
           };
-          _TryFinallyNode_prototype.walk = function (f) {
+          _TryFinallyNode_prototype.walk = function (f, context) {
             var finallyBody, label, tryBody;
-            tryBody = f(this.tryBody);
-            finallyBody = f(this.finallyBody);
+            tryBody = f.call(context, this.tryBody);
+            finallyBody = f.call(context, this.finallyBody);
             if (this.label instanceof Node) {
-              label = f(this.label);
+              label = f.call(context, this.label);
             } else {
               label = this.label;
             }
@@ -23962,10 +23934,10 @@
               return this;
             }
           };
-          _TryFinallyNode_prototype.walkAsync = function (f, callback) {
+          _TryFinallyNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.tryBody, (_once = false, function (_e, tryBody) {
+            return f.call(context, this.tryBody, (_once = false, function (_e, tryBody) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -23975,7 +23947,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return f(_this.finallyBody, (_once2 = false, function (_e2, finallyBody) {
+              return f.call(context, _this.finallyBody, (_once2 = false, function (_e2, finallyBody) {
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -23987,7 +23959,7 @@
                 return (_this.label instanceof Node
                   ? function (next) {
                     var _once3;
-                    return f(_this.label, (_once3 = false, function (_e3, label) {
+                    return f.call(context, _this.label, (_once3 = false, function (_e3, label) {
                       if (_once3) {
                         throw Error("Attempted to call function more than once");
                       } else {
@@ -24042,19 +24014,19 @@
           _TypeFunctionNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "TypeFunctionNode", this.index, this.returnType);
           };
-          _TypeFunctionNode_prototype.walk = function (f) {
+          _TypeFunctionNode_prototype.walk = function (f, context) {
             var returnType;
-            returnType = f(this.returnType);
+            returnType = f.call(context, this.returnType);
             if (returnType !== this.returnType) {
               return TypeFunctionNode(this.index, this.scope, returnType);
             } else {
               return this;
             }
           };
-          _TypeFunctionNode_prototype.walkAsync = function (f, callback) {
+          _TypeFunctionNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.returnType, (_once = false, function (_e, returnType) {
+            return f.call(context, this.returnType, (_once = false, function (_e, returnType) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -24103,20 +24075,20 @@
               this.args
             );
           };
-          _TypeGenericNode_prototype.walk = function (f) {
+          _TypeGenericNode_prototype.walk = function (f, context) {
             var args, basetype;
-            basetype = f(this.basetype);
-            args = map(this.args, f);
+            basetype = f.call(context, this.basetype);
+            args = map(this.args, f, context);
             if (basetype !== this.basetype || args !== this.args) {
               return TypeGenericNode(this.index, this.scope, basetype, args);
             } else {
               return this;
             }
           };
-          _TypeGenericNode_prototype.walkAsync = function (f, callback) {
+          _TypeGenericNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.basetype, (_once = false, function (_e, basetype) {
+            return f.call(context, this.basetype, (_once = false, function (_e, basetype) {
               var _once2;
               if (_once) {
                 throw Error("Attempted to call function more than once");
@@ -24126,7 +24098,7 @@
               if (_e != null) {
                 return callback(_e);
               }
-              return mapAsync(_this.args, f, (_once2 = false, function (_e2, args) {
+              return mapAsync(_this.args, f, context, (_once2 = false, function (_e2, args) {
                 if (_once2) {
                   throw Error("Attempted to call function more than once");
                 } else {
@@ -24163,19 +24135,18 @@
           }
           _TypeObjectNode_prototype.typeId = 46;
           TypeObjectNode.argNames = ["pairs"];
-          function reducePair(pair, o) {
-            var key, value;
-            key = pair.key.reduce(o);
-            value = pair.value.reduce(o);
-            if (key !== pair.key || value !== pair.value) {
-              return { key: key, value: value };
-            } else {
-              return pair;
-            }
-          }
           _TypeObjectNode_prototype._reduce = function (o) {
             var pairs;
-            pairs = map(this.pairs, reducePair, o);
+            pairs = map(this.pairs, function (pair) {
+              var key, value;
+              key = pair.key.reduce(o);
+              value = pair.value.reduce(o);
+              if (key !== pair.key || value !== pair.value) {
+                return { key: key, value: value };
+              } else {
+                return pair;
+              }
+            });
             if (pairs !== this.pairs) {
               return TypeObjectNode(this.index, this.scope, pairs);
             } else {
@@ -24185,10 +24156,10 @@
           _TypeObjectNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "TypeObjectNode", this.index, this.pairs);
           };
-          _TypeObjectNode_prototype.walk = function (f) {
+          _TypeObjectNode_prototype.walk = function (f, context) {
             return this;
           };
-          _TypeObjectNode_prototype.walkAsync = function (f, callback) {
+          _TypeObjectNode_prototype.walkAsync = function (f, context, callback) {
             return callback(null, this);
           };
           return TypeObjectNode;
@@ -24221,19 +24192,19 @@
           _TypeUnionNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "TypeUnionNode", this.index, this.types);
           };
-          _TypeUnionNode_prototype.walk = function (f) {
+          _TypeUnionNode_prototype.walk = function (f, context) {
             var types;
-            types = map(this.types, f);
+            types = map(this.types, f, context);
             if (types !== this.types) {
               return TypeUnionNode(this.index, this.scope, types);
             } else {
               return this;
             }
           };
-          _TypeUnionNode_prototype.walkAsync = function (f, callback) {
+          _TypeUnionNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return mapAsync(this.types, f, (_once = false, function (_e, types) {
+            return mapAsync(this.types, f, context, (_once = false, function (_e, types) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -24458,19 +24429,19 @@
               this.node
             );
           };
-          _UnaryNode_prototype.walk = function (f) {
+          _UnaryNode_prototype.walk = function (f, context) {
             var node;
-            node = f(this.node);
+            node = f.call(context, this.node);
             if (node !== this.node) {
               return UnaryNode(this.index, this.scope, this.op, node);
             } else {
               return this;
             }
           };
-          _UnaryNode_prototype.walkAsync = function (f, callback) {
+          _UnaryNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.node, (_once = false, function (_e, node) {
+            return f.call(context, this.node, (_once = false, function (_e, node) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -24531,19 +24502,19 @@
               this.isMutable
             );
           };
-          _VarNode_prototype.walk = function (f) {
+          _VarNode_prototype.walk = function (f, context) {
             var ident;
-            ident = f(this.ident);
+            ident = f.call(context, this.ident);
             if (ident !== this.ident) {
               return VarNode(this.index, this.scope, ident, this.isMutable);
             } else {
               return this;
             }
           };
-          _VarNode_prototype.walkAsync = function (f, callback) {
+          _VarNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.ident, (_once = false, function (_e, ident) {
+            return f.call(context, this.ident, (_once = false, function (_e, ident) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -24594,19 +24565,19 @@
           _YieldNode_prototype.inspect = function (depth) {
             return inspectHelper(depth, "YieldNode", this.index, this.node);
           };
-          _YieldNode_prototype.walk = function (f) {
+          _YieldNode_prototype.walk = function (f, context) {
             var node;
-            node = f(this.node);
+            node = f.call(context, this.node);
             if (node !== this.node) {
               return YieldNode(this.index, this.scope, node);
             } else {
               return this;
             }
           };
-          _YieldNode_prototype.walkAsync = function (f, callback) {
+          _YieldNode_prototype.walkAsync = function (f, context, callback) {
             var _once, _this;
             _this = this;
-            return f(this.node, (_once = false, function (_e, node) {
+            return f.call(context, this.node, (_once = false, function (_e, node) {
               if (_once) {
                 throw Error("Attempted to call function more than once");
               } else {
@@ -25254,13 +25225,12 @@
             AssignNode, BinaryNode, BlockNode, BreakNode, CallNode, CommentNode,
             ConstNode, ContinueNode, DebuggerNode, DefNode, EmbedWriteNode, EvalNode,
             ForInNode, ForNode, FunctionNode, IdentNode, IfNode, MacroAccessNode,
-            MacroConstNode, MacroContext, map, Node, nodeToType, NothingNode,
-            ObjectNode, ParamNode, RegexpNode, ReturnNode, RootNode, Scope,
-            SpreadNode, SuperNode, SwitchNode, SyntaxChoiceNode, SyntaxManyNode,
-            SyntaxParamNode, SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode,
-            TmpWrapperNode, TryCatchNode, TryFinallyNode, Type, TypeFunctionNode,
-            TypeGenericNode, TypeObjectNode, TypeUnionNode, UnaryNode, VarNode,
-            YieldNode;
+            MacroConstNode, MacroContext, Node, nodeToType, NothingNode, ObjectNode,
+            ParamNode, RegexpNode, ReturnNode, RootNode, Scope, SpreadNode, SuperNode,
+            SwitchNode, SyntaxChoiceNode, SyntaxManyNode, SyntaxParamNode,
+            SyntaxSequenceNode, ThisNode, ThrowNode, TmpNode, TmpWrapperNode,
+            TryCatchNode, TryFinallyNode, Type, TypeFunctionNode, TypeGenericNode,
+            TypeObjectNode, TypeUnionNode, UnaryNode, VarNode, YieldNode;
         __create = typeof Object.create === "function" ? Object.create
           : function (x) {
             function F() {}
@@ -25312,7 +25282,6 @@
         _ref = require("./parser-utils");
         nodeToType = _ref.nodeToType;
         addParamToScope = _ref.addParamToScope;
-        map = _ref.map;
         AccessNode = Node.Access;
         AccessMultiNode = Node.AccessMulti;
         ArgsNode = Node.Args;
@@ -26292,7 +26261,8 @@
               type = node.type(this.parser);
               tmp = this.tmp(name, save, type);
               this.scope().add(tmp, false, type);
-              return func(
+              return func.call(
+                this,
                 this.parser.Block(this.index, [
                   this.parser.Var(this.index, tmp, false),
                   this.parser.Assign(this.index, tmp, "=", this.doWrap(node))
@@ -26301,12 +26271,10 @@
                 true
               );
             } else {
-              return func(node, node, false);
+              return func.call(this, node, node, false);
             }
           };
           _MacroContext_prototype.maybeCacheAccess = function (node, func, parentName, childName, save) {
-            var _this;
-            _this = this;
             if (parentName == null) {
               parentName = "ref";
             }
@@ -26321,17 +26289,18 @@
               return this.maybeCache(
                 this.parent(node),
                 function (setParent, parent, parentCached) {
-                  return _this.maybeCache(
-                    _this.child(node),
+                  return this.maybeCache(
+                    this.child(node),
                     function (setChild, child, childCached) {
                       if (parentCached || childCached) {
-                        return func(
-                          _this.parser.Access(_this.index, setParent, setChild),
-                          _this.parser.Access(_this.index, parent, child),
+                        return func.call(
+                          this,
+                          this.parser.Access(this.index, setParent, setChild),
+                          this.parser.Access(this.index, parent, child),
                           true
                         );
                       } else {
-                        return func(node, node, false);
+                        return func.call(this, node, node, false);
                       }
                     },
                     childName,
@@ -26342,7 +26311,7 @@
                 save
               );
             } else {
-              return func(node, node, false);
+              return func.call(this, node, node, false);
             }
           };
           _MacroContext_prototype.empty = function (node) {
@@ -26439,21 +26408,6 @@
             }
           }
           MacroContext.constifyObject = constifyObject;
-          function walk(node, func) {
-            var _ref;
-            if (typeof node !== "object" || node === null || node instanceof RegExp) {
-              return node;
-            }
-            if (!(node instanceof Node)) {
-              throw Error("Unexpected type to walk through: " + __typeof(node));
-            }
-            if (!(node instanceof BlockNode) && (_ref = func(node)) != null) {
-              return _ref;
-            }
-            return node.walk(function (x) {
-              return walk(x, func);
-            });
-          }
           _MacroContext_prototype.wrap = function (value) {
             var _ref;
             if (__isArray(value)) {
@@ -26549,9 +26503,27 @@
               inEvilAst
             ).reduce(this.parser);
           };
+          function walk(node, func) {
+            var _ref;
+            if (typeof node !== "object" || node === null || node instanceof RegExp) {
+              return node;
+            }
+            if (!(node instanceof Node)) {
+              throw Error("Unexpected type to walk through: " + __typeof(node));
+            }
+            if (!(node instanceof BlockNode) && (_ref = func.call(this, node)) != null) {
+              return _ref;
+            }
+            return node.walk(
+              function (x) {
+                return walk.call(this, x, func);
+              },
+              this
+            );
+          }
           _MacroContext_prototype.walk = function (node, func) {
             if (node != null) {
-              return walk(node, func);
+              return walk.call(this, node, func);
             } else {
               return node;
             }
@@ -26565,8 +26537,6 @@
               walker = function (x) {
                 if (x instanceof FunctionNode) {
                   throw FOUND;
-                } else {
-                  return x.walk(walker);
                 }
               };
               try {
@@ -26611,7 +26581,7 @@
             if (!(node instanceof Node)) {
               throw Error("Unexpected type to mutate-last through: " + __typeof(node));
             }
-            return node.mutateLast(this.parser, func, includeNoop);
+            return node.mutateLast(this.parser, func, this, includeNoop);
           };
           return MacroContext;
         }());
@@ -70719,13 +70689,12 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
               return this.maybeCache(left, function (setLeft, left) {
-                return _this.maybeCache(right, function (setRight, right) {
+                return this.maybeCache(right, function (setRight, right) {
                   return __node(
                     23,
                     void 0,
@@ -70756,13 +70725,12 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
               return this.maybeCache(left, function (setLeft, left) {
-                return _this.maybeCache(right, function (setRight, right) {
+                return this.maybeCache(right, function (setRight, right) {
                   return __node(
                     23,
                     void 0,
@@ -70793,13 +70761,12 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
               return this.maybeCache(left, function (setLeft, left) {
-                return _this.maybeCache(right, function (setRight, right) {
+                return this.maybeCache(right, function (setRight, right) {
                   return __node(
                     23,
                     void 0,
@@ -70830,13 +70797,12 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
               return this.maybeCache(left, function (setLeft, left) {
-                return _this.maybeCache(right, function (setRight, right) {
+                return this.maybeCache(right, function (setRight, right) {
                   return __node(
                     23,
                     void 0,
@@ -70884,8 +70850,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -71312,8 +71277,7 @@
               };
             }());
             return function (macroData, __wrap, __node, __const) {
-              var _this, left, op, result, right;
-              _this = this;
+              var left, op, result, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -71334,7 +71298,7 @@
                     });
                   } else if (this.value(left) === 0) {
                     return this.maybeCache(right, function (setRight, right) {
-                      if (1 / __num(_this.value(left)) < 0) {
+                      if (1 / __num(this.value(left)) < 0) {
                         return __node(
                           23,
                           void 0,
@@ -71450,7 +71414,7 @@
                     });
                   } else if (this.value(right) === 0) {
                     return this.maybeCache(left, function (setLeft, left) {
-                      if (1 / __num(_this.value(right)) < 0) {
+                      if (1 / __num(this.value(right)) < 0) {
                         return __node(
                           23,
                           void 0,
@@ -71787,8 +71751,7 @@
               };
             }());
             return function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -71798,14 +71761,14 @@
                       property, value;
                   currentLeft = setLeft;
                   block = [];
-                  pairs = _this.pairs(right);
+                  pairs = this.pairs(right);
                   for (_arr = __toArray(pairs), i = 0, len = _arr.length; i < len; ++i) {
                     _ref = _arr[i];
                     key = _ref.key;
                     value = _ref.value;
                     property = _ref.property;
                     if (property != null) {
-                      if ((property === "get" || property === "set") && i < len - 1 && pairs[i + 1].property != null && _this.eq(key, pairs[i + 1].key) && pairs[i + 1].property !== property && ((_ref = pairs[i + 1].property) === "get" || _ref === "set")) {
+                      if ((property === "get" || property === "set") && i < len - 1 && pairs[i + 1].property != null && this.eq(key, pairs[i + 1].key) && pairs[i + 1].property !== property && ((_ref = pairs[i + 1].property) === "get" || _ref === "set")) {
                         continue;
                       }
                       if (property === "property") {
@@ -71816,7 +71779,7 @@
                           [__wrap(currentLeft), __wrap(key), __wrap(value)]
                         ));
                       } else if (property === "get" || property === "set") {
-                        if (i > 0 && pairs[i - 1].property != null && _this.eq(key, pairs[i - 1].key) && pairs[i - 1].property !== property && ((_ref = pairs[i - 1].property) === "get" || _ref === "set")) {
+                        if (i > 0 && pairs[i - 1].property != null && this.eq(key, pairs[i - 1].key) && pairs[i - 1].property !== property && ((_ref = pairs[i - 1].property) === "get" || _ref === "set")) {
                           descriptor = __node(26, value, [
                             { key: __wrap(pairs[i - 1].property), value: __wrap(pairs[i - 1].value) },
                             { key: __wrap(property), value: __wrap(value) },
@@ -71849,7 +71812,7 @@
                           [__wrap(currentLeft), __wrap(key), __wrap(descriptor)]
                         ));
                       } else {
-                        _this.error("Unknown property: " + __strnum(property), key);
+                        this.error("Unknown property: " + __strnum(property), key);
                       }
                     } else {
                       block.push(__node(
@@ -71949,8 +71912,7 @@
         assignOperator: [
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -71958,7 +71920,7 @@
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
-                    return _this.assign(left, "=", n);
+                    return this.assign(left, "=", n);
                   },
                   true
                 );
@@ -71972,8 +71934,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72004,8 +71965,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72036,8 +71996,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72046,11 +72005,11 @@
                   right || this.noop(),
                   function (n) {
                     if (op === "~*=") {
-                      return _this.assign(left, "*=", n);
+                      return this.assign(left, "*=", n);
                     } else if (op === "~/=") {
-                      return _this.assign(left, "/=", n);
+                      return this.assign(left, "/=", n);
                     } else {
-                      return _this.assign(left, "%=", n);
+                      return this.assign(left, "%=", n);
                     }
                   },
                   true
@@ -72129,8 +72088,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right, value;
-              _this = this;
+              var left, op, right, value;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72149,7 +72107,7 @@
                   return this.mutateLast(
                     right || this.noop(),
                     function (n) {
-                      if (!_this.isType(n, "numeric")) {
+                      if (!this.isType(n, "numeric")) {
                         n = __node(
                           23,
                           n,
@@ -72158,7 +72116,7 @@
                           { op: "~+", node: __wrap(n) }
                         );
                       }
-                      return _this.assign(left, "+=", n);
+                      return this.assign(left, "+=", n);
                     },
                     true
                   );
@@ -72178,7 +72136,7 @@
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
-                    return _this.assign(left, "-=", __node(
+                    return this.assign(left, "-=", __node(
                       23,
                       n,
                       48,
@@ -72204,8 +72162,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right, value;
-              _this = this;
+              var left, op, right, value;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72221,7 +72178,7 @@
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
-                    return _this.assign(left, "-=", n);
+                    return this.assign(left, "-=", n);
                   },
                   true
                 );
@@ -72235,8 +72192,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72245,11 +72201,11 @@
                   right || this.noop(),
                   function (n) {
                     if (op === "~bitlshift=") {
-                      return _this.assign(left, "<<=", n);
+                      return this.assign(left, "<<=", n);
                     } else if (op === "~bitrshift=") {
-                      return _this.assign(left, ">>=", n);
+                      return this.assign(left, ">>=", n);
                     } else {
-                      return _this.assign(left, ">>>=", n);
+                      return this.assign(left, ">>>=", n);
                     }
                   },
                   true
@@ -72268,8 +72224,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72277,7 +72232,7 @@
                 return this.mutateLast(
                   right || this.noop(),
                   function (n) {
-                    if (_this.hasType(left, "numeric") && _this.hasType(n, "numeric")) {
+                    if (this.hasType(left, "numeric") && this.hasType(n, "numeric")) {
                       n = __node(
                         23,
                         n,
@@ -72291,7 +72246,7 @@
                         }
                       );
                     }
-                    return _this.assign(left, "+=", n);
+                    return this.assign(left, "+=", n);
                   },
                   true
                 );
@@ -72319,8 +72274,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72350,8 +72304,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72381,8 +72334,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72445,14 +72397,13 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
               return this.maybeCacheAccess(left, function (setLeft, left) {
-                return _this.maybeCache(setLeft, function (setLeft, leftValue) {
-                  return _this.maybeCache(right, function (setRight, right) {
+                return this.maybeCache(setLeft, function (setLeft, leftValue) {
+                  return this.maybeCache(right, function (setRight, right) {
                     return __node(
                       23,
                       void 0,
@@ -72490,14 +72441,13 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
               return this.maybeCacheAccess(left, function (setLeft, left) {
-                return _this.maybeCache(setLeft, function (setLeft, leftValue) {
-                  return _this.maybeCache(right, function (setRight, right) {
+                return this.maybeCache(setLeft, function (setLeft, leftValue) {
+                  return this.maybeCache(right, function (setRight, right) {
                     return __node(
                       23,
                       void 0,
@@ -72535,14 +72485,13 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
               return this.maybeCacheAccess(left, function (setLeft, left) {
-                return _this.maybeCache(setLeft, function (setLeft, leftValue) {
-                  return _this.maybeCache(right, function (setRight, right) {
+                return this.maybeCache(setLeft, function (setLeft, leftValue) {
+                  return this.maybeCache(right, function (setRight, right) {
                     return __node(
                       23,
                       void 0,
@@ -72580,14 +72529,13 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
               return this.maybeCacheAccess(left, function (setLeft, left) {
-                return _this.maybeCache(setLeft, function (setLeft, leftValue) {
-                  return _this.maybeCache(right, function (setRight, right) {
+                return this.maybeCache(setLeft, function (setLeft, leftValue) {
+                  return this.maybeCache(right, function (setRight, right) {
                     return __node(
                       23,
                       void 0,
@@ -72625,8 +72573,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72656,14 +72603,13 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
               return this.maybeCacheAccess(left, function (setLeft, left) {
-                return _this.maybeCache(setLeft, function (setLeft, leftValue) {
-                  if (_this.position === "expression") {
+                return this.maybeCache(setLeft, function (setLeft, leftValue) {
+                  if (this.position === "expression") {
                     return __node(
                       23,
                       void 0,
@@ -72742,8 +72688,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -72752,11 +72697,11 @@
                   right || this.noop(),
                   function (n) {
                     if (op === "~bitand=") {
-                      return _this.assign(left, "&=", n);
+                      return this.assign(left, "&=", n);
                     } else if (op === "~bitor=") {
-                      return _this.assign(left, "|=", n);
+                      return this.assign(left, "|=", n);
                     } else {
-                      return _this.assign(left, "^=", n);
+                      return this.assign(left, "^=", n);
                     }
                   },
                   true
@@ -72775,8 +72720,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, left, op, right;
-              _this = this;
+              var left, op, right;
               left = macroData.left;
               op = macroData.op;
               right = macroData.right;
@@ -73074,7 +73018,7 @@
                       { left: __wrap(left), inverted: false, op: "bitxor", right: __wrap(right) }
                     );
                   } else {
-                    action = _this.error("Unknown operator " + op);
+                    action = this.error("Unknown operator " + op);
                   }
                   return __node(
                     23,
@@ -73106,14 +73050,13 @@
         unaryOperator: [
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, node, op;
-              _this = this;
+              var node, op;
               op = macroData.op;
               node = macroData.node;
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  return _this.unary("!", n);
+                  return this.unary("!", n);
                 },
                 true
               );
@@ -73124,14 +73067,13 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, node, op;
-              _this = this;
+              var node, op;
               op = macroData.op;
               node = macroData.node;
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  return _this.unary("typeof", n);
+                  return this.unary("typeof", n);
                 },
                 true
               );
@@ -73142,14 +73084,13 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, node, op;
-              _this = this;
+              var node, op;
               op = macroData.op;
               node = macroData.node;
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  return _this["throw"](n);
+                  return this["throw"](n);
                 },
                 true
               );
@@ -73442,14 +73383,13 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, node, op;
-              _this = this;
+              var node, op;
               op = macroData.op;
               node = macroData.node;
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  return _this.isIdentOrTmp(n) && !_this.hasVariable(n) && __node(
+                  return this.isIdentOrTmp(n) && !this.hasVariable(n) && __node(
                     23,
                     void 0,
                     1,
@@ -73498,8 +73438,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, node, op;
-              _this = this;
+              var node, op;
               op = macroData.op;
               node = macroData.node;
               return this.mutateLast(
@@ -73550,8 +73489,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, negate, node, op, value;
-              _this = this;
+              var negate, node, op, value;
               op = macroData.op;
               node = macroData.node;
               if (this.isConst(node)) {
@@ -73567,7 +73505,7 @@
                 return this.mutateLast(
                   node || this.noop(),
                   function (n) {
-                    return _this.unary(
+                    return this.unary(
                       op === "~+" ? "+" : "-",
                       n
                     );
@@ -73582,8 +73520,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, node, op;
-              _this = this;
+              var node, op;
               op = macroData.op;
               node = macroData.node;
               if (this.isIdentOrTmp(node) && !this.hasVariable(node)) {
@@ -73645,16 +73582,15 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, node, op;
-              _this = this;
+              var node, op;
               op = macroData.op;
               node = macroData.node;
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  if (_this.isType(n, "number")) {
+                  if (this.isType(n, "number")) {
                     return n;
-                  } else if (_this.getConstValue("DISABLE_TYPE_CHECKING", false)) {
+                  } else if (this.getConstValue("DISABLE_TYPE_CHECKING", false)) {
                     return __node(
                       23,
                       void 0,
@@ -73740,14 +73676,13 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, node, op;
-              _this = this;
+              var node, op;
               op = macroData.op;
               node = macroData.node;
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  return _this.unary("~", n);
+                  return this.unary("~", n);
                 },
                 true
               );
@@ -73784,8 +73719,7 @@
           },
           {
             code: function (macroData, __wrap, __node, __const) {
-              var _this, node, op;
-              _this = this;
+              var node, op;
               op = macroData.op;
               node = macroData.node;
               if (!this.isAccess(node)) {
@@ -73794,8 +73728,8 @@
               if (this.position === "expression") {
                 return this.maybeCacheAccess(node, function (setNode, node) {
                   var del, tmp;
-                  tmp = _this.tmp("ref");
-                  del = _this.unary("delete", node);
+                  tmp = this.tmp("ref");
+                  del = this.unary("delete", node);
                   return __node(7, void 0, [
                     __node(
                       23,
@@ -75907,14 +75841,14 @@
                 }
                 result = this.walk(this.macroExpandAll(result), function (node) {
                   var func, left, name, right;
-                  if (_this.isBinary(node) && _this.op(node) === "instanceof") {
-                    right = _this.right(node);
-                    if (_this.isIdent(right)) {
-                      name = _this.name(right);
+                  if (this.isBinary(node) && this.op(node) === "instanceof") {
+                    right = this.right(node);
+                    if (this.isIdent(right)) {
+                      name = this.name(right);
                       if (__owns.call(instanceofs, name)) {
                         func = instanceofs[name].key;
                         instanceofs[name].used = true;
-                        left = _this.left(node);
+                        left = this.left(node);
                         return __node(9, node, __wrap(func), [__wrap(left)]);
                       }
                     }
@@ -76764,9 +76698,8 @@
           },
           {
             code: function (macroFullData, __wrap, __node, __const) {
-              var _ref, _this, declarable, handle, handleItem, macroData, macroName,
+              var _ref, declarable, handle, handleItem, macroData, macroName,
                   numRealElements, value;
-              _this = this;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               declarable = macroData.declarable;
@@ -76788,7 +76721,7 @@
                   this.mutateLast(
                     value || this.noop(),
                     function (n) {
-                      return _this.assign(declarable.ident, "=", n);
+                      return this.assign(declarable.ident, "=", n);
                     },
                     true
                   )
@@ -76895,7 +76828,7 @@
                         return this.block(block);
                       }
                     }
-                    return handle.call(_this, 0, [setValue]);
+                    return handle.call(this, 0, [setValue]);
                   });
                 }
               } else if (declarable.type === "object") {
@@ -76984,7 +76917,7 @@
                         return this.block(block);
                       }
                     }
-                    return handle.call(_this, 0, [setValue]);
+                    return handle.call(this, 0, [setValue]);
                   });
                 }
               } else {
@@ -77002,8 +76935,7 @@
           },
           {
             code: function (macroFullData, __wrap, __node, __const) {
-              var _this, macroData, macroName, node;
-              _this = this;
+              var macroData, macroName, node;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               node = macroData.node;
@@ -77011,7 +76943,7 @@
                 return this.mutateLast(
                   node || this.noop(),
                   function (n) {
-                    return _this["return"](n);
+                    return this["return"](n);
                   },
                   true
                 );
@@ -77035,15 +76967,14 @@
           },
           {
             code: function (macroFullData, __wrap, __node, __const) {
-              var _this, macroData, macroName, node;
-              _this = this;
+              var macroData, macroName, node;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               node = macroData.node;
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  return _this.maybeCache(n, function (setN, n) {
+                  return this.maybeCache(n, function (setN, n) {
                     return __node(
                       23,
                       void 0,
@@ -77085,15 +77016,14 @@
           },
           {
             code: function (macroFullData, __wrap, __node, __const) {
-              var _this, macroData, macroName, node;
-              _this = this;
+              var macroData, macroName, node;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               node = macroData.node;
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  if (_this.isType(n, "boolean")) {
+                  if (this.isType(n, "boolean")) {
                     return __node(
                       23,
                       void 0,
@@ -77117,7 +77047,7 @@
                       true
                     );
                   } else {
-                    return _this.maybeCache(n, function (setN, n) {
+                    return this.maybeCache(n, function (setN, n) {
                       return __node(
                         23,
                         void 0,
@@ -77153,15 +77083,14 @@
           },
           {
             code: function (macroFullData, __wrap, __node, __const) {
-              var _this, macroData, macroName, node;
-              _this = this;
+              var macroData, macroName, node;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               node = macroData.node;
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  if (_this.isType(n, "boolean")) {
+                  if (this.isType(n, "boolean")) {
                     return __node(
                       23,
                       void 0,
@@ -77185,7 +77114,7 @@
                       true
                     );
                   } else {
-                    return _this.maybeCache(n, function (setN, n) {
+                    return this.maybeCache(n, function (setN, n) {
                       return __node(
                         23,
                         void 0,
@@ -86203,17 +86132,17 @@
               function fixSupers(node) {
                 return _this.walk(node, function (node) {
                   var _arr, _arr2, _i, _len, args, child, superArg;
-                  if (_this.isSuper(node)) {
-                    child = _this.superChild(node);
+                  if (this.isSuper(node)) {
+                    child = this.superChild(node);
                     if (child != null) {
                       child = fixSupers(child);
                     }
-                    for (_arr = [], _arr2 = __toArray(_this.superArgs(node)), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
+                    for (_arr = [], _arr2 = __toArray(this.superArgs(node)), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
                       superArg = _arr2[_i];
                       _arr.push(fixSupers(superArg));
                     }
                     args = _arr;
-                    return _this.call(
+                    return this.call(
                       child != null ? __node(1, node, __wrap(superproto), __wrap(child))
                         : !superclass ? __node(21, node, "Object")
                         : sup,
@@ -86228,9 +86157,9 @@
               constructorCount = 0;
               this.walk(body, function (node) {
                 var key;
-                if (_this.isDef(node)) {
-                  key = _this.left(node);
-                  if (_this.isConst(key) && _this.value(key) === "constructor") {
+                if (this.isDef(node)) {
+                  key = this.left(node);
+                  if (this.isConst(key) && this.value(key) === "constructor") {
                     ++constructorCount;
                   }
                 }
@@ -86240,9 +86169,9 @@
               if (constructorCount === 1) {
                 this.walk(body, function (node) {
                   var key;
-                  if (_this.isDef(node)) {
-                    key = _this.left(node);
-                    if (_this.isConst(key) && _this.value(key) === "constructor" && _this.isFunc(_this.right(node)) && !_this.funcIsCurried(_this.right(node))) {
+                  if (this.isDef(node)) {
+                    key = this.left(node);
+                    if (this.isConst(key) && this.value(key) === "constructor" && this.isFunc(this.right(node)) && !this.funcIsCurried(this.right(node))) {
                       hasTopLevelConstructor = true;
                     }
                     return node;
@@ -86255,12 +86184,12 @@
               if (hasTopLevelConstructor) {
                 body = this.walk(body, function (node) {
                   var constructor, key, value;
-                  if (_this.isDef(node)) {
-                    key = _this.left(node);
-                    if (_this.isConst(key) && _this.value(key) === "constructor") {
-                      value = _this.right(node);
-                      constructor = _this.rewrap(
-                        _this.func(_this.funcParams(value), _this.funcBody(value), false, __node(
+                  if (this.isDef(node)) {
+                    key = this.left(node);
+                    if (this.isConst(key) && this.value(key) === "constructor") {
+                      value = this.right(node);
+                      constructor = this.rewrap(
+                        this.func(this.funcParams(value), this.funcBody(value), false, __node(
                           23,
                           value,
                           16,
@@ -86318,7 +86247,7 @@
                         },
                         true
                       ));
-                      return _this.noop();
+                      return this.noop();
                     }
                   } else {
                     return node;
@@ -86628,17 +86557,17 @@
                 ]));
                 body = this.walk(body, function (node) {
                   var constructor, firstArg, key, value;
-                  if (_this.isDef(node)) {
-                    key = _this.left(node);
-                    if (_this.isConst(key) && _this.value(key) === "constructor") {
-                      value = _this.right(node);
-                      if (_this.isCall(value) && _this.isIdent(_this.callFunc(value)) && _this.name(_this.callFunc(value)) === "__curry" && _this.callArgs(value).length === 2 && _this.isFunc(_this.callArgs(value)[1])) {
-                        firstArg = _this.callArgs(value)[0];
-                        constructor = _this.callArgs(value)[1];
-                        constructor = _this.rewrap(
-                          _this.func(
-                            _this.funcParams(constructor),
-                            _this.funcBody(constructor),
+                  if (this.isDef(node)) {
+                    key = this.left(node);
+                    if (this.isConst(key) && this.value(key) === "constructor") {
+                      value = this.right(node);
+                      if (this.isCall(value) && this.isIdent(this.callFunc(value)) && this.name(this.callFunc(value)) === "__curry" && this.callArgs(value).length === 2 && this.isFunc(this.callArgs(value)[1])) {
+                        firstArg = this.callArgs(value)[0];
+                        constructor = this.callArgs(value)[1];
+                        constructor = this.rewrap(
+                          this.func(
+                            this.funcParams(constructor),
+                            this.funcBody(constructor),
                             false,
                             __node(
                               23,
@@ -86688,11 +86617,11 @@
                             )
                           }
                         );
-                      } else if (_this.isFunc(value)) {
-                        constructor = _this.rewrap(
-                          _this.func(
-                            _this.funcParams(value),
-                            _this.funcBody(value),
+                      } else if (this.isFunc(value)) {
+                        constructor = this.rewrap(
+                          this.func(
+                            this.funcParams(value),
+                            this.funcBody(value),
                             false,
                             __node(
                               23,
@@ -86722,7 +86651,7 @@
                               },
                               true
                             ),
-                            _this.funcIsCurried(value)
+                            this.funcIsCurried(value)
                           ),
                           value
                         );
@@ -86964,9 +86893,9 @@
               function changeDefs(node) {
                 return _this.walk(node, function (node) {
                   var _ref, key, value;
-                  if (_this.isDef(node)) {
-                    key = _this.left(node);
-                    if ((_ref = _this.right(node)) != null) {
+                  if (this.isDef(node)) {
+                    key = this.left(node);
+                    if ((_ref = this.right(node)) != null) {
                       value = _ref;
                     } else {
                       value = __node(
@@ -87071,11 +87000,11 @@
               }
               body = changeDefs(body);
               body = this.walk(body, function (node) {
-                if (_this.isFunc(node)) {
-                  if (!_this.funcIsBound(node)) {
+                if (this.isFunc(node)) {
+                  if (!this.funcIsBound(node)) {
                     return node;
                   }
-                } else if (_this.isThis(node)) {
+                } else if (this.isThis(node)) {
                   return name;
                 }
               });
@@ -87114,10 +87043,10 @@
                   }
                   result = this.walk(this.macroExpandAll(result), function (node) {
                     var name, right;
-                    if (_this.isBinary(node) && _this.op(node) === "instanceof") {
-                      right = _this.right(node);
-                      if (_this.isIdent(right)) {
-                        name = _this.name(right);
+                    if (this.isBinary(node) && this.op(node) === "instanceof") {
+                      right = this.right(node);
+                      if (this.isIdent(right)) {
+                        name = this.name(right);
                         if (__owns.call(names, name)) {
                           return __const("true");
                         }
@@ -87177,14 +87106,14 @@
                   }
                   result = this.walk(this.macroExpandAll(result), function (node) {
                     var func, left, name, right;
-                    if (_this.isBinary(node) && _this.op(node) === "instanceof") {
-                      right = _this.right(node);
-                      if (_this.isIdent(right)) {
-                        name = _this.name(right);
+                    if (this.isBinary(node) && this.op(node) === "instanceof") {
+                      right = this.right(node);
+                      if (this.isIdent(right)) {
+                        name = this.name(right);
                         if (__owns.call(instanceofs, name)) {
                           func = instanceofs[name].key;
                           instanceofs[name].used = true;
-                          left = _this.left(node);
+                          left = this.left(node);
                           return __node(9, node, __wrap(func), [__wrap(left)]);
                         }
                       }
@@ -87307,8 +87236,7 @@
           },
           {
             code: function (macroFullData, __wrap, __node, __const) {
-              var _this, macroData, macroName, node;
-              _this = this;
+              var macroData, macroName, node;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               node = macroData.node;
@@ -87318,7 +87246,7 @@
               return this.mutateLast(
                 node || this.noop(),
                 function (n) {
-                  return _this["yield"](n);
+                  return this["yield"](n);
                 },
                 true
               );
@@ -88848,8 +88776,7 @@
               };
             }());
             return function (macroFullData, __wrap, __node, __const) {
-              var _this, macroData, macroName, node;
-              _this = this;
+              var macroData, macroName, node;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               node = macroData[0];
@@ -88904,8 +88831,7 @@
               };
             }());
             return function (macroFullData, __wrap, __node, __const) {
-              var _this, macroData, macroName, node;
-              _this = this;
+              var macroData, macroName, node;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               node = macroData[0];
@@ -89005,8 +88931,7 @@
               };
             }());
             return function (macroFullData, __wrap, __node, __const) {
-              var _this, args, func, head, macroData, macroName, node, tail;
-              _this = this;
+              var args, func, head, macroData, macroName, node, tail;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               node = macroData[0];
@@ -89064,7 +88989,7 @@
                 if (this.isAccess(func)) {
                   return this.maybeCache(this.parent(func), function (setParent, parent) {
                     var child;
-                    child = _this.child(func);
+                    child = this.child(func);
                     return __node(
                       9,
                       void 0,
