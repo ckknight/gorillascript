@@ -2974,9 +2974,9 @@
             BlockExpression, BlockStatement, Break, Call, Comment, Const, Continue,
             Debugger, DoWhile, Eval, Expression, For, ForIn, fromJSON, Func,
             getIndent, Ident, If, IfExpression, IfStatement, inspect,
-            isAcceptableIdent, Node, Noop, Obj, padLeft, Regex, Return, Root,
-            Statement, Switch, This, Throw, toJSIdent, toJSSource, TryCatch,
-            TryFinally, Unary, util, While;
+            isAcceptableIdent, NEWLINE_REGEXP, Node, Noop, Obj, padLeft, Regex,
+            Return, Root, Statement, Switch, This, Throw, toJSIdent, toJSSource,
+            TryCatch, TryFinally, Unary, util, While;
         __cmp = function (left, right) {
           var type;
           if (left === right) {
@@ -3099,11 +3099,12 @@
             return cache[indent];
           };
         }());
+        NEWLINE_REGEXP = /(?:\r\n?|[\n\u2028\u2029])/g;
         function wrapStringHandler(callback) {
           function cb(item) {
             var len, parts, s;
             s = String(item);
-            parts = s.split(/(?:\r\n?|[\n\u2028\u2029])/g);
+            parts = s.split(NEWLINE_REGEXP);
             switch (parts.length) {
             case 0:
               break;
@@ -3120,8 +3121,7 @@
           cb.line = 1;
           cb.column = 1;
           cb.indent = function (count) {
-            callback(getIndent(count));
-            cb.column -= -count;
+            this(getIndent(count));
           };
           return cb;
         }
@@ -15844,7 +15844,7 @@
                 return macros.getSyntax(name);
               } else {
                 return function (parser, index) {
-                  return macros.getSyntax(name).call(this, parser, index);
+                  return parser.macros.getSyntax(name).call(this, parser, index);
                 };
               }
             } else if (param instanceof SyntaxSequenceNode) {
@@ -15939,7 +15939,7 @@
             syntax: function (index, params, body, options, stateOptions, translator) {
               var _this, compilation, funcParam, handler, macroDataIdent,
                   macroFullDataIdent, macroNameIdent, rawFunc, scope, serialization,
-                  state, translated;
+                  translated;
               _this = this;
               macroFullDataIdent = this.Ident(index, "macroFullData");
               funcParam = this.Param(
@@ -15987,12 +15987,11 @@
               if (typeof handler !== "function") {
                 throw Error("Error creating function for macro: " + String(this.currentMacro));
               }
-              state = this;
               return {
                 handler: function (args) {
                   var rest;
                   rest = __slice.call(arguments, 1);
-                  return handler.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                  return handler.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                 },
                 rule: handleParams.call(this, params),
                 serialization: serialization != null
@@ -16007,9 +16006,8 @@
               };
             },
             defineSyntax: function (index, params, body, options, stateOptions, translator) {
-              var _this, handler, serialization, state;
+              var _this, handler, serialization;
               _this = this;
-              state = this;
               if (body != null) {
                 handler = (function () {
                   var compilation, funcParam, handler, macroDataIdent, rawFunc, scope,
@@ -16039,7 +16037,7 @@
                     return _arr;
                   }()).concat([body]));
                   rawFunc = makeMacroRoot.call(_this, index, funcParam, body);
-                  translated = translator(_this.macroExpandAll(rawFunc).reduce(state), _this.macros, _this.getPosition, { "return": true });
+                  translated = translator(_this.macroExpandAll(rawFunc).reduce(_this), _this.macros, _this.getPosition, { "return": true });
                   compilation = translated.node.toString(getCompilationOptions(stateOptions));
                   if (stateOptions.serializeMacros) {
                     serialization = compilation;
@@ -16051,14 +16049,14 @@
                   return function (args) {
                     var rest;
                     rest = __slice.call(arguments, 1);
-                    return reduceObject(state, handler.apply(this, [reduceObject(state, args)].concat(__toArray(rest))));
+                    return reduceObject(this.parser, handler.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))));
                   };
                 }());
               } else {
                 handler = function (args) {
                   var rest;
                   rest = __slice.call(arguments, 1);
-                  return reduceObject(state, args);
+                  return reduceObject(this.parser, args);
                 };
               }
               return {
@@ -16070,7 +16068,7 @@
             call: function (index, params, body, options, stateOptions, translator) {
               var _this, compilation, funcParam, handler, macroDataIdent,
                   macroFullDataIdent, macroNameIdent, rawFunc, scope, serialization,
-                  state, translated;
+                  translated;
               _this = this;
               macroFullDataIdent = this.Ident(index, "macroFullData");
               funcParam = this.Param(
@@ -16118,12 +16116,11 @@
               if (typeof handler !== "function") {
                 throw Error("Error creating function for macro: " + this.currentMacro);
               }
-              state = this;
               handler = (function (inner) {
                 return function (args) {
                   var rest;
                   rest = __slice.call(arguments, 1);
-                  return inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                  return inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                 };
               }(handler));
               return {
@@ -16134,7 +16131,7 @@
             },
             binaryOperator: function (index, operators, body, options, stateOptions, translator) {
               var _this, compilation, funcParam, handler, macroDataIdent, rawFunc,
-                  scope, serialization, state, translated;
+                  scope, serialization, translated;
               _this = this;
               macroDataIdent = this.Ident(index, "macroData");
               funcParam = this.Param(
@@ -16169,17 +16166,16 @@
               if (typeof handler !== "function") {
                 throw Error("Error creating function for binary operator " + operators.join(", "));
               }
-              state = this;
               if (options.invertible) {
                 handler = (function (inner) {
                   return function (args) {
                     var rest, result;
                     rest = __slice.call(arguments, 1);
-                    result = inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest)));
+                    result = inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest)));
                     if (args.inverted) {
-                      return UnaryNode(result.index, result.scope, "!", result).reduce(state);
+                      return UnaryNode(result.index, result.scope, "!", result).reduce(this.parser);
                     } else {
-                      return result.reduce(state);
+                      return result.reduce(this.parser);
                     }
                   };
                 }(handler));
@@ -16188,7 +16184,7 @@
                   return function (args) {
                     var rest;
                     rest = __slice.call(arguments, 1);
-                    return inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                    return inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                   };
                 }(handler));
               }
@@ -16200,7 +16196,7 @@
             },
             assignOperator: function (index, operators, body, options, stateOptions, translator) {
               var _this, compilation, funcParam, handler, macroDataIdent, rawFunc,
-                  scope, serialization, state, translated;
+                  scope, serialization, translated;
               _this = this;
               macroDataIdent = this.Ident(index, "macroData");
               funcParam = this.Param(
@@ -16235,12 +16231,11 @@
               if (typeof handler !== "function") {
                 throw Error("Error creating function for assign operator " + operators.join(", "));
               }
-              state = this;
               handler = (function (inner) {
                 return function (args) {
                   var rest;
                   rest = __slice.call(arguments, 1);
-                  return inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                  return inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                 };
               }(handler));
               return {
@@ -16251,7 +16246,7 @@
             },
             unaryOperator: function (index, operators, body, options, stateOptions, translator) {
               var _this, compilation, funcParam, handler, macroDataIdent, rawFunc,
-                  scope, serialization, state, translated;
+                  scope, serialization, translated;
               _this = this;
               macroDataIdent = this.Ident(index, "macroData");
               funcParam = this.Param(
@@ -16286,12 +16281,11 @@
               if (typeof handler !== "function") {
                 throw Error("Error creating function for unary operator " + operators.join(", "));
               }
-              state = this;
               handler = (function (inner) {
                 return function (args) {
                   var rest;
                   rest = __slice.call(arguments, 1);
-                  return inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                  return inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                 };
               }(handler));
               return {
@@ -16312,7 +16306,7 @@
           }
           macroDeserializers = {
             syntax: function (_p) {
-              var _this, code, handler, id, names, options, params, state;
+              var _this, code, handler, id, names, options, params;
               _this = this;
               code = _p.code;
               params = _p.params;
@@ -16327,12 +16321,11 @@
               if (typeof handler !== "function") {
                 throw Error("Error deserializing function for macro " + name);
               }
-              state = this;
               handler = (function (inner) {
                 return function (args) {
                   var rest;
                   rest = __slice.call(arguments, 1);
-                  return inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                  return inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                 };
               }(handler));
               this.enterMacro(0, names);
@@ -16349,7 +16342,7 @@
               return this.exitMacro();
             },
             call: function (_p) {
-              var _this, code, handler, id, names, options, state;
+              var _this, code, handler, id, names, options;
               _this = this;
               code = _p.code;
               names = _p.names;
@@ -16363,12 +16356,11 @@
               if (typeof handler !== "function") {
                 throw Error("Error deserializing function for macro " + name);
               }
-              state = this;
               handler = (function (inner) {
                 return function (args) {
                   var rest;
                   rest = __slice.call(arguments, 1);
-                  return inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                  return inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                 };
               }(handler));
               this.enterMacro(0, names);
@@ -16385,7 +16377,7 @@
               return this.exitMacro();
             },
             defineSyntax: function (_p) {
-              var _this, code, handler, id, options, params, state;
+              var _this, code, handler, id, options, params;
               _this = this;
               code = _p.code;
               params = _p.params;
@@ -16397,7 +16389,6 @@
               if (this.macros.hasSyntax(options.name)) {
                 throw Error("Cannot override already-defined syntax: " + options.name);
               }
-              state = this;
               if (code != null) {
                 handler = code;
                 if (typeof handler !== "function") {
@@ -16407,12 +16398,12 @@
                   return function (args) {
                     var rest;
                     rest = __slice.call(arguments, 1);
-                    return reduceObject(state, inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))));
+                    return reduceObject(this.parser, inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))));
                   };
                 }(handler));
               } else {
                 handler = function (args) {
-                  return reduceObject(state, args);
+                  return reduceObject(this.parser, args);
                 };
               }
               this.enterMacro(0, DEFINE_SYNTAX);
@@ -16429,7 +16420,7 @@
               return this.exitMacro();
             },
             binaryOperator: function (_p) {
-              var _this, code, handler, id, operators, options, state;
+              var _this, code, handler, id, operators, options;
               _this = this;
               code = _p.code;
               operators = _p.operators;
@@ -16443,17 +16434,16 @@
               if (typeof handler !== "function") {
                 throw Error("Error deserializing function for binary operator " + operators.join(", "));
               }
-              state = this;
               if (options.invertible) {
                 handler = (function (inner) {
                   return function (args) {
                     var rest, result;
                     rest = __slice.call(arguments, 1);
-                    result = inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest)));
+                    result = inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest)));
                     if (args.inverted) {
-                      return UnaryNode(result.index, result.scope, "!", result).reduce(state);
+                      return UnaryNode(result.index, result.scope, "!", result).reduce(this.parser);
                     } else {
-                      return result.reduce(state);
+                      return result.reduce(this.parser);
                     }
                   };
                 }(handler));
@@ -16462,7 +16452,7 @@
                   return function (args) {
                     var rest;
                     rest = __slice.call(arguments, 1);
-                    return inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                    return inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                   };
                 }(handler));
               }
@@ -16480,7 +16470,7 @@
               return this.exitMacro();
             },
             assignOperator: function (_p) {
-              var _this, code, handler, id, operators, options, state;
+              var _this, code, handler, id, operators, options;
               _this = this;
               code = _p.code;
               operators = _p.operators;
@@ -16494,12 +16484,11 @@
               if (typeof handler !== "function") {
                 throw Error("Error deserializing function for assign operator " + operators.join(", "));
               }
-              state = this;
               handler = (function (inner) {
                 return function (args) {
                   var rest;
                   rest = __slice.call(arguments, 1);
-                  return inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                  return inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                 };
               }(handler));
               this.enterMacro(0, ASSIGN_OPERATOR);
@@ -16516,7 +16505,7 @@
               return this.exitMacro();
             },
             unaryOperator: function (_p) {
-              var _this, code, handler, id, operators, options, state;
+              var _this, code, handler, id, operators, options;
               _this = this;
               code = _p.code;
               operators = _p.operators;
@@ -16530,12 +16519,11 @@
               if (typeof handler !== "function") {
                 throw Error("Error deserializing function for unary operator " + operators.join(", "));
               }
-              state = this;
               handler = (function (inner) {
                 return function (args) {
                   var rest;
                   rest = __slice.call(arguments, 1);
-                  return inner.apply(this, [reduceObject(state, args)].concat(__toArray(rest))).reduce(state);
+                  return inner.apply(this, [reduceObject(this.parser, args)].concat(__toArray(rest))).reduce(this.parser);
                 };
               }(handler));
               this.enterMacro(0, UNARY_OPERATOR);
@@ -16618,9 +16606,7 @@
             return params;
           };
           function handleMacroSyntax(index, type, handler, rule, params, options, macroId) {
-            var _arr, _i, _len, _ref, _this, id, m, macros;
-            _this = this;
-            macros = this.macros;
+            var _arr, _i, _len, _ref, id, m, macros;
             function mutator(data, parser, index) {
               var line, macroContext, pos, result, scope, tmps;
               if (parser.inAst.peek() || !parser.expandingMacros) {
@@ -16671,7 +16657,7 @@
                 parser.popScope();
                 if (result instanceof Node) {
                   line = parser.getLine(index);
-                  result = result.reduce(_this);
+                  result = result.reduce(parser);
                   tmps = macroContext.getTmps();
                   if (tmps.unsaved.length) {
                     return parser.TmpWrapper(index, result, tmps.unsaved);
@@ -16683,6 +16669,7 @@
                 }
               }
             }
+            macros = this.macros;
             switch (this.currentMacro) {
             case BINARY_OPERATOR:
               return macroId = macros.addBinaryOperator(params, mutator, options, macroId);
@@ -17010,7 +16997,8 @@
         }());
         parse = __promise(function (source, macros, options) {
           var _e, _send, _state, _step, _throw, e, endExpandTime, endParseTime,
-              endReduceTime, expanded, parser, reduced, result, rootRule, startTime;
+              endReduceTime, expanded, getPosition, parser, reduced, result, rootRule,
+              startTime;
           _state = 0;
           function _close() {
             _state = 8;
@@ -17030,6 +17018,7 @@
                   macros != null ? macros.clone() : void 0,
                   options
                 );
+                macros = parser.macros;
                 if (options.embeddedGenerator) {
                   rootRule = EmbeddedRootGeneratorP;
                 } else if (options.embedded) {
@@ -17080,13 +17069,15 @@
                 if (typeof options.progress === "function") {
                   options.progress("reduce", endReduceTime - endExpandTime);
                 }
+                getPosition = parser.getPosition;
+                parser = null;
                 ++_state;
                 return {
                   done: true,
                   value: {
                     result: reduced,
-                    macros: parser.macros,
-                    getPosition: parser.getPosition,
+                    macros: macros,
+                    getPosition: getPosition,
                     parseTime: endParseTime - startTime,
                     macroExpandTime: endExpandTime - endParseTime,
                     reduceTime: endReduceTime - endExpandTime,
@@ -31256,24 +31247,16 @@
           real__filename = fs.realpathSync(__filename);
         }
         fetchAndParsePrelude = (function () {
-          var getPreludeCachePath, getPreludeSrcPath, parsedPreludeByLang,
-              preludePromisesByLang, work;
-          parsedPreludeByLang = {};
+          var parsedPrelude, preludeCachePath, preludePromise, preludeSrcPath, work;
           if (real__filename != null) {
-            getPreludeSrcPath = function (lang) {
-              return path.join(path.dirname(real__filename), "../src/" + __strnum(lang) + "prelude.gs");
-            };
+            preludeSrcPath = path.join(path.dirname(real__filename), "../src/jsprelude.gs");
           }
           if (os != null) {
-            getPreludeCachePath = function (lang) {
-              return path.join(os.tmpDir(), "gs-" + __strnum(lang) + "prelude-" + __strnum(exports.version) + ".cache");
-            };
+            preludeCachePath = path.join(os.tmpDir(), "gs-jsprelude-" + __strnum(exports.version) + ".cache");
           }
-          preludePromisesByLang = {};
-          work = __promise(function (lang, sync) {
+          work = __promise(function (sync) {
             var _e, _send, _state, _step, _throw, cachePrelude, e, errored,
-                parsedPrelude, prelude, preludeCachePath, preludeCacheStat,
-                preludeSrcPath, preludeSrcStat;
+                parsedPrelude, prelude, preludeCacheStat, preludeSrcStat;
             _state = 0;
             function _close() {
               _state = 30;
@@ -31282,10 +31265,6 @@
               while (true) {
                 switch (_state) {
                 case 0:
-                  if (typeof lang !== "string") {
-                    throw TypeError("Expected lang to be a String, got " + __typeof(lang));
-                  }
-                  preludeSrcPath = getPreludeSrcPath(lang);
                   _state = sync ? 1 : 2;
                   break;
                 case 1:
@@ -31301,9 +31280,7 @@
                 case 3:
                   preludeSrcStat = _received;
                   ++_state;
-                case 4:
-                  preludeCachePath = getPreludeCachePath(lang);
-                  ++_state;
+                case 4: ++_state;
                 case 5:
                   _state = sync ? 6 : 7;
                   break;
@@ -31348,7 +31325,7 @@
                 case 15:
                   errored = false;
                   try {
-                    parsedPrelude = parsedPreludeByLang[lang] = parser.deserializePrelude(cachePrelude);
+                    parsedPrelude = parser.deserializePrelude(cachePrelude);
                   } catch (e) {
                     if (e instanceof ReferenceError) {
                       throw e;
@@ -31395,7 +31372,7 @@
                   _state = sync ? 25 : 26;
                   break;
                 case 25:
-                  parsedPrelude = parsedPreludeByLang[lang] = parser.sync(prelude, null, { serializeMacros: true, sync: true, filename: preludeSrcPath });
+                  parsedPrelude = parser.sync(prelude, null, { serializeMacros: true, sync: true, filename: preludeSrcPath });
                   _state = 28;
                   break;
                 case 26:
@@ -31405,14 +31382,13 @@
                     value: parser(prelude, null, { serializeMacros: true, filename: preludeSrcPath })
                   };
                 case 27:
-                  parsedPreludeByLang[lang] = _received;
-                  parsedPrelude = parsedPreludeByLang[lang];
+                  parsedPrelude = _received;
                   ++_state;
                 case 28:
                   writeFileWithMkdirp(preludeCachePath, parsedPrelude.macros.serialize(), "utf8");
                   ++_state;
                 case 29:
-                  delete preludePromisesByLang[lang];
+                  preludePromise = void 0;
                   ++_state;
                   return { done: true, value: parsedPrelude };
                 case 30:
@@ -31454,18 +31430,11 @@
               }
             };
           });
-          function f(lang, sync) {
-            var _ref, parsedPrelude;
-            if (typeof lang !== "string") {
-              throw TypeError("Expected lang to be a String, got " + __typeof(lang));
-            }
+          function f(sync) {
             if (sync == null) {
               sync = false;
             } else if (typeof sync !== "boolean") {
               throw TypeError("Expected sync to be a Boolean, got " + __typeof(sync));
-            }
-            if (__owns.call(parsedPreludeByLang, lang)) {
-              parsedPrelude = parsedPreludeByLang[lang];
             }
             if (parsedPrelude != null) {
               if (sync) {
@@ -31474,14 +31443,14 @@
                 return __defer.fulfilled(parsedPrelude);
               }
             } else if (sync) {
-              return work.sync(lang, true);
-            } else if ((_ref = preludePromisesByLang[lang]) == null) {
-              return preludePromisesByLang[lang] = work(lang);
+              return work.sync(true);
+            } else if (preludePromise == null) {
+              return preludePromise = work();
             } else {
-              return _ref;
+              return preludePromise;
             }
           }
-          f.serialized = __promise(function (lang) {
+          f.serialized = __promise(function () {
             var _e, _send, _state, _step, _throw;
             _state = 0;
             function _close() {
@@ -31491,16 +31460,13 @@
               while (true) {
                 switch (_state) {
                 case 0:
-                  if (typeof lang !== "string") {
-                    throw TypeError("Expected lang to be a String, got " + __typeof(lang));
-                  }
                   ++_state;
-                  return { done: false, value: f(lang) };
+                  return { done: false, value: f() };
                 case 1:
                   ++_state;
                   return {
                     done: false,
-                    value: __toPromise(fs.readFile, fs, [getPreludeCachePath(lang), "utf8"])
+                    value: __toPromise(fs.readFile, fs, [preludeCachePath, "utf8"])
                   };
                 case 2:
                   ++_state;
@@ -31537,14 +31503,11 @@
               }
             };
           });
-          exports.withPrelude = function (lang, serializedPrelude) {
-            if (typeof lang !== "string") {
-              throw TypeError("Expected lang to be a String, got " + __typeof(lang));
-            }
+          exports.withPrelude = function (serializedPrelude) {
             if (typeof serializedPrelude !== "function") {
               throw TypeError("Expected serializedPrelude to be a Function, got " + __typeof(serializedPrelude));
             }
-            parsedPreludeByLang[lang] = parser.deserializePrelude(serializedPrelude);
+            parsedPrelude = parser.deserializePrelude(serializedPrelude);
             return this;
           };
           return f;
@@ -31581,12 +31544,12 @@
                 _state = sync ? 5 : 6;
                 break;
               case 5:
-                macros = fetchAndParsePrelude(options.lang || "js", true).macros;
+                macros = fetchAndParsePrelude(true).macros;
                 _state = 8;
                 break;
               case 6:
                 ++_state;
-                return { done: false, value: fetchAndParsePrelude(options.lang || "js") };
+                return { done: false, value: fetchAndParsePrelude() };
               case 7:
                 _tmp = _received;
                 macros = _tmp.macros;
@@ -31667,10 +31630,7 @@
           if (options.noPrelude) {
             return parser.getReservedWords(null, options);
           } else {
-            return parser.getReservedWords(
-              fetchAndParsePrelude(options.lang || "js", true).macros,
-              options
-            );
+            return parser.getReservedWords(fetchAndParsePrelude(true).macros, options);
           }
         };
         function joinParsedResults(results) {
@@ -32493,13 +32453,10 @@
                 break;
               case 1:
                 _state = 4;
-                return {
-                  done: true,
-                  value: fetchAndParsePrelude(options.lang || "js", true)
-                };
+                return { done: true, value: fetchAndParsePrelude(true) };
               case 2:
                 ++_state;
-                return { done: false, value: fetchAndParsePrelude(options.lang || "js") };
+                return { done: false, value: fetchAndParsePrelude() };
               case 3:
                 ++_state;
                 return { done: true, value: _received };
@@ -32911,7 +32868,7 @@
     };
 
     require("./browser");
-    return require("./gorilla").withPrelude("js", function (TYPE$, AST$) {
+    return require("./gorilla").withPrelude(function (TYPE$, AST$) {
       return {
         consts: {
           "true": true,
@@ -76474,8 +76431,7 @@
           },
           {
             code: function (macroFullData, __wrap, __node, __const) {
-              var _this, body, elseBody, elseIfs, macroData, macroName, test;
-              _this = this;
+              var body, elseBody, elseIfs, macroData, macroName, test;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               test = macroData.test;
@@ -76486,7 +76442,7 @@
                 return x - 1;
               }
               function f(i, current) {
-                return i >= 0 && f(dec(i), _this["if"](elseIfs[i].test, elseIfs[i].body, current)) || current;
+                return i >= 0 && f(dec(i), this["if"](elseIfs[i].test, elseIfs[i].body, current)) || current;
               }
               return this["if"](
                 macroName === "unless" && __node(
@@ -76497,7 +76453,7 @@
                   { op: "not", node: __wrap(test) }
                 ) || test,
                 body,
-                f(dec(elseIfs.length), elseBody)
+                f.call(this, dec(elseIfs.length), elseBody)
               );
             },
             options: void 0,
@@ -76532,8 +76488,7 @@
           },
           {
             code: function (macroFullData, __wrap, __node, __const) {
-              var _this, body, elseBody, elseIfs, macroData, macroName, test;
-              _this = this;
+              var body, elseBody, elseIfs, macroData, macroName, test;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               test = macroData.test;
@@ -76545,7 +76500,7 @@
               }
               function f(i, current) {
                 if (i >= 0) {
-                  return f(dec(i), _this["if"](
+                  return f.call(this, dec(i), this["if"](
                     elseIfs[i].type === "unless"
                       ? __node(
                         23,
@@ -76573,7 +76528,7 @@
                   )
                   : test,
                 body,
-                f(dec(elseIfs.length), elseBody)
+                f.call(this, dec(elseIfs.length), elseBody)
               );
             },
             options: void 0,

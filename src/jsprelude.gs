@@ -85,15 +85,15 @@ macro if, unless
   // thankfully the eval uses constant strings and turns into pure code
   syntax test as Logic, "then", body, else-ifs as ("else", "if", test as Logic, "then", body)*, else-body as ("else", this)?
     let dec(x) -> eval "x - 1"
-    let f(i, current)@
+    let f(i, current)
       (i ~>= 0 and f(dec(i), @if(else-ifs[i].test, else-ifs[i].body, current))) or current
-    @if((macro-name == \unless and ASTE(test) not $test) or test, body, f(dec(else-ifs.length), else-body))
+    @if((macro-name == \unless and ASTE(test) not $test) or test, body, f@(this, dec(else-ifs.length), else-body))
 
   syntax test as Logic, body as (BodyNoEnd | (";", this as Statement)), else-ifs as ("\n", "else", type as ("if" | "unless"), test as Logic, body as (BodyNoEnd | (";", this as Statement)))*, else-body as ("\n", "else", this as (BodyNoEnd | (";", this as Statement)))?, "end"
     let dec(x) -> eval "x - 1"
-    let f(i, current)@
-      if i ~>= 0 then f(dec(i), @if((if else-ifs[i].type == "unless" then (ASTE(else-ifs[i].test) not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
-    @if(if macro-name == \unless then ASTE(test) not $test else test, body, f(dec(else-ifs.length), else-body))
+    let f(i, current)
+      if i ~>= 0 then f@(this, dec(i), @if((if else-ifs[i].type == "unless" then (ASTE(else-ifs[i].test) not $(else-ifs[i].test)) else else-ifs[i].test), else-ifs[i].body, current)) else current
+    @if(if macro-name == \unless then ASTE(test) not $test else test, body, f@(this, dec(else-ifs.length), else-body))
 
 macro continue
   syntax label as (Identifier|"")

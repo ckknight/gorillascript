@@ -105,8 +105,6 @@ macro timer!
 
 let filenames = argv._
 let main = promise!
-  let lang = "js"
-
   if argv.help
     return optimist.show-help(console.log)
   
@@ -129,7 +127,7 @@ let main = promise!
   if argv["no-prelude"]
     options.no-prelude := true
   else
-    yield gorilla.init { lang }
+    yield gorilla.init()
   
   if argv.interactive or (not filenames.length and not argv.stdin and not argv.eval)
     let repl-opts = {

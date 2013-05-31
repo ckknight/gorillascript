@@ -5099,7 +5099,7 @@ class Parser
       if macros.has-syntax(name)
         macros.get-syntax(name)
       else
-        #(parser, index) -> macros.get-syntax(name)@(this, parser, index)
+        #(parser, index) -> parser.macros.get-syntax(name)@(this, parser, index)
     else if param instanceof SyntaxSequenceNode
       handle-params@ this, param.params
     else if param instanceof SyntaxChoiceNode
@@ -5189,9 +5189,8 @@ class Parser
       let handler = Function(compilation)()
       if not is-function! handler
         throw Error "Error creating function for macro: $(String @current-macro)"
-      let state = this
       {
-        handler: #(args, ...rest) -> handler@(this, reduce-object(state, args), ...rest).reduce(state)
+        handler: #(args, ...rest) -> handler@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
         rule: handle-params@ this, params
         serialization: if serialization?
           type: \syntax
@@ -5203,7 +5202,6 @@ class Parser
     
     define-syntax: #(index, params, mutable body, options, state-options, translator)
       let mutable serialization = void
-      let state = this
       let handler = if body?
         do
           let macro-data-ident = @Ident index, \macro-data
@@ -5220,16 +5218,16 @@ class Parser
             body
           ]
           let raw-func = make-macro-root@ this, index, func-param, body
-          let translated = translator(@macro-expand-all(raw-func).reduce(state), @macros, @get-position, return: true)
+          let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
           let compilation = translated.node.to-string(get-compilation-options state-options)
           if state-options.serialize-macros
             serialization := compilation
           let handler = Function(compilation)()
           if not is-function! handler
             throw Error "Error creating function for syntax: $(options.name)"
-          #(args, ...rest) -> reduce-object(state, handler@(this, reduce-object(state, args), ...rest))
+          #(args, ...rest) -> reduce-object(@parser, handler@(this, reduce-object(@parser, args), ...rest))
       else
-        #(args, ...rest) -> reduce-object(state, args)
+        #(args, ...rest) -> reduce-object(@parser, args)
       {
         handler
         rule: handle-params@ this, params
@@ -5269,10 +5267,9 @@ class Parser
       let mutable handler = Function(compilation)()
       if not is-function! handler
         throw Error "Error creating function for macro: $(@current-macro)"
-      let state = this
       handler := do inner = handler
         #(args, ...rest)
-          inner@(this, reduce-object(state, args), ...rest).reduce(state)
+          inner@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
       {
         handler
         rule: InvocationArguments
@@ -5304,18 +5301,17 @@ class Parser
       let mutable handler = Function(compilation)()
       if not is-function! handler
         throw Error "Error creating function for binary operator $(operators.join ', ')"
-      let state = this
       if options.invertible
         handler := do inner = handler
           #(args, ...rest)
-            let result = inner@ this, reduce-object(state, args), ...rest
+            let result = inner@ this, reduce-object(@parser, args), ...rest
             if args.inverted
-              UnaryNode(result.index, result.scope, "!", result).reduce(state)
+              UnaryNode(result.index, result.scope, "!", result).reduce(@parser)
             else
-              result.reduce(state)
+              result.reduce(@parser)
       else
         handler := do inner = handler
-          #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
+          #(args, ...rest) -> inner@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
       {
         handler
         rule: void
@@ -5347,9 +5343,8 @@ class Parser
       let mutable handler = Function(compilation)()
       if not is-function! handler
         throw Error "Error creating function for assign operator $(operators.join ', ')"
-      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
+        #(args, ...rest) -> inner@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
       {
         handler
         rule: void
@@ -5381,9 +5376,8 @@ class Parser
       let mutable handler = Function(compilation)()
       if not is-function! handler
         throw Error "Error creating function for unary operator $(operators.join ', ')"
-      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
+        #(args, ...rest) -> inner@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
       {
         handler
         rule: void
@@ -5407,9 +5401,8 @@ class Parser
       let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for macro $(name)"
-      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
+        #(args, ...rest) -> inner@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
       @enter-macro 0, names
       handle-macro-syntax@ this, 0, \syntax, handler, handle-params@(this, deserialize-params(params, @scope.peek())), null, options, id
       @exit-macro()
@@ -5419,9 +5412,8 @@ class Parser
       let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for macro $(name)"
-      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
+        #(args, ...rest) -> inner@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
       @enter-macro 0, names
       handle-macro-syntax@ this, 0, \call, handler, InvocationArguments, null, options, id
       @exit-macro()
@@ -5431,15 +5423,14 @@ class Parser
         throw Error "Cannot override already-defined syntax: $(options.name)"
       
       let mutable handler = void
-      let state = this
       if code?
         handler := code
         if not is-function! handler
           throw Error "Error deserializing function for macro syntax $(options.name)"
         handler := do inner = handler
-          #(args, ...rest) -> reduce-object(state, inner@(this, reduce-object(state, args), ...rest))
+          #(args, ...rest) -> reduce-object(@parser, inner@(this, reduce-object(@parser, args), ...rest))
       else
-        handler := #(args) -> reduce-object(state, args)
+        handler := #(args) -> reduce-object(@parser, args)
       
       @enter-macro 0, DEFINE_SYNTAX
       handle-macro-syntax@ this, 0, \define-syntax, handler, handle-params@(this, deserialize-params(params, @scope.peek())), null, options, id
@@ -5450,18 +5441,17 @@ class Parser
       let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for binary operator $(operators.join ', ')"
-      let state = this
       if options.invertible
         handler := do inner = handler
           #(args, ...rest)
-            let result = inner@ this, reduce-object(state, args), ...rest
+            let result = inner@ this, reduce-object(@parser, args), ...rest
             if args.inverted
-              UnaryNode(result.index, result.scope, "!", result).reduce(state)
+              UnaryNode(result.index, result.scope, "!", result).reduce(@parser)
             else
-              result.reduce(state)
+              result.reduce(@parser)
       else
         handler := do inner = handler
-          #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
+          #(args, ...rest) -> inner@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
       @enter-macro 0, BINARY_OPERATOR
       handle-macro-syntax@ this, 0, \binary-operator, handler, void, operators, options, id
       @exit-macro()
@@ -5471,9 +5461,8 @@ class Parser
       let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for assign operator $(operators.join ', ')"
-      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
+        #(args, ...rest) -> inner@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
       @enter-macro 0, ASSIGN_OPERATOR
       handle-macro-syntax@ this, 0, \assign-operator, handler, void, operators, options, id
       @exit-macro()
@@ -5483,9 +5472,8 @@ class Parser
       let mutable handler = code
       if not is-function! handler
         throw Error "Error deserializing function for unary operator $(operators.join ', ')"
-      let state = this
       handler := do inner = handler
-        #(args, ...rest) -> inner@(this, reduce-object(state, args), ...rest).reduce(state)
+        #(args, ...rest) -> inner@(this, reduce-object(@parser, args), ...rest).reduce(@parser)
       @enter-macro 0, UNARY_OPERATOR
       handle-macro-syntax@ this, 0, \unary-operator, handler, void, operators, options, id
       @exit-macro()
@@ -5529,9 +5517,7 @@ class Parser
     params
   
   let handle-macro-syntax(index, type, handler as Function, rule, params, options, mutable macro-id)
-    let macros = @macros
-    
-    let mutator = #(data, parser, index)@
+    let mutator = #(data, parser, index)
       if parser.in-ast.peek() or not parser.expanding-macros
         parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek() == \statement, parser.in-generator.peek(), parser.in-evil-ast.peek()
       else
@@ -5557,7 +5543,7 @@ class Parser
         
         if result instanceof Node
           let line = parser.get-line(index)
-          result := result.reduce(this)
+          result := result.reduce(parser)
           let tmps = macro-context.get-tmps()
           if tmps.unsaved.length
             parser.TmpWrapper index, result, tmps.unsaved
@@ -5566,6 +5552,7 @@ class Parser
         else
           // TODO: do I need to watch tmps?
           result
+    let macros = @macros
     macro-id := switch @current-macro
     case BINARY_OPERATOR
       macros.add-binary-operator(params, mutator, options, macro-id)
@@ -5767,9 +5754,10 @@ class Parser
     Parser::[name] := #(index, ...args)
       type(index, @scope.peek(), ...args)
 
-let parse = promise! #(source as String, macros as MacroHolder|null, options as {} = {})*
-  let parser = Parser source, macros?.clone(), options
-
+let parse = promise! #(source as String, mutable macros as MacroHolder|null, options as {} = {})*
+  let mutable parser = Parser source, macros?.clone(), options
+  macros := parser.macros
+  
   let root-rule = if options.embedded-generator
     EmbeddedRootGeneratorP
   else if options.embedded
@@ -5798,10 +5786,12 @@ let parse = promise! #(source as String, macros as MacroHolder|null, options as 
   let reduced = expanded.reduce(parser)
   let end-reduce-time = new Date().get-time()
   options.progress?(\reduce, end-reduce-time - end-expand-time)
+  let {get-position} = parser
+  parser := null
   return {
     result: reduced
-    parser.macros
-    parser.get-position
+    macros
+    get-position
     parse-time: end-parse-time - start-time
     macro-expand-time: end-expand-time - end-parse-time
     reduce-time: end-reduce-time - end-expand-time

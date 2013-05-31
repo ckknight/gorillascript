@@ -90,7 +90,7 @@ module.exports := #(grunt)
           """
   
       let gorilla = require('./lib/gorilla')
-      let serialized-prelude = yield gorilla.get-serialized-prelude("js")
+      let serialized-prelude = yield gorilla.get-serialized-prelude()
       let mutable code = """
         ;(function (root) {
           "use strict";
@@ -111,7 +111,7 @@ module.exports := #(grunt)
             $(parts.join("\n").split("\n").join("\n    "))
         
             require("./browser");
-            return require("./gorilla").withPrelude("js", $(serialized-prelude.split("\n").join("\n    ")));
+            return require("./gorilla").withPrelude($(serialized-prelude.split("\n").join("\n    ")));
           }(typeof module !== "undefined" && typeof require === "function" ? require : void 0));
       
           if (typeof define === "function" && define.amd) {

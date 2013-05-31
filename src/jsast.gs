@@ -80,10 +80,11 @@ let get-indent = do
         cache.push result
     cache[indent]
 
+let NEWLINE_REGEXP = r"(?:\r\n?|[\n\u2028\u2029])"g
 let wrap-string-handler(callback)
-  let cb = #(item)!
+  let cb(item)!
     let s = String(item)
-    let parts = s.split(r"(?:\r\n?|[\n\u2028\u2029])"g)
+    let parts = s.split(NEWLINE_REGEXP)
     switch parts.length
     case 0; void
     case 1
@@ -96,8 +97,7 @@ let wrap-string-handler(callback)
   cb.line := 1
   cb.column := 1
   cb.indent := #(count)!
-    callback get-indent(count)
-    cb.column += count
+    this get-indent(count)
   cb
 
 let StringWriter(callback)
