@@ -530,6 +530,13 @@ describe "Simple operators", #
     expect(y).to.equal x
     expect(z).to.equal x
 
+  it "let with ownsor= assignment", #
+    let x = {}
+    let y = x.key ownsor= {}
+    let z = x.key ownsor= {}
+    expect(y).to.equal x.key
+    expect(z).to.equal x.key
+
   it "let with or= assignment", #
     let mutable x = undefined
     let y = x or= {}
@@ -557,13 +564,23 @@ describe "Simple operators", #
     expect(y).to.equal x
     expect(z).to.equal x
 
+  it "multiple ownsor= assignment", #
+    let x = {}
+    let mutable y = undefined
+    let mutable z = undefined
+  
+    y := x.key ownsor= {}
+    z := x.key ownsor= {}
+    expect(y).to.equal x.key
+    expect(z).to.equal x.key
+
   it "multiple or= assignment", #
     let mutable x = undefined
     let mutable y = undefined
     let mutable z = undefined
   
-    y := x ?= {}
-    z := x ?= {}
+    y := x or= {}
+    z := x or= {}
     expect(y).to.equal x
     expect(z).to.equal x
 

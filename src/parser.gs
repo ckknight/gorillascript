@@ -2821,14 +2821,6 @@ define IdentifierOrSimpleAccess = sequential(
   for reduce creator in parts.tail, acc = parts.head
     creator acc, parser, index
 
-define IdentifierOrAccess(parser, index)
-  let node = InvocationOrAccess parser, index
-  if not node
-    return
-  let value = node.value
-  if value instanceof IdentNode or value instanceof AccessNode
-    node
-
 let in-function-type-params = make-alter-stack<Boolean> \in-function-type-params, true
 let not-in-function-type-params = make-alter-stack<Boolean> \in-function-type-params, false
 
@@ -3246,6 +3238,12 @@ define UnclosedObjectLiteral = separated-list(
   PropertyOrDualObjectKey
   Comma) |> mutate #(pairs, parser, index)
   parser.object index, pairs
+
+define IdentifierOrAccess(parser, index)
+  let result = _IdentifierOrAccess(parser, index)
+  if not result or result.value not instanceofsome [IdentNode, AccessNode]
+    return
+  result
 
 let SingularObjectKey = one-of(
   sequential(
@@ -3925,6 +3923,33 @@ let BasicInvocationOrAccess = sequential(
     PrimaryExpression |> mutate #(node as Node) -> { type: \normal, node })]
   [\tail, zero-or-more InvocationOrAccessPart]) |> mutate #({is-new, head, tail}, parser, index)
   convert-invocation-or-access is-new, {} <<< head, tail, parser, index
+
+let _IdentifierOrAccess = sequential(
+  [\head, one-of(
+    sequential(
+      [\node, ThisShorthandLiteral]
+      [\existential, MaybeQuestionMarkChar]
+      [\owns, MaybeExclamationPointChar]
+      [\bind, MaybeAtSignChar]
+      [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x, parser, index) -> { type: \this-access } <<< x
+    PrimaryExpression |> mutate #(node as Node) -> { type: \normal, node })]
+  [\tail, #(parser, index)
+    let tail = []
+    let mutable current-index = index
+    while true
+      let part = InvocationOrAccessPart(parser, current-index)
+      if part
+        tail.push part
+        current-index := part.index
+      else
+        break
+    while tail.length > 0 and tail[* - 1].value.type not in [\access, \proto-access]
+      tail.pop()
+    if tail.length == 0
+      Box index, []
+    else
+      Box tail[* - 1].index, for part in tail; part.value]) |> mutate #({head, tail}, parser, index)
+  convert-invocation-or-access false, {} <<< head, tail, parser, index
 
 define SuperInvocation = sequential(
   word "super"

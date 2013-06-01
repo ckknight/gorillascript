@@ -841,6 +841,21 @@ define operator assign ?=
         else
           $left-value
 
+define operator assign ownsor=
+  if not @is-access(left)
+    @error "Can only use ownsor= on an access"
+  let parent = @parent(left)
+  let child = @child(left)
+  @maybe-cache parent, #(set-parent, parent)
+    @maybe-cache child, #(set-child, child)
+      if @position == \expression
+        ASTE if $set-parent ownskey $set-child then $parent[$child] else ($parent[$child] := $right)
+      else
+        AST if not $set-parent ownskey $set-child
+          $parent[$child] := $right
+        else
+          $parent[$child]
+
 define operator binary ~bitand with precedence: 1, type: \number
   @binary left, "&", right
 
