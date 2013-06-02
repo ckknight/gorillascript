@@ -31284,7 +31284,7 @@
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.8.15";
+        exports.version = "0.8.16";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -72763,19 +72763,7 @@
                             void 0,
                             73,
                             854,
-                            {
-                              left: __node(
-                                23,
-                                void 0,
-                                3,
-                                854,
-                                { op: "not", node: __wrap(setParent) },
-                                true
-                              ),
-                              inverted: false,
-                              op: "ownskey",
-                              right: __wrap(setChild)
-                            },
+                            { left: __wrap(setParent), inverted: true, op: "ownskey", right: __wrap(setChild) },
                             true
                           ),
                           body: __node(

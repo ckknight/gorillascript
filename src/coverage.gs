@@ -16,7 +16,7 @@ module.exports := #(root, sources, coverage-name = \_$jscoverage)
         case parent instanceof ast.Binary and parent.is-assign() and position == \left; void
         case parent instanceof ast.Unary and parent.is-assign(); void
         // we care about the case bodies, not the case nodes
-        case parent instanceof ast.Switch and position == \case-node; void
+        case parent instanceof ast.Switch and position == \case-node; node
         // if a test shares the same line as its when-true, let the when-true take the line
         case parent instanceofsome [ast.IfStatement, ast.IfExpression] and position == \test and line == parent.when-true.pos.line; void
         case node instanceofsome [ast.IfStatement, ast.IfExpression] and line == node.when-true.pos.line

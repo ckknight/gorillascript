@@ -851,7 +851,7 @@ define operator assign ownsor=
       if @position == \expression
         ASTE if $set-parent ownskey $set-child then $parent[$child] else ($parent[$child] := $right)
       else
-        AST if not $set-parent ownskey $set-child
+        AST if $set-parent not ownskey $set-child
           $parent[$child] := $right
         else
           $parent[$child]
