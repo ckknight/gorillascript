@@ -31,10 +31,10 @@ define operator binary or with precedence: 1
   @binary left, "||", right
 
 define operator unary not with type: \boolean
-  @mutate-last node or @noop(), (#(n) -> @unary "!", n), true
+  @mutate-last node or @noop(), (#(subnode) -> @unary "!", subnode), true
 
 define operator unary typeof with type: \string
-  @mutate-last node or @noop(), (#(n) -> @unary "typeof", n), true
+  @mutate-last node or @noop(), (#(subnode) -> @unary "typeof", subnode), true
 
 define operator binary == with precedence: 2, maximum: 1, type: \boolean
   @binary left, "===", right
@@ -57,7 +57,7 @@ define operator binary ~>, ~>= with precedence: 2, maximum: 1, type: \boolean
   (op == "~>" and ASTE not ($left ~<= $right)) or ASTE not ($left ~< $right)
 
 define operator unary throw with type: "none"
-  @mutate-last node or @noop(), (#(n) -> @throw n), true
+  @mutate-last node or @noop(), (#(subnode) -> @throw subnode), true
 
 define helper __throw = #(err) -> throw err
 
@@ -138,10 +138,10 @@ define operator unary is-function! with type: \boolean
   ASTE typeof $node == \function
 
 define operator unary is-array! with type: \boolean
-  @mutate-last node or @noop(), (#(n) -> (@is-ident-or-tmp(n) and not @has-variable(n) and ASTE typeof $n == \object and __is-array($n)) or ASTE __is-array($n)), true
+  @mutate-last node or @noop(), (#(subnode) -> (@is-ident-or-tmp(subnode) and not @has-variable(subnode) and ASTE typeof $subnode == \object and __is-array($subnode)) or ASTE __is-array($subnode)), true
 
 define operator unary is-object! with type: \boolean
-  @mutate-last node or @noop(), (#(n) -> ASTE typeof $n == \object and $n != null), true
+  @mutate-last node or @noop(), (#(subnode) -> ASTE typeof $subnode == \object and $subnode != null), true
 
 define helper GLOBAL = if not is-void! window then window else if not is-void! global then global else this
 
@@ -163,7 +163,7 @@ define operator binary ~& with precedence: 7, type: \string
 
 define operator assign := with type: \right
   if not @is-complex(left) or (@is-access(left) and not @is-complex(@parent(left)) and not @is-complex(@child(left)))
-    @mutate-last right or @noop(), (#(n) -> @assign left, "=", n), true
+    @mutate-last right or @noop(), (#(subnode) -> @assign left, "=", subnode), true
   else
     @assign left, "=", right
 
@@ -206,7 +206,7 @@ macro let
       @let declarable.ident, declarable.is-mutable, if declarable.as-type then @to-type(declarable.as-type) else @type(value)
       @block [
         @var declarable.ident, declarable.is-mutable
-        @mutate-last value or @noop(), (#(n) -> @assign declarable.ident, "=", n), true
+        @mutate-last value or @noop(), (#(subnode) -> @assign declarable.ident, "=", subnode), true
       ]
     else if declarable.type == \array
       let num-real-elements(i, acc)
@@ -268,43 +268,43 @@ macro let
 macro return
   syntax node as Expression?
     if node
-      @mutate-last node or @noop(), (#(n) -> @return n), true
+      @mutate-last node or @noop(), (#(subnode) -> @return subnode), true
     else
       @return()
 
 macro return?
   syntax node as Expression
-    @mutate-last node or @noop(), (#(n)
-      @maybe-cache n, #(set-n, n)
+    @mutate-last node or @noop(), (#(subnode)
+      @maybe-cache subnode, #(set-subnode, subnode)
         AST
-          if $set-n?
-            return $n), true
+          if $set-subnode?
+            return $subnode), true
 
 macro returnif
   syntax node as Expression
-    @mutate-last node or @noop(), (#(n)
-      if @is-type n, \boolean
+    @mutate-last node or @noop(), (#(subnode)
+      if @is-type subnode, \boolean
         AST
-          if $n
+          if $subnode
             return true
       else
-        @maybe-cache n, #(set-n, n)
+        @maybe-cache subnode, #(set-subnode, subnode)
           AST
-            if $set-n
-              return $n), true
+            if $set-subnode
+              return $subnode), true
 
 macro returnunless
   syntax node as Expression
-    @mutate-last node or @noop(), (#(n)
-      if @is-type n, \boolean
+    @mutate-last node or @noop(), (#(subnode)
+      if @is-type subnode, \boolean
         AST
-          unless $n
+          unless $subnode
             return false
       else
-        @maybe-cache n, #(set-n, n)
+        @maybe-cache subnode, #(set-subnode, subnode)
           AST
-            unless $set-n
-              return $n), true
+            unless $set-subnode
+              return $subnode), true
 
 define operator assign and=
   @maybe-cache-access left, #(set-left, left)
@@ -330,13 +330,13 @@ const NaN = 0 ~/ 0
 
 define operator assign ~*=, ~/=, ~%= with type: \number
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(n)
+    @mutate-last right or @noop(), (#(subnode)
       if op == "~*="
-        @assign left, "*=", n
+        @assign left, "*=", subnode
       else if op == "~/="
-        @assign left, "/=", n
+        @assign left, "/=", subnode
       else
-        @assign left, "%=", n), true
+        @assign left, "%=", subnode), true
   else
     if op == "~*="
       @assign left, "*=", right
@@ -357,7 +357,7 @@ define operator unary ~+, ~- with type: \number
       value := negate value
     @const value
   else
-    @mutate-last node or @noop(), (#(n) -> @unary if op == "~+" then "+" else "-", n), true
+    @mutate-last node or @noop(), (#(subnode) -> @unary if op == "~+" then "+" else "-", subnode), true
 
 define operator binary ~+, ~- with precedence: 10, type: \number
   if op == "~+"
@@ -415,17 +415,17 @@ define operator assign ~+= with type: \number
   
   if @is-type left, \numeric
     if @is-ident-or-tmp(left)
-      @mutate-last right or @noop(), (#(mutable n)
-        if not @is-type n, \numeric
-          n := ASTE(n) ~+$n
-        @assign left, "+=", n), true
+      @mutate-last right or @noop(), (#(mutable subnode)
+        if not @is-type subnode, \numeric
+          subnode := ASTE(subnode) ~+$subnode
+        @assign left, "+=", subnode), true
     else
       if not @is-type right, \numeric
         right := ASTE(right) ~+$right
       @assign left, "+=", right
   else
     if @is-ident-or-tmp(left)
-      @mutate-last right or @noop(), (#(n) -> @assign left, "-=", ASTE(n) ~-$n), true
+      @mutate-last right or @noop(), (#(subnode) -> @assign left, "-=", ASTE(subnode) ~-$subnode), true
     else
       @assign left, "-=", ASTE(right) ~-$right
 
@@ -437,7 +437,7 @@ define operator assign ~-= with type: \number
     else if value == ~-1
       return @unary "++", left
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(n) -> @assign left, "-=", n), true
+    @mutate-last right or @noop(), (#(subnode) -> @assign left, "-=", subnode), true
   else
     @assign left, "-=", right
 
@@ -451,13 +451,13 @@ define operator binary ~bitlshift, ~bitrshift, ~biturshift with precedence: 9, m
 
 define operator assign ~bitlshift=, ~bitrshift=, ~biturshift= with type: \number
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(n)
+    @mutate-last right or @noop(), (#(subnode)
       if op == "~bitlshift="
-        @assign left, "<<=", n
+        @assign left, "<<=", subnode
       else if op == "~bitrshift="
-        @assign left, ">>=", n
+        @assign left, ">>=", subnode
       else
-        @assign left, ">>>=", n), true
+        @assign left, ">>>=", subnode), true
   else
     if op == "~bitlshift="
       @assign left, "<<=", right
@@ -468,13 +468,13 @@ define operator assign ~bitlshift=, ~bitrshift=, ~biturshift= with type: \number
 
 define operator assign ~&= with type: \string
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(mutable n)
-      if @has-type(left, \numeric) and @has-type(n, \numeric)
-        n := ASTE(n) "" ~& n
-      @assign left, "+=", n), true
+    @mutate-last right or @noop(), (#(mutable subnode)
+      if @has-type(left, \numeric) and @has-type(subnode, \numeric)
+        subnode := ASTE(subnode) "" ~& $subnode
+      @assign left, "+=", subnode), true
   else
     if @has-type(left, \numeric) and @has-type(right, \numeric)
-      right := ASTE(right) "" ~& right
+      right := ASTE(right) "" ~& $right
     @assign left, "+=", right
 
 define helper __typeof = do
@@ -491,7 +491,7 @@ define operator unary typeof! with type: \string
   if @is-ident-or-tmp(node) and not @has-variable(node)
     ASTE if typeof $node == \undefined then "Undefined" else __typeof($node)
   else
-    @mutate-last node or @noop(), (#(n) -> ASTE __typeof($n)), true
+    @mutate-last node or @noop(), (#(subnode) -> ASTE __typeof($subnode)), true
 
 define helper __first = #(x) -> x
 
@@ -544,13 +544,13 @@ define helper __strnum = #(strnum) as String
 // strict operators, should have same precedence as their respective unstrict versions
 
 define operator unary + with type: \number
-  @mutate-last node or @noop(), (#(n)
-    if @is-type n, \number
-      n
+  @mutate-last node or @noop(), (#(subnode)
+    if @is-type subnode, \number
+      subnode
     else if @get-const-value("DISABLE_TYPE_CHECKING", false)
-      ASTE ~+($n)
+      ASTE ~+($subnode)
     else
-      ASTE __num($n)), true
+      ASTE __num($subnode)), true
 
 define operator unary - with type: \number
   if @is-const(node) and is-number! @value(node)
@@ -867,13 +867,13 @@ define operator binary ~bitxor with precedence: 1, type: \number
 
 define operator assign ~bitand=, ~bitor=, ~bitxor= with type: \number
   if @is-ident-or-tmp(left)
-    @mutate-last right or @noop(), (#(n)
+    @mutate-last right or @noop(), (#(subnode)
       if op == "~bitand="
-        @assign left, "&=", n
+        @assign left, "&=", subnode
       else if op == "~bitor="
-        @assign left, "|=", n
+        @assign left, "|=", subnode
       else
-        @assign left, "^=", n), true
+        @assign left, "^=", subnode), true
   else
     if op == "~bitand="
       @assign left, "&=", right
@@ -892,7 +892,7 @@ define operator binary bitxor with precedence: 1, type: \number
   ASTE +$left ~bitxor +$right
 
 define operator unary ~bitnot with type: \number
-  @mutate-last node or @noop(), (#(n) -> @unary "~", n), true
+  @mutate-last node or @noop(), (#(subnode) -> @unary "~", subnode), true
 
 define operator unary bitnot with type: \number
   ASTE ~bitnot +$node
@@ -3102,7 +3102,7 @@ macro yield
   syntax node as Expression?
     if not @in-generator
       @error "Can only use yield in a generator function"
-    @mutate-last node or @noop(), (#(n) -> @yield n), true
+    @mutate-last node or @noop(), (#(subnode) -> @yield subnode), true
 
 macro yield*
   syntax node as Expression
@@ -3705,12 +3705,12 @@ macro promise!
 macro fulfilled!(node)
   if macro-data.length > 1
     @error "fulfilled! only expects one argument"
-  @mutate-last node or @noop(), (#(n) -> ASTE __defer.fulfilled($n)), true
+  @mutate-last node or @noop(), (#(subnode) -> ASTE __defer.fulfilled($subnode)), true
 
 macro rejected!(node)
   if macro-data.length > 1
     @error "rejected! only expects one argument"
-  @mutate-last node or @noop(), (#(n) -> ASTE __defer.rejected($n)), true
+  @mutate-last node or @noop(), (#(subnode) -> ASTE __defer.rejected($subnode)), true
 
 define helper __from-promise = #(promise as { then: (->) }) -> #(callback)!
   promise.then(
