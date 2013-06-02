@@ -1,7 +1,7 @@
 {
   "name": "gorillascript-docs",
   "description": "GorillaScript documentation",
-  "version": "0.8.3",
+  "version": "0.8.16",
   "private": true,
   "author": {
     "name": "Cameron Kenneth Knight",
@@ -16,7 +16,7 @@
   },
   "readmeFilename": "README",
   "devDependencies": {
-    "gorillascript": "~0.8.3",
+    "gorillascript": "~0.8.16",
     "uglify-js": "~2.3.4",
     "grunt": "~0.4.1",
     "grunt-gorilla": "~0.1.3",

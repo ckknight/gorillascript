@@ -67,6 +67,7 @@
       <li><a href="#generic">Generics</a>
       <li><a href="#gnome">GNOME bindings</a>
       <li><a href="#build">Build support</a>
+      <li><a href="#coverage">Coverage</a>
       <li><a href="#browser">Browser support</a>
       <li><a href="#ide">Code Editor/IDE support</a>
       <li><a href="#irc">Chat with others (IRC)</a>
@@ -1810,6 +1811,14 @@ Gtk.main()
   }
 });
 </code></pre>
+  </section>
+  
+  <section id="coverage">
+    <h2>Coverage</h2>
+    
+    <p>GorillaScript has built-in coverage instrumentation, that can be picked up by any tool that already supports <a href="http://siliconforks.com/jscoverage/">JSCoverage</a>, including <a href="http://visionmedia.github.io/mocha/">Mocha</a>.</p>
+    
+    <p>All you have to do is pass in the <tt>--coverage</tt> option on the command line or <code class="language-javascript">coverage: true</code> in the Grunt task.</p>
   </section>
   
   <section id="browser">
