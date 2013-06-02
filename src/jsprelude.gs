@@ -214,7 +214,22 @@ macro let
           num-real-elements inc(i), if declarable.elements[i] then inc(acc) else acc
         else
           acc
-      if num-real-elements(0, 0) ~<= 1
+      if @is-array(value)
+        let handle-item(i, element, element-value, block)
+          block.push @macro-expand-1 AST let $element = $element-value
+          handle@ this, inc(i), block
+        let handle(i, block)
+          if i ~< declarable.elements.length and i ~< @elements(value).length
+            if declarable.elements[i]
+              handle-item@ this, i, declarable.elements[i], @elements(value)[i], block
+            else
+              block.push @elements(value)[i]
+              handle@ this, inc(i), block
+          else
+            block.push value
+            @block block
+        handle@ this, 0, []
+      else if num-real-elements(0, 0) ~<= 1
         let handle-item(element, index)
           @macro-expand-1 AST let $element = $value[$index]
         let handle(i)
@@ -226,7 +241,7 @@ macro let
           else
             value
         handle@ this, 0
-      else
+      else 
         @maybe-cache value, #(set-value, value)
           let handle-item(i, element, index, block)
             block.push @macro-expand-1 AST let $element = $value[$index]
