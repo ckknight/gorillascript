@@ -22,12 +22,15 @@ module.exports := #(root, sources, coverage-name = \_$jscoverage)
         case node instanceofsome [ast.IfStatement, ast.IfExpression] and line == node.when-true.pos.line
           ast.If pos,
             node.test
-            walker(node.when-true, node, \when-false) ? node.when-false.walk walker
+            walker(node.when-true, node, \when-false) ? node.when-true.walk walker
             walker(node.when-false, node, \when-false) ? node.when-false.walk walker
             node.label
         // we don't want to turn a method call into an indirect function call
         case node instanceof ast.Binary and node.op == "." and parent instanceof ast.Call and position == \func; void
+        // obviously don't care about noops
         case node instanceof ast.Noop; void
+        // if it's a return or throw, we care about its node rather than itself
+        case node instanceofsome [ast.Return, ast.Throw]; void
         // if a function's body shares the same line, we care about the body, not the function declaration.
         case node instanceof ast.Func and node.body.pos.line == line; void
         // in the case of let x() y or def x() y, we care about the function, not the assignment
