@@ -4,6 +4,7 @@ import 'shared.gs'
 const DISABLE_TYPE_CHECKING = false
 
 require! './parser'
+require! ast: './jsast'
 require! os
 require! fs
 require! path
@@ -205,7 +206,6 @@ exports.ast-sync := #(source, options = {})
 
 let handle-ast-pipe(mutable node, options, file-sources)
   if is-function! options.ast-pipe
-    require! ast: './jsast'
     node := options.ast-pipe node, file-sources
     if node not instanceof ast.Root
       throw Error "Expected astPipe to return a Root, got $(typeof! node)"
@@ -437,3 +437,5 @@ exports.get-mtime := promise! #(source)*
   let time = for reduce stat in file-stats, acc = -(2 ^ 52)
     acc max stat.mtime.get-time()
   return new Date(time)
+
+exports.AST := ast

@@ -4634,7 +4634,10 @@ let EmbeddedRootInnerP = promise! #(parser, index)*
       throw Error "Infinite loop detected"
     current-index := item.index
   parser.clear-cache()
-  return Box current-index, parser.Block index, nodes
+  return Box current-index, parser.Block index, [
+    ...nodes
+    parser.Return index, parser.Ident index, \write
+  ]
 
 let EndNoIndent = sequential(
   EmptyLines
@@ -5548,10 +5551,10 @@ class Parser
       else
         let scope = parser.push-scope(false)
         let macro-context = MacroContext parser, index, parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
-        if type == \assign-operator and macro-context.is-ident(data.left)
+        if type == \assign-operator and macro-context.is-ident(data.left) and not parser.in-evil-ast.peek()
           if not macro-context.has-variable(data.left)
             throw parser.build-error "Trying to assign with $(data.op) to unknown variable '$(macro-context.name data.left)'", data.left
-          else if not macro-context.is-variable-mutable(data.left) and not parser.in-evil-ast.peek()
+          else if not macro-context.is-variable-mutable(data.left)
             throw parser.build-error "Trying to assign with $(data.op) to immutable variable '$(macro-context.name data.left)'", data.left
         let mutable result = void
         try

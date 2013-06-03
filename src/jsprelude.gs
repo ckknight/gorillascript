@@ -1320,6 +1320,18 @@ macro for
           $body
         else
           $else-body
+      else if else-body and index
+        AST
+          for $init; $test; $increment
+            $body
+          if $value == 0
+            $else-body
+      else if else-body and @is-const(start)
+        AST
+          for $init; $test; $increment
+            $body
+          if $value == $start
+            $else-body
       else
         AST
           for $init; $test; $increment
@@ -1551,6 +1563,12 @@ macro for
           $body
         else
           $else-body
+      else if else-body and @is-const(start)
+        AST
+          for $init; $test; $increment
+            $body
+          if $index == $start
+            $else-body
       else
         AST
           for $init; $test; $increment
@@ -3318,9 +3336,8 @@ define helper __import = #(dest, source) as {}
 
 define operator binary <<< with precedence: 6
   if @is-object(right)
-    @maybe-cache left, #(set-left, next-left)
-      let mutable current-left = set-left
-      let block = []
+    @maybe-cache left, #(set-left, left)
+      let block = [set-left]
       let pairs = @pairs(right)
       for {key, value, property}, i, len in pairs
         if property?
@@ -3328,7 +3345,7 @@ define operator binary <<< with precedence: 6
             continue
           
           if property == \property
-            block.push AST(key) __def-prop $current-left, $key, $value
+            block.push AST(key) __def-prop $left, $key, $value
           else if property in [\get, \set]
             let descriptor = if i > 0 and pairs[i - 1].property? and @eq(key, pairs[i - 1].key) and pairs[i - 1].property != property and pairs[i - 1].property in [\get, \set]
               ASTE(value) {
@@ -3343,14 +3360,13 @@ define operator binary <<< with precedence: 6
                 enumerable: true
                 configurable: true
               }
-            block.push AST(key) __def-prop $current-left, $key, $descriptor
+            block.push AST(key) __def-prop $left, $key, $descriptor
           else
             @error "Unknown property: $property", key
         else
-          block.push AST(key) $current-left[$key] := $value
-        current-left := next-left
-      block.push current-left
-      ASTE $block
+          block.push AST(key) $left[$key] := $value
+      block.push left
+      @block block
   else
     ASTE __import $left, $right
 
@@ -3687,6 +3703,7 @@ define helper __promise = #(mutable value, allow-sync as Boolean)
   if is-function! value
     let factory() -> __generator-to-promise value@(this, ...arguments)
     factory.sync := #-> __generator-to-promise(value@(this, ...arguments), true).sync()
+    factory.maybe-sync := #-> __generator-to-promise(value@(this, ...arguments), true)
     factory
   else
     __generator-to-promise value, allow-sync

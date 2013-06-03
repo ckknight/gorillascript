@@ -1280,7 +1280,10 @@ node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void 
     let data = {}
     for {key, value} in @pairs
       if key.is-const()
-        data[key.const-value()] := value.type(o)
+        data[key.const-value()] := if value.is-const() and not value.const-value()?
+          Type.any
+        else
+          value.type(o)
     Type.make-object data
   def walk(func, context)
     let pairs = map @pairs, #(pair)

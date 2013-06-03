@@ -1949,11 +1949,13 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
 
   let no-pos = make-pos 0, 0
   
+  let mutable inner-scope = scope
   if scope.options.embedded
+    inner-scope := scope.clone()
     for name in [\write, \context]
       let ident = ast.Ident { line: 0, column: 0 }, name
-      scope.add-variable ident
-      scope.mark-as-param ident
+      inner-scope.add-variable ident
+      inner-scope.mark-as-param ident
   
   let {wrap, mutable body} = if roots.length == 1
     get-pos := make-get-pos get-position[0]
@@ -1961,9 +1963,9 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
       throw Error "Cannot translate non-Root object"
     
     if roots[0].is-generator
-      scope := scope.clone(true)
+      inner-scope := inner-scope.clone(true)
     let root-pos = get-pos(roots[0])
-    let ret = translate-function-body(root-pos, roots[0].is-generator, scope, if scope.options.return or scope.options.eval then ParserNode.Return(roots[0].body.index, roots[0].body.scope, roots[0].body) else roots[0].body)
+    let ret = translate-function-body(root-pos, roots[0].is-generator, inner-scope, if scope.options.return or scope.options.eval then ParserNode.Return(roots[0].body.index, roots[0].body.scope, roots[0].body) else roots[0].body)
     ret.body.pos.file or= root-pos.file
     get-pos := null
     ret
@@ -1975,21 +1977,21 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
           get-pos := make-get-pos get-position[i]
           if root not instanceof ParserNode.Root
             throw Error "Cannot translate non-Root object"
-          let inner-scope = scope.clone(true)
-          let {comments, body: root-body} = split-comments translate(root.body, inner-scope, \top-statement, scope.options.return or scope.options.eval, [])()
+          let body-scope = inner-scope.clone(true)
+          let {comments, body: root-body} = split-comments translate(root.body, body-scope, \top-statement, scope.options.return or scope.options.eval, [])()
           let root-pos = get-pos(root)
           get-pos := null
           ast.Block root-pos, [
             ...comments
             ast.Call root-pos,
-              ast.Func root-pos, null, [], inner-scope.get-variables(), root-body
+              ast.Func root-pos, null, [], body-scope.get-variables(), root-body
           ]
     }
   
   let init = []
-  if scope.has-bound and scope.used-this
+  if inner-scope.has-bound and inner-scope.used-this
     let fake-this = ast.Ident body.pos, \_this
-    scope.add-variable fake-this // TODO: type for this?
+    inner-scope.add-variable fake-this // TODO: type for this?
     init.push ast.Assign body.pos, fake-this, ast.This(body.pos)
   
   scope.fill-helper-dependencies()
@@ -2044,7 +2046,7 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
               ast.Ident body.pos, \write
               ast.Ident body.pos, \context
             ]
-            []
+            inner-scope.get-variables()
             ast.Block body.pos, [
               ast.If body.pos,
                 ast.Binary body.pos, ast.Ident(body.pos, \context), "==", ast.Const(body.pos, null)

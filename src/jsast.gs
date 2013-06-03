@@ -142,6 +142,9 @@ exports.Node := class Node
   def exit-type() -> null
   def last() -> this
   
+  def walk-with-this(walker)
+    walker(this) ? @walk(walker)
+  
   let inspect-array(depth, array)
     if array.length == 0
       "[]"

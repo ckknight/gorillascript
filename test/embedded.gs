@@ -234,7 +234,7 @@ describe "embedded compilation", #
     
     expect(iter.send void).to.eql { -done, value: "name" }
     expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello,"
-    expect(iter.send "world").to.eql { +done, value: void }
+    expect(iter.send "world").to.eql { +done, value: write }
     expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world. How are you today?"
     for i in 0 til 10
       expect(iter.send void).to.eql { +done, value: void }
