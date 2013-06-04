@@ -67,7 +67,7 @@ describe "gorilla binary", #
         expect(error).to.not.exist
         expect(stderr).to.be.empty
         expect(stdout.trim()).to.equal inspect(["gorilla", tmp-binary, "alpha", "--bravo", "charlie"])
-        fs.unlink tmp-binary, #->
+        async! cb <- fs.unlink tmp-binary
         cb()
   
     describe "called with the gorilla command", #
@@ -92,7 +92,7 @@ describe "gorilla binary", #
         expect(error).to.not.exist
         expect(stderr).to.be.empty
         expect(stdout.trim()).to.equal inspect(["gorilla", tmp-binary, "alpha", "--bravo", "charlie"])
-        fs.unlink tmp-binary, #->
+        async! cb <- fs.unlink tmp-binary
         cb()
   
     describe "compiling a file", #
@@ -113,4 +113,87 @@ describe "gorilla binary", #
         expect(error).to.not.exist
         expect(stderr).to.be.empty
         expect(stdout.trim()).to.equal inspect(["node", tmp-binary-js, "alpha", "bravo", "charlie"])
+        async! cb <- fs.unlink tmp-binary-gs
+        async! cb <- fs.unlink tmp-binary-js
         cb()
+  
+  describe "compiling", #
+    it "a single file", #(cb)
+      let code = """
+      @message := "Hello, world!"
+      """
+      let tmp-output-gs = path.join(fs.realpath-sync(os.tmpdir()), "hello.gs")
+      let tmp-output-js = path.join(fs.realpath-sync(os.tmpdir()), "hello.js")
+      async! cb <- fs.write-file tmp-output-gs, code, "utf8"
+      async error, stdout, stderr <- exec "$gorilla-bin -c $tmp-output-gs"
+      expect(error).to.not.exist
+      expect(stderr).to.be.empty
+      expect(stdout.trim()).to.match r"Compiling $(path.basename tmp-output-gs) \.\.\. \d+\.\d+ seconds"
+      
+      async! cb, js-code <- fs.read-file tmp-output-js, "utf8"
+      async! cb <- fs.unlink tmp-output-gs
+      async! cb <- fs.unlink tmp-output-js
+      let obj = {}
+      Function(js-code)@(obj)
+      expect(obj.message).to.equal "Hello, world!"
+      cb()
+    
+    it "a multiple files, compiled separately", #(cb)
+      let alpha-code = """
+      @alpha := "Hello"
+      """
+      let bravo-code = """
+      @bravo := "World!"
+      """
+      let tmp-alpha-gs = path.join(fs.realpath-sync(os.tmpdir()), "alpha.gs")
+      let tmp-alpha-js = path.join(fs.realpath-sync(os.tmpdir()), "alpha.js")
+      let tmp-bravo-gs = path.join(fs.realpath-sync(os.tmpdir()), "bravo.gs")
+      let tmp-bravo-js = path.join(fs.realpath-sync(os.tmpdir()), "bravo.js")
+      async! cb <- fs.write-file tmp-alpha-gs, alpha-code, "utf8"
+      async! cb <- fs.write-file tmp-bravo-gs, bravo-code, "utf8"
+      async error, stdout, stderr <- exec "$gorilla-bin -c $tmp-alpha-gs $tmp-bravo-gs"
+      expect(error).to.not.exist
+      expect(stderr).to.be.empty
+      expect(stdout.trim()).to.match r"Compiling $(path.basename tmp-alpha-gs) \.\.\. \d+\.\d+ seconds"
+      expect(stdout.trim()).to.match r"Compiling $(path.basename tmp-bravo-gs) \.\.\. \d+\.\d+ seconds"
+      
+      async! cb, alpha-js-code <- fs.read-file tmp-alpha-js, "utf8"
+      async! cb, bravo-js-code <- fs.read-file tmp-bravo-js, "utf8"
+      async! cb <- fs.unlink tmp-alpha-gs
+      async! cb <- fs.unlink tmp-alpha-js
+      async! cb <- fs.unlink tmp-bravo-gs
+      async! cb <- fs.unlink tmp-bravo-js
+      let obj-alpha = {}
+      Function(alpha-js-code)@(obj-alpha)
+      expect(obj-alpha.alpha).to.equal "Hello"
+      let obj-bravo = {}
+      Function(bravo-js-code)@(obj-bravo)
+      expect(obj-bravo.bravo).to.equal "World!"
+      cb()
+    
+    it "a multiple files, compiled as joined output", #(cb)
+      let alpha-code = """
+      @alpha := "Hello"
+      """
+      let bravo-code = """
+      @bravo := "World!"
+      """
+      let tmp-alpha-gs = path.join(fs.realpath-sync(os.tmpdir()), "alpha.gs")
+      let tmp-bravo-gs = path.join(fs.realpath-sync(os.tmpdir()), "bravo.gs")
+      let tmp-output-js = path.join(fs.realpath-sync(os.tmpdir()), "output.js")
+      async! cb <- fs.write-file tmp-alpha-gs, alpha-code, "utf8"
+      async! cb <- fs.write-file tmp-bravo-gs, bravo-code, "utf8"
+      async error, stdout, stderr <- exec "$gorilla-bin -c $tmp-alpha-gs $tmp-bravo-gs -j -o $tmp-output-js"
+      expect(error).to.not.exist
+      expect(stderr).to.be.empty
+      expect(stdout.trim()).to.match r"Compiling $(path.basename tmp-alpha-gs), $(path.basename tmp-bravo-gs) \.\.\. \d+\.\d+ seconds"
+      
+      async! cb, js-code <- fs.read-file tmp-output-js, "utf8"
+      async! cb <- fs.unlink tmp-alpha-gs
+      async! cb <- fs.unlink tmp-bravo-gs
+      async! cb <- fs.unlink tmp-output-js
+      let obj = {}
+      Function(js-code)@(obj)
+      expect(obj.alpha).to.equal "Hello"
+      expect(obj.bravo).to.equal "World!"
+      cb()

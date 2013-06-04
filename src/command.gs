@@ -222,7 +222,9 @@ let main = promise!
       path.join dir, path.basename(filename, path.extname(filename)) & ".js"
 
   if filenames.length > 1 and argv.join
-    process.stdout.write "Compiling $(filenames.join ', ') ... "
+    let base-filenames = for filename in filenames
+      path.basename filename
+    process.stdout.write "Compiling $(base-filenames.join ', ') ... "
     let compile-time = timer!
       yield gorilla.compile-file {} <<< options <<< {
         input: filenames
