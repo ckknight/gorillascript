@@ -159,6 +159,22 @@ let join-parsed-results(results)
     joined-parsed.result.push parsed.result
   joined-parsed
 
+let handle-ast-pipe(mutable node, options, file-sources)
+  if is-function! options.ast-pipe
+    node := options.ast-pipe node, file-sources, ast
+    if node not instanceof ast.Root
+      throw Error "Expected astPipe to return a Root, got $(typeof! node)"
+  if options.coverage
+    require! './coverage'
+    let coverage-name = if is-string! options.coverage
+      if not is-acceptable-ident options.coverage
+        throw Error "coverage option must be an acceptable ident. '$(options.coverage)' is not."
+      options.coverage
+    else
+      null
+    node := coverage node, file-sources, coverage-name
+  node
+
 exports.ast := promise! #(source, options = {})*
   let start-time = new Date().get-time()
   let sync = options.sync
@@ -192,33 +208,25 @@ exports.ast := promise! #(source, options = {})*
     else
       yield exports.parse source, options
   let translated = translator(parsed.result, parsed.macros, parsed.get-position, options)
+
+  let file-sources = {}
+  if options.filename
+    file-sources[options.filename] := source
+  let start-ast-pipe-time = new Date().get-time()
+  let node = handle-ast-pipe translated.node, options, file-sources
+  let done-ast-pipe-time = new Date().get-time()
   
   return {
-    translated.node
+    node
     parsed.parse-time
     parsed.macro-expand-time
     parsed.reduce-time
     translate-time: translated.time
-    time: new Date().get-time() - start-time
+    ast-pipe-time: done-ast-pipe-time - start-ast-pipe-time
+    time: done-ast-pipe-time - start-time
   }
 exports.ast-sync := #(source, options = {})
   exports.ast.sync source, {} <<< options <<< {+sync}
-
-let handle-ast-pipe(mutable node, options, file-sources)
-  if is-function! options.ast-pipe
-    node := options.ast-pipe node, file-sources
-    if node not instanceof ast.Root
-      throw Error "Expected astPipe to return a Root, got $(typeof! node)"
-  if options.coverage
-    require! './coverage'
-    let coverage-name = if is-string! options.coverage
-      if not is-acceptable-ident options.coverage
-        throw Error "coverage option must be an acceptable ident. '$(options.coverage)' is not."
-      options.coverage
-    else
-      null
-    node := coverage node, file-sources, coverage-name
-  node
 
 exports.compile := promise! #(source, options = {})*
   let sync = options.sync
@@ -228,10 +236,6 @@ exports.compile := promise! #(source, options = {})*
   else
     yield exports.ast source, options
   let mutable node = translated.node
-  let file-sources = {}
-  if options.filename
-    file-sources[options.filename] := source
-  node := handle-ast-pipe node, options, file-sources
   let compiled = node.compile options
   return {
     translated.parse-time

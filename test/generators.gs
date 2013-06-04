@@ -921,7 +921,7 @@ describe "yield without a value", #
     expect(middle).to.be.called-once
     expect(finish).to.be.called-once
 
-describe "yield* returns the expected expression", #
+it "yield* returns the expected expression", #
   let iter()*
     yield \alpha
     yield \bravo
@@ -980,3 +980,24 @@ describe "variables set to undefined", #
       yield \done
 
     expect(to-array iter()).to.eql [\other, \done]
+
+describe "yield within a spread", #
+  it "as a normal statement", #
+    let f = stub().with-args(\bravo, \charlie)
+    let fun()!*
+      f ...(yield \alpha)
+    
+    let iter = fun()
+    expect(iter.send(void)).to.eql { -done, value: \alpha }
+    expect(iter.send([\bravo, \charlie])).to.eql { +done, value: void }
+    expect(f).to.be.called-once
+  
+  it "as the return statement", #
+    let f = stub().with-args(\bravo, \charlie).returns(\delta)
+    let fun()*
+      f ...(yield \alpha)
+    
+    let iter = fun()
+    expect(iter.send(void)).to.eql { -done, value: \alpha }
+    expect(iter.send([\bravo, \charlie])).to.eql { +done, value: \delta }
+    expect(f).to.be.called-once

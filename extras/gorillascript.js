@@ -27612,7 +27612,7 @@
                 if (!(node instanceof ast.Statement)) {
                   return ast.Return(pos, ast.Obj(pos, [
                     ast.Obj.Pair(pos, "done", ast.Const(pos, true)),
-                    ast.Obj.Pair(pos, "value", tNode())
+                    ast.Obj.Pair(pos, "value", node)
                   ]));
                 } else {
                   return node;
@@ -31325,7 +31325,7 @@
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.8.18";
+        exports.version = "0.8.19";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -31755,10 +31755,33 @@
           }
           return joinedParsed;
         }
+        function handleAstPipe(node, options, fileSources) {
+          var coverage, coverageName;
+          if (typeof options.astPipe === "function") {
+            node = options.astPipe(node, fileSources, ast);
+            if (!(node instanceof ast.Root)) {
+              throw Error("Expected astPipe to return a Root, got " + __typeof(node));
+            }
+          }
+          if (options.coverage) {
+            coverage = require("./coverage");
+            if (typeof options.coverage === "string") {
+              if (!isAcceptableIdent(options.coverage)) {
+                throw Error("coverage option must be an acceptable ident. '" + __strnum(options.coverage) + "' is not.");
+              }
+              coverageName = options.coverage;
+            } else {
+              coverageName = null;
+            }
+            node = coverage(node, fileSources, coverageName);
+          }
+          return node;
+        }
         exports.ast = __promise(function (source, options) {
           var _arr, _arr2, _e, _i, _len, _send, _state, _step, _throw, _tmp, array,
-              item, name, originalProgress, parsed, progressCounts, startTime, sync,
-              translated, translator;
+              doneAstPipeTime, fileSources, item, name, node, originalProgress,
+              parsed, progressCounts, startAstPipeTime, startTime, sync, translated,
+              translator;
           _state = 0;
           function _close() {
             _state = 15;
@@ -31853,16 +31876,24 @@
                 ++_state;
               case 14:
                 translated = translator(parsed.result, parsed.macros, parsed.getPosition, options);
+                fileSources = {};
+                if (options.filename) {
+                  fileSources[options.filename] = source;
+                }
+                startAstPipeTime = new Date().getTime();
+                node = handleAstPipe(translated.node, options, fileSources);
+                doneAstPipeTime = new Date().getTime();
                 ++_state;
                 return {
                   done: true,
                   value: {
-                    node: translated.node,
+                    node: node,
                     parseTime: parsed.parseTime,
                     macroExpandTime: parsed.macroExpandTime,
                     reduceTime: parsed.reduceTime,
                     translateTime: translated.time,
-                    time: __num(new Date().getTime()) - __num(startTime)
+                    astPipeTime: __num(doneAstPipeTime) - __num(startAstPipeTime),
+                    time: __num(doneAstPipeTime) - __num(startTime)
                   }
                 };
               case 15:
@@ -31904,31 +31935,9 @@
           }
           return exports.ast.sync(source, (_ref = __import({}, options), _ref.sync = true, _ref));
         };
-        function handleAstPipe(node, options, fileSources) {
-          var coverage, coverageName;
-          if (typeof options.astPipe === "function") {
-            node = options.astPipe(node, fileSources);
-            if (!(node instanceof ast.Root)) {
-              throw Error("Expected astPipe to return a Root, got " + __typeof(node));
-            }
-          }
-          if (options.coverage) {
-            coverage = require("./coverage");
-            if (typeof options.coverage === "string") {
-              if (!isAcceptableIdent(options.coverage)) {
-                throw Error("coverage option must be an acceptable ident. '" + __strnum(options.coverage) + "' is not.");
-              }
-              coverageName = options.coverage;
-            } else {
-              coverageName = null;
-            }
-            node = coverage(node, fileSources, coverageName);
-          }
-          return node;
-        }
         exports.compile = __promise(function (source, options) {
-          var _e, _send, _state, _step, _throw, compiled, fileSources, node,
-              startTime, sync, translated;
+          var _e, _send, _state, _step, _throw, compiled, node, startTime, sync,
+              translated;
           _state = 0;
           function _close() {
             _state = 5;
@@ -31959,11 +31968,6 @@
                 ++_state;
               case 4:
                 node = translated.node;
-                fileSources = {};
-                if (options.filename) {
-                  fileSources[options.filename] = source;
-                }
-                node = handleAstPipe(node, options, fileSources);
                 compiled = node.compile(options);
                 ++_state;
                 return {
