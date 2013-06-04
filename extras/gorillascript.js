@@ -11212,7 +11212,7 @@
         }
         MaybeUnderscores = cache(zeroOrMore(Underscore, true));
         function parseRadixNumber(integer, fraction, radix, exponent) {
-          var _i, _len, c, currentValue, i;
+          var _i, _len, c, currentValue, fractionalExponent, fractionalValue, i;
           if (exponent == null) {
             exponent = 0;
           }
@@ -11235,10 +11235,17 @@
             currentValue = currentValue * radix + parseInt(c, radix);
           }
           if (fraction) {
+            fractionalValue = 0;
+            fractionalExponent = 0;
             for (i = 0, _len = fraction.length; i < _len; ++i) {
               c = fraction.charAt(i);
-              currentValue += parseInt(c, radix) / Math.pow(radix, i + 1);
+              if (fractionalValue >= 4503599627370496 / radix) {
+                break;
+              }
+              fractionalValue = fractionalValue * radix + parseInt(c, radix);
+              ++fractionalExponent;
             }
+            currentValue += fractionalValue / Math.pow(radix, fractionalExponent);
           }
           return currentValue;
         }
@@ -31318,7 +31325,7 @@
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.8.17";
+        exports.version = "0.8.18";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {

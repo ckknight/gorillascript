@@ -11,6 +11,9 @@ describe "Decimal numbers", #
   
   it "can be represented by decimal notation", #
     expect(1234.5678).to.equal 12345678 / 10000
+    expect(String 1234.5678).to.equal "1234.5678"
+    expect(0.43).to.equal 43 / 100
+    expect(String 0.43).to.equal "0.43"
     expect(-5).to.equal 5 - 10
     expect(-1.5).to.equal 3.5 - 5
     expect(-0.5).to.equal 4.5 - 5

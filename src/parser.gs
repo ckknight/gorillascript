@@ -2199,8 +2199,14 @@ let parse-radix-number(mutable integer as String, mutable fraction as String, ra
   for c in integer
     current-value := current-value * radix + parse-int c, radix
   if fraction
+    let mutable fractional-value = 0
+    let mutable fractional-exponent = 0
     for c, i in fraction
-      current-value += parse-int(c, radix) / radix ^ (i + 1)
+      if fractional-value >= 2^52 / radix
+        break
+      fractional-value := fractional-value * radix + parse-int c, radix
+      fractional-exponent += 1
+    current-value += fractional-value / radix ^ fractional-exponent
   current-value
 
 define DecimalNumber = do
