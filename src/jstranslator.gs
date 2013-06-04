@@ -292,7 +292,7 @@ class GeneratorState
         if node not instanceof ast.Statement
           ast.Return pos, ast.Obj pos, [
             ast.Obj.Pair pos, \done, ast.Const pos, true
-            ast.Obj.Pair pos, \value, t-node()
+            ast.Obj.Pair pos, \value, node
           ]
         else
           node
