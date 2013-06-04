@@ -1957,7 +1957,32 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
       inner-scope.add-variable ident
       inner-scope.mark-as-param ident
   
-  let {wrap, mutable body} = if roots.length == 1
+  let handle-embedded(mutable body, wrap, scope)
+    if scope.options.embedded
+      let comments-body = split-comments body
+      body := comments-body.body
+      ast.Block body.pos,
+        [
+          ...comments-body.comments
+          ast.Return body.pos,
+            wrap ast.Func body.pos,
+              null
+              [
+                ast.Ident body.pos, \write
+                ast.Ident body.pos, \context
+              ]
+              scope.get-variables()
+              ast.Block body.pos, [
+                ast.If body.pos,
+                  ast.Binary body.pos, ast.Ident(body.pos, \context), "==", ast.Const(body.pos, null)
+                  ast.Assign body.pos, ast.Ident(body.pos, \context), ast.Obj(body.pos)
+                body
+              ]
+        ]
+    else
+      wrap body
+  
+  let mutable body = if roots.length == 1
     get-pos := make-get-pos get-position[0]
     if roots[0] not instanceof ParserNode.Root
       throw Error "Cannot translate non-Root object"
@@ -1968,25 +1993,31 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
     let ret = translate-function-body(root-pos, roots[0].is-generator, inner-scope, if scope.options.return or scope.options.eval then ParserNode.Return(roots[0].body.index, roots[0].body.scope, roots[0].body) else roots[0].body)
     ret.body.pos.file or= root-pos.file
     get-pos := null
-    ret
+    handle-embedded ret.body, ret.wrap, inner-scope
   else
-    {
-      wrap: #(x) -> x
-      body: ast.Block no-pos,
-        for root, i in roots
-          get-pos := make-get-pos get-position[i]
-          if root not instanceof ParserNode.Root
-            throw Error "Cannot translate non-Root object"
-          let body-scope = inner-scope.clone(true)
-          let {comments, body: root-body} = split-comments translate(root.body, body-scope, \top-statement, scope.options.return or scope.options.eval, [])()
-          let root-pos = get-pos(root)
-          get-pos := null
-          ast.Block root-pos, [
-            ...comments
-            ast.Call root-pos,
-              ast.Func root-pos, null, [], body-scope.get-variables(), root-body
-          ]
-    }
+    ast.Block no-pos,
+      for root, i in roots
+        get-pos := make-get-pos get-position[i]
+        if root not instanceof ParserNode.Root
+          throw Error "Cannot translate non-Root object"
+        let body-scope = inner-scope.clone(root.is-generator)
+        let ret = translate-function-body(get-pos(root), root.is-generator, body-scope, root.body)
+        ret.body.pos.file or= root-pos.file
+        let root-pos = get-pos(root)
+        get-pos := null
+        let {comments, body: root-body} = split-comments ret.body
+        ast.Block root-pos, [
+          ...comments
+          ast.Call root-pos,
+            ast.Access root-pos,
+              ast.Func root-pos, null, [], body-scope.get-variables(), handle-embedded ret.body, ret.wrap, body-scope
+              ast.Const root-pos, \call
+            [ast.This root-pos]
+        ]
+  
+  let comments-body = split-comments body
+  let {comments} = comments-body
+  body := comments-body.body
   
   let init = []
   if inner-scope.has-bound and inner-scope.used-this
@@ -2035,26 +2066,6 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
   
   body := propagate-filenames body
   
-  let {comments, body: mutable uncommented-body} = split-comments body
-  if scope.options.embedded
-    uncommented-body := ast.Block body.pos,
-      [
-        ast.Return body.pos,
-          wrap ast.Func body.pos,
-            null
-            [
-              ast.Ident body.pos, \write
-              ast.Ident body.pos, \context
-            ]
-            inner-scope.get-variables()
-            ast.Block body.pos, [
-              ast.If body.pos,
-                ast.Binary body.pos, ast.Ident(body.pos, \context), "==", ast.Const(body.pos, null)
-                ast.Assign body.pos, ast.Ident(body.pos, \context), ast.Obj(body.pos)
-              uncommented-body
-            ]
-      ]
-  
   if scope.options.bare
     if scope.has-helper(\GLOBAL)
       scope.add-variable ast.Ident body.pos, \GLOBAL
@@ -2065,7 +2076,7 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
       scope.add-variable scope.options.undefined-name
     
     propagate-filenames ast.Root body.pos,
-      ast.Block body.pos, [...comments, ...bare-init, ...init, uncommented-body]
+      ast.Block body.pos, [...comments, ...bare-init, ...init, body]
       scope.get-variables()
       ["use strict"]
   else
@@ -2084,7 +2095,7 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
               []
           ]
           scope.get-variables()
-          ast.Block body.pos, [...init, uncommented-body]
+          ast.Block body.pos, [...init, body]
           ["use strict"]
         \call
       [
