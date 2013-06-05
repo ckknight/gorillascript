@@ -1,5 +1,6 @@
 let {expect} = require 'chai'
 let {stub} = require 'sinon'
+let gorilla = require '../index'
 
 let to-array(iterator, values = [])
   values.reverse()
@@ -1001,3 +1002,12 @@ describe "yield within a spread", #
     expect(iter.send(void)).to.eql { -done, value: \alpha }
     expect(iter.send([\bravo, \charlie])).to.eql { +done, value: \delta }
     expect(f).to.be.called-once
+
+describe "function declaration hoisting", #
+  it "hoists function declarations to the generator's scope rather than inside the send method", #
+    expect(gorilla.compile-sync("""
+    let generator()!*
+      let my-func()
+        "hello"
+      yield my-func()
+    """).code).to.match r"function myFunc\(\)"

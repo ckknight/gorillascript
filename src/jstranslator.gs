@@ -490,6 +490,13 @@ class GeneratorBuilder
         for state in @states-order
           if not @redirects.has state
             let nodes = for t-node in state.nodes; t-node()
+            let mutable i = 0
+            while i < nodes.length, i += 1
+              let node = nodes[i]
+              if node instanceof ast.Func and node.name?
+                body.push node
+                nodes.splice i, 1
+                i -= 1
             if nodes.length == 0
               throw Error "Found state with no nodes in it"
             ast.Switch.Case nodes[0].pos,
@@ -984,11 +991,11 @@ let generator-translate = do
       handle-assign assign-to, scope, state, translate node, scope, \expression, unassigned
   
   let statements =
-    [ParserNodeType.Block]: #(node, scope, state, break-state, continue-state, unassigned)
+    [ParserNodeType.Block]: #(node, scope, state, break-state, continue-state, unassigned, is-top)
       if node.label?
         throw Error "Not implemented: block with label in generator"
       for reduce subnode, i, len in node.nodes, acc = state
-        generator-translate subnode, scope, acc, break-state, continue-state, unassigned
+        generator-translate subnode, scope, acc, break-state, continue-state, unassigned, is-top
 
     [ParserNodeType.Break]: #(node, scope, state, break-state)
       if node.label?
@@ -1179,8 +1186,8 @@ let generator-translate = do
       let g-node = generator-translate-expression node.node, scope, state, false
       g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
     
-    [ParserNodeType.TmpWrapper]: #(node, scope, state, break-state, continue-state, unassigned)
-      let result = generator-translate node.node, scope, state, break-state, continue-state, unassigned
+    [ParserNodeType.TmpWrapper]: #(node, scope, state, break-state, continue-state, unassigned, is-top)
+      let result = generator-translate node.node, scope, state, break-state, continue-state, unassigned, is-top
       for tmp in node.tmps by -1
         scope.release-tmp tmp
       result
@@ -1216,11 +1223,11 @@ let generator-translate = do
         g-node.cleanup())
       new-state
     
-  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned)
+  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     if state.has-generator-node node
       let key = node.type-id
       if statements ownskey key
-        let ret = statements[key](node, scope, state, break-state, continue-state, unassigned)
+        let ret = statements[key](node, scope, state, break-state, continue-state, unassigned, is-top)
         if ret not instanceof GeneratorState
           throw Error "Translated non-GeneratorState from $(typeof! node): $(typeof! ret)"
         ret
@@ -1230,7 +1237,7 @@ let generator-translate = do
           ret.t-node()
           ret.cleanup())
     else
-      state.add translate node, scope, \statement, unassigned
+      state.add translate node, scope, if is-top then \top-statement else \statement, unassigned
 
 let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-like, unassigned)
   let translated-items = []
@@ -1889,7 +1896,7 @@ let translate-function-body(pos, is-generator, scope, body, unassigned = {})
     is-simple-generator := not has-generator-node(body, true)
     if not is-simple-generator
       let builder = GeneratorBuilder pos, scope, has-generator-node
-      generator-translate(body, scope, builder.start, null, null, unassigned).goto(pos, #-> builder.stop)
+      generator-translate(body, scope, builder.start, null, null, unassigned, true).goto(pos, #-> builder.stop)
       let translated-body = builder.create()
       if pos.file
         translated-body.pos.file or= pos.file

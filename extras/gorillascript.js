@@ -27903,8 +27903,8 @@
                 this.pos,
                 stateIdent,
                 (function () {
-                  var _arr, _arr2, _arr3, _arr4, _i, _i2, _len, _len2, nodes, state,
-                      tNode;
+                  var _arr, _arr2, _arr3, _arr4, _i, _i2, _len, _len2, i, node, nodes,
+                      state, tNode;
                   for (_arr = [], _arr2 = __toArray(_this.statesOrder), _i = 0, _len = _arr2.length; _i < _len; ++_i) {
                     state = _arr2[_i];
                     if (!_this.redirects.has(state)) {
@@ -27913,6 +27913,15 @@
                         _arr3.push(tNode());
                       }
                       nodes = _arr3;
+                      i = 0;
+                      for (; i < nodes.length; ++i) {
+                        node = nodes[i];
+                        if (node instanceof ast.Func && node.name != null) {
+                          body.push(node);
+                          nodes.splice(i, 1);
+                          --i;
+                        }
+                      }
                       if (nodes.length === 0) {
                         throw Error("Found state with no nodes in it");
                       }
@@ -28911,7 +28920,7 @@
             }
           }
           statements = {
-            7: function (node, scope, state, breakState, continueState, unassigned) {
+            7: function (node, scope, state, breakState, continueState, unassigned, isTop) {
               var _arr, acc, i, len, subnode;
               if (node.label != null) {
                 throw Error("Not implemented: block with label in generator");
@@ -28925,7 +28934,8 @@
                   acc,
                   breakState,
                   continueState,
-                  unassigned
+                  unassigned,
+                  isTop
                 );
               }
               return acc;
@@ -29359,7 +29369,7 @@
                 return ast.Throw(getPos(node), __first(gNode.tNode(), gNode.cleanup()));
               });
             },
-            41: function (node, scope, state, breakState, continueState, unassigned) {
+            41: function (node, scope, state, breakState, continueState, unassigned, isTop) {
               var _arr, _i, result, tmp;
               result = generatorTranslate(
                 node.node,
@@ -29367,7 +29377,8 @@
                 state,
                 breakState,
                 continueState,
-                unassigned
+                unassigned,
+                isTop
               );
               for (_arr = __toArray(node.tmps), _i = _arr.length; _i--; ) {
                 tmp = _arr[_i];
@@ -29444,7 +29455,7 @@
               return newState;
             }
           };
-          return function (node, scope, state, breakState, continueState, unassigned) {
+          return function (node, scope, state, breakState, continueState, unassigned, isTop) {
             var key, ret;
             if (state.hasGeneratorNode(node)) {
               key = node.typeId;
@@ -29455,7 +29466,8 @@
                   state,
                   breakState,
                   continueState,
-                  unassigned
+                  unassigned,
+                  isTop
                 );
                 if (!(ret instanceof GeneratorState)) {
                   throw Error("Translated non-GeneratorState from " + __typeof(node) + ": " + __typeof(ret));
@@ -29471,7 +29483,12 @@
                 });
               }
             } else {
-              return state.add(translate(node, scope, "statement", unassigned));
+              return state.add(translate(
+                node,
+                scope,
+                isTop ? "topStatement" : "statement",
+                unassigned
+              ));
             }
           };
         }());
@@ -30541,7 +30558,8 @@
                 builder.start,
                 null,
                 null,
-                unassigned
+                unassigned,
+                true
               ).goto(pos, function () {
                 return builder.stop;
               });
@@ -31330,7 +31348,7 @@
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.8.19";
+        exports.version = "0.8.20";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
