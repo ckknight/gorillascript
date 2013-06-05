@@ -28514,19 +28514,26 @@
               };
             }()),
             7: function (node, scope, state, assignTo, unassigned) {
-              var _arr, i, len, result, subnode;
+              var _arr, i, len, subnode;
               for (_arr = __toArray(node.nodes), i = 0, len = _arr.length; i < len; ++i) {
                 subnode = _arr[i];
-                result = generatorTranslateExpression(
-                  subnode,
-                  scope,
-                  state,
-                  i === len - 1 && assignTo,
-                  unassigned
-                );
-                state = result.state;
                 if (i === len - 1) {
-                  return result;
+                  return generatorTranslateExpression(
+                    subnode,
+                    scope,
+                    state,
+                    assignTo,
+                    unassigned
+                  );
+                } else {
+                  state = generatorTranslate(
+                    subnode,
+                    scope,
+                    state,
+                    null,
+                    null,
+                    unassigned
+                  );
                 }
               }
               throw Error("Unreachable state");
@@ -28675,31 +28682,6 @@
                   }
                 });
               }
-            },
-            16: function (node, scope, state, assignTo, unassigned) {
-              var gText;
-              gText = generatorTranslateExpression(
-                node.text,
-                scope,
-                state,
-                false,
-                unassigned
-              );
-              return handleAssign(
-                assignTo,
-                scope,
-                gText.state,
-                function () {
-                  return ast.Call(
-                    getPos(node),
-                    ast.Ident(getPos(node), "write"),
-                    [gText.tNode()].concat(node.escape
-                      ? [ast.Const(getPos(node), true)]
-                      : [])
-                  );
-                },
-                gText.cleanup
-              );
             },
             17: function (node, scope, state, assignTo, unassigned) {
               var gCode;
@@ -28959,6 +28941,42 @@
               }
               state.goto(getPos(node), continueState);
               return state;
+            },
+            16: function (node, scope, state, breakState, continueState, unassigned) {
+              var gText;
+              if (__owns.call(expressions, node.text.typeId)) {
+                gText = generatorTranslateExpression(
+                  node.text,
+                  scope,
+                  state,
+                  false,
+                  unassigned
+                );
+              } else {
+                gText = {
+                  state: generatorTranslate(
+                    node.text,
+                    scope,
+                    state,
+                    breakState,
+                    continueState,
+                    unassigned
+                  ),
+                  tNode: function () {
+                    return ast.Noop(getPos(node.text));
+                  },
+                  cleanup: function () {}
+                };
+              }
+              return gText.state.add(function () {
+                return ast.Call(
+                  getPos(node),
+                  ast.Ident(getPos(node), "write"),
+                  [__first(gText.tNode(), gText.cleanup())].concat(node.escape
+                    ? [ast.Const(getPos(node), true)]
+                    : [])
+                );
+              });
             },
             18: function (node, scope, state, _p, _p2, unassigned) {
               var bodyBranch, bodyUnassigned, gTest, k, postBranch, stepBranch,
@@ -29838,8 +29856,26 @@
             throw Error("Cannot have a stray def");
           },
           16: function (node, scope, location, unassigned) {
-            var tText;
-            tText = translate(node.text, scope, "expression", unassigned);
+            var innerScope, tText, wrapped;
+            if (node.text.isStatement()) {
+              innerScope = node.text.scope.clone();
+              wrapped = ParserNode.Call(
+                node.text.index,
+                node.text.scope,
+                ParserNode.Function(
+                  node.text.index,
+                  innerScope,
+                  [],
+                  node.text.rescope(innerScope),
+                  true,
+                  true
+                ),
+                []
+              );
+            } else {
+              wrapped = node.text;
+            }
+            tText = translate(wrapped, scope, "expression", unassigned);
             return function () {
               return ast.Call(
                 getPos(node),
@@ -31348,7 +31384,7 @@
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.8.20";
+        exports.version = "0.8.21";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {

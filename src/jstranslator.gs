@@ -795,10 +795,10 @@ let generator-translate = do
     
     [ParserNodeType.Block]: #(node, scope, mutable state, assign-to, unassigned)
       for subnode, i, len in node.nodes
-        let result = generator-translate-expression subnode, scope, state, i == len - 1 and assign-to, unassigned
-        state := result.state
         if i == len - 1
-          return result
+          return generator-translate-expression subnode, scope, state, assign-to, unassigned
+        else
+          state := generator-translate subnode, scope, state, null, null, unassigned
       throw Error "Unreachable state"
     
     [ParserNodeType.Call]: #(node, scope, mutable state, assign-to, unassigned)
@@ -892,18 +892,6 @@ let generator-translate = do
                   ast.Const get-pos(node), void
                 args
               ]
-    
-    [ParserNodeType.EmbedWrite]: #(node, scope, mutable state, assign-to, unassigned)
-      let g-text = generator-translate-expression node.text, scope, state, false, unassigned
-      handle-assign assign-to, scope, g-text.state, (#-> ast.Call get-pos(node),
-        ast.Ident get-pos(node), \write
-        [
-          g-text.t-node()
-          ...if node.escape
-            [ast.Const get-pos(node), true]
-          else
-            []
-        ]), g-text.cleanup
     
     [ParserNodeType.Eval]: #(node, scope, mutable state, assign-to, unassigned)
       let g-code = generator-translate-expression node.code, scope, state, false, unassigned
@@ -1014,6 +1002,27 @@ let generator-translate = do
 
       state.goto get-pos(node), continue-state
       state
+    
+    [ParserNodeType.EmbedWrite]: #(node, scope, mutable state, break-state, continue-state, unassigned)
+      let g-text = if expressions ownskey node.text.type-id
+        generator-translate-expression node.text, scope, state, false, unassigned
+      else
+        {
+          state: generator-translate node.text, scope, state, break-state, continue-state, unassigned
+          t-node: #-> ast.Noop get-pos(node.text)
+          cleanup: #->
+        }
+      
+      g-text.state.add #
+        ast.Call get-pos(node),
+          ast.Ident get-pos(node), \write
+          [
+            first!(g-text.t-node(), g-text.cleanup())
+            ...if node.escape
+              [ast.Const get-pos(node), true]
+            else
+              []
+          ]
     
     [ParserNodeType.For]: #(node, scope, mutable state, , , unassigned)
       if node.label?
@@ -1416,7 +1425,18 @@ let translators =
     throw Error "Cannot have a stray def"
   
   [ParserNodeType.EmbedWrite]: #(node, scope, location, unassigned)
-    let t-text = translate node.text, scope, \expression, unassigned
+    let wrapped = if node.text.is-statement()
+      let inner-scope = node.text.scope.clone()
+      ParserNode.Call node.text.index, node.text.scope,
+        ParserNode.Function node.text.index, inner-scope,
+          []
+          node.text.rescope(inner-scope)
+          true
+          true
+        []
+    else
+      node.text
+    let t-text = translate wrapped, scope, \expression, unassigned
     #
       ast.Call get-pos(node),
         ast.Ident get-pos(node), \write

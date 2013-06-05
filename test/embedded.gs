@@ -239,3 +239,57 @@ describe "embedded compilation", #
     for i in 0 til 10
       expect(iter.send void).to.eql { +done, value: void }
     expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world. How are you today?"
+
+  it "as a generator, should allow yield* in the main body", #
+    let template = gorilla.eval-sync """
+    <% let generator()*:
+         yield "hello"
+         yield "there"
+       end %>
+    Hello, <%= yield* generator() %>. How are you today?
+    """, embedded: true, noindent: true, embedded-generator: true
+    
+    let text = []
+    let write(x)!
+      text.push String x
+    
+    let iter = template write, {}
+    expect(iter).to.have.property(\iterator).that.is.a \function
+    expect(iter).to.have.property(\next).that.is.a \function
+    expect(iter).to.have.property(\send).that.is.a \function
+    expect(iter).to.have.property(\throw).that.is.a \function
+    expect(text).to.be.empty
+    
+    expect(iter.send void).to.eql { -done, value: "hello" }
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello,"
+    expect(iter.send void).to.eql { -done, value: "there" }
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello,"
+    expect(iter.send "world").to.eql { +done, value: write }
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world. How are you today?"
+    for i in 0 til 10
+      expect(iter.send void).to.eql { +done, value: void }
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world. How are you today?"
+
+  it "should allow a for loop within an embed write", #
+    let template = gorilla.eval-sync """
+    Hello, <%= for x in [1, 2, 3]:
+      x
+    end %>. How are you today?
+    """, embedded: true, noindent: true, embedded-generator: true
+    
+    let text = []
+    let write(x)!
+      text.push String x
+    
+    let iter = template write, {}
+    expect(iter).to.have.property(\iterator).that.is.a \function
+    expect(iter).to.have.property(\next).that.is.a \function
+    expect(iter).to.have.property(\send).that.is.a \function
+    expect(iter).to.have.property(\throw).that.is.a \function
+    expect(text).to.be.empty
+    
+    expect(iter.send void).to.eql { +done, value: write }
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, 1,2,3. How are you today?"
+    for i in 0 til 10
+      expect(iter.send void).to.eql { +done, value: void }
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, 1,2,3. How are you today?"
