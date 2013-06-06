@@ -15,13 +15,13 @@ describe "single-line arrays", #
       .to.be.an(\array)
       .to.have.length(3)
       .to.have.property(0)
-        .that.equals("alpha")
+      .that.equals("alpha")
     expect(arr)
       .to.have.property(1)
-        .that.equals("bravo")
+      .that.equals("bravo")
     expect(arr)
       .to.have.property(2)
-        .that.equals("charlie")
+      .that.equals("charlie")
   
   /*
   it "fails on single-line array missing commas", #

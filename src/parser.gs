@@ -2106,7 +2106,7 @@ define SpreadOrExpression = sequential(
   else
     node
 
-let allow-space-before-access = make-alter-stack<Boolean> \disallow-space-before-access, false
+let allow-space-before-access = make-alter-stack<Number>(\disallow-space-before-access, 0) << make-alter-stack<Boolean>(\inside-indented-access, false)
 define ClosedArguments = sequential(
   OpenParenthesisChar
   Space
@@ -2129,7 +2129,14 @@ define ClosedArguments = sequential(
       PopIndent)), #-> []))]
   CloseParenthesis)
 
-let disallow-space-before-access = make-alter-stack<Boolean> \disallow-space-before-access, true
+let disallow-space-before-access(rule)
+  #(parser, index)
+    let stack = parser.disallow-space-before-access
+    stack.push stack.peek() + 1
+    try
+      return rule(parser, index)
+    finally
+      stack.pop()
 define UnclosedArguments = disallow-space-before-access sequential(
   one-of(
     sequential(
@@ -3510,7 +3517,7 @@ define Parenthetical = allow-space-before-access sequential(
         parser.pop-scope()
         result
     sequential(
-      [\this, one-or-more #(parser, index) -> InvocationOrAccessPart parser, index]
+      [\this, SomeInvocationOrAccessParts]
       CloseParenthesis) |> mutate #(tail, parser, index)
         let scope = parser.push-scope(true)
         let left = parser.make-tmp index, \o
@@ -3837,12 +3844,6 @@ let convert-invocation-or-access = do
     
     convert-call-chain parser, index, head.node, 0, links
 
-let EmptyLinesSpaceBeforeAccess = #(parser, index)
-  if parser.disallow-space-before-access.peek()
-    Box index
-  else
-    EmptyLinesSpace parser, index
-
 let SpaceBeforeAccess = #(parser, index)
   if parser.disallow-space-before-access.peek()
     Box index
@@ -3855,22 +3856,24 @@ let InvocationOrAccessPart = one-of(
     [\this, separated-list(
       #(parser, index) -> BasicInvocationOrAccess(parser, index)
       Comma)]
-    GreaterThan) |> mutate #(args) -> {
+    GreaterThan) |> mutate #(args, , , index) -> {
     type: \generic
     args
+    index
   }
   sequential(
     [\existential, MaybeQuestionMarkChar]
     [\owns, MaybeExclamationPointChar]
     [\bind, MaybeAtSignChar]
-    EmptyLinesSpaceBeforeAccess
+    SpaceBeforeAccess
     [\type, PeriodOrDoubleColonChar]
-    [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x) -> {
+    [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x, , , index) -> {
       type: if x.type == "::" then \proto-access else \access
       x.child
       x.existential
       x.owns
       x.bind
+      index
     }
   sequential(
     [\existential, MaybeQuestionMarkChar]
@@ -3887,7 +3890,7 @@ let InvocationOrAccessPart = one-of(
       else
         type: \single
         node: nodes[0]]
-    CloseSquareBracket) |> mutate #(x, parser, index)
+    CloseSquareBracket) |> mutate #(x, parser, index, end-index)
     if x.child.type == \single
       {
         type: if x.type == "::" then \proto-access else \access
@@ -3895,6 +3898,7 @@ let InvocationOrAccessPart = one-of(
         x.existential
         x.owns
         x.bind
+        index: end-index
       }
     else
       if x.owns
@@ -3905,17 +3909,48 @@ let InvocationOrAccessPart = one-of(
         type: if x.type == "::" then \proto-access-index else \access-index
         x.child
         x.existential
+        index: end-index
       }
   sequential(
     [\existential, bool MaybeQuestionMarkChar]
     [\is-apply, bool MaybeAtSignChar]
-    [\args, InvocationArguments]) |> mutate #(x) -> {
+    [\args, InvocationArguments]) |> mutate #(x, , , index) -> {
       type: \call
       x.args
       x.existential
       -is-new
       x.is-apply
+      index
     })
+
+let CheckPeriodNotDoublePeriod = check sequential(Period, except(Period))
+
+let inside-indented-access = make-alter-stack<Boolean>(\inside-indented-access, true)
+let InvocationOrAccessParts = concat(
+  zero-or-more InvocationOrAccessPart
+  maybe sequential(
+    #(parser, index)
+      let disallow-space = parser.disallow-space-before-access.peek()
+      if not disallow-space or (disallow-space == 1 and parser.inside-indented-access.peek())
+        Box index
+    IndentationRequired
+    SomeEmptyLines
+    [\this, retain-indent sequential(
+      Advance
+      CheckIndent
+      CheckPeriodNotDoublePeriod
+      [\this, separated-list(
+        inside-indented-access zero-or-more InvocationOrAccessPart
+        sequential(
+          SomeEmptyLinesWithCheckIndent
+          CheckPeriodNotDoublePeriod))]
+      PopIndent
+    ) |> mutate #(x) -> [].concat ...x]), #-> [])
+
+let SomeInvocationOrAccessParts = #(parser, index)
+  let result = InvocationOrAccessParts(parser, index)
+  if result.value.length > 0
+    result
 
 let BasicInvocationOrAccess = sequential(
   [\is-new, bool maybe word("new")]
@@ -3927,7 +3962,7 @@ let BasicInvocationOrAccess = sequential(
       [\bind, MaybeAtSignChar]
       [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x, parser, index) -> { type: \this-access } <<< x
     PrimaryExpression |> mutate #(node as Node) -> { type: \normal, node })]
-  [\tail, zero-or-more InvocationOrAccessPart]) |> mutate #({is-new, head, tail}, parser, index)
+  [\tail, InvocationOrAccessParts]) |> mutate #({is-new, head, tail}, parser, index)
   convert-invocation-or-access is-new, {} <<< head, tail, parser, index
 
 let _IdentifierOrAccess = sequential(
@@ -3940,21 +3975,14 @@ let _IdentifierOrAccess = sequential(
       [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x, parser, index) -> { type: \this-access } <<< x
     PrimaryExpression |> mutate #(node as Node) -> { type: \normal, node })]
   [\tail, #(parser, index)
-    let tail = []
-    let mutable current-index = index
-    while true
-      let part = InvocationOrAccessPart(parser, current-index)
-      if part
-        tail.push part
-        current-index := part.index
-      else
-        break
-    while tail.length > 0 and tail[* - 1].value.type not in [\access, \proto-access]
+    let {value: mutable tail} = InvocationOrAccessParts(parser, index)
+    tail := tail.slice()
+    while tail.length > 0 and tail[* - 1].type not in [\access, \proto-access]
       tail.pop()
     if tail.length == 0
       Box index, []
     else
-      Box tail[* - 1].index, for part in tail; part.value]) |> mutate #({head, tail}, parser, index)
+      Box tail[* - 1].index, tail]) |> mutate #({head, tail}, parser, index)
   convert-invocation-or-access false, {} <<< head, tail, parser, index
 
 define SuperInvocation = sequential(
@@ -4037,7 +4065,7 @@ define Cascade = sequential(
       maybe sequential(
         IndentationRequired
         #(parser, index)
-          if not parser.disallow-space-before-access.peek()
+          unless parser.disallow-space-before-access.peek()
             Box index
         SomeEmptyLines
         [\this, retain-indent sequential(
@@ -4836,7 +4864,8 @@ class Parser
     @in-ast := Stack<Boolean>(false)
     @in-evil-ast := Stack<Boolean>(false)
     @asterix-as-array-length := Stack<Boolean>(false)
-    @disallow-space-before-access := Stack<Boolean>(false)
+    @disallow-space-before-access := Stack<Number>(0)
+    @inside-indented-access := Stack<Boolean>(false)
     @in-cascade := Stack<Boolean>(false)
     @require-parameter-sequence := Stack<Boolean>(false)
     @scope := Stack<Scope>(Scope(null, true))

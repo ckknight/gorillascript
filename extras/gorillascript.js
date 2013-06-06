@@ -8369,21 +8369,22 @@
       var exports = this;
       (function (GLOBAL) {
         "use strict";
-        var __bind, __cmp, __create, __curry, __defer, __generatorToPromise, __import,
-            __in, __isArray, __owns, __promise, __slice, __toArray, __toPromise,
-            __typeof, _arr, _Block, _DefineMacro, _FunctionBody, _FunctionDeclaration,
-            _i, _IdentifierOrAccess, _len, _Name, _o, _ref, _ref2,
-            _SomeEmptyLinesWithCheckIndent, _Symbol, _this, AccessMultiNode,
-            AccessNode, addParamToScope, allowSpaceBeforeAccess, AnyArrayLiteral,
-            AnyObjectLiteral, ArgsNode, ArgumentsLiteral, ArrayLiteral, ArrayNode,
-            ArrayParameter, ArrayType, AssignmentAsExpression, AssignNode, Ast,
-            AsterixChar, AstExpression, AstPosition, AstStatement, AtSignChar,
-            BackslashChar, BackslashEscapeSequence, BackslashStringLiteral,
-            BasicInvocationOrAccess, BinaryDigit, BinaryNode, BinaryNumber,
-            BinaryOperationByPrecedence, Block, BlockNode, Body, BodyNoEnd,
-            BodyNoIndent, BodyNoIndentNoEnd, BodyWithIndent, BOM, Box,
-            BracketedObjectKey, BreakNode, cache, CallNode, CaretChar, Cascade,
-            CascadePart, CascadePartWithCascade, CheckStop, CloseCurlyBrace,
+        var __bind, __cmp, __compose, __create, __curry, __defer,
+            __generatorToPromise, __import, __in, __isArray, __owns, __promise,
+            __slice, __toArray, __toPromise, __typeof, _arr, _Block, _DefineMacro,
+            _FunctionBody, _FunctionDeclaration, _i, _IdentifierOrAccess, _len, _Name,
+            _o, _ref, _ref2, _SomeEmptyLinesWithCheckIndent, _Symbol, _this,
+            AccessMultiNode, AccessNode, addParamToScope, allowSpaceBeforeAccess,
+            AnyArrayLiteral, AnyObjectLiteral, ArgsNode, ArgumentsLiteral,
+            ArrayLiteral, ArrayNode, ArrayParameter, ArrayType,
+            AssignmentAsExpression, AssignNode, Ast, AsterixChar, AstExpression,
+            AstPosition, AstStatement, AtSignChar, BackslashChar,
+            BackslashEscapeSequence, BackslashStringLiteral, BasicInvocationOrAccess,
+            BinaryDigit, BinaryNode, BinaryNumber, BinaryOperationByPrecedence, Block,
+            BlockNode, Body, BodyNoEnd, BodyNoIndent, BodyNoIndentNoEnd,
+            BodyWithIndent, BOM, Box, BracketedObjectKey, BreakNode, cache, CallNode,
+            CaretChar, Cascade, CascadePart, CascadePartWithCascade,
+            CheckPeriodNotDoublePeriod, CheckStop, CloseCurlyBrace,
             CloseCurlyBraceChar, ClosedArguments, CloseParenthesis,
             CloseSquareBracket, Colon, ColonChar, ColonEmbeddedClose,
             ColonEmbeddedCloseWrite, ColonEqual, ColonNewline, Comma, CommaChar,
@@ -8392,33 +8393,33 @@
             ContinueNode, convertInvocationOrAccess, CountIndent, CurrentArrayLength,
             CustomOperatorCloseParenthesis, DebuggerNode, DecimalDigit, DecimalNumber,
             DedentedBody, DefineConstLiteral, DefineHelper, DefineMacro,
-            DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText,
-            disallowSpaceBeforeAccess, DollarSign, DollarSignChar,
-            dontRequireParameterSequence, DoubleColonChar, DoubleQuote,
-            DoubleStringArrayLiteral, DoubleStringLiteral, DoubleStringLiteralInner,
-            DualObjectKey, EmbeddedBlock, EmbeddedClose, EmbeddedCloseComment,
-            EmbeddedCloseWrite, EmbeddedLiteralText, EmbeddedLiteralTextInnerPart,
-            EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment,
-            EmbeddedOpenWrite, EmbeddedRootGeneratorP, EmbeddedRootInnerP,
-            EmbeddedRootP, EmbeddedWriteExpression, EmbedWriteNode, EmptyLine,
-            EmptyLines, EmptyLinesSpace, EndNoIndent, EqualChar, EqualSign,
-            EqualSignChar, Eval, EvalNode, ExclamationPointChar, Expression,
-            ExpressionAsStatement, ExpressionOrAssignment,
-            ExpressionOrAssignmentOrBody, ForInNode, ForNode, fromCharCode,
-            FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral,
-            FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd,
-            GeneratorFunctionBody, getPackageVersion, getReservedIdents, GetSetToken,
-            GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence,
-            HexNumber, Identifier, IdentifierNameConst,
-            IdentifierNameConstOrNumberLiteral, IdentifierOrAccess,
-            IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart,
-            IdentifierOrSimpleAccessStart, IdentifierOrThisAccess,
-            IdentifierParameter, IdentNode, IfNode, Imports, inAst, inCascade,
-            IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner,
-            IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner,
-            INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro,
-            inStatement, InvocationArguments, InvocationOrAccess,
-            InvocationOrAccessPart, KeyValuePair, KvpParameter, LessThan,
+            DefineOperator, DefineSyntax, DefNode, disallowEmbeddedText, DollarSign,
+            DollarSignChar, dontRequireParameterSequence, DoubleColonChar,
+            DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral,
+            DoubleStringLiteralInner, DualObjectKey, EmbeddedBlock, EmbeddedClose,
+            EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText,
+            EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock,
+            EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite,
+            EmbeddedRootGeneratorP, EmbeddedRootInnerP, EmbeddedRootP,
+            EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines,
+            EmptyLinesSpace, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval,
+            EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement,
+            ExpressionOrAssignment, ExpressionOrAssignmentOrBody, ForInNode, ForNode,
+            fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph,
+            FunctionLiteral, FunctionNode, FunctionType, GeneratorBody,
+            GeneratorBodyNoEnd, GeneratorFunctionBody, getPackageVersion,
+            getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar,
+            HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier,
+            IdentifierNameConst, IdentifierNameConstOrNumberLiteral,
+            IdentifierOrAccess, IdentifierOrSimpleAccess,
+            IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart,
+            IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, Imports,
+            inAst, inCascade, IndentedUnclosedArrayLiteral,
+            IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral,
+            IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression,
+            inFunctionTypeParams, inMacro, insideIndentedAccess, inStatement,
+            InvocationArguments, InvocationOrAccess, InvocationOrAccessPart,
+            InvocationOrAccessParts, KeyValuePair, KvpParameter, LessThan,
             LessThanChar, Letter, LicenseComment, Line, Literal, Logic,
             MacroAccessNode, MacroBody, MacroConstNode, MacroContext, MacroError,
             MacroHolder, MacroName, macroName, MacroNames, MacroOptions, MacroSyntax,
@@ -8491,6 +8492,17 @@
               return 1;
             }
           }
+        };
+        __compose = function (left, right) {
+          if (typeof left !== "function") {
+            throw TypeError("Expected left to be a Function, got " + __typeof(left));
+          }
+          if (typeof right !== "function") {
+            throw TypeError("Expected right to be a Function, got " + __typeof(right));
+          }
+          return function () {
+            return left.call(this, right.apply(this, arguments));
+          };
         };
         __create = typeof Object.create === "function" ? Object.create
           : function (x) {
@@ -11091,7 +11103,10 @@
             return node;
           }
         })(_ref)));
-        allowSpaceBeforeAccess = makeAlterStack("disallowSpaceBeforeAccess", false);
+        allowSpaceBeforeAccess = __compose(
+          makeAlterStack("disallowSpaceBeforeAccess", 0),
+          makeAlterStack("insideIndentedAccess", false)
+        );
         ClosedArguments = cache(sequential(
           OpenParenthesisChar,
           Space,
@@ -11138,7 +11153,18 @@
           ],
           CloseParenthesis
         ));
-        disallowSpaceBeforeAccess = makeAlterStack("disallowSpaceBeforeAccess", true);
+        function disallowSpaceBeforeAccess(rule) {
+          return function (parser, index) {
+            var stack;
+            stack = parser.disallowSpaceBeforeAccess;
+            stack.push(+stack.peek() + 1);
+            try {
+              return rule(parser, index);
+            } finally {
+              stack.pop();
+            }
+          };
+        }
         UnclosedArguments = cache(disallowSpaceBeforeAccess(sequential(
           oneOf(
             sequential(SpaceChar, Space),
@@ -13111,12 +13137,7 @@
               return result;
             })(_ref)),
             (_ref = sequential(
-              [
-                "this",
-                oneOrMore(function (parser, index) {
-                  return InvocationOrAccessPart(parser, index);
-                })
-              ],
+              ["this", SomeInvocationOrAccessParts],
               CloseParenthesis
             ), mutate(function (tail, parser, index) {
               var left, result, scope;
@@ -13643,13 +13664,6 @@
             );
           };
         }());
-        function EmptyLinesSpaceBeforeAccess(parser, index) {
-          if (parser.disallowSpaceBeforeAccess.peek()) {
-            return Box(index);
-          } else {
-            return EmptyLinesSpace(parser, index);
-          }
-        }
         function SpaceBeforeAccess(parser, index) {
           if (parser.disallowSpaceBeforeAccess.peek()) {
             return Box(index);
@@ -13670,23 +13684,24 @@
               )
             ],
             GreaterThan
-          ), mutate(function (args) {
-            return { type: "generic", args: args };
+          ), mutate(function (args, _p, _p2, index) {
+            return { type: "generic", args: args, index: index };
           })(_ref)),
           (_ref = sequential(
             ["existential", MaybeQuestionMarkChar],
             ["owns", MaybeExclamationPointChar],
             ["bind", MaybeAtSignChar],
-            EmptyLinesSpaceBeforeAccess,
+            SpaceBeforeAccess,
             ["type", PeriodOrDoubleColonChar],
             ["child", IdentifierNameConstOrNumberLiteral]
-          ), mutate(function (x) {
+          ), mutate(function (x, _p, _p2, index) {
             return {
               type: x.type === "::" ? "protoAccess" : "access",
               child: x.child,
               existential: x.existential,
               owns: x.owns,
-              bind: x.bind
+              bind: x.bind,
+              index: index
             };
           })(_ref)),
           (_ref = sequential(
@@ -13709,14 +13724,15 @@
               })(_ref2)))
             ],
             CloseSquareBracket
-          ), mutate(function (x, parser, index) {
+          ), mutate(function (x, parser, index, endIndex) {
             if (x.child.type === "single") {
               return {
                 type: x.type === "::" ? "protoAccess" : "access",
                 child: x.child.node,
                 existential: x.existential,
                 owns: x.owns,
-                bind: x.bind
+                bind: x.bind,
+                index: endIndex
               };
             } else {
               if (x.owns) {
@@ -13735,7 +13751,8 @@
               return {
                 type: x.type === "::" ? "protoAccessIndex" : "accessIndex",
                 child: x.child,
-                existential: x.existential
+                existential: x.existential,
+                index: endIndex
               };
             }
           })(_ref)),
@@ -13743,16 +13760,58 @@
             ["existential", bool(MaybeQuestionMarkChar)],
             ["isApply", bool(MaybeAtSignChar)],
             ["args", InvocationArguments]
-          ), mutate(function (x) {
+          ), mutate(function (x, _p, _p2, index) {
             return {
               type: "call",
               args: x.args,
               existential: x.existential,
               isNew: false,
-              isApply: x.isApply
+              isApply: x.isApply,
+              index: index
             };
           })(_ref))
         );
+        CheckPeriodNotDoublePeriod = check(sequential(Period, except(Period)));
+        insideIndentedAccess = makeAlterStack("insideIndentedAccess", true);
+        InvocationOrAccessParts = concat(zeroOrMore(InvocationOrAccessPart), maybe(
+          sequential(
+            function (parser, index) {
+              var disallowSpace;
+              disallowSpace = parser.disallowSpaceBeforeAccess.peek();
+              if (!disallowSpace || disallowSpace === 1 && parser.insideIndentedAccess.peek()) {
+                return Box(index);
+              }
+            },
+            IndentationRequired,
+            SomeEmptyLines,
+            [
+              "this",
+              retainIndent((_ref = sequential(
+                Advance,
+                CheckIndent,
+                CheckPeriodNotDoublePeriod,
+                [
+                  "this",
+                  separatedList(insideIndentedAccess(zeroOrMore(InvocationOrAccessPart)), sequential(SomeEmptyLinesWithCheckIndent, CheckPeriodNotDoublePeriod))
+                ],
+                PopIndent
+              ), mutate(function (x) {
+                var _ref;
+                return (_ref = []).concat.apply(_ref, __toArray(x));
+              })(_ref)))
+            ]
+          ),
+          function () {
+            return [];
+          }
+        ));
+        function SomeInvocationOrAccessParts(parser, index) {
+          var result;
+          result = InvocationOrAccessParts(parser, index);
+          if (result.value.length > 0) {
+            return result;
+          }
+        }
         _ref = sequential(
           ["isNew", bool(maybe(word("new")))],
           [
@@ -13772,7 +13831,7 @@
               })(PrimaryExpression)
             )
           ],
-          ["tail", zeroOrMore(InvocationOrAccessPart)]
+          ["tail", InvocationOrAccessParts]
         );
         BasicInvocationOrAccess = mutate(function (_p, parser, index) {
           var head, isNew, tail;
@@ -13808,32 +13867,16 @@
           [
             "tail",
             function (parser, index) {
-              var _ref, currentIndex, part, tail;
-              tail = [];
-              currentIndex = index;
-              while (true) {
-                part = InvocationOrAccessPart(parser, currentIndex);
-                if (part) {
-                  tail.push(part);
-                  currentIndex = part.index;
-                } else {
-                  break;
-                }
-              }
-              while (tail.length > 0 && (_ref = tail[tail.length - 1].value.type) !== "access" && _ref !== "protoAccess") {
+              var _ref, tail;
+              tail = InvocationOrAccessParts(parser, index).value;
+              tail = tail.slice();
+              while (tail.length > 0 && (_ref = tail[tail.length - 1].type) !== "access" && _ref !== "protoAccess") {
                 tail.pop();
               }
               if (tail.length === 0) {
                 return Box(index, []);
               } else {
-                return Box(tail[tail.length - 1].index, (function () {
-                  var _arr, _i, _len, part;
-                  for (_arr = [], _i = 0, _len = tail.length; _i < _len; ++_i) {
-                    part = tail[_i];
-                    _arr.push(part.value);
-                  }
-                  return _arr;
-                }()));
+                return Box(tail[tail.length - 1].index, tail);
               }
             }
           ]
@@ -15396,7 +15439,8 @@
             _this.inAst = Stack(false);
             _this.inEvilAst = Stack(false);
             _this.asterixAsArrayLength = Stack(false);
-            _this.disallowSpaceBeforeAccess = Stack(false);
+            _this.disallowSpaceBeforeAccess = Stack(0);
+            _this.insideIndentedAccess = Stack(false);
             _this.inCascade = Stack(false);
             _this.requireParameterSequence = Stack(false);
             _this.scope = Stack(Scope(null, true));
@@ -31433,7 +31477,7 @@
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.8.22";
+        exports.version = "0.8.23";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -72040,27 +72084,31 @@
                       } else if (property === "get" || property === "set") {
                         if (i > 0 && pairs[i - 1].property != null && this.eq(key, pairs[i - 1].key) && pairs[i - 1].property !== property && ((_ref = pairs[i - 1].property) === "get" || _ref === "set")) {
                           descriptor = __node(26, value, [
-                            { key: __wrap(pairs[i - 1].property), value: __wrap(pairs[i - 1].value) },
-                            { key: __wrap(property), value: __wrap(value) },
+                            { key: __wrap(pairs[i - 1].property), value: __wrap(pairs[i - 1].value), property: void 0 },
+                            { key: __wrap(property), value: __wrap(value), property: void 0 },
                             {
                               key: __node(12, value, "enumerable"),
-                              value: __const("true")
+                              value: __const("true"),
+                              property: void 0
                             },
                             {
                               key: __node(12, value, "configurable"),
-                              value: __const("true")
+                              value: __const("true"),
+                              property: void 0
                             }
                           ]);
                         } else {
                           descriptor = __node(26, value, [
-                            { key: __wrap(property), value: __wrap(value) },
+                            { key: __wrap(property), value: __wrap(value), property: void 0 },
                             {
                               key: __node(12, value, "enumerable"),
-                              value: __const("true")
+                              value: __const("true"),
+                              property: void 0
                             },
                             {
                               key: __node(12, value, "configurable"),
-                              value: __const("true")
+                              value: __const("true"),
+                              property: void 0
                             }
                           ]);
                         }

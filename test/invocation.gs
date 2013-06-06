@@ -93,23 +93,62 @@ describe "function invocation", #
     it "works on a single line", #
       let bravo = spy()
       let delta = spy()
-      let charlie = stub().with-args(delta).returns(\echo)
+      let foxtrot = spy()
+      let echo = stub().with-args(foxtrot).returns(\golf)
+      let charlie = stub().with-args(delta).returns({echo})
       let alpha = stub().with-args(bravo).returns({charlie})
-      let x = alpha bravo .charlie delta
-      expect(x).to.equal(\echo)
+      let x = alpha bravo .charlie delta .echo foxtrot
+      expect(x).to.equal(\golf)
       expect(alpha).to.be.called-once
       expect(charlie).to.be.called-once
+      expect(echo).to.be.called-once
     
     it "works on multiple lines", #
       let bravo = spy()
       let delta = spy()
-      let charlie = stub().with-args(delta).returns(\echo)
+      let foxtrot = spy()
+      let echo = stub().with-args(foxtrot).returns(\golf)
+      let charlie = stub().with-args(delta).returns({echo})
       let alpha = stub().with-args(bravo).returns({charlie})
       let x = alpha bravo
         .charlie delta
-      expect(x).to.equal(\echo)
+        .echo foxtrot
+      expect(x).to.equal(\golf)
       expect(alpha).to.be.called-once
       expect(charlie).to.be.called-once
+      expect(echo).to.be.called-once
+    
+    it "respects indentation", #
+      let bravo = spy()
+      let golf = spy()
+      let delta = echo: stub().with-args(foxtrot).returns(golf)
+      let foxtrot = spy()
+      let charlie = stub().with-args(golf).returns \hotel
+      let alpha = stub().with-args(bravo).returns({charlie})
+      let x = alpha bravo
+        .charlie delta
+          .echo foxtrot
+      expect(x).to.equal(\hotel)
+      expect(alpha).to.be.called-once
+      expect(charlie).to.be.called-once
+      expect(delta.echo).to.be.called-once
+    
+    it "respects indentation and still allows unclosed calls", #
+      let bravo = spy()
+      let golf = spy()
+      let echo = spy()
+      let hotel = spy()
+      let delta = stub().with-args(echo).returns({foxtrot: stub().with-args(golf).returns(hotel)})
+      let foxtrot = spy()
+      let charlie = stub().with-args(hotel).returns \india
+      let alpha = stub().with-args(bravo).returns({charlie})
+      let x = alpha bravo
+        .charlie delta echo
+          .foxtrot golf
+      expect(x).to.equal(\india)
+      expect(alpha).to.be.called-once
+      expect(charlie).to.be.called-once
+      expect(delta.echo).to.be.called-once
 
 describe "function apply", #
   describe "with zero arguments", #->

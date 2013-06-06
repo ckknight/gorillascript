@@ -666,7 +666,7 @@ let generator-translate = do
           scope.release-ident tmp
     else
       #-> scope.release-ident t-tmp()
-  let has-single-node-with-noops-no-spread(nodes as [Node], state as GeneratorState)
+  let has-single-node-with-noops-no-spread(nodes as [ParserNode], state as GeneratorState)
     let mutable count = 0
     for node in nodes
       if node instanceof ParserNode.Spread
