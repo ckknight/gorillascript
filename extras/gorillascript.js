@@ -28217,8 +28217,28 @@
               };
             }
           }
+          function hasSingleNodeWithNoopsNoSpread(nodes, state) {
+            var _i, _len, count, node;
+            count = 0;
+            for (_i = 0, _len = nodes.length; _i < _len; ++_i) {
+              node = nodes[_i];
+              if (node instanceof ParserNode.Spread) {
+                return false;
+              } else if (state.hasGeneratorNode(node)) {
+                ++count;
+                if (count > 1) {
+                  return false;
+                }
+              } else if (!node.isNoop()) {
+                return false;
+              }
+            }
+            return count === 1;
+          }
           function generatorArrayTranslate(pos, elements, scope, state, assignTo) {
-            var _arr, _f, _len, i, tArrayStart, tTmp;
+            var _arr, _f, _i, _len, _this, element, gExpr, i, tArrayStart,
+                translatedNodes, tTmp;
+            _this = this;
             tTmp = makeTTmp(
               assignTo,
               scope,
@@ -28226,6 +28246,41 @@
               "arr",
               Type.array
             );
+            if (hasSingleNodeWithNoopsNoSpread(elements, state)) {
+              gExpr = (function () {
+                var _arr, _len, element, i;
+                for (_arr = __toArray(elements), i = 0, _len = _arr.length; i < _len; ++i) {
+                  element = _arr[i];
+                  if (!element.isNoop()) {
+                    return generatorTranslateExpression(element, scope, state, false);
+                  }
+                }
+                throw Error("Unreachable state");
+              }());
+              translatedNodes = [];
+              for (_arr = __toArray(elements), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                element = _arr[_i];
+                if (state.hasGeneratorNode(element)) {
+                  translatedNodes.push(gExpr.tNode);
+                } else {
+                  translatedNodes.push(translate(element, scope, "expression"));
+                }
+              }
+              return {
+                tNode: function () {
+                  return ast.Arr(pos, (function () {
+                    var _arr, _i, _len, tItem;
+                    for (_arr = [], _i = 0, _len = translatedNodes.length; _i < _len; ++_i) {
+                      tItem = translatedNodes[_i];
+                      _arr.push(tItem());
+                    }
+                    return _arr;
+                  }()));
+                },
+                state: gExpr.state,
+                cleanup: gExpr.cleanup
+              };
+            }
             tArrayStart = null;
             for (_arr = __toArray(elements), i = 0, _len = _arr.length, _f = function (element, i) {
               var expr;
@@ -28663,13 +28718,7 @@
                       [func, args]
                     );
                   } else if (args instanceof ast.Arr) {
-                    return ast.Call(
-                      getPos(node),
-                      ast.Access(getPos(node), func, "call"),
-                      [
-                        func instanceof ast.Binary && func.op === "." ? func.left : ast.Const(getPos(node), void 0)
-                      ].concat(__toArray(args.elements))
-                    );
+                    return ast.Call(getPos(node), func, args.elements);
                   } else {
                     return ast.Call(
                       getPos(node),
@@ -31384,7 +31433,7 @@
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.8.21";
+        exports.version = "0.8.22";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -31882,7 +31931,6 @@
                 if (__isArray(options.filenames)) {
                   options.filename = options.filenames[i];
                 }
-                _arr2 = [];
                 _state = sync ? 4 : 5;
                 break;
               case 4:
@@ -31899,8 +31947,7 @@
                 _tmp = _received;
                 ++_state;
               case 7:
-                _arr2.push(_tmp);
-                array.push.apply(array, _arr2);
+                array.push(_tmp);
                 ++_state;
               case 8:
                 ++_i;
@@ -32221,15 +32268,13 @@
                 _state = 10;
                 break;
               case 8:
-                _arr2 = [];
                 ++_state;
                 return {
                   done: false,
                   value: exports.parse(source, options)
                 };
               case 9:
-                _arr2.push(_received);
-                _arr.push.apply(_arr, _arr2);
+                _arr.push(_received);
                 ++_state;
               case 10:
                 ++i;

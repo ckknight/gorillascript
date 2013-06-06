@@ -666,8 +666,39 @@ let generator-translate = do
           scope.release-ident tmp
     else
       #-> scope.release-ident t-tmp()
+  let has-single-node-with-noops-no-spread(nodes as [Node], state as GeneratorState)
+    let mutable count = 0
+    for node in nodes
+      if node instanceof ParserNode.Spread
+        return false
+      else if state.has-generator-node node
+        count += 1
+        if count > 1
+          return false
+      else if not node.is-noop()
+        return false
+    count == 1
   let generator-array-translate(pos, elements, scope, mutable state as GeneratorState, assign-to)
     let t-tmp = make-t-tmp assign-to, scope, pos, \arr, Type.array
+    
+    if has-single-node-with-noops-no-spread(elements, state)
+      let g-expr = for first element, i in elements
+        if not element.is-noop()
+          generator-translate-expression element, scope, state, false
+      else
+        throw Error "Unreachable state"
+      let translated-nodes = []
+      for element in elements
+        if state.has-generator-node element
+          translated-nodes.push g-expr.t-node
+        else
+          translated-nodes.push translate element, scope, \expression
+
+      return {
+        t-node: #-> ast.Arr pos, for t-item in translated-nodes; t-item()
+        g-expr.state
+        g-expr.cleanup
+      }
     
     let mutable t-array-start = null
     for element, i in elements
@@ -874,14 +905,8 @@ let generator-translate = do
               [func, args]
           else if args instanceof ast.Arr
             ast.Call get-pos(node),
-              ast.Access get-pos(node), func, \call
-              [
-                if func instanceof ast.Binary and func.op == "."
-                  func.left
-                else
-                  ast.Const get-pos(node), void
-                ...args.elements
-              ]
+              func
+              args.elements
           else
             ast.Call get-pos(node),
               ast.Access get-pos(node), func, \apply
