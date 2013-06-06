@@ -16,6 +16,8 @@ const EMBED_OPEN_WRITE_DEFAULT = "<%="
 const EMBED_CLOSE_WRITE_DEFAULT = "%>"
 const EMBED_OPEN_COMMENT_DEFAULT = "<%--"
 const EMBED_CLOSE_COMMENT_DEFAULT = "--%>"
+const EMBED_OPEN_LITERAL_DEFAULT = "<%@"
+const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
 let AccessNode = Node.Access
 let AccessMultiNode = Node.AccessMulti
@@ -4444,29 +4446,6 @@ redefine Statement = sequential(
     ExpressionAsStatement)]
   Space) // TODO: have statement decorators?
 
-let unpretty-text(text as String)
-  text.replace r"\s+"g, " "
-let EmbeddedReadLiteralText(parser, index)
-  let source = parser.source
-  let len = source.length
-  let mutable current-index as Number = index
-  let codes = []
-  while current-index ~< len, current-index += 1
-    if EmbeddedOpen(parser, current-index) or EmbeddedOpenWrite(parser, current-index) or EmbeddedOpenComment(parser, current-index)
-      break
-  
-    let mutable c = C(source, current-index)
-    if c == C("\r") and C(source, current-index + 1) == C("\n")
-      c := C("\n")
-      current-index += 1
-    codes.push c
-  if current-index == index
-    return
-  let mutable text = codes-to-string(codes)
-  if parser.options.embedded-unpretty
-    text := unpretty-text(text)
-  Box current-index, parser.EmbedWrite index, parser.Const(index, text), false
-
 let make-embedded-rule = do
   let make(text as String)
     let len = text.length
@@ -4484,6 +4463,57 @@ let make-embedded-rule = do
     if not is-string! text
       text := default-value
     get-embedded-rule(text)(parser, index)
+define EmbeddedOpenLiteral = make-embedded-rule \embedded-open-literal, EMBED_OPEN_LITERAL_DEFAULT
+let EmbeddedCloseLiteral = make-embedded-rule \embedded-close-literal, EMBED_CLOSE_LITERAL_DEFAULT
+
+let EmbeddedReadExplicitLiteralText(parser, index)
+  let open = EmbeddedOpenLiteral(parser, index)
+  if not open
+    return
+  let source = parser.source
+  let len = source.length
+  let mutable current-index = open.index
+  let codes = []
+  while current-index ~< len, current-index += 1
+    let close = EmbeddedCloseLiteral(parser, current-index)
+    if close
+      return Box close.index, codes
+    let mutable c = C(source, current-index)
+    if c == C("\r") and C(source, current-index + 1) == C("\n")
+      c := C("\n")
+      current-index += 1
+    codes.push c
+  throw ParserError "Literal text never ends", parser, index
+
+let unpretty-text(text as String)
+  text.replace r"\s+"g, " "
+let EmbeddedReadLiteralText(parser, index)
+  let source = parser.source
+  let len = source.length
+  let mutable current-index as Number = index
+  let mutable codes = []
+  while current-index ~< len, current-index += 1
+    let explicit-literal = EmbeddedReadExplicitLiteralText(parser, current-index)
+    if explicit-literal
+      current-index := explicit-literal.index - 1
+      codes := codes.concat(explicit-literal.value)
+      continue
+    
+    if EmbeddedOpen(parser, current-index) or EmbeddedOpenWrite(parser, current-index) or EmbeddedOpenComment(parser, current-index)
+      break
+  
+    let mutable c = C(source, current-index)
+    if c == C("\r") and C(source, current-index + 1) == C("\n")
+      c := C("\n")
+      current-index += 1
+    codes.push c
+  if current-index == index
+    return
+  let mutable text = codes-to-string(codes)
+  if parser.options.embedded-unpretty
+    text := unpretty-text(text)
+  Box current-index, parser.EmbedWrite index, parser.Const(index, text), false
+
 define EmbeddedOpenComment = make-embedded-rule \embedded-open-comment, EMBED_OPEN_COMMENT_DEFAULT
 let EmbeddedCloseComment = make-embedded-rule \embedded-close-comment, EMBED_CLOSE_COMMENT_DEFAULT
 
@@ -4526,6 +4556,7 @@ define EmbeddedCloseWrite = sequential(
 define ColonEmbeddedClose = sequential(Colon, EmbeddedClose)
 define ColonEmbeddedCloseWrite = sequential(Colon, EmbeddedCloseWrite)
 
+define NotEmbeddedOpenLiteral = except EmbeddedOpenLiteral
 define NotEmbeddedOpenComment = except EmbeddedOpenComment
 define NotEmbeddedOpenWrite = except EmbeddedOpenWrite
 
@@ -4533,6 +4564,7 @@ let disallow-embedded-text = make-alter-stack<Boolean> \allow-embedded-text, fal
 
 let EmbeddedWriteExpression = disallow-embedded-text sequential(
   NotEmbeddedOpenComment
+  NotEmbeddedOpenLiteral
   EmbeddedOpenWrite
   [\this, Expression]
   EmbeddedCloseWrite) |> mutate #(node, parser, index)
@@ -4552,6 +4584,7 @@ define EmbeddedLiteralText = sequential(
     sequential(
       NotEmbeddedOpenComment
       NotEmbeddedOpenWrite
+      NotEmbeddedOpenLiteral
       EmbeddedOpen))) |> mutate #(nodes, parser, index)
   parser.Block index, nodes
 
@@ -4647,6 +4680,7 @@ let Block = one-of(
 let EmbeddedBlock = sequential(
   NotEmbeddedOpenWrite
   NotEmbeddedOpenComment
+  NotEmbeddedOpenLiteral
   EmbeddedOpen
   [\this, _Block]
   EmbeddedClose)

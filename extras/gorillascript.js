@@ -8397,32 +8397,33 @@
             DollarSignChar, dontRequireParameterSequence, DoubleColonChar,
             DoubleQuote, DoubleStringArrayLiteral, DoubleStringLiteral,
             DoubleStringLiteralInner, DualObjectKey, EmbeddedBlock, EmbeddedClose,
-            EmbeddedCloseComment, EmbeddedCloseWrite, EmbeddedLiteralText,
-            EmbeddedLiteralTextInnerPart, EmbeddedLiteralTextInnerPartWithBlock,
-            EmbeddedOpen, EmbeddedOpenComment, EmbeddedOpenWrite,
-            EmbeddedRootGeneratorP, EmbeddedRootInnerP, EmbeddedRootP,
-            EmbeddedWriteExpression, EmbedWriteNode, EmptyLine, EmptyLines,
-            EmptyLinesSpace, EndNoIndent, EqualChar, EqualSign, EqualSignChar, Eval,
-            EvalNode, ExclamationPointChar, Expression, ExpressionAsStatement,
-            ExpressionOrAssignment, ExpressionOrAssignmentOrBody, ForInNode, ForNode,
-            fromCharCode, FunctionBody, FunctionDeclaration, FunctionGlyph,
-            FunctionLiteral, FunctionNode, FunctionType, GeneratorBody,
-            GeneratorBodyNoEnd, GeneratorFunctionBody, getPackageVersion,
-            getReservedIdents, GetSetToken, GreaterThan, GreaterThanChar,
-            HashSignChar, HexDigit, HexEscapeSequence, HexNumber, Identifier,
-            IdentifierNameConst, IdentifierNameConstOrNumberLiteral,
-            IdentifierOrAccess, IdentifierOrSimpleAccess,
-            IdentifierOrSimpleAccessPart, IdentifierOrSimpleAccessStart,
-            IdentifierOrThisAccess, IdentifierParameter, IdentNode, IfNode, Imports,
-            inAst, inCascade, IndentedUnclosedArrayLiteral,
-            IndentedUnclosedArrayLiteralInner, IndentedUnclosedObjectLiteral,
-            IndentedUnclosedObjectLiteralInner, INDENTS, inEvilAst, inExpression,
-            inFunctionTypeParams, inMacro, insideIndentedAccess, inStatement,
-            InvocationArguments, InvocationOrAccess, InvocationOrAccessPart,
-            InvocationOrAccessParts, KeyValuePair, KvpParameter, LessThan,
-            LessThanChar, Letter, LicenseComment, Line, Literal, Logic,
-            MacroAccessNode, MacroBody, MacroConstNode, MacroContext, MacroError,
-            MacroHolder, MacroName, macroName, MacroNames, MacroOptions, MacroSyntax,
+            EmbeddedCloseComment, EmbeddedCloseLiteral, EmbeddedCloseWrite,
+            EmbeddedLiteralText, EmbeddedLiteralTextInnerPart,
+            EmbeddedLiteralTextInnerPartWithBlock, EmbeddedOpen, EmbeddedOpenComment,
+            EmbeddedOpenLiteral, EmbeddedOpenWrite, EmbeddedRootGeneratorP,
+            EmbeddedRootInnerP, EmbeddedRootP, EmbeddedWriteExpression,
+            EmbedWriteNode, EmptyLine, EmptyLines, EmptyLinesSpace, EndNoIndent,
+            EqualChar, EqualSign, EqualSignChar, Eval, EvalNode, ExclamationPointChar,
+            Expression, ExpressionAsStatement, ExpressionOrAssignment,
+            ExpressionOrAssignmentOrBody, ForInNode, ForNode, fromCharCode,
+            FunctionBody, FunctionDeclaration, FunctionGlyph, FunctionLiteral,
+            FunctionNode, FunctionType, GeneratorBody, GeneratorBodyNoEnd,
+            GeneratorFunctionBody, getPackageVersion, getReservedIdents, GetSetToken,
+            GreaterThan, GreaterThanChar, HashSignChar, HexDigit, HexEscapeSequence,
+            HexNumber, Identifier, IdentifierNameConst,
+            IdentifierNameConstOrNumberLiteral, IdentifierOrAccess,
+            IdentifierOrSimpleAccess, IdentifierOrSimpleAccessPart,
+            IdentifierOrSimpleAccessStart, IdentifierOrThisAccess,
+            IdentifierParameter, IdentNode, IfNode, Imports, inAst, inCascade,
+            IndentedUnclosedArrayLiteral, IndentedUnclosedArrayLiteralInner,
+            IndentedUnclosedObjectLiteral, IndentedUnclosedObjectLiteralInner,
+            INDENTS, inEvilAst, inExpression, inFunctionTypeParams, inMacro,
+            insideIndentedAccess, inStatement, InvocationArguments,
+            InvocationOrAccess, InvocationOrAccessPart, InvocationOrAccessParts,
+            KeyValuePair, KvpParameter, LessThan, LessThanChar, Letter,
+            LicenseComment, Line, Literal, Logic, MacroAccessNode, MacroBody,
+            MacroConstNode, MacroContext, MacroError, MacroHolder, MacroName,
+            macroName, MacroNames, MacroOptions, MacroSyntax,
             MacroSyntaxChoiceParameters, MacroSyntaxParameter, MacroSyntaxParameters,
             MacroSyntaxParameterType, makeEmbeddedRule, MapLiteral, MaybeAsType,
             MaybeAtSignChar, MaybeComma, MaybeCommaOrNewline, MaybeComment,
@@ -8431,17 +8432,18 @@
             Name, NameChar, NameOrSymbol, NamePart, NameStart, Node, nodeType,
             NoNewlineIfNoIndent, NonUnionType, NoSpace, NoSpaceNewline, NotColon,
             NotColonUnlessNoIndentAndNewline, NotEmbeddedOpenComment,
-            NotEmbeddedOpenWrite, Nothing, NothingNode, notInFunctionTypeParams,
-            NumberChar, NumberLiteral, ObjectKey, ObjectKeyColon, ObjectLiteral,
-            ObjectNode, ObjectParameter, ObjectType, ObjectTypePair, OctalDigit,
-            OctalNumber, OpenCurlyBrace, OpenCurlyBraceChar, OpenParenthesis,
-            OpenParenthesisChar, OpenSquareBracket, OpenSquareBracketChar,
-            ParamDualObjectKey, Parameter, ParameterOrNothing, Parameters,
-            ParameterSequence, ParamNode, ParamSingularObjectKey, Parenthetical,
-            parse, Parser, ParserError, PercentSign, PercentSignChar, Period,
-            PeriodOrDoubleColonChar, Pipe, PipeChar, PlusChar, PlusOrMinusChar,
-            PostfixUnaryOperation, PrefixUnaryOperation, preventUnclosedObjectLiteral,
-            PrimaryExpression, PropertyDualObjectKey, PropertyOrDualObjectKey,
+            NotEmbeddedOpenLiteral, NotEmbeddedOpenWrite, Nothing, NothingNode,
+            notInFunctionTypeParams, NumberChar, NumberLiteral, ObjectKey,
+            ObjectKeyColon, ObjectLiteral, ObjectNode, ObjectParameter, ObjectType,
+            ObjectTypePair, OctalDigit, OctalNumber, OpenCurlyBrace,
+            OpenCurlyBraceChar, OpenParenthesis, OpenParenthesisChar,
+            OpenSquareBracket, OpenSquareBracketChar, ParamDualObjectKey, Parameter,
+            ParameterOrNothing, Parameters, ParameterSequence, ParamNode,
+            ParamSingularObjectKey, Parenthetical, parse, Parser, ParserError,
+            PercentSign, PercentSignChar, Period, PeriodOrDoubleColonChar, Pipe,
+            PipeChar, PlusChar, PlusOrMinusChar, PostfixUnaryOperation,
+            PrefixUnaryOperation, preventUnclosedObjectLiteral, PrimaryExpression,
+            PropertyDualObjectKey, PropertyOrDualObjectKey,
             PropertyOrDualObjectKeyOrMethodDeclaration, quote, RadixNumber,
             RegexLiteral, RegexpNode, requireParameterSequence, ReturnNode,
             RootInnerP, RootNode, RootP, Scope, Semicolon, SemicolonChar, Semicolons,
@@ -14630,39 +14632,6 @@
           ],
           Space
         ));
-        function unprettyText(text) {
-          return text.replace(/\s+/g, " ");
-        }
-        function EmbeddedReadLiteralText(parser, index) {
-          var c, codes, currentIndex, len, source, text;
-          source = parser.source;
-          len = source.length;
-          currentIndex = index;
-          codes = [];
-          for (; currentIndex < len; ++currentIndex) {
-            if (EmbeddedOpen(parser, currentIndex) || EmbeddedOpenWrite(parser, currentIndex) || EmbeddedOpenComment(parser, currentIndex)) {
-              break;
-            }
-            c = source.charCodeAt(currentIndex);
-            if (c === 13 && source.charCodeAt(currentIndex + 1) === 10) {
-              c = 10;
-              ++currentIndex;
-            }
-            codes.push(c);
-          }
-          if (currentIndex === index) {
-            return;
-          }
-          text = codesToString(codes);
-          if (parser.options.embeddedUnpretty) {
-            text = unprettyText(text);
-          }
-          return Box(currentIndex, parser.EmbedWrite(
-            index,
-            parser.Const(index, text),
-            false
-          ));
-        }
         makeEmbeddedRule = (function () {
           var rules;
           function make(text) {
@@ -14698,6 +14667,71 @@
             };
           };
         }());
+        EmbeddedOpenLiteral = cache(makeEmbeddedRule("embeddedOpenLiteral", "<%@"));
+        EmbeddedCloseLiteral = makeEmbeddedRule("embeddedCloseLiteral", "@%>");
+        function EmbeddedReadExplicitLiteralText(parser, index) {
+          var c, close, codes, currentIndex, len, open, source;
+          open = EmbeddedOpenLiteral(parser, index);
+          if (!open) {
+            return;
+          }
+          source = parser.source;
+          len = source.length;
+          currentIndex = open.index;
+          codes = [];
+          for (; currentIndex < len; ++currentIndex) {
+            close = EmbeddedCloseLiteral(parser, currentIndex);
+            if (close) {
+              return Box(close.index, codes);
+            }
+            c = source.charCodeAt(currentIndex);
+            if (c === 13 && source.charCodeAt(+currentIndex + 1) === 10) {
+              c = 10;
+              ++currentIndex;
+            }
+            codes.push(c);
+          }
+          throw ParserError("Literal text never ends", parser, index);
+        }
+        function unprettyText(text) {
+          return text.replace(/\s+/g, " ");
+        }
+        function EmbeddedReadLiteralText(parser, index) {
+          var c, codes, currentIndex, explicitLiteral, len, source, text;
+          source = parser.source;
+          len = source.length;
+          currentIndex = index;
+          codes = [];
+          for (; currentIndex < len; ++currentIndex) {
+            explicitLiteral = EmbeddedReadExplicitLiteralText(parser, currentIndex);
+            if (explicitLiteral) {
+              currentIndex = explicitLiteral.index - 1;
+              codes = codes.concat(explicitLiteral.value);
+              continue;
+            }
+            if (EmbeddedOpen(parser, currentIndex) || EmbeddedOpenWrite(parser, currentIndex) || EmbeddedOpenComment(parser, currentIndex)) {
+              break;
+            }
+            c = source.charCodeAt(currentIndex);
+            if (c === 13 && source.charCodeAt(currentIndex + 1) === 10) {
+              c = 10;
+              ++currentIndex;
+            }
+            codes.push(c);
+          }
+          if (currentIndex === index) {
+            return;
+          }
+          text = codesToString(codes);
+          if (parser.options.embeddedUnpretty) {
+            text = unprettyText(text);
+          }
+          return Box(currentIndex, parser.EmbedWrite(
+            index,
+            parser.Const(index, text),
+            false
+          ));
+        }
         EmbeddedOpenComment = cache(makeEmbeddedRule("embeddedOpenComment", "<%--"));
         EmbeddedCloseComment = makeEmbeddedRule("embeddedCloseComment", "--%>");
         function EmbeddedComment(parser, index) {
@@ -14731,11 +14765,13 @@
         EmbeddedCloseWrite = cache(sequential(EmptyLines, Space, oneOf(Eof, makeEmbeddedRule("embeddedCloseWrite", "%>"))));
         ColonEmbeddedClose = cache(sequential(Colon, EmbeddedClose));
         ColonEmbeddedCloseWrite = cache(sequential(Colon, EmbeddedCloseWrite));
+        NotEmbeddedOpenLiteral = cache(except(EmbeddedOpenLiteral));
         NotEmbeddedOpenComment = cache(except(EmbeddedOpenComment));
         NotEmbeddedOpenWrite = cache(except(EmbeddedOpenWrite));
         disallowEmbeddedText = makeAlterStack("allowEmbeddedText", false);
         EmbeddedWriteExpression = disallowEmbeddedText((_ref = sequential(
           NotEmbeddedOpenComment,
+          NotEmbeddedOpenLiteral,
           EmbeddedOpenWrite,
           ["this", Expression],
           EmbeddedCloseWrite
@@ -14751,7 +14787,7 @@
           },
           EmbeddedClose,
           ["this", zeroOrMore(EmbeddedLiteralTextInnerPart)],
-          oneOf(Eof, sequential(NotEmbeddedOpenComment, NotEmbeddedOpenWrite, EmbeddedOpen))
+          oneOf(Eof, sequential(NotEmbeddedOpenComment, NotEmbeddedOpenWrite, NotEmbeddedOpenLiteral, EmbeddedOpen))
         ), mutate(function (nodes, parser, index) {
           return parser.Block(index, nodes);
         })(_ref)));
@@ -14913,6 +14949,7 @@
         EmbeddedBlock = sequential(
           NotEmbeddedOpenWrite,
           NotEmbeddedOpenComment,
+          NotEmbeddedOpenLiteral,
           EmbeddedOpen,
           ["this", _Block],
           EmbeddedClose
@@ -31477,7 +31514,7 @@
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.8.23";
+        exports.version = "0.8.24";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {

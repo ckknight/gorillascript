@@ -293,3 +293,11 @@ describe "embedded compilation", #
     for i in 0 til 10
       expect(iter.send void).to.eql { +done, value: void }
     expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, 1,2,3. How are you today?"
+  
+  it "allows literal segments", #
+    let f = gorilla.eval-sync """
+    Hello, <%@<%= "wor" & "ld" %>@%>!
+    """, embedded: true, noindent: true
+    let text = []
+    f #(x, escape) -> text.push(x)
+    expect(text.join "").to.equal 'Hello, <%= "wor" & "ld" %>!'
