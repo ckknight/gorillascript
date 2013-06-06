@@ -130,6 +130,8 @@ exports.parse := promise! #(source, options = {})*
       options.embedded-close-write
       options.embedded-open-comment
       options.embedded-close-comment
+      options.embedded-open-literal
+      options.embedded-close-literal
     }
   if sync
     parser.sync(source, macros, parse-options)

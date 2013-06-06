@@ -154,6 +154,7 @@ describe "embedded compilation", #
       {% else: %}
       Fail
       {% end %}
+      {@{{ name }}@}
       """, {
       embedded: true
       noindent: true
@@ -163,15 +164,17 @@ describe "embedded compilation", #
       embedded-close-write: "}}"
       embedded-open-comment: "{*"
       embedded-close-comment: "*}"
+      embedded-open-literal: "{@"
+      embedded-close-literal: "@}"
     }
 
     let text = []
     template #(x) -> text.push(x), {+test, name: "friend"}
-    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world! Pass, friend"
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world! Pass, friend {{ name }}"
 
     text.length := 0
     template #(x) -> text.push(x), {-test}
-    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world! Fail"
+    expect(text.join("").trim().replace(r"\s+"g, " ")).to.equal "Hello, world! Fail {{ name }}"
   
   it "allows generators with yield statements", #
     let template = gorilla.eval-sync """

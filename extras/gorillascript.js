@@ -31514,7 +31514,7 @@
         writeFileWithMkdirp = _ref.writeFileWithMkdirp;
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.8.24";
+        exports.version = "0.8.25";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -31859,6 +31859,8 @@
                   parseOptions.embeddedCloseWrite = options.embeddedCloseWrite;
                   parseOptions.embeddedOpenComment = options.embeddedOpenComment;
                   parseOptions.embeddedCloseComment = options.embeddedCloseComment;
+                  parseOptions.embeddedOpenLiteral = options.embeddedOpenLiteral;
+                  parseOptions.embeddedCloseLiteral = options.embeddedCloseLiteral;
                 }
                 _state = sync ? 9 : 10;
                 break;
@@ -72121,31 +72123,27 @@
                       } else if (property === "get" || property === "set") {
                         if (i > 0 && pairs[i - 1].property != null && this.eq(key, pairs[i - 1].key) && pairs[i - 1].property !== property && ((_ref = pairs[i - 1].property) === "get" || _ref === "set")) {
                           descriptor = __node(26, value, [
-                            { key: __wrap(pairs[i - 1].property), value: __wrap(pairs[i - 1].value), property: void 0 },
-                            { key: __wrap(property), value: __wrap(value), property: void 0 },
+                            { key: __wrap(pairs[i - 1].property), value: __wrap(pairs[i - 1].value) },
+                            { key: __wrap(property), value: __wrap(value) },
                             {
                               key: __node(12, value, "enumerable"),
-                              value: __const("true"),
-                              property: void 0
+                              value: __const("true")
                             },
                             {
                               key: __node(12, value, "configurable"),
-                              value: __const("true"),
-                              property: void 0
+                              value: __const("true")
                             }
                           ]);
                         } else {
                           descriptor = __node(26, value, [
-                            { key: __wrap(property), value: __wrap(value), property: void 0 },
+                            { key: __wrap(property), value: __wrap(value) },
                             {
                               key: __node(12, value, "enumerable"),
-                              value: __const("true"),
-                              property: void 0
+                              value: __const("true")
                             },
                             {
                               key: __node(12, value, "configurable"),
-                              value: __const("true"),
-                              property: void 0
+                              value: __const("true")
                             }
                           ]);
                         }
