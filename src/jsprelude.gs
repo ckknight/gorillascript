@@ -3792,22 +3792,21 @@ macro to-promise!(node) with type: \promise
       ASTE __to-promise $func, void, $args
 
 define helper __generator = #(func) -> #
-  let mutable data as []|null = [this, __slice.call(arguments)]
+  let mutable self = this
+  let mutable args as []|null = arguments
   {
     iterator() -> this
-    send()@
-      {
-        +done
-        value: if data
-          let tmp = data
-          data := null
-          func.apply tmp[0], tmp[1]
-        else
-          void
-      }
+    send()
+      let mutable value = void
+      if args
+        value := func@ self, ...args
+        self := null
+        args := null
+      { +done, value }
     next() -> @send()
     throw(err)
-      data := null
+      self := null
+      args := null
       throw err
   }
 
