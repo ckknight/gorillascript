@@ -5,8 +5,6 @@ let {node-to-type, map, map-async} = require './parser-utils'
 let {quote, is-primordial} = require './utils'
 let inspect = require('util')?.inspect
 
-const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length // TODO: get the value from parser.gs or something
-
 let simplify-array(mutable array as [])
   if array.length == 0
     array

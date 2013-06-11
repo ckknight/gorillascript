@@ -9,7 +9,6 @@ let {string-repeat} = require('./utils')
 let {add-param-to-scope} = require('./parser-utils')
 let {quote, unique, get-package-version} = require './utils'
 
-const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 const EMBED_OPEN_DEFAULT = "<%"
 const EMBED_CLOSE_DEFAULT = "%>"
 const EMBED_OPEN_WRITE_DEFAULT = "<%="
