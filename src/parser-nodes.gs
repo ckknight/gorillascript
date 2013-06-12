@@ -1446,9 +1446,6 @@ node-class SyntaxChoiceNode(choices as [Node] = [])
 node-class SyntaxManyNode(inner as Node, multiplier as String)
 node-class SyntaxParamNode(ident as Node, as-type as Node|void)
 node-class SyntaxSequenceNode(params as [Node] = [])
-node-class ThisNode
-  def cacheable = false
-  def _is-noop() -> true
 node-class ThrowNode(node as Node)
   def type() -> Type.none
   def is-statement() -> true

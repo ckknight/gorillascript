@@ -40,7 +40,6 @@ const ParserNodeType = {
   SyntaxMany:     35
   SyntaxParam:    36
   SyntaxSequence: 37
-  This:           38
   Throw:          39
   Tmp:            40
   TmpWrapper:     41

@@ -40,7 +40,6 @@ let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
 let SyntaxSequenceNode = Node.SyntaxSequence
-let ThisNode = Node.This
 let ThrowNode = Node.Throw
 let TmpNode = Node.Tmp
 let TmpWrapperNode = Node.TmpWrapper
@@ -399,7 +398,7 @@ class MacroContext
     else if node instanceof LispyNode
       node.is-call
     else
-      node not instanceofsome [IdentNode, TmpNode, ThisNode] and not (node instanceof BlockNode and node.nodes.length == 0)
+      node not instanceofsome [IdentNode, TmpNode] and not (node instanceof BlockNode and node.nodes.length == 0)
   
   def is-noop(mutable node)
     node := @real node
@@ -441,7 +440,9 @@ class MacroContext
     node := @real node
     @is-type-union(node) and node.types
   
-  def is-this(node) -> @real(node) instanceof ThisNode
+  def is-this(mutable node)
+    node := @real node
+    node instanceof LispyNode and node.is-ident and node.name == \this
   def is-arguments(mutable node)
     node := @real node
     node instanceof LispyNode and node.is-ident and node.name == \arguments

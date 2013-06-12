@@ -54,7 +54,6 @@ let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
 let SyntaxSequenceNode = Node.SyntaxSequence
-let ThisNode = Node.This
 let ThrowNode = Node.Throw
 let TmpNode = Node.Tmp
 let TmpWrapperNode = Node.TmpWrapper
@@ -2015,16 +2014,16 @@ let retain-indent(rule as ->) -> #(parser, index)
       indent.pop()
 
 define ThisLiteral = word("this") |> mutate #(, parser, index)
-  parser.This index
+  LSymbol.ident index, parser.scope, \this
 
 define ThisShorthandLiteral = with-space(AtSignChar) |> mutate #(, parser, index)
-  parser.This index
+  LSymbol.ident index, parser.scope, \this
 
 define ArgumentsLiteral = word("arguments") |> mutate #(, parser, index)
   LSymbol.ident index, parser.scope, \arguments
 
-define ThisOrShorthandLiteral = one-of<ThisNode>(ThisLiteral, ThisShorthandLiteral)
-let ThisOrShorthandLiteralPeriod = one-of<ThisNode>(
+define ThisOrShorthandLiteral = one-of<LispyNode.Symbol>(ThisLiteral, ThisShorthandLiteral)
+let ThisOrShorthandLiteralPeriod = one-of<LispyNode.Symbol>(
   sequential(
     [\this, ThisLiteral]
     Period)
@@ -5148,7 +5147,7 @@ class Parser
         let {ident} = param
         let value = if ident instanceof IdentNode
           [\ident, ident.name]
-        else if ident instanceof ThisNode
+        else if ident instanceof LSymbol and ident.is-ident and ident.name == \this
           [\this]
         else
           throw Error()
@@ -5190,7 +5189,7 @@ class Parser
       this: #(scope, ...as-type)
         SyntaxParamNode 0,
           scope
-          ThisNode 0, scope
+          LSymbol.ident 0, scope, \this
           deserialize-param-type(as-type, scope)
     #(params, scope as Scope)
       return for param in fix-array(params)
@@ -5243,7 +5242,7 @@ class Parser
         let {ident} = param
         let key = if ident instanceof IdentNode
           ident.name
-        else if ident instanceof ThisNode
+        else if ident instanceof LSymbol and ident.is-ident and ident.name == \this
           \this
         else
           throw Error "Don't know how to handle ident type: $(typeof! ident)"

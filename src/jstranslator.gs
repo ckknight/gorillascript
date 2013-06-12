@@ -1874,14 +1874,6 @@ let translators =
 
     t-result
 
-  [ParserNodeType.This]: #(node, scope, location)
-    #
-      scope.used-this := true
-      if scope.bound
-        ast.Ident get-pos(node), \_this
-      else
-        ast.This get-pos(node)
-
   [ParserNodeType.Throw]: #(node, scope, location, unassigned)
     let t-node = translate node.node, scope, \expression, unassigned
     #-> ast.Throw get-pos(node), t-node()
@@ -1925,11 +1917,18 @@ let translators =
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch
   case node.is-value
-    #-> ast.Const get-pos(node), node.value
+    # ast.Const get-pos(node), node.value
   case node.is-ident
     switch node.name
     case \arguments
-      #-> ast.Arguments get-pos(node)
+      # ast.Arguments get-pos(node)
+    case \this
+      #
+        scope.used-this := true
+        if scope.bound
+          ast.Ident get-pos(node), \_this
+        else
+          ast.This get-pos(node)
 
 let translate(node as Object, scope as Scope, location as String, unassigned)
   if node instanceof LispyNode
