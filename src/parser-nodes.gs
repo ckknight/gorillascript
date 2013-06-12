@@ -385,10 +385,6 @@ node-class AccessMultiNode(parent as Node, elements as [Node] = [])
       TmpWrapperNode(@index, @scope, result, tmp-ids)
     else
       result
-node-class ArgsNode
-  def type() -> Type.args
-  def cacheable = false
-  def _is-noop() -> true
 node-class ArrayNode(elements as [Node] = [])
   def type() -> Type.array
   def _reduce(o)

@@ -8,7 +8,6 @@ let {node-to-type, add-param-to-scope} = require './parser-utils'
 
 let AccessNode = Node.Access
 let AccessMultiNode = Node.AccessMulti
-let ArgsNode = Node.Args
 let ArrayNode = Node.Array
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
@@ -400,7 +399,7 @@ class MacroContext
     else if node instanceof LispyNode
       node.is-call
     else
-      node not instanceofsome [IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
+      node not instanceofsome [IdentNode, TmpNode, ThisNode] and not (node instanceof BlockNode and node.nodes.length == 0)
   
   def is-noop(mutable node)
     node := @real node
@@ -445,7 +444,7 @@ class MacroContext
   def is-this(node) -> @real(node) instanceof ThisNode
   def is-arguments(mutable node)
     node := @real node
-    node instanceof ArgsNode
+    node instanceof LispyNode and node.is-ident and node.name == \arguments
   
   def is-def(node) -> @real(node) instanceof DefNode
   def is-assign(node) -> @real(node) instanceof AssignNode
@@ -565,12 +564,42 @@ class MacroContext
           LispyNode.Value obj.index, obj.name
         ]
     else if obj instanceof LispyNode
-      if obj.is-value
+      switch
+      case obj.is-value
         CallNode obj.index, scope,
           IdentNode obj.index, scope, \__value
           [
             position or LispyNode.Value obj.index, void
             obj
+          ]
+      case obj.is-symbol
+        CallNode obj.index, scope,
+          IdentNode obj.index, scope, \__symbol
+          [
+            position or LispyNode.Value obj.index, void
+            ...(switch
+            case obj.is-ident
+              [
+                LispyNode.Value obj.index, \ident
+                LispyNode.Value obj.index, obj.name
+              ]
+            case obj.is-tmp
+              [
+                LispyNode.Value obj.index, \tmp
+                LispyNode.Value obj.index, obj.id
+                LispyNode.Value obj.index, obj.name
+              ]
+            case obj.is-internal
+              [
+                LispyNode.Value obj.index, \internal
+                LispyNode.Value obj.index, obj.name
+              ]
+            case obj.is-operator
+              [
+                LispyNode.Value obj.index, \operator
+                LispyNode.Value obj.index, obj.operator-type
+                LispyNode.Value obj.index, obj.name
+              ])
           ]
     else if obj instanceof Node
       if obj.constructor == Node
@@ -610,6 +639,21 @@ class MacroContext
     else
       @index
     LispyNode.Value index, value
+  
+  def make-lispy-symbol(from-position, symbol-type, ...args)
+    let index = if from-position and is-number! from-position.index
+      from-position.index
+    else
+      @index
+    switch symbol-type
+    case \internal
+      LispyNode.Symbol[args[0]](index)
+    case \ident
+      LispyNode.Symbol.ident(index, @scope(), args[0])
+    case \tmp
+      LispyNode.Symbol.tmp(index, @scope(), args[0], args[1])
+    case \operator
+      LispyNode.Symbol[args[0]](index, args[1])
   
   def node(type-id as Number, from-position, ...args)
     if type-id == ParserNodeType.MacroAccess

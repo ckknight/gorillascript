@@ -7,7 +7,6 @@ const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 const ParserNodeType = {
   Access:          1
   AccessMulti:     2
-  Args:            3
   Array:           4
   Assign:          5
   Binary:          6

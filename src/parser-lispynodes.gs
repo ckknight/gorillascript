@@ -25,8 +25,8 @@ class Node extends OldNode
   def reduce() -> this
   def do-wrap() -> this
   def type() -> Type.any
-  def walk
-  def walk-async
+  def walk() -> this
+  def walk-async(f, context, callback) -> callback null, this
 
 /**
  * Represents a constant primitive value such as a number, string, boolean,
@@ -56,9 +56,6 @@ class Value extends Node
   
   def inspect()
     "Value($(to-JS-source @value))"
-  
-  def walk() -> this
-  def walk-async(f, context, callback) -> callback null, this
 
 /**
  * Represents a reference of some kind, such as a named or unnamed (i.e. tmp)
@@ -155,16 +152,16 @@ class Symbol extends Node
    * Represents a temporary identifier
    */
   class Tmp extends Symbol
-    def constructor(@index as Number, @scope, @id as Number) ->
+    def constructor(@index as Number, @scope, @id as Number, @name as String) ->
     
     def is-tmp = true
     def is-ident-or-tmp = true
     
     def inspect()
-      "Symbol.tmp($(@id))"
+      "Symbol.tmp($(@id), $(to-JS-source @name))"
     
-    Symbol.tmp := #(index, scope, name)
-      Tmp index, scope, name
+    Symbol.tmp := #(index, scope, id, name)
+      Tmp index, scope, id, name
   
   /**
    * Represents a JavaScript unary or binary operator
@@ -182,6 +179,7 @@ class Symbol extends Node
       def constructor(@index as Number, @name as String) ->
       
       def is-binary = true
+      def operator-type = \binary
       
       def inspect()
         "Symbol.binary[$(to-JS-source @name)]"
@@ -190,6 +188,7 @@ class Symbol extends Node
       def constructor(@index as Number, @name as String) ->
       
       def is-unary = true
+      def operator-type = \unary
       
       def inspect()
         "Symbol.unary[$(to-JS-source @name)]"
@@ -198,6 +197,7 @@ class Symbol extends Node
       def constructor(@index as Number, @name as String) ->
       
       def is-assign = true
+      def operator-type = \assign
       
       def inspect()
         "Symbol.assign[$(to-JS-source @name)]"
@@ -272,6 +272,8 @@ class Call extends Node
   def constructor(@index as Number, @scope, @func as Node, ...@args as [Node]) ->
   
   def is-call = true
+  def walk
+  def walk-async
 
 module.exports := Node <<< {
   Value

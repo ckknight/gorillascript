@@ -1,7 +1,7 @@
 import 'shared.gs'
 
 require! LispyNode: './parser-lispynodes'
-let {Value} = LispyNode
+let {Value, Symbol: LSymbol} = LispyNode
 require! Node: './parser-nodes'
 require! Scope: './parser-scope'
 require! MacroContext: './parser-macrocontext'
@@ -22,7 +22,6 @@ const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
 let AccessNode = Node.Access
 let AccessMultiNode = Node.AccessMulti
-let ArgsNode = Node.Args
 let ArrayNode = Node.Array
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
@@ -2022,7 +2021,7 @@ define ThisShorthandLiteral = with-space(AtSignChar) |> mutate #(, parser, index
   parser.This index
 
 define ArgumentsLiteral = word("arguments") |> mutate #(, parser, index)
-  parser.Args index
+  LSymbol.ident index, parser.scope, \arguments
 
 define ThisOrShorthandLiteral = one-of<ThisNode>(ThisLiteral, ThisShorthandLiteral)
 let ThisOrShorthandLiteralPeriod = one-of<ThisNode>(
@@ -5117,6 +5116,7 @@ class Parser
         @Param index, (@Ident index, \__node), void, false, true, void
         @Param index, (@Ident index, \__const), void, false, true, void
         @Param index, (@Ident index, \__value), void, false, true, void
+        @Param index, (@Ident index, \__symbol), void, false, true, void
       ]
       body
       true
@@ -5638,7 +5638,7 @@ class Parser
             throw parser.build-error "Trying to assign with $(data.op) to immutable variable '$(macro-context.name data.left)'", data.left
         let mutable result = void
         try
-          result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.node, macro-context@.get-const, macro-context@.make-lispy-value
+          result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.node, macro-context@.get-const, macro-context@.make-lispy-value, macro-context@.make-lispy-symbol
         catch e as ReferenceError
           throw e
         catch e as MacroError

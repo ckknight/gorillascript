@@ -16815,7 +16815,7 @@
                     __bind(macroContext, "getConst")
                   );
                 } catch (e) {
-                  if (e instanceof ReferenceError) {
+                  if (e instanceof ReferenceError||true) {
                     throw e;
                   } else if (e instanceof MacroError) {
                     pos = parser.getPosition(index);
@@ -31616,7 +31616,7 @@
                   try {
                     parsedPreludeMacros = parser.deserializePrelude(cachePrelude);
                   } catch (e) {
-                    if (e instanceof ReferenceError) {
+                    if (e instanceof ReferenceError||true) {
                       throw e;
                     } else {
                       console.error("Error deserializing prelude, reloading. " + String(e));

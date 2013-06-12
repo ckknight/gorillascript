@@ -1336,9 +1336,6 @@ let translators =
     let t-child = translate node.child, scope, \expression, unassigned
     #-> ast.Access(get-pos(node), t-parent(), t-child())
 
-  [ParserNodeType.Args]: #(node, scope, location)
-    #-> ast.Arguments(get-pos(node))
-
   [ParserNodeType.Array]: #(node, scope, location, unassigned)
     let t-arr = array-translate get-pos(node), node.elements, scope, true, unassigned
     #-> t-arr()
@@ -1929,6 +1926,10 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
   switch
   case node.is-value
     #-> ast.Const get-pos(node), node.value
+  case node.is-ident
+    switch node.name
+    case \arguments
+      #-> ast.Arguments get-pos(node)
 
 let translate(node as Object, scope as Scope, location as String, unassigned)
   if node instanceof LispyNode
