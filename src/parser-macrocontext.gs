@@ -1,6 +1,7 @@
 import 'shared.gs'
 
 require! Node: './parser-nodes'
+require! LispyNode: './parser-lispynodes'
 require! Type: './types'
 require! Scope: './parser-scope'
 let {node-to-type, add-param-to-scope} = require './parser-utils'
@@ -15,7 +16,6 @@ let BlockNode = Node.Block
 let BreakNode = Node.Break
 let CallNode = Node.Call
 let CommentNode = Node.Comment
-let ConstNode = Node.Const
 let ContinueNode = Node.Continue
 let DebuggerNode = Node.Debugger
 let DefNode = Node.Def
@@ -153,8 +153,11 @@ class MacroContext
   def eq(mutable alpha, mutable bravo)
     alpha := @real alpha
     bravo := @real bravo
-    if alpha instanceof ConstNode
-      bravo instanceof ConstNode and alpha.value == bravo.value
+    if alpha instanceof LispyNode
+      if alpha.is-value and bravo.is-value
+        alpha.value == bravo.value
+      else
+        false
     else if alpha instanceof IdentNode
       bravo instanceof IdentNode and alpha.name == bravo.name
     else
@@ -225,7 +228,7 @@ class MacroContext
       if expanded.is-const()
         expanded.const-value()
   def const(value)
-    @parser.Const @index, value
+    LispyNode.Value @index, value
   
   def is-spread(node) -> @real(node) instanceof SpreadNode
   def spread-subnode(mutable node)
@@ -392,7 +395,12 @@ class MacroContext
   
   def is-complex(mutable node)
     node := @real node
-    node? and node not instanceofsome [ConstNode, IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
+    if not node?
+      false
+    else if node instanceof LispyNode
+      node.is-call
+    else
+      node not instanceofsome [IdentNode, TmpNode, ThisNode, ArgsNode] and not (node instanceof BlockNode and node.nodes.length == 0)
   
   def is-noop(mutable node)
     node := @real node
@@ -529,8 +537,10 @@ class MacroContext
       node instanceof NothingNode
   
   let constify-object(position, obj, index, scope as Scope)
-    if not is-object! obj or obj instanceof RegExp
-      ConstNode index, scope, obj
+    if obj == null or typeof obj in [\string, \number, \boolean, \undefined]
+      LispyNode.Value index, obj
+    else if obj instanceof RegExp
+      RegexpNode index, scope, obj.source, "$(if obj.global then 'g' else '')$(if obj.ignore-case then 'i' else '')$(if obj.multiline then 'm' else '')$(if obj.sticky then 'y' else '')"
     else if is-array! obj
       ArrayNode index, scope, for item in obj
         constify-object position, item, index, scope
@@ -552,8 +562,16 @@ class MacroContext
       CallNode obj.index, scope,
         IdentNode obj.index, scope, \__const
         [
-          ConstNode obj.index, scope, obj.name
+          LispyNode.Value obj.index, obj.name
         ]
+    else if obj instanceof LispyNode
+      if obj.is-value
+        CallNode obj.index, scope,
+          IdentNode obj.index, scope, \__value
+          [
+            position or LispyNode.Value obj.index, void
+            obj
+          ]
     else if obj instanceof Node
       if obj.constructor == Node
         throw Error "Cannot constify a raw node"
@@ -561,15 +579,17 @@ class MacroContext
       CallNode obj.index, scope,
         IdentNode obj.index, scope, \__node
         [
-          ConstNode obj.index, scope, obj.type-id
-          position or ConstNode obj.index, scope, void
+          LispyNode.Value obj.index, obj.type-id
+          position or LispyNode.Value obj.index, void
           ...(for item in obj._to-JSON()
             constify-object position, item, obj.index, scope)
         ]
-    else
+    else if obj.constructor == Object
       ObjectNode index, scope, for k, v of obj
-        key: ConstNode index, scope, k
+        key: LispyNode.Value index, k
         value: constify-object position, v, index, scope
+    else
+      throw Error "Trying to constify a $(typeof! obj)"
   @constify-object := constify-object
   
   def wrap(value)
@@ -579,10 +599,17 @@ class MacroContext
       value
     else if not value?
       NothingNode(@index, @scope())
-    else if value instanceof RegExp or typeof value in [\string, \boolean, \number]
-      ConstNode(@index, @scope(), value)
+    else if typeof value in [\string, \boolean, \number]
+      LispyNode.Value @index, value
     else
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
+  
+  def make-lispy-value(from-position, value)
+    let index = if from-position and is-number! from-position.index
+      from-position.index
+    else
+      @index
+    LispyNode.Value index, value
   
   def node(type-id as Number, from-position, ...args)
     if type-id == ParserNodeType.MacroAccess
@@ -606,7 +633,7 @@ class MacroContext
   
   let to-literal-node(obj)
     if is-null! obj or typeof obj in [\undefined, \boolean, \number, \string]
-      ConstNode 0, @scope(), obj
+      LispyNode.Value 0, obj
     else if is-array! obj
       ArrayNode 0, @scope(), for item in obj; to-literal-node@ this, item
     else if obj.constructor == Object

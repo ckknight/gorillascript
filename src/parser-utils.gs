@@ -21,18 +21,22 @@ let node-to-type = do
   }
   #(node)
     require! Node: './parser-nodes'
+    require! LispyNode: './parser-lispynodes'
     if node not instanceof Node
       throw TypeError("Expected a Node, got $(typeof! node)")
-    if node instanceof Node.Ident
-      ident-to-type![node.name] or Type.any // TODO: possibly store types on scope
-    else if node instanceof Node.Const
-      if is-null! node.value
-        Type.null
-      else if is-void! node.value
-        Type.undefined
+    if node instanceof LispyNode
+      if node.is-value
+        if is-null! node.value
+          Type.null
+        else if is-void! node.value
+          Type.undefined
+        else
+          // shouldn't really occur
+          Type.any
       else
-        // shouldn't really occur
-        Type.any
+        throw Error "Unknown LispyNode: $(typeof! node)"
+    else if node instanceof Node.Ident
+      ident-to-type![node.name] or Type.any // TODO: possibly store types on scope
     else if node instanceof Node.TypeGeneric
       let basetype = node-to-type(node.basetype)
       let args = for arg in node.args; node-to-type(arg)
@@ -48,7 +52,7 @@ let node-to-type = do
     else if node instanceof Node.TypeObject
       let data = {}
       for {key, value} in node.pairs
-        if key instanceof Node.Const
+        if key instanceof LispyNode and key.is-value
           data[key.value] := node-to-type(value)
       Type.make-object data
     else
@@ -85,11 +89,12 @@ let map-async(array, func, context, callback)
 
 let add-param-to-scope(scope, param, force-mutable)!
   require! Node: './parser-nodes'
+  require! LispyNode: './parser-lispynodes'
   if param instanceof Node.Param
     if param.ident instanceofsome [Node.Ident, Node.Tmp]
       scope.add param.ident, force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else if param.ident instanceof Node.Access
-      if param.ident.child not instanceof Node.Const or not is-string! param.ident.child.value
+      if not param.ident.child.is-const-type(\string)
         throw Error "Expected constant access: $(typeof! param.ident.child)"
       scope.add Node.Ident(param.index, param.scope, param.ident.child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else

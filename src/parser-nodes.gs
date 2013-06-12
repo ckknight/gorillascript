@@ -5,6 +5,9 @@ let {node-to-type, map, map-async} = require './parser-utils'
 let {quote, is-primordial} = require './utils'
 let inspect = require('util')?.inspect
 
+let LispyNode_Value(index, value)
+  require('./parser-lispynodes').Value(index, value)
+
 let simplify-array(mutable array as [])
   if array.length == 0
     array
@@ -47,13 +50,13 @@ class Node
   def _is-noop(o) -> false
   def is-statement() -> false
   def rescope(new-scope)
-    if @scope == new-scope
+    if not @scope or @scope == new-scope
       return this
     let old-scope = @scope
     @scope := new-scope
     let walker(node)
       let node-scope = node.scope
-      if node-scope == new-scope
+      if not node-scope or node-scope == new-scope
         node
       else if node-scope == old-scope
         node.rescope new-scope
@@ -283,7 +286,7 @@ node-class AccessNode(parent as Node, child as Node)
         if parent.cacheable and not cached-parent?
           cached-parent := o.make-tmp node.index, \ref, parent.type(o)
           cached-parent.scope := node.scope
-        AccessNode node.index, node.scope, cached-parent ? parent, ConstNode node.index, node.scope, \length
+        AccessNode node.index, node.scope, cached-parent ? parent, LispyNode_Value node.index, \length
       else if node instanceof AccessNode
         let node-parent = replace-length-ident node.parent
         if node-parent != node.parent
@@ -307,12 +310,12 @@ node-class AccessNode(parent as Node, child as Node)
         if Object(p-value) haskey c-value
           let value = p-value[c-value]
           if is-null! value or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
-            return ConstNode @index, @scope, value
+            return LispyNode_Value @index, value
       else if parent instanceof ArrayNode
         if c-value == \length
-          return ConstNode @index, @scope, parent.elements.length
+          return LispyNode_Value @index, parent.elements.length
         else if is-number! c-value
-          return parent.elements[c-value] or ConstNode @index, @scope, void
+          return parent.elements[c-value] or LispyNode_Value @index, void
       else if parent instanceof ObjectNode
         for {key, value} in parent.pairs
           if key.const-value() == c-value
@@ -324,15 +327,15 @@ node-class AccessNode(parent as Node, child as Node)
         if inclusive.is-const()
           if inclusive.const-value()
             end := if end.is-const() and is-number! end.const-value()
-              ConstNode end.index, end.scope, end.const-value() + 1 or Infinity
+              LispyNode_Value end.index, end.const-value() + 1 or Infinity
             else
               BinaryNode end.index, end.scope,
                 BinaryNode end.index, end.scope,
                   end
                   "+"
-                  ConstNode inclusive.index, inclusive.scope, 1
+                  LispyNode_Value inclusive.index, 1
                 "||"
-                ConstNode end.index, end.scope, Infinity
+                LispyNode_Value end.index, Infinity
         else
           end := IfNode end.index, end.scope,
             inclusive
@@ -340,9 +343,9 @@ node-class AccessNode(parent as Node, child as Node)
               BinaryNode end.index, end.scope,
                 end
                 "+"
-                ConstNode inclusive.index, inclusive.scope, 1
+                LispyNode_Value inclusive.index, 1
               "||"
-              ConstNode end.index, end.scope, Infinity
+              LispyNode_Value end.index, Infinity
             end
       let args = [parent]
       let has-end = not end.is-const() or end.const-value() not in [void, Infinity]
@@ -522,7 +525,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if x.const-value() == "" and y.type(o).is-subset-of(Type.string)
           y
         else if is-string! x.const-value() and y instanceof BinaryNode and y.op == "+" and y.left.is-const() and is-string! y.left.const-value()
-          BinaryNode @index, @scope, ConstNode(x.index, @scope, x.const-value() & y.left.const-value()), "+", y.right
+          BinaryNode @index, @scope, LispyNode_Value(x.index, x.const-value() & y.left.const-value()), "+", y.right
         else if x.const-value() is NaN
           BlockNode @index, @scope, [y, x]
       "-": #(x, y)
@@ -561,18 +564,18 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         if y.const-value() == 0 and x.type(o).is-subset-of(Type.number)
           UnaryNode @index, @scope, "+", x
         else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
-          BinaryNode @index, @scope, x, "-", ConstNode(y.index, @scope, -y.const-value())
+          BinaryNode @index, @scope, x, "-", LispyNode_Value(y.index, -y.const-value())
         else if y.const-value() == "" and x.type(o).is-subset-of(Type.string)
           x
         else if is-string! y.const-value() and x instanceof BinaryNode and x.op == "+" and x.right.is-const() and is-string! x.right.const-value()
-          BinaryNode @index, @scope, x.left, "+", ConstNode(x.right.index, @scope, x.right.const-value() & y.const-value())
+          BinaryNode @index, @scope, x.left, "+", LispyNode_Value(x.right.index, x.right.const-value() & y.const-value())
         else if y.const-value() is NaN
           BlockNode @index, @scope, [x, y]
       "-": #(x, y, o)
         if y.const-value() == 0
           UnaryNode @index, @scope, "+", x
         else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
-          BinaryNode @index, @scope, x, "+", ConstNode(y.index, @scope, -y.const-value())
+          BinaryNode @index, @scope, x, "+", LispyNode_Value(y.index, -y.const-value())
         else if y.const-value() is NaN
           BlockNode @index, @scope, [x, y]
       "<<": right-const-nan
@@ -655,7 +658,7 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       let op = @op
       if left.is-const()
         if right.is-const() and const-ops ownskey op
-          return ConstNode @index, @scope, const-ops[op](left.const-value(), right.const-value())
+          return LispyNode_Value @index, const-ops[op](left.const-value(), right.const-value())
         return? left-const-ops![op]@(this, left, right, o)
       if right.is-const()
         return? right-const-ops![op]@(this, left, right, o)
@@ -902,13 +905,13 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
             return func-type.args[0]
       else if func instanceof AccessNode
         let {parent, child} = func
-        if child instanceof ConstNode
-          if child.value in [\call, \apply]
+        if child.is-const()
+          if child.const-value() in [\call, \apply]
             let parent-type = parent.type(o)
             if parent-type.is-subset-of(Type.function)
               return parent-type.args[0]
           else if parent instanceof IdentNode
-            return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
+            return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.const-value()]
           // else check the type of parent, maybe figure out its methods
       Type.any
   def _reduce = do
@@ -977,7 +980,7 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
               try
                 let value = GLOBAL[func.name]@ void, ...const-args
                 if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
-                  return ConstNode @index, @scope, value
+                  return LispyNode_Value @index, value
               catch e
                 // TODO: do something here to alert the user
                 void
@@ -990,7 +993,7 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
                 try
                   let value = p-value[c-value] ...const-args
                   if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
-                    return ConstNode @index, @scope, value
+                    return LispyNode_Value @index, value
                 catch e
                   // TODO: do something here to alert the user
                   void
@@ -999,7 +1002,7 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
                 try
                   let value = GLOBAL[parent.name][c-value] ...const-args
                   if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
-                    return ConstNode @index, @scope, value
+                    return LispyNode_Value @index, value
                 catch e
                   // TODO: do something here to alert the user
                   void
@@ -1016,27 +1019,6 @@ node-class CommentNode(text as String)
   def is-const() -> true
   def const-value() -> void
   def _is-noop() -> true
-node-class ConstNode(value as Number|String|Boolean|void|null)
-  def type()
-    let value = @value
-    if is-null! value
-      Type.null
-    else
-      switch typeof value
-      case \number; Type.number
-      case \string; Type.string
-      case \boolean; Type.boolean
-      case \undefined; Type.undefined
-      default
-        throw Error("Unknown type for $(String value)")
-  def cacheable = false
-  def is-const() -> true
-  def const-value() -> @value
-  def is-const-type(type) -> type == typeof @value
-  def is-const-value(value) -> value == @value
-  def _is-noop() -> true
-  def inspect(depth) -> "ConstNode($(inspect @value, null, if depth? then depth - 1 else null))"
-  def _to-JSON() -> [@value]
 node-class ContinueNode(label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
@@ -1052,10 +1034,10 @@ node-class DefNode(left as Node, right as Node|void)
 node-class EmbedWriteNode(text as Node, escape as Boolean)
 node-class EvalNode(code as Node)
   let simplifiers = {
-    "true": #-> ConstNode @index, @scope, true
-    "false": #-> ConstNode @index, @scope, false
-    "void 0": #-> ConstNode @index, @scope, void
-    "null": #-> ConstNode @index, @scope, null
+    "true": #-> LispyNode_Value @index, true
+    "false": #-> LispyNode_Value @index, false
+    "void 0": #-> LispyNode_Value @index, void
+    "null": #-> LispyNode_Value @index, null
   }
   def _reduce(o)
     let code = @code.reduce(o).do-wrap()
@@ -1068,7 +1050,7 @@ node-class EvalNode(code as Node)
       EvalNode @index, @scope, code
     else
       this
-node-class ForNode(init as Node = NothingNode(0, scope), test as Node = ConstNode(0, scope, true), step as Node = NothingNode(0, scope), body as Node, label as IdentNode|TmpNode|null)
+node-class ForNode(init as Node = NothingNode(0, scope), test as Node = LispyNode_Value(0, true), step as Node = NothingNode(0, scope), body as Node, label as IdentNode|TmpNode|null)
   def type() -> Type.undefined
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
@@ -1259,7 +1241,7 @@ node-class MacroConstNode(name as String)
           throw Error("Unknown type for $(String c.value)")
   def _is-noop(o) -> true
   def to-const(o)
-    ConstNode @index, @scope, o.get-const(@name)?.value
+    LispyNode_Value @index, o.get-const(@name)?.value
 node-class NothingNode
   def type() -> Type.undefined
   def cacheable = false
@@ -1339,8 +1321,8 @@ Node.object := #(index, pairs, prototype)
   let known-keys = []
   let mutable last-property-pair = null
   for {key, property} in pairs
-    if key instanceof ConstNode
-      let key-value = String key.value
+    if key.is-const()
+      let key-value = String key.const-value()
       if property in [\get, \set] and last-property-pair and last-property-pair.property != property and last-property-pair.key == key-value
         last-property-pair := null
         continue
@@ -1365,13 +1347,13 @@ node-class RegexpNode(source as Node, flags as String = "")
     if not source.is-const()
       CallNode @index, @scope, IdentNode(@index, @scope, "RegExp"), [
         source
-        ConstNode @index, @scope, @flags
+        LispyNode_Value @index, @flags
       ]
     else if source != @source
       RegexpNode @index, @scope, source, @flags
     else
       this
-node-class ReturnNode(node as Node = ConstNode(index, scope, void))
+node-class ReturnNode(node as Node = LispyNode_Value(index, void))
   def type(o) -> @node.type(o)
   def is-statement() -> true
   def _reduce(o)
@@ -1390,25 +1372,6 @@ node-class SpreadNode(node as Node)
       SpreadNode @index, @scope, node
     else
       this
-Node.string := #(index, mutable parts as [Node])
-  let concat-op = @get-macro-by-label(\string-concat)
-  if not concat-op
-    throw Error "Cannot use string interpolation until the string-concat operator has been defined"
-  if parts.length == 0
-    @Const index, ""
-  else if parts.length == 1
-    concat-op.func {
-      left: @Const index, ""
-      op: ""
-      right: parts[0]
-    }, this, index
-  else
-    for reduce part in parts[1 to -1], current = parts[0]
-      concat-op.func {
-        left: current
-        op: ""
-        right: part
-      }, this, index
 
 node-class SuperNode(child as Node|void, args as [Node] = [])
   def _reduce(o)
@@ -1509,7 +1472,7 @@ node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def type() -> @_type
   def _is-noop() -> true
   def _to-JSON()
-    if @_type == Type.any
+    if @_type == Type.any or true
       [@id, @name]
     else
       [@id, @name, @_type]
@@ -1655,22 +1618,22 @@ node-class UnaryNode(op as String, node as Node)
           if node.is-noop(o)
             let type = node.type(o)
             if type.is-subset-of(Type.number)
-              ConstNode @index, @scope, \number
+              LispyNode_Value @index, \number
             else if type.is-subset-of(Type.string)
-              ConstNode @index, @scope, \string
+              LispyNode_Value @index, \string
             else if type.is-subset-of(Type.boolean)
-              ConstNode @index, @scope, \boolean
+              LispyNode_Value @index, \boolean
             else if type.is-subset-of(Type.undefined)
-              ConstNode @index, @scope, \undefined
+              LispyNode_Value @index, \undefined
             else if type.is-subset-of(Type.function)
-              ConstNode @index, @scope, \function
+              LispyNode_Value @index, \function
             else if type.is-subset-of(object-type)
-              ConstNode @index, @scope, \object
+              LispyNode_Value @index, \object
     #(o)
       let node = @node.reduce(o).do-wrap(o)
       let op = @op
       if node.is-const() and const-ops ownskey op
-        return ConstNode @index, @scope, const-ops[op](node.const-value())
+        return LispyNode_Value @index, const-ops[op](node.const-value())
       
       let result = nonconst-ops![op]@ this, node, o
       if result?

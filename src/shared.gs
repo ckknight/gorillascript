@@ -16,7 +16,6 @@ const ParserNodeType = {
   Call:            9
   Cascade:        10
   Comment:        11
-  Const:          12
   Continue:       13
   Debugger:       14
   Def:            15

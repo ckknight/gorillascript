@@ -4,6 +4,7 @@ require! ast: './jsast'
 let AstNode = ast.Node
 require! Type: './types'
 let {Node: ParserNode, MacroHolder} = require('./parser')
+require! LispyNode: './parser-lispynodes'
 let {Cache, is-primordial} = require('./utils')
 
 let needs-caching(item)
@@ -1437,8 +1438,6 @@ let translators =
   
   [ParserNodeType.Comment]: #(node, scope, location) -> #-> ast.Comment(get-pos(node), node.text)
   
-  [ParserNodeType.Const]: #(node, scope, location) -> #-> ast.Const(get-pos(node), node.value)
-  
   [ParserNodeType.Continue]: #(node, scope)
     let t-label = node.label and translate node.label, scope, \label
     #-> ast.Continue(get-pos(node), t-label?())
@@ -1610,12 +1609,6 @@ let translators =
             unless primordial-types ownskey node.name
               throw Error "Not implemented: custom type $(node.name)"
             primordial-types[node.name]
-        [ParserNodeType.Const]: #(node, scope)
-          switch node.value
-          case null; Type.null
-          case void; Type.undefined
-          default
-            throw Error "Unexpected const type: $(String node.value)"
         [ParserNodeType.TypeGeneric]: #(node, scope)
           let base = translate-type(node.basetype, scope)
           let args = for arg in node.args; translate-type(arg, scope)
@@ -1624,6 +1617,13 @@ let translators =
           for reduce type in node.types, current = Type.none
             current.union(translate-type(type))
       #(node, scope)
+        if node instanceof LispyNode
+          if node.is-value
+            switch node.value
+            case null; return Type.null
+            case void; return Type.undefined
+            default
+              throw Error "Unexpected Value type: $(String node.value)"
         unless translate-types ownskey node.type-id
           throw Error "Unknown type to translate: $(typeof! node)"
         translate-types[node.type-id](node, scope)
@@ -1925,7 +1925,14 @@ let translators =
       scope.add-variable ident, Type.any, node.is-mutable
       ast.Noop(get-pos(node))
 
+let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
+  switch
+  case node.is-value
+    #-> ast.Const get-pos(node), node.value
+
 let translate(node as Object, scope as Scope, location as String, unassigned)
+  if node instanceof LispyNode
+    return translate-lispy(node, scope, location, unassigned)
   unless translators ownskey node.type-id
     throw Error "Unable to translate unknown node type: $(typeof! node)"
   

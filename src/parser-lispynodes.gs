@@ -1,5 +1,7 @@
 import 'shared.gs'
 let {to-JS-source} = require './jsutils'
+require! Type: './types'
+require! OldNode: './parser-nodes'
 
 let capitalize(value as String)
   value.char-at(0).to-upper-case() & value.substring(1)
@@ -7,25 +9,56 @@ let capitalize(value as String)
 /**
  * Base class for the other nodes, not intended to be used on its own
  */
-class Node
+class Node extends OldNode
   def constructor()
     throw Error "Node is not intended to be initialized directly"
   
   def is-value = false
   def is-symbol = false
   def is-call = false
+  
+  def is-const() -> false
+  def is-const-value() -> false
+  def is-const-type() -> false
+  def is-literal() -> @is-const()
+  def literal-value() -> @const-value()
+  def reduce() -> this
+  def do-wrap() -> this
+  def type() -> Type.any
+  def walk
+  def walk-async
 
 /**
  * Represents a constant primitive value such as a number, string, boolean,
  * void, or null.
  */
 class Value extends Node
-  def constructor(@pos/* as Position*/, @scope, @value as Number|String|Boolean|void|null) ->
+  def constructor(@index as Number, @value as Number|String|Boolean|void|null) ->
   
   def is-value = true
   
+  def cacheable = false
+  // FIXME: maybe get rid of this
+  def const-value() -> @value
+  def is-const() -> true
+  def is-const-value(value) -> value == @value
+  def is-const-type(type) -> type == typeof @value
+  def type()
+    let value = @value
+    if value == null
+      Type.null
+    else
+      switch typeof value
+      case \number; Type.number
+      case \string; Type.string
+      case \boolean; Type.boolean
+      case \undefined; Type.undefined
+  
   def inspect()
     "Value($(to-JS-source @value))"
+  
+  def walk() -> this
+  def walk-async(f, context, callback) -> callback null, this
 
 /**
  * Represents a reference of some kind, such as a named or unnamed (i.e. tmp)
@@ -42,12 +75,14 @@ class Symbol extends Node
   def is-ident-or-tmp = false
   def is-internal = false
   def is-operator = false
+
+  def cacheable = false
   
   /**
    * Represents an compiler-internal such as `new` or `apply`
    */
   class Internal extends Symbol
-    def constructor(@pos/* as Position*/, @name as String)
+    def constructor(@index as Number, @name as String)
       @["is$(capitalize name)"] := true
     
     def inspect()
@@ -76,6 +111,7 @@ class Symbol extends Node
       \new
       \noop
       \object
+      \param
       \return
       \root
       \spread
@@ -90,14 +126,21 @@ class Symbol extends Node
     ]
     for name in internal-symbol-names
       def ["is$(capitalize name)"] = false
-      Symbol[name] := #(pos)
-        Internal pos, name
+      Symbol[name] := #(index)
+        Internal index, name
+    
+    Symbol.noop <<< {
+      const-value: #-> void
+      is-const-type: (\undefined ==)
+      is-const: #-> true
+      is-const-value: (void ==)
+    }
   
   /**
    * Represents a named binding
    */
   class Ident extends Symbol
-    def constructor(@pos/* as Position*/, @scope, @name as String) ->
+    def constructor(@index as Number, @scope, @name as String) ->
     
     def is-ident = true
     def is-ident-or-tmp = true
@@ -105,14 +148,14 @@ class Symbol extends Node
     def inspect()
       "Symbol.ident($(to-JS-source @name))"
     
-    Symbol.ident := #(pos, scope, name)
-      Ident pos, scope, name
+    Symbol.ident := #(index, scope, name)
+      Ident index, scope, name
   
   /**
    * Represents a temporary identifier
    */
   class Tmp extends Symbol
-    def constructor(@pos/* as Position*/, @scope, @id as Number) ->
+    def constructor(@index as Number, @scope, @id as Number) ->
     
     def is-tmp = true
     def is-ident-or-tmp = true
@@ -120,8 +163,8 @@ class Symbol extends Node
     def inspect()
       "Symbol.tmp($(@id))"
     
-    Symbol.tmp := #(pos, scope, name)
-      Tmp pos, scope, name
+    Symbol.tmp := #(index, scope, name)
+      Tmp index, scope, name
   
   /**
    * Represents a JavaScript unary or binary operator
@@ -136,7 +179,7 @@ class Symbol extends Node
     def is-assign = false
     
     class BinaryOperator extends Operator
-      def constructor(@pos/* as Position*/, @name as String) ->
+      def constructor(@index as Number, @name as String) ->
       
       def is-binary = true
       
@@ -144,7 +187,7 @@ class Symbol extends Node
         "Symbol.binary[$(to-JS-source @name)]"
     
     class UnaryOperator extends Operator
-      def constructor(@pos/* as Position*/, @name as String) ->
+      def constructor(@index as Number, @name as String) ->
       
       def is-unary = true
       
@@ -152,7 +195,7 @@ class Symbol extends Node
         "Symbol.unary[$(to-JS-source @name)]"
     
     class AssignOperator extends Operator
-      def constructor(@pos/* as Position*/, @name as String) ->
+      def constructor(@index as Number, @name as String) ->
       
       def is-assign = true
       
@@ -186,8 +229,8 @@ class Symbol extends Node
     ]
     Symbol.binary := {}
     for name in binary-operators
-      Symbol.binary[name] := #(pos)
-        BinaryOperator pos, name
+      Symbol.binary[name] := #(index)
+        BinaryOperator index, name
     
     let unary-operators = [
       "-"
@@ -203,8 +246,8 @@ class Symbol extends Node
     ]
     Symbol.unary := {}
     for name in unary-operators
-      Symbol.unary[name] := #(pos)
-        UnaryOperator pos, name
+      Symbol.unary[name] := #(index)
+        UnaryOperator index, name
     
     let assign-operators = [
       "="
@@ -222,11 +265,11 @@ class Symbol extends Node
     ]
     Symbol.assign := {}
     for name in assign-operators
-      Symbol.assign[name] := #(pos)
-        AssignOperator pos, name
+      Symbol.assign[name] := #(index)
+        AssignOperator index, name
 
 class Call extends Node
-  def constructor(@pos/* as Position*/, @scope, @func as Node, ...@args as [Node]) ->
+  def constructor(@index as Number, @scope, @func as Node, ...@args as [Node]) ->
   
   def is-call = true
 
@@ -234,4 +277,10 @@ module.exports := Node <<< {
   Value
   Symbol
   Call
+  Access: #(index, scope, parent, ...children)
+    for reduce child in children, current = parent
+      Call index, scope,
+        Symbol.access
+        current
+        child
 }
