@@ -693,7 +693,7 @@ node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
         changed := true
       else if reduced instanceof NothingNode
         changed := true
-      else if reduced instanceofsome [ThrowNode, ReturnNode]
+      else if reduced instanceof ReturnNode
         body.push reduced
         if reduced != node or i < len - 1
           changed := true
@@ -1435,20 +1435,6 @@ node-class SyntaxChoiceNode(choices as [Node] = [])
 node-class SyntaxManyNode(inner as Node, multiplier as String)
 node-class SyntaxParamNode(ident as Node, as-type as Node|void)
 node-class SyntaxSequenceNode(params as [Node] = [])
-node-class ThrowNode(node as Node)
-  def type() -> Type.none
-  def is-statement() -> true
-  def _reduce(o)
-    let node = @node.reduce(o).do-wrap(o)
-    if node != @node
-      ThrowNode @index, @scope, node
-    else
-      this
-  def do-wrap(o)
-    CallNode @index, @scope,
-      IdentNode @index, @scope, \__throw
-      [@node]
-  def mutate-last() -> this
 node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def cacheable = false
   def type() -> @_type

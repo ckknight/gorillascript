@@ -51,7 +51,6 @@ let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
 let SyntaxSequenceNode = Node.SyntaxSequence
-let ThrowNode = Node.Throw
 let TmpNode = Node.Tmp
 let TmpWrapperNode = Node.TmpWrapper
 let TryCatchNode = Node.TryCatch
@@ -5952,7 +5951,6 @@ for node-type in [
       'SyntaxMany',
       'SyntaxParam',
       'SyntaxSequence',
-      'Throw',
       'Tmp',
       'TmpWrapper',
       'TryCatch',

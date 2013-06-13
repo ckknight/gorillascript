@@ -37,7 +37,6 @@ const ParserNodeType = {
   SyntaxMany:     35
   SyntaxParam:    36
   SyntaxSequence: 37
-  Throw:          39
   Tmp:            40
   TmpWrapper:     41
   TryCatch:       42

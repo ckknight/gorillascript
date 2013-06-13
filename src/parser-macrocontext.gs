@@ -37,7 +37,6 @@ let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
 let SyntaxSequenceNode = Node.SyntaxSequence
-let ThrowNode = Node.Throw
 let TmpNode = Node.Tmp
 let TmpWrapperNode = Node.TmpWrapper
 let TryCatchNode = Node.TryCatch
@@ -120,7 +119,10 @@ class MacroContext
       @parser.Binary(@index, left, op, @do-wrap(right))
     result.reduce(@parser)
   def unary(op as String, node as Node = NothingNode(0, @scope())) -> @parser.Unary(@index, op, @do-wrap(node)).reduce(@parser)
-  def throw(node as Node = NothingNode(0, @scope())) -> @parser.Throw(@index, @do-wrap(node)).reduce(@parser)
+  def throw(node as Node = NothingNode(0, @scope()))
+    LispyNode.Call(@index, @scope(),
+      LispyNode.Symbol.throw @index
+      @do-wrap(node)).reduce(@parser)
   def return(node as Node|void) -> @parser.Return(@index, @do-wrap(node)).reduce(@parser)
   def yield(node as Node = NothingNode(0, @scope())) -> @parser.Yield(@index, @do-wrap(node)).reduce(@parser)
   def debugger()

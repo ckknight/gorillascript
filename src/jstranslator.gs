@@ -157,18 +157,15 @@ let make-has-generator-node = #
     let mutable result = false
     if node instanceofsome [ParserNode.Yield, ParserNode.Return]
       return true
-    else if node not instanceof ParserNode.Function
+    if node not instanceof ParserNode.Function
       let FOUND = {}
       try
         node.walk #(n)
           if has-in-loop n
             throw FOUND
           n
-      catch e
-        if e == FOUND
-          return true
-        else
-          throw e
+      catch e == FOUND
+        return true
     false
 
   let in-switch-cache = Cache<ParserNode, Boolean>()
@@ -177,9 +174,9 @@ let make-has-generator-node = #
     returnif in-loop-cache.get node
     if node instanceof LispyNode and node.is-call and node.func.is-continue
       return true
-    else if node instanceofsome [ParserNode.Yield, ParserNode.Return]
+    if node instanceofsome [ParserNode.Yield, ParserNode.Return]
       return true
-    else if node not instanceof ParserNode.Function
+    if node not instanceof ParserNode.Function
       let FOUND = {}
       try
         node.walk #(n)
@@ -190,11 +187,8 @@ let make-has-generator-node = #
             if has-in-switch n
               throw FOUND
           n
-      catch e
-        if e == FOUND
-          return true
-        else
-          throw e
+      catch e == FOUND
+        return true
     false
   
   let return-free-cache = Cache<ParserNode, Boolean>()
@@ -209,9 +203,9 @@ let make-has-generator-node = #
       let {func} = node
       if func.is-break or func.is-continue
         return true
-    else if node instanceof ParserNode.Yield or (not allow-return and node instanceof ParserNode.Return)
+    if node instanceof ParserNode.Yield or (not allow-return and node instanceof ParserNode.Return)
       return true
-    else if node not instanceof ParserNode.Function
+    if node not instanceof ParserNode.Function
       let FOUND = {}
       try
         node.walk #(n)
@@ -225,11 +219,8 @@ let make-has-generator-node = #
             if has-generator-node n, allow-return
               throw FOUND
           n
-      catch e
-        if e == FOUND
-          return true
-        else
-          throw e
+      catch e == FOUND
+        return true
     false
   has-generator-node
 
@@ -1205,10 +1196,6 @@ let generator-translate = do
       let post-branch = state.branch()
       post-branch
     
-    [ParserNodeType.Throw]: #(node, scope, state, break-state, continue-state)
-      let g-node = generator-translate-expression node.node, scope, state, false
-      g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
-    
     [ParserNodeType.TmpWrapper]: #(node, scope, state, break-state, continue-state, unassigned, is-top)
       let result = generator-translate node.node, scope, state, break-state, continue-state, unassigned, is-top
       for tmp in node.tmps by -1
@@ -1250,24 +1237,29 @@ let generator-translate = do
     switch
     case node.is-call
       let {func, args} = node
-      switch
-      case func.is-break
-        if args[0]
-          throw Error "Not implemented: break with label in a generator"
-        if not break-state?
-          throw Error "break found outside of a loop or switch"
+      if func.is-internal
+        switch
+        case func.is-break
+          if args[0]
+            throw Error "Not implemented: break with label in a generator"
+          if not break-state?
+            throw Error "break found outside of a loop or switch"
         
-        state.goto get-pos(node), break-state
-        state
-      case func.is-continue
-        if args[0]
-          throw Error "Not implemented: continue with label in a generator"
-        if not continue-state?
-          throw Error "continue found outside of a loop"
+          state.goto get-pos(node), break-state
+          state
+        case func.is-continue
+          if args[0]
+            throw Error "Not implemented: continue with label in a generator"
+          if not continue-state?
+            throw Error "continue found outside of a loop"
         
-        state.goto get-pos(node), continue-state
-        state
-        
+          state.goto get-pos(node), continue-state
+          state
+        case func.is-throw
+          let g-node = generator-translate-expression args[0], scope, state, false
+          g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
+      else
+        throw Error("wat")
   
   #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     if state.has-generator-node node
@@ -1877,10 +1869,6 @@ let translators =
 
     t-result
 
-  [ParserNodeType.Throw]: #(node, scope, location, unassigned)
-    let t-node = translate node.node, scope, \expression, unassigned
-    #-> ast.Throw get-pos(node), t-node()
-
   [ParserNodeType.TryCatch]: #(node, scope, location, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-try-body = translate node.try-body, scope, \statement, unassigned
@@ -1934,15 +1922,21 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
           ast.This get-pos(node)
   case node.is-call
     let {func, args} = node
-    switch
-    case func.is-break
-      let t-label = args[0] and translate args[0], scope, \label
-      # ast.Break get-pos(node), t-label?()
-    case func.is-continue
-      let t-label = args[0] and translate args[0], scope, \label
-      # ast.Continue get-pos(node), t-label?()
-    case func.is-debugger
-      # ast.Debugger get-pos(node)
+    if func.is-internal
+      switch
+      case func.is-break
+        let t-label = args[0] and translate args[0], scope, \label
+        # ast.Break get-pos(node), t-label?()
+      case func.is-continue
+        let t-label = args[0] and translate args[0], scope, \label
+        # ast.Continue get-pos(node), t-label?()
+      case func.is-debugger
+        # ast.Debugger get-pos(node)
+      case func.is-throw
+        let t-node = translate args[0], scope, \expression, unassigned
+        # ast.Throw get-pos(node), t-node()
+    else
+      throw Error "wat"
 
 let translate(node as Object, scope as Scope, location as String, unassigned)
   if node instanceof LispyNode

@@ -23,7 +23,6 @@ class Node extends OldNode
   def is-literal() -> @is-const()
   def literal-value() -> @const-value()
   def is-statement() -> false
-  def reduce() -> this
   def do-wrap() -> this
   def type() -> Type.any
   def walk() -> this
@@ -39,6 +38,7 @@ class Value extends Node
   def is-value = true
   
   def cacheable = false
+  def reduce() -> this
   // FIXME: maybe get rid of this
   def const-value() -> @value
   def is-const() -> true
@@ -74,6 +74,7 @@ class Symbol extends Node
   def is-internal = false
   def is-operator = false
 
+  def reduce() -> this
   def cacheable = false
   
   /**
@@ -143,6 +144,26 @@ class Symbol extends Node
       throw: {
         +is-goto
         +used-as-statement
+        _do-wrap(call, parser)
+          OldNode.Call call.index, call.scope,
+            OldNode.Ident call.index, call.scope, \__throw
+            [call.args[0]]
+        /*
+        node-class ThrowNode(node as Node)
+          def type() -> Type.none
+          def is-statement() -> true
+          def _reduce(o)
+            let node = @node.reduce(o).do-wrap(o)
+            if node != @node
+              ThrowNode @index, @scope, node
+            else
+              this
+          def do-wrap(o)
+            CallNode @index, @scope,
+              IdentNode @index, @scope, \__throw
+              [@node]
+          def mutate-last() -> this
+        */
       }
       tmp-wrapper: {}
       try-catch: {
@@ -302,6 +323,22 @@ class Call extends Node
   def constructor(@index as Number, @scope, @func as Node, ...@args as [OldNode]) ->
   
   def is-call = true
+  
+  def inspect(depth)
+    let depth-1 = if depth? then depth - 1 else null
+    let sb = []
+    sb.push "Call("
+    sb.push "\n  "
+    sb.push @func.inspect(depth-1).split("\n").join("\n  ")
+    for arg in @args
+      sb.push ",\n  "
+      sb.push arg.inspect(depth-1).split("\n").join("\n  ")
+    sb.push ")"
+    sb.join ""
+  
+  def _reduce(o)
+    @walk #(x) -> x.reduce(this), o
+  
   def walk(walker, context)
     let func = walker@(context, @func) or @func.walk(walker, context)
     let args = []
@@ -311,7 +348,7 @@ class Call extends Node
       changed-args or= new-arg != arg
       args.push new-arg
     if func != @func or changed-args
-      Call @index, @scope, func, args
+      Call @index, @scope, func, ...args
     else
       this
   def walk-async(walker, context, callback)!
@@ -324,15 +361,23 @@ class Call extends Node
     if err
       callback err
     else if func != @func or changed-args
-      callback null, Call @index, @scope, func, args
+      callback null, Call @index, @scope, func, ...args
     else
       callback null, this
   
   def is-statement()
     @func.is-internal and @func.used-as-statement
   
-  def do-wrap(parser)
+  def mutate-last(func)
     if @is-statement()
+      this
+    else
+      super.mutate-last(func)
+  
+  def do-wrap(parser)
+    if is-function! @func._do-wrap
+      @func._do-wrap(this, parser)
+    else if @is-statement()
       let inner-scope = parser.push-scope(true, @scope)
       let result = OldNode.Call(@index, @scope, OldNode.Function(@index, @scope, [], @rescope(inner-scope), true, true), [])
       parser.pop-scope()
