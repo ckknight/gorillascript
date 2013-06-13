@@ -693,7 +693,12 @@ node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
         changed := true
       else if reduced instanceof NothingNode
         changed := true
-      else if reduced instanceofsome [BreakNode, ContinueNode, ThrowNode, ReturnNode]
+      else if reduced instanceofsome [ContinueNode, ThrowNode, ReturnNode]
+        body.push reduced
+        if reduced != node or i < len - 1
+          changed := true
+        break
+      else if reduced instanceof require('./parser-lispynodes') and reduced.is-call and reduced.func.is-goto
         body.push reduced
         if reduced != node or i < len - 1
           changed := true
@@ -725,12 +730,6 @@ node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
         BlockNode @index, @scope, [...nodes[0 til -1], last-node]
       else
         this
-node-class BreakNode(label as IdentNode|TmpNode|null)
-  def type() -> Type.undefined
-  def is-statement() -> true
-  def with-label(label as IdentNode|TmpNode|null)
-    BreakNode @index, @scope, label
-  def mutate-last() -> this
 node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-apply as Boolean)
   def type = do
     let PRIMORDIAL_FUNCTIONS =

@@ -203,7 +203,9 @@ let make-has-generator-node = #
       returnif return-free-cache.get node
     returnif in-loop-cache.get node
     returnif in-switch-cache.get node
-    if node instanceofsome [ParserNode.Yield, ParserNode.Continue, ParserNode.Break] or (not allow-return and node instanceof ParserNode.Return)
+    if node instanceof LispyNode and node.is-call and node.func.is-break
+      return true
+    else if node instanceofsome [ParserNode.Yield, ParserNode.Continue] or (not allow-return and node instanceof ParserNode.Return)
       return true
     else if node not instanceof ParserNode.Function
       let FOUND = {}
@@ -1011,15 +1013,6 @@ let generator-translate = do
       for reduce subnode, i, len in node.nodes, acc = state
         generator-translate subnode, scope, acc, break-state, continue-state, unassigned, is-top
 
-    [ParserNodeType.Break]: #(node, scope, state, break-state)
-      if node.label?
-        throw Error "Not implemented: break with label in a generator"
-      if not break-state?
-        throw Error "break found outside of a loop or switch"
-
-      state.goto get-pos(node), break-state
-      state
-    
     [ParserNodeType.Continue]: #(node, scope, state, break-state, continue-state)
       if node.label?
         throw Error "Not implemented: break with label in a generator"
@@ -1257,9 +1250,25 @@ let generator-translate = do
         g-node.t-node()
         g-node.cleanup())
       new-state
-    
+  
+  let generator-translate-lispy(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
+    switch
+    case node.is-call
+      let {func, args} = node
+      switch
+      case func.is-break
+        if args[0]
+          throw Error "Not implemented: break with label in a generator"
+        if not break-state?
+          throw Error "break found outside of a loop or switch"
+        
+        state.goto get-pos(node), break-state
+        state
+  
   #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     if state.has-generator-node node
+      if node instanceof LispyNode
+        return generator-translate-lispy(node, scope, state, break-state, continue-state, unassigned, is-top)
       let key = node.type-id
       if statements ownskey key
         let ret = statements[key](node, scope, state, break-state, continue-state, unassigned, is-top)
@@ -1369,10 +1378,6 @@ let translators =
       translate subnode, scope, location, unassigned
     # -> ast.Block get-pos(node), (for t-node in t-nodes; t-node()), t-label?()
 
-  [ParserNodeType.Break]: #(node, scope)
-    let t-label = node.label and translate node.label, scope, \label
-    #-> ast.Break(get-pos(node), t-label?())
-  
   [ParserNodeType.Call]: #(node, scope, location, unassigned)
     let t-func = translate node.func, scope, \expression, unassigned
     let is-apply = node.is-apply
@@ -1929,6 +1934,12 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
           ast.Ident get-pos(node), \_this
         else
           ast.This get-pos(node)
+  case node.is-call
+    let {func, args} = node
+    switch
+    case func.is-break
+      let t-label = args[0] and translate args[0], scope, \label
+      #-> ast.Break get-pos(node), t-label?()
 
 let translate(node as Object, scope as Scope, location as String, unassigned)
   if node instanceof LispyNode

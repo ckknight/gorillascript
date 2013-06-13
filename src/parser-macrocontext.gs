@@ -12,7 +12,6 @@ let ArrayNode = Node.Array
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let BlockNode = Node.Block
-let BreakNode = Node.Break
 let CallNode = Node.Call
 let CommentNode = Node.Comment
 let ContinueNode = Node.Continue
@@ -127,7 +126,10 @@ class MacroContext
   def return(node as Node|void) -> @parser.Return(@index, @do-wrap(node)).reduce(@parser)
   def yield(node as Node = NothingNode(0, @scope())) -> @parser.Yield(@index, @do-wrap(node)).reduce(@parser)
   def debugger() -> @parser.Debugger(@index)
-  def break(label as IdentNode|TmpNode|null) -> @parser.Break(@index, label)
+  def break(label as IdentNode|TmpNode|null)
+    LispyNode.Call @index, @scope(),
+      LispyNode.Symbol.break @index
+      ...(if label then [label] else [])
   def continue(label as IdentNode|TmpNode|null) -> @parser.Continue(@index, label)
   def spread(node as Node) -> @parser.Spread(@index, node)
   
@@ -168,11 +170,18 @@ class MacroContext
     else
       false
   
-  def is-break(node) -> @real(node) instanceof BreakNode
+  def is-break(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-call and node.func.is-break
   def is-continue(node) -> @real(node) instanceof ContinueNode
   def label(mutable node)
     node := @real(node)
-    if node instanceofsome [BreakNode, ContinueNode, BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryFinallyNode]
+    if node instanceof LispyNode
+      if node.is-call and node.func.is-break
+        node.args[0]
+      else
+        null
+    else if node instanceofsome [ContinueNode, BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryFinallyNode]
       node.label
     else
       null

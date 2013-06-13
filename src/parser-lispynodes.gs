@@ -22,11 +22,12 @@ class Node extends OldNode
   def is-const-type() -> false
   def is-literal() -> @is-const()
   def literal-value() -> @const-value()
+  def is-statement() -> false
   def reduce() -> this
   def do-wrap() -> this
   def type() -> Type.any
   def walk() -> this
-  def walk-async(f, context, callback) -> callback null, this
+  def walk-async(f, context, callback)! -> callback null, this
 
 /**
  * Represents a constant primitive value such as a number, string, boolean,
@@ -79,59 +80,90 @@ class Symbol extends Node
    * Represents an compiler-internal such as `new` or `apply`
    */
   class Internal extends Symbol
-    def constructor(@index as Number, @name as String)
-      @["is$(capitalize name)"] := true
+    def constructor()
+      throw Error "Internal is not intended to be instantiated directly"
     
     def inspect()
       "Symbol.$(@name)"
     
     def is-internal = true
+    def is-goto = false
+    def used-as-statement = false
     
-    let internal-symbol-names = [
-      \access
-      \access-multi
-      \apply
-      \array
-      \block
-      \break
-      \cascade
-      \comment
-      \continue
-      \debugger
-      \def
-      \for
-      \for-in
-      \function
-      \if
-      \label
-      \macro-const
-      \new
-      \noop
-      \object
-      \param
-      \return
-      \root
-      \spread
-      \super
-      \throw
-      \tmp-wrapper
-      \try-catch
-      \try-finally
-      \write
-      \var
-      \yield
-    ]
-    for name in internal-symbol-names
-      def ["is$(capitalize name)"] = false
-      Symbol[name] := #(index)
-        Internal index, name
-    
-    Symbol.noop <<< {
-      const-value: #-> void
-      is-const-type: (\undefined ==)
-      is-const: #-> true
-      is-const-value: (void ==)
-    }
+    let internal-symbols =
+      access: {}
+      access-multi: {}
+      apply: {}
+      array: {}
+      block: {}
+      break: {
+        +is-goto
+        +used-as-statement
+      }
+      cascade: {}
+      comment: {}
+      continue: {
+        +is-goto
+        +used-as-statement
+      }
+      debugger: {
+        +used-as-statement
+      }
+      def: {}
+      for: {
+        +used-as-statement
+      }
+      for-in: {
+        +used-as-statement
+      }
+      function: {}
+      if: {}
+      label: {
+        +used-as-statement
+      }
+      macro-const: {}
+      new: {}
+      noop: {
+        const-value: #-> void
+        is-const-type: (\undefined ==)
+        is-const: #-> true
+        is-const-value: (void ==)
+      }
+      object: {}
+      param: {}
+      return: {
+        +is-goto
+        +used-as-statement
+      }
+      root: {
+        +used-as-statement
+      }
+      spread: {}
+      super: {}
+      throw: {
+        +is-goto
+        +used-as-statement
+      }
+      tmp-wrapper: {}
+      try-catch: {
+        +used-as-statement
+      }
+      try-finally: {
+        +used-as-statement
+      }
+      write: {}
+      var: {}
+      yield: {}
+    for name, data of internal-symbols
+      let is-name-key = "is$(capitalize name)"
+      def [is-name-key] = false
+      Symbol[name] := class extends Internal
+        def constructor(@index as Number)
+          @name := name
+
+        def [is-name-key] = true
+        for k, v of data
+          def [k] = v
   
   /**
    * Represents a named binding
@@ -145,8 +177,7 @@ class Symbol extends Node
     def inspect()
       "Symbol.ident($(to-JS-source @name))"
     
-    Symbol.ident := #(index, scope, name)
-      Ident index, scope, name
+    Symbol.ident := Ident
   
   /**
    * Represents a temporary identifier
@@ -160,8 +191,7 @@ class Symbol extends Node
     def inspect()
       "Symbol.tmp($(@id), $(to-JS-source @name))"
     
-    Symbol.tmp := #(index, scope, id, name)
-      Tmp index, scope, id, name
+    Symbol.tmp := Tmp
   
   /**
    * Represents a JavaScript unary or binary operator
@@ -269,11 +299,37 @@ class Symbol extends Node
         AssignOperator index, name
 
 class Call extends Node
-  def constructor(@index as Number, @scope, @func as Node, ...@args as [Node]) ->
+  def constructor(@index as Number, @scope, @func as Node, ...@args as [OldNode]) ->
   
   def is-call = true
-  def walk
-  def walk-async
+  def walk(walker, context)
+    let func = walker@(context, @func) or @func.walk(walker, context)
+    let args = []
+    let mutable changed-args = false
+    for arg in @args
+      let new-arg = walker@(context, arg) or arg.walk(walker, context)
+      changed-args or= new-arg != arg
+      args.push new-arg
+    if func != @func or changed-args
+      Call @index, @scope, func, args
+    else
+      this
+  def walk-async(walker, context, callback)!
+    async! callback, func <- walker@ context, @func
+    let mutable changed-args = false
+    asyncfor err, args <- next, arg in @args
+      async! next, new-arg <- walker@ context, arg
+      changed-args or= new-arg != arg
+      next null, new-arg
+    if err
+      callback err
+    else if func != @func or changed-args
+      callback null, Call @index, @scope, func, args
+    else
+      callback null, this
+  
+  def is-statement()
+    @func.is-internal and @func.used-as-statement
 
 module.exports := Node <<< {
   Value

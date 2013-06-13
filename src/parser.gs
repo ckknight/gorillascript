@@ -26,7 +26,6 @@ let ArrayNode = Node.Array
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let BlockNode = Node.Block
-let BreakNode = Node.Break
 let CallNode = Node.Call
 let CommentNode = Node.Comment
 let ContinueNode = Node.Continue
@@ -5925,12 +5924,10 @@ module.exports := parse <<< {
 for node-type in [
       'Access',
       'AccessMulti',
-      'Args',
       'Array',
       'Assign',
       'Binary',
       'Block',
-      'Break',
       'Call',
       'Cascade',
       'Comment',
@@ -5959,7 +5956,6 @@ for node-type in [
       'SyntaxMany',
       'SyntaxParam',
       'SyntaxSequence',
-      'This',
       'Throw',
       'Tmp',
       'TmpWrapper',

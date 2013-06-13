@@ -11,7 +11,6 @@ const ParserNodeType = {
   Assign:          5
   Binary:          6
   Block:           7
-  Break:           8
   Call:            9
   Cascade:        10
   Comment:        11
