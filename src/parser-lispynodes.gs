@@ -330,6 +330,15 @@ class Call extends Node
   
   def is-statement()
     @func.is-internal and @func.used-as-statement
+  
+  def do-wrap(parser)
+    if @is-statement()
+      let inner-scope = parser.push-scope(true, @scope)
+      let result = OldNode.Call(@index, @scope, OldNode.Function(@index, @scope, [], @rescope(inner-scope), true, true), [])
+      parser.pop-scope()
+      result
+    else
+      this
 
 module.exports := Node <<< {
   Value

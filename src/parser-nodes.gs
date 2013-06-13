@@ -1014,10 +1014,6 @@ node-class CommentNode(text as String)
   def is-const() -> true
   def const-value() -> void
   def _is-noop() -> true
-node-class DebuggerNode
-  def type() -> Type.undefined
-  def is-statement() -> true
-  def mutate-last() -> this
 node-class DefNode(left as Node, right as Node|void)
   def type(o) -> if @right? then @right.type(o) else Type.any
 node-class EmbedWriteNode(text as Node, escape as Boolean)

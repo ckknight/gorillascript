@@ -1443,8 +1443,6 @@ let translators =
             [ast.Const(get-pos(node), void), arg-array]
   
   [ParserNodeType.Comment]: #(node, scope, location) -> #-> ast.Comment(get-pos(node), node.text)
-  
-  [ParserNodeType.Debugger]: #(node) -> #-> ast.Debugger(get-pos(node))
 
   [ParserNodeType.Def]: #(node, scope, location)
     // TODO: line numbers
@@ -1939,10 +1937,12 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
     switch
     case func.is-break
       let t-label = args[0] and translate args[0], scope, \label
-      #-> ast.Break get-pos(node), t-label?()
+      # ast.Break get-pos(node), t-label?()
     case func.is-continue
       let t-label = args[0] and translate args[0], scope, \label
-      #-> ast.Continue get-pos(node), t-label?()
+      # ast.Continue get-pos(node), t-label?()
+    case func.is-debugger
+      # ast.Debugger get-pos(node)
 
 let translate(node as Object, scope as Scope, location as String, unassigned)
   if node instanceof LispyNode

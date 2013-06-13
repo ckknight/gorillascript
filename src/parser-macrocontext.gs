@@ -14,7 +14,6 @@ let BinaryNode = Node.Binary
 let BlockNode = Node.Block
 let CallNode = Node.Call
 let CommentNode = Node.Comment
-let DebuggerNode = Node.Debugger
 let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
 let EvalNode = Node.Eval
@@ -124,7 +123,9 @@ class MacroContext
   def throw(node as Node = NothingNode(0, @scope())) -> @parser.Throw(@index, @do-wrap(node)).reduce(@parser)
   def return(node as Node|void) -> @parser.Return(@index, @do-wrap(node)).reduce(@parser)
   def yield(node as Node = NothingNode(0, @scope())) -> @parser.Yield(@index, @do-wrap(node)).reduce(@parser)
-  def debugger() -> @parser.Debugger(@index)
+  def debugger()
+    LispyNode.Call @index, @scope(),
+      LispyNode.Symbol.debugger @index
   def break(label as IdentNode|TmpNode|null)
     LispyNode.Call @index, @scope(),
       LispyNode.Symbol.break @index
