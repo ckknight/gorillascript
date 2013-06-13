@@ -175,7 +175,9 @@ let make-has-generator-node = #
   let has-in-switch(node)
     async node <- in-switch-cache.get-or-add node
     returnif in-loop-cache.get node
-    if node instanceofsome [ParserNode.Yield, ParserNode.Return, ParserNode.Continue]
+    if node instanceof LispyNode and node.is-call and node.func.is-continue
+      return true
+    else if node instanceofsome [ParserNode.Yield, ParserNode.Return]
       return true
     else if node not instanceof ParserNode.Function
       let FOUND = {}
@@ -203,9 +205,11 @@ let make-has-generator-node = #
       returnif return-free-cache.get node
     returnif in-loop-cache.get node
     returnif in-switch-cache.get node
-    if node instanceof LispyNode and node.is-call and node.func.is-break
-      return true
-    else if node instanceofsome [ParserNode.Yield, ParserNode.Continue] or (not allow-return and node instanceof ParserNode.Return)
+    if node instanceof LispyNode and node.is-call
+      let {func} = node
+      if func.is-break or func.is-continue
+        return true
+    else if node instanceof ParserNode.Yield or (not allow-return and node instanceof ParserNode.Return)
       return true
     else if node not instanceof ParserNode.Function
       let FOUND = {}
@@ -1013,15 +1017,6 @@ let generator-translate = do
       for reduce subnode, i, len in node.nodes, acc = state
         generator-translate subnode, scope, acc, break-state, continue-state, unassigned, is-top
 
-    [ParserNodeType.Continue]: #(node, scope, state, break-state, continue-state)
-      if node.label?
-        throw Error "Not implemented: break with label in a generator"
-      if not continue-state?
-        throw Error "continue found outside of a loop"
-
-      state.goto get-pos(node), continue-state
-      state
-    
     [ParserNodeType.EmbedWrite]: #(node, scope, mutable state, break-state, continue-state, unassigned)
       let g-text = if expressions ownskey node.text.type-id
         generator-translate-expression node.text, scope, state, false, unassigned
@@ -1264,6 +1259,15 @@ let generator-translate = do
         
         state.goto get-pos(node), break-state
         state
+      case func.is-continue
+        if args[0]
+          throw Error "Not implemented: continue with label in a generator"
+        if not continue-state?
+          throw Error "continue found outside of a loop"
+        
+        state.goto get-pos(node), continue-state
+        state
+        
   
   #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     if state.has-generator-node node
@@ -1440,10 +1444,6 @@ let translators =
   
   [ParserNodeType.Comment]: #(node, scope, location) -> #-> ast.Comment(get-pos(node), node.text)
   
-  [ParserNodeType.Continue]: #(node, scope)
-    let t-label = node.label and translate node.label, scope, \label
-    #-> ast.Continue(get-pos(node), t-label?())
-
   [ParserNodeType.Debugger]: #(node) -> #-> ast.Debugger(get-pos(node))
 
   [ParserNodeType.Def]: #(node, scope, location)
@@ -1940,6 +1940,9 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
     case func.is-break
       let t-label = args[0] and translate args[0], scope, \label
       #-> ast.Break get-pos(node), t-label?()
+    case func.is-continue
+      let t-label = args[0] and translate args[0], scope, \label
+      #-> ast.Continue get-pos(node), t-label?()
 
 let translate(node as Object, scope as Scope, location as String, unassigned)
   if node instanceof LispyNode

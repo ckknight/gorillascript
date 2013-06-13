@@ -28,7 +28,6 @@ let BinaryNode = Node.Binary
 let BlockNode = Node.Block
 let CallNode = Node.Call
 let CommentNode = Node.Comment
-let ContinueNode = Node.Continue
 let DebuggerNode = Node.Debugger
 let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
@@ -5931,7 +5930,6 @@ for node-type in [
       'Call',
       'Cascade',
       'Comment',
-      'Continue',
       'Debugger',
       'Def',
       'EmbedWrite',

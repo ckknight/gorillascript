@@ -14,7 +14,6 @@ let BinaryNode = Node.Binary
 let BlockNode = Node.Block
 let CallNode = Node.Call
 let CommentNode = Node.Comment
-let ContinueNode = Node.Continue
 let DebuggerNode = Node.Debugger
 let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
@@ -130,7 +129,10 @@ class MacroContext
     LispyNode.Call @index, @scope(),
       LispyNode.Symbol.break @index
       ...(if label then [label] else [])
-  def continue(label as IdentNode|TmpNode|null) -> @parser.Continue(@index, label)
+  def continue(label as IdentNode|TmpNode|null)
+    LispyNode.Call @index, @scope(),
+      LispyNode.Symbol.continue @index
+      ...(if label then [label] else [])
   def spread(node as Node) -> @parser.Spread(@index, node)
   
   def real(mutable node)
@@ -173,15 +175,21 @@ class MacroContext
   def is-break(mutable node)
     node := @real(node)
     node instanceof LispyNode and node.is-call and node.func.is-break
-  def is-continue(node) -> @real(node) instanceof ContinueNode
+  def is-continue(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-call and node.func.is-continue
   def label(mutable node)
     node := @real(node)
     if node instanceof LispyNode
-      if node.is-call and node.func.is-break
-        node.args[0]
+      if node.is-call
+        let {func} = node
+        if func.is-break or func.is-continue
+          node.args[0]
+        else
+          null
       else
         null
-    else if node instanceofsome [ContinueNode, BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryFinallyNode]
+    else if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode, TryFinallyNode]
       node.label
     else
       null

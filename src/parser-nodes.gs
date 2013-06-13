@@ -693,7 +693,7 @@ node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
         changed := true
       else if reduced instanceof NothingNode
         changed := true
-      else if reduced instanceofsome [ContinueNode, ThrowNode, ReturnNode]
+      else if reduced instanceofsome [ThrowNode, ReturnNode]
         body.push reduced
         if reduced != node or i < len - 1
           changed := true
@@ -1014,12 +1014,6 @@ node-class CommentNode(text as String)
   def is-const() -> true
   def const-value() -> void
   def _is-noop() -> true
-node-class ContinueNode(label as IdentNode|TmpNode|null)
-  def type() -> Type.undefined
-  def is-statement() -> true
-  def with-label(label as IdentNode|TmpNode|null)
-    ContinueNode @index, @scope, label
-  def mutate-last() -> this
 node-class DebuggerNode
   def type() -> Type.undefined
   def is-statement() -> true
