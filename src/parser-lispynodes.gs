@@ -368,11 +368,11 @@ class Call extends Node
   def is-statement()
     @func.is-internal and @func.used-as-statement
   
-  def mutate-last(func)
+  def mutate-last(o, func, context, include-noop)
     if @is-statement()
       this
     else
-      super.mutate-last(func)
+      super.mutate-last(o, func, context, include-noop)
   
   def do-wrap(parser)
     if is-function! @func._do-wrap

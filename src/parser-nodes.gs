@@ -1620,13 +1620,5 @@ node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
       VarNode @index, @scope, ident, @is-mutable
     else
       this
-node-class YieldNode(node as Node)
-  def type() -> Type.any
-  def _reduce(o)
-    let node = @node.reduce(o).do-wrap(o)
-    if node != @node
-      YieldNode @index, @scope, node
-    else
-      this
 
 module.exports := Node

@@ -47,7 +47,6 @@ let TypeObjectNode = Node.TypeObject
 let TypeUnionNode = Node.TypeUnion
 let UnaryNode = Node.Unary
 let VarNode = Node.Var
-let YieldNode = Node.Yield
 
 let identity(x) -> x
 let ret-this() -> this
@@ -124,7 +123,10 @@ class MacroContext
       LispyNode.Symbol.throw @index
       @do-wrap(node)).reduce(@parser)
   def return(node as Node|void) -> @parser.Return(@index, @do-wrap(node)).reduce(@parser)
-  def yield(node as Node = NothingNode(0, @scope())) -> @parser.Yield(@index, @do-wrap(node)).reduce(@parser)
+  def yield(node as Node = NothingNode(0, @scope()))
+    LispyNode.Call(@index, @scope(),
+      LispyNode.Symbol.yield @index
+      @do-wrap(node)).reduce(@parser)
   def debugger()
     LispyNode.Call @index, @scope(),
       LispyNode.Symbol.debugger @index

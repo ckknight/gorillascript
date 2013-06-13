@@ -155,7 +155,9 @@ let make-has-generator-node = #
   let has-in-loop(node)
     async node <- in-loop-cache.get-or-add node
     let mutable result = false
-    if node instanceofsome [ParserNode.Yield, ParserNode.Return]
+    if node instanceof LispyNode and node.is-call and node.func.is-yield
+      return true
+    if node instanceof ParserNode.Return
       return true
     if node not instanceof ParserNode.Function
       let FOUND = {}
@@ -172,9 +174,9 @@ let make-has-generator-node = #
   let has-in-switch(node)
     async node <- in-switch-cache.get-or-add node
     returnif in-loop-cache.get node
-    if node instanceof LispyNode and node.is-call and node.func.is-continue
+    if node instanceof LispyNode and node.is-call and (node.func.is-continue or node.func.is-yield)
       return true
-    if node instanceofsome [ParserNode.Yield, ParserNode.Return]
+    if node instanceof ParserNode.Return
       return true
     if node not instanceof ParserNode.Function
       let FOUND = {}
@@ -201,9 +203,9 @@ let make-has-generator-node = #
     returnif in-switch-cache.get node
     if node instanceof LispyNode and node.is-call
       let {func} = node
-      if func.is-break or func.is-continue
+      if func.is-break or func.is-continue or func.is-yield
         return true
-    if node instanceof ParserNode.Yield or (not allow-return and node instanceof ParserNode.Return)
+    if not allow-return and node instanceof ParserNode.Return
       return true
     if node not instanceof ParserNode.Function
       let FOUND = {}
@@ -985,21 +987,38 @@ let generator-translate = do
         ast.Unary get-pos(node),
           node.op
           first!(g-node.t-node(), g-node.cleanup()))
-    
-    [ParserNodeType.Yield]: #(node, scope, mutable state, assign-to, unassigned)
-      let g-node = generator-translate-expression node.node, scope, state, false, unassigned
-      state := g-node.state.yield get-pos(node), g-node.t-node
-      handle-assign assign-to, scope, state, #-> state.builder.received-ident, g-node.cleanup
+  
+  let generator-translate-expression-lispy(node as LispyNode, scope as Scope, mutable state as GeneratorState, assign-to as Boolean|->, unassigned)
+    switch
+    case node.is-call
+      let {func, args} = node
+      if func.is-internal
+        switch
+        case func.is-yield
+          let g-node = generator-translate-expression args[0], scope, state, false, unassigned
+          state := g-node.state.yield get-pos(node), g-node.t-node
+          handle-assign assign-to, scope, state, #-> state.builder.received-ident, g-node.cleanup
+      else
+        throw Error "wat"
   
   let generator-translate-expression(node as ParserNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
-    let key = node.type-id
     if state.has-generator-node node
+      if node instanceof LispyNode
+        return generator-translate-expression-lispy(node, scope, state, assign-to, unassigned)
+      let key = node.type-id
       if expressions ownskey key
         expressions[key](node, scope, state, assign-to, unassigned)
       else
         throw Error "Unknown expression type: $(typeof! node)"
     else
       handle-assign assign-to, scope, state, translate node, scope, \expression, unassigned
+  
+  let is-expression(node)
+    if node instanceof LispyNode
+      // TODO
+      true
+    else
+      expressions ownskey node.type-id
   
   let statements =
     [ParserNodeType.Block]: #(node, scope, state, break-state, continue-state, unassigned, is-top)
@@ -1009,7 +1028,7 @@ let generator-translate = do
         generator-translate subnode, scope, acc, break-state, continue-state, unassigned, is-top
 
     [ParserNodeType.EmbedWrite]: #(node, scope, mutable state, break-state, continue-state, unassigned)
-      let g-text = if expressions ownskey node.text.type-id
+      let g-text = if is-expression node.text
         generator-translate-expression node.text, scope, state, false, unassigned
       else
         {
@@ -1225,13 +1244,6 @@ let generator-translate = do
       state := generator-translate node.try-body, scope, state, break-state, continue-state, unassigned
       let t-finally = translate node.finally-body, scope, \statement, unassigned
       state.run-pending-finally get-pos(node)
-    
-    [ParserNodeType.Yield]: #(node, scope, mutable state)
-      let g-node = generator-translate-expression node.node, scope, state, false
-      let new-state = g-node.state.yield get-pos(node), #-> first!(
-        g-node.t-node()
-        g-node.cleanup())
-      new-state
   
   let generator-translate-lispy(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     switch
@@ -1258,6 +1270,11 @@ let generator-translate = do
         case func.is-throw
           let g-node = generator-translate-expression args[0], scope, state, false
           g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
+        case func.is-yield
+          let g-node = generator-translate-expression args[0], scope, state, false
+          g-node.state.yield get-pos(node), #-> first!(
+            g-node.t-node()
+            g-node.cleanup())
       else
         throw Error("wat")
   

@@ -47,5 +47,4 @@ const ParserNodeType = {
   TypeUnion:      47
   Unary:          48
   Var:            49
-  Yield:          50
 }
