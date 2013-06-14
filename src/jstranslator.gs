@@ -1207,56 +1207,65 @@ let generator-translate = do
       let t-finally = translate node.finally-body, scope, \statement, unassigned
       state.run-pending-finally get-pos(node)
   
-  let generator-translate-lispy(node as LispyNode, scope as Scope, mutable state as GeneratorState, break-state, continue-state, unassigned, is-top)
+  let generator-translate-lispy-internals =
+    break: #(node, args, scope, state, break-state)
+      if args[0]
+        throw Error "Not implemented: break with label in a generator"
+      if not break-state?
+        throw Error "break found outside of a loop or switch"
+    
+      state.goto get-pos(node), break-state
+      state
+    
+    continue: #(node, args, scope, state, break-state, continue-state)
+      if args[0]
+        throw Error "Not implemented: continue with label in a generator"
+      if not continue-state?
+        throw Error "continue found outside of a loop"
+    
+      state.goto get-pos(node), continue-state
+      state
+    
+    throw: #(node, args, scope, state)
+      let g-node = generator-translate-expression args[0], scope, state, false
+      g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
+    
+    yield: #(node, args, scope, state)
+      let g-node = generator-translate-expression args[0], scope, state, false
+      g-node.state.yield get-pos(node), #-> first!(
+        g-node.t-node()
+        g-node.cleanup())
+    
+    return: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
+      let mutated-node = args[0].mutate-last null, (#(n)
+        LispyNode.InternalCall \return, n.index, n.scope, n), null, true
+      if mutated-node instanceof LispyNode and mutated-node.is-call and mutated-node.func.is-return and mutated-node.args[0] == args[0]
+        if args[0].is-const() and args[0].is-const-value(void)
+          state.return get-pos(node)
+          state
+        else if not args[0].is-statement()
+          let g-node = generator-translate-expression args[0], scope, state, false
+          state := g-node.state
+          state.return get-pos(node), #-> first!(
+            g-node.t-node()
+            g-node.cleanup())
+          state
+        else
+          generator-translate args[0], scope, state, break-state, continue-state, unassigned, is-top
+      else
+        generator-translate mutated-node, scope, state, break-state, continue-state, unassigned, is-top
+  
+  let generator-translate-lispy(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     switch
     case node.is-call
       let {func, args} = node
       if func.is-internal
-        switch
-        case func.is-break
-          if args[0]
-            throw Error "Not implemented: break with label in a generator"
-          if not break-state?
-            throw Error "break found outside of a loop or switch"
-        
-          state.goto get-pos(node), break-state
-          state
-        case func.is-continue
-          if args[0]
-            throw Error "Not implemented: continue with label in a generator"
-          if not continue-state?
-            throw Error "continue found outside of a loop"
-        
-          state.goto get-pos(node), continue-state
-          state
-        case func.is-throw
-          let g-node = generator-translate-expression args[0], scope, state, false
-          g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
-        case func.is-yield
-          let g-node = generator-translate-expression args[0], scope, state, false
-          g-node.state.yield get-pos(node), #-> first!(
-            g-node.t-node()
-            g-node.cleanup())
-        case func.is-return
-          let mutated-node = args[0].mutate-last null, (#(n)
-            LispyNode.InternalCall \return, n.index, n.scope, n), null, true
-          if mutated-node instanceof LispyNode and mutated-node.is-call and mutated-node.func.is-return and mutated-node.args[0] == args[0]
-            if args[0].is-const() and args[0].is-const-value(void)
-              state.return get-pos(node)
-              state
-            else if not args[0].is-statement()
-              let g-node = generator-translate-expression args[0], scope, state, false
-              state := g-node.state
-              state.return get-pos(node), #-> first!(
-                g-node.t-node()
-                g-node.cleanup())
-              state
-            else
-              generator-translate args[0], scope, state, null, null, unassigned
-          else
-            generator-translate mutated-node, scope, state, null, null, unassigned
+        let name = func.name
+        if generator-translate-lispy-internals not ownskey name
+          throw Error "Unable to translate internal call '$name'"
+        generator-translate-lispy-internals[name] node, args, scope, state, break-state, continue-state, unassigned, is-top
       else
-        throw Error("wat")
+        throw Error("Not implemented: Unable to translate non-internal call")
   
   #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     if state.has-generator-node node
@@ -1876,6 +1885,41 @@ let translators =
       scope.add-variable ident, Type.any, node.is-mutable
       ast.Noop(get-pos(node))
 
+let translate-lispy-internal =
+  break: #(node, args, scope)
+    let t-label = args[0] and translate args[0], scope, \label
+    # ast.Break get-pos(node), t-label?()
+  
+  continue: #(node, args, scope)
+    let t-label = args[0] and translate args[0], scope, \label
+    # ast.Continue get-pos(node), t-label?()
+  
+  debugger: #(node)
+    # ast.Debugger get-pos(node)
+  
+  throw: #(node, args, scope, location, unassigned)
+    let t-node = translate args[0], scope, \expression, unassigned
+    # ast.Throw get-pos(node), t-node()
+  
+  return: #(node, args, scope, location, unassigned)
+    if location not in [\statement, \top-statement]
+      throw Error "Expected Return in statement position"
+    
+    let mutated-node = args[0].mutate-last null, (#(n)
+      LispyNode.InternalCall \return, n.index, n.scope, n), null, true
+    if mutated-node instanceof LispyNode and mutated-node.is-call and mutated-node.func.is-return and mutated-node.args[0] == args[0]
+      let t-value = translate args[0], scope, \expression, unassigned
+      if args[0].is-statement()
+        t-value
+      else
+        # ast.Return get-pos(node), t-value()
+    else
+      translate mutated-node, scope, location, unassigned
+  
+  comment: #(node, args, scope, location, unassigned)
+    let t-text = translate args[0], scope, \expression, unassigned
+    # ast.Comment get-pos(node), t-text().const-value()
+
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch
   case node.is-value
@@ -1894,35 +1938,10 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
   case node.is-call
     let {func, args} = node
     if func.is-internal
-      switch func.name
-      case \break
-        let t-label = args[0] and translate args[0], scope, \label
-        # ast.Break get-pos(node), t-label?()
-      case \continue
-        let t-label = args[0] and translate args[0], scope, \label
-        # ast.Continue get-pos(node), t-label?()
-      case \debugger
-        # ast.Debugger get-pos(node)
-      case \throw
-        let t-node = translate args[0], scope, \expression, unassigned
-        # ast.Throw get-pos(node), t-node()
-      case \return
-        if location not in [\statement, \top-statement]
-          throw Error "Expected Return in statement position"
-        
-        let mutated-node = args[0].mutate-last null, (#(n)
-          LispyNode.InternalCall \return, n.index, n.scope, n), null, true
-        if mutated-node instanceof LispyNode and mutated-node.is-call and mutated-node.func.is-return and mutated-node.args[0] == args[0]
-          let t-value = translate args[0], scope, \expression, unassigned
-          if args[0].is-statement()
-            t-value
-          else
-            # ast.Return get-pos(node), t-value()
-        else
-          translate mutated-node, scope, location, unassigned
-      case \comment
-        let t-text = translate args[0], scope, \expression, unassigned
-        # ast.Comment get-pos(node), t-text().const-value()
+      let name = func.name
+      if translate-lispy-internal not ownskey name
+        throw Error "Unable to translate internal call '$name'"
+      translate-lispy-internal[name] node, args, scope, location, unassigned
     else
       throw Error "wat"
 
