@@ -208,6 +208,9 @@ exports.Expression := class Expression extends Node
   
   def is-large() -> false
   
+  def invert()
+    Unary(@pos, "!", this)
+  
   def mutate-last(func) -> func(this)
 
 exports.Statement := class Statement extends Node
@@ -503,8 +506,7 @@ exports.Binary := class Binary extends Expression
     else if @op == "&&"
       IfStatement(@pos, @left, @right).compile-as-statement(options, line-start, sb)
     else if @op == "||"
-      // TODO: invert rather than add the ! operator
-      IfStatement(@pos, Unary(@pos, "!", @left), @right).compile-as-statement(options, line-start, sb)
+      IfStatement(@pos, @left.invert(), @right).compile-as-statement(options, line-start, sb)
     else if op == "."
       super.compile-as-statement(options, line-start, sb)
     else
@@ -563,6 +565,22 @@ exports.Binary := class Binary extends Expression
     "&=": Level.assignment
     "^=": Level.assignment
     "|=": Level.assignment
+  
+  let inversions =
+    "<": ">="
+    "<=": ">"
+    ">": "<="
+    ">=": ">"
+    "==": "!="
+    "!=": "=="
+    "===": "!=="
+    "!==": "==="
+  
+  def invert()
+    if inversions ownskey @op
+      Binary @pos, @left, inversions[@op], @right
+    else
+      super.invert()
   
   let LEVEL_TO_ASSOCIATIVITY =
     [Level.equality]: "paren"
@@ -1543,8 +1561,7 @@ exports.IfStatement := class IfStatement extends Statement
         if when-false instanceof Noop
           return test.maybe-to-statement()
         else
-          // TODO: the test inversion doesn't change the inner operators, just wraps it all
-          return IfStatement@ this, pos, Unary(test.pos, "!", test), when-false, when-true, label
+          return IfStatement@ this, pos, test.invert(), when-false, when-true, label
       else if when-false instanceof Noop and when-true instanceof IfStatement and when-true.when-false instanceof Noop and not when-true.label?
         return IfStatement@ this, pos, Binary(pos, test, "&&", when-true.test), when-true.when-true, when-false
       else if test instanceof BlockExpression
@@ -1564,7 +1581,7 @@ exports.IfStatement := class IfStatement extends Statement
       if @when-false.is-noop()
         @test.compile-as-statement options, true, sb
       else
-        IfStatement(@pos, Unary(@test.pos, "!", @test), @when-false, @when-true, @label).compile(options, level, line-start, sb)
+        IfStatement(@pos, @test.invert(), @when-false, @when-true, @label).compile(options, level, line-start, sb)
     else
       if options.source-map? and @pos.file
         options.source-map.push-file @pos.file
@@ -2642,6 +2659,12 @@ exports.Unary := class Unary extends Expression
     +"--post"
     +"delete"
   }
+  
+  def invert()
+    if @op == "!" and @node instanceof Unary and @node.op == "!"
+      @node
+    else
+      super.invert()
   
   def is-large() -> @node.is-large()
   def is-small() -> @node.is-small()
