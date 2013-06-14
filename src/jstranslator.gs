@@ -827,6 +827,10 @@ let generator-translate = do
       throw Error "Unreachable state"
     
     [ParserNodeType.Call]: #(node, scope, mutable state, assign-to, unassigned)
+      if node.func instanceof ParserNode.Ident and node.func.name == \eval
+        let g-code = generator-translate-expression node.args[0], scope, state, false, unassigned
+        return handle-assign assign-to, scope, g-code.state, (#-> ast.Eval get-pos(node), g-code.t-node()), g-code.cleanup
+      
       let g-func = if node.func instanceof ParserNode.Access
         let g-parent = generator-translate-expression node.func.parent, scope, state, true, unassigned
         let g-child = generator-translate-expression node.func.child, scope, g-parent.state, true, unassigned
@@ -911,10 +915,6 @@ let generator-translate = do
                   ast.Const get-pos(node), void
                 args
               ]
-    
-    [ParserNodeType.Eval]: #(node, scope, mutable state, assign-to, unassigned)
-      let g-code = generator-translate-expression node.code, scope, state, false, unassigned
-      handle-assign assign-to, scope, g-code.state, (#-> ast.Eval get-pos(node), g-code.t-node()), g-code.cleanup
     
     [ParserNodeType.If]: #(node, scope, mutable state, assign-to, unassigned)
       let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test), unassigned
@@ -1381,11 +1381,15 @@ let translators =
     # -> ast.Block get-pos(node), (for t-node in t-nodes; t-node()), t-label?()
 
   [ParserNodeType.Call]: #(node, scope, location, unassigned)
-    if node.func instanceof ParserNode.Ident and node.func.name == \RegExp and node.args[0].is-const() and (not node.args[1] or node.args[1].is-const())
-      return if node.args[1] and node.args[1].const-value()
-        # ast.Regex get-pos(node), String(node.args[0].const-value()), String(node.args[1].const-value())
-      else
-        # ast.Regex get-pos(node), String(node.args[0].const-value())
+    if node.func instanceof ParserNode.Ident
+      if node.func.name == \RegExp and node.args[0].is-const() and (not node.args[1] or node.args[1].is-const())
+        return if node.args[1] and node.args[1].const-value()
+          # ast.Regex get-pos(node), String(node.args[0].const-value()), String(node.args[1].const-value())
+        else
+          # ast.Regex get-pos(node), String(node.args[0].const-value())
+      else if node.func.name == \eval
+        let t-code = translate node.args[0], scope, \expression, unassigned
+        return #-> ast.Eval get-pos(node), t-code()
     let t-func = translate node.func, scope, \expression, unassigned
     let is-apply = node.is-apply
     let is-new = node.is-new
@@ -1472,10 +1476,6 @@ let translators =
           else
             []
         ]
-  
-  [ParserNodeType.Eval]: #(node, scope, location, unassigned)
-    let t-code = translate node.code, scope, \expression, unassigned
-    #-> ast.Eval get-pos(node), t-code()
 
   [ParserNodeType.Function]: do
     let primitive-types = {

@@ -15,7 +15,6 @@ let BlockNode = Node.Block
 let CallNode = Node.Call
 let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
-let EvalNode = Node.Eval
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let IfNode = Node.If

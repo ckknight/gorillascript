@@ -907,6 +907,12 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
           // else check the type of parent, maybe figure out its methods
       Type.any
   def _reduce = do
+    let EVAL_SIMPLIFIERS = {
+      "true": #-> LispyNode_Value @index, true
+      "false": #-> LispyNode_Value @index, false
+      "void 0": #-> LispyNode_Value @index, void
+      "null": #-> LispyNode_Value @index, null
+    }
     let PURE_PRIMORDIAL_FUNCTIONS = {
       +escape
       +unescape
@@ -968,7 +974,10 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
             break
         if all-const
           if func instanceof IdentNode
-            if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name
+            if func.name == \eval
+              if EVAL_SIMPLIFIERS ownskey const-args[0]
+                return EVAL_SIMPLIFIERS[const-args[0]]@ this
+            else if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name
               try
                 let value = GLOBAL[func.name]@ void, ...const-args
                 if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
@@ -1006,24 +1015,6 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
 node-class DefNode(left as Node, right as Node|void)
   def type(o) -> if @right? then @right.type(o) else Type.any
 node-class EmbedWriteNode(text as Node, escape as Boolean)
-node-class EvalNode(code as Node)
-  let simplifiers = {
-    "true": #-> LispyNode_Value @index, true
-    "false": #-> LispyNode_Value @index, false
-    "void 0": #-> LispyNode_Value @index, void
-    "null": #-> LispyNode_Value @index, null
-  }
-  def _reduce(o)
-    let code = @code.reduce(o).do-wrap()
-    if code.is-const() and code.is-const-type(\string)
-      let simplifier = simplifiers![code.const-value()]
-      if simplifier
-        return simplifier@ this
-    
-    if code != @code
-      EvalNode @index, @scope, code
-    else
-      this
 node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
   def type(o) -> @_type ?=
     // TODO: handle generator types

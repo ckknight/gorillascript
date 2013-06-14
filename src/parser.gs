@@ -29,7 +29,6 @@ let BlockNode = Node.Block
 let CallNode = Node.Call
 let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
-let EvalNode = Node.Eval
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let IfNode = Node.If
@@ -4008,7 +4007,9 @@ define Eval = sequential(
   [\this, InvocationArguments]) |> mutate #(args, parser, index)
   if args.length != 1
     throw ParserError "Expected only one argument to eval, got $(args.length)", parser, index
-  parser.Eval index, args[0]
+  parser.Call index,
+    parser.Ident index, \eval, true
+    args
 
 define InvocationOrAccess = one-of(
   #(parser, index)
@@ -5933,7 +5934,6 @@ for node-type in [
       'Cascade',
       'Def',
       'EmbedWrite',
-      'Eval',
       'Function',
       'Ident',
       'If',
