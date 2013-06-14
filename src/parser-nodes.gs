@@ -1001,12 +1001,6 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
       else
         this
 
-node-class CommentNode(text as String)
-  def type() -> Type.undefined
-  def cacheable = false
-  def is-const() -> true
-  def const-value() -> void
-  def _is-noop() -> true
 node-class DefNode(left as Node, right as Node|void)
   def type(o) -> if @right? then @right.type(o) else Type.any
 node-class EmbedWriteNode(text as Node, escape as Boolean)

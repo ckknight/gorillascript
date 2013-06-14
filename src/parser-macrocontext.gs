@@ -13,7 +13,6 @@ let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let BlockNode = Node.Block
 let CallNode = Node.Call
-let CommentNode = Node.Comment
 let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
 let EvalNode = Node.Eval

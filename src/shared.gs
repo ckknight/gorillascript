@@ -12,7 +12,6 @@ const ParserNodeType = {
   Binary:          6
   Block:           7
   Call:            9
-  Comment:        11
   Def:            15
   EmbedWrite:     16
   Eval:           17

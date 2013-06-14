@@ -27,7 +27,6 @@ let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let BlockNode = Node.Block
 let CallNode = Node.Call
-let CommentNode = Node.Comment
 let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
 let EvalNode = Node.Eval
@@ -4231,7 +4230,7 @@ define LicenseComment = sequential(
           if i > 0
             result.push "\n"
           process-char-codes l, result
-        return Box current-index + 2, parser.Comment index, result.join ""
+        return Box current-index + 2, LInternalCall \comment, index, parser.scope, LValue index, result.join ""
       else if ch in [C("\r"), C("\n"), 8232, 8233]
         if ch == C("\r") and C(data, current-index ~+ 1) == C("\n")
           current-index ~+= 1
@@ -5936,7 +5935,6 @@ for node-type in [
       'Block',
       'Call',
       'Cascade',
-      'Comment',
       'Def',
       'EmbedWrite',
       'Eval',

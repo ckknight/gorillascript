@@ -1436,8 +1436,6 @@ let translators =
             ast.Access get-pos(node), func, \apply
             [ast.Const(get-pos(node), void), arg-array]
   
-  [ParserNodeType.Comment]: #(node, scope, location) -> #-> ast.Comment(get-pos(node), node.text)
-
   [ParserNodeType.Def]: #(node, scope, location)
     // TODO: line numbers
     throw Error "Cannot have a stray def"
@@ -1922,6 +1920,9 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
             # ast.Return get-pos(node), t-value()
         else
           translate mutated-node, scope, location, unassigned
+      case \comment
+        let t-text = translate args[0], scope, \expression, unassigned
+        # ast.Comment get-pos(node), t-text().const-value()
     else
       throw Error "wat"
 
