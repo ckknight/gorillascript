@@ -954,20 +954,6 @@ let generator-translate = do
             unassigned[k] := false
       ret
     
-    [ParserNodeType.Regexp]: #(node, scope, mutable state, assign-to, unassigned)
-      let g-source = generator-translate-expression node.source, scope, state, false, unassigned
-      handle-assign assign-to, scope, state, (#
-        let source = g-source.t-node()
-        if source.is-const()
-          ast.Regex get-pos(node), String(source.const-value()), node.flags
-        else
-          ast.Call get-pos(node),
-            ast.Ident get-pos(node), \RegExp
-            [
-              source
-              ast.Const get-pos(node), flags
-            ]), g-source.cleanup
-    
     [ParserNodeType.TmpWrapper]: #(node, scope, state, assign-to, unassigned)
       let g-node = generator-translate-expression node.node, scope, state, false, unassigned
       handle-assign assign-to, scope, g-node.state, g-node.t-node, #
@@ -1386,6 +1372,11 @@ let translators =
     # -> ast.Block get-pos(node), (for t-node in t-nodes; t-node()), t-label?()
 
   [ParserNodeType.Call]: #(node, scope, location, unassigned)
+    if node.func instanceof ParserNode.Ident and node.func.name == \RegExp and node.args[0].is-const() and (not node.args[1] or node.args[1].is-const())
+      return if node.args[1] and node.args[1].const-value()
+        # ast.Regex get-pos(node), String(node.args[0].const-value()), String(node.args[1].const-value())
+      else
+        # ast.Regex get-pos(node), String(node.args[0].const-value())
     let t-func = translate node.func, scope, \expression, unassigned
     let is-apply = node.is-apply
     let is-new = node.is-new
@@ -1796,21 +1787,6 @@ let translators =
           * ident
         scope.release-ident ident
         result
-  
-  [ParserNodeType.Regexp]: #(node, scope, location, unassigned)
-    let t-source = translate(node.source, scope, \expression, unassigned)
-    #
-      let source = t-source()
-      let flags = node.flags
-      if source.is-const()
-        ast.Regex get-pos(node), String(source.const-value()), flags
-      else
-        ast.Call get-pos(node),
-          ast.Ident get-pos(node), \RegExp
-          [
-            source
-            ast.Const get-pos(node), flags
-          ]
   
   [ParserNodeType.Switch]: #(node, scope, location, unassigned)
     let t-label = node.label and translate node.label, scope, \label

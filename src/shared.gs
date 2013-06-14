@@ -27,7 +27,6 @@ const ParserNodeType = {
   Nothing:        25
   Object:         26
   Param:          27
-  Regexp:         28
   Root:           30
   Spread:         31
   Super:          32

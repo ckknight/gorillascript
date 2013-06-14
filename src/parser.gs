@@ -41,7 +41,6 @@ let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ObjectNode = Node.Object
 let ParamNode = Node.Param
-let RegexpNode = Node.Regexp
 let RootNode = Node.Root
 let SpreadNode = Node.Spread
 let SuperNode = Node.Super
@@ -2698,7 +2697,12 @@ let RegexLiteral = do
       else if flag not in [\g, \i, \m, \y]
         throw ParserError "Invalid regular expression: unknown flag $(quote flag)", parser, index
       seen-flags.push flag
-    parser.Regexp index, text, flags
+    parser.Call index,
+      parser.Ident index, \RegExp
+      [
+        text
+        LValue index, flags
+      ]
 
 let ConstantLiteralAccessPart = one-of(
   sequential(
@@ -5942,7 +5946,6 @@ for node-type in [
       'Nothing',
       'Object',
       'Param',
-      'Regexp',
       'Root',
       'Spread',
       'Super',

@@ -1320,20 +1320,6 @@ Node.object := #(index, pairs, prototype)
   @Object index, pairs, prototype
 Node.object-param := Node.object
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
-node-class RegexpNode(source as Node, flags as String = "")
-  def type() -> Type.regexp
-  def _is-noop(o) -> @text.is-noop(o)
-  def _reduce(o)
-    let source = @source.reduce(o).do-wrap(o)
-    if not source.is-const()
-      CallNode @index, @scope, IdentNode(@index, @scope, "RegExp"), [
-        source
-        LispyNode_Value @index, @flags
-      ]
-    else if source != @source
-      RegexpNode @index, @scope, source, @flags
-    else
-      this
 node-class RootNode(file as String|void, body as Node, is-embedded as Boolean, is-generator as Boolean)
   def is-statement() -> true
 node-class SpreadNode(node as Node)

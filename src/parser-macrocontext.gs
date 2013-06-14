@@ -27,7 +27,6 @@ let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ObjectNode = Node.Object
 let ParamNode = Node.Param
-let RegexpNode = Node.Regexp
 let RootNode = Node.Root
 let SpreadNode = Node.Spread
 let SuperNode = Node.Super
@@ -558,7 +557,12 @@ class MacroContext
     if obj == null or typeof obj in [\string, \number, \boolean, \undefined]
       LispyNode.Value index, obj
     else if obj instanceof RegExp
-      RegexpNode index, scope, obj.source, "$(if obj.global then 'g' else '')$(if obj.ignore-case then 'i' else '')$(if obj.multiline then 'm' else '')$(if obj.sticky then 'y' else '')"
+      CallNode obj.index, scope,
+        IdentNode obj.index, scope, \RegExp
+        [
+          LispyNode.Value index, obj.source
+          LispyNode.Value index, "$(if obj.global then 'g' else '')$(if obj.ignore-case then 'i' else '')$(if obj.multiline then 'm' else '')$(if obj.sticky then 'y' else '')"
+        ]
     else if is-array! obj
       ArrayNode index, scope, for item in obj
         constify-object position, item, index, scope
