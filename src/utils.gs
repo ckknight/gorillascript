@@ -24,7 +24,9 @@ class Cache<TKey, TValue>
     @weakmap := WeakMap()
   
   def get(key as TKey) -> @weakmap.get(key)
-
+  
+  def set(key as TKey, value as TValue)! -> @weakmap.set(key, value)
+  
   def get-or-add(key as TKey, factory as TKey -> TValue)
     let weakmap = @weakmap
     let mutable value = weakmap.get(key)

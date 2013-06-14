@@ -337,7 +337,8 @@ node-class AccessNode(parent as Node, child as Node)
                 "||"
                 LispyNode_Value end.index, Infinity
         else
-          end := IfNode end.index, end.scope,
+          let LispyNode = require('./parser-lispynodes')
+          end := LispyNode.InternalCall \if, end.index, end.scope,
             inclusive
             BinaryNode end.index, end.scope,
               BinaryNode end.index, end.scope,
@@ -638,16 +639,18 @@ node-class BinaryNode(left as Node, op as String, right as Node)
             x
           else if truthy == false
             BinaryNode @index, @scope, x.left, "||", BlockNode x.right.index, @scope, [x.right, y]
-        else if x instanceof IfNode and x.when-false.is-const() and not x.when-false.const-value()
-          let mutable test = x.test
-          let mutable when-true = x.when-true
-          while when-true instanceof IfNode and when-true.when-false.is-const() and not when-true.when-false.const-value()
-            test := BinaryNode x.index, x.scope, test, "&&", when-true.test
-            when-true := when-true.when-true
-          BinaryNode(@index, @scope
-            BinaryNode x.index, x.scope, test, "&&", when-true
-            "||"
-            y)
+        else
+          let LispyNode = require('./parser-lispynodes')
+          if x instanceof LispyNode and x.is-call and x.func.is-symbol and x.func.is-internal and x.func.is-if and x.args[2].is-const() and not x.args[2].const-value()
+            let mutable test = x.args[0]
+            let mutable when-true = x.args[1]
+            while when-true instanceof LispyNode and when-true.is-call and when-true.func.is-symbol and when-true.func.is-internal and when-true.func.is-if and when-true.args[2].is-const() and not when-true.args[2].const-value()
+              test := BinaryNode x.index, x.scope, test, "&&", when-true.args[0]
+              when-true := when-true.args[2]
+            BinaryNode(@index, @scope
+              BinaryNode x.index, x.scope, test, "&&", when-true
+              "||"
+              y)
     #(o)
       let left = @left.reduce(o).do-wrap(o)
       let right = @right.reduce(o).do-wrap(o)
@@ -1056,48 +1059,6 @@ node-class IdentNode(name as String)
       Type.any
   def _is-noop(o) -> true
   def is-primordial() -> is-primordial(@name)
-node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, scope), label as IdentNode|TmpNode|null)
-  def type(o) -> @_type ?= @when-true.type(o).union(@when-false.type(o))
-  def with-label(label as IdentNode|TmpNode|null)
-    IfNode @index, @scope, @test, @when-true, @when-false, label
-  def _reduce(o)
-    let test = @test.reduce(o)
-    let when-true = @when-true.reduce(o)
-    let when-false = @when-false.reduce(o)
-    let label = if @label? then @label.reduce(o) else @label
-    if test.is-const()
-      BlockNode(@index, @scope,
-        [if test.const-value()
-          when-true
-        else
-          when-false]
-        label).reduce(o)
-    else
-      let test-type = test.type(o)
-      if test-type.is-subset-of(Type.always-truthy)
-        BlockNode(@index, @scope, [test, when-true], label).reduce(o)
-      else if test-type.is-subset-of(Type.always-falsy)
-        BlockNode(@index, @scope, [test, when-false], label).reduce(o)
-      else if test != @test or when-true != @when-true or when-false != @when-false or label != @label
-        IfNode(@index, @scope, test, when-true, when-false, label)
-      else
-        this
-  def is-statement() -> @_is-statement ?= @when-true.is-statement() or @when-false.is-statement()
-  def do-wrap(o)
-    let when-true = @when-true.do-wrap(o)
-    let when-false = @when-false.do-wrap(o)
-    if when-true != @when-true or when-false != @when-false
-      IfNode @index, @scope, @test, when-true, when-false, @label
-    else
-      this
-  def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
-  def mutate-last(o, func, context, include-noop)
-    let when-true = @when-true.mutate-last o, func, context, include-noop
-    let when-false = @when-false.mutate-last o, func, context, include-noop
-    if when-true != @when-true or when-false != @when-false
-      IfNode @index, @scope, @test, when-true, when-false, @label
-    else
-      this
 node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in-statement as Boolean, in-generator as Boolean, in-evil-ast as Boolean, do-wrapped as Boolean)
   def type(o) -> @_type ?=
     let type = o.macros.get-type-by-id(@id)

@@ -17,7 +17,6 @@ let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
-let IfNode = Node.If
 let MacroAccessNode = Node.MacroAccess
 let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
@@ -95,7 +94,12 @@ class MacroContext
   def def(key as Node = NothingNode(0, @scope()), value as Node|void) -> @parser.Def @index, key, @do-wrap(value)
   def noop() -> @parser.Nothing @index
   def block(nodes as [Node], label as IdentNode|TmpNode|null) -> @parser.Block(@index, nodes, label).reduce(@parser)
-  def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node|null, label as IdentNode|TmpNode|null) -> @parser.If(@index, @do-wrap(test), when-true, when-false, label).reduce(@parser)
+  def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
+    LispyNode.InternalCall(\if, @index, @scope(),
+      @do-wrap(test)
+      when-true
+      when-false
+      ...(if label then [label] else [])).reduce(@parser)
   def switch(node as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null) -> @parser.Switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case, label).reduce(@parser)
   def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
     LispyNode.InternalCall(\for, @index, @scope(),
@@ -181,12 +185,12 @@ class MacroContext
   
   def is-labeled-block(mutable node)
     node := @real(node)
-    if node instanceofsome [BlockNode, IfNode, SwitchNode]
+    if node instanceofsome [BlockNode, SwitchNode]
       node.label?
     else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal
       if node.func.is-try-finally
         node.args[2]?
-      else if node.func.is-try-catch or node.func.is-for-in
+      else if node.func.is-try-catch or node.func.is-for-in or node.func.is-if
         node.args[3]?
       else if node.func.is-for
         node.args[4]?
@@ -211,11 +215,11 @@ class MacroContext
             return node.args[0]
           else if func.is-try-finally
             return node.args[2]
-          else if func.is-try-catch or func.is-for-in
+          else if func.is-try-catch or func.is-for-in or func.is-if
             return node.args[3]
-          else if func.is-try-catch or func.is-for
+          else if func.is-for
             return node.args[4]
-    else if node instanceofsome [BlockNode, IfNode, SwitchNode]
+    else if node instanceofsome [BlockNode, SwitchNode]
       return node.label
     null
   def with-label(node, label as IdentNode|TmpNode|null)
@@ -520,19 +524,18 @@ class MacroContext
     if node instanceof AccessNode
       node.child
   
-  def is-if(node) -> @real(node) instanceof IfNode
+  def is-if(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-if
   def test(mutable node)
     node := @real(node)
-    if node instanceof IfNode
-      node.test
+    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-if and node.args[0]
   def when-true(mutable node)
     node := @real(node)
-    if node instanceof IfNode
-      node.when-true
+    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-if and node.args[1]
   def when-false(mutable node)
     node := @real(node)
-    if node instanceof IfNode
-      node.when-false
+    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-if and node.args[2]
   
   def cache(node as Node, init, name as String = \ref, save as Boolean)
     @maybe-cache node, (#(set-node, node, cached)
@@ -612,15 +615,15 @@ class MacroContext
           LispyNode.Value obj.index, obj.name
         ]
     else if obj instanceof LispyNode
-      switch
-      case obj.is-value
+      switch obj.node-type
+      case \value
         CallNode obj.index, scope,
           IdentNode obj.index, scope, \__value
           [
             position or LispyNode.Value obj.index, void
             obj
           ]
-      case obj.is-symbol
+      case \symbol
         CallNode obj.index, scope,
           IdentNode obj.index, scope, \__symbol
           [
@@ -648,6 +651,15 @@ class MacroContext
                 LispyNode.Value obj.index, obj.operator-type
                 LispyNode.Value obj.index, obj.name
               ])
+          ]
+      case \call
+        CallNode obj.index, scope,
+          IdentNode obj.index, scope, \__call
+          [
+            position or LispyNode.Value obj.index, void
+            constify-object position, obj.func, index, scope
+            ...(for arg in obj.args
+              constify-object position, arg, index, scope)
           ]
     else if obj instanceof Node
       if obj.constructor == Node
@@ -702,6 +714,13 @@ class MacroContext
       LispyNode.Symbol.tmp(index, @scope(), args[0], args[1])
     case \operator
       LispyNode.Symbol[args[0]](index, args[1])
+  
+  def make-lispy-call(from-position, func, ...args)
+    let index = if from-position and is-number! from-position.index
+      from-position.index
+    else
+      @index
+    LispyNode.Call index, @scope(), func, ...args
   
   def node(type-id as Number, from-position, ...args)
     if type-id == ParserNodeType.MacroAccess

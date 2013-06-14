@@ -916,44 +916,6 @@ let generator-translate = do
                 args
               ]
     
-    [ParserNodeType.If]: #(node, scope, mutable state, assign-to, unassigned)
-      let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test), unassigned
-      state := test.state
-      
-      let when-false-unassigned = unassigned and {} <<< unassigned
-      let ret = if state.has-generator-node(node.when-true) or state.has-generator-node(node.when-false)
-        // TODO: handle case when only one of when-true/when-false has generator nodes
-        state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch, #-> when-false-branch
-        let t-tmp = make-t-tmp(assign-to, scope, get-pos(node))
-        let when-true-branch = state.branch()
-        let g-when-true = generator-translate-expression node.when-true, scope, when-true-branch, t-tmp, unassigned
-        g-when-true.state.goto get-pos(node.when-true), #-> post-branch
-        let when-false-branch = state.branch()
-        let g-when-false = generator-translate-expression node.when-false, scope, when-false-branch, t-tmp, when-false-unassigned
-        g-when-false.state.goto get-pos(node.when-false), #-> post-branch
-        let post-branch = state.branch()
-        let cleanup = make-cleanup assign-to, scope, t-tmp
-        {
-          state: post-branch
-          t-node: t-tmp
-          cleanup: #
-            g-when-true.cleanup()
-            g-when-false.cleanup()
-            cleanup()
-        }
-      else
-        let t-when-true = translate node.when-true, scope, \expression, unassigned
-        let t-when-false = translate node.when-false, scope, \expression, when-false-unassigned
-        handle-assign assign-to, scope, state, #-> ast.If get-pos(node),
-          test.t-node()
-          last!(test.cleanup(), t-when-true())
-          t-when-false()
-      if unassigned
-        for k, v of when-false-unassigned
-          if not v
-            unassigned[k] := false
-      ret
-    
     [ParserNodeType.TmpWrapper]: #(node, scope, state, assign-to, unassigned)
       let g-node = generator-translate-expression node.node, scope, state, false, unassigned
       handle-assign assign-to, scope, g-node.state, g-node.t-node, #
@@ -968,16 +930,59 @@ let generator-translate = do
           node.op
           first!(g-node.t-node(), g-node.cleanup()))
   
-  let generator-translate-expression-lispy(node as LispyNode, scope as Scope, mutable state as GeneratorState, assign-to as Boolean|->, unassigned)
+  let generator-translate-expression-lispy-internals =
+    yield: #(node, args, scope, mutable state, assign-to, unassigned)
+      let g-node = generator-translate-expression args[0], scope, state, false, unassigned
+      state := g-node.state.yield get-pos(node), g-node.t-node
+      handle-assign assign-to, scope, state, #-> state.builder.received-ident, g-node.cleanup
+    
+    if: #(node, args, scope, mutable state, assign-to, unassigned)
+      let test = generator-translate-expression args[0], scope, state, state.has-generator-node(args[0]), unassigned
+      state := test.state
+      
+      let when-false-unassigned = unassigned and {} <<< unassigned
+      let ret = if state.has-generator-node(args[1]) or state.has-generator-node(args[2])
+        // TODO: handle case when only one of when-true/when-false has generator nodes
+        state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch, #-> when-false-branch
+        let t-tmp = make-t-tmp(assign-to, scope, get-pos(node))
+        let when-true-branch = state.branch()
+        let g-when-true = generator-translate-expression args[1], scope, when-true-branch, t-tmp, unassigned
+        g-when-true.state.goto get-pos(args[1]), #-> post-branch
+        let when-false-branch = state.branch()
+        let g-when-false = generator-translate-expression args[2], scope, when-false-branch, t-tmp, when-false-unassigned
+        g-when-false.state.goto get-pos(args[2]), #-> post-branch
+        let post-branch = state.branch()
+        let cleanup = make-cleanup assign-to, scope, t-tmp
+        {
+          state: post-branch
+          t-node: t-tmp
+          cleanup: #
+            g-when-true.cleanup()
+            g-when-false.cleanup()
+            cleanup()
+        }
+      else
+        let t-when-true = translate args[1], scope, \expression, unassigned
+        let t-when-false = translate args[2], scope, \expression, when-false-unassigned
+        handle-assign assign-to, scope, state, #-> ast.If get-pos(node),
+          test.t-node()
+          last!(test.cleanup(), t-when-true())
+          t-when-false()
+      if unassigned
+        for k, v of when-false-unassigned
+          if not v
+            unassigned[k] := false
+      ret
+  
+  let generator-translate-expression-lispy(node as LispyNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     switch
     case node.is-call
       let {func, args} = node
       if func.is-internal
-        switch
-        case func.is-yield
-          let g-node = generator-translate-expression args[0], scope, state, false, unassigned
-          state := g-node.state.yield get-pos(node), g-node.t-node
-          handle-assign assign-to, scope, state, #-> state.builder.received-ident, g-node.cleanup
+        let name = func.name
+        if generator-translate-expression-lispy-internals not ownskey name
+          throw Error "Unable to translate internal call for '$name'"
+        generator-translate-expression-lispy-internals[name] node, args, scope, state, assign-to, unassigned  
       else
         throw Error "wat"
   
@@ -1027,34 +1032,6 @@ let generator-translate = do
             else
               []
           ]
-    
-    [ParserNodeType.If]: #(node, scope, mutable state, break-state, continue-state, unassigned)
-      let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
-      state := test.state
-      
-      let when-false-unassigned = unassigned and {} <<< unassigned
-      let ret = if state.has-generator-node(node.when-true) or state.has-generator-node(node.when-false)
-        state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch or post-branch, #-> when-false-branch or post-branch
-        let when-true-branch = if node.when-true and node.when-true not instanceof ParserNode.Nothing then state.branch()
-        if when-true-branch
-          generator-translate(node.when-true, scope, when-true-branch, break-state, continue-state, unassigned).goto get-pos(node.when-true), #-> post-branch
-        let when-false-branch = if node.when-false and node.when-false not instanceof ParserNode.Nothing then state.branch()
-        if when-false-branch
-          generator-translate(node.when-false, scope, when-false-branch, break-state, continue-state, when-false-unassigned).goto get-pos(node.when-false), #-> post-branch
-        let post-branch = state.branch()
-        post-branch
-      else
-        let t-when-true = translate node.when-true, scope, \statement, unassigned
-        let t-when-false = translate node.when-false, scope, \statement, when-false-unassigned
-        state.add #-> ast.If get-pos(node),
-          test.t-node()
-          last!(test.cleanup(), t-when-true())
-          t-when-false()
-      if unassigned
-        for k, v of when-false-unassigned
-          if not v
-            unassigned[k] := false
-      ret
     
     [ParserNodeType.Switch]: #(node, scope, state, , continue-state, unassigned)
       if node.label?
@@ -1254,6 +1231,36 @@ let generator-translate = do
       
       let post-branch = step-branch.branch()
       post-branch
+    
+    if: #(node, args, scope, mutable state, break-state, continue-state, unassigned)
+      if args[3]
+        throw Error "Not implemented: if with label in generator"
+      let test = generator-translate-expression args[0], scope, state, state.has-generator-node(args[0])
+      state := test.state
+      
+      let when-false-unassigned = unassigned and {} <<< unassigned
+      let ret = if state.has-generator-node(args[1]) or state.has-generator-node(args[2])
+        state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch or post-branch, #-> when-false-branch or post-branch
+        let when-true-branch = if args[1] not instanceof ParserNode.Nothing then state.branch()
+        if when-true-branch
+          generator-translate(args[1], scope, when-true-branch, break-state, continue-state, unassigned).goto get-pos(args[1]), #-> post-branch
+        let when-false-branch = if args[2] not instanceof ParserNode.Nothing then state.branch()
+        if when-false-branch
+          generator-translate(args[2], scope, when-false-branch, break-state, continue-state, when-false-unassigned).goto get-pos(args[2]), #-> post-branch
+        let post-branch = state.branch()
+        post-branch
+      else
+        let t-when-true = translate args[1], scope, \statement, unassigned
+        let t-when-false = translate args[2], scope, \statement, when-false-unassigned
+        state.add #-> ast.If get-pos(node),
+          test.t-node()
+          last!(test.cleanup(), t-when-true())
+          t-when-false()
+      if unassigned
+        for k, v of when-false-unassigned
+          if not v
+            unassigned[k] := false
+      ret
   
   let generator-translate-lispy(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     switch
@@ -1647,22 +1654,6 @@ let translators =
             ast.Ident get-pos(node), \context
             ast.Const get-pos(node), name
 
-  [ParserNodeType.If]: #(node, scope, location, unassigned)
-    let inner-location = if location in [\statement, \top-statement]
-      \statement
-    else
-      location
-    let t-label = node.label and translate node.label, scope, \label
-    let t-test = translate node.test, scope, \expression, unassigned
-    let when-false-unassigned = unassigned and {} <<< unassigned
-    let t-when-true = translate node.when-true, scope, inner-location, unassigned
-    let t-when-false = if node.when-false? then translate node.when-false, scope, inner-location, when-false-unassigned
-    if unassigned
-      for k, v of when-false-unassigned
-        if not v
-          unassigned[k] := false
-    #-> ast.If get-pos(node), t-test(), t-when-true(), t-when-false?(), t-label?()
-  
   [ParserNodeType.Nothing]: #(node) -> #-> ast.Noop(get-pos(node))
 
   [ParserNodeType.Object]: #(node, scope, location, unassigned)
@@ -1919,6 +1910,22 @@ let translate-lispy-internal =
         throw Error("Expected an Ident for a for-in key")
       scope.add-variable key, Type.string
       ast.ForIn(get-pos(node), key, t-object(), t-body(), t-label?())
+  
+  if: #(node, args, scope, location, unassigned)
+    let inner-location = if location in [\statement, \top-statement]
+      \statement
+    else
+      location
+    let t-label = args[3] and translate args[3], scope, \label
+    let t-test = translate args[0], scope, \expression, unassigned
+    let when-false-unassigned = unassigned and {} <<< unassigned
+    let t-when-true = translate args[1], scope, inner-location, unassigned
+    let t-when-false = translate args[2], scope, inner-location, when-false-unassigned
+    if unassigned
+      for k, v of when-false-unassigned
+        if not v
+          unassigned[k] := false
+    # ast.If get-pos(node), t-test(), t-when-true(), t-when-false?(), t-label?()
 
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch

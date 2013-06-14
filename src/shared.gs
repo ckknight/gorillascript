@@ -16,7 +16,6 @@ const ParserNodeType = {
   EmbedWrite:     16
   Function:       20
   Ident:          21
-  If:             22
   MacroAccess:    23
   MacroConst:     24
   Nothing:        25
@@ -39,3 +38,13 @@ const ParserNodeType = {
   Unary:          48
   Var:            49
 }
+
+macro cache-get-or-add!(cache, key, value)
+  @maybe-cache cache, #(set-cache, cache)
+    @maybe-cache key, #(set-key, key)
+      let tmp = @tmp \value
+      AST
+        let mutable $tmp = $set-cache.get($set-key)
+        if $tmp == void
+          $cache.set($key, ($tmp := $value))
+        $tmp

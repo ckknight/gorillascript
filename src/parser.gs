@@ -31,7 +31,6 @@ let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
-let IfNode = Node.If
 let MacroAccessNode = Node.MacroAccess
 let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
@@ -3697,7 +3696,7 @@ let convert-invocation-or-access = do
             set-child := parser.Assign(index, tmp, "=", child.do-wrap(parser))
             child := tmp
           
-          let result = parser.If(index
+          let result = LInternalCall \if, index, parser.scope,
             do
               let ownership-op = parser.get-macro-by-label(\ownership)
               if not ownership-op
@@ -3724,7 +3723,8 @@ let convert-invocation-or-access = do
                   op: ""
                   right: set-child
                 }, parser, index
-            convert-call-chain(parser, index, bind-access(head, child), link-index + 1, links))
+            convert-call-chain(parser, index, bind-access(head, child), link-index + 1, links)
+            parser.Nothing index
           if tmp-ids.length
             parser.TmpWrapper(index, result, tmp-ids)
           else
@@ -3750,18 +3750,19 @@ let convert-invocation-or-access = do
             let existential-op = parser.get-macro-by-label(\existential)
             if not existential-op
               throw Error "Cannot use existential access until the existential operator has been defined"
-            let result = parser.If(index
+            let result = LInternalCall \if, index, parser.scope,
               existential-op.func {
                 op: ""
                 node: set-head
               }, parser, index
-              convert-call-chain(parser, index, make-access(head), link-index + 1, links))
+              convert-call-chain parser, index, make-access(head), link-index + 1, links
+              parser.Nothing index
             if tmp-ids.length
-              parser.TmpWrapper(index, result, tmp-ids)
+              parser.TmpWrapper index, result, tmp-ids
             else
               result
           else
-            convert-call-chain(parser, index, make-access(head), link-index + 1, links)
+            convert-call-chain parser, index, make-access(head), link-index + 1, links
     call: #(parser, index, mutable head, link, link-index, links)
       unless link.existential
         convert-call-chain(parser, index, parser.Call(index, head, link.args, link.is-new, link.is-apply), link-index + 1, links)
@@ -3791,12 +3792,16 @@ let convert-invocation-or-access = do
             tmp-ids.push tmp.id
             set-head := parser.Assign(index, tmp, "=", head.do-wrap(parser))
             head := tmp
-        let result = parser.If(index
-          parser.Binary(index
-            parser.Unary(index, \typeof, set-head)
+        let result = LInternalCall \if, index, parser.scope,
+          parser.Binary index,
+            parser.Unary index, \typeof, set-head
             "==="
-            LValue(index, \function))
-          convert-call-chain(parser, index, parser.Call(index, head, link.args, link.is-new, link.is-apply), link-index + 1, links))
+            LValue index, \function
+          convert-call-chain parser, index,
+            parser.Call index, head, link.args, link.is-new, link.is-apply
+            link-index + 1
+            links
+          parser.Nothing index
         if tmp-ids.length
           parser.TmpWrapper(index, result, tmp-ids)
         else
@@ -5114,6 +5119,7 @@ class Parser
             @Param index, (@Ident index, \__const), void, false, true, void
             @Param index, (@Ident index, \__value), void, false, true, void
             @Param index, (@Ident index, \__symbol), void, false, true, void
+            @Param index, (@Ident index, \__call), void, false, true, void
           ]
           body
           true
@@ -5635,7 +5641,7 @@ class Parser
             throw parser.build-error "Trying to assign with $(data.op) to immutable variable '$(macro-context.name data.left)'", data.left
         let mutable result = void
         try
-          result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.node, macro-context@.get-const, macro-context@.make-lispy-value, macro-context@.make-lispy-symbol
+          result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.node, macro-context@.get-const, macro-context@.make-lispy-value, macro-context@.make-lispy-symbol, macro-context@.make-lispy-call
         catch e as ReferenceError
           throw e
         catch e as MacroError
@@ -5936,7 +5942,6 @@ for node-type in [
       'EmbedWrite',
       'Function',
       'Ident',
-      'If',
       'MacroAccess',
       'MacroConst',
       'Nothing',

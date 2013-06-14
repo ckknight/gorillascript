@@ -2,6 +2,7 @@ import 'shared.gs'
 let {to-JS-source} = require './jsutils'
 require! Type: './types'
 require! OldNode: './parser-nodes'
+let {Cache} = require './utils'
 
 let capitalize(value as String)
   value.char-at(0).to-upper-case() & value.substring(1)
@@ -104,12 +105,15 @@ class Symbol extends Node
       array: {}
       block: {}
       break: {
+        validate-args(label as OldNode|null) ->
         +is-goto
         +used-as-statement
       }
-      cascade: {}
-      comment: {}
+      comment: {
+        validate-args(text as Value) ->
+      }
       continue: {
+        validate-args(label as OldNode|null) ->
         +is-goto
         +used-as-statement
       }
@@ -118,6 +122,7 @@ class Symbol extends Node
       }
       def: {}
       for: {
+        validate-args(init as OldNode, test as OldNode, step as OldNode, body as OldNode, label as OldNode|null) ->
         +used-as-statement
         _with-label(call, label)
           Call call.index, call.scope,
@@ -129,6 +134,7 @@ class Symbol extends Node
             label
       }
       for-in: {
+        validate-args(key as OldNode, object as OldNode, body as OldNode, label as OldNode|null) ->
         +used-as-statement
         _with-label(call, label)
           Call call.index, call.scope,
@@ -139,7 +145,79 @@ class Symbol extends Node
             label
       }
       function: {}
-      if: {}
+      if: {
+        validate-args(test as OldNode, when-true as OldNode, when-false as OldNode, label as OldNode|null) ->
+        _type: do
+          let cache = Cache<Call, Type>()
+          #(call, parser)
+            cache-get-or-add! cache, call, call.args[1].type(parser).union(call.args[2].type(parser))
+        _is-statement: do
+          let cache = Cache<Call, Boolean>()
+          #(call)
+            cache-get-or-add! cache, call, call.args[1].is-statement() or call.args[2].is-statement()
+        _with-label(call, label)
+          Call call.index, call.scope,
+            call.func
+            call.args[0]
+            call.args[1]
+            call.args[2]
+            label
+        _do-wrap(call, parser)
+          let when-true = call.args[1].do-wrap(parser)
+          let when-false = call.args[2].do-wrap(parser)
+          if when-true != call.args[1] or when-false != call.args[2]
+            Call call.index, call.scope,
+              call.func
+              call.args[0]
+              when-true
+              when-false
+              ...call.args[3 to -1]
+          else
+            call
+        __reduce(call, parser)
+          let test = call.args[0].reduce(parser)
+          let when-true = call.args[1].reduce(parser)
+          let when-false = call.args[2].reduce(parser)
+          let label = call.args[3] and call.args[3].reduce(parser)
+          if test.is-const()
+            OldNode.Block(call.index, call.scope
+              [if test.const-value()
+                when-true
+              else
+                when-false]
+              label).reduce(parser)
+          else
+            let test-type = test.type(parser)
+            if test-type.is-subset-of(Type.always-truthy)
+              OldNode.Block(@index, @scope, [test, when-true], label).reduce(parser)
+            else if test-type.is-subset-of(Type.always-falsy)
+              OldNode.Block(@index, @scope, [test, when-false], label).reduce(parser)
+            else if test != call.args[0] or when-true != call.args[1] or when-false != call.args[2] or label != call.args[3]
+              Call call.index, call.scope,
+                call.func
+                test
+                when-true
+                when-false
+                ...(if label then [label] else [])
+            else
+              call
+        _mutate-last(call, parser, mutator, context, include-noop)
+          let when-true = call.args[1].mutate-last(parser, mutator, context, include-noop)
+          let when-false = call.args[2].mutate-last(parser, mutator, context, include-noop)
+          if when-true != call.args[1] or when-false != call.args[2]
+            Call call.index, call.scope,
+              call.func
+              call.args[0]
+              when-true
+              when-false
+              ...call.args[3 to -1]
+          else
+            call
+        /*
+        node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, scope), label as IdentNode|TmpNode|null)
+          def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
+        */
+      }
       label: {
         +used-as-statement
       }
@@ -154,15 +232,21 @@ class Symbol extends Node
       object: {}
       param: {}
       return: {
+        validate-args(node as OldNode) ->
         +is-goto
         +used-as-statement
       }
       root: {
         +used-as-statement
       }
-      spread: {}
+      spread: {
+        validate-args(node as OldNode) ->
+      }
       super: {}
       throw: {
+        validate-args(node as OldNode) ->
+        _type()
+          Type.none
         +is-goto
         +used-as-statement
         _do-wrap(call, parser)
@@ -171,24 +255,22 @@ class Symbol extends Node
             [call.args[0]]
         /*
         node-class ThrowNode(node as Node)
-          def type() -> Type.none
-          def is-statement() -> true
           def _reduce(o)
             let node = @node.reduce(o).do-wrap(o)
             if node != @node
               ThrowNode @index, @scope, node
             else
               this
-          def do-wrap(o)
-            CallNode @index, @scope,
-              IdentNode @index, @scope, \__throw
-              [@node]
-          def mutate-last() -> this
         */
       }
       tmp-wrapper: {}
       try-catch: {
+        validate-args(try-body as OldNode, catch-ident as OldNode, catch-body as OldNode, label as OldNode|null) ->
         +used-as-statement
+        _type: do
+          let cache = Cache<Call, Type>()
+          #(call, parser)
+            cache-get-or-add! cache, call, call.args[1].type(parser).union(call.args[2].type(parser))
         _with-label(call, label)
           Call call.index, call.scope,
             call.func
@@ -210,7 +292,10 @@ class Symbol extends Node
             call
       }
       try-finally: {
+        validate-args(try-body as OldNode, finally-body as OldNode, label as OldNode|null) ->
         +used-as-statement
+        _type(call, parser)
+          call.args[0].type parser
         _with-label(call, label)
           Call call.index, call.scope,
             call.func
@@ -228,7 +313,6 @@ class Symbol extends Node
             call
         /*
         node-class TryFinallyNode(try-body as Node, finally-body as Node, label as IdentNode|TmpNode|null)
-          def type(o) -> @try-body.type(o)
           def _reduce(o)
             let try-body = @try-body.reduce(o)
             let finally-body = @finally-body.reduce(o)
@@ -241,19 +325,14 @@ class Symbol extends Node
               TryFinallyNode @index, @scope, try-body, finally-body, label
             else
               this
-          def is-statement() -> true
           def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
-          def mutate-last(o, func, context, include-noop)
-            let try-body = @try-body.mutate-last o, func, context, include-noop
-            if try-body != @try-body
-              TryFinallyNode @index, @scope, try-body, @finally-body, @label
-            else
-              this
         */
       }
       write: {}
       var: {}
-      yield: {}
+      yield: {
+        validate-args(node as OldNode) ->
+      }
     for name, data of internal-symbols
       let is-name-key = "is$(capitalize name)"
       def [is-name-key] = false
@@ -418,7 +497,9 @@ class Symbol extends Node
         AssignOperator index, name
 
 class Call extends Node
-  def constructor(@index as Number, @scope, @func as Node, ...@args as [OldNode]) ->
+  def constructor(@index as Number, @scope, @func as Node, ...@args as [OldNode])
+    if DEBUG and is-function! func.validate-args
+      func.validate-args ...args
   
   def is-call = true
   def node-type = \call
@@ -450,8 +531,17 @@ class Call extends Node
             return false
         true
   
+  def type(o)
+    if is-function! @func._type
+      @func._type this, o
+    else
+      super.type o
+  
   def _reduce(o)
-    @walk #(x) -> x.reduce(this), o
+    if is-function! @func.__reduce
+      @func.__reduce this, o
+    else
+      @walk #(x) -> x.reduce(this), o
   
   def walk(walker, context)
     let func = walker@(context, @func) or @func.walk(walker, context)
