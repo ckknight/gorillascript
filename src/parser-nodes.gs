@@ -693,11 +693,6 @@ node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
         changed := true
       else if reduced instanceof NothingNode
         changed := true
-      else if reduced instanceof ReturnNode
-        body.push reduced
-        if reduced != node or i < len - 1
-          changed := true
-        break
       else if reduced instanceof require('./parser-lispynodes') and reduced.is-call and reduced.func.is-goto
         body.push reduced
         if reduced != node or i < len - 1
@@ -1055,9 +1050,10 @@ node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Bool
         @body.type(o)
       else
         Type.undefined
+      let LispyNode = require('./parser-lispynodes')
       let walker(node)
-        if node instanceof ReturnNode
-          return-type := return-type.union node.type(o)
+        if node instanceof LispyNode and node.is-call and node.func.is-return
+          return-type := return-type.union node.args[0].type(o)
           node
         else if node instanceof FunctionNode
           node
@@ -1338,16 +1334,6 @@ node-class RegexpNode(source as Node, flags as String = "")
       RegexpNode @index, @scope, source, @flags
     else
       this
-node-class ReturnNode(node as Node = LispyNode_Value(index, void))
-  def type(o) -> @node.type(o)
-  def is-statement() -> true
-  def _reduce(o)
-    let node = @node.reduce(o)
-    if node != @node
-      ReturnNode @index, @scope, node
-    else
-      this
-  def mutate-last() -> this
 node-class RootNode(file as String|void, body as Node, is-embedded as Boolean, is-generator as Boolean)
   def is-statement() -> true
 node-class SpreadNode(node as Node)

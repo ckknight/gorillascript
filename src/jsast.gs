@@ -142,6 +142,8 @@ exports.Node := class Node
   def exit-type() -> null
   def last() -> this
   
+  def remove-trailing-return-voids() -> this
+  
   def walk-with-this(walker)
     walker(this) ? @walk(walker)
   
@@ -678,12 +680,22 @@ exports.BlockStatement := class BlockStatement extends Statement
     if last != new-last
       let body = @body[0 til -1]
       body.push new-last
-      Block @pos, body
+      Block @pos, body, @label
     else
       this
   
   def exit-type() -> @last().exit-type()
   def last() -> @body[* - 1]
+  
+  def remove-trailing-return-voids()
+    let last = @last()
+    let new-last = last.remove-trailing-return-voids()
+    if last != new-last
+      let body = @body[0 til -1]
+      body.push new-last
+      Block @pos, body, @label
+    else
+      this
   
   def is-noop() -> @_is-noop ?= for every node in @body by -1; node.is-noop()
   
@@ -1427,8 +1439,9 @@ let compile-func(options, sb, name, params, declarations, variables, body)
   sb "}"
 
 exports.Func := class Func extends Expression
-  def constructor(@pos as {}, @name as null|Ident, @params as [Ident] = [], @variables as [String] = [], @body as Node = Noop(pos), @declarations as [String] = [])
+  def constructor(@pos as {}, @name as null|Ident, @params as [Ident] = [], @variables as [String] = [], body as Node = Noop(pos), @declarations as [String] = [])
     validate-func-params-and-variables params, variables
+    @body := body.remove-trailing-return-voids()
   
   def compile(options, level, line-start, sb)!
     if options.source-map? and @pos.file
@@ -1632,6 +1645,14 @@ exports.IfStatement := class IfStatement extends Statement
         null
     else
       @_exit-type
+  
+  def remove-trailing-return-voids()
+    let when-true = @when-true.remove-trailing-return-voids()
+    let when-false = @when-false.remove-trailing-return-voids()
+    if when-true != @when-true or when-false != @when-false
+      If @pos, @test, when-true, when-false, @label
+    else
+      this
   
   def is-noop() -> @_is-noop ?= @test.is-noop() and @when-true.is-noop() and @when-false.is-noop()
   
@@ -2007,6 +2028,12 @@ exports.Return := class Return extends Statement
   
   def exit-type() -> \return
   
+  def remove-trailing-return-voids()
+    if @node.is-const() and @node.const-value() == void
+      Noop @pos
+    else
+      this
+  
   def is-small() -> @node.is-small()
   def is-large() -> @node.is-large()
   
@@ -2108,6 +2135,13 @@ exports.Root := class Root
   
   def exit-type() -> @last().exit-type()
   def last() -> @body[* - 1]
+  
+  def remove-trailing-return-voids()
+    let body = @body.remove-trailing-return-voids()
+    if body != @body
+      Root @pos, body, @variables, @declarations
+    else
+      this
   
   def inspect = Node::inspect
   
@@ -2415,6 +2449,14 @@ exports.TryCatch := class TryCatch extends Statement
     else
       this
   
+  def remove-trailing-return-voids()
+    let try-body = @try-body.remove-trailing-return-voids()
+    let catch-body = @catch-body.remove-trailing-return-voids()
+    if try-body != @try-body or catch-body != @catch-body
+      TryCatch @pos, try-body, @catch-ident, catch-body, @label
+    else
+      this
+  
   def type-id = AstType.TryCatch
   def _to-ast(pos, ident) -> [
     @try-body.to-ast(pos, ident)
@@ -2507,6 +2549,14 @@ exports.TryFinally := class TryFinally extends Statement
     let label = if @label? then walker(@label, this, \label) ? @label.walk(walker) else @label
     if try-body != @try-body or finally-body != @finally-body or label != @label
       TryFinally @pos, try-body, finally-body, label
+    else
+      this
+  
+  def remove-trailing-return-voids()
+    let try-body = @try-body.remove-trailing-return-voids()
+    let finally-body = @finally-body.remove-trailing-return-voids()
+    if try-body != @try-body or finally-body != @finally-body
+      TryFinally @pos, try-body, finally-body, @label
     else
       this
   

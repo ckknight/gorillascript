@@ -1,7 +1,7 @@
 import 'shared.gs'
 
 require! LispyNode: './parser-lispynodes'
-let {Value, Symbol: LSymbol} = LispyNode
+let {Value: LValue, Call: LCall, Symbol: LSymbol} = LispyNode
 require! Node: './parser-nodes'
 require! Scope: './parser-scope'
 require! MacroContext: './parser-macrocontext'
@@ -42,7 +42,6 @@ let NothingNode = Node.Nothing
 let ObjectNode = Node.Object
 let ParamNode = Node.Param
 let RegexpNode = Node.Regexp
-let ReturnNode = Node.Return
 let RootNode = Node.Root
 let SpreadNode = Node.Spread
 let SuperNode = Node.Super
@@ -61,7 +60,6 @@ let TypeObjectNode = Node.TypeObject
 let TypeUnionNode = Node.TypeUnion
 let UnaryNode = Node.Unary
 let VarNode = Node.Var
-let YieldNode = Node.Yield
 
 class ParserError extends Error
   def constructor(mutable @message as String = "", parser as Parser|null, @index as Number = 0)
@@ -2233,7 +2231,7 @@ define DecimalNumber = do
     let value = parse-radix-number(integer, fraction, 10, if exponent then parse-int(exponent, 10) else 0)
     if not is-finite(value)
       throw ParserError "Unable to parse number $(quote parser.source.substring(index, end-index))", parser, index
-    Value index, value
+    LValue index, value
 
 let make-radix-number(radix as Number, separator as ->, digit as ->)
   let digits = make-digits-rule digit
@@ -2251,7 +2249,7 @@ let make-radix-number(radix as Number, separator as ->, digit as ->)
     let value = parse-radix-number(integer, fraction, radix)
     if not is-finite value
       throw ParserError "Unable to parse number $(quote parser.source.substring(index, end-index))", parser, index
-    Value index, value
+    LValue index, value
 
 let HexDigit = character! "0123456789abcdefABCDEF"
 define HexNumber = make-radix-number 16, character!("xX"), HexDigit
@@ -2326,7 +2324,7 @@ define RadixNumber = do
     if not is-finite value
       throw ParserError "Unable to parse number $(quote parser.source.substring(index, current-index))", parser, index
     let trailing = MaybeUnderscores(parser, current-index)
-    Box trailing.index, Value index, value
+    Box trailing.index, LValue index, value
 
 define NumberLiteral = with-space one-of(
   HexNumber
@@ -2338,13 +2336,13 @@ define NumberLiteral = with-space one-of(
 define IdentifierNameConst(parser, index)
   let name = Name parser, index
   if name
-    Box name.index, Value index, name.value
+    Box name.index, LValue index, name.value
 
 define IdentifierNameConstOrNumberLiteral = one-of(IdentifierNameConst, NumberLiteral)
 
 let make-const-literal(name as String, value)
   word(name) |> mutate #(, parser, index)
-    Value index, value
+    LValue index, value
 
 let HexEscapeSequence = sequential(
   character! "x"
@@ -2417,7 +2415,7 @@ define SingleStringLiteral = sequential(
       SingleQuote
       Newline))]
   SingleQuote) |> mutate #(codes, parser, index)
-  Value index, codes-to-string(codes)
+  LValue index, codes-to-string(codes)
 
 let DoubleStringLiteralInner = zero-or-more-of(
   BackslashEscapeSequence
@@ -2433,17 +2431,17 @@ let double-string-literal-handler = #(parts, parser, index)
     if is-number! part
       current-literal.push part
     else if part not instanceof NothingNode
-      string-parts.push Value index, codes-to-string(current-literal)
+      string-parts.push LValue index, codes-to-string(current-literal)
       current-literal := []
       string-parts.push part
   if current-literal.length > 0
-    string-parts.push Value index, codes-to-string(current-literal)
+    string-parts.push LValue index, codes-to-string(current-literal)
   string-parts
 
 let concat-string(parser, index, parts as [Node])
   let len = parts.length
   if len == 0
-    return Value index, ""
+    return LValue index, ""
   else if len == 1 and parts[0].is-const-type(\string)
     return parts[0]
   
@@ -2453,7 +2451,7 @@ let concat-string(parser, index, parts as [Node])
   
   if len == 1
     concat-op.func {
-      left: Value index, ""
+      left: LValue index, ""
       op: ""
       right: parts[0]
     }, parser, index
@@ -2558,7 +2556,7 @@ let triple-string-handler(x, parser, index)
   
   for part, i in string-parts
     if is-string! part
-      string-parts[i] := Value index, part
+      string-parts[i] := LValue index, part
   
   string-parts
 
@@ -2681,11 +2679,11 @@ let RegexLiteral = do
         current-literal.push part
       else if part != NOTHING and part not instanceof NothingNode
         if current-literal.length > 0
-          string-parts.push Value index, codes-to-string(current-literal)
+          string-parts.push LValue index, codes-to-string(current-literal)
           current-literal := []
         string-parts.push part
     if current-literal.length > 0
-      string-parts.push Value index, codes-to-string(current-literal)
+      string-parts.push LValue index, codes-to-string(current-literal)
     
     let text = concat-string parser, index, string-parts
     if text.is-const()
@@ -2735,7 +2733,7 @@ let CustomConstantLiteral(parser, index)
         throw ParserError "Unknown key $(JSON.stringify String key) in constant.", parser, current-index
       current := current[key]
       current-index := part.index
-    Box current-index, Value index, current
+    Box current-index, LValue index, current
 
 let NullOrVoidLiteral(parser, index)
   let constant = CustomConstantLiteral parser, index
@@ -2797,7 +2795,7 @@ let IdentifierOrSimpleAccessStart = one-of(
       parser.Access index,
         parser.Access index,
           parent
-          Value index, \prototype
+          LValue index, \prototype
         child
   sequential(
     [\parent, ThisOrShorthandLiteral]
@@ -2809,7 +2807,7 @@ let IdentifierOrSimpleAccessStart = one-of(
         if is-proto
           parser.Access index,
             parent
-            Value index, \prototype
+            LValue index, \prototype
         else
           parent
         child)
@@ -2827,7 +2825,7 @@ let IdentifierOrSimpleAccessPart = one-of(
   #(parent, parser, index)
     parser.Access(index
       if is-proto
-        parser.Access index, parent, Value child-index, \prototype
+        parser.Access index, parent, LValue child-index, \prototype
       else
         parent
       child)
@@ -2947,7 +2945,7 @@ define BracketedObjectKey = sequential(
 let ConstObjectKey = one-of(
   StringLiteral
   NumberLiteral |> mutate #(node, parser, index)
-    Value index, String(node.const-value())
+    LValue index, String(node.const-value())
   IdentifierNameConst)
 
 define ObjectKey = one-of(BracketedObjectKey, ConstObjectKey)
@@ -3035,7 +3033,7 @@ let ParamSingularObjectKey = sequential(
   NotColon) |> mutate #(param, parser, index)
   let {ident} = param
   let key = if ident instanceof IdentNode
-    Value index, ident.name
+    LValue index, ident.name
   else if ident instanceof AccessNode
     ident.child
   else
@@ -3269,7 +3267,7 @@ let SingularObjectKey = one-of(
     let key = if ident instanceof AccessNode
       ident.child
     else if ident instanceof IdentNode
-      Value index, ident.name
+      LValue index, ident.name
     else
       throw ParserError "Unknown ident type: $(typeof! ident)", parser, index
     { key, value: ident }
@@ -3277,19 +3275,19 @@ let SingularObjectKey = one-of(
     [\this, ConstantLiteral]
     NotColon) |> mutate #(node, parser, index)
     let key = if node.is-const() and not node.is-const-type(\string)
-      Value index, String(node.value)
+      LValue index, String(node.value)
     else
       node
     { key, value: node }
   sequential(
     [\this, ThisLiteral]
     NotColon) |> mutate #(node, parser, index)
-    key: Value index, \this
+    key: LValue index, \this
     value: node
   sequential(
     [\this, ArgumentsLiteral]
     NotColon) |> mutate #(node, parser, index)
-    key: Value index, \arguments
+    key: LValue index, \arguments
     value: node
   sequential(
     [\this, BracketedObjectKey]
@@ -3303,14 +3301,14 @@ define KeyValuePair = one-of(
     [\flag, maybe PlusOrMinusChar]
     [\key, SingularObjectKey]) |> mutate #({flag, key}, parser, index)
     if flag
-      { key.key, value: Value index, flag == C("+") }
+      { key.key, value: LValue index, flag == C("+") }
     else
       key
   sequential(
     Space
     [\bool, PlusOrMinusChar]
     [\key, IdentifierNameConst]) |> mutate #({bool, key}, parser, index)
-    { key, value: Value index, bool == C("+") })
+    { key, value: LValue index, bool == C("+") })
 
 define ObjectLiteral = allow-space-before-access sequential(
   OpenCurlyBrace
@@ -3799,7 +3797,7 @@ let convert-invocation-or-access = do
           parser.Binary(index
             parser.Unary(index, \typeof, set-head)
             "==="
-            Value(index, \function))
+            LValue(index, \function))
           convert-call-chain(parser, index, parser.Call(index, head, link.args, link.is-new, link.is-apply), link-index + 1, links))
         if tmp-ids.length
           parser.TmpWrapper(index, result, tmp-ids)
@@ -3827,7 +3825,7 @@ let convert-invocation-or-access = do
     for part in tail
       switch part.type
       case \proto-access, \proto-access-index
-        links.push { type: \access, child: Value(index, \prototype), part.existential }
+        links.push { type: \access, child: LValue(index, \prototype), part.existential }
         links.push {} <<< part <<< { type: if part.type == \proto-access then \access else \access-index }
       case \access, \access-index
         links.push part
@@ -3838,7 +3836,7 @@ let convert-invocation-or-access = do
         is-new := false
       case \generic
         if not parser.get-const-value("DISABLE_GENERICS", false)
-          links.push { type: \access, child: Value(index, \generic), -existential }
+          links.push { type: \access, child: LValue(index, \generic), -existential }
           links.push { type: \call, args: part.args, -existential }
       default
         throw Error "Unknown link type: $(part.type)"
@@ -4514,7 +4512,7 @@ let EmbeddedReadLiteralText(parser, index)
   let mutable text = codes-to-string(codes)
   if parser.options.embedded-unpretty
     text := unpretty-text(text)
-  Box current-index, parser.EmbedWrite index, Value(index, text), false
+  Box current-index, parser.EmbedWrite index, LValue(index, text), false
 
 define EmbeddedOpenComment = make-embedded-rule \embedded-open-comment, EMBED_OPEN_COMMENT_DEFAULT
 let EmbeddedCloseComment = make-embedded-rule \embedded-close-comment, EMBED_CLOSE_COMMENT_DEFAULT
@@ -4636,7 +4634,7 @@ let _Block-mutator(lines, parser, index)
   let nodes = []
   for item, i in lines
     for part, j in item
-      if part instanceof Value
+      if part instanceof LValue
         nodes.push part
       else if part not instanceof Node
         throw TypeError "Expected lines[$i][$j] to be a Node, got $(typeof! part)"
@@ -4708,7 +4706,9 @@ let EmbeddedRootInnerP = promise! #(parser, index)*
   parser.clear-cache()
   return Box current-index, parser.Block index, [
     ...nodes
-    parser.Return index, parser.Ident index, \write
+    LCall index, parser.scope,
+      LSymbol.return index
+      parser.Ident index, \write
   ]
 
 let EndNoIndent = sequential(
@@ -5104,18 +5104,21 @@ class Parser
       obj
   
   let make-macro-root(index, params, body)
-    @Root index, void, @Return index, @Function(index
-      [
-        params
-        @Param index, (@Ident index, \__wrap), void, false, true, void
-        @Param index, (@Ident index, \__node), void, false, true, void
-        @Param index, (@Ident index, \__const), void, false, true, void
-        @Param index, (@Ident index, \__value), void, false, true, void
-        @Param index, (@Ident index, \__symbol), void, false, true, void
-      ]
-      body
-      true
-      false), false
+    @Root index, void,
+      LCall index, @scope,
+        LSymbol.return index
+        @Function(index
+          [
+            params
+            @Param index, (@Ident index, \__wrap), void, false, true, void
+            @Param index, (@Ident index, \__node), void, false, true, void
+            @Param index, (@Ident index, \__const), void, false, true, void
+            @Param index, (@Ident index, \__value), void, false, true, void
+            @Param index, (@Ident index, \__symbol), void, false, true, void
+          ]
+          body
+          true
+          false)
   
   let serialize-param-type(as-type)
     if as-type instanceof IdentNode
@@ -5161,7 +5164,7 @@ class Parser
       choice: #(scope, ...choices)
         SyntaxChoiceNode 0, scope, for choice in choices; deserialize-param-type(choice, scope)
       const: #(scope, value)
-        Value 0, value
+        LValue 0, value
       many: #(scope, multiplier, ...inner)
         SyntaxManyNode 0, scope, deserialize-param-type(inner, scope), multiplier
     #(as-type as [] = [], scope)
@@ -5176,7 +5179,7 @@ class Parser
   let deserialize-params = do
     let deserialize-param-by-type =
       const: #(scope, value)
-        Value 0, value
+        LValue 0, value
       ident: #(scope, name, ...as-type)
         SyntaxParamNode 0,
           scope
@@ -5273,15 +5276,15 @@ class Parser
       scope.add macro-data-ident, false, Type.object
       body := @Block index, [
         @Var index, macro-name-ident, false
-        @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, Value index, \macro-name
+        @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-name
         @Var index, macro-data-ident, false
-        @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, Value index, \macro-data
+        @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-data
         ...for param in params
           if param instanceof SyntaxParamNode
             scope.add param.ident, true, Type.any
             @Block index, [
               @Var index, param.ident, true
-              @Assign index, param.ident, "=", @Access index, macro-data-ident, Value index, param.ident.name
+              @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, param.ident.name
             ]
         body
       ]
@@ -5316,7 +5319,7 @@ class Parser
                 scope.add param.ident, true, Type.any
                 @Block index, [
                   @Var index, param.ident, true
-                  @Assign index, param.ident, "=", @Access index, macro-data-ident, Value index, param.ident.name
+                  @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, param.ident.name
                 ]
             body
           ]
@@ -5351,15 +5354,15 @@ class Parser
       scope.add macro-data-ident, false, Type.object
       body := @Block index, [
         @Var index, macro-name-ident, false
-        @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, Value index, \macro-name
+        @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-name
         @Var index, macro-data-ident, false
-        @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, Value index, \macro-data
+        @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-data
         ...for param, i in params
           if param instanceof ParamNode
             scope.add param.ident, true, Type.any
             @Block index, [
               @Var index, param.ident, true
-              @Assign index, param.ident, "=", @Access index, macro-data-ident, Value index, i
+              @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, i
             ]
         body
       ]
@@ -5393,7 +5396,7 @@ class Parser
           scope.add ident, true, Type.any
           @Block index, [
             @Var index, ident, true
-            @Assign index, ident, "=", @Access index, macro-data-ident, Value index, name
+            @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
           ]
         body
       ]
@@ -5435,7 +5438,7 @@ class Parser
           scope.add ident, true, Type.any
           @Block index, [
             @Var index, ident, true
-            @Assign index, ident, "=", @Access index, macro-data-ident, Value index, name
+            @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
           ]
         body
       ]
@@ -5468,7 +5471,7 @@ class Parser
           scope.add ident, true, Type.any
           @Block index, [
             @Var index, ident, true
-            @Assign index, ident, "=", @Access index, macro-data-ident, Value index, name
+            @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
           ]
         body
       ]
@@ -5942,7 +5945,6 @@ for node-type in [
       'Object',
       'Param',
       'Regexp',
-      'Return',
       'Root',
       'Spread',
       'Super',
@@ -5960,8 +5962,7 @@ for node-type in [
       'TypeObject',
       'TypeUnion',
       'Unary',
-      'Var',
-      'Yield' ]
+      'Var' ]
   Parser.add-node-factory node-type, Node[node-type]
 Parser::string := Node.string
 Parser::array-param := Parser::array

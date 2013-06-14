@@ -36,6 +36,7 @@ class Value extends Node
   def constructor(@index as Number, @value as Number|String|Boolean|void|null) ->
   
   def is-value = true
+  def node-type = \value
   
   def cacheable = false
   def reduce() -> this
@@ -68,6 +69,7 @@ class Symbol extends Node
     throw Error "Symbol is not intended to be instantiated directly"
   
   def is-symbol = true
+  def node-type = \symbol
   def is-ident = false
   def is-tmp = false
   def is-ident-or-tmp = false
@@ -323,6 +325,7 @@ class Call extends Node
   def constructor(@index as Number, @scope, @func as Node, ...@args as [OldNode]) ->
   
   def is-call = true
+  def node-type = \call
   
   def inspect(depth)
     let depth-1 = if depth? then depth - 1 else null

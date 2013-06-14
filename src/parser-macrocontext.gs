@@ -28,7 +28,6 @@ let NothingNode = Node.Nothing
 let ObjectNode = Node.Object
 let ParamNode = Node.Param
 let RegexpNode = Node.Regexp
-let ReturnNode = Node.Return
 let RootNode = Node.Root
 let SpreadNode = Node.Spread
 let SuperNode = Node.Super
@@ -122,7 +121,10 @@ class MacroContext
     LispyNode.Call(@index, @scope(),
       LispyNode.Symbol.throw @index
       @do-wrap(node)).reduce(@parser)
-  def return(node as Node|void) -> @parser.Return(@index, @do-wrap(node)).reduce(@parser)
+  def return(node as Node = NothingNode(0, @scope()))
+    LispyNode.Call(@index, @scope(),
+      LispyNode.Symbol.return @index
+      @do-wrap(node)).reduce(@parser)
   def yield(node as Node = NothingNode(0, @scope()))
     LispyNode.Call(@index, @scope(),
       LispyNode.Symbol.yield @index
