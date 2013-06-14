@@ -4088,8 +4088,8 @@ define Cascade = sequential(
     let handle(head, tail, index)
       if tail.length
         mutate-function-macro.func {
-          op: ""
-          node: parser.Cascade index, head,
+          macro-data: [
+            head
             for {main: {accesses, assignment}, subcascades} in tail
               #(node)
                 let access = convert-invocation-or-access false, { type: \normal, node }, accesses, parser, index
@@ -4101,6 +4101,7 @@ define Cascade = sequential(
                   handle ret, subcascades, index
                 else
                   ret
+          ]
         }, parser, index
       else
         head
@@ -5682,7 +5683,10 @@ class Parser
         m.data.push cache(sequential(
           [\macro-name, m.token]
           [\macro-data, rule]) |> mutate mutator)
-      
+      if options.label
+        macros.add-by-label options.label, {
+          func: mutator
+        }
       if @pending-macro-id?
         if macro-id?
           throw Error "Cannot provide the macro id if there is a pending macro id"

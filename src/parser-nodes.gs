@@ -1001,8 +1001,6 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
       else
         this
 
-node-class CascadeNode(node as Node, cascades as [] = [])
-
 node-class CommentNode(text as String)
   def type() -> Type.undefined
   def cacheable = false

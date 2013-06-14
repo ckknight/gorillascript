@@ -4069,12 +4069,9 @@ macro __VERSION__
   syntax "" with type: \string
     @const @version()
 
-define operator unary cascade! with label: \cascade
-  if not node.cascades or not node.cascades.length
-    @error "cascade! can only be used on a CascadeNode, got $(typeof! node)", node
-  let top = node.node
+macro cascade!(top, cascades) with label: \cascade
   @maybe-cache top, #(set-top, top)
-    let parts = for cascade, i in node.cascades
+    let parts = for cascade, i in cascades
       cascade(top)
     AST
       $set-top
