@@ -118,27 +118,21 @@ class MacroContext
     result.reduce(@parser)
   def unary(op as String, node as Node = NothingNode(0, @scope())) -> @parser.Unary(@index, op, @do-wrap(node)).reduce(@parser)
   def throw(node as Node = NothingNode(0, @scope()))
-    LispyNode.Call(@index, @scope(),
-      LispyNode.Symbol.throw @index
+    LispyNode.InternalCall(\throw, @index, @scope(),
       @do-wrap(node)).reduce(@parser)
   def return(node as Node = NothingNode(0, @scope()))
-    LispyNode.Call(@index, @scope(),
-      LispyNode.Symbol.return @index
+    LispyNode.InternalCall(\return, @index, @scope(),
       @do-wrap(node)).reduce(@parser)
   def yield(node as Node = NothingNode(0, @scope()))
-    LispyNode.Call(@index, @scope(),
-      LispyNode.Symbol.yield @index
+    LispyNode.InternalCall(\yield, @index, @scope(),
       @do-wrap(node)).reduce(@parser)
   def debugger()
-    LispyNode.Call @index, @scope(),
-      LispyNode.Symbol.debugger @index
+    LispyNode.InternalCall \debugger, @index, @scope()
   def break(label as IdentNode|TmpNode|null)
-    LispyNode.Call @index, @scope(),
-      LispyNode.Symbol.break @index
+    LispyNode.InternalCall \break, @index, @scope(),
       ...(if label then [label] else [])
   def continue(label as IdentNode|TmpNode|null)
-    LispyNode.Call @index, @scope(),
-      LispyNode.Symbol.continue @index
+    LispyNode.InternalCall \continue, @index, @scope(),
       ...(if label then [label] else [])
   def spread(node as Node) -> @parser.Spread(@index, node)
   

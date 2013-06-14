@@ -1,7 +1,7 @@
 import 'shared.gs'
 
 require! LispyNode: './parser-lispynodes'
-let {Value: LValue, Call: LCall, Symbol: LSymbol} = LispyNode
+let {Value: LValue, Call: LCall, InternalCall: LInternalCall, Symbol: LSymbol} = LispyNode
 require! Node: './parser-nodes'
 require! Scope: './parser-scope'
 require! MacroContext: './parser-macrocontext'
@@ -4706,8 +4706,7 @@ let EmbeddedRootInnerP = promise! #(parser, index)*
   parser.clear-cache()
   return Box current-index, parser.Block index, [
     ...nodes
-    LCall index, parser.scope,
-      LSymbol.return index
+    LInternalCall \return, index, parser.scope,
       parser.Ident index, \write
   ]
 
@@ -5105,8 +5104,7 @@ class Parser
   
   let make-macro-root(index, params, body)
     @Root index, void,
-      LCall index, @scope,
-        LSymbol.return index
+      LInternalCall \return, index, @scope,
         @Function(index
           [
             params

@@ -45,6 +45,10 @@ class Value extends Node
   def is-const() -> true
   def is-const-value(value) -> value == @value
   def is-const-type(type) -> type == typeof @value
+  
+  def equals(other)
+    other instanceof Value and @value is other.value
+  
   def type()
     let value = @value
     if value == null
@@ -180,10 +184,14 @@ class Symbol extends Node
     for name, data of internal-symbols
       let is-name-key = "is$(capitalize name)"
       def [is-name-key] = false
-      Symbol[name] := class extends Internal
+      Symbol[name] := class Symbol_name extends Internal
         def constructor(@index as Number)
           @name := name
-
+        
+        def display-name = "Symbol.$name"
+        
+        def equals(other)
+          other instanceof Symbol_name
         def [is-name-key] = true
         for k, v of data
           def [k] = v
@@ -200,6 +208,9 @@ class Symbol extends Node
     def inspect()
       "Symbol.ident($(to-JS-source @name))"
     
+    def equals(other)
+      other instanceof Ident and @scope == other.scope and @name == other.name
+    
     Symbol.ident := Ident
   
   /**
@@ -213,6 +224,9 @@ class Symbol extends Node
     
     def inspect()
       "Symbol.tmp($(@id), $(to-JS-source @name))"
+    
+    def equals(other)
+      other instanceof Tmp and @scope == other.scope and @id == other.id
     
     Symbol.tmp := Tmp
   
@@ -236,6 +250,9 @@ class Symbol extends Node
       
       def inspect()
         "Symbol.binary[$(to-JS-source @name)]"
+      
+      def equals(other)
+        other instanceof BinaryOperator and @name == other.name
     
     class UnaryOperator extends Operator
       def constructor(@index as Number, @name as String) ->
@@ -246,6 +263,9 @@ class Symbol extends Node
       def inspect()
         "Symbol.unary[$(to-JS-source @name)]"
     
+      def equals(other)
+        other instanceof UnaryOperator and @name == other.name
+    
     class AssignOperator extends Operator
       def constructor(@index as Number, @name as String) ->
       
@@ -254,6 +274,9 @@ class Symbol extends Node
       
       def inspect()
         "Symbol.assign[$(to-JS-source @name)]"
+      
+      def equals(other)
+        other instanceof AssignOperator and @name == other.name
     
     let binary-operators = [
       "*"
@@ -339,6 +362,21 @@ class Call extends Node
     sb.push ")"
     sb.join ""
   
+  def equals(other)
+    unless other instanceof Call and @func.equals(other.func)
+      false
+    else
+      let args = @args
+      let other-args = other.args
+      let len = args.length
+      if len != other-args.length
+        false
+      else
+        for arg, i in args
+          unless arg.equals(other-args[i])
+            return false
+        true
+  
   def _reduce(o)
     @walk #(x) -> x.reduce(this), o
   
@@ -392,6 +430,10 @@ module.exports := Node <<< {
   Value
   Symbol
   Call
+  InternalCall: #(internal-name, index, scope, ...args)
+    Call index, scope,
+      Symbol[internal-name] index
+      ...args
   Access: #(index, scope, parent, ...children)
     for reduce child in children, current = parent
       Call index, scope,

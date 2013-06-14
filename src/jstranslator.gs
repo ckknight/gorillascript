@@ -1253,9 +1253,7 @@ let generator-translate = do
             g-node.cleanup())
         case func.is-return
           let mutated-node = args[0].mutate-last null, (#(n)
-            LispyNode.Call n.index, n.scope,
-              LispyNode.Symbol.return n.index
-              n), null, true
+            LispyNode.InternalCall \return, n.index, n.scope, n), null, true
           if mutated-node instanceof LispyNode and mutated-node.is-call and mutated-node.func.is-return and mutated-node.args[0] == args[0]
             if args[0].is-const() and args[0].is-const-value(void)
               state.return get-pos(node)
@@ -1649,7 +1647,7 @@ let translators =
         initializers.push ...param.init
 
       let unassigned = {}
-      let {mutable body, wrap} = translate-function-body(get-pos(node), node.generator, inner-scope, if node.auto-return then LispyNode.Call(node.body.index, node.body.scope, LispyNode.Symbol.return(node.body.index), node.body) else node.body, unassigned)
+      let {mutable body, wrap} = translate-function-body(get-pos(node), node.generator, inner-scope, if node.auto-return then LispyNode.InternalCall(\return, node.body.index, node.body.scope, node.body) else node.body, unassigned)
       inner-scope.release-tmps()
       body := ast.Block get-pos(node.body), [...initializers, body]
       if inner-scope.used-this or node.bound instanceof ParserNode
@@ -1939,9 +1937,7 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
           throw Error "Expected Return in statement position"
         
         let mutated-node = args[0].mutate-last null, (#(n)
-          LispyNode.Call n.index, n.scope,
-            LispyNode.Symbol.return n.index
-            n), null, true
+          LispyNode.InternalCall \return, n.index, n.scope, n), null, true
         if mutated-node instanceof LispyNode and mutated-node.is-call and mutated-node.func.is-return and mutated-node.args[0] == args[0]
           let t-value = translate args[0], scope, \expression, unassigned
           if args[0].is-statement()
@@ -2072,7 +2068,7 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
     if roots[0].is-generator
       inner-scope := inner-scope.clone(true)
     let root-pos = get-pos(roots[0])
-    let ret = translate-function-body(root-pos, roots[0].is-generator, inner-scope, if scope.options.return or scope.options.eval then LispyNode.Call(roots[0].body.index, roots[0].body.scope, LispyNode.Symbol.return(roots[0].body.index), roots[0].body) else roots[0].body)
+    let ret = translate-function-body(root-pos, roots[0].is-generator, inner-scope, if scope.options.return or scope.options.eval then LispyNode.InternalCall(\return, roots[0].body.index, roots[0].body.scope, roots[0].body) else roots[0].body)
     ret.body.pos.file or= root-pos.file
     get-pos := null
     handle-embedded ret.body, ret.wrap, inner-scope
