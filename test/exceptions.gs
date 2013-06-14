@@ -101,6 +101,19 @@ describe "try-finally", #
         hit-finally()
       expect(ran).to.be.called-once
       expect(hit-finally).to.be.called-once
+  
+  describe "as an auto-returned last statement", #
+    it "should return the value in the try", #
+      let ran = stub().returns \alpha
+      let hit-finally = stub()
+      let f()
+        try
+          ran()
+        finally
+          hit-finally()
+      expect(f()).to.equal \alpha
+      expect(ran).to.be.called-once
+      expect(hit-finally).to.be.called-once
 
 describe "try-catch-finally", #
   describe "if an error occurs", #

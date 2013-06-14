@@ -177,6 +177,45 @@ class Symbol extends Node
       }
       try-finally: {
         +used-as-statement
+        _with-label(call, label)
+          Call call.index, call.scope,
+            call.func
+            call.args[0]
+            call.args[1]
+            label
+        _mutate-last(call, parser, mutator, context, include-noop)
+          let try-body = call.args[0].mutate-last(parser, mutator, context, include-noop)
+          if try-body != call.args[0]
+            Call call.index, call.scope,
+              call.func
+              try-body
+              ...call.args[1 to -1]
+          else
+            call
+        /*
+        node-class TryFinallyNode(try-body as Node, finally-body as Node, label as IdentNode|TmpNode|null)
+          def type(o) -> @try-body.type(o)
+          def _reduce(o)
+            let try-body = @try-body.reduce(o)
+            let finally-body = @finally-body.reduce(o)
+            let label = if @label? then @label.reduce(o) else @label
+            if finally-body instanceof NothingNode
+              BlockNode(@index, @scope-if [try-body], label).reduce(o)
+            else if try-body instanceof NothingNode
+              BlockNode(@index, @scope-if [finally-body], label).reduce(o)
+            else if try-body != @try-body or finally-body != @finally-body or label != @label
+              TryFinallyNode @index, @scope, try-body, finally-body, label
+            else
+              this
+          def is-statement() -> true
+          def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
+          def mutate-last(o, func, context, include-noop)
+            let try-body = @try-body.mutate-last o, func, context, include-noop
+            if try-body != @try-body
+              TryFinallyNode @index, @scope, try-body, @finally-body, @label
+            else
+              this
+        */
       }
       write: {}
       var: {}
@@ -410,7 +449,9 @@ class Call extends Node
     @func.is-internal and @func.used-as-statement
   
   def mutate-last(o, func, context, include-noop)
-    if @is-statement()
+    if is-function! @func._mutate-last
+      @func._mutate-last(this, o, func, context, include-noop)
+    else if @is-statement()
       this
     else
       super.mutate-last(o, func, context, include-noop)
@@ -425,6 +466,12 @@ class Call extends Node
       result
     else
       this
+  
+  def with-label(label)
+    if is-function! @func._with-label
+      @func._with-label(this, label)
+    else
+      super.with-label(label)
 
 module.exports := Node <<< {
   Value

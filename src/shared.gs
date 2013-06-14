@@ -36,7 +36,6 @@ const ParserNodeType = {
   Tmp:            40
   TmpWrapper:     41
   TryCatch:       42
-  TryFinally:     43
   TypeFunction:   44
   TypeGeneric:    45
   TypeObject:     46

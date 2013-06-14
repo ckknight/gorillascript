@@ -1194,18 +1194,6 @@ let generator-translate = do
       state.goto get-pos(node), #-> post-branch
       let post-branch = state.branch()
       post-branch
-    
-    [ParserNodeType.TryFinally]: #(node, scope, mutable state, break-state, continue-state, unassigned)
-      if node.label?
-        throw Error "Not implemented: try-finally with label in generator"
-      
-      if state.has-generator-node node.finally-body
-        throw Error "Cannot use yield in a finally"
-      
-      state := state.pending-finally get-pos(node), #-> t-finally()
-      state := generator-translate node.try-body, scope, state, break-state, continue-state, unassigned
-      let t-finally = translate node.finally-body, scope, \statement, unassigned
-      state.run-pending-finally get-pos(node)
   
   let generator-translate-lispy-internals =
     break: #(node, args, scope, state, break-state)
@@ -1254,6 +1242,18 @@ let generator-translate = do
           generator-translate args[0], scope, state, break-state, continue-state, unassigned, is-top
       else
         generator-translate mutated-node, scope, state, break-state, continue-state, unassigned, is-top
+    
+    try-finally: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
+      if args[2]
+        throw Error "Not implemented: try-finally with label in generator"
+      
+      if state.has-generator-node args[1]
+        throw Error "Cannot use yield in a finally"
+      
+      state := state.pending-finally get-pos(node), #-> t-finally()
+      state := generator-translate args[0], scope, state, break-state, continue-state, unassigned
+      let t-finally = translate args[1], scope, \statement, unassigned
+      state.run-pending-finally get-pos(node)
   
   let generator-translate-lispy(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     switch
@@ -1864,12 +1864,6 @@ let translators =
       scope.variables <<< inner-scope.variables
       result
 
-  [ParserNodeType.TryFinally]: #(node, scope, location, unassigned)
-    let t-label = node.label and translate node.label, scope, \label
-    let t-try-body = translate node.try-body, scope, \statement, unassigned
-    let t-finally-body = translate node.finally-body, scope, \statement, unassigned
-    #-> ast.TryFinally get-pos(node), t-try-body(), t-finally-body(), t-label?()
-
   [ParserNodeType.Unary]: #(node, scope, location, unassigned)
     if unassigned and node.op in ["++", "--", "++post", "--post"] and node.node instanceof ParserNode.Ident
       unassigned[node.node.name] := false
@@ -1919,6 +1913,12 @@ let translate-lispy-internal =
   comment: #(node, args, scope, location, unassigned)
     let t-text = translate args[0], scope, \expression, unassigned
     # ast.Comment get-pos(node), t-text().const-value()
+  
+  try-finally: #(node, args, scope, location, unassigned)
+    let t-label = args[2] and translate args[2], scope, \label
+    let t-try-body = translate args[0], scope, \statement, unassigned
+    let t-finally-body = translate args[1], scope, \statement, unassigned
+    # ast.TryFinally get-pos(node), t-try-body(), t-finally-body(), t-label?()
 
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch

@@ -1447,30 +1447,6 @@ node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Nod
       TryCatchNode @index, @scope, try-body, @catch-ident, catch-body, @label
     else
       this
-node-class TryFinallyNode(try-body as Node, finally-body as Node, label as IdentNode|TmpNode|null)
-  def type(o) -> @try-body.type(o)
-  def _reduce(o)
-    let try-body = @try-body.reduce(o)
-    let finally-body = @finally-body.reduce(o)
-    let label = if @label? then @label.reduce(o) else @label
-    if finally-body instanceof NothingNode
-      BlockNode(@index, @scope-if [try-body], label).reduce(o)
-    else if try-body instanceof NothingNode
-      BlockNode(@index, @scope-if [finally-body], label).reduce(o)
-    else if try-body != @try-body or finally-body != @finally-body or label != @label
-      TryFinallyNode @index, @scope, try-body, finally-body, label
-    else
-      this
-  def is-statement() -> true
-  def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
-  def with-label(label as IdentNode|TmpNode|null)
-    TryFinallyNode @index, @scope, @try-body, @finally-body, label
-  def mutate-last(o, func, context, include-noop)
-    let try-body = @try-body.mutate-last o, func, context, include-noop
-    if try-body != @try-body
-      TryFinallyNode @index, @scope, try-body, @finally-body, @label
-    else
-      this
 node-class TypeFunctionNode(return-type as Node)
 node-class TypeGenericNode(basetype as Node, args as [Node] = [])
 node-class TypeObjectNode(pairs as [])

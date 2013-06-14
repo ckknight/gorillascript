@@ -51,7 +51,6 @@ let SyntaxSequenceNode = Node.SyntaxSequence
 let TmpNode = Node.Tmp
 let TmpWrapperNode = Node.TmpWrapper
 let TryCatchNode = Node.TryCatch
-let TryFinallyNode = Node.TryFinally
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
@@ -5959,7 +5958,6 @@ for node-type in [
       'Tmp',
       'TmpWrapper',
       'TryCatch',
-      'TryFinally',
       'TypeFunction',
       'TypeGeneric',
       'TypeObject',
