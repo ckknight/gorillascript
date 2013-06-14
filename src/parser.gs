@@ -30,7 +30,6 @@ let CallNode = Node.Call
 let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
 let EvalNode = Node.Eval
-let ForNode = Node.For
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let IfNode = Node.If
@@ -5935,7 +5934,6 @@ for node-type in [
       'Def',
       'EmbedWrite',
       'Eval',
-      'For',
       'Function',
       'Ident',
       'If',

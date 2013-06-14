@@ -16,7 +16,6 @@ let CallNode = Node.Call
 let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
 let EvalNode = Node.Eval
-let ForNode = Node.For
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let IfNode = Node.If
@@ -99,7 +98,13 @@ class MacroContext
   def block(nodes as [Node], label as IdentNode|TmpNode|null) -> @parser.Block(@index, nodes, label).reduce(@parser)
   def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node|null, label as IdentNode|TmpNode|null) -> @parser.If(@index, @do-wrap(test), when-true, when-false, label).reduce(@parser)
   def switch(node as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null) -> @parser.Switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case, label).reduce(@parser)
-  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null) -> @parser.For(@index, @do-wrap(init), @do-wrap(test), @do-wrap(step), body, label).reduce(@parser)
+  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
+    LispyNode.InternalCall(\for, @index, @scope(),
+      @do-wrap(init)
+      @do-wrap(test)
+      @do-wrap(step)
+      body
+      ...(if label then [label] else [])).reduce(@parser)
   def for-in(key as IdentNode, object as Node = NothingNode(0), body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
     LispyNode.InternalCall(\for-in, @index, @scope(),
       key
@@ -177,13 +182,15 @@ class MacroContext
   
   def is-labeled-block(mutable node)
     node := @real(node)
-    if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode]
+    if node instanceofsome [BlockNode, IfNode, SwitchNode]
       node.label?
-    else if node instanceof LispyNode and node.is-call and node.func.is-internal
+    else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal
       if node.func.is-try-finally
         node.args[2]?
-      else if node.func.is-try-catch or node.func.is-for-in-node
+      else if node.func.is-try-catch or node.func.is-for-in
         node.args[3]?
+      else if node.func.is-for
+        node.args[4]?
       else
         false
     else
@@ -200,14 +207,16 @@ class MacroContext
     if node instanceof LispyNode
       if node.is-call
         let {func} = node
-        if func.is-internal
+        if func.is-symbol and func.is-internal
           if func.is-break or func.is-continue
             return node.args[0]
           else if func.is-try-finally
             return node.args[2]
           else if func.is-try-catch or func.is-for-in
             return node.args[3]
-    else if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode]
+          else if func.is-try-catch or func.is-for
+            return node.args[4]
+    else if node instanceofsome [BlockNode, IfNode, SwitchNode]
       return node.label
     null
   def with-label(node, label as IdentNode|TmpNode|null)

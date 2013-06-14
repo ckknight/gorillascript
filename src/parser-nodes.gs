@@ -1024,11 +1024,6 @@ node-class EvalNode(code as Node)
       EvalNode @index, @scope, code
     else
       this
-node-class ForNode(init as Node = NothingNode(0, scope), test as Node = LispyNode_Value(0, true), step as Node = NothingNode(0, scope), body as Node, label as IdentNode|TmpNode|null)
-  def type() -> Type.undefined
-  def is-statement() -> true
-  def with-label(label as IdentNode|TmpNode|null)
-    ForNode @index, @scope, @init, @test, @step, @body, label
 node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
   def type(o) -> @_type ?=
     // TODO: handle generator types

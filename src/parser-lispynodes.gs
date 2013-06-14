@@ -119,6 +119,14 @@ class Symbol extends Node
       def: {}
       for: {
         +used-as-statement
+        _with-label(call, label)
+          Call call.index, call.scope,
+            call.func
+            call.args[0]
+            call.args[1]
+            call.args[2]
+            call.args[3]
+            label
       }
       for-in: {
         +used-as-statement

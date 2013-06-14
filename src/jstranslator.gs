@@ -178,10 +178,7 @@ let make-has-generator-node = #
       let FOUND = {}
       try
         node.walk #(n)
-          if n instanceof LispyNode and n.is-call and n.func.is-symbol and n.func.is-internal and n.func.is-for-in
-            if has-in-loop n
-              throw FOUND
-          else if n instanceof ParserNode.For
+          if n instanceof LispyNode and n.is-call and n.func.is-symbol and n.func.is-internal and (n.func.is-for-in or n.func.is-for)
             if has-in-loop n
               throw FOUND
           else
@@ -208,10 +205,7 @@ let make-has-generator-node = #
       let FOUND = {}
       try
         node.walk #(n)
-          if n instanceof LispyNode and n.is-call and n.func.is-symbol and n.func.is-internal and n.func.is-for-in
-            if has-in-loop n
-              throw FOUND
-          else if n instanceof ParserNode.For
+          if n instanceof LispyNode and n.is-call and n.func.is-symbol and n.func.is-internal and (n.func.is-for-in or n.func.is-for)
             if has-in-loop n
               throw FOUND
           else if n instanceof ParserNode.Switch
@@ -1034,33 +1028,6 @@ let generator-translate = do
               []
           ]
     
-    [ParserNodeType.For]: #(node, scope, mutable state, , , unassigned)
-      if node.label?
-        throw Error "Not implemented: for with label in generator"
-      if node.init? and node.init not instanceof ParserNode.Nothing
-        state := generator-translate node.init, scope, state, null, null, unassigned
-      state.goto get-pos(node), #-> test-branch
-      
-      let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true} <<< unassigned
-      let test-branch = state.branch()
-      let g-test = generator-translate-expression node.test, scope, test-branch, state.has-generator-node(node.test), body-unassigned
-      test-branch.goto-if get-pos(node.test), #-> first!(g-test.t-node(), g-test.cleanup()), #-> body-branch, #-> post-branch
-      
-      let body-branch = state.branch()
-      generator-translate(node.body, scope, body-branch, #-> post-branch, #-> step-branch, body-unassigned).goto get-pos(node.body), #-> step-branch or test-branch
-      
-      let mutable step-branch = null
-      if node.step? and node.step not instanceof ParserNode.Nothing
-        step-branch := state.branch()
-        generator-translate(node.step, scope, step-branch, null, null, body-unassigned).goto get-pos(node.step), #-> test-branch
-      if unassigned
-        for k, v of body-unassigned
-          if not v
-            unassigned[k] := false
-      
-      let post-branch = state.branch()
-      post-branch
-    
     [ParserNodeType.If]: #(node, scope, mutable state, break-state, continue-state, unassigned)
       let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
       state := test.state
@@ -1213,6 +1180,33 @@ let generator-translate = do
       state := generator-translate args[0], scope, state, break-state, continue-state, unassigned
       let t-finally = translate args[1], scope, \statement, unassigned
       state.run-pending-finally get-pos(node)
+    
+    for: #(node, args, scope, mutable state, , , unassigned)
+      if args[4]?
+        throw Error "Not implemented: for with label in generator"
+      if args[0]? and args[0] not instanceof ParserNode.Nothing
+        state := generator-translate args[0], scope, state, null, null, unassigned
+      state.goto get-pos(node), #-> test-branch
+      
+      let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true} <<< unassigned
+      let test-branch = state.branch()
+      let g-test = generator-translate-expression args[1], scope, test-branch, state.has-generator-node(args[1]), body-unassigned
+      test-branch.goto-if get-pos(args[1]), #-> first!(g-test.t-node(), g-test.cleanup()), #-> body-branch, #-> post-branch
+      
+      let body-branch = state.branch()
+      generator-translate(args[3], scope, body-branch, #-> post-branch, #-> step-branch, body-unassigned).goto get-pos(args[3]), #-> step-branch or test-branch
+      
+      let mutable step-branch = null
+      if args[2]? and args[2] not instanceof ParserNode.Nothing
+        step-branch := state.branch()
+        generator-translate(args[2], scope, step-branch, null, null, body-unassigned).goto get-pos(args[2]), #-> test-branch
+      if unassigned
+        for k, v of body-unassigned
+          if not v
+            unassigned[k] := false
+      
+      let post-branch = state.branch()
+      post-branch
     
     for-in: #(node, args, scope, mutable state, , , unassigned)
       if args[3]
@@ -1482,23 +1476,6 @@ let translators =
   [ParserNodeType.Eval]: #(node, scope, location, unassigned)
     let t-code = translate node.code, scope, \expression, unassigned
     #-> ast.Eval get-pos(node), t-code()
-
-  [ParserNodeType.For]: #(node, scope, location, unassigned)
-    let t-label = node.label and translate node.label, scope, \label
-    let t-init = if node.init? then translate node.init, scope, \expression, unassigned
-    // don't send along the normal unassigned array, since the loop could be repeated thus requiring reset to void.
-    let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
-    let t-test = if node.test? then translate node.test, scope, \expression, body-unassigned
-    let t-body = translate node.body, scope, \statement, body-unassigned
-    let t-step = if node.step? then translate node.step, scope, \expression, body-unassigned
-    if unassigned
-      unassigned <<< body-unassigned
-    # -> ast.For get-pos(node),
-      t-init?()
-      t-test?()
-      t-step?()
-      t-body()
-      t-label?()
 
   [ParserNodeType.Function]: do
     let primitive-types = {
@@ -1908,6 +1885,23 @@ let translate-lispy-internal =
     let t-try-body = translate args[0], scope, \statement, unassigned
     let t-finally-body = translate args[1], scope, \statement, unassigned
     # ast.TryFinally get-pos(node), t-try-body(), t-finally-body(), t-label?()
+  
+  for: #(node, args, scope, location, unassigned)
+    let t-label = args[4] and translate args[4], scope, \label
+    let t-init = if args[0]? then translate args[0], scope, \expression, unassigned
+    // don't send along the normal unassigned array, since the loop could be repeated thus requiring reset to void.
+    let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
+    let t-test = if args[1]? then translate args[1], scope, \expression, body-unassigned
+    let t-body = translate args[3], scope, \statement, body-unassigned
+    let t-step = if args[2]? then translate args[2], scope, \expression, body-unassigned
+    if unassigned
+      unassigned <<< body-unassigned
+    # -> ast.For get-pos(node),
+      t-init?()
+      t-test?()
+      t-step?()
+      t-body()
+      t-label?()
   
   for-in: #(node, args, scope, location, unassigned)
     let t-label = args[3] and translate args[3], scope, \label
