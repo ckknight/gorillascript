@@ -1182,18 +1182,6 @@ let generator-translate = do
       for tmp in node.tmps by -1
         scope.release-tmp tmp
       result
-    
-    [ParserNodeType.TryCatch]: #(node, scope, mutable state, break-state, continue-state, unassigned)
-      if node.label?
-        throw Error "Not implemented: try-catch with label in generator"
-      
-      state := state.enter-try-catch get-pos(node)
-      state := generator-translate node.try-body, scope, state, break-state, continue-state, unassigned
-      state := state.exit-try-catch get-pos(node.try-body), (translate node.catch-ident, scope, \left-expression), #-> post-branch
-      state := generator-translate node.catch-body, scope, state, break-state, continue-state, unassigned
-      state.goto get-pos(node), #-> post-branch
-      let post-branch = state.branch()
-      post-branch
   
   let generator-translate-lispy-internals =
     break: #(node, args, scope, state, break-state)
@@ -1242,6 +1230,18 @@ let generator-translate = do
           generator-translate args[0], scope, state, break-state, continue-state, unassigned, is-top
       else
         generator-translate mutated-node, scope, state, break-state, continue-state, unassigned, is-top
+    
+    try-catch: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
+      if args[3]
+        throw Error "Not implemented: try-catch with label in generator"
+      
+      state := state.enter-try-catch get-pos(node)
+      state := generator-translate args[0], scope, state, break-state, continue-state, unassigned
+      state := state.exit-try-catch get-pos(args[0]), (translate args[1], scope, \left-expression), #-> post-branch
+      state := generator-translate args[2], scope, state, break-state, continue-state, unassigned
+      state.goto get-pos(node), #-> post-branch
+      let post-branch = state.branch()
+      post-branch
     
     try-finally: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
       if args[2]
@@ -1849,21 +1849,6 @@ let translators =
 
     t-result
 
-  [ParserNodeType.TryCatch]: #(node, scope, location, unassigned)
-    let t-label = node.label and translate node.label, scope, \label
-    let t-try-body = translate node.try-body, scope, \statement, unassigned
-    let inner-scope = scope.clone(false)
-    let t-catch-ident = translate node.catch-ident, inner-scope, \left-expression
-    let t-catch-body = translate node.catch-body, inner-scope, \statement, unassigned
-    #
-      let catch-ident = t-catch-ident()
-      if catch-ident instanceof ast.Ident
-        inner-scope.add-variable catch-ident
-        inner-scope.mark-as-param catch-ident
-      let result = ast.TryCatch get-pos(node), t-try-body(), catch-ident, t-catch-body(), t-label?()
-      scope.variables <<< inner-scope.variables
-      result
-
   [ParserNodeType.Unary]: #(node, scope, location, unassigned)
     if unassigned and node.op in ["++", "--", "++post", "--post"] and node.node instanceof ParserNode.Ident
       unassigned[node.node.name] := false
@@ -1913,6 +1898,21 @@ let translate-lispy-internal =
   comment: #(node, args, scope, location, unassigned)
     let t-text = translate args[0], scope, \expression, unassigned
     # ast.Comment get-pos(node), t-text().const-value()
+  
+  try-catch: #(node, args, scope, location, unassigned)
+    let t-label = args[3] and translate args[3], scope, \label
+    let t-try-body = translate args[0], scope, \statement, unassigned
+    let inner-scope = scope.clone(false)
+    let t-catch-ident = translate args[1], inner-scope, \left-expression
+    let t-catch-body = translate args[2], inner-scope, \statement, unassigned
+    #
+      let catch-ident = t-catch-ident()
+      if catch-ident instanceof ast.Ident
+        inner-scope.add-variable catch-ident
+        inner-scope.mark-as-param catch-ident
+      let result = ast.TryCatch get-pos(node), t-try-body(), catch-ident, t-catch-body(), t-label?()
+      scope.variables <<< inner-scope.variables
+      result
   
   try-finally: #(node, args, scope, location, unassigned)
     let t-label = args[2] and translate args[2], scope, \label

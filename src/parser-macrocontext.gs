@@ -36,7 +36,6 @@ let SyntaxParamNode = Node.SyntaxParam
 let SyntaxSequenceNode = Node.SyntaxSequence
 let TmpNode = Node.Tmp
 let TmpWrapperNode = Node.TmpWrapper
-let TryCatchNode = Node.TryCatch
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
@@ -103,7 +102,12 @@ class MacroContext
   def switch(node as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null) -> @parser.Switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case, label).reduce(@parser)
   def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null) -> @parser.For(@index, @do-wrap(init), @do-wrap(test), @do-wrap(step), body, label).reduce(@parser)
   def for-in(key as IdentNode, object as Node = NothingNode(0), body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null) -> @parser.ForIn(@index, key, @do-wrap(object), body, label).reduce(@parser)
-  def try-catch(try-body as Node = NothingNode(0, @scope()), catch-ident as Node = NothingNode(0, @scope()), catch-body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null) -> @parser.TryCatch(@index, try-body, catch-ident, catch-body, label).reduce(@parser)
+  def try-catch(try-body as Node = NothingNode(0, @scope()), catch-ident as Node = NothingNode(0, @scope()), catch-body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
+    LispyNode.InternalCall(\try-catch, @index, @scope(),
+      try-body
+      catch-ident
+      catch-body
+      ...(if label then [label] else [])).reduce(@parser)
   def try-finally(try-body as Node = NothingNode(0, @scope()), finally-body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
     LispyNode.InternalCall(\try-finally, @index, @scope(),
       try-body
@@ -169,11 +173,13 @@ class MacroContext
   
   def is-labeled-block(mutable node)
     node := @real(node)
-    if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode]
+    if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode, ForInNode]
       node.label?
     else if node instanceof LispyNode and node.is-call and node.func.is-internal
       if node.func.is-try-finally
-        node.label?
+        node.args[2]?
+      else if node.func.is-try-catch
+        node.args[3]?
       else
         false
     else
@@ -195,7 +201,9 @@ class MacroContext
             return node.args[0]
           else if func.is-try-finally
             return node.args[2]
-    else if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode, ForInNode, TryCatchNode]
+          else if func.is-try-catch
+            return node.args[3]
+    else if node instanceofsome [BlockNode, IfNode, SwitchNode, ForNode, ForInNode]
       return node.label
     null
   def with-label(node, label as IdentNode|TmpNode|null)

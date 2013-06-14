@@ -174,6 +174,25 @@ class Symbol extends Node
       tmp-wrapper: {}
       try-catch: {
         +used-as-statement
+        _with-label(call, label)
+          Call call.index, call.scope,
+            call.func
+            call.args[0]
+            call.args[1]
+            call.args[2]
+            label
+        _mutate-last(call, parser, mutator, context, include-noop)
+          let try-body = call.args[0].mutate-last(parser, mutator, context, include-noop)
+          let catch-body = call.args[2].mutate-last(parser, mutator, context, include-noop)
+          if try-body != call.args[0] or catch-body != call.args[2]
+            Call call.index, call.scope,
+              call.func
+              try-body
+              call.args[1]
+              catch-body
+              ...call.args[3 to -1]
+          else
+            call
       }
       try-finally: {
         +used-as-statement

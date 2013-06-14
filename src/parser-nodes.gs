@@ -1434,19 +1434,6 @@ node-class TmpWrapperNode(node as Node, tmps as [] = [])
       TmpWrapperNode @index, @scope, node, @tmps
     else
       this
-node-class TryCatchNode(try-body as Node, catch-ident as Node, catch-body as Node, label as IdentNode|TmpNode|null)
-  def type(o) -> @_type ?= @try-body.type(o).union(@catch-body.type(o))
-  def is-statement() -> true
-  def _is-noop(o) -> @try-body.is-noop(o)
-  def with-label(label as IdentNode|TmpNode|null)
-    TryCatchNode @index, @scope, @try-body, @catch-ident, @catch-body, label
-  def mutate-last(o, func, context, include-noop)
-    let try-body = @try-body.mutate-last o, func, context, include-noop
-    let catch-body = @catch-body.mutate-last o, func, context, include-noop
-    if try-body != @try-body or catch-body != @catch-body
-      TryCatchNode @index, @scope, try-body, @catch-ident, catch-body, @label
-    else
-      this
 node-class TypeFunctionNode(return-type as Node)
 node-class TypeGenericNode(basetype as Node, args as [Node] = [])
 node-class TypeObjectNode(pairs as [])
