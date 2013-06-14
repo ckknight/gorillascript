@@ -31,7 +31,6 @@ let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
 let EvalNode = Node.Eval
 let ForNode = Node.For
-let ForInNode = Node.ForIn
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let IfNode = Node.If
@@ -4435,7 +4434,7 @@ let DefineConstLiteral = sequential(
   [\value, Expression]) |> mutate #({name, mutable value}, parser, index)
   value := parser.macro-expand-all(value.reduce(parser))
   if not value.is-literal()
-    throw ParserError "const value must be a literal.", this, index
+    throw ParserError "const value must be a literal.", parser, index
   parser.define-const index, name, value.literal-value()
   parser.Nothing index
 
@@ -5937,7 +5936,6 @@ for node-type in [
       'EmbedWrite',
       'Eval',
       'For',
-      'ForIn',
       'Function',
       'Ident',
       'If',

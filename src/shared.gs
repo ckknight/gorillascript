@@ -16,7 +16,6 @@ const ParserNodeType = {
   EmbedWrite:     16
   Eval:           17
   For:            18
-  ForIn:          19
   Function:       20
   Ident:          21
   If:             22

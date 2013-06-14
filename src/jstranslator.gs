@@ -178,7 +178,10 @@ let make-has-generator-node = #
       let FOUND = {}
       try
         node.walk #(n)
-          if n instanceofsome [ParserNode.For, ParserNode.ForIn]
+          if n instanceof LispyNode and n.is-call and n.func.is-symbol and n.func.is-internal and n.func.is-for-in
+            if has-in-loop n
+              throw FOUND
+          else if n instanceof ParserNode.For
             if has-in-loop n
               throw FOUND
           else
@@ -205,7 +208,10 @@ let make-has-generator-node = #
       let FOUND = {}
       try
         node.walk #(n)
-          if n instanceofsome [ParserNode.For, ParserNode.ForIn]
+          if n instanceof LispyNode and n.is-call and n.func.is-symbol and n.func.is-internal and n.func.is-for-in
+            if has-in-loop n
+              throw FOUND
+          else if n instanceof ParserNode.For
             if has-in-loop n
               throw FOUND
           else if n instanceof ParserNode.Switch
@@ -1055,53 +1061,6 @@ let generator-translate = do
       let post-branch = state.branch()
       post-branch
     
-    [ParserNodeType.ForIn]: #(node, scope, mutable state, , , unassigned)
-      if node.label?
-        throw Error "Not implemented: for-in with label in generator"
-      let t-key = translate node.key, scope, \left-expression
-      if unassigned and node.key instanceof ParserNode.Ident
-        unassigned[node.key.name] := false
-      let g-object = generator-translate-expression node.object, scope, state, false // TODO: check whether or not this should be cached
-      state := g-object.state
-      let keys = scope.reserve-ident get-pos(node), \keys, Type.string.array()
-      let get-key = memoize #
-        let key = t-key()
-        if key not instanceof ast.Ident
-          throw Error("Expected an Ident for a for-in key")
-        scope.add-variable key, Type.string
-        key
-      let index = scope.reserve-ident get-pos(node), \i, Type.number
-      let length = scope.reserve-ident get-pos(node), \len, Type.number
-      scope.add-helper \__allkeys
-      state := state.add # -> ast.Block get-pos(node), [
-        ast.Assign get-pos(node), keys,
-          ast.Call get-pos(node),
-            ast.Ident get-pos(node), \__allkeys
-            [first!(g-object.t-node(), g-object.cleanup())]
-        ast.Assign get-pos(node), index, 0
-        ast.Assign get-pos(node), length, ast.Access(get-pos(node), keys, \length)
-      ]
-      state.goto get-pos(node), #-> test-branch
-      
-      let test-branch = state.branch()
-      test-branch.goto-if get-pos(node), #-> ast.Binary(get-pos(node), index, "<", length), #-> body-branch, #-> post-branch
-      
-      let body-branch = test-branch.branch()
-      state := body-branch.add #-> ast.Assign get-pos(node), get-key(), ast.Access get-pos(node), keys, index
-      let body-unassigned = {[UNASSIGNED_TAINT_KEY]: true} <<< unassigned
-      generator-translate(node.body, scope, state, #-> post-branch, #-> step-branch, body-unassigned).goto get-pos(node.body), #-> step-branch
-      
-      let step-branch = body-branch.branch()
-      step-branch.add(#-> ast.Unary get-pos(node), "++", index).goto get-pos(node), #-> test-branch
-
-      if unassigned
-        for k, v of body-unassigned
-          if not v
-            unassigned[k] := false
-      
-      let post-branch = step-branch.branch()
-      post-branch
-    
     [ParserNodeType.If]: #(node, scope, mutable state, break-state, continue-state, unassigned)
       let test = generator-translate-expression node.test, scope, state, state.has-generator-node(node.test)
       state := test.state
@@ -1254,6 +1213,53 @@ let generator-translate = do
       state := generator-translate args[0], scope, state, break-state, continue-state, unassigned
       let t-finally = translate args[1], scope, \statement, unassigned
       state.run-pending-finally get-pos(node)
+    
+    for-in: #(node, args, scope, mutable state, , , unassigned)
+      if args[3]
+        throw Error "Not implemented: for-in with label in generator"
+      let t-key = translate args[0], scope, \left-expression
+      if unassigned and args[0] instanceof ParserNode.Ident
+        unassigned[args[0].name] := false
+      let g-object = generator-translate-expression args[1], scope, state, false // TODO: check whether or not this should be cached
+      state := g-object.state
+      let keys = scope.reserve-ident get-pos(node), \keys, Type.string.array()
+      let get-key = memoize #
+        let key = t-key()
+        if key not instanceof ast.Ident
+          throw Error("Expected an Ident for a for-in key")
+        scope.add-variable key, Type.string
+        key
+      let index = scope.reserve-ident get-pos(node), \i, Type.number
+      let length = scope.reserve-ident get-pos(node), \len, Type.number
+      scope.add-helper \__allkeys
+      state := state.add # -> ast.Block get-pos(node), [
+        ast.Assign get-pos(node), keys,
+          ast.Call get-pos(node),
+            ast.Ident get-pos(node), \__allkeys
+            [first!(g-object.t-node(), g-object.cleanup())]
+        ast.Assign get-pos(node), index, 0
+        ast.Assign get-pos(node), length, ast.Access(get-pos(node), keys, \length)
+      ]
+      state.goto get-pos(node), #-> test-branch
+      
+      let test-branch = state.branch()
+      test-branch.goto-if get-pos(node), #-> ast.Binary(get-pos(node), index, "<", length), #-> body-branch, #-> post-branch
+      
+      let body-branch = test-branch.branch()
+      state := body-branch.add #-> ast.Assign get-pos(node), get-key(), ast.Access get-pos(node), keys, index
+      let body-unassigned = {[UNASSIGNED_TAINT_KEY]: true} <<< unassigned
+      generator-translate(args[2], scope, state, #-> post-branch, #-> step-branch, body-unassigned).goto get-pos(args[2]), #-> step-branch
+      
+      let step-branch = body-branch.branch()
+      step-branch.add(#-> ast.Unary get-pos(node), "++", index).goto get-pos(node), #-> test-branch
+
+      if unassigned
+        for k, v of body-unassigned
+          if not v
+            unassigned[k] := false
+      
+      let post-branch = step-branch.branch()
+      post-branch
   
   let generator-translate-lispy(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     switch
@@ -1493,23 +1499,6 @@ let translators =
       t-step?()
       t-body()
       t-label?()
-
-  [ParserNodeType.ForIn]: #(node, scope, location, unassigned)
-    let t-label = node.label and translate node.label, scope, \label
-    let t-key = translate node.key, scope, \left-expression
-    if unassigned and node.key instanceof ParserNode.Ident
-      unassigned[node.key.name] := false
-    let t-object = translate node.object, scope, \expression, unassigned
-    let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
-    let t-body = translate node.body, scope, \statement, body-unassigned
-    if unassigned
-      unassigned <<< body-unassigned
-    #
-      let key = t-key()
-      if key not instanceof ast.Ident
-        throw Error("Expected an Ident for a for-in key")
-      scope.add-variable key, Type.string
-      ast.ForIn(get-pos(node), key, t-object(), t-body(), t-label?())
 
   [ParserNodeType.Function]: do
     let primitive-types = {
@@ -1919,6 +1908,23 @@ let translate-lispy-internal =
     let t-try-body = translate args[0], scope, \statement, unassigned
     let t-finally-body = translate args[1], scope, \statement, unassigned
     # ast.TryFinally get-pos(node), t-try-body(), t-finally-body(), t-label?()
+  
+  for-in: #(node, args, scope, location, unassigned)
+    let t-label = args[3] and translate args[3], scope, \label
+    let t-key = translate args[0], scope, \left-expression
+    if unassigned and args[0] instanceof ParserNode.Ident
+      unassigned[args[0].name] := false
+    let t-object = translate args[1], scope, \expression, unassigned
+    let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
+    let t-body = translate args[2], scope, \statement, body-unassigned
+    if unassigned
+      unassigned <<< body-unassigned
+    #
+      let key = t-key()
+      if key not instanceof ast.Ident
+        throw Error("Expected an Ident for a for-in key")
+      scope.add-variable key, Type.string
+      ast.ForIn(get-pos(node), key, t-object(), t-body(), t-label?())
 
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch

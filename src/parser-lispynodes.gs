@@ -122,6 +122,13 @@ class Symbol extends Node
       }
       for-in: {
         +used-as-statement
+        _with-label(call, label)
+          Call call.index, call.scope,
+            call.func
+            call.args[0]
+            call.args[1]
+            call.args[2]
+            label
       }
       function: {}
       if: {}

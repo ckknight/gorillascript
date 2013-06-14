@@ -679,9 +679,11 @@ node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
     if not @label?
       if @nodes.length == 1
         return @nodes[0].with-label label, o
-      else if @nodes.length > 1 and @nodes[* - 1] instanceof ForInNode
-        if for every node in @nodes[0 til -1]; node instanceofsome [AssignNode, VarNode]
-          return BlockNode @index, @scope, @nodes[0 til -1].concat([@nodes[* - 1].with-label(label, o)])
+      else if @nodes.length > 1
+        let last = @nodes[* - 1]
+        if last instanceof require('./parser-lispynodes') and last.is-call and last.func.is-internal and last.func.is-for-in
+          if for every node in @nodes[0 til -1]; node instanceofsome [AssignNode, VarNode]
+            return BlockNode @index, @scope, @nodes[0 til -1].concat([last.with-label(label, o)])
     BlockNode @index, @scope, @nodes, label
   def _reduce(o)
     let mutable changed = false
@@ -1027,11 +1029,6 @@ node-class ForNode(init as Node = NothingNode(0, scope), test as Node = LispyNod
   def is-statement() -> true
   def with-label(label as IdentNode|TmpNode|null)
     ForNode @index, @scope, @init, @test, @step, @body, label
-node-class ForInNode(key as Node, object as Node, body as Node, label as IdentNode|TmpNode|null)
-  def type() -> Type.undefined
-  def is-statement() -> true
-  def with-label(label as IdentNode|TmpNode|null)
-    ForInNode @index, @scope, @key, @object, @body, label
 node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
   def type(o) -> @_type ?=
     // TODO: handle generator types
