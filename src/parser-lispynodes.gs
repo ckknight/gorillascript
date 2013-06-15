@@ -100,9 +100,35 @@ class Symbol extends Node
     
     let internal-symbols =
       access: {}
-      access-multi: {}
       apply: {}
-      array: {}
+      array: {
+        validate-args(...args as [OldNode]) ->
+        _type() Type.array
+        __reduce(call, parser)
+          let mutable changed = false
+          let elements = []
+          for element in call.args
+            let new-element = element.reduce(parser).do-wrap(parser)
+            changed or= element != new-element
+            elements.push new-element
+          if changed
+            Call call.index, call.scope,
+              call.func
+              ...elements
+          else
+            call
+        _is-literal: do
+          let cache = Cache<Call, Boolean>()
+          #(call)
+            cache-get-or-add! cache, call, for every element in call.args; element.is-literal()
+        _literal-value(call)
+          return for element in call.args
+            element.literal-value()
+        /*
+        node-class ArrayNode(elements as [Node] = [])
+          def _is-noop(o) -> @__is-noop ?= for every element in @elements; element.is-noop(o)
+        */
+      }
       block: {}
       break: {
         validate-args(label as OldNode|null) ->
@@ -568,6 +594,18 @@ class Call extends Node
       callback null, Call @index, @scope, func, ...args
     else
       callback null, this
+  
+  def is-literal()
+    if is-function! @func._is-literal
+      @func._is-literal(this)
+    else
+      false
+  
+  def literal-value()
+    if is-function! @func._literal-value
+      @func._literal-value(this)
+    else
+      super.literal-value()
   
   def is-statement()
     @func.is-internal and @func.used-as-statement

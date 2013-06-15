@@ -21,8 +21,6 @@ const EMBED_OPEN_LITERAL_DEFAULT = "<%@"
 const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
 let AccessNode = Node.Access
-let AccessMultiNode = Node.AccessMulti
-let ArrayNode = Node.Array
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let BlockNode = Node.Block
@@ -2473,7 +2471,8 @@ define DoubleStringArrayLiteral = sequential(
   [\this, DoubleStringLiteralInner]
   DoubleQuote) |> mutate #(parts, parser, index)
   let string-parts = double-string-literal-handler parts, parser, index
-  parser.Array index, string-parts
+  LInternalCall \array, index, parser.scope,
+    ...string-parts
 
 let StringIndent(parser, index)
   let mutable count = 0
@@ -2597,7 +2596,8 @@ define TripleDoubleStringArrayLiteral = sequential(
   TripleDoubleQuote) |> mutate #(parts, parser, index)
   let string-parts = triple-string-handler parts, parser, index
   
-  parser.Array index, string-parts
+  LInternalCall \array, index, parser.scope,
+    ...string-parts
 
 define BackslashStringLiteral = sequential(
   BackslashChar
@@ -3019,7 +3019,8 @@ let ArrayParameter = sequential(
   [\this, allow-space-before-access #(parser, index) -> Parameters parser, index]
   EmptyLines
   CloseSquareBracket) |> mutate #(params, parser, index)
-  parser.Array index, params
+  LInternalCall \array, index, parser.scope,
+    ...params
 
 let ParamDualObjectKey = sequential(
   [\key, ObjectKeyColon]
@@ -3081,8 +3082,8 @@ let ParameterSequence = sequential(
         throw ParserError "Duplicate parameter name: $(quote name)", parser, ident.index
       else
         names.push name
-    else if param instanceof ArrayNode
-      for element in param.elements
+    else if param instanceof LispyNode and param.is-call and param.func.is-symbol and param.func.is-internal and param.func.is-array
+      for element in param.args
         check-param element, parser, names
     else if param instanceof ObjectNode
       for pair in param.pairs
@@ -3197,7 +3198,8 @@ define ArrayLiteral = prevent-unclosed-object-literal sequential(
       MaybeCommaOrNewline
       )), #-> []))]
   CloseSquareBracket) |> mutate #(items, parser, index)
-  parser.Array index, items
+  LInternalCall \array, index, parser.scope,
+    ...items
 
 define SetLiteral = sequential(
   PercentSign
@@ -3572,7 +3574,8 @@ let UnclosedArrayLiteralElement = sequential(
 define IndentedUnclosedArrayLiteralInner = separated-list(
   UnclosedArrayLiteralElement
   sequential(MaybeComma, SomeEmptyLinesWithCheckIndent)) |> mutate #(items, parser, index)
-  parser.Array index, items
+  LInternalCall \array, index, parser.scope,
+    ...items
 
 define IndentedUnclosedArrayLiteral = sequential(
   UnclosedObjectLiteralsAllowed
@@ -3669,8 +3672,9 @@ let convert-invocation-or-access = do
             tmp-ids.push tmp.id
             set-parent := parser.Assign(index, tmp, "=", parent.do-wrap(parser))
             parent := tmp
-          let result = parser.Array(index, for element, i in child.elements
-            parser.Access(index, if i == 0 then set-parent else parent, element))
+          let result = LInternalCall \array, index, parser.scope,
+            ...(for element, i in child.elements
+              parser.Access(index, if i == 0 then set-parent else parent, element))
           if tmp-ids.length
             parser.TmpWrapper(index, result, tmp-ids)
           else
@@ -5931,8 +5935,6 @@ module.exports := parse <<< {
 
 for node-type in [
       'Access',
-      'AccessMulti',
-      'Array',
       'Assign',
       'Binary',
       'Block',

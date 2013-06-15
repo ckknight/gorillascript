@@ -311,15 +311,17 @@ node-class AccessNode(parent as Node, child as Node)
           let value = p-value[c-value]
           if is-null! value or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
             return LispyNode_Value @index, value
-      else if parent instanceof ArrayNode
-        if c-value == \length
-          return LispyNode_Value @index, parent.elements.length
-        else if is-number! c-value
-          return parent.elements[c-value] or LispyNode_Value @index, void
-      else if parent instanceof ObjectNode
-        for {key, value} in parent.pairs
-          if key.const-value() == c-value
-            return value
+      else
+        let LispyNode = require('./parser-lispynodes')
+        if parent instanceof LispyNode and parent.is-call and parent.func.is-symbol and parent.func.is-internal and parent.func.is-array
+          if c-value == \length
+            return LispyNode_Value @index, parent.args.length
+          else if is-number! c-value
+            return parent.args[c-value] or LispyNode_Value @index, void
+        else if parent instanceof ObjectNode
+          for {key, value} in parent.pairs
+            if key.const-value() == c-value
+              return value
     if child instanceof CallNode and child.func instanceof IdentNode and child.func.name == \__range
       let [start, mutable end, step, inclusive] = child.args
       let has-step = not step.is-const() or step.const-value() != 1
@@ -368,35 +370,6 @@ node-class AccessNode(parent as Node, child as Node)
     else
       this
   def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
-node-class AccessMultiNode(parent as Node, elements as [Node] = [])
-  def type() -> Type.array
-  def _reduce(o)
-    let mutable parent = @parent.reduce(o)
-    let mutable set-parent = parent
-    let tmp-ids = []
-    if parent.cacheable
-      let tmp = o.make-tmp o.index-from-position(@index), \ref, parent.type(o)
-      tmp.scope := @scope
-      tmp-ids.push tmp.id
-      set-parent := AssignNode(@index, @scope, tmp, "=", parent.do-wrap(o))
-      parent := tmp
-    let result = ArrayNode(@index, @scope, for element, j in @elements
-      AccessNode(@index, @scope, if j == 0 then set-parent else parent, element.reduce(o)))
-    if tmp-ids.length
-      TmpWrapperNode(@index, @scope, result, tmp-ids)
-    else
-      result
-node-class ArrayNode(elements as [Node] = [])
-  def type() -> Type.array
-  def _reduce(o)
-    let elements = map @elements, #(x) -> x.reduce(o).do-wrap(o)
-    if elements != @elements
-      ArrayNode @index, @scope, elements
-    else
-      this
-  def _is-noop(o) -> @__is-noop ?= for every element in @elements; element.is-noop(o)
-  def is-literal() -> @_is-literal ?= for every element in @elements; element.is-literal()
-  def literal-value() -> return for element in @elements; element.literal-value()
 node-class AssignNode(left as Node, op as String, right as Node)
   def type = do
     let ops =

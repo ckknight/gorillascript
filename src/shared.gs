@@ -6,8 +6,6 @@ const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 
 const ParserNodeType = {
   Access:          1
-  AccessMulti:     2
-  Array:           4
   Assign:          5
   Binary:          6
   Block:           7
@@ -42,9 +40,10 @@ const ParserNodeType = {
 macro cache-get-or-add!(cache, key, value)
   @maybe-cache cache, #(set-cache, cache)
     @maybe-cache key, #(set-key, key)
-      let tmp = @tmp \value
+      let tmp = @macro-expand-1 @tmp \value
       AST
         let mutable $tmp = $set-cache.get($set-key)
         if $tmp == void
-          $cache.set($key, ($tmp := $value))
+          $tmp := $value
+          $cache.set($key, $tmp)
         $tmp

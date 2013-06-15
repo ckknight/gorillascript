@@ -565,8 +565,8 @@ let flatten-spread-array(elements)
   let result = []
   let mutable changed = false
   for element in elements
-    if element instanceof ParserNode.Spread and element.node instanceof ParserNode.Array
-      result.push ...element.node.elements
+    if element instanceof ParserNode.Spread and element.node instanceof LispyNode and element.node.is-call and element.node.func.is-symbol and element.node.func.is-internal and element.node.func.is-array
+      result.push ...element.node.args
       changed := true
     else
       result.push element
@@ -743,9 +743,6 @@ let generator-translate = do
         ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
         g-parent.cleanup()
         g-child.cleanup())
-    
-    [ParserNodeType.Array]: #(node, scope, state, assign-to, unassigned)
-      generator-array-translate get-pos(node), node.elements, scope, state, assign-to, unassigned
     
     [ParserNodeType.Assign]: #(node, scope, state, assign-to, unassigned)
       let left = node.left
@@ -973,6 +970,9 @@ let generator-translate = do
           if not v
             unassigned[k] := false
       ret
+    
+    array: #(node, args, scope, state, assign-to, unassigned)
+      generator-array-translate get-pos(node), args, scope, state, assign-to, unassigned
   
   let generator-translate-expression-lispy(node as LispyNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     switch
@@ -1353,10 +1353,6 @@ let translators =
     let t-parent = translate node.parent, scope, \expression, unassigned
     let t-child = translate node.child, scope, \expression, unassigned
     #-> ast.Access(get-pos(node), t-parent(), t-child())
-
-  [ParserNodeType.Array]: #(node, scope, location, unassigned)
-    let t-arr = array-translate get-pos(node), node.elements, scope, true, unassigned
-    #-> t-arr()
 
   [ParserNodeType.Assign]: #(node, scope, location, unassigned)
     let op = node.op
@@ -1926,6 +1922,10 @@ let translate-lispy-internal =
         if not v
           unassigned[k] := false
     # ast.If get-pos(node), t-test(), t-when-true(), t-when-false?(), t-label?()
+  
+  array: #(node, args, scope, location, unassigned)
+    let t-arr = array-translate get-pos(node), args, scope, true, unassigned
+    #-> t-arr()
 
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch

@@ -7,8 +7,6 @@ require! Scope: './parser-scope'
 let {node-to-type, add-param-to-scope} = require './parser-utils'
 
 let AccessNode = Node.Access
-let AccessMultiNode = Node.AccessMulti
-let ArrayNode = Node.Array
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let BlockNode = Node.Block
@@ -399,15 +397,18 @@ class MacroContext
     node := @real node
     if @is-param node then node.as-type
   
-  def is-array(node) -> @real(node) instanceof ArrayNode
+  def is-array(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-array
   def elements(mutable node)
     node := @real node
-    if @is-array node then node.elements
+    if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-array
+      node.args
   
   def array-has-spread(mutable node)
     node := @real node
-    if node instanceof ArrayNode
-      for some element in node.elements
+    if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-array
+      for some element in node.args
         @real(element) instanceof SpreadNode
     else
       false
@@ -423,9 +424,10 @@ class MacroContext
     if @is-block node then node.nodes
   
   def array(elements as [Node])
-    @parser.Array(0, (for element in elements; @do-wrap(element))).reduce(@parser)
+    LispyNode.InternalCall(\array, @index, @scope(),
+      ...(for element in elements; @do-wrap(element))).reduce(@parser)
   def object(pairs as [{ key: Node, value: Node }])
-    @parser.Object(0, (for {key, value, property} in pairs; {key: @do-wrap(key), value: @do-wrap(value) property})).reduce(@parser)
+    @parser.Object(@index, (for {key, value, property} in pairs; {key: @do-wrap(key), value: @do-wrap(value) property})).reduce(@parser)
   
   def type(node)
     if is-string! node
@@ -592,8 +594,9 @@ class MacroContext
           LispyNode.Value index, "$(if obj.global then 'g' else '')$(if obj.ignore-case then 'i' else '')$(if obj.multiline then 'm' else '')$(if obj.sticky then 'y' else '')"
         ]
     else if is-array! obj
-      ArrayNode index, scope, for item in obj
-        constify-object position, item, index, scope
+      LispyNode.InternalCall \array, index, scope,
+        ...(for item in obj
+          constify-object position, item, index, scope)
     else if obj instanceof IdentNode and obj.name.length > 1 and obj.name.char-code-at(0) == '$'.char-code-at(0)
       CallNode obj.index, scope,
         IdentNode obj.index, scope, \__wrap
@@ -746,7 +749,9 @@ class MacroContext
     if is-null! obj or typeof obj in [\undefined, \boolean, \number, \string]
       LispyNode.Value 0, obj
     else if is-array! obj
-      ArrayNode 0, @scope(), for item in obj; to-literal-node@ this, item
+      LispyNode.InternalCall \array, 0, @scope(),
+        ...(for item in obj
+          to-literal-node@ this, item)
     else if obj.constructor == Object
       ObjectNode 0, @scope(), for k, v of obj
         {
