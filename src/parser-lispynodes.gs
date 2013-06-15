@@ -143,6 +143,9 @@ class Symbol extends Node
         +is-goto
         +used-as-statement
       }
+      custom: {
+        validate-args(name as Value) ->
+      }
       debugger: {
         +used-as-statement
       }

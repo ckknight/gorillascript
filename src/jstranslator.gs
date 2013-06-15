@@ -1481,10 +1481,6 @@ let translators =
             ast.Access get-pos(node), func, \apply
             [ast.Const(get-pos(node), void), arg-array]
   
-  [ParserNodeType.Custom]: #(node, scope, location)
-    // TODO: line numbers
-    throw Error "Cannot have a stray custom node '$(node.name)'"
-  
   [ParserNodeType.EmbedWrite]: #(node, scope, location, unassigned)
     let wrapped = if node.text.is-statement()
       let inner-scope = node.text.scope.clone()
@@ -1956,6 +1952,10 @@ let translate-lispy-internal =
           ast.Switch.Case(case_.pos, case-node, case-body)
         t-default-case()
         t-label?()
+  
+  custom: #(node, args, scope, location, unassigned)
+    // TODO: line numbers
+    throw Error "Cannot have a stray custom node '$(args[0].const-value())'"
 
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch

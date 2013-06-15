@@ -989,7 +989,6 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
       else
         this
 
-node-class CustomNode(name as String, data as [Node])
 node-class EmbedWriteNode(text as Node, escape as Boolean)
 node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
   def type(o) -> @_type ?=

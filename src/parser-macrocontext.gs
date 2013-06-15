@@ -11,7 +11,6 @@ let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let BlockNode = Node.Block
 let CallNode = Node.Call
-let CustomNode = Node.Custom
 let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
@@ -87,7 +86,10 @@ class MacroContext
     @scope().is-mutable(ident)
   
   def var(ident as IdentNode|TmpNode, is-mutable as Boolean) -> @parser.Var @index, ident, is-mutable
-  def custom(name as String, ...data as [Node]) -> @parser.Custom @index, name, data
+  def custom(name as String, ...data as [Node])
+    LispyNode.InternalCall(\custom, @index, @scope(),
+      LispyNode.Value @index, name
+      ...data).reduce(@parser)
   def noop() -> @parser.Nothing @index
   def block(nodes as [Node], label as IdentNode|TmpNode|null) -> @parser.Block(@index, nodes, label).reduce(@parser)
   def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
@@ -314,12 +316,14 @@ class MacroContext
   def is-ident-or-tmp(node) -> @real(node) instanceofsome [IdentNode, TmpNode]
   def name(mutable node)
     node := @real(node)
-    if @is-ident(node) or @is-custom(node)
+    if @is-ident(node)
       node.name
+    else if @is-custom(node)
+      node.args[0].const-value()
   def custom-data(mutable node)
     node := @real(node)
     if @is-custom(node)
-      node.data
+      node.args.slice(1)
   def ident(name as String)
     // TODO: don't assume JS
     if require('./jsutils').is-acceptable-ident(name, true)
@@ -563,7 +567,9 @@ class MacroContext
     node := @real node
     node instanceof LispyNode and node.is-ident and node.name == \arguments
 
-  def is-custom(node) -> @real(node) instanceof CustomNode
+  def is-custom(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-custom
   def is-assign(node) -> @real(node) instanceof AssignNode
   def is-binary(node) -> @real(node) instanceof BinaryNode
   def is-unary(node) -> @real(node) instanceof UnaryNode
