@@ -11,7 +11,7 @@ let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let BlockNode = Node.Block
 let CallNode = Node.Call
-let DefNode = Node.Def
+let CustomNode = Node.Custom
 let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
@@ -87,7 +87,7 @@ class MacroContext
     @scope().is-mutable(ident)
   
   def var(ident as IdentNode|TmpNode, is-mutable as Boolean) -> @parser.Var @index, ident, is-mutable
-  def def(key as Node = NothingNode(0, @scope()), value as Node|void) -> @parser.Def @index, key, @do-wrap(value)
+  def custom(name as String, ...data as [Node]) -> @parser.Custom @index, name, data
   def noop() -> @parser.Nothing @index
   def block(nodes as [Node], label as IdentNode|TmpNode|null) -> @parser.Block(@index, nodes, label).reduce(@parser)
   def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
@@ -314,8 +314,12 @@ class MacroContext
   def is-ident-or-tmp(node) -> @real(node) instanceofsome [IdentNode, TmpNode]
   def name(mutable node)
     node := @real(node)
-    if @is-ident node
+    if @is-ident(node) or @is-custom(node)
       node.name
+  def custom-data(mutable node)
+    node := @real(node)
+    if @is-custom(node)
+      node.data
   def ident(name as String)
     // TODO: don't assume JS
     if require('./jsutils').is-acceptable-ident(name, true)
@@ -558,8 +562,8 @@ class MacroContext
   def is-arguments(mutable node)
     node := @real node
     node instanceof LispyNode and node.is-ident and node.name == \arguments
-  
-  def is-def(node) -> @real(node) instanceof DefNode
+
+  def is-custom(node) -> @real(node) instanceof CustomNode
   def is-assign(node) -> @real(node) instanceof AssignNode
   def is-binary(node) -> @real(node) instanceof BinaryNode
   def is-unary(node) -> @real(node) instanceof UnaryNode
@@ -569,11 +573,11 @@ class MacroContext
       node.op
   def left(mutable node)
     node := @real node
-    if @is-def(node) or @is-binary(node)
+    if @is-binary(node)
       node.left
   def right(mutable node)
     node := @real node
-    if @is-def(node) or @is-binary(node)
+    if @is-binary(node)
       node.right
   def unary-node(mutable node)
     node := @real node

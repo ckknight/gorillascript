@@ -25,7 +25,6 @@ let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let BlockNode = Node.Block
 let CallNode = Node.Call
-let DefNode = Node.Def
 let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
@@ -5985,7 +5984,7 @@ for node-type in [
       'Block',
       'Call',
       'Cascade',
-      'Def',
+      'Custom',
       'EmbedWrite',
       'Function',
       'Ident',

@@ -2888,13 +2888,13 @@ macro asyncif, asyncunless
 
 macro def
   syntax key as ObjectKey, func as FunctionDeclaration
-    @def key, func
+    @custom \def, key, @do-wrap(func)
   
   syntax key as ObjectKey, "=", value as ExpressionOrAssignment
-    @def key, value
+    @custom \def, key, @do-wrap(value)
   
   syntax key as ObjectKey
-    @def key, void
+    @custom \def, key
 
 macro class
   syntax name as SimpleAssignable?, generic as ("<", head as Identifier, tail as (",", this as Identifier)*, ">")?, superclass as ("extends", this)?, body as Body?
@@ -2966,9 +2966,11 @@ macro class
     body := fix-supers @macro-expand-all(body)
     
     let mutable constructor-count = 0
+    let is-def(node)@
+      @is-custom(node) and @name(node) == \def
     @walk body, #(node)
-      if @is-def(node)
-        let key = @left(node)
+      if is-def(node)
+        let key = @custom-data(node)[0]
         if @is-const(key) and @value(key) == \constructor
           //if @is-func(@right(node)) and @func-is-curried(@right(node))
           //  throw Error "Cannot curry a class's constructor"
@@ -2978,9 +2980,9 @@ macro class
     let mutable has-top-level-constructor = false
     if constructor-count == 1
       @walk body, #(node)
-        if @is-def(node)
-          let key = @left(node)
-          if @is-const(key) and @value(key) == \constructor and @is-func(@right(node)) and not @func-is-curried(@right(node))
+        if is-def(node)
+          let key = @custom-data(node)[0]
+          if @is-const(key) and @value(key) == \constructor and @is-func(@custom-data(node)[1]) and not @func-is-curried(@custom-data(node)[1])
             has-top-level-constructor := true
           node
         else
@@ -2989,10 +2991,10 @@ macro class
     let self = @tmp \this
     if has-top-level-constructor
       body := @walk body, #(node)
-        if @is-def(node)
-          let key = @left(node)
+        if is-def(node)
+          let key = @custom-data(node)[0]
           if @is-const(key) and @value(key) == \constructor
-            let value = @right(node)
+            let value = @custom-data(node)[1]
             let constructor = @rewrap(@func(
               @func-params value
               @func-body value
@@ -3020,10 +3022,10 @@ macro class
               return $result
           $self
       body := @walk body, #(node)
-        if @is-def(node)
-          let key = @left(node)
+        if is-def(node)
+          let key = @custom-data(node)[0]
           if @is-const(key) and @value(key) == \constructor
-            let value = @right(node)
+            let value = @custom-data(node)[1]
             if @is-call(value) and @is-ident(@call-func(value)) and @name(@call-func(value)) == \__curry and @call-args(value).length == 2 and @is-func(@call-args(value)[1])
               let first-arg = @call-args(value)[0]
               let mutable constructor = @call-args(value)[1]
@@ -3060,9 +3062,9 @@ macro class
               $self
     
     let change-defs(node)@ -> @walk node, #(node)
-      if @is-def(node)
-        let key = @left(node)
-        let value = @right(node) ? ASTE(node) #-> throw Error "Not implemented: $(__name @constructor).$($key)()"
+      if is-def(node)
+        let key = @custom-data(node)[0]
+        let value = @custom-data(node)[1] ? ASTE(node) #-> throw Error "Not implemented: $(__name @constructor).$($key)()"
         change-defs ASTE(node) $prototype[$key] := $value
     body := change-defs body
     

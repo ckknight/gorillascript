@@ -1481,9 +1481,9 @@ let translators =
             ast.Access get-pos(node), func, \apply
             [ast.Const(get-pos(node), void), arg-array]
   
-  [ParserNodeType.Def]: #(node, scope, location)
+  [ParserNodeType.Custom]: #(node, scope, location)
     // TODO: line numbers
-    throw Error "Cannot have a stray def"
+    throw Error "Cannot have a stray custom node '$(node.name)'"
   
   [ParserNodeType.EmbedWrite]: #(node, scope, location, unassigned)
     let wrapped = if node.text.is-statement()

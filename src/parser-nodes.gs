@@ -139,8 +139,8 @@ macro node-class
         let FOUND = {}
         let find-walk(node)@
           @walk node, #(node)@
-            if @is-def(node)
-              let key = @left(node)
+            if @is-custom(node) and @name(node) == \def
+              let key = @custom-data(node)[0]
               if @is-const(key) and @value(key) == name
                 throw FOUND
         try
@@ -989,8 +989,7 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
       else
         this
 
-node-class DefNode(left as Node, right as Node|void)
-  def type(o) -> if @right? then @right.type(o) else Type.any
+node-class CustomNode(name as String, data as [Node])
 node-class EmbedWriteNode(text as Node, escape as Boolean)
 node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
   def type(o) -> @_type ?=
