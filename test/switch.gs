@@ -209,6 +209,33 @@ describe "switch", #
         i
 
     expect(fun(1)).to.equal 10
+  
+  it "should allow return statements within switch", #
+    let fun(value)
+      switch value
+      case 0
+        return \zero
+      case 1
+        return \one
+      default
+        void
+      return \other
+    expect(fun(0)).to.equal \zero
+    expect(fun(1)).to.equal \one
+    expect(fun(2)).to.equal \other
+  
+  it "should allow return statements within switch as the last statement", #
+    let fun(value)
+      switch value
+      case 0
+        return \zero
+      case 1
+        return \one
+      default
+        return \other
+    expect(fun(0)).to.equal \zero
+    expect(fun(1)).to.equal \one
+    expect(fun(2)).to.equal \other
 
 describe "topicless switch", #
   it "works", #

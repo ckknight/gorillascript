@@ -205,15 +205,22 @@ let make-has-generator-node = #
       let FOUND = {}
       try
         node.walk #(n)
-          if n instanceof LispyNode and n.is-call and n.func.is-symbol and n.func.is-internal and (n.func.is-for-in or n.func.is-for)
-            if has-in-loop n
-              throw FOUND
-          else if n instanceof ParserNode.Switch
-            if has-in-switch n
-              throw FOUND
-          else
-            if has-generator-node n, allow-return
-              throw FOUND
+          if n instanceof LispyNode and n.is-call
+            let func = n.func
+            if func.is-symbol and func.is-internal
+              switch func.name
+              case \for-in, \for
+                if has-in-loop n
+                  throw FOUND
+                return n
+              case \switch
+                if has-in-switch n
+                  throw FOUND
+                return n
+              default
+                void
+          if has-generator-node n, allow-return
+            throw FOUND
           n
       catch e == FOUND
         return true
@@ -586,6 +593,24 @@ let mutable get-pos = #(node as ParserNode)
   throw Error "get-pos must be overridden"
 
 const UNASSIGNED_TAINT_KEY = "\0"
+
+let parse-switch(args)
+  let result = {
+    topic: args[0]
+    cases: []
+  }
+  let mutable len = args.length
+  let last-case-index = if len %% 3 then len - 2 else len - 1
+  if len %% 3
+    result.label := args[len - 1]
+  for i in 1 til last-case-index by 3
+    result.cases.push {
+      node: args[i]
+      body: args[i + 1]
+      fallthrough: args[i + 2]
+    }
+  result.default-case := args[last-case-index]
+  result
 
 let do-nothing() ->
 let generator-translate = do
@@ -1033,53 +1058,6 @@ let generator-translate = do
               []
           ]
     
-    [ParserNodeType.Switch]: #(node, scope, state, , continue-state, unassigned)
-      if node.label?
-        throw Error "Not implemented: switch with label in generator"
-      let g-node = generator-translate-expression node.node, scope, state, false // TODO: should this be true?
-      let body-states = []
-      let result-cases = []
-      g-node.state.add #-> ast.Switch get-pos(node),
-        g-node.t-node()
-        for case_ in result-cases; case_()
-        default-case()
-      g-node.state.add #-> ast.Break get-pos(node)
-      let base-unassigned = unassigned and {} <<< unassigned
-      let mutable current-unassigned = unassigned and {} <<< unassigned
-      for case_, i in node.cases
-        if state.has-generator-node case_.node
-          throw Error "Cannot use yield in the check of a switch's case"
-        let t-case-node = translate case_.node, scope, \expression, current-unassigned
-        let case-branch = g-node.state.branch()
-        body-states[i] := case-branch
-        let g-case-body = generator-translate case_.body, scope, case-branch, #-> post-branch, continue-state, current-unassigned
-        g-case-body.goto get-pos(case_.node), if case_.fallthrough
-          #-> body-states[i + 1] or post-branch
-        else
-          #-> post-branch
-        let t-goto = case-branch.make-goto get-pos(case_.node), #-> case-branch
-        result-cases.push #-> ast.Switch.Case get-pos(case_.node), t-case-node(), ast.Block get-pos(case_.node), [
-          t-goto()
-          ast.Break get-pos(case_.node)
-        ]
-        if not case_.fallthrough and unassigned
-          for k, v of current-unassigned
-            if not v
-              unassigned[k] := false
-          current-unassigned := {} <<< base-unassigned
-      let default-case = if node.default-case?
-        let default-branch = g-node.state.branch()
-        let g-default-body = generator-translate node.default-case, scope, default-branch, #-> post-branch, continue-state, current-unassigned
-        g-default-body.goto get-pos(node.default-case), #-> post-branch
-        default-branch.make-goto get-pos(node.default-case), #-> default-branch
-      else
-        g-node.state.make-goto get-pos(node), #-> post-branch
-      for k, v of current-unassigned
-        if not v
-          unassigned[k] := false
-      let post-branch = state.branch()
-      post-branch
-    
     [ParserNodeType.TmpWrapper]: #(node, scope, state, break-state, continue-state, unassigned, is-top)
       let result = generator-translate node.node, scope, state, break-state, continue-state, unassigned, is-top
       for tmp in node.tmps by -1
@@ -1117,7 +1095,10 @@ let generator-translate = do
     
     return: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
       let mutated-node = args[0].mutate-last null, (#(n)
-        LispyNode.InternalCall \return, n.index, n.scope, n), null, true
+        if n instanceof LispyNode and n.is-call and n.func.is-symbol and n.func.is-internal and n.func.is-return
+          n
+        else
+          LispyNode.InternalCall \return, n.index, n.scope, n), null, true
       if mutated-node instanceof LispyNode and mutated-node.is-call and mutated-node.func.is-return and mutated-node.args[0] == args[0]
         if args[0].is-const() and args[0].is-const-value(void)
           state.return get-pos(node)
@@ -1261,6 +1242,54 @@ let generator-translate = do
           if not v
             unassigned[k] := false
       ret
+    
+    switch: #(node, args, scope, state, , continue-state, unassigned)
+      let data = parse-switch(args)
+      if data.label
+        throw Error "Not implemented: switch with label in generator"
+      let g-topic = generator-translate-expression data.topic, scope, state, false // TODO: should this be true?
+      let body-states = []
+      let result-cases = []
+      g-topic.state.add #-> ast.Switch get-pos(node),
+        g-topic.t-node()
+        for case_ in result-cases; case_()
+        default-case()
+      g-topic.state.add #-> ast.Break get-pos(node)
+      let base-unassigned = unassigned and {} <<< unassigned
+      let mutable current-unassigned = unassigned and {} <<< unassigned
+      for case_, i in data.cases
+        if state.has-generator-node case_.node
+          throw Error "Cannot use yield in the check of a switch's case"
+        let t-case-node = translate case_.node, scope, \expression, current-unassigned
+        let case-branch = g-topic.state.branch()
+        body-states[i] := case-branch
+        let g-case-body = generator-translate case_.body, scope, case-branch, #-> post-branch, continue-state, current-unassigned
+        g-case-body.goto get-pos(case_.node), if case_.fallthrough.const-value()
+          #-> body-states[i + 1] or post-branch
+        else
+          #-> post-branch
+        let t-goto = case-branch.make-goto get-pos(case_.node), #-> case-branch
+        result-cases.push #-> ast.Switch.Case get-pos(case_.node), t-case-node(), ast.Block get-pos(case_.node), [
+          t-goto()
+          ast.Break get-pos(case_.node)
+        ]
+        if not case_.fallthrough.const-value() and unassigned
+          for k, v of current-unassigned
+            if not v
+              unassigned[k] := false
+          current-unassigned := {} <<< base-unassigned
+      let default-case = if data.default-case not instanceof ParserNode.Nothing
+        let default-branch = g-topic.state.branch()
+        let g-default-body = generator-translate data.default-case, scope, default-branch, #-> post-branch, continue-state, current-unassigned
+        g-default-body.goto get-pos(data.default-case), #-> post-branch
+        default-branch.make-goto get-pos(data.default-case), #-> default-branch
+      else
+        g-topic.state.make-goto get-pos(node), #-> post-branch
+      for k, v of current-unassigned
+        if not v
+          unassigned[k] := false
+      let post-branch = state.branch()
+      post-branch
   
   let generator-translate-lispy(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     switch
@@ -1652,45 +1681,6 @@ let translators =
 
   [ParserNodeType.Nothing]: #(node) -> #-> ast.Noop(get-pos(node))
 
-  [ParserNodeType.Switch]: #(node, scope, location, unassigned)
-    let t-label = node.label and translate node.label, scope, \label
-    let t-node = translate node.node, scope, \expression, unassigned
-    let base-unassigned = unassigned and {} <<< unassigned
-    let mutable current-unassigned = unassigned and {} <<< base-unassigned
-    let t-cases = for case_ in node.cases
-      let new-case = {
-        pos: get-pos(case_.node)
-        t-node: translate case_.node, scope, \expression, current-unassigned
-        t-body: translate case_.body, scope, \statement, current-unassigned
-        case_.fallthrough
-      }
-      if not case_.fallthrough and unassigned
-        for k, v of current-unassigned
-          if not v
-            unassigned[k] := false
-        current-unassigned := {} <<< base-unassigned
-      new-case
-    let t-default-case = if node.default-case? then translate node.default-case, scope, \statement, current-unassigned
-    for k, v of current-unassigned
-      if not v
-        unassigned[k] := false
-    #
-      ast.Switch get-pos(node),
-        t-node()
-        for case_, i, len in t-cases
-          let case-node = case_.t-node()
-          let mutable case-body = case_.t-body()
-          if not case_.fallthrough or (i == len - 1 and default-case.is-noop())
-            case-body := ast.Block case_.pos, [
-              case-body
-              ast.Break case-body.pos]
-          ast.Switch.Case(case_.pos, case-node, case-body)
-        if t-default-case?
-          t-default-case()
-        else
-          ast.Noop(get-pos(node))
-        t-label?()
-
   [ParserNodeType.Super]: #(node, scope, location)
     // TODO: line numbers
     throw Error "Cannot have a stray super call"
@@ -1742,7 +1732,10 @@ let translate-lispy-internal =
       throw Error "Expected Return in statement position"
     
     let mutated-node = args[0].mutate-last null, (#(n)
-      LispyNode.InternalCall \return, n.index, n.scope, n), null, true
+      if n instanceof LispyNode and n.is-call and n.func.is-symbol and n.func.is-internal and n.func.is-return
+        n
+      else
+        LispyNode.InternalCall \return, n.index, n.scope, n), null, true
     if mutated-node instanceof LispyNode and mutated-node.is-call and mutated-node.func.is-return and mutated-node.args[0] == args[0]
       let t-value = translate args[0], scope, \expression, unassigned
       if args[0].is-statement()
@@ -1926,6 +1919,43 @@ let translate-lispy-internal =
           * ident
         scope.release-ident ident
         result
+  
+  switch: #(node, args, scope, location, unassigned)
+    let data = parse-switch(args)
+    let t-label = data.label and translate data.label, scope, \label
+    let t-topic = translate data.topic, scope, \expression, unassigned
+    let base-unassigned = unassigned and {} <<< unassigned
+    let mutable current-unassigned = unassigned and {} <<< base-unassigned
+    let t-cases = for case_ in data.cases
+      let new-case = {
+        pos: get-pos(case_.node)
+        t-node: translate case_.node, scope, \expression, current-unassigned
+        t-body: translate case_.body, scope, \statement, current-unassigned
+        fallthrough: case_.fallthrough.const-value()
+      }
+      if not new-case.fallthrough and unassigned
+        for k, v of current-unassigned
+          if not v
+            unassigned[k] := false
+        current-unassigned := {} <<< base-unassigned
+      new-case
+    let t-default-case = translate data.default-case, scope, \statement, current-unassigned
+    for k, v of current-unassigned
+      if not v
+        unassigned[k] := false
+    #
+      ast.Switch get-pos(node),
+        t-topic()
+        for case_, i, len in t-cases
+          let case-node = case_.t-node()
+          let mutable case-body = case_.t-body()
+          if not case_.fallthrough
+            case-body := ast.Block case_.pos, [
+              case-body
+              ast.Break case-body.pos]
+          ast.Switch.Case(case_.pos, case-node, case-body)
+        t-default-case()
+        t-label?()
 
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch

@@ -21,7 +21,6 @@ const ParserNodeType = {
   Root:           30
   Spread:         31
   Super:          32
-  Switch:         33
   SyntaxChoice:   34
   SyntaxMany:     35
   SyntaxParam:    36

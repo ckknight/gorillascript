@@ -319,6 +319,71 @@ class Symbol extends Node
       spread: {
         validate-args(node as OldNode) ->
       }
+      switch: {
+        validate-args(...args as [OldNode])
+          if DEBUG
+            let len = args.length
+            if len % 3 not in [0, 2]
+              throw Error "Unexpected number of arguments, got $len"
+            if len %% 3
+              let label = args[len - 1]
+              if label not instanceofsome [OldNode.Ident, OldNode.Tmp]
+                throw Error "Expected an Ident or Tmp for label"
+        +used-as-statement
+        _with-label(call, label)
+          let args = call.args.slice()
+          if args.length %% 3
+            args.pop()
+          args.push label
+          Call call.index, call.scope,
+            call.func
+            ...args
+        _type: do
+          let cache = Cache<Call, Type>()
+          #(call, parser)
+            cache-get-or-add! cache, call, do
+              let args = call.args
+              let len = args.length
+              let mutable current = Type.none
+              // case-bodies
+              let last-case-index = if len %% 3 then len - 2 else len - 1
+              for i in 2 til last-case-index by 3
+                // check fallthrough
+                unless args[i + 1].const-value()
+                  current := current.union args[i].type(parser)
+              // default-case
+              current.union args[last-case-index].type(parser)
+        _mutate-last(call, parser, mutator, context, include-noop)
+          let args = call.args
+          let len = args.length
+          let mutable changed = false
+          let new-args = []
+          new-args.push args[0] // topic
+          let last-case-index = if len %% 3 then len - 2 else len - 1
+          for i in 1 til last-case-index by 3
+            new-args.push args[i] // case node
+            if args[i + 2].const-value()
+              // fallthrough
+              new-args.push args[i + 1]
+            else
+              let body = args[i + 1]
+              let new-body = body.mutate-last parser, mutator, context, include-noop
+              changed or= body != new-body
+              new-args.push new-body
+            new-args.push args[i + 2]
+          let default-case = args[last-case-index]
+          let new-default-case = default-case.mutate-last parser, mutator, context, include-noop
+          changed or= default-case != new-default-case
+          new-args.push new-default-case
+          for i in last-case-index + 1 til len
+            new-args.push args[i]
+          if changed
+            Call call.index, call.scope,
+              call.func
+              ...new-args
+          else
+            call
+      }
       super: {}
       throw: {
         validate-args(node as OldNode) ->

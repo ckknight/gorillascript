@@ -22,7 +22,6 @@ let ParamNode = Node.Param
 let RootNode = Node.Root
 let SpreadNode = Node.Spread
 let SuperNode = Node.Super
-let SwitchNode = Node.Switch
 let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
@@ -97,7 +96,20 @@ class MacroContext
       when-true
       when-false
       ...(if label then [label] else [])).reduce(@parser)
-  def switch(node as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null) -> @parser.Switch(@index, @do-wrap(node), (for case_ in cases; {node: @do-wrap(case_.node), case_.body, case_.fallthrough}), default-case, label).reduce(@parser)
+  def switch(topic as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null)
+    let args = [
+      @do-wrap(topic)
+    ]
+    for case_ in cases
+      args.push(
+        @do-wrap(case_.node)
+        case_.body
+        @const(case_.fallthrough))
+    args.push default-case
+    if label
+      args.push label
+    LispyNode.InternalCall(\switch, @index, @scope(),
+      ...args).reduce(@parser)
   def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
     LispyNode.InternalCall(\for, @index, @scope(),
       @do-wrap(init)
@@ -182,17 +194,28 @@ class MacroContext
   
   def is-labeled-block(mutable node)
     node := @real(node)
-    if node instanceofsome [BlockNode, SwitchNode]
-      node.label?
-    else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal
-      if node.func.is-try-finally
-        node.args[2]?
-      else if node.func.is-try-catch or node.func.is-for-in or node.func.is-if
-        node.args[3]?
-      else if node.func.is-for
-        node.args[4]?
+    if node instanceof LispyNode and node.is-call
+      let func = node.func
+      if func.is-symbol and func.is-internal
+        switch func.name
+        case \try-finally
+          node.args[2]?
+        case \try-catch, \for-in, \if
+          node.args[3]?
+        case \for
+          node.args[4]?
+        case \switch
+          let args = node.args
+          if args.length %% 3
+            args[* - 1]?
+          else
+            false
+        default
+          false
       else
         false
+    else if node instanceof BlockNode
+      node.label?
     else
       false
   
@@ -208,15 +231,20 @@ class MacroContext
       if node.is-call
         let {func} = node
         if func.is-symbol and func.is-internal
-          if func.is-break or func.is-continue
+          switch func.name
+          case \break, \continue
             return node.args[0]
-          else if func.is-try-finally
+          case \try-finally
             return node.args[2]
-          else if func.is-try-catch or func.is-for-in or func.is-if
+          case \try-catch, \for-in, \if
             return node.args[3]
-          else if func.is-for
+          case \for
             return node.args[4]
-    else if node instanceofsome [BlockNode, SwitchNode]
+          case \switch
+            let args = node.args
+            if args.length %% 3
+              return args[* - 1]
+    else if node instanceof BlockNode
       return node.label
     null
   def with-label(node, label as IdentNode|TmpNode|null)

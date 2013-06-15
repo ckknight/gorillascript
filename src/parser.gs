@@ -36,7 +36,6 @@ let ParamNode = Node.Param
 let RootNode = Node.Root
 let SpreadNode = Node.Spread
 let SuperNode = Node.Super
-let SwitchNode = Node.Switch
 let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
@@ -5696,7 +5695,10 @@ class Parser
           e.set-position pos.line, pos.column
           throw e
         catch e
-          throw MacroError e, parser, index
+          if DEBUG
+            throw e
+          else
+            throw MacroError e, parser, index
         parser.pop-scope()
         
         if result instanceof Node
@@ -5995,7 +5997,6 @@ for node-type in [
       'Root',
       'Spread',
       'Super',
-      'Switch',
       'SyntaxChoice',
       'SyntaxMany',
       'SyntaxParam',
