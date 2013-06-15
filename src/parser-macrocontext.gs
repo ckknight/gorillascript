@@ -32,7 +32,6 @@ let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 let TypeUnionNode = Node.TypeUnion
 let UnaryNode = Node.Unary
-let VarNode = Node.Var
 
 let identity(x) -> x
 let ret-this() -> this
@@ -85,7 +84,10 @@ class MacroContext
   def is-variable-mutable(ident as TmpNode|IdentNode)
     @scope().is-mutable(ident)
   
-  def var(ident as IdentNode|TmpNode, is-mutable as Boolean) -> @parser.Var @index, ident, is-mutable
+  def var(ident as IdentNode|TmpNode, is-mutable as Boolean)
+    LispyNode.InternalCall \var, @index, @scope(),
+      ident
+      LispyNode.Value @index, is-mutable
   def custom(name as String, ...data as [Node])
     LispyNode.InternalCall(\custom, @index, @scope(),
       LispyNode.Value @index, name
@@ -626,7 +628,7 @@ class MacroContext
       let tmp = @tmp(name, save, type)
       @scope().add tmp, false, type
       func@ this, @parser.Block(@index, [
-        @parser.Var @index, tmp, false
+        LispyNode.InternalCall \var, @index, @scope(), tmp
         @parser.Assign @index, tmp, "=", @do-wrap(node)
       ]), tmp, true
     else

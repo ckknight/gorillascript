@@ -1697,15 +1697,6 @@ let translators =
       unassigned[node.node.name] := false
     let t-subnode = translate node.node, scope, \expression, unassigned
     #-> ast.Unary get-pos(node), node.op, t-subnode()
-  
-  [ParserNodeType.Var]: #(node, scope, location, unassigned)
-    if unassigned and not unassigned[UNASSIGNED_TAINT_KEY] and node.ident instanceof ParserNode.Ident and unassigned not ownskey node.ident.name
-      unassigned[node.ident.name] := true
-    let t-ident = translate node.ident, scope, \left-expression
-    #
-      let ident = t-ident()
-      scope.add-variable ident, Type.any, node.is-mutable
-      ast.Noop(get-pos(node))
 
 let translate-lispy-internal =
   break: #(node, args, scope)
@@ -1956,6 +1947,15 @@ let translate-lispy-internal =
   custom: #(node, args, scope, location, unassigned)
     // TODO: line numbers
     throw Error "Cannot have a stray custom node '$(args[0].const-value())'"
+  
+  var: #(node, args, scope, location, unassigned)
+    let ident = args[0]
+    if unassigned and not unassigned[UNASSIGNED_TAINT_KEY] and ident instanceof ParserNode.Ident and unassigned not ownskey ident.name
+      unassigned[ident.name] := true
+    let t-ident = translate ident, scope, \left-expression
+    #
+      scope.add-variable t-ident(), Type.any, args[1] and args[1].const-value()
+      ast.Noop(get-pos(node))
 
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch

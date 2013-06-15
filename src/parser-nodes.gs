@@ -658,8 +658,9 @@ node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
         return @nodes[0].with-label label, o
       else if @nodes.length > 1
         let last = @nodes[* - 1]
-        if last instanceof require('./parser-lispynodes') and last.is-call and last.func.is-internal and last.func.is-for-in
-          if for every node in @nodes[0 til -1]; node instanceofsome [AssignNode, VarNode]
+        let LispyNode = require('./parser-lispynodes')
+        if last instanceof LispyNode and last.is-call and last.func.is-internal and last.func.is-for-in
+          if for every node in @nodes[0 til -1]; node instanceof AssignNode or (node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-var)
             return BlockNode @index, @scope, @nodes[0 til -1].concat([last.with-label(label, o)])
     BlockNode @index, @scope, @nodes, label
   def _reduce(o)
@@ -1307,13 +1308,5 @@ node-class UnaryNode(op as String, node as Node)
       else
         this
   def _is-noop(o) -> @__is-noop ?= @op not in ["++", "--", "++post", "--post", "delete"] and @node.is-noop(o)
-node-class VarNode(ident as IdentNode|TmpNode, is-mutable as Boolean)
-  def type() -> Type.undefined
-  def _reduce(o)
-    let ident = @ident.reduce(o)
-    if ident != @ident
-      VarNode @index, @scope, ident, @is-mutable
-    else
-      this
 
 module.exports := Node

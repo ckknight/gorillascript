@@ -31,7 +31,6 @@ const ParserNodeType = {
   TypeObject:     46
   TypeUnion:      47
   Unary:          48
-  Var:            49
 }
 
 macro cache-get-or-add!(cache, key, value)

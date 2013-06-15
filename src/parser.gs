@@ -46,7 +46,6 @@ let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 let TypeUnionNode = Node.TypeUnion
 let UnaryNode = Node.Unary
-let VarNode = Node.Var
 
 class ParserError extends Error
   def constructor(mutable @message as String = "", parser as Parser|null, @index as Number = 0)
@@ -5325,15 +5324,17 @@ class Parser
       let macro-data-ident = @Ident index, \macro-data
       scope.add macro-data-ident, false, Type.object
       body := @Block index, [
-        @Var index, macro-name-ident, false
+        LispyNode.InternalCall \var, index, scope, macro-name-ident
         @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-name
-        @Var index, macro-data-ident, false
+        LispyNode.InternalCall \var, index, scope, macro-data-ident
         @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-data
         ...for param in params
           if param instanceof SyntaxParamNode
             scope.add param.ident, true, Type.any
             @Block index, [
-              @Var index, param.ident, true
+              LispyNode.InternalCall \var, index, scope,
+                param.ident
+                LispyNode.Value index, true
               @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, param.ident.name
             ]
         body
@@ -5368,7 +5369,9 @@ class Parser
               if param instanceof SyntaxParamNode
                 scope.add param.ident, true, Type.any
                 @Block index, [
-                  @Var index, param.ident, true
+                  LispyNode.InternalCall \var, index, scope,
+                    param.ident
+                    LispyNode.Value index, true
                   @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, param.ident.name
                 ]
             body
@@ -5403,15 +5406,17 @@ class Parser
       let macro-data-ident = @Ident index, \macro-data
       scope.add macro-data-ident, false, Type.object
       body := @Block index, [
-        @Var index, macro-name-ident, false
+        LispyNode.InternalCall \var, index, scope, macro-name-ident
         @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-name
-        @Var index, macro-data-ident, false
+        LispyNode.InternalCall \var, index, scope, macro-data-ident
         @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-data
         ...for param, i in params
           if param instanceof ParamNode
             scope.add param.ident, true, Type.any
             @Block index, [
-              @Var index, param.ident, true
+              LispyNode.InternalCall \var, index, scope,
+                param.ident
+                LispyNode.Value index, true
               @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, i
             ]
         body
@@ -5445,7 +5450,9 @@ class Parser
           let ident = @Ident index, name
           scope.add ident, true, Type.any
           @Block index, [
-            @Var index, ident, true
+            LispyNode.InternalCall \var, index, scope,
+              ident
+              LispyNode.Value index, true
             @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
           ]
         body
@@ -5487,7 +5494,9 @@ class Parser
           let ident = @Ident index, name
           scope.add ident, true, Type.any
           @Block index, [
-            @Var index, ident, true
+            LispyNode.InternalCall \var, index, scope,
+              ident
+              LispyNode.Value index, true
             @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
           ]
         body
@@ -5520,7 +5529,9 @@ class Parser
           let ident = @Ident index, name
           scope.add ident, true, Type.any
           @Block index, [
-            @Var index, ident, true
+            LispyNode.InternalCall \var, index, scope,
+              ident
+              LispyNode.Value index, true
             @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
           ]
         body
@@ -6006,8 +6017,7 @@ for node-type in [
       'TypeGeneric',
       'TypeObject',
       'TypeUnion',
-      'Unary',
-      'Var' ]
+      'Unary' ]
   Parser.add-node-factory node-type, Node[node-type]
 Parser::string := Node.string
 Parser::array-param := Parser::array
