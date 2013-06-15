@@ -18,7 +18,6 @@ let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
-let ObjectNode = Node.Object
 let ParamNode = Node.Param
 let RootNode = Node.Root
 let SpreadNode = Node.Spread
@@ -413,10 +412,19 @@ class MacroContext
     else
       false
   
-  def is-object(node) -> @real(node) instanceof ObjectNode
+  def is-object(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-object
   def pairs(mutable node)
     node := @real node
-    if @is-object(node) or @is-type-object(node) then node.pairs
+    if @is-type-object(node)
+      node.pairs
+    else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-object
+      return for array in node.args[1 to -1]
+        let pair = { key: array.args[0], value: array.args[1] }
+        if array.args[2]
+          pair.property := array.args[2].const-value()
+        pair
   
   def is-block(node) -> @real(node) instanceof BlockNode
   def nodes(mutable node)
@@ -426,8 +434,36 @@ class MacroContext
   def array(elements as [Node])
     LispyNode.InternalCall(\array, @index, @scope(),
       ...(for element in elements; @do-wrap(element))).reduce(@parser)
-  def object(pairs as [{ key: Node, value: Node }])
-    @parser.Object(@index, (for {key, value, property} in pairs; {key: @do-wrap(key), value: @do-wrap(value) property})).reduce(@parser)
+  def object(pairs as [{ key: Node, value: Node }], prototype as Node|null)
+    let array-pairs = for pair, i in pairs
+      if pair instanceof OldNode
+        if pair instanceof LispyNode and pair.is-call and pair.func.is-symbol and pair.func.is-internal and pair.func.is-array
+          if pair.args.length not in [2, 3]
+            throw Error "Expected object pair #$i to have a length of 2 or 3, got $(pair.args.length)"
+          if pair.args.length == 3 and (pair.args[2] not instanceof Node or not pair.args[2].is-const-type(\string))
+            throw Error "Expected object pair #$i to have a constant property type, got $(typeof! pair.args[2])"
+          pair
+        else
+          throw Error "Exected object pair #$i to be an AST Array, got $(typeof! pair)"
+      else if pair.constructor == Object
+        let {key, value, property} = pair
+        LispyNode.InternalCall(\array, @index, @scope(),
+          @do-wrap(key)
+          @do-wrap(value)
+          ...(if property
+            if is-string! property
+              [LispyNode.Value @index, property]
+            else if property instanceof Node and property.is-const-type(\string)
+              [property]
+            else
+              throw Error "Expected property in object pair #$i to be a string or a Value containing a string, got $(typeof! property)"
+          else
+            []))
+      else
+        throw Error "Expected object pair #$i to be an AST Array or a literal object, got $(typeof! pair)"
+    LispyNode.InternalCall(\object, @index, @scope(),
+      prototype or NothingNode @index, @scope()
+      ...array-pairs).reduce(@parser)
   
   def type(node)
     if is-string! node
@@ -677,9 +713,12 @@ class MacroContext
             constify-object position, item, obj.index, scope)
         ]
     else if obj.constructor == Object
-      ObjectNode index, scope, for k, v of obj
-        key: LispyNode.Value index, k
-        value: constify-object position, v, index, scope
+      LispyNode.InternalCall \object, index, scope,
+        NothingNode index, scope
+        ...(for k, v of obj
+          LispyNode.InternalCall \array, index, scope,
+            LispyNode.Value index, k
+            constify-object position, v, index, scope)
     else
       throw Error "Trying to constify a $(typeof! obj)"
   @constify-object := constify-object
@@ -753,11 +792,12 @@ class MacroContext
         ...(for item in obj
           to-literal-node@ this, item)
     else if obj.constructor == Object
-      ObjectNode 0, @scope(), for k, v of obj
-        {
-          key: to-literal-node@ this, k
-          value: to-literal-node@ this, v
-        }
+      LispyNode.InternalCall \object, 0, @scope(),
+        NothingNode 0, @scope()
+        ...(for k, v of obj
+          LispyNode.InternalCall \array, 0, @scope(),
+            to-literal-node@ this, k
+            to-literal-node@ this, v)
     else
       throw Error "Cannot convert $(typeof! obj) to a literal node"
   

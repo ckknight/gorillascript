@@ -255,7 +255,58 @@ class Symbol extends Node
         is-const: #-> true
         is-const-value: (void ==)
       }
-      object: {}
+      object: {
+        validate-args(prototype as OldNode, ...pairs)!
+          if DEBUG
+            for pair, i in pairs
+              if pair not instanceof Node or not pair.is-call or not pair.func.is-symbol or not pair.func.is-internal or not pair.func.is-array
+                throw TypeError("Expected pair #$i to be an AST Array, got $(typeof! pair)")
+              else if pair.args.length not in [2, 3]
+                throw TypeError("Expected pair #$i to have a length of 2 or 3, got $(pair.args.length)")
+              else if pair.args[2] and not pair.args[2].is-const-type(\string)
+                throw TypeError("Expected pair #$i to have its 3rd item be a string, got $(typeof! pair.args[2])")
+        _type: do
+          let cache = Cache<Call, Type>()
+          #(call, parser)
+            cache-get-or-add! cache, call, do
+              let data = {}
+              for pair in call.args[1 to -1]
+                if pair.args.length == 2 and pair.args[0].is-const()
+                  data[pair.args[0].const-value()] := if pair.args[1].is-const() and not pair.args[1].const-value()?
+                    Type.any
+                  else
+                    pair.args[1].type(parser)
+              Type.make-object data
+        _is-literal: do
+          let cache = Cache<Call, Boolean>()
+          #(call)
+            cache-get-or-add! cache, call, call.args[0] instanceof OldNode.Nothing and for every arg in call.args[1 to -1]
+              arg.args.length == 2 and arg.args[0].is-const() and arg.args[1].is-literal()
+        _literal-value(call)
+          if call.args[0] not instanceof OldNode.Nothing
+            throw Error "Cannot convert object with prototype to a literal"
+          let result = {}
+          for pair in call.args[1 to -1]
+            result[pair.args[0].const-value()] := pair.args[1].literal-value()
+          result
+        /*
+        node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void }] = [], prototype as Node|void)
+          def _reduce(o)
+            let pairs = map @pairs, #(pair)
+              let key = pair.key.reduce(o)
+              let value = pair.value.reduce(o).do-wrap(o)
+              if key != pair.key or value != pair.value
+                { key, value, pair.property }
+              else
+                pair
+            let prototype = if @prototype? then @prototype.reduce(o) else @prototype
+            if pairs != @pairs or prototype != @prototype
+              ObjectNode @index, @scope, pairs, prototype
+            else
+              this
+          def _is-noop(o) -> @__is-noop ?= for every {key, value} in @pairs; key.is-noop(o) and value.is-noop(o)
+        */
+      }
       param: {}
       return: {
         validate-args(node as OldNode) ->

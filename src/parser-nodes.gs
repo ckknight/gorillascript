@@ -313,15 +313,16 @@ node-class AccessNode(parent as Node, child as Node)
             return LispyNode_Value @index, value
       else
         let LispyNode = require('./parser-lispynodes')
-        if parent instanceof LispyNode and parent.is-call and parent.func.is-symbol and parent.func.is-internal and parent.func.is-array
-          if c-value == \length
-            return LispyNode_Value @index, parent.args.length
-          else if is-number! c-value
-            return parent.args[c-value] or LispyNode_Value @index, void
-        else if parent instanceof ObjectNode
-          for {key, value} in parent.pairs
-            if key.const-value() == c-value
-              return value
+        if parent instanceof LispyNode and parent.is-call and parent.func.is-symbol and parent.func.is-internal
+          if parent.func.is-array
+            if c-value == \length
+              return LispyNode_Value @index, parent.args.length
+            else if is-number! c-value
+              return parent.args[c-value] or LispyNode_Value @index, void
+          else if parent.func.is-object
+            for pair in parent.args[1 to -1]
+              if pair.args[0].is-const-value(c-value) and not pair.args[2]
+                return pair.args[1]
     if child instanceof CallNode and child.func instanceof IdentNode and child.func.name == \__range
       let [start, mutable end, step, inclusive] = child.args
       let has-step = not step.is-const() or step.const-value() != 1
@@ -1145,89 +1146,6 @@ node-class NothingNode
       func@(context, this) ? this
     else
       this
-node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void }] = [], prototype as Node|void)
-  def type(o) -> @_type ?=
-    let data = {}
-    for {key, value} in @pairs
-      if key.is-const()
-        data[key.const-value()] := if value.is-const() and not value.const-value()?
-          Type.any
-        else
-          value.type(o)
-    Type.make-object data
-  def walk(func, context)
-    let pairs = map @pairs, #(pair)
-      let key = func@ context, pair.key
-      let value = func@ context, pair.value
-      if key != pair.key or value != pair.value
-        { key, value, property: pair.property }
-      else
-        pair
-    let prototype = if @prototype? then func@ context, @prototype else @prototype
-    if pairs != @pairs or prototype != @prototype
-      ObjectNode @index, @scope, pairs, prototype
-    else
-      this
-  def walk-async(func, context, callback)
-    async! callback, pairs <- map-async @pairs, (#(pair, cb)
-      async! cb, key <- func@ context, pair.key
-      async! cb, value <- func@ context, pair.value
-      cb null, if key != pair.key or value != pair.value
-        { key, value, pair.property }
-      else
-        pair), null
-    asyncif prototype <- next, @prototype?
-      async! callback, p <- func@ context, @prototype
-      next(p)
-    else
-      next(@prototype)
-    callback null, if pairs != @pairs or prototype != @prototype
-      ObjectNode @index, @scope, pairs, prototype
-    else
-      this
-  def _reduce(o)
-    let pairs = map @pairs, #(pair)
-      let key = pair.key.reduce(o)
-      let value = pair.value.reduce(o).do-wrap(o)
-      if key != pair.key or value != pair.value
-        { key, value, pair.property }
-      else
-        pair
-    let prototype = if @prototype? then @prototype.reduce(o) else @prototype
-    if pairs != @pairs or prototype != @prototype
-      ObjectNode @index, @scope, pairs, prototype
-    else
-      this
-  def _is-noop(o) -> @__is-noop ?= for every {key, value} in @pairs; key.is-noop(o) and value.is-noop(o)
-  def is-literal() -> @_is-literal ?= not @prototype? and for every {key, value, property} in @pairs; not property and key.is-literal() and value.is-literal()
-  def literal-value()
-    if @prototype?
-      throw Error "Cannot convert object with prototype to a literal"
-    let result = {}
-    for {key, value} in @pairs
-      result[key.literal-value()] := value.literal-value()
-    result
-Node.object := #(index, pairs, prototype)
-  let known-keys = []
-  let mutable last-property-pair = null
-  for {key, property} in pairs
-    if key.is-const()
-      let key-value = String key.const-value()
-      if property in [\get, \set] and last-property-pair and last-property-pair.property != property and last-property-pair.key == key-value
-        last-property-pair := null
-        continue
-      else if key-value in known-keys
-        let {ParserError} = require('./parser')
-        throw ParserError "Duplicate key $(quote key-value) in object", this, key.index
-      known-keys.push key-value
-      if property in [\get, \set]
-        last-property-pair := {key: key-value, property}
-      else
-        last-property-pair := null
-    else
-      last-property-pair := null
-  @Object index, pairs, prototype
-Node.object-param := Node.object
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
 node-class RootNode(file as String|void, body as Node, is-embedded as Boolean, is-generator as Boolean)
   def is-statement() -> true

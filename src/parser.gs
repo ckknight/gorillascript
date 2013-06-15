@@ -32,7 +32,6 @@ let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
-let ObjectNode = Node.Object
 let ParamNode = Node.Param
 let RootNode = Node.Root
 let SpreadNode = Node.Spread
@@ -3040,13 +3039,48 @@ let ParamSingularObjectKey = sequential(
 
 let KvpParameter = maybe one-of(ParamDualObjectKey, ParamSingularObjectKey)
 
+let make-object-node(parser, index, prototype, pairs)
+  let known-keys = []
+  let mutable last-property-pair = null
+  for {key, property} in pairs
+    if key.is-const()
+      let key-value = String key.const-value()
+      if property in [\get, \set] and last-property-pair and last-property-pair.property != property and last-property-pair.key == key-value
+        last-property-pair := null
+        continue
+      else if key-value in known-keys
+        let {ParserError} = require('./parser')
+        throw ParserError "Duplicate key $(quote key-value) in object", parser, key.index
+      known-keys.push key-value
+      if property in [\get, \set]
+        last-property-pair := {key: key-value, property}
+      else
+        last-property-pair := null
+    else
+      last-property-pair := null
+  LInternalCall \object, index, parser.scope,
+    prototype or NothingNode index, parser.scope
+    ...(for {key, value, property} in pairs
+      LInternalCall \array, key.index, parser.scope,
+        key
+        value
+        ...(if property
+          if is-string! property
+            [LValue index, property]
+          else
+            [property]
+        else
+          []))
+
 let ObjectParameter = sequential(
   OpenCurlyBrace
   EmptyLines
   [\this, allow-space-before-access separated-list(KvpParameter, CommaOrNewline)]
   EmptyLines
   CloseCurlyBrace) |> mutate #(params, parser, index)
-  parser.object index, (for filter param in params; param)
+  make-object-node parser, index,
+    parser.Nothing index
+    (for filter param in params; param)
 
 Parameter := one-of(
   IdentifierParameter
@@ -3082,14 +3116,15 @@ let ParameterSequence = sequential(
         throw ParserError "Duplicate parameter name: $(quote name)", parser, ident.index
       else
         names.push name
-    else if param instanceof LispyNode and param.is-call and param.func.is-symbol and param.func.is-internal and param.func.is-array
-      for element in param.args
-        check-param element, parser, names
-    else if param instanceof ObjectNode
-      for pair in param.pairs
-        check-param pair.value, parser, names
-    else if not param instanceof NothingNode
-      throw Error "Unknown param type: $(typeof! param)"
+    else if param instanceof LispyNode and param.is-call and param.func.is-symbol and param.func.is-internal
+      if param.func.is-array
+        for element in param.args
+          check-param element, parser, names
+      else if param.func.is-object
+        for pair in param.args[1 to -1]
+          check-param pair.args[1], parser, names
+      else if not param instanceof NothingNode
+        throw Error "Unknown param type: $(typeof! param)"
   #(params, parser, index)
     let names = []
     for param in params
@@ -3251,7 +3286,9 @@ let PropertyOrDualObjectKeyOrMethodDeclaration = one-of(PropertyOrDualObjectKey,
 define UnclosedObjectLiteral = separated-list(
   PropertyOrDualObjectKey
   Comma) |> mutate #(pairs, parser, index)
-  parser.object index, pairs
+  make-object-node parser, index,
+    parser.Nothing index
+    pairs
 
 define IdentifierOrAccess(parser, index)
   let result = _IdentifierOrAccess(parser, index)
@@ -3334,8 +3371,10 @@ define ObjectLiteral = allow-space-before-access sequential(
   EmptyLines
   MaybeCommaOrNewline
   EmptyLines
-  CloseCurlyBrace) |> mutate #(x, parser, index)
-  parser.object index, x.pairs, x.prototype
+  CloseCurlyBrace) |> mutate #({prototype, pairs}, parser, index)
+  make-object-node parser, index,
+    prototype
+    pairs
 
 define MapLiteral = sequential(
   PercentSign
@@ -3362,7 +3401,9 @@ define MapLiteral = sequential(
     throw Error "Cannot use literal map until the construct-map macro has been defined"
   construct-map.func {
     op: ""
-    node: parser.object index, pairs
+    node: make-object-node parser, index,
+      parser.Nothing index
+      pairs
   }, parser, index
 
 let RighthandAssignment(parser, index)
@@ -3543,7 +3584,9 @@ define CurrentArrayLength = #(parser, index)
 define IndentedUnclosedObjectLiteralInner = separated-list(
   PropertyOrDualObjectKey
   CommaOrSomeEmptyLinesWithCheckIndent) |> mutate #(pairs, parser, index)
-  parser.object index, pairs
+  make-object-node parser, index,
+    parser.Nothing index
+    pairs
 
 define UnclosedObjectLiteralsAllowed(parser, index) -> if not parser.prevent-unclosed-object-literal.peek() then Box index
 
@@ -5968,5 +6011,3 @@ for node-type in [
   Parser.add-node-factory node-type, Node[node-type]
 Parser::string := Node.string
 Parser::array-param := Parser::array
-Parser::object := Node.object
-Parser::object-param := Node.object-param

@@ -99,12 +99,13 @@ let add-param-to-scope(scope, param, force-mutable)!
       scope.add Node.Ident(param.index, param.scope, param.ident.child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else
       throw Error "Unknown param ident: $(typeof! param.ident)"
-  else if param instanceof LispyNode and param.is-call and param.func.is-symbol and param.func.is-internal and param.func.is-array
-    for element in param.args by -1
-      add-param-to-scope scope, element, force-mutable
-  else if param instanceof Node.Object
-    for pair in param.pairs by -1
-      add-param-to-scope scope, pair.value, force-mutable
+  else if param instanceof LispyNode and param.is-call and param.func.is-symbol and param.func.is-internal
+    if param.func.is-array
+      for element in param.args by -1
+        add-param-to-scope scope, element, force-mutable
+    else if param.func.is-object
+      for element in param.args[-1 to 1 by -1]
+        add-param-to-scope scope, element.args[1], force-mutable
   else if param not instanceof Node.Nothing
     throw Error "Unknown param node type: $(typeof! param)"
 

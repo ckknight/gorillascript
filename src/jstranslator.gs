@@ -1652,102 +1652,6 @@ let translators =
 
   [ParserNodeType.Nothing]: #(node) -> #-> ast.Noop(get-pos(node))
 
-  [ParserNodeType.Object]: #(node, scope, location, unassigned)
-    let t-keys = []
-    let t-values = []
-    let properties = []
-    for pair in node.pairs
-      t-keys.push translate pair.key, scope, \expression, unassigned
-      t-values.push translate pair.value, scope, \expression, unassigned
-      properties.push pair.property
-    let t-prototype = if node.prototype? then translate node.prototype, scope, \expression, unassigned
-
-    #
-      let const-pairs = []
-      let post-const-pairs = []
-      let prototype = t-prototype?()
-      let mutable current-pairs = if prototype? then post-const-pairs else const-pairs
-      let mutable last-property = null
-      for t-key, i in t-keys
-        let t-value = t-values[i]
-        let key = t-key()
-        let value = t-value()
-        let property = properties[i]
-        
-        if key not instanceof ast.Const or property
-          current-pairs := post-const-pairs
-        
-        let current-pair = current-pairs[* - 1]
-        if property in [\get, \set] and last-property and property != last-property and key instanceof ast.Const and current-pair.key instanceof ast.Const and key.value == current-pair.key.value
-          current-pair[last-property] := current-pair.value
-          current-pair.property := last-property & property
-          delete current-pair.value
-          current-pair[property] := value
-          last-property := null
-        else
-          current-pairs.push { key, value, property }
-          if property in [\get, \set]
-            last-property := property
-      
-      let obj = if prototype?
-        scope.add-helper \__create
-        ast.Call get-pos(node),
-          ast.Ident get-pos(node), \__create
-          [prototype]
-      else
-        ast.Obj get-pos(node), for {key, value} in const-pairs
-          ast.Obj.Pair key.pos, String(key.value), value
-      
-      if post-const-pairs.length == 0
-        obj
-      else
-        let ident = scope.reserve-ident get-pos(node), \o, Type.object
-        let result = ast.BlockExpression get-pos(node),
-          * ast.Assign get-pos(node), ident, obj
-          * ...for pair in post-const-pairs
-              let {key, property} = pair
-              if property
-                scope.add-helper \__def-prop
-                ast.Call key.pos, ast.Ident(key.pos, \__def-prop), [
-                  ident
-                  key
-                  if property == \property
-                    pair.value
-                  else if property == \getset
-                    ast.Obj pair.get.pos, [
-                      ast.Obj.Pair pair.get.pos, \get, pair.get
-                      ast.Obj.Pair pair.set.pos, \set, pair.set
-                      ast.Obj.Pair pair.set.pos, \configurable, ast.Const(pair.set.pos, true)
-                      ast.Obj.Pair pair.set.pos, \enumerable, ast.Const(pair.set.pos, true)
-                    ]
-                  else if property == \setget
-                    ast.Obj pair.set.pos, [
-                      ast.Obj.Pair pair.set.pos, \set, pair.set
-                      ast.Obj.Pair pair.get.pos, \get, pair.get
-                      ast.Obj.Pair pair.get.pos, \configurable, ast.Const(pair.get.pos, true)
-                      ast.Obj.Pair pair.get.pos, \enumerable, ast.Const(pair.get.pos, true)
-                    ]
-                  else if property == \get
-                    ast.Obj pair.value.pos, [
-                      ast.Obj.Pair pair.value.pos, \get, pair.value
-                      ast.Obj.Pair pair.value.pos, \configurable, ast.Const(pair.value.pos, true)
-                      ast.Obj.Pair pair.value.pos, \enumerable, ast.Const(pair.value.pos, true)
-                    ]
-                  else if property == \set
-                    ast.Obj pair.value.pos, [
-                      ast.Obj.Pair pair.value.pos, \set, pair.value
-                      ast.Obj.Pair pair.value.pos, \configurable, ast.Const(pair.value.pos, true)
-                      ast.Obj.Pair pair.value.pos, \enumerable, ast.Const(pair.value.pos, true)
-                    ]
-                  else
-                    throw Error("Unknown property type: $(String property)")
-                ]
-              else
-                ast.Assign key.pos, ast.Access(key.pos, ident, key), pair.value
-          * ident
-        scope.release-ident ident
-        result
-  
   [ParserNodeType.Switch]: #(node, scope, location, unassigned)
     let t-label = node.label and translate node.label, scope, \label
     let t-node = translate node.node, scope, \expression, unassigned
@@ -1926,6 +1830,102 @@ let translate-lispy-internal =
   array: #(node, args, scope, location, unassigned)
     let t-arr = array-translate get-pos(node), args, scope, true, unassigned
     #-> t-arr()
+  
+  object: #(node, args, scope, location, unassigned)
+    let t-keys = []
+    let t-values = []
+    let properties = []
+    for pair in args[1 to -1]
+      t-keys.push translate pair.args[0], scope, \expression, unassigned
+      t-values.push translate pair.args[1], scope, \expression, unassigned
+      properties.push pair.args[2]?.const-value()
+    let t-prototype = if args[0] not instanceof ParserNode.Nothing then translate args[0], scope, \expression, unassigned
+
+    #
+      let const-pairs = []
+      let post-const-pairs = []
+      let prototype = t-prototype?()
+      let mutable current-pairs = if prototype? then post-const-pairs else const-pairs
+      let mutable last-property = null
+      for t-key, i in t-keys
+        let t-value = t-values[i]
+        let key = t-key()
+        let value = t-value()
+        let property = properties[i]
+      
+        if key not instanceof ast.Const or property
+          current-pairs := post-const-pairs
+      
+        let current-pair = current-pairs[* - 1]
+        if property in [\get, \set] and last-property and property != last-property and key instanceof ast.Const and current-pair.key instanceof ast.Const and key.value == current-pair.key.value
+          current-pair[last-property] := current-pair.value
+          current-pair.property := last-property & property
+          delete current-pair.value
+          current-pair[property] := value
+          last-property := null
+        else
+          current-pairs.push { key, value, property }
+          if property in [\get, \set]
+            last-property := property
+    
+      let obj = if prototype?
+        scope.add-helper \__create
+        ast.Call get-pos(node),
+          ast.Ident get-pos(node), \__create
+          [prototype]
+      else
+        ast.Obj get-pos(node), for {key, value} in const-pairs
+          ast.Obj.Pair key.pos, String(key.value), value
+    
+      if post-const-pairs.length == 0
+        obj
+      else
+        let ident = scope.reserve-ident get-pos(node), \o, Type.object
+        let result = ast.BlockExpression get-pos(node),
+          * ast.Assign get-pos(node), ident, obj
+          * ...for pair in post-const-pairs
+              let {key, property} = pair
+              if property
+                scope.add-helper \__def-prop
+                ast.Call key.pos, ast.Ident(key.pos, \__def-prop), [
+                  ident
+                  key
+                  if property == \property
+                    pair.value
+                  else if property == \getset
+                    ast.Obj pair.get.pos, [
+                      ast.Obj.Pair pair.get.pos, \get, pair.get
+                      ast.Obj.Pair pair.set.pos, \set, pair.set
+                      ast.Obj.Pair pair.set.pos, \configurable, ast.Const(pair.set.pos, true)
+                      ast.Obj.Pair pair.set.pos, \enumerable, ast.Const(pair.set.pos, true)
+                    ]
+                  else if property == \setget
+                    ast.Obj pair.set.pos, [
+                      ast.Obj.Pair pair.set.pos, \set, pair.set
+                      ast.Obj.Pair pair.get.pos, \get, pair.get
+                      ast.Obj.Pair pair.get.pos, \configurable, ast.Const(pair.get.pos, true)
+                      ast.Obj.Pair pair.get.pos, \enumerable, ast.Const(pair.get.pos, true)
+                    ]
+                  else if property == \get
+                    ast.Obj pair.value.pos, [
+                      ast.Obj.Pair pair.value.pos, \get, pair.value
+                      ast.Obj.Pair pair.value.pos, \configurable, ast.Const(pair.value.pos, true)
+                      ast.Obj.Pair pair.value.pos, \enumerable, ast.Const(pair.value.pos, true)
+                    ]
+                  else if property == \set
+                    ast.Obj pair.value.pos, [
+                      ast.Obj.Pair pair.value.pos, \set, pair.value
+                      ast.Obj.Pair pair.value.pos, \configurable, ast.Const(pair.value.pos, true)
+                      ast.Obj.Pair pair.value.pos, \enumerable, ast.Const(pair.value.pos, true)
+                    ]
+                  else
+                    throw Error("Unknown property type: $(String property)")
+                ]
+              else
+                ast.Assign key.pos, ast.Access(key.pos, ident, key), pair.value
+          * ident
+        scope.release-ident ident
+        result
 
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch
