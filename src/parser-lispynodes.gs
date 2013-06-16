@@ -141,40 +141,39 @@ class Symbol extends Node
                 Type.undefined
               else
                 // we go through all the types in case there is any macro expansion
-                for node in args[1 til -1]
+                for node in args[0 til -1]
                   node.type(parser)
                 args[* - 1].type(parser)
         _with-label(call, label, parser)
           let args = call.args
-          if args[0] instanceof OldNode.Nothing
-            let len = args.length
-            if len == 2
-              return args[1].with-label label parser
-            else if len > 2
-              let last = args[len - 1]
-              if last instanceof Node and last.is-internal-call(\for-in)
-                if for every node in args[1 til -1]; node instanceof OldNode.Assign or (node instanceof Node and node.is-internal-call(\var))
-                  return Call call.index, call.scope,
-                    call.func
-                    ...args[0 til -1]
-                    last.with-label label, parser
+          let len = args.length
+          if len == 1
+            return args[0].with-label label parser
+          else if len > 1
+            let last = args[len - 1]
+            if last instanceof Node and last.is-internal-call(\for-in)
+              if for every node in args[0 til -1]; node instanceof OldNode.Assign or (node instanceof Node and node.is-internal-call(\var))
+                return Call call.index, call.scope,
+                  call.func
+                  ...args[0 til -1]
+                  last.with-label label, parser
           Call call.index, call.scope,
-            call.func
-            label or OldNode.Nothing call.index, call.scope
-            ...args[1 to -1]
+            Symbol.label call.index
+            label
+            Call call.index, call.scope,
+              call.func
+              ...args
         __reduce(call, parser)
           let mutable changed = false
           let body = []
           let args = call.args
-          let label = args[0].reduce parser
-          for node, i, len in args[1 to -1]
+          for node, i, len in args
             let reduced = node.reduce parser
             if reduced instanceof OldNode.Nothing
               changed := true
             else if reduced instanceof Node and reduced.is-internal-call()
-              if reduced.func.is-block and reduced.args[0] instanceof OldNode.Nothing
-                for arg in reduced.args[1 to -1]
-                  body.push arg
+              if reduced.func.is-block
+                body.push ...reduced.args
                 changed := true
               else if reduced.func.is-goto
                 body.push reduced
@@ -187,32 +186,33 @@ class Symbol extends Node
             else
               body.push reduced
               changed or= reduced != node
-          if body.length == 0
+          switch body.length
+          case 0
             OldNode.Nothing @index, @scope
-          else if label instanceof OldNode.Nothing and body.length == 1
+          case 1
             body[0]
-          else if changed or label != args[0]
-            Call @index, @scope,
-              call.func
-              label
-              ...body
-          else
-            call
+          default
+            if changed
+              Call @index, @scope,
+                call.func
+                ...body
+            else
+              call
         _is-statement: do
           let cache = Cache<Call, Boolean>()
           #(call)
-            cache-get-or-add! cache, call, for some node in call.args[1 to -1]; node.is-statement()
+            cache-get-or-add! cache, call, for some node in call.args; node.is-statement()
         _mutate-last(call, parser, func, context, include-noop)
-          let nodes = call.args[1 to -1]
-          let len = nodes.length
+          let args = call.args
+          let len = args.length
           if len == 0
             OldNode.Nothing(@index, @scope).mutate-last parser, func, context, include-noop
           else
-            let last-node = nodes[len - 1].mutate-last parser, func, context, include-noop
-            if last-node != nodes[len - 1]
+            let last-node = args[len - 1].mutate-last parser, func, context, include-noop
+            if last-node != args[len - 1]
               Call @index, @scope,
                 call.func
-                ...call.args[0 til -1]
+                ...args[0 til -1]
                 last-node
             else
               call
@@ -365,6 +365,9 @@ class Symbol extends Node
         */
       }
       label: {
+        validate-args(label as OldNode, node as OldNode, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to label"
         +used-as-statement
       }
       macro-const: {}

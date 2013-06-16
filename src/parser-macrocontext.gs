@@ -90,10 +90,8 @@ class MacroContext
       LispyNode.Value @index, name
       ...data).reduce(@parser)
   def noop() -> @parser.Nothing @index
-  def block(nodes as [Node], label as IdentNode|TmpNode|null)
-    LispyNode.InternalCall(\block, @index, @scope(),
-      label or NothingNode @index, @scope()
-      ...nodes).reduce(@parser)
+  def block(nodes as [Node])
+    LispyNode.InternalCall(\block, @index, @scope(), ...nodes).reduce(@parser)
   def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
     LispyNode.InternalCall(\if, @index, @scope(),
       @do-wrap(test)
@@ -202,12 +200,14 @@ class MacroContext
     else
       false
   
+  def is-label(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\label)
+  
   def is-labeled-block(mutable node)
     node := @real(node)
     if node instanceof LispyNode and node.is-internal-call()
       switch node.func.name
-      case \block
-        node.args[0] not instanceof NothingNode
       case \try-finally
         node.args[2]?
       case \try-catch, \for-in, \if
@@ -238,9 +238,6 @@ class MacroContext
         switch node.func.name
         case \break, \continue
           return node.args[0]
-        case \block
-          if node.args[0] not instanceof NothingNode
-            return node.args[0]
         case \try-finally
           return node.args[2]
         case \try-catch, \for-in, \if
@@ -475,7 +472,7 @@ class MacroContext
   def nodes(mutable node)
     node := @real node
     if @is-block node
-      node.args[1 to -1]
+      node.args[0 to -1]
   
   def array(elements as [Node])
     LispyNode.InternalCall(\array, @index, @scope(),
@@ -636,7 +633,6 @@ class MacroContext
       let tmp = @tmp(name, save, type)
       @scope().add tmp, false, type
       let set-tmp = LispyNode.InternalCall \block, @index, @scope(),
-        NothingNode @index, @scope()
         LispyNode.InternalCall \var, @index, @scope(), tmp
         @parser.Assign @index, tmp, "=", @do-wrap(node)
       func@ this, set-tmp, tmp, true
@@ -664,7 +660,7 @@ class MacroContext
     else if node not instanceof Node
       false
     else if node instanceof LispyNode and node.is-internal-call(\block)
-      for every item in node.args[-1 to 1 by -1]; @empty(item)
+      for every item in node.args by -1; @empty(item)
     else
       node instanceof NothingNode
   
@@ -777,9 +773,7 @@ class MacroContext
   
   def wrap(value)
     if is-array! value
-      LispyNode.InternalCall(\block, @index, @scope(),
-        NothingNode @index, @scope()
-        ...value).reduce(@parser)
+      LispyNode.InternalCall(\block, @index, @scope(), ...value).reduce(@parser)
     else if value instanceof Node
       value
     else if not value?

@@ -992,7 +992,7 @@ let generator-translate = do
           scope.release-tmp tmp.const-value()
     
     block: #(node, args, scope, mutable state, assign-to, unassigned)
-      for subnode, i, len in args[1 to -1]
+      for subnode, i, len in args
         if i == len - 1
           return generator-translate-expression subnode, scope, state, assign-to, unassigned
         else
@@ -1056,9 +1056,7 @@ let generator-translate = do
   
   let generator-translate-lispy-internals =
     block: #(node, args, scope, state, break-state, continue-state, unassigned, is-top)
-      if args[0] not instanceof ParserNode.Nothing
-        throw Error "Not implemented: block with label in generator"
-      for reduce subnode, i, len in args[1 to -1], acc = state
+      for reduce subnode, i, len in args, acc = state
         generator-translate subnode, scope, acc, break-state, continue-state, unassigned, is-top
     
     break: #(node, args, scope, state, break-state)
@@ -1685,11 +1683,15 @@ let translators =
     #-> ast.Unary get-pos(node), node.op, t-subnode()
 
 let translate-lispy-internal =
+  label: #(node, args, scope, location, unassigned)
+    let t-label = translate args[0], scope, \label
+    let t-node = translate args[1], scope, location, unassigned
+    # ast.Block get-pos(node), [t-node()], t-label()
+  
   block: #(node, args, scope, location, unassigned)
-    let t-label = args[0] not instanceof ParserNode.Nothing and translate args[0], scope, \label
-    let t-nodes = for subnode, i, len in args[1 to -1]
+    let t-nodes = for subnode, i, len in args
       translate subnode, scope, location, unassigned
-    # -> ast.Block get-pos(node), (for t-node in t-nodes; t-node()), t-label?()
+    # ast.Block get-pos(node), (for t-node in t-nodes; t-node())
   
   break: #(node, args, scope)
     let t-label = args[0] and translate args[0], scope, \label

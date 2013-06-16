@@ -32,7 +32,7 @@ class Node
     if label == null
       this
     else
-      LispyNode.InternalCall \block, @index, @scope,
+      LispyNode.InternalCall \label, @index, @scope,
         label
         this
   def _reduce(parser)
@@ -488,7 +488,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       if x.const-value() is NaN
         let LispyNode = require('./parser-lispynodes')
         LispyNode.InternalCall \block, @index, @scope,
-          NothingNode @index, @scope
           y
           x
     let left-const-ops =
@@ -500,7 +499,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if x.const-value() is NaN
           let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
-            NothingNode @index, @scope
             y
             x
       "/": left-const-nan
@@ -515,7 +513,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if x.const-value() is NaN
           let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
-            NothingNode @index, @scope
             y
             x
       "-": #(x, y)
@@ -524,7 +521,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if x.const-value() is NaN
           let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
-            NothingNode @index, @scope
             y
             x
       "<<": left-const-nan
@@ -539,7 +535,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       if y.const-value() is NaN
         let LispyNode = require('./parser-lispynodes')
         LispyNode.InternalCall \block, @index, @scope,
-          NothingNode @index, @scope
           x
           y
     let right-const-ops =
@@ -551,7 +546,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if y.const-value() is NaN
           let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
-            NothingNode @index, @scope
             x
             y
       "/": #(x, y)
@@ -562,7 +556,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if y.const-value() is NaN
           let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
-            NothingNode @index, @scope
             x
             y
       "%": right-const-nan
@@ -578,7 +571,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if y.const-value() is NaN
           let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
-            NothingNode @index, @scope
             x
             y
       "-": #(x, y, o)
@@ -589,7 +581,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if y.const-value() is NaN
           let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
-            NothingNode @index, @scope
             x
             y
       "<<": right-const-nan
@@ -619,7 +610,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         if x-type.is-subset-of(Type.always-truthy)
           let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
-            NothingNode @index, @scope
             x
             y
         else if x-type.is-subset-of(Type.always-falsy)
@@ -638,7 +628,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
           if truthy == true
             let LispyNode = require('./parser-lispynodes')
             BinaryNode @index, @scope, x.left, "&&", LispyNode.InternalCall \block, x.right.index, @scope,
-              NothingNode x.right.index, @scope
               x.right
               y
           else if truthy == false
@@ -650,7 +639,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if x-type.is-subset-of(Type.always-falsy)
           let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
-            NothingNode @index, @scope
             x
             y
         else if x instanceof BinaryNode and x.op == "||"
@@ -669,7 +657,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
           else if truthy == false
             let LispyNode = require('./parser-lispynodes')
             BinaryNode @index, @scope, x.left, "||", LispyNode.InternalCall \block, x.right.index, @scope,
-              NothingNode x.right.index, @scope
               x.right
               y
         else
