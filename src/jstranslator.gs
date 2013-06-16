@@ -1107,9 +1107,6 @@ let generator-translate = do
         generator-translate mutated-node, scope, state, break-state, continue-state, unassigned, is-top
     
     try-catch: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
-      if args[3]
-        throw Error "Not implemented: try-catch with label in generator"
-      
       state := state.enter-try-catch get-pos(node)
       state := generator-translate args[0], scope, state, break-state, continue-state, unassigned
       state := state.exit-try-catch get-pos(args[0]), (translate args[1], scope, \left-expression), #-> post-branch
@@ -1720,7 +1717,6 @@ let translate-lispy-internal =
     # ast.Comment get-pos(node), t-text().const-value()
   
   try-catch: #(node, args, scope, location, unassigned)
-    let t-label = args[3] and translate args[3], scope, \label
     let t-try-body = translate args[0], scope, \statement, unassigned
     let inner-scope = scope.clone(false)
     let t-catch-ident = translate args[1], inner-scope, \left-expression
@@ -1730,7 +1726,7 @@ let translate-lispy-internal =
       if catch-ident instanceof ast.Ident
         inner-scope.add-variable catch-ident
         inner-scope.mark-as-param catch-ident
-      let result = ast.TryCatch get-pos(node), t-try-body(), catch-ident, t-catch-body(), t-label?()
+      let result = ast.TryCatch get-pos(node), t-try-body(), catch-ident, t-catch-body()
       scope.variables <<< inner-scope.variables
       result
   

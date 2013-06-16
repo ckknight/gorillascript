@@ -120,12 +120,11 @@ class MacroContext
       key
       @do-wrap(object)
       body).reduce(@parser)
-  def try-catch(try-body as Node = NothingNode(0, @scope()), catch-ident as Node = NothingNode(0, @scope()), catch-body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
+  def try-catch(try-body as Node = NothingNode(0, @scope()), catch-ident as Node = NothingNode(0, @scope()), catch-body as Node = NothingNode(0, @scope()))
     LispyNode.InternalCall(\try-catch, @index, @scope(),
       try-body
       catch-ident
-      catch-body
-      ...(if label then [label] else [])).reduce(@parser)
+      catch-body).reduce(@parser)
   def try-finally(try-body as Node = NothingNode(0, @scope()), finally-body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
     LispyNode.InternalCall(\try-finally, @index, @scope(),
       try-body
@@ -205,8 +204,6 @@ class MacroContext
       switch node.func.name
       case \try-finally
         node.args[2]?
-      case \try-catch
-        node.args[3]?
       default
         false
     else
@@ -227,8 +224,6 @@ class MacroContext
           return node.args[0]
         case \try-finally
           return node.args[2]
-        case \try-catch
-          return node.args[3]
         default
           void
     null

@@ -529,21 +529,14 @@ class Symbol extends Node
         */
       }
       try-catch: {
-        validate-args(try-body as OldNode, catch-ident as OldNode, catch-body as OldNode, label as OldNode|null, ...rest)
+        validate-args(try-body as OldNode, catch-ident as OldNode, catch-body as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to try-catch"
         +used-as-statement
         _type: do
           let cache = Cache<Call, Type>()
           #(call, parser)
-            cache-get-or-add! cache, call, call.args[1].type(parser).union(call.args[2].type(parser))
-        _with-label(call, label)
-          Call call.index, call.scope,
-            call.func
-            call.args[0]
-            call.args[1]
-            call.args[2]
-            label
+            cache-get-or-add! cache, call, call.args[0].type(parser).union(call.args[2].type(parser))
         _mutate-last(call, parser, mutator, context, include-noop)
           let try-body = call.args[0].mutate-last(parser, mutator, context, include-noop)
           let catch-body = call.args[2].mutate-last(parser, mutator, context, include-noop)
@@ -553,7 +546,6 @@ class Symbol extends Node
               try-body
               call.args[1]
               catch-body
-              ...call.args[3 to -1]
           else
             call
       }
