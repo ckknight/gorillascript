@@ -320,7 +320,7 @@ node-class AccessNode(parent as Node, child as Node)
             return LispyNode_Value @index, value
       else
         let LispyNode = require('./parser-lispynodes')
-        if parent instanceof LispyNode and parent.is-call and parent.func.is-symbol and parent.func.is-internal
+        if parent instanceof LispyNode and parent.is-internal-call()
           if parent.func.is-array
             if c-value == \length
               return LispyNode_Value @index, parent.args.length
@@ -674,10 +674,10 @@ node-class BinaryNode(left as Node, op as String, right as Node)
               y
         else
           let LispyNode = require('./parser-lispynodes')
-          if x instanceof LispyNode and x.is-call and x.func.is-symbol and x.func.is-internal and x.func.is-if and x.args[2].is-const() and not x.args[2].const-value()
+          if x instanceof LispyNode and x.is-internal-call(\if) and x.args[2].is-const() and not x.args[2].const-value()
             let mutable test = x.args[0]
             let mutable when-true = x.args[1]
-            while when-true instanceof LispyNode and when-true.is-call and when-true.func.is-symbol and when-true.func.is-internal and when-true.func.is-if and when-true.args[2].is-const() and not when-true.args[2].const-value()
+            while when-true instanceof LispyNode and when-true.is-internal-call(\if) and when-true.args[2].is-const() and not when-true.args[2].const-value()
               test := BinaryNode x.index, x.scope, test, "&&", when-true.args[0]
               when-true := when-true.args[2]
             BinaryNode(@index, @scope
@@ -1000,7 +1000,7 @@ node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Bool
         Type.undefined
       let LispyNode = require('./parser-lispynodes')
       let walker(node)
-        if node instanceof LispyNode and node.is-call and node.func.is-return
+        if node instanceof LispyNode and node.is-internal-call(\return)
           return-type := return-type.union node.args[0].type(o)
           node
         else if node instanceof FunctionNode

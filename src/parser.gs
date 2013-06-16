@@ -3111,15 +3111,17 @@ let ParameterSequence = sequential(
         throw ParserError "Duplicate parameter name: $(quote name)", parser, ident.index
       else
         names.push name
-    else if param instanceof LispyNode and param.is-call and param.func.is-symbol and param.func.is-internal
+    else if param instanceof LispyNode and param.is-internal-call()
       if param.func.is-array
         for element in param.args
           check-param element, parser, names
       else if param.func.is-object
         for pair in param.args[1 to -1]
           check-param pair.args[1], parser, names
-      else if not param instanceof NothingNode
+      else
         throw Error "Unknown param type: $(typeof! param)"
+    else if not param instanceof NothingNode
+      throw Error "Unknown param type: $(typeof! param)"
   #(params, parser, index)
     let names = []
     for param in params
@@ -4697,7 +4699,7 @@ let _Block-mutator(lines, parser, index)
         nodes.push part
       else if part not instanceof Node
         throw TypeError "Expected lines[$i][$j] to be a Node, got $(typeof! part)"
-      else if part instanceof LispyNode and part.is-call and part.func.is-symbol and part.func.is-internal and part.func.is-block and part.args[0] instanceof NothingNode
+      else if part instanceof LispyNode and part.is-internal-call(\block) and part.args[0] instanceof NothingNode
         for arg in part.args[1 to -1]
           nodes.push arg
       else if part not instanceof NothingNode

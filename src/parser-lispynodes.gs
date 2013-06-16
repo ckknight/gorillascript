@@ -29,6 +29,7 @@ class Node extends OldNode
   def type() -> Type.any
   def walk() -> this
   def walk-async(f, context, callback)! -> callback null, this
+  def is-internal-call() -> false
 
 /**
  * Represents a constant primitive value such as a number, string, boolean,
@@ -151,8 +152,8 @@ class Symbol extends Node
               return args[1].with-label label parser
             else if len > 2
               let last = args[len - 1]
-              if last instanceof Node and last.is-call and last.func.is-internal and last.func.is-for-in
-                if for every node in args[1 til -1]; node instanceof OldNode.Assign or (node instanceof Node and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-var)
+              if last instanceof Node and last.is-internal-call(\for-in)
+                if for every node in args[1 til -1]; node instanceof OldNode.Assign or (node instanceof Node and node.is-internal-call(\var))
                   return Call call.index, call.scope,
                     call.func
                     ...args[0 til -1]
@@ -170,7 +171,7 @@ class Symbol extends Node
             let reduced = node.reduce parser
             if reduced instanceof OldNode.Nothing
               changed := true
-            else if reduced instanceof Node and reduced.is-call and reduced.func.is-symbol and reduced.func.is-internal
+            else if reduced instanceof Node and reduced.is-internal-call()
               if reduced.func.is-block and reduced.args[0] instanceof OldNode.Nothing
                 for arg in reduced.args[1 to -1]
                   body.push arg
@@ -378,7 +379,7 @@ class Symbol extends Node
         validate-args(prototype as OldNode, ...pairs)!
           if DEBUG
             for pair, i in pairs
-              if pair not instanceof Node or not pair.is-call or not pair.func.is-symbol or not pair.func.is-internal or not pair.func.is-array
+              if pair not instanceof Node or not pair.is-internal-call(\array)
                 throw TypeError("Expected pair #$i to be an AST Array, got $(typeof! pair)")
               else if pair.args.length not in [2, 3]
                 throw TypeError("Expected pair #$i to have a length of 2 or 3, got $(pair.args.length)")
@@ -933,6 +934,19 @@ class Call extends Node
       @func._with-label(this, label, parser)
     else
       super.with-label(label, parser)
+  
+  def is-internal-call()
+    let func = @func
+    if func.is-symbol and func.is-internal
+      switch arguments.length
+      case 0
+        true
+      case 1
+        func.name == arguments[0]
+      default
+        func.name in arguments
+    else
+      false
 
 module.exports := Node <<< {
   Value

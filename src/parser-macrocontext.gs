@@ -169,15 +169,15 @@ class MacroContext
   
   def real(mutable node)
     node := @macro-expand-1(node)
-    if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-tmp-wrapper
+    if node instanceof LispyNode and node.is-internal-call(\tmp-wrapper)
       node.args[0]
     else
       node
   
   def rewrap(new-node, mutable old-node)
     old-node := @macro-expand-1(old-node)
-    if old-node instanceof LispyNode and old-node.is-call and old-node.func.is-symbol and old-node.func.is-internal and old-node.func.is-tmp-wrapper
-      if new-node instanceof LispyNode and new-node.is-call and new-node.func.is-symbol and new-node.func.is-internal and new-node.func.is-tmp-wrapper
+    if old-node instanceof LispyNode and old-node.is-internal-call(\tmp-wrapper)
+      if new-node instanceof LispyNode and new-node.is-internal-call(\tmp-wrapper)
         LispyNode.InternalCall \tmp-wrapper, new-node.index, new-node.scope,
           new-node.args[0]
           ...old-node.args[1 to -1]
@@ -204,61 +204,55 @@ class MacroContext
   
   def is-labeled-block(mutable node)
     node := @real(node)
-    if node instanceof LispyNode and node.is-call
-      let func = node.func
-      if func.is-symbol and func.is-internal
-        switch func.name
-        case \block
-          node.args[0] not instanceof NothingNode
-        case \try-finally
-          node.args[2]?
-        case \try-catch, \for-in, \if
-          node.args[3]?
-        case \for
-          node.args[4]?
-        case \switch
-          let args = node.args
-          if args.length %% 3
-            args[* - 1]?
-          else
-            false
-        default
+    if node instanceof LispyNode and node.is-internal-call()
+      switch node.func.name
+      case \block
+        node.args[0] not instanceof NothingNode
+      case \try-finally
+        node.args[2]?
+      case \try-catch, \for-in, \if
+        node.args[3]?
+      case \for
+        node.args[4]?
+      case \switch
+        let args = node.args
+        if args.length %% 3
+          args[* - 1]?
+        else
           false
-      else
+      default
         false
     else
       false
   
   def is-break(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-break
+    node instanceof LispyNode and node.is-internal-call(\break)
   def is-continue(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-continue
+    node instanceof LispyNode and node.is-internal-call(\continue)
   def label(mutable node)
     node := @real(node)
     if node instanceof LispyNode
-      if node.is-call
-        let {func} = node
-        if func.is-symbol and func.is-internal
-          switch func.name
-          case \break, \continue
+      if node.is-internal-call()
+        switch node.func.name
+        case \break, \continue
+          return node.args[0]
+        case \block
+          if node.args[0] not instanceof NothingNode
             return node.args[0]
-          case \block
-            if node.args[0] not instanceof NothingNode
-              return node.args[0]
-          case \try-finally
-            return node.args[2]
-          case \try-catch, \for-in, \if
-            return node.args[3]
-          case \for
-            return node.args[4]
-          case \switch
-            let args = node.args
-            if args.length %% 3
-              return args[* - 1]
-          default
-            void
+        case \try-finally
+          return node.args[2]
+        case \try-catch, \for-in, \if
+          return node.args[3]
+        case \for
+          return node.args[4]
+        case \switch
+          let args = node.args
+          if args.length %% 3
+            return args[* - 1]
+        default
+          void
     null
   def with-label(node, label as IdentNode|TmpNode|null)
     node.with-label label, @parser
@@ -314,7 +308,7 @@ class MacroContext
   
   def is-spread(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-spread
+    node instanceof LispyNode and node.is-internal-call(\spread)
   def spread-subnode(mutable node)
     node := @real(node)
     if @is-spread(node)
@@ -447,15 +441,15 @@ class MacroContext
   
   def is-array(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-array
+    node instanceof LispyNode and node.is-internal-call(\array)
   def elements(mutable node)
     node := @real node
-    if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-array
+    if node instanceof LispyNode and node.is-internal-call(\array)
       node.args
   
   def array-has-spread(mutable node)
     node := @real node
-    if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-array
+    if node instanceof LispyNode and node.is-internal-call(\array)
       for some element in node.args
         @is-spread(element)
     else
@@ -463,12 +457,12 @@ class MacroContext
   
   def is-object(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-object
+    node instanceof LispyNode and node.is-internal-call(\object)
   def pairs(mutable node)
     node := @real node
     if @is-type-object(node)
       node.pairs
-    else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-object
+    else if node instanceof LispyNode and node.is-internal-call(\object)
       return for array in node.args[1 to -1]
         let pair = { key: array.args[0], value: array.args[1] }
         if array.args[2]
@@ -477,7 +471,7 @@ class MacroContext
   
   def is-block(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-block
+    node instanceof LispyNode and node.is-internal-call(\block)
   def nodes(mutable node)
     node := @real node
     if @is-block node
@@ -489,7 +483,7 @@ class MacroContext
   def object(pairs as [{ key: Node, value: Node }], prototype as Node|null)
     let array-pairs = for pair, i in pairs
       if pair instanceof OldNode
-        if pair instanceof LispyNode and pair.is-call and pair.func.is-symbol and pair.func.is-internal and pair.func.is-array
+        if pair instanceof LispyNode and pair.is-internal-call(\array)
           if pair.args.length not in [2, 3]
             throw Error "Expected object pair #$i to have a length of 2 or 3, got $(pair.args.length)"
           if pair.args.length == 3 and (pair.args[2] not instanceof Node or not pair.args[2].is-const-type(\string))
@@ -585,7 +579,7 @@ class MacroContext
 
   def is-custom(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-custom
+    node instanceof LispyNode and node.is-internal-call(\custom)
   def is-assign(node) -> @real(node) instanceof AssignNode
   def is-binary(node) -> @real(node) instanceof BinaryNode
   def is-unary(node) -> @real(node) instanceof UnaryNode
@@ -618,16 +612,16 @@ class MacroContext
   
   def is-if(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-if
+    node instanceof LispyNode and node.is-internal-call(\if)
   def test(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-if and node.args[0]
+    node instanceof LispyNode and node.is-internal-call(\if) and node.args[0]
   def when-true(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-if and node.args[1]
+    node instanceof LispyNode and node.is-internal-call(\if) and node.args[1]
   def when-false(mutable node)
     node := @real(node)
-    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-if and node.args[2]
+    node instanceof LispyNode and node.is-internal-call(\if) and node.args[2]
   
   def cache(node as Node, init, name as String = \ref, save as Boolean)
     @maybe-cache node, (#(set-node, node, cached)
@@ -669,7 +663,7 @@ class MacroContext
       true
     else if node not instanceof Node
       false
-    else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-block
+    else if node instanceof LispyNode and node.is-internal-call(\block)
       for every item in node.args[-1 to 1 by -1]; @empty(item)
     else
       node instanceof NothingNode
@@ -698,7 +692,7 @@ class MacroContext
       if obj.args.length != 1
         throw Error "Can only use \$() in an AST if it has one argument."
       let arg = obj.args[0]
-      if arg instanceof LispyNode and arg.is-call and arg.func.is-symbol and arg.func.is-internal and arg.func.is-spread
+      if arg instanceof LispyNode and arg.is-internal-call(\spread)
         throw Error "Cannot use ... in \$() in an AST."
       CallNode obj.index, scope,
         IdentNode obj.index, scope, \__wrap
@@ -877,7 +871,7 @@ class MacroContext
     
     if node not instanceof Node
       throw Error "Unexpected type to walk through: $(typeof! node)"
-    unless node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-block
+    unless node instanceof LispyNode and node.is-internal-call(\block)
       return? func@ this, node
     node.walk (#(x) -> walk@ this, x, func), this
   
