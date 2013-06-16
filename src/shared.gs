@@ -8,7 +8,6 @@ const ParserNodeType = {
   Access:          1
   Assign:          5
   Binary:          6
-  Block:           7
   Call:            9
   EmbedWrite:     16
   Function:       20

@@ -23,7 +23,6 @@ const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 let AccessNode = Node.Access
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
-let BlockNode = Node.Block
 let CallNode = Node.Call
 let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
@@ -4644,7 +4643,9 @@ define EmbeddedLiteralText = sequential(
       NotEmbeddedOpenWrite
       NotEmbeddedOpenLiteral
       EmbeddedOpen))) |> mutate #(nodes, parser, index)
-  parser.Block index, nodes
+  LInternalCall \block, index, parser.scope.peek(),
+    NothingNode index, parser.scope.peek()
+    ...nodes
 
 define Semicolon = with-space SemicolonChar
 define Semicolons = zero-or-more Semicolon, true
@@ -4696,14 +4697,18 @@ let _Block-mutator(lines, parser, index)
         nodes.push part
       else if part not instanceof Node
         throw TypeError "Expected lines[$i][$j] to be a Node, got $(typeof! part)"
-      else if part instanceof BlockNode and not item.label?
-        nodes.push ...part.nodes
+      else if part instanceof LispyNode and part.is-call and part.func.is-symbol and part.func.is-internal and part.func.is-block and part.args[0] instanceof NothingNode
+        for arg in part.args[1 to -1]
+          nodes.push arg
       else if part not instanceof NothingNode
         nodes.push part
   switch nodes.length
   case 0; parser.Nothing index
   case 1; nodes[0]
-  default; parser.Block index, nodes
+  default
+    LInternalCall \block, index, parser.scope.peek(),
+      NothingNode index, parser.scope.peek()
+      ...nodes
 
 let RootInnerP = promise! #(parser, index)*
   parser.clear-cache()
@@ -4762,11 +4767,11 @@ let EmbeddedRootInnerP = promise! #(parser, index)*
       throw Error "Infinite loop detected"
     current-index := item.index
   parser.clear-cache()
-  return Box current-index, parser.Block index, [
+  return Box current-index, LInternalCall \block, index, parser.scope.peek(),
+    NothingNode index, parser.scope.peek()
     ...nodes
     LInternalCall \return, index, parser.scope.peek(),
       parser.Ident index, \write
-  ]
 
 let EndNoIndent = sequential(
   EmptyLines
@@ -5331,22 +5336,22 @@ class Parser
       scope.add macro-name-ident, false, Type.string
       let macro-data-ident = @Ident index, \macro-data
       scope.add macro-data-ident, false, Type.object
-      body := @Block index, [
-        LispyNode.InternalCall \var, index, scope, macro-name-ident
+      body := LInternalCall \block, index, scope,
+        NothingNode index, scope
+        LInternalCall \var, index, scope, macro-name-ident
         @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-name
-        LispyNode.InternalCall \var, index, scope, macro-data-ident
+        LInternalCall \var, index, scope, macro-data-ident
         @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-data
         ...for param in params
           if param instanceof SyntaxParamNode
             scope.add param.ident, true, Type.any
-            @Block index, [
-              LispyNode.InternalCall \var, index, scope,
+            LInternalCall \block, index, scope,
+              NothingNode index, scope
+              LInternalCall \var, index, scope,
                 param.ident
                 LispyNode.Value index, true
               @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, param.ident.name
-            ]
         body
-      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5372,18 +5377,18 @@ class Parser
           let macro-data-ident = @Ident index, \macro-data
           let func-param = @Param index, macro-data-ident, void, false, false, void
           let scope = @scope.peek()
-          body := @Block index, [
+          body := LInternalCall \block, index, scope,
+            NothingNode index, scope
             ...for param in params
               if param instanceof SyntaxParamNode
                 scope.add param.ident, true, Type.any
-                @Block index, [
-                  LispyNode.InternalCall \var, index, scope,
+                LInternalCall \block, index, scope,
+                  NothingNode index, scope
+                  LInternalCall \var, index, scope,
                     param.ident
                     LispyNode.Value index, true
                   @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, param.ident.name
-                ]
             body
-          ]
           let raw-func = make-macro-root@ this, index, func-param, body
           let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
           let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5413,22 +5418,22 @@ class Parser
       scope.add macro-name-ident, false, Type.string
       let macro-data-ident = @Ident index, \macro-data
       scope.add macro-data-ident, false, Type.object
-      body := @Block index, [
-        LispyNode.InternalCall \var, index, scope, macro-name-ident
+      body := LInternalCall \block, index, scope,
+        NothingNode index, scope
+        LInternalCall \var, index, scope, macro-name-ident
         @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-name
-        LispyNode.InternalCall \var, index, scope, macro-data-ident
+        LInternalCall \var, index, scope, macro-data-ident
         @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-data
         ...for param, i in params
           if param instanceof ParamNode
             scope.add param.ident, true, Type.any
-            @Block index, [
-              LispyNode.InternalCall \var, index, scope,
+            LInternalCall \block, index, scope,
+              NothingNode index, scope
+              LInternalCall \var, index, scope,
                 param.ident
                 LispyNode.Value index, true
               @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, i
-            ]
         body
-      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5453,18 +5458,18 @@ class Parser
       let macro-data-ident = @Ident index, \macro-data
       let func-param = @Param index, macro-data-ident, void, false, false, void
       let scope = @scope.peek()
-      body := @Block index, [
+      body := LInternalCall \block, index, scope,
+        NothingNode index, scope
         ...for name in [\left, \op, \right]
           let ident = @Ident index, name
           scope.add ident, true, Type.any
-          @Block index, [
-            LispyNode.InternalCall \var, index, scope,
+          LInternalCall \block, index, scope,
+            NothingNode index, scope
+            LInternalCall \var, index, scope,
               ident
               LispyNode.Value index, true
             @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
-          ]
         body
-      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5497,18 +5502,18 @@ class Parser
       let macro-data-ident = @Ident index, \macro-data
       let func-param = @Param index, macro-data-ident, void, false, false, void
       let scope = @scope.peek()
-      body := @Block index, [
+      body := LInternalCall \block, index, scope,
+        NothingNode index, scope
         ...for name in [\left, \op, \right]
           let ident = @Ident index, name
           scope.add ident, true, Type.any
-          @Block index, [
-            LispyNode.InternalCall \var, index, scope,
+          LInternalCall \block, index, scope,
+            NothingNode index, scope
+            LInternalCall \var, index, scope,
               ident
               LispyNode.Value index, true
             @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
-          ]
         body
-      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5532,18 +5537,18 @@ class Parser
       let macro-data-ident = @Ident index, \macro-data
       let func-param = @Param index, macro-data-ident, void, false, false, void
       let scope = @scope.peek()
-      body := @Block index, [
+      body := LInternalCall \block, index, scope,
+        NothingNode index, scope
         ...for name in [\op, \node]
           let ident = @Ident index, name
           scope.add ident, true, Type.any
-          @Block index, [
-            LispyNode.InternalCall \var, index, scope,
+          LInternalCall \block, index, scope,
+            NothingNode index, scope
+            LInternalCall \var, index, scope,
               ident
               LispyNode.Value index, true
             @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
-          ]
         body
-      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)

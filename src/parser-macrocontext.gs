@@ -9,7 +9,6 @@ let {node-to-type, add-param-to-scope} = require './parser-utils'
 let AccessNode = Node.Access
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
-let BlockNode = Node.Block
 let CallNode = Node.Call
 let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
@@ -91,7 +90,10 @@ class MacroContext
       LispyNode.Value @index, name
       ...data).reduce(@parser)
   def noop() -> @parser.Nothing @index
-  def block(nodes as [Node], label as IdentNode|TmpNode|null) -> @parser.Block(@index, nodes, label).reduce(@parser)
+  def block(nodes as [Node], label as IdentNode|TmpNode|null)
+    LispyNode.InternalCall(\block, @index, @scope(),
+      label or NothingNode @index, @scope()
+      ...nodes).reduce(@parser)
   def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
     LispyNode.InternalCall(\if, @index, @scope(),
       @do-wrap(test)
@@ -206,6 +208,8 @@ class MacroContext
       let func = node.func
       if func.is-symbol and func.is-internal
         switch func.name
+        case \block
+          node.args[0] not instanceof NothingNode
         case \try-finally
           node.args[2]?
         case \try-catch, \for-in, \if
@@ -222,8 +226,6 @@ class MacroContext
           false
       else
         false
-    else if node instanceof BlockNode
-      node.label?
     else
       false
   
@@ -242,6 +244,9 @@ class MacroContext
           switch func.name
           case \break, \continue
             return node.args[0]
+          case \block
+            if node.args[0] not instanceof NothingNode
+              return node.args[0]
           case \try-finally
             return node.args[2]
           case \try-catch, \for-in, \if
@@ -252,8 +257,8 @@ class MacroContext
             let args = node.args
             if args.length %% 3
               return args[* - 1]
-    else if node instanceof BlockNode
-      return node.label
+          default
+            void
     null
   def with-label(node, label as IdentNode|TmpNode|null)
     node.with-label label, @parser
@@ -470,10 +475,13 @@ class MacroContext
           pair.property := array.args[2].const-value()
         pair
   
-  def is-block(node) -> @real(node) instanceof BlockNode
+  def is-block(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-block
   def nodes(mutable node)
     node := @real node
-    if @is-block node then node.nodes
+    if @is-block node
+      node.args[1 to -1]
   
   def array(elements as [Node])
     LispyNode.InternalCall(\array, @index, @scope(),
@@ -526,7 +534,7 @@ class MacroContext
     else if node instanceof LispyNode
       node.is-call
     else
-      node not instanceofsome [IdentNode, TmpNode] and not (node instanceof BlockNode and node.nodes.length == 0)
+      node not instanceofsome [IdentNode, TmpNode]
   
   def is-noop(mutable node)
     node := @real node
@@ -633,10 +641,11 @@ class MacroContext
       let type = node.type(@parser)
       let tmp = @tmp(name, save, type)
       @scope().add tmp, false, type
-      func@ this, @parser.Block(@index, [
+      let set-tmp = LispyNode.InternalCall \block, @index, @scope(),
+        NothingNode @index, @scope()
         LispyNode.InternalCall \var, @index, @scope(), tmp
         @parser.Assign @index, tmp, "=", @do-wrap(node)
-      ]), tmp, true
+      func@ this, set-tmp, tmp, true
     else
       func@ this, node, node, false
   
@@ -660,8 +669,8 @@ class MacroContext
       true
     else if node not instanceof Node
       false
-    else if node instanceof BlockNode
-      for every item in node.nodes by -1; @empty(item)
+    else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-block
+      for every item in node.args[-1 to 1 by -1]; @empty(item)
     else
       node instanceof NothingNode
   
@@ -774,7 +783,9 @@ class MacroContext
   
   def wrap(value)
     if is-array! value
-      BlockNode(@index, @scope(), value).reduce(@parser)
+      LispyNode.InternalCall(\block, @index, @scope(),
+        NothingNode @index, @scope()
+        ...value).reduce(@parser)
     else if value instanceof Node
       value
     else if not value?
@@ -866,7 +877,7 @@ class MacroContext
     
     if node not instanceof Node
       throw Error "Unexpected type to walk through: $(typeof! node)"
-    if node not instanceof BlockNode
+    unless node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-block
       return? func@ this, node
     node.walk (#(x) -> walk@ this, x, func), this
   

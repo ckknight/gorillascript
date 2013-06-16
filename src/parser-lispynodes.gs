@@ -18,6 +18,7 @@ class Node extends OldNode
   def is-symbol = false
   def is-call = false
   
+  def is-noop() -> false
   def is-const() -> false
   def is-const-value() -> false
   def is-const-type() -> false
@@ -129,7 +130,96 @@ class Symbol extends Node
           def _is-noop(o) -> @__is-noop ?= for every element in @elements; element.is-noop(o)
         */
       }
-      block: {}
+      block: {
+        _type: do
+          let cache = Cache<Call, Type>()
+          #(call, parser)
+            cache-get-or-add! cache, call, do
+              let args = call.args
+              if args.length == 0
+                Type.undefined
+              else
+                // we go through all the types in case there is any macro expansion
+                for node in args[1 til -1]
+                  node.type(parser)
+                args[* - 1].type(parser)
+        _with-label(call, label, parser)
+          let args = call.args
+          if args[0] instanceof OldNode.Nothing
+            let len = args.length
+            if len == 2
+              return args[1].with-label label parser
+            else if len > 2
+              let last = args[len - 1]
+              if last instanceof Node and last.is-call and last.func.is-internal and last.func.is-for-in
+                if for every node in args[1 til -1]; node instanceof OldNode.Assign or (node instanceof Node and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-var)
+                  return Call call.index, call.scope,
+                    call.func
+                    ...args[0 til -1]
+                    last.with-label label, parser
+          Call call.index, call.scope,
+            call.func
+            label or OldNode.Nothing call.index, call.scope
+            ...args[1 to -1]
+        __reduce(call, parser)
+          let mutable changed = false
+          let body = []
+          let args = call.args
+          let label = args[0].reduce parser
+          for node, i, len in args[1 to -1]
+            let reduced = node.reduce parser
+            if reduced instanceof OldNode.Nothing
+              changed := true
+            else if reduced instanceof Node and reduced.is-call and reduced.func.is-symbol and reduced.func.is-internal
+              if reduced.func.is-block and reduced.args[0] instanceof OldNode.Nothing
+                for arg in reduced.args[1 to -1]
+                  body.push arg
+                changed := true
+              else if reduced.func.is-goto
+                body.push reduced
+                if reduced != node or i < len - 1
+                  changed := true
+                break
+              else
+                body.push reduced
+                changed or= reduced != node
+            else
+              body.push reduced
+              changed or= reduced != node
+          if body.length == 0
+            OldNode.Nothing @index, @scope
+          else if label instanceof OldNode.Nothing and body.length == 1
+            body[0]
+          else if changed or label != args[0]
+            Call @index, @scope,
+              call.func
+              label
+              ...body
+          else
+            call
+        _is-statement: do
+          let cache = Cache<Call, Boolean>()
+          #(call)
+            cache-get-or-add! cache, call, for some node in call.args[1 to -1]; node.is-statement()
+        _mutate-last(call, parser, func, context, include-noop)
+          let nodes = call.args[1 to -1]
+          let len = nodes.length
+          if len == 0
+            OldNode.Nothing(@index, @scope).mutate-last parser, func, context, include-noop
+          else
+            let last-node = nodes[len - 1].mutate-last parser, func, context, include-noop
+            if last-node != nodes[len - 1]
+              Call @index, @scope,
+                call.func
+                ...call.args[0 til -1]
+                last-node
+            else
+              call
+        /*
+        node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
+          def _is-noop(o) -> @__is-noop ?= for every node in @nodes by -1; node.is-noop(o)
+        */
+      }
       break: {
         validate-args(label as OldNode|null, ...rest)
           if DEBUG and rest.length > 0
@@ -223,18 +313,30 @@ class Symbol extends Node
           let when-false = call.args[2].reduce(parser)
           let label = call.args[3] and call.args[3].reduce(parser)
           if test.is-const()
-            OldNode.Block(call.index, call.scope
-              [if test.const-value()
-                when-true
-              else
-                when-false]
-              label).reduce(parser)
+            let mutable result-node = if test.const-value()
+              when-true
+            else
+              when-false
+            if label
+              result-node := Call call.index, call.scope,
+                call.func
+                label or OldNode.Nothing call.index, call.scope
+                result-node
+            result-node.reduce(parser)
           else
             let test-type = test.type(parser)
             if test-type.is-subset-of(Type.always-truthy)
-              OldNode.Block(@index, @scope, [test, when-true], label).reduce(parser)
+              Call(call.index, call.scope,
+                call.func
+                label or OldNode.Nothing call.index, call.scope
+                test
+                when-true).reduce(parser)
             else if test-type.is-subset-of(Type.always-falsy)
-              OldNode.Block(@index, @scope, [test, when-false], label).reduce(parser)
+              Call(call.index, call.scope,
+                call.func
+                label or OldNode.Nothing call.index, call.scope
+                test
+                when-false).reduce(parser)
             else if test != call.args[0] or when-true != call.args[1] or when-false != call.args[2] or label != call.args[3]
               Call call.index, call.scope,
                 call.func

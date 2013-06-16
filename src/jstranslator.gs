@@ -844,14 +844,6 @@ let generator-translate = do
               last!(g-left.cleanup(), node.op)
               first!(g-right.t-node(), g-right.cleanup()))
     
-    [ParserNodeType.Block]: #(node, scope, mutable state, assign-to, unassigned)
-      for subnode, i, len in node.nodes
-        if i == len - 1
-          return generator-translate-expression subnode, scope, state, assign-to, unassigned
-        else
-          state := generator-translate subnode, scope, state, null, null, unassigned
-      throw Error "Unreachable state"
-    
     [ParserNodeType.Call]: #(node, scope, mutable state, assign-to, unassigned)
       if node.func instanceof ParserNode.Ident and node.func.name == \eval
         let g-code = generator-translate-expression node.args[0], scope, state, false, unassigned
@@ -1002,6 +994,14 @@ let generator-translate = do
         g-node.cleanup()
         for tmp in args[1 to -1]
           scope.release-tmp tmp.const-value()
+    
+    block: #(node, args, scope, mutable state, assign-to, unassigned)
+      for subnode, i, len in args[1 to -1]
+        if i == len - 1
+          return generator-translate-expression subnode, scope, state, assign-to, unassigned
+        else
+          state := generator-translate subnode, scope, state, null, null, unassigned
+      throw Error "Unreachable state"
   
   let generator-translate-expression-lispy(node as LispyNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     switch
@@ -1037,12 +1037,6 @@ let generator-translate = do
       expressions ownskey node.type-id
   
   let statements =
-    [ParserNodeType.Block]: #(node, scope, state, break-state, continue-state, unassigned, is-top)
-      if node.label?
-        throw Error "Not implemented: block with label in generator"
-      for reduce subnode, i, len in node.nodes, acc = state
-        generator-translate subnode, scope, acc, break-state, continue-state, unassigned, is-top
-
     [ParserNodeType.EmbedWrite]: #(node, scope, mutable state, break-state, continue-state, unassigned)
       let g-text = if is-expression node.text
         generator-translate-expression node.text, scope, state, false, unassigned
@@ -1065,6 +1059,12 @@ let generator-translate = do
           ]
   
   let generator-translate-lispy-internals =
+    block: #(node, args, scope, state, break-state, continue-state, unassigned, is-top)
+      if args[0] not instanceof ParserNode.Nothing
+        throw Error "Not implemented: block with label in generator"
+      for reduce subnode, i, len in args[1 to -1], acc = state
+        generator-translate subnode, scope, acc, break-state, continue-state, unassigned, is-top
+    
     break: #(node, args, scope, state, break-state)
       if args[0]
         throw Error "Not implemented: break with label in a generator"
@@ -1412,12 +1412,6 @@ let translators =
     let t-right = translate node.right, scope, \expression, unassigned
     #-> ast.Binary(get-pos(node), t-left(), node.op, t-right())
 
-  [ParserNodeType.Block]: #(node, scope, location, unassigned)
-    let t-label = node.label and translate node.label, scope, \label
-    let t-nodes = for subnode, i, len in node.nodes
-      translate subnode, scope, location, unassigned
-    # -> ast.Block get-pos(node), (for t-node in t-nodes; t-node()), t-label?()
-
   [ParserNodeType.Call]: #(node, scope, location, unassigned)
     if node.func instanceof ParserNode.Ident
       if node.func.name == \RegExp and node.args[0].is-const() and (not node.args[1] or node.args[1].is-const())
@@ -1698,6 +1692,12 @@ let translators =
     #-> ast.Unary get-pos(node), node.op, t-subnode()
 
 let translate-lispy-internal =
+  block: #(node, args, scope, location, unassigned)
+    let t-label = args[0] not instanceof ParserNode.Nothing and translate args[0], scope, \label
+    let t-nodes = for subnode, i, len in args[1 to -1]
+      translate subnode, scope, location, unassigned
+    # -> ast.Block get-pos(node), (for t-node in t-nodes; t-node()), t-label?()
+  
   break: #(node, args, scope)
     let t-label = args[0] and translate args[0], scope, \label
     # ast.Break get-pos(node), t-label?()

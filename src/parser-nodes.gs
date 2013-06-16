@@ -28,7 +28,13 @@ class Node
   def walk-async(f, context, callback) -> callback(null, this)
   def cacheable = true
   def with-label(label as IdentNode|TmpNode|null)
-    BlockNode @index, @scope, [this], label
+    let LispyNode = require('./parser-lispynodes')
+    if label == null
+      this
+    else
+      LispyNode.InternalCall \block, @index, @scope,
+        label
+        this
   def _reduce(parser)
     @walk #(node) -> node.reduce(parser)
   def reduce(parser)
@@ -480,7 +486,11 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "||": (or)
     let left-const-nan(x, y)
       if x.const-value() is NaN
-        BlockNode @index, @scope, [y, x]
+        let LispyNode = require('./parser-lispynodes')
+        LispyNode.InternalCall \block, @index, @scope,
+          NothingNode @index, @scope
+          y
+          x
     let left-const-ops =
       "*": #(x, y)
         if x.const-value() == 1
@@ -488,7 +498,11 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if x.const-value() == -1
           UnaryNode @index, @scope, "-", y
         else if x.const-value() is NaN
-          BlockNode @index, @scope, [y, x]
+          let LispyNode = require('./parser-lispynodes')
+          LispyNode.InternalCall \block, @index, @scope,
+            NothingNode @index, @scope
+            y
+            x
       "/": left-const-nan
       "%": left-const-nan
       "+": #(x, y, o)
@@ -499,12 +513,20 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if is-string! x.const-value() and y instanceof BinaryNode and y.op == "+" and y.left.is-const() and is-string! y.left.const-value()
           BinaryNode @index, @scope, LispyNode_Value(x.index, x.const-value() & y.left.const-value()), "+", y.right
         else if x.const-value() is NaN
-          BlockNode @index, @scope, [y, x]
+          let LispyNode = require('./parser-lispynodes')
+          LispyNode.InternalCall \block, @index, @scope,
+            NothingNode @index, @scope
+            y
+            x
       "-": #(x, y)
         if x.const-value() == 0
           UnaryNode @index, @scope, "-", y
         else if x.const-value() is NaN
-          BlockNode @index, @scope, [y, x]
+          let LispyNode = require('./parser-lispynodes')
+          LispyNode.InternalCall \block, @index, @scope,
+            NothingNode @index, @scope
+            y
+            x
       "<<": left-const-nan
       ">>": left-const-nan
       ">>>": left-const-nan
@@ -515,7 +537,11 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "||": #(x, y) -> if x.const-value() then x else y
     let right-const-nan = #(x, y)
       if y.const-value() is NaN
-        BlockNode @index, @scope, [x, y]
+        let LispyNode = require('./parser-lispynodes')
+        LispyNode.InternalCall \block, @index, @scope,
+          NothingNode @index, @scope
+          x
+          y
     let right-const-ops =
       "*": #(x, y)
         if y.const-value() == 1
@@ -523,14 +549,22 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if y.const-value() == -1
           UnaryNode @index, @scope, "-", x
         else if y.const-value() is NaN
-          BlockNode @index, @scope, [x, y]
+          let LispyNode = require('./parser-lispynodes')
+          LispyNode.InternalCall \block, @index, @scope,
+            NothingNode @index, @scope
+            x
+            y
       "/": #(x, y)
         if y.const-value() == 1
           UnaryNode @index, @scope, "+", x
         else if y.const-value() == -1
           UnaryNode @index, @scope, "-", x
         else if y.const-value() is NaN
-          BlockNode @index, @scope, [x, y]
+          let LispyNode = require('./parser-lispynodes')
+          LispyNode.InternalCall \block, @index, @scope,
+            NothingNode @index, @scope
+            x
+            y
       "%": right-const-nan
       "+": #(x, y, o)
         if y.const-value() == 0 and x.type(o).is-subset-of(Type.number)
@@ -542,14 +576,22 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if is-string! y.const-value() and x instanceof BinaryNode and x.op == "+" and x.right.is-const() and is-string! x.right.const-value()
           BinaryNode @index, @scope, x.left, "+", LispyNode_Value(x.right.index, x.right.const-value() & y.const-value())
         else if y.const-value() is NaN
-          BlockNode @index, @scope, [x, y]
+          let LispyNode = require('./parser-lispynodes')
+          LispyNode.InternalCall \block, @index, @scope,
+            NothingNode @index, @scope
+            x
+            y
       "-": #(x, y, o)
         if y.const-value() == 0
           UnaryNode @index, @scope, "+", x
         else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
           BinaryNode @index, @scope, x, "+", LispyNode_Value(y.index, -y.const-value())
         else if y.const-value() is NaN
-          BlockNode @index, @scope, [x, y]
+          let LispyNode = require('./parser-lispynodes')
+          LispyNode.InternalCall \block, @index, @scope,
+            NothingNode @index, @scope
+            x
+            y
       "<<": right-const-nan
       ">>": right-const-nan
       ">>>": right-const-nan
@@ -575,7 +617,11 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "&&": #(x, y, o)
         let x-type = x.type(o)
         if x-type.is-subset-of(Type.always-truthy)
-          BlockNode @index, @scope, [x, y]
+          let LispyNode = require('./parser-lispynodes')
+          LispyNode.InternalCall \block, @index, @scope,
+            NothingNode @index, @scope
+            x
+            y
         else if x-type.is-subset-of(Type.always-falsy)
           x
         else if x instanceof BinaryNode and x.op == "&&"
@@ -590,7 +636,11 @@ node-class BinaryNode(left as Node, op as String, right as Node)
             else
               null
           if truthy == true
-            BinaryNode @index, @scope, x.left, "&&", BlockNode x.right.index, @scope, [x.right, y]
+            let LispyNode = require('./parser-lispynodes')
+            BinaryNode @index, @scope, x.left, "&&", LispyNode.InternalCall \block, x.right.index, @scope,
+              NothingNode x.right.index, @scope
+              x.right
+              y
           else if truthy == false
             x
       "||": #(x, y, o)
@@ -598,7 +648,11 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         if x-type.is-subset-of(Type.always-truthy)
           x
         else if x-type.is-subset-of(Type.always-falsy)
-          BlockNode @index, @scope, [x, y]
+          let LispyNode = require('./parser-lispynodes')
+          LispyNode.InternalCall \block, @index, @scope,
+            NothingNode @index, @scope
+            x
+            y
         else if x instanceof BinaryNode and x.op == "||"
           let truthy = if x.right.is-const()
             not not x.right.const-value()
@@ -613,7 +667,11 @@ node-class BinaryNode(left as Node, op as String, right as Node)
           if truthy == true
             x
           else if truthy == false
-            BinaryNode @index, @scope, x.left, "||", BlockNode x.right.index, @scope, [x.right, y]
+            let LispyNode = require('./parser-lispynodes')
+            BinaryNode @index, @scope, x.left, "||", LispyNode.InternalCall \block, x.right.index, @scope,
+              NothingNode x.right.index, @scope
+              x.right
+              y
         else
           let LispyNode = require('./parser-lispynodes')
           if x instanceof LispyNode and x.is-call and x.func.is-symbol and x.func.is-internal and x.func.is-if and x.args[2].is-const() and not x.args[2].const-value()
@@ -644,68 +702,6 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       else
         this
   def _is-noop(o) -> @__is-noop ?= @left.is-noop(o) and @right.is-noop(o)
-node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
-  def type(o) @_type ?=
-    let nodes = @nodes
-    if nodes.length == 0
-      Type.undefined
-    else
-      for node in nodes[0 til -1]
-        node.type(o)
-      nodes[* - 1].type(o)
-  def with-label(label as IdentNode|TmpNode|null, o)
-    if not @label?
-      if @nodes.length == 1
-        return @nodes[0].with-label label, o
-      else if @nodes.length > 1
-        let last = @nodes[* - 1]
-        let LispyNode = require('./parser-lispynodes')
-        if last instanceof LispyNode and last.is-call and last.func.is-internal and last.func.is-for-in
-          if for every node in @nodes[0 til -1]; node instanceof AssignNode or (node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-var)
-            return BlockNode @index, @scope, @nodes[0 til -1].concat([last.with-label(label, o)])
-    BlockNode @index, @scope, @nodes, label
-  def _reduce(o)
-    let mutable changed = false
-    let body = []
-    for node, i, len in @nodes
-      let reduced = node.reduce(o)
-      if reduced instanceof BlockNode and not reduced.label?
-        body.push ...reduced.nodes
-        changed := true
-      else if reduced instanceof NothingNode
-        changed := true
-      else if reduced instanceof require('./parser-lispynodes') and reduced.is-call and reduced.func.is-goto
-        body.push reduced
-        if reduced != node or i < len - 1
-          changed := true
-        break
-      else
-        body.push reduced
-        if reduced != node
-          changed := true
-    let label = if @label? then @label.reduce(o) else @label
-    if body.length == 0
-      NothingNode @index, @scope
-    else if not label? and body.length == 1
-      body[0]
-    else
-      if changed or label != @label
-        BlockNode @index, @scope, body, label
-      else
-        this
-  def is-statement() -> for some node in @nodes by -1; node.is-statement()
-  def _is-noop(o) -> @__is-noop ?= for every node in @nodes by -1; node.is-noop(o)
-  def mutate-last(o, func, context, include-noop)
-    let nodes = @nodes
-    let len = nodes.length
-    if len == 0
-      Noop(@index, @scope).mutate-last o, func, context, include-noop
-    else
-      let last-node = nodes[len - 1].mutate-last o, func, context, include-noop
-      if last-node != nodes[len - 1]
-        BlockNode @index, @scope, [...nodes[0 til -1], last-node]
-      else
-        this
 node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-apply as Boolean)
   def type = do
     let PRIMORDIAL_FUNCTIONS =
