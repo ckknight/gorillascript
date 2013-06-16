@@ -131,27 +131,37 @@ class Symbol extends Node
       }
       block: {}
       break: {
-        validate-args(label as OldNode|null) ->
+        validate-args(label as OldNode|null, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to break"
         +is-goto
         +used-as-statement
       }
       comment: {
-        validate-args(text as Value) ->
+        validate-args(text as Value, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to comment"
       }
       continue: {
-        validate-args(label as OldNode|null) ->
+        validate-args(label as OldNode|null, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to continue"
         +is-goto
         +used-as-statement
       }
       custom: {
-        validate-args(name as Value) ->
+        validate-args(name as Value, ...rest as [OldNode]) ->
       }
       debugger: {
+        validate-args(...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to debugger"
         +used-as-statement
       }
-      def: {}
       for: {
-        validate-args(init as OldNode, test as OldNode, step as OldNode, body as OldNode, label as OldNode|null) ->
+        validate-args(init as OldNode, test as OldNode, step as OldNode, body as OldNode, label as OldNode|null, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to for"
         +used-as-statement
         _with-label(call, label)
           Call call.index, call.scope,
@@ -163,7 +173,9 @@ class Symbol extends Node
             label
       }
       for-in: {
-        validate-args(key as OldNode, object as OldNode, body as OldNode, label as OldNode|null) ->
+        validate-args(key as OldNode, object as OldNode, body as OldNode, label as OldNode|null, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to for-in"
         +used-as-statement
         _with-label(call, label)
           Call call.index, call.scope,
@@ -175,7 +187,9 @@ class Symbol extends Node
       }
       function: {}
       if: {
-        validate-args(test as OldNode, when-true as OldNode, when-false as OldNode, label as OldNode|null) ->
+        validate-args(test as OldNode, when-true as OldNode, when-false as OldNode, label as OldNode|null, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to if"
         _type: do
           let cache = Cache<Call, Type>()
           #(call, parser)
@@ -312,7 +326,9 @@ class Symbol extends Node
       }
       param: {}
       return: {
-        validate-args(node as OldNode) ->
+        validate-args(node as OldNode, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to return"
         +is-goto
         +used-as-statement
       }
@@ -320,7 +336,17 @@ class Symbol extends Node
         +used-as-statement
       }
       spread: {
-        validate-args(node as OldNode) ->
+        validate-args(node as OldNode, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to spread"
+        __reduce: #(call, parser)
+          let arg = call.args[0].reduce(parser).do-wrap(parser)
+          if arg != call.args[0]
+            Call call.index, call.scope,
+              call.func
+              arg
+          else
+            call
       }
       switch: {
         validate-args(...args as [OldNode])
@@ -389,7 +415,9 @@ class Symbol extends Node
       }
       super: {}
       throw: {
-        validate-args(node as OldNode) ->
+        validate-args(node as OldNode, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to throw"
         _type()
           Type.none
         +is-goto
@@ -447,7 +475,9 @@ class Symbol extends Node
         */
       }
       try-catch: {
-        validate-args(try-body as OldNode, catch-ident as OldNode, catch-body as OldNode, label as OldNode|null) ->
+        validate-args(try-body as OldNode, catch-ident as OldNode, catch-body as OldNode, label as OldNode|null, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to try-catch"
         +used-as-statement
         _type: do
           let cache = Cache<Call, Type>()
@@ -474,7 +504,9 @@ class Symbol extends Node
             call
       }
       try-finally: {
-        validate-args(try-body as OldNode, finally-body as OldNode, label as OldNode|null) ->
+        validate-args(try-body as OldNode, finally-body as OldNode, label as OldNode|null, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to try-finally"
         +used-as-statement
         _type(call, parser)
           call.args[0].type parser
@@ -511,9 +543,15 @@ class Symbol extends Node
         */
       }
       write: {}
-      var: {}
+      var: {
+        validate-args(node as OldNode, is-mutable as OldNode|null, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to var"
+      }
       yield: {
-        validate-args(node as OldNode) ->
+        validate-args(node as OldNode, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to yield"
       }
     for name, data of internal-symbols
       let is-name-key = "is$(capitalize name)"

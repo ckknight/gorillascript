@@ -19,7 +19,6 @@ let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ParamNode = Node.Param
 let RootNode = Node.Root
-let SpreadNode = Node.Spread
 let SuperNode = Node.Super
 let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
@@ -163,7 +162,8 @@ class MacroContext
   def continue(label as IdentNode|TmpNode|null)
     LispyNode.InternalCall \continue, @index, @scope(),
       ...(if label then [label] else [])
-  def spread(node as Node) -> @parser.Spread(@index, node)
+  def spread(node as Node)
+    LispyNode.InternalCall \spread, @index, @scope(), node
   
   def real(mutable node)
     node := @macro-expand-1(node)
@@ -307,11 +307,13 @@ class MacroContext
   def const(value)
     LispyNode.Value @index, value
   
-  def is-spread(node) -> @real(node) instanceof SpreadNode
+  def is-spread(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-spread
   def spread-subnode(mutable node)
     node := @real(node)
-    if node instanceof SpreadNode
-      node.node
+    if @is-spread(node)
+      node.args[0]
   
   def is-node(node) -> node instanceof Node
   def is-ident(node) -> @real(node) instanceof IdentNode
@@ -450,7 +452,7 @@ class MacroContext
     node := @real node
     if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-array
       for some element in node.args
-        @real(element) instanceof SpreadNode
+        @is-spread(element)
     else
       false
   
@@ -684,12 +686,15 @@ class MacroContext
           IdentNode obj.index, scope, obj.name.substring 1
         ]
     else if obj instanceof CallNode and not obj.is-new and not obj.is-apply and obj.func instanceof IdentNode and obj.func.name == '$'
-      if obj.args.length != 1 or obj.args[0] instanceof SpreadNode
+      if obj.args.length != 1
         throw Error "Can only use \$() in an AST if it has one argument."
+      let arg = obj.args[0]
+      if arg instanceof LispyNode and arg.is-call and arg.func.is-symbol and arg.func.is-internal and arg.func.is-spread
+        throw Error "Cannot use ... in \$() in an AST."
       CallNode obj.index, scope,
         IdentNode obj.index, scope, \__wrap
         [
-          obj.args[0]
+          arg
         ]
     else if obj instanceof MacroConstNode
       CallNode obj.index, scope,

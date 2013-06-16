@@ -1,4 +1,5 @@
 let {expect} = require 'chai'
+let {stub} = require 'sinon'
 let gorilla = require '../index'
 
 let fail()
@@ -1511,3 +1512,17 @@ describe "loops", #
     expect(run [1, 4, 9, 16], -1, 0, -2).to.eql [[16, 3], [4, 1]]
     expect(run [1, 4, 9, 16], -2, 0, -2).to.eql [[9, 2], [1, 0]]
     expect(run [1, 4, 9, 16], -2, 3, -2).to.eql []
+
+describe "spreading a loop", #
+  it "within an invocation", #
+    let fun = stub().with-args(0, 1, 4, 9, 16, 25).returns \alpha
+    
+    let result = fun(0, ...(for x in [1, 2, 3, 4]; x * x), 25)
+    
+    expect(fun).to.be.called-once
+    expect(result).to.equal \alpha
+  
+  it "within an array", #
+    let result = [0, ...(for x in [1, 2, 3, 4]; x * x), 25]
+    
+    expect(result).to.eql [0, 1, 4, 9, 16, 25]

@@ -572,9 +572,13 @@ let flatten-spread-array(elements)
   let result = []
   let mutable changed = false
   for element in elements
-    if element instanceof ParserNode.Spread and element.node instanceof LispyNode and element.node.is-call and element.node.func.is-symbol and element.node.func.is-internal and element.node.func.is-array
-      result.push ...element.node.args
-      changed := true
+    if element instanceof LispyNode and element.is-call and element.func.is-symbol and element.func.is-internal and element.func.is-spread
+      let node = element.args[0]
+      if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-array
+        result.push ...node.args
+        changed := true
+      else
+        result.push element
     else
       result.push element
 
@@ -688,7 +692,7 @@ let generator-translate = do
   let has-single-node-with-noops-no-spread(nodes as [ParserNode], state as GeneratorState)
     let mutable count = 0
     for node in nodes
-      if node instanceof ParserNode.Spread
+      if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-spread
         return false
       else if state.has-generator-node node
         count += 1
@@ -725,8 +729,8 @@ let generator-translate = do
         if not t-array-start?
           t-array-start := array-translate pos, elements[0 til i], scope, true, false
           state := state.add #-> ast.Assign pos, t-tmp(), t-array-start()
-        if element instanceof ParserNode.Spread
-          let expr = generator-translate-expression element.node, scope, state, false
+        if element instanceof LispyNode and element.is-call and element.func.is-symbol and element.func.is-internal and element.func.is-spread
+          let expr = generator-translate-expression element.args[0], scope, state, false
           state := expr.state.add #
             let tmp = t-tmp()
             scope.add-helper \__to-array
@@ -867,7 +871,7 @@ let generator-translate = do
         generator-translate-expression node.func, scope, state, true, unassigned
       let {is-apply, is-new, args} = node
       
-      if is-apply and (args.length == 0 or args[0] not instanceof ParserNode.Spread)
+      if is-apply and (args.length == 0 or not (args[0] instanceof LispyNode and args[0].is-call and args[0].func.is-symbol and args[0].func.is-internal and args[0].func.is-spread))
         let g-start = if args.length == 0
           {
             g-func.state
@@ -1328,10 +1332,10 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
   let mutable current = []
   translated-items.push(current)
   for element in flatten-spread-array elements
-    if element instanceof ParserNode.Spread
+    if element instanceof LispyNode and element.is-call and element.func.is-symbol and element.func.is-internal and element.func.is-spread
       translated-items.push
-        t-node: translate element.node, scope, \expression, unassigned
-        type: element.node.type()
+        t-node: translate element.args[0], scope, \expression, unassigned
+        type: element.args[0].type()
       current := []
       translated-items.push current
     else
@@ -1428,7 +1432,7 @@ let translators =
     let is-apply = node.is-apply
     let is-new = node.is-new
     let args = node.args
-    if is-apply and (args.length == 0 or args[0] not instanceof ParserNode.Spread)
+    if is-apply and (args.length == 0 or not (args[0] instanceof LispyNode and args[0].is-call and args[0].func.is-symbol and args[0].func.is-internal and args[0].func.is-spread))
       let t-start = if args.length == 0 then #-> ast.Const(get-pos(node), void) else translate(args[0], scope, \expression, unassigned)
       let t-arg-array = array-translate(get-pos(node), args[1 to -1], scope, false, true, unassigned)
       #

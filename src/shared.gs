@@ -18,7 +18,6 @@ const ParserNodeType = {
   Nothing:        25
   Param:          27
   Root:           30
-  Spread:         31
   Super:          32
   SyntaxChoice:   34
   SyntaxMany:     35

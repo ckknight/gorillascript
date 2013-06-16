@@ -33,7 +33,6 @@ let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ParamNode = Node.Param
 let RootNode = Node.Root
-let SpreadNode = Node.Spread
 let SuperNode = Node.Super
 let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
@@ -2081,7 +2080,8 @@ define SpreadOrExpression = sequential(
   [\spread, MaybeSpreadToken]
   [\node, Expression]) |> mutate #({spread, node}, parser, index)
   if spread == "..."
-    parser.Spread index, node
+    LInternalCall \spread, index, parser.scope.peek(),
+      node
   else
     node
 
@@ -2466,7 +2466,7 @@ define DoubleStringArrayLiteral = sequential(
   [\this, DoubleStringLiteralInner]
   DoubleQuote) |> mutate #(parts, parser, index)
   let string-parts = double-string-literal-handler parts, parser, index
-  LInternalCall \array, index, parser.scope,
+  LInternalCall \array, index, parser.scope.peek(),
     ...string-parts
 
 let StringIndent(parser, index)
@@ -2591,7 +2591,7 @@ define TripleDoubleStringArrayLiteral = sequential(
   TripleDoubleQuote) |> mutate #(parts, parser, index)
   let string-parts = triple-string-handler parts, parser, index
   
-  LInternalCall \array, index, parser.scope,
+  LInternalCall \array, index, parser.scope.peek(),
     ...string-parts
 
 define BackslashStringLiteral = sequential(
@@ -3014,7 +3014,7 @@ let ArrayParameter = sequential(
   [\this, allow-space-before-access #(parser, index) -> Parameters parser, index]
   EmptyLines
   CloseSquareBracket) |> mutate #(params, parser, index)
-  LInternalCall \array, index, parser.scope,
+  LInternalCall \array, index, parser.scope.peek(),
     ...params
 
 let ParamDualObjectKey = sequential(
@@ -3054,10 +3054,10 @@ let make-object-node(parser, index, prototype, pairs)
         last-property-pair := null
     else
       last-property-pair := null
-  LInternalCall \object, index, parser.scope,
-    prototype or NothingNode index, parser.scope
+  LInternalCall \object, index, parser.scope.peek(),
+    prototype or NothingNode index, parser.scope.peek()
     ...(for {key, value, property} in pairs
-      LInternalCall \array, key.index, parser.scope,
+      LInternalCall \array, key.index, parser.scope.peek(),
         key
         value
         ...(if property
@@ -3229,7 +3229,7 @@ define ArrayLiteral = prevent-unclosed-object-literal sequential(
       MaybeCommaOrNewline
       )), #-> []))]
   CloseSquareBracket) |> mutate #(items, parser, index)
-  LInternalCall \array, index, parser.scope,
+  LInternalCall \array, index, parser.scope.peek(),
     ...items
 
 define SetLiteral = sequential(
@@ -3613,7 +3613,7 @@ let UnclosedArrayLiteralElement = sequential(
 define IndentedUnclosedArrayLiteralInner = separated-list(
   UnclosedArrayLiteralElement
   sequential(MaybeComma, SomeEmptyLinesWithCheckIndent)) |> mutate #(items, parser, index)
-  LInternalCall \array, index, parser.scope,
+  LInternalCall \array, index, parser.scope.peek(),
     ...items
 
 define IndentedUnclosedArrayLiteral = sequential(
@@ -3711,7 +3711,7 @@ let convert-invocation-or-access = do
             tmp-ids.push tmp.id
             set-parent := parser.Assign(index, tmp, "=", parent.do-wrap(parser))
             parent := tmp
-          let result = LInternalCall \array, index, parser.scope,
+          let result = LInternalCall \array, index, parser.scope.peek(),
             ...(for element, i in child.elements
               parser.Access(index, if i == 0 then set-parent else parent, element))
           if tmp-ids.length
@@ -3741,7 +3741,7 @@ let convert-invocation-or-access = do
             set-child := parser.Assign(index, tmp, "=", child.do-wrap(parser))
             child := tmp
           
-          let result = LInternalCall \if, index, parser.scope,
+          let result = LInternalCall \if, index, parser.scope.peek(),
             do
               let ownership-op = parser.get-macro-by-label(\ownership)
               if not ownership-op
@@ -3797,7 +3797,7 @@ let convert-invocation-or-access = do
             let existential-op = parser.get-macro-by-label(\existential)
             if not existential-op
               throw Error "Cannot use existential access until the existential operator has been defined"
-            let result = LInternalCall \if, index, parser.scope,
+            let result = LInternalCall \if, index, parser.scope.peek(),
               existential-op.func {
                 op: ""
                 node: set-head
@@ -3841,7 +3841,7 @@ let convert-invocation-or-access = do
             tmp-ids.push tmp.id
             set-head := parser.Assign(index, tmp, "=", head.do-wrap(parser))
             head := tmp
-        let result = LInternalCall \if, index, parser.scope,
+        let result = LInternalCall \if, index, parser.scope.peek(),
           parser.Binary index,
             parser.Unary index, \typeof, set-head
             "==="
@@ -4283,7 +4283,8 @@ define LicenseComment = sequential(
           if i > 0
             result.push "\n"
           process-char-codes l, result
-        return Box current-index + 2, LInternalCall \comment, index, parser.scope, LValue index, result.join ""
+        return Box current-index + 2, LInternalCall \comment, index, parser.scope.peek(),
+          LValue index, result.join ""
       else if ch in [C("\r"), C("\n"), 8232, 8233]
         if ch == C("\r") and C(data, current-index ~+ 1) == C("\n")
           current-index ~+= 1
@@ -4763,7 +4764,7 @@ let EmbeddedRootInnerP = promise! #(parser, index)*
   parser.clear-cache()
   return Box current-index, parser.Block index, [
     ...nodes
-    LInternalCall \return, index, parser.scope,
+    LInternalCall \return, index, parser.scope.peek(),
       parser.Ident index, \write
   ]
 
@@ -5161,7 +5162,7 @@ class Parser
   
   let make-macro-root(index, params, body)
     @Root index, void,
-      LInternalCall \return, index, @scope,
+      LInternalCall \return, index, @scope.peek(),
         @Function(index
           [
             params
@@ -6009,7 +6010,6 @@ for node-type in [
       'Object',
       'Param',
       'Root',
-      'Spread',
       'Super',
       'SyntaxChoice',
       'SyntaxMany',
