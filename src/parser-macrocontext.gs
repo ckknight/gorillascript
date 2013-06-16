@@ -125,11 +125,10 @@ class MacroContext
       try-body
       catch-ident
       catch-body).reduce(@parser)
-  def try-finally(try-body as Node = NothingNode(0, @scope()), finally-body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
+  def try-finally(try-body as Node = NothingNode(0, @scope()), finally-body as Node = NothingNode(0, @scope()))
     LispyNode.InternalCall(\try-finally, @index, @scope(),
       try-body
-      finally-body
-      ...(if label then [label] else [])).reduce(@parser)
+      finally-body).reduce(@parser)
   def assign(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope())) -> @parser.Assign(@index, left, op, @do-wrap(right)).reduce(@parser)
   def binary(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope())) -> @parser.Binary(@index, @do-wrap(left), op, @do-wrap(right)).reduce(@parser)
   def binary-chain(op as String, nodes as [Node])
@@ -198,17 +197,6 @@ class MacroContext
     node := @real(node)
     node instanceof LispyNode and node.is-internal-call(\label)
   
-  def is-labeled-block(mutable node)
-    node := @real(node)
-    if node instanceof LispyNode and node.is-internal-call()
-      switch node.func.name
-      case \try-finally
-        node.args[2]?
-      default
-        false
-    else
-      false
-  
   def is-break(mutable node)
     node := @real(node)
     node instanceof LispyNode and node.is-internal-call(\break)
@@ -217,16 +205,10 @@ class MacroContext
     node instanceof LispyNode and node.is-internal-call(\continue)
   def label(mutable node)
     node := @real(node)
-    if node instanceof LispyNode
-      if node.is-internal-call()
-        switch node.func.name
-        case \break, \continue, \label
-          return node.args[0]
-        case \try-finally
-          return node.args[2]
-        default
-          void
-    null
+    if node instanceof LispyNode and node.is-internal-call(\break, \continue, \label)
+      node.args[0]
+    else
+      null
   def with-label(node, label as IdentNode|TmpNode|null)
     node.with-label label, @parser
   

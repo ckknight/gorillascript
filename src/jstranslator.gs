@@ -1116,9 +1116,6 @@ let generator-translate = do
       post-branch
     
     try-finally: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
-      if args[2]
-        throw Error "Not implemented: try-finally with label in generator"
-      
       if state.has-generator-node args[1]
         throw Error "Cannot use yield in a finally"
       
@@ -1731,10 +1728,9 @@ let translate-lispy-internal =
       result
   
   try-finally: #(node, args, scope, location, unassigned)
-    let t-label = args[2] and translate args[2], scope, \label
     let t-try-body = translate args[0], scope, \statement, unassigned
     let t-finally-body = translate args[1], scope, \statement, unassigned
-    # ast.TryFinally get-pos(node), t-try-body(), t-finally-body(), t-label?()
+    # ast.TryFinally get-pos(node), t-try-body(), t-finally-body()
   
   for: #(node, args, scope, location, unassigned)
     let t-init = if args[0]? then translate args[0], scope, \expression, unassigned

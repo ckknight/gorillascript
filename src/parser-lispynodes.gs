@@ -550,25 +550,19 @@ class Symbol extends Node
             call
       }
       try-finally: {
-        validate-args(try-body as OldNode, finally-body as OldNode, label as OldNode|null, ...rest)
+        validate-args(try-body as OldNode, finally-body as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to try-finally"
         +used-as-statement
         _type(call, parser)
           call.args[0].type parser
-        _with-label(call, label)
-          Call call.index, call.scope,
-            call.func
-            call.args[0]
-            call.args[1]
-            label
         _mutate-last(call, parser, mutator, context, include-noop)
           let try-body = call.args[0].mutate-last(parser, mutator, context, include-noop)
           if try-body != call.args[0]
             Call call.index, call.scope,
               call.func
               try-body
-              ...call.args[1 to -1]
+              call.args[1]
           else
             call
         /*
