@@ -40,7 +40,6 @@ let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
 let SyntaxSequenceNode = Node.SyntaxSequence
 let TmpNode = Node.Tmp
-let TmpWrapperNode = Node.TmpWrapper
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
@@ -3716,7 +3715,9 @@ let convert-invocation-or-access = do
             ...(for element, i in child.elements
               parser.Access(index, if i == 0 then set-parent else parent, element))
           if tmp-ids.length
-            parser.TmpWrapper(index, result, tmp-ids)
+            LInternalCall \tmp-wrapper, index, result.scope,
+              result
+              ...(for tmp-id in tmp-ids; LValue index, tmp-id)
           else
             result
       #(parser, index, mutable head, link, link-index, links)
@@ -3770,7 +3771,9 @@ let convert-invocation-or-access = do
             convert-call-chain(parser, index, bind-access(head, child), link-index + 1, links)
             parser.Nothing index
           if tmp-ids.length
-            parser.TmpWrapper(index, result, tmp-ids)
+            LInternalCall \tmp-wrapper, index, result.scope,
+              result
+              ...(for tmp-id in tmp-ids; LValue index, tmp-id)
           else
             result
         else
@@ -3802,7 +3805,9 @@ let convert-invocation-or-access = do
               convert-call-chain parser, index, make-access(head), link-index + 1, links
               parser.Nothing index
             if tmp-ids.length
-              parser.TmpWrapper index, result, tmp-ids
+              LInternalCall \tmp-wrapper, index, result.scope,
+                result
+                ...(for tmp-id in tmp-ids; LValue index, tmp-id)
             else
               result
           else
@@ -3847,7 +3852,9 @@ let convert-invocation-or-access = do
             links
           parser.Nothing index
         if tmp-ids.length
-          parser.TmpWrapper(index, result, tmp-ids)
+          LInternalCall \tmp-wrapper, index, result.scope,
+            result
+            ...(for tmp-id in tmp-ids; LValue index, tmp-id)
         else
           result
   link-types.access-index := link-types.access
@@ -5709,19 +5716,17 @@ class Parser
             throw e
           else
             throw MacroError e, parser, index
-        parser.pop-scope()
         
         if result instanceof Node
-          let line = parser.get-line(index)
           result := result.reduce(parser)
           let tmps = macro-context.get-tmps()
           if tmps.unsaved.length
-            parser.TmpWrapper index, result, tmps.unsaved
-          else
-            result
-        else
-          // TODO: do I need to watch tmps?
-          result
+            result := LInternalCall \tmp-wrapper, index, result.scope,
+              result
+              ...(for tmp-id in tmps.unsaved; LValue index, tmp-id)
+        parser.pop-scope()
+        // TODO: do I need to watch tmps?
+        result
     let macros = @macros
     macro-id := switch @current-macro
     case BINARY_OPERATOR
@@ -5994,7 +5999,6 @@ for node-type in [
       'Binary',
       'Block',
       'Call',
-      'Cascade',
       'Custom',
       'EmbedWrite',
       'Function',
@@ -6012,7 +6016,6 @@ for node-type in [
       'SyntaxParam',
       'SyntaxSequence',
       'Tmp',
-      'TmpWrapper',
       'TypeFunction',
       'TypeGeneric',
       'TypeObject',

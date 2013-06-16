@@ -408,7 +408,44 @@ class Symbol extends Node
               this
         */
       }
-      tmp-wrapper: {}
+      tmp-wrapper: {
+        _is-statement(call)
+          call.args[0].is-statement()
+        validate-args(node as OldNode, ...tmp-ids as [Value]) ->
+        _type(call, parser)
+          call.args[0].type parser
+        _with-label(call, label, parser)
+          let labelled = call.args[0].with-label label, parser
+          if labelled != call.args[0]
+            Call call.index, call.scope,
+              call.func
+              labelled
+              ...call.args[1 to -1]
+          else
+            call
+        _do-wrap(call, parser)
+          let wrapped = call.args[0].do-wrap parser
+          if wrapped != call.args[0]
+            Call call.index, call.scope,
+              call.func
+              wrapped
+              ...call.args[1 to -1]
+          else
+            call
+        _mutate-last(call, parser, func, context, include-noop)
+          let mutated = call.args[0].mutate-last parser, func, context, include-noop
+          if mutated != call.args[0]
+            Call call.index, call.scope,
+              call.func
+              mutated
+              ...call.args[1 to -1]
+          else
+            call
+        /*
+        node-class TmpWrapperNode(node as Node, tmps as [] = [])
+          def _is-noop(o) -> @node.is-noop(o)
+        */
+      }
       try-catch: {
         validate-args(try-body as OldNode, catch-ident as OldNode, catch-body as OldNode, label as OldNode|null) ->
         +used-as-statement
@@ -727,7 +764,10 @@ class Call extends Node
       super.literal-value()
   
   def is-statement()
-    @func.is-internal and @func.used-as-statement
+    if is-function! @func._is-statement
+      @func._is-statement(this)
+    else
+      @func.is-internal and @func.used-as-statement
   
   def mutate-last(o, func, context, include-noop)
     if is-function! @func._mutate-last
@@ -748,11 +788,11 @@ class Call extends Node
     else
       this
   
-  def with-label(label)
+  def with-label(label, parser)
     if is-function! @func._with-label
-      @func._with-label(this, label)
+      @func._with-label(this, label, parser)
     else
-      super.with-label(label)
+      super.with-label(label, parser)
 
 module.exports := Node <<< {
   Value

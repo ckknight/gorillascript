@@ -297,11 +297,12 @@ node-class AccessNode(parent as Node, child as Node)
         node.walk replace-length-ident
     let child = replace-length-ident @child.reduce(o).do-wrap(o)
     if cached-parent?
-      return TmpWrapperNode(@index, @scope
-        AccessNode(@index, @scope
-          AssignNode(@index, @scope, cached-parent, "=", parent)
-          child)
-        [cached-parent.id])
+      let LispyNode = require('./parser-lispynodes')
+      return LispyNode.InternalCall \tmp-wrapper, @index, @scope,
+        AccessNode @index, @scope,
+          AssignNode @index, @scope, cached-parent, "=", parent
+          child
+        LispyNode.Value @index, cached-parent.id
     
     if parent.is-literal() and child.is-const()
       let c-value = child.const-value()
@@ -1177,32 +1178,6 @@ node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
       [@id, @name]
     else
       [@id, @name, @_type]
-node-class TmpWrapperNode(node as Node, tmps as [] = [])
-  def type(o) -> @node.type(o)
-  def with-label(label as IdentNode|TmpNode|null, o)
-    TmpWrapperNode @index, @scope, @node.with-label(label, o), @tmps
-  def _reduce(o)
-    let node = @node.reduce(o)
-    if @tmps.length == 0
-      node
-    else if @node != node
-      TmpWrapperNode @index, @scope, node, @tmps
-    else
-      this
-  def is-statement() -> @node.is-statement()
-  def _is-noop(o) -> @node.is-noop(o)
-  def do-wrap(o)
-    let node = @node.do-wrap(o)
-    if node != @node
-      TmpWrapperNode @index, @scope, node, @tmps
-    else
-      this
-  def mutate-last(o, func, context, include-noop)
-    let node = @node.mutate-last o, func, context, include-noop
-    if node != @node
-      TmpWrapperNode @index, @scope, node, @tmps
-    else
-      this
 node-class TypeFunctionNode(return-type as Node)
 node-class TypeGenericNode(basetype as Node, args as [Node] = [])
 node-class TypeObjectNode(pairs as [])

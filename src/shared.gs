@@ -25,7 +25,6 @@ const ParserNodeType = {
   SyntaxParam:    36
   SyntaxSequence: 37
   Tmp:            40
-  TmpWrapper:     41
   TypeFunction:   44
   TypeGeneric:    45
   TypeObject:     46

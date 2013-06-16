@@ -938,13 +938,6 @@ let generator-translate = do
                 args
               ]
     
-    [ParserNodeType.TmpWrapper]: #(node, scope, state, assign-to, unassigned)
-      let g-node = generator-translate-expression node.node, scope, state, false, unassigned
-      handle-assign assign-to, scope, g-node.state, g-node.t-node, #
-        g-node.cleanup()
-        for tmp in node.tmps by -1
-          scope.release-tmp tmp
-    
     [ParserNodeType.Unary]: #(node, scope, state, assign-to, unassigned)
       let g-node = generator-translate-expression node.node, scope, state, false, unassigned
       handle-assign assign-to, scope, g-node.state, #-> first!(
@@ -998,6 +991,13 @@ let generator-translate = do
     
     array: #(node, args, scope, state, assign-to, unassigned)
       generator-array-translate get-pos(node), args, scope, state, assign-to, unassigned
+    
+    tmp-wrapper: #(node, args, scope, state, assign-to, unassigned)
+      let g-node = generator-translate-expression args[0], scope, state, false, unassigned
+      handle-assign assign-to, scope, g-node.state, g-node.t-node, #
+        g-node.cleanup()
+        for tmp in args[1 to -1]
+          scope.release-tmp tmp.const-value()
   
   let generator-translate-expression-lispy(node as LispyNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     switch
@@ -1025,8 +1025,10 @@ let generator-translate = do
   
   let is-expression(node)
     if node instanceof LispyNode
-      // TODO
-      true
+      if node.is-call and node.func.is-internal
+        generator-translate-expression-lispy-internals ownskey node.func.name
+      else
+        true
     else
       expressions ownskey node.type-id
   
@@ -1057,12 +1059,6 @@ let generator-translate = do
             else
               []
           ]
-    
-    [ParserNodeType.TmpWrapper]: #(node, scope, state, break-state, continue-state, unassigned, is-top)
-      let result = generator-translate node.node, scope, state, break-state, continue-state, unassigned, is-top
-      for tmp in node.tmps by -1
-        scope.release-tmp tmp
-      result
   
   let generator-translate-lispy-internals =
     break: #(node, args, scope, state, break-state)
@@ -1290,6 +1286,12 @@ let generator-translate = do
           unassigned[k] := false
       let post-branch = state.branch()
       post-branch
+    
+    tmp-wrapper: #(node, args, scope, state, break-state, continue-state, unassigned, is-top)
+      let result = generator-translate args[0], scope, state, break-state, continue-state, unassigned, is-top
+      for tmp in args[1 to -1]
+        scope.release-tmp tmp.const-value()
+      result
   
   let generator-translate-lispy(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     switch
@@ -1685,13 +1687,6 @@ let translators =
     let ident = scope.get-tmp(get-pos(node), node.id, node.name, node.type())
     # -> ident
 
-  [ParserNodeType.TmpWrapper]: #(node, scope, location, unassigned)
-    let t-result = translate node.node, scope, location, unassigned
-    for tmp in node.tmps by -1
-      scope.release-tmp tmp
-
-    t-result
-
   [ParserNodeType.Unary]: #(node, scope, location, unassigned)
     if unassigned and node.op in ["++", "--", "++post", "--post"] and node.node instanceof ParserNode.Ident
       unassigned[node.node.name] := false
@@ -1956,6 +1951,12 @@ let translate-lispy-internal =
     #
       scope.add-variable t-ident(), Type.any, args[1] and args[1].const-value()
       ast.Noop(get-pos(node))
+  
+  tmp-wrapper: #(node, args, scope, location, unassigned)
+    let t-result = translate args[0], scope, location, unassigned
+    for tmp in args[1 to -1]
+      scope.release-tmp tmp.const-value()
+    t-result
 
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch

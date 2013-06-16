@@ -26,7 +26,6 @@ let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
 let SyntaxSequenceNode = Node.SyntaxSequence
 let TmpNode = Node.Tmp
-let TmpWrapperNode = Node.TmpWrapper
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
@@ -168,18 +167,23 @@ class MacroContext
   
   def real(mutable node)
     node := @macro-expand-1(node)
-    if node instanceof TmpWrapperNode
-      node.node
+    if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-internal and node.func.is-tmp-wrapper
+      node.args[0]
     else
       node
   
   def rewrap(new-node, mutable old-node)
     old-node := @macro-expand-1(old-node)
-    if old-node instanceof TmpWrapperNode
-      if new-node instanceof TmpWrapperNode
-        TmpWrapperNode new-node.index, new-node.scope, new-node, old-node.tmps.concat(new-node.tmps)
+    if old-node instanceof LispyNode and old-node.is-call and old-node.func.is-symbol and old-node.func.is-internal and old-node.func.is-tmp-wrapper
+      if new-node instanceof LispyNode and new-node.is-call and new-node.func.is-symbol and new-node.func.is-internal and new-node.func.is-tmp-wrapper
+        LispyNode.InternalCall \tmp-wrapper, new-node.index, new-node.scope,
+          new-node.args[0]
+          ...old-node.args[1 to -1]
+          ...new-node.args[1 to -1]
       else
-        TmpWrapperNode new-node.index, new-node.scope, new-node, old-node.tmps.slice()
+        LispyNode.InternalCall \tmp-wrapper, new-node.index, new-node.scope,
+          new-node
+          ...old-node.args[1 to -1]
     else
       new-node
   
