@@ -1229,14 +1229,14 @@ macro for
     
       if @is-const(start)
         if not is-number! @value(start)
-          @error "Cannot start with a non-number: $(@value start)", start
+          @error "Cannot start with a non-number: $(typeof! @value start)", start
       else
         start := ASTE(start) +$start
       init.push @macro-expand-all AST(start) let mutable $value = $start
 
       if @is-const(end)
         if not is-number! @value(end)
-          @error "Cannot end with a non-number: $(@value end)", end
+          @error "Cannot end with a non-number: $(typeof! @value end)", end
       else if @is-complex(end)
         end := @cache (ASTE(end) +$end), init, \end, false
       else
@@ -1244,7 +1244,7 @@ macro for
 
       if @is-const(step)
         if not is-number! @value(step)
-          @error "Cannot step with a non-number: $(@value step)", step
+          @error "Cannot step with a non-number: $(typeof! @value step)", step
       else if @is-complex(step)
         step := @cache (ASTE(step) +$step), init, \step, false
       else
@@ -1375,8 +1375,10 @@ macro for
           let args = @call-args(array)
           array := args[0]
           start := args[1]
+          if not start or (@is-const(start) and is-void! @value(start))
+            start := ASTE(array) 0
           end := args[2]
-          if @is-const(end) and is-void! @value(end)
+          if not end or (@is-const(end) and is-void! @value(end))
             end := ASTE(array) Infinity
         else if @name(@call-func(array)) == \__slice-step and not @call-is-apply(array)
           let args = @call-args(array)

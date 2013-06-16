@@ -1433,6 +1433,12 @@ describe "loops", #
     for v, i in arr()[1 to 2]
       result.push [v, i]
     expect(result).to.eql [[4, 1], [9, 2]]
+    
+    result := []
+    arr := run-once array
+    for v, i in arr()[0 to -1]
+      result.push [v, i]
+    expect(result).to.eql [[1, 0], [4, 1], [9, 2], [16, 3]]
   
     result := []
     arr := run-once array
