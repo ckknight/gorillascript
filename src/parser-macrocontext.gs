@@ -92,12 +92,11 @@ class MacroContext
   def noop() -> @parser.Nothing @index
   def block(nodes as [Node])
     LispyNode.InternalCall(\block, @index, @scope(), ...nodes).reduce(@parser)
-  def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
+  def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node = NothingNode(0, @scope()))
     LispyNode.InternalCall(\if, @index, @scope(),
       @do-wrap(test)
       when-true
-      when-false
-      ...(if label then [label] else [])).reduce(@parser)
+      when-false).reduce(@parser)
   def switch(topic as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null)
     let args = [
       @do-wrap(topic)
@@ -112,19 +111,17 @@ class MacroContext
       args.push label
     LispyNode.InternalCall(\switch, @index, @scope(),
       ...args).reduce(@parser)
-  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
+  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()))
     LispyNode.InternalCall(\for, @index, @scope(),
       @do-wrap(init)
       @do-wrap(test)
       @do-wrap(step)
-      body
-      ...(if label then [label] else [])).reduce(@parser)
-  def for-in(key as IdentNode, object as Node = NothingNode(0), body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
+      body).reduce(@parser)
+  def for-in(key as IdentNode, object as Node = NothingNode(0), body as Node = NothingNode(0, @scope()))
     LispyNode.InternalCall(\for-in, @index, @scope(),
       key
       @do-wrap(object)
-      body
-      ...(if label then [label] else [])).reduce(@parser)
+      body).reduce(@parser)
   def try-catch(try-body as Node = NothingNode(0, @scope()), catch-ident as Node = NothingNode(0, @scope()), catch-body as Node = NothingNode(0, @scope()), label as IdentNode|TmpNode|null)
     LispyNode.InternalCall(\try-catch, @index, @scope(),
       try-body
@@ -210,10 +207,8 @@ class MacroContext
       switch node.func.name
       case \try-finally
         node.args[2]?
-      case \try-catch, \for-in, \if
+      case \try-catch, \if
         node.args[3]?
-      case \for
-        node.args[4]?
       case \switch
         let args = node.args
         if args.length %% 3
@@ -240,10 +235,8 @@ class MacroContext
           return node.args[0]
         case \try-finally
           return node.args[2]
-        case \try-catch, \for-in, \if
+        case \try-catch, \if
           return node.args[3]
-        case \for
-          return node.args[4]
         case \switch
           let args = node.args
           if args.length %% 3

@@ -212,6 +212,12 @@ exports.Expression := class Expression extends Node
     Unary(@pos, "!", this)
   
   def mutate-last(func) -> func(this)
+  
+  def with-label(label as Ident|null)
+    if label
+      BlockStatement(@pos, [this], label)
+    else
+      this
 
 exports.Statement := class Statement extends Node
   def constructor()
@@ -717,6 +723,9 @@ exports.BlockStatement := class BlockStatement extends Statement
   
   def is-noop() -> @_is-noop ?= for every node in @body by -1; node.is-noop()
   
+  def with-label(label as Ident|null)
+    BlockStatement @pos, @body, label
+  
   def type-id = AstType.BlockStatement
   def _to-ast(pos, ident) -> [
     if @label?
@@ -808,6 +817,8 @@ exports.BlockExpression := class BlockExpression extends Expression
   
   def walk = BlockStatement::walk
   def last() -> @body[* - 1]
+  
+  def with-label = BlockStatement::with-label
   
   def type-id = AstType.BlockExpression
   def _to-ast(pos, ident) -> return for node in @body
@@ -1097,6 +1108,9 @@ exports.DoWhile := class DoWhile extends Statement
     if test.is-const() and not test.const-value()
       return Block(pos, [@body], label)
   
+  def with-label(label as Ident|null)
+    DoWhile @pos, @body, @test, label
+  
   def compile(options, level, mutable line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
@@ -1204,6 +1218,9 @@ exports.For := class For extends Statement
     @test := test
     @body := body.maybe-to-statement()
   
+  def with-label(label as Ident|null)
+    For @pos, @init, @test, @step, @body, label
+  
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
@@ -1297,6 +1314,9 @@ exports.For := class For extends Statement
 exports.ForIn := class ForIn extends Statement
   def constructor(@pos as {}, @key as Ident, @object as Expression = Noop(pos), body as Node = Noop(pos), @label as Ident|null)
     @body := body.maybe-to-statement()
+  
+  def with-label(label as Ident|null)
+    ForIn @pos, @key, @object, @body, label
   
   def compile(options, level, line-start, sb)!
     if level != Level.block
@@ -1573,6 +1593,9 @@ exports.IfStatement := class IfStatement extends Statement
     @when-true := when-true
     @when-false := when-false
   
+  def with-label(label as Ident|null)
+    IfStatement @pos, @test, @when-true, @when-false, label
+  
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
@@ -1711,6 +1734,8 @@ exports.IfExpression := class IfExpression extends Expression
       @test := test
       @when-true := when-true
       @when-false := when-false
+  
+  def with-label = IfStatement::with-label
   
   def to-statement() -> IfStatement @pos, @test, @when-true, @when-false
   
@@ -2246,6 +2271,9 @@ exports.Switch := class Switch extends Statement
     @node := node
     @default-case := default-case.maybe-to-statement()
   
+  def with-label(label as Ident|null)
+    Switch @pos, @node, @cases, @default-case, label
+  
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
@@ -2416,6 +2444,9 @@ exports.TryCatch := class TryCatch extends Statement
       return @try-body
     @catch-body := catch-body.maybe-to-statement()
   
+  def with-label(label as Ident|null)
+    TryCatch @pos, @try-body, @catch-ident, @catch-body, label
+  
   def compile(options, level, line-start, sb)!
     if level != Level.block
       throw Error "Cannot compile a statement except on the Block level"
@@ -2502,6 +2533,9 @@ exports.TryFinally := class TryFinally extends Statement
         return @finally-body
       else if @finally-body.is-noop()
         return @try-body
+  
+  def with-label(label as Ident|null)
+    TryFinally @pos, @try-body, @finally-body, label
   
   def compile(options, level, line-start, sb)!
     if level != Level.block

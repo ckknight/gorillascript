@@ -160,9 +160,7 @@ class Symbol extends Node
           Call call.index, call.scope,
             Symbol.label call.index
             label
-            Call call.index, call.scope,
-              call.func
-              ...args
+            call
         __reduce(call, parser)
           let mutable changed = false
           let body = []
@@ -250,35 +248,20 @@ class Symbol extends Node
         +used-as-statement
       }
       for: {
-        validate-args(init as OldNode, test as OldNode, step as OldNode, body as OldNode, label as OldNode|null, ...rest)
+        validate-args(init as OldNode, test as OldNode, step as OldNode, body as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to for"
         +used-as-statement
-        _with-label(call, label)
-          Call call.index, call.scope,
-            call.func
-            call.args[0]
-            call.args[1]
-            call.args[2]
-            call.args[3]
-            label
       }
       for-in: {
-        validate-args(key as OldNode, object as OldNode, body as OldNode, label as OldNode|null, ...rest)
+        validate-args(key as OldNode, object as OldNode, body as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to for-in"
         +used-as-statement
-        _with-label(call, label)
-          Call call.index, call.scope,
-            call.func
-            call.args[0]
-            call.args[1]
-            call.args[2]
-            label
       }
       function: {}
       if: {
-        validate-args(test as OldNode, when-true as OldNode, when-false as OldNode, label as OldNode|null, ...rest)
+        validate-args(test as OldNode, when-true as OldNode, when-false as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to if"
         _type: do
@@ -289,13 +272,6 @@ class Symbol extends Node
           let cache = Cache<Call, Boolean>()
           #(call)
             cache-get-or-add! cache, call, call.args[1].is-statement() or call.args[2].is-statement()
-        _with-label(call, label)
-          Call call.index, call.scope,
-            call.func
-            call.args[0]
-            call.args[1]
-            call.args[2]
-            label
         _do-wrap(call, parser)
           let when-true = call.args[1].do-wrap(parser)
           let when-false = call.args[2].do-wrap(parser)
@@ -305,46 +281,35 @@ class Symbol extends Node
               call.args[0]
               when-true
               when-false
-              ...call.args[3 to -1]
           else
             call
         __reduce(call, parser)
           let test = call.args[0].reduce(parser)
           let when-true = call.args[1].reduce(parser)
           let when-false = call.args[2].reduce(parser)
-          let label = call.args[3] and call.args[3].reduce(parser)
           if test.is-const()
-            let mutable result-node = if test.const-value()
+            if test.const-value()
               when-true
             else
               when-false
-            if label
-              result-node := Call call.index, call.scope,
-                call.func
-                label or OldNode.Nothing call.index, call.scope
-                result-node
-            result-node.reduce(parser)
           else
             let test-type = test.type(parser)
             if test-type.is-subset-of(Type.always-truthy)
               Call(call.index, call.scope,
-                call.func
-                label or OldNode.Nothing call.index, call.scope
+                Symbol.block call.index
                 test
                 when-true).reduce(parser)
             else if test-type.is-subset-of(Type.always-falsy)
               Call(call.index, call.scope,
-                call.func
-                label or OldNode.Nothing call.index, call.scope
+                Symbol.block call.index
                 test
                 when-false).reduce(parser)
-            else if test != call.args[0] or when-true != call.args[1] or when-false != call.args[2] or label != call.args[3]
+            else if test != call.args[0] or when-true != call.args[1] or when-false != call.args[2]
               Call call.index, call.scope,
                 call.func
                 test
                 when-true
                 when-false
-                ...(if label then [label] else [])
             else
               call
         _mutate-last(call, parser, mutator, context, include-noop)
@@ -356,7 +321,6 @@ class Symbol extends Node
               call.args[0]
               when-true
               when-false
-              ...call.args[3 to -1]
           else
             call
         /*

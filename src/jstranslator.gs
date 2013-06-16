@@ -1134,8 +1134,6 @@ let generator-translate = do
       state.run-pending-finally get-pos(node)
     
     for: #(node, args, scope, mutable state, , , unassigned)
-      if args[4]?
-        throw Error "Not implemented: for with label in generator"
       if args[0]? and args[0] not instanceof ParserNode.Nothing
         state := generator-translate args[0], scope, state, null, null, unassigned
       state.goto get-pos(node), #-> test-branch
@@ -1161,8 +1159,6 @@ let generator-translate = do
       post-branch
     
     for-in: #(node, args, scope, mutable state, , , unassigned)
-      if args[3]
-        throw Error "Not implemented: for-in with label in generator"
       let t-key = translate args[0], scope, \left-expression
       if unassigned and args[0] instanceof ParserNode.Ident
         unassigned[args[0].name] := false
@@ -1208,8 +1204,6 @@ let generator-translate = do
       post-branch
     
     if: #(node, args, scope, mutable state, break-state, continue-state, unassigned)
-      if args[3]
-        throw Error "Not implemented: if with label in generator"
       let test = generator-translate-expression args[0], scope, state, state.has-generator-node(args[0])
       state := test.state
       
@@ -1686,7 +1680,7 @@ let translate-lispy-internal =
   label: #(node, args, scope, location, unassigned)
     let t-label = translate args[0], scope, \label
     let t-node = translate args[1], scope, location, unassigned
-    # ast.Block get-pos(node), [t-node()], t-label()
+    # t-node().with-label(t-label())
   
   block: #(node, args, scope, location, unassigned)
     let t-nodes = for subnode, i, len in args
@@ -1752,7 +1746,6 @@ let translate-lispy-internal =
     # ast.TryFinally get-pos(node), t-try-body(), t-finally-body(), t-label?()
   
   for: #(node, args, scope, location, unassigned)
-    let t-label = args[4] and translate args[4], scope, \label
     let t-init = if args[0]? then translate args[0], scope, \expression, unassigned
     // don't send along the normal unassigned array, since the loop could be repeated thus requiring reset to void.
     let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
@@ -1766,10 +1759,8 @@ let translate-lispy-internal =
       t-test?()
       t-step?()
       t-body()
-      t-label?()
   
   for-in: #(node, args, scope, location, unassigned)
-    let t-label = args[3] and translate args[3], scope, \label
     let t-key = translate args[0], scope, \left-expression
     if unassigned and args[0] instanceof ParserNode.Ident
       unassigned[args[0].name] := false
@@ -1783,14 +1774,13 @@ let translate-lispy-internal =
       if key not instanceof ast.Ident
         throw Error("Expected an Ident for a for-in key")
       scope.add-variable key, Type.string
-      ast.ForIn(get-pos(node), key, t-object(), t-body(), t-label?())
+      ast.ForIn(get-pos(node), key, t-object(), t-body())
   
   if: #(node, args, scope, location, unassigned)
     let inner-location = if location in [\statement, \top-statement]
       \statement
     else
       location
-    let t-label = args[3] and translate args[3], scope, \label
     let t-test = translate args[0], scope, \expression, unassigned
     let when-false-unassigned = unassigned and {} <<< unassigned
     let t-when-true = translate args[1], scope, inner-location, unassigned
@@ -1799,7 +1789,7 @@ let translate-lispy-internal =
       for k, v of when-false-unassigned
         if not v
           unassigned[k] := false
-    # ast.If get-pos(node), t-test(), t-when-true(), t-when-false?(), t-label?()
+    # ast.If get-pos(node), t-test(), t-when-true(), t-when-false?()
   
   array: #(node, args, scope, location, unassigned)
     let t-arr = array-translate get-pos(node), args, scope, true, unassigned
