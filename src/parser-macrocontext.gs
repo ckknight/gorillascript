@@ -97,7 +97,7 @@ class MacroContext
       @do-wrap(test)
       when-true
       when-false).reduce(@parser)
-  def switch(topic as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null, label as IdentNode|TmpNode|null)
+  def switch(topic as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null)
     let args = [
       @do-wrap(topic)
     ]
@@ -107,8 +107,6 @@ class MacroContext
         case_.body
         @const(case_.fallthrough))
     args.push default-case
-    if label
-      args.push label
     LispyNode.InternalCall(\switch, @index, @scope(),
       ...args).reduce(@parser)
   def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()))
@@ -207,14 +205,8 @@ class MacroContext
       switch node.func.name
       case \try-finally
         node.args[2]?
-      case \try-catch, \if
+      case \try-catch
         node.args[3]?
-      case \switch
-        let args = node.args
-        if args.length %% 3
-          args[* - 1]?
-        else
-          false
       default
         false
     else
@@ -231,16 +223,12 @@ class MacroContext
     if node instanceof LispyNode
       if node.is-internal-call()
         switch node.func.name
-        case \break, \continue
+        case \break, \continue, \label
           return node.args[0]
         case \try-finally
           return node.args[2]
-        case \try-catch, \if
+        case \try-catch
           return node.args[3]
-        case \switch
-          let args = node.args
-          if args.length %% 3
-            return args[* - 1]
         default
           void
     null

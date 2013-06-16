@@ -600,16 +600,13 @@ let parse-switch(args)
     cases: []
   }
   let mutable len = args.length
-  let last-case-index = if len %% 3 then len - 2 else len - 1
-  if len %% 3
-    result.label := args[len - 1]
-  for i in 1 til last-case-index by 3
+  for i in 1 til len - 1 by 3
     result.cases.push {
       node: args[i]
       body: args[i + 1]
       fallthrough: args[i + 2]
     }
-  result.default-case := args[last-case-index]
+  result.default-case := args[len - 1]
   result
 
 let do-nothing() ->
@@ -1233,8 +1230,6 @@ let generator-translate = do
     
     switch: #(node, args, scope, state, , continue-state, unassigned)
       let data = parse-switch(args)
-      if data.label
-        throw Error "Not implemented: switch with label in generator"
       let g-topic = generator-translate-expression data.topic, scope, state, false // TODO: should this be true?
       let body-states = []
       let result-cases = []
@@ -1893,7 +1888,6 @@ let translate-lispy-internal =
   
   switch: #(node, args, scope, location, unassigned)
     let data = parse-switch(args)
-    let t-label = data.label and translate data.label, scope, \label
     let t-topic = translate data.topic, scope, \expression, unassigned
     let base-unassigned = unassigned and {} <<< unassigned
     let mutable current-unassigned = unassigned and {} <<< base-unassigned
@@ -1926,7 +1920,6 @@ let translate-lispy-internal =
               ast.Break case-body.pos]
           ast.Switch.Case(case_.pos, case-node, case-body)
         t-default-case()
-        t-label?()
   
   custom: #(node, args, scope, location, unassigned)
     // TODO: line numbers
