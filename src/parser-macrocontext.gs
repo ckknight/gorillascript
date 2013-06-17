@@ -27,7 +27,6 @@ let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 let TypeUnionNode = Node.TypeUnion
-let UnaryNode = Node.Unary
 
 let identity(x) -> x
 let ret-this() -> this
@@ -136,7 +135,10 @@ class MacroContext
     let result = for reduce right in nodes[1 to -1], left = @do-wrap(nodes[0])
       @parser.Binary(@index, left, op, @do-wrap(right))
     result.reduce(@parser)
-  def unary(op as String, node as Node = NothingNode(0, @scope())) -> @parser.Unary(@index, op, @do-wrap(node)).reduce(@parser)
+  def unary(op as String, node as Node = NothingNode(0, @scope()))
+    LispyNode.Call(@index, @scope()
+      LispyNode.Symbol.unary[op] @index
+      @do-wrap(node)).reduce(@parser)
   def throw(node as Node = NothingNode(0, @scope()))
     LispyNode.InternalCall(\throw, @index, @scope(),
       @do-wrap(node)).reduce(@parser)
@@ -536,11 +538,15 @@ class MacroContext
     node instanceof LispyNode and node.is-internal-call(\custom)
   def is-assign(node) -> @real(node) instanceof AssignNode
   def is-binary(node) -> @real(node) instanceof BinaryNode
-  def is-unary(node) -> @real(node) instanceof UnaryNode
+  def is-unary(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-unary-call()
   def op(mutable node)
     node := @real node
-    if @is-assign(node) or @is-binary(node) or @is-unary(node)
+    if @is-assign(node) or @is-binary(node)
       node.op
+    else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-operator
+      node.func
   def left(mutable node)
     node := @real node
     if @is-binary(node)
@@ -552,7 +558,7 @@ class MacroContext
   def unary-node(mutable node)
     node := @real node
     if @is-unary(node)
-      node.node
+      node.args[0]
 
   def is-access(mutable node)
     node := @real node
@@ -766,7 +772,7 @@ class MacroContext
     case \tmp
       LispyNode.Symbol.tmp(index, @scope(), args[0], args[1])
     case \operator
-      LispyNode.Symbol[args[0]](index, args[1])
+      LispyNode.Symbol[args[0]][args[1]](index)
   
   def make-lispy-call(from-position, func, ...args)
     let index = if from-position and is-number! from-position.index

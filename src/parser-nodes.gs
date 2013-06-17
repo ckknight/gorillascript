@@ -364,34 +364,42 @@ node-class BinaryNode(left as Node, op as String, right as Node)
           x
     let left-const-ops =
       "*": #(x, y)
+        let LispyNode = require('./parser-lispynodes')
         if x.const-value() == 1
-          UnaryNode @index, @scope, "+", y
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["+"] @index
+            y
         else if x.const-value() == -1
-          UnaryNode @index, @scope, "-", y
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["-"] @index
+            y
         else if x.const-value() is NaN
-          let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
             y
             x
       "/": left-const-nan
       "%": left-const-nan
       "+": #(x, y, o)
+        let LispyNode = require('./parser-lispynodes')
         if x.const-value() == 0 and y.type(o).is-subset-of(Type.number)
-          UnaryNode @index, @scope, "+", y
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["+"] @index
+            y
         else if x.const-value() == "" and y.type(o).is-subset-of(Type.string)
           y
         else if is-string! x.const-value() and y instanceof BinaryNode and y.op == "+" and y.left.is-const() and is-string! y.left.const-value()
           BinaryNode @index, @scope, LispyNode_Value(x.index, x.const-value() & y.left.const-value()), "+", y.right
         else if x.const-value() is NaN
-          let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
             y
             x
       "-": #(x, y)
+        let LispyNode = require('./parser-lispynodes')
         if x.const-value() == 0
-          UnaryNode @index, @scope, "-", y
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["-"] @index
+            y
         else if x.const-value() is NaN
-          let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
             y
             x
@@ -411,29 +419,40 @@ node-class BinaryNode(left as Node, op as String, right as Node)
           y
     let right-const-ops =
       "*": #(x, y)
+        let LispyNode = require('./parser-lispynodes')
         if y.const-value() == 1
-          UnaryNode @index, @scope, "+", x
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["+"] @index
+            x
         else if y.const-value() == -1
-          UnaryNode @index, @scope, "-", x
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["-"] @index
+            x
         else if y.const-value() is NaN
-          let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
             x
             y
       "/": #(x, y)
+        let LispyNode = require('./parser-lispynodes')
         if y.const-value() == 1
-          UnaryNode @index, @scope, "+", x
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["+"] @index
+            x
         else if y.const-value() == -1
-          UnaryNode @index, @scope, "-", x
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["-"] @index
+            x
         else if y.const-value() is NaN
-          let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
             x
             y
       "%": right-const-nan
       "+": #(x, y, o)
+        let LispyNode = require('./parser-lispynodes')
         if y.const-value() == 0 and x.type(o).is-subset-of(Type.number)
-          UnaryNode @index, @scope, "+", x
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["+"] @index
+            x
         else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
           BinaryNode @index, @scope, x, "-", LispyNode_Value(y.index, -y.const-value())
         else if y.const-value() == "" and x.type(o).is-subset-of(Type.string)
@@ -441,17 +460,18 @@ node-class BinaryNode(left as Node, op as String, right as Node)
         else if is-string! y.const-value() and x instanceof BinaryNode and x.op == "+" and x.right.is-const() and is-string! x.right.const-value()
           BinaryNode @index, @scope, x.left, "+", LispyNode_Value(x.right.index, x.right.const-value() & y.const-value())
         else if y.const-value() is NaN
-          let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
             x
             y
       "-": #(x, y, o)
+        let LispyNode = require('./parser-lispynodes')
         if y.const-value() == 0
-          UnaryNode @index, @scope, "+", x
+          LispyNode.Call @index, @scope,
+            LispyNode.Symbol.unary["+"] @index
+            x
         else if is-number! y.const-value() and y.const-value() < 0 and x.type(o).is-subset-of(Type.number)
           BinaryNode @index, @scope, x, "+", LispyNode_Value(y.index, -y.const-value())
         else if y.const-value() is NaN
-          let LispyNode = require('./parser-lispynodes')
           LispyNode.InternalCall \block, @index, @scope,
             x
             y
@@ -462,8 +482,9 @@ node-class BinaryNode(left as Node, op as String, right as Node)
       "|": right-const-nan
       "^": right-const-nan
     let remove-unary-plus(x, y)
-      let new-x = if x instanceof UnaryNode and x.op == "+" then x.node else x
-      let new-y = if y instanceof UnaryNode and y.op == "+" then y.node else y
+      let LispyNode = require('./parser-lispynodes')
+      let new-x = if x instanceof LispyNode and x.is-unary-call("+") then x.args[0] else x
+      let new-y = if y instanceof LispyNode and y.is-unary-call("+") then y.args[0] else y
       if x != new-x or y != new-y
         BinaryNode @index, @scope, new-x, @op, new-y
     let non-const-ops =
@@ -1045,94 +1066,5 @@ node-class TypeObjectNode(pairs as [])
     else
       this
 node-class TypeUnionNode(types as [Node] = [])
-node-class UnaryNode(op as String, node as Node)
-  def type = do
-    let ops =
-      "-": Type.number
-      "+": Type.number
-      "--": Type.number
-      "++": Type.number
-      "--post": Type.number
-      "++post": Type.number
-      "!": Type.boolean
-      "~": Type.number
-      typeof: Type.string
-      delete: Type.boolean
-    # -> ops![@op] or Type.any
-  def _reduce = do
-    let const-ops =
-      "-": #(x) -> ~-x
-      "+": #(x) -> ~+x
-      "!": (not)
-      "~": (~bitnot)
-      typeof: (typeof)
-    let nonconst-ops =
-      "+": #(node, o)
-        if node.type(o).is-subset-of Type.number
-          node
-      "-": #(node)
-        if node instanceof UnaryNode
-          if node.op in ["-", "+"]
-            UnaryNode @index, @scope, if node.op == "-" then "+" else "-", node.node
-        else if node instanceof BinaryNode
-          if node.op in ["-", "+"]
-            BinaryNode @index, @scope, UnaryNode(node.left.index, node.left.scope, "-", node.left), if node.op == "-" then "+" else "-", node.right
-          else if node.op in ["*", "/"]
-            BinaryNode @index, @scope, UnaryNode(node.left.index, node.left.scope, "-", node.left), node.op, node.right
-      "!": do
-        let invertible-binary-ops =
-          "<": ">="
-          "<=": ">"
-          ">": "<="
-          ">=": "<"
-          "==": "!="
-          "!=": "=="
-          "===": "!=="
-          "!==": "==="
-          "&&": #(x, y) -> BinaryNode @index, @scope, UnaryNode(x.index, x.scope, "!", x), "||", UnaryNode(y.index, y.scope, "!", y)
-          "||": #(x, y) -> BinaryNode @index, @scope, UnaryNode(x.index, x.scope, "!", x), "&&", UnaryNode(y.index, y.scope, "!", y)
-        #(node, o)
-          if node instanceof UnaryNode
-            if node.op == "!" and node.node.type(o).is-subset-of(Type.boolean)
-              node.node
-          else if node instanceof BinaryNode
-            if invertible-binary-ops ownskey node.op
-              let invert = invertible-binary-ops[node.op]
-              if is-function! invert
-                invert@ this, node.left, node.right
-              else
-                BinaryNode @index, @scope, node.left, invert, node.right
-      typeof: do
-        let object-type = Type.null.union(Type.object).union(Type.array-like).union(Type.regexp).union(Type.date).union(Type.error)
-        #(node, o)
-          if node.is-noop(o)
-            let type = node.type(o)
-            if type.is-subset-of(Type.number)
-              LispyNode_Value @index, \number
-            else if type.is-subset-of(Type.string)
-              LispyNode_Value @index, \string
-            else if type.is-subset-of(Type.boolean)
-              LispyNode_Value @index, \boolean
-            else if type.is-subset-of(Type.undefined)
-              LispyNode_Value @index, \undefined
-            else if type.is-subset-of(Type.function)
-              LispyNode_Value @index, \function
-            else if type.is-subset-of(object-type)
-              LispyNode_Value @index, \object
-    #(o)
-      let node = @node.reduce(o).do-wrap(o)
-      let op = @op
-      if node.is-const() and const-ops ownskey op
-        return LispyNode_Value @index, const-ops[op](node.const-value())
-      
-      let result = nonconst-ops![op]@ this, node, o
-      if result?
-        return result.reduce(o)
-      
-      if node != @node
-        UnaryNode @index, @scope, op, node
-      else
-        this
-  def _is-noop(o) -> @__is-noop ?= @op not in ["++", "--", "++post", "--post", "delete"] and @node.is-noop(o)
 
 module.exports := Node

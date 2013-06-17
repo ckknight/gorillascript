@@ -18,7 +18,7 @@ class Node extends OldNode
   def is-symbol = false
   def is-call = false
   
-  def is-noop() -> false
+  def is-noop
   def is-const() -> false
   def is-const-value() -> false
   def is-const-type() -> false
@@ -30,6 +30,9 @@ class Node extends OldNode
   def walk() -> this
   def walk-async(f, context, callback)! -> callback null, this
   def is-internal-call() -> false
+  def is-unary-call() -> false
+  def is-binary-call() -> false
+  def is-assign-call() -> false
 
 /**
  * Represents a constant primitive value such as a number, string, boolean,
@@ -43,7 +46,7 @@ class Value extends Node
   
   def cacheable = false
   def reduce() -> this
-  // FIXME: maybe get rid of this
+  def is-noop() -> true
   def const-value() -> @value
   def is-const() -> true
   def is-const-value(value) -> value == @value
@@ -77,6 +80,7 @@ class Symbol extends Node
   
   def is-symbol = true
   def node-type = \symbol
+  def is-noop() -> true
   def is-ident = false
   def is-tmp = false
   def is-ident-or-tmp = false
@@ -241,10 +245,10 @@ class Symbol extends Node
               child
           else
             call
-        /*
-        node-class AccessNode(parent as Node, child as Node)
-          def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
-        */
+        _is-noop: do
+          let cache = Cache<Call, Boolean>()
+          #(call, parser)
+            cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[1].is-noop(parser)
       }
       apply: {}
       array: {
@@ -270,10 +274,10 @@ class Symbol extends Node
         _literal-value(call)
           return for element in call.args
             element.literal-value()
-        /*
-        node-class ArrayNode(elements as [Node] = [])
-          def _is-noop(o) -> @__is-noop ?= for every element in @elements; element.is-noop(o)
-        */
+        _is-noop: do
+          let cache = Cache<Call, Boolean>()
+          #(call, parser)
+            cache-get-or-add! cache, call, for every element in call.args; element.is-noop(parser)
       }
       block: {
         _type: do
@@ -358,10 +362,10 @@ class Symbol extends Node
                 last-node
             else
               call
-        /*
-        node-class BlockNode(nodes as [Node] = [], label as IdentNode|TmpNode|null)
-          def _is-noop(o) -> @__is-noop ?= for every node in @nodes by -1; node.is-noop(o)
-        */
+        _is-noop: do
+          let cache = Cache<Call, Boolean>()
+          #(call, parser)
+            cache-get-or-add! cache, call, for every node in call.args; node.is-noop(parser)
       }
       break: {
         validate-args(label as OldNode|null, ...rest)
@@ -467,10 +471,10 @@ class Symbol extends Node
               when-false
           else
             call
-        /*
-        node-class IfNode(test as Node, when-true as Node, when-false as Node = NothingNode(0, scope), label as IdentNode|TmpNode|null)
-          def _is-noop(o) -> @__is-noop ?= @test.is-noop(o) and @when-true.is-noop(o) and @when-false.is-noop(o)
-        */
+        _is-noop: do
+          let cache = Cache<Call, Boolean>()
+          #(call, parser)
+            cache-get-or-add! cache, call, for every arg in call.args; arg.is-noop(parser)
       }
       label: {
         validate-args(label as OldNode, node as OldNode, ...rest)
@@ -480,11 +484,12 @@ class Symbol extends Node
       }
       macro-const: {}
       new: {}
-      noop: {
-        const-value: #-> void
+      nothing: {
+        const-value: # void
         is-const-type: (\undefined ==)
-        is-const: #-> true
+        is-const: # true
         is-const-value: (void ==)
+        is-noop: # true
       }
       object: {
         validate-args(prototype as OldNode, ...pairs)!
@@ -520,23 +525,10 @@ class Symbol extends Node
           for pair in call.args[1 to -1]
             result[pair.args[0].const-value()] := pair.args[1].literal-value()
           result
-        /*
-        node-class ObjectNode(pairs as [{ key: Node, value: Node, property: String|void }] = [], prototype as Node|void)
-          def _reduce(o)
-            let pairs = map @pairs, #(pair)
-              let key = pair.key.reduce(o)
-              let value = pair.value.reduce(o).do-wrap(o)
-              if key != pair.key or value != pair.value
-                { key, value, pair.property }
-              else
-                pair
-            let prototype = if @prototype? then @prototype.reduce(o) else @prototype
-            if pairs != @pairs or prototype != @prototype
-              ObjectNode @index, @scope, pairs, prototype
-            else
-              this
-          def _is-noop(o) -> @__is-noop ?= for every {key, value} in @pairs; key.is-noop(o) and value.is-noop(o)
-        */
+        _is-noop: do
+          let cache = Cache<Call, Boolean>()
+          #(call, parser)
+            cache-get-or-add! cache, call, for every arg in call.args; arg.is-noop(parser)
       }
       param: {}
       return: {
@@ -667,10 +659,8 @@ class Symbol extends Node
               ...call.args[1 to -1]
           else
             call
-        /*
-        node-class TmpWrapperNode(node as Node, tmps as [] = [])
-          def _is-noop(o) -> @node.is-noop(o)
-        */
+        _is-noop(call, parser)
+          call.args[0].is-noop(parser)
       }
       try-catch: {
         validate-args(try-body as OldNode, catch-ident as OldNode, catch-body as OldNode, ...rest)
@@ -692,6 +682,10 @@ class Symbol extends Node
               catch-body
           else
             call
+        _is-noop: do
+          let cache = Cache<Call, Boolean>()
+          #(call, parser)
+            cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[2].is-noop(parser)
       }
       try-finally: {
         validate-args(try-body as OldNode, finally-body as OldNode, ...rest)
@@ -709,22 +703,10 @@ class Symbol extends Node
               call.args[1]
           else
             call
-        /*
-        node-class TryFinallyNode(try-body as Node, finally-body as Node, label as IdentNode|TmpNode|null)
-          def _reduce(o)
-            let try-body = @try-body.reduce(o)
-            let finally-body = @finally-body.reduce(o)
-            let label = if @label? then @label.reduce(o) else @label
-            if finally-body instanceof NothingNode
-              BlockNode(@index, @scope-if [try-body], label).reduce(o)
-            else if try-body instanceof NothingNode
-              BlockNode(@index, @scope-if [finally-body], label).reduce(o)
-            else if try-body != @try-body or finally-body != @finally-body or label != @label
-              TryFinallyNode @index, @scope, try-body, finally-body, label
-            else
-              this
-          def _is-noop(o) -> @__is-noop ?= @try-body.is-noop(o) and @finally-body.is-noop()
-        */
+        _is-noop: do
+          let cache = Cache<Call, Boolean>()
+          #(call, parser)
+            cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[1].is-noop(parser)
       }
       write: {}
       var: {
@@ -744,7 +726,7 @@ class Symbol extends Node
         def constructor(@index as Number)
           @name := name
         
-        def display-name = "Symbol.$name"
+        @display-name := "Symbol.$name"
         
         def equals(other)
           other instanceof Symbol_name
@@ -809,18 +791,204 @@ class Symbol extends Node
       
       def equals(other)
         other instanceof BinaryOperator and @name == other.name
+  
+      def validate-args(left as OldNode, right as OldNode, ...rest)
+        if DEBUG and rest.length > 0
+          throw Error "Too many arguments to binary operator $(@name)"
     
     class UnaryOperator extends Operator
-      def constructor(@index as Number, @name as String) ->
+      def constructor()
+        throw Error "UnaryOperator is not meant to be instantiated directly"
       
       def is-unary = true
       def operator-type = \unary
       
       def inspect()
         "Symbol.unary[$(to-JS-source @name)]"
-    
-      def equals(other)
-        other instanceof UnaryOperator and @name == other.name
+      
+      def validate-args(node as OldNode, ...rest)
+        if DEBUG and rest.length > 0
+          throw Error "Too many arguments to unary operator $(@name)"
+      
+      let noop-unary(call, parser)
+        call.args[0].is-noop(parser)
+      
+      Symbol.unary := {
+        "+": class ToNumber extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = "+"
+          def _type() Type.number
+          def _is-noop = noop-unary
+          def __reduce(call, parser)
+            let node = call.args[0].reduce(parser)
+            if node.is-const()
+              Value call.index, ~+node.const-value()
+            else if node.type(parser).is-subset-of(Type.number)
+              node
+            else
+              call
+        
+        "-": class Negate extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = "-"
+          def _type() Type.number
+          def _is-noop = noop-unary
+          def __reduce(call, parser)
+            let node = call.args[0].reduce(parser)
+            if node.is-const()
+              Value call.index, ~-node.const-value()
+            else if node instanceof Node and node.is-call and node.func instanceofsome [ToNumber, Negate]
+              Call call.index, call.scope,
+                if node.func instanceof ToNumber
+                  Negate call.index
+                else
+                  ToNumber call.index
+                node.args[0]
+            else if node instanceof OldNode.Binary
+              if node.op in ["-", "+"]
+                OldNode.Binary @index, @scope,
+                  Call node.left.index, node.left.scope,
+                    Negate node.left.index
+                    node.left
+                  if node.op == "-" then "+" else "-"
+                  node.right
+              else if node.op in ["*", "/"]
+                OldNode.Binary @index, @scope,
+                  Call node.left.index, node.left.scope,
+                    Negate node.left.index
+                    node.left
+                  node.op
+                  node.right
+              else
+                call
+            else
+              call
+        
+        "++": class Increment extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = "++"
+          def _type() Type.number
+        
+        "--": class Decrement extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = "--"
+          def _type() Type.number
+        
+        "++post": class PostIncrement extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = "++post"
+          def _type() Type.number
+      
+        "--post": class PostDecrement extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = "--post"
+          def _type() Type.number
+      
+        "!": class Not extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = "!"
+          def _type() Type.boolean
+          def _is-noop = noop-unary
+        
+          let invertible-binary-ops =
+            "<": ">="
+            "<=": ">"
+            ">": "<="
+            ">=": "<"
+            "==": "!="
+            "!=": "=="
+            "===": "!=="
+            "!==": "==="
+            "&&": #(x, y) -> OldNode.Binary @index, @scope,
+              Call x.index, x.scope,
+                Not x.index
+                x
+              "||"
+              Call y.index, y.scope,
+                Not y.index
+                y
+            "||": #(x, y) -> OldNode.Binary @index, @scope,
+              Call x.index, x.scope,
+                Not x.index
+                x
+              "&&"
+              Call y.index, y.scope,
+                Not y.index
+                y
+          def __reduce(call, parser)
+            let node = call.args[0].reduce(parser)
+            if node.is-const()
+              Value call.index, not node.const-value()
+            else if node instanceof Not
+              if node.args[0].type(parser).is-subset-of(Type.boolean)
+                node.args[0]
+              else
+                call
+            else if node instanceof OldNode.Binary
+              if invertible-binary-ops ownskey node.op
+                let invert = invertible-binary-ops[node.op]
+                if is-function! invert
+                  invert@ this, node.left, node.right
+                else
+                  OldNode.Binary @index, @scope, node.left, invert, node.right
+              else
+                call
+            else
+              call
+      
+        "~": class BitwiseNot extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = "~"
+          def _type() Type.number
+          def _is-noop = noop-unary
+          def __reduce(call, parser)
+            let node = call.args[0].reduce(parser)
+            if node.is-const()
+              Value call.index, ~bitnot node.const-value()
+            else
+              call
+      
+        typeof: class Typeof extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = \typeof
+          def _type() Type.string
+          def _is-noop = noop-unary
+        
+          let object-type = Type.null
+            .union(Type.object)
+            .union(Type.array-like)
+            .union(Type.regexp)
+            .union(Type.date)
+            .union(Type.error)
+          def __reduce(call, parser)
+            let node = call.args[0].reduce(parser)
+            if node.is-const()
+              Value call.index, typeof node.const-value()
+            else if node.is-noop(parser)
+              let type = node.type(parser)
+              switch
+              case type.is-subset-of Type.number
+                Value call.index, \number
+              case type.is-subset-of Type.string
+                Value call.index, \string
+              case type.is-subset-of Type.boolean
+                Value call.index, \boolean
+              case type.is-subset-of Type.undefined
+                Value call.index, \undefined
+              case type.is-subset-of Type.function
+                Value call.index, \function
+              case type.is-subset-of object-type
+                Value call.index, \object
+              default
+                call
+            else
+              call
+      
+        delete: class Delete extends UnaryOperator
+          def constructor(@index as Number) ->
+          def name = \delete
+          def _type() Type.boolean
+      }
     
     class AssignOperator extends Operator
       def constructor(@index as Number, @name as String) ->
@@ -833,6 +1001,10 @@ class Symbol extends Node
       
       def equals(other)
         other instanceof AssignOperator and @name == other.name
+    
+      def validate-args(left as OldNode, right as OldNode, ...rest)
+        if DEBUG and rest.length > 0
+          throw Error "Too many arguments to assign operator $(@name)"
     
     let binary-operators = [
       "*"
@@ -863,23 +1035,6 @@ class Symbol extends Node
     for name in binary-operators
       Symbol.binary[name] := #(index)
         BinaryOperator index, name
-    
-    let unary-operators = [
-      "-"
-      "+"
-      "--"
-      "++"
-      "--post"
-      "++post"
-      "!"
-      "~"
-      "typeof"
-      "delete"
-    ]
-    Symbol.unary := {}
-    for name in unary-operators
-      Symbol.unary[name] := #(index)
-        UnaryOperator index, name
     
     let assign-operators = [
       "="
@@ -985,6 +1140,13 @@ class Call extends Node
     else
       super.literal-value()
   
+  def is-noop(parser)
+    let self = @reduce(parser)
+    if is-function! self.func._is-noop
+      self.func._is-noop(self, parser)
+    else
+      false
+  
   def is-statement()
     if is-function! @func._is-statement
       @func._is-statement(this)
@@ -1016,16 +1178,40 @@ class Call extends Node
     else
       super.with-label(label, parser)
   
+  let is-name-match(name, args)
+    switch args.length
+    case 0
+      true
+    case 1
+      name == args[0]
+    default
+      name in args
+  
   def is-internal-call()
     let func = @func
     if func.is-symbol and func.is-internal
-      switch arguments.length
-      case 0
-        true
-      case 1
-        func.name == arguments[0]
-      default
-        func.name in arguments
+      is-name-match func.name, arguments
+    else
+      false
+  
+  def is-unary-call()
+    let func = @func
+    if func.is-symbol and func.is-operator and func.is-unary
+      is-name-match func.name, arguments
+    else
+      false
+  
+  def is-binary-call()
+    let func = @func
+    if func.is-symbol and func.is-operator and func.is-binary
+      is-name-match func.name, arguments
+    else
+      false
+  
+  def is-assign-call()
+    let func = @func
+    if func.is-symbol and func.is-operator and func.is-assign
+      is-name-match func.name, arguments
     else
       false
 

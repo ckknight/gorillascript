@@ -41,7 +41,6 @@ let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 let TypeUnionNode = Node.TypeUnion
-let UnaryNode = Node.Unary
 
 class ParserError extends Error
   def constructor(mutable @message as String = "", parser as Parser|null, @index as Number = 0)
@@ -3853,7 +3852,9 @@ let convert-invocation-or-access = do
             head := tmp
         let result = LInternalCall \if, index, parser.scope.peek(),
           parser.Binary index,
-            parser.Unary index, \typeof, set-head
+            LCall index, parser.scope.peek(),
+              LSymbol.unary.typeof index
+              set-head
             "==="
             LValue index, \function
           convert-call-chain parser, index,
@@ -5495,7 +5496,9 @@ class Parser
           #(args, ...rest)
             let result = inner@ this, reduce-object(@parser, args), ...rest
             if args.inverted
-              UnaryNode(result.index, result.scope, "!", result).reduce(@parser)
+              LCall(result.index, result.scope,
+                LSymbol.unary["!"] result.index
+                result).reduce(@parser)
             else
               result.reduce(@parser)
       else
@@ -5639,7 +5642,9 @@ class Parser
           #(args, ...rest)
             let result = inner@ this, reduce-object(@parser, args), ...rest
             if args.inverted
-              UnaryNode(result.index, result.scope, "!", result).reduce(@parser)
+              LCall(result.index, result.scope,
+                LSymbol.unary["!"] result.index
+                result).reduce(@parser)
             else
               result.reduce(@parser)
       else
@@ -6037,8 +6042,7 @@ for node-type in [
       'TypeFunction',
       'TypeGeneric',
       'TypeObject',
-      'TypeUnion',
-      'Unary' ]
+      'TypeUnion' ]
   Parser.add-node-factory node-type, Node[node-type]
 Parser::string := Node.string
 Parser::array-param := Parser::array

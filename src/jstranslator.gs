@@ -918,13 +918,6 @@ let generator-translate = do
                   ast.Const get-pos(node), void
                 args
               ]
-    
-    [ParserNodeType.Unary]: #(node, scope, state, assign-to, unassigned)
-      let g-node = generator-translate-expression node.node, scope, state, false, unassigned
-      handle-assign assign-to, scope, g-node.state, #-> first!(
-        ast.Unary get-pos(node),
-          node.op
-          first!(g-node.t-node(), g-node.cleanup()))
   
   let generator-translate-expression-lispy-internals =
     access: #(node, args, scope, state, assign-to, unassigned)
@@ -996,17 +989,31 @@ let generator-translate = do
           state := generator-translate subnode, scope, state, null, null, unassigned
       throw Error "Unreachable state"
   
+  let generator-translate-expression-lispy-operators =
+    unary: #(node, args, scope, state, assign-to, unassigned)
+      let g-node = generator-translate-expression args[0], scope, state, false, unassigned
+      handle-assign assign-to, scope, g-node.state, #-> first!(
+        ast.Unary get-pos(node),
+          node.func.name
+          first!(g-node.t-node(), g-node.cleanup()))
+  
   let generator-translate-expression-lispy(node as LispyNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     switch
     case node.is-call
       let {func, args} = node
-      if func.is-internal
-        let name = func.name
-        if generator-translate-expression-lispy-internals not ownskey name
-          throw Error "Unable to translate internal call for '$name'"
-        generator-translate-expression-lispy-internals[name] node, args, scope, state, assign-to, unassigned  
-      else
-        throw Error "wat"
+      switch
+      case func.is-symbol
+        switch
+        case func.is-internal
+          let name = func.name
+          if generator-translate-expression-lispy-internals not ownskey name
+            throw Error "Unable to translate internal call for '$name'"
+          generator-translate-expression-lispy-internals[name] node, args, scope, state, assign-to, unassigned
+        case func.is-operator
+          let name = func.operator-type
+          if generator-translate-expression-lispy-operators not ownskey name
+            throw Error "Unable to translate operator call for '$name'"
+          generator-translate-expression-lispy-operators[name] node, args, scope, state, assign-to, unassigned
   
   let generator-translate-expression(node as ParserNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     if state.has-generator-node node
@@ -1656,12 +1663,6 @@ let translators =
     let ident = scope.get-tmp(get-pos(node), node.id, node.name, node.type())
     # -> ident
 
-  [ParserNodeType.Unary]: #(node, scope, location, unassigned)
-    if unassigned and node.op in ["++", "--", "++post", "--post"] and node.node instanceof ParserNode.Ident
-      unassigned[node.node.name] := false
-    let t-subnode = translate node.node, scope, \expression, unassigned
-    #-> ast.Unary get-pos(node), node.op, t-subnode()
-
 let translate-lispy-internal =
   access: #(node, args, scope, location, unassigned)
     let t-parent = translate args[0], scope, \expression, unassigned
@@ -1934,6 +1935,14 @@ let translate-lispy-internal =
       scope.release-tmp tmp.const-value()
     t-result
 
+let translate-lispy-operator =
+  unary: #(node, args, scope, location, unassigned)
+    let op-name = node.func.name
+    if unassigned and op-name in ["++", "--", "++post", "--post"] and args[0] instanceof ParserNode.Ident
+      unassigned[args[0].name] := false
+    let t-subnode = translate args[0], scope, \expression, unassigned
+    # ast.Unary get-pos(node), op-name, t-subnode()
+
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch
   case node.is-value
@@ -1951,13 +1960,19 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
           ast.This get-pos(node)
   case node.is-call
     let {func, args} = node
-    if func.is-symbol and func.is-internal
-      let name = func.name
-      if translate-lispy-internal not ownskey name
-        throw Error "Unable to translate internal call '$name'"
-      translate-lispy-internal[name] node, args, scope, location, unassigned
-    else
-      throw Error "wat"
+    switch
+    case func.is-symbol
+      switch
+      case func.is-internal
+        let name = func.name
+        if translate-lispy-internal not ownskey name
+          throw Error "Unable to translate internal call '$name'"
+        translate-lispy-internal[name] node, args, scope, location, unassigned
+      case func.is-operator
+        let name = func.operator-type
+        if translate-lispy-operator not ownskey name
+          throw Error "Unable to translate operator call '$name'"
+        translate-lispy-operator[name] node, args, scope, location, unassigned
 
 let translate(node as Object, scope as Scope, location as String, unassigned)
   if node instanceof LispyNode
