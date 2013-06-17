@@ -8,7 +8,6 @@ let {node-to-type, add-param-to-scope} = require './parser-utils'
 
 let AssignNode = Node.Assign
 let CallNode = Node.Call
-let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess

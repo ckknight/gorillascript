@@ -22,7 +22,6 @@ const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
 let AssignNode = Node.Assign
 let CallNode = Node.Call
-let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
@@ -4580,7 +4579,9 @@ let EmbeddedReadLiteralText(parser, index)
   let mutable text = codes-to-string(codes)
   if parser.options.embedded-unpretty
     text := unpretty-text(text)
-  Box current-index, parser.EmbedWrite index, LValue(index, text), false
+  Box current-index, LInternalCall \embed-write, index, parser.scope.peek(),
+    LValue index, text
+    LValue index, false
 
 define EmbeddedOpenComment = make-embedded-rule \embedded-open-comment, EMBED_OPEN_COMMENT_DEFAULT
 let EmbeddedCloseComment = make-embedded-rule \embedded-close-comment, EMBED_CLOSE_COMMENT_DEFAULT
@@ -4636,7 +4637,9 @@ let EmbeddedWriteExpression = disallow-embedded-text sequential(
   EmbeddedOpenWrite
   [\this, Expression]
   EmbeddedCloseWrite) |> mutate #(node, parser, index)
-  parser.EmbedWrite index, node, true
+  LInternalCall \embed-write, index, parser.scope.peek(),
+    node
+    LValue index, true
 
 let EmbeddedLiteralTextInnerPart = one-of(
   EmbeddedComment
@@ -6023,7 +6026,6 @@ for node-type in [
       'Block',
       'Call',
       'Custom',
-      'EmbedWrite',
       'Function',
       'Ident',
       'MacroAccess',

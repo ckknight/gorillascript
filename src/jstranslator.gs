@@ -1036,28 +1036,6 @@ let generator-translate = do
     else
       expressions ownskey node.type-id
   
-  let statements =
-    [ParserNodeType.EmbedWrite]: #(node, scope, mutable state, break-state, continue-state, unassigned)
-      let g-text = if is-expression node.text
-        generator-translate-expression node.text, scope, state, false, unassigned
-      else
-        {
-          state: generator-translate node.text, scope, state, break-state, continue-state, unassigned
-          t-node: #-> ast.Noop get-pos(node.text)
-          cleanup: #->
-        }
-      
-      g-text.state.add #
-        ast.Call get-pos(node),
-          ast.Ident get-pos(node), \write
-          [
-            first!(g-text.t-node(), g-text.cleanup())
-            ...if node.escape
-              [ast.Const get-pos(node), true]
-            else
-              []
-          ]
-  
   let generator-translate-lispy-internals =
     block: #(node, args, scope, state, break-state, continue-state, unassigned, is-top)
       for reduce subnode, i, len in args, acc = state
@@ -1080,6 +1058,27 @@ let generator-translate = do
     
       state.goto get-pos(node), continue-state
       state
+    
+    embed-write: #(node, args, scope, mutable state, break-state, continue-state, unassigned)
+      let g-text = if is-expression args[0]
+        generator-translate-expression args[0], scope, state, false, unassigned
+      else
+        {
+          state: generator-translate args[0], scope, state, break-state, continue-state, unassigned
+          t-node: #-> ast.Noop get-pos(args[0])
+          cleanup: #->
+        }
+      
+      g-text.state.add #
+        ast.Call get-pos(node),
+          ast.Ident get-pos(node), \write
+          [
+            first!(g-text.t-node(), g-text.cleanup())
+            ...(if args[1].const-value()
+              [ast.Const get-pos(node), true]
+            else
+              [])
+          ]
     
     throw: #(node, args, scope, state)
       let g-node = generator-translate-expression args[0], scope, state, false
@@ -1294,17 +1293,10 @@ let generator-translate = do
     if state.has-generator-node node
       if node instanceof LispyNode
         return generator-translate-lispy(node, scope, state, break-state, continue-state, unassigned, is-top)
-      let key = node.type-id
-      if statements ownskey key
-        let ret = statements[key](node, scope, state, break-state, continue-state, unassigned, is-top)
-        if ret not instanceof GeneratorState
-          throw Error "Translated non-GeneratorState from $(typeof! node): $(typeof! ret)"
-        ret
-      else
-        let ret = generator-translate-expression node, scope, state
-        ret.state.add #-> first!(
-          ret.t-node()
-          ret.cleanup())
+      let ret = generator-translate-expression node, scope, state
+      ret.state.add #-> first!(
+        ret.t-node()
+        ret.cleanup())
     else
       state.add translate node, scope, if is-top then \top-statement else \statement, unassigned
 
@@ -1452,30 +1444,6 @@ let translators =
             ast.Access get-pos(node), func, \apply
             [ast.Const(get-pos(node), void), arg-array]
   
-  [ParserNodeType.EmbedWrite]: #(node, scope, location, unassigned)
-    let wrapped = if node.text.is-statement()
-      let inner-scope = node.text.scope.clone()
-      ParserNode.Call node.text.index, node.text.scope,
-        ParserNode.Function node.text.index, inner-scope,
-          []
-          node.text.rescope(inner-scope)
-          true
-          true
-        []
-    else
-      node.text
-    let t-text = translate wrapped, scope, \expression, unassigned
-    #
-      ast.Call get-pos(node),
-        ast.Ident get-pos(node), \write
-        [
-          t-text()
-          ...if node.escape
-            [ast.Const get-pos(node), true]
-          else
-            []
-        ]
-
   [ParserNodeType.Function]: do
     let primitive-types = {
       Boolean: \boolean
@@ -1684,6 +1652,30 @@ let translate-lispy-internal =
   
   debugger: #(node)
     # ast.Debugger get-pos(node)
+  
+  embed-write: #(node, args, scope, location, unassigned)
+    let wrapped = if args[0].is-statement()
+      let inner-scope = args[0].scope.clone()
+      ParserNode.Call args[0].index, args[0].scope,
+        ParserNode.Function args[0].index, inner-scope,
+          []
+          args[0].rescope(inner-scope)
+          true
+          true
+        []
+    else
+      args[0]
+    let t-text = translate wrapped, scope, \expression, unassigned
+    #
+      ast.Call get-pos(node),
+        ast.Ident get-pos(node), \write
+        [
+          t-text()
+          ...(if args[1].const-value()
+            [ast.Const get-pos(node), true]
+          else
+            [])
+        ]
   
   throw: #(node, args, scope, location, unassigned)
     let t-node = translate args[0], scope, \expression, unassigned

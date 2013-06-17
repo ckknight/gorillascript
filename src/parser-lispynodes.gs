@@ -395,6 +395,11 @@ class Symbol extends Node
             throw Error "Too many arguments to debugger"
         +used-as-statement
       }
+      embed-write: {
+        validate-args(text as OldNode, escape as Value, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to embed-write"
+      }
       for: {
         validate-args(init as OldNode, test as OldNode, step as OldNode, body as OldNode, ...rest)
           if DEBUG and rest.length > 0

@@ -7,7 +7,6 @@ const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 const ParserNodeType = {
   Assign:          5
   Call:            9
-  EmbedWrite:     16
   Function:       20
   Ident:          21
   MacroAccess:    23
