@@ -660,26 +660,6 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in
       MacroAccessNode @index, @scope, @id, @call-line, @data, @in-statement, @in-generator, @in-evil-ast, true
   def mutate-last(o, func, context, include-noop)
     o.macro-expand-1(this).mutate-last(o, func, context, include-noop)
-node-class MacroConstNode(name as String)
-  def type(o) -> @_type ?=
-    let c = o.get-const(@name)
-    if not c
-      Type.any
-    else
-      let value = c.value
-      if is-null! value
-        Type.null
-      else
-        switch typeof value
-        case \number; Type.number
-        case \string; Type.string
-        case \boolean; Type.boolean
-        case \undefined; Type.undefined
-        default
-          throw Error("Unknown type for $(String c.value)")
-  def _is-noop(o) -> true
-  def to-const(o)
-    LispyNode_Value @index, o.get-const(@name)?.value
 node-class NothingNode
   def type() -> Type.undefined
   def cacheable = false

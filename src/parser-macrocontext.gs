@@ -10,7 +10,6 @@ let CallNode = Node.Call
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
-let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ParamNode = Node.Param
 let SuperNode = Node.Super
@@ -678,12 +677,6 @@ class MacroContext
         [
           arg
         ]
-    else if obj instanceof MacroConstNode
-      CallNode obj.index, scope,
-        IdentNode obj.index, scope, \__const
-        [
-          LispyNode.Value obj.index, obj.name
-        ]
     else if obj instanceof LispyNode
       switch obj.node-type
       case \value
@@ -723,14 +716,19 @@ class MacroContext
               ])
           ]
       case \call
-        CallNode obj.index, scope,
-          IdentNode obj.index, scope, \__call
-          [
-            position or LispyNode.Value obj.index, void
-            constify-object position, obj.func, index, scope
-            ...(for arg in obj.args
-              constify-object position, arg, index, scope)
-          ]
+        if obj.is-internal-call(\macro-const)
+          CallNode obj.index, scope,
+            IdentNode obj.index, scope, \__const
+            obj.args
+        else
+          CallNode obj.index, scope,
+            IdentNode obj.index, scope, \__call
+            [
+              position or LispyNode.Value obj.index, void
+              constify-object position, obj.func, index, scope
+              ...(for arg in obj.args
+                constify-object position, arg, index, scope)
+            ]
     else if obj instanceof Node
       if obj.constructor == Node
         throw Error "Cannot constify a raw node"

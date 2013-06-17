@@ -490,7 +490,36 @@ class Symbol extends Node
             throw Error "Too many arguments to label"
         +used-as-statement
       }
-      macro-const: {}
+      macro-const: {
+        validate-args(name as Value, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to macro-const"
+        _type: do
+          let cache = Cache<Call, Type>()
+          #(call, parser)
+            cache-get-or-add! cache, call, do
+              let c = o.get-const(call.args[0].const-value())
+              if not c
+                Type.any
+              else
+                let value = c.value
+                if is-null! value
+                  Type.null
+                else
+                  switch typeof value
+                  case \number; Type.number
+                  case \string; Type.string
+                  case \boolean; Type.boolean
+                  case \undefined; Type.undefined
+                  default
+                    throw Error("Unknown type for $(String c.value)")
+        _is-noop() true
+        /*
+        node-class MacroConstNode(name as String)
+          def to-const(o)
+            LispyNode_Value @index, o.get-const(@name)?.value
+        */
+      }
       new: {}
       nothing: {
         const-value: # void

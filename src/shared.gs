@@ -9,7 +9,6 @@ const ParserNodeType = {
   Function:       20
   Ident:          21
   MacroAccess:    23
-  MacroConst:     24
   Nothing:        25
   Param:          27
   Super:          32

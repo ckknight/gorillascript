@@ -24,7 +24,6 @@ let CallNode = Node.Call
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
-let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ParamNode = Node.Param
 let SuperNode = Node.Super
@@ -2703,7 +2702,7 @@ let CustomConstantLiteral(parser, index)
     return
   
   if parser.in-ast.peek()
-    Box name.index, parser.MacroConst index, name.value
+    Box name.index, LInternalCall \macro-const, index, parser.scope.peek(), LValue index, name.value
   else
     let mutable current = value.value
     let mutable current-index = name.index
@@ -6088,7 +6087,6 @@ for node-type in [
       'Function',
       'Ident',
       'MacroAccess',
-      'MacroConst',
       'Nothing',
       'Param',
       'Root',
