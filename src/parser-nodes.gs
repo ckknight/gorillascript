@@ -694,8 +694,6 @@ node-class NothingNode
     else
       this
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
-node-class RootNode(file as String|void, body as Node, is-embedded as Boolean, is-generator as Boolean)
-  def is-statement() -> true
 node-class SuperNode(child as Node|void, args as [Node] = [])
   def _reduce(o)
     let child = if @child? then @child.reduce(o).do-wrap(o) else @child

@@ -547,6 +547,9 @@ class Symbol extends Node
         +used-as-statement
       }
       root: {
+        validate-args(file as Value, body as OldNode, is-embedded as Value, is-generator as Value, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to return"
         +used-as-statement
       }
       spread: {

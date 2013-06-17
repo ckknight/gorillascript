@@ -2014,7 +2014,7 @@ let translate-function-body(pos, is-generator, scope, body, unassigned = {})
 
 let make-get-pos(get-position as ->) #(node as ParserNode)
   let pos = get-position(node.index)
-  make-pos(pos.line, pos.column, node.file)
+  make-pos(pos.line, pos.column)
 
 let propagate-filenames(node)
   let file = node.pos.file
@@ -2083,13 +2083,23 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
   
   let mutable body = if roots.length == 1
     get-pos := make-get-pos get-position[0]
-    if roots[0] not instanceof ParserNode.Root
+    let root = roots[0]
+    if root not instanceof LispyNode or not root.is-internal-call(\root)
       throw Error "Cannot translate non-Root object"
     
-    if roots[0].is-generator
+    let is-generator = root.args[3].const-value()
+    if is-generator
       inner-scope := inner-scope.clone(true)
-    let root-pos = get-pos(roots[0])
-    let ret = translate-function-body(root-pos, roots[0].is-generator, inner-scope, if scope.options.return or scope.options.eval then LispyNode.InternalCall(\return, roots[0].body.index, roots[0].body.scope, roots[0].body) else roots[0].body)
+    let root-pos = get-pos(root)
+    root-pos.file := root.args[0].const-value()
+    let mutable root-body = root.args[1]
+    if scope.options.return or scope.options.eval
+      root-body := LispyNode.InternalCall \return, root-body.index, root-body.scope, root-body
+    let ret = translate-function-body(
+      root-pos
+      is-generator
+      inner-scope
+      root-body)
     ret.body.pos.file or= root-pos.file
     get-pos := null
     handle-embedded ret.body, ret.wrap, inner-scope
@@ -2097,12 +2107,14 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
     ast.Block no-pos,
       for root, i in roots
         get-pos := make-get-pos get-position[i]
-        if root not instanceof ParserNode.Root
+        if root not instanceof LispyNode or not root.is-internal-call(\root)
           throw Error "Cannot translate non-Root object"
-        let body-scope = inner-scope.clone(root.is-generator)
-        let ret = translate-function-body(get-pos(root), root.is-generator, body-scope, root.body)
-        ret.body.pos.file or= root-pos.file
+        let is-generator = root.args[3].const-value()
+        let body-scope = inner-scope.clone(is-generator)
+        let ret = translate-function-body(get-pos(root), is-generator, body-scope, root.args[1])
         let root-pos = get-pos(root)
+        root-pos.file := root.args[0].const-value()
+        ret.body.pos.file or= root-pos.file
         get-pos := null
         let {comments, body: root-body} = split-comments ret.body
         ast.Block root-pos, [

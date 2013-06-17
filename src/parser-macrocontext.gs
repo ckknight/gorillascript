@@ -13,7 +13,6 @@ let MacroAccessNode = Node.MacroAccess
 let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ParamNode = Node.Param
-let RootNode = Node.Root
 let SuperNode = Node.Super
 let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany

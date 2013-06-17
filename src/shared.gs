@@ -12,7 +12,6 @@ const ParserNodeType = {
   MacroConst:     24
   Nothing:        25
   Param:          27
-  Root:           30
   Super:          32
   SyntaxChoice:   34
   SyntaxMany:     35

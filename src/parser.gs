@@ -27,7 +27,6 @@ let MacroAccessNode = Node.MacroAccess
 let MacroConstNode = Node.MacroConst
 let NothingNode = Node.Nothing
 let ParamNode = Node.Param
-let RootNode = Node.Root
 let SuperNode = Node.Super
 let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
@@ -4877,7 +4876,11 @@ let RootP = promise! #(parser as Parser)*
     throw ParserError "Cannot use the import statement if not compiling from a file", parser, empty.index
   empty := EmptyLines parser, imports.index
   if Eof parser, empty.index
-    return Box empty.index, parser.Root empty.index, parser.options.filename, parser.Nothing empty.index
+    return Box empty.index, LInternalCall \root, empty.index, parser.scope.peek(),
+      LValue empty.index, parser.options.filename or null
+      parser.Nothing empty.index
+      LValue empty.index, false
+      LValue empty.index, false
   for import-file in imports.value
     parser.clear-cache()
     if parser.options.sync
@@ -4892,7 +4895,11 @@ let RootP = promise! #(parser as Parser)*
   let empty-again = EmptyLines parser, root.index
   let end-space = Space parser, empty-again.index
   parser.clear-cache()
-  return Box end-space.index, parser.Root empty.index, parser.options.filename, root.value
+  Box end-space.index, LInternalCall \root, empty.index, parser.scope.peek(),
+    LValue empty.index, parser.options.filename or null
+    root.value
+    LValue empty.index, false
+    LValue empty.index, false
 
 let EmbeddedRootP = promise! #(parser as Parser)*
   let bom = BOM parser, 0
@@ -4902,7 +4909,11 @@ let EmbeddedRootP = promise! #(parser as Parser)*
   parser.clear-cache()
   if not root
     return
-  return Box root.index, parser.Root 0, parser.options.filename, root.value, true, parser.in-generator.peek()
+  return Box root.index, LInternalCall \root, shebang.index, parser.scope.peek(),
+    LValue shebang.index, parser.options.filename or null
+    root.value
+    LValue shebang.index, true
+    LValue shebang.index, parser.in-generator.peek()
 
 let EmbeddedRootGeneratorP = promise! #(parser as Parser)*
   parser.in-generator.push true
@@ -5194,7 +5205,8 @@ class Parser
       obj
   
   let make-macro-root(index, params, body)
-    @Root index, void,
+    LInternalCall \root, index, @scope.peek(),
+      LValue index, null
       LInternalCall \return, index, @scope.peek(),
         @Function(index
           [
@@ -5209,6 +5221,8 @@ class Parser
           body
           true
           false)
+      LValue index, false
+      LValue index, false
   
   let serialize-param-type(as-type)
     if as-type instanceof IdentNode
