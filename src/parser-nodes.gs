@@ -13,8 +13,9 @@ let simplify-array(mutable array as [])
     array
   else
     array := array.slice()
+    let LispyNode = require('./parser-lispynodes')
     for item, i in array by -1
-      if not item or item instanceof NothingNode or item.length == 0
+      if not item or (item instanceof LispyNode and item.is-symbol and item.is-internal and item.is-nothing) or item.length == 0
         array.pop()
       else
         break
@@ -91,7 +92,7 @@ let inspect-helper(depth, name, index, ...args)
   let d = if depth? then depth - 1 else null
   let mutable found = false
   for arg in args by -1
-    if not arg or arg instanceof NothingNode or (is-array! arg and arg.length == 0)
+    if not arg or (arg instanceof LispyNode and arg.is-symbol and arg.is-internal and arg.is-nothing) or (is-array! arg and arg.length == 0)
       args.pop()
     else
       break
@@ -660,19 +661,6 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in
       MacroAccessNode @index, @scope, @id, @call-line, @data, @in-statement, @in-generator, @in-evil-ast, true
   def mutate-last(o, func, context, include-noop)
     o.macro-expand-1(this).mutate-last(o, func, context, include-noop)
-node-class NothingNode
-  def type() -> Type.undefined
-  def cacheable = false
-  def is-const() -> true
-  def const-value() -> void
-  def is-const-type(type) -> type == \undefined
-  def is-const-value(value) -> value == void
-  def _is-noop() -> true
-  def mutate-last(o, func, context, include-noop)
-    if include-noop
-      func@(context, this) ? this
-    else
-      this
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
 node-class SuperNode(child as Node|void, args as [Node] = [])
   def _reduce(o)

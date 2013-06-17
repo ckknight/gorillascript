@@ -24,7 +24,6 @@ let CallNode = Node.Call
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
-let NothingNode = Node.Nothing
 let ParamNode = Node.Param
 let SuperNode = Node.Super
 let SyntaxChoiceNode = Node.SyntaxChoice
@@ -36,6 +35,9 @@ let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 let TypeUnionNode = Node.TypeUnion
+
+let is-nothing(node)
+  node instanceof LSymbol.nothing
 
 class ParserError extends Error
   def constructor(mutable @message as String = "", parser as Parser|null, @index as Number = 0)
@@ -1841,7 +1843,7 @@ define NameStart = one-of Letter, Underscore, DollarSignChar
 define NameChar = one-of NameStart, NumberChar
 define NamePart = one-or-more NameChar
 
-define Nothing(parser, index) -> Box index, parser.Nothing index
+define Nothing(parser, index) -> Box index, LSymbol.nothing index
 // these will be redefined later, which is why they're calling themselves (their future versions)
 let mutable Expression = #(parser, index) -> Expression(parser, index)
 let mutable Statement = #(parser, index) -> Statement(parser, index)
@@ -2407,7 +2409,7 @@ let double-string-literal-handler = #(parts, parser, index)
   for part in parts
     if is-number! part
       current-literal.push part
-    else if part not instanceof NothingNode
+    else if not is-nothing(part)
       string-parts.push LValue index, codes-to-string(current-literal)
       current-literal := []
       string-parts.push part
@@ -2500,7 +2502,7 @@ let TripleDoubleStringLine = zero-or-more-of(
   for part in parts
     if is-number! part
       current-literal.push part
-    else if part not instanceof NothingNode
+    else if not is-nothing(part)
       if current-literal.length > 0
         string-parts.push codes-to-string(current-literal)
         current-literal := []
@@ -2656,7 +2658,7 @@ let RegexLiteral = do
     for part in text
       if is-number! part
         current-literal.push part
-      else if part != NOTHING and part not instanceof NothingNode
+      else if part != NOTHING and not is-nothing(part)
         if current-literal.length > 0
           string-parts.push LValue index, codes-to-string(current-literal)
           current-literal := []
@@ -2973,7 +2975,7 @@ let validate-spread-parameters(params, parser)
 let remove-trailing-nothings(array as [])
   while array.length
     let last = array[* - 1]
-    if last not instanceof NothingNode
+    if not is-nothing(last)
       break
     array.pop()
   array
@@ -3054,7 +3056,7 @@ let make-object-node(parser, index, prototype, pairs)
     else
       last-property-pair := null
   LInternalCall \object, index, parser.scope.peek(),
-    prototype or NothingNode index, parser.scope.peek()
+    prototype or LSymbol.nothing index
     ...(for {key, value, property} in pairs
       LInternalCall \array, key.index, parser.scope.peek(),
         key
@@ -3074,7 +3076,7 @@ let ObjectParameter = sequential(
   EmptyLines
   CloseCurlyBrace) |> mutate #(params, parser, index)
   make-object-node parser, index,
-    parser.Nothing index
+    LSymbol.nothing index
     (for filter param in params; param)
 
 Parameter := one-of(
@@ -3120,7 +3122,7 @@ let ParameterSequence = sequential(
           check-param pair.args[1], parser, names
       else
         throw Error "Unknown param type: $(typeof! param)"
-    else if not param instanceof NothingNode
+    else if not is-nothing(param)
       throw Error "Unknown param type: $(typeof! param)"
   #(params, parser, index)
     let names = []
@@ -3284,7 +3286,7 @@ define UnclosedObjectLiteral = separated-list(
   PropertyOrDualObjectKey
   Comma) |> mutate #(pairs, parser, index)
   make-object-node parser, index,
-    parser.Nothing index
+    LSymbol.nothing index
     pairs
 
 define IdentifierOrAccess(parser, index)
@@ -3400,7 +3402,7 @@ define MapLiteral = sequential(
   construct-map.func {
     op: ""
     node: make-object-node parser, index,
-      parser.Nothing index
+      LSymbol.nothing index
       pairs
   }, parser, index
 
@@ -3583,7 +3585,7 @@ define IndentedUnclosedObjectLiteralInner = separated-list(
   PropertyOrDualObjectKey
   CommaOrSomeEmptyLinesWithCheckIndent) |> mutate #(pairs, parser, index)
   make-object-node parser, index,
-    parser.Nothing index
+    LSymbol.nothing index
     pairs
 
 define UnclosedObjectLiteralsAllowed(parser, index) -> if not parser.prevent-unclosed-object-literal.peek() then Box index
@@ -3782,7 +3784,7 @@ let convert-invocation-or-access = do
                   right: set-child
                 }, parser, index
             convert-call-chain(parser, index, bind-access(head, child), link-index + 1, links)
-            parser.Nothing index
+            LSymbol.nothing index
           if tmp-ids.length
             LInternalCall \tmp-wrapper, index, result.scope,
               result
@@ -3819,7 +3821,7 @@ let convert-invocation-or-access = do
                 node: set-head
               }, parser, index
               convert-call-chain parser, index, make-access(head), link-index + 1, links
-              parser.Nothing index
+              LSymbol.nothing index
             if tmp-ids.length
               LInternalCall \tmp-wrapper, index, result.scope,
                 result
@@ -3877,7 +3879,7 @@ let convert-invocation-or-access = do
             parser.Call index, head, link.args, link.is-new, link.is-apply
             link-index + 1
             links
-          parser.Nothing index
+          LSymbol.nothing index
         if tmp-ids.length
           LInternalCall \tmp-wrapper, index, result.scope,
             result
@@ -4429,7 +4431,7 @@ let MacroBody = one-of(
       throw SHORT_CIRCUIT
     parser.macro-syntax index, \call, params.value, options.value, body.value
     parser.pop-scope()
-    Box body.index, parser.Nothing index)
+    Box body.index, LSymbol.nothing index)
 
 let in-macro = make-alter-stack<Boolean> \in-macro, true
 let _DefineMacro = sequential(
@@ -4441,7 +4443,7 @@ let _DefineMacro = sequential(
     parser.enter-macro index, names.value
     let body = MacroBody parser, names.index
     parser.exit-macro()
-    Box body.index, parser.Nothing index])
+    Box body.index, LSymbol.nothing index])
 
 let DefineSyntax = do
   let top-rule = sequential(
@@ -4457,7 +4459,7 @@ let DefineSyntax = do
       return
     let body = FunctionBody parser, top.index
     parser.define-syntax index, top.value.name.name, top.value.value, body?.value
-    Box (if body then body.index else top.index), parser.Nothing index
+    Box (if body then body.index else top.index), LSymbol.nothing index
 
 let DefineHelper = sequential(
   word "define"
@@ -4470,7 +4472,7 @@ let DefineHelper = sequential(
       [\this, Expression])
     FunctionDeclaration)]) |> mutate #({name, value}, parser, index)
   parser.define-helper index, name, value
-  parser.Nothing index
+  LSymbol.nothing index
 
 let DefineOperator = do
   let main-rule = sequential(
@@ -4506,9 +4508,9 @@ let DefineOperator = do
     case \unary; parser.define-unary-operator index, ops, options, body.value
     default; throw Error()
     parser.pop-scope()
-    Box body.index, parser.Nothing index
+    Box body.index, LSymbol.nothing index
 
-define DefineMacro = one-of<NothingNode>(_DefineMacro, DefineSyntax, DefineHelper, DefineOperator)
+define DefineMacro = one-of(_DefineMacro, DefineSyntax, DefineHelper, DefineOperator)
 
 let DefineConstLiteral = sequential(
   word "const"
@@ -4520,7 +4522,7 @@ let DefineConstLiteral = sequential(
   if not value.is-literal()
     throw ParserError "const value must be a literal.", parser, index
   parser.define-const index, name, value.literal-value()
-  parser.Nothing index
+  LSymbol.nothing index
 
 redefine Statement = sequential(
   [\this, in-statement one-of<Node>(
@@ -4622,7 +4624,7 @@ let EmbeddedComment(parser, index)
     if current-index == any.index
       throw Error "Infinite loop detected"
     current-index := any.index
-  Box current-index, parser.Nothing index
+  Box current-index, LSymbol.nothing index
 
 define EmbeddedOpen = make-embedded-rule \embedded-open, EMBED_OPEN_DEFAULT
 define EmbeddedClose = sequential(
@@ -4727,12 +4729,12 @@ let _Block-mutator(lines, parser, index)
         nodes.push part
       else if part not instanceof Node
         throw TypeError "Expected lines[$i][$j] to be a Node, got $(typeof! part)"
-      else if part instanceof LispyNode and part.is-internal-call(\block) and part.args[0] instanceof NothingNode
+      else if part instanceof LispyNode and part.is-internal-call(\block)
         nodes.push ...part.args
-      else if part not instanceof NothingNode
+      else if not is-nothing(part)
         nodes.push part
   switch nodes.length
-  case 0; parser.Nothing index
+  case 0; LSymbol.nothing index
   case 1; nodes[0]
   default
     LInternalCall \block, index, parser.scope.peek(), ...nodes
@@ -4877,7 +4879,7 @@ let RootP = promise! #(parser as Parser)*
   if Eof parser, empty.index
     return Box empty.index, LInternalCall \root, empty.index, parser.scope.peek(),
       LValue empty.index, parser.options.filename or null
-      parser.Nothing empty.index
+      LSymbol.nothing empty.index
       LValue empty.index, false
       LValue empty.index, false
   for import-file in imports.value
@@ -5744,7 +5746,7 @@ class Parser
   let remove-noops(obj)
     if is-array! obj
       return for item in obj
-        if item instanceof NothingNode
+        if is-nothing(item)
           void
         else
           remove-noops(item)
@@ -5753,7 +5755,7 @@ class Parser
     else if is-object! obj and obj not instanceof RegExp
       let result = {}
       for k, v of obj
-        if v not instanceof NothingNode
+        if not is-nothing(v)
           result[k] := remove-noops(v)
       result
     else
@@ -6087,7 +6089,6 @@ for node-type in [
       'Function',
       'Ident',
       'MacroAccess',
-      'Nothing',
       'Param',
       'Root',
       'Super',

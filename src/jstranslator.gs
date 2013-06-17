@@ -10,6 +10,9 @@ let {Cache, is-primordial} = require('./utils')
 let needs-caching(item)
   return item not instanceofsome [ast.Ident, ast.Const, ast.This, ast.Arguments]
 
+let is-nothing(node)
+  node instanceof LispyNode.Symbol.nothing
+
 class Scope
   let get-id = do
     let mutable id = -1
@@ -1134,7 +1137,7 @@ let generator-translate = do
       state.run-pending-finally get-pos(node)
     
     for: #(node, args, scope, mutable state, , , unassigned)
-      if args[0]? and args[0] not instanceof ParserNode.Nothing
+      if not is-nothing(args[0])
         state := generator-translate args[0], scope, state, null, null, unassigned
       state.goto get-pos(node), #-> test-branch
       
@@ -1147,7 +1150,7 @@ let generator-translate = do
       generator-translate(args[3], scope, body-branch, #-> post-branch, #-> step-branch, body-unassigned).goto get-pos(args[3]), #-> step-branch or test-branch
       
       let mutable step-branch = null
-      if args[2]? and args[2] not instanceof ParserNode.Nothing
+      if not is-nothing(args[2])
         step-branch := state.branch()
         generator-translate(args[2], scope, step-branch, null, null, body-unassigned).goto get-pos(args[2]), #-> test-branch
       if unassigned
@@ -1210,10 +1213,10 @@ let generator-translate = do
       let when-false-unassigned = unassigned and {} <<< unassigned
       let ret = if state.has-generator-node(args[1]) or state.has-generator-node(args[2])
         state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch or post-branch, #-> when-false-branch or post-branch
-        let when-true-branch = if args[1] not instanceof ParserNode.Nothing then state.branch()
+        let when-true-branch = if not is-nothing(args[1]) then state.branch()
         if when-true-branch
           generator-translate(args[1], scope, when-true-branch, break-state, continue-state, unassigned).goto get-pos(args[1]), #-> post-branch
-        let when-false-branch = if args[2] not instanceof ParserNode.Nothing then state.branch()
+        let when-false-branch = if not is-nothing(args[2]) then state.branch()
         if when-false-branch
           generator-translate(args[2], scope, when-false-branch, break-state, continue-state, when-false-unassigned).goto get-pos(args[2]), #-> post-branch
         let post-branch = state.branch()
@@ -1264,7 +1267,7 @@ let generator-translate = do
             if not v
               unassigned[k] := false
           current-unassigned := {} <<< base-unassigned
-      let default-case = if data.default-case not instanceof ParserNode.Nothing
+      let default-case = if not is-nothing(data.default-case)
         let default-branch = g-topic.state.branch()
         let g-default-body = generator-translate data.default-case, scope, default-branch, #-> post-branch, continue-state, current-unassigned
         g-default-body.goto get-pos(data.default-case), #-> post-branch
@@ -1602,8 +1605,6 @@ let translators =
             ast.Ident get-pos(node), \context
             ast.Const get-pos(node), name
 
-  [ParserNodeType.Nothing]: #(node) -> #-> ast.Noop(get-pos(node))
-
   [ParserNodeType.Super]: #(node, scope, location)
     // TODO: line numbers
     throw Error "Cannot have a stray super call"
@@ -1766,7 +1767,7 @@ let translate-lispy-internal =
       t-keys.push translate pair.args[0], scope, \expression, unassigned
       t-values.push translate pair.args[1], scope, \expression, unassigned
       properties.push pair.args[2]?.const-value()
-    let t-prototype = if args[0] not instanceof ParserNode.Nothing then translate args[0], scope, \expression, unassigned
+    let t-prototype = if not is-nothing(args[0]) then translate args[0], scope, \expression, unassigned
 
     #
       let const-pairs = []
@@ -1943,17 +1944,21 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
   switch
   case node.is-value
     # ast.Const get-pos(node), node.value
-  case node.is-ident
-    switch node.name
-    case \arguments
-      # ast.Arguments get-pos(node)
-    case \this
-      #
-        scope.used-this := true
-        if scope.bound
-          ast.Ident get-pos(node), \_this
-        else
-          ast.This get-pos(node)
+  case node.is-symbol
+    switch
+    case node.is-ident
+      switch node.name
+      case \arguments
+        # ast.Arguments get-pos(node)
+      case \this
+        #
+          scope.used-this := true
+          if scope.bound
+            ast.Ident get-pos(node), \_this
+          else
+            ast.This get-pos(node)
+    case node.is-internal and node.is-nothing
+      # ast.Noop(get-pos(node))
   case node.is-call
     let {func, args} = node
     switch

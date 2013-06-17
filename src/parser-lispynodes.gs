@@ -318,7 +318,7 @@ class Symbol extends Node
           let args = call.args
           for node, i, len in args
             let reduced = node.reduce parser
-            if reduced instanceof OldNode.Nothing
+            if reduced instanceof Symbol.nothing
               changed := true
             else if reduced instanceof Node and reduced.is-internal-call()
               if reduced.func.is-block
@@ -337,7 +337,7 @@ class Symbol extends Node
               changed or= reduced != node
           switch body.length
           case 0
-            OldNode.Nothing @index, @scope
+            Symbol.nothing @index
           case 1
             body[0]
           default
@@ -355,7 +355,7 @@ class Symbol extends Node
           let args = call.args
           let len = args.length
           if len == 0
-            OldNode.Nothing(@index, @scope).mutate-last parser, func, context, include-noop
+            Symbol.nothing(@index).mutate-last parser, func, context, include-noop
           else
             let last-node = args[len - 1].mutate-last parser, func, context, include-noop
             if last-node != args[len - 1]
@@ -522,11 +522,17 @@ class Symbol extends Node
       }
       new: {}
       nothing: {
+        type: # Type.undefined
         const-value: # void
         is-const-type: (\undefined ==)
         is-const: # true
         is-const-value: (void ==)
         is-noop: # true
+        mutate-last(parser, func, context, include-noop)
+          if include-noop
+            func@(context, this) ? this
+          else
+            this
       }
       object: {
         validate-args(prototype as OldNode, ...pairs)!
@@ -553,10 +559,10 @@ class Symbol extends Node
         _is-literal: do
           let cache = Cache<Call, Boolean>()
           #(call)
-            cache-get-or-add! cache, call, call.args[0] instanceof OldNode.Nothing and for every arg in call.args[1 to -1]
+            cache-get-or-add! cache, call, call.args[0] instanceof Symbol.nothing and for every arg in call.args[1 to -1]
               arg.args.length == 2 and arg.args[0].is-const() and arg.args[1].is-literal()
         _literal-value(call)
-          if call.args[0] not instanceof OldNode.Nothing
+          if call.args[0] not instanceof Symbol.nothing
             throw Error "Cannot convert object with prototype to a literal"
           let result = {}
           for pair in call.args[1 to -1]

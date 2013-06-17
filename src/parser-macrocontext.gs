@@ -10,7 +10,6 @@ let CallNode = Node.Call
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
-let NothingNode = Node.Nothing
 let ParamNode = Node.Param
 let SuperNode = Node.Super
 let SyntaxChoiceNode = Node.SyntaxChoice
@@ -82,15 +81,16 @@ class MacroContext
     LispyNode.InternalCall(\custom, @index, @scope(),
       LispyNode.Value @index, name
       ...data).reduce(@parser)
-  def noop() -> @parser.Nothing @index
+  def noop()
+    LispyNode.Symbol.nothing @index
   def block(nodes as [Node])
     LispyNode.InternalCall(\block, @index, @scope(), ...nodes).reduce(@parser)
-  def if(test as Node = NothingNode(0, @scope()), when-true as Node = NothingNode(0, @scope()), when-false as Node = NothingNode(0, @scope()))
+  def if(test as Node = LispyNode.Symbol.nothing(0), when-true as Node = LispyNode.Symbol.nothing(0), when-false as Node = LispyNode.Symbol.nothing(0))
     LispyNode.InternalCall(\if, @index, @scope(),
       @do-wrap(test)
       when-true
       when-false).reduce(@parser)
-  def switch(topic as Node = NothingNode(0, @scope()), cases as [], default-case as Node|null)
+  def switch(topic as Node = LispyNode.Symbol.nothing(0), cases as [], default-case as Node|null)
     let args = [
       @do-wrap(topic)
     ]
@@ -102,32 +102,32 @@ class MacroContext
     args.push default-case
     LispyNode.InternalCall(\switch, @index, @scope(),
       ...args).reduce(@parser)
-  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = NothingNode(0, @scope()))
+  def for(init as Node|null, test as Node|null, step as Node|null, body as Node = LispyNode.Symbol.nothing(0))
     LispyNode.InternalCall(\for, @index, @scope(),
       @do-wrap(init)
       @do-wrap(test)
       @do-wrap(step)
       body).reduce(@parser)
-  def for-in(key as IdentNode, object as Node = NothingNode(0), body as Node = NothingNode(0, @scope()))
+  def for-in(key as IdentNode, object as Node = LispyNode.Symbol.nothing(0), body as Node = LispyNode.Symbol.nothing(0))
     LispyNode.InternalCall(\for-in, @index, @scope(),
       key
       @do-wrap(object)
       body).reduce(@parser)
-  def try-catch(try-body as Node = NothingNode(0, @scope()), catch-ident as Node = NothingNode(0, @scope()), catch-body as Node = NothingNode(0, @scope()))
+  def try-catch(try-body as Node = LispyNode.Symbol.nothing(0), catch-ident as Node = LispyNode.Symbol.nothing(0), catch-body as Node = LispyNode.Symbol.nothing(0))
     LispyNode.InternalCall(\try-catch, @index, @scope(),
       try-body
       catch-ident
       catch-body).reduce(@parser)
-  def try-finally(try-body as Node = NothingNode(0, @scope()), finally-body as Node = NothingNode(0, @scope()))
+  def try-finally(try-body as Node = LispyNode.Symbol.nothing(0), finally-body as Node = LispyNode.Symbol.nothing(0))
     LispyNode.InternalCall(\try-finally, @index, @scope(),
       try-body
       finally-body).reduce(@parser)
-  def assign(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope()))
+  def assign(left as Node = LispyNode.Symbol.nothing(0), op as String, right as Node = LispyNode.Symbol.nothing(0))
     LispyNode.Call(@index, @scope()
       LispyNode.Symbol.assign[op] @index
       left
       @do-wrap(right)).reduce(@parser)
-  def binary(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope()))
+  def binary(left as Node = LispyNode.Symbol.nothing(0), op as String, right as Node = LispyNode.Symbol.nothing(0))
     LispyNode.Call(@index, @scope()
       LispyNode.Symbol.binary[op] @index
       @do-wrap(left)
@@ -141,17 +141,17 @@ class MacroContext
         left
         @do-wrap(right))
     result.reduce(@parser)
-  def unary(op as String, node as Node = NothingNode(0, @scope()))
+  def unary(op as String, node as Node = LispyNode.Symbol.nothing(0))
     LispyNode.Call(@index, @scope()
       LispyNode.Symbol.unary[op] @index
       @do-wrap(node)).reduce(@parser)
-  def throw(node as Node = NothingNode(0, @scope()))
+  def throw(node as Node = LispyNode.Symbol.nothing(0))
     LispyNode.InternalCall(\throw, @index, @scope(),
       @do-wrap(node)).reduce(@parser)
-  def return(node as Node = NothingNode(0, @scope()))
+  def return(node as Node = LispyNode.Symbol.nothing(0))
     LispyNode.InternalCall(\return, @index, @scope(),
       @do-wrap(node)).reduce(@parser)
-  def yield(node as Node = NothingNode(0, @scope()))
+  def yield(node as Node = LispyNode.Symbol.nothing(0))
     LispyNode.InternalCall(\yield, @index, @scope(),
       @do-wrap(node)).reduce(@parser)
   def debugger()
@@ -470,7 +470,7 @@ class MacroContext
       else
         throw Error "Expected object pair #$i to be an AST Array or a literal object, got $(typeof! pair)"
     LispyNode.InternalCall(\object, @index, @scope(),
-      prototype or NothingNode @index, @scope()
+      prototype or LispyNode.Symbol.nothing @index
       ...array-pairs).reduce(@parser)
   
   def type(node)
@@ -497,7 +497,8 @@ class MacroContext
     node.is-noop(@parser)
   
   def is-nothing(mutable node)
-    @real(node) instanceof NothingNode
+    node := @real(node)
+    node instanceof LispyNode and node.is-symbol and node.is-internal and node.is-nothing
   
   def is-type-array(mutable node)
     node := @real(node)
@@ -644,7 +645,7 @@ class MacroContext
     else if node instanceof LispyNode and node.is-internal-call(\block)
       for every item in node.args by -1; @empty(item)
     else
-      node instanceof NothingNode
+      @is-nothing(node)
   
   let constify-object(position, obj, index, scope as Scope)
     if obj == null or typeof obj in [\string, \number, \boolean, \undefined]
@@ -743,7 +744,7 @@ class MacroContext
         ]
     else if obj.constructor == Object
       LispyNode.InternalCall \object, index, scope,
-        NothingNode index, scope
+        LispyNode.Symbol.nothing index
         ...(for k, v of obj
           LispyNode.InternalCall \array, index, scope,
             LispyNode.Value index, k
@@ -758,7 +759,7 @@ class MacroContext
     else if value instanceof Node
       value
     else if not value?
-      NothingNode(@index, @scope())
+      LispyNode.Symbol.nothing @index
     else if typeof value in [\string, \boolean, \number]
       LispyNode.Value @index, value
     else
@@ -822,7 +823,7 @@ class MacroContext
           to-literal-node@ this, item)
     else if obj.constructor == Object
       LispyNode.InternalCall \object, 0, @scope(),
-        NothingNode 0, @scope()
+        LispyNode.Symbol.nothing 0
         ...(for k, v of obj
           LispyNode.InternalCall \array, 0, @scope(),
             to-literal-node@ this, k
