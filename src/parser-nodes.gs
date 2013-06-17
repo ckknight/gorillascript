@@ -250,134 +250,6 @@ macro node-class
       $body
       $add-methods
 
-node-class AccessNode(parent as Node, child as Node)
-  def type(o) -> @_type ?= do
-    let parent-type = @parent.type(o)
-    let is-string = parent-type.is-subset-of(Type.string)
-    if is-string or parent-type.is-subset-of(Type.array-like)
-      let child = o.macro-expand-1(@child).reduce(o)
-      if child.is-const()
-        let child-value = child.const-value()
-        if child-value == \length
-          return Type.number
-        else if is-number! child-value
-          return if child-value >= 0 and child-value %% 1
-            if is-string
-              Type.string.union(Type.undefined)
-            else if parent-type.subtype
-              parent-type.subtype.union(Type.undefined)
-            else
-              Type.any
-          else
-            Type.undefined
-      else
-        let child-type = child.type(o)
-        if child-type.is-subset-of(Type.number)
-          return if is-string
-            Type.string.union(Type.undefined)
-          else if parent-type.subtype
-            parent-type.subtype.union(Type.undefined)
-          else
-            Type.any
-    else if parent-type.is-subset-of(Type.object) and is-function! parent-type.value
-      let child = o.macro-expand-1(@child).reduce(o)
-      if child.is-const()
-        return parent-type.value(String child.const-value())
-    Type.any
-  def _reduce(o)
-    let mutable parent = @parent.reduce(o).do-wrap(o)
-    let mutable cached-parent = null
-    let replace-length-ident(node)
-      if node instanceof IdentNode and node.name == CURRENT_ARRAY_LENGTH_NAME
-        if parent.cacheable and not cached-parent?
-          cached-parent := o.make-tmp node.index, \ref, parent.type(o)
-          cached-parent.scope := node.scope
-        AccessNode node.index, node.scope, cached-parent ? parent, LispyNode_Value node.index, \length
-      else if node instanceof AccessNode
-        let node-parent = replace-length-ident node.parent
-        if node-parent != node.parent
-          AccessNode(node.index, node.scope, node-parent, node.child).walk replace-length-ident
-        else
-          node.walk replace-length-ident
-      else
-        node.walk replace-length-ident
-    let child = replace-length-ident @child.reduce(o).do-wrap(o)
-    if cached-parent?
-      let LispyNode = require('./parser-lispynodes')
-      return LispyNode.InternalCall \tmp-wrapper, @index, @scope,
-        AccessNode @index, @scope,
-          AssignNode @index, @scope, cached-parent, "=", parent
-          child
-        LispyNode.Value @index, cached-parent.id
-    
-    if parent.is-literal() and child.is-const()
-      let c-value = child.const-value()
-      if parent.is-const()
-        let p-value = parent.const-value()
-        if Object(p-value) haskey c-value
-          let value = p-value[c-value]
-          if is-null! value or value instanceof RegExp or typeof value in [\string, \number, \boolean, \undefined]
-            return LispyNode_Value @index, value
-      else
-        let LispyNode = require('./parser-lispynodes')
-        if parent instanceof LispyNode and parent.is-internal-call()
-          if parent.func.is-array
-            if c-value == \length
-              return LispyNode_Value @index, parent.args.length
-            else if is-number! c-value
-              return parent.args[c-value] or LispyNode_Value @index, void
-          else if parent.func.is-object
-            for pair in parent.args[1 to -1]
-              if pair.args[0].is-const-value(c-value) and not pair.args[2]
-                return pair.args[1]
-    if child instanceof CallNode and child.func instanceof IdentNode and child.func.name == \__range
-      let [start, mutable end, step, inclusive] = child.args
-      let has-step = not step.is-const() or step.const-value() != 1
-      if not has-step
-        if inclusive.is-const()
-          if inclusive.const-value()
-            end := if end.is-const() and is-number! end.const-value()
-              LispyNode_Value end.index, end.const-value() + 1 or Infinity
-            else
-              BinaryNode end.index, end.scope,
-                BinaryNode end.index, end.scope,
-                  end
-                  "+"
-                  LispyNode_Value inclusive.index, 1
-                "||"
-                LispyNode_Value end.index, Infinity
-        else
-          let LispyNode = require('./parser-lispynodes')
-          end := LispyNode.InternalCall \if, end.index, end.scope,
-            inclusive
-            BinaryNode end.index, end.scope,
-              BinaryNode end.index, end.scope,
-                end
-                "+"
-                LispyNode_Value inclusive.index, 1
-              "||"
-              LispyNode_Value end.index, Infinity
-            end
-      let args = [parent]
-      let has-end = not end.is-const() or end.const-value() not in [void, Infinity]
-      if not start.is-const() or start.const-value() != 0 or has-end or has-step
-        args.push start
-      if has-end or has-step
-        args.push end
-      if has-step
-        args.push step
-        if not inclusive.is-const() or inclusive.const-value()
-          args.push inclusive
-      (CallNode @index, @scope,
-        IdentNode @index, @scope, if has-step then \__slice-step else \__slice
-        args
-        false
-        not has-step).reduce(o)
-    else if parent != @parent or child != @child
-      AccessNode @index, @scope, parent, child
-    else
-      this
-  def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
 node-class AssignNode(left as Node, op as String, right as Node)
   def type = do
     let ops =
@@ -857,16 +729,18 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
           func-type := o.macros.helper-type name
           if func-type.is-subset-of(Type.function)
             return func-type.args[0]
-      else if func instanceof AccessNode
-        let {parent, child} = func
-        if child.is-const()
-          if child.const-value() in [\call, \apply]
-            let parent-type = parent.type(o)
-            if parent-type.is-subset-of(Type.function)
-              return parent-type.args[0]
-          else if parent instanceof IdentNode
-            return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.const-value()]
-          // else check the type of parent, maybe figure out its methods
+      else
+        let LispyNode = require('./parser-lispynodes')
+        if func instanceof LispyNode and func.is-internal-call(\access)
+          let [parent, child] = func.args
+          if child.is-const()
+            if child.const-value() in [\call, \apply]
+              let parent-type = parent.type(o)
+              if parent-type.is-subset-of(Type.function)
+                return parent-type.args[0]
+            else if parent instanceof IdentNode
+              return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.const-value()]
+            // else check the type of parent, maybe figure out its methods
       Type.any
   def _reduce = do
     let EVAL_SIMPLIFIERS = {
@@ -947,28 +821,30 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
               catch e
                 // TODO: do something here to alert the user
                 void
-          else if func instanceof AccessNode and func.child.is-const()
-            let {parent, child} = func
-            let c-value = child.const-value()
-            if parent.is-const()
-              let p-value = parent.const-value()
-              if is-function! p-value[c-value]
-                try
-                  let value = p-value[c-value] ...const-args
-                  if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
-                    return LispyNode_Value @index, value
-                catch e
-                  // TODO: do something here to alert the user
-                  void
-            else if parent instanceof IdentNode
-              if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
-                try
-                  let value = GLOBAL[parent.name][c-value] ...const-args
-                  if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
-                    return LispyNode_Value @index, value
-                catch e
-                  // TODO: do something here to alert the user
-                  void
+          else
+            let LispyNode = require('./parser-lispynodes')
+            if func instanceof LispyNode and func.is-internal-call(\access) and func.args[1].is-const()
+              let [parent, child] = func.args
+              let c-value = child.const-value()
+              if parent.is-const()
+                let p-value = parent.const-value()
+                if is-function! p-value[c-value]
+                  try
+                    let value = p-value[c-value] ...const-args
+                    if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+                      return LispyNode_Value @index, value
+                  catch e
+                    // TODO: do something here to alert the user
+                    void
+              else if parent instanceof IdentNode
+                if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
+                  try
+                    let value = GLOBAL[parent.name][c-value] ...const-args
+                    if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+                      return LispyNode_Value @index, value
+                  catch e
+                    // TODO: do something here to alert the user
+                    void
       if func != @func or args != @args
         CallNode @index, @scope, func, args, @is-new, @is-apply
       else

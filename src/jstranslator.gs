@@ -758,19 +758,11 @@ let generator-translate = do
         cleanup: make-cleanup(assign-to, scope, t-tmp)
       }
   let expressions =
-    [ParserNodeType.Access]: #(node, scope, state, assign-to, unassigned)
-      let g-parent = generator-translate-expression node.parent, scope, state, true, unassigned
-      let g-child = generator-translate-expression node.child, scope, g-parent.state, false, unassigned
-      handle-assign assign-to, scope, g-child.state, #-> first!(
-        ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
-        g-parent.cleanup()
-        g-child.cleanup())
-    
     [ParserNodeType.Assign]: #(node, scope, state, assign-to, unassigned)
       let left = node.left
-      let g-left = if left instanceof ParserNode.Access
-        let g-parent = generator-translate-expression left.parent, scope, state, true, unassigned
-        let g-child = generator-translate-expression left.child, scope, g-parent.state, true, unassigned
+      let g-left = if left instanceof LispyNode and left.is-internal-call(\access)
+        let g-parent = generator-translate-expression left.args[0], scope, state, true, unassigned
+        let g-child = generator-translate-expression left.args[1], scope, g-parent.state, true, unassigned
         {
           g-child.state
           t-node: #-> ast.Access get-pos(left), g-parent.t-node(), g-child.t-node()
@@ -842,9 +834,9 @@ let generator-translate = do
         let g-code = generator-translate-expression node.args[0], scope, state, false, unassigned
         return handle-assign assign-to, scope, g-code.state, (#-> ast.Eval get-pos(node), g-code.t-node()), g-code.cleanup
       
-      let g-func = if node.func instanceof ParserNode.Access
-        let g-parent = generator-translate-expression node.func.parent, scope, state, true, unassigned
-        let g-child = generator-translate-expression node.func.child, scope, g-parent.state, true, unassigned
+      let g-func = if node.func instanceof LispyNode and node.func.is-internal-call(\access)
+        let g-parent = generator-translate-expression node.func.args[0], scope, state, true, unassigned
+        let g-child = generator-translate-expression node.func.args[1], scope, g-parent.state, true, unassigned
         {
           t-node: #-> ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
           cleanup: #
@@ -935,6 +927,14 @@ let generator-translate = do
           first!(g-node.t-node(), g-node.cleanup()))
   
   let generator-translate-expression-lispy-internals =
+    access: #(node, args, scope, state, assign-to, unassigned)
+      let g-parent = generator-translate-expression args[0], scope, state, true, unassigned
+      let g-child = generator-translate-expression args[1], scope, g-parent.state, false, unassigned
+      handle-assign assign-to, scope, g-child.state, #-> first!(
+        ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
+        g-parent.cleanup()
+        g-child.cleanup())
+    
     yield: #(node, args, scope, mutable state, assign-to, unassigned)
       let g-node = generator-translate-expression args[0], scope, state, false, unassigned
       state := g-node.state.yield get-pos(node), g-node.t-node
@@ -1358,11 +1358,6 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
           rest
 
 let translators =
-  [ParserNodeType.Access]: #(node, scope, location, unassigned)
-    let t-parent = translate node.parent, scope, \expression, unassigned
-    let t-child = translate node.child, scope, \expression, unassigned
-    #-> ast.Access(get-pos(node), t-parent(), t-child())
-
   [ParserNodeType.Assign]: #(node, scope, location, unassigned)
     let op = node.op
     let t-left = translate node.left, scope, \left-expression
@@ -1492,8 +1487,6 @@ let translators =
           Type[primitive-types[node.name]]
         else
           Type.any // FIXME
-      [ParserNodeType.Access]: #(node)
-        Type.any // FIXME
       [ParserNodeType.TypeUnion]: #(node)
         let mutable result = Type.none
         for type in node.types
@@ -1530,6 +1523,10 @@ let translators =
         
         Type.make-object type-data
     let translate-type-check(node)
+      if node instanceof LispyNode
+        if node.is-internal-call(\access)
+          // FIXME
+          return Type.any
       unless translate-type-checks ownskey node.type-id
         throw Error "Unknown type: $(String typeof! node)"
 
@@ -1666,6 +1663,11 @@ let translators =
     #-> ast.Unary get-pos(node), node.op, t-subnode()
 
 let translate-lispy-internal =
+  access: #(node, args, scope, location, unassigned)
+    let t-parent = translate args[0], scope, \expression, unassigned
+    let t-child = translate args[1], scope, \expression, unassigned
+    #-> ast.Access(get-pos(node), t-parent(), t-child())
+  
   label: #(node, args, scope, location, unassigned)
     let t-label = translate args[0], scope, \label
     let t-node = translate args[1], scope, location, unassigned

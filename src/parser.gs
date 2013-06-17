@@ -1,7 +1,7 @@
 import 'shared.gs'
 
 require! LispyNode: './parser-lispynodes'
-let {Value: LValue, Call: LCall, InternalCall: LInternalCall, Symbol: LSymbol} = LispyNode
+let {Value: LValue, Call: LCall, InternalCall: LInternalCall, Access: LAccess, Symbol: LSymbol} = LispyNode
 require! Node: './parser-nodes'
 require! Scope: './parser-scope'
 require! MacroContext: './parser-macrocontext'
@@ -20,7 +20,6 @@ const EMBED_CLOSE_COMMENT_DEFAULT = "--%>"
 const EMBED_OPEN_LITERAL_DEFAULT = "<%@"
 const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
-let AccessNode = Node.Access
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let CallNode = Node.Call
@@ -2778,15 +2777,16 @@ let IdentifierOrSimpleAccessStart = one-of(
   sequential(
     [\parent, ThisOrShorthandLiteralPeriod]
     [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #({parent, child}, parser, index)
-      parser.Access index, parent, child
+      LAccess index, parser.scope.peek(),
+        parent
+        child
   sequential(
     [\parent, ThisOrShorthandLiteral]
     DoubleColonChar
     [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #({parent, child}, parser, index)
-      parser.Access index,
-        parser.Access index,
-          parent
-          LValue index, \prototype
+      LAccess index, parser.scope.peek(),
+        parent
+        LValue index, \prototype
         child
   sequential(
     [\parent, ThisOrShorthandLiteral]
@@ -2794,14 +2794,15 @@ let IdentifierOrSimpleAccessStart = one-of(
     OpenSquareBracketChar
     [\child, allow-space-before-access Expression]
     CloseSquareBracket) |> mutate #({parent, is-proto, child}, parser, index)
-      parser.Access index,
-        if is-proto
-          parser.Access index,
-            parent
-            LValue index, \prototype
-        else
+      if is-proto
+        LAccess index, parser.scope.peek(),
           parent
-        child)
+          LValue index, \prototype
+          child
+      else
+        LAccess index, parser.scope.peek(),
+          parent
+          child)
 define PeriodOrDoubleColonChar = one-of(Period, DoubleColonChar)
 let IdentifierOrSimpleAccessPart = one-of(
   sequential(
@@ -2814,12 +2815,15 @@ let IdentifierOrSimpleAccessPart = one-of(
     CloseSquareBracket)) |> mutate #({type, child}, parser, child-index)
   let is-proto = type == "::"
   #(parent, parser, index)
-    parser.Access(index
-      if is-proto
-        parser.Access index, parent, LValue child-index, \prototype
-      else
+    if is-proto
+      LAccess index, parser.scope.peek(),
         parent
-      child)
+        LValue child-index, \prototype
+        child
+    else
+      LAccess index, parser.scope.peek(),
+        parent
+        child
 
 define IdentifierOrSimpleAccess = sequential(
   [\head, IdentifierOrSimpleAccessStart]
@@ -2985,7 +2989,9 @@ let IdentifierOrThisAccess = one-of(
   sequential(
     [\parent, ThisOrShorthandLiteralPeriod]
     [\child, IdentifierNameConst]) |> mutate #({parent, child}, parser, index)
-    parser.Access index, parent, child)
+    LAccess index, parser.scope.peek(),
+      parent
+      child)
 
 let IdentifierParameter = sequential(
   [\is-mutable, bool maybe word "mutable"]
@@ -3026,8 +3032,8 @@ let ParamSingularObjectKey = sequential(
   let {ident} = param
   let key = if ident instanceof IdentNode
     LValue index, ident.name
-  else if ident instanceof AccessNode
-    ident.child
+  else if ident instanceof LispyNode and ident.is-internal-call(\access)
+    ident.args[1]
   else
     throw Error "Unknown object key type: $(param.type)"
   { key, value: param }
@@ -3100,8 +3106,8 @@ let ParameterSequence = sequential(
       let ident = param.ident
       let name = if ident instanceof IdentNode
         ident.name
-      else if ident instanceof AccessNode
-        let child = ident.child
+      else if ident instanceof LispyNode and ident.is-internal-call(\access)
+        let child = ident.args[1]
         if not child.is-const-type(\string)
           throw Error "Expected constant access"
         child.const-value()
@@ -3289,16 +3295,17 @@ define UnclosedObjectLiteral = separated-list(
 
 define IdentifierOrAccess(parser, index)
   let result = _IdentifierOrAccess(parser, index)
-  if not result or result.value not instanceofsome [IdentNode, AccessNode]
-    return
-  result
+  if result
+    let {value} = result
+    if value instanceof IdentNode or (value instanceof LispyNode and value.is-internal-call(\access))
+      result
 
 let SingularObjectKey = one-of(
   sequential(
     [\this, IdentifierOrAccess]
     NotColon) |> mutate #(ident, parser, index)
-    let key = if ident instanceof AccessNode
-      ident.child
+    let key = if ident instanceof LispyNode and ident.is-internal-call(\access)
+      ident.args[1]
     else if ident instanceof IdentNode
       LValue index, ident.name
     else
@@ -3714,7 +3721,9 @@ let convert-invocation-or-access = do
             parent := tmp
           let result = LInternalCall \array, index, parser.scope.peek(),
             ...(for element, i in child.elements
-              parser.Access(index, if i == 0 then set-parent else parent, element))
+              LAccess index, parser.scope.peek(),
+                if i == 0 then set-parent else parent
+                element)
           if tmp-ids.length
             LInternalCall \tmp-wrapper, index, result.scope,
               result
@@ -3725,7 +3734,7 @@ let convert-invocation-or-access = do
         let bind-access = if link.bind
           #(parent, child) -> parser.Call index, parser.Ident(index, \__bind), [parent, child]
         else
-          #(parent, child) -> parser.Access index, parent, child
+          #(parent, child) -> LAccess index, parser.scope.peek(), parent, child
         if link.owns
           let tmp-ids = []
           let mutable set-head = head
@@ -3819,8 +3828,8 @@ let convert-invocation-or-access = do
       else
         let tmp-ids = []
         let mutable set-head = head
-        if head instanceof AccessNode and not link.is-apply and not link.is-new
-          let {mutable parent, mutable child} = head
+        if head instanceof LispyNode and head.is-internal-call(\access) and not link.is-apply and not link.is-new
+          let [mutable parent, mutable child] = head.args
           let mutable set-parent = parent
           let mutable set-child = child
           if parent.cacheable
@@ -3834,8 +3843,8 @@ let convert-invocation-or-access = do
             set-child := parser.Assign(index, tmp, "=", child.do-wrap(parser))
             child := tmp
           if parent != set-parent or child != set-child
-            set-head := parser.Access(index, set-parent, set-child)
-            head := parser.Access(index, parent, child)
+            set-head := LAccess index, parser.scope.peek(), set-parent, set-child
+            head := LAccess index, parser.scope.peek(), parent, child
         else
           if head.cacheable
             let tmp = parser.make-tmp index, \ref, head.type(parser)
@@ -5334,9 +5343,13 @@ class Parser
       scope.add macro-data-ident, false, Type.object
       body := LInternalCall \block, index, scope,
         LInternalCall \var, index, scope, macro-name-ident
-        @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-name
+        @Assign index, macro-name-ident, "=", LInternalCall \access, index, scope,
+          macro-full-data-ident
+          LValue index, \macro-name
         LInternalCall \var, index, scope, macro-data-ident
-        @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-data
+        @Assign index, macro-data-ident, "=", LInternalCall \access, index, scope,
+          macro-full-data-ident
+          LValue index, \macro-data
         ...for param in params
           if param instanceof SyntaxParamNode
             scope.add param.ident, true, Type.any
@@ -5344,7 +5357,9 @@ class Parser
               LInternalCall \var, index, scope,
                 param.ident
                 LispyNode.Value index, true
-              @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, param.ident.name
+              @Assign index, param.ident, "=", LInternalCall \access, index, scope,
+                macro-data-ident
+                LValue index, param.ident.name
         body
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
@@ -5379,7 +5394,9 @@ class Parser
                   LInternalCall \var, index, scope,
                     param.ident
                     LispyNode.Value index, true
-                  @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, param.ident.name
+                  @Assign index, param.ident, "=", LInternalCall \access, index, scope,
+                    macro-data-ident
+                    LValue index, param.ident.name
             body
           let raw-func = make-macro-root@ this, index, func-param, body
           let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
@@ -5412,9 +5429,13 @@ class Parser
       scope.add macro-data-ident, false, Type.object
       body := LInternalCall \block, index, scope,
         LInternalCall \var, index, scope, macro-name-ident
-        @Assign index, macro-name-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-name
+        @Assign index, macro-name-ident, "=", LInternalCall \access, index, scope,
+          macro-full-data-ident
+          LValue index, \macro-name
         LInternalCall \var, index, scope, macro-data-ident
-        @Assign index, macro-data-ident, "=", @Access index, macro-full-data-ident, LValue index, \macro-data
+        @Assign index, macro-data-ident, "=", LInternalCall \access, index, scope,
+          macro-full-data-ident
+          LValue index, \macro-data
         ...for param, i in params
           if param instanceof ParamNode
             scope.add param.ident, true, Type.any
@@ -5422,7 +5443,9 @@ class Parser
               LInternalCall \var, index, scope,
                 param.ident
                 LispyNode.Value index, true
-              @Assign index, param.ident, "=", @Access index, macro-data-ident, LValue index, i
+              @Assign index, param.ident, "=", LInternalCall \access, index, scope,
+                macro-data-ident
+                LValue index, i
         body
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
@@ -5456,7 +5479,9 @@ class Parser
             LInternalCall \var, index, scope,
               ident
               LispyNode.Value index, true
-            @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
+            @Assign index, ident, "=", LInternalCall \access, index, scope,
+              macro-data-ident
+              LValue index, name
         body
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
@@ -5498,7 +5523,9 @@ class Parser
             LInternalCall \var, index, scope,
               ident
               LispyNode.Value index, true
-            @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
+            @Assign index, ident, "=", LInternalCall \access, index, scope,
+              macro-data-ident
+              LValue index, name
         body
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
@@ -5531,7 +5558,9 @@ class Parser
             LInternalCall \var, index, scope,
               ident
               LispyNode.Value index, true
-            @Assign index, ident, "=", @Access index, macro-data-ident, LValue index, name
+            @Assign index, ident, "=", LInternalCall \access, index, scope,
+              macro-data-ident
+              LValue index, name
         body
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)

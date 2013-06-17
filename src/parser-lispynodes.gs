@@ -101,7 +101,151 @@ class Symbol extends Node
     def used-as-statement = false
     
     let internal-symbols =
-      access: {}
+      access: {
+        validate-args: #(parent as OldNode, child as OldNode, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to access"
+        _type: do
+          let cache = Cache<Call, Type>()
+          #(call, parser)
+            cache-get-or-add! cache, call, do
+              let parent-type = call.args[0].type(parser)
+              let is-string = parent-type.is-subset-of(Type.string)
+              if is-string or parent-type.is-subset-of(Type.array-like)
+                let child = parser.macro-expand-1(call.args[1]).reduce(parser)
+                if child.is-const()
+                  let child-value = child.const-value()
+                  if child-value == \length
+                    return Type.number
+                  else if is-number! child-value
+                    return if child-value >= 0 and child-value %% 1
+                      if is-string
+                        Type.string.union(Type.undefined)
+                      else if parent-type.subtype
+                        parent-type.subtype.union(Type.undefined)
+                      else
+                        Type.any
+                  else
+                    return Type.undefined
+                else if child.type(parser).is-subset-of(Type.number)
+                  return if is-string
+                    Type.string.union(Type.undefined)
+                  else if parent-type.subtype
+                    parent-type.subtype.union(Type.undefined)
+                  else
+                    Type.any
+              else if parent-type.is-subset-of(Type.object) and is-function! parent-type.value
+                let child = parser.macro-expand-1(call.args[1]).reduce(parser)
+                if child.is-const()
+                  return parent-type.value(String child.const-value())
+              Type.any
+        __reduce(call, parser)
+          let mutable parent = call.args[0].reduce(parser).do-wrap(parser)
+          let mutable cached-parent = null
+          let replace-length-ident(node)
+            if node instanceof OldNode.Ident and node.name == CURRENT_ARRAY_LENGTH_NAME
+              if parent.cacheable and not cached-parent?
+                cached-parent := parser.make-tmp node.index, \ref, parent.type(parser)
+                cached-parent.scope := node.scope
+              Call node.index, node.scope,
+                Symbol.access node.index
+                cached-parent ? parent
+                Value node.index, \length
+            else
+              let mutable result = node
+              if node instanceof Node and node.is-internal-call(\access)
+                let node-parent = replace-length-ident node.args[0]
+                if node-parent != node.args[0]
+                  result := Call node.index, node.scope,
+                    Symbol.access node.index
+                    node-parent
+                    node.args[1]
+              result.walk replace-length-ident
+          let child = replace-length-ident call.args[1].reduce(parser).do-wrap(parser)
+          if cached-parent?
+            return Call call.index, call.scope,
+              Symbol.tmp-wrapper call.index
+              Call call.index, call.scope,
+                Symbol.access call.index
+                OldNode.Assign call.index, call.scope, cached-parent, "=", parent
+                child
+              Value call.index, cached-parent.id
+          
+          if parent.is-literal() and child.is-const()
+            let c-value = child.const-value()
+            if parent.is-const()
+              let p-value = parent.const-value()
+              if Object(p-value) haskey c-value
+                let value = p-value[c-value]
+                if is-null! value or typeof value in [\string, \number, \boolean, \undefined]
+                  return Value call.index, value
+            else if parent instanceof Node and parent.is-internal-call()
+              if parent.func.is-array
+                // TODO: verify there are no spread arguments
+                if c-value == \length
+                  return Value @index, parent.args.length
+                else if is-number! c-value
+                  return parent.args[c-value] or LispyNode_Value @index, void
+              else if parent.func.is-object
+                for pair in parent.args[1 to -1]
+                  if pair.args[0].is-const-value(c-value) and not pair.args[2]
+                    return pair.args[1]
+          
+          if child instanceof OldNode.Call and child.func instanceof OldNode.Ident and child.func.name == \__range
+            let [start, mutable end, step, inclusive] = child.args
+            let has-step = not step.is-const() or step.const-value() != 1
+            if not has-step
+              if inclusive.is-const()
+                if inclusive.const-value()
+                  end := if end.is-const() and is-number! end.const-value()
+                    Value end.index, end.const-value() + 1 or Infinity
+                  else
+                    OldNode.Binary end.index, end.scope,
+                      OldNode.Binary end.index, end.scope,
+                        end
+                        "+"
+                        Value inclusive.index, 1
+                      "||"
+                      Value end.index, Infinity
+              else
+                end := Call end.index, end.scope,
+                  Symbol.if end.index
+                  inclusive
+                  OldNode.Binary end.index, end.scope,
+                    OldNode.Binary end.index, end.scope,
+                      end
+                      "+"
+                      Value inclusive.index, 1
+                    "||"
+                    Value end.index, Infinity
+                  end
+            let args = [parent]
+            let has-end = not end.is-const() or end.const-value() not in [void, Infinity]
+            if not start.is-const() or start.const-value() != 0 or has-end or has-step
+              args.push start
+            if has-end or has-step
+              args.push end
+            if has-step
+              args.push step
+              if not inclusive.is-const() or inclusive.const-value()
+                args.push inclusive
+            (OldNode.Call call.index, call.scope,
+              OldNode.Ident call.index, call.scope, if has-step then \__slice-step else \__slice
+              args
+              false
+              not has-step).reduce(parser)
+          else if parent != call.args[0] or child != call.args[1]
+            Call call.index, call.scope,
+              call.func
+              parent
+              child
+          else
+            call
+        /*
+        node-class AccessNode(parent as Node, child as Node)
+          def _is-noop(o) -> @__is-noop ?= @parent.is-noop(o) and @child.is-noop(o)
+        */
+      }
       apply: {}
       array: {
         validate-args(...args as [OldNode]) ->
@@ -896,7 +1040,7 @@ module.exports := Node <<< {
   Access: #(index, scope, parent, ...children)
     for reduce child in children, current = parent
       Call index, scope,
-        Symbol.access
+        Symbol.access index
         current
         child
 }

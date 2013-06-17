@@ -6,7 +6,6 @@ require! Type: './types'
 require! Scope: './parser-scope'
 let {node-to-type, add-param-to-scope} = require './parser-utils'
 
-let AccessNode = Node.Access
 let AssignNode = Node.Assign
 let BinaryNode = Node.Binary
 let CallNode = Node.Call
@@ -555,15 +554,17 @@ class MacroContext
     if @is-unary(node)
       node.node
 
-  def is-access(node) -> @real(node) instanceof AccessNode
+  def is-access(mutable node)
+    node := @real node
+    node instanceof LispyNode and node.is-internal-call(\access)
   def parent(mutable node)
     node := @real node
-    if node instanceof AccessNode
-      node.parent
+    if node instanceof LispyNode and node.is-internal-call(\access)
+      node.args[0]
   def child(mutable node)
     node := @real node
-    if node instanceof AccessNode
-      node.child
+    if node instanceof LispyNode and node.is-internal-call(\access)
+      node.args[1]
   
   def is-if(mutable node)
     node := @real(node)
@@ -604,8 +605,12 @@ class MacroContext
         @maybe-cache @child(node), (#(set-child, child, child-cached)
           if parent-cached or child-cached
             func@ this,
-              @parser.Access(@index, set-parent, set-child)
-              @parser.Access(@index, parent, child)
+              LispyNode.InternalCall \access, @index, @parser.scope.peek(),
+                set-parent
+                set-child
+              LispyNode.InternalCall \access, @index, @parser.scope.peek(),
+                parent
+                child
               true
           else
             func@ this, node, node, false), child-name, save), parent-name, save
