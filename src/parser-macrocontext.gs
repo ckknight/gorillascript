@@ -7,7 +7,6 @@ require! Scope: './parser-scope'
 let {node-to-type, add-param-to-scope} = require './parser-utils'
 
 let AssignNode = Node.Assign
-let BinaryNode = Node.Binary
 let CallNode = Node.Call
 let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
@@ -128,12 +127,19 @@ class MacroContext
       try-body
       finally-body).reduce(@parser)
   def assign(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope())) -> @parser.Assign(@index, left, op, @do-wrap(right)).reduce(@parser)
-  def binary(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope())) -> @parser.Binary(@index, @do-wrap(left), op, @do-wrap(right)).reduce(@parser)
+  def binary(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope()))
+    LispyNode.Call(@index, @scope()
+      LispyNode.Symbol.binary[op] @index
+      @do-wrap(left)
+      @do-wrap(right)).reduce(@parser)
   def binary-chain(op as String, nodes as [Node])
     if nodes.length == 0
       throw Error "Expected nodes to at least have a length of 1"
     let result = for reduce right in nodes[1 to -1], left = @do-wrap(nodes[0])
-      @parser.Binary(@index, left, op, @do-wrap(right))
+      LispyNode.Call(@index, @scope()
+        LispyNode.Symbol.binary[op] @index
+        left
+        @do-wrap(right))
     result.reduce(@parser)
   def unary(op as String, node as Node = NothingNode(0, @scope()))
     LispyNode.Call(@index, @scope()
@@ -537,24 +543,26 @@ class MacroContext
     node := @real(node)
     node instanceof LispyNode and node.is-internal-call(\custom)
   def is-assign(node) -> @real(node) instanceof AssignNode
-  def is-binary(node) -> @real(node) instanceof BinaryNode
+  def is-binary(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-binary-call()
   def is-unary(mutable node)
     node := @real(node)
     node instanceof LispyNode and node.is-unary-call()
   def op(mutable node)
     node := @real node
-    if @is-assign(node) or @is-binary(node)
+    if @is-assign(node)
       node.op
     else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-operator
-      node.func
+      node.func.name
   def left(mutable node)
     node := @real node
-    if @is-binary(node)
-      node.left
+    if node instanceof LispyNode and node.is-binary-call()
+      node.args[0]
   def right(mutable node)
     node := @real node
-    if @is-binary(node)
-      node.right
+    if node instanceof LispyNode and node.is-binary-call()
+      node.args[1]
   def unary-node(mutable node)
     node := @real node
     if @is-unary(node)

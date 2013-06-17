@@ -784,51 +784,6 @@ let generator-translate = do
         g-left.cleanup()
         g-right.cleanup()
     
-    [ParserNodeType.Binary]: do
-      let lazy-ops = {
-        "&&": #(node, scope, state, assign-to, unassigned)
-          let g-left = generator-translate-expression node.left, scope, state, assign-to or true, unassigned
-          let t-node = memoize g-left.t-node
-          g-left.state.goto-if get-pos(node), t-node, #-> when-true-branch, #-> post-branch
-          let when-true-branch = g-left.state.branch()
-          let g-right = generator-translate-expression node.right, scope, when-true-branch, t-node, unassigned
-          g-right.state.goto get-pos(node), #-> post-branch
-          let post-branch = g-left.state.branch()
-          {
-            t-node
-            state: post-branch
-            cleanup: #
-              g-left.cleanup()
-              g-right.cleanup()
-          }
-        "||": #(node, scope, state, assign-to, unassigned)
-          let g-left = generator-translate-expression node.left, scope, state, assign-to or true, unassigned
-          let t-node = memoize g-left.t-node
-          g-left.state.goto-if get-pos(node), t-node, #-> post-branch, #-> when-false-branch
-          let when-false-branch = g-left.state.branch()
-          let g-right = generator-translate-expression node.right, scope, when-false-branch, t-node, unassigned
-          g-right.state.goto get-pos(node), #-> post-branch
-          let post-branch = g-left.state.branch()
-          {
-            t-node
-            state: post-branch
-            cleanup: #
-              g-left.cleanup()
-              g-right.cleanup()
-          }
-      }
-      #(node, scope, state, assign-to, unassigned)
-        if lazy-ops ownskey node.op
-          lazy-ops[node.op] node, scope, state, assign-to, unassigned
-        else
-          let g-left = generator-translate-expression node.left, scope, state, true, unassigned
-          let g-right = generator-translate-expression node.right, scope, g-left.state, false, unassigned
-          handle-assign assign-to, scope, g-right.state, #-> first!(
-            ast.Binary get-pos(node),
-              g-left.t-node()
-              last!(g-left.cleanup(), node.op)
-              first!(g-right.t-node(), g-right.cleanup()))
-    
     [ParserNodeType.Call]: #(node, scope, mutable state, assign-to, unassigned)
       if node.func instanceof ParserNode.Ident and node.func.name == \eval
         let g-code = generator-translate-expression node.args[0], scope, state, false, unassigned
@@ -990,6 +945,51 @@ let generator-translate = do
       throw Error "Unreachable state"
   
   let generator-translate-expression-lispy-operators =
+    binary: do
+      let lazy-ops = {
+        "&&": #(node, args, scope, state, assign-to, unassigned)
+          let g-left = generator-translate-expression args[0], scope, state, assign-to or true, unassigned
+          let t-node = memoize g-left.t-node
+          g-left.state.goto-if get-pos(node), t-node, #-> when-true-branch, #-> post-branch
+          let when-true-branch = g-left.state.branch()
+          let g-right = generator-translate-expression args[1], scope, when-true-branch, t-node, unassigned
+          g-right.state.goto get-pos(node), #-> post-branch
+          let post-branch = g-left.state.branch()
+          {
+            t-node
+            state: post-branch
+            cleanup: #
+              g-left.cleanup()
+              g-right.cleanup()
+          }
+        "||": #(node, args, scope, state, assign-to, unassigned)
+          let g-left = generator-translate-expression args[0], scope, state, assign-to or true, unassigned
+          let t-node = memoize g-left.t-node
+          g-left.state.goto-if get-pos(node), t-node, #-> post-branch, #-> when-false-branch
+          let when-false-branch = g-left.state.branch()
+          let g-right = generator-translate-expression args[1], scope, when-false-branch, t-node, unassigned
+          g-right.state.goto get-pos(node), #-> post-branch
+          let post-branch = g-left.state.branch()
+          {
+            t-node
+            state: post-branch
+            cleanup: #
+              g-left.cleanup()
+              g-right.cleanup()
+          }
+      }
+      #(node, args, scope, state, assign-to, unassigned)
+        if lazy-ops ownskey node.func.name
+          lazy-ops[node.func.name] node, args, scope, state, assign-to, unassigned
+        else
+          let g-left = generator-translate-expression args[0], scope, state, true, unassigned
+          let g-right = generator-translate-expression args[1], scope, g-left.state, false, unassigned
+          handle-assign assign-to, scope, g-right.state, #-> first!(
+            ast.Binary get-pos(node),
+              g-left.t-node()
+              last!(g-left.cleanup(), node.func.name)
+              first!(g-right.t-node(), g-right.cleanup()))
+    
     unary: #(node, args, scope, state, assign-to, unassigned)
       let g-node = generator-translate-expression args[0], scope, state, false, unassigned
       handle-assign assign-to, scope, g-node.state, #-> first!(
@@ -1382,11 +1382,6 @@ let translators =
         ast.Func(get-pos(node), left, right.params, right.variables, right.body, right.declarations)
       else
         ast.Binary(get-pos(node), left, op, right)
-
-  [ParserNodeType.Binary]: #(node, scope, location, unassigned)
-    let t-left = translate node.left, scope, \expression, unassigned
-    let t-right = translate node.right, scope, \expression, unassigned
-    #-> ast.Binary(get-pos(node), t-left(), node.op, t-right())
 
   [ParserNodeType.Call]: #(node, scope, location, unassigned)
     if node.func instanceof ParserNode.Ident
@@ -1936,6 +1931,11 @@ let translate-lispy-internal =
     t-result
 
 let translate-lispy-operator =
+  binary: #(node, args, scope, location, unassigned)
+    let t-left = translate args[0], scope, \expression, unassigned
+    let t-right = translate args[1], scope, \expression, unassigned
+    #-> ast.Binary(get-pos(node), t-left(), node.func.name, t-right())
+  
   unary: #(node, args, scope, location, unassigned)
     let op-name = node.func.name
     if unassigned and op-name in ["++", "--", "++post", "--post"] and args[0] instanceof ParserNode.Ident

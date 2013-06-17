@@ -189,7 +189,7 @@ class Symbol extends Node
                 if c-value == \length
                   return Value @index, parent.args.length
                 else if is-number! c-value
-                  return parent.args[c-value] or LispyNode_Value @index, void
+                  return parent.args[c-value] or Value @index, void
               else if parent.func.is-object
                 for pair in parent.args[1 to -1]
                   if pair.args[0].is-const-value(c-value) and not pair.args[2]
@@ -204,23 +204,23 @@ class Symbol extends Node
                   end := if end.is-const() and is-number! end.const-value()
                     Value end.index, end.const-value() + 1 or Infinity
                   else
-                    OldNode.Binary end.index, end.scope,
-                      OldNode.Binary end.index, end.scope,
+                    Call end.index, end.scope,
+                      Symbol.binary["||"] end.index
+                      Call end.index, end.scope,
+                        Symbol.binary["+"] end.index
                         end
-                        "+"
                         Value inclusive.index, 1
-                      "||"
                       Value end.index, Infinity
               else
                 end := Call end.index, end.scope,
                   Symbol.if end.index
                   inclusive
-                  OldNode.Binary end.index, end.scope,
-                    OldNode.Binary end.index, end.scope,
+                  Call end.index, end.scope,
+                    Symbol.binary["||"] end.index
+                    Call end.index, end.scope,
+                      Symbol.binary["+"] end.index
                       end
-                      "+"
                       Value inclusive.index, 1
-                    "||"
                     Value end.index, Infinity
                   end
             let args = [parent]
@@ -781,7 +781,8 @@ class Symbol extends Node
     def is-assign = false
     
     class BinaryOperator extends Operator
-      def constructor(@index as Number, @name as String) ->
+      def constructor()
+        throw Error "UnaryOperator is not meant to be instantiated directly"
       
       def is-binary = true
       def operator-type = \binary
@@ -795,6 +796,622 @@ class Symbol extends Node
       def validate-args(left as OldNode, right as OldNode, ...rest)
         if DEBUG and rest.length > 0
           throw Error "Too many arguments to binary operator $(@name)"
+      
+      def _is-noop = do
+        let cache = Cache<Call, Boolean>()
+        #(call, parser)
+          cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[1].is-noop(parser)
+      
+      let remove-unary-plus(node)
+        if node instanceof Call and node.is-unary-call("+")
+          node.args[0]
+        else
+          node
+      
+      let left-const-nan(call, left, right)
+        if left.const-value() is NaN
+          Call call.index, call.scope,
+            Symbol.block call.index
+            right
+            left
+      let right-const-nan(call, left, right)
+        if right.const-value() is NaN
+          Call call.index, call.scope,
+            Symbol.block call.index
+            left
+            right
+      Symbol.binary := {
+        "*": class Multiply extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "*"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~* right.const-value()
+              else
+                switch left.const-value()
+                case 1
+                  return Call call.index, call.scope,
+                    Symbol.unary["+"] call.index
+                    right
+                case -1
+                  return Call call.index, call.scope,
+                    Symbol.unary["-"] call.index
+                    right
+                default
+                  return? left-const-nan call, left, right
+            else if right.is-const()
+              switch right.const-value()
+              case 1
+                return Call call.index, call.scope,
+                  Symbol.unary["+"] call.index
+                  left
+              case -1
+                return Call call.index, call.scope,
+                  Symbol.unary["-"] call.index
+                  left
+              default
+                return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "/": class Divide extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "/"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~/ right.const-value()
+              else
+                return? left-const-nan call, left, right
+            else if right.is-const()
+              switch right.const-value()
+              case 1
+                return Call call.index, call.scope,
+                  Symbol.unary["+"] call.index
+                  left
+              case -1
+                return Call call.index, call.scope,
+                  Symbol.unary["-"] call.index
+                  left
+              default
+                return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "%": class Modulo extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "%"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~% right.const-value()
+              else
+                return? left-const-nan call, left, right
+            else if right.is-const()
+              return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "+": class AddOrStringConcat extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "+"
+          def _type = do
+            let cache = Cache<Call, Type>()
+            #(call, parser)
+              cache-get-or-add! cache, call, do
+                let left = call.args[0].type(parser)
+                let right = call.args[1].type(parser)
+                if left.is-subset-of(Type.numeric) and right.is-subset-of(Type.numeric)
+                  Type.number
+                else if left.overlaps(Type.numeric) and right.overlaps(Type.numeric)
+                  Type.string-or-number
+                else
+                  Type.string
+          let is-JS-numeric(x)
+            is-null! x or typeof x in [\number, \boolean, \undefined]
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, (if is-JS-numeric(left.const-value()) and is-JS-numeric(right.const-value())
+                  left.const-value() ~+ right.const-value()
+                else
+                  left.const-value() ~& right.const-value())
+              else
+                if left.is-const-value(0) and right.type(parser).is-subset-of(Type.numeric)
+                  return Call call.index, call.scope,
+                    Symbol.unary["+"] call.index
+                    right
+                else if left.is-const-value("") and right.type(parser).is-subset-of(Type.string)
+                  return right
+                else if left.is-const-type(\string) and right instanceof Call and right.is-binary-call("+") and right.args[0].is-const-type(\string)
+                  return Call call.index, call.scope,
+                    call.func
+                    Value left.index, left.const-value() & right.args[0].const-value()
+                    right.args[1]
+                else
+                  return? left-const-nan call, left, right
+            else if right.is-const()
+              if right.is-const-value(0) and left.type(parser).is-subset-of(Type.number)
+                return Call call.index, call.scope,
+                  Symbol.unary["+"] call.index
+                  left
+              else if right.is-const-type(\number) and right.const-value() < 0 and left.type(parser).is-subset-of(Type.numeric)
+                return Call call.index, call.scope,
+                  Subtract call.index
+                  left
+                  Value right.index, -right.const-value()
+              else if right.is-const-value("") and left.type(parser).is-subset-of(Type.string)
+                return left
+              else if right.is-const-type(\string) and left instanceof Call and left.is-binary-call("+") and left.args[1].is-const-type(\string)
+                return Call call.index, call.scope,
+                  call.func
+                  left.args[0]
+                  Value left.args[1].index, left.args[1].const-value() & right.const-value()
+              else
+                return? right-const-nan call, left, right
+              
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "-": class Subtract extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "-"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~- right.const-value()
+              else if left.is-const-value(0)
+                return Call call.index, call.scope,
+                  Symbol.unary["-"] call.index
+                  right
+              else
+                return? left-const-nan call, left, right
+            else if right.is-const()
+              if right.is-const-value(0)
+                return Call call.index, call.scope,
+                  Symbol.unary["+"] call.index
+                  right
+              else if right.is-const-type(\number) and right.const-value() < 0 and left.type(parser).is-subset-of(Type.numeric)
+                return Call call.index, call.scope,
+                  AddOrStringConcat call.index
+                  left
+                  Value right.index, -right.const-value()
+              else
+                return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "<<": class BitwiseLeftShift extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "<<"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~bitlshift right.const-value()
+              else
+                return? left-const-nan call, left, right
+            else if right.is-const()
+              return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        ">>": class BitwiseRightShift extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = ">>"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~bitrshift right.const-value()
+              else
+                return? left-const-nan call, left, right
+            else if right.is-const()
+              return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        ">>>": class BitwiseUnsignedRightShift extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = ">>>"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~biturshift right.const-value()
+              else
+                return? left-const-nan call, left, right
+            else if right.is-const()
+              return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "&": class BitwiseAnd extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "&"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~bitand right.const-value()
+              else
+                return? left-const-nan call, left, right
+            else if right.is-const()
+              return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "|": class BitwiseOr extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "|"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~bitor right.const-value()
+              else
+                return? left-const-nan call, left, right
+            else if right.is-const()
+              return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "^": class BitwiseXor extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "^"
+          def _type() Type.number
+          def __reduce(call, parser)
+            let left = remove-unary-plus call.args[0].reduce(parser)
+            let right = remove-unary-plus call.args[1].reduce(parser)
+            
+            if left.is-const()
+              if right.is-const()
+                return Value call.index, left.const-value() ~bitxor right.const-value()
+              else
+                return? left-const-nan call, left, right
+            else if right.is-const()
+              return? right-const-nan call, left, right
+            if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "<": class LessThan extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "<"
+          def _type() Type.boolean
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              Value call.index, left.const-value() ~< right.const-value()
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "<=": class LessThanOrEqual extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "<="
+          def _type() Type.boolean
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              Value call.index, left.const-value() ~<= right.const-value()
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        ">": class GreaterThan extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = ">"
+          def _type() Type.boolean
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              Value call.index, left.const-value() ~> right.const-value()
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        ">=": class GreaterThanOrEqual extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = ">="
+          def _type() Type.boolean
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              Value call.index, left.const-value() ~>= right.const-value()
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "==": class UnstrictEqual extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "=="
+          def _type() Type.boolean
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              Value call.index, left.const-value() ~= right.const-value()
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "!=": class UnstrictInequal extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "!="
+          def _type() Type.boolean
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              Value call.index, left.const-value() !~= right.const-value()
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "===": class StrictEqual extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "==="
+          def _type() Type.boolean
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              Value call.index, left.const-value() == right.const-value()
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "!==": class StrictInequal extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "!=="
+          def _type() Type.boolean
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              Value call.index, left.const-value() != right.const-value()
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        instanceof: class Instanceof extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = \instanceof
+          def _type() Type.boolean
+        
+        in: class HasKey extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = \in
+          def _type() Type.boolean
+        
+        "&&": class LogicalAnd extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "&&"
+          def _type = do
+            let cache = Cache<Call, Type>()
+            #(call, parser)
+              cache-get-or-add! cache, call, call.args[0].type(parser).intersect(Type.potentially-falsy).union(call.args[1].type(parser))
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              return Value call.index, left.const-value() and right.const-value()
+            
+            let left-type = left.type(parser)
+            if left-type.is-subset-of(Type.always-truthy)
+              Call call.index, call.scope,
+                Symbol.block call.index,
+                left
+                right
+            else if left-type.is-subset-of(Type.always-falsy)
+              left
+            else if left instanceof Call and left.is-binary-call("&&")
+              // (((a && b) && c) && d) turns into (a && (b && (c && d)))
+              Call call.index, call.scope,
+                left.func
+                left.args[0]
+                Call left.args[1].index, call.scope,
+                  call.func
+                  left.args[1]
+                  right
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+        
+        "||": class LogicalOr extends BinaryOperator
+          def constructor(@index as Number) ->
+          def name = "||"
+          def _type = do
+            let cache = Cache<Call, Type>()
+            #(call, parser)
+              cache-get-or-add! cache, call, call.args[0].type(parser).intersect(Type.potentially-truthy).union(call.args[1].type(parser))
+          
+          def __reduce(call, parser)
+            let left = call.args[0].reduce(parser)
+            let right = call.args[1].reduce(parser)
+            
+            if left.is-const() and right.is-const()
+              return Value call.index, left.const-value() or right.const-value()
+            
+            let left-type = left.type(parser)
+            if left-type.is-subset-of(Type.always-truthy)
+              left
+            else if left-type.is-subset-of(Type.always-falsy)
+              Call call.index, call.scope,
+                Symbol.block call.index,
+                left
+                right
+            else if left instanceof Call and left.is-binary-call("||")
+              // (((a || b) || c) || d) turns into (a || (b || (c || d)))
+              Call call.index, call.scope,
+                left.func
+                left.args[0]
+                Call left.args[1].index, call.scope,
+                  call.func
+                  left.args[1]
+                  right
+            else if left instanceof Call and left.is-internal-call(\if) and left.args[2].is-const() and not left.args[2].const-value()
+              // (a ? b : false) || c turns into (a && b) || c
+              let mutable test = left.args[0]
+              let mutable when-true = left.args[1]
+              while when-true instanceof Call and when-true.is-internal-call(\if) and when-true.args[2].is-const() and not when-true.args[2].const-value()
+                test := Call left.index, left.scope,
+                  Symbol.binary["&&"] left.index
+                  test
+                  when-true.args[0]
+                when-true := when-true.args[2]
+              Call call.index, call.scope,
+                call.func
+                Call left.index, left.scope,
+                  Symbol.binary["&&"] left.index
+                  test
+                  when-true
+                right
+            else if left != call.args[0] or right != call.args[1]
+              Call call.index, call.scope,
+                call.func
+                left
+                right
+            else
+              call
+      }
     
     class UnaryOperator extends Operator
       def constructor()
@@ -825,6 +1442,10 @@ class Symbol extends Node
               Value call.index, ~+node.const-value()
             else if node.type(parser).is-subset-of(Type.number)
               node
+            else if node != call.args[0]
+              Call call.index, call.scope,
+                call.func
+                node
             else
               call
         
@@ -836,31 +1457,34 @@ class Symbol extends Node
           def __reduce(call, parser)
             let node = call.args[0].reduce(parser)
             if node.is-const()
-              Value call.index, ~-node.const-value()
-            else if node instanceof Node and node.is-call and node.func instanceofsome [ToNumber, Negate]
+              return Value call.index, ~-node.const-value()
+            else if node instanceof Call
+              if node.func instanceofsome [ToNumber, Negate]
+                return Call call.index, call.scope,
+                  if node.func instanceof ToNumber
+                    Negate call.index
+                  else
+                    ToNumber call.index
+                  node.args[0]
+              else if node.func instanceof BinaryOperator
+                if node.func.name in ["-", "+"]
+                  return Call call.index, call.scope,
+                    Symbol.binary[if node.func.name == "-" then "+" else "-"] call.index
+                    Call node.args[0].index, node.args[0].scope,
+                      Negate node.args[0].index
+                      node.args[0]
+                    node.args[1]
+                else if node.func.name in ["*", "/"]
+                  return Call call.index, call.scope,
+                    node.func
+                    Call node.args[0].index, node.args[0].scope,
+                      Negate node.args[0].index
+                      node.args[0]
+                    node.args[1]
+            if node != call.args[0]
               Call call.index, call.scope,
-                if node.func instanceof ToNumber
-                  Negate call.index
-                else
-                  ToNumber call.index
-                node.args[0]
-            else if node instanceof OldNode.Binary
-              if node.op in ["-", "+"]
-                OldNode.Binary @index, @scope,
-                  Call node.left.index, node.left.scope,
-                    Negate node.left.index
-                    node.left
-                  if node.op == "-" then "+" else "-"
-                  node.right
-              else if node.op in ["*", "/"]
-                OldNode.Binary @index, @scope,
-                  Call node.left.index, node.left.scope,
-                    Negate node.left.index
-                    node.left
-                  node.op
-                  node.right
-              else
-                call
+                call.func
+                node
             else
               call
         
@@ -899,40 +1523,44 @@ class Symbol extends Node
             "!=": "=="
             "===": "!=="
             "!==": "==="
-            "&&": #(x, y) -> OldNode.Binary @index, @scope,
+            "&&": #(x, y) -> Call @index, @scope,
+              Symbol.binary["||"] @index
               Call x.index, x.scope,
                 Not x.index
                 x
-              "||"
               Call y.index, y.scope,
                 Not y.index
                 y
-            "||": #(x, y) -> OldNode.Binary @index, @scope,
+            "||": #(x, y) -> Call @index, @scope,
+              Symbol.binary["&&"] @index
               Call x.index, x.scope,
                 Not x.index
                 x
-              "&&"
               Call y.index, y.scope,
                 Not y.index
                 y
           def __reduce(call, parser)
             let node = call.args[0].reduce(parser)
             if node.is-const()
-              Value call.index, not node.const-value()
-            else if node instanceof Not
-              if node.args[0].type(parser).is-subset-of(Type.boolean)
-                node.args[0]
-              else
-                call
-            else if node instanceof OldNode.Binary
-              if invertible-binary-ops ownskey node.op
-                let invert = invertible-binary-ops[node.op]
-                if is-function! invert
-                  invert@ this, node.left, node.right
-                else
-                  OldNode.Binary @index, @scope, node.left, invert, node.right
-              else
-                call
+              return Value call.index, not node.const-value()
+            else if node instanceof Call
+              if node.func instanceof Not
+                if node.args[0].type(parser).is-subset-of(Type.boolean)
+                  return node.args[0]
+              else if node.func instanceof BinaryOperator
+                if invertible-binary-ops ownskey node.func.name
+                  let invert = invertible-binary-ops[node.func.name]
+                  return if is-function! invert
+                    invert@ call, node.args[0], node.args[1]
+                  else
+                    Call call.index, call.scope,
+                      Symbol.binary[invert] call.index
+                      node.args[0]
+                      node.args[1]
+            if node != call.args[0]
+              Call call.index, call.scope,
+                call.func
+                node
             else
               call
       
@@ -945,6 +1573,10 @@ class Symbol extends Node
             let node = call.args[0].reduce(parser)
             if node.is-const()
               Value call.index, ~bitnot node.const-value()
+            else if node != call.args[0]
+              Call call.index, call.scope,
+                call.func
+                node
             else
               call
       
@@ -963,27 +1595,31 @@ class Symbol extends Node
           def __reduce(call, parser)
             let node = call.args[0].reduce(parser)
             if node.is-const()
-              Value call.index, typeof node.const-value()
+              return Value call.index, typeof node.const-value()
             else if node.is-noop(parser)
               let type = node.type(parser)
               switch
               case type.is-subset-of Type.number
-                Value call.index, \number
+                return Value call.index, \number
               case type.is-subset-of Type.string
-                Value call.index, \string
+                return Value call.index, \string
               case type.is-subset-of Type.boolean
-                Value call.index, \boolean
+                return Value call.index, \boolean
               case type.is-subset-of Type.undefined
-                Value call.index, \undefined
+                return Value call.index, \undefined
               case type.is-subset-of Type.function
-                Value call.index, \function
+                return Value call.index, \function
               case type.is-subset-of object-type
-                Value call.index, \object
+                return Value call.index, \object
               default
-                call
+                void
+            if node != call.args[0]
+              Call call.index, call.scope,
+                call.func
+                node
             else
               call
-      
+        
         delete: class Delete extends UnaryOperator
           def constructor(@index as Number) ->
           def name = \delete
@@ -1005,36 +1641,6 @@ class Symbol extends Node
       def validate-args(left as OldNode, right as OldNode, ...rest)
         if DEBUG and rest.length > 0
           throw Error "Too many arguments to assign operator $(@name)"
-    
-    let binary-operators = [
-      "*"
-      "/"
-      "%"
-      "+"
-      "-"
-      "<<"
-      ">>"
-      ">>>"
-      "<"
-      "<="
-      ">"
-      ">="
-      "in"
-      "instanceof"
-      "=="
-      "!="
-      "==="
-      "!=="
-      "&"
-      "^"
-      "|"
-      "&&"
-      "||"
-    ]
-    Symbol.binary := {}
-    for name in binary-operators
-      Symbol.binary[name] := #(index)
-        BinaryOperator index, name
     
     let assign-operators = [
       "="

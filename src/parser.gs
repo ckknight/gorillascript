@@ -21,7 +21,6 @@ const EMBED_OPEN_LITERAL_DEFAULT = "<%@"
 const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
 let AssignNode = Node.Assign
-let BinaryNode = Node.Binary
 let CallNode = Node.Call
 let EmbedWriteNode = Node.EmbedWrite
 let FunctionNode = Node.Function
@@ -3759,18 +3758,18 @@ let convert-invocation-or-access = do
                 let existential-op = parser.get-macro-by-label(\existential)
                 if not existential-op
                   throw Error "Cannot use existential access until the existential operator has been defined"
-              
-                parser.Binary(index
+                
+                LCall index, parser.scope.peek(),
+                  LSymbol.binary["&&"] index
                   existential-op.func {
                     op: ""
                     node: set-head
                   }, parser, index
-                  "&&"
                   ownership-op.func {
                     left: head
                     op: ""
                     right: set-child
-                  }, parser, index)
+                  }, parser, index
               else
                 ownership-op.func {
                   left: set-head
@@ -3851,11 +3850,11 @@ let convert-invocation-or-access = do
             set-head := parser.Assign(index, tmp, "=", head.do-wrap(parser))
             head := tmp
         let result = LInternalCall \if, index, parser.scope.peek(),
-          parser.Binary index,
+          LCall index, parser.scope.peek(),
+            LSymbol.binary["==="] index
             LCall index, parser.scope.peek(),
               LSymbol.unary.typeof index
               set-head
-            "==="
             LValue index, \function
           convert-call-chain parser, index,
             parser.Call index, head, link.args, link.is-new, link.is-apply
