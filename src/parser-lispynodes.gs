@@ -171,7 +171,10 @@ class Symbol extends Node
               Symbol.tmp-wrapper call.index
               Call call.index, call.scope,
                 Symbol.access call.index
-                OldNode.Assign call.index, call.scope, cached-parent, "=", parent
+                Call call.index, call.scope,
+                  Symbol.assign["="] call.index
+                  cached-parent
+                  parent
                 child
               Value call.index, cached-parent.id
           
@@ -300,7 +303,7 @@ class Symbol extends Node
           else if len > 1
             let last = args[len - 1]
             if last instanceof Node and last.is-internal-call(\for-in)
-              if for every node in args[0 til -1]; node instanceof OldNode.Assign or (node instanceof Node and node.is-internal-call(\var))
+              if for every node in args[0 til -1]; node instanceof Node and (node.is-internal-call(\var) or node.is-assign-call())
                 return Call call.index, call.scope,
                   call.func
                   ...args[0 til -1]
@@ -785,6 +788,9 @@ class Symbol extends Node
     def is-unary = false
     def is-assign = false
     
+    def equals(other)
+      other instanceof @constructor
+    
     class BinaryOperator extends Operator
       def constructor()
         throw Error "UnaryOperator is not meant to be instantiated directly"
@@ -795,9 +801,6 @@ class Symbol extends Node
       def inspect()
         "Symbol.binary[$(to-JS-source @name)]"
       
-      def equals(other)
-        other instanceof BinaryOperator and @name == other.name
-  
       def validate-args(left as OldNode, right as OldNode, ...rest)
         if DEBUG and rest.length > 0
           throw Error "Too many arguments to binary operator $(@name)"
@@ -1640,31 +1643,83 @@ class Symbol extends Node
       def inspect()
         "Symbol.assign[$(to-JS-source @name)]"
       
-      def equals(other)
-        other instanceof AssignOperator and @name == other.name
-    
       def validate-args(left as OldNode, right as OldNode, ...rest)
         if DEBUG and rest.length > 0
           throw Error "Too many arguments to assign operator $(@name)"
-    
-    let assign-operators = [
-      "="
-      "+="
-      "-="
-      "*="
-      "/="
-      "%="
-      "<<="
-      ">>="
-      ">>>="
-      "&="
-      "^="
-      "|="
-    ]
-    Symbol.assign := {}
-    for name in assign-operators
-      Symbol.assign[name] := #(index)
-        AssignOperator index, name
+      
+      Symbol.assign := {
+        "=": class NormalAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "="
+          def _type(call, parser)
+            call.args[1].type(parser)
+        
+        "+=": class AddOrStringConcatAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "+="
+          def _type = do
+            let cache = Cache<Call, Type>()
+            #(call, parser)
+              cache-get-or-add! cache, call, do
+                let left-type = call.args[0].type(parser)
+                let right-type = call.args[1].type(parser)
+                if left-type.is-subset-of(Type.numeric) and right.is-subset-of(Type.numeric)
+                  Type.number
+                else if left-type.overlaps(Type.numeric) and right.overlaps(Type.numeric)
+                  Type.string-or-number
+                else
+                  Type.string
+        
+        "-=": class SubtractAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "-="
+          def _type() Type.number
+        
+        "*=": class MultiplyAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "*="
+          def _type() Type.number
+        
+        "/=": class DivideAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "/="
+          def _type() Type.number
+        
+        "%=": class ModuloAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "%="
+          def _type() Type.number
+        
+        "<<=": class BitwiseLeftShiftAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "<<="
+          def _type() Type.number
+        
+        ">>=": class BitwiseRightShiftAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = ">>="
+          def _type() Type.number
+        
+        ">>>=": class BitwiseUnsignedRightShiftAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = ">>>="
+          def _type() Type.number
+        
+        "&=": class BitwiseAndAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "&="
+          def _type() Type.number
+        
+        "|=": class BitwiseOrAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "|="
+          def _type() Type.number
+        
+        "^=": class BitwiseXorAssign extends AssignOperator
+          def constructor(@index as Number) ->
+          def name = "^="
+          def _type() Type.number
+      }
 
 class Call extends Node
   def constructor(@index as Number, @scope, @func as Node, ...@args as [OldNode])

@@ -758,32 +758,6 @@ let generator-translate = do
         cleanup: make-cleanup(assign-to, scope, t-tmp)
       }
   let expressions =
-    [ParserNodeType.Assign]: #(node, scope, state, assign-to, unassigned)
-      let left = node.left
-      let g-left = if left instanceof LispyNode and left.is-internal-call(\access)
-        let g-parent = generator-translate-expression left.args[0], scope, state, true, unassigned
-        let g-child = generator-translate-expression left.args[1], scope, g-parent.state, true, unassigned
-        {
-          g-child.state
-          t-node: #-> ast.Access get-pos(left), g-parent.t-node(), g-child.t-node()
-          cleanup: #
-            g-parent.cleanup()
-            g-child.cleanup()
-        }
-      else
-        if unassigned and node.left instanceof ParserNode.Ident
-          unassigned[node.left.name] := false
-        {
-          state
-          t-node: translate node.left, scope, \left-expression
-          cleanup: do-nothing
-        }
-      
-      let g-right = generator-translate-expression node.right, scope, g-left.state, g-left.t-node, unassigned
-      handle-assign assign-to, scope, g-right.state, g-right.t-node, #
-        g-left.cleanup()
-        g-right.cleanup()
-    
     [ParserNodeType.Call]: #(node, scope, mutable state, assign-to, unassigned)
       if node.func instanceof ParserNode.Ident and node.func.name == \eval
         let g-code = generator-translate-expression node.args[0], scope, state, false, unassigned
@@ -945,6 +919,35 @@ let generator-translate = do
       throw Error "Unreachable state"
   
   let generator-translate-expression-lispy-operators =
+    assign: #(node, args, scope, state, assign-to, unassigned)
+      let [left, right] = args
+      let g-left = if left instanceof LispyNode and left.is-internal-call(\access)
+        let g-parent = generator-translate-expression left.args[0], scope, state, true, unassigned
+        let g-child = generator-translate-expression left.args[1], scope, g-parent.state, true, unassigned
+        {
+          g-child.state
+          t-node: #-> ast.Access get-pos(left), g-parent.t-node(), g-child.t-node()
+          cleanup: #
+            g-parent.cleanup()
+            g-child.cleanup()
+        }
+      else
+        if unassigned and left instanceof ParserNode.Ident
+          unassigned[left.name] := false
+        {
+          state
+          t-node: translate left, scope, \left-expression
+          cleanup: do-nothing
+        }
+      
+      if node.func.name == "="
+        let g-right = generator-translate-expression right, scope, g-left.state, g-left.t-node, unassigned
+        handle-assign assign-to, scope, g-right.state, g-right.t-node, #
+          g-left.cleanup()
+          g-right.cleanup()
+      else
+        throw Error "Not implemented: assigning with non-= in a generator"
+    
     binary: do
       let lazy-ops = {
         "&&": #(node, args, scope, state, assign-to, unassigned)
@@ -1283,11 +1286,12 @@ let generator-translate = do
   let generator-translate-lispy(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     if node.is-internal-call()
       let name = node.func.name
-      if generator-translate-lispy-internals not ownskey name
-        throw Error "Unable to translate internal call '$name'"
-      generator-translate-lispy-internals[name] node, node.args, scope, state, break-state, continue-state, unassigned, is-top
-    else
-      throw Error("Not implemented: Unable to translate non-internal call")
+      if generator-translate-lispy-internals ownskey name
+        return generator-translate-lispy-internals[name] node, node.args, scope, state, break-state, continue-state, unassigned, is-top
+    let ret = generator-translate-expression-lispy(node, scope, state, false, unassigned)
+    ret.state.add #-> first!(
+      ret.t-node()
+      ret.cleanup())
   
   #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     if state.has-generator-node node
@@ -1357,24 +1361,6 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
           rest
 
 let translators =
-  [ParserNodeType.Assign]: #(node, scope, location, unassigned)
-    let op = node.op
-    let t-left = translate node.left, scope, \left-expression
-    let t-right = translate node.right, scope, \expression, unassigned
-    if unassigned and node.left instanceof ParserNode.Ident
-      if op == "=" and unassigned[node.left.name] and not unassigned[UNASSIGNED_TAINT_KEY] and node.right.is-const() and is-void! node.right.const-value()
-        return #-> ast.Noop(get-pos(node))
-      unassigned[node.left.name] := false
-    
-    #
-      let left = t-left()
-      let right = t-right()
-      if op == "=" and location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name? and scope.has-own-variable(left) and not scope.is-variable-mutable(left)
-        scope.mark-as-function left
-        ast.Func(get-pos(node), left, right.params, right.variables, right.body, right.declarations)
-      else
-        ast.Binary(get-pos(node), left, op, right)
-
   [ParserNodeType.Call]: #(node, scope, location, unassigned)
     if node.func instanceof ParserNode.Ident
       if node.func.name == \RegExp and node.args[0].is-const() and (not node.args[1] or node.args[1].is-const())
@@ -1923,6 +1909,24 @@ let translate-lispy-internal =
     t-result
 
 let translate-lispy-operator =
+  assign: #(node, args, scope, location, unassigned)
+    let op-name = node.func.name
+    let t-left = translate args[0], scope, \left-expression
+    let t-right = translate args[1], scope, \expression, unassigned
+    if unassigned and args[0] instanceof ParserNode.Ident
+      if op-name == "=" and unassigned[args[0].name] and not unassigned[UNASSIGNED_TAINT_KEY] and args[1].is-const-value(void)
+        return #-> ast.Noop(get-pos(node))
+      unassigned[args[0].name] := false
+    
+    #
+      let left = t-left()
+      let right = t-right()
+      if op-name == "=" and location == \top-statement and left instanceof ast.Ident and right instanceof ast.Func and not right.name? and scope.has-own-variable(left) and not scope.is-variable-mutable(left)
+        scope.mark-as-function left
+        ast.Func(get-pos(node), left, right.params, right.variables, right.body, right.declarations)
+      else
+        ast.Binary(get-pos(node), left, op-name, right)
+  
   binary: #(node, args, scope, location, unassigned)
     let t-left = translate args[0], scope, \expression, unassigned
     let t-right = translate args[1], scope, \expression, unassigned

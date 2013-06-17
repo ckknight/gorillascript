@@ -6,7 +6,6 @@ require! Type: './types'
 require! Scope: './parser-scope'
 let {node-to-type, add-param-to-scope} = require './parser-utils'
 
-let AssignNode = Node.Assign
 let CallNode = Node.Call
 let FunctionNode = Node.Function
 let IdentNode = Node.Ident
@@ -125,7 +124,11 @@ class MacroContext
     LispyNode.InternalCall(\try-finally, @index, @scope(),
       try-body
       finally-body).reduce(@parser)
-  def assign(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope())) -> @parser.Assign(@index, left, op, @do-wrap(right)).reduce(@parser)
+  def assign(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope()))
+    LispyNode.Call(@index, @scope()
+      LispyNode.Symbol.assign[op] @index
+      left
+      @do-wrap(right)).reduce(@parser)
   def binary(left as Node = NothingNode(0, @scope()), op as String, right as Node = NothingNode(0, @scope()))
     LispyNode.Call(@index, @scope()
       LispyNode.Symbol.binary[op] @index
@@ -541,7 +544,9 @@ class MacroContext
   def is-custom(mutable node)
     node := @real(node)
     node instanceof LispyNode and node.is-internal-call(\custom)
-  def is-assign(node) -> @real(node) instanceof AssignNode
+  def is-assign(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-assign-call()
   def is-binary(mutable node)
     node := @real(node)
     node instanceof LispyNode and node.is-binary-call()
@@ -606,7 +611,10 @@ class MacroContext
       @scope().add tmp, false, type
       let set-tmp = LispyNode.InternalCall \block, @index, @scope(),
         LispyNode.InternalCall \var, @index, @scope(), tmp
-        @parser.Assign @index, tmp, "=", @do-wrap(node)
+        LispyNode.Call @index, @scope(),
+          LispyNode.Symbol.assign["="] @index
+          tmp
+          @do-wrap(node)
       func@ this, set-tmp, tmp, true
     else
       func@ this, node, node, false

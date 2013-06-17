@@ -250,42 +250,6 @@ macro node-class
       $body
       $add-methods
 
-node-class AssignNode(left as Node, op as String, right as Node)
-  def type = do
-    let ops =
-      "=": #(left, right) -> right
-      "+=": #(left, right)
-        if left.is-subset-of(Type.numeric) and right.is-subset-of(Type.numeric)
-          Type.number
-        else if left.overlaps(Type.numeric) and right.overlaps(Type.numeric)
-          Type.string-or-number
-        else
-          Type.string
-      "-=": Type.number
-      "*=": Type.number
-      "/=": Type.number
-      "%=": Type.number
-      "<<=": Type.number
-      ">>=": Type.number
-      ">>>=": Type.number
-      "&=": Type.number
-      "^=": Type.number
-      "|=": Type.number
-    #(o) -> @_type ?=
-      let type = ops![@op]
-      if not type
-        Type.any
-      else if is-function! type
-        type @left.type(o), @right.type(o)
-      else
-        type
-  def _reduce(o)
-    let left = @left.reduce(o)
-    let right = @right.reduce(o).do-wrap(o)
-    if left != @left or right != @right
-      AssignNode @index, @scope, left, @op, right
-    else
-      this
 node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-apply as Boolean)
   def type = do
     let PRIMORDIAL_FUNCTIONS =
