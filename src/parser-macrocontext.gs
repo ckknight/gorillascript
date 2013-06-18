@@ -286,7 +286,17 @@ class MacroContext
       Ident @index, @scope(), name
   
   def is-call(node) -> @real(node) instanceof CallNode
+
+  def is-context-call(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\context-call)
   
+  def context-call(func as Node, context as Node, ...args as [Node])
+    LispyNode.InternalCall \context-call, @index, @scope(),
+      func
+      context
+      ...args
+
   def call-func(mutable node)
     node := @real(node)
     if node instanceof CallNode
@@ -317,19 +327,9 @@ class MacroContext
       not not node.is-new
     else
       false
-  
-  def call-is-apply(mutable node)
-    node := @real(node)
-    if node instanceof CallNode
-      not not node.is-apply
-    else
-      false
-  
-  def call(func as Node, args as [Node] = [], is-new as Boolean = false, is-apply as Boolean = false)
-    if is-new and is-apply
-      throw Error "Cannot specify both is-new and is-apply"
-    
-    CallNode(func.index, @scope(), @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new, is-apply).reduce(@parser)
+
+  def call(func as Node, args as [Node] = [], is-new as Boolean = false)
+    CallNode(func.index, @scope(), @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new).reduce(@parser)
   
   def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [Ident|Tmp] = [])
     let scope = @parser.push-scope(true)
@@ -656,7 +656,7 @@ class MacroContext
         [
           Ident obj.index, scope, obj.name.substring 1
         ]
-    else if obj instanceof CallNode and not obj.is-new and not obj.is-apply and obj.func instanceof Ident and obj.func.name == '$'
+    else if obj instanceof CallNode and not obj.is-new and obj.func instanceof Ident and obj.func.name == '$'
       if obj.args.length != 1
         throw Error "Can only use \$() in an AST if it has one argument."
       let arg = obj.args[0]

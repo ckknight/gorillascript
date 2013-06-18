@@ -252,7 +252,7 @@ macro node-class
       $body
       $add-methods
 
-node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-apply as Boolean)
+node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean)
   def type = do
     let PRIMORDIAL_FUNCTIONS =
       Object: Type.object
@@ -490,7 +490,7 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
     #(o)
       let func = @func.reduce(o).do-wrap(o)
       let args = map @args, #(node) -> node.reduce(o).do-wrap(o)
-      if not @is-new and not @is-apply
+      if not @is-new
         let const-args = []
         let mutable all-const = true
         for arg in args
@@ -537,7 +537,7 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
                     // TODO: do something here to alert the user
                     void
       if func != @func or args != @args
-        CallNode @index, @scope, func, args, @is-new, @is-apply
+        CallNode @index, @scope, func, args, @is-new
       else
         this
 

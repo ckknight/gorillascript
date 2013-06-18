@@ -3827,12 +3827,22 @@ let convert-invocation-or-access = do
           else
             convert-call-chain parser, index, make-access(head), link-index + 1, links
     call: #(parser, index, mutable head, link, link-index, links)
+      let next-chain()
+        convert-call-chain parser, index,
+          if link.is-context-call
+            LInternalCall \context-call, index, parser.scope.peek(),
+              head
+              ...link.args
+          else
+            parser.Call index, head, link.args, link.is-new
+          link-index + 1
+          links
       unless link.existential
-        convert-call-chain(parser, index, parser.Call(index, head, link.args, link.is-new, link.is-apply), link-index + 1, links)
+        next-chain()
       else
         let tmp-ids = []
         let mutable set-head = head
-        if head instanceof LispyNode and head.is-internal-call(\access) and not link.is-apply and not link.is-new
+        if head instanceof LispyNode and head.is-internal-call(\access) and not link.is-context-call and not link.is-new
           let [mutable parent, mutable child] = head.args
           let mutable set-parent = parent
           let mutable set-child = child
@@ -3871,10 +3881,7 @@ let convert-invocation-or-access = do
               LSymbol.unary.typeof index
               set-head
             LValue index, \function
-          convert-call-chain parser, index,
-            parser.Call index, head, link.args, link.is-new, link.is-apply
-            link-index + 1
-            links
+          next-chain()
           LSymbol.nothing index
         if tmp-ids.length
           LInternalCall \tmp-wrapper, index, result.scope,
@@ -3909,7 +3916,7 @@ let convert-invocation-or-access = do
       case \access, \access-index
         links.push part
       case \call
-        if is-new and part.is-apply
+        if is-new and part.is-context-call
           throw ParserError "Cannot call with both new and @ at the same time", parser, index
         links.push {} <<< part <<< { is-new }
         is-new := false
@@ -3921,7 +3928,7 @@ let convert-invocation-or-access = do
         throw Error "Unknown link type: $(part.type)"
   
     if is-new
-      links.push { type: \call, args: [], -existential, +is-new, -is-apply }
+      links.push { type: \call, args: [], -existential, +is-new, -is-context-call }
     
     convert-call-chain parser, index, head.node, 0, links
 
@@ -3994,13 +4001,13 @@ let InvocationOrAccessPart = one-of(
       }
   sequential(
     [\existential, bool MaybeQuestionMarkChar]
-    [\is-apply, bool MaybeAtSignChar]
+    [\is-context-call, bool MaybeAtSignChar]
     [\args, InvocationArguments]) |> mutate #(x, , , index) -> {
       type: \call
       x.args
       x.existential
       -is-new
-      x.is-apply
+      x.is-context-call
       index
     })
 

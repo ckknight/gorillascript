@@ -1187,7 +1187,7 @@ define operator binary by with maximum: 1, precedence: 3, type: \array
     @error "Must provide a number to the 'by' operator", right
   if @is-const(right) and @value(right) == 0
     @error "'by' step must be non-zero", right
-  if @is-call(left) and @is-ident(@call-func(left)) and @name(@call-func(left)) == \__range and not @call-is-apply(left)
+  if @is-call(left) and @is-ident(@call-func(left)) and @name(@call-func(left)) == \__range
     let call-args = @call-args(left)
     ASTE __range($(call-args[0]), $(call-args[1]), $right, $(call-args[3]))
   else
@@ -1217,10 +1217,10 @@ macro for
       length := index.length
       index := index.value
     
-    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__to-array and not @call-is-apply(array)
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__to-array
       array := @call-args(array)[0]
     
-    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range and not @call-is-apply(array)
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
       if @is-array(value) or @is-object(value)
         @error "Cannot assign a number to a complex declarable", value
       value := value.ident
@@ -1350,14 +1350,14 @@ macro for
     
       @macro-expand-all AST(length) let $length = 0
       
-      array := @macro-expand-all(array)
+      array := @real @macro-expand-all(array)
       
       let mutable step = ASTE(array) 1
       let mutable start = ASTE(array) 0
       let mutable end = ASTE(array) Infinity
       let mutable inclusive = ASTE(array) false
       if @is-call(array) and @is-ident(@call-func(array))
-        if @name(@call-func(array)) == \__step and not @call-is-apply(array)
+        if @name(@call-func(array)) == \__step
           let args = @call-args(array)
           array := args[0]
           step := args[1]
@@ -1372,22 +1372,23 @@ macro for
             start := void
             end := void
           inclusive := ASTE(array) true
-        else if @name(@call-func(array)) == \__slice and @call-is-apply(array)
-          let args = @call-args(array)
-          array := args[0]
-          start := args[1]
-          if not start or (@is-const(start) and is-void! @value(start))
-            start := ASTE(array) 0
-          end := args[2]
-          if not end or (@is-const(end) and is-void! @value(end))
-            end := ASTE(array) Infinity
-        else if @name(@call-func(array)) == \__slice-step and not @call-is-apply(array)
+        else if @name(@call-func(array)) == \__slice-step
           let args = @call-args(array)
           array := args[0]
           start := args[1]
           end := args[2]
           step := args[3]
           inclusive := args[4]
+      else if @is-context-call(array) and @is-ident(array.args[0])
+        if @name(array.args[0]) == \__slice
+          let args = array.args
+          array := args[1]
+          start := args[2]
+          if not start or (@is-const(start) and is-void! @value(start))
+            start := ASTE(array) 0
+          end := args[3]
+          if not end or (@is-const(end) and is-void! @value(end))
+            end := ASTE(array) Infinity
       if @is-const(step)
         if not is-number! @value(step)
           @error "Expected step to be a number, got $(typeof! @value step)", step
@@ -2491,19 +2492,23 @@ macro once!(func, silent-fail)
 
 macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
-    if not @is-call(call)
-      @error "async call expression must be a call", call
-    
     body ?= @noop()
-    
     params := if params then [params.head].concat(params.tail) else []
     let func = @func(params, body, true, true)
-    @call @call-func(call), @call-args(call).concat([ASTE(func) once! (mutate-function! $func)]), @call-is-new(call), @call-is-apply(call)
+    
+    if @is-context-call(call)
+      call := @real(call)
+
+      @context-call ...call.args, ASTE(func) once! (mutate-function! $func)
+    else
+      if not @is-call(call)
+        @error "async call expression must be a call", call
+      
+      @call @call-func(call), @call-args(call).concat([ASTE(func) once! (mutate-function! $func)]), @call-is-new(call)
 
 macro async!
   syntax callback as ("throw" | Expression), params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
-    if not @is-call(call)
-      @error "async! call expression must be a call", call
+    // TODO: handle apply call
     
     body ?= @noop()
     
@@ -2521,7 +2526,15 @@ macro async!
           $body
       true
       true
-    @call @call-func(call), @call-args(call).concat([ASTE(func) once! (mutate-function! $func)]), @call-is-new(call), @call-is-apply(call)
+    if @is-context-call(call)
+      call := @real(call)
+
+      @context-call ...call.args, ASTE(func) once! (mutate-function! $func)
+    else
+      if not @is-call(call)
+        @error "async! call expression must be a call", call
+      
+      @call @call-func(call), @call-args(call).concat([ASTE(func) once! (mutate-function! $func)]), @call-is-new(call)
 
 macro require!
   syntax name as Expression
@@ -2731,7 +2744,7 @@ macro asyncfor
     parallelism ?= ASTE 1
     
     index ?= @tmp \i, true
-    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range and not @call-is-apply(array)
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
       if @is-array(value) or @is-object(value)
         @error "Cannot assign a number to a complex declarable", value
       value := value.ident
@@ -2957,16 +2970,15 @@ macro class
         let args = for super-arg in @super-args node
           fix-supers super-arg
         
-        @call(
+        @context-call(
           if child?
             ASTE(node) $superproto[$child]
           else if not superclass
             ASTE(node) Object
           else
             sup
-          [ASTE(node) this].concat(args)
-          false
-          true)
+          ASTE(node) this
+          ...args)
     body := fix-supers @macro-expand-all(body)
     
     let mutable constructor-count = 0
@@ -3773,30 +3785,34 @@ define helper __to-promise = #(func as ->, context, args)
 macro to-promise!(node) with type: \promise
   if macro-data.length > 1
     @error "to-promise! only expects one argument"
-  if not @is-call(node)
-    @error "to-promise! call expression must be a call", node
-  
-  let func = @call-func(node)
-  let mutable args = @call-args(node)
-  if @call-is-new(node)
-    args := @array args
-    ASTE __to-promise __new, $func, $args
-  else if @call-is-apply(node)
-    if args.length == 0 or not @is-spread(args[0])
-      let head = args[0]
-      let tail = @array args[1 to -1]
-      ASTE __to-promise $func, $head, $tail
+  if @is-context-call(node)
+    node := @real(node)
+    let func = node.args[0]
+    if not @is-spread(node.args[1])
+      let context = node.args[1]
+      let args = @array node.args[2 to -1]
+      ASTE __to-promise $func, $context, $args
     else
-      @maybe-cache @array(args), #(set-args, args)
-        ASTE __to-promise $func, $set-args[0], $args.slice(1)
+      let context-and-args = node.args[1 to -1]
+      @maybe-cache @array(context-and-args), #(set-context-and-args, context-and-args)
+        ASTE __to-promise $func, $set-context-and-args[0], $context-and-args.slice(1)
   else
-    args := @array args
-    if @is-access func
-      @maybe-cache @parent(func), #(set-parent, parent)
-        let child = @child(func)
-        ASTE __to-promise $set-parent[$child], $parent, $args
+    if not @is-call(node)
+      @error "to-promise! call expression must be a call", node
+    
+    let func = @call-func(node)
+    let mutable args = @call-args(node)
+    if @call-is-new(node)
+      args := @array args
+      ASTE __to-promise __new, $func, $args
     else
-      ASTE __to-promise $func, void, $args
+      args := @array args
+      if @is-access func
+        @maybe-cache @parent(func), #(set-parent, parent)
+          let child = @child(func)
+          ASTE __to-promise $set-parent[$child], $parent, $args
+      else
+        ASTE __to-promise $func, void, $args
 
 define helper __generator = #(func) -> #
   let mutable self = this
@@ -3970,7 +3986,7 @@ macro promisefor
     parallelism ?= ASTE 1
     
     index ?= @tmp \i, true
-    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range and not @call-is-apply(array)
+    if @is-call(array) and @is-ident(@call-func(array)) and @name(@call-func(array)) == \__range
       if @is-array(value) or @is-object(value)
         @error "Cannot assign a number to a complex declarable", value
       value := value.ident

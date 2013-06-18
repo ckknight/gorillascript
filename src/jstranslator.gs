@@ -778,78 +778,35 @@ let generator-translate = do
         }
       else
         generator-translate-expression node.func, scope, state, true, unassigned
-      let {is-apply, is-new, args} = node
+      let {is-new, args} = node
       
-      if is-apply and (args.length == 0 or not (args[0] instanceof LispyNode and args[0].is-internal-call(\spread)))
-        let g-start = if args.length == 0
-          {
-            g-func.state
-            t-node: #-> ast.Const get-pos(node), void
-            cleanup: do-nothing
-          }
+      let g-args = generator-array-translate get-pos(node), args, scope, g-func.state, unassigned
+      handle-assign assign-to, scope, g-args.state, #
+        let func = g-func.t-node()
+        let args = g-args.t-node()
+        g-func.cleanup()
+        g-args.cleanup()
+        if is-new
+          scope.add-helper \__new
+          ast.Call get-pos(node),
+            ast.Access get-pos(node),
+              ast.Ident get-pos(node), \__new
+              ast.Const get-pos(node), \apply
+            [func, args]
+        else if args instanceof ast.Arr
+          ast.Call get-pos(node),
+            func
+            args.elements
         else
-          generator-translate-expression args[0], scope, g-func.state, true, unassigned
-        let g-args = generator-array-translate get-pos(node), args[1 to -1], scope, g-start.state, unassigned
-        handle-assign assign-to, scope, g-args.state, #
-          let func = g-func.t-node()
-          let start = g-start.t-node()
-          let args = g-args.t-node()
-          g-func.cleanup()
-          g-start.cleanup()
-          g-args.cleanup()
-          if args instanceof ast.Arr
-            ast.Call get-pos(node),
-              ast.Access get-pos(node), func, \call
-              [
-                start
-                ...args.elements
-              ]
-          else
-            ast.Call get-pos(node),
-              ast.Access get-pos(node), func, \apply
-              [
-                start
-                args
-              ]
-      else
-        let g-args = generator-array-translate get-pos(node), args, scope, g-func.state, unassigned
-        handle-assign assign-to, scope, g-args.state, #
-          let func = g-func.t-node()
-          let args = g-args.t-node()
-          g-func.cleanup()
-          g-args.cleanup()
-          if is-apply
-            ast.Call get-pos(node),
-              ast.Access get-pos(node), func, \apply
-              [
-                ast.Access get-pos(node), args, ast.Const get-pos(node), 0
-                ast.Call get-pos(node),
-                  ast.Access get-pos(node),
-                    args
-                    ast.Const get-pos(node), \slice
-                  [ast.Const get-pos(node), 1]
-              ]
-          else if is-new
-            scope.add-helper \__new
-            ast.Call get-pos(node),
-              ast.Access get-pos(node),
-                ast.Ident get-pos(node), \__new
-                ast.Const get-pos(node), \apply
-              [func, args]
-          else if args instanceof ast.Arr
-            ast.Call get-pos(node),
-              func
-              args.elements
-          else
-            ast.Call get-pos(node),
-              ast.Access get-pos(node), func, \apply
-              [
-                if func instanceof ast.Binary and func.op == "."
-                  func.left
-                else
-                  ast.Const get-pos(node), void
-                args
-              ]
+          ast.Call get-pos(node),
+            ast.Access get-pos(node), func, \apply
+            [
+              if func instanceof ast.Binary and func.op == "."
+                func.left
+              else
+                ast.Const get-pos(node), void
+              args
+            ]
   
   let generator-translate-expression-lispy-internals =
     access: #(node, args, scope, state, assign-to, unassigned)
@@ -859,6 +816,50 @@ let generator-translate = do
         ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
         g-parent.cleanup()
         g-child.cleanup())
+
+    context-call: #(node, args, scope, mutable state, assign-to, unassigned)
+      let [func, context] = args
+      let real-args = args.slice(2)
+
+      let g-func = generator-translate-expression func, scope, state, true, unassigned
+
+      if context not instanceof LispyNode or not context.is-internal-call(\spread)
+        let g-context = generator-translate-expression context, scope, g-func.state, true, unassigned
+        let g-args = generator-array-translate get-pos(node), real-args, scope, g-context.state, unassigned
+        handle-assign assign-to, scope, g-args.state, #
+          let func = g-func.t-node()
+          let context = g-context.t-node()
+          let args = g-args.t-node()
+          g-func.cleanup()
+          g-context.cleanup()
+          g-args.cleanup()
+          if args instanceof ast.Arr
+            ast.Call get-pos(node),
+              ast.Access get-pos(node), func, \call
+              [context, ...args.elements]
+          else
+            ast.Call get-pos(node),
+              ast.Access get-pos(node), func, \apply
+              [context, args]
+      else
+        let context-and-args = args.slice(1)
+        let g-context-and-args = generator-array-translate get-pos(node), context-and-args, scope, g-func.state, unassigned
+        handle-assign assign-to, scope, g-args.state, #
+          let func = g-func.t-node()
+          let context-and-args = g-context-and-args.t-node()
+          g-func.cleanup()
+          g-context-and-args.cleanup()
+          // TODO: this seems broken if context-and-args requires caching
+          ast.Call get-pos(node),
+            ast.Access get-pos(node), func, \apply
+            [
+              ast.Access get-pos(node), context-and-args, ast.Const get-pos(node), 0
+              ast.Call get-pos(node),
+                ast.Access get-pos(node),
+                  context-and-args
+                  ast.Const get-pos(node), \slice
+                [ast.Const get-pos(node), 1]
+            ]
     
     yield: #(node, args, scope, mutable state, assign-to, unassigned)
       let g-node = generator-translate-expression args[0], scope, state, false, unassigned
@@ -1378,63 +1379,33 @@ let translators =
         let t-code = translate node.args[0], scope, \expression, unassigned
         return #-> ast.Eval get-pos(node), t-code()
     let t-func = translate node.func, scope, \expression, unassigned
-    let is-apply = node.is-apply
     let is-new = node.is-new
     let args = node.args
-    if is-apply and (args.length == 0 or not (args[0] instanceof LispyNode and args[0].is-internal-call(\spread)))
-      let t-start = if args.length == 0 then #-> ast.Const(get-pos(node), void) else translate(args[0], scope, \expression, unassigned)
-      let t-arg-array = array-translate(get-pos(node), args[1 to -1], scope, false, true, unassigned)
-      #
-        let func = t-func()
-        let start = t-start()
-        let arg-array = t-arg-array()
-        if arg-array instanceof ast.Arr
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), func, \call
-            [start, ...arg-array.elements]
-        else
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), func, \apply
-            [start, arg-array]
-    else
-      let t-arg-array = array-translate(get-pos(node), args, scope, false, true, unassigned)
-      #
-        let func = t-func()
-        let arg-array = t-arg-array()
-        if is-apply
-          async set-array, array <- scope.maybe-cache arg-array, Type.array
-          scope.add-helper \__slice
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), func, \apply
-            [
-              ast.Access get-pos(node), set-array, 0
-              ast.Call get-pos(node),
-                ast.Access get-pos(node),
-                  ast.Ident get-pos(node), \__slice
-                  \call
-                [array, ast.Const get-pos(node), 1]
-            ]
-        else if arg-array instanceof ast.Arr
-          ast.Call get-pos(node),
-            func
-            arg-array.elements
-            is-new
-        else if is-new
-          scope.add-helper \__new
-          ast.Call get-pos(node),
-            ast.Access get-pos(node),
-              ast.Ident get-pos(node), \__new
-              ast.Const get-pos(node), \apply
-            [func, arg-array]
-        else if func instanceof ast.Binary and func.op == "."
-          async set-parent, parent <- scope.maybe-cache func.left, Type.function
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), set-parent, func.right, \apply
-            [parent, arg-array]
-        else
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), func, \apply
-            [ast.Const(get-pos(node), void), arg-array]
+    let t-arg-array = array-translate(get-pos(node), args, scope, false, true, unassigned)
+    #
+      let func = t-func()
+      let arg-array = t-arg-array()
+      if arg-array instanceof ast.Arr
+        ast.Call get-pos(node),
+          func
+          arg-array.elements
+          is-new
+      else if is-new
+        scope.add-helper \__new
+        ast.Call get-pos(node),
+          ast.Access get-pos(node),
+            ast.Ident get-pos(node), \__new
+            ast.Const get-pos(node), \apply
+          [func, arg-array]
+      else if func instanceof ast.Binary and func.op == "."
+        async set-parent, parent <- scope.maybe-cache func.left, Type.function
+        ast.Call get-pos(node),
+          ast.Access get-pos(node), set-parent, func.right, \apply
+          [parent, arg-array]
+      else
+        ast.Call get-pos(node),
+          ast.Access get-pos(node), func, \apply
+          [ast.Const(get-pos(node), void), arg-array]
   
   [ParserNodeType.Function]: do
     let primitive-types = {
@@ -1602,6 +1573,44 @@ let translate-lispy-internal =
     let t-child = translate args[1], scope, \expression, unassigned
     #-> ast.Access(get-pos(node), t-parent(), t-child())
   
+  context-call: #(node, args, scope, location, unassigned)
+    let [func, context] = args
+    let real-args = args.slice(2)
+    let t-func = translate func, scope, \expression, unassigned
+    if context not instanceof LispyNode or not context.is-internal-call(\spread)
+      let t-context = translate(context, scope, \expression, unassigned)
+      let t-args = array-translate(get-pos(node), real-args, scope, false, true, unassigned)
+      #
+        let func = t-func()
+        let context = t-context()
+        let args = t-args()
+        if args instanceof ast.Arr
+          ast.Call get-pos(node),
+            ast.Access get-pos(node), func, \call
+            [context, ...args.elements]
+        else
+          ast.Call get-pos(node),
+            ast.Access get-pos(node), func, \apply
+            [context, args]
+    else
+      let context-and-args = args.slice(1)
+      let t-context-and-args = array-translate(get-pos(node), context-and-args, scope, false, true, unassigned)
+      #
+        let func = t-func()
+        let context-and-args = t-context-and-args()
+        scope.maybe-cache context-and-args, Type.array, #(set-context-and-args, context-and-args)
+          scope.add-helper \__slice
+          ast.Call get-pos(node),
+            ast.Access get-pos(node), func, \apply
+            [
+              ast.Access get-pos(node), set-context-and-args, 0
+              ast.Call get-pos(node),
+                ast.Access get-pos(node),
+                  context-and-args
+                  \slice
+                [ast.Const get-pos(node), 1]
+            ]
+
   label: #(node, args, scope, location, unassigned)
     let t-label = translate args[0], scope, \label
     let t-node = translate args[1], scope, location, unassigned

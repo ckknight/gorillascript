@@ -242,11 +242,16 @@ class Symbol extends Node
               args.push step
               if not inclusive.is-const() or inclusive.const-value()
                 args.push inclusive
-            (OldNode.Call call.index, call.scope,
-              Ident call.index, call.scope, if has-step then \__slice-step else \__slice
-              args
-              false
-              not has-step).reduce(parser)
+
+            if has-step
+              OldNode.Call(call.index, call.scope,
+                Ident call.index, call.scope, \__slice-step
+                args).reduce(parser)
+            else
+              Call(call.index, call.scope,
+                Symbol.context-call call.index
+                Ident call.index, call.scope, \__slice
+                ...args).reduce(parser)
           else if parent != call.args[0] or child != call.args[1]
             Call call.index, call.scope,
               call.func
@@ -259,7 +264,6 @@ class Symbol extends Node
           #(call, parser)
             cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[1].is-noop(parser)
       }
-      apply: {}
       array: {
         validate-args(...args as [OldNode]) ->
         _type() Type.array
@@ -387,6 +391,9 @@ class Symbol extends Node
         validate-args(text as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to comment"
+      }
+      context-call: {
+        validate-args(func as OldNode, context as OldNode) ->
       }
       continue: {
         validate-args(label as OldNode|null, ...rest)
