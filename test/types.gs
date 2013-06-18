@@ -999,3 +999,19 @@ describe "Types", #
     expect(~T.number equals handle(~T.number)).to.be.true
     expect(T.make-object(x: T.number) equals handle(T.make-object(x: T.number))).to.be.true
     expect(T.generic(T.string, T.number) equals handle(T.generic(T.string, T.number))).to.be.true
+  
+  it "Return type", #
+    expect(T.none.return-type()).to.equal T.none
+    expect(T.any.return-type()).to.equal T.any
+    expect(T.string.return-type()).to.equal T.none
+    expect(T.array.return-type()).to.equal T.none
+    expect(T.string.array().return-type()).to.equal T.none
+    expect(T.function.return-type()).to.equal T.any
+    expect(T.string.function().return-type()).to.equal T.string
+    expect(T.string.function().union(T.number).return-type()).to.equal T.string
+    expect(T.string.function().union(T.number.function()).return-type() equals T.string.union(T.number)).to.be.true
+    expect(T.string-or-number.function().return-type()).to.equal T.string-or-number
+    expect(~T.string.return-type()).to.equal T.any
+    expect(~T.string-or-number.return-type()).to.equal T.any
+    expect(T.make-object(x: T.number).return-type()).to.equal T.none
+    expect(T.generic(T.string, T.number).return-type()).to.equal T.none

@@ -114,44 +114,214 @@ class Symbol extends Node
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to access"
         _type: do
+          let PRIMORDIAL_STATIC_PROPERTIES =
+            Object:
+              getPrototypeOf: Type.object.function().union(Type.undefined)
+              getOwnPropertyDescriptor: Type.object.function().union(Type.undefined)
+              getOwnPropertyNames: Type.string.array().function().union(Type.undefined)
+              create: Type.object.function().union(Type.undefined)
+              defineProperty: Type.object.function().union(Type.undefined)
+              defineProperties: Type.object.function().union(Type.undefined)
+              seal: Type.object.function().union(Type.undefined)
+              freeze: Type.object.function().union(Type.undefined)
+              preventExtensions: Type.object.function().union(Type.undefined)
+              isSealed: Type.boolean.function().union(Type.undefined)
+              isFrozen: Type.boolean.function().union(Type.undefined)
+              isExtensible: Type.boolean.function().union(Type.undefined)
+              keys: Type.string.array().function().union(Type.undefined)
+            String:
+              fromCharCode: Type.string.function()
+            Number:
+              isFinite: Type.boolean.function().union(Type.undefined)
+              isNaN: Type.boolean.function().union(Type.undefined)
+            Array:
+              isArray: Type.boolean.function().union(Type.undefined)
+            Math:
+              abs: Type.number.function()
+              acos: Type.number.function()
+              asin: Type.number.function()
+              atan: Type.number.function()
+              atan2: Type.number.function()
+              ceil: Type.number.function()
+              cos: Type.number.function()
+              exp: Type.number.function()
+              floor: Type.number.function()
+              imul: Type.number.function().union(Type.undefined)
+              log: Type.number.function()
+              max: Type.number.function()
+              min: Type.number.function()
+              pow: Type.number.function()
+              random: Type.number.function()
+              round: Type.number.function()
+              sin: Type.number.function()
+              sqrt: Type.number.function()
+              tan: Type.number.function()
+            JSON:
+              stringify: Type.string.union(Type.undefined).function().union(Type.undefined)
+              parse: Type.string.union(Type.number).union(Type.boolean).union(Type.null).union(Type.array).union(Type.object).function().union(Type.undefined)
+            Date:
+              UTC: Type.number.function().union(Type.undefined)
+              now: Type.number.function().union(Type.undefined)
+          let PRIMORDIAL_INSTANCE_PROPERTIES =
+            Object:
+              constructor: Type.function
+              toString: Type.string.function()
+              toLocaleString: Type.string.function()
+              valueOf: Type.function
+              hasOwnProperty: Type.boolean.function()
+            String:
+              valueOf: Type.string.function()
+              charAt: Type.string.function()
+              charCodeAt: Type.number.function()
+              concat: Type.string.function()
+              indexOf: Type.number.function()
+              lastIndexOf: Type.number.function()
+              localeCompare: Type.number.function()
+              match: Type.array.union(Type.null).function()
+              replace: Type.string.function()
+              search: Type.number.function()
+              slice: Type.string.function()
+              split: Type.string.array().function()
+              substring: Type.string.function()
+              toLowerCase: Type.string.function()
+              toLocaleLowerCase: Type.string.function()
+              toUpperCase: Type.string.function()
+              toLocaleUpperCase: Type.string.function()
+              trim: Type.string.function()
+              length: Type.number
+            Boolean:
+              valueOf: Type.boolean.function()
+            Number:
+              valueOf: Type.number.function()
+              toFixed: Type.string.function()
+              toExponential: Type.string.function()
+              toPrecision: Type.string.function()
+            Array:
+              length: Type.number
+              join: Type.string.function()
+              pop: Type.any.function()
+              push: Type.number.function()
+              concat: Type.array.function()
+              reverse: Type.array.function()
+              shift: Type.any.function()
+              unshift: Type.number.function()
+              slice: Type.array.function()
+              splice: Type.array.function()
+              sort: Type.array.function()
+              filter: Type.array.function().union(Type.undefined)
+              forEach: Type.undefined.function().union(Type.undefined)
+              some: Type.boolean.function().union(Type.undefined)
+              every: Type.boolean.function().union(Type.undefined)
+              map: Type.array.function().union(Type.undefined)
+              indexOf: Type.number.function()
+              lastIndexOf: Type.number.function()
+              reduce: Type.any.function().union(Type.undefined)
+              reduceRight: Type.any.function().union(Type.undefined)
+            Arguments:
+              length: Type.number
+              callee: Type.none
+              caller: Type.none
+            Date:
+              toDateString: Type.string.function()
+              toTimeString: Type.string.function()
+              toLocaleDateString: Type.string.function()
+              toLocaleTimeString: Type.string.function()
+              valueOf: Type.number.function()
+              getTime: Type.number.function()
+              getFullYear: Type.number.function()
+              getUTCFullYear: Type.number.function()
+              getMonth: Type.number.function()
+              getUTCMonth: Type.number.function()
+              getDate: Type.number.function()
+              getUTCDate: Type.number.function()
+              getDay: Type.number.function()
+              getUTCDay: Type.number.function()
+              getHours: Type.number.function()
+              getUTCHours: Type.number.function()
+              getMinutes: Type.number.function()
+              getUTCMinutes: Type.number.function()
+              getSeconds: Type.number.function()
+              getUTCSeconds: Type.number.function()
+              getMilliseconds: Type.number.function()
+              getUTCMilliseconds: Type.number.function()
+              getTimezoneOffset: Type.number.function()
+              setTime: Type.number.function()
+              setMilliseconds: Type.number.function()
+              setUTCMilliseconds: Type.number.function()
+              setSeconds: Type.number.function()
+              setUTCSeconds: Type.number.function()
+              setMinutes: Type.number.function()
+              setUTCMinutes: Type.number.function()
+              setHours: Type.number.function()
+              setUTCHours: Type.number.function()
+              setDate: Type.number.function()
+              setUTCDate: Type.number.function()
+              setMonth: Type.number.function()
+              setUTCMonth: Type.number.function()
+              setFullYear: Type.number.function()
+              setUTCFullYear: Type.number.function()
+              toUTCString: Type.string.function()
+              toISOString: Type.string.function()
+              toJSON: Type.string.function()
+            RegExp:
+              exec: Type.array.union(Type.null).function()
+              test: Type.boolean.function()
+              global: Type.boolean
+              ignoreCase: Type.boolean
+              multiline: Type.boolean
+              sticky: Type.boolean.union(Type.undefined)
+            Error:
+              name: Type.string
+              message: Type.string
+              stack: Type.any
           let cache = Cache<Call, Type>()
           #(call, parser)
             cache-get-or-add! cache, call, do
-              let parent-type = call.args[0].type(parser)
-              let is-string = parent-type.is-subset-of(Type.string)
-              if is-string or parent-type.is-subset-of(Type.array-like)
-                let child = if parser
-                  parser.macro-expand-1(call.args[1]).reduce(parser)
-                else
-                  call.args[1]
-                if child.is-const()
-                  let child-value = child.const-value()
-                  if child-value == \length
-                    return Type.number
-                  else if is-number! child-value
-                    return if child-value >= 0 and child-value %% 1
-                      if is-string
-                        Type.string.union(Type.undefined)
-                      else if parent-type.subtype
-                        parent-type.subtype.union(Type.undefined)
-                      else
-                        Type.any
-                  else
-                    return Type.undefined
-                else if child.type(parser).is-subset-of(Type.number)
-                  return if is-string
-                    Type.string.union(Type.undefined)
-                  else if parent-type.subtype
-                    parent-type.subtype.union(Type.undefined)
-                  else
-                    Type.any
-              else if parent-type.is-subset-of(Type.object) and is-function! parent-type.value
-                let child = if parser
-                  parser.macro-expand-1(call.args[1]).reduce(parser)
-                else
-                  call.args[1]
-                if child.is-const()
-                  return parent-type.value(String child.const-value())
+              let [parent, mutable child] = call.args
+              if parser
+                child := parser.macro-expand-1(child).reduce(parser)
+              let parent-type = parent.type(parser)
+              if child.is-const()
+                let child-value = child.const-value()
+                if parent instanceof Ident and PRIMORDIAL_STATIC_PROPERTIES ownskey parent.name
+                  let property-types = PRIMORDIAL_STATIC_PROPERTIES[parent.name]
+                  if property-types ownskey child-value
+                    return property-types[child-value]
+                  
+                let method-group = switch
+                case parent-type.is-subset-of Type.string
+                  PRIMORDIAL_INSTANCE_PROPERTIES.String
+                case parent-type.is-subset-of Type.boolean
+                  PRIMORDIAL_INSTANCE_PROPERTIES.Boolean
+                case parent-type.is-subset-of Type.number
+                  PRIMORDIAL_INSTANCE_PROPERTIES.Number
+                case parent-type.is-subset-of Type.array
+                  PRIMORDIAL_INSTANCE_PROPERTIES.Array
+                case parent-type.is-subset-of Type.date
+                  PRIMORDIAL_INSTANCE_PROPERTIES.Date
+                case parent-type.is-subset-of Type.regexp
+                  PRIMORDIAL_INSTANCE_PROPERTIES.RegExp
+                case parent-type.is-subset-of Type.error
+                  PRIMORDIAL_INSTANCE_PROPERTIES.Error
+                default
+                  void
+                if method-group and method-group ownskey child-value
+                  return method-group[child-value]
+
+                if parent-type.is-subset-of(Type.object) and is-function! parent-type.value
+                  let type = parent-type.value(String child.const-value())
+                  if type != Type.any
+                    return type
+
+                if PRIMORDIAL_INSTANCE_PROPERTIES.Object ownskey child-value
+                  return PRIMORDIAL_INSTANCE_PROPERTIES.Object[child-value]
+
+              if child.type(parser).is-subset-of(Type.number)
+                if parent-type.is-subset-of(Type.string)
+                  return Type.string.union(Type.undefined)
+                if parent-type.subtype and parent-type.is-subset-of(Type.array)
+                  return parent-type.subtype
+
               Type.any
         __reduce(call, parser)
           let mutable parent = call.args[0].reduce(parser).do-wrap(parser)
@@ -264,172 +434,6 @@ class Symbol extends Node
           else
             call
 
-
-        __type: do
-          let PRIMORDIAL_SUBFUNCTIONS =
-            Object:
-              getPrototypeOf: Type.object
-              getOwnPropertyDescriptor: Type.object
-              getOwnPropertyNames: Type.string.array()
-              create: Type.object
-              defineProperty: Type.object
-              defineProperties: Type.object
-              seal: Type.object
-              freeze: Type.object
-              preventExtensions: Type.object
-              isSealed: Type.boolean
-              isFrozen: Type.boolean
-              isExtensible: Type.boolean
-              keys: Type.string.array()
-            String:
-              fromCharCode: Type.string
-            Number:
-              isFinite: Type.boolean
-              isNaN: Type.boolean
-            Array:
-              isArray: Type.boolean
-            Math:
-              abs: Type.number
-              acos: Type.number
-              asin: Type.number
-              atan: Type.number
-              atan2: Type.number
-              ceil: Type.number
-              cos: Type.number
-              exp: Type.number
-              floor: Type.number
-              log: Type.number
-              max: Type.number
-              min: Type.number
-              pow: Type.number
-              random: Type.number
-              round: Type.number
-              sin: Type.number
-              sqrt: Type.number
-              tan: Type.number
-            JSON:
-              stringify: Type.string.union(Type.undefined)
-              parse: Type.string.union(Type.number).union(Type.boolean).union(Type.null).union(Type.array).union(Type.object)
-            Date:
-              UTC: Type.number
-              now: Type.number
-          let PRIMORDIAL_METHODS =
-            String:
-              toString: Type.string
-              valueOf: Type.string
-              charAt: Type.string
-              charCodeAt: Type.number
-              concat: Type.string
-              indexOf: Type.number
-              lastIndexOf: Type.number
-              localeCompare: Type.number
-              match: Type.array.union(Type.null)
-              replace: Type.string
-              search: Type.number
-              slice: Type.string
-              split: Type.string.array()
-              substring: Type.string
-              toLowerCase: Type.string
-              toLocaleLowerCase: Type.string
-              toUpperCase: Type.string
-              toLocaleUpperCase: Type.string
-              trim: Type.string
-            Boolean:
-              toString: Type.string
-              valueOf: Type.boolean
-            Number:
-              toString: Type.string
-              valueOf: Type.number
-              toLocaleString: Type.string
-              toFixed: Type.string
-              toExponential: Type.string
-              toPrecision: Type.string
-            Date:
-              toString: Type.string
-              toDateString: Type.string
-              toTimeString: Type.string
-              toLocaleString: Type.string
-              toLocaleDateString: Type.string
-              toLocaleTimeString: Type.string
-              valueOf: Type.number
-              getTime: Type.number
-              getFullYear: Type.number
-              getUTCFullYear: Type.number
-              getMonth: Type.number
-              getUTCMonth: Type.number
-              getDate: Type.number
-              getUTCDate: Type.number
-              getDay: Type.number
-              getUTCDay: Type.number
-              getHours: Type.number
-              getUTCHours: Type.number
-              getMinutes: Type.number
-              getUTCMinutes: Type.number
-              getSeconds: Type.number
-              getUTCSeconds: Type.number
-              getMilliseconds: Type.number
-              getUTCMilliseconds: Type.number
-              getTimezoneOffset: Type.number
-              setTime: Type.number
-              setMilliseconds: Type.number
-              setUTCMilliseconds: Type.number
-              setSeconds: Type.number
-              setUTCSeconds: Type.number
-              setMinutes: Type.number
-              setUTCMinutes: Type.number
-              setHours: Type.number
-              setUTCHours: Type.number
-              setDate: Type.number
-              setUTCDate: Type.number
-              setMonth: Type.number
-              setUTCMonth: Type.number
-              setFullYear: Type.number
-              setUTCFullYear: Type.number
-              toUTCString: Type.string
-              toISOString: Type.string
-              toJSON: Type.string
-            RegExp:
-              exec: Type.array.union(Type.null)
-              test: Type.boolean
-              toString: Type.string
-            Error:
-              toString: Type.string
-          let cache = Cache<Call, Type>()
-          #(access, call, parser)
-            let result = cache-get-or-add! cache, call, do
-              let [parent, child] = access.args
-              if child.is-const()
-                let child-value = child.const-value()
-                if parent instanceof Ident
-                  let parent-name = parent.name
-                  if PRIMORDIAL_SUBFUNCTIONS ownskey parent-name
-                    let types = PRIMORDIAL_SUBFUNCTIONS[parent-name]
-                    if types ownskey child-value
-                      return types[child-value]
-                let parent-type = parent.type(parser)
-                let method-group = switch
-                case parent-type.is-subset-of Type.string
-                  PRIMORDIAL_METHODS.String
-                case parent-type.is-subset-of Type.boolean
-                  PRIMORDIAL_METHODS.Boolean
-                case parent-type.is-subset-of Type.number
-                  PRIMORDIAL_METHODS.Number
-                case parent-type.is-subset-of Type.date
-                  PRIMORDIAL_METHODS.Date
-                case parent-type.is-subset-of Type.regexp
-                  PRIMORDIAL_METHODS.RegExp
-                case parent-type.is-subset-of Type.error
-                  PRIMORDIAL_METHODS.Error
-                case parent-type.is-subset-of Type.function
-                  PRIMORDIAL_METHODS.Function
-                default
-                  void
-                if method-group and method-group ownskey child-value
-                  method-group[child-value]
-                else
-                  Type.any
-            if result != Type.any
-              result
         ___reduce: do
           let PURE_PRIMORDIAL_SUBFUNCTIONS =
             String: {
@@ -786,6 +790,29 @@ class Symbol extends Node
       }
       new: {
         validate-args(ctor as OldNode) ->
+        _type: do
+          let PRIMORDIAL_CONSTRUCTOR_TYPES = {
+            Array: Type.array
+            Function: Type.function
+            Boolean: Type.object
+            String: Type.object
+            Number: Type.object
+            RegExp: Type.regexp
+            Date: Type.date
+            Error: Type.error
+            RangeError: Type.error
+            ReferenceError: Type.error
+            SyntaxError: Type.error
+            TypeError: Type.error
+            URIError: Type.error
+          }
+          #(call, parser)
+            let ctor = call.args[0]
+            if ctor instanceof Ident
+              let name = ctor.name
+              if PRIMORDIAL_CONSTRUCTOR_TYPES ownskey name
+                return PRIMORDIAL_CONSTRUCTOR_TYPES[name]
+            Type.not-undefined-or-null
       }
       nothing: {
         type: # Type.undefined
@@ -1141,11 +1168,7 @@ class Symbol extends Node
       if PRIMORDIAL_FUNCTION_RETURN_TYPES ownskey name
         PRIMORDIAL_FUNCTION_RETURN_TYPES[name]
       else
-        let func-type = @type(parser)
-        if func-type.is-subset-of(Type.function)
-          func-type.args[0]
-        else
-          Type.any
+        @type(parser).return-type()
 
     // if eval(key) is called, automatically turn it into the known value
     // this allows us to do const true = eval("true")
@@ -2211,11 +2234,7 @@ class Call extends Node
     let func = reduced.func
     if is-function! func._type
       return? func._type reduced, parser
-    let func-type = func.type(parser)
-    if func-type.is-subset-of(Type.function)
-      func-type.args[0]
-    else
-      Type.any
+    func.type(parser).return-type()
 
   def _type(call, parser)
     if is-function! @func.__type

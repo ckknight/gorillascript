@@ -17,6 +17,7 @@ module.exports := class Type
   def complement() -> @_complement ?= ComplementType this
   def array() -> @_array ?= Type.generic(array-base, this)
   def function(...args) -> @_function ?= Type.generic(function-base, this, ...args)
+  def return-type() -> none
   
   let contains(alpha, bravo) as Boolean
     for item in alpha by -1
@@ -208,6 +209,12 @@ module.exports := class Type
     def to-string() -> @name
     
     def equals(other) -> this == other
+
+    def return-type()
+      if this == function-base
+        any
+      else
+        none
     
     def compare(other)
       if this == other
@@ -319,6 +326,12 @@ module.exports := class Type
             sb.push String arg
         sb.push ">"
         sb.join ""
+
+    def return-type()
+      if @base == function-base
+        @args[0]
+      else
+        none
 
     def equals(other)
       if other == this
@@ -677,6 +690,10 @@ module.exports := class Type
       @id := get-id()
     
     def to-string() -> @_name ?= "($(@types.join '|'))"
+
+    def return-type()
+      for reduce type in @types, current = none
+        current.union(type.return-type())
     
     let become(alpha, bravo)
       if alpha.id > bravo.id
@@ -816,6 +833,8 @@ module.exports := class Type
       @id := get-id()
     
     def to-string() -> @_name ?= "any \\ $(String @untype)"
+
+    def return-type() -> any
     
     let become(alpha, bravo)
       if alpha.id > bravo.id
@@ -944,6 +963,8 @@ module.exports := class Type
         throw Error "Cannot instantiate more than once"
     
     def to-string() -> "any"
+
+    def return-type() -> any
     
     def equals(other) -> this == other
     
