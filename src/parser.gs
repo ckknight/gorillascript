@@ -26,7 +26,6 @@ let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
 let SuperNode = Node.Super
-let SyntaxChoiceNode = Node.SyntaxChoice
 let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
 let SyntaxSequenceNode = Node.SyntaxSequence
@@ -4342,7 +4341,8 @@ let MacroSyntaxParameterType = allow-space-before-access sequential(
       EmptyLines
       [\this, #(parser, index) -> MacroSyntaxChoiceParameters parser, index]
       EmptyLines
-      CloseParenthesis) |> mutate #(value, parser, index) -> parser.SyntaxChoice index, value)]
+      CloseParenthesis) |> mutate #(choices, parser, index)
+      LInternalCall \syntax-choice, index, parser.scope.peek(), ...choices)]
   [\multiplier, maybe one-of(
     symbol "?"
     symbol "*"
@@ -5227,19 +5227,14 @@ class Parser
   
   let serialize-param-type(as-type)
     if as-type instanceof IdentNode
-      //{ type: \ident, as-type.name }
       [\ident, as-type.name]
     else if as-type instanceof SyntaxSequenceNode
-      //{ type: \sequence, items: serialize-params(as-type.params) }
       [\sequence, ...fix-array serialize-params(as-type.params)]
-    else if as-type instanceof SyntaxChoiceNode
-      //{ type: \choice, choices: for choice in as-type.choices; serialize-param-type(choice) }
-      [\choice, ...for choice in as-type.choices; serialize-param-type(choice)]
+    else if as-type instanceof LispyNode and as-type.is-internal-call(\syntax-choice)
+      [\choice, ...for choice in as-type.args; serialize-param-type(choice)]
     else if as-type.is-const()
-      //{ type: \const, value: as-type.const-value() }
       [\const, as-type.const-value()]
     else if as-type instanceof SyntaxManyNode
-      //{ type: \many, as-type.multiplier, inner: serialize-param-type(as-type.inner) }
       [\many, as-type.multiplier, ...serialize-param-type(as-type.inner)]
     else
       throw Error("Unknown param type: $(typeof! as-type)")
@@ -5267,7 +5262,8 @@ class Parser
       sequence: #(scope, ...items)
         SyntaxSequenceNode 0, scope, deserialize-params(items, scope)
       choice: #(scope, ...choices)
-        SyntaxChoiceNode 0, scope, for choice in choices; deserialize-param-type(choice, scope)
+        LInternalCall \syntax-choice, 0, scope,
+          ...(for choice in choices; deserialize-param-type(choice, scope))
       const: #(scope, value)
         LValue 0, value
       many: #(scope, multiplier, ...inner)
@@ -5313,8 +5309,8 @@ class Parser
         #(parser, index) -> parser.macros.get-syntax(name)@(this, parser, index)
     else if param instanceof SyntaxSequenceNode
       handle-params@ this, param.params
-    else if param instanceof SyntaxChoiceNode
-      one-of ...for choice in param.choices
+    else if param instanceof LispyNode and param.is-internal-call(\syntax-choice)
+      one-of ...for choice in param.args
         calc-param@ this, choice
     else if param.is-const()
       let string = param.const-value()
@@ -6092,7 +6088,6 @@ for node-type in [
       'Param',
       'Root',
       'Super',
-      'SyntaxChoice',
       'SyntaxMany',
       'SyntaxParam',
       'SyntaxSequence',

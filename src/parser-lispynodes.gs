@@ -650,6 +650,11 @@ class Symbol extends Node
             call
       }
       super: {}
+      syntax-choice: {
+        /*
+        node-class SyntaxChoiceNode(choices as [Node] = [])
+        */
+      }
       throw: {
         validate-args(node as OldNode, ...rest)
           if DEBUG and rest.length > 0
