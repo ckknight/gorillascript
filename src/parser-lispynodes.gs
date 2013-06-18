@@ -313,18 +313,121 @@ class Symbol extends Node
             Date:
               UTC: Type.number
               now: Type.number
+          let PRIMORDIAL_METHODS =
+            String:
+              toString: Type.string
+              valueOf: Type.string
+              charAt: Type.string
+              charCodeAt: Type.number
+              concat: Type.string
+              indexOf: Type.number
+              lastIndexOf: Type.number
+              localeCompare: Type.number
+              match: Type.array.union(Type.null)
+              replace: Type.string
+              search: Type.number
+              slice: Type.string
+              split: Type.string.array()
+              substring: Type.string
+              toLowerCase: Type.string
+              toLocaleLowerCase: Type.string
+              toUpperCase: Type.string
+              toLocaleUpperCase: Type.string
+              trim: Type.string
+            Boolean:
+              toString: Type.string
+              valueOf: Type.boolean
+            Number:
+              toString: Type.string
+              valueOf: Type.number
+              toLocaleString: Type.string
+              toFixed: Type.string
+              toExponential: Type.string
+              toPrecision: Type.string
+            Date:
+              toString: Type.string
+              toDateString: Type.string
+              toTimeString: Type.string
+              toLocaleString: Type.string
+              toLocaleDateString: Type.string
+              toLocaleTimeString: Type.string
+              valueOf: Type.number
+              getTime: Type.number
+              getFullYear: Type.number
+              getUTCFullYear: Type.number
+              getMonth: Type.number
+              getUTCMonth: Type.number
+              getDate: Type.number
+              getUTCDate: Type.number
+              getDay: Type.number
+              getUTCDay: Type.number
+              getHours: Type.number
+              getUTCHours: Type.number
+              getMinutes: Type.number
+              getUTCMinutes: Type.number
+              getSeconds: Type.number
+              getUTCSeconds: Type.number
+              getMilliseconds: Type.number
+              getUTCMilliseconds: Type.number
+              getTimezoneOffset: Type.number
+              setTime: Type.number
+              setMilliseconds: Type.number
+              setUTCMilliseconds: Type.number
+              setSeconds: Type.number
+              setUTCSeconds: Type.number
+              setMinutes: Type.number
+              setUTCMinutes: Type.number
+              setHours: Type.number
+              setUTCHours: Type.number
+              setDate: Type.number
+              setUTCDate: Type.number
+              setMonth: Type.number
+              setUTCMonth: Type.number
+              setFullYear: Type.number
+              setUTCFullYear: Type.number
+              toUTCString: Type.string
+              toISOString: Type.string
+              toJSON: Type.string
+            RegExp:
+              exec: Type.array.union(Type.null)
+              test: Type.boolean
+              toString: Type.string
+            Error:
+              toString: Type.string
           let cache = Cache<Call, Type>()
           #(access, call, parser)
             let result = cache-get-or-add! cache, call, do
               let [parent, child] = access.args
-              if parent instanceof Ident
-                let parent-name = parent.name
-                if PRIMORDIAL_SUBFUNCTIONS ownskey parent-name and child.is-const()
-                  let child-value = child.const-value()
-                  let types = PRIMORDIAL_SUBFUNCTIONS[parent-name]
-                  if types ownskey child-value
-                    return types[child-value]
-              Type.any
+              if child.is-const()
+                let child-value = child.const-value()
+                if parent instanceof Ident
+                  let parent-name = parent.name
+                  if PRIMORDIAL_SUBFUNCTIONS ownskey parent-name
+                    let types = PRIMORDIAL_SUBFUNCTIONS[parent-name]
+                    if types ownskey child-value
+                      return types[child-value]
+                let parent-type = parent.type(parser)
+                let method-group = switch
+                case parent-type.is-subset-of Type.string
+                  PRIMORDIAL_METHODS.String
+                case parent-type.is-subset-of Type.boolean
+                  PRIMORDIAL_METHODS.Boolean
+                case parent-type.is-subset-of Type.number
+                  PRIMORDIAL_METHODS.Number
+                case parent-type.is-subset-of Type.date
+                  PRIMORDIAL_METHODS.Date
+                case parent-type.is-subset-of Type.regexp
+                  PRIMORDIAL_METHODS.RegExp
+                case parent-type.is-subset-of Type.error
+                  PRIMORDIAL_METHODS.Error
+                case parent-type.is-subset-of Type.function
+                  PRIMORDIAL_METHODS.Function
+                default
+                  void
+                if method-group and method-group ownskey child-value
+                  method-group[child-value]
+                else
+                  Type.any
             if result != Type.any
               result
         ___reduce: do
@@ -2244,166 +2347,6 @@ class Call extends Node
       is-name-match func.name, arguments
     else
       false
-
-/*
-
-node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean)
-  def type = do
-    let PRIMORDIAL_SUBFUNCTIONS =
-      Object:
-        getPrototypeOf: Type.object
-        getOwnPropertyDescriptor: Type.object
-        getOwnPropertyNames: Type.string.array()
-        create: Type.object
-        defineProperty: Type.object
-        defineProperties: Type.object
-        seal: Type.object
-        freeze: Type.object
-        preventExtensions: Type.object
-        isSealed: Type.boolean
-        isFrozen: Type.boolean
-        isExtensible: Type.boolean
-        keys: Type.string.array()
-      String:
-        fromCharCode: Type.string
-      Number:
-        isFinite: Type.boolean
-        isNaN: Type.boolean
-      Array:
-        isArray: Type.boolean
-      Math:
-        abs: Type.number
-        acos: Type.number
-        asin: Type.number
-        atan: Type.number
-        atan2: Type.number
-        ceil: Type.number
-        cos: Type.number
-        exp: Type.number
-        floor: Type.number
-        log: Type.number
-        max: Type.number
-        min: Type.number
-        pow: Type.number
-        random: Type.number
-        round: Type.number
-        sin: Type.number
-        sqrt: Type.number
-        tan: Type.number
-      JSON:
-        stringify: Type.string.union(Type.undefined)
-        parse: Type.string.union(Type.number).union(Type.boolean).union(Type.null).union(Type.array).union(Type.object)
-      Date:
-        UTC: Type.number
-        now: Type.number
-    let PRIMORDIAL_METHODS =
-      String:
-        toString: Type.string
-        valueOf: Type.string
-        charAt: Type.string
-        charCodeAt: Type.number
-        concat: Type.string
-        indexOf: Type.number
-        lastIndexOf: Type.number
-        localeCompare: Type.number
-        match: Type.array.union(Type.null)
-        replace: Type.string
-        search: Type.number
-        slice: Type.string
-        split: Type.string.array()
-        substring: Type.string
-        toLowerCase: Type.string
-        toLocaleLowerCase: Type.string
-        toUpperCase: Type.string
-        toLocaleUpperCase: Type.string
-        trim: Type.string
-      Boolean:
-        toString: Type.string
-        valueOf: Type.boolean
-      Number:
-        toString: Type.string
-        valueOf: Type.number
-        toLocaleString: Type.string
-        toFixed: Type.string
-        toExponential: Type.string
-        toPrecision: Type.string
-      Date:
-        toString: Type.string
-        toDateString: Type.string
-        toTimeString: Type.string
-        toLocaleString: Type.string
-        toLocaleDateString: Type.string
-        toLocaleTimeString: Type.string
-        valueOf: Type.number
-        getTime: Type.number
-        getFullYear: Type.number
-        getUTCFullYear: Type.number
-        getMonth: Type.number
-        getUTCMonth: Type.number
-        getDate: Type.number
-        getUTCDate: Type.number
-        getDay: Type.number
-        getUTCDay: Type.number
-        getHours: Type.number
-        getUTCHours: Type.number
-        getMinutes: Type.number
-        getUTCMinutes: Type.number
-        getSeconds: Type.number
-        getUTCSeconds: Type.number
-        getMilliseconds: Type.number
-        getUTCMilliseconds: Type.number
-        getTimezoneOffset: Type.number
-        setTime: Type.number
-        setMilliseconds: Type.number
-        setUTCMilliseconds: Type.number
-        setSeconds: Type.number
-        setUTCSeconds: Type.number
-        setMinutes: Type.number
-        setUTCMinutes: Type.number
-        setHours: Type.number
-        setUTCHours: Type.number
-        setDate: Type.number
-        setUTCDate: Type.number
-        setMonth: Type.number
-        setUTCMonth: Type.number
-        setFullYear: Type.number
-        setUTCFullYear: Type.number
-        toUTCString: Type.string
-        toISOString: Type.string
-        toJSON: Type.string
-      RegExp:
-        exec: Type.array.union(Type.null)
-        test: Type.boolean
-        toString: Type.string
-      Error:
-        toString: Type.string
-    #(o) -> @_type ?= do
-      let func = @func
-      let mutable func-type = func.type(o)
-      let LispyNode = require('./parser-lispynodes')
-      if func-type.is-subset-of(Type.function)
-        return func-type.args[0]
-      else if func instanceof LispyNode.Symbol.ident
-        let {name} = func
-        if PRIMORDIAL_FUNCTIONS ownskey name
-          return PRIMORDIAL_FUNCTIONS[name]
-        else if o?.macros.has-helper name
-          func-type := o.macros.helper-type name
-          if func-type.is-subset-of(Type.function)
-            return func-type.args[0]
-      else
-        if func instanceof LispyNode and func.is-internal-call(\access)
-          let [parent, child] = func.args
-          if child.is-const()
-            if child.const-value() in [\call, \apply]
-              let parent-type = parent.type(o)
-              if parent-type.is-subset-of(Type.function)
-                return parent-type.args[0]
-            else if parent instanceof LispyNode.Symbol.ident
-              return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.const-value()]
-            // else check the type of parent, maybe figure out its methods
-      Type.any
-*/
 
 module.exports := Node <<< {
   Value
