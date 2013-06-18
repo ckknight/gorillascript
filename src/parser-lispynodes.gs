@@ -1877,7 +1877,7 @@ class Symbol extends Node
                   Symbol.binary["&&"] left.index
                   test
                   when-true.args[0]
-                when-true := when-true.args[2]
+                when-true := when-true.args[1]
               Call call.index, call.scope,
                 call.func
                 Call left.index, left.scope,

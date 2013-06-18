@@ -265,6 +265,60 @@ describe "deep existential access", #
       }
     }, \x, \w, #-> throw Error("never reached")).to.be.undefined
 
+describe "deep existential access with an or on the end", #
+  let fun(a, b, c, d, e) -> a()?[b()]?[c()]?[d()]?() or e()
+  let handle(a, b, c, d, e)
+    let a-stub = stub().returns a
+    let b-stub = stub().returns b
+    let c-stub = stub().returns c
+    let d-stub = if not is-function! d then stub().returns d
+    let e-stub = if not is-function! e then stub().returns e
+    let result = fun(a-stub, b-stub, c-stub, d-stub or d, e-stub or e)
+    expect(a-stub).to.be.called-once
+    expect(b-stub).to.be.called-once
+    expect(c-stub).to.be.called-once
+    if d-stub
+      expect(d-stub).to.be.called-once
+    if e-stub
+      expect(e-stub).to.be.called-once
+    result
+  
+  it "works in the best-case", #
+    expect(handle {
+      x: {
+        y: {
+          z: #-> "hello"
+        }
+      }
+    }, \x, \y, \z, #-> throw Error("never reached")).to.equal "hello"
+  
+  it "returns void if not a function", #
+    expect(handle {
+      x: {
+        y: {
+          z: "hello"
+        }
+      }
+    }, \x, \y, \z, \nope).to.equal \nope
+  
+  it "returns void if last key not found", #
+    expect(handle {
+      x: {
+        y: {
+          z: #-> "hello"
+        }
+      }
+    }, \x, \y, \w, \nope).to.equal \nope
+  
+  it "does not execute the last key if failed before then", #
+    expect(handle {
+      x: {
+        y: {
+          z: #-> "hello"
+        }
+      }
+    }, \x, \w, #-> throw Error("never reached"), \nope).to.equal \nope
+
 describe "existential prototype access", #
   let get(obj) -> obj?::key
   
