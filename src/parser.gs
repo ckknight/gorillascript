@@ -3833,6 +3833,10 @@ let convert-invocation-or-access = do
             LInternalCall \context-call, index, parser.scope.peek(),
               head
               ...link.args
+          else if link.is-new
+            LInternalCall \new, index, parser.scope.peek(),
+              head
+              ...link.args
           else
             parser.Call index, head, link.args, link.is-new
           link-index + 1

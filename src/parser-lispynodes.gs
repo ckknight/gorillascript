@@ -533,7 +533,9 @@ class Symbol extends Node
             LispyNode_Value @index, o.get-const(@name)?.value
         */
       }
-      new: {}
+      new: {
+        validate-args(ctor as OldNode) ->
+      }
       nothing: {
         type: # Type.undefined
         const-value: # void

@@ -490,54 +490,53 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean)
     #(o)
       let func = @func.reduce(o).do-wrap(o)
       let args = map @args, #(node) -> node.reduce(o).do-wrap(o)
-      if not @is-new
-        let const-args = []
-        let mutable all-const = true
-        for arg in args
-          if arg.is-const()
-            const-args.push arg.const-value()
-          else
-            all-const := false
-            break
-        if all-const
-          let LispyNode = require('./parser-lispynodes')
-          if func instanceof LispyNode.Symbol.ident
-            if func.name == \eval
-              if EVAL_SIMPLIFIERS ownskey const-args[0]
-                return EVAL_SIMPLIFIERS[const-args[0]]@ this
-            else if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name
-              try
-                let value = GLOBAL[func.name]@ void, ...const-args
-                if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
-                  return LispyNode_Value @index, value
-              catch e
-                // TODO: do something here to alert the user
-                void
-          else
-            if func instanceof LispyNode and func.is-internal-call(\access) and func.args[1].is-const()
-              let [parent, child] = func.args
-              let c-value = child.const-value()
-              if parent.is-const()
-                let p-value = parent.const-value()
-                if is-function! p-value[c-value]
-                  try
-                    let value = p-value[c-value] ...const-args
-                    if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
-                      return LispyNode_Value @index, value
-                  catch e
-                    // TODO: do something here to alert the user
-                    void
-              else if parent instanceof LispyNode.Symbol.ident
-                if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![c-value]
-                  try
-                    let value = GLOBAL[parent.name][c-value] ...const-args
-                    if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
-                      return LispyNode_Value @index, value
-                  catch e
-                    // TODO: do something here to alert the user
-                    void
+      let const-args = []
+      let mutable all-const = true
+      for arg in args
+        if arg.is-const()
+          const-args.push arg.const-value()
+        else
+          all-const := false
+          break
+      if all-const
+        let LispyNode = require('./parser-lispynodes')
+        if func instanceof LispyNode.Symbol.ident
+          if func.name == \eval
+            if EVAL_SIMPLIFIERS ownskey const-args[0]
+              return EVAL_SIMPLIFIERS[const-args[0]]@ this
+          else if PURE_PRIMORDIAL_FUNCTIONS ownskey func.name
+            try
+              let value = GLOBAL[func.name]@ void, ...const-args
+              if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+                return LispyNode_Value @index, value
+            catch e
+              // TODO: do something here to alert the user
+              void
+        else
+          if func instanceof LispyNode and func.is-internal-call(\access) and func.args[1].is-const()
+            let [parent, child] = func.args
+            let c-value = child.const-value()
+            if parent.is-const()
+              let p-value = parent.const-value()
+              if is-function! p-value[c-value]
+                try
+                  let value = p-value[c-value] ...const-args
+                  if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+                    return LispyNode_Value @index, value
+                catch e
+                  // TODO: do something here to alert the user
+                  void
+            else if parent instanceof LispyNode.Symbol.ident
+              if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![c-value]
+                try
+                  let value = GLOBAL[parent.name][c-value] ...const-args
+                  if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+                    return LispyNode_Value @index, value
+                catch e
+                  // TODO: do something here to alert the user
+                  void
       if func != @func or args != @args
-        CallNode @index, @scope, func, args, @is-new
+        CallNode @index, @scope, func, args
       else
         this
 

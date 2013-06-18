@@ -778,7 +778,7 @@ let generator-translate = do
         }
       else
         generator-translate-expression node.func, scope, state, true, unassigned
-      let {is-new, args} = node
+      let {args} = node
       
       let g-args = generator-array-translate get-pos(node), args, scope, g-func.state, unassigned
       handle-assign assign-to, scope, g-args.state, #
@@ -786,14 +786,7 @@ let generator-translate = do
         let args = g-args.t-node()
         g-func.cleanup()
         g-args.cleanup()
-        if is-new
-          scope.add-helper \__new
-          ast.Call get-pos(node),
-            ast.Access get-pos(node),
-              ast.Ident get-pos(node), \__new
-              ast.Const get-pos(node), \apply
-            [func, args]
-        else if args instanceof ast.Arr
+        if args instanceof ast.Arr
           ast.Call get-pos(node),
             func
             args.elements
@@ -861,6 +854,21 @@ let generator-translate = do
                 [ast.Const get-pos(node), 1]
             ]
     
+    new: #(node, args, scope, mutable state, assign-to, unassigned)
+      let g-func = generator-translate-expression args[0], scope, state, true, unassigned
+      let g-args = generator-array-translate get-pos(node), args[1 to -1], scope, g-func.state, unassigned
+      handle-assign assign-to, scope, g-args.state, #
+        let func = g-func.t-node()
+        let args = g-args.t-node()
+        g-func.cleanup()
+        g-args.cleanup()
+        scope.add-helper \__new
+        ast.Call get-pos(node),
+          ast.Access get-pos(node),
+            ast.Ident get-pos(node), \__new
+            ast.Const get-pos(node), \apply
+          [func, args]
+
     yield: #(node, args, scope, mutable state, assign-to, unassigned)
       let g-node = generator-translate-expression args[0], scope, state, false, unassigned
       state := g-node.state.yield get-pos(node), g-node.t-node
@@ -1379,33 +1387,24 @@ let translators =
         let t-code = translate node.args[0], scope, \expression, unassigned
         return #-> ast.Eval get-pos(node), t-code()
     let t-func = translate node.func, scope, \expression, unassigned
-    let is-new = node.is-new
     let args = node.args
-    let t-arg-array = array-translate(get-pos(node), args, scope, false, true, unassigned)
+    let t-args = array-translate(get-pos(node), args, scope, false, true, unassigned)
     #
       let func = t-func()
-      let arg-array = t-arg-array()
-      if arg-array instanceof ast.Arr
+      let args = t-args()
+      if args instanceof ast.Arr
         ast.Call get-pos(node),
           func
-          arg-array.elements
-          is-new
-      else if is-new
-        scope.add-helper \__new
-        ast.Call get-pos(node),
-          ast.Access get-pos(node),
-            ast.Ident get-pos(node), \__new
-            ast.Const get-pos(node), \apply
-          [func, arg-array]
+          args.elements
       else if func instanceof ast.Binary and func.op == "."
-        async set-parent, parent <- scope.maybe-cache func.left, Type.function
-        ast.Call get-pos(node),
-          ast.Access get-pos(node), set-parent, func.right, \apply
-          [parent, arg-array]
+        scope.maybe-cache func.left, Type.function, #(set-parent, parent)
+          ast.Call get-pos(node),
+            ast.Access get-pos(node), set-parent, func.right, \apply
+            [parent, args]
       else
         ast.Call get-pos(node),
           ast.Access get-pos(node), func, \apply
-          [ast.Const(get-pos(node), void), arg-array]
+          [ast.Const(get-pos(node), void), args]
   
   [ParserNodeType.Function]: do
     let primitive-types = {
@@ -1610,6 +1609,25 @@ let translate-lispy-internal =
                   \slice
                 [ast.Const get-pos(node), 1]
             ]
+
+  new: #(node, args, scope, location, unassigned)
+    let t-func = translate args[0], scope, \expression, unassigned
+    let t-args = array-translate(get-pos(node), args[1 to -1], scope, false, true, unassigned)
+    #
+      let func = t-func()
+      let args = t-args()
+      if args instanceof ast.Arr
+        ast.Call get-pos(node),
+          func
+          args.elements
+          true
+      else
+        scope.add-helper \__new
+        ast.Call get-pos(node),
+          ast.Access get-pos(node),
+            ast.Ident get-pos(node), \__new
+            ast.Const get-pos(node), \apply
+          [func, args]
 
   label: #(node, args, scope, location, unassigned)
     let t-label = translate args[0], scope, \label

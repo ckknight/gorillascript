@@ -297,6 +297,15 @@ class MacroContext
       context
       ...args
 
+  def is-new(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\new)
+  
+  def new(func as Node, ...args as [Node])
+    LispyNode.InternalCall \new, @index, @scope(),
+      func
+      ...args
+
   def call-func(mutable node)
     node := @real(node)
     if node instanceof CallNode
@@ -320,16 +329,9 @@ class MacroContext
     node := @real(node)
     if @is-super(node)
       node.args[1 to -1]
-  
-  def call-is-new(mutable node)
-    node := @real(node)
-    if node instanceof CallNode
-      not not node.is-new
-    else
-      false
 
-  def call(func as Node, args as [Node] = [], is-new as Boolean = false)
-    CallNode(func.index, @scope(), @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new).reduce(@parser)
+  def call(func as Node, args as [Node] = [])
+    CallNode(func.index, @scope(), @do-wrap(func), (for arg in args; @do-wrap(arg))).reduce(@parser)
   
   def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [Ident|Tmp] = [])
     let scope = @parser.push-scope(true)
@@ -656,7 +658,7 @@ class MacroContext
         [
           Ident obj.index, scope, obj.name.substring 1
         ]
-    else if obj instanceof CallNode and not obj.is-new and obj.func instanceof Ident and obj.func.name == '$'
+    else if obj instanceof CallNode and obj.func instanceof Ident and obj.func.name == '$'
       if obj.args.length != 1
         throw Error "Can only use \$() in an AST if it has one argument."
       let arg = obj.args[0]

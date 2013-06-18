@@ -2500,11 +2500,15 @@ macro async
       call := @real(call)
 
       @context-call ...call.args, ASTE(func) once! (mutate-function! $func)
+    else if @is-new(call)
+      call := @real(call)
+
+      @new ...call.args, ASTE(func) once! (mutate-function! $func)
     else
       if not @is-call(call)
         @error "async call expression must be a call", call
       
-      @call @call-func(call), @call-args(call).concat([ASTE(func) once! (mutate-function! $func)]), @call-is-new(call)
+      @call @call-func(call), @call-args(call).concat([ASTE(func) once! (mutate-function! $func)])
 
 macro async!
   syntax callback as ("throw" | Expression), params as (",", this as Parameter)*, "<-", call as Expression, body as DedentedBody
@@ -2530,11 +2534,15 @@ macro async!
       call := @real(call)
 
       @context-call ...call.args, ASTE(func) once! (mutate-function! $func)
+    else if @is-new(call)
+      call := @real(call)
+
+      @new ...call.args, ASTE(func) once! (mutate-function! $func)
     else
       if not @is-call(call)
         @error "async! call expression must be a call", call
       
-      @call @call-func(call), @call-args(call).concat([ASTE(func) once! (mutate-function! $func)]), @call-is-new(call)
+      @call @call-func(call), @call-args(call).concat([ASTE(func) once! (mutate-function! $func)])
 
 macro require!
   syntax name as Expression
@@ -3796,23 +3804,23 @@ macro to-promise!(node) with type: \promise
       let context-and-args = node.args[1 to -1]
       @maybe-cache @array(context-and-args), #(set-context-and-args, context-and-args)
         ASTE __to-promise $func, $set-context-and-args[0], $context-and-args.slice(1)
+  else if @is-new(node)
+    node := @real(node)
+    let func = node.args[0]
+    let args = @array node.args[1 to -1]
+    ASTE __to-promise __new, $func, $args
   else
     if not @is-call(node)
       @error "to-promise! call expression must be a call", node
     
     let func = @call-func(node)
-    let mutable args = @call-args(node)
-    if @call-is-new(node)
-      args := @array args
-      ASTE __to-promise __new, $func, $args
+    let args = @array @call-args(node)
+    if @is-access func
+      @maybe-cache @parent(func), #(set-parent, parent)
+        let child = @child(func)
+        ASTE __to-promise $set-parent[$child], $parent, $args
     else
-      args := @array args
-      if @is-access func
-        @maybe-cache @parent(func), #(set-parent, parent)
-          let child = @child(func)
-          ASTE __to-promise $set-parent[$child], $parent, $args
-      else
-        ASTE __to-promise $func, void, $args
+      ASTE __to-promise $func, void, $args
 
 define helper __generator = #(func) -> #
   let mutable self = this
