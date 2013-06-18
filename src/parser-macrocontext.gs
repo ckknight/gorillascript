@@ -6,7 +6,6 @@ require! Type: './types'
 require! Scope: './parser-scope'
 let {node-to-type, add-param-to-scope} = require './parser-utils'
 
-let CallNode = Node.Call
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
@@ -285,7 +284,9 @@ class MacroContext
     if require('./jsutils').is-acceptable-ident(name, true)
       Ident @index, @scope(), name
   
-  def is-call(node) -> @real(node) instanceof CallNode
+  def is-call(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-call and not node.is-internal-call()
 
   def is-context-call(mutable node)
     node := @real(node)
@@ -308,12 +309,12 @@ class MacroContext
 
   def call-func(mutable node)
     node := @real(node)
-    if node instanceof CallNode
+    if @is-call(node)
       node.func
   
   def call-args(mutable node)
     node := @real(node)
-    if node instanceof CallNode
+    if @is-call(node)
       node.args
   
   def is-super(mutable node)
@@ -331,7 +332,9 @@ class MacroContext
       node.args[1 to -1]
 
   def call(func as Node, args as [Node] = [])
-    CallNode(func.index, @scope(), @do-wrap(func), (for arg in args; @do-wrap(arg))).reduce(@parser)
+    LispyNode.Call(func.index, @scope(),
+      func
+      ...(for arg in args; @do-wrap(arg))).reduce(@parser)
   
   def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [Ident|Tmp] = [])
     let scope = @parser.push-scope(true)
@@ -642,97 +645,83 @@ class MacroContext
     if obj == null or typeof obj in [\string, \number, \boolean, \undefined]
       LispyNode.Value index, obj
     else if obj instanceof RegExp
-      CallNode obj.index, scope,
+      LispyNode.Call obj.index, scope,
         Ident obj.index, scope, \RegExp
-        [
-          LispyNode.Value index, obj.source
-          LispyNode.Value index, "$(if obj.global then 'g' else '')$(if obj.ignore-case then 'i' else '')$(if obj.multiline then 'm' else '')$(if obj.sticky then 'y' else '')"
-        ]
+        LispyNode.Value index, obj.source
+        LispyNode.Value index, "$(if obj.global then 'g' else '')$(if obj.ignore-case then 'i' else '')$(if obj.multiline then 'm' else '')$(if obj.sticky then 'y' else '')"
     else if is-array! obj
       LispyNode.InternalCall \array, index, scope,
         ...(for item in obj
           constify-object position, item, index, scope)
     else if obj instanceof Ident and obj.name.length > 1 and obj.name.char-code-at(0) == '$'.char-code-at(0)
-      CallNode obj.index, scope,
+      LispyNode.Call obj.index, scope,
         Ident obj.index, scope, \__wrap
-        [
-          Ident obj.index, scope, obj.name.substring 1
-        ]
-    else if obj instanceof CallNode and obj.func instanceof Ident and obj.func.name == '$'
+        Ident obj.index, scope, obj.name.substring 1
+    else if obj instanceof LispyNode.Call and obj.func instanceof Ident and obj.func.name == '$'
       if obj.args.length != 1
         throw Error "Can only use \$() in an AST if it has one argument."
       let arg = obj.args[0]
       if arg instanceof LispyNode and arg.is-internal-call(\spread)
         throw Error "Cannot use ... in \$() in an AST."
-      CallNode obj.index, scope,
+      LispyNode.Call obj.index, scope,
         Ident obj.index, scope, \__wrap
-        [
-          arg
-        ]
+        arg
     else if obj instanceof LispyNode
       switch obj.node-type
       case \value
-        CallNode obj.index, scope,
+        LispyNode.Call obj.index, scope,
           Ident obj.index, scope, \__value
-          [
-            position or LispyNode.Value obj.index, void
-            obj
-          ]
+          position or LispyNode.Value obj.index, void
+          obj
       case \symbol
-        CallNode obj.index, scope,
+        LispyNode.Call obj.index, scope,
           Ident obj.index, scope, \__symbol
-          [
-            position or LispyNode.Value obj.index, void
-            ...(switch
-            case obj.is-ident
-              [
-                LispyNode.Value obj.index, \ident
-                LispyNode.Value obj.index, obj.name
-              ]
-            case obj.is-tmp
-              [
-                LispyNode.Value obj.index, \tmp
-                LispyNode.Value obj.index, obj.id
-                LispyNode.Value obj.index, obj.name
-              ]
-            case obj.is-internal
-              [
-                LispyNode.Value obj.index, \internal
-                LispyNode.Value obj.index, obj.name
-              ]
-            case obj.is-operator
-              [
-                LispyNode.Value obj.index, \operator
-                LispyNode.Value obj.index, obj.operator-type
-                LispyNode.Value obj.index, obj.name
-              ])
-          ]
+          position or LispyNode.Value obj.index, void
+          ...(switch
+          case obj.is-ident
+            [
+              LispyNode.Value obj.index, \ident
+              LispyNode.Value obj.index, obj.name
+            ]
+          case obj.is-tmp
+            [
+              LispyNode.Value obj.index, \tmp
+              LispyNode.Value obj.index, obj.id
+              LispyNode.Value obj.index, obj.name
+            ]
+          case obj.is-internal
+            [
+              LispyNode.Value obj.index, \internal
+              LispyNode.Value obj.index, obj.name
+            ]
+          case obj.is-operator
+            [
+              LispyNode.Value obj.index, \operator
+              LispyNode.Value obj.index, obj.operator-type
+              LispyNode.Value obj.index, obj.name
+            ])
       case \call
         if obj.is-internal-call(\macro-const)
-          CallNode obj.index, scope,
+          LispyNode.Call obj.index, scope,
             Ident obj.index, scope, \__const
-            obj.args
+            obj.args[0]
         else
-          CallNode obj.index, scope,
+          LispyNode.Call obj.index, scope,
             Ident obj.index, scope, \__call
-            [
-              position or LispyNode.Value obj.index, void
-              constify-object position, obj.func, index, scope
-              ...(for arg in obj.args
-                constify-object position, arg, index, scope)
-            ]
+            position or LispyNode.Value obj.index, void
+            constify-object position, obj.func, index, scope
+            ...(for arg in obj.args
+              constify-object position, arg, index, scope)
     else if obj instanceof Node
       if obj.constructor == Node
         throw Error "Cannot constify a raw node"
       
-      CallNode obj.index, scope,
+      LispyNode.Call obj.index, scope,
         Ident obj.index, scope, \__node
-        [
-          LispyNode.Value obj.index, obj.type-id
-          position or LispyNode.Value obj.index, void
-          ...(for item in obj._to-JSON()
-            constify-object position, item, obj.index, scope)
-        ]
+        LispyNode.Value obj.index, obj.type-id
+        position or LispyNode.Value obj.index, void
+        ...(for item in obj._to-JSON()
+          constify-object position, item, obj.index, scope)
     else if obj.constructor == Object
       LispyNode.InternalCall \object, index, scope,
         LispyNode.Symbol.nothing index

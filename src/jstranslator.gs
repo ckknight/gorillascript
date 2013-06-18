@@ -760,46 +760,6 @@ let generator-translate = do
         t-node: t-tmp
         cleanup: make-cleanup(assign-to, scope, t-tmp)
       }
-  let expressions =
-    [ParserNodeType.Call]: #(node, scope, mutable state, assign-to, unassigned)
-      if node.func instanceof LispyNode.Symbol.ident and node.func.name == \eval
-        let g-code = generator-translate-expression node.args[0], scope, state, false, unassigned
-        return handle-assign assign-to, scope, g-code.state, (#-> ast.Eval get-pos(node), g-code.t-node()), g-code.cleanup
-      
-      let g-func = if node.func instanceof LispyNode and node.func.is-internal-call(\access)
-        let g-parent = generator-translate-expression node.func.args[0], scope, state, true, unassigned
-        let g-child = generator-translate-expression node.func.args[1], scope, g-parent.state, true, unassigned
-        {
-          t-node: #-> ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
-          cleanup: #
-            g-parent.cleanup()
-            g-child.cleanup()
-          g-child.state
-        }
-      else
-        generator-translate-expression node.func, scope, state, true, unassigned
-      let {args} = node
-      
-      let g-args = generator-array-translate get-pos(node), args, scope, g-func.state, unassigned
-      handle-assign assign-to, scope, g-args.state, #
-        let func = g-func.t-node()
-        let args = g-args.t-node()
-        g-func.cleanup()
-        g-args.cleanup()
-        if args instanceof ast.Arr
-          ast.Call get-pos(node),
-            func
-            args.elements
-        else
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), func, \apply
-            [
-              if func instanceof ast.Binary and func.op == "."
-                func.left
-              else
-                ast.Const get-pos(node), void
-              args
-            ]
   
   let generator-translate-expression-lispy-internals =
     access: #(node, args, scope, state, assign-to, unassigned)
@@ -1012,33 +972,68 @@ let generator-translate = do
           node.func.name
           first!(g-node.t-node(), g-node.cleanup()))
   
+  let generator-translate-expression-lispy-call(node, func, args, scope, state, assign-to, unassigned)
+    if func instanceof LispyNode.Symbol.ident and func.name == \eval
+      let g-code = generator-translate-expression node.args[0], scope, state, false, unassigned
+      return handle-assign assign-to, scope, g-code.state, (#-> ast.Eval get-pos(node), g-code.t-node()), g-code.cleanup
+    
+    let g-func = if func instanceof LispyNode and func.is-internal-call(\access)
+      let g-parent = generator-translate-expression func.args[0], scope, state, true, unassigned
+      let g-child = generator-translate-expression func.args[1], scope, g-parent.state, true, unassigned
+      {
+        t-node: #-> ast.Access get-pos(node), g-parent.t-node(), g-child.t-node()
+        cleanup: #
+          g-parent.cleanup()
+          g-child.cleanup()
+        g-child.state
+      }
+    else
+      generator-translate-expression func, scope, state, true, unassigned
+    
+    let g-args = generator-array-translate get-pos(node), args, scope, g-func.state, unassigned
+    handle-assign assign-to, scope, g-args.state, #
+      let func = g-func.t-node()
+      let args = g-args.t-node()
+      g-func.cleanup()
+      g-args.cleanup()
+      if args instanceof ast.Arr
+        ast.Call get-pos(node),
+          func
+          args.elements
+      else
+        ast.Call get-pos(node),
+          ast.Access get-pos(node), func, \apply
+          [
+            if func instanceof ast.Binary and func.op == "."
+              func.left
+            else
+              ast.Const get-pos(node), void
+            args
+          ]
+
   let generator-translate-expression-lispy(node as LispyNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     switch
     case node.is-call
       let {func, args} = node
-      switch
-      case func.is-symbol
-        switch
-        case func.is-internal
+      if func.is-symbol
+        if func.is-internal
           let name = func.name
           if generator-translate-expression-lispy-internals not ownskey name
             throw Error "Unable to translate internal call for '$name'"
-          generator-translate-expression-lispy-internals[name] node, args, scope, state, assign-to, unassigned
-        case func.is-operator
+          return generator-translate-expression-lispy-internals[name] node, args, scope, state, assign-to, unassigned
+        else if func.is-operator
           let name = func.operator-type
           if generator-translate-expression-lispy-operators not ownskey name
             throw Error "Unable to translate operator call for '$name'"
-          generator-translate-expression-lispy-operators[name] node, args, scope, state, assign-to, unassigned
+          return generator-translate-expression-lispy-operators[name] node, args, scope, state, assign-to, unassigned
+
+      generator-translate-expression-lispy-call node, func, args, scope, state, assign-to, unassigned
   
   let generator-translate-expression(node as ParserNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     if state.has-generator-node node
       if node instanceof LispyNode
         return generator-translate-expression-lispy(node, scope, state, assign-to, unassigned)
-      let key = node.type-id
-      if expressions ownskey key
-        expressions[key](node, scope, state, assign-to, unassigned)
-      else
-        throw Error "Unknown expression type: $(typeof! node)"
+      throw Error "Unable to translate non-LispyNode: $(typeof! node)"
     else
       handle-assign assign-to, scope, state, translate node, scope, \expression, unassigned
   
@@ -1376,36 +1371,6 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
           rest
 
 let translators =
-  [ParserNodeType.Call]: #(node, scope, location, unassigned)
-    if node.func instanceof LispyNode.Symbol.ident
-      if node.func.name == \RegExp and node.args[0].is-const() and (not node.args[1] or node.args[1].is-const())
-        return if node.args[1] and node.args[1].const-value()
-          # ast.Regex get-pos(node), String(node.args[0].const-value()), String(node.args[1].const-value())
-        else
-          # ast.Regex get-pos(node), String(node.args[0].const-value())
-      else if node.func.name == \eval
-        let t-code = translate node.args[0], scope, \expression, unassigned
-        return #-> ast.Eval get-pos(node), t-code()
-    let t-func = translate node.func, scope, \expression, unassigned
-    let args = node.args
-    let t-args = array-translate(get-pos(node), args, scope, false, true, unassigned)
-    #
-      let func = t-func()
-      let args = t-args()
-      if args instanceof ast.Arr
-        ast.Call get-pos(node),
-          func
-          args.elements
-      else if func instanceof ast.Binary and func.op == "."
-        scope.maybe-cache func.left, Type.function, #(set-parent, parent)
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), set-parent, func.right, \apply
-            [parent, args]
-      else
-        ast.Call get-pos(node),
-          ast.Access get-pos(node), func, \apply
-          [ast.Const(get-pos(node), void), args]
-  
   [ParserNodeType.Function]: do
     let primitive-types = {
       Boolean: \boolean
@@ -1653,13 +1618,12 @@ let translate-lispy-internal =
   embed-write: #(node, args, scope, location, unassigned)
     let wrapped = if args[0].is-statement()
       let inner-scope = args[0].scope.clone()
-      ParserNode.Call args[0].index, args[0].scope,
+      LispyNode.Call args[0].index, args[0].scope,
         ParserNode.Function args[0].index, inner-scope,
           []
           args[0].rescope(inner-scope)
           true
           true
-        []
     else
       args[0]
     let t-text = translate wrapped, scope, \expression, unassigned
@@ -1954,6 +1918,35 @@ let translate-lispy-operator =
     let t-subnode = translate args[0], scope, \expression, unassigned
     # ast.Unary get-pos(node), op-name, t-subnode()
 
+let translate-lispy-call(node, func, args, scope, location, unassigned)
+  if func instanceof LispyNode.Symbol.ident
+    if func.name == \RegExp and args[0].is-const() and (not args[1] or args[1].is-const())
+      return if args[1] and args[1].const-value()
+        # ast.Regex get-pos(node), String(args[0].const-value()), String(args[1].const-value())
+      else
+        # ast.Regex get-pos(node), String(args[0].const-value())
+    else if func.name == \eval
+      let t-code = translate args[0], scope, \expression, unassigned
+      return #-> ast.Eval get-pos(node), t-code()
+  let t-func = translate func, scope, \expression, unassigned
+  let t-args = array-translate(get-pos(node), args, scope, false, true, unassigned)
+  #
+    let func = t-func()
+    let args = t-args()
+    if args instanceof ast.Arr
+      ast.Call get-pos(node),
+        func
+        args.elements
+    else if func instanceof ast.Binary and func.op == "."
+      scope.maybe-cache func.left, Type.function, #(set-parent, parent)
+        ast.Call get-pos(node),
+          ast.Access get-pos(node), set-parent, func.right, \apply
+          [parent, args]
+    else
+      ast.Call get-pos(node),
+        ast.Access get-pos(node), func, \apply
+        [ast.Const(get-pos(node), void), args]
+
 let translate-lispy(node as LispyNode, scope as Scope, location as String, unassigned)
   switch
   case node.is-value
@@ -1989,19 +1982,18 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
       # ast.Noop(get-pos(node))
   case node.is-call
     let {func, args} = node
-    switch
-    case func.is-symbol
-      switch
-      case func.is-internal
+    if func.is-symbol
+      if func.is-internal
         let name = func.name
         if translate-lispy-internal not ownskey name
           throw Error "Unable to translate internal call '$name'"
-        translate-lispy-internal[name] node, args, scope, location, unassigned
-      case func.is-operator
+        return translate-lispy-internal[name] node, args, scope, location, unassigned
+      else if func.is-operator
         let name = func.operator-type
         if translate-lispy-operator not ownskey name
           throw Error "Unable to translate operator call '$name'"
-        translate-lispy-operator[name] node, args, scope, location, unassigned
+        return translate-lispy-operator[name] node, args, scope, location, unassigned
+    translate-lispy-call node, func, args, scope, location, unassigned
 
 let translate(node as Object, scope as Scope, location as String, unassigned)
   if node instanceof LispyNode

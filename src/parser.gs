@@ -20,7 +20,6 @@ const EMBED_CLOSE_COMMENT_DEFAULT = "--%>"
 const EMBED_OPEN_LITERAL_DEFAULT = "<%@"
 const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
-let CallNode = Node.Call
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
@@ -2136,9 +2135,9 @@ define Identifier = one-of(
     DollarSign
     NoSpace
     [\this, InvocationArguments]) |> mutate #(args, parser, index)
-    parser.Call index,
+    LCall index, parser.scope.peek(),
       LSymbol.ident index, parser.scope.peek(), '$'
-      args
+      ...args
   #(parser, index)
     let name = Name parser, index
     if not name or name.value in get-reserved-idents(parser.options) or parser.has-macro-or-operator name.value or parser.scope.peek().has-const name.value
@@ -2672,12 +2671,10 @@ let RegexLiteral = do
       else if flag not in [\g, \i, \m, \y]
         throw ParserError "Invalid regular expression: unknown flag $(quote flag)", parser, index
       seen-flags.push flag
-    parser.Call index,
+    LCall index, parser.scope.peek(),
       LSymbol.ident index, parser.scope.peek(), \RegExp
-      [
-        text
-        LValue index, flags
-      ]
+      text
+      LValue index, flags
 
 let ConstantLiteralAccessPart = one-of(
   sequential(
@@ -3725,9 +3722,10 @@ let convert-invocation-or-access = do
       #(parser, index, mutable head, link, link-index, links)
         let bind-access = if link.bind
           #(parent, child)
-            parser.Call index,
+            LCall index, parser.scope.peek(),
               LSymbol.ident(index, parser.scope.peek(), \__bind)
-              [parent, child]
+              parent
+              child
         else
           #(parent, child) -> LAccess index, parser.scope.peek(), parent, child
         if link.owns
@@ -3838,7 +3836,7 @@ let convert-invocation-or-access = do
               head
               ...link.args
           else
-            parser.Call index, head, link.args, link.is-new
+            LCall index, parser.scope.peek(), head, ...link.args
           link-index + 1
           links
       unless link.existential
@@ -4101,9 +4099,9 @@ define Eval = sequential(
   [\this, InvocationArguments]) |> mutate #(args, parser, index)
   if args.length != 1
     throw ParserError "Expected only one argument to eval, got $(args.length)", parser, index
-  parser.Call index,
+  LCall index, parser.scope.peek(),
     LSymbol.ident index, parser.scope.peek(), \eval, true
-    args
+    args[0]
 
 define InvocationOrAccess = one-of(
   #(parser, index)
@@ -4119,9 +4117,9 @@ define InvocationOrAccess = one-of(
       if not args
         return
       
-      Box args.index, parser.Call index,
+      Box args.index, LCall index, parser.scope.peek(),
         LSymbol.ident index, parser.scope.peek(), \$
-        args.value
+        ...args.value
     finally
       in-ast.pop()
   BasicInvocationOrAccess
@@ -6095,7 +6093,6 @@ module.exports := parse <<< {
 }
 
 for node-type in [
-      'Call',
       'Function',
       'Ident',
       'MacroAccess',

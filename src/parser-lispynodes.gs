@@ -7,6 +7,9 @@ let {Cache, is-primordial} = require './utils'
 let capitalize(value as String)
   value.char-at(0).to-upper-case() & value.substring(1)
 
+let is-primitive(value)
+  is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+
 /**
  * Base class for the other nodes, not intended to be used on its own
  */
@@ -33,6 +36,7 @@ class Node extends OldNode
   def is-unary-call() -> false
   def is-binary-call() -> false
   def is-assign-call() -> false
+  def do-wrap-args = true
 
 /**
  * Represents a constant primitive value such as a number, string, boolean,
@@ -204,7 +208,7 @@ class Symbol extends Node
                   if pair.args[0].is-const-value(c-value) and not pair.args[2]
                     return pair.args[1]
           
-          if child instanceof OldNode.Call and child.func instanceof Ident and child.func.name == \__range
+          if child instanceof Call and child.func instanceof Ident and child.func.name == \__range
             let [start, mutable end, step, inclusive] = child.args
             let has-step = not step.is-const() or step.const-value() != 1
             if not has-step
@@ -244,9 +248,9 @@ class Symbol extends Node
                 args.push inclusive
 
             if has-step
-              OldNode.Call(call.index, call.scope,
+              Call(call.index, call.scope,
                 Ident call.index, call.scope, \__slice-step
-                args).reduce(parser)
+                ...args).reduce(parser)
             else
               Call(call.index, call.scope,
                 Symbol.context-call call.index
@@ -259,6 +263,131 @@ class Symbol extends Node
               child
           else
             call
+
+
+        __type: do
+          let PRIMORDIAL_SUBFUNCTIONS =
+            Object:
+              getPrototypeOf: Type.object
+              getOwnPropertyDescriptor: Type.object
+              getOwnPropertyNames: Type.string.array()
+              create: Type.object
+              defineProperty: Type.object
+              defineProperties: Type.object
+              seal: Type.object
+              freeze: Type.object
+              preventExtensions: Type.object
+              isSealed: Type.boolean
+              isFrozen: Type.boolean
+              isExtensible: Type.boolean
+              keys: Type.string.array()
+            String:
+              fromCharCode: Type.string
+            Number:
+              isFinite: Type.boolean
+              isNaN: Type.boolean
+            Array:
+              isArray: Type.boolean
+            Math:
+              abs: Type.number
+              acos: Type.number
+              asin: Type.number
+              atan: Type.number
+              atan2: Type.number
+              ceil: Type.number
+              cos: Type.number
+              exp: Type.number
+              floor: Type.number
+              log: Type.number
+              max: Type.number
+              min: Type.number
+              pow: Type.number
+              random: Type.number
+              round: Type.number
+              sin: Type.number
+              sqrt: Type.number
+              tan: Type.number
+            JSON:
+              stringify: Type.string.union(Type.undefined)
+              parse: Type.string.union(Type.number).union(Type.boolean).union(Type.null).union(Type.array).union(Type.object)
+            Date:
+              UTC: Type.number
+              now: Type.number
+          let cache = Cache<Call, Type>()
+          #(access, call, parser)
+            let result = cache-get-or-add! cache, call, do
+              let [parent, child] = access.args
+              if parent instanceof Ident
+                let parent-name = parent.name
+                if PRIMORDIAL_SUBFUNCTIONS ownskey parent-name and child.is-const()
+                  let child-value = child.const-value()
+                  let types = PRIMORDIAL_SUBFUNCTIONS[parent-name]
+                  if types ownskey child-value
+                    return types[child-value]
+              Type.any
+            if result != Type.any
+              result
+        ___reduce: do
+          let PURE_PRIMORDIAL_SUBFUNCTIONS =
+            String: {
+              +fromCharCode
+            }
+            Number: {
+              +isFinite
+              +isNaN
+            }
+            Math: {
+              +abs
+              +acos
+              +asin
+              +atan
+              +atan2
+              +ceil
+              +cos
+              +exp
+              +floor
+              +log
+              +"max"
+              +"min"
+              +pow
+              +round
+              +sin
+              +sqrt
+              +tan
+            }
+            JSON: {
+              +parse
+              +stringify
+            }
+          #(access, call, parser)
+            let [parent, child] = access.args
+            if child.is-const()
+              let const-args = []
+              for arg in call.args
+                if arg.is-const()
+                  const-args.push arg.const-value()
+                else
+                  // can't reduce if arguments are non-constant
+                  return
+              let child-value = child.const-value()
+              if parent.is-const()
+                let parent-value = parent.const-value()
+                if is-function! parent-value[child-value]
+                  let value = try
+                    parent-value[child-value] ...const-args
+                  catch
+                    // TODO: do something here to alert the user?
+                    return
+                  if is-primitive value
+                    Value call.index, value
+              else if parent instanceof Ident and PURE_PRIMORDIAL_SUBFUNCTIONS ownskey parent.name and PURE_PRIMORDIAL_SUBFUNCTIONS[parent.name] ownskey child-value
+                let value = try
+                  GLOBAL[parent.name][child-value] ...const-args
+                catch
+                  // TODO: do something here to alert the user?
+                  return
+                if is-primitive value
+                  Value call.index, value
         _is-noop: do
           let cache = Cache<Call, Boolean>()
           #(call, parser)
@@ -293,6 +422,7 @@ class Symbol extends Node
             cache-get-or-add! cache, call, for every element in call.args; element.is-noop(parser)
       }
       block: {
+        -do-wrap-args
         _type: do
           let cache = Cache<Call, Type>()
           #(call, parser)
@@ -381,6 +511,7 @@ class Symbol extends Node
             cache-get-or-add! cache, call, for every node in call.args; node.is-noop(parser)
       }
       break: {
+        -do-wrap-args
         validate-args(label as OldNode|null, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to break"
@@ -388,14 +519,23 @@ class Symbol extends Node
         +used-as-statement
       }
       comment: {
+        -do-wrap-args
         validate-args(text as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to comment"
       }
       context-call: {
         validate-args(func as OldNode, context as OldNode) ->
+        _type(call, parser)
+          let func = call.args[0]
+          if is-function! func._type
+            let fake-call = Call call.index, call.scope, ...call.args
+            func._type(fake-call, parser)
+          else
+            Type.any
       }
       continue: {
+        -do-wrap-args
         validate-args(label as OldNode|null, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to continue"
@@ -403,26 +543,31 @@ class Symbol extends Node
         +used-as-statement
       }
       custom: {
+        -do-wrap-args
         validate-args(name as Value, ...rest as [OldNode]) ->
       }
       debugger: {
+        -do-wrap-args
         validate-args(...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to debugger"
         +used-as-statement
       }
       embed-write: {
+        -do-wrap-args
         validate-args(text as OldNode, escape as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to embed-write"
       }
       for: {
+        -do-wrap-args
         validate-args(init as OldNode, test as OldNode, step as OldNode, body as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to for"
         +used-as-statement
       }
       for-in: {
+        -do-wrap-args
         validate-args(key as OldNode, object as OldNode, body as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to for-in"
@@ -430,6 +575,7 @@ class Symbol extends Node
       }
       function: {}
       if: {
+        -do-wrap-args
         validate-args(test as OldNode, when-true as OldNode, when-false as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to if"
@@ -498,12 +644,14 @@ class Symbol extends Node
             cache-get-or-add! cache, call, for every arg in call.args; arg.is-noop(parser)
       }
       label: {
+        -do-wrap-args
         validate-args(label as OldNode, node as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to label"
         +used-as-statement
       }
       macro-const: {
+        -do-wrap-args
         validate-args(name as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to macro-const"
@@ -590,6 +738,7 @@ class Symbol extends Node
       }
       param: {}
       return: {
+        -do-wrap-args // maybe this should be true
         validate-args(node as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to return"
@@ -597,6 +746,7 @@ class Symbol extends Node
         +used-as-statement
       }
       root: {
+        -do-wrap-args
         validate-args(file as Value, body as OldNode, is-embedded as Value, is-generator as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to return"
@@ -616,6 +766,7 @@ class Symbol extends Node
             call
       }
       switch: {
+        -do-wrap-args
         validate-args(...args as [OldNode])
           if DEBUG
             let len = args.length
@@ -677,18 +828,24 @@ class Symbol extends Node
               this
         */
       }
-      syntax-choice: {}
+      syntax-choice: {
+        -do-wrap-args
+      }
       syntax-many: {
+        -do-wrap-args
         validate-args(node as OldNode, multiplier as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
       }
       syntax-param: {
+        -do-wrap-args
         validate-args(node as OldNode, as-type as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
       }
-      syntax-sequence: {}
+      syntax-sequence: {
+        -do-wrap-args
+      }
       throw: {
         validate-args(node as OldNode, ...rest)
           if DEBUG and rest.length > 0
@@ -698,9 +855,9 @@ class Symbol extends Node
         +is-goto
         +used-as-statement
         _do-wrap(call, parser)
-          OldNode.Call call.index, call.scope,
+          Call call.index, call.scope,
             Ident call.index, call.scope, \__throw
-            [call.args[0]]
+            call.args[0]
         /*
         node-class ThrowNode(node as Node)
           def _reduce(o)
@@ -712,6 +869,7 @@ class Symbol extends Node
         */
       }
       tmp-wrapper: {
+        -do-wrap-args
         _is-statement(call)
           call.args[0].is-statement()
         validate-args(node as OldNode, ...tmp-ids as [Value]) ->
@@ -748,6 +906,7 @@ class Symbol extends Node
           call.args[0].is-noop(parser)
       }
       try-catch: {
+        -do-wrap-args
         validate-args(try-body as OldNode, catch-ident as OldNode, catch-body as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to try-catch"
@@ -773,6 +932,7 @@ class Symbol extends Node
             cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[2].is-noop(parser)
       }
       try-finally: {
+        -do-wrap-args
         validate-args(try-body as OldNode, finally-body as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to try-finally"
@@ -793,8 +953,8 @@ class Symbol extends Node
           #(call, parser)
             cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[1].is-noop(parser)
       }
-      write: {}
       var: {
+        -do-wrap-args
         validate-args(node as OldNode, is-mutable as OldNode|null, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to var"
@@ -833,15 +993,104 @@ class Symbol extends Node
     
     def equals(other)
       other instanceof Ident and @scope == other.scope and @name == other.name
-    
-    def type()
-      switch @name
+
+    def type(parser)
+      let name = @name
+      switch name
       case CURRENT_ARRAY_LENGTH_NAME
         Type.number
       case \arguments
         Type.args
       default
-        @scope.type(this)
+        let type = @scope.type(this)
+        if type == Type.any and parser and parser.macros.has-helper name
+          parser.macros.helper-type name
+        else
+          type
+
+    let PRIMORDIAL_FUNCTION_RETURN_TYPES =
+      Object: Type.object
+      String: Type.string
+      Number: Type.number
+      Boolean: Type.boolean
+      Function: Type.function
+      Array: Type.array
+      Date: Type.string
+      RegExp: Type.regexp
+      Error: Type.error
+      RangeError: Type.error
+      ReferenceError: Type.error
+      SyntaxError: Type.error
+      TypeError: Type.error
+      URIError: Type.error
+      escape: Type.string
+      unescape: Type.string
+      parseInt: Type.number
+      parseFloat: Type.number
+      isNaN: Type.boolean
+      isFinite: Type.boolean
+      decodeURI: Type.string
+      decodeURIComponent: Type.string
+      encodeURI: Type.string
+      encodeURIComponent: Type.string
+    def _type(call, parser)
+      let name = @name
+      if PRIMORDIAL_FUNCTION_RETURN_TYPES ownskey name
+        PRIMORDIAL_FUNCTION_RETURN_TYPES[name]
+      else
+        let func-type = @type(parser)
+        if func-type.is-subset-of(Type.function)
+          func-type.args[0]
+        else
+          Type.any
+
+    // if eval(key) is called, automatically turn it into the known value
+    // this allows us to do const true = eval("true")
+    let EVAL_SIMPLIFIERS = {
+      true: #(index) Value index, true
+      false: #(index) Value index, false
+      "void 0": #(index) Value index, void
+      null: #(index) Value index, null
+    }
+    // if all arguments are constant, then these side-effect-free calls can be
+    // reduced at compile-time.
+    let PURE_PRIMORDIAL_FUNCTIONS = {
+      +escape
+      +unescape
+      +parseInt
+      +parseFloat
+      +isNaN
+      +isFinite
+      +decodeURI
+      +decodeURIComponent
+      +encodeURI
+      +encodeURIComponent
+      +String
+      +Boolean
+      +Number
+    }
+    def __reduce(call, parser)
+      let name = @name
+      if name == \eval
+        if call.args.length == 1 and call.args[0].is-const()
+          let eval-arg = call.args[0].const-value()
+          if EVAL_SIMPLIFIERS ownskey eval-arg
+            EVAL_SIMPLIFIERS[eval-arg] call.index
+      else if PURE_PRIMORDIAL_FUNCTIONS ownskey name
+        let const-args = []
+        for arg in call.args
+          if arg.is-const()
+            const-args.push arg.const-value()
+          else
+            // one of the args isn't constant, so we can't reduce at compile-time
+            return
+        try
+          let value = GLOBAL[func.name]@ void, ...const-args
+          if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
+            Value @index, value
+        catch
+          // TODO: do something here to alert the user?
+          void
 
     def is-noop() true
     def is-primordial() is-primordial(@name)
@@ -1820,7 +2069,7 @@ class Symbol extends Node
       }
 
 class Call extends Node
-  def constructor(@index as Number, @scope, @func as Node, ...@args as [OldNode])
+  def constructor(@index as Number, @scope, @func as OldNode, ...@args as [OldNode])
     if DEBUG and is-function! func.validate-args
       func.validate-args ...args
   
@@ -1854,17 +2103,32 @@ class Call extends Node
             return false
         true
   
-  def type(o)
-    if is-function! @func._type
-      @func._type this, o
+  def type(parser)
+    let reduced = @reduce(parser)
+    let func = reduced.func
+    if is-function! func._type
+      return? func._type reduced, parser
+    let func-type = func.type(parser)
+    if func-type.is-subset-of(Type.function)
+      func-type.args[0]
     else
-      super.type o
+      Type.any
+
+  def _type(call, parser)
+    if is-function! @func.__type
+      @func.__type this, call, parser
   
-  def _reduce(o)
-    if is-function! @func.__reduce
-      @func.__reduce this, o
-    else
-      @walk #(x) -> x.reduce(this), o
+  def _reduce(parser)
+    let mutable reduced = @walk #(x) -> x.reduce(this), parser
+    if reduced.func.do-wrap-args
+      reduced := reduced.walk #(x) -> x.do-wrap(this), parser
+    if is-function! reduced.func.__reduce
+      return? reduced.func.__reduce this, parser
+    reduced
+
+  def __reduce(call, parser)
+    if is-function! @func.___reduce
+      @func.___reduce this, call, parser
   
   def walk(walker, context)
     let func = walker@(context, @func) or @func.walk(walker, context)
@@ -1914,8 +2178,10 @@ class Call extends Node
   def is-statement()
     if is-function! @func._is-statement
       @func._is-statement(this)
-    else
+    else if @func instanceof Symbol
       @func.is-internal and @func.used-as-statement
+    else
+      false
   
   def mutate-last(o, func, context, include-noop)
     if is-function! @func._mutate-last
@@ -1930,7 +2196,7 @@ class Call extends Node
       @func._do-wrap(this, parser)
     else if @is-statement()
       let inner-scope = parser.push-scope(true, @scope)
-      let result = OldNode.Call(@index, @scope, OldNode.Function(@index, @scope, [], @rescope(inner-scope), true, true), [])
+      let result = Call @index, @scope, OldNode.Function @index, @scope, [], @rescope(inner-scope), true, true
       parser.pop-scope()
       result
     else
@@ -1978,6 +2244,166 @@ class Call extends Node
       is-name-match func.name, arguments
     else
       false
+
+/*
+
+node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean)
+  def type = do
+    let PRIMORDIAL_SUBFUNCTIONS =
+      Object:
+        getPrototypeOf: Type.object
+        getOwnPropertyDescriptor: Type.object
+        getOwnPropertyNames: Type.string.array()
+        create: Type.object
+        defineProperty: Type.object
+        defineProperties: Type.object
+        seal: Type.object
+        freeze: Type.object
+        preventExtensions: Type.object
+        isSealed: Type.boolean
+        isFrozen: Type.boolean
+        isExtensible: Type.boolean
+        keys: Type.string.array()
+      String:
+        fromCharCode: Type.string
+      Number:
+        isFinite: Type.boolean
+        isNaN: Type.boolean
+      Array:
+        isArray: Type.boolean
+      Math:
+        abs: Type.number
+        acos: Type.number
+        asin: Type.number
+        atan: Type.number
+        atan2: Type.number
+        ceil: Type.number
+        cos: Type.number
+        exp: Type.number
+        floor: Type.number
+        log: Type.number
+        max: Type.number
+        min: Type.number
+        pow: Type.number
+        random: Type.number
+        round: Type.number
+        sin: Type.number
+        sqrt: Type.number
+        tan: Type.number
+      JSON:
+        stringify: Type.string.union(Type.undefined)
+        parse: Type.string.union(Type.number).union(Type.boolean).union(Type.null).union(Type.array).union(Type.object)
+      Date:
+        UTC: Type.number
+        now: Type.number
+    let PRIMORDIAL_METHODS =
+      String:
+        toString: Type.string
+        valueOf: Type.string
+        charAt: Type.string
+        charCodeAt: Type.number
+        concat: Type.string
+        indexOf: Type.number
+        lastIndexOf: Type.number
+        localeCompare: Type.number
+        match: Type.array.union(Type.null)
+        replace: Type.string
+        search: Type.number
+        slice: Type.string
+        split: Type.string.array()
+        substring: Type.string
+        toLowerCase: Type.string
+        toLocaleLowerCase: Type.string
+        toUpperCase: Type.string
+        toLocaleUpperCase: Type.string
+        trim: Type.string
+      Boolean:
+        toString: Type.string
+        valueOf: Type.boolean
+      Number:
+        toString: Type.string
+        valueOf: Type.number
+        toLocaleString: Type.string
+        toFixed: Type.string
+        toExponential: Type.string
+        toPrecision: Type.string
+      Date:
+        toString: Type.string
+        toDateString: Type.string
+        toTimeString: Type.string
+        toLocaleString: Type.string
+        toLocaleDateString: Type.string
+        toLocaleTimeString: Type.string
+        valueOf: Type.number
+        getTime: Type.number
+        getFullYear: Type.number
+        getUTCFullYear: Type.number
+        getMonth: Type.number
+        getUTCMonth: Type.number
+        getDate: Type.number
+        getUTCDate: Type.number
+        getDay: Type.number
+        getUTCDay: Type.number
+        getHours: Type.number
+        getUTCHours: Type.number
+        getMinutes: Type.number
+        getUTCMinutes: Type.number
+        getSeconds: Type.number
+        getUTCSeconds: Type.number
+        getMilliseconds: Type.number
+        getUTCMilliseconds: Type.number
+        getTimezoneOffset: Type.number
+        setTime: Type.number
+        setMilliseconds: Type.number
+        setUTCMilliseconds: Type.number
+        setSeconds: Type.number
+        setUTCSeconds: Type.number
+        setMinutes: Type.number
+        setUTCMinutes: Type.number
+        setHours: Type.number
+        setUTCHours: Type.number
+        setDate: Type.number
+        setUTCDate: Type.number
+        setMonth: Type.number
+        setUTCMonth: Type.number
+        setFullYear: Type.number
+        setUTCFullYear: Type.number
+        toUTCString: Type.string
+        toISOString: Type.string
+        toJSON: Type.string
+      RegExp:
+        exec: Type.array.union(Type.null)
+        test: Type.boolean
+        toString: Type.string
+      Error:
+        toString: Type.string
+    #(o) -> @_type ?= do
+      let func = @func
+      let mutable func-type = func.type(o)
+      let LispyNode = require('./parser-lispynodes')
+      if func-type.is-subset-of(Type.function)
+        return func-type.args[0]
+      else if func instanceof LispyNode.Symbol.ident
+        let {name} = func
+        if PRIMORDIAL_FUNCTIONS ownskey name
+          return PRIMORDIAL_FUNCTIONS[name]
+        else if o?.macros.has-helper name
+          func-type := o.macros.helper-type name
+          if func-type.is-subset-of(Type.function)
+            return func-type.args[0]
+      else
+        if func instanceof LispyNode and func.is-internal-call(\access)
+          let [parent, child] = func.args
+          if child.is-const()
+            if child.const-value() in [\call, \apply]
+              let parent-type = parent.type(o)
+              if parent-type.is-subset-of(Type.function)
+                return parent-type.args[0]
+            else if parent instanceof LispyNode.Symbol.ident
+              return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.const-value()]
+            // else check the type of parent, maybe figure out its methods
+      Type.any
+*/
 
 module.exports := Node <<< {
   Value
