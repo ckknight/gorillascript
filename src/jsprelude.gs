@@ -1989,6 +1989,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
     @rewrap(@func(params
       AST(body)
         $init
+        void
         $body
       @func-is-auto-return(node) and not @is-nothing(body)
       @func-is-bound(node)

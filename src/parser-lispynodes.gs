@@ -1418,8 +1418,11 @@ class Symbol extends Node
             let left = call.args[0].reduce(parser)
             let right = call.args[1].reduce(parser)
             
-            if left.is-const() and right.is-const()
-              return Value call.index, left.const-value() and right.const-value()
+            if left.is-const()
+              return return if left.const-value()
+                right
+              else
+                left
             
             let left-type = left.type(parser)
             if left-type.is-subset-of(Type.always-truthy)
@@ -1458,8 +1461,11 @@ class Symbol extends Node
             let left = call.args[0].reduce(parser)
             let right = call.args[1].reduce(parser)
             
-            if left.is-const() and right.is-const()
-              return Value call.index, left.const-value() or right.const-value()
+            if left.is-const()
+              return if left.const-value()
+                left
+              else
+                right
             
             let left-type = left.type(parser)
             if left-type.is-subset-of(Type.always-truthy)

@@ -7,7 +7,6 @@ const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 const ParserNodeType = {
   Call:            9
   Function:       20
-  Ident:          21
   MacroAccess:    23
   Param:          27
   TypeFunction:   44

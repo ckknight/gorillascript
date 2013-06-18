@@ -178,6 +178,11 @@ describe "functions", #
     expect(fun(obj)[0]).to.equal obj
     let other = {}
     expect(fun(obj, other)).to.eql [obj, other]
+  
+  it "spread arguments without a body should return void", #
+    let fun(...args) ->
+
+    expect(fun()).to.be.undefined
 
   it "spread arguments with leading arguments", #
     let fun(first, ...rest) -> [first, rest]
