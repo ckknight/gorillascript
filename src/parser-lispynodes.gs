@@ -656,6 +656,11 @@ class Symbol extends Node
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
       }
+      syntax-param: {
+        validate-args(node as OldNode, as-type as OldNode, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to throw"
+      }
       syntax-sequence: {}
       throw: {
         validate-args(node as OldNode, ...rest)

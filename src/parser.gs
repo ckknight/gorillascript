@@ -26,7 +26,6 @@ let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
 let SuperNode = Node.Super
-let SyntaxParamNode = Node.SyntaxParam
 let TmpNode = Node.Tmp
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
@@ -4360,7 +4359,9 @@ let MacroSyntaxParameter = one-of(
     [\type, maybe sequential(
       word "as"
       [\this, MacroSyntaxParameterType])]) |> mutate #({ident, type}, parser, index)
-    parser.SyntaxParam index, ident, type)
+    LInternalCall \syntax-param, index, parser.scope.peek(),
+      ident
+      type or LSymbol.nothing index)
 
 let MacroSyntaxParameters = separated-list(MacroSyntaxParameter, Comma)
 
@@ -4376,8 +4377,8 @@ let MacroOptions = maybe (sequential(
 
 let add-macro-syntax-parameters-to-scope(params, scope)!
   for param in params
-    if param instanceof SyntaxParamNode
-      let {ident} = param
+    if param instanceof LispyNode and param.is-internal-call(\syntax-param)
+      let ident = param.args[0]
       if ident instanceof IdentNode
         scope.add ident, true, Type.any
 
@@ -5243,16 +5244,16 @@ class Parser
     simplify-array for param in params
       if param.is-const()
         [\const, param.const-value()]
-      else if param instanceof SyntaxParamNode
-        let {ident} = param
+      else if param instanceof LispyNode and param.is-internal-call(\syntax-param)
+        let [ident, as-type] = param.args
         let value = if ident instanceof IdentNode
           [\ident, ident.name]
         else if ident instanceof LSymbol and ident.is-ident and ident.name == \this
           [\this]
         else
           throw Error()
-        if param.as-type
-          value.push ...serialize-param-type(param.as-type)
+        if not is-nothing(as-type)
+          value.push ...serialize-param-type(as-type)
         value
       else
         throw Error()
@@ -5274,7 +5275,7 @@ class Parser
           LValue 0, multiplier
     #(as-type as [] = [], scope)
       if as-type.length == 0
-        return void
+        LSymbol.nothing 0
       else
         let type = as-type[0]
         if deserialize-param-type-by-type ownskey type
@@ -5286,13 +5287,11 @@ class Parser
       const: #(scope, value)
         LValue 0, value
       ident: #(scope, name, ...as-type)
-        SyntaxParamNode 0,
-          scope
+        LInternalCall \syntax-param, 0, scope,
           IdentNode 0, scope, name
           deserialize-param-type(as-type, scope)
       this: #(scope, ...as-type)
-        SyntaxParamNode 0,
-          scope
+        LInternalCall \syntax-param, 0, scope,
           LSymbol.ident 0, scope, \this
           deserialize-param-type(as-type, scope)
     #(params, scope as Scope)
@@ -5319,7 +5318,7 @@ class Parser
     else if param.is-const()
       let string = param.const-value()
       if not is-string! string
-        @error "Expected a constant string parameter, got $(typeof! string)"
+        throw Error "Expected a constant string parameter, got $(typeof! string)"
       macro-syntax-const-literals![string] or word-or-symbol string
     else if param instanceof LispyNode and param.is-internal-call(\syntax-many)
       let [inner, multiplier] = param.args
@@ -5331,7 +5330,7 @@ class Parser
       default
         throw Error("Unknown syntax multiplier: $multiplier")
     else
-      @error "Unexpected type: $(typeof! param)"
+      throw Error "Unexpected type: $(typeof! param)"
   
   let handle-params(params)
     let sequence = []
@@ -5342,15 +5341,15 @@ class Parser
           @error "Expected a constant string parameter, got $(typeof! string)"
 
         sequence.push macro-syntax-const-literals![string] or word-or-symbol string
-      else if param instanceof SyntaxParamNode
-        let {ident} = param
+      else if param instanceof Node and param.is-internal-call(\syntax-param)
+        let [ident, as-type] = param.args
         let key = if ident instanceof IdentNode
           ident.name
         else if ident instanceof LSymbol and ident.is-ident and ident.name == \this
           \this
         else
           throw Error "Don't know how to handle ident type: $(typeof! ident)"
-        let type = param.as-type ? IdentNode 0, param.scope, \Expression
+        let type = if not is-nothing(as-type) then as-type else IdentNode 0, param.scope, \Expression
         sequence.push [key, calc-param@ this, type]
       else
         @error "Unexpected parameter type: $(typeof! param)"
@@ -5395,18 +5394,18 @@ class Parser
             macro-full-data-ident
             LValue index, \macro-data
         ...for param in params
-          if param instanceof SyntaxParamNode
-            scope.add param.ident, true, Type.any
+          if param instanceof LispyNode and param.is-internal-call(\syntax-param)
+            scope.add param.args[0], true, Type.any
             LInternalCall \block, index, scope,
               LInternalCall \var, index, scope,
-                param.ident
-                LispyNode.Value index, true
+                param.args[0]
+                LValue index, true
               LCall index, scope,
                 LSymbol.assign["="] index
-                param.ident
+                param.args[0]
                 LInternalCall \access, index, scope,
                   macro-data-ident
-                  LValue index, param.ident.name
+                  LValue index, param.args[0].name
         body
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
@@ -5435,18 +5434,18 @@ class Parser
           let scope = @scope.peek()
           body := LInternalCall \block, index, scope,
             ...for param in params
-              if param instanceof SyntaxParamNode
-                scope.add param.ident, true, Type.any
+              if param instanceof LispyNode and param.is-internal-call(\syntax-param)
+                scope.add param.args[0], true, Type.any
                 LInternalCall \block, index, scope,
                   LInternalCall \var, index, scope,
-                    param.ident
+                    param.args[0]
                     LispyNode.Value index, true
                   LCall index, scope,
                     LSymbol.assign["="] index
-                    param.ident
+                    param.args[0]
                     LInternalCall \access, index, scope,
                       macro-data-ident
-                      LValue index, param.ident.name
+                      LValue index, param.args[0].name
             body
           let raw-func = make-macro-root@ this, index, func-param, body
           let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
@@ -6092,7 +6091,6 @@ for node-type in [
       'Param',
       'Root',
       'Super',
-      'SyntaxParam',
       'Tmp',
       'TypeFunction',
       'TypeGeneric',
