@@ -650,16 +650,13 @@ class Symbol extends Node
             call
       }
       super: {}
-      syntax-choice: {
-        /*
-        node-class SyntaxChoiceNode(choices as [Node] = [])
-        */
-      }
+      syntax-choice: {}
       syntax-many: {
         validate-args(node as OldNode, multiplier as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
       }
+      syntax-sequence: {}
       throw: {
         validate-args(node as OldNode, ...rest)
           if DEBUG and rest.length > 0

@@ -27,7 +27,6 @@ let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
 let SuperNode = Node.Super
 let SyntaxParamNode = Node.SyntaxParam
-let SyntaxSequenceNode = Node.SyntaxSequence
 let TmpNode = Node.Tmp
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
@@ -4334,7 +4333,8 @@ let MacroSyntaxParameterType = allow-space-before-access sequential(
       [\this, #(parser, index) -> MacroSyntaxParameters parser, index]
       EmptyLines
       MaybeCommaOrNewline
-      CloseParenthesis) |> mutate #(value, parser, index) -> parser.SyntaxSequence index, value
+      CloseParenthesis) |> mutate #(value, parser, index)
+      LInternalCall \syntax-sequence, index, parser.scope.peek(), ...value
     sequential(
       OpenParenthesis
       EmptyLines
@@ -5229,8 +5229,8 @@ class Parser
   let serialize-param-type(as-type)
     if as-type instanceof IdentNode
       [\ident, as-type.name]
-    else if as-type instanceof SyntaxSequenceNode
-      [\sequence, ...fix-array serialize-params(as-type.params)]
+    else if as-type instanceof LispyNode and as-type.is-internal-call(\syntax-sequence)
+      [\sequence, ...fix-array serialize-params(as-type.args)]
     else if as-type instanceof LispyNode and as-type.is-internal-call(\syntax-choice)
       [\choice, ...for choice in as-type.args; serialize-param-type(choice)]
     else if as-type.is-const()
@@ -5261,7 +5261,8 @@ class Parser
       ident: #(scope, name)
         IdentNode 0, scope, name
       sequence: #(scope, ...items)
-        SyntaxSequenceNode 0, scope, deserialize-params(items, scope)
+        LInternalCall \syntax-sequence, 0, scope,
+          ...deserialize-params(items, scope)
       choice: #(scope, ...choices)
         LInternalCall \syntax-choice, 0, scope,
           ...(for choice in choices; deserialize-param-type(choice, scope))
@@ -5310,8 +5311,8 @@ class Parser
         macros.get-syntax(name)
       else
         #(parser, index) -> parser.macros.get-syntax(name)@(this, parser, index)
-    else if param instanceof SyntaxSequenceNode
-      handle-params@ this, param.params
+    else if param instanceof LispyNode and param.is-internal-call(\syntax-sequence)
+      handle-params@ this, param.args
     else if param instanceof LispyNode and param.is-internal-call(\syntax-choice)
       one-of ...for choice in param.args
         calc-param@ this, choice
@@ -6092,7 +6093,6 @@ for node-type in [
       'Root',
       'Super',
       'SyntaxParam',
-      'SyntaxSequence',
       'Tmp',
       'TypeFunction',
       'TypeGeneric',

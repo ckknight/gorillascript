@@ -671,7 +671,6 @@ node-class SuperNode(child as Node|void, args as [Node] = [])
     else
       this
 node-class SyntaxParamNode(ident as Node, as-type as Node|void)
-node-class SyntaxSequenceNode(params as [Node] = [])
 node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def cacheable = false
   def type() -> @_type

@@ -13,7 +13,6 @@ let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
 let SuperNode = Node.Super
 let SyntaxParamNode = Node.SyntaxParam
-let SyntaxSequenceNode = Node.SyntaxSequence
 let TmpNode = Node.Tmp
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
