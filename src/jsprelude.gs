@@ -2193,9 +2193,9 @@ define helper __array-to-iter = do
   let proto = {
     iterator: #-> this
     next: #
-      let i = @index + 1
+      let i = @index ~+ 1
       let array = @array
-      if i >= array.length
+      if i ~>= array.length
         { done: true, value: void }
       else
         @index := i

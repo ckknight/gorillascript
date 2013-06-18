@@ -8,7 +8,6 @@ let {node-to-type, add-param-to-scope} = require './parser-utils'
 
 let CallNode = Node.Call
 let FunctionNode = Node.Function
-let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
 let TypeFunctionNode = Node.TypeFunction
@@ -17,6 +16,7 @@ let TypeObjectNode = Node.TypeObject
 let TypeUnionNode = Node.TypeUnion
 
 let Tmp = LispyNode.Symbol.tmp
+let Ident = LispyNode.Symbol.ident
 
 let identity(x) -> x
 let ret-this() -> this
@@ -58,18 +58,18 @@ class MacroContext
   def version()
     @parser.get-package-version()
   
-  def let(ident as Tmp|IdentNode, is-mutable as Boolean, mutable type as Type = Type.any)
-    if ident instanceof IdentNode and is-mutable and type.is-subset-of(Type.undefined-or-null)
+  def let(ident as Tmp|Ident, is-mutable as Boolean, mutable type as Type = Type.any)
+    if ident instanceof Ident and is-mutable and type.is-subset-of(Type.undefined-or-null)
       type := Type.any
     @scope().add(ident, is-mutable, type)
   
-  def has-variable(ident as Tmp|IdentNode)
+  def has-variable(ident as Tmp|Ident)
     @scope().has(ident)
   
-  def is-variable-mutable(ident as Tmp|IdentNode)
+  def is-variable-mutable(ident as Tmp|Ident)
     @scope().is-mutable(ident)
   
-  def var(ident as Tmp|IdentNode, is-mutable as Boolean)
+  def var(ident as Tmp|Ident, is-mutable as Boolean)
     LispyNode.InternalCall \var, @index, @scope(),
       ident
       LispyNode.Value @index, is-mutable
@@ -104,7 +104,7 @@ class MacroContext
       @do-wrap(test)
       @do-wrap(step)
       body).reduce(@parser)
-  def for-in(key as IdentNode, object as Node = LispyNode.Symbol.nothing(0), body as Node = LispyNode.Symbol.nothing(0))
+  def for-in(key as Tmp|Ident, object as Node = LispyNode.Symbol.nothing(0), body as Node = LispyNode.Symbol.nothing(0))
     LispyNode.InternalCall(\for-in, @index, @scope(),
       key
       @do-wrap(object)
@@ -152,10 +152,10 @@ class MacroContext
       @do-wrap(node)).reduce(@parser)
   def debugger()
     LispyNode.InternalCall \debugger, @index, @scope()
-  def break(label as IdentNode|Tmp|null)
+  def break(label as Ident|Tmp|null)
     LispyNode.InternalCall \break, @index, @scope(),
       ...(if label then [label] else [])
-  def continue(label as IdentNode|Tmp|null)
+  def continue(label as Ident|Tmp|null)
     LispyNode.InternalCall \continue, @index, @scope(),
       ...(if label then [label] else [])
   def spread(node as Node)
@@ -191,8 +191,8 @@ class MacroContext
         alpha.value == bravo.value
       else
         false
-    else if alpha instanceof IdentNode
-      bravo instanceof IdentNode and alpha.name == bravo.name
+    else if alpha instanceof Ident
+      bravo instanceof Ident and alpha.name == bravo.name
     else
       false
   
@@ -212,7 +212,7 @@ class MacroContext
       node.args[0]
     else
       null
-  def with-label(node, label as IdentNode|Tmp|null)
+  def with-label(node, label as Ident|Tmp|null)
     node.with-label label, @parser
   
   def macro-expand-1(node)
@@ -264,12 +264,12 @@ class MacroContext
       node.args[0]
   
   def is-node(node) -> node instanceof Node
-  def is-ident(node) -> @real(node) instanceof IdentNode
+  def is-ident(node) -> @real(node) instanceof Ident
   def is-primordial(mutable node)
     node := @real node
-    node instanceof IdentNode and node.is-primordial()
+    node instanceof Ident and node.is-primordial()
   def is-tmp(node) -> @real(node) instanceof Tmp
-  def is-ident-or-tmp(node) -> @real(node) instanceofsome [IdentNode, Tmp]
+  def is-ident-or-tmp(node) -> @real(node) instanceofsome [Ident, Tmp]
   def name(mutable node)
     node := @real(node)
     if @is-ident(node)
@@ -283,7 +283,7 @@ class MacroContext
   def ident(name as String)
     // TODO: don't assume JS
     if require('./jsutils').is-acceptable-ident(name, true)
-      @parser.Ident @index, name
+      Ident @index, @scope(), name
   
   def is-call(node) -> @real(node) instanceof CallNode
   
@@ -331,7 +331,7 @@ class MacroContext
     
     CallNode(func.index, @scope(), @do-wrap(func), (for arg in args; @do-wrap(arg)), is-new, is-apply).reduce(@parser)
   
-  def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
+  def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [Ident|Tmp] = [])
     let scope = @parser.push-scope(true)
     params := for param in params
       let p = param.rescope scope
@@ -479,7 +479,7 @@ class MacroContext
     else if node instanceof LispyNode
       node.is-call
     else
-      node not instanceof IdentNode
+      true
   
   def is-noop(mutable node)
     node := @real node
@@ -491,11 +491,11 @@ class MacroContext
   
   def is-type-array(mutable node)
     node := @real(node)
-    node instanceof TypeGenericNode and node.basetype instanceof IdentNode and node.basetype.name == \Array
+    node instanceof TypeGenericNode and node.basetype instanceof Ident and node.basetype.name == \Array
   def subtype(mutable node)
     node := @real node
     if node instanceof TypeGenericNode
-      if node.basetype instanceof IdentNode and node.basetype.name == \Array
+      if node.basetype instanceof Ident and node.basetype.name == \Array
         node.args[0]
   
   def is-type-generic(node) -> @real(node) instanceof TypeGenericNode
@@ -510,11 +510,11 @@ class MacroContext
   
   def is-type-function(mutable node)
     node := @real(node)
-    node instanceof TypeGenericNode and node.basetype instanceof IdentNode and node.basetype.name == \Function
+    node instanceof TypeGenericNode and node.basetype instanceof Ident and node.basetype.name == \Function
   def return-type(mutable node)
     node := @real node
     if node instanceof TypeGenericNode
-      if node.basetype instanceof IdentNode and node.basetype.name == \Function
+      if node.basetype instanceof Ident and node.basetype.name == \Function
         node.args[0]
   
   def is-type-union(node) -> @real(node) instanceof TypeUnionNode
@@ -641,7 +641,7 @@ class MacroContext
       LispyNode.Value index, obj
     else if obj instanceof RegExp
       CallNode obj.index, scope,
-        IdentNode obj.index, scope, \RegExp
+        Ident obj.index, scope, \RegExp
         [
           LispyNode.Value index, obj.source
           LispyNode.Value index, "$(if obj.global then 'g' else '')$(if obj.ignore-case then 'i' else '')$(if obj.multiline then 'm' else '')$(if obj.sticky then 'y' else '')"
@@ -650,20 +650,20 @@ class MacroContext
       LispyNode.InternalCall \array, index, scope,
         ...(for item in obj
           constify-object position, item, index, scope)
-    else if obj instanceof IdentNode and obj.name.length > 1 and obj.name.char-code-at(0) == '$'.char-code-at(0)
+    else if obj instanceof Ident and obj.name.length > 1 and obj.name.char-code-at(0) == '$'.char-code-at(0)
       CallNode obj.index, scope,
-        IdentNode obj.index, scope, \__wrap
+        Ident obj.index, scope, \__wrap
         [
-          IdentNode obj.index, scope, obj.name.substring 1
+          Ident obj.index, scope, obj.name.substring 1
         ]
-    else if obj instanceof CallNode and not obj.is-new and not obj.is-apply and obj.func instanceof IdentNode and obj.func.name == '$'
+    else if obj instanceof CallNode and not obj.is-new and not obj.is-apply and obj.func instanceof Ident and obj.func.name == '$'
       if obj.args.length != 1
         throw Error "Can only use \$() in an AST if it has one argument."
       let arg = obj.args[0]
       if arg instanceof LispyNode and arg.is-internal-call(\spread)
         throw Error "Cannot use ... in \$() in an AST."
       CallNode obj.index, scope,
-        IdentNode obj.index, scope, \__wrap
+        Ident obj.index, scope, \__wrap
         [
           arg
         ]
@@ -671,14 +671,14 @@ class MacroContext
       switch obj.node-type
       case \value
         CallNode obj.index, scope,
-          IdentNode obj.index, scope, \__value
+          Ident obj.index, scope, \__value
           [
             position or LispyNode.Value obj.index, void
             obj
           ]
       case \symbol
         CallNode obj.index, scope,
-          IdentNode obj.index, scope, \__symbol
+          Ident obj.index, scope, \__symbol
           [
             position or LispyNode.Value obj.index, void
             ...(switch
@@ -708,11 +708,11 @@ class MacroContext
       case \call
         if obj.is-internal-call(\macro-const)
           CallNode obj.index, scope,
-            IdentNode obj.index, scope, \__const
+            Ident obj.index, scope, \__const
             obj.args
         else
           CallNode obj.index, scope,
-            IdentNode obj.index, scope, \__call
+            Ident obj.index, scope, \__call
             [
               position or LispyNode.Value obj.index, void
               constify-object position, obj.func, index, scope
@@ -724,7 +724,7 @@ class MacroContext
         throw Error "Cannot constify a raw node"
       
       CallNode obj.index, scope,
-        IdentNode obj.index, scope, \__node
+        Ident obj.index, scope, \__node
         [
           LispyNode.Value obj.index, obj.type-id
           position or LispyNode.Value obj.index, void

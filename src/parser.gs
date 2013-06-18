@@ -22,7 +22,6 @@ const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
 let CallNode = Node.Call
 let FunctionNode = Node.Function
-let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
 let TypeFunctionNode = Node.TypeFunction
@@ -1980,13 +1979,13 @@ let retain-indent(rule as ->) -> #(parser, index)
       indent.pop()
 
 define ThisLiteral = word("this") |> mutate #(, parser, index)
-  LSymbol.ident index, parser.scope, \this
+  LSymbol.ident index, parser.scope.peek(), \this
 
 define ThisShorthandLiteral = with-space(AtSignChar) |> mutate #(, parser, index)
-  LSymbol.ident index, parser.scope, \this
+  LSymbol.ident index, parser.scope.peek(), \this
 
 define ArgumentsLiteral = word("arguments") |> mutate #(, parser, index)
-  LSymbol.ident index, parser.scope, \arguments
+  LSymbol.ident index, parser.scope.peek(), \arguments
 
 define ThisOrShorthandLiteral = one-of<LispyNode.Symbol>(ThisLiteral, ThisShorthandLiteral)
 let ThisOrShorthandLiteralPeriod = one-of<LispyNode.Symbol>(
@@ -2138,14 +2137,14 @@ define Identifier = one-of(
     NoSpace
     [\this, InvocationArguments]) |> mutate #(args, parser, index)
     parser.Call index,
-      parser.Ident index, '$'
+      LSymbol.ident index, parser.scope.peek(), '$'
       args
   #(parser, index)
     let name = Name parser, index
     if not name or name.value in get-reserved-idents(parser.options) or parser.has-macro-or-operator name.value or parser.scope.peek().has-const name.value
       parser.fail "identifier", index
     else
-      Box name.index, parser.Ident index, name.value)
+      Box name.index, LSymbol.ident index, parser.scope.peek(), name.value)
 
 let make-digits-rule(digit as ->)
   separated-list(
@@ -2674,7 +2673,7 @@ let RegexLiteral = do
         throw ParserError "Invalid regular expression: unknown flag $(quote flag)", parser, index
       seen-flags.push flag
     parser.Call index,
-      parser.Ident index, \RegExp
+      LSymbol.ident index, parser.scope.peek(), \RegExp
       [
         text
         LValue index, flags
@@ -2831,7 +2830,7 @@ define ArrayType = sequential(
   OpenSquareBracket
   [\this, maybe allow-space-before-access TypeReference]
   CloseSquareBracket) |> mutate #(subtype, parser, index)
-  let array-ident = parser.Ident index, \Array
+  let array-ident = LSymbol.ident index, parser.scope.peek(), \Array
   if subtype
     parser.TypeGeneric index, array-ident, [subtype]
   else
@@ -2848,7 +2847,7 @@ define ObjectType = sequential(
   MaybeComma
   CloseCurlyBrace) |> mutate #(pairs, parser, index)
   if pairs.length == 0
-    parser.Ident index, \Object
+    LSymbol.ident index, parser.scope.peek(), \Object
   else
     let keys = []
     for {key} in pairs
@@ -2872,7 +2871,7 @@ let FunctionType = sequential(
     Nothing)
   FunctionGlyph
   [\this, maybe TypeReference]) |> mutate #(return-type, parser, index)
-  let function-ident = parser.Ident index, \Function
+  let function-ident = LSymbol.ident index, parser.scope.peek(), \Function
   if return-type
     parser.TypeGeneric index, function-ident, [return-type]
   else
@@ -3020,7 +3019,7 @@ let ParamSingularObjectKey = sequential(
   [\this, IdentifierParameter]
   NotColon) |> mutate #(param, parser, index)
   let {ident} = param
-  let key = if ident instanceof IdentNode
+  let key = if ident instanceof LSymbol.ident
     LValue index, ident.name
   else if ident instanceof LispyNode and ident.is-internal-call(\access)
     ident.args[1]
@@ -3094,7 +3093,7 @@ let ParameterSequence = sequential(
   let check-param(param as Node, parser, names as [])!
     if param instanceof ParamNode
       let ident = param.ident
-      let name = if ident instanceof IdentNode
+      let name = if ident instanceof LSymbol.ident
         ident.name
       else if ident instanceof LispyNode and ident.is-internal-call(\access)
         let child = ident.args[1]
@@ -3287,7 +3286,7 @@ define IdentifierOrAccess(parser, index)
   let result = _IdentifierOrAccess(parser, index)
   if result
     let {value} = result
-    if value instanceof IdentNode or (value instanceof LispyNode and value.is-internal-call(\access))
+    if value instanceof LSymbol.ident or (value instanceof LispyNode and value.is-internal-call(\access))
       result
 
 let SingularObjectKey = one-of(
@@ -3296,7 +3295,7 @@ let SingularObjectKey = one-of(
     NotColon) |> mutate #(ident, parser, index)
     let key = if ident instanceof LispyNode and ident.is-internal-call(\access)
       ident.args[1]
-    else if ident instanceof IdentNode
+    else if ident instanceof LSymbol.ident
       LValue index, ident.name
     else
       throw ParserError "Unknown ident type: $(typeof! ident)", parser, index
@@ -3435,7 +3434,7 @@ let CustomOperatorCloseParenthesis = do
     if not close
       return
     
-    let node = parser.Ident index, \x
+    let node = LSymbol.ident index, parser.scope.peek(), \x
     let scope = parser.push-scope(true)
     scope.add node, false, Type.any
     let result = mutate-function parser.Function(index,
@@ -3461,8 +3460,8 @@ let CustomOperatorCloseParenthesis = do
     if not close
       return
     
-    let left = parser.Ident index, \x
-    let right = parser.Ident index, \y
+    let left = LSymbol.ident index, parser.scope.peek(), \x
+    let right = LSymbol.ident index, parser.scope.peek(), \y
     let scope = parser.push-scope(true)
     scope.add left, false, Type.any
     scope.add right, false, Type.any
@@ -3573,7 +3572,7 @@ define CurrentArrayLength = #(parser, index)
   if parser.asterix-as-array-length.peek()
     let asterix = AsterixChar parser, index
     if asterix
-      Box asterix.index, parser.Ident index, CURRENT_ARRAY_LENGTH_NAME
+      Box asterix.index, LSymbol.ident index, parser.scope.peek(), CURRENT_ARRAY_LENGTH_NAME
 
 define IndentedUnclosedObjectLiteralInner = separated-list(
   PropertyOrDualObjectKey
@@ -3725,7 +3724,10 @@ let convert-invocation-or-access = do
             result
       #(parser, index, mutable head, link, link-index, links)
         let bind-access = if link.bind
-          #(parent, child) -> parser.Call index, parser.Ident(index, \__bind), [parent, child]
+          #(parent, child)
+            parser.Call index,
+              LSymbol.ident(index, parser.scope.peek(), \__bind)
+              [parent, child]
         else
           #(parent, child) -> LAccess index, parser.scope.peek(), parent, child
         if link.owns
@@ -4089,7 +4091,7 @@ define Eval = sequential(
   if args.length != 1
     throw ParserError "Expected only one argument to eval, got $(args.length)", parser, index
   parser.Call index,
-    parser.Ident index, \eval, true
+    LSymbol.ident index, parser.scope.peek(), \eval, true
     args
 
 define InvocationOrAccess = one-of(
@@ -4107,7 +4109,7 @@ define InvocationOrAccess = one-of(
         return
       
       Box args.index, parser.Call index,
-        parser.Ident index, \$
+        LSymbol.ident index, parser.scope.peek(), \$
         args.value
     finally
       in-ast.pop()
@@ -4379,7 +4381,7 @@ let add-macro-syntax-parameters-to-scope(params, scope)!
   for param in params
     if param instanceof LispyNode and param.is-internal-call(\syntax-param)
       let ident = param.args[0]
-      if ident instanceof IdentNode
+      if ident instanceof LSymbol.ident
         scope.add ident, true, Type.any
 
 let MacroSyntax = sequential(
@@ -4394,7 +4396,7 @@ let MacroSyntax = sequential(
     let options = MacroOptions parser, params.index
     parser.start-macro-syntax index, params.value, options.value
     add-macro-syntax-parameters-to-scope params.value, scope
-    scope.add parser.Ident(index, \macro-name), true, Type.string
+    scope.add LSymbol.ident(index, parser.scope.peek(), \macro-name), true, Type.string
     let body = FunctionBody parser, options.index
     if not body
       throw SHORT_CIRCUIT
@@ -4495,12 +4497,12 @@ let DefineOperator = do
     let scope = parser.push-scope(true)
     switch type
     case \binary, \assign
-      scope.add parser.Ident(index, \left), true, Type.any
-      scope.add parser.Ident(index, \op), true, Type.string
-      scope.add parser.Ident(index, \right), true, Type.any
+      scope.add LSymbol.ident(index, parser.scope.peek(), \left), true, Type.any
+      scope.add LSymbol.ident(index, parser.scope.peek(), \op), true, Type.string
+      scope.add LSymbol.ident(index, parser.scope.peek(), \right), true, Type.any
     case \unary
-      scope.add parser.Ident(index, \op), true, Type.string
-      scope.add parser.Ident(index, \node), true, Type.any
+      scope.add LSymbol.ident(index, parser.scope.peek(), \op), true, Type.string
+      scope.add LSymbol.ident(index, parser.scope.peek(), \node), true, Type.any
     let body = FunctionBody parser, x.index
     if not body
       throw SHORT_CIRCUIT
@@ -4801,7 +4803,7 @@ let EmbeddedRootInnerP = promise! #(parser, index)*
   return Box current-index, LInternalCall \block, index, parser.scope.peek(),
     ...nodes
     LInternalCall \return, index, parser.scope.peek(),
-      parser.Ident index, \write
+      LSymbol.ident index, parser.scope.peek(), \write
 
 let EndNoIndent = sequential(
   EmptyLines
@@ -5168,7 +5170,7 @@ class Parser
       throw Error "Attempting to exit a macro when not in one"
     @current-macro := null
   
-  def define-helper(i, name as IdentNode, value as Node)!
+  def define-helper(i, name as LSymbol.ident, value as Node)!
     // TODO: keep helpers in the parser and have the translator ask for them
     require! translator: './jstranslator'
     let node = @macro-expand-all(value).reduce(this)
@@ -5208,18 +5210,19 @@ class Parser
       obj
   
   let make-macro-root(index, params, body)
-    LInternalCall \root, index, @scope.peek(),
+    let scope = @scope.peek()
+    LInternalCall \root, index, scope,
       LValue index, null
-      LInternalCall \return, index, @scope.peek(),
+      LInternalCall \return, index, scope,
         @Function(index
           [
             params
-            @Param index, (@Ident index, \__wrap), void, false, true, void
-            @Param index, (@Ident index, \__node), void, false, true, void
-            @Param index, (@Ident index, \__const), void, false, true, void
-            @Param index, (@Ident index, \__value), void, false, true, void
-            @Param index, (@Ident index, \__symbol), void, false, true, void
-            @Param index, (@Ident index, \__call), void, false, true, void
+            @Param index, (LSymbol.ident index, scope, \__wrap), void, false, true, void
+            @Param index, (LSymbol.ident index, scope, \__node), void, false, true, void
+            @Param index, (LSymbol.ident index, scope, \__const), void, false, true, void
+            @Param index, (LSymbol.ident index, scope, \__value), void, false, true, void
+            @Param index, (LSymbol.ident index, scope, \__symbol), void, false, true, void
+            @Param index, (LSymbol.ident index, scope, \__call), void, false, true, void
           ]
           body
           true
@@ -5228,7 +5231,7 @@ class Parser
       LValue index, false
   
   let serialize-param-type(as-type)
-    if as-type instanceof IdentNode
+    if as-type instanceof LSymbol.ident
       [\ident, as-type.name]
     else if as-type instanceof LispyNode and as-type.is-internal-call(\syntax-sequence)
       [\sequence, ...fix-array serialize-params(as-type.args)]
@@ -5246,12 +5249,12 @@ class Parser
         [\const, param.const-value()]
       else if param instanceof LispyNode and param.is-internal-call(\syntax-param)
         let [ident, as-type] = param.args
-        let value = if ident instanceof IdentNode
-          [\ident, ident.name]
-        else if ident instanceof LSymbol and ident.is-ident and ident.name == \this
+        if ident not instanceof LSymbol.ident
+          throw Error("Unknown param type: $(typeof! ident)")
+        let value = if ident.name == \this
           [\this]
         else
-          throw Error()
+          [\ident, ident.name]
         if not is-nothing(as-type)
           value.push ...serialize-param-type(as-type)
         value
@@ -5260,7 +5263,7 @@ class Parser
   let deserialize-param-type = do
     let deserialize-param-type-by-type =
       ident: #(scope, name)
-        IdentNode 0, scope, name
+        LSymbol.ident 0, scope, name
       sequence: #(scope, ...items)
         LInternalCall \syntax-sequence, 0, scope,
           ...deserialize-params(items, scope)
@@ -5288,7 +5291,7 @@ class Parser
         LValue 0, value
       ident: #(scope, name, ...as-type)
         LInternalCall \syntax-param, 0, scope,
-          IdentNode 0, scope, name
+          LSymbol.ident 0, scope, name
           deserialize-param-type(as-type, scope)
       this: #(scope, ...as-type)
         LInternalCall \syntax-param, 0, scope,
@@ -5303,7 +5306,7 @@ class Parser
           throw Error "Unknown param type: $(String type)"
   
   let calc-param(param)
-    if param instanceof IdentNode
+    if param instanceof LSymbol.ident
       let name = param.name
       let macros = @macros
       if macros.has-syntax(name)
@@ -5343,14 +5346,11 @@ class Parser
         sequence.push macro-syntax-const-literals![string] or word-or-symbol string
       else if param instanceof Node and param.is-internal-call(\syntax-param)
         let [ident, as-type] = param.args
-        let key = if ident instanceof IdentNode
-          ident.name
-        else if ident instanceof LSymbol and ident.is-ident and ident.name == \this
-          \this
-        else
+        if ident not instanceof LSymbol.ident
           throw Error "Don't know how to handle ident type: $(typeof! ident)"
-        let type = if not is-nothing(as-type) then as-type else IdentNode 0, param.scope, \Expression
-        sequence.push [key, calc-param@ this, type]
+
+        let type = if not is-nothing(as-type) then as-type else LSymbol.ident 0, param.scope, \Expression
+        sequence.push [ident.name, calc-param@ this, type]
       else
         @error "Unexpected parameter type: $(typeof! param)"
     sequential ...sequence
@@ -5371,12 +5371,12 @@ class Parser
     }
   let macro-syntax-types =
     syntax: #(index, params, mutable body, options, state-options, translator)
-      let macro-full-data-ident = @Ident index, \macro-full-data
-      let func-param = @Param index, macro-full-data-ident, void, false, false, void
-      let macro-name-ident = @Ident index, \macro-name
       let scope = @scope.peek()
+      let macro-full-data-ident = LSymbol.ident index, scope, \macro-full-data
+      let func-param = @Param index, macro-full-data-ident, void, false, false, void
+      let macro-name-ident = LSymbol.ident index, scope, \macro-name
       scope.add macro-name-ident, false, Type.string
-      let macro-data-ident = @Ident index, \macro-data
+      let macro-data-ident = LSymbol.ident index, scope, \macro-data
       scope.add macro-data-ident, false, Type.object
       body := LInternalCall \block, index, scope,
         LInternalCall \var, index, scope, macro-name-ident
@@ -5429,9 +5429,9 @@ class Parser
       let mutable serialization = void
       let handler = if body?
         do
-          let macro-data-ident = @Ident index, \macro-data
-          let func-param = @Param index, macro-data-ident, void, false, false, void
           let scope = @scope.peek()
+          let macro-data-ident = LSymbol.ident index, scope, \macro-data
+          let func-param = @Param index, macro-data-ident, void, false, false, void
           body := LInternalCall \block, index, scope,
             ...for param in params
               if param instanceof LispyNode and param.is-internal-call(\syntax-param)
@@ -5469,12 +5469,12 @@ class Parser
       }
     
     call: #(index, params, mutable body, options, state-options, translator)
-      let macro-full-data-ident = @Ident index, \macro-full-data
-      let func-param = @Param index, macro-full-data-ident, void, false, false, void
       let scope = @scope.peek()
-      let macro-name-ident = @Ident index, \macro-name
+      let macro-full-data-ident = LSymbol.ident index, scope, \macro-full-data
+      let func-param = @Param index, macro-full-data-ident, void, false, false, void
+      let macro-name-ident = LSymbol.ident index, scope, \macro-name
       scope.add macro-name-ident, false, Type.string
-      let macro-data-ident = @Ident index, \macro-data
+      let macro-data-ident = LSymbol.ident index, scope, \macro-data
       scope.add macro-data-ident, false, Type.object
       body := LInternalCall \block, index, scope,
         LInternalCall \var, index, scope, macro-name-ident
@@ -5526,12 +5526,12 @@ class Parser
       }
     
     binary-operator: #(index, operators, mutable body, options, state-options, translator)
-      let macro-data-ident = @Ident index, \macro-data
+      let macro-data-ident = LSymbol.ident index, scope, \macro-data
       let func-param = @Param index, macro-data-ident, void, false, false, void
       let scope = @scope.peek()
       body := LInternalCall \block, index, scope,
         ...for name in [\left, \op, \right]
-          let ident = @Ident index, name
+          let ident = LSymbol.ident index, scope, name
           scope.add ident, true, Type.any
           LInternalCall \block, index, scope,
             LInternalCall \var, index, scope,
@@ -5575,12 +5575,12 @@ class Parser
       }
     
     assign-operator: #(index, operators, mutable body, options, state-options, translator)
-      let macro-data-ident = @Ident index, \macro-data
-      let func-param = @Param index, macro-data-ident, void, false, false, void
       let scope = @scope.peek()
+      let macro-data-ident = LSymbol.ident index, scope, \macro-data
+      let func-param = @Param index, macro-data-ident, void, false, false, void
       body := LInternalCall \block, index, scope,
         ...for name in [\left, \op, \right]
-          let ident = @Ident index, name
+          let ident = LSymbol.ident index, scope, name
           scope.add ident, true, Type.any
           LInternalCall \block, index, scope,
             LInternalCall \var, index, scope,
@@ -5613,12 +5613,12 @@ class Parser
       }
     
     unary-operator: #(index, operators, mutable body, options, state-options, translator)
-      let macro-data-ident = @Ident index, \macro-data
-      let func-param = @Param index, macro-data-ident, void, false, false, void
       let scope = @scope.peek()
+      let macro-data-ident = LSymbol.ident index, scope, \macro-data
+      let func-param = @Param index, macro-data-ident, void, false, false, void
       body := LInternalCall \block, index, scope,
         ...for name in [\op, \node]
-          let ident = @Ident index, name
+          let ident = LSymbol.ident index, scope, name
           scope.add ident, true, Type.any
           LInternalCall \block, index, scope,
             LInternalCall \var, index, scope,

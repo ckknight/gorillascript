@@ -2,7 +2,7 @@ import 'shared.gs'
 let {to-JS-source} = require './jsutils'
 require! Type: './types'
 require! OldNode: './parser-nodes'
-let {Cache} = require './utils'
+let {Cache, is-primordial} = require './utils'
 
 let capitalize(value as String)
   value.char-at(0).to-upper-case() & value.substring(1)
@@ -153,7 +153,7 @@ class Symbol extends Node
           let mutable parent = call.args[0].reduce(parser).do-wrap(parser)
           let mutable cached-parent = null
           let replace-length-ident(node)
-            if node instanceof OldNode.Ident and node.name == CURRENT_ARRAY_LENGTH_NAME
+            if node instanceof Ident and node.name == CURRENT_ARRAY_LENGTH_NAME
               if parent.cacheable and not cached-parent?
                 cached-parent := parser.make-tmp node.index, \ref, parent.type(parser)
                 cached-parent.scope := node.scope
@@ -204,7 +204,7 @@ class Symbol extends Node
                   if pair.args[0].is-const-value(c-value) and not pair.args[2]
                     return pair.args[1]
           
-          if child instanceof OldNode.Call and child.func instanceof OldNode.Ident and child.func.name == \__range
+          if child instanceof OldNode.Call and child.func instanceof Ident and child.func.name == \__range
             let [start, mutable end, step, inclusive] = child.args
             let has-step = not step.is-const() or step.const-value() != 1
             if not has-step
@@ -243,7 +243,7 @@ class Symbol extends Node
               if not inclusive.is-const() or inclusive.const-value()
                 args.push inclusive
             (OldNode.Call call.index, call.scope,
-              OldNode.Ident call.index, call.scope, if has-step then \__slice-step else \__slice
+              Ident call.index, call.scope, if has-step then \__slice-step else \__slice
               args
               false
               not has-step).reduce(parser)
@@ -690,7 +690,7 @@ class Symbol extends Node
         +used-as-statement
         _do-wrap(call, parser)
           OldNode.Call call.index, call.scope,
-            OldNode.Ident call.index, call.scope, \__throw
+            Ident call.index, call.scope, \__throw
             [call.args[0]]
         /*
         node-class ThrowNode(node as Node)
@@ -799,9 +799,9 @@ class Symbol extends Node
       let is-name-key = "is$(capitalize name)"
       def [is-name-key] = false
       Symbol[name] := class Symbol_name extends Internal
-        def constructor(@index as Number)
-          @name := name
+        def constructor(@index as Number) ->
         
+        def name = name
         @display-name := "Symbol.$name"
         
         def equals(other)
@@ -825,6 +825,18 @@ class Symbol extends Node
     def equals(other)
       other instanceof Ident and @scope == other.scope and @name == other.name
     
+    def type()
+      switch @name
+      case CURRENT_ARRAY_LENGTH_NAME
+        Type.number
+      case \arguments
+        Type.args
+      default
+        @scope.type(this)
+
+    def is-noop() true
+    def is-primordial() is-primordial(@name)
+
     Symbol.ident := Ident
   
   /**
@@ -1732,11 +1744,11 @@ class Symbol extends Node
             let cache = Cache<Call, Type>()
             #(call, parser)
               cache-get-or-add! cache, call, do
-                let left-type = call.args[0].type(parser)
-                let right-type = call.args[1].type(parser)
-                if left-type.is-subset-of(Type.numeric) and right.is-subset-of(Type.numeric)
+                let left = call.args[0].type(parser)
+                let right = call.args[1].type(parser)
+                if left.is-subset-of(Type.numeric) and right.is-subset-of(Type.numeric)
                   Type.number
-                else if left-type.overlaps(Type.numeric) and right.overlaps(Type.numeric)
+                else if left.overlaps(Type.numeric) and right.overlaps(Type.numeric)
                   Type.string-or-number
                 else
                   Type.string

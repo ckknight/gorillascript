@@ -762,7 +762,7 @@ let generator-translate = do
       }
   let expressions =
     [ParserNodeType.Call]: #(node, scope, mutable state, assign-to, unassigned)
-      if node.func instanceof ParserNode.Ident and node.func.name == \eval
+      if node.func instanceof LispyNode.Symbol.ident and node.func.name == \eval
         let g-code = generator-translate-expression node.args[0], scope, state, false, unassigned
         return handle-assign assign-to, scope, g-code.state, (#-> ast.Eval get-pos(node), g-code.t-node()), g-code.cleanup
       
@@ -935,7 +935,7 @@ let generator-translate = do
             g-child.cleanup()
         }
       else
-        if unassigned and left instanceof ParserNode.Ident
+        if unassigned and left instanceof LispyNode.Symbol.ident
           unassigned[left.name] := false
         {
           state
@@ -1163,7 +1163,7 @@ let generator-translate = do
     
     for-in: #(node, args, scope, mutable state, , , unassigned)
       let t-key = translate args[0], scope, \left-expression
-      if unassigned and args[0] instanceof ParserNode.Ident
+      if unassigned and args[0] instanceof LispyNode.Symbol.ident
         unassigned[args[0].name] := false
       let g-object = generator-translate-expression args[1], scope, state, false // TODO: check whether or not this should be cached
       state := g-object.state
@@ -1368,7 +1368,7 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
 
 let translators =
   [ParserNodeType.Call]: #(node, scope, location, unassigned)
-    if node.func instanceof ParserNode.Ident
+    if node.func instanceof LispyNode.Symbol.ident
       if node.func.name == \RegExp and node.args[0].is-const() and (not node.args[1] or node.args[1].is-const())
         return if node.args[1] and node.args[1].const-value()
           # ast.Regex get-pos(node), String(node.args[0].const-value()), String(node.args[1].const-value())
@@ -1444,23 +1444,17 @@ let translators =
       Function: \function
     }
     let translate-type-checks =
-      [ParserNodeType.Ident]: #(node)
-        if primitive-types ownskey node.name
-          Type[primitive-types[node.name]]
-        else
-          Type.any // FIXME
       [ParserNodeType.TypeUnion]: #(node)
         let mutable result = Type.none
         for type in node.types
-          if type instanceof ParserNode.Const
-            if is-null! type.value
-              result := result.union Type.null
-            else if is-void! type.value
-              result := result.union Type.undefined
-            else
+          result := result.union if type.is-const()
+            switch type.const-value()
+            case null; Type.null
+            case void; Type.undefined
+            default
               throw Error "Unknown const value for typechecking: $(String type.value)"
-          else if type instanceof ParserNode.Ident
-            result := result.union if primitive-types ownskey type.name
+          else if type instanceof LispyNode.Symbol.ident
+            if primitive-types ownskey type.name
               Type[primitive-types[type.name]]
             else
               Type.any // FIXME
@@ -1480,8 +1474,8 @@ let translators =
         let type-data = {}
         
         for {key, value} in node.pairs
-          if key instanceof ParserNode.Const
-            type-data[key.value] := translate-type-check(value)
+          if key.is-const()
+            type-data[key.const-value()] := translate-type-check(value)
         
         Type.make-object type-data
     let translate-type-check(node)
@@ -1489,6 +1483,11 @@ let translators =
         if node.is-internal-call(\access)
           // FIXME
           return Type.any
+        else if node.is-symbol and node.is-ident
+          return if primitive-types ownskey node.name
+            Type[primitive-types[node.name]]
+          else
+            Type.any // FIXME
       unless translate-type-checks ownskey node.type-id
         throw Error "Unknown type: $(String typeof! node)"
 
@@ -1526,17 +1525,6 @@ let translators =
 
     let translate-type = do
       let translate-types =
-        [ParserNodeType.Ident]: do
-          let primordial-types =
-            String: Type.string
-            Number: Type.number
-            Boolean: Type.boolean
-            Function: Type.function
-            Array: Type.array
-          #(node, scope)
-            unless primordial-types ownskey node.name
-              throw Error "Not implemented: custom type $(node.name)"
-            primordial-types[node.name]
         [ParserNodeType.TypeGeneric]: #(node, scope)
           let base = translate-type(node.basetype, scope)
           let args = for arg in node.args; translate-type(arg, scope)
@@ -1544,17 +1532,29 @@ let translators =
         [ParserNodeType.TypeUnion]: #(node, scope)
           for reduce type in node.types, current = Type.none
             current.union(translate-type(type))
+      let primordial-types =
+        String: Type.string
+        Number: Type.number
+        Boolean: Type.boolean
+        Function: Type.function
+        Array: Type.array
       #(node, scope)
         if node instanceof LispyNode
-          if node.is-value
+          switch
+          case node.is-value
             switch node.value
-            case null; return Type.null
-            case void; return Type.undefined
+            case null; Type.null
+            case void; Type.undefined
             default
               throw Error "Unexpected Value type: $(String node.value)"
-        unless translate-types ownskey node.type-id
-          throw Error "Unknown type to translate: $(typeof! node)"
-        translate-types[node.type-id](node, scope)
+          case node.is-symbol and node.is-ident
+            unless primordial-types ownskey node.name
+              throw Error "Not implemented: custom type: $(node.name)"
+            primordial-types[node.name]
+        else
+          unless translate-types ownskey node.type-id
+            throw Error "Unknown type to translate: $(typeof! node)"
+          translate-types[node.type-id](node, scope)
     
     #(node, scope, location) -> #
       let mutable inner-scope = scope.clone(not not node.bound)
@@ -1595,18 +1595,6 @@ let translators =
       if node.curry
         throw Error "Expected node to already be curried"
       wrap ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
-
-  [ParserNodeType.Ident]: #(node, scope, location)
-      let name = node.name
-      scope.add-helper name
-      #
-        let ident = ast.Ident get-pos(node), name
-        if not scope.options.embedded or is-primordial(name) or location != \expression or scope.has-variable(ident) or scope.macros.has-helper(name)
-          ident
-        else
-          ast.Access get-pos(node),
-            ast.Ident get-pos(node), \context
-            ast.Const get-pos(node), name
 
 let translate-lispy-internal =
   access: #(node, args, scope, location, unassigned)
@@ -1721,7 +1709,7 @@ let translate-lispy-internal =
   
   for-in: #(node, args, scope, location, unassigned)
     let t-key = translate args[0], scope, \left-expression
-    if unassigned and args[0] instanceof ParserNode.Ident
+    if unassigned and args[0] instanceof LispyNode.Symbol.ident
       unassigned[args[0].name] := false
     let t-object = translate args[1], scope, \expression, unassigned
     let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
@@ -1895,7 +1883,7 @@ let translate-lispy-internal =
 
   var: #(node, args, scope, location, unassigned)
     let ident = args[0]
-    if unassigned and not unassigned[UNASSIGNED_TAINT_KEY] and ident instanceof ParserNode.Ident and unassigned not ownskey ident.name
+    if unassigned and not unassigned[UNASSIGNED_TAINT_KEY] and ident instanceof LispyNode.Symbol.ident and unassigned not ownskey ident.name
       unassigned[ident.name] := true
     let t-ident = translate ident, scope, \left-expression
     #
@@ -1913,7 +1901,7 @@ let translate-lispy-operator =
     let op-name = node.func.name
     let t-left = translate args[0], scope, \left-expression
     let t-right = translate args[1], scope, \expression, unassigned
-    if unassigned and args[0] instanceof ParserNode.Ident
+    if unassigned and args[0] instanceof LispyNode.Symbol.ident
       if op-name == "=" and unassigned[args[0].name] and not unassigned[UNASSIGNED_TAINT_KEY] and args[1].is-const-value(void)
         return #-> ast.Noop(get-pos(node))
       unassigned[args[0].name] := false
@@ -1934,7 +1922,7 @@ let translate-lispy-operator =
   
   unary: #(node, args, scope, location, unassigned)
     let op-name = node.func.name
-    if unassigned and op-name in ["++", "--", "++post", "--post"] and args[0] instanceof ParserNode.Ident
+    if unassigned and op-name in ["++", "--", "++post", "--post"] and args[0] instanceof LispyNode.Symbol.ident
       unassigned[args[0].name] := false
     let t-subnode = translate args[0], scope, \expression, unassigned
     # ast.Unary get-pos(node), op-name, t-subnode()
@@ -1946,7 +1934,8 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
   case node.is-symbol
     switch
     case node.is-ident
-      switch node.name
+      let name = node.name
+      switch name
       case \arguments
         # ast.Arguments get-pos(node)
       case \this
@@ -1956,6 +1945,16 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
             ast.Ident get-pos(node), \_this
           else
             ast.This get-pos(node)
+      default
+        scope.add-helper name
+        #
+          let ident = ast.Ident get-pos(node), name
+          if not scope.options.embedded or is-primordial(name) or location != \expression or scope.has-variable(ident) or scope.macros.has-helper(name)
+            ident
+          else
+            ast.Access get-pos(node),
+              ast.Ident get-pos(node), \context
+              ast.Const get-pos(node), name
     case node.is-tmp
       let ident = scope.get-tmp(get-pos(node), node.id, node.name, node.scope.type(node))
       # ident
@@ -2254,7 +2253,7 @@ module.exports.define-helper := #(macros as MacroHolder, get-position as ->, nam
   get-pos := make-get-pos get-position
   let ident = if is-string! name
     ast.Ident(make-pos(0, 0), name)
-  else if name instanceof ParserNode.Ident
+  else if name instanceof LispyNode.Symbol.ident
     translate(name, scope, \left-expression)()
   else
     throw TypeError "Expecting name to be a String or Ident, got $(typeof! name)"

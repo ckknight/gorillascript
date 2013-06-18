@@ -4,7 +4,7 @@ require! Type: './types'
 require! Node: './parser-nodes'
 require! LispyNode: './parser-lispynodes'
 
-let IdentNode = Node.Ident
+let Ident = LispyNode.Symbol.ident
 let Tmp = LispyNode.Symbol.tmp
 
 class ScopeDestroyedError extends Error
@@ -120,7 +120,7 @@ class Scope
     else
       @parent.top()
   
-  def add(ident as IdentNode|Tmp, is-mutable as Boolean, type as Type)!
+  def add(ident as Ident|Tmp, is-mutable as Boolean, type as Type)!
     if @destroyed
       throw ScopeDestroyedError()
     if ident instanceof Tmp
@@ -162,17 +162,17 @@ class Scope
         get-ident(current, ident.name)
       current := current.parent
   
-  def has(ident as IdentNode|Tmp)
+  def has(ident as Ident|Tmp)
     if @destroyed
       throw ScopeDestroyedError()
     get(this, ident)?
 
-  def is-mutable(ident as IdentNode|Tmp)
+  def is-mutable(ident as Ident|Tmp)
     if @destroyed
       throw ScopeDestroyedError()
     get(this, ident)?.is-mutable or false
 
-  def type(ident as IdentNode|Tmp)
+  def type(ident as Ident|Tmp)
     if @destroyed
       throw ScopeDestroyedError()
     get(this, ident)?.type or Type.any

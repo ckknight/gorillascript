@@ -410,9 +410,10 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
     #(o) -> @_type ?= do
       let func = @func
       let mutable func-type = func.type(o)
+      let LispyNode = require('./parser-lispynodes')
       if func-type.is-subset-of(Type.function)
         return func-type.args[0]
-      else if func instanceof IdentNode
+      else if func instanceof LispyNode.Symbol.ident
         let {name} = func
         if PRIMORDIAL_FUNCTIONS ownskey name
           return PRIMORDIAL_FUNCTIONS[name]
@@ -421,7 +422,6 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
           if func-type.is-subset-of(Type.function)
             return func-type.args[0]
       else
-        let LispyNode = require('./parser-lispynodes')
         if func instanceof LispyNode and func.is-internal-call(\access)
           let [parent, child] = func.args
           if child.is-const()
@@ -429,7 +429,7 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
               let parent-type = parent.type(o)
               if parent-type.is-subset-of(Type.function)
                 return parent-type.args[0]
-            else if parent instanceof IdentNode
+            else if parent instanceof LispyNode.Symbol.ident
               return? PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.const-value()]
             // else check the type of parent, maybe figure out its methods
       Type.any
@@ -500,7 +500,8 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
             all-const := false
             break
         if all-const
-          if func instanceof IdentNode
+          let LispyNode = require('./parser-lispynodes')
+          if func instanceof LispyNode.Symbol.ident
             if func.name == \eval
               if EVAL_SIMPLIFIERS ownskey const-args[0]
                 return EVAL_SIMPLIFIERS[const-args[0]]@ this
@@ -513,7 +514,6 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
                 // TODO: do something here to alert the user
                 void
           else
-            let LispyNode = require('./parser-lispynodes')
             if func instanceof LispyNode and func.is-internal-call(\access) and func.args[1].is-const()
               let [parent, child] = func.args
               let c-value = child.const-value()
@@ -527,8 +527,8 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
                   catch e
                     // TODO: do something here to alert the user
                     void
-              else if parent instanceof IdentNode
-                if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![child.value]
+              else if parent instanceof LispyNode.Symbol.ident
+                if PURE_PRIMORDIAL_SUBFUNCTIONS![parent.name]![c-value]
                   try
                     let value = GLOBAL[parent.name][c-value] ...const-args
                     if is-null! value or typeof value in [\number, \string, \boolean, \undefined]
@@ -541,7 +541,7 @@ node-class CallNode(func as Node, args as [Node] = [], is-new as Boolean, is-app
       else
         this
 
-node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [IdentNode] = [])
+node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [Node] = [])
   def type(o) -> @_type ?=
     // TODO: handle generator types
     if @as-type?
@@ -571,17 +571,6 @@ node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Bool
       return-type.function()
   def _is-noop(o) -> true
   def _to-JSON() -> [@params, @body, @auto-return, ...simplify-array [@bound, @curry, @as-type, @generator, @generic]]
-node-class IdentNode(name as String)
-  def cacheable = false
-  def type(o)
-    if @name == CURRENT_ARRAY_LENGTH_NAME
-      Type.number
-    else if o
-      @scope.type(this)
-    else
-      Type.any
-  def _is-noop(o) -> true
-  def is-primordial() -> is-primordial(@name)
 node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in-statement as Boolean, in-generator as Boolean, in-evil-ast as Boolean, do-wrapped as Boolean)
   def type(o) -> @_type ?=
     let type = o.macros.get-type-by-id(@id)

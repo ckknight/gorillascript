@@ -25,18 +25,21 @@ let node-to-type = do
     if node not instanceof Node
       throw TypeError("Expected a Node, got $(typeof! node)")
     if node instanceof LispyNode
-      if node.is-value
-        if is-null! node.value
-          Type.null
-        else if is-void! node.value
-          Type.undefined
-        else
+      switch
+      case node.is-value
+        switch node.value
+        case null; Type.null
+        case void; Type.undefined
+        default
           // shouldn't really occur
           Type.any
-      else
+      case node.is-symbol and node.is-ident
+        if ident-to-type ownskey node.name
+          ident-to-type[node.name]
+        else
+          node.type()
+      default
         Type.any
-    else if node instanceof Node.Ident
-      ident-to-type![node.name] or Type.any // TODO: possibly store types on scope
     else if node instanceof Node.TypeGeneric
       let basetype = node-to-type(node.basetype)
       let args = for arg in node.args; node-to-type(arg)
@@ -91,13 +94,13 @@ let add-param-to-scope(scope, param, force-mutable)!
   require! Node: './parser-nodes'
   require! LispyNode: './parser-lispynodes'
   if param instanceof Node.Param
-    if param.ident instanceofsome [Node.Ident, LispyNode.Symbol.tmp]
+    if param.ident instanceofsome [LispyNode.Symbol.ident, LispyNode.Symbol.tmp]
       scope.add param.ident, force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else if param.ident instanceof LispyNode and param.ident.is-internal-call(\access)
       let [, child] = param.ident.args
       if not child.is-const-type(\string)
         throw Error "Expected constant access: $(typeof! child)"
-      scope.add Node.Ident(param.index, param.scope, child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
+      scope.add LispyNode.Symbol.ident(param.index, param.scope, child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else
       throw Error "Unknown param ident: $(typeof! param.ident)"
   else if param instanceof LispyNode
