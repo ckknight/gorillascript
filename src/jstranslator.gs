@@ -1346,10 +1346,13 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
     if translated-items.length == 1
       #
         let array = translated-items[0]()
-        if replace-with-slice and array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array
+        if replace-with-slice
           ast.Call pos,
             ast.Access(pos, ast.Ident(pos, \__slice), \call)
-            array.args
+            if array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array
+              array.args
+            else
+              [array]
         else if allow-array-like and array instanceof ast.Call and array.func instanceof ast.Ident and array.func.name == \__to-array and array.args[0] instanceof ast.Arguments
           array.args[0]
         else
@@ -1604,10 +1607,6 @@ let translators =
           ast.Access get-pos(node),
             ast.Ident get-pos(node), \context
             ast.Const get-pos(node), name
-
-  [ParserNodeType.Tmp]: #(node, scope, location)
-    let ident = scope.get-tmp(get-pos(node), node.id, node.name, node.type())
-    # -> ident
 
 let translate-lispy-internal =
   access: #(node, args, scope, location, unassigned)
@@ -1893,7 +1892,7 @@ let translate-lispy-internal =
   super: #(node, args)
     // TODO: line numbers
     throw Error "Cannot have a stray super call"
-  
+
   var: #(node, args, scope, location, unassigned)
     let ident = args[0]
     if unassigned and not unassigned[UNASSIGNED_TAINT_KEY] and ident instanceof ParserNode.Ident and unassigned not ownskey ident.name
@@ -1957,6 +1956,9 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
             ast.Ident get-pos(node), \_this
           else
             ast.This get-pos(node)
+    case node.is-tmp
+      let ident = scope.get-tmp(get-pos(node), node.id, node.name, node.scope.type(node))
+      # ident
     case node.is-internal and node.is-nothing
       # ast.Noop(get-pos(node))
   case node.is-call

@@ -2,9 +2,10 @@ import 'shared.gs'
 
 require! Type: './types'
 require! Node: './parser-nodes'
+require! LispyNode: './parser-lispynodes'
 
 let IdentNode = Node.Ident
-let TmpNode = Node.Tmp
+let Tmp = LispyNode.Symbol.tmp
 
 class ScopeDestroyedError extends Error
   def constructor(@message as String = "Scope already destroyed")
@@ -119,10 +120,10 @@ class Scope
     else
       @parent.top()
   
-  def add(ident as IdentNode|TmpNode, is-mutable as Boolean, type as Type)!
+  def add(ident as IdentNode|Tmp, is-mutable as Boolean, type as Type)!
     if @destroyed
       throw ScopeDestroyedError()
-    if ident instanceof TmpNode
+    if ident instanceof Tmp
       @tmps[ident.id] := { is-mutable, type }
     else
       @variables[ident.name] := { is-mutable, type }
@@ -148,7 +149,7 @@ class Scope
   
   let get(scope, ident)
     let mutable current = scope
-    let is-tmp = ident instanceof TmpNode
+    let is-tmp = ident instanceof Tmp
     let mutable layers = 0
     while current
       layers += 1
@@ -161,17 +162,17 @@ class Scope
         get-ident(current, ident.name)
       current := current.parent
   
-  def has(ident as IdentNode|TmpNode)
+  def has(ident as IdentNode|Tmp)
     if @destroyed
       throw ScopeDestroyedError()
     get(this, ident)?
 
-  def is-mutable(ident as IdentNode|TmpNode)
+  def is-mutable(ident as IdentNode|Tmp)
     if @destroyed
       throw ScopeDestroyedError()
     get(this, ident)?.is-mutable or false
 
-  def type(ident as IdentNode|TmpNode)
+  def type(ident as IdentNode|Tmp)
     if @destroyed
       throw ScopeDestroyedError()
     get(this, ident)?.type or Type.any

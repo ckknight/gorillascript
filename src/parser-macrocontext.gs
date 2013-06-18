@@ -11,11 +11,12 @@ let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let TmpNode = Node.Tmp
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 let TypeUnionNode = Node.TypeUnion
+
+let Tmp = LispyNode.Symbol.tmp
 
 let identity(x) -> x
 let ret-this() -> this
@@ -57,18 +58,18 @@ class MacroContext
   def version()
     @parser.get-package-version()
   
-  def let(ident as TmpNode|IdentNode, is-mutable as Boolean, mutable type as Type = Type.any)
+  def let(ident as Tmp|IdentNode, is-mutable as Boolean, mutable type as Type = Type.any)
     if ident instanceof IdentNode and is-mutable and type.is-subset-of(Type.undefined-or-null)
       type := Type.any
     @scope().add(ident, is-mutable, type)
   
-  def has-variable(ident as TmpNode|IdentNode)
+  def has-variable(ident as Tmp|IdentNode)
     @scope().has(ident)
   
-  def is-variable-mutable(ident as TmpNode|IdentNode)
+  def is-variable-mutable(ident as Tmp|IdentNode)
     @scope().is-mutable(ident)
   
-  def var(ident as IdentNode|TmpNode, is-mutable as Boolean)
+  def var(ident as Tmp|IdentNode, is-mutable as Boolean)
     LispyNode.InternalCall \var, @index, @scope(),
       ident
       LispyNode.Value @index, is-mutable
@@ -151,10 +152,10 @@ class MacroContext
       @do-wrap(node)).reduce(@parser)
   def debugger()
     LispyNode.InternalCall \debugger, @index, @scope()
-  def break(label as IdentNode|TmpNode|null)
+  def break(label as IdentNode|Tmp|null)
     LispyNode.InternalCall \break, @index, @scope(),
       ...(if label then [label] else [])
-  def continue(label as IdentNode|TmpNode|null)
+  def continue(label as IdentNode|Tmp|null)
     LispyNode.InternalCall \continue, @index, @scope(),
       ...(if label then [label] else [])
   def spread(node as Node)
@@ -211,7 +212,7 @@ class MacroContext
       node.args[0]
     else
       null
-  def with-label(node, label as IdentNode|TmpNode|null)
+  def with-label(node, label as IdentNode|Tmp|null)
     node.with-label label, @parser
   
   def macro-expand-1(node)
@@ -234,17 +235,8 @@ class MacroContext
     else
       node
   
-  def tmp(name as String = \ref, save as Boolean, mutable type)
-    if not type?
-      type := Type.any
-    else if is-string! type
-      if Type![type] not instanceof Type
-        throw Error "$type is not a known type name"
-      type := Type![type]
-    else if type not instanceof Type
-      throw Error "Must provide a Type or a string for type, got $(typeof! type)"
-      
-    let tmp = @parser.make-tmp @index, name, type
+  def tmp(name as String = \ref, save as Boolean)
+    let tmp = @parser.make-tmp @index, name
     (if save then @saved-tmps else @unsaved-tmps).push tmp.id
     tmp
   
@@ -276,8 +268,8 @@ class MacroContext
   def is-primordial(mutable node)
     node := @real node
     node instanceof IdentNode and node.is-primordial()
-  def is-tmp(node) -> @real(node) instanceof TmpNode
-  def is-ident-or-tmp(node) -> @real(node) instanceofsome [IdentNode, TmpNode]
+  def is-tmp(node) -> @real(node) instanceof Tmp
+  def is-ident-or-tmp(node) -> @real(node) instanceofsome [IdentNode, Tmp]
   def name(mutable node)
     node := @real(node)
     if @is-ident(node)
@@ -487,7 +479,7 @@ class MacroContext
     else if node instanceof LispyNode
       node.is-call
     else
-      node not instanceofsome [IdentNode, TmpNode]
+      node not instanceof IdentNode
   
   def is-noop(mutable node)
     node := @real node

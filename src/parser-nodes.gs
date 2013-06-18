@@ -28,11 +28,11 @@ class Node
   def walk(f, context) -> this
   def walk-async(f, context, callback) -> callback(null, this)
   def cacheable = true
-  def with-label(label as IdentNode|TmpNode|null)
-    let LispyNode = require('./parser-lispynodes')
-    if label == null
+  def with-label(label)
+    if not label
       this
     else
+      let LispyNode = require('./parser-lispynodes')
       LispyNode.InternalCall \label, @index, @scope,
         label
         this
@@ -91,6 +91,7 @@ class Node
 let inspect-helper(depth, name, index, ...args)
   let d = if depth? then depth - 1 else null
   let mutable found = false
+  let LispyNode = require('./parser-lispynodes')
   for arg in args by -1
     if not arg or (arg instanceof LispyNode and arg.is-symbol and arg.is-internal and arg.is-nothing) or (is-array! arg and arg.length == 0)
       args.pop()
@@ -591,7 +592,7 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in
         type
     else
       o.macro-expand-1(this).type(o)
-  def with-label(label as IdentNode|TmpNode|null, o)
+  def with-label(label, o)
     o.macro-expand-1(this).with-label label, o
   def walk = do
     let walk-object(obj, func, context)
@@ -662,15 +663,6 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in
   def mutate-last(o, func, context, include-noop)
     o.macro-expand-1(this).mutate-last(o, func, context, include-noop)
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
-node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
-  def cacheable = false
-  def type() -> @_type
-  def _is-noop() -> true
-  def _to-JSON()
-    if @_type == Type.any or true
-      [@id, @name]
-    else
-      [@id, @name, @_type]
 node-class TypeFunctionNode(return-type as Node)
 node-class TypeGenericNode(basetype as Node, args as [Node] = [])
 node-class TypeObjectNode(pairs as [])

@@ -116,7 +116,10 @@ class Symbol extends Node
               let parent-type = call.args[0].type(parser)
               let is-string = parent-type.is-subset-of(Type.string)
               if is-string or parent-type.is-subset-of(Type.array-like)
-                let child = parser.macro-expand-1(call.args[1]).reduce(parser)
+                let child = if parser
+                  parser.macro-expand-1(call.args[1]).reduce(parser)
+                else
+                  call.args[1]
                 if child.is-const()
                   let child-value = child.const-value()
                   if child-value == \length
@@ -139,7 +142,10 @@ class Symbol extends Node
                   else
                     Type.any
               else if parent-type.is-subset-of(Type.object) and is-function! parent-type.value
-                let child = parser.macro-expand-1(call.args[1]).reduce(parser)
+                let child = if parser
+                  parser.macro-expand-1(call.args[1]).reduce(parser)
+                else
+                  call.args[1]
                 if child.is-const()
                   return parent-type.value(String child.const-value())
               Type.any
@@ -836,6 +842,9 @@ class Symbol extends Node
     def equals(other)
       other instanceof Tmp and @scope == other.scope and @id == other.id
     
+    def type(parser)
+      @scope.type(this)
+
     Symbol.tmp := Tmp
   
   /**

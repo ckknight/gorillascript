@@ -25,7 +25,6 @@ let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let TmpNode = Node.Tmp
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
@@ -5025,8 +5024,8 @@ class Parser
       node.index
     MacroError message, this, index
   
-  def make-tmp(index, name as String, type as Type = Type.any)
-    @Tmp index, (@current-tmp-id += 1), name, type
+  def make-tmp(index, name as String)
+    LSymbol.tmp index, @scope.peek(), (@current-tmp-id += 1), name
 
   let make-get-position(line-info) -> #(index as Number)
     if index == 0
@@ -6091,7 +6090,6 @@ for node-type in [
       'MacroAccess',
       'Param',
       'Root',
-      'Tmp',
       'TypeFunction',
       'TypeGeneric',
       'TypeObject',

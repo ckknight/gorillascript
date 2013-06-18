@@ -91,7 +91,7 @@ let add-param-to-scope(scope, param, force-mutable)!
   require! Node: './parser-nodes'
   require! LispyNode: './parser-lispynodes'
   if param instanceof Node.Param
-    if param.ident instanceofsome [Node.Ident, Node.Tmp]
+    if param.ident instanceofsome [Node.Ident, LispyNode.Symbol.tmp]
       scope.add param.ident, force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
     else if param.ident instanceof LispyNode and param.ident.is-internal-call(\access)
       let [, child] = param.ident.args
