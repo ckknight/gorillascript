@@ -11,7 +11,6 @@ const ParserNodeType = {
   MacroAccess:    23
   Param:          27
   Super:          32
-  SyntaxMany:     35
   SyntaxParam:    36
   SyntaxSequence: 37
   Tmp:            43

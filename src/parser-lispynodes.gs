@@ -655,6 +655,11 @@ class Symbol extends Node
         node-class SyntaxChoiceNode(choices as [Node] = [])
         */
       }
+      syntax-many: {
+        validate-args(node as OldNode, multiplier as Value, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to throw"
+      }
       throw: {
         validate-args(node as OldNode, ...rest)
           if DEBUG and rest.length > 0

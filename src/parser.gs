@@ -26,7 +26,6 @@ let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
 let SuperNode = Node.Super
-let SyntaxManyNode = Node.SyntaxMany
 let SyntaxParamNode = Node.SyntaxParam
 let SyntaxSequenceNode = Node.SyntaxSequence
 let TmpNode = Node.Tmp
@@ -4348,7 +4347,9 @@ let MacroSyntaxParameterType = allow-space-before-access sequential(
     symbol "*"
     symbol "+")]) |> mutate #({type, multiplier}, parser, index)
   if multiplier
-    parser.SyntaxMany index, type, multiplier
+    LInternalCall \syntax-many, index, parser.scope.peek(),
+      type
+      LValue index, multiplier
   else
     type
 
@@ -5234,8 +5235,8 @@ class Parser
       [\choice, ...for choice in as-type.args; serialize-param-type(choice)]
     else if as-type.is-const()
       [\const, as-type.const-value()]
-    else if as-type instanceof SyntaxManyNode
-      [\many, as-type.multiplier, ...serialize-param-type(as-type.inner)]
+    else if as-type instanceof LispyNode and as-type.is-internal-call(\syntax-many)
+      [\many, as-type.args[1].const-value(), ...serialize-param-type(as-type.args[0])]
     else
       throw Error("Unknown param type: $(typeof! as-type)")
   let serialize-params(params)
@@ -5267,7 +5268,9 @@ class Parser
       const: #(scope, value)
         LValue 0, value
       many: #(scope, multiplier, ...inner)
-        SyntaxManyNode 0, scope, deserialize-param-type(inner, scope), multiplier
+        LInternalCall \syntax-many, 0, scope,
+          deserialize-param-type(inner, scope)
+          LValue 0, multiplier
     #(as-type as [] = [], scope)
       if as-type.length == 0
         return void
@@ -5317,10 +5320,10 @@ class Parser
       if not is-string! string
         @error "Expected a constant string parameter, got $(typeof! string)"
       macro-syntax-const-literals![string] or word-or-symbol string
-    else if param instanceof SyntaxManyNode
-      let {multiplier} = param
-      let calced = calc-param@ this, param.inner
-      switch multiplier
+    else if param instanceof LispyNode and param.is-internal-call(\syntax-many)
+      let [inner, multiplier] = param.args
+      let calced = calc-param@ this, inner
+      switch multiplier.const-value()
       case "*"; zero-or-more calced
       case "+"; one-or-more calced
       case "?"; one-of(calced, Nothing)
@@ -6088,7 +6091,6 @@ for node-type in [
       'Param',
       'Root',
       'Super',
-      'SyntaxMany',
       'SyntaxParam',
       'SyntaxSequence',
       'Tmp',
