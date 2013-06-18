@@ -25,7 +25,6 @@ let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let SuperNode = Node.Super
 let TmpNode = Node.Tmp
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
@@ -4080,7 +4079,9 @@ define SuperInvocation = sequential(
       [\this, allow-space-before-access Expression]
       CloseSquareBracket))]
   [\args, InvocationArguments]) |> mutate #({child, args}, parser, index)
-  parser.Super index, child, args
+  LInternalCall \super, index, parser.scope.peek(),
+    child or LSymbol.nothing index,
+    ...args
 
 define Eval = sequential(
   word "eval"
@@ -6090,7 +6091,6 @@ for node-type in [
       'MacroAccess',
       'Param',
       'Root',
-      'Super',
       'Tmp',
       'TypeFunction',
       'TypeGeneric',

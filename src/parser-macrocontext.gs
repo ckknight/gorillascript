@@ -11,7 +11,6 @@ let FunctionNode = Node.Function
 let IdentNode = Node.Ident
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let SuperNode = Node.Super
 let TmpNode = Node.Tmp
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
@@ -306,17 +305,19 @@ class MacroContext
     if node instanceof CallNode
       node.args
   
-  def is-super(node) -> @real(node) instanceof SuperNode
+  def is-super(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\super)
   
   def super-child(mutable node)
     node := @real(node)
-    if @is-super(node)
-      node.child
+    if @is-super(node) and not @is-nothing(node.args[0])
+      node.args[0]
   
   def super-args(mutable node)
     node := @real(node)
     if @is-super(node)
-      node.args
+      node.args[1 to -1]
   
   def call-is-new(mutable node)
     node := @real(node)

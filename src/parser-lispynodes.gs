@@ -649,7 +649,19 @@ class Symbol extends Node
           else
             call
       }
-      super: {}
+      super: {
+        validate-args(child as OldNode) ->
+        /*
+        node-class SuperNode(child as Node|void, args as [Node] = [])
+          def _reduce(o)
+            let child = if @child? then @child.reduce(o).do-wrap(o) else @child
+            let args = map @args, #(node) -> node.reduce(o).do-wrap(o)
+            if child != @child or args != @args
+              SuperNode @index, @scope, child, args
+            else
+              this
+        */
+      }
       syntax-choice: {}
       syntax-many: {
         validate-args(node as OldNode, multiplier as Value, ...rest)

@@ -1605,10 +1605,6 @@ let translators =
             ast.Ident get-pos(node), \context
             ast.Const get-pos(node), name
 
-  [ParserNodeType.Super]: #(node, scope, location)
-    // TODO: line numbers
-    throw Error "Cannot have a stray super call"
-
   [ParserNodeType.Tmp]: #(node, scope, location)
     let ident = scope.get-tmp(get-pos(node), node.id, node.name, node.type())
     # -> ident
@@ -1893,6 +1889,10 @@ let translate-lispy-internal =
   custom: #(node, args, scope, location, unassigned)
     // TODO: line numbers
     throw Error "Cannot have a stray custom node '$(args[0].const-value())'"
+
+  super: #(node, args)
+    // TODO: line numbers
+    throw Error "Cannot have a stray super call"
   
   var: #(node, args, scope, location, unassigned)
     let ident = args[0]

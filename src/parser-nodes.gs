@@ -662,15 +662,6 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in
   def mutate-last(o, func, context, include-noop)
     o.macro-expand-1(this).mutate-last(o, func, context, include-noop)
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
-node-class SuperNode(child as Node|void, args as [Node] = [])
-  def _reduce(o)
-    let child = if @child? then @child.reduce(o).do-wrap(o) else @child
-    let args = map @args, #(node) -> node.reduce(o).do-wrap(o)
-    if child != @child or args != @args
-      SuperNode @index, @scope, child, args
-    else
-      this
-node-class SyntaxParamNode(ident as Node, as-type as Node|void)
 node-class TmpNode(id as Number, name as String, _type as Type = Type.any)
   def cacheable = false
   def type() -> @_type
