@@ -380,6 +380,5 @@ node-class TypeObjectNode(pairs as [])
       TypeObjectNode @index, @scope, pairs
     else
       this
-node-class TypeUnionNode(types as [Node] = [])
 
 module.exports := Node

@@ -38,6 +38,9 @@ let node-to-type = do
           ident-to-type[node.name]
         else
           node.type()
+      case node.is-internal-call(\type-union)
+        for reduce type in node.args, current = Type.none
+          current.union node-to-type(type)
       default
         Type.any
     else if node instanceof Node.TypeGeneric
@@ -49,9 +52,6 @@ let node-to-type = do
         Type.generic basetype, ...args
       else
         Type.any
-    else if node instanceof Node.TypeUnion
-      for reduce type in node.types by -1, current = Type.none
-        current.union(node-to-type(type))
     else if node instanceof Node.TypeObject
       let data = {}
       for {key, value} in node.pairs

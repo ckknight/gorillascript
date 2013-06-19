@@ -1023,6 +1023,9 @@ class Symbol extends Node
           #(call, parser)
             cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[1].is-noop(parser)
       }
+      type-union: {
+        -do-wrap-args
+      }
       var: {
         -do-wrap-args
         validate-args(node as OldNode, is-mutable as OldNode|null, ...rest)

@@ -26,7 +26,6 @@ let ParamNode = Node.Param
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
-let TypeUnionNode = Node.TypeUnion
 
 let is-nothing(node)
   node instanceof LSymbol.nothing
@@ -2904,14 +2903,16 @@ define Pipe = with-space PipeChar
 redefine TypeReference = separated-list(
   NonUnionType
   Pipe) |> mutate #(mutable types, parser, index)
-    types := types.slice()
-    for type, i in types by -1
-      if type instanceof TypeUnionNode
-        types.splice i, 1, ...type.types
-    if types.length == 1
-      types[0]
+    let result = []
+    for type, i in types
+      if type instanceof LispyNode and type.is-internal-call(\type-union)
+        result.push ...type.args
+      else
+        result.push type
+    if result.length == 1
+      result[0]
     else
-      parser.TypeUnion index, types
+      LInternalCall \type-union, index, parser.scope.peek(), ...result
 
 let MaybeAsType = maybe sequential(
   word "as"
@@ -6094,14 +6095,11 @@ module.exports := parse <<< {
 
 for node-type in [
       'Function',
-      'Ident',
       'MacroAccess',
       'Param',
-      'Root',
       'TypeFunction',
       'TypeGeneric',
-      'TypeObject',
-      'TypeUnion' ]
+      'TypeObject' ]
   Parser.add-node-factory node-type, Node[node-type]
 Parser::string := Node.string
 Parser::array-param := Parser::array

@@ -1379,23 +1379,6 @@ let translators =
       Function: \function
     }
     let translate-type-checks =
-      [ParserNodeType.TypeUnion]: #(node)
-        let mutable result = Type.none
-        for type in node.types
-          result := result.union if type.is-const()
-            switch type.const-value()
-            case null; Type.null
-            case void; Type.undefined
-            default
-              throw Error "Unknown const value for typechecking: $(String type.value)"
-          else if type instanceof LispyNode.Symbol.ident
-            if primitive-types ownskey type.name
-              Type[primitive-types[type.name]]
-            else
-              Type.any // FIXME
-          else
-            throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
-        result
       [ParserNodeType.TypeFunction]: #(node)
         Type.function
       [ParserNodeType.TypeGeneric]: #(node)
@@ -1423,6 +1406,23 @@ let translators =
             Type[primitive-types[node.name]]
           else
             Type.any // FIXME
+        else if node.is-internal-call(\type-union)
+          let mutable result = Type.none
+          for type in node.types
+            result := result.union if type.is-const()
+              switch type.const-value()
+              case null; Type.null
+              case void; Type.undefined
+              default
+                throw Error "Unknown const value for typechecking: $(String type.value)"
+            else if type instanceof LispyNode.Symbol.ident
+              if primitive-types ownskey type.name
+                Type[primitive-types[type.name]]
+              else
+                Type.any // FIXME
+            else
+              throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
+          return result
       unless translate-type-checks ownskey node.type-id
         throw Error "Unknown type: $(String typeof! node)"
 
@@ -1464,9 +1464,6 @@ let translators =
           let base = translate-type(node.basetype, scope)
           let args = for arg in node.args; translate-type(arg, scope)
           Type.generic(base, ...args)
-        [ParserNodeType.TypeUnion]: #(node, scope)
-          for reduce type in node.types, current = Type.none
-            current.union(translate-type(type))
       let primordial-types =
         String: Type.string
         Number: Type.number
@@ -1486,6 +1483,9 @@ let translators =
             unless primordial-types ownskey node.name
               throw Error "Not implemented: custom type: $(node.name)"
             primordial-types[node.name]
+          case node.is-internal-call(\type-union)
+            for reduce type in node.args, current = Type.none
+              current.union translate-type(type)
         else
           unless translate-types ownskey node.type-id
             throw Error "Unknown type to translate: $(typeof! node)"

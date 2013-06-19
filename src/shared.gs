@@ -11,7 +11,6 @@ const ParserNodeType = {
   TypeFunction:   44
   TypeGeneric:    45
   TypeObject:     46
-  TypeUnion:      47
 }
 
 macro cache-get-or-add!(cache, key, value)

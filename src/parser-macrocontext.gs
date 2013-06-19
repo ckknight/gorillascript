@@ -12,7 +12,6 @@ let ParamNode = Node.Param
 let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
-let TypeUnionNode = Node.TypeUnion
 
 let Tmp = LispyNode.Symbol.tmp
 let Ident = LispyNode.Symbol.ident
@@ -522,10 +521,12 @@ class MacroContext
       if node.basetype instanceof Ident and node.basetype.name == \Function
         node.args[0]
   
-  def is-type-union(node) -> @real(node) instanceof TypeUnionNode
+  def is-type-union(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\type-union)
   def types(mutable node)
     node := @real node
-    @is-type-union(node) and node.types
+    @is-type-union(node) and node.args
   
   def is-this(mutable node)
     node := @real node
