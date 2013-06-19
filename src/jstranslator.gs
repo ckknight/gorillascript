@@ -1379,8 +1379,6 @@ let translators =
       Function: \function
     }
     let translate-type-checks =
-      [ParserNodeType.TypeFunction]: #(node)
-        Type.function
       [ParserNodeType.TypeGeneric]: #(node)
         if node.basetype.name == \Array
           translate-type-check(node.args[0]).array()

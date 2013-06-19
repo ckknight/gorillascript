@@ -2143,8 +2143,6 @@ macro try
               @error "Expected a normal type, cannot use an array type", type
             else if @is-type-generic(type)
               @error "Expected a normal type, cannot use a generic type", type
-            else if @is-type-function(type)
-              @error "Expected a normal type, cannot use a function type", type
             else if @is-type-object(type)
               @error "Expected a normal type, cannot use an object type", type
             type

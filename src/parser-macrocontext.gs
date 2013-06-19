@@ -9,7 +9,6 @@ let {node-to-type, add-param-to-scope} = require './parser-utils'
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 
@@ -512,9 +511,6 @@ class MacroContext
   
   def is-type-object(node) -> @real(node) instanceof TypeObjectNode
   
-  def is-type-function(mutable node)
-    node := @real(node)
-    node instanceof TypeGenericNode and node.basetype instanceof Ident and node.basetype.name == \Function
   def return-type(mutable node)
     node := @real node
     if node instanceof TypeGenericNode

@@ -23,7 +23,6 @@ const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let TypeFunctionNode = Node.TypeFunction
 let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 
@@ -6097,7 +6096,6 @@ for node-type in [
       'Function',
       'MacroAccess',
       'Param',
-      'TypeFunction',
       'TypeGeneric',
       'TypeObject' ]
   Parser.add-node-factory node-type, Node[node-type]
