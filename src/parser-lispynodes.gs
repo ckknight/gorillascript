@@ -164,11 +164,8 @@ class Symbol extends Node
               now: Type.number.function().union(Type.undefined)
           let PRIMORDIAL_INSTANCE_PROPERTIES =
             Object:
-              constructor: Type.function
               toString: Type.string.function()
               toLocaleString: Type.string.function()
-              valueOf: Type.function
-              hasOwnProperty: Type.boolean.function()
             String:
               valueOf: Type.string.function()
               charAt: Type.string.function()
@@ -308,13 +305,13 @@ class Symbol extends Node
                 if method-group and method-group ownskey child-value
                   return method-group[child-value]
 
+                if PRIMORDIAL_INSTANCE_PROPERTIES.Object ownskey child-value
+                  return PRIMORDIAL_INSTANCE_PROPERTIES.Object[child-value]
+
                 if parent-type.is-subset-of(Type.object) and is-function! parent-type.value
                   let type = parent-type.value(String child.const-value())
                   if type != Type.any
                     return type
-
-                if PRIMORDIAL_INSTANCE_PROPERTIES.Object ownskey child-value
-                  return PRIMORDIAL_INSTANCE_PROPERTIES.Object[child-value]
 
               if child.type(parser).is-subset-of(Type.number)
                 if parent-type.is-subset-of(Type.string)
@@ -324,7 +321,7 @@ class Symbol extends Node
 
               Type.any
         __reduce(call, parser)
-          let mutable parent = call.args[0].reduce(parser).do-wrap(parser)
+          let mutable parent = call.args[0]
           let mutable cached-parent = null
           let replace-length-ident(node)
             if node instanceof Ident and node.name == CURRENT_ARRAY_LENGTH_NAME
@@ -338,14 +335,14 @@ class Symbol extends Node
             else
               let mutable result = node
               if node instanceof Node and node.is-internal-call(\access)
-                let node-parent = replace-length-ident node.args[0]
+                let node-parent = replace-length-ident node.args[0].reduce(parser)
                 if node-parent != node.args[0]
                   result := Call node.index, node.scope,
                     Symbol.access node.index
                     node-parent
                     node.args[1]
               result.walk replace-length-ident
-          let child = replace-length-ident call.args[1].reduce(parser).do-wrap(parser)
+          let child = replace-length-ident call.args[1].reduce(parser)
           if cached-parent?
             return Call call.index, call.scope,
               Symbol.tmp-wrapper call.index
@@ -426,13 +423,11 @@ class Symbol extends Node
                 Symbol.context-call call.index
                 Ident call.index, call.scope, \__slice
                 ...args).reduce(parser)
-          else if parent != call.args[0] or child != call.args[1]
-            Call call.index, call.scope,
+          else if child != call.args[1]
+            Call(call.index, call.scope,
               call.func
               parent
-              child
-          else
-            call
+              child)
 
         ___reduce: do
           let PURE_PRIMORDIAL_SUBFUNCTIONS =
@@ -503,19 +498,6 @@ class Symbol extends Node
       array: {
         validate-args(...args as [OldNode]) ->
         _type() Type.array
-        __reduce(call, parser)
-          let mutable changed = false
-          let elements = []
-          for element in call.args
-            let new-element = element.reduce(parser).do-wrap(parser)
-            changed or= element != new-element
-            elements.push new-element
-          if changed
-            Call call.index, call.scope,
-              call.func
-              ...elements
-          else
-            call
         _is-literal: do
           let cache = Cache<Call, Boolean>()
           #(call)
@@ -564,24 +546,21 @@ class Symbol extends Node
           let body = []
           let args = call.args
           for node, i, len in args
-            let reduced = node.reduce parser
-            if reduced instanceof Symbol.nothing
+            if node instanceof Symbol.nothing
               changed := true
-            else if reduced instanceof Node and reduced.is-internal-call()
-              if reduced.func.is-block
-                body.push ...reduced.args
+            else if node instanceof Node and node.is-internal-call()
+              if node.func.is-block
+                body.push ...node.args
                 changed := true
-              else if reduced.func.is-goto
-                body.push reduced
-                if reduced != node or i < len - 1
+              else if node.func.is-goto
+                body.push node
+                if i < len - 1
                   changed := true
                 break
               else
-                body.push reduced
-                changed or= reduced != node
+                body.push node
             else
-              body.push reduced
-              changed or= reduced != node
+              body.push node
           switch body.length
           case 0
             Symbol.nothing @index
@@ -592,8 +571,6 @@ class Symbol extends Node
               Call @index, @scope,
                 call.func
                 ...body
-            else
-              call
         _is-statement: do
           let cache = Cache<Call, Boolean>()
           #(call)
@@ -706,9 +683,7 @@ class Symbol extends Node
           else
             call
         __reduce(call, parser)
-          let test = call.args[0].reduce(parser)
-          let when-true = call.args[1].reduce(parser)
-          let when-false = call.args[2].reduce(parser)
+          let [test, when-true, when-false] = call.args
           if test.is-const()
             if test.const-value()
               when-true
@@ -726,14 +701,6 @@ class Symbol extends Node
                 Symbol.block call.index
                 test
                 when-false).reduce(parser)
-            else if test != call.args[0] or when-true != call.args[1] or when-false != call.args[2]
-              Call call.index, call.scope,
-                call.func
-                test
-                when-true
-                when-false
-            else
-              call
         _mutate-last(call, parser, mutator, context, include-noop)
           let when-true = call.args[1].mutate-last(parser, mutator, context, include-noop)
           let when-false = call.args[2].mutate-last(parser, mutator, context, include-noop)
@@ -886,14 +853,6 @@ class Symbol extends Node
         validate-args(node as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to spread"
-        __reduce: #(call, parser)
-          let arg = call.args[0].reduce(parser).do-wrap(parser)
-          if arg != call.args[0]
-            Call call.index, call.scope,
-              call.func
-              arg
-          else
-            call
       }
       switch: {
         -do-wrap-args
@@ -947,16 +906,6 @@ class Symbol extends Node
       }
       super: {
         validate-args(child as OldNode) ->
-        /*
-        node-class SuperNode(child as Node|void, args as [Node] = [])
-          def _reduce(o)
-            let child = if @child? then @child.reduce(o).do-wrap(o) else @child
-            let args = map @args, #(node) -> node.reduce(o).do-wrap(o)
-            if child != @child or args != @args
-              SuperNode @index, @scope, child, args
-            else
-              this
-        */
       }
       syntax-choice: {
         -do-wrap-args
@@ -988,15 +937,6 @@ class Symbol extends Node
           Call call.index, call.scope,
             Ident call.index, call.scope, \__throw
             call.args[0]
-        /*
-        node-class ThrowNode(node as Node)
-          def _reduce(o)
-            let node = @node.reduce(o).do-wrap(o)
-            if node != @node
-              ThrowNode @index, @scope, node
-            else
-              this
-        */
       }
       tmp-wrapper: {
         -do-wrap-args
@@ -2231,10 +2171,13 @@ class Call extends Node
   
   def type(parser)
     let reduced = @reduce(parser)
-    let func = reduced.func
-    if is-function! func._type
-      return? func._type reduced, parser
-    func.type(parser).return-type()
+    if reduced == this
+      let func = @func
+      if is-function! func._type
+        return? func._type this, parser
+      func.type(parser).return-type()
+    else
+      reduced.type(parser)
 
   def _type(call, parser)
     if is-function! @func.__type

@@ -58,7 +58,7 @@ let fetch-and-parse-prelude-macros = do
       catch e as ReferenceError
         throw e
       catch e
-        console.error "Error deserializing prelude, reloading. $(String e)"
+        console.error "Error deserializing prelude, reloading. $(String(e.stack or e))"
         errored := true
       if errored
         if sync

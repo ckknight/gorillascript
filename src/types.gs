@@ -812,10 +812,10 @@ module.exports := class Type
         if v == this
           ast.Access pos, ident, ast.Const pos, k
       else
-        ast.Call pos,
-          ast.Access pos, ident, ast.Const pos, \union
-          for type in types
-            type.to-ast ast, pos, ident
+        for reduce type in @types[1 to -1], current = @types[0].to-ast(ast, pos, ident)
+          ast.Call pos,
+            ast.Access pos, current, ast.Const pos, \union
+            [type.to-ast ast, pos, ident]
     
     def to-JSON()
       for first k, v of Type
