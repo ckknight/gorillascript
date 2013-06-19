@@ -23,7 +23,6 @@ const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 
 let is-nothing(node)
@@ -2827,7 +2826,9 @@ define ArrayType = sequential(
   CloseSquareBracket) |> mutate #(subtype, parser, index)
   let array-ident = LSymbol.ident index, parser.scope.peek(), \Array
   if subtype
-    parser.TypeGeneric index, array-ident, [subtype]
+    LInternalCall \type-generic, index, parser.scope.peek(),
+      array-ident
+      subtype
   else
     array-ident
 
@@ -2868,7 +2869,9 @@ let FunctionType = sequential(
   [\this, maybe TypeReference]) |> mutate #(return-type, parser, index)
   let function-ident = LSymbol.ident index, parser.scope.peek(), \Function
   if return-type
-    parser.TypeGeneric index, function-ident, [return-type]
+    LInternalCall \type-generic, index, parser.scope.peek(),
+      function-ident
+      return-type
   else
     function-ident
 
@@ -2896,7 +2899,9 @@ let NonUnionType = one-of(
     if not args.length
       base
     else
-      parser.TypeGeneric index, base, args)
+      LInternalCall \type-generic, index, parser.scope.peek(),
+        base
+        ...args)
 
 define Pipe = with-space PipeChar
 redefine TypeReference = separated-list(
@@ -6096,7 +6101,6 @@ for node-type in [
       'Function',
       'MacroAccess',
       'Param',
-      'TypeGeneric',
       'TypeObject' ]
   Parser.add-node-factory node-type, Node[node-type]
 Parser::string := Node.string

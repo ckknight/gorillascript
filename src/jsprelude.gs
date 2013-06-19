@@ -2139,9 +2139,7 @@ macro try
           @noop()
         if type-catch.check.type == "as"
           let types = @array for type in (if @is-type-union(type-catch.check.value) then @types(type-catch.check.value) else [type-catch.check.value])
-            if @is-type-array(type)
-              @error "Expected a normal type, cannot use an array type", type
-            else if @is-type-generic(type)
+            if @is-type-generic(type)
               @error "Expected a normal type, cannot use a generic type", type
             else if @is-type-object(type)
               @error "Expected a normal type, cannot use an object type", type

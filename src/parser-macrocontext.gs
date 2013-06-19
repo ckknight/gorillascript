@@ -9,7 +9,6 @@ let {node-to-type, add-param-to-scope} = require './parser-utils'
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let TypeGenericNode = Node.TypeGeneric
 let TypeObjectNode = Node.TypeObject
 
 let Tmp = LispyNode.Symbol.tmp
@@ -492,30 +491,27 @@ class MacroContext
     node := @real(node)
     node instanceof LispyNode and node.is-symbol and node.is-internal and node.is-nothing
   
-  def is-type-array(mutable node)
-    node := @real(node)
-    node instanceof TypeGenericNode and node.basetype instanceof Ident and node.basetype.name == \Array
-  def subtype(mutable node)
-    node := @real node
-    if node instanceof TypeGenericNode
-      if node.basetype instanceof Ident and node.basetype.name == \Array
-        node.args[0]
+  def is-type-array(node)
+    if @is-type-generic(node)
+      let basetype = @basetype(node)
+      basetype instanceof Ident and basetype.name == \Array
+  def subtype(node)
+    if @is-type-array(node)
+      @type-arguments(node)[0]
   
-  def is-type-generic(node) -> @real(node) instanceof TypeGenericNode
+  def is-type-generic(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\type-generic)
   def basetype(mutable node)
     node := @real node
-    node instanceof TypeGenericNode and node.basetype
+    if @is-type-generic(node)
+      node.args[0]
   def type-arguments(mutable node)
     node := @real node
-    node instanceof TypeGenericNode and node.args
+    if @is-type-generic(node)
+      node.args[1 to -1]
   
   def is-type-object(node) -> @real(node) instanceof TypeObjectNode
-  
-  def return-type(mutable node)
-    node := @real node
-    if node instanceof TypeGenericNode
-      if node.basetype instanceof Ident and node.basetype.name == \Function
-        node.args[0]
   
   def is-type-union(mutable node)
     node := @real(node)

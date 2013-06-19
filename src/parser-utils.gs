@@ -41,16 +41,16 @@ let node-to-type = do
       case node.is-internal-call(\type-union)
         for reduce type in node.args, current = Type.none
           current.union node-to-type(type)
+      case node.is-internal-call(\type-generic)
+        let basetype = node-to-type(node.args[0])
+        let args = for arg in node.args[1 to -1]; node-to-type(arg)
+        if basetype in [Type.array, Type.function]
+          Type.generic basetype.base, ...args
+        else if basetype != Type.any
+          Type.generic basetype, ...args
+        else
+          Type.any
       default
-        Type.any
-    else if node instanceof Node.TypeGeneric
-      let basetype = node-to-type(node.basetype)
-      let args = for arg in node.args; node-to-type(arg)
-      if basetype in [Type.array, Type.function]
-        Type.generic basetype.base, ...args
-      else if basetype != Type.any
-        Type.generic basetype, ...args
-      else
         Type.any
     else if node instanceof Node.TypeObject
       let data = {}

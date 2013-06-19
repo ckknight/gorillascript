@@ -1379,13 +1379,6 @@ let translators =
       Function: \function
     }
     let translate-type-checks =
-      [ParserNodeType.TypeGeneric]: #(node)
-        if node.basetype.name == \Array
-          translate-type-check(node.args[0]).array()
-        else if node.basetype.name == \Function
-          Type.function
-        else
-          Type.any
       [ParserNodeType.TypeObject]: #(node)
         let type-data = {}
         
@@ -1421,6 +1414,13 @@ let translators =
             else
               throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
           return result
+        else if node.is-internal-call(\type-generic)
+          if node.args[0].is-ident and node.args[0].name == \Array
+            translate-type-check(node.args[1]).array()
+          else if node.args[0].is-ident and node.args[0].name == \Function
+            translate-type-check(node.args[1]).function()
+          else
+            Type.any // FIXME
       unless translate-type-checks ownskey node.type-id
         throw Error "Unknown type: $(String typeof! node)"
 
@@ -1457,11 +1457,6 @@ let translators =
       translate-param-types[type](param, scope, inner)
 
     let translate-type = do
-      let translate-types =
-        [ParserNodeType.TypeGeneric]: #(node, scope)
-          let base = translate-type(node.basetype, scope)
-          let args = for arg in node.args; translate-type(arg, scope)
-          Type.generic(base, ...args)
       let primordial-types =
         String: Type.string
         Number: Type.number
@@ -1484,10 +1479,12 @@ let translators =
           case node.is-internal-call(\type-union)
             for reduce type in node.args, current = Type.none
               current.union translate-type(type)
+          case node.is-internal-call(\type-generic)
+            let base = translate-type(node.args[0], scope)
+            let args = for arg in node.args[1 to -1]; translate-type(arg, scope)
+            Type.generic(base, ...args)
         else
-          unless translate-types ownskey node.type-id
-            throw Error "Unknown type to translate: $(typeof! node)"
-          translate-types[node.type-id](node, scope)
+          throw Error "Unknown type to translate: $(typeof! node)"
     
     #(node, scope, location) -> #
       let mutable inner-scope = scope.clone(not not node.bound)

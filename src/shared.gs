@@ -8,7 +8,6 @@ const ParserNodeType = {
   Function:       20
   MacroAccess:    23
   Param:          27
-  TypeGeneric:    45
   TypeObject:     46
 }
 
