@@ -50,14 +50,15 @@ let node-to-type = do
           Type.generic basetype, ...args
         else
           Type.any
+      case node.is-internal-call(\type-object)
+        let data = {}
+        for i in 0 til node.args.length by 2
+          let key = node.args[i]
+          if key instanceof LispyNode and key.is-const()
+            data[key.const-value()] := node-to-type(node.args[i + 1])
+        Type.make-object data
       default
         Type.any
-    else if node instanceof Node.TypeObject
-      let data = {}
-      for {key, value} in node.pairs
-        if key instanceof LispyNode and key.is-value
-          data[key.value] := node-to-type(value)
-      Type.make-object data
     else
       // shouldn't really occur
       Type.any

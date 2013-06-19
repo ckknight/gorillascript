@@ -365,18 +365,5 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in
   def mutate-last(o, func, context, include-noop)
     o.macro-expand-1(this).mutate-last(o, func, context, include-noop)
 node-class ParamNode(ident as Node, default-value as Node|void, spread as Boolean, is-mutable as Boolean, as-type as Node|void)
-node-class TypeObjectNode(pairs as [])
-  def _reduce(o)
-    let pairs = map @pairs, #(pair)
-      let key = pair.key.reduce(o)
-      let value = pair.value.reduce(o)
-      if key != pair.key or value != pair.value
-        { key, value }
-      else
-        pair
-    if pairs != @pairs
-      TypeObjectNode @index, @scope, pairs
-    else
-      this
 
 module.exports := Node

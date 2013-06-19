@@ -1378,15 +1378,6 @@ let translators =
       Number: \number
       Function: \function
     }
-    let translate-type-checks =
-      [ParserNodeType.TypeObject]: #(node)
-        let type-data = {}
-        
-        for {key, value} in node.pairs
-          if key.is-const()
-            type-data[key.const-value()] := translate-type-check(value)
-        
-        Type.make-object type-data
     let translate-type-check(node)
       if node instanceof LispyNode
         if node.is-internal-call(\access)
@@ -1421,6 +1412,14 @@ let translators =
             translate-type-check(node.args[1]).function()
           else
             Type.any // FIXME
+        else if node.is-internal-call(\type-object)
+          let type-data = {}
+          
+          for i in 0 til node.args.length by 2
+            if node.args[i].is-const()
+              type-data[node.args[i].const-value()] := translate-type-check(node.args[i + 1])
+          
+          Type.make-object type-data
       unless translate-type-checks ownskey node.type-id
         throw Error "Unknown type: $(String typeof! node)"
 

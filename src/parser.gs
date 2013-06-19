@@ -23,7 +23,6 @@ const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let TypeObjectNode = Node.TypeObject
 
 let is-nothing(node)
   node instanceof LSymbol.nothing
@@ -2846,7 +2845,8 @@ define ObjectType = sequential(
     LSymbol.ident index, parser.scope.peek(), \Object
   else
     let keys = []
-    for {key} in pairs
+    let args = []
+    for {key, value} in pairs
       if not key.is-const()
         throw ParserError "Expected a constant key, got $(typeof! key)", parser, key.index
       else
@@ -2854,7 +2854,9 @@ define ObjectType = sequential(
         if key-value in keys
           throw ParserError "Duplicate object key: $(quote key-value)", parser, key.index
         keys.push key-value
-    parser.TypeObject index, pairs
+      args.push key, value
+    LInternalCall \type-object, index, parser.scope.peek(),
+      ...args
 
 let FunctionType = sequential(
   one-of(
@@ -6100,8 +6102,7 @@ module.exports := parse <<< {
 for node-type in [
       'Function',
       'MacroAccess',
-      'Param',
-      'TypeObject' ]
+      'Param' ]
   Parser.add-node-factory node-type, Node[node-type]
 Parser::string := Node.string
 Parser::array-param := Parser::array

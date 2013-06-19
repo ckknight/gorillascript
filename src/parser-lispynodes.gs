@@ -1027,6 +1027,18 @@ class Symbol extends Node
         -do-wrap-args
         validate-args(node as OldNode, arg as OldNode) ->
       }
+      type-object: {
+        -do-wrap-args
+        validate-args(...args)
+          if DEBUG
+            if args.length not %% 2
+              throw Error "Expected an even number of arguments, got $(args.length)"
+            for i in 0 til args.length by 2
+              if args[i] not instanceof Value
+                throw TypeError "Expected argument #$i to be a Value, got $(typeof! args[i])"
+              if args[i + 1] not instanceof OldNode
+                throw TypeError "Expected argument #$i to be a Value, got $(typeof! args[i])"
+      }
       type-union: {
         -do-wrap-args
       }

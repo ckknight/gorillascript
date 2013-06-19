@@ -8,7 +8,6 @@ const ParserNodeType = {
   Function:       20
   MacroAccess:    23
   Param:          27
-  TypeObject:     46
 }
 
 macro cache-get-or-add!(cache, key, value)

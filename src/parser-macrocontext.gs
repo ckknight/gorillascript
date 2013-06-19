@@ -9,7 +9,6 @@ let {node-to-type, add-param-to-scope} = require './parser-utils'
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
 let ParamNode = Node.Param
-let TypeObjectNode = Node.TypeObject
 
 let Tmp = LispyNode.Symbol.tmp
 let Ident = LispyNode.Symbol.ident
@@ -413,8 +412,9 @@ class MacroContext
     node instanceof LispyNode and node.is-internal-call(\object)
   def pairs(mutable node)
     node := @real node
-    if @is-type-object(node)
-      node.pairs
+    if node instanceof LispyNode and node.is-internal-call(\type-object)
+      return for i in 0 til node.args.length by 2
+        { key: node.args[i], value: node.args[i + 1] }
     else if node instanceof LispyNode and node.is-internal-call(\object)
       return for array in node.args[1 to -1]
         let pair = { key: array.args[0], value: array.args[1] }
@@ -511,7 +511,9 @@ class MacroContext
     if @is-type-generic(node)
       node.args[1 to -1]
   
-  def is-type-object(node) -> @real(node) instanceof TypeObjectNode
+  def is-type-object(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\type-object)
   
   def is-type-union(mutable node)
     node := @real(node)
